@@ -54,12 +54,13 @@ export async function GET() {
     let expiredSubs = 0;
     const planBreakdown: Record<string, number> = {};
 
-    subs?.forEach((s: { status: string; plan: { name: string } | null }) => {
+    subs?.forEach((s: any) => {
       if (s.status === "active") activeSubs++;
       else if (s.status === "trial") trialSubs++;
       else expiredSubs++;
 
-      const planName = s.plan?.name || "Unknown";
+      const planObj = Array.isArray(s.plan) ? s.plan[0] : s.plan;
+      const planName = planObj?.name || "Unknown";
       planBreakdown[planName] = (planBreakdown[planName] || 0) + 1;
     });
 

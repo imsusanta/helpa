@@ -23,7 +23,8 @@ export async function checkPlanLimits(
     throw new Error("Subscription inactive or expired. Please renew your plan.");
   }
 
-  const plan = sub.plan as {
+  const planObj = Array.isArray(sub.plan) ? sub.plan[0] : sub.plan;
+  const plan = planObj as {
     max_users: number;
     max_contacts: number;
     max_ai_requests: number;
