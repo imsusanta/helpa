@@ -321,7 +321,6 @@ Note:
         ai_handoff_required: handoff_required,
         ai_resolved: resolved,
         ai_faq_category: faq_category,
-        ...(handoff_required ? { ai_chat_enabled: false } : {}),
       })
       .eq('id', conversationId)
 
