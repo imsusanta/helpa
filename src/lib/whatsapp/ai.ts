@@ -121,6 +121,14 @@ Your goal is to provide helpful, natural, context-aware, and human-like conversa
     systemPromptContent += `\n\nLanguage Instruction: The customer's latest message is: "${latestMessage.content_text}". You must write your "reply" in the EXACT same language as this message.`;
   }
 
+  // Enforce organized and beautiful formatting with WhatsApp markdown support
+  systemPromptContent += `\n\nCRITICAL REPLY FORMATTING RULE: Write the "reply" in a highly organized, clean, and beautiful format.
+  - Present lists of options, prices, services, or details in bullet points (using - or *) or numbered lists.
+  - Use clear line breaks (\\n) to separate greetings, main details, lists, and the closing call-to-action.
+  - Use WhatsApp markdown formatting where helpful (e.g., *bold* for key terms, headings, or pricing; _italics_ for emphasis).
+  - Use relevant friendly emojis to make the response warm, professional, and engaging.
+  - Never output walls of plain, unformatted text. Keep it neat, spaced, and easy to read.`;
+
   // Enforce JSON structured output format for analytics and features
   systemPromptContent += `\n\nCRITICAL OUTPUT FORMAT RULE: You must respond ONLY with a raw, valid JSON object matching the JSON schema below. Do not wrap the JSON block in markdown formatting (like \`\`\`json ... \`\`\`), do not output any other text before or after the JSON.
 
