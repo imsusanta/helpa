@@ -41,6 +41,11 @@ export default function HospitalPage() {
   const [showAddReport, setShowAddReport] = useState(false);
   const [showAddInvoice, setShowAddInvoice] = useState(false);
 
+  // WhatsApp Alert / Booking States
+  const [sendWaConfirm, setSendWaConfirm] = useState(true);
+  const [invitingDoctorId, setInvitingDoctorId] = useState<string | null>(null);
+  const [invitePatientId, setInvitePatientId] = useState<string>("");
+
   // Form Fields
   const [newBranch, setNewBranch] = useState({ name: "", address: "", phone: "" });
   const [newDoctor, setNewDoctor] = useState({ name: "", department: "General Medicine", specialization: "", consultation_fee: "50", branch_id: "", available_days: [] as string[], start_time: "09:00", end_time: "17:00" });
@@ -243,7 +248,7 @@ export default function HospitalPage() {
     e.preventDefault();
     if (!newAppt.patient_id || !newAppt.date || !newAppt.time) return;
     try {
-      const { error } = await supabase.from("appointments").insert({
+      const { data: newRow, error } = await supabase.from("appointments").insert({
         account_id: accountId,
         patient_id: newAppt.patient_id,
         doctor_id: newAppt.doctor_id || null,
@@ -253,14 +258,78 @@ export default function HospitalPage() {
         branch_id: newAppt.branch_id || null,
         notes: newAppt.notes,
         status: "pending",
-      });
+      }).select().single();
+
       if (error) throw error;
       toast.success("Appointment booked successfully!");
+
+      if (sendWaConfirm && newRow) {
+        fetch("/api/whatsapp/broadcast", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "appointment_confirmation",
+            appointmentId: newRow.id,
+          }),
+        }).catch(err => console.error("Auto WhatsApp confirmation dispatch fail", err));
+      }
+
       setShowAddAppointment(false);
       setNewAppt({ patient_id: "", doctor_id: "", department: "General Medicine", date: "", time: "", branch_id: "", notes: "" });
       loadData();
     } catch (err: any) {
       toast.error(err.message || "Failed to book appointment");
+    }
+  };
+
+  const handleSendApptConfirmation = async (id: string) => {
+    try {
+      toast.info("Sending appointment confirmation on WhatsApp...");
+      const res = await fetch("/api/whatsapp/broadcast", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "appointment_confirmation",
+          appointmentId: id,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        toast.error(data.error);
+      } else {
+        toast.success("Confirmation message dispatched successfully!");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to dispatch confirmation alert");
+    }
+  };
+
+  const handleSendBookingInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!invitingDoctorId || !invitePatientId) return;
+    try {
+      toast.info("Sending booking invitation on WhatsApp...");
+      const res = await fetch("/api/whatsapp/broadcast", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "booking_invite",
+          doctorId: invitingDoctorId,
+          patientId: invitePatientId,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        toast.error(data.error);
+      } else {
+        toast.success("Booking invitation dispatched successfully!");
+        setInvitingDoctorId(null);
+        setInvitePatientId("");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to send booking invitation");
     }
   };
 
@@ -831,6 +900,18 @@ export default function HospitalPage() {
                     <Label htmlFor="a-notes">Booking Notes</Label>
                     <Input id="a-notes"  value={newAppt.notes} onChange={(e) => setNewAppt({...newAppt, notes: e.target.value})} placeholder="Reason for consultation, symptoms, etc." />
                   </div>
+                  <div className="sm:col-span-2 flex items-center gap-2 py-1">
+                    <input
+                      id="a-send-wa"
+                      type="checkbox"
+                      className="rounded border-input text-primary focus:ring-primary h-4 w-4"
+                      checked={sendWaConfirm}
+                      onChange={(e) => setSendWaConfirm(e.target.checked)}
+                    />
+                    <Label htmlFor="a-send-wa" className="cursor-pointer text-xs font-medium text-muted-foreground select-none">
+                      Notify patient with booking confirmation on WhatsApp
+                    </Label>
+                  </div>
                   <div className="sm:col-span-2 flex justify-end gap-2 pt-2">
                     <Button type="button" variant="ghost" size="xs" onClick={() => setShowAddAppointment(false)}>Cancel</Button>
                     <Button type="submit" size="xs">Confirm Appointment</Button>
@@ -892,8 +973,10 @@ export default function HospitalPage() {
                             </Button>
                           </>
                         )}
-                        {appt.status === "completed" && (
-                          <span className="text-muted-foreground text-[10px]">No Actions</span>
+                        {appt.status !== "cancelled" && (
+                          <Button size="xs" variant="outline" className="h-6 text-[10px] gap-1 border-primary/20 text-primary hover:bg-primary/5" onClick={() => handleSendApptConfirmation(appt.id)}>
+                            Notify WA
+                          </Button>
                         )}
                       </td>
                     </tr>
@@ -1006,8 +1089,56 @@ export default function HospitalPage() {
                       </p>
                     )}
                   </div>
+                  <div className="flex justify-end pt-2 border-t border-border/50">
+                    <Button size="xs" variant="outline" className="text-[10px] h-6 border-primary/20 text-primary hover:bg-primary/5 gap-1" onClick={() => setInvitingDoctorId(doc.id)}>
+                      Invite Patient
+                    </Button>
+                  </div>
                 </Card>
               ))}
+            </div>
+          )}
+
+          {/* Booking Invite Dialog */}
+          {invitingDoctorId && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+              <Card className="w-full max-w-sm border border-border bg-card shadow-lg animate-in fade-in duration-200">
+                <CardHeader>
+                  <CardTitle className="text-sm font-bold">Invite Patient to Book</CardTitle>
+                  <CardDescription className="text-xs">
+                    Select a registered patient to send a WhatsApp booking invitation for {doctors.find(d => d.id === invitingDoctorId)?.name}.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleSendBookingInvite} className="space-y-4">
+                    <div className="space-y-1">
+                      <Label htmlFor="inv-patient">Select Patient</Label>
+                      <select
+                        id="inv-patient"
+                        className="w-full text-xs h-8 border border-input rounded-md px-2 bg-background"
+                        required
+                        value={invitePatientId}
+                        onChange={(e) => setInvitePatientId(e.target.value)}
+                      >
+                        <option value="">-- Choose Patient --</option>
+                        {patients.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.contact?.name} ({p.contact?.phone})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex justify-end gap-2 pt-2">
+                      <Button type="button" variant="ghost" size="xs" onClick={() => { setInvitingDoctorId(null); setInvitePatientId(""); }}>
+                        Cancel
+                      </Button>
+                      <Button type="submit" size="xs">
+                        Send WhatsApp Invite
+                      </Button>
+                    </div>
+                  </form>
+                </CardContent>
+              </Card>
             </div>
           )}
         </div>

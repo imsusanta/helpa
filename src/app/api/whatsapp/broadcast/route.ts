@@ -261,6 +261,132 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true })
     }
 
+    if (action === 'appointment_confirmation') {
+      const { appointmentId } = body
+      if (!appointmentId) return NextResponse.json({ error: 'appointmentId is required' }, { status: 400 })
+
+      const { data: appt, error: apptErr } = await supabase
+        .from('appointments')
+        .select('*, patient:contacts(*), doctor:hospital_doctors(*), branch:hospital_branches(*)')
+        .eq('id', appointmentId)
+        .eq('account_id', accountId)
+        .single()
+
+      if (apptErr || !appt || !appt.patient) {
+        return NextResponse.json({ error: 'Appointment or patient not found' }, { status: 404 })
+      }
+
+      let conversationId = ""
+      const { data: conv } = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('contact_id', appt.patient_id)
+        .eq('account_id', accountId)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (conv) {
+        conversationId = conv.id
+      } else {
+        const { data: newConv } = await supabase
+          .from('conversations')
+          .insert({
+            account_id: accountId,
+            contact_id: appt.patient_id,
+            status: 'open',
+          })
+          .select()
+          .single()
+        conversationId = newConv.id
+      }
+
+      const docName = appt.doctor?.name || 'Medical Practitioner'
+      const deptName = appt.department || 'General Medicine'
+      const branchName = appt.branch?.name || 'Main Clinic Location'
+      
+      const text = `📅 *APPOINTMENT CONFIRMED:* Hello ${appt.patient.name},\nYour appointment booking is confirmed.\n\n*Physician:* ${docName} (${deptName})\n*Date:* ${appt.appointment_date}\n*Time:* ${appt.appointment_time.slice(0, 5)}\n*Branch Location:* ${branchName}\n\nIf you need to reschedule or cancel, please reply directly to this chat. Thank you!`
+
+      const { engineSendText } = await import('@/lib/automations/meta-send')
+      await engineSendText({
+        accountId,
+        userId: user.id,
+        conversationId,
+        contactId: appt.patient_id,
+        text,
+      })
+
+      return NextResponse.json({ success: true })
+    }
+
+    if (action === 'booking_invite') {
+      const { doctorId, patientId } = body
+      if (!doctorId || !patientId) {
+        return NextResponse.json({ error: 'doctorId and patientId are required' }, { status: 400 })
+      }
+
+      const { data: doctor, error: docErr } = await supabase
+        .from('hospital_doctors')
+        .select('*')
+        .eq('id', doctorId)
+        .eq('account_id', accountId)
+        .single()
+
+      const { data: patient, error: patErr } = await supabase
+        .from('contacts')
+        .select('*')
+        .eq('id', patientId)
+        .eq('account_id', accountId)
+        .single()
+
+      if (docErr || patErr || !doctor || !patient) {
+        return NextResponse.json({ error: 'Doctor or patient record not found' }, { status: 404 })
+      }
+
+      let conversationId = ""
+      const { data: conv } = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('contact_id', patientId)
+        .eq('account_id', accountId)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (conv) {
+        conversationId = conv.id
+      } else {
+        const { data: newConv } = await supabase
+          .from('conversations')
+          .insert({
+            account_id: accountId,
+            contact_id: patientId,
+            status: 'open',
+          })
+          .select()
+          .single()
+        conversationId = newConv.id
+      }
+
+      const days = Array.isArray(doctor.available_days) ? doctor.available_days.join(', ') : 'Weekdays'
+      const start = doctor.working_hours?.start || '09:00'
+      const end = doctor.working_hours?.end || '17:00'
+      const fee = doctor.consultation_fee ? `$${doctor.consultation_fee / 100}` : 'Standard Consultation Fee'
+
+      const text = `👋 Hello ${patient.name},\nWould you like to book a clinical consultation with *${doctor.name}* (${doctor.department})?\n\n*Schedules Available:* ${days}\n*Shift Hours:* ${start} - ${end}\n*Consult Fee:* ${fee}\n\nPlease reply directly to this message with your preferred date and time to confirm your booking slot!`
+
+      const { engineSendText } = await import('@/lib/automations/meta-send')
+      await engineSendText({
+        accountId,
+        userId: user.id,
+        conversationId,
+        contactId: patientId,
+        text,
+      })
+
+      return NextResponse.json({ success: true })
+    }
+
     const {
       recipients: newRecipients,
       phone_numbers,
