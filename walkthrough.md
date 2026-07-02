@@ -13,7 +13,15 @@ In this update, we have expanded WACRM into an **AI WhatsApp CRM** by adding the
 ### 2. Settings Configuration Panel
 *   **API Endpoint `/api/account/ai`**: Implemented secure `GET` and `PATCH` endpoints supporting API key encryption, model ID, and the custom `ai_system_prompt` instructions.
 *   **API Endpoint `/api/account/ai/test` [NEW]**: Implemented a connection test endpoint. It decrypts the saved key (or uses a newly entered key) and performs a test completion query on the selected model to verify configuration.
-*   **`ai-panel.tsx`**: Added a text area input for "AI System Prompt & Knowledge Base" allowing administrators to define the rules, facts, and guidelines for the AI assistant. Integrated a **Test Connection** button and a real-time status feedback banner displaying connection success messages or detailed error responses from OpenRouter.
+*   **`ai-panel.tsx`**:
+    - Added a `Notify patient with booking confirmation on WhatsApp` checkbox inside the manual appointment scheduling form (enabled by default).
+    - Added a `Notify WA` resend confirmation trigger next to all appointments in the scheduler table list.
+    - Added an `Invite Patient` campaign modal inside the Doctors tab, letting staff select any registered patient and dispatch a personalized WhatsApp invitation.
+
+### 7. Inbox Sidebar Clinical Widget (`contact-sidebar.tsx`)
+- Added a conditional **Clinical Actions** panel inside the Inbox thread contact sidebar (visible to hospital/clinic tenants).
+- Displays patient ID and clinical details (blood group, demographics) in real-time.
+- Supports inline forms to instantly schedule appointments or trigger WhatsApp booking invitations for doctors directly from the chat conversation.
 *   **`settings-sections.ts` & `page.tsx`**: Registered the new **AI Assistant** tab in the sidebar and dashboard overview.
 
 ### 3. AI Reply Engine (Structured Response & Human Handoff)
