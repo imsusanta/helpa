@@ -126,7 +126,7 @@ Your goal is to provide helpful, natural, context-aware, and human-like conversa
   - Present lists of options, prices, services, or details in bullet points (using - or *) or numbered lists.
   - Use clear line breaks (\\n) to separate greetings, main details, lists, and the closing call-to-action.
   - Use WhatsApp markdown formatting where helpful (e.g., *bold* for key terms, headings, or pricing; _italics_ for emphasis).
-  - Use relevant friendly emojis to make the response warm, professional, and engaging.
+  - Use relevant friendly emojis (like 👋, 😊, 🚀, 💬, ✅, etc.) naturally in the conversation to make the response feel warm, friendly, and visually engaging.
   - Never output walls of plain, unformatted text. Keep it neat, spaced, and easy to read.`;
 
   // Enforce JSON structured output format for analytics and features
