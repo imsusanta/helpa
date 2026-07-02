@@ -33,11 +33,21 @@ import { ConversationsChart } from '@/components/dashboard/conversations-chart'
 import { PipelineDonut } from '@/components/dashboard/pipeline-donut'
 import { ResponseTimeChart } from '@/components/dashboard/response-time-chart'
 import { ActivityFeed } from '@/components/dashboard/activity-feed'
+import {
+  HospitalDashboard,
+  RealEstateDashboard,
+  TravelDashboard,
+  CoachingDashboard,
+  RestaurantDashboard,
+  GymDashboard,
+  EcommerceDashboard,
+  DigitalAgencyDashboard,
+} from '@/components/dashboard/industry-dashboards'
 
 type RangeDays = 7 | 30 | 90
 
 export default function DashboardPage() {
-  const { defaultCurrency } = useAuth()
+  const { defaultCurrency, account } = useAuth()
   const [metrics, setMetrics] = useState<MetricsBundle | null>(null)
   const [metricsLoading, setMetricsLoading] = useState(true)
 
@@ -118,22 +128,37 @@ export default function DashboardPage() {
     [series],
   )
 
-  return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Live analytics across conversations, contacts, deals, broadcasts, and automations.
-        </p>
-      </div>
+  const renderMetrics = () => {
+    if (metricsLoading || !metrics) {
+      return (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
+        </div>
+      )
+    }
 
-      {/* Metric cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {metricsLoading || !metrics ? (
-          Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)
-        ) : (
-          <>
+    const industry = account?.industry
+
+    switch (industry) {
+      case 'hospital_clinic':
+        return <HospitalDashboard currency={defaultCurrency} />
+      case 'real_estate':
+        return <RealEstateDashboard currency={defaultCurrency} />
+      case 'travel':
+        return <TravelDashboard currency={defaultCurrency} />
+      case 'coaching':
+        return <CoachingDashboard currency={defaultCurrency} />
+      case 'restaurant':
+        return <RestaurantDashboard currency={defaultCurrency} />
+      case 'gym':
+        return <GymDashboard currency={defaultCurrency} />
+      case 'ecommerce':
+        return <EcommerceDashboard currency={defaultCurrency} />
+      case 'digital_agency':
+        return <DigitalAgencyDashboard currency={defaultCurrency} />
+      default:
+        return (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <MetricCard
               title="Active Conversations"
               value={metrics.activeConversations.current.toLocaleString()}
@@ -175,9 +200,23 @@ export default function DashboardPage() {
                 ),
               }}
             />
-          </>
-        )}
+          </div>
+        )
+    }
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Live analytics across conversations, contacts, deals, broadcasts, and automations.
+        </p>
       </div>
+
+      {/* Metric cards */}
+      {renderMetrics()}
 
       {/* Quick actions */}
       <QuickActions />
