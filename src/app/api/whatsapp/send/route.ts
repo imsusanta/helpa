@@ -395,7 +395,6 @@ export async function POST(request: Request) {
         last_message_text: content_text || `[${message_type}]`,
         last_message_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        ai_chat_enabled: false, // Human took over, turn off AI autopilot
       })
       .eq('id', conversation_id)
 
