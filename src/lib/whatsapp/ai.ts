@@ -141,8 +141,19 @@ JSON Schema:
   "handoff_required": true | false,
   "resolved": true | false,
   "summary": "an updated, short running summary of the conversation (under 150 characters, capturing the customer's current goal/status)",
-  "faq_category": "pricing" | "delivery" | "refund" | "demo" | "general"
-}`;
+  "faq_category": "pricing" | "delivery" | "refund" | "demo" | "general",
+  "sales_signal": true | false,
+  "extracted_lead_info": {
+    "interested_service": "string or null (e.g. 'YouTube SEO', 'E-commerce Website', 'Portfolio Website')",
+    "budget": "string or null (e.g. '₹20,000', '$500', or null if not mentioned)",
+    "timeline": "string or null (e.g. '2 weeks', 'immediate', or null if not mentioned)",
+    "next_action": "string or null (e.g. 'Send quotation', 'Schedule 15-min call', or null)"
+  }
+}
+
+Note:
+- Set "sales_signal" to true if you detect genuine buying intent, service inquiry, quotation request, booking intent, or any strong sales signal from the customer.
+- Under "extracted_lead_info", populate only the fields mentioned by the customer. Use null for any details not mentioned or unknown.`;
 
   const systemPrompt = {
     role: 'system',
@@ -211,6 +222,12 @@ JSON Schema:
     let summary: string | null = null;
     let faq_category = 'general';
 
+    let sales_signal = false;
+    let interested_service: string | null = null;
+    let budget: string | null = null;
+    let timeline: string | null = null;
+    let next_action: string | null = null;
+
     try {
       const parsed = JSON.parse(cleanedText);
       reply = parsed.reply || cleanedText;
@@ -221,6 +238,13 @@ JSON Schema:
       resolved = !!parsed.resolved;
       summary = parsed.summary || null;
       faq_category = parsed.faq_category || 'general';
+      sales_signal = !!parsed.sales_signal;
+
+      const extracted = parsed.extracted_lead_info || {};
+      interested_service = extracted.interested_service || null;
+      budget = extracted.budget || null;
+      timeline = extracted.timeline || null;
+      next_action = extracted.next_action || null;
     } catch (err) {
       console.warn('[AI Assistant] Failed to parse structured JSON from response, falling back to plain text reply:', err);
     }
@@ -242,6 +266,96 @@ JSON Schema:
 
     if (updateError) {
       console.error('[AI Assistant] Failed to update conversation AI insights:', updateError)
+    }
+
+    // AI Pipeline Automation
+    try {
+      const { data: existingDeal } = await db
+        .from('deals')
+        .select('*')
+        .eq('contact_id', contactId)
+        .eq('account_id', accountId)
+        .maybeSingle();
+
+      if (existingDeal) {
+        // Update existing Pipeline card
+        const { error: dealUpdateErr } = await db
+          .from('deals')
+          .update({
+            ai_lead_score: lead_score,
+            ai_buying_intent: intent,
+            ai_budget: budget || existingDeal.ai_budget,
+            ai_timeline: timeline || existingDeal.ai_timeline,
+            ai_summary: summary || existingDeal.ai_summary,
+            ai_next_action: next_action || existingDeal.ai_next_action,
+            ai_product_service: interested_service || existingDeal.ai_product_service,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existingDeal.id);
+
+        if (dealUpdateErr) {
+          console.error('[AI Pipeline] Failed to update existing deal:', dealUpdateErr);
+        } else {
+          console.log('[AI Pipeline] Successfully updated existing Pipeline card:', existingDeal.id);
+        }
+      } else if (sales_signal) {
+        // Create new Pipeline card in default stage of default pipeline
+        const { data: pipelines } = await db
+          .from('pipelines')
+          .select('id')
+          .eq('account_id', accountId)
+          .order('created_at', { ascending: true });
+
+        if (pipelines && pipelines.length > 0) {
+          const pipelineId = pipelines[0].id;
+          const { data: stages } = await db
+            .from('pipeline_stages')
+            .select('id, name')
+            .eq('pipeline_id', pipelineId)
+            .order('position', { ascending: true });
+
+          if (stages && stages.length > 0) {
+            const newLeadStage = stages.find(s => s.name.toLowerCase() === 'new lead') || stages[0];
+            const stageId = newLeadStage.id;
+
+            const { data: contact } = await db
+              .from('contacts')
+              .select('name, phone')
+              .eq('id', contactId)
+              .single();
+
+            const contactName = contact?.name || contact?.phone || 'Unknown Client';
+            const cardTitle = interested_service ? `${contactName} - ${interested_service}` : `${contactName} - WhatsApp Lead`;
+
+            const { error: dealInsertErr } = await db
+              .from('deals')
+              .insert({
+                account_id: accountId,
+                user_id: userId,
+                pipeline_id: pipelineId,
+                stage_id: stageId,
+                contact_id: contactId,
+                conversation_id: conversationId,
+                title: cardTitle,
+                ai_lead_score: lead_score,
+                ai_buying_intent: intent,
+                ai_budget: budget,
+                ai_timeline: timeline,
+                ai_summary: summary,
+                ai_next_action: next_action,
+                ai_product_service: interested_service,
+              });
+
+            if (dealInsertErr) {
+              console.error('[AI Pipeline] Failed to create new deal:', dealInsertErr);
+            } else {
+              console.log('[AI Pipeline] Successfully created new Pipeline card for contact:', contactId);
+            }
+          }
+        }
+      }
+    } catch (pipelineErr) {
+      console.error('[AI Pipeline] Error during pipeline synchronization:', pipelineErr);
     }
 
     // If human handoff is requested, insert system message alert

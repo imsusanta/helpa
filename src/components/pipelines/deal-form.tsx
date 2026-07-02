@@ -30,6 +30,11 @@ import {
   MessageSquare,
   DollarSign,
   Loader2,
+  Sparkles,
+  Lightbulb,
+  Wallet,
+  Clock,
+  Target,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -292,6 +297,75 @@ export function DealForm({
                 </Link>
               )}
             </div>
+
+            {deal && (deal.ai_lead_score || deal.ai_summary || deal.ai_next_action || deal.ai_product_service) && (
+              <div className="rounded-xl border border-primary/10 bg-primary/5 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-primary">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    AI Assistant Insights
+                  </div>
+                  {deal.ai_lead_score && (
+                    <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold border capitalize ${
+                      deal.ai_lead_score === 'hot' 
+                        ? 'bg-red-500/10 text-red-400 border-red-500/20' 
+                        : deal.ai_lead_score === 'warm' 
+                        ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' 
+                        : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                    }`}>
+                      {deal.ai_lead_score} Lead
+                    </span>
+                  )}
+                </div>
+
+                {deal.ai_summary && (
+                  <div className="space-y-1">
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Summary</span>
+                    <p className="text-xs text-foreground leading-relaxed">{deal.ai_summary}</p>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3 pt-1">
+                  {deal.ai_product_service && (
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground block">Service/Product</span>
+                      <span className="inline-flex items-center gap-1 text-xs text-foreground font-medium">
+                        <Target className="h-3 w-3 text-primary" />
+                        {deal.ai_product_service}
+                      </span>
+                    </div>
+                  )}
+                  {deal.ai_budget && (
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground block">Budget</span>
+                      <span className="inline-flex items-center gap-1 text-xs text-foreground font-medium">
+                        <Wallet className="h-3 w-3 text-emerald-500" />
+                        {deal.ai_budget}
+                      </span>
+                    </div>
+                  )}
+                  {deal.ai_timeline && (
+                    <div className="space-y-0.5 col-span-2">
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground block">Timeline</span>
+                      <span className="inline-flex items-center gap-1 text-xs text-foreground font-medium">
+                        <Clock className="h-3 w-3 text-amber-500" />
+                        {deal.ai_timeline}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {deal.ai_next_action && (
+                  <div className="rounded-lg bg-background/50 border border-border/50 p-2.5 flex items-start gap-2 mt-2">
+                    <Lightbulb className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Recommended Next Action</span>
+                      <p className="text-xs text-foreground leading-snug">{deal.ai_next_action}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="grid grid-cols-[1fr_110px] gap-3">
               <div className="grid gap-2">

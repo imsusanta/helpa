@@ -326,6 +326,13 @@ export interface Deal {
   contact?: Contact;
   stage?: PipelineStage;
   assignee?: Profile;
+  ai_lead_score?: string;
+  ai_buying_intent?: string;
+  ai_budget?: string;
+  ai_timeline?: string;
+  ai_summary?: string;
+  ai_next_action?: string;
+  ai_product_service?: string;
 }
 
 export type BroadcastStatus = 'draft' | 'scheduled' | 'sending' | 'sent' | 'failed';
