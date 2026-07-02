@@ -18,6 +18,9 @@ import {
   Square,
   X,
   Loader2,
+  Sparkles,
+  Wand2,
+  Languages,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GatedButton } from "@/components/ui/gated-button";
@@ -160,6 +163,88 @@ export function MessageComposer({
   const readOnly = !canSend;
   // Media (like free-form text) is only allowed inside the 24h window.
   const inputsDisabled = readOnly || sessionExpired;
+
+  // AI Interactive states
+  const [isGeneratingSuggest, setIsGeneratingSuggest] = useState(false);
+  const [isGeneratingRewrite, setIsGeneratingRewrite] = useState(false);
+  const [isGeneratingTranslate, setIsGeneratingTranslate] = useState(false);
+
+  const handleSuggestReply = useCallback(async () => {
+    setIsGeneratingSuggest(true);
+    try {
+      const res = await fetch("/api/ai/features", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "suggest", conversationId }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        toast.error(data.error);
+      } else if (data.result) {
+        setText(data.result);
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+        }
+      }
+    } catch (err) {
+      console.error("[AI Suggest] Error:", err);
+      toast.error("Failed to generate suggest reply");
+    } finally {
+      setIsGeneratingSuggest(false);
+    }
+  }, [conversationId]);
+
+  const handleRewriteReply = useCallback(async (tone: string) => {
+    if (!text.trim()) return;
+    setIsGeneratingRewrite(true);
+    try {
+      const res = await fetch("/api/ai/features", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "rewrite", text, tone }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        toast.error(data.error);
+      } else if (data.result) {
+        setText(data.result);
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+        }
+      }
+    } catch (err) {
+      console.error("[AI Rewrite] Error:", err);
+      toast.error("Failed to rewrite message");
+    } finally {
+      setIsGeneratingRewrite(false);
+    }
+  }, [text]);
+
+  const handleTranslateReply = useCallback(async (targetLanguage: string) => {
+    if (!text.trim()) return;
+    setIsGeneratingTranslate(true);
+    try {
+      const res = await fetch("/api/ai/features", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "translate", text, targetLanguage }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        toast.error(data.error);
+      } else if (data.result) {
+        setText(data.result);
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+        }
+      }
+    } catch (err) {
+      console.error("[AI Translate] Error:", err);
+      toast.error("Failed to translate message");
+    } finally {
+      setIsGeneratingTranslate(false);
+    }
+  }, [text]);
 
   const clearTimer = useCallback(() => {
     if (timerRef.current !== null) {
@@ -471,92 +556,174 @@ export function MessageComposer({
           </Button>
         </div>
       ) : (
-        <div className="flex items-end gap-2">
-          {/* Attach menu — photo / video / document / voice. */}
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              disabled={inputsDisabled || busy}
-              title={
-                readOnly
-                  ? "Read-only — your role can't send messages"
-                  : inputsDisabled
-                    ? undefined
-                    : "Attach media"
-              }
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md p-0 text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+        <div>
+          {/* AI Assistant Bar */}
+          {!draft && !recording && !readOnly && (
+            <div className="flex flex-wrap gap-2 mb-2 px-1">
+              <Button
+                variant="outline"
+                size="xs"
+                type="button"
+                disabled={isGeneratingSuggest || inputsDisabled}
+                onClick={handleSuggestReply}
+                className="h-7 text-[11px] font-medium gap-1 text-primary hover:text-primary/95 border-primary/25 hover:bg-primary/5 rounded-lg px-2.5 transition-all"
+              >
+                {isGeneratingSuggest ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Sparkles className="h-3 w-3" />
+                )}
+                AI Suggest Reply
+              </Button>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  disabled={!text.trim() || isGeneratingRewrite || inputsDisabled}
+                  className="inline-flex h-7 items-center justify-center border border-border/70 bg-background text-[11px] font-medium gap-1 text-muted-foreground hover:bg-muted hover:text-foreground rounded-lg px-2.5 transition-all disabled:pointer-events-none disabled:opacity-50"
+                >
+                  {isGeneratingRewrite ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Wand2 className="h-3 w-3" />
+                  )}
+                  AI Rewrite
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="border-border bg-popover">
+                  <DropdownMenuItem onClick={() => handleRewriteReply('professional')}>
+                    💼 Professional
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleRewriteReply('friendly')}>
+                    😊 Friendly
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleRewriteReply('shorter')}>
+                    ✂️ Shorter
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleRewriteReply('longer')}>
+                    📝 Longer
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  disabled={!text.trim() || isGeneratingTranslate || inputsDisabled}
+                  className="inline-flex h-7 items-center justify-center border border-border/70 bg-background text-[11px] font-medium gap-1 text-muted-foreground hover:bg-muted hover:text-foreground rounded-lg px-2.5 transition-all disabled:pointer-events-none disabled:opacity-50"
+                >
+                  {isGeneratingTranslate ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Languages className="h-3 w-3" />
+                  )}
+                  AI Translate
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="border-border bg-popover">
+                  <DropdownMenuItem onClick={() => handleTranslateReply('English')}>
+                    🇬🇧 English
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleTranslateReply('Bengali')}>
+                    🇧🇩 Bengali
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleTranslateReply('Hindi')}>
+                    🇮🇳 Hindi
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleTranslateReply('Spanish')}>
+                    🇪🇸 Spanish
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleTranslateReply('Arabic')}>
+                    🇸🇦 Arabic
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
+
+          <div className="flex items-end gap-2">
+            {/* Attach menu — photo / video / document / voice. */}
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                disabled={inputsDisabled || busy}
+                title={
+                  readOnly
+                    ? "Read-only — your role can't send messages"
+                    : inputsDisabled
+                      ? undefined
+                      : "Attach media"
+                }
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md p-0 text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {busy ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Paperclip className="h-4 w-4" />
+                )}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="border-border bg-popover">
+                <DropdownMenuItem onClick={() => imageInputRef.current?.click()}>
+                  <ImageIcon className="mr-2 h-4 w-4" />
+                  Photo
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => videoInputRef.current?.click()}>
+                  <Video className="mr-2 h-4 w-4" />
+                  Video
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => documentInputRef.current?.click()}>
+                  <FileText className="mr-2 h-4 w-4" />
+                  Document
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => void startRecording()}>
+                  <Mic className="mr-2 h-4 w-4" />
+                  Voice note
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <GatedButton
+              variant="ghost"
+              size="sm"
+              canAct={!readOnly}
+              gateReason="send messages"
+              title={readOnly ? undefined : "Send template"}
+              className="h-9 w-9 shrink-0 p-0 text-muted-foreground hover:text-foreground"
+              onClick={onOpenTemplates}
             >
-              {busy ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Paperclip className="h-4 w-4" />
+              <LayoutTemplate className="h-4 w-4" />
+            </GatedButton>
+
+            <textarea
+              ref={textareaRef}
+              value={text}
+              onChange={handleChange}
+              onKeyDown={handleKeyDown}
+              placeholder={
+                readOnly
+                  ? "Read-only — viewers can browse but not reply"
+                  : sessionExpired
+                    ? "Session expired - use a template"
+                    : "Type a message... (Shift+Enter for new line)"
+              }
+              disabled={sessionExpired || readOnly}
+              rows={1}
+              // Textarea keeps its own inline title — the GatedButton
+              // wrapping pattern doesn't apply to non-button inputs.
+              // The placeholder text also surfaces the read-only state.
+              title={readOnly ? "Read-only — your role can't send messages" : undefined}
+              className={cn(
+                "flex-1 resize-none rounded-xl border border-border bg-muted px-4 py-2.5 text-sm text-foreground placeholder-muted-foreground outline-none transition-colors focus:border-primary/50",
+                (sessionExpired || readOnly) && "cursor-not-allowed opacity-50"
               )}
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="border-border bg-popover">
-              <DropdownMenuItem onClick={() => imageInputRef.current?.click()}>
-                <ImageIcon className="mr-2 h-4 w-4" />
-                Photo
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => videoInputRef.current?.click()}>
-                <Video className="mr-2 h-4 w-4" />
-                Video
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => documentInputRef.current?.click()}>
-                <FileText className="mr-2 h-4 w-4" />
-                Document
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => void startRecording()}>
-                <Mic className="mr-2 h-4 w-4" />
-                Voice note
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            />
 
-          <GatedButton
-            variant="ghost"
-            size="sm"
-            canAct={!readOnly}
-            gateReason="send messages"
-            title={readOnly ? undefined : "Send template"}
-            className="h-9 w-9 shrink-0 p-0 text-muted-foreground hover:text-foreground"
-            onClick={onOpenTemplates}
-          >
-            <LayoutTemplate className="h-4 w-4" />
-          </GatedButton>
-
-          <textarea
-            ref={textareaRef}
-            value={text}
-            onChange={handleChange}
-            onKeyDown={handleKeyDown}
-            placeholder={
-              readOnly
-                ? "Read-only — viewers can browse but not reply"
-                : sessionExpired
-                  ? "Session expired - use a template"
-                  : "Type a message... (Shift+Enter for new line)"
-            }
-            disabled={sessionExpired || readOnly}
-            rows={1}
-            // Textarea keeps its own inline title — the GatedButton
-            // wrapping pattern doesn't apply to non-button inputs.
-            // The placeholder text also surfaces the read-only state.
-            title={readOnly ? "Read-only — your role can't send messages" : undefined}
-            className={cn(
-              "flex-1 resize-none rounded-xl border border-border bg-muted px-4 py-2.5 text-sm text-foreground placeholder-muted-foreground outline-none transition-colors focus:border-primary/50",
-              (sessionExpired || readOnly) && "cursor-not-allowed opacity-50"
-            )}
-          />
-
-          <GatedButton
-            size="sm"
-            canAct={!readOnly}
-            gateReason="send messages"
-            disabled={!text.trim() || sessionExpired || sending}
-            onClick={handleSend}
-            className="h-9 w-9 shrink-0 bg-primary p-0 hover:bg-primary/90 disabled:opacity-40"
-          >
-            <Send className="h-4 w-4" />
-          </GatedButton>
+            <GatedButton
+              size="sm"
+              canAct={!readOnly}
+              gateReason="send messages"
+              disabled={!text.trim() || sessionExpired || sending}
+              onClick={handleSend}
+              className="h-9 w-9 shrink-0 bg-primary p-0 hover:bg-primary/90 disabled:opacity-40"
+            >
+              <Send className="h-4 w-4" />
+            </GatedButton>
+          </div>
         </div>
       )}
 
