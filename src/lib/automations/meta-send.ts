@@ -33,6 +33,15 @@ interface SendTextArgs {
   text: string
 }
 
+interface SendButtonsArgs {
+  accountId: string
+  userId: string
+  conversationId: string
+  contactId: string
+  bodyText: string
+  buttons: { id: string; title: string }[]
+}
+
 interface SendTemplateArgs {
   accountId: string
   userId: string
@@ -53,9 +62,16 @@ export async function engineSendTemplate(
   return sendViaMeta({ ...args, kind: 'template' })
 }
 
+export async function engineSendButtons(
+  args: SendButtonsArgs,
+): Promise<{ whatsapp_message_id: string }> {
+  return sendViaMeta({ ...args, kind: 'buttons' })
+}
+
 type SendInput =
   | (SendTextArgs & { kind: 'text' })
   | (SendTemplateArgs & { kind: 'template' })
+  | (SendButtonsArgs & { kind: 'buttons' })
 
 async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: string }> {
   const db = supabaseAdmin()
@@ -106,6 +122,17 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
       })
       return r.messageId
     }
+    if (input.kind === 'buttons') {
+      const { sendInteractiveButtons } = await import('@/lib/whatsapp/meta-api')
+      const r = await sendInteractiveButtons({
+        phoneNumberId: config.phone_number_id,
+        accessToken,
+        to: phone,
+        bodyText: input.bodyText,
+        buttons: input.buttons,
+      })
+      return r.messageId
+    }
     const r = await sendTextMessage({
       phoneNumberId: config.phone_number_id,
       accessToken,
@@ -143,8 +170,8 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
   // Persist the sent message so it appears in the inbox with a real
   // Meta message id. sender_type='bot' distinguishes automation sends
   // from manual agent sends.
-  const content_type = input.kind === 'template' ? 'template' : 'text'
-  const content_text = input.kind === 'text' ? input.text : null
+  const content_type = input.kind === 'template' ? 'template' : (input.kind === 'buttons' ? 'interactive' : 'text')
+  const content_text = input.kind === 'text' ? input.text : (input.kind === 'buttons' ? input.bodyText : null)
   const template_name = input.kind === 'template' ? input.templateName : null
 
   const { error: msgErr } = await db.from('messages').insert({
@@ -166,7 +193,11 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
     .from('conversations')
     .update({
       last_message_text:
-        input.kind === 'template' ? `[template:${input.templateName}]` : input.text,
+        input.kind === 'template'
+          ? `[template:${input.templateName}]`
+          : input.kind === 'buttons'
+          ? input.bodyText
+          : input.text,
       last_message_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })

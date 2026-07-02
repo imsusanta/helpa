@@ -513,13 +513,29 @@ Note:
     }
 
     // 6. Send the generated text back to the customer via WhatsApp and insert it into the DB
-    await engineSendText({
-      accountId,
-      userId,
-      conversationId,
-      contactId,
-      text: reply,
-    })
+    if (isHospitalEnabled && intent === 'booking') {
+      const { engineSendButtons } = await import('@/lib/automations/meta-send')
+      await engineSendButtons({
+        accountId,
+        userId,
+        conversationId,
+        contactId,
+        bodyText: reply,
+        buttons: [
+          { id: 'hospital_btn_book', title: '📅 Book Now' },
+          { id: 'hospital_btn_docs', title: '👨‍⚕️ View Doctors' },
+          { id: 'hospital_btn_branches', title: '📍 Clinic Sites' }
+        ]
+      })
+    } else {
+      await engineSendText({
+        accountId,
+        userId,
+        conversationId,
+        contactId,
+        text: reply,
+      })
+    }
     console.log(`[AI Assistant] Successfully sent AI reply to conversation ${conversationId}`)
 
     // 7. Track successful AI request usage
