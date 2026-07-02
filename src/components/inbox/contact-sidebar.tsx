@@ -16,10 +16,17 @@ import {
   StickyNote,
   Plus,
   Brain,
+  Hospital,
+  Activity,
+  Calendar,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
+import { toast } from "sonner";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 
 interface ContactSidebarProps {
   contact: Contact | null;
@@ -27,7 +34,7 @@ interface ContactSidebarProps {
 }
 
 export function ContactSidebar({ contact, conversation }: ContactSidebarProps) {
-  const { accountId } = useAuth();
+  const { accountId, enabledModules } = useAuth();
   const [copied, setCopied] = useState(false);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [notes, setNotes] = useState<ContactNote[]>([]);
@@ -35,13 +42,26 @@ export function ContactSidebar({ contact, conversation }: ContactSidebarProps) {
   const [newNote, setNewNote] = useState("");
   const [addingNote, setAddingNote] = useState(false);
 
+  // Hospital & Clinic booking states
+  const [patient, setPatient] = useState<any | null>(null);
+  const [showBookForm, setShowBookForm] = useState(false);
+  const [showInviteForm, setShowInviteForm] = useState(false);
+  const [doctors, setDoctors] = useState<any[]>([]);
+  const [branches, setBranches] = useState<any[]>([]);
+  const [loadingForm, setLoadingForm] = useState(false);
+
+  const [bookingDocId, setBookingDocId] = useState("");
+  const [bookingDate, setBookingDate] = useState("");
+  const [bookingTime, setBookingTime] = useState("");
+  const [bookingNotes, setBookingNotes] = useState("");
+
   const fetchContactData = useCallback(async () => {
     if (!contact) return;
 
     const supabase = createClient();
 
-    // Fetch deals, notes, and tags in parallel
-    const [dealsRes, notesRes, tagsRes] = await Promise.all([
+    // Fetch deals, notes, tags, and patient in parallel
+    const [dealsRes, notesRes, tagsRes, patientRes] = await Promise.all([
       supabase
         .from("deals")
         .select("*, stage:pipeline_stages(*)")
@@ -56,10 +76,18 @@ export function ContactSidebar({ contact, conversation }: ContactSidebarProps) {
         .from("contact_tags")
         .select("id, tag_id, tags(*)")
         .eq("contact_id", contact.id),
+      enabledModules.includes("hospital_clinic")
+        ? supabase
+            .from("patients")
+            .select("*")
+            .eq("id", contact.id)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
     ]);
 
     if (dealsRes.data) setDeals(dealsRes.data);
     if (notesRes.data) setNotes(notesRes.data);
+    if (patientRes.data) setPatient(patientRes.data);
     if (tagsRes.data) {
       const mapped = tagsRes.data
         .filter((ct: Record<string, unknown>) => ct.tags)
@@ -69,7 +97,123 @@ export function ContactSidebar({ contact, conversation }: ContactSidebarProps) {
         }));
       setTags(mapped);
     }
-  }, [contact]);
+  }, [contact, enabledModules]);
+
+  // Lazy-load doctors & branches for hospital booking widget
+  useEffect(() => {
+    if ((showBookForm || showInviteForm) && doctors.length === 0) {
+      const supabase = createClient();
+      async function loadDocs() {
+        const [dRes, bRes] = await Promise.all([
+          supabase.from("hospital_doctors").select("*").eq("account_id", accountId).eq("status", "active"),
+          supabase.from("hospital_branches").select("*").eq("account_id", accountId),
+        ]);
+        setDoctors(dRes.data || []);
+        setBranches(bRes.data || []);
+      }
+      loadDocs();
+    }
+  }, [showBookForm, showInviteForm, accountId, doctors.length]);
+
+  const handleSidebarBook = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!contact || !bookingDate || !bookingTime) return;
+    setLoadingForm(true);
+    const supabase = createClient();
+    try {
+      // 1. Ensure patient record exists
+      let pat = patient;
+      if (!pat) {
+        const seq = `PAT-${Date.now().toString().slice(-5)}`;
+        const { data: newPat, error: pErr } = await supabase
+          .from("patients")
+          .insert({
+            id: contact.id,
+            account_id: accountId,
+            patient_seq_id: seq,
+            status: "active",
+          })
+          .select()
+          .single();
+        if (pErr) throw pErr;
+        pat = newPat;
+        setPatient(newPat);
+      }
+
+      // 2. Resolve department
+      const doc = doctors.find((d) => d.id === bookingDocId);
+      const dept = doc ? doc.department : "General Medicine";
+
+      // 3. Book appointment
+      const { data: appt, error: apptErr } = await supabase
+        .from("appointments")
+        .insert({
+          account_id: accountId,
+          patient_id: contact.id,
+          doctor_id: bookingDocId || null,
+          department: dept,
+          appointment_date: bookingDate,
+          appointment_time: bookingTime,
+          status: "pending",
+          notes: bookingNotes,
+        })
+        .select()
+        .single();
+
+      if (apptErr) throw apptErr;
+
+      // 4. Send auto-WhatsApp confirmation alert!
+      fetch("/api/whatsapp/broadcast", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "appointment_confirmation",
+          appointmentId: appt.id,
+        }),
+      }).catch((err) => console.error("Auto WhatsApp confirmation fail", err));
+
+      toast.success("Appointment booked & patient notified via WhatsApp!");
+      setShowBookForm(false);
+      setBookingDocId("");
+      setBookingDate("");
+      setBookingTime("");
+      setBookingNotes("");
+      
+      // Reload list
+      fetchContactData();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Failed to book appointment");
+    } finally {
+      setLoadingForm(false);
+    }
+  };
+
+  const handleSidebarInvite = async (docId: string) => {
+    if (!contact) return;
+    try {
+      toast.info("Sending booking invitation on WhatsApp...");
+      const res = await fetch("/api/whatsapp/broadcast", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "booking_invite",
+          doctorId: docId,
+          patientId: contact.id,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        toast.error(data.error);
+      } else {
+        toast.success("Booking invitation dispatched on WhatsApp!");
+        setShowInviteForm(false);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to send invitation");
+    }
+  };
 
   // Load on contact change. setContactData/setTags run inside async
   // Supabase callbacks, not synchronously in the effect body.
@@ -261,6 +405,109 @@ export function ContactSidebar({ contact, conversation }: ContactSidebarProps) {
                     </div>
                   )}
                 </div>
+              </div>
+            </>
+          )}
+
+          {/* Hospital & Clinic Operations Module Widget */}
+          {enabledModules.includes("hospital_clinic") && (
+            <>
+              <div className="my-4 border-t border-border" />
+              <div className="rounded-xl border border-primary/20 bg-muted/20 p-3 space-y-3">
+                <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-primary">
+                  <Hospital className="h-3.5 w-3.5" />
+                  Clinical Actions
+                </div>
+
+                {patient ? (
+                  <div className="grid grid-cols-2 gap-2 text-[10px] text-muted-foreground bg-background/50 p-2 rounded-lg border border-border/40">
+                    <div>
+                      <span className="block text-[8px] uppercase font-bold">Patient ID</span>
+                      <span className="text-foreground font-semibold">{patient.patient_seq_id}</span>
+                    </div>
+                    {patient.blood_group && (
+                      <div>
+                        <span className="block text-[8px] uppercase font-bold">Blood Group</span>
+                        <span className="text-foreground font-semibold">{patient.blood_group}</span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground leading-normal">
+                    This contact is not registered as a clinical patient yet. Booking will auto-create their file.
+                  </p>
+                )}
+
+                <div className="flex gap-2">
+                  <Button size="xs" variant="outline" className="flex-1 text-[10px]" onClick={() => { setShowBookForm(!showBookForm); setShowInviteForm(false); }}>
+                    Book Appointment
+                  </Button>
+                  <Button size="xs" variant="outline" className="flex-1 text-[10px]" onClick={() => { setShowInviteForm(!showInviteForm); setShowBookForm(false); }}>
+                    Send Invite
+                  </Button>
+                </div>
+
+                {/* Inline Book Appointment Form */}
+                {showBookForm && (
+                  <form onSubmit={handleSidebarBook} className="space-y-2 border-t border-border/50 pt-2 animate-in fade-in duration-200">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="side-doc" className="text-[10px]">Select Doctor</Label>
+                      <select
+                        id="side-doc"
+                        className="w-full text-xs h-7 border border-input rounded-md px-1.5 bg-background"
+                        required
+                        value={bookingDocId}
+                        onChange={(e) => setBookingDocId(e.target.value)}
+                      >
+                        <option value="">-- Choose Doctor --</option>
+                        {doctors.map(d => (
+                          <option key={d.id} value={d.id}>{d.name} ({d.department})</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="side-date" className="text-[10px]">Date</Label>
+                        <Input id="side-date" type="date" required value={bookingDate} onChange={(e) => setBookingDate(e.target.value)} className="h-7 text-xs px-1.5" />
+                      </div>
+                      <div className="space-y-0.5">
+                        <Label htmlFor="side-time" className="text-[10px]">Time</Label>
+                        <Input id="side-time" type="time" required value={bookingTime} onChange={(e) => setBookingTime(e.target.value)} className="h-7 text-xs px-1.5" />
+                      </div>
+                    </div>
+                    <div className="space-y-0.5">
+                      <Label htmlFor="side-notes" className="text-[10px]">Consultation Notes</Label>
+                      <Input id="side-notes" value={bookingNotes} onChange={(e) => setBookingNotes(e.target.value)} placeholder="Reason for booking..." className="h-7 text-xs px-1.5" />
+                    </div>
+                    <Button type="submit" size="xs" disabled={loadingForm} className="w-full text-[10px] h-7 mt-1">
+                      {loadingForm ? "Booking..." : "Confirm & Notify WA"}
+                    </Button>
+                  </form>
+                )}
+
+                {/* Inline Invite Campaign Form */}
+                {showInviteForm && (
+                  <div className="space-y-2 border-t border-border/50 pt-2 animate-in fade-in duration-200">
+                    <p className="text-[10px] text-muted-foreground">Select a doctor to send a WhatsApp booking invitation directly to this customer:</p>
+                    <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
+                      {doctors.length === 0 ? (
+                        <p className="text-[10px] text-muted-foreground text-center py-2">No active doctors available</p>
+                      ) : (
+                        doctors.map(d => (
+                          <button
+                            key={d.id}
+                            type="button"
+                            onClick={() => handleSidebarInvite(d.id)}
+                            className="w-full text-left text-[11px] p-1.5 rounded bg-background border border-border hover:border-primary hover:text-primary transition-colors flex justify-between items-center"
+                          >
+                            <span>{d.name} ({d.department})</span>
+                            <span className="text-[9px] uppercase font-bold bg-primary/10 px-1 rounded">Send</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           )}
