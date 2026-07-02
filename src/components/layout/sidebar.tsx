@@ -23,6 +23,7 @@ import {
   X,
   Zap,
   Brain,
+  Hospital,
 } from "lucide-react";
 import type { AccountRole } from "@/lib/auth/roles";
 
@@ -110,8 +111,15 @@ interface SidebarProps {
 
 export function Sidebar({ open = false, onClose }: SidebarProps) {
   const pathname = usePathname();
-  const { profile, profileLoading, account, accountRole, signOut, isSuperAdmin } = useAuth();
+  const { profile, profileLoading, account, accountRole, signOut, isSuperAdmin, enabledModules } = useAuth();
   const totalUnread = useTotalUnread();
+
+  const activeNavItems = [
+    ...navItems,
+    ...(enabledModules.includes("hospital_clinic")
+      ? [{ href: "/hospital", label: "Hospital & Clinic", icon: Hospital }]
+      : []),
+  ];
   // Only surface the account-name strip when it actually carries
   // information. A solo user's personal account is named after them
   // (the 017 signup trigger seeds it from `full_name`), so showing it
@@ -201,7 +209,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         {/* Main navigation */}
         <nav className="flex-1 overflow-y-auto px-3 py-4">
           <ul className="flex flex-col gap-1">
-            {navItems.map((item) => {
+            {activeNavItems.map((item) => {
               const isActive =
                 pathname === item.href ||
                 (item.href !== "/dashboard" && pathname.startsWith(item.href));

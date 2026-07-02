@@ -84,6 +84,45 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
     })
   }
 
+  // Check and Fetch Hospital & Clinic Context if Enabled
+  const { data: hospitalModule } = await db
+    .from('tenant_modules')
+    .select('enabled')
+    .eq('account_id', accountId)
+    .eq('module_key', 'hospital_clinic')
+    .maybeSingle();
+
+  const isHospitalEnabled = !!hospitalModule?.enabled;
+  let hospitalContext = "";
+  if (isHospitalEnabled) {
+    const { data: doctors } = await db
+      .from('hospital_doctors')
+      .select('name, department, specialization, consultation_fee, available_days, working_hours')
+      .eq('account_id', accountId)
+      .eq('status', 'active');
+
+    const { data: branches } = await db
+      .from('hospital_branches')
+      .select('name, address, phone')
+      .eq('account_id', accountId);
+
+    if (doctors && doctors.length > 0) {
+      hospitalContext += "Available Doctors & Clinic Schedules:\n";
+      doctors.forEach((d: any) => {
+        const days = Array.isArray(d.available_days) ? d.available_days.join(', ') : '';
+        const start = d.working_hours?.start || '09:00';
+        const end = d.working_hours?.end || '17:00';
+        hospitalContext += `- ${d.name} (${d.department} - ${d.specialization || 'General'}): Fee: $${d.consultation_fee / 100}, Working Days: ${days}, Working Hours: ${start} to ${end}\n`;
+      });
+    }
+    if (branches && branches.length > 0) {
+      hospitalContext += "\nClinic Branches Locations:\n";
+      branches.forEach((b: any) => {
+        hospitalContext += `- ${b.name}: ${b.address || ''} (Phone: ${b.phone || ''})\n`;
+      });
+    }
+  }
+
   // 4. Formulate prompt messages
   const basePrompt = account.ai_system_prompt || 
     `Use the System Message, Knowledge Base, and Conversation History as your primary sources of information.
@@ -94,17 +133,6 @@ When business-related information is available in the System Message or Knowledg
 
 For general conversations such as greetings, thank-you messages, small talk, follow-ups, acknowledgements, or casual interactions, respond naturally using your own conversational abilities without requiring information from the Knowledge Base.
 
-Examples include:
-* Hello
-* Hi
-* Good Morning
-* Good Evening
-* Thank You
-* Okay
-* Sounds Good
-* Bye
-* How are you?
-
 If the requested business information is not available in the System Message, Knowledge Base, or Conversation History, do not make up information. Instead, politely inform the customer that the information is unavailable and suggest contacting a human representative.
 
 Your goal is to provide helpful, natural, context-aware, and human-like conversations while accurately representing the business.`;
@@ -112,6 +140,16 @@ Your goal is to provide helpful, natural, context-aware, and human-like conversa
   let systemPromptContent = basePrompt
   if (kbContext) {
     systemPromptContent += `\n\n${kbContext}`
+  }
+
+  if (isHospitalEnabled) {
+    systemPromptContent += `\n\n=== HOSPITAL & CLINIC SYSTEM CONTEXT ===\n${hospitalContext}
+
+You are acting as the AI medical receptionist for the hospital/clinic.
+Guidelines:
+1. **Enroll Patients**: Collect the patient's full name, gender, date of birth, blood group, and emergency contact details naturally as the chat goes on.
+2. **Book / Reschedule / Cancel Appointments**: Assist with patient bookings. Cross-reference doctor availability, branches, and schedules above.
+3. **Emergency Alert**: If the patient mentions life-threatening symptoms (chest pain, breathing difficulty, severe bleeding, unconsciousness, etc.), set "emergency_detected" to true in your JSON output. Keep your text response highly urgent directing them to call emergency services or go to the nearest ER. Do not diagnose.`;
   }
 
   // Always enforce that the AI responds in the language of the latest customer message
@@ -144,11 +182,26 @@ JSON Schema:
   "faq_category": "pricing" | "delivery" | "refund" | "demo" | "general",
   "sales_signal": true | false,
   "extracted_lead_info": {
-    "interested_service": "string or null (e.g. 'YouTube SEO', 'E-commerce Website', 'Portfolio Website')",
-    "budget": "string or null (e.g. '₹20,000', '$500', or null if not mentioned)",
-    "timeline": "string or null (e.g. '2 weeks', 'immediate', or null if not mentioned)",
-    "next_action": "string or null (e.g. 'Send quotation', 'Schedule 15-min call', or null)"
-  }
+    "interested_service": "string or null",
+    "budget": "string or null",
+    "timeline": "string or null",
+    "next_action": "string or null"
+  },
+  "hospital_patient_info": {
+    "name": "string or null",
+    "gender": "Male | Female | Other | null",
+    "dob": "YYYY-MM-DD string or null",
+    "blood_group": "string or null",
+    "emergency_contact": "string or null"
+  },
+  "hospital_booking": {
+    "action": "book | reschedule | cancel | null",
+    "doctor_name": "string or null",
+    "department": "string or null",
+    "date": "YYYY-MM-DD string or null",
+    "time": "HH:MM string or null"
+  },
+  "emergency_detected": true | false
 }
 
 Note:
@@ -228,6 +281,10 @@ Note:
     let timeline: string | null = null;
     let next_action: string | null = null;
 
+    let hospital_patient_info: any = null;
+    let hospital_booking: any = null;
+    let emergency_detected = false;
+
     try {
       const parsed = JSON.parse(cleanedText);
       reply = parsed.reply || cleanedText;
@@ -245,6 +302,10 @@ Note:
       budget = extracted.budget || null;
       timeline = extracted.timeline || null;
       next_action = extracted.next_action || null;
+
+      hospital_patient_info = parsed.hospital_patient_info || null;
+      hospital_booking = parsed.hospital_booking || null;
+      emergency_detected = !!parsed.emergency_detected;
     } catch (err) {
       console.warn('[AI Assistant] Failed to parse structured JSON from response, falling back to plain text reply:', err);
     }
@@ -356,6 +417,81 @@ Note:
       }
     } catch (pipelineErr) {
       console.error('[AI Pipeline] Error during pipeline synchronization:', pipelineErr);
+    }
+
+    // Hospital & Clinic Action Processing
+    if (isHospitalEnabled) {
+      // 1. Emergency Interception
+      if (emergency_detected) {
+        handoff_required = true;
+        reply = `🚨 *EMERGENCY DETECTED:* Please call our emergency clinic staff immediately or go to the nearest ER. We have disabled the AI autopilot for this chat so our agents can step in.`;
+      }
+
+      // 2. Patient Profile Creation / Update
+      if (hospital_patient_info) {
+        const pName = hospital_patient_info.name;
+        const pGender = hospital_patient_info.gender;
+        const pDob = hospital_patient_info.dob;
+        const pBg = hospital_patient_info.blood_group;
+        const pEc = hospital_patient_info.emergency_contact;
+
+        if (pName || pGender || pDob || pBg || pEc) {
+          try {
+            const { data: extPatient } = await db
+              .from('patients')
+              .select('patient_seq_id, gender, date_of_birth, blood_group, emergency_contact')
+              .eq('id', contactId)
+              .maybeSingle();
+
+            const seq = extPatient?.patient_seq_id || `PAT-${Date.now().toString().slice(-5)}`;
+
+            await db.from('patients').upsert({
+              id: contactId,
+              account_id: accountId,
+              patient_seq_id: seq,
+              gender: pGender || extPatient?.gender || null,
+              date_of_birth: pDob || extPatient?.date_of_birth || null,
+              blood_group: pBg || extPatient?.blood_group || null,
+              emergency_contact: pEc || extPatient?.emergency_contact || null,
+              ai_summary: summary,
+              updated_at: new Date().toISOString()
+            }, { onConflict: 'id' });
+          } catch (patErr) {
+            console.error('[AI Hospital] Error updating patient demographics:', patErr);
+          }
+        }
+      }
+
+      // 3. Appointment Booking via Chat
+      if (hospital_booking && hospital_booking.action === 'book') {
+        const { doctor_name, department, date, time } = hospital_booking;
+        if (date && time) {
+          try {
+            let doctorId: string | null = null;
+            if (doctor_name) {
+              const { data: doc } = await db
+                .from('hospital_doctors')
+                .select('id')
+                .eq('account_id', accountId)
+                .ilike('name', `%${doctor_name.replace('Dr.', '').trim()}%`)
+                .maybeSingle();
+              doctorId = doc?.id || null;
+            }
+
+            await db.from('appointments').insert({
+              account_id: accountId,
+              patient_id: contactId,
+              doctor_id: doctorId,
+              department: department || 'General Medicine',
+              appointment_date: date,
+              appointment_time: time,
+              status: 'pending'
+            });
+          } catch (apptErr) {
+            console.error('[AI Hospital] Error booking appointment via AI:', apptErr);
+          }
+        }
+      }
     }
 
     // If human handoff is requested, insert system message alert

@@ -104,6 +104,10 @@ interface AuthContextValue {
   canSendMessages: boolean;
   /** True if the user is a super admin for WACRM SaaS. */
   isSuperAdmin: boolean;
+  /** Array of enabled module keys for this account. */
+  enabledModules: string[];
+  /** Re-fetch the enabled modules list. */
+  refreshModules: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -123,6 +127,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // settles later. Callers that gate on `profile.*` need to know which
   // window they're in — see the type doc above.
   const [profileLoading, setProfileLoading] = useState(true);
+  const [enabledModules, setEnabledModules] = useState<string[]>([]);
+
+  const fetchModules = useCallback(async (acctId: string) => {
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("tenant_modules")
+        .select("module_key")
+        .eq("account_id", acctId)
+        .eq("enabled", true);
+
+      if (error) {
+        console.error("[AuthProvider] Failed to fetch tenant modules:", error);
+        return;
+      }
+      const keys = (data || []).map((row) => row.module_key);
+      setEnabledModules(keys);
+    } catch (err) {
+      console.error("[AuthProvider] Error fetching modules:", err);
+    }
+  }, []);
 
   // Shared across init, auth-state-change listener, and the exposed
   // refreshProfile() callback. Reads the current session's user id and
@@ -202,6 +227,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           is_super_admin: !!data.is_super_admin,
         });
         setAccount(accountRow);
+        if (data.account_id) {
+          fetchModules(data.account_id);
+        }
       }
     } catch (err) {
       console.error("[AuthProvider] fetchProfile threw:", err);
@@ -296,6 +324,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await fetchProfile(user.id);
   }, [user?.id, fetchProfile]);
 
+  const refreshModules = useCallback(async () => {
+    if (!profile?.account_id) return;
+    await fetchModules(profile.account_id);
+  }, [profile?.account_id, fetchModules]);
+
   // Derive the role booleans once per profile change rather than on
   // every consumer render. Cheap regardless, but the memo also gives
   // each derived value a stable identity for React.memo / useEffect
@@ -325,7 +358,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         profileLoading,
         signOut,
         refreshProfile,
+        refreshModules,
         account,
+        enabledModules,
         defaultCurrency: account?.default_currency ?? DEFAULT_CURRENCY,
         ...derived,
       }}
@@ -355,7 +390,9 @@ export function useAuth(): AuthContextValue {
         window.location.href = "/login";
       },
       refreshProfile: async () => {},
+      refreshModules: async () => {},
       account: null,
+      enabledModules: [],
       defaultCurrency: DEFAULT_CURRENCY,
       accountId: null,
       accountRole: null,

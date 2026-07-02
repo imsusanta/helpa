@@ -97,6 +97,170 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
+    const { action } = body
+
+    if (action === 'lab_ready') {
+      const { reportId } = body
+      if (!reportId) return NextResponse.json({ error: 'reportId is required' }, { status: 400 })
+
+      const { data: report, error: repErr } = await supabase
+        .from('lab_reports')
+        .select('*, patient:contacts(*)')
+        .eq('id', reportId)
+        .eq('account_id', accountId)
+        .single()
+
+      if (repErr || !report || !report.patient) {
+        return NextResponse.json({ error: 'Lab report or patient not found' }, { status: 404 })
+      }
+
+      let conversationId = ""
+      const { data: conv } = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('contact_id', report.patient_id)
+        .eq('account_id', accountId)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (conv) {
+        conversationId = conv.id
+      } else {
+        const { data: newConv } = await supabase
+          .from('conversations')
+          .insert({
+            account_id: accountId,
+            contact_id: report.patient_id,
+            status: 'open',
+          })
+          .select()
+          .single()
+        conversationId = newConv.id
+      }
+
+      const text = `📋 *LAB REPORT READY:* Hello ${report.patient.name},\nYour laboratory report for the test *${report.test_name}* is now ready.\n\n*Findings Summary:*\n${report.result_summary || 'N/A'}\n\n*Report Link:*\n${report.file_url || 'Available at front desk'}\n\nThank you for choosing WACRM Healthcare.`
+
+      const { engineSendText } = await import('@/lib/automations/meta-send')
+      await engineSendText({
+        accountId,
+        userId: user.id,
+        conversationId,
+        contactId: report.patient_id,
+        text,
+      })
+
+      return NextResponse.json({ success: true })
+    }
+
+    if (action === 'billing_reminder') {
+      const { invoiceId } = body
+      if (!invoiceId) return NextResponse.json({ error: 'invoiceId is required' }, { status: 400 })
+
+      const { data: invoice, error: invErr } = await supabase
+        .from('billing_invoices')
+        .select('*, patient:contacts(*)')
+        .eq('id', invoiceId)
+        .eq('account_id', accountId)
+        .single()
+
+      if (invErr || !invoice || !invoice.patient) {
+        return NextResponse.json({ error: 'Invoice or patient not found' }, { status: 404 })
+      }
+
+      let conversationId = ""
+      const { data: conv } = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('contact_id', invoice.patient_id)
+        .eq('account_id', accountId)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (conv) {
+        conversationId = conv.id
+      } else {
+        const { data: newConv } = await supabase
+          .from('conversations')
+          .insert({
+            account_id: accountId,
+            contact_id: invoice.patient_id,
+            status: 'open',
+          })
+          .select()
+          .single()
+        conversationId = newConv.id
+      }
+
+      const text = `💵 *OUTSTANDING PAYMENT REMINDER:* Hello ${invoice.patient.name},\nThis is a friendly reminder that invoice *${invoice.invoice_number}* is currently unpaid.\n\n*Amount Due:* $${invoice.amount / 100}\n*Due Date:* ${invoice.due_date || 'Immediate'}\n\nPlease settle this bill online or at our billing desk. If you have already paid, please ignore this notice.`
+
+      const { engineSendText } = await import('@/lib/automations/meta-send')
+      await engineSendText({
+        accountId,
+        userId: user.id,
+        conversationId,
+        contactId: invoice.patient_id,
+        text,
+      })
+
+      return NextResponse.json({ success: true })
+    }
+
+    if (action === 'feedback') {
+      const { appointmentId } = body
+      if (!appointmentId) return NextResponse.json({ error: 'appointmentId is required' }, { status: 400 })
+
+      const { data: appt, error: apptErr } = await supabase
+        .from('appointments')
+        .select('*, patient:contacts(*), doctor:hospital_doctors(*)')
+        .eq('id', appointmentId)
+        .eq('account_id', accountId)
+        .single()
+
+      if (apptErr || !appt || !appt.patient) {
+        return NextResponse.json({ error: 'Appointment or patient not found' }, { status: 404 })
+      }
+
+      let conversationId = ""
+      const { data: conv } = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('contact_id', appt.patient_id)
+        .eq('account_id', accountId)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (conv) {
+        conversationId = conv.id
+      } else {
+        const { data: newConv } = await supabase
+          .from('conversations')
+          .insert({
+            account_id: accountId,
+            contact_id: appt.patient_id,
+            status: 'open',
+          })
+          .select()
+          .single()
+        conversationId = newConv.id
+      }
+
+      const text = `⭐ *FEEDBACK REQUEST:* Hello ${appt.patient.name},\nWe hope you had a good consultation with ${appt.doctor?.name || 'our doctor'} today.\n\nCould you please rate your experience from 1 to 5? You can reply directly to this chat with your rating and any comments.\n\nThank you for helping us serve you better!`
+
+      const { engineSendText } = await import('@/lib/automations/meta-send')
+      await engineSendText({
+        accountId,
+        userId: user.id,
+        conversationId,
+        contactId: appt.patient_id,
+        text,
+      })
+
+      return NextResponse.json({ success: true })
+    }
+
     const {
       recipients: newRecipients,
       phone_numbers,
