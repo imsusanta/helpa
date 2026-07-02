@@ -38,14 +38,16 @@ In this update, we have expanded WACRM into an **AI WhatsApp CRM** by adding the
 *   **`inbox/page.tsx`**: Added parent callbacks to handle conversation status updates, and passed `activeConversation` down to the `<ContactSidebar>`.
 
 ### 5. AI Analytics Dashboard
-*   **`/dashboard/ai` [NEW]**: A dedicated page showing:
-    *   *Overview Metrics*: AI Resolution Rate, Hot Leads, AI Autopilot Share, and Escalations.
-    *   *Customer Intent*: Pie chart breakdown of Sales, Support, Booking, Complaint, and Other.
-    *   *Sentiment Analysis*: Pie chart breakdown of Positive, Neutral, and Negative sentiments.
-    *   *Top FAQ Analytics*: Progress bar metrics for Pricing, Refund, Delivery, and Demo topics.
-    *   *Lead Scoring*: Horizontal bar chart mapping Hot, Warm, and Cold leads.
-    *   *Daily Executive AI Report*: A generated summary report highlighting today's statistics.
+*   **`/dashboard/ai` [NEW]**: A dedicated page showing AI analytics (Resolution Rate, Customer Intents, Sentiment, Lead Scoring).
 *   **`sidebar.tsx`**: Added the **AI Analytics** sidebar link under Dashboard with a Brain icon.
+
+### 6. Industry Onboarding & Marketplace Engine
+*   **Database Migration (`033_industry_templates.sql`)**: Extended schema with new industry specific tables: `real_estate_properties`, `real_estate_visits`, `travel_packages`, and `travel_bookings`, establishing strict RLS and account tenancy policies.
+*   **Dynamic Onboarding Overlay (`onboarding-overlay.tsx`)**: Created a premium fullscreen selector layout that interrupts workspace views if no industry template has been chosen. Tapping an industry choice initializes and preloads the workspace settings.
+*   **Onboarding Seeding Endpoint (`/api/account/onboard`)**: Handles database seeding of custom AI System Prompts, default pipeline stages, active marketplace modules, and pre-populated Knowledge Base FAQs specific to the chosen industry template (Hospital, Real Estate, Travel, Coaching, Restaurant, Gym, E-commerce, Digital Agency, and General).
+*   **Global Auth & Sidebar Updates**: Modified `use-auth.tsx` to read the true workspace industry and configured `sidebar.tsx` to display dynamic industry-specific modules and dashboard tabs automatically.
+*   **Industry Dashboard Switcher (`industry-dashboards.tsx`)**: Built custom KPI panels for each industry displaying relevant metrics (such as site visits, properties, travel tours, or tuition fee dues).
+*   **Settings Marketplace Controls (`modules-panel.tsx`)**: Upgraded the settings dashboard to show the active Industry template card and support resetting/switching templates via a secure administrator action.
 
 ---
 
