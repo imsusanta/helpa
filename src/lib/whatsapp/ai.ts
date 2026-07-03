@@ -490,15 +490,39 @@ Note:
               doctorId = doc?.id || null;
             }
 
-            await db.from('appointments').insert({
-              account_id: accountId,
-              patient_id: contactId,
-              doctor_id: doctorId,
-              department: department || 'General Medicine',
-              appointment_date: date,
-              appointment_time: time,
-              status: 'pending'
-            });
+            const { data: newAppt, error: insertError } = await db
+              .from('appointments')
+              .insert({
+                account_id: accountId,
+                patient_id: contactId,
+                doctor_id: doctorId,
+                department: department || 'General Medicine',
+                appointment_date: date,
+                appointment_time: time,
+                status: 'pending'
+              })
+              .select('id, booking_id, token_number, queue_position')
+              .maybeSingle();
+
+            if (insertError) throw insertError;
+
+            if (newAppt) {
+              const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://wacrmsusanta.vercel.app';
+              const pdfUrl = `${siteUrl}/api/appointments/${newAppt.id}/pdf`;
+              reply = `✅ *APPOINTMENT CONFIRMED!*
+
+*Booking ID:* ${newAppt.booking_id || `APT-2026-${newAppt.id.slice(0, 5).toUpperCase()}`}
+*Token Number:* #${newAppt.token_number || 1}
+*Queue Position:* ${newAppt.queue_position || 1}
+*Doctor:* ${doctor_name || 'On-Duty'}
+*Department:* ${department || 'General Medicine'}
+*Date & Time:* ${date} at ${time}
+
+Download your digital ticket PDF:
+${pdfUrl}
+
+Please arrive 15 minutes before your time slot. Thank you!`;
+            }
           } catch (apptErr) {
             console.error('[AI Hospital] Error booking appointment via AI:', apptErr);
           }

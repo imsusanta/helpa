@@ -28,6 +28,8 @@ interface Appointment {
   patient: { id: string; name: string; phone: string } | null;
   doctor: { id: string; name: string; specialization: string } | null;
   department: string;
+  token_number?: number;
+  queue_position?: number;
 }
 
 interface Doctor {
@@ -48,7 +50,7 @@ export default function AppointmentsPage() {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"upcoming" | "completed" | "cancelled">("upcoming");
+  const [activeTab, setActiveTab] = useState<"upcoming" | "queue" | "completed" | "cancelled">("upcoming");
 
   // Form states
   const [showAddForm, setShowAddForm] = useState(false);
@@ -68,7 +70,7 @@ export default function AppointmentsPage() {
       // 1. Fetch appointments
       const { data: appts } = await db
         .from("appointments")
-        .select("id, appointment_date, appointment_time, status, notes, department, patient:contacts(id, name, phone), doctor:hospital_doctors(id, name, specialization)")
+        .select("id, appointment_date, appointment_time, status, notes, department, token_number, queue_position, patient:contacts(id, name, phone), doctor:hospital_doctors(id, name, specialization)")
         .eq("account_id", accountId)
         .order("appointment_date", { ascending: true })
         .order("appointment_time", { ascending: true });
@@ -169,13 +171,20 @@ export default function AppointmentsPage() {
   const filteredAppointments = appointments.filter((appt) => {
     const today = new Date().toISOString().split("T")[0];
     if (activeTab === "upcoming") {
-      return (appt.status === "pending" || appt.status === "confirmed") && appt.appointment_date >= today;
+      return (appt.status === "pending" || appt.status === "confirmed" || appt.status === "calling") && appt.appointment_date >= today;
+    }
+    if (activeTab === "queue") {
+      return appt.appointment_date === today && appt.status !== "cancelled" && appt.status !== "completed";
     }
     if (activeTab === "completed") {
-      return appt.status === "completed" || appt.appointment_date < today;
+      return appt.status === "completed" || (appt.appointment_date < today && appt.status !== "cancelled");
     }
-    return appt.status === "cancelled";
+    return appt.status === "cancelled" || appt.status === "no_show";
   });
+
+  const displayAppointments = activeTab === "queue"
+    ? [...filteredAppointments].sort((a, b) => (a.token_number || 0) - (b.token_number || 0))
+    : filteredAppointments;
 
   if (loading) {
     return (
@@ -249,7 +258,7 @@ export default function AppointmentsPage() {
 
       {/* Tabs */}
       <div className="flex border-b border-border">
-        {(["upcoming", "completed", "cancelled"] as const).map((tab) => (
+        {(["upcoming", "queue", "completed", "cancelled"] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -259,13 +268,13 @@ export default function AppointmentsPage() {
                 : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >
-            {tab}
+            {tab === "queue" ? "Live Queue" : tab}
           </button>
         ))}
       </div>
 
       {/* Grid listing */}
-      {filteredAppointments.length === 0 ? (
+      {displayAppointments.length === 0 ? (
         <div className="border border-dashed border-border rounded-xl p-12 text-center max-w-2xl mx-auto">
           <CalendarIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-bold text-foreground">No appointments here</h3>
@@ -279,14 +288,14 @@ export default function AppointmentsPage() {
                 <tr>
                   <th className="px-6 py-4">Patient</th>
                   <th className="px-6 py-4">Doctor</th>
-                  <th className="px-6 py-4">Department</th>
+                  <th className="px-6 py-4">Token Info</th>
                   <th className="px-6 py-4">Schedule Date/Time</th>
                   <th className="px-6 py-4">Status</th>
                   <th className="px-6 py-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border text-foreground">
-                {filteredAppointments.map((appt) => (
+                {displayAppointments.map((appt) => (
                   <tr key={appt.id} className="hover:bg-muted/30 transition-colors">
                     <td className="px-6 py-4 font-semibold">
                       <div className="flex items-center gap-2">
@@ -306,11 +315,8 @@ export default function AppointmentsPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-1">
-                        <Building className="h-4 w-4 text-muted-foreground/60" />
-                        <span>{appt.department || "General"}</span>
-                      </div>
+                    <td className="px-6 py-4 font-bold text-foreground/80">
+                      {appt.token_number ? `#${appt.token_number} (Pos: ${appt.queue_position})` : "-"}
                     </td>
                     <td className="px-6 py-4 font-semibold text-primary">
                       <div className="flex items-center gap-1.5">
@@ -324,6 +330,8 @@ export default function AppointmentsPage() {
                           ? "bg-emerald-500/10 text-emerald-500"
                           : appt.status === "pending"
                           ? "bg-amber-500/10 text-amber-500"
+                          : appt.status === "calling"
+                          ? "bg-blue-500/10 text-blue-500 animate-pulse"
                           : appt.status === "completed"
                           ? "bg-indigo-500/10 text-indigo-500"
                           : "bg-red-500/10 text-red-500"
@@ -331,36 +339,80 @@ export default function AppointmentsPage() {
                         {appt.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right space-x-1">
-                      {appt.status === "pending" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleUpdateStatus(appt.id, "confirmed")}
-                          className="bg-emerald-500/10 border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20 text-xs py-1 px-2.5 cursor-pointer"
-                        >
-                          <Check className="h-3.5 w-3.5 mr-1" /> Confirm
-                        </Button>
+                    <td className="px-6 py-4 text-right space-x-1.5 flex justify-end items-center">
+                      <a
+                        href={`/api/appointments/${appt.id}/pdf`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center rounded-md border border-border bg-card hover:bg-muted text-xs py-1.5 px-3 font-semibold text-foreground cursor-pointer transition-colors"
+                      >
+                        PDF Slip
+                      </a>
+
+                      {activeTab === "queue" && (
+                        <>
+                          {appt.status !== "calling" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleUpdateStatus(appt.id, "calling")}
+                              className="bg-blue-500/10 border-blue-500/20 text-blue-500 hover:bg-blue-500/20 text-xs py-1 px-2.5 cursor-pointer"
+                            >
+                              Call Token
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleUpdateStatus(appt.id, "completed")}
+                            className="bg-emerald-500/10 border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20 text-xs py-1 px-2.5 cursor-pointer"
+                          >
+                            Complete
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleUpdateStatus(appt.id, "cancelled")}
+                            className="bg-red-500/10 border-red-500/20 text-red-500 hover:bg-red-500/20 text-xs py-1 px-2.5 cursor-pointer"
+                          >
+                            Skip
+                          </Button>
+                        </>
                       )}
-                      {appt.status === "confirmed" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleUpdateStatus(appt.id, "completed")}
-                          className="bg-indigo-500/10 border-indigo-500/20 text-indigo-500 hover:bg-indigo-500/20 text-xs py-1 px-2.5 cursor-pointer"
-                        >
-                          <Check className="h-3.5 w-3.5 mr-1" /> Complete
-                        </Button>
-                      )}
-                      {appt.status !== "cancelled" && appt.status !== "completed" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleUpdateStatus(appt.id, "cancelled")}
-                          className="bg-red-500/10 border-red-500/20 text-red-500 hover:bg-red-500/20 text-xs py-1 px-2.5 cursor-pointer"
-                        >
-                          <X className="h-3.5 w-3.5 mr-1" /> Cancel
-                        </Button>
+
+                      {activeTab !== "queue" && (
+                        <>
+                          {appt.status === "pending" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleUpdateStatus(appt.id, "confirmed")}
+                              className="bg-emerald-500/10 border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20 text-xs py-1 px-2.5 cursor-pointer"
+                            >
+                              Confirm
+                            </Button>
+                          )}
+                          {appt.status === "confirmed" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleUpdateStatus(appt.id, "completed")}
+                              className="bg-indigo-500/10 border-indigo-500/20 text-indigo-500 hover:bg-indigo-500/20 text-xs py-1 px-2.5 cursor-pointer"
+                            >
+                              Complete
+                            </Button>
+                          )}
+                          {appt.status !== "cancelled" && appt.status !== "completed" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleUpdateStatus(appt.id, "cancelled")}
+                              className="bg-red-500/10 border-red-500/20 text-red-500 hover:bg-red-500/20 text-xs py-1 px-2.5 cursor-pointer"
+                            >
+                              Cancel
+                            </Button>
+                          )}
+                        </>
                       )}
                     </td>
                   </tr>
