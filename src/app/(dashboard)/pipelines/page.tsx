@@ -394,10 +394,10 @@ export default function PipelinesPage() {
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20">
           <GitBranch className="h-12 w-12 text-muted-foreground" />
           <h3 className="mt-4 text-lg font-medium text-foreground">
-            No pipelines yet
+            No patient pipelines yet
           </h3>
           <p className="mt-2 text-sm text-muted-foreground">
-            Create a pipeline to start tracking deals
+            Create a pipeline to start tracking patient journeys
           </p>
           <GatedButton
             canAct={canEditSettings}

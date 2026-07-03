@@ -257,7 +257,7 @@ export function DealForm({
         <div className="flex h-full flex-col">
           <SheetHeader className="border-b border-border/50 p-4">
             <SheetTitle className="text-popover-foreground">
-              {deal ? "Edit Deal" : "New Deal"}
+              {deal ? "Edit Patient Journey" : "New Patient Journey"}
             </SheetTitle>
           </SheetHeader>
 
@@ -267,7 +267,7 @@ export function DealForm({
               <Input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Deal title"
+                placeholder="Patient care journey / admission title"
                 className="border-border bg-muted text-foreground"
               />
             </div>
@@ -369,7 +369,7 @@ export function DealForm({
 
             <div className="grid grid-cols-[1fr_110px] gap-3">
               <div className="grid gap-2">
-                <Label className="text-muted-foreground">Value</Label>
+                <Label className="text-muted-foreground">Estimated Consultation Value</Label>
                 <div className="relative">
                   <DollarSign className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                   <Input
@@ -398,7 +398,7 @@ export function DealForm({
             </div>
 
             <div className="grid gap-2">
-              <Label className="text-muted-foreground">Expected Close Date</Label>
+              <Label className="text-muted-foreground">Target Discharge / Follow-up Date</Label>
               <Input
                 type="date"
                 value={expectedCloseDate}
