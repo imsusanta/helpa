@@ -614,15 +614,25 @@ async function processMessage(
     return
   }
 
-  // Update conversation
+  // Update conversation — only update preview if message is chronologically newer
+  const messageDate = new Date(parseInt(message.timestamp) * 1000)
+  const existingLastMessageAt = conversation.last_message_at ? new Date(conversation.last_message_at) : null
+  const shouldUpdatePreview = !existingLastMessageAt || messageDate >= existingLastMessageAt
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const convUpdatePayload: any = {
+    unread_count: (conversation.unread_count || 0) + 1,
+    updated_at: new Date().toISOString(),
+  }
+
+  if (shouldUpdatePreview) {
+    convUpdatePayload.last_message_text = contentText || `[${message.type}]`
+    convUpdatePayload.last_message_at = messageDate.toISOString()
+  }
+
   const { error: convError } = await supabaseAdmin()
     .from('conversations')
-    .update({
-      last_message_text: contentText || `[${message.type}]`,
-      last_message_at: new Date().toISOString(),
-      unread_count: (conversation.unread_count || 0) + 1,
-      updated_at: new Date().toISOString(),
-    })
+    .update(convUpdatePayload)
     .eq('id', conversation.id)
 
   if (convError) {

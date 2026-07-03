@@ -16,28 +16,22 @@ envContent.split("\n").forEach((line) => {
 const supabase = createClient(envVars.NEXT_PUBLIC_SUPABASE_URL, envVars.SUPABASE_SERVICE_ROLE_KEY);
 
 async function run() {
-  const { data: convs, error: convErr } = await supabase
-    .from("conversations")
-    .select("*")
-    .order("updated_at", { ascending: false })
-    .limit(5);
-
-  if (convErr) {
-    console.error("Conversations error:", convErr);
-  } else {
-    console.log("Recent Conversations:", JSON.stringify(convs, null, 2));
-  }
-
-  const { data: msgs, error: msgErr } = await supabase
+  const { data: msgs, error } = await supabase
     .from("messages")
-    .select("id, conversation_id, sender_type, content_text, created_at")
+    .select("*")
+    .eq("conversation_id", "2fbf3497-ef29-4bd9-aaa4-d996efa7bbdc")
     .order("created_at", { ascending: false })
-    .limit(10);
+    .limit(20);
 
-  if (msgErr) {
-    console.error("Messages error:", msgErr);
+  if (error) {
+    console.error("Error:", error);
   } else {
-    console.log("Recent Messages:", JSON.stringify(msgs, null, 2));
+    console.log("Messages for conv:", JSON.stringify(msgs.map(m => ({
+      id: m.id,
+      sender_type: m.sender_type,
+      content_text: m.content_text,
+      created_at: m.created_at
+    })), null, 2));
   }
 }
 
