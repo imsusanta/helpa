@@ -35,7 +35,7 @@ export async function POST(request: Request) {
         api_key = decrypt(account.openrouter_api_key)
       } catch (err) {
         console.error('[POST /api/account/ai/test] decryption error:', err)
-        return NextResponse.json({ error: 'Failed to decrypt saved API Key' }, { status: 500 })
+        return NextResponse.json({ error: 'Saved API Key cannot be decrypted. Please enter your new OpenRouter API Key and click Save.' }, { status: 400 })
       }
     }
 

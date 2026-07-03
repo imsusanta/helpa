@@ -51,7 +51,7 @@ export async function POST(request: Request) {
       apiKey = decrypt(account.openrouter_api_key);
     } catch (err) {
       console.error('[AI API] Failed to decrypt OpenRouter API Key:', err);
-      return NextResponse.json({ error: 'Failed to decrypt API Key.' }, { status: 500 });
+      return NextResponse.json({ error: 'Saved OpenRouter API Key cannot be decrypted. Please re-configure and save it under Settings -> AI Agent.' }, { status: 400 });
     }
 
     const model = account.openrouter_model || 'google/gemini-2.5-flash';
