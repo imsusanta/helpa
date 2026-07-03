@@ -215,11 +215,6 @@ export function SettingsOverview({
       loading: false,
       subtitle: `${cap(mode)} mode · ${themeName} accent`,
     },
-    {
-      section: 'modules',
-      loading: false,
-      subtitle: 'Hospital / Clinic CRM & custom modules',
-    },
   ];
 
   return (
