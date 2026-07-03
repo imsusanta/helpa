@@ -35,13 +35,14 @@ import { GatedButton } from "@/components/ui/gated-button";
 // agent+. The two CTAs gate on different `useCan` capabilities,
 // not on different copy.
 
-// Spec-defined seed — name and color per the product spec.
 const SPEC_DEFAULT_STAGES = [
-  { name: "New Lead", color: "#3b82f6", position: 0 }, // blue
-  { name: "Qualified", color: "#eab308", position: 1 }, // yellow
-  { name: "Proposal Sent", color: "#f97316", position: 2 }, // orange
-  { name: "Negotiation", color: "#8b5cf6", position: 3 }, // purple
-  { name: "Won", color: "#22c55e", position: 4 }, // green
+  { name: "New Inquiry", color: "#3b82f6", position: 0 },
+  { name: "Appointment Requested", color: "#f59e0b", position: 1 },
+  { name: "Appointment Confirmed", color: "#8b5cf6", position: 2 },
+  { name: "Visited", color: "#6366f1", position: 3 },
+  { name: "Treatment Ongoing", color: "#ec4899", position: 4 },
+  { name: "Follow-up", color: "#14b8a6", position: 5 },
+  { name: "Completed", color: "#10b981", position: 6 },
 ];
 
 export default function PipelinesPage() {
@@ -118,7 +119,7 @@ export default function PipelinesPage() {
 
     const { data: pipeline, error } = await supabase
       .from("pipelines")
-      .insert({ user_id: user.id, account_id: accountId, name: "Sales Pipeline" })
+      .insert({ user_id: user.id, account_id: accountId, name: "Patient Care Pipeline" })
       .select()
       .single();
 
@@ -383,7 +384,7 @@ export default function PipelinesPage() {
             className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             <Plus className="mr-1 h-4 w-4" />
-            Add Deal
+            Add Patient Care Record
           </GatedButton>
         </div>
       </div>
@@ -439,7 +440,7 @@ export default function PipelinesPage() {
               }}
             />
             <p className="mt-2 text-xs text-muted-foreground">
-              Default stages (New Lead → Won) will be created automatically.
+              Default stages (New Inquiry → Completed) will be created automatically.
             </p>
           </div>
           <DialogFooter className="bg-popover/50 border-border">

@@ -40,23 +40,14 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
 
   if (!user) return null;
 
-  // Intercept and show onboarding overlay if the workspace has no industry selected
-  const needsOnboarding = account && !account.industry;
-
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      {needsOnboarding ? (
-        <OnboardingOverlay />
-      ) : (
-        <>
-          <Sidebar open={sidebarOpen} onClose={closeSidebar} />
-          <div className="flex flex-1 flex-col overflow-hidden">
-            <Header onOpenSidebar={() => setSidebarOpen(true)} />
-            {/* Thinner horizontal padding on mobile so cards have room to breathe. */}
-            <main className="flex-1 overflow-y-auto p-4 sm:p-6">{children}</main>
-          </div>
-        </>
-      )}
+      <Sidebar open={sidebarOpen} onClose={closeSidebar} />
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <Header onOpenSidebar={() => setSidebarOpen(true)} />
+        {/* Thinner horizontal padding on mobile so cards have room to breathe. */}
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6">{children}</main>
+      </div>
     </div>
   );
 }

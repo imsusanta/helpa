@@ -544,15 +544,15 @@ export function ContactSidebar({ contact, conversation }: ContactSidebarProps) {
           {/* Divider */}
           <div className="my-4 border-t border-border" />
 
-          {/* Active Deals */}
+          {/* Active Care Pipeline */}
           <div>
             <div className="flex items-center gap-2 px-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              <DollarSign className="h-3 w-3" />
-              Active Deals
+              <Activity className="h-3 w-3" />
+              Patient Care Cycle
             </div>
             <div className="mt-2 space-y-2">
               {deals.length === 0 ? (
-                <p className="px-1 text-xs text-muted-foreground">No deals</p>
+                <p className="px-1 text-xs text-muted-foreground">No active cycles</p>
               ) : (
                 deals.map((deal) => (
                   <div

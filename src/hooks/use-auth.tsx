@@ -145,6 +145,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       const keys = (data || []).map((row) => row.module_key);
+      if (!keys.includes("hospital_clinic")) {
+        keys.push("hospital_clinic");
+      }
       setEnabledModules(keys);
     } catch (err) {
       console.error("[AuthProvider] Error fetching modules:", err);
@@ -202,7 +205,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               id: accountRaw.id,
               name: accountRaw.name,
               default_currency: accountRaw.default_currency ?? DEFAULT_CURRENCY,
-              industry: accountRaw.industry,
+              industry: accountRaw.industry || "hospital_clinic",
             }
           : null;
 

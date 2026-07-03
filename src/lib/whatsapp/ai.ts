@@ -388,7 +388,7 @@ Note:
             .order('position', { ascending: true });
 
           if (stages && stages.length > 0) {
-            const newLeadStage = stages.find(s => s.name.toLowerCase() === 'new lead') || stages[0];
+            const newLeadStage = stages.find(s => s.name.toLowerCase() === 'new inquiry' || s.name.toLowerCase() === 'new lead') || stages[0];
             const stageId = newLeadStage.id;
 
             const { data: contact } = await db

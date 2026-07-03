@@ -125,106 +125,19 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
   const { profile, profileLoading, account, accountRole, signOut, isSuperAdmin, enabledModules } = useAuth();
   const totalUnread = useTotalUnread();
 
-  const industry = account?.industry;
-
-  let activeNavItems: NavItem[] = [];
-
-  if (industry === "hospital_clinic") {
-    activeNavItems = [
-      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/dashboard/ai", label: "AI Analytics", icon: Brain },
-      { href: "/inbox", label: "Inbox", icon: MessageSquare },
-      { href: "/hospital", label: "Patients", icon: Users },
-      { href: "/hospital?tab=appointments", label: "Appointments", icon: Calendar },
-      { href: "/hospital?tab=doctors", label: "Doctors", icon: UserCheck },
-      { href: "/hospital?tab=lab_reports", label: "Lab Reports", icon: FileText },
-      { href: "/hospital?tab=invoices", label: "Billing", icon: CreditCard },
-      { href: "/pipelines", label: "Pipeline", icon: GitBranch },
-      { href: "/broadcasts", label: "Broadcast", icon: Radio },
-      { href: "/automations", label: "Automations", icon: Zap },
-    ];
-  } else if (industry === "real_estate") {
-    activeNavItems = [
-      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/dashboard/ai", label: "AI Analytics", icon: Brain },
-      { href: "/inbox", label: "Inbox", icon: MessageSquare },
-      { href: "/contacts", label: "Leads", icon: Users },
-      { href: "/properties", label: "Properties", icon: Home },
-      { href: "/visits", label: "Property Visits", icon: Calendar },
-      { href: "/pipelines", label: "Pipeline", icon: GitBranch },
-      { href: "/broadcasts", label: "Broadcast", icon: Radio },
-      { href: "/automations", label: "Automations", icon: Zap },
-    ];
-  } else if (industry === "travel") {
-    activeNavItems = [
-      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/dashboard/ai", label: "AI Analytics", icon: Brain },
-      { href: "/inbox", label: "Inbox", icon: MessageSquare },
-      { href: "/contacts", label: "Customers", icon: Users },
-      { href: "/packages", label: "Packages", icon: Compass },
-      { href: "/bookings", label: "Bookings", icon: Calendar },
-      { href: "/pipelines", label: "Pipeline", icon: GitBranch },
-      { href: "/broadcasts", label: "Broadcast", icon: Radio },
-    ];
-  } else if (industry === "coaching") {
-    activeNavItems = [
-      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/dashboard/ai", label: "AI Analytics", icon: Brain },
-      { href: "/inbox", label: "Inbox", icon: MessageSquare },
-      { href: "/contacts", label: "Students", icon: Users },
-      { href: "/courses", label: "Courses", icon: GraduationCap },
-      { href: "/pipelines", label: "Pipeline", icon: GitBranch },
-      { href: "/broadcasts", label: "Broadcast", icon: Radio },
-    ];
-  } else if (industry === "restaurant") {
-    activeNavItems = [
-      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/dashboard/ai", label: "AI Analytics", icon: Brain },
-      { href: "/inbox", label: "Inbox", icon: MessageSquare },
-      { href: "/reservations", label: "Reservations", icon: Calendar },
-      { href: "/contacts", label: "Customers", icon: Users },
-      { href: "/broadcasts", label: "Broadcast", icon: Radio },
-    ];
-  } else if (industry === "gym") {
-    activeNavItems = [
-      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/dashboard/ai", label: "AI Analytics", icon: Brain },
-      { href: "/inbox", label: "Inbox", icon: MessageSquare },
-      { href: "/contacts", label: "Members", icon: Users },
-      { href: "/appointments", label: "Appointments", icon: Calendar },
-      { href: "/broadcasts", label: "Broadcast", icon: Radio },
-    ];
-  } else if (industry === "ecommerce") {
-    activeNavItems = [
-      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/dashboard/ai", label: "AI Analytics", icon: Brain },
-      { href: "/inbox", label: "Inbox", icon: MessageSquare },
-      { href: "/orders", label: "Orders", icon: ShoppingBag },
-      { href: "/contacts", label: "Customers", icon: Users },
-      { href: "/broadcasts", label: "Broadcast", icon: Radio },
-    ];
-  } else if (industry === "digital_agency") {
-    activeNavItems = [
-      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/dashboard/ai", label: "AI Analytics", icon: Brain },
-      { href: "/inbox", label: "Inbox", icon: MessageSquare },
-      { href: "/contacts", label: "Leads", icon: Users },
-      { href: "/pipelines", label: "Pipeline", icon: GitBranch },
-      { href: "/broadcasts", label: "Broadcast", icon: Radio },
-      { href: "/automations", label: "Automations", icon: Zap },
-    ];
-  } else {
-    activeNavItems = [
-      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/dashboard/ai", label: "AI Analytics", icon: Brain },
-      { href: "/inbox", label: "Inbox", icon: MessageSquare },
-      { href: "/contacts", label: "Contacts", icon: Users },
-      { href: "/pipelines", label: "Pipelines", icon: GitBranch },
-      { href: "/broadcasts", label: "Broadcasts", icon: Radio },
-      { href: "/automations", label: "Automations", icon: Zap },
-      { href: "/flows", label: "Flows", icon: Workflow, beta: true },
-    ];
-  }
+  const activeNavItems: NavItem[] = [
+    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/inbox", label: "Inbox", icon: MessageSquare },
+    { href: "/patients", label: "Patients", icon: Users },
+    { href: "/appointments", label: "Appointments", icon: Calendar },
+    { href: "/doctors", label: "Doctors", icon: UserCheck },
+    { href: "/departments", label: "Departments", icon: Hospital },
+    { href: "/dashboard/ai", label: "AI Analytics", icon: Brain },
+    { href: "/pipelines", label: "Pipeline", icon: GitBranch },
+    { href: "/broadcasts", label: "Broadcast Campaigns", icon: Radio },
+    { href: "/knowledge-base", label: "Knowledge Base", icon: FileText },
+    { href: "/settings?tab=ai", label: "AI Agent", icon: Zap },
+  ];
   // Only surface the account-name strip when it actually carries
   // information. A solo user's personal account is named after them
   // (the 017 signup trigger seeds it from `full_name`), so showing it
