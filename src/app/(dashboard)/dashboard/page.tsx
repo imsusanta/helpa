@@ -52,14 +52,14 @@ export default function ClinicalDashboardPage() {
   
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
+    conversationsToday: 0,
+    aiRepliesToday: 0,
+    humanRepliesToday: 0,
     appointmentsToday: 0,
-    patientsToday: 0,
-    newInquiries: 0,
-    pendingConfirmations: 0,
-    doctorsActive: 0,
-    aiResolution: 94,
-    openPipeline: 0,
-    revenue: 0,
+    pendingAppointments: 0,
+    doctorsAvailable: 0,
+    aiResolutionRate: 95,
+    missedConversations: 0,
   });
 
   const [recentAppointments, setRecentAppointments] = useState<AppointmentRow[]>([]);
@@ -76,20 +76,22 @@ export default function ClinicalDashboardPage() {
     try {
       // 1. Fetch counts in parallel
       const [
+        convsToday,
+        aiReplies,
+        humanReplies,
         apptToday,
-        patsToday,
-        inqsToday,
-        apptsPending,
+        apptPending,
         docsActive,
-        dealsCount,
+        handoffConvs,
         recentAppts,
       ] = await Promise.all([
-        db.from("appointments").select("id", { count: "exact", head: true }).eq("appointment_date", todayStr),
-        db.from("patients").select("id", { count: "exact", head: true }).gte("created_at", todayStart.toISOString()),
         db.from("conversations").select("id", { count: "exact", head: true }).gte("created_at", todayStart.toISOString()),
+        db.from("messages").select("id", { count: "exact", head: true }).eq("sender_type", "bot").gte("created_at", todayStart.toISOString()),
+        db.from("messages").select("id", { count: "exact", head: true }).eq("sender_type", "agent").gte("created_at", todayStart.toISOString()),
+        db.from("appointments").select("id", { count: "exact", head: true }).eq("appointment_date", todayStr),
         db.from("appointments").select("id", { count: "exact", head: true }).eq("status", "pending"),
         db.from("hospital_doctors").select("id", { count: "exact", head: true }).eq("status", "active"),
-        db.from("deals").select("id", { count: "exact", head: true }).eq("status", "open"),
+        db.from("conversations").select("id", { count: "exact", head: true }).eq("ai_handoff_required", true),
         db
           .from("appointments")
           .select("id, appointment_time, department, status, patient:contacts(name, phone), doctor:hospital_doctors(name)")
@@ -98,17 +100,28 @@ export default function ClinicalDashboardPage() {
           .limit(5),
       ]);
 
-      const apptCount = apptToday.count || 0;
+      const totalConvs = convsToday.count || 0;
+      const missed = handoffConvs.count || 0;
+      const aiRepliesCount = aiReplies.count || 0;
+      const humanRepliesCount = humanReplies.count || 0;
+
+      // Calculate AI Resolution Rate dynamically
+      let resolutionRate = 95;
+      if (totalConvs > 0) {
+        resolutionRate = Math.round(((totalConvs - missed) / totalConvs) * 100);
+        if (resolutionRate < 0) resolutionRate = 0;
+        if (resolutionRate > 100) resolutionRate = 100;
+      }
 
       setStats({
-        appointmentsToday: apptCount,
-        patientsToday: patsToday.count || 0,
-        newInquiries: inqsToday.count || 0,
-        pendingConfirmations: apptsPending.count || 0,
-        doctorsActive: docsActive.count || 4,
-        aiResolution: 93,
-        openPipeline: dealsCount.count || 0,
-        revenue: apptCount * 120 + (apptsPending.count || 0) * 80,
+        conversationsToday: totalConvs,
+        aiRepliesToday: aiRepliesCount,
+        humanRepliesToday: humanRepliesCount,
+        appointmentsToday: apptToday.count || 0,
+        pendingAppointments: apptPending.count || 0,
+        doctorsAvailable: docsActive.count || 0,
+        aiResolutionRate: resolutionRate,
+        missedConversations: missed,
       });
 
       setRecentAppointments((recentAppts.data as any) || []);
@@ -117,7 +130,7 @@ export default function ClinicalDashboardPage() {
       setChartData([
         { name: "Mon", appointments: 4 },
         { name: "Tue", appointments: 8 },
-        { name: "Wed", appointments: apptCount || 6 },
+        { name: "Wed", appointments: apptToday.count || 6 },
         { name: "Thu", appointments: 5 },
         { name: "Fri", appointments: 9 },
         { name: "Sat", appointments: 3 },
@@ -146,7 +159,7 @@ export default function ClinicalDashboardPage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Loading clinical KPIs and activity feed...</p>
+          <p className="text-sm text-muted-foreground">Loading receptionist KPIs and activity feed...</p>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {Array.from({ length: 8 }).map((_, i) => (
@@ -163,10 +176,10 @@ export default function ClinicalDashboardPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-extrabold text-foreground tracking-tight sm:text-3xl">
-            Clinical Dashboard
+            Hospital AI Dashboard
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Real-time patient flows, appointment bookings, and clinical metrics.
+            How is my hospital communication performing today?
           </p>
         </div>
         <div className="flex gap-2">
@@ -181,52 +194,52 @@ export default function ClinicalDashboardPage() {
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
+          title="Today's Conversations"
+          value={String(stats.conversationsToday)}
+          icon={MessageSquare}
+          subtitle="Total customer chats today"
+        />
+        <MetricCard
+          title="AI Replies"
+          value={String(stats.aiRepliesToday)}
+          icon={Brain}
+          subtitle="Messages auto-replied by AI"
+        />
+        <MetricCard
+          title="Human Replies"
+          value={String(stats.humanRepliesToday)}
+          icon={Users}
+          subtitle="Messages handled by staff"
+        />
+        <MetricCard
           title="Today's Appointments"
           value={String(stats.appointmentsToday)}
           icon={Calendar}
           subtitle="Consultations scheduled today"
         />
         <MetricCard
-          title="Today's Patients"
-          value={String(stats.patientsToday)}
-          icon={Users}
-          subtitle="New patient registrations today"
-        />
-        <MetricCard
-          title="New Patient Inquiries"
-          value={String(stats.newInquiries)}
-          icon={MessageSquare}
-          subtitle="Chats received today"
-        />
-        <MetricCard
           title="Pending Appointments"
-          value={String(stats.pendingConfirmations)}
+          value={String(stats.pendingAppointments)}
           icon={Clock}
-          subtitle="Awaiting staff confirmation"
+          subtitle="Inquiries awaiting confirmation"
         />
         <MetricCard
           title="Doctors Available Today"
-          value={String(stats.doctorsActive)}
+          value={String(stats.doctorsAvailable)}
           icon={UserCheck}
-          subtitle="Active on-shift doctors"
+          subtitle="On-duty clinical specialists"
         />
         <MetricCard
           title="AI Resolution Rate"
-          value={`${stats.aiResolution}%`}
-          icon={Brain}
-          subtitle="Patient inquiries handled by AI"
+          value={`${stats.aiResolutionRate}%`}
+          icon={TrendingUp}
+          subtitle="Inquiries resolved without handoff"
         />
         <MetricCard
-          title="Open Patient Pipeline"
-          value={String(stats.openPipeline)}
-          icon={GitBranch}
-          subtitle="Patients in active care cycles"
-        />
-        <MetricCard
-          title="Revenue Overview"
-          value={formatCurrency(stats.revenue, defaultCurrency)}
-          icon={DollarSign}
-          subtitle="Estimated gross fee bookings"
+          title="Missed Conversations"
+          value={String(stats.missedConversations)}
+          icon={Clock}
+          subtitle="Chats awaiting human takeover"
         />
       </div>
 

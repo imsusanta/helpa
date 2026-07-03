@@ -20,6 +20,7 @@ import {
   FileText,
   MessageSquare,
   Brain,
+  UserCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -35,6 +36,7 @@ interface Patient {
   ai_notes: string;
   status: string;
   contact: { name: string; phone: string; email: string };
+  doctor?: { name: string } | null;
 }
 
 interface Message {
@@ -82,7 +84,7 @@ export default function PatientsPage() {
     const db = createClient();
     const { data, error } = await db
       .from("patients")
-      .select("*, contact:contacts(name, phone, email)")
+      .select("*, contact:contacts(name, phone, email), doctor:hospital_doctors(name)")
       .eq("account_id", accountId)
       .order("created_at", { ascending: false });
 
@@ -396,6 +398,12 @@ export default function PatientsPage() {
                   <Heart className="h-4 w-4 text-muted-foreground/60 shrink-0" />
                   <span>Blood Group: <span className="text-foreground font-bold text-red-500">{selectedPatient.blood_group || "N/A"}</span></span>
                 </p>
+                {selectedPatient.doctor?.name && (
+                  <p className="flex items-center gap-2 text-muted-foreground">
+                    <UserCheck className="h-4 w-4 text-muted-foreground/60 shrink-0" />
+                    <span>Preferred Doctor: <span className="text-foreground">{selectedPatient.doctor.name}</span></span>
+                  </p>
+                )}
                 {selectedPatient.emergency_contact && (
                   <p className="flex items-center gap-2 text-muted-foreground">
                     <AlertCircle className="h-4 w-4 text-muted-foreground/60 shrink-0" />
@@ -412,6 +420,18 @@ export default function PatientsPage() {
                   </p>
                   <p className="text-xs text-muted-foreground leading-normal">
                     {selectedPatient.ai_summary}
+                  </p>
+                </div>
+              )}
+
+              {/* Internal Notes */}
+              {selectedPatient.ai_notes && (
+                <div className="bg-amber-500/5 rounded-lg p-3 space-y-1">
+                  <p className="font-bold text-amber-600 dark:text-amber-400 text-xs flex items-center gap-1">
+                    <FileText className="h-3.5 w-3.5" /> Internal Notes
+                  </p>
+                  <p className="text-xs text-muted-foreground leading-normal">
+                    {selectedPatient.ai_notes}
                   </p>
                 </div>
               )}

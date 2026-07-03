@@ -207,10 +207,12 @@ export default function DoctorsPage() {
           {doctors.map((doc) => (
             <div key={doc.id} className="bg-card border border-border rounded-xl p-5 hover:shadow-md transition-shadow flex flex-col gap-4">
               <div className="flex justify-between items-start">
-                <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500">
-                  <UserCheck className="h-5 w-5" />
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-base border border-primary/25 shadow-inner">
+                  {doc.name.replace(/^Dr\.\s+/i, "").split(" ").map(w => w[0]).filter(Boolean).slice(0, 2).join("").toUpperCase()}
                 </div>
-                <span className="text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary px-2.5 py-1 rounded-full">
+                <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full ${
+                  doc.status === "active" ? "bg-emerald-500/10 text-emerald-500" : "bg-muted text-muted-foreground"
+                }`}>
                   {doc.status}
                 </span>
               </div>

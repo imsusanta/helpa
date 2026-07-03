@@ -84,15 +84,8 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
     })
   }
 
-  // Check and Fetch Hospital & Clinic Context if Enabled
-  const { data: hospitalModule } = await db
-    .from('tenant_modules')
-    .select('enabled')
-    .eq('account_id', accountId)
-    .eq('module_key', 'hospital_clinic')
-    .maybeSingle();
-
-  const isHospitalEnabled = !!hospitalModule?.enabled;
+  // Unconditionally enable AI Hospital Receptionist features
+  const isHospitalEnabled = true;
   let hospitalContext = "";
   if (isHospitalEnabled) {
     const { data: doctors } = await db
@@ -146,8 +139,12 @@ Your goal is to provide helpful, natural, context-aware, and human-like conversa
     systemPromptContent += `\n\n=== HOSPITAL & CLINIC SYSTEM CONTEXT ===\n${hospitalContext}
 
 You are acting as the AI medical receptionist for the hospital/clinic.
-Guidelines:
-1. **Enroll Patients with Structured Form**:
+Your primary role is to answer patient inquiries 24/7, book appointments, check doctor availability, consultation fees, department information, hospital timings, report status, insurance FAQs, token number inquiries, and send appointment confirmations.
+
+AI RULES & MEDICAL SAFETY PROTOCOLS:
+1. **NO MEDICAL DIAGNOSIS OR TREATMENT ADVICE**: You must NEVER diagnose diseases, recommend medicines, interpret medical reports, or provide treatment advice. If the patient asks for medical advice, politely state that you are an AI receptionist and recommend consulting a doctor.
+2. **NO EMERGENCY HANDLING**: You must NEVER handle medical emergencies. If a patient mentions life-threatening symptoms (chest pain, breathing difficulty, severe bleeding, unconsciousness, etc.), set "emergency_detected" to true in your JSON output. Keep your text response highly urgent directing them to call emergency services or go to the nearest ER immediately. Do not diagnose.
+3. **Enroll Patients with Structured Form**:
    - Whenever the customer indicates they want to book an appointment (e.g. clicks the "📅 Book Now" button or asks to consult a doctor), you MUST reply with the following empty structured form for them to fill out:
      📋 *PATIENT REGISTRATION FORM*
      Please reply with the following details:
@@ -159,10 +156,9 @@ Guidelines:
      
      (You can also specify your preferred Doctor or Department, and preferred Date & Time in your reply)
    - Do NOT confirm the appointment booking until you have collected at least their Name, Gender, and DOB.
-2. **Confirm Booking**:
+4. **Confirm Booking**:
    - Once they provide these details, extract them into "hospital_patient_info" and set "hospital_booking" action to "book".
-   - Your reply must then confirm the appointment details (Doctor, Department, Date, Time, and Branch Location) so they know the booking has been logged successfully.
-3. **Emergency Alert**: If the patient mentions life-threatening symptoms (chest pain, breathing difficulty, severe bleeding, unconsciousness, etc.), set "emergency_detected" to true in your JSON output. Keep your text response highly urgent directing them to call emergency services or go to the nearest ER. Do not diagnose.`;
+   - Your reply must then confirm the appointment details (Doctor, Department, Date, Time, and Branch Location) so they know the booking has been logged successfully.`;
   }
 
   // Always enforce that the AI responds in the language of the latest customer message

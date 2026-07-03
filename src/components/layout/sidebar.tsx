@@ -131,14 +131,8 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
     { href: "/patients", label: "Patients", icon: Users },
     { href: "/appointments", label: "Appointments", icon: Calendar },
     { href: "/doctors", label: "Doctors", icon: UserCheck },
-    { href: "/departments", label: "Departments", icon: Hospital },
-    { href: "/lab-reports", label: "Lab Reports", icon: FileText },
-    { href: "/billing", label: "Billing", icon: CreditCard },
-    { href: "/dashboard/ai", label: "AI Analytics", icon: Brain },
-    { href: "/pipelines", label: "Pipeline", icon: GitBranch },
-    { href: "/broadcasts", label: "Broadcast Campaigns", icon: Radio },
     { href: "/knowledge-base", label: "Knowledge Base", icon: FileText },
-    { href: "/settings?tab=ai", label: "AI Agent", icon: Zap },
+    { href: "/settings?tab=ai", label: "AI Agent", icon: Brain },
   ];
   // Only surface the account-name strip when it actually carries
   // information. A solo user's personal account is named after them
@@ -210,10 +204,10 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border px-4">
           <Link href="/dashboard" className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <MessageSquare className="h-4 w-4" />
+              <Hospital className="h-4 w-4" />
             </div>
             <span className="text-sm font-semibold text-foreground">
-              CRM Template for WhatsApp
+              AI Hospital Receptionist
             </span>
           </Link>
           <button
