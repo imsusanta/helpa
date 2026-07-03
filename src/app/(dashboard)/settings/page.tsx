@@ -18,6 +18,7 @@ import { MembersTab } from '@/components/settings/members-tab';
 import { AiPanel } from '@/components/settings/ai-panel';
 import { KbPanel } from '@/components/settings/kb-panel';
 import { BillingPanel } from '@/components/settings/billing-panel';
+import { InsurancePanel } from '@/components/settings/insurance-panel';
 import {
   resolveSection,
   type SettingsSection,
@@ -65,6 +66,7 @@ export default function SettingsPage() {
     ai: <AiPanel />,
     kb: <KbPanel />,
     billing: <BillingPanel />,
+    insurance: <InsurancePanel />,
   };
 
   return (

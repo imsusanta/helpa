@@ -132,6 +132,8 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
     { href: "/appointments", label: "Appointments", icon: Calendar },
     { href: "/doctors", label: "Doctors", icon: UserCheck },
     { href: "/departments", label: "Departments", icon: Hospital },
+    { href: "/lab-reports", label: "Lab Reports", icon: FileText },
+    { href: "/billing", label: "Billing", icon: CreditCard },
     { href: "/dashboard/ai", label: "AI Analytics", icon: Brain },
     { href: "/pipelines", label: "Pipeline", icon: GitBranch },
     { href: "/broadcasts", label: "Broadcast Campaigns", icon: Radio },

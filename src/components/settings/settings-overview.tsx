@@ -215,6 +215,11 @@ export function SettingsOverview({
       loading: false,
       subtitle: `${cap(mode)} mode · ${themeName} accent`,
     },
+    {
+      section: 'insurance',
+      loading: false,
+      subtitle: 'Configure cashless claims & requirements',
+    },
   ];
 
   return (

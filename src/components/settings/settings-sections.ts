@@ -36,6 +36,7 @@ export const SETTINGS_SECTIONS = [
   'members',
   'ai',
   'kb',
+  'insurance',
 ] as const;
 
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
@@ -63,6 +64,7 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
   members: { id: 'members', label: 'Team members', icon: UsersRound, group: 'workspace' },
   ai: { id: 'ai', label: 'AI Assistant', icon: Brain, group: 'workspace' },
   kb: { id: 'kb', label: 'Knowledge Base', icon: Database, group: 'workspace' },
+  insurance: { id: 'insurance', label: 'Health Insurance', icon: Shield, group: 'workspace' },
 };
 
 export const RAIL_GROUPS: { label: string | null; group: SectionMeta['group'] }[] = [
