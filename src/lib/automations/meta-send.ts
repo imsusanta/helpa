@@ -52,6 +52,16 @@ interface SendTemplateArgs {
   params?: string[]
 }
 
+interface SendDocumentArgs {
+  accountId: string
+  userId: string
+  conversationId: string
+  contactId: string
+  documentUrl: string
+  filename?: string
+  caption?: string
+}
+
 export async function engineSendText(args: SendTextArgs): Promise<{ whatsapp_message_id: string }> {
   return sendViaMeta({ ...args, kind: 'text' })
 }
@@ -68,10 +78,17 @@ export async function engineSendButtons(
   return sendViaMeta({ ...args, kind: 'buttons' })
 }
 
+export async function engineSendDocument(
+  args: SendDocumentArgs,
+): Promise<{ whatsapp_message_id: string }> {
+  return sendViaMeta({ ...args, kind: 'document' })
+}
+
 type SendInput =
   | (SendTextArgs & { kind: 'text' })
   | (SendTemplateArgs & { kind: 'template' })
   | (SendButtonsArgs & { kind: 'buttons' })
+  | (SendDocumentArgs & { kind: 'document' })
 
 async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: string }> {
   const db = supabaseAdmin()
@@ -133,6 +150,19 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
       })
       return r.messageId
     }
+    if (input.kind === 'document') {
+      const { sendMediaMessage } = await import('@/lib/whatsapp/meta-api')
+      const r = await sendMediaMessage({
+        phoneNumberId: config.phone_number_id,
+        accessToken,
+        to: phone,
+        kind: 'document',
+        link: input.documentUrl,
+        filename: input.filename || 'document.pdf',
+        caption: input.caption || undefined,
+      })
+      return r.messageId
+    }
     const r = await sendTextMessage({
       phoneNumberId: config.phone_number_id,
       accessToken,
@@ -170,8 +200,23 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
   // Persist the sent message so it appears in the inbox with a real
   // Meta message id. sender_type='bot' distinguishes automation sends
   // from manual agent sends.
-  const content_type = input.kind === 'template' ? 'template' : (input.kind === 'buttons' ? 'interactive' : 'text')
-  const content_text = input.kind === 'text' ? input.text : (input.kind === 'buttons' ? input.bodyText : null)
+  const content_type = 
+    input.kind === 'template' 
+      ? 'template' 
+      : input.kind === 'buttons' 
+      ? 'interactive' 
+      : input.kind === 'document'
+      ? 'document'
+      : 'text'
+  const content_text = 
+    input.kind === 'text' 
+      ? input.text 
+      : input.kind === 'buttons' 
+      ? input.bodyText 
+      : input.kind === 'document'
+      ? input.caption || null
+      : null
+  const media_url = input.kind === 'document' ? input.documentUrl : null
   const template_name = input.kind === 'template' ? input.templateName : null
 
   const { error: msgErr } = await db.from('messages').insert({
@@ -179,6 +224,7 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
     sender_type: 'bot',
     content_type,
     content_text,
+    media_url,
     template_name,
     message_id: waMessageId,
     status: 'sent',
@@ -197,6 +243,8 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
           ? `[template:${input.templateName}]`
           : input.kind === 'buttons'
           ? input.bodyText
+          : input.kind === 'document'
+          ? `[Document: ${input.filename || 'PDF'}]`
           : input.text,
       last_message_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),

@@ -84,9 +84,9 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
     })
   }
 
-  // Unconditionally enable AI Hospital Receptionist features
   const isHospitalEnabled = true;
   let hospitalContext = "";
+  let labReports: any[] | null = null;
   if (isHospitalEnabled) {
     const { data: doctors } = await db
       .from('hospital_doctors')
@@ -99,19 +99,45 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
       .select('name, address, phone')
       .eq('account_id', accountId);
 
+    const { data: appts } = await db
+      .from('appointments')
+      .select('*, doctor:hospital_doctors(name)')
+      .eq('patient_id', contactId)
+      .order('appointment_date', { ascending: false })
+      .limit(3);
+
+    const { data: labReportsData } = await db
+      .from('hospital_lab_reports')
+      .select('test_name, status, expected_delivery_date, report_pdf_url, notes')
+      .eq('patient_id', contactId)
+      .order('created_at', { ascending: false });
+    labReports = labReportsData;
+
     if (doctors && doctors.length > 0) {
       hospitalContext += "Available Doctors & Clinic Schedules:\n";
       doctors.forEach((d: any) => {
         const days = Array.isArray(d.available_days) ? d.available_days.join(', ') : '';
         const start = d.working_hours?.start || '09:00';
         const end = d.working_hours?.end || '17:00';
-        hospitalContext += `- ${d.name} (${d.department} - ${d.specialization || 'General'}): Fee: $${d.consultation_fee / 100}, Working Days: ${days}, Working Hours: ${start} to ${end}\n`;
+        hospitalContext += `- Dr. ${d.name.replace(/^Dr\.\s+/i, '')} (${d.department} - ${d.specialization || 'General'}): Fee: $${d.consultation_fee / 100}, Working Days: ${days}, Working Hours: ${start} to ${end}\n`;
       });
     }
     if (branches && branches.length > 0) {
       hospitalContext += "\nClinic Branches Locations:\n";
       branches.forEach((b: any) => {
         hospitalContext += `- ${b.name}: ${b.address || ''} (Phone: ${b.phone || ''})\n`;
+      });
+    }
+    if (appts && appts.length > 0) {
+      hospitalContext += "\nPatient's Recent/Upcoming Appointments:\n";
+      appts.forEach((a: any) => {
+        hospitalContext += `- Date: ${a.appointment_date}, Time: ${a.appointment_time}, Doctor: ${a.doctor?.name || 'Unassigned'}, Status: ${a.status}, Token: #${a.token_number || 'N/A'}, Queue Pos: ${a.queue_position || 'N/A'}\n`;
+      });
+    }
+    if (labReports && labReports.length > 0) {
+      hospitalContext += "\nPatient's Lab Reports:\n";
+      labReports.forEach((r: any) => {
+        hospitalContext += `- Test: ${r.test_name}, Status: ${r.status}, Expected Delivery: ${r.expected_delivery_date || 'N/A'}, Notes: ${r.notes || 'None'}, PDF Available: ${r.report_pdf_url ? 'Yes' : 'No'}\n`;
       });
     }
   }
@@ -505,9 +531,11 @@ Note:
             if (newAppt) {
               const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://wacrmsusanta.vercel.app';
               const pdfUrl = `${siteUrl}/api/appointments/${newAppt.id}/pdf`;
+              const bookingIdStr = newAppt.booking_id || `APT-2026-${newAppt.id.slice(0, 5).toUpperCase()}`;
+
               reply = `✅ *APPOINTMENT CONFIRMED!*
 
-*Booking ID:* ${newAppt.booking_id || `APT-2026-${newAppt.id.slice(0, 5).toUpperCase()}`}
+*Booking ID:* ${bookingIdStr}
 *Token Number:* #${newAppt.token_number || 1}
 *Queue Position:* ${newAppt.queue_position || 1}
 *Doctor:* ${doctor_name || 'On-Duty'}
@@ -518,9 +546,44 @@ Download your digital ticket PDF:
 ${pdfUrl}
 
 Please arrive 15 minutes before your time slot. Thank you!`;
+
+              // Automatically send the PDF slip to the patient via WhatsApp
+              const { engineSendDocument } = require('@/lib/automations/meta-send');
+              engineSendDocument({
+                accountId,
+                userId,
+                conversationId,
+                contactId,
+                documentUrl: pdfUrl,
+                filename: `appointment-${bookingIdStr}.pdf`,
+                caption: `Digital Appointment Ticket for ${doctor_name || 'Clinic'}`
+              }).catch((e: any) => console.error('[AI Hospital] Failed to auto-send appointment PDF:', e));
             }
           } catch (apptErr) {
             console.error('[AI Hospital] Error booking appointment via AI:', apptErr);
+          }
+        }
+      }
+
+      // 4. Lab Report Automated Delivery
+      if (labReports && labReports.length > 0) {
+        const lowercaseMsg = (latestMessage?.content_text || '').toLowerCase();
+        const isReportQuery = lowercaseMsg.includes('report') || lowercaseMsg.includes('test') || lowercaseMsg.includes('blood') || lowercaseMsg.includes('result') || lowercaseMsg.includes('report status');
+
+        if (isReportQuery) {
+          const readyReport = labReports.find((r: any) => r.status === 'ready' && r.report_pdf_url);
+          if (readyReport) {
+            console.log('[AI Hospital] Auto-sending lab report PDF:', readyReport.test_name);
+            const { engineSendDocument } = require('@/lib/automations/meta-send');
+            engineSendDocument({
+              accountId,
+              userId,
+              conversationId,
+              contactId,
+              documentUrl: readyReport.report_pdf_url,
+              filename: `${readyReport.test_name.replace(/\s+/g, '_')}_Report.pdf`,
+              caption: `Here is your completed ${readyReport.test_name} report.`
+            }).catch((e: any) => console.error('[AI Hospital] Failed to auto-send lab report PDF:', e));
           }
         }
       }

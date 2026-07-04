@@ -49,6 +49,8 @@ export function ContactSidebar({ contact, conversation }: ContactSidebarProps) {
   const [doctors, setDoctors] = useState<any[]>([]);
   const [branches, setBranches] = useState<any[]>([]);
   const [loadingForm, setLoadingForm] = useState(false);
+  const [upcomingAppointment, setUpcomingAppointment] = useState<any | null>(null);
+  const [latestReport, setLatestReport] = useState<any | null>(null);
 
   const [bookingDocId, setBookingDocId] = useState("");
   const [bookingDate, setBookingDate] = useState("");
@@ -61,7 +63,7 @@ export function ContactSidebar({ contact, conversation }: ContactSidebarProps) {
     const supabase = createClient();
 
     // Fetch deals, notes, tags, and patient in parallel
-    const [dealsRes, notesRes, tagsRes, patientRes] = await Promise.all([
+    const [dealsRes, notesRes, tagsRes, patientRes, apptRes, reportRes] = await Promise.all([
       supabase
         .from("deals")
         .select("*, stage:pipeline_stages(*)")
@@ -76,18 +78,36 @@ export function ContactSidebar({ contact, conversation }: ContactSidebarProps) {
         .from("contact_tags")
         .select("id, tag_id, tags(*)")
         .eq("contact_id", contact.id),
-      enabledModules.includes("hospital_clinic")
-        ? supabase
-            .from("patients")
-            .select("*")
-            .eq("id", contact.id)
-            .maybeSingle()
-        : Promise.resolve({ data: null, error: null }),
+      supabase
+        .from("patients")
+        .select("*")
+        .eq("id", contact.id)
+        .maybeSingle(),
+      supabase
+        .from("appointments")
+        .select("*, doctor:hospital_doctors(name)")
+        .eq("patient_id", contact.id)
+        .gte("appointment_date", new Date().toISOString().split("T")[0])
+        .order("appointment_date", { ascending: true })
+        .order("appointment_time", { ascending: true })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("hospital_lab_reports")
+        .select("*")
+        .eq("patient_id", contact.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
     ]);
 
     if (dealsRes.data) setDeals(dealsRes.data);
     if (notesRes.data) setNotes(notesRes.data);
     if (patientRes.data) setPatient(patientRes.data);
+    if (apptRes.data) setUpcomingAppointment(apptRes.data);
+    else setUpcomingAppointment(null);
+    if (reportRes.data) setLatestReport(reportRes.data);
+    else setLatestReport(null);
     if (tagsRes.data) {
       const mapped = tagsRes.data
         .filter((ct: Record<string, unknown>) => ct.tags)
@@ -420,15 +440,76 @@ export function ContactSidebar({ contact, conversation }: ContactSidebarProps) {
                 </div>
 
                 {patient ? (
-                  <div className="grid grid-cols-2 gap-2 text-[10px] text-muted-foreground bg-background/50 p-2 rounded-lg border border-border/40">
-                    <div>
-                      <span className="block text-[8px] uppercase font-bold">Patient ID</span>
-                      <span className="text-foreground font-semibold">{patient.patient_seq_id}</span>
-                    </div>
-                    {patient.blood_group && (
+                  <div className="space-y-2.5">
+                    <div className="grid grid-cols-2 gap-2 text-[10px] text-muted-foreground bg-background/50 p-2 rounded-lg border border-border/40">
                       <div>
-                        <span className="block text-[8px] uppercase font-bold">Blood Group</span>
-                        <span className="text-foreground font-semibold">{patient.blood_group}</span>
+                        <span className="block text-[8px] uppercase font-bold">Patient ID</span>
+                        <span className="text-foreground font-semibold">{patient.patient_seq_id}</span>
+                      </div>
+                      {patient.blood_group && (
+                        <div>
+                          <span className="block text-[8px] uppercase font-bold">Blood Group</span>
+                          <span className="text-foreground font-semibold">{patient.blood_group}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Upcoming Appointment Info */}
+                    {upcomingAppointment ? (
+                      <div className="bg-primary/5 border border-primary/10 rounded-lg p-2 text-[10px] space-y-1">
+                        <span className="block text-[8px] uppercase font-bold text-primary">Upcoming Appointment</span>
+                        <p className="font-semibold text-foreground">
+                          {upcomingAppointment.doctor?.name || "General Consult"} ({upcomingAppointment.department})
+                        </p>
+                        <p className="text-muted-foreground">
+                          {format(new Date(upcomingAppointment.appointment_date), "MMM d, yyyy")} at {upcomingAppointment.appointment_time}
+                        </p>
+                        <div className="flex justify-between items-center mt-1">
+                          <span className="text-[9px] font-bold uppercase bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                            {upcomingAppointment.status}
+                          </span>
+                          <span className="font-semibold text-foreground text-[9px]">
+                            Token: #{upcomingAppointment.token_number}
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-muted/40 border border-border/30 rounded-lg p-2 text-[10px] text-muted-foreground text-center">
+                        No upcoming appointments scheduled.
+                      </div>
+                    )}
+
+                    {/* Latest Lab Report Info */}
+                    {latestReport ? (
+                      <div className="bg-purple-500/5 border border-purple-500/10 rounded-lg p-2 text-[10px] space-y-1">
+                        <span className="block text-[8px] uppercase font-bold text-purple-400">Latest Lab Report</span>
+                        <p className="font-semibold text-foreground">{latestReport.test_name}</p>
+                        <div className="flex justify-between items-center mt-1">
+                          <span className={cn(
+                            "text-[9px] font-bold uppercase px-1.5 py-0.5 rounded",
+                            latestReport.status === 'ready'
+                              ? "bg-emerald-500/10 text-emerald-500"
+                              : latestReport.status === 'processing'
+                              ? "bg-sky-500/10 text-sky-500"
+                              : "bg-amber-500/10 text-amber-500"
+                          )}>
+                            {latestReport.status}
+                          </span>
+                          {latestReport.report_pdf_url && (
+                            <a
+                              href={latestReport.report_pdf_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-primary hover:underline font-semibold text-[9px]"
+                            >
+                              Download PDF
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-muted/40 border border-border/30 rounded-lg p-2 text-[10px] text-muted-foreground text-center">
+                        No lab reports generated yet.
                       </div>
                     )}
                   </div>

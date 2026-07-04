@@ -2,27 +2,41 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Brain, Loader2, Sparkles, Key, Cpu } from "lucide-react";
+import { Brain, Loader2, Sparkles, Key, Cpu, AlertCircle, CheckCircle2, ChevronRight, Zap } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
-import { SettingsPanelHead } from "./settings-panel-head";
 
 const POPULAR_MODELS = [
-  { id: "google/gemini-2.5-flash", name: "Gemini 2.5 Flash (Google)" },
-  { id: "google/gemini-2.5-pro", name: "Gemini 2.5 Pro (Google)" },
-  { id: "meta-llama/llama-3-8b-instruct", name: "Llama 3 8B Instruct (Meta)" },
-  { id: "meta-llama/llama-3.3-70b-instruct", name: "Llama 3.3 70B Instruct (Meta)" },
-  { id: "anthropic/claude-3.5-sonnet", name: "Claude 3.5 Sonnet (Anthropic)" },
+  {
+    id: "google/gemini-2.5-flash",
+    name: "Gemini 2.5 Flash",
+    provider: "Google",
+    badge: "Recommended",
+    badgeColor: "bg-purple-500/10 text-purple-400 border-purple-500/20",
+    desc: "Lightning fast responses. Optimal choice for hospital receptionist tasks.",
+    stats: "Speed: Ultra-Fast • Cost: Lowest"
+  },
+  {
+    id: "anthropic/claude-3.5-sonnet",
+    name: "Claude 3.5 Sonnet",
+    provider: "Anthropic",
+    badge: "Max Quality",
+    badgeColor: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+    desc: "Industry-leading reasoning and clinical instruction-following.",
+    stats: "Speed: Fast • Cost: Premium"
+  },
+  {
+    id: "meta-llama/llama-3.3-70b-instruct",
+    name: "Llama 3.3 70B",
+    provider: "Meta",
+    badge: "Balanced",
+    badgeColor: "bg-sky-500/10 text-sky-400 border-sky-500/20",
+    desc: "Open-source intelligence with high reasoning capabilities.",
+    stats: "Speed: Fast • Cost: Low"
+  }
 ];
 
 export function AiPanel() {
@@ -149,201 +163,274 @@ export function AiPanel() {
 
   if (loading) {
     return (
-      <section className="max-w-2xl animate-in fade-in-50 duration-200">
-        <SettingsPanelHead
-          title="AI Assistant"
-          description="Configure your LLM model using OpenRouter for automatic AI responses."
-        />
-        <Card className="flex h-48 items-center justify-center">
-          <Loader2 className="size-6 animate-spin text-muted-foreground" />
-        </Card>
-      </section>
+      <div className="flex h-64 items-center justify-center">
+        <Loader2 className="size-8 animate-spin text-purple-500" />
+      </div>
     );
   }
 
   return (
-    <section className="max-w-2xl animate-in fade-in-50 duration-200">
-      <SettingsPanelHead
-        title="AI Assistant"
-        description="Connect your workspace to LLMs via OpenRouter. You can turn this on for specific customer conversations in the inbox to enable automatic AI support."
-      />
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-foreground">
-            <Brain className="size-4 text-purple-400" />
-            OpenRouter Configuration
-          </CardTitle>
-          <CardDescription className="text-muted-foreground">
-            To use the AI Assistant, get an API key from{" "}
-            <a
-              href="https://openrouter.ai"
-              target="_blank"
-              rel="noreferrer"
-              className="text-primary hover:underline"
-            >
+    <section className="space-y-8 animate-in fade-in duration-300">
+      
+      {/* Premium Header */}
+      <div className="flex items-start gap-4 p-6 bg-gradient-to-r from-purple-950/20 via-background to-background border border-purple-500/10 rounded-2xl backdrop-blur-xl">
+        <div className="p-3 bg-purple-500/10 border border-purple-500/20 rounded-xl">
+          <Brain className="h-8 w-8 text-purple-400 animate-pulse drop-shadow-[0_0_8px_rgba(168,85,247,0.5)]" />
+        </div>
+        <div>
+          <h2 className="text-xl font-extrabold text-foreground flex items-center gap-2">
+            AI Receptionist Autopilot
+            <span className="text-[10px] font-bold tracking-widest uppercase bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full border border-purple-500/30">
+              Active
+            </span>
+          </h2>
+          <p className="text-xs text-muted-foreground mt-1 max-w-xl leading-relaxed">
+            Configure the neural engine that answers patient queries 24/7, schedules consultations, and dispatches diagnostic report PDFs.
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-6">
+        
+        {/* Step 1: OpenRouter Credentials */}
+        <div className="bg-card/30 border border-border/80 rounded-2xl p-6 space-y-4 hover:border-purple-500/20 transition-all duration-300 shadow-md">
+          <div className="flex items-center gap-2">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-purple-500/10 text-xs font-bold text-purple-400 border border-purple-500/20">
+              1
+            </span>
+            <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5">
+              <Key className="size-4 text-purple-400" />
+              OpenRouter Access Credentials
+            </h3>
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed max-w-lg">
+            Create an API key from{" "}
+            <a href="https://openrouter.ai" target="_blank" rel="noreferrer" className="text-primary hover:underline font-semibold">
               openrouter.ai
-            </a>
-            . Any model listed on OpenRouter can be used.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* API Key */}
-          <div className="grid gap-2">
-            <Label htmlFor="apiKey" className="text-sm font-medium text-foreground flex items-center gap-1.5">
-              <Key className="size-3.5 text-muted-foreground" />
-              OpenRouter API Key
-            </Label>
-            <Input
-              id="apiKey"
-              type="password"
-              placeholder={hasApiKey ? "••••••••••••••••••••••••••••••••" : "sk-or-v1-..."}
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              disabled={!canEditSettings}
-              className="max-w-md bg-muted text-foreground border-border placeholder:text-muted-foreground"
-            />
+            </a>{" "}
+            to allow the system to call LLMs.
+          </p>
+          <div className="space-y-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="apiKey" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                API Key
+              </Label>
+              <Input
+                id="apiKey"
+                type="password"
+                placeholder={hasApiKey ? "••••••••••••••••••••••••••••••••" : "sk-or-v1-..."}
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                disabled={!canEditSettings}
+                className="max-w-md bg-muted/50 border-border focus-visible:ring-purple-500 text-foreground"
+              />
+            </div>
             {hasApiKey && (
-              <p className="text-xs text-green-400 flex items-center gap-1">
-                ✓ OpenRouter API Key is configured and encrypted.
-              </p>
+              <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-semibold bg-emerald-500/5 border border-emerald-500/10 rounded-lg p-2 max-w-md">
+                <CheckCircle2 className="size-3.5" />
+                OpenRouter Key is configured & securely encrypted in DB.
+              </div>
             )}
           </div>
+        </div>
 
-          {/* Model Selection */}
-          <div className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="model" className="text-sm font-medium text-foreground flex items-center gap-1.5">
-                <Cpu className="size-3.5 text-muted-foreground" />
-                Select LLM Model
-              </Label>
-              <select
-                id="model"
-                value={isCustomModel ? "custom" : model}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === "custom") {
-                    setIsCustomModel(true);
-                  } else {
-                    setIsCustomModel(false);
-                    setModel(val);
-                  }
-                }}
-                disabled={!canEditSettings}
-                className="h-9 w-full max-w-md rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {POPULAR_MODELS.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-                <option value="custom">Use custom model ID...</option>
-              </select>
-            </div>
+        {/* Step 2: Choose Model Engine */}
+        <div className="bg-card/30 border border-border/80 rounded-2xl p-6 space-y-4 hover:border-purple-500/20 transition-all duration-300 shadow-md">
+          <div className="flex items-center gap-2">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-purple-500/10 text-xs font-bold text-purple-400 border border-purple-500/20">
+              2
+            </span>
+            <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5">
+              <Cpu className="size-4 text-purple-400" />
+              Model Select (Brain Power)
+            </h3>
+          </div>
+          
+          {/* Card list selector */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {POPULAR_MODELS.map((m) => {
+              const isSelected = !isCustomModel && model === m.id;
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => {
+                    if (canEditSettings) {
+                      setIsCustomModel(false);
+                      setModel(m.id);
+                    }
+                  }}
+                  className={`text-left p-4 rounded-xl border transition-all duration-200 cursor-pointer flex flex-col justify-between h-36 ${
+                    isSelected
+                      ? "bg-purple-500/5 border-purple-500/40 ring-1 ring-purple-500/40"
+                      : "bg-muted/30 border-border hover:border-border/100 hover:bg-muted/50"
+                  }`}
+                >
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-start">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        {m.provider}
+                      </span>
+                      <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider ${m.badgeColor}`}>
+                        {m.badge}
+                      </span>
+                    </div>
+                    <p className="text-xs font-bold text-foreground">{m.name}</p>
+                    <p className="text-[10px] text-muted-foreground leading-normal line-clamp-2">
+                      {m.desc}
+                    </p>
+                  </div>
+                  <div className="text-[9px] font-bold text-purple-400 flex items-center gap-1">
+                    <Zap className="h-3 w-3 shrink-0" />
+                    {m.stats}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
 
-            {/* Custom Model Input */}
+          {/* Toggle Custom Model */}
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (canEditSettings) {
+                  setIsCustomModel(!isCustomModel);
+                  if (!isCustomModel) setModel("custom");
+                  else setModel(POPULAR_MODELS[0].id);
+                }
+              }}
+              className="inline-flex items-center gap-1.5 text-xs text-purple-400 hover:text-purple-300 font-bold"
+            >
+              Custom Model ID
+              <ChevronRight className={`h-3 w-3 transform transition-transform duration-200 ${isCustomModel ? "rotate-90" : ""}`} />
+            </button>
+
             {isCustomModel && (
-              <div className="grid gap-2 pl-4 border-l-2 border-purple-500/50">
-                <Label htmlFor="customModelId" className="text-xs text-muted-foreground">
-                  Custom Model ID (as specified on OpenRouter)
+              <div className="mt-3 pl-4 border-l-2 border-purple-500/30 space-y-2 animate-in slide-in-from-left-2 duration-200">
+                <Label htmlFor="customModelId" className="text-xs text-muted-foreground font-bold">
+                  OpenRouter Model Identifier
                 </Label>
                 <Input
                   id="customModelId"
-                  placeholder="e.g. deepseek/deepseek-chat"
+                  placeholder="e.g. deepseek/deepseek-chat or anthropic/claude-3-haiku"
                   value={customModelId}
                   onChange={(e) => setCustomModelId(e.target.value)}
                   disabled={!canEditSettings}
-                  className="max-w-md bg-muted text-foreground border-border"
+                  className="max-w-md bg-muted/50 border-border focus-visible:ring-purple-500 text-foreground"
                 />
               </div>
             )}
           </div>
+        </div>
 
-          {/* System Instructions / Prompt */}
-          <div className="grid gap-2">
-            <Label htmlFor="systemPrompt" className="text-sm font-medium text-foreground flex items-center gap-1.5">
-              <Brain className="size-3.5 text-muted-foreground" />
-              AI System Prompt & Knowledge Base
-            </Label>
-            <Textarea
-              id="systemPrompt"
-              placeholder="Enter instructions, FAQ answers, context, rules, and business details for the AI..."
-              value={systemPrompt}
-              onChange={(e) => setSystemPrompt(e.target.value)}
-              disabled={!canEditSettings}
-              rows={8}
-              className="max-w-md bg-muted text-foreground border-border placeholder:text-muted-foreground resize-y min-h-[120px] text-xs font-normal"
-            />
-            <p className="text-[11px] text-muted-foreground max-w-md">
-              Define the guidelines, context, rules, and business knowledge for the AI. The LLM will use this as its system prompt.
-            </p>
+        {/* Step 3: AI System prompt guidelines */}
+        <div className="bg-card/30 border border-border/80 rounded-2xl p-6 space-y-4 hover:border-purple-500/20 transition-all duration-300 shadow-md">
+          <div className="flex items-center gap-2">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-purple-500/10 text-xs font-bold text-purple-400 border border-purple-500/20">
+              3
+            </span>
+            <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5">
+              <Brain className="size-4 text-purple-400" />
+              AI System Instructions & Guidelines
+            </h3>
           </div>
-
-          {/* Helper Text */}
-          <div className="rounded-lg border border-purple-500/20 bg-purple-950/20 p-3 text-xs text-purple-200/90 flex items-start gap-2.5 max-w-md">
-            <Sparkles className="size-4 text-purple-400 mt-0.5 flex-shrink-0" />
-            <div>
-              <span className="font-semibold text-purple-300">How to use:</span> Once configured here, navigate to any conversation in the inbox. You will see an <span className="font-semibold text-purple-300">AI ON/OFF</span> toggle in the header. Toggle it to **ON** to delegate replies to this model automatically.
+          <div className="space-y-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="systemPrompt" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                System Prompt Rules
+              </Label>
+              <Textarea
+                id="systemPrompt"
+                placeholder="You are an AI receptionist for City Hospital. Greet patients, schedule consultations, answer FAQs. NEVER diagnose diseases or recommend prescription medicines..."
+                value={systemPrompt}
+                onChange={(e) => setSystemPrompt(e.target.value)}
+                disabled={!canEditSettings}
+                rows={9}
+                className="max-w-xl bg-muted/50 border-border focus-visible:ring-purple-500 text-foreground font-normal leading-relaxed text-xs resize-y"
+              />
+            </div>
+            <div className="rounded-xl border border-purple-500/10 bg-purple-950/5 p-4 text-[11px] text-purple-200/90 space-y-2 max-w-xl">
+              <p className="font-semibold text-purple-300 flex items-center gap-1">
+                <Sparkles className="size-3.5 text-purple-400" />
+                AI Receptionist Guidelines Recommendation:
+              </p>
+              <ul className="list-disc pl-4 space-y-1 text-[10px] text-muted-foreground">
+                <li>Instruct the AI to check Doctor availabilities before suggesting bookings.</li>
+                <li>Make it identify patients by their Phone Number or Patient ID when checking Lab Reports.</li>
+                <li>Ensure strict medical guidelines: AI must politely decline giving diagnostics or recommending drugs.</li>
+              </ul>
             </div>
           </div>
+        </div>
 
-          {/* Action Buttons */}
-          {canEditSettings ? (
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-wrap items-center gap-3">
-                <Button
-                  onClick={handleSave}
-                  disabled={saving || testingConnection}
-                  className="bg-primary text-primary-foreground hover:bg-primary/90"
-                >
-                  {saving ? (
-                    <>
-                      <Loader2 className="size-4 animate-spin mr-1.5" />
-                      Saving...
-                    </>
-                  ) : (
-                    "Save Configuration"
-                  )}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleTestConnection}
-                  disabled={saving || testingConnection}
-                  className="border-border text-foreground hover:bg-muted"
-                >
-                  {testingConnection ? (
-                    <>
-                      <Loader2 className="size-4 animate-spin mr-1.5" />
-                      Testing Connection...
-                    </>
-                  ) : (
-                    "Test Connection"
-                  )}
-                </Button>
-              </div>
+        {/* Action Controls */}
+        {canEditSettings ? (
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                onClick={handleSave}
+                disabled={saving || testingConnection}
+                className="bg-purple-600 hover:bg-purple-500 text-white font-bold cursor-pointer transition-all duration-200 shadow-md shadow-purple-600/10"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin mr-1.5" />
+                    Saving Changes...
+                  </>
+                ) : (
+                  "Save Autopilot Config"
+                )}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleTestConnection}
+                disabled={saving || testingConnection}
+                className="border-border text-foreground hover:bg-muted font-bold cursor-pointer"
+              >
+                {testingConnection ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin mr-1.5" />
+                    Testing API Link...
+                  </>
+                ) : (
+                  "Test Connection"
+                )}
+              </Button>
+            </div>
 
-              {testResult && (
-                <div
-                  className={`max-w-md rounded-lg p-3 text-xs animate-in fade-in slide-in-from-top-1 duration-200 ${
-                    testResult.success
-                      ? "border border-green-500/20 bg-green-950/20 text-green-200"
-                      : "border border-red-500/20 bg-red-950/20 text-red-200"
-                  }`}
-                >
-                  <p className="font-semibold mb-1 flex items-center gap-1.5">
-                    {testResult.success ? "✓ Connection Successful" : "✗ Connection Failed"}
-                  </p>
-                  <p className="opacity-95 whitespace-pre-wrap leading-relaxed">{testResult.message}</p>
+            {testResult && (
+              <div
+                className={`max-w-xl rounded-xl p-4 text-xs animate-in fade-in slide-in-from-top-1 duration-200 ${
+                  testResult.success
+                    ? "border border-green-500/20 bg-green-950/20 text-green-200"
+                    : "border border-red-500/20 bg-red-950/20 text-red-200"
+                }`}
+              >
+                <div className="flex items-start gap-2.5">
+                  {testResult.success ? (
+                    <CheckCircle2 className="size-4 text-green-400 shrink-0 mt-0.5" />
+                  ) : (
+                    <AlertCircle className="size-4 text-red-400 shrink-0 mt-0.5" />
+                  )}
+                  <div>
+                    <p className="font-bold mb-1">
+                      {testResult.success ? "Connection Check Successful" : "Connection Check Failed"}
+                    </p>
+                    <p className="opacity-90 leading-relaxed whitespace-pre-wrap">{testResult.message}</p>
+                  </div>
                 </div>
-              )}
-            </div>
-          ) : (
-            <p className="text-xs text-muted-foreground">
-              Only workspace administrators can manage AI settings.
-            </p>
-          )}
-        </CardContent>
-      </Card>
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground italic">
+            You do not have write access to edit AI settings.
+          </p>
+        )}
+
+      </div>
     </section>
   );
 }

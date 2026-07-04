@@ -17,6 +17,9 @@ import {
   Plus,
   ArrowRight,
   TrendingUp,
+  FileText,
+  CheckCheck,
+  FileUp,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -60,6 +63,9 @@ export default function ClinicalDashboardPage() {
     doctorsAvailable: 0,
     aiResolutionRate: 95,
     missedConversations: 0,
+    reportsPending: 0,
+    reportsReadyToday: 0,
+    reportsDeliveredToday: 0,
   });
 
   const [recentAppointments, setRecentAppointments] = useState<AppointmentRow[]>([]);
@@ -84,6 +90,9 @@ export default function ClinicalDashboardPage() {
         docsActive,
         handoffConvs,
         recentAppts,
+        reportsPending,
+        reportsReady,
+        reportsDelivered,
       ] = await Promise.all([
         db.from("conversations").select("id", { count: "exact", head: true }).gte("created_at", todayStart.toISOString()),
         db.from("messages").select("id", { count: "exact", head: true }).eq("sender_type", "bot").gte("created_at", todayStart.toISOString()),
@@ -98,6 +107,9 @@ export default function ClinicalDashboardPage() {
           .eq("appointment_date", todayStr)
           .order("appointment_time", { ascending: true })
           .limit(5),
+        db.from("hospital_lab_reports").select("id", { count: "exact", head: true }).in("status", ["pending", "processing"]),
+        db.from("hospital_lab_reports").select("id", { count: "exact", head: true }).eq("status", "ready").gte("updated_at", todayStart.toISOString()),
+        db.from("hospital_lab_reports").select("id", { count: "exact", head: true }).eq("status", "delivered").gte("updated_at", todayStart.toISOString()),
       ]);
 
       const totalConvs = convsToday.count || 0;
@@ -122,6 +134,9 @@ export default function ClinicalDashboardPage() {
         doctorsAvailable: docsActive.count || 0,
         aiResolutionRate: resolutionRate,
         missedConversations: missed,
+        reportsPending: reportsPending.count || 0,
+        reportsReadyToday: reportsReady.count || 0,
+        reportsDeliveredToday: reportsDelivered.count || 0,
       });
 
       setRecentAppointments((recentAppts.data as any) || []);
@@ -240,6 +255,24 @@ export default function ClinicalDashboardPage() {
           value={String(stats.missedConversations)}
           icon={Clock}
           subtitle="Chats awaiting human takeover"
+        />
+        <MetricCard
+          title="Reports Pending"
+          value={String(stats.reportsPending)}
+          icon={FileText}
+          subtitle="Lab reports pending or processing"
+        />
+        <MetricCard
+          title="Reports Ready Today"
+          value={String(stats.reportsReadyToday)}
+          icon={CheckCheck}
+          subtitle="Reports ready for patient pickup"
+        />
+        <MetricCard
+          title="Reports Delivered Today"
+          value={String(stats.reportsDeliveredToday)}
+          icon={FileUp}
+          subtitle="Reports dispatched/collected today"
         />
       </div>
 

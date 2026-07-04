@@ -21,6 +21,10 @@ import {
   MessageSquare,
   Brain,
   UserCheck,
+  FileDown,
+  Edit,
+  Activity,
+  FileUp,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -51,6 +55,9 @@ interface Appointment {
   appointment_date: string;
   appointment_time: string;
   status: string;
+  token_number?: number;
+  queue_position?: number;
+  booking_id?: string;
   doctor: { name: string } | null;
 }
 
@@ -66,6 +73,24 @@ export default function PatientsPage() {
   const [timeline, setTimeline] = useState<Message[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loadingDetails, setLoadingDetails] = useState(false);
+
+  // Lab reports state
+  const [labReports, setLabReports] = useState<any[]>([]);
+  const [showAddReportForm, setShowAddReportForm] = useState(false);
+  const [reportTestName, setReportTestName] = useState("");
+  const [reportStatus, setReportStatus] = useState("pending");
+  const [reportDeliveryDate, setReportDeliveryDate] = useState("");
+  const [reportPdfUrl, setReportPdfUrl] = useState("");
+  const [reportNotes, setReportNotes] = useState("");
+  const [addingReport, setAddingReport] = useState(false);
+
+  const [editingReportId, setEditingReportId] = useState<string | null>(null);
+  const [editTestName, setEditTestName] = useState("");
+  const [editStatus, setEditStatus] = useState("");
+  const [editDeliveryDate, setEditDeliveryDate] = useState("");
+  const [editPdfUrl, setEditPdfUrl] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+  const [savingReport, setSavingReport] = useState(false);
 
   // Form states
   const [showAddForm, setShowAddForm] = useState(false);
@@ -109,13 +134,21 @@ export default function PatientsPage() {
       // 1. Fetch appointments
       const { data: appts } = await db
         .from("appointments")
-        .select("id, appointment_date, appointment_time, status, doctor:hospital_doctors(name)")
+        .select("id, appointment_date, appointment_time, status, token_number, queue_position, booking_id, doctor:hospital_doctors(name)")
         .eq("patient_id", patient.id)
         .order("appointment_date", { ascending: false });
 
       setAppointments((appts as any) || []);
 
-      // 2. Fetch recent conversation messages
+      // 2. Fetch lab reports
+      const { data: reports } = await db
+        .from("hospital_lab_reports")
+        .select("*")
+        .eq("patient_id", patient.id)
+        .order("created_at", { ascending: false });
+      setLabReports(reports || []);
+
+      // 3. Fetch recent conversation messages
       const { data: convs } = await db
         .from("conversations")
         .select("id")
@@ -138,6 +171,100 @@ export default function PatientsPage() {
     } finally {
       setLoadingDetails(false);
     }
+  };
+
+  const handleUpdateAppointmentStatus = async (apptId: string, status: string) => {
+    const db = createClient();
+    const { error } = await db
+      .from("appointments")
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq("id", apptId);
+
+    if (error) {
+      toast.error("Failed to update appointment status: " + error.message);
+    } else {
+      toast.success("Appointment status updated successfully!");
+      if (selectedPatient) {
+        const { data: appts } = await db
+          .from("appointments")
+          .select("id, appointment_date, appointment_time, status, token_number, queue_position, booking_id, doctor:hospital_doctors(name)")
+          .eq("patient_id", selectedPatient.id)
+          .order("appointment_date", { ascending: false });
+        setAppointments((appts as any) || []);
+      }
+    }
+  };
+
+  const handleCreateReport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedPatient || !reportTestName) return;
+    setAddingReport(true);
+    const db = createClient();
+    try {
+      const { error } = await db
+        .from("hospital_lab_reports")
+        .insert({
+          account_id: accountId,
+          patient_id: selectedPatient.id,
+          test_name: reportTestName,
+          status: reportStatus,
+          expected_delivery_date: reportDeliveryDate || null,
+          report_pdf_url: reportPdfUrl || null,
+          notes: reportNotes || null,
+        });
+
+      if (error) throw error;
+      toast.success("Lab report created successfully!");
+      setReportTestName("");
+      setReportStatus("pending");
+      setReportDeliveryDate("");
+      setReportPdfUrl("");
+      setReportNotes("");
+      setShowAddReportForm(false);
+      loadPatientDetails(selectedPatient);
+    } catch (err: any) {
+      toast.error("Failed to create report: " + err.message);
+    } finally {
+      setAddingReport(false);
+    }
+  };
+
+  const handleUpdateReport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingReportId) return;
+    setSavingReport(true);
+    const db = createClient();
+    try {
+      const { error } = await db
+        .from("hospital_lab_reports")
+        .update({
+          test_name: editTestName,
+          status: editStatus,
+          expected_delivery_date: editDeliveryDate || null,
+          report_pdf_url: editPdfUrl || null,
+          notes: editNotes || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", editingReportId);
+
+      if (error) throw error;
+      toast.success("Lab report updated successfully!");
+      setEditingReportId(null);
+      if (selectedPatient) loadPatientDetails(selectedPatient);
+    } catch (err: any) {
+      toast.error("Failed to update report: " + err.message);
+    } finally {
+      setSavingReport(false);
+    }
+  };
+
+  const startEditReport = (report: any) => {
+    setEditingReportId(report.id);
+    setEditTestName(report.test_name);
+    setEditStatus(report.status);
+    setEditDeliveryDate(report.expected_delivery_date || "");
+    setEditPdfUrl(report.report_pdf_url || "");
+    setEditNotes(report.notes || "");
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -446,18 +573,263 @@ export default function PatientsPage() {
                 ) : (
                   <div className="space-y-2">
                     {appointments.map((appt) => (
-                      <div key={appt.id} className="border border-border rounded p-2 text-xs flex justify-between items-center bg-muted/20">
-                        <div>
-                          <p className="font-semibold text-foreground">
-                            {appt.doctor?.name || "General consult"}
-                          </p>
-                          <p className="text-muted-foreground mt-0.5">
-                            {new Date(appt.appointment_date).toLocaleDateString()} at {appt.appointment_time}
-                          </p>
+                      <div key={appt.id} className="border border-border rounded-lg p-2.5 text-xs bg-muted/20 space-y-2">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-bold text-foreground">
+                              {appt.doctor?.name || "General consult"}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {new Date(appt.appointment_date).toLocaleDateString()} at {appt.appointment_time}
+                            </p>
+                          </div>
+                          <select
+                            value={appt.status}
+                            onChange={(e) => handleUpdateAppointmentStatus(appt.id, e.target.value)}
+                            className="text-[9px] font-extrabold uppercase bg-background border border-border rounded px-1 py-0.5 text-foreground cursor-pointer focus:outline-none"
+                          >
+                            <option value="pending">Pending</option>
+                            <option value="confirmed">Confirmed</option>
+                            <option value="checked_in">Checked In</option>
+                            <option value="waiting">Waiting</option>
+                            <option value="completed">Completed</option>
+                            <option value="cancelled">Cancelled</option>
+                          </select>
                         </div>
-                        <span className="text-[9px] font-bold uppercase bg-emerald-500/10 text-emerald-500 px-1.5 py-0.5 rounded">
-                          {appt.status}
-                        </span>
+                        <div className="grid grid-cols-3 gap-1 text-[9px] text-muted-foreground bg-background/40 p-1.5 rounded">
+                          <div>
+                            <span className="block font-bold">Booking ID</span>
+                            <span className="text-foreground font-semibold uppercase">{appt.booking_id || `APT-${appt.id.slice(0, 5)}`}</span>
+                          </div>
+                          <div>
+                            <span className="block font-bold">Token</span>
+                            <span className="text-foreground font-semibold">#{appt.token_number || 1}</span>
+                          </div>
+                          <div>
+                            <span className="block font-bold">Queue Pos</span>
+                            <span className="text-foreground font-semibold">{appt.queue_position || 1}</span>
+                          </div>
+                        </div>
+                        <div className="flex justify-end pt-1">
+                          <a
+                            href={`/api/appointments/${appt.id}/pdf`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline font-bold"
+                          >
+                            <FileDown className="h-3 w-3" /> Download Slip PDF
+                          </a>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Lab Reports Module */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between border-b border-border pb-1">
+                  <h4 className="font-bold text-foreground">Lab Reports</h4>
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    className="h-6 text-[10px] text-primary font-bold hover:text-primary/80"
+                    onClick={() => setShowAddReportForm(!showAddReportForm)}
+                  >
+                    <Plus className="h-3 w-3 mr-1" /> Add Report
+                  </Button>
+                </div>
+
+                {showAddReportForm && (
+                  <form onSubmit={handleCreateReport} className="border border-border/80 rounded-lg p-3 space-y-2.5 bg-muted/10">
+                    <p className="text-[10px] font-bold uppercase text-muted-foreground">New Report</p>
+                    <div className="space-y-1">
+                      <Label htmlFor="rep-name" className="text-[10px]">Test Name *</Label>
+                      <Input
+                        id="rep-name"
+                        value={reportTestName}
+                        onChange={(e) => setReportTestName(e.target.value)}
+                        placeholder="e.g. Complete Blood Count"
+                        className="h-7 text-xs px-2"
+                        required
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label htmlFor="rep-status" className="text-[10px]">Status</Label>
+                        <select
+                          id="rep-status"
+                          value={reportStatus}
+                          onChange={(e) => setReportStatus(e.target.value)}
+                          className="w-full text-xs h-7 border border-input rounded-md px-1.5 bg-background"
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="processing">Processing</option>
+                          <option value="ready">Ready</option>
+                          <option value="delivered">Delivered</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="rep-date" className="text-[10px]">Expected Date</Label>
+                        <Input
+                          id="rep-date"
+                          type="date"
+                          value={reportDeliveryDate}
+                          onChange={(e) => setReportDeliveryDate(e.target.value)}
+                          className="h-7 text-xs px-2"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="rep-pdf" className="text-[10px]">Report PDF URL (optional)</Label>
+                      <Input
+                        id="rep-pdf"
+                        value={reportPdfUrl}
+                        onChange={(e) => setReportPdfUrl(e.target.value)}
+                        placeholder="https://example.com/report.pdf"
+                        className="h-7 text-xs px-2"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="rep-notes" className="text-[10px]">Internal Notes</Label>
+                      <Input
+                        id="rep-notes"
+                        value={reportNotes}
+                        onChange={(e) => setReportNotes(e.target.value)}
+                        placeholder="Additional observations..."
+                        className="h-7 text-xs px-2"
+                      />
+                    </div>
+                    <div className="flex gap-2 justify-end pt-1">
+                      <Button type="button" size="xs" variant="outline" onClick={() => setShowAddReportForm(false)}>Cancel</Button>
+                      <Button type="submit" size="xs" disabled={addingReport}>
+                        {addingReport ? "Creating..." : "Save Report"}
+                      </Button>
+                    </div>
+                  </form>
+                )}
+
+                {/* Edit Report Form */}
+                {editingReportId && (
+                  <form onSubmit={handleUpdateReport} className="border border-primary/20 rounded-lg p-3 space-y-2.5 bg-primary/5">
+                    <p className="text-[10px] font-bold uppercase text-primary">Edit Report Details</p>
+                    <div className="space-y-1">
+                      <Label htmlFor="edit-rep-name" className="text-[10px]">Test Name *</Label>
+                      <Input
+                        id="edit-rep-name"
+                        value={editTestName}
+                        onChange={(e) => setEditTestName(e.target.value)}
+                        className="h-7 text-xs px-2"
+                        required
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label htmlFor="edit-rep-status" className="text-[10px]">Status</Label>
+                        <select
+                          id="edit-rep-status"
+                          value={editStatus}
+                          onChange={(e) => setEditStatus(e.target.value)}
+                          className="w-full text-xs h-7 border border-input rounded-md px-1.5 bg-background"
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="processing">Processing</option>
+                          <option value="ready">Ready</option>
+                          <option value="delivered">Delivered</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="edit-rep-date" className="text-[10px]">Expected Date</Label>
+                        <Input
+                          id="edit-rep-date"
+                          type="date"
+                          value={editDeliveryDate}
+                          onChange={(e) => setEditDeliveryDate(e.target.value)}
+                          className="h-7 text-xs px-2"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="edit-rep-pdf" className="text-[10px]">Report PDF URL</Label>
+                      <Input
+                        id="edit-rep-pdf"
+                        value={editPdfUrl}
+                        onChange={(e) => setEditPdfUrl(e.target.value)}
+                        className="h-7 text-xs px-2"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="edit-rep-notes" className="text-[10px]">Internal Notes</Label>
+                      <Input
+                        id="edit-rep-notes"
+                        value={editNotes}
+                        onChange={(e) => setEditNotes(e.target.value)}
+                        className="h-7 text-xs px-2"
+                      />
+                    </div>
+                    <div className="flex gap-2 justify-end pt-1">
+                      <Button type="button" size="xs" variant="outline" onClick={() => setEditingReportId(null)}>Cancel</Button>
+                      <Button type="submit" size="xs" disabled={savingReport}>
+                        {savingReport ? "Saving..." : "Update Report"}
+                      </Button>
+                    </div>
+                  </form>
+                )}
+
+                {loadingDetails ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                ) : labReports.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No reports generated for this patient.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {labReports.map((rep) => (
+                      <div key={rep.id} className="border border-border rounded-lg p-2.5 text-xs bg-muted/20 space-y-1.5">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-bold text-foreground">{rep.test_name}</p>
+                            {rep.expected_delivery_date && (
+                              <p className="text-[9px] text-muted-foreground">
+                                Expected: {new Date(rep.expected_delivery_date).toLocaleDateString()}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded ${
+                              rep.status === 'ready'
+                                ? "bg-emerald-500/10 text-emerald-500"
+                                : rep.status === 'processing'
+                                ? "bg-sky-500/10 text-sky-500"
+                                : rep.status === 'delivered'
+                                ? "bg-slate-500/10 text-slate-400"
+                                : "bg-amber-500/10 text-amber-500"
+                            }`}>
+                              {rep.status}
+                            </span>
+                            <button
+                              onClick={() => startEditReport(rep)}
+                              className="text-muted-foreground hover:text-foreground shrink-0"
+                            >
+                              <Edit className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                        {rep.notes && (
+                          <p className="text-[10px] text-muted-foreground bg-background/30 p-1.5 rounded border border-border/20 leading-relaxed italic">
+                            "{rep.notes}"
+                          </p>
+                        )}
+                        {rep.report_pdf_url && (
+                          <div className="flex justify-end pt-0.5">
+                            <a
+                              href={rep.report_pdf_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline font-bold"
+                            >
+                              <FileUp className="h-3 w-3" /> View Report PDF
+                            </a>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
