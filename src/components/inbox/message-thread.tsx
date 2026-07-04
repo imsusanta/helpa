@@ -25,7 +25,7 @@ import {
   PanelRightClose,
   Sparkles,
 } from "lucide-react";
-import { format, isToday, isYesterday, differenceInHours } from "date-fns";
+import { format, isToday, isYesterday } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
@@ -34,12 +34,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageBubble } from "./message-bubble";
 import { MessageActions } from "./message-actions";
 import {
   MessageComposer,
   CHAT_MEDIA_BUCKET,
+  type InsertedComposerReply,
   type SendMediaPayload,
 } from "./message-composer";
 import { deleteAccountMedia } from "@/lib/storage/upload-media";
@@ -108,6 +108,7 @@ interface MessageThreadProps {
    */
   contactPanelOpen?: boolean;
   onToggleContactPanel?: () => void;
+  insertedReply?: InsertedComposerReply | null;
 }
 
 function formatDateSeparator(dateStr: string): string {
@@ -167,6 +168,7 @@ export function MessageThread({
   onRefresh,
   contactPanelOpen,
   onToggleContactPanel,
+  insertedReply,
 }: MessageThreadProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -1089,6 +1091,7 @@ export function MessageThread({
         onOpenTemplates={handleOpenTemplates}
         replyTo={replyTo}
         onClearReply={() => setReplyTo(null)}
+        insertedReply={insertedReply}
       />
 
       <TemplatePicker

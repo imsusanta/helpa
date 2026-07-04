@@ -612,7 +612,6 @@ function buildSuggestedReply(
   primaryIntent: string,
   upcoming: CopilotAppointment | null,
   latestReport: CopilotReport | null,
-  insurance: CopilotInsuranceInfo,
 ): string {
   const greetingName = patientName === UNKNOWN ? "" : ` ${patientName}`;
   if (primaryIntent === "Emergency Inquiry") {
@@ -714,7 +713,11 @@ function buildTimeline(context: CopilotSourceContext): CopilotTimelineItem[] {
     .filter((item) => item.date !== NOT_AVAILABLE)
     .sort((a, b) => a.rawDate - b.rawDate)
     .slice(-8)
-    .map(({ rawDate: _rawDate, ...item }) => item);
+    .map((item) => ({
+      date: item.date,
+      title: item.title,
+      detail: item.detail,
+    }));
 }
 
 export function buildFallbackCopilotSnapshot(
@@ -863,7 +866,6 @@ export function buildFallbackCopilotSnapshot(
       intent.label,
       upcoming,
       latestReport,
-      insuranceInfo,
     ),
     suggestedActions: buildSuggestedActions(
       intent.label,

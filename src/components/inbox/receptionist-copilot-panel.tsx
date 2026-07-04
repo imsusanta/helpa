@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   Brain,
@@ -28,8 +28,8 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useCan } from "@/hooks/use-can";
 import { cn } from "@/lib/utils";
-import type { Contact, Conversation, Message } from "@/types";
 import type { ReceptionistCopilotSnapshot } from "@/lib/ai/receptionist-copilot";
+import type { Contact, Conversation, Message } from "@/types";
 
 interface ReceptionistCopilotPanelProps {
   conversation: Conversation | null;
@@ -99,6 +99,7 @@ function EmptyLine({ children }: { children: React.ReactNode }) {
 
 function ConfidenceBar({ label, score }: { label: string; score: number }) {
   const safeScore = Math.max(0, Math.min(100, Math.round(score)));
+
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between gap-2 text-xs">
@@ -131,10 +132,15 @@ export function ReceptionistCopilotPanel({
   onInsertReply,
 }: ReceptionistCopilotPanelProps) {
   const canSend = useCan("send-messages");
-  const [snapshot, setSnapshot] =
-    useState<ReceptionistCopilotSnapshot | null>(null);
+  const [snapshotState, setSnapshotState] = useState<{
+    conversationId: string;
+    snapshot: ReceptionistCopilotSnapshot;
+  } | null>(null);
+  const [errorState, setErrorState] = useState<{
+    conversationId: string;
+    message: string;
+  } | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [refreshNonce, setRefreshNonce] = useState(0);
 
   const messageFingerprint = useMemo(() => {
@@ -148,64 +154,65 @@ export function ReceptionistCopilotPanel({
     ].join(":");
   }, [conversation?.id, messages, refreshNonce]);
 
+  const snapshot =
+    conversation && snapshotState?.conversationId === conversation.id
+      ? snapshotState.snapshot
+      : null;
+  const error =
+    conversation && errorState?.conversationId === conversation.id
+      ? errorState.message
+      : null;
+
   useEffect(() => {
-    if (!conversation) {
-      setSnapshot(null);
-      setError(null);
-      setLoading(false);
-      return;
-    }
-
+    if (!conversation) return;
     const controller = new AbortController();
-    const timer = setTimeout(
-      () => {
-        setLoading(true);
-        setError(null);
+    const timer = setTimeout(() => {
+      setLoading(true);
+      setErrorState(null);
 
-        fetch("/api/ai/receptionist-copilot", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ conversationId: conversation.id }),
-          signal: controller.signal,
-        })
-          .then(async (response) => {
-            const payload = (await response.json().catch(() => ({}))) as CopilotResponse;
-            if (!response.ok) {
-              throw new Error(payload.error || `HTTP ${response.status}`);
-            }
-            if (!payload.snapshot) {
-              throw new Error("Copilot response was empty");
-            }
-            setSnapshot(payload.snapshot);
-          })
-          .catch((err) => {
-            if (controller.signal.aborted) return;
-            const message =
-              err instanceof Error ? err.message : "Failed to load copilot";
-            setError(message);
-          })
-          .finally(() => {
-            if (!controller.signal.aborted) setLoading(false);
+      fetch("/api/ai/receptionist-copilot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversationId: conversation.id }),
+        signal: controller.signal,
+      })
+        .then(async (response) => {
+          const payload = (await response.json().catch(() => ({}))) as CopilotResponse;
+          if (!response.ok) {
+            throw new Error(payload.error || `HTTP ${response.status}`);
+          }
+          if (!payload.snapshot) {
+            throw new Error("Copilot response was empty");
+          }
+          setSnapshotState({
+            conversationId: conversation.id,
+            snapshot: payload.snapshot,
           });
-      },
-      snapshot ? 450 : 0,
-    );
+        })
+        .catch((err) => {
+          if (controller.signal.aborted) return;
+          const message =
+            err instanceof Error ? err.message : "Failed to load copilot";
+          setErrorState({ conversationId: conversation.id, message });
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setLoading(false);
+        });
+    }, 250);
 
     return () => {
       controller.abort();
       clearTimeout(timer);
     };
-  }, [conversation, messageFingerprint, snapshot]);
+  }, [conversation, messageFingerprint]);
 
-  const handleInsertReply = useCallback(() => {
+  function handleInsertReply() {
     if (!snapshot?.suggestedReply || !canSend) return;
     onInsertReply(snapshot.suggestedReply);
     toast.success("Suggested reply inserted");
-  }, [canSend, onInsertReply, snapshot?.suggestedReply]);
-
-  if (!conversation || !contact) {
-    return null;
   }
+
+  if (!conversation || !contact) return null;
 
   const patientInfoRows = snapshot
     ? [
@@ -221,7 +228,7 @@ export function ReceptionistCopilotPanel({
     : [];
 
   return (
-    <aside className="hidden h-full w-84 shrink-0 flex-col border-l border-border bg-card xl:flex">
+    <aside className="hidden h-full w-80 shrink-0 flex-col border-l border-border bg-card lg:flex">
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-4 py-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -458,7 +465,10 @@ export function ReceptionistCopilotPanel({
               {snapshot.timeline.length > 0 ? (
                 <ol className="space-y-3">
                   {snapshot.timeline.map((item, index) => (
-                    <li key={`${item.date}-${item.title}-${index}`} className="flex gap-2">
+                    <li
+                      key={`${item.date}-${item.title}-${index}`}
+                      className="flex gap-2"
+                    >
                       <div className="mt-1 size-2 shrink-0 rounded-full bg-primary" />
                       <div className="min-w-0">
                         <p className="text-[10px] font-medium uppercase text-muted-foreground">

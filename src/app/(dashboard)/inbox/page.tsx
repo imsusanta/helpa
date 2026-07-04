@@ -5,10 +5,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { Conversation, Message, Contact, ConversationStatus } from "@/types";
 import { useRealtime } from "@/hooks/use-realtime";
+import { useAuth } from "@/hooks/use-auth";
 import { ConversationList } from "@/components/inbox/conversation-list";
 import { MessageThread } from "@/components/inbox/message-thread";
 import { ContactSidebar } from "@/components/inbox/contact-sidebar";
-import { toast } from "sonner";
+import { ReceptionistCopilotPanel } from "@/components/inbox/receptionist-copilot-panel";
+import type { InsertedComposerReply } from "@/components/inbox/message-composer";
 import { WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +21,7 @@ const CONTACT_PANEL_STORAGE_KEY = "wacrm:inbox:contact-panel-open";
 export default function InboxPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { accountId } = useAuth();
   /**
    * `?c=<id>` deep-link support. Used when landing here from the
    * dashboard's recent-conversations list so the right thread opens
@@ -31,6 +34,8 @@ export default function InboxPage() {
     useState<Conversation | null>(null);
   const [activeContact, setActiveContact] = useState<Contact | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [insertedReply, setInsertedReply] =
+    useState<InsertedComposerReply | null>(null);
   const [whatsappConnected, setWhatsappConnected] = useState<boolean | null>(
     null
   );
@@ -330,7 +335,7 @@ export default function InboxPage() {
     channelName: "inbox-realtime",
     onMessageEvent: handleMessageEvent,
     onConversationEvent: handleConversationEvent,
-    enabled: true,
+    enabled: !!accountId,
   });
 
   /**
@@ -414,6 +419,7 @@ export default function InboxPage() {
           setActiveConversation(match);
           setActiveContact(match.contact ?? null);
           setMessages([]);
+          setInsertedReply(null);
           // Mirror the optimistic unread reset that handleSelectConversation
           // does — the user just deep-linked into this conv, treat that the
           // same as a click. Leaves activeConversation.unread_count alone so
@@ -441,6 +447,7 @@ export default function InboxPage() {
       setActiveConversation(conv);
       setActiveContact(conv.contact ?? null);
       setMessages([]);
+      setInsertedReply(null);
       // Optimistically clear the unread badge for this conv. The
       // server-side reset is fired by the unread-reset effect inside
       // MessageThread (which reads activeConversation.unread_count, not
@@ -480,6 +487,7 @@ export default function InboxPage() {
     setActiveConversation(null);
     setActiveContact(null);
     setMessages([]);
+    setInsertedReply(null);
     // Clearing the ref lets the deep-link auto-selector fire again if
     // the user later visits /inbox?c=<same-id> — desirable UX.
     autoSelectedForDeepLinkRef.current = null;
@@ -549,6 +557,18 @@ export default function InboxPage() {
       }
     },
     [activeConversation]
+  );
+
+  const handleInsertCopilotReply = useCallback(
+    (reply: string) => {
+      if (!activeConversation) return;
+      setInsertedReply({
+        id: Date.now(),
+        conversationId: activeConversation.id,
+        text: reply,
+      });
+    },
+    [activeConversation],
   );
 
   // On mobile (<lg) we show a SINGLE pane — either the list or the
@@ -621,15 +641,23 @@ export default function InboxPage() {
             onRefresh={handleManualRefresh}
             contactPanelOpen={contactPanelOpen}
             onToggleContactPanel={handleToggleContactPanel}
+            insertedReply={insertedReply}
           />
         </div>
+
+        <ReceptionistCopilotPanel
+          conversation={activeConversation}
+          contact={activeContact}
+          messages={messages}
+          onInsertReply={handleInsertCopilotReply}
+        />
 
         {/* Right panel: Contact sidebar — desktop only, and only when the
             agent hasn't collapsed it via the thread-header toggle (#258).
             On mobile it's always hidden (the `lg:block` below), so the
             toggle — which is itself desktop-only — never affects it. */}
         {contactPanelOpen && (
-          <div className="hidden lg:block">
+          <div className="hidden 2xl:block">
             <ContactSidebar contact={activeContact} conversation={activeConversation} />
           </div>
         )}

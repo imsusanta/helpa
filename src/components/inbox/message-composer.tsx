@@ -66,6 +66,12 @@ export interface SendMediaPayload {
   replyToId?: string;
 }
 
+export interface InsertedComposerReply {
+  id: number;
+  conversationId: string;
+  text: string;
+}
+
 interface ReplyDraft {
   /** Internal UUID of the message being replied to — sent back through onSend. */
   id: string;
@@ -101,6 +107,7 @@ interface MessageComposerProps {
   onOpenTemplates: () => void;
   replyTo?: ReplyDraft | null;
   onClearReply?: () => void;
+  insertedReply?: InsertedComposerReply | null;
 }
 
 function formatDuration(seconds: number): string {
@@ -122,6 +129,7 @@ export function MessageComposer({
   onOpenTemplates,
   replyTo,
   onClearReply,
+  insertedReply,
 }: MessageComposerProps) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -273,6 +281,15 @@ export function MessageComposer({
     // Max 4 lines (~96px)
     el.style.height = `${Math.min(el.scrollHeight, 96)}px`;
   }, []);
+
+  useEffect(() => {
+    if (!insertedReply || insertedReply.conversationId !== conversationId) return;
+    setText(insertedReply.text);
+    requestAnimationFrame(() => {
+      adjustHeight();
+      textareaRef.current?.focus();
+    });
+  }, [adjustHeight, conversationId, insertedReply]);
 
   const handleSend = useCallback(async () => {
     const trimmed = text.trim();
