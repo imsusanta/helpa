@@ -1,0 +1,302 @@
+import { NextResponse } from "next/server";
+
+import { requireRole, toErrorResponse } from "@/lib/auth/account";
+import {
+  RATE_LIMITS,
+  checkRateLimit,
+  rateLimitResponse,
+} from "@/lib/rate-limit";
+import {
+  buildFallbackCopilotSnapshot,
+  generateOpenRouterCopilotSnapshot,
+  type CopilotAppointment,
+  type CopilotContact,
+  type CopilotContactNote,
+  type CopilotConversationMemory,
+  type CopilotDoctor,
+  type CopilotInsuranceProvider,
+  type CopilotKbEntry,
+  type CopilotMessage,
+  type CopilotPatient,
+  type CopilotReport,
+  type CopilotSourceContext,
+} from "@/lib/ai/receptionist-copilot";
+import { decrypt } from "@/lib/whatsapp/encryption";
+import { checkPlanLimits, incrementUsage } from "@/lib/saas/subscription";
+
+type Related<T> = T | T[] | null | undefined;
+
+interface ConversationRow {
+  id: string;
+  account_id: string;
+  contact_id: string;
+  status?: string | null;
+  last_message_text?: string | null;
+  last_message_at?: string | null;
+  ai_summary?: string | null;
+  created_at?: string | null;
+  contact?: Related<CopilotContact>;
+}
+
+interface AccountAiRow {
+  name?: string | null;
+  openrouter_api_key?: string | null;
+  openrouter_model?: string | null;
+  ai_system_prompt?: string | null;
+}
+
+function relatedOne<T>(value: Related<T>): T | null {
+  if (Array.isArray(value)) return value[0] ?? null;
+  return value ?? null;
+}
+
+function isConversationRow(value: unknown): value is ConversationRow {
+  if (!value || typeof value !== "object") return false;
+  const row = value as Record<string, unknown>;
+  return (
+    typeof row.id === "string" &&
+    typeof row.account_id === "string" &&
+    typeof row.contact_id === "string"
+  );
+}
+
+async function loadCopilotContext(
+  ctx: Awaited<ReturnType<typeof requireRole>>,
+  conversationId: string,
+): Promise<CopilotSourceContext | NextResponse> {
+  const { data: conversationData, error: conversationError } = await ctx.supabase
+    .from("conversations")
+    .select(
+      "id, account_id, contact_id, status, last_message_text, last_message_at, ai_summary, created_at, contact:contacts(id, name, phone, email, company)",
+    )
+    .eq("id", conversationId)
+    .eq("account_id", ctx.accountId)
+    .maybeSingle();
+
+  if (conversationError) {
+    console.error("[AI Copilot] conversation fetch error:", conversationError);
+    return NextResponse.json(
+      { error: "Failed to load conversation" },
+      { status: 500 },
+    );
+  }
+
+  if (!isConversationRow(conversationData)) {
+    return NextResponse.json(
+      { error: "Conversation not found" },
+      { status: 404 },
+    );
+  }
+
+  const conversation = conversationData;
+  let contact = relatedOne(conversation.contact) as CopilotContact | null;
+
+  if (!contact) {
+    const { data: contactData, error: contactError } = await ctx.supabase
+      .from("contacts")
+      .select("id, name, phone, email, company")
+      .eq("id", conversation.contact_id)
+      .eq("account_id", ctx.accountId)
+      .maybeSingle();
+
+    if (contactError) {
+      console.error("[AI Copilot] contact fetch error:", contactError);
+      return NextResponse.json(
+        { error: "Failed to load patient contact" },
+        { status: 500 },
+      );
+    }
+    contact = contactData as CopilotContact | null;
+  }
+
+  if (!contact) {
+    return NextResponse.json(
+      { error: "Patient contact not found" },
+      { status: 404 },
+    );
+  }
+
+  const [
+    messagesRes,
+    memoryRes,
+    patientRes,
+    appointmentsRes,
+    reportsRes,
+    insuranceRes,
+    kbRes,
+    notesRes,
+    accountRes,
+  ] = await Promise.all([
+    ctx.supabase
+      .from("messages")
+      .select("sender_type, content_type, content_text, created_at")
+      .eq("conversation_id", conversation.id)
+      .order("created_at", { ascending: false })
+      .limit(120),
+    ctx.supabase
+      .from("conversations")
+      .select("id, status, last_message_text, last_message_at, ai_summary, created_at")
+      .eq("account_id", ctx.accountId)
+      .eq("contact_id", contact.id)
+      .order("last_message_at", { ascending: false, nullsFirst: false })
+      .limit(8),
+    ctx.supabase
+      .from("patients")
+      .select(
+        "patient_seq_id, gender, date_of_birth, department, ai_summary, ai_notes, status, assigned_doctor:hospital_doctors(id, name, department, specialization)",
+      )
+      .eq("id", contact.id)
+      .eq("account_id", ctx.accountId)
+      .maybeSingle(),
+    ctx.supabase
+      .from("appointments")
+      .select(
+        "id, appointment_date, appointment_time, status, department, token_number, queue_position, booking_id, notes, created_at, doctor:hospital_doctors(id, name, department, specialization)",
+      )
+      .eq("patient_id", contact.id)
+      .eq("account_id", ctx.accountId)
+      .order("appointment_date", { ascending: false })
+      .order("appointment_time", { ascending: false })
+      .limit(12),
+    ctx.supabase
+      .from("hospital_lab_reports")
+      .select(
+        "id, test_name, status, expected_delivery_date, report_pdf_url, result_url, notes, created_at, updated_at",
+      )
+      .eq("patient_id", contact.id)
+      .eq("account_id", ctx.accountId)
+      .order("created_at", { ascending: false })
+      .limit(8),
+    ctx.supabase
+      .from("hospital_insurance")
+      .select("provider_name, cashless_available, required_documents")
+      .eq("account_id", ctx.accountId)
+      .order("provider_name", { ascending: true })
+      .limit(30),
+    ctx.supabase
+      .from("knowledge_base")
+      .select("category, question_title, answer_content")
+      .eq("account_id", ctx.accountId)
+      .order("category", { ascending: true })
+      .order("question_title", { ascending: true })
+      .limit(30),
+    ctx.supabase
+      .from("contact_notes")
+      .select("note_text, created_at")
+      .eq("contact_id", contact.id)
+      .order("created_at", { ascending: false })
+      .limit(8),
+    ctx.supabase
+      .from("accounts")
+      .select("name, openrouter_api_key, openrouter_model, ai_system_prompt")
+      .eq("id", ctx.accountId)
+      .maybeSingle(),
+  ]);
+
+  const fetchErrors = [
+    ["messages", messagesRes.error],
+    ["conversation memory", memoryRes.error],
+    ["patient", patientRes.error],
+    ["appointments", appointmentsRes.error],
+    ["reports", reportsRes.error],
+    ["insurance", insuranceRes.error],
+    ["knowledge base", kbRes.error],
+    ["contact notes", notesRes.error],
+    ["account", accountRes.error],
+  ].filter(([, error]) => Boolean(error));
+
+  if (fetchErrors.length > 0) {
+    for (const [label, error] of fetchErrors) {
+      console.error(`[AI Copilot] ${label} fetch error:`, error);
+    }
+  }
+
+  const account = (accountRes.data ?? {}) as AccountAiRow;
+  const messages = ((messagesRes.data ?? []) as CopilotMessage[]).reverse();
+
+  return {
+    accountName: account.name ?? ctx.account.name,
+    contact,
+    patient: (patientRes.data ?? null) as (CopilotPatient & {
+      assigned_doctor?: Related<CopilotDoctor>;
+    }) | null,
+    messages,
+    conversationMemory: (memoryRes.data ?? []) as CopilotConversationMemory[],
+    appointments: (appointmentsRes.data ?? []) as Array<
+      CopilotAppointment & { doctor?: Related<CopilotDoctor> }
+    >,
+    reports: (reportsRes.data ?? []) as CopilotReport[],
+    insuranceProviders: (insuranceRes.data ?? []) as CopilotInsuranceProvider[],
+    kbEntries: (kbRes.data ?? []) as CopilotKbEntry[],
+    contactNotes: (notesRes.data ?? []) as CopilotContactNote[],
+  };
+}
+
+export async function POST(request: Request) {
+  try {
+    const ctx = await requireRole("viewer");
+
+    const limit = checkRateLimit(
+      `ai-copilot:${ctx.userId}`,
+      RATE_LIMITS.adminAction,
+    );
+    if (!limit.success) return rateLimitResponse(limit);
+
+    const body = await request.json().catch(() => null);
+    const conversationId = body?.conversationId;
+
+    if (typeof conversationId !== "string" || conversationId.length === 0) {
+      return NextResponse.json(
+        { error: "conversationId is required" },
+        { status: 400 },
+      );
+    }
+
+    const contextOrResponse = await loadCopilotContext(ctx, conversationId);
+    if (contextOrResponse instanceof NextResponse) return contextOrResponse;
+
+    const context = contextOrResponse;
+    const account = await ctx.supabase
+      .from("accounts")
+      .select("openrouter_api_key, openrouter_model, ai_system_prompt")
+      .eq("id", ctx.accountId)
+      .maybeSingle();
+    const accountData = (account.data ?? {}) as AccountAiRow;
+
+    let fallback = buildFallbackCopilotSnapshot(context);
+
+    if (!accountData.openrouter_api_key) {
+      fallback = {
+        ...fallback,
+        warning:
+          "AI provider is not configured. Showing a rules-based copilot snapshot.",
+      };
+      return NextResponse.json({ snapshot: fallback });
+    }
+
+    try {
+      await checkPlanLimits(ctx.accountId, "max_ai_requests");
+      const apiKey = decrypt(accountData.openrouter_api_key);
+      const snapshot = await generateOpenRouterCopilotSnapshot({
+        apiKey,
+        model: accountData.openrouter_model || "google/gemini-2.5-flash",
+        systemPrompt: accountData.ai_system_prompt,
+        context,
+        fallback,
+      });
+      await incrementUsage(ctx.accountId, "ai_requests");
+      return NextResponse.json({ snapshot });
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "AI generation failed. Showing rules-based copilot snapshot.";
+      console.error("[AI Copilot] OpenRouter generation failed:", err);
+      return NextResponse.json({
+        snapshot: buildFallbackCopilotSnapshot(context, message),
+      });
+    }
+  } catch (err) {
+    return toErrorResponse(err);
+  }
+}

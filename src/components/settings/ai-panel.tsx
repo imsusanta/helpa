@@ -15,7 +15,7 @@ const POPULAR_MODELS = [
     name: "Gemini 2.5 Flash",
     provider: "Google",
     badge: "Recommended",
-    badgeColor: "bg-purple-500/10 text-purple-400 border-purple-500/20",
+    badgeColor: "bg-emerald-100 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/20",
     desc: "Lightning fast responses. Optimal choice for hospital receptionist tasks.",
     stats: "Speed: Ultra-Fast • Cost: Lowest"
   },
@@ -24,7 +24,7 @@ const POPULAR_MODELS = [
     name: "Claude 3.5 Sonnet",
     provider: "Anthropic",
     badge: "Max Quality",
-    badgeColor: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+    badgeColor: "bg-amber-100 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800/20",
     desc: "Industry-leading reasoning and clinical instruction-following.",
     stats: "Speed: Fast • Cost: Premium"
   },
@@ -33,7 +33,7 @@ const POPULAR_MODELS = [
     name: "Llama 3.3 70B",
     provider: "Meta",
     badge: "Balanced",
-    badgeColor: "bg-sky-500/10 text-sky-400 border-sky-500/20",
+    badgeColor: "bg-sky-100 dark:bg-sky-950/30 text-sky-800 dark:text-sky-300 border-sky-200 dark:border-sky-800/20",
     desc: "Open-source intelligence with high reasoning capabilities.",
     stats: "Speed: Fast • Cost: Low"
   }
@@ -164,7 +164,7 @@ export function AiPanel() {
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-purple-500" />
+        <Loader2 className="size-8 animate-spin text-emerald-500" />
       </div>
     );
   }
@@ -173,14 +173,14 @@ export function AiPanel() {
     <section className="space-y-8 animate-in fade-in duration-300">
       
       {/* Premium Header */}
-      <div className="flex items-start gap-4 p-6 bg-gradient-to-r from-purple-950/20 via-background to-background border border-purple-500/10 rounded-2xl backdrop-blur-xl">
-        <div className="p-3 bg-purple-500/10 border border-purple-500/20 rounded-xl">
-          <Brain className="h-8 w-8 text-purple-400 animate-pulse drop-shadow-[0_0_8px_rgba(168,85,247,0.5)]" />
+      <div className="flex items-start gap-4 p-6 bg-gradient-to-r from-emerald-500/10 via-background to-background border border-emerald-500/20 rounded-2xl backdrop-blur-xl">
+        <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+          <Brain className="h-8 w-8 text-emerald-600 dark:text-emerald-400 animate-pulse drop-shadow-[0_0_8px_rgba(16,185,129,0.3)]" />
         </div>
         <div>
           <h2 className="text-xl font-extrabold text-foreground flex items-center gap-2">
             AI Receptionist Autopilot
-            <span className="text-[10px] font-bold tracking-widest uppercase bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full border border-purple-500/30">
+            <span className="text-[10px] font-bold tracking-widest uppercase bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800/30">
               Active
             </span>
           </h2>
@@ -193,13 +193,13 @@ export function AiPanel() {
       <div className="space-y-6">
         
         {/* Step 1: OpenRouter Credentials */}
-        <div className="bg-card/30 border border-border/80 rounded-2xl p-6 space-y-4 hover:border-purple-500/20 transition-all duration-300 shadow-md">
+        <div className="bg-card border border-border rounded-2xl p-6 space-y-4 hover:border-emerald-500/20 dark:hover:border-emerald-500/30 transition-all duration-300 shadow-md">
           <div className="flex items-center gap-2">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-purple-500/10 text-xs font-bold text-purple-400 border border-purple-500/20">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-xs font-bold text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/30">
               1
             </span>
             <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5">
-              <Key className="size-4 text-purple-400" />
+              <Key className="size-4 text-emerald-600 dark:text-emerald-400" />
               OpenRouter Access Credentials
             </h3>
           </div>
@@ -222,26 +222,26 @@ export function AiPanel() {
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
                 disabled={!canEditSettings}
-                className="max-w-md bg-muted/50 border-border focus-visible:ring-purple-500 text-foreground"
+                className="max-w-md bg-muted/40 border-border focus-visible:ring-emerald-500 text-foreground"
               />
             </div>
             {hasApiKey && (
-              <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-semibold bg-emerald-500/5 border border-emerald-500/10 rounded-lg p-2 max-w-md">
+              <div className="flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-400 font-semibold bg-emerald-55 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/10 rounded-lg p-2 max-w-md">
                 <CheckCircle2 className="size-3.5" />
-                OpenRouter Key is configured & securely encrypted in DB.
+                OpenRouter Key is configured & securely encrypted.
               </div>
             )}
           </div>
         </div>
 
         {/* Step 2: Choose Model Engine */}
-        <div className="bg-card/30 border border-border/80 rounded-2xl p-6 space-y-4 hover:border-purple-500/20 transition-all duration-300 shadow-md">
+        <div className="bg-card border border-border rounded-2xl p-6 space-y-4 hover:border-emerald-500/20 dark:hover:border-emerald-500/30 transition-all duration-300 shadow-md">
           <div className="flex items-center gap-2">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-purple-500/10 text-xs font-bold text-purple-400 border border-purple-500/20">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-xs font-bold text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/30">
               2
             </span>
             <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5">
-              <Cpu className="size-4 text-purple-400" />
+              <Cpu className="size-4 text-emerald-600 dark:text-emerald-400" />
               Model Select (Brain Power)
             </h3>
           </div>
@@ -262,8 +262,8 @@ export function AiPanel() {
                   }}
                   className={`text-left p-4 rounded-xl border transition-all duration-200 cursor-pointer flex flex-col justify-between h-36 ${
                     isSelected
-                      ? "bg-purple-500/5 border-purple-500/40 ring-1 ring-purple-500/40"
-                      : "bg-muted/30 border-border hover:border-border/100 hover:bg-muted/50"
+                      ? "bg-emerald-50/50 dark:bg-emerald-950/10 border-emerald-500/40 dark:border-emerald-500/30 ring-1 ring-emerald-500/30"
+                      : "bg-muted/20 border-border hover:border-border hover:bg-muted/30"
                   }`}
                 >
                   <div className="space-y-1.5">
@@ -280,8 +280,8 @@ export function AiPanel() {
                       {m.desc}
                     </p>
                   </div>
-                  <div className="text-[9px] font-bold text-purple-400 flex items-center gap-1">
-                    <Zap className="h-3 w-3 shrink-0" />
+                  <div className="text-[9px] font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                    <Zap className="h-3 w-3 shrink-0 text-emerald-500" />
                     {m.stats}
                   </div>
                 </button>
@@ -300,14 +300,14 @@ export function AiPanel() {
                   else setModel(POPULAR_MODELS[0].id);
                 }
               }}
-              className="inline-flex items-center gap-1.5 text-xs text-purple-400 hover:text-purple-300 font-bold"
+              className="inline-flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-400 hover:text-emerald-600 dark:hover:text-emerald-300 font-bold"
             >
               Custom Model ID
               <ChevronRight className={`h-3 w-3 transform transition-transform duration-200 ${isCustomModel ? "rotate-90" : ""}`} />
             </button>
 
             {isCustomModel && (
-              <div className="mt-3 pl-4 border-l-2 border-purple-500/30 space-y-2 animate-in slide-in-from-left-2 duration-200">
+              <div className="mt-3 pl-4 border-l-2 border-emerald-300 dark:border-emerald-500/30 space-y-2 animate-in slide-in-from-left-2 duration-200">
                 <Label htmlFor="customModelId" className="text-xs text-muted-foreground font-bold">
                   OpenRouter Model Identifier
                 </Label>
@@ -317,7 +317,7 @@ export function AiPanel() {
                   value={customModelId}
                   onChange={(e) => setCustomModelId(e.target.value)}
                   disabled={!canEditSettings}
-                  className="max-w-md bg-muted/50 border-border focus-visible:ring-purple-500 text-foreground"
+                  className="max-w-md bg-muted/40 border-border focus-visible:ring-emerald-500 text-foreground"
                 />
               </div>
             )}
@@ -325,13 +325,13 @@ export function AiPanel() {
         </div>
 
         {/* Step 3: AI System prompt guidelines */}
-        <div className="bg-card/30 border border-border/80 rounded-2xl p-6 space-y-4 hover:border-purple-500/20 transition-all duration-300 shadow-md">
+        <div className="bg-card border border-border rounded-2xl p-6 space-y-4 hover:border-emerald-500/20 dark:hover:border-emerald-500/30 transition-all duration-300 shadow-md">
           <div className="flex items-center gap-2">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-purple-500/10 text-xs font-bold text-purple-400 border border-purple-500/20">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-xs font-bold text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/30">
               3
             </span>
             <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5">
-              <Brain className="size-4 text-purple-400" />
+              <Brain className="size-4 text-emerald-600 dark:text-emerald-400" />
               AI System Instructions & Guidelines
             </h3>
           </div>
@@ -347,12 +347,12 @@ export function AiPanel() {
                 onChange={(e) => setSystemPrompt(e.target.value)}
                 disabled={!canEditSettings}
                 rows={9}
-                className="max-w-xl bg-muted/50 border-border focus-visible:ring-purple-500 text-foreground font-normal leading-relaxed text-xs resize-y"
+                className="max-w-xl bg-muted/40 border-border focus-visible:ring-emerald-500 text-foreground font-normal leading-relaxed text-xs resize-y"
               />
             </div>
-            <div className="rounded-xl border border-purple-500/10 bg-purple-950/5 p-4 text-[11px] text-purple-200/90 space-y-2 max-w-xl">
-              <p className="font-semibold text-purple-300 flex items-center gap-1">
-                <Sparkles className="size-3.5 text-purple-400" />
+            <div className="rounded-xl border border-emerald-200 dark:border-emerald-500/10 bg-emerald-50 dark:bg-emerald-950/10 p-4 text-[11px] text-emerald-950 dark:text-emerald-200 space-y-2 max-w-xl">
+              <p className="font-semibold text-emerald-800 dark:text-emerald-300 flex items-center gap-1">
+                <Sparkles className="size-3.5 text-emerald-600 dark:text-emerald-400" />
                 AI Receptionist Guidelines Recommendation:
               </p>
               <ul className="list-disc pl-4 space-y-1 text-[10px] text-muted-foreground">
@@ -371,7 +371,7 @@ export function AiPanel() {
               <Button
                 onClick={handleSave}
                 disabled={saving || testingConnection}
-                className="bg-purple-600 hover:bg-purple-500 text-white font-bold cursor-pointer transition-all duration-200 shadow-md shadow-purple-600/10"
+                className="bg-emerald-700 dark:bg-emerald-600 hover:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-bold cursor-pointer transition-all duration-200 shadow-md shadow-emerald-600/10"
               >
                 {saving ? (
                   <>
@@ -404,15 +404,15 @@ export function AiPanel() {
               <div
                 className={`max-w-xl rounded-xl p-4 text-xs animate-in fade-in slide-in-from-top-1 duration-200 ${
                   testResult.success
-                    ? "border border-green-500/20 bg-green-950/20 text-green-200"
-                    : "border border-red-500/20 bg-red-950/20 text-red-200"
+                    ? "border border-green-500/20 bg-green-50 dark:bg-green-950/20 text-green-900 dark:text-green-200"
+                    : "border border-red-500/20 bg-red-50 dark:bg-red-950/20 text-red-900 dark:text-red-200"
                 }`}
               >
                 <div className="flex items-start gap-2.5">
                   {testResult.success ? (
-                    <CheckCircle2 className="size-4 text-green-400 shrink-0 mt-0.5" />
+                    <CheckCircle2 className="size-4 text-green-600 dark:text-green-400 shrink-0 mt-0.5" />
                   ) : (
-                    <AlertCircle className="size-4 text-red-400 shrink-0 mt-0.5" />
+                    <AlertCircle className="size-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
                   )}
                   <div>
                     <p className="font-bold mb-1">
