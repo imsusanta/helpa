@@ -31,9 +31,10 @@ import { Input } from "@/components/ui/input";
 interface ContactSidebarProps {
   contact: Contact | null;
   conversation?: Conversation | null;
+  isEmbedded?: boolean;
 }
 
-export function ContactSidebar({ contact, conversation }: ContactSidebarProps) {
+export function ContactSidebar({ contact, conversation, isEmbedded }: ContactSidebarProps) {
   const { accountId, enabledModules } = useAuth();
   const [copied, setCopied] = useState(false);
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -283,7 +284,7 @@ export function ContactSidebar({ contact, conversation }: ContactSidebarProps) {
 
   if (!contact) {
     return (
-      <div className="flex h-full w-70 items-center justify-center border-l border-border bg-card">
+      <div className="flex h-full w-full items-center justify-center bg-card">
         <p className="text-sm text-muted-foreground">Select a conversation</p>
       </div>
     );
@@ -292,9 +293,8 @@ export function ContactSidebar({ contact, conversation }: ContactSidebarProps) {
   const displayName = contact.name || contact.phone;
   const initials = displayName.charAt(0).toUpperCase();
 
-  return (
-    <div className="flex h-full w-70 flex-col border-l border-border bg-card">
-      <ScrollArea className="flex-1">
+  const content = (
+    <ScrollArea className="flex-1">
         <div className="p-4">
           {/* Contact Info */}
           <div className="flex flex-col items-center text-center">
@@ -713,6 +713,15 @@ export function ContactSidebar({ contact, conversation }: ContactSidebarProps) {
           </div>
         </div>
       </ScrollArea>
+  );
+
+  if (isEmbedded) {
+    return <div className="flex h-full flex-col">{content}</div>;
+  }
+
+  return (
+    <div className="flex h-full w-70 flex-col border-l border-border bg-card">
+      {content}
     </div>
   );
 }

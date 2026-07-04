@@ -22,6 +22,7 @@ export default function InboxPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { accountId } = useAuth();
+  const [rightTab, setRightTab] = useState<"copilot" | "crm">("copilot");
   /**
    * `?c=<id>` deep-link support. Used when landing here from the
    * dashboard's recent-conversations list so the right thread opens
@@ -645,21 +646,56 @@ export default function InboxPage() {
           />
         </div>
 
-        <ReceptionistCopilotPanel
-          conversation={activeConversation}
-          contact={activeContact}
-          messages={messages}
-          onInsertReply={handleInsertCopilotReply}
-        />
-
-        {/* Right panel: Contact sidebar — desktop only, and only when the
-            agent hasn't collapsed it via the thread-header toggle (#258).
-            On mobile it's always hidden (the `lg:block` below), so the
-            toggle — which is itself desktop-only — never affects it. */}
+        {/* Right panel: Unified Tabbed Sidebar — desktop only, toggled via header button */}
         {contactPanelOpen && (
-          <div className="hidden 2xl:block">
-            <ContactSidebar contact={activeContact} conversation={activeConversation} />
-          </div>
+          <aside className="hidden lg:flex h-full w-80 shrink-0 flex-col border-l border-border bg-card">
+            {/* Premium Tab Bar */}
+            <div className="flex shrink-0 border-b border-border bg-muted/20 p-1">
+              <button
+                type="button"
+                onClick={() => setRightTab("copilot")}
+                className={cn(
+                  "flex-1 text-center py-1.5 text-xs font-bold rounded-md transition-all cursor-pointer",
+                  rightTab === "copilot"
+                    ? "bg-background text-emerald-700 dark:text-emerald-400 shadow-sm border border-border/50"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                🧠 AI Copilot
+              </button>
+              <button
+                type="button"
+                onClick={() => setRightTab("crm")}
+                className={cn(
+                  "flex-1 text-center py-1.5 text-xs font-bold rounded-md transition-all cursor-pointer",
+                  rightTab === "crm"
+                    ? "bg-background text-foreground shadow-sm border border-border/50"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                👤 Patient CRM
+              </button>
+            </div>
+
+            {/* Embed Panel Content */}
+            <div className="flex-1 min-h-0">
+              {rightTab === "copilot" ? (
+                <ReceptionistCopilotPanel
+                  conversation={activeConversation}
+                  contact={activeContact}
+                  messages={messages}
+                  onInsertReply={handleInsertCopilotReply}
+                  isEmbedded={true}
+                />
+              ) : (
+                <ContactSidebar
+                  contact={activeContact}
+                  conversation={activeConversation}
+                  isEmbedded={true}
+                />
+              )}
+            </div>
+          </aside>
         )}
       </div>
     </div>

@@ -36,6 +36,7 @@ interface ReceptionistCopilotPanelProps {
   contact: Contact | null;
   messages: Message[];
   onInsertReply: (reply: string) => void;
+  isEmbedded?: boolean;
 }
 
 interface CopilotResponse {
@@ -130,6 +131,7 @@ export function ReceptionistCopilotPanel({
   contact,
   messages,
   onInsertReply,
+  isEmbedded,
 }: ReceptionistCopilotPanelProps) {
   const canSend = useCan("send-messages");
   const [snapshotState, setSnapshotState] = useState<{
@@ -227,12 +229,12 @@ export function ReceptionistCopilotPanel({
       ]
     : [];
 
-  return (
-    <aside className="hidden h-full w-80 shrink-0 flex-col border-l border-border bg-card lg:flex">
+  const content = (
+    <>
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border px-4 py-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <Brain className="size-4 text-primary" />
+            <Brain className="size-4 text-emerald-600 dark:text-emerald-400" />
             <h3 className="truncate text-sm font-semibold text-foreground">
               AI Receptionist Copilot
             </h3>
@@ -493,6 +495,16 @@ export function ReceptionistCopilotPanel({
           </div>
         ) : null}
       </ScrollArea>
+    </>
+  );
+
+  if (isEmbedded) {
+    return <div className="flex h-full flex-col">{content}</div>;
+  }
+
+  return (
+    <aside className="hidden h-full w-80 shrink-0 flex-col border-l border-border bg-card lg:flex">
+      {content}
     </aside>
   );
 }
