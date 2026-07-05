@@ -114,8 +114,8 @@ export default function LandingPage() {
       {/* Header Section */}
       <header className="sticky top-0 z-40 w-full border-b border-border/80 bg-background/80 backdrop-blur-md">
         <div className="container mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-md shadow-emerald-500/20 animate-pulse">
+          <div className="flex items-center gap-2 group cursor-pointer">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-md shadow-emerald-500/20 group-hover:rotate-12 group-hover:scale-110 active:scale-90 transition-all duration-300 animate-pulse">
               <Stethoscope className="h-5 w-5" />
             </div>
             <span className="font-extrabold text-lg text-foreground tracking-tight sm:text-xl">
@@ -125,10 +125,10 @@ export default function LandingPage() {
 
           {/* Desktop Navigation Links */}
           <nav className="hidden md:flex items-center gap-6 text-sm font-semibold text-muted-foreground">
-            <a href="#features" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Features</a>
-            <a href="#demo" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Live Demo</a>
-            <a href="#pricing" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Pricing</a>
-            <a href="#faq" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">FAQ</a>
+            <a href="#features" className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:scale-105 active:scale-95 transition-all duration-200">Features</a>
+            <a href="#demo" className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:scale-105 active:scale-95 transition-all duration-200">Live Demo</a>
+            <a href="#pricing" className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:scale-105 active:scale-95 transition-all duration-200">Pricing</a>
+            <a href="#faq" className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:scale-105 active:scale-95 transition-all duration-200">FAQ</a>
           </nav>
 
           {/* CTAs */}
@@ -141,7 +141,7 @@ export default function LandingPage() {
               </Link>
             ) : (
               <>
-                <Link href="/login" className="text-sm font-bold text-muted-foreground hover:text-foreground transition-colors mr-2">
+                <Link href="/login" className="text-sm font-bold text-muted-foreground hover:text-foreground hover:scale-105 active:scale-95 transition-all duration-200 mr-2">
                   Sign In
                 </Link>
                 <Link href="/signup">
@@ -156,7 +156,7 @@ export default function LandingPage() {
           {/* Mobile Menu Icon */}
           <button
             type="button"
-            className="md:hidden p-2 text-muted-foreground hover:text-foreground rounded-lg"
+            className="md:hidden p-2 text-muted-foreground hover:text-foreground rounded-lg transition-transform active:scale-90"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           >
             {mobileMenuOpen ? <X className="size-6" /> : <Menu className="size-6" />}
@@ -235,22 +235,22 @@ export default function LandingPage() {
 
             {/* Feature Badges Banner */}
             <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-4 pt-8 text-xs font-semibold text-muted-foreground max-w-3xl mx-auto border-t border-border/60">
-              <div className="flex items-center gap-1.5"><CheckCircle2 className="size-4 text-emerald-500" /> WhatsApp Cloud API Integration</div>
-              <div className="flex items-center gap-1.5"><CheckCircle2 className="size-4 text-emerald-500" /> Patient CRM & Pipelines</div>
-              <div className="flex items-center gap-1.5"><CheckCircle2 className="size-4 text-emerald-500" /> Automated Report Dispatch</div>
-              <div className="flex items-center gap-1.5"><CheckCircle2 className="size-4 text-emerald-500" /> Self-Hosted Supabase / Next.js</div>
+              <div className="flex items-center gap-1.5 hover:text-emerald-500 transition-colors cursor-pointer"><CheckCircle2 className="size-4 text-emerald-500" /> WhatsApp Cloud API Integration</div>
+              <div className="flex items-center gap-1.5 hover:text-emerald-500 transition-colors cursor-pointer"><CheckCircle2 className="size-4 text-emerald-500" /> Patient CRM & Pipelines</div>
+              <div className="flex items-center gap-1.5 hover:text-emerald-500 transition-colors cursor-pointer"><CheckCircle2 className="size-4 text-emerald-500" /> Automated Report Dispatch</div>
+              <div className="flex items-center gap-1.5 hover:text-emerald-500 transition-colors cursor-pointer"><CheckCircle2 className="size-4 text-emerald-500" /> Self-Hosted Supabase / Next.js</div>
             </div>
 
             {/* Hero App Mockup Grid */}
             <div className="pt-10 max-w-5xl mx-auto relative group">
               <div className="absolute inset-0 bg-gradient-to-tr from-emerald-500/10 to-transparent blur-[50px] rounded-3xl opacity-50 pointer-events-none" />
-              <div className="relative border border-border bg-card/60 backdrop-blur-sm rounded-2xl overflow-hidden shadow-2xl p-2.5 transition-transform duration-500 group-hover:scale-[1.005]">
+              <div className="relative border border-border bg-card/60 backdrop-blur-sm rounded-2xl overflow-hidden shadow-2xl p-2.5 transition-all duration-500 group-hover:scale-[1.01] group-hover:shadow-[0_20px_50px_rgba(16,185,129,0.05)] group-hover:border-emerald-500/20">
                 {/* Header Strip */}
                 <div className="flex items-center justify-between border-b border-border/80 px-4 py-2 bg-muted/40">
                   <div className="flex items-center gap-1.5">
-                    <span className="size-3 rounded-full bg-red-500/80" />
-                    <span className="size-3 rounded-full bg-yellow-500/80" />
-                    <span className="size-3 rounded-full bg-green-500/80" />
+                    <span className="size-3 rounded-full bg-red-500/80 hover:scale-110 transition-transform cursor-pointer" />
+                    <span className="size-3 rounded-full bg-yellow-500/80 hover:scale-110 transition-transform cursor-pointer" />
+                    <span className="size-3 rounded-full bg-green-500/80 hover:scale-110 transition-transform cursor-pointer" />
                   </div>
                   <span className="text-[10px] text-muted-foreground font-semibold">wacrm.hospital.dashboard</span>
                   <div className="size-3" />
@@ -271,28 +271,28 @@ export default function LandingPage() {
                   {/* Right Side: Mock KPIs and Charts */}
                   <div className="col-span-12 sm:col-span-9 p-3 space-y-4 text-left">
                     <div className="grid grid-cols-3 gap-3">
-                      <div className="border border-border p-3 rounded-xl bg-card">
+                      <div className="border border-border p-3 rounded-xl bg-card hover:scale-[1.03] active:scale-[0.98] transition-all cursor-pointer">
                         <span className="text-[9px] font-bold text-muted-foreground uppercase">Today's Chats</span>
                         <p className="text-xl font-extrabold text-foreground mt-1">24</p>
                       </div>
-                      <div className="border border-border p-3 rounded-xl bg-card border-emerald-500/20">
+                      <div className="border border-border p-3 rounded-xl bg-card border-emerald-500/20 hover:scale-[1.03] active:scale-[0.98] transition-all cursor-pointer">
                         <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase">AI Resolution</span>
                         <p className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1">95%</p>
                       </div>
-                      <div className="border border-border p-3 rounded-xl bg-card">
+                      <div className="border border-border p-3 rounded-xl bg-card hover:scale-[1.03] active:scale-[0.98] transition-all cursor-pointer">
                         <span className="text-[9px] font-bold text-muted-foreground uppercase">Booked Slots</span>
                         <p className="text-xl font-extrabold text-foreground mt-1">8</p>
                       </div>
                     </div>
                     {/* Simulated chart */}
-                    <div className="border border-border p-4 rounded-xl bg-card/50 h-32 flex items-end justify-between gap-1.5 pt-6">
-                      <div className="w-full bg-emerald-500/30 rounded-t h-[40%]" />
-                      <div className="w-full bg-emerald-500/40 rounded-t h-[60%]" />
-                      <div className="w-full bg-emerald-500 rounded-t h-[95%] relative flex justify-center">
-                        <span className="absolute -top-6 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">95%</span>
+                    <div className="border border-border p-4 rounded-xl bg-card/50 h-32 flex items-end justify-between gap-1.5 pt-6 hover:shadow-inner transition-shadow">
+                      <div className="w-full bg-emerald-500/30 rounded-t h-[40%] hover:bg-emerald-500/40 transition-colors" />
+                      <div className="w-full bg-emerald-500/40 rounded-t h-[60%] hover:bg-emerald-500/50 transition-colors" />
+                      <div className="w-full bg-emerald-500 rounded-t h-[95%] relative flex justify-center hover:bg-emerald-600 transition-colors">
+                        <span className="absolute -top-6 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 animate-bounce">95%</span>
                       </div>
-                      <div className="w-full bg-emerald-500/50 rounded-t h-[50%]" />
-                      <div className="w-full bg-emerald-500/60 rounded-t h-[80%]" />
+                      <div className="w-full bg-emerald-500/50 rounded-t h-[50%] hover:bg-emerald-500/60 transition-colors" />
+                      <div className="w-full bg-emerald-500/60 rounded-t h-[80%] hover:bg-emerald-500/70 transition-colors" />
                     </div>
                   </div>
 
@@ -318,8 +318,8 @@ export default function LandingPage() {
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 pt-12">
               
               {/* Feature 1 */}
-              <div className="bg-card border border-border p-6 rounded-2xl space-y-3 hover:border-emerald-500/30 hover:scale-[1.02] transition-all duration-300">
-                <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl w-fit">
+              <div className="bg-card border border-border p-6 rounded-2xl space-y-3 hover:border-emerald-500/30 hover:shadow-[0_12px_40px_rgba(16,185,129,0.08)] hover:scale-[1.03] active:scale-[0.98] transition-all duration-300 cursor-pointer">
+                <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl w-fit group-hover:rotate-6 transition-transform">
                   <Brain className="size-5" />
                 </div>
                 <h3 className="font-extrabold text-foreground text-md">AI Receptionist Autopilot</h3>
@@ -329,8 +329,8 @@ export default function LandingPage() {
               </div>
 
               {/* Feature 2 */}
-              <div className="bg-card border border-border p-6 rounded-2xl space-y-3 hover:border-emerald-500/30 hover:scale-[1.02] transition-all duration-300">
-                <div className="p-3 bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 rounded-xl w-fit">
+              <div className="bg-card border border-border p-6 rounded-2xl space-y-3 hover:border-emerald-500/30 hover:shadow-[0_12px_40px_rgba(16,185,129,0.08)] hover:scale-[1.03] active:scale-[0.98] transition-all duration-300 cursor-pointer">
+                <div className="p-3 bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 rounded-xl w-fit group-hover:rotate-6 transition-transform">
                   <Calendar className="size-5" />
                 </div>
                 <h3 className="font-extrabold text-foreground text-md">Clinical Booking Calendar</h3>
@@ -340,8 +340,8 @@ export default function LandingPage() {
               </div>
 
               {/* Feature 3 */}
-              <div className="bg-card border border-border p-6 rounded-2xl space-y-3 hover:border-emerald-500/30 hover:scale-[1.02] transition-all duration-300">
-                <div className="p-3 bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 rounded-xl w-fit">
+              <div className="bg-card border border-border p-6 rounded-2xl space-y-3 hover:border-emerald-500/30 hover:shadow-[0_12px_40px_rgba(16,185,129,0.08)] hover:scale-[1.03] active:scale-[0.98] transition-all duration-300 cursor-pointer">
+                <div className="p-3 bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 rounded-xl w-fit group-hover:rotate-6 transition-transform">
                   <FileText className="size-5" />
                 </div>
                 <h3 className="font-extrabold text-foreground text-md">Lab Reports Automated PDF</h3>
@@ -351,8 +351,8 @@ export default function LandingPage() {
               </div>
 
               {/* Feature 4 */}
-              <div className="bg-card border border-border p-6 rounded-2xl space-y-3 hover:border-emerald-500/30 hover:scale-[1.02] transition-all duration-300">
-                <div className="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 rounded-xl w-fit">
+              <div className="bg-card border border-border p-6 rounded-2xl space-y-3 hover:border-emerald-500/30 hover:shadow-[0_12px_40px_rgba(16,185,129,0.08)] hover:scale-[1.03] active:scale-[0.98] transition-all duration-300 cursor-pointer">
+                <div className="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 rounded-xl w-fit group-hover:rotate-6 transition-transform">
                   <MessageSquare className="size-5" />
                 </div>
                 <h3 className="font-extrabold text-foreground text-md">Shared Staff Inbox</h3>
@@ -393,7 +393,7 @@ export default function LandingPage() {
                           "Sure! I can help you with that. Dr. Gordon (Cardiology) is available tomorrow. May I know your full name and date of birth to reserve the slot?",
                           1
                         )}
-                        className="w-full text-left p-3 text-xs bg-card border border-border hover:border-emerald-500 hover:bg-emerald-500/5 text-foreground font-semibold rounded-xl transition-all cursor-pointer shadow-sm"
+                        className="w-full text-left p-3 text-xs bg-card border border-border hover:border-emerald-500 hover:bg-emerald-500/5 text-foreground font-semibold rounded-xl hover:scale-[1.03] active:scale-[0.97] transition-all cursor-pointer shadow-sm"
                       >
                         📅 Book a Cardiology slot tomorrow
                       </button>
@@ -403,7 +403,7 @@ export default function LandingPage() {
                           "Great news! Your Blood Test report is Ready. I am automatically sending you the PDF report now.",
                           2
                         )}
-                        className="w-full text-left p-3 text-xs bg-card border border-border hover:border-emerald-500 hover:bg-emerald-500/5 text-foreground font-semibold rounded-xl transition-all cursor-pointer shadow-sm"
+                        className="w-full text-left p-3 text-xs bg-card border border-border hover:border-emerald-500 hover:bg-emerald-500/5 text-foreground font-semibold rounded-xl hover:scale-[1.03] active:scale-[0.97] transition-all cursor-pointer shadow-sm"
                       >
                         🩸 Check Lab Report Status
                       </button>
@@ -418,7 +418,7 @@ export default function LandingPage() {
                           "Thank you, Susanta. I have qualifications logged: Appointment reserved with Dr. Gordon (Cardiology) for tomorrow morning. You will receive a WhatsApp confirmation soon!",
                           3
                         )}
-                        className="w-full text-left p-3 text-xs bg-card border border-border hover:border-emerald-500 hover:bg-emerald-500/5 text-foreground font-semibold rounded-xl transition-all cursor-pointer shadow-sm"
+                        className="w-full text-left p-3 text-xs bg-card border border-border hover:border-emerald-500 hover:bg-emerald-500/5 text-foreground font-semibold rounded-xl hover:scale-[1.03] active:scale-[0.97] transition-all cursor-pointer shadow-sm"
                       >
                         📝 Provide Patient Info (Name/DOB)
                       </button>
@@ -432,7 +432,7 @@ export default function LandingPage() {
                       </div>
                       <button
                         onClick={resetSimulator}
-                        className="w-full text-left p-3 text-xs bg-muted border border-border text-foreground hover:bg-muted/80 font-bold rounded-xl transition-all cursor-pointer"
+                        className="w-full text-left p-3 text-xs bg-muted border border-border text-foreground hover:bg-muted/85 hover:scale-[1.03] active:scale-[0.97] font-bold rounded-xl transition-all cursor-pointer"
                       >
                         🔄 Reset Simulator
                       </button>
@@ -446,7 +446,7 @@ export default function LandingPage() {
                       </div>
                       <button
                         onClick={resetSimulator}
-                        className="w-full text-left p-3 text-xs bg-muted border border-border text-foreground hover:bg-muted/80 font-bold rounded-xl transition-all cursor-pointer"
+                        className="w-full text-left p-3 text-xs bg-muted border border-border text-foreground hover:bg-muted/85 hover:scale-[1.03] active:scale-[0.97] font-bold rounded-xl transition-all cursor-pointer"
                       >
                         🔄 Reset Simulator
                       </button>
@@ -458,7 +458,7 @@ export default function LandingPage() {
 
               {/* Phone Simulator Layout (right) */}
               <div className="md:col-span-7 flex justify-center">
-                <div className="w-[300px] h-[520px] rounded-[36px] border-8 border-foreground/90 bg-muted/10 relative shadow-2xl flex flex-col overflow-hidden">
+                <div className="w-[300px] h-[520px] rounded-[36px] border-8 border-foreground/90 bg-muted/10 relative shadow-2xl flex flex-col overflow-hidden hover:shadow-emerald-500/5 transition-shadow">
                   
                   {/* Phone Speaker Notch */}
                   <div className="absolute top-2 left-1/2 -translate-x-1/2 w-20 h-4 bg-foreground/90 rounded-full z-20 flex justify-center items-center">
@@ -483,10 +483,10 @@ export default function LandingPage() {
                     {simMessages.map((msg, i) => (
                       <div
                         key={i}
-                        className={`max-w-[80%] rounded-xl p-2.5 text-[10px] leading-relaxed relative ${
+                        className={`max-w-[80%] rounded-xl p-2.5 text-[10px] leading-relaxed relative animate-in slide-in-from-bottom-2 duration-300 ${
                           msg.sender === "bot"
-                            ? "bg-card border text-foreground mr-auto rounded-tl-none"
-                            : "bg-emerald-600 text-white ml-auto rounded-tr-none"
+                            ? "bg-card border text-foreground mr-auto rounded-tl-none animate-in slide-in-from-left-2"
+                            : "bg-emerald-600 text-white ml-auto rounded-tr-none animate-in slide-in-from-right-2"
                         }`}
                       >
                         <p>{msg.text}</p>
@@ -497,7 +497,7 @@ export default function LandingPage() {
                     ))}
                     
                     {simTyping && (
-                      <div className="bg-card border rounded-xl p-2 max-w-[60%] mr-auto rounded-tl-none text-[10px] text-muted-foreground flex items-center gap-1">
+                      <div className="bg-card border rounded-xl p-2 max-w-[60%] mr-auto rounded-tl-none text-[10px] text-muted-foreground flex items-center gap-1 animate-pulse">
                         <span className="size-1.5 bg-muted-foreground rounded-full animate-bounce" />
                         <span className="size-1.5 bg-muted-foreground rounded-full animate-bounce delay-100" />
                         <span className="size-1.5 bg-muted-foreground rounded-full animate-bounce delay-200" />
@@ -528,7 +528,7 @@ export default function LandingPage() {
             <div className="grid grid-cols-1 gap-6 md:grid-cols-3 pt-12 max-w-5xl mx-auto text-left">
               
               {/* Tier 1: Free Trial */}
-              <div className="flex flex-col justify-between bg-card border border-border rounded-2xl p-6 hover:border-emerald-500/20 hover:scale-[1.01] transition-all duration-300">
+              <div className="flex flex-col justify-between bg-card border border-border rounded-2xl p-6 hover:border-emerald-500/30 hover:shadow-[0_12px_40px_rgba(16,185,129,0.05)] hover:scale-[1.03] active:scale-[0.99] transition-all duration-300 cursor-pointer">
                 <div>
                   <h3 className="text-md font-bold text-foreground">14-Day Free Trial</h3>
                   <div className="mt-2 flex items-baseline gap-1">
@@ -543,14 +543,14 @@ export default function LandingPage() {
                   </ul>
                 </div>
                 <Link href="/signup" className="mt-8">
-                  <Button className="w-full bg-muted border border-border text-foreground hover:bg-muted/80 font-bold">
+                  <Button className="w-full bg-muted border border-border text-foreground hover:bg-muted/80 font-bold hover:scale-[1.03] active:scale-[0.97] transition-transform">
                     Start Trial
                   </Button>
                 </Link>
               </div>
 
               {/* Tier 2: Growth Premium */}
-              <div className="flex flex-col justify-between bg-card border-2 border-emerald-500 rounded-2xl p-6 hover:scale-[1.01] transition-all duration-300 relative">
+              <div className="flex flex-col justify-between bg-card border-2 border-emerald-500 rounded-2xl p-6 hover:shadow-[0_12px_40px_rgba(16,185,129,0.12)] hover:scale-[1.03] active:scale-[0.99] transition-all duration-300 relative cursor-pointer">
                 <div className="absolute top-0 right-6 -translate-y-1/2 bg-emerald-500 text-white font-bold text-[9px] uppercase tracking-wider py-1 px-2.5 rounded-full shadow-md shadow-emerald-500/10">
                   Most Popular
                 </div>
@@ -569,14 +569,14 @@ export default function LandingPage() {
                   </ul>
                 </div>
                 <Link href="/signup" className="mt-8">
-                  <Button className="w-full bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-bold">
+                  <Button className="w-full bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-bold hover:scale-[1.03] active:scale-[0.97] transition-transform shadow-md shadow-emerald-500/10">
                     Upgrade to Growth
                   </Button>
                 </Link>
               </div>
 
               {/* Tier 3: Enterprise */}
-              <div className="flex flex-col justify-between bg-card border border-border rounded-2xl p-6 hover:border-emerald-500/20 hover:scale-[1.01] transition-all duration-300">
+              <div className="flex flex-col justify-between bg-card border border-border rounded-2xl p-6 hover:border-emerald-500/30 hover:shadow-[0_12px_40px_rgba(16,185,129,0.05)] hover:scale-[1.03] active:scale-[0.99] transition-all duration-300 cursor-pointer">
                 <div>
                   <h3 className="text-md font-bold text-foreground">Enterprise Custom</h3>
                   <div className="mt-2 flex items-baseline gap-1">
@@ -592,7 +592,7 @@ export default function LandingPage() {
                   </ul>
                 </div>
                 <Link href="mailto:sales@wacrm.com" className="mt-8">
-                  <Button className="w-full bg-muted border border-border text-foreground hover:bg-muted/80 font-bold">
+                  <Button className="w-full bg-muted border border-border text-foreground hover:bg-muted/85 hover:scale-[1.03] active:scale-[0.97] font-bold">
                     Contact Sales
                   </Button>
                 </Link>
@@ -638,7 +638,7 @@ export default function LandingPage() {
                 <div key={index} className="border border-border rounded-xl bg-card overflow-hidden">
                   <button
                     onClick={() => setActiveFaq(isOpen ? null : index)}
-                    className="w-full flex items-center justify-between p-4 font-semibold text-xs text-left text-foreground cursor-pointer"
+                    className="w-full flex items-center justify-between p-4 font-semibold text-xs text-left text-foreground cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-400 hover:translate-x-1.5 transition-all duration-200"
                   >
                     <span>{faq.q}</span>
                     <ChevronDown className={`size-4 text-muted-foreground transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
