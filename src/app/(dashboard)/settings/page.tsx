@@ -19,6 +19,7 @@ import { AiPanel } from '@/components/settings/ai-panel';
 import { KbPanel } from '@/components/settings/kb-panel';
 import { BillingPanel } from '@/components/settings/billing-panel';
 import { InsurancePanel } from '@/components/settings/insurance-panel';
+import { ReminderPanel } from '@/components/settings/reminder-panel';
 import {
   resolveSection,
   type SettingsSection,
@@ -67,6 +68,7 @@ export default function SettingsPage() {
     kb: <KbPanel />,
     billing: <BillingPanel />,
     insurance: <InsurancePanel />,
+    reminders: <ReminderPanel />,
   };
 
   return (

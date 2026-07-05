@@ -108,9 +108,10 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
 
     const { data: labReportsData } = await db
       .from('hospital_lab_reports')
-      .select('test_name, status, expected_delivery_date, report_pdf_url, notes')
+      .select('id, test_name, status, expected_delivery_date, report_pdf_url, notes, department, doctor:hospital_doctors(name)')
       .eq('patient_id', contactId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(10);
     labReports = labReportsData;
 
     if (doctors && doctors.length > 0) {
@@ -135,9 +136,11 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
       });
     }
     if (labReports && labReports.length > 0) {
-      hospitalContext += "\nPatient's Lab Reports:\n";
+      hospitalContext += "\nPatient's Lab/Diagnostic Reports:\n";
       labReports.forEach((r: any) => {
-        hospitalContext += `- Test: ${r.test_name}, Status: ${r.status}, Expected Delivery: ${r.expected_delivery_date || 'N/A'}, Notes: ${r.notes || 'None'}, PDF Available: ${r.report_pdf_url ? 'Yes' : 'No'}\n`;
+        const docData = r.doctor as any;
+        const docName = (Array.isArray(docData) ? docData[0]?.name : docData?.name) || 'Doctor';
+        hospitalContext += `- Report Name: ${r.test_name}, Department: ${r.department || 'General'}, Referred By: Dr. ${docName.replace(/^Dr\.\s+/i, '')}, Status: ${r.status}, Expected Delivery: ${r.expected_delivery_date || 'N/A'}, Notes: ${r.notes || 'None'}, PDF Available: ${r.report_pdf_url ? 'Yes' : 'No'}\n`;
       });
     }
   }
@@ -184,7 +187,17 @@ AI RULES & MEDICAL SAFETY PROTOCOLS:
    - Do NOT confirm the appointment booking until you have collected at least their Name, Gender, and DOB.
 4. **Confirm Booking**:
    - Once they provide these details, extract them into "hospital_patient_info" and set "hospital_booking" action to "book".
-   - Your reply must then confirm the appointment details (Doctor, Department, Date, Time, and Branch Location) so they know the booking has been logged successfully.`;
+   - Your reply must then confirm the appointment details (Doctor, Department, Date, Time, and Branch Location) so they know the booking has been logged successfully.
+5. **REPORT STATUS RESPONSES**: When a patient asks about their report status, respond according to these templates:
+   - If status is "pending": "Your report request has been received. Current Status: *Pending*. Expected Delivery: {{ExpectedDate}}. We will notify you as soon as it becomes available." (Substitute actual test name and expected date).
+   - If status is "processing": "Your report is currently being processed. Expected Completion: {{ExpectedDate}}. Thank you for your patience." (Substitute actual values).
+   - If status is "ready": "Great news! Your {{ReportName}} report is now *Ready*! Please visit the hospital reception to collect your report." (If PDF is available, tell them it is being sent).
+   - If status is "delivered": "Your report has already been delivered. If you need another copy, please contact the hospital reception."
+6. **SMART REPORT LOOKUP**: When a patient simply says "report" or similar:
+   - If they have exactly 1 active report (pending/processing/ready), respond with that report's status directly.
+   - If they have multiple reports, list them and ask which one they want to check.
+   - If they have 0 reports, say "I don't have any active reports on file for you."
+7. **REPORT SAFETY & NON-DIAGNOSIS**: NEVER share internal staff notes. NEVER interpret report values, explain medical findings, recommend medicines, or suggest treatments. If a patient asks: "My report says my sugar is high. What should I do?" or similar medical questions, you MUST politely respond: "I cannot interpret medical reports or provide medical advice. Please consult your doctor. I can help you book an appointment if you would like."`;
   }
 
   // Always enforce that the AI responds in the language of the latest customer message
@@ -265,8 +278,12 @@ Note:
   ]
 
   // 5. Send request to OpenRouter
+  let response;
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8-second timeout
+
+    response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -279,8 +296,38 @@ Note:
         messages: apiMessages,
         response_format: { type: 'json_object' }, // Ask OpenRouter for JSON format if supported
       }),
-    })
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+  } catch (err) {
+    console.warn(`[AI Assistant] Request with model ${model} failed or timed out. Trying fallback model 'google/gemini-2.5-flash'...`, err);
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
 
+      response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+          'HTTP-Referer': 'https://wacrm.tech',
+          'X-Title': 'wacrm',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: apiMessages,
+          response_format: { type: 'json_object' },
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+    } catch (fallbackErr) {
+      console.error('[AI Assistant] Both primary model and fallback model failed:', fallbackErr);
+      return;
+    }
+  }
+
+  try {
     if (!response.ok) {
       const errText = await response.text()
       throw new Error(`OpenRouter API error (status ${response.status}): ${errText}`)
@@ -565,14 +612,17 @@ Please arrive 15 minutes before your time slot. Thank you!`;
         }
       }
 
-      // 4. Lab Report Automated Delivery
+      // 4. Lab Report Smart Status Assistant
       if (labReports && labReports.length > 0) {
         const lowercaseMsg = (latestMessage?.content_text || '').toLowerCase();
-        const isReportQuery = lowercaseMsg.includes('report') || lowercaseMsg.includes('test') || lowercaseMsg.includes('blood') || lowercaseMsg.includes('result') || lowercaseMsg.includes('report status');
+        const reportKeywords = ['report', 'test', 'blood', 'result', 'report status', 'রিপোর্ট', 'रिपोर्ट', 'lab', 'x-ray', 'xray', 'mri', 'ct scan', 'cbc', 'ecg', 'usg', 'ultrasound'];
+        const isReportQuery = reportKeywords.some(kw => lowercaseMsg.includes(kw));
 
         if (isReportQuery) {
-          const readyReport = labReports.find((r: any) => r.status === 'ready' && r.report_pdf_url);
-          if (readyReport) {
+          const readyReportsWithPdf = labReports.filter((r: any) => r.status === 'ready' && r.report_pdf_url);
+          
+          if (readyReportsWithPdf.length === 1) {
+            const readyReport = readyReportsWithPdf[0];
             console.log('[AI Hospital] Auto-sending lab report PDF:', readyReport.test_name);
             const { engineSendDocument } = require('@/lib/automations/meta-send');
             engineSendDocument({
@@ -584,6 +634,21 @@ Please arrive 15 minutes before your time slot. Thank you!`;
               filename: `${readyReport.test_name.replace(/\s+/g, '_')}_Report.pdf`,
               caption: `Here is your completed ${readyReport.test_name} report.`
             }).catch((e: any) => console.error('[AI Hospital] Failed to auto-send lab report PDF:', e));
+          } else if (readyReportsWithPdf.length > 1) {
+            console.log('[AI Hospital] Multiple ready reports, sending selection buttons');
+            const { engineSendButtons } = require('@/lib/automations/meta-send');
+            const buttons = readyReportsWithPdf.slice(0, 3).map((r: any) => ({
+              id: `report_download_${r.id}`,
+              title: r.test_name.substring(0, 20),
+            }));
+            engineSendButtons({
+              accountId,
+              userId,
+              conversationId,
+              contactId,
+              bodyText: 'I found multiple reports ready for you. Which one would you like to receive?',
+              buttons,
+            }).catch((e: any) => console.error('[AI Hospital] Failed to send report buttons:', e));
           }
         }
       }

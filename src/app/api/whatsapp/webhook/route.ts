@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { decrypt, encrypt, isLegacyFormat } from '@/lib/whatsapp/encryption'
 import { getMediaUrl, downloadMedia } from '@/lib/whatsapp/meta-api'
@@ -180,9 +180,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  // Process asynchronously so we can ack Meta within their timeout.
-  processWebhook(body).catch((error) => {
-    console.error('Error processing webhook:', error)
+  // Process asynchronously after returning 200 OK so Vercel doesn't freeze the container
+  after(async () => {
+    try {
+      await processWebhook(body)
+    } catch (error) {
+      console.error('Error processing webhook:', error)
+    }
   })
 
   return NextResponse.json({ status: 'received' }, { status: 200 })
@@ -645,93 +649,169 @@ async function processMessage(
   await flagBroadcastReplyIfAny(accountId, contactRecord.id)
 
   // ============================================================
-  // Flow runner dispatch.
-  //
-  // If the runner consumes the message (it either advanced an active
-  // run or started a new one), we suppress the `new_message_received`
-  // + `keyword_match` automation triggers for this inbound. Customer
-  // is navigating the bot menu, not sending a fresh trigger word
-  // that should fork into automations.
-  //
-  // The relationship-level triggers (`new_contact_created`,
-  // `first_inbound_message`) still fire even when consumed — those
-  // are about WHO is messaging, not what they said.
-  //
-  // Awaited (not fire-and-forget) because we need the `consumed`
-  // result before deciding whether to dispatch automations. The
-  // runner has its own try/catch and never throws. Accounts with
-  // no active flows take the runner's early-exit "no_match" path
-  // basically for free (one indexed SELECT for the active run).
+  // Smart Interceptions (Reminders & Reports)
   // ============================================================
-  const flowResult = await dispatchInboundToFlows({
-    accountId,
-    userId: configOwnerUserId,
-    contactId: contactRecord.id,
-    conversationId: conversation.id,
-    message:
-      interactiveReplyId
-        ? {
-            kind: 'interactive_reply',
-            reply_id: interactiveReplyId,
-            reply_title: contentText ?? '',
-            meta_message_id: message.id,
-          }
-        : {
-            kind: 'text',
-            text: contentText ?? message.text?.body ?? '',
-            meta_message_id: message.id,
-          },
-    isFirstInboundMessage,
-  })
-  const flowConsumed = flowResult.consumed
+  try {
+    // Smart Appointment Reminder replies interception
+    let reminderHandled = false;
 
-  // Fire any automations that react to this webhook event. All dispatches
-  // run here (not earlier) so the contact, conversation, and inbound
-  // message all exist before any step — including send_message — runs.
-  // Fire-and-forget: a slow or failing automation must not block the
-  // webhook's 200 OK response to Meta.
-  const inboundText = contentText ?? message.text?.body ?? ''
-  const automationTriggers: (
-    | 'new_contact_created'
-    | 'first_inbound_message'
-    | 'new_message_received'
-    | 'keyword_match'
-  )[] = []
-  // Content-level triggers are suppressed when a flow consumed the
-  // message — see the comment block above.
-  if (!flowConsumed) {
-    automationTriggers.push('new_message_received', 'keyword_match')
-  }
-  // new_contact_created fires only when the webhook just auto-created the
-  // contact row. first_inbound_message fires whenever this is the contact's
-  // first-ever customer-sent message — a superset that also catches
-  // manually-imported contacts sending for the first time. We dispatch both
-  // so users can pick whichever semantic they want; an automation that
-  // listens to only one trigger runs only when that trigger matches.
-  if (contactOutcome.wasCreated) automationTriggers.unshift('new_contact_created')
-  if (isFirstInboundMessage) automationTriggers.unshift('first_inbound_message')
-  for (const triggerType of automationTriggers) {
-    runAutomationsForTrigger({
-      accountId,
-      triggerType,
-      contactId: contactRecord.id,
-      context: {
-        message_text: inboundText,
-        conversation_id: conversation.id,
-      },
-    }).catch((err) => console.error('[automations] dispatch failed:', err))
+    if (interactiveReplyId && (
+      interactiveReplyId.startsWith('rem_confirm_') ||
+      interactiveReplyId.startsWith('rem_resched_') ||
+      interactiveReplyId.startsWith('rem_cancel_')
+    )) {
+      const parts = interactiveReplyId.split('_');
+      const action = parts[1]; // confirm, resched, cancel
+      const apptId = parts[2];
+
+      reminderHandled = await handleReminderReplyAction(
+        accountId,
+        apptId,
+        action,
+        conversation.id,
+        contactRecord.id,
+        configOwnerUserId
+      );
+    } else {
+      const cleanedText = (contentText || '').trim().toLowerCase();
+      
+      // Check if there is an active appointment with status 'Reminder Sent'
+      const { data: reminderAppt } = await supabaseAdmin()
+        .from('appointments')
+        .select('id, status')
+        .eq('account_id', accountId)
+        .eq('patient_id', contactRecord.id)
+        .eq('status', 'Reminder Sent')
+        .order('appointment_date', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (reminderAppt) {
+        let matchedAction: 'confirm' | 'resched' | 'cancel' | null = null;
+        
+        const isConfirm = ['1', 'confirm', 'yes', 'coming', 'i\'ll be there', 'ill be there'].includes(cleanedText);
+        const isResched = ['2', 'reschedule', 'change time', 'another date', 'change date', 'resched'].includes(cleanedText);
+        const isCancel = ['3', 'cancel', 'i can\'t come', 'cant come', 'cannot come'].includes(cleanedText);
+        
+        if (isConfirm) matchedAction = 'confirm';
+        else if (isResched) matchedAction = 'resched';
+        else if (isCancel) matchedAction = 'cancel';
+
+        if (matchedAction) {
+          reminderHandled = await handleReminderReplyAction(
+            accountId,
+            reminderAppt.id,
+            matchedAction,
+            conversation.id,
+            contactRecord.id,
+            configOwnerUserId
+          );
+        }
+      }
+    }
+
+    if (reminderHandled) {
+      return;
+    }
+
+    // Report Status button replies interception
+    let reportHandled = false;
+
+    if (interactiveReplyId && (
+      interactiveReplyId.startsWith('report_download_') ||
+      interactiveReplyId.startsWith('report_status_')
+    )) {
+      const reportId = interactiveReplyId.replace(/^report_(download|status)_/, '');
+      reportHandled = await handleReportButtonReply(
+        accountId,
+        reportId,
+        interactiveReplyId.startsWith('report_download_') ? 'download' : 'status',
+        conversation.id,
+        contactRecord.id,
+        configOwnerUserId
+      );
+    }
+
+    if (reportHandled) {
+      return;
+    }
+  } catch (err) {
+    console.error('[Webhook Interception] Failed to process action safely:', err);
   }
 
-  // Trigger AI Assistant response if enabled and flow did not consume the message
-  if (conversation.ai_chat_enabled && !flowConsumed) {
-    triggerAiResponse({
+  // ============================================================
+  // Run flows, automations, and AI replies in the background context
+  // ============================================================
+  try {
+    // Flow runner dispatch
+    const flowResult = await dispatchInboundToFlows({
       accountId,
       userId: configOwnerUserId,
-      conversationId: conversation.id,
       contactId: contactRecord.id,
-    }).catch((err) => {
-      console.error('[AI Assistant] trigger error:', err)
-    })
+      conversationId: conversation.id,
+      message:
+        interactiveReplyId
+          ? {
+              kind: 'interactive_reply',
+              reply_id: interactiveReplyId,
+              reply_title: contentText ?? '',
+              meta_message_id: message.id,
+            }
+          : {
+              kind: 'text',
+              text: contentText ?? message.text?.body ?? '',
+              meta_message_id: message.id,
+            },
+      isFirstInboundMessage,
+    });
+    const flowConsumed = flowResult.consumed;
+
+    // Fire any automations that react to this webhook event
+    const inboundText = contentText ?? message.text?.body ?? '';
+    const automationTriggers: (
+      | 'new_contact_created'
+      | 'first_inbound_message'
+      | 'new_message_received'
+      | 'keyword_match'
+    )[] = [];
+
+    if (!flowConsumed) {
+      automationTriggers.push('new_message_received', 'keyword_match');
+    }
+    if (contactOutcome.wasCreated) automationTriggers.unshift('new_contact_created');
+    if (isFirstInboundMessage) automationTriggers.unshift('first_inbound_message');
+
+    for (const triggerType of automationTriggers) {
+      try {
+        await runAutomationsForTrigger({
+          accountId,
+          triggerType,
+          contactId: contactRecord.id,
+          context: {
+            message_text: inboundText,
+            conversation_id: conversation.id,
+          },
+        });
+      } catch (err) {
+        console.error('[automations] dispatch failed:', err);
+      }
+    }
+
+    // Trigger AI Assistant response if enabled and flow did not consume the message
+    if (conversation.ai_chat_enabled && !flowConsumed) {
+      try {
+        await triggerAiResponse({
+          accountId,
+          userId: configOwnerUserId,
+          conversationId: conversation.id,
+          contactId: contactRecord.id,
+        });
+      } catch (err) {
+        console.error('[AI Assistant] trigger error:', err);
+      }
+    }
+  } catch (backgroundErr) {
+    console.error('[Webhook Background execution] error:', backgroundErr);
   }
 }
 
@@ -985,4 +1065,206 @@ async function findOrCreateConversation(
   }
 
   return newConv
+}
+
+async function handleReminderReplyAction(
+  accountId: string,
+  apptId: string,
+  action: string,
+  conversationId: string,
+  contactId: string,
+  userId: string
+): Promise<boolean> {
+  const db = supabaseAdmin();
+  
+  // 1. Fetch appointment details
+  const { data: appt, error: apptErr } = await db
+    .from('appointments')
+    .select('id, appointment_date, appointment_time, doctor:hospital_doctors(id, name, department)')
+    .eq('id', apptId)
+    .single();
+    
+  if (apptErr || !appt) {
+    console.error('[Reminder Interceptor] Appointment not found:', apptErr);
+    return false;
+  }
+  
+  const docData = appt.doctor as any;
+  const docName = (Array.isArray(docData) ? docData[0]?.name : docData?.name) || 'Doctor';
+  const apptDate = appt.appointment_date || 'N/A';
+  const apptTime = appt.appointment_time ? appt.appointment_time.substring(0, 5) : 'N/A';
+
+  const { engineSendText } = await import('@/lib/automations/meta-send');
+
+  if (action === 'confirm') {
+    // Update appointment status to Confirmed
+    await db.from('appointments')
+      .update({ status: 'Confirmed' })
+      .eq('id', apptId);
+      
+    // Record timeline entry (contact_notes)
+    await db.from('contact_notes').insert({
+      account_id: accountId,
+      contact_id: contactId,
+      note_text: `[Timeline] Patient Confirmed Appointment via WhatsApp for Dr. ${docName} on ${apptDate} at ${apptTime}.`,
+    });
+    
+    // Send confirmation message
+    await engineSendText({
+      accountId,
+      userId,
+      conversationId,
+      contactId,
+      text: `Thank you! Your appointment with Dr. ${docName} on ${apptDate} at ${apptTime} has been successfully confirmed. We look forward to seeing you.`,
+    });
+    
+    // Notify receptionist in inbox (system alert message)
+    await db.from('messages').insert({
+      conversation_id: conversationId,
+      sender_type: 'bot',
+      content_type: 'text',
+      content_text: `[System Alert] Patient confirmed their appointment with Dr. ${docName} on ${apptDate} at ${apptTime}.`,
+      status: 'sent',
+    });
+    
+    return true;
+  }
+  
+  if (action === 'resched') {
+    // Update status to Reschedule Requested
+    await db.from('appointments')
+      .update({ status: 'Reschedule Requested' })
+      .eq('id', apptId);
+      
+    // Record timeline note
+    await db.from('contact_notes').insert({
+      account_id: accountId,
+      contact_id: contactId,
+      note_text: `[Timeline] Patient Requested Reschedule via WhatsApp for appointment with Dr. ${docName} on ${apptDate} at ${apptTime}.`,
+    });
+    
+    // Send prompt to start rescheduling
+    await engineSendText({
+      accountId,
+      userId,
+      conversationId,
+      contactId,
+      text: `Certainly! I will help you reschedule your appointment with Dr. ${docName}. Please reply with your preferred new date and time, and I will check availability for you.`,
+    });
+    
+    // Notify receptionist
+    await db.from('messages').insert({
+      conversation_id: conversationId,
+      sender_type: 'bot',
+      content_type: 'text',
+      content_text: `[System Alert] Patient requested a reschedule for their appointment with Dr. ${docName} on ${apptDate} at ${apptTime}.`,
+      status: 'sent',
+    });
+    
+    return true;
+  }
+  
+  if (action === 'cancel') {
+    // Update status to Cancelled
+    await db.from('appointments')
+      .update({ status: 'Cancelled' })
+      .eq('id', apptId);
+      
+    // Record timeline note
+    await db.from('contact_notes').insert({
+      account_id: accountId,
+      contact_id: contactId,
+      note_text: `[Timeline] Patient Cancelled Appointment via WhatsApp for Dr. ${docName} on ${apptDate} at ${apptTime}.`,
+    });
+    
+    // Send cancellation response
+    await engineSendText({
+      accountId,
+      userId,
+      conversationId,
+      contactId,
+      text: `Your appointment with Dr. ${docName} on ${apptDate} at ${apptTime} has been cancelled as requested. If you wish to schedule a new visit in the future, please let us know.`,
+    });
+    
+    // Notify receptionist
+    await db.from('messages').insert({
+      conversation_id: conversationId,
+      sender_type: 'bot',
+      content_type: 'text',
+      content_text: `[System Alert] Patient cancelled their appointment with Dr. ${docName} on ${apptDate} at ${apptTime}.`,
+      status: 'sent',
+    });
+    
+    return true;
+  }
+  
+  return false;
+}
+
+async function handleReportButtonReply(
+  accountId: string,
+  reportId: string,
+  action: 'download' | 'status',
+  conversationId: string,
+  contactId: string,
+  userId: string
+): Promise<boolean> {
+  const db = supabaseAdmin();
+  
+  const { data: report, error } = await db
+    .from('hospital_lab_reports')
+    .select('id, test_name, status, expected_delivery_date, report_pdf_url, department, doctor:hospital_doctors(name)')
+    .eq('id', reportId)
+    .single();
+    
+  if (error || !report) {
+    console.error('[Report Button] Report not found:', error);
+    return false;
+  }
+
+  const { engineSendText, engineSendDocument } = await import('@/lib/automations/meta-send');
+  const docData = report.doctor as any;
+  const docName = (Array.isArray(docData) ? docData[0]?.name : docData?.name) || 'Doctor';
+
+  if (action === 'download' && report.report_pdf_url) {
+    await engineSendDocument({
+      accountId,
+      userId,
+      conversationId,
+      contactId,
+      documentUrl: report.report_pdf_url,
+      filename: `${report.test_name.replace(/\s+/g, '_')}_Report.pdf`,
+      caption: `Here is your ${report.test_name} report from Dr. ${docName}.`,
+    });
+    return true;
+  }
+
+  let statusMsg = '';
+  switch (report.status) {
+    case 'pending':
+      statusMsg = `Your *${report.test_name}* report request has been received.\n\n📋 Status: *Pending*\n📅 Expected Delivery: ${report.expected_delivery_date || 'To be determined'}\n\nWe will notify you as soon as it becomes available.`;
+      break;
+    case 'processing':
+      statusMsg = `Your *${report.test_name}* report is currently being processed.\n\n📋 Status: *Processing*\n📅 Expected Completion: ${report.expected_delivery_date || 'To be determined'}\n\nThank you for your patience.`;
+      break;
+    case 'ready':
+      statusMsg = `Great news! Your *${report.test_name}* report is now *Ready*!\n\n🏥 Department: ${report.department || 'General'}\n👨‍⚕️ Doctor: Dr. ${docName}\n\n${report.report_pdf_url ? 'Your report PDF is being sent now.' : 'Please visit the hospital reception to collect your report.'}`;
+      if (report.report_pdf_url) {
+        engineSendDocument({
+          accountId, userId, conversationId, contactId,
+          documentUrl: report.report_pdf_url,
+          filename: `${report.test_name.replace(/\s+/g, '_')}_Report.pdf`,
+          caption: `${report.test_name} Report`,
+        }).catch(e => console.error('[Report Button] PDF send error:', e));
+      }
+      break;
+    case 'delivered':
+      statusMsg = `Your *${report.test_name}* report has already been delivered.\n\nIf you need another copy, please contact the hospital reception.`;
+      break;
+    default:
+      statusMsg = `Your *${report.test_name}* report status is: ${report.status}.`;
+  }
+
+  await engineSendText({ accountId, userId, conversationId, contactId, text: statusMsg });
+  return true;
 }

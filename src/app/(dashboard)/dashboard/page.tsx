@@ -20,6 +20,11 @@ import {
   FileText,
   CheckCheck,
   FileUp,
+  Bell,
+  CalendarCheck,
+  CalendarX,
+  Percent,
+  Package,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -66,6 +71,12 @@ export default function ClinicalDashboardPage() {
     reportsPending: 0,
     reportsReadyToday: 0,
     reportsDeliveredToday: 0,
+    remindersSentToday: 0,
+    confirmedAppointments: 0,
+    rescheduledAppointments: 0,
+    cancelledAppointments: 0,
+    noShowRate: 0,
+    reportsAwaitingCollection: 0,
   });
 
   const [recentAppointments, setRecentAppointments] = useState<AppointmentRow[]>([]);
@@ -93,6 +104,13 @@ export default function ClinicalDashboardPage() {
         reportsPending,
         reportsReady,
         reportsDelivered,
+        remindersSent,
+        confirmedCount,
+        rescheduledCount,
+        cancelledCount,
+        noShowCount,
+        completedCount,
+        awaitingCollection,
       ] = await Promise.all([
         db.from("conversations").select("id", { count: "exact", head: true }).gte("created_at", todayStart.toISOString()),
         db.from("messages").select("id", { count: "exact", head: true }).eq("sender_type", "bot").gte("created_at", todayStart.toISOString()),
@@ -110,6 +128,14 @@ export default function ClinicalDashboardPage() {
         db.from("hospital_lab_reports").select("id", { count: "exact", head: true }).in("status", ["pending", "processing"]),
         db.from("hospital_lab_reports").select("id", { count: "exact", head: true }).eq("status", "ready").gte("updated_at", todayStart.toISOString()),
         db.from("hospital_lab_reports").select("id", { count: "exact", head: true }).eq("status", "delivered").gte("updated_at", todayStart.toISOString()),
+        // Reminders & Statuses Queries
+        db.from("appointments").select("id", { count: "exact", head: true }).or("reminder_24h_sent.eq.true,reminder_2h_sent.eq.true").gte("updated_at", todayStart.toISOString()),
+        db.from("appointments").select("id", { count: "exact", head: true }).eq("status", "Confirmed"),
+        db.from("appointments").select("id", { count: "exact", head: true }).eq("status", "Rescheduled"),
+        db.from("appointments").select("id", { count: "exact", head: true }).eq("status", "Cancelled"),
+        db.from("appointments").select("id", { count: "exact", head: true }).eq("status", "No Show"),
+        db.from("appointments").select("id", { count: "exact", head: true }).eq("status", "Completed"),
+        db.from("hospital_lab_reports").select("id", { count: "exact", head: true }).eq("status", "ready"),
       ]);
 
       const totalConvs = convsToday.count || 0;
@@ -125,6 +151,11 @@ export default function ClinicalDashboardPage() {
         if (resolutionRate > 100) resolutionRate = 100;
       }
 
+      const noShows = noShowCount.count || 0;
+      const completed = completedCount.count || 0;
+      const totalConcluded = noShows + completed;
+      const noShowRatePercent = totalConcluded > 0 ? Math.round((noShows / totalConcluded) * 100) : 0;
+
       setStats({
         conversationsToday: totalConvs,
         aiRepliesToday: aiRepliesCount,
@@ -137,6 +168,12 @@ export default function ClinicalDashboardPage() {
         reportsPending: reportsPending.count || 0,
         reportsReadyToday: reportsReady.count || 0,
         reportsDeliveredToday: reportsDelivered.count || 0,
+        remindersSentToday: remindersSent.count || 0,
+        confirmedAppointments: confirmedCount.count || 0,
+        rescheduledAppointments: rescheduledCount.count || 0,
+        cancelledAppointments: cancelledCount.count || 0,
+        noShowRate: noShowRatePercent,
+        reportsAwaitingCollection: awaitingCollection.count || 0,
       });
 
       setRecentAppointments((recentAppts.data as any) || []);
@@ -273,6 +310,42 @@ export default function ClinicalDashboardPage() {
           value={String(stats.reportsDeliveredToday)}
           icon={FileUp}
           subtitle="Reports dispatched/collected today"
+        />
+        <MetricCard
+          title="Reminders Sent Today"
+          value={String(stats.remindersSentToday)}
+          icon={Bell}
+          subtitle="WhatsApp reminders dispatched"
+        />
+        <MetricCard
+          title="Confirmed Appointments"
+          value={String(stats.confirmedAppointments)}
+          icon={CalendarCheck}
+          subtitle="Confirmed clinical slots"
+        />
+        <MetricCard
+          title="Rescheduled Appointments"
+          value={String(stats.rescheduledAppointments)}
+          icon={Calendar}
+          subtitle="Slots rescheduled by patient"
+        />
+        <MetricCard
+          title="Cancelled Appointments"
+          value={String(stats.cancelledAppointments)}
+          icon={CalendarX}
+          subtitle="Cancelled consultations"
+        />
+        <MetricCard
+          title="No Show Rate"
+          value={`${stats.noShowRate}%`}
+          icon={Percent}
+          subtitle="Rate of missed appointments"
+        />
+        <MetricCard
+          title="Reports Awaiting Collection"
+          value={String(stats.reportsAwaitingCollection)}
+          icon={Package}
+          subtitle="Ready reports pending patient pickup"
         />
       </div>
 

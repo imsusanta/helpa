@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
@@ -38,6 +39,9 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
     );
   }
 
+  const pathname = usePathname();
+  const isInbox = pathname === "/inbox";
+
   if (!user) return null;
 
   return (
@@ -46,7 +50,12 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header onOpenSidebar={() => setSidebarOpen(true)} />
         {/* Thinner horizontal padding on mobile so cards have room to breathe. */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6">{children}</main>
+        <main className={cn(
+          "flex-1 min-h-0",
+          isInbox ? "flex flex-col overflow-hidden p-0 sm:p-0" : "overflow-y-auto p-4 sm:p-6"
+        )}>
+          {children}
+        </main>
       </div>
     </div>
   );

@@ -580,7 +580,7 @@ export default function InboxPage() {
   const hasActiveConv = !!activeConversation;
 
   return (
-    <div className="-m-4 flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden sm:-m-6">
+    <div className="flex flex-1 min-h-0 w-full flex-col overflow-hidden">
       {/* WhatsApp connection banner — in the flex column, not absolute,
           so it pushes the panels down instead of overlapping them. */}
       {whatsappConnected === false && (
@@ -592,13 +592,13 @@ export default function InboxPage() {
         </div>
       )}
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Left panel: Conversation list.
             Hidden on mobile when a conversation is selected so the
             thread can occupy the full width. Always visible on lg+. */}
         <div
           className={cn(
-            "flex h-full flex-1 lg:flex-none",
+            "flex h-full flex-1 lg:flex-none min-h-0",
             hasActiveConv ? "hidden lg:flex" : "flex",
           )}
         >
@@ -623,7 +623,7 @@ export default function InboxPage() {
             on the right. Issue #165. */}
         <div
           className={cn(
-            "flex h-full min-w-0 flex-1 lg:flex",
+            "flex h-full min-w-0 flex-1 lg:flex min-h-0",
             hasActiveConv ? "flex" : "hidden lg:flex",
           )}
         >
@@ -648,7 +648,7 @@ export default function InboxPage() {
 
         {/* Right panel: Unified Tabbed Sidebar — desktop only, toggled via header button */}
         {contactPanelOpen && (
-          <aside className="hidden lg:flex h-full w-80 shrink-0 flex-col border-l border-border bg-card">
+          <aside className="hidden lg:flex h-full min-h-0 w-80 shrink-0 flex-col border-l border-border bg-card">
             {/* Premium Tab Bar */}
             <div className="flex shrink-0 border-b border-border bg-muted/20 p-1">
               <button
@@ -678,7 +678,7 @@ export default function InboxPage() {
             </div>
 
             {/* Embed Panel Content */}
-            <div className="flex-1 min-h-0">
+            <div className="flex-1 min-h-0 flex flex-col">
               {rightTab === "copilot" ? (
                 <ReceptionistCopilotPanel
                   conversation={activeConversation}

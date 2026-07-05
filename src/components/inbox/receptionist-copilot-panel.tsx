@@ -10,6 +10,7 @@ import {
   ClipboardList,
   Clock3,
   FileText,
+  FileDown,
   Loader2,
   MessageSquareReply,
   RefreshCw,
@@ -268,7 +269,7 @@ export function ReceptionistCopilotPanel({
         </Button>
       </div>
 
-      <ScrollArea className="min-h-0 flex-1">
+      <div className="min-h-0 flex-1 overflow-y-auto">
         {loading && !snapshot ? (
           <div className="flex h-64 flex-col items-center justify-center gap-3 px-6 text-center">
             <Loader2 className="size-5 animate-spin text-primary" />
@@ -357,13 +358,27 @@ export function ReceptionistCopilotPanel({
 
             <Section title="Reports" icon={FileText}>
               {snapshot.reportInfo.exists ? (
-                <InfoGrid
-                  rows={[
-                    field("Report", snapshot.reportInfo.name),
-                    field("Status", snapshot.reportInfo.status),
-                    field("Date", snapshot.reportInfo.date),
-                  ]}
-                />
+                <div className="space-y-2">
+                  <InfoGrid
+                    rows={[
+                      field("Report", snapshot.reportInfo.name),
+                      field("Status", snapshot.reportInfo.status),
+                      field("Date", snapshot.reportInfo.date),
+                    ]}
+                  />
+                  {snapshot.reportInfo.pdfUrl && (
+                    <div className="pt-1">
+                      <a
+                        href={snapshot.reportInfo.pdfUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-semibold text-[10px] px-2.5 py-1 transition-colors"
+                      >
+                        <FileDown className="h-3.5 w-3.5" /> Download Report PDF
+                      </a>
+                    </div>
+                  )}
+                </div>
               ) : (
                 <EmptyLine>
                   {snapshot.reportInfo.emptyMessage || "No reports available."}
@@ -494,16 +509,16 @@ export function ReceptionistCopilotPanel({
             </Section>
           </div>
         ) : null}
-      </ScrollArea>
+      </div>
     </>
   );
 
   if (isEmbedded) {
-    return <div className="flex h-full flex-col">{content}</div>;
+    return <div className="flex h-full flex-col min-h-0 overflow-hidden">{content}</div>;
   }
 
   return (
-    <aside className="hidden h-full w-80 shrink-0 flex-col border-l border-border bg-card lg:flex">
+    <aside className="hidden h-full w-80 shrink-0 flex-col border-l border-border bg-card lg:flex min-h-0 overflow-hidden">
       {content}
     </aside>
   );

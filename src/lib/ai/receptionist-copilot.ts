@@ -136,6 +136,7 @@ export interface CopilotReportInfo {
   status: string;
   date: string;
   ready: boolean;
+  pdfUrl?: string;
   emptyMessage?: string;
 }
 
@@ -823,6 +824,7 @@ export function buildFallbackCopilotSnapshot(
             : titleCase(valueOr(latestReport.status, UNKNOWN)),
         date: formatDate(latestReport.created_at ?? latestReport.updated_at),
         ready: latestReport.status?.toLowerCase() === "ready",
+        pdfUrl: latestReport.report_pdf_url || undefined,
       }
     : {
         exists: false,
@@ -830,6 +832,7 @@ export function buildFallbackCopilotSnapshot(
         status: "No reports available.",
         date: NOT_AVAILABLE,
         ready: false,
+        pdfUrl: undefined,
         emptyMessage: "No reports available.",
       };
 
@@ -1009,6 +1012,7 @@ function snapshotFromUnknown(
         typeof reportInfo.ready === "boolean"
           ? reportInfo.ready
           : fallback.reportInfo.ready,
+      pdfUrl: reportInfo.pdfUrl ? String(reportInfo.pdfUrl) : fallback.reportInfo.pdfUrl,
       emptyMessage: normalizeText(reportInfo.emptyMessage) || fallback.reportInfo.emptyMessage,
     },
     insuranceInfo: {

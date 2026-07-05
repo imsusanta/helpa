@@ -12,6 +12,7 @@ import {
   Database,
   CreditCard,
   Boxes,
+  BellRing,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -37,6 +38,7 @@ export const SETTINGS_SECTIONS = [
   'ai',
   'kb',
   'insurance',
+  'reminders',
 ] as const;
 
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
@@ -65,6 +67,7 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
   ai: { id: 'ai', label: 'AI Assistant', icon: Brain, group: 'workspace' },
   kb: { id: 'kb', label: 'Knowledge Base', icon: Database, group: 'workspace' },
   insurance: { id: 'insurance', label: 'Health Insurance', icon: Shield, group: 'workspace' },
+  reminders: { id: 'reminders', label: 'Smart Reminders', icon: BellRing, group: 'workspace' },
 };
 
 export const RAIL_GROUPS: { label: string | null; group: SectionMeta['group'] }[] = [

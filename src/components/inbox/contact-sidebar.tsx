@@ -20,6 +20,8 @@ import {
   Activity,
   Calendar,
   Clock,
+  FileDown,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -51,7 +53,7 @@ export function ContactSidebar({ contact, conversation, isEmbedded }: ContactSid
   const [branches, setBranches] = useState<any[]>([]);
   const [loadingForm, setLoadingForm] = useState(false);
   const [upcomingAppointment, setUpcomingAppointment] = useState<any | null>(null);
-  const [latestReport, setLatestReport] = useState<any | null>(null);
+  const [recentReports, setRecentReports] = useState<any[]>([]);
 
   const [bookingDocId, setBookingDocId] = useState("");
   const [bookingDate, setBookingDate] = useState("");
@@ -98,8 +100,7 @@ export function ContactSidebar({ contact, conversation, isEmbedded }: ContactSid
         .select("*")
         .eq("patient_id", contact.id)
         .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
+        .limit(5),
     ]);
 
     if (dealsRes.data) setDeals(dealsRes.data);
@@ -107,8 +108,7 @@ export function ContactSidebar({ contact, conversation, isEmbedded }: ContactSid
     if (patientRes.data) setPatient(patientRes.data);
     if (apptRes.data) setUpcomingAppointment(apptRes.data);
     else setUpcomingAppointment(null);
-    if (reportRes.data) setLatestReport(reportRes.data);
-    else setLatestReport(null);
+    setRecentReports(Array.isArray(reportRes.data) ? reportRes.data : reportRes.data ? [reportRes.data] : []);
     if (tagsRes.data) {
       const mapped = tagsRes.data
         .filter((ct: Record<string, unknown>) => ct.tags)
@@ -294,50 +294,56 @@ export function ContactSidebar({ contact, conversation, isEmbedded }: ContactSid
   const initials = displayName.charAt(0).toUpperCase();
 
   const content = (
-    <ScrollArea className="flex-1">
-        <div className="p-4">
-          {/* Contact Info */}
-          <div className="flex flex-col items-center text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted text-lg font-semibold text-foreground">
-              {contact.avatar_url ? (
-                <img
-                  src={contact.avatar_url}
-                  alt={displayName}
-                  className="h-16 w-16 rounded-full object-cover"
-                />
-              ) : (
-                initials
+    <div className="flex-1 overflow-y-auto min-h-0">
+      <div className="p-4 pb-20">
+          {/* Profile Card */}
+          <div className="bg-muted/30 border border-border/50 rounded-xl p-4 flex flex-col items-center text-center space-y-3 shadow-sm mb-4">
+            <div className="relative">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-background border-2 border-primary/20 text-lg font-semibold text-foreground overflow-hidden">
+                {contact.avatar_url ? (
+                  <img
+                    src={contact.avatar_url}
+                    alt={displayName}
+                    className="h-16 w-16 rounded-full object-cover"
+                  />
+                ) : (
+                  initials
+                )}
+              </div>
+              <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-background bg-emerald-500" title="Active" />
+            </div>
+
+            <div className="space-y-0.5">
+              <h3 className="text-sm font-bold text-foreground truncate max-w-[200px]">
+                {displayName}
+              </h3>
+              {contact.company && (
+                <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">{contact.company}</p>
               )}
             </div>
-            <h3 className="mt-3 text-sm font-semibold text-foreground">
-              {displayName}
-            </h3>
-            {contact.company && (
-              <p className="text-xs text-muted-foreground">{contact.company}</p>
-            )}
-          </div>
 
-          {/* Phone */}
-          <div className="mt-4 space-y-2">
-            <button
-              onClick={handleCopyPhone}
-              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted"
-            >
-              <Phone className="h-4 w-4 text-muted-foreground" />
-              <span className="flex-1 text-left">{contact.phone}</span>
-              {copied ? (
-                <Check className="h-3 w-3 text-primary" />
-              ) : (
-                <Copy className="h-3 w-3 text-muted-foreground" />
+            {/* Quick Actions / Contact Info */}
+            <div className="w-full pt-3 border-t border-border/40 space-y-1.5">
+              <button
+                onClick={handleCopyPhone}
+                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground cursor-pointer"
+              >
+                <Phone className="h-3.5 w-3.5 shrink-0" />
+                <span className="flex-1 text-left truncate font-medium">{contact.phone}</span>
+                {copied ? (
+                  <Check className="h-3 w-3 text-emerald-500" />
+                ) : (
+                  <Copy className="h-3 w-3 text-muted-foreground" />
+                )}
+              </button>
+
+              {contact.email && (
+                <div className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-muted-foreground select-text font-medium">
+                  <Mail className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate text-left flex-1">{contact.email}</span>
+                </div>
               )}
-            </button>
-
-            {contact.email && (
-              <div className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground">
-                <Mail className="h-4 w-4 text-muted-foreground" />
-                <span className="truncate">{contact.email}</span>
-              </div>
-            )}
+            </div>
           </div>
 
           {/* AI Insights */}
@@ -479,32 +485,46 @@ export function ContactSidebar({ contact, conversation, isEmbedded }: ContactSid
                       </div>
                     )}
 
-                    {/* Latest Lab Report Info */}
-                    {latestReport ? (
-                      <div className="bg-purple-500/5 border border-purple-500/10 rounded-lg p-2 text-[10px] space-y-1">
-                        <span className="block text-[8px] uppercase font-bold text-purple-400">Latest Lab Report</span>
-                        <p className="font-semibold text-foreground">{latestReport.test_name}</p>
-                        <div className="flex justify-between items-center mt-1">
-                          <span className={cn(
-                            "text-[9px] font-bold uppercase px-1.5 py-0.5 rounded",
-                            latestReport.status === 'ready'
-                              ? "bg-emerald-500/10 text-emerald-500"
-                              : latestReport.status === 'processing'
-                              ? "bg-sky-500/10 text-sky-500"
-                              : "bg-amber-500/10 text-amber-500"
-                          )}>
-                            {latestReport.status}
-                          </span>
-                          {latestReport.report_pdf_url && (
-                            <a
-                              href={latestReport.report_pdf_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-primary hover:underline font-semibold text-[9px]"
-                            >
-                              Download PDF
-                            </a>
-                          )}
+                    {/* Lab Reports List */}
+                    {recentReports.length > 0 ? (
+                      <div className="space-y-1.5 w-full">
+                        <span className="block text-[8px] uppercase font-bold text-emerald-600 dark:text-emerald-400">Lab Reports ({recentReports.length})</span>
+                        <div className="space-y-1">
+                          {recentReports.map((rep: any) => (
+                            <div key={rep.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/40 border border-border/30 text-[10px] gap-2">
+                              <div className="min-w-0 flex-1">
+                                <p className="font-semibold text-foreground truncate">{rep.test_name}</p>
+                                <div className="flex items-center gap-1.5 mt-0.5 text-[8.5px]">
+                                  <span className={cn(
+                                    "font-bold uppercase px-1 rounded-[3px]",
+                                    rep.status === 'ready'
+                                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                                      : rep.status === 'processing'
+                                      ? "bg-sky-500/10 text-sky-600 dark:text-sky-400"
+                                      : rep.status === 'delivered'
+                                      ? "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400"
+                                      : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                                  )}>
+                                    {rep.status}
+                                  </span>
+                                  <span className="text-muted-foreground">
+                                    {new Date(rep.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                  </span>
+                                </div>
+                              </div>
+                              {rep.report_pdf_url && (
+                                <a
+                                  href={rep.report_pdf_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 flex-shrink-0 cursor-pointer"
+                                  title="Download Report PDF"
+                                >
+                                  <FileDown className="h-3.5 w-3.5" />
+                                </a>
+                              )}
+                            </div>
+                          ))}
                         </div>
                       </div>
                     ) : (
@@ -560,8 +580,22 @@ export function ContactSidebar({ contact, conversation, isEmbedded }: ContactSid
                       <Label htmlFor="side-notes" className="text-[10px]">Consultation Notes</Label>
                       <Input id="side-notes" value={bookingNotes} onChange={(e) => setBookingNotes(e.target.value)} placeholder="Reason for booking..." className="h-7 text-xs px-1.5" />
                     </div>
-                    <Button type="submit" size="xs" disabled={loadingForm} className="w-full text-[10px] h-7 mt-1">
-                      {loadingForm ? "Booking..." : "Confirm & Notify WA"}
+                    <Button
+                      type="submit"
+                      disabled={loadingForm}
+                      className="w-full text-[11px] h-8 mt-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-md shadow-sm transition-all duration-150 flex items-center justify-center gap-1.5 cursor-pointer border-0"
+                    >
+                      {loadingForm ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          Booking...
+                        </>
+                      ) : (
+                        <>
+                          <Calendar className="h-3.5 w-3.5" />
+                          Confirm & Notify WA
+                        </>
+                      )}
                     </Button>
                   </form>
                 )}
@@ -712,15 +746,15 @@ export function ContactSidebar({ contact, conversation, isEmbedded }: ContactSid
             </div>
           </div>
         </div>
-      </ScrollArea>
+    </div>
   );
 
   if (isEmbedded) {
-    return <div className="flex h-full flex-col">{content}</div>;
+    return <div className="flex flex-1 flex-col min-h-0 overflow-hidden">{content}</div>;
   }
 
   return (
-    <div className="flex h-full w-70 flex-col border-l border-border bg-card">
+    <div className="flex h-full w-70 flex-col border-l border-border bg-card min-h-0 overflow-hidden">
       {content}
     </div>
   );
