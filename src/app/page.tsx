@@ -132,72 +132,74 @@ export default function LandingPage() {
       </div>
 
       {/* Header Section */}
-      <header className="sticky top-0 z-40 w-full border-b border-border/85 bg-background/80 backdrop-blur-md">
-        <div className="container mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-2 group cursor-pointer">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-md shadow-emerald-500/20 group-hover:rotate-12 group-hover:scale-110 active:scale-90 transition-all duration-300 animate-pulse">
-              <Stethoscope className="h-5 w-5" />
+      <div className="sticky top-0 z-50 w-full flex flex-col items-center px-4 pt-4 pointer-events-none">
+        <header className="w-full max-w-5xl rounded-full border border-border/80 bg-background/65 backdrop-blur-xl shadow-lg shadow-black/[0.02] dark:shadow-black/[0.12] transition-all duration-300 pointer-events-auto">
+          <div className="flex items-center justify-between py-2.5 px-5 sm:px-6">
+            <div className="flex items-center gap-2 group cursor-pointer">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 text-white shadow-md shadow-emerald-500/20 group-hover:rotate-12 group-hover:scale-110 active:scale-90 transition-all duration-300">
+                <Stethoscope className="h-4.5 w-4.5" />
+              </div>
+              <span className="font-black text-sm text-foreground tracking-tight sm:text-base">
+                WACRM<span className="text-emerald-500 font-medium text-[10px] ml-1">Hospital AI</span>
+              </span>
             </div>
-            <span className="font-extrabold text-lg text-foreground tracking-tight sm:text-xl">
-              WACRM<span className="text-emerald-500 font-medium text-xs ml-1">Hospital AI</span>
-            </span>
-          </div>
 
-          {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-6 text-sm font-semibold text-muted-foreground">
-            <a href="#features" className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:scale-105 active:scale-95 transition-all duration-200">Features</a>
-            <a href="#demo" className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:scale-105 active:scale-95 transition-all duration-200">Live Demo</a>
-            <a href="#pricing" className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:scale-105 active:scale-95 transition-all duration-200">Pricing</a>
-            <a href="#faq" className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:scale-105 active:scale-95 transition-all duration-200">FAQ</a>
-          </nav>
+            {/* Desktop Navigation Links */}
+            <nav className="hidden md:flex items-center gap-1 p-0.5 rounded-full bg-muted/40 border border-border/50">
+              <a href="#features" className="hover:bg-background/80 hover:shadow-sm px-4 py-1 rounded-full text-xs font-bold text-muted-foreground hover:text-foreground transition-all duration-200">Features</a>
+              <a href="#demo" className="hover:bg-background/80 hover:shadow-sm px-4 py-1 rounded-full text-xs font-bold text-muted-foreground hover:text-foreground transition-all duration-200">Live Demo</a>
+              <a href="#pricing" className="hover:bg-background/80 hover:shadow-sm px-4 py-1 rounded-full text-xs font-bold text-muted-foreground hover:text-foreground transition-all duration-200">Pricing</a>
+              <a href="#faq" className="hover:bg-background/80 hover:shadow-sm px-4 py-1 rounded-full text-xs font-bold text-muted-foreground hover:text-foreground transition-all duration-200">FAQ</a>
+            </nav>
 
-          {/* Dark Mode toggle & CTAs */}
-          <div className="hidden md:flex items-center gap-4">
-            
-            {/* Theme Toggle Button */}
-            <button
-              onClick={() => setMode(mode === "dark" ? "light" : "dark")}
-              type="button"
-              className="p-2 text-muted-foreground hover:text-foreground rounded-lg border border-border bg-card/50 hover:scale-105 active:scale-95 transition-all cursor-pointer"
-              title={mode === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
-            >
-              {mode === "dark" ? <Sun className="size-4 text-amber-500" /> : <Moon className="size-4 text-emerald-600" />}
-            </button>
+            {/* Dark Mode toggle & CTAs */}
+            <div className="hidden md:flex items-center gap-3">
+              
+              {/* Theme Toggle Button */}
+              <button
+                onClick={() => setMode(mode === "dark" ? "light" : "dark")}
+                type="button"
+                className="p-2 text-muted-foreground hover:text-foreground rounded-full border border-border bg-card/60 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+                title={mode === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
+              >
+                {mode === "dark" ? <Sun className="size-3.5 text-amber-500" /> : <Moon className="size-3.5 text-emerald-600" />}
+              </button>
 
-            {user ? (
-              <Link href="/dashboard">
-                <Button className="bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-bold cursor-pointer hover:scale-[1.03] active:scale-[0.97] transition-all">
-                  Go to Dashboard <ArrowRight className="size-4 ml-1.5" />
-                </Button>
-              </Link>
-            ) : (
-              <>
-                <Link href="/login" className="text-sm font-bold text-muted-foreground hover:text-foreground hover:scale-105 active:scale-95 transition-all duration-200 mr-2">
-                  Sign In
-                </Link>
-                <Link href="/signup">
-                  <Button className="bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-bold cursor-pointer hover:scale-[1.03] active:scale-[0.97] transition-all">
-                    Start Free Trial
+              {user ? (
+                <Link href="/dashboard">
+                  <Button size="sm" className="bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-bold cursor-pointer rounded-full hover:scale-[1.03] active:scale-[0.97] transition-all px-4">
+                    Dashboard <ArrowRight className="size-3.5 ml-1" />
                   </Button>
                 </Link>
-              </>
-            )}
-          </div>
+              ) : (
+                <>
+                  <Link href="/login" className="text-xs font-bold text-muted-foreground hover:text-foreground hover:scale-105 active:scale-95 transition-all duration-200 mr-1.5">
+                    Sign In
+                  </Link>
+                  <Link href="/signup">
+                    <Button size="sm" className="bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-bold cursor-pointer rounded-full hover:scale-[1.03] active:scale-[0.97] transition-all px-4">
+                      Try Free
+                    </Button>
+                  </Link>
+                </>
+              )}
+            </div>
 
-          {/* Mobile Menu Icon */}
-          <button
-            type="button"
-            className="md:hidden p-2 text-muted-foreground hover:text-foreground rounded-lg transition-transform active:scale-90"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          >
-            {mobileMenuOpen ? <X className="size-6" /> : <Menu className="size-6" />}
-          </button>
-        </div>
+            {/* Mobile Menu Icon */}
+            <button
+              type="button"
+              className="md:hidden p-2 text-muted-foreground hover:text-foreground rounded-full transition-transform active:scale-90"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            >
+              {mobileMenuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
+            </button>
+          </div>
+        </header>
 
         {/* Mobile Navigation Drawer */}
         {mobileMenuOpen && (
-          <div className="md:hidden border-t border-border bg-card p-4 space-y-4 animate-in slide-in-from-top-4 duration-200">
-            <nav className="flex flex-col gap-3 font-semibold text-muted-foreground">
+          <div className="w-full max-w-5xl mt-2 border border-border/60 bg-card/90 backdrop-blur-lg p-5 space-y-4 rounded-3xl animate-in slide-in-from-top-4 duration-200 shadow-xl pointer-events-auto">
+            <nav className="flex flex-col gap-2 font-semibold text-muted-foreground">
               <a href="#features" onClick={() => setMobileMenuOpen(false)} className="hover:text-emerald-500 py-1.5 transition-colors">Features</a>
               <a href="#demo" onClick={() => setMobileMenuOpen(false)} className="hover:text-emerald-500 py-1.5 transition-colors">Live Demo</a>
               <a href="#pricing" onClick={() => setMobileMenuOpen(false)} className="hover:text-emerald-500 py-1.5 transition-colors">Pricing</a>
@@ -210,14 +212,14 @@ export default function LandingPage() {
                   setMode(mode === "dark" ? "light" : "dark");
                   setMobileMenuOpen(false);
                 }}
-                className="flex items-center justify-between border border-border p-2.5 rounded-lg text-xs font-semibold"
+                className="flex items-center justify-between border border-border p-2.5 rounded-2xl text-xs font-semibold"
               >
                 <span>Active Theme Mode</span>
                 {mode === "dark" ? <Sun className="size-4 text-amber-500" /> : <Moon className="size-4 text-emerald-600" />}
               </button>
               {user ? (
                 <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>
-                  <Button className="w-full bg-emerald-600 text-white font-bold">
+                  <Button className="w-full bg-emerald-600 text-white font-bold rounded-2xl">
                     Go to Dashboard
                   </Button>
                 </Link>
@@ -227,7 +229,7 @@ export default function LandingPage() {
                     Sign In
                   </Link>
                   <Link href="/signup" onClick={() => setMobileMenuOpen(false)}>
-                    <Button className="w-full bg-emerald-600 text-white font-bold">
+                    <Button className="w-full bg-emerald-600 text-white font-bold rounded-2xl">
                       Start Free Trial
                     </Button>
                   </Link>
@@ -236,7 +238,7 @@ export default function LandingPage() {
             </div>
           </div>
         )}
-      </header>
+      </div>
 
       {/* Main Container */}
       <main className="relative z-10">
