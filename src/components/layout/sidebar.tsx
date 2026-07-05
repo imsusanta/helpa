@@ -302,7 +302,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                       : "text-muted-foreground hover:bg-muted hover:text-foreground",
                   )}
                 >
-                  <Shield className="h-4 w-4 text-purple-400" />
+                  <Shield className="h-4 w-4" />
                   Super Admin
                 </Link>
               </li>
