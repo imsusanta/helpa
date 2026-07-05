@@ -1105,42 +1105,88 @@ Use only the provided data. If a field is missing, say it is not available inste
 Keep patientSummary to 5 or 6 short bullets. Keep internalNotes private and operational.
 Return only a raw JSON object that matches the same shape as sourceContext.fallback.`;
 
-  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-      "HTTP-Referer": "https://wacrm.tech",
-      "X-Title": "wacrm AI Receptionist Copilot",
-    },
-    body: JSON.stringify({
-      model,
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content: [routeSafety, systemPrompt ? `Tenant AI policy:\n${systemPrompt}` : ""]
-            .filter(Boolean)
-            .join("\n\n"),
+  const runCompletion = async (activeModel: string, timeoutMs: number = 5000): Promise<string> => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const isGemini = activeModel.includes("gemini");
+      const isClaude = activeModel.includes("claude");
+      const supportsJson = isGemini || isClaude;
+
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+          "HTTP-Referer": "https://wacrm.tech",
+          "X-Title": "wacrm AI Receptionist Copilot",
         },
-        {
-          role: "user",
-          content: `Latest patient message: ${latestText || "(none)"}\n\nBuild the copilot snapshot from this context:\n${JSON.stringify(sourceContext)}`,
-        },
-      ],
-    }),
-  });
+        signal: controller.signal,
+        body: JSON.stringify({
+          model: activeModel,
+          ...(supportsJson ? { response_format: { type: "json_object" } } : {}),
+          messages: [
+            {
+              role: "system",
+              content: [routeSafety, systemPrompt ? `Tenant AI policy:\n${systemPrompt}` : ""]
+                .filter(Boolean)
+                .join("\n\n"),
+            },
+            {
+              role: "user",
+              content: `Latest patient message: ${latestText || "(none)"}\n\nBuild the copilot snapshot from this context:\n${JSON.stringify(sourceContext)}`,
+            },
+          ],
+        }),
+      });
 
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`OpenRouter API error (${response.status}): ${errText}`);
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`OpenRouter API error (${response.status}): ${errText}`);
+      }
+
+      const payload = await response.json();
+      const content = payload?.choices?.[0]?.message?.content;
+      if (typeof content !== "string" || content.trim().length === 0) {
+        throw new Error("OpenRouter returned an empty copilot response");
+      }
+      return content;
+    } catch (err) {
+      clearTimeout(timeoutId);
+      throw err;
+    }
+  };
+
+  try {
+    console.log(`[Copilot AI] Querying primary model: ${model}`);
+    const content = await runCompletion(model, 5000);
+    return parseCopilotSnapshotJson(content, fallback);
+  } catch (primaryErr) {
+    console.warn(
+      `[Copilot AI] Primary model failed or timed out:`,
+      primaryErr instanceof Error ? primaryErr.message : primaryErr
+    );
+
+    const fallbackModel = "google/gemini-2.5-flash";
+    if (model !== fallbackModel) {
+      try {
+        console.log(`[Copilot AI] Retrying with fallback model: ${fallbackModel}`);
+        const content = await runCompletion(fallbackModel, 6000);
+        return parseCopilotSnapshotJson(content, fallback);
+      } catch (fallbackErr) {
+        console.error(
+          `[Copilot AI] Fallback model also failed:`,
+          fallbackErr instanceof Error ? fallbackErr.message : fallbackErr
+        );
+      }
+    }
+    
+    return {
+      ...fallback,
+      warning: "AI Copilot generation failed. Displaying local rule-based fallback snapshot.",
+    };
   }
-
-  const payload = await response.json();
-  const content = payload?.choices?.[0]?.message?.content;
-  if (typeof content !== "string" || content.trim().length === 0) {
-    throw new Error("OpenRouter returned an empty copilot response");
-  }
-
-  return parseCopilotSnapshotJson(content, fallback);
 }
