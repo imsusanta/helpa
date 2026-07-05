@@ -127,6 +127,9 @@ function ConfidenceBar({ label, score }: { label: string; score: number }) {
   );
 }
 
+// Snapshot cache by conversation ID to allow instant loads on click
+const copilotCache: Record<string, ReceptionistCopilotSnapshot> = {};
+
 export function ReceptionistCopilotPanel({
   conversation,
   contact,
@@ -160,7 +163,10 @@ export function ReceptionistCopilotPanel({
   const snapshot =
     conversation && snapshotState?.conversationId === conversation.id
       ? snapshotState.snapshot
+      : conversation
+      ? copilotCache[conversation.id] || null
       : null;
+      
   const error =
     conversation && errorState?.conversationId === conversation.id
       ? errorState.message
@@ -191,6 +197,8 @@ export function ReceptionistCopilotPanel({
             conversationId: conversation.id,
             snapshot: payload.snapshot,
           });
+          // Save to cache for instant load on next selection
+          copilotCache[conversation.id] = payload.snapshot;
         })
         .catch((err) => {
           if (controller.signal.aborted) return;
