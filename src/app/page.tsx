@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { useTheme } from "@/hooks/use-theme";
 import {
   Brain,
   MessageSquare,
@@ -22,6 +23,8 @@ import {
   FileText,
   UserCheck,
   Check,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -30,6 +33,7 @@ interface Testimonial {
   author: string;
   role: string;
   clinic: string;
+  avatar: string;
 }
 
 const TESTIMONIALS: Testimonial[] = [
@@ -38,12 +42,14 @@ const TESTIMONIALS: Testimonial[] = [
     author: "Dr. Elena Rostova",
     role: "Clinical Director",
     clinic: "Metro Health Group",
+    avatar: "ER",
   },
   {
     quote: "Patients love getting their diagnostic PDFs instantly on WhatsApp. No more phone queues or manual emails from staff.",
     author: "Susanta Lohar",
     role: "System Administrator",
-    clinic: "Appolo Diagnostic Labs",
+    clinic: "Apollo Diagnostic Labs",
+    avatar: "SL",
   },
 ];
 
@@ -51,6 +57,12 @@ export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [activeFaq, setActiveFaq] = useState<number | null>(null);
+  
+  // Pricing toggle (monthly vs yearly)
+  const [isYearly, setIsYearly] = useState(false);
+
+  // Theme support
+  const { mode, setMode } = useTheme();
 
   // WhatsApp Interactive Simulator State
   const [simStep, setSimStep] = useState(0);
@@ -63,7 +75,7 @@ export default function LandingPage() {
   ]);
   const [simTyping, setSimTyping] = useState(false);
 
-  // Load user session on mount
+  // Load user session and force light mode first if no theme stored yet
   useEffect(() => {
     async function checkAuth() {
       const supabase = createClient();
@@ -71,7 +83,15 @@ export default function LandingPage() {
       setUser(user);
     }
     checkAuth();
-  }, []);
+
+    // Default to light mode if no custom theme is stored in localStorage
+    if (typeof window !== "undefined") {
+      const storedMode = localStorage.getItem("wacrm:mode");
+      if (!storedMode) {
+        setMode("light");
+      }
+    }
+  }, [setMode]);
 
   // Simulator Interactive Click Handler
   const handleSimReply = (questionText: string, botResponseText: string, nextStep: number) => {
@@ -112,7 +132,7 @@ export default function LandingPage() {
       </div>
 
       {/* Header Section */}
-      <header className="sticky top-0 z-40 w-full border-b border-border/80 bg-background/80 backdrop-blur-md">
+      <header className="sticky top-0 z-40 w-full border-b border-border/85 bg-background/80 backdrop-blur-md">
         <div className="container mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2 group cursor-pointer">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-md shadow-emerald-500/20 group-hover:rotate-12 group-hover:scale-110 active:scale-90 transition-all duration-300 animate-pulse">
@@ -131,8 +151,19 @@ export default function LandingPage() {
             <a href="#faq" className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:scale-105 active:scale-95 transition-all duration-200">FAQ</a>
           </nav>
 
-          {/* CTAs */}
-          <div className="hidden md:flex items-center gap-3">
+          {/* Dark Mode toggle & CTAs */}
+          <div className="hidden md:flex items-center gap-4">
+            
+            {/* Theme Toggle Button */}
+            <button
+              onClick={() => setMode(mode === "dark" ? "light" : "dark")}
+              type="button"
+              className="p-2 text-muted-foreground hover:text-foreground rounded-lg border border-border bg-card/50 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+              title={mode === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
+            >
+              {mode === "dark" ? <Sun className="size-4 text-amber-500" /> : <Moon className="size-4 text-emerald-600" />}
+            </button>
+
             {user ? (
               <Link href="/dashboard">
                 <Button className="bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-bold cursor-pointer hover:scale-[1.03] active:scale-[0.97] transition-all">
@@ -173,6 +204,17 @@ export default function LandingPage() {
               <a href="#faq" onClick={() => setMobileMenuOpen(false)} className="hover:text-emerald-500 py-1.5 transition-colors">FAQ</a>
             </nav>
             <div className="flex flex-col gap-2 pt-2 border-t border-border">
+              {/* Mobile Mode Toggle */}
+              <button
+                onClick={() => {
+                  setMode(mode === "dark" ? "light" : "dark");
+                  setMobileMenuOpen(false);
+                }}
+                className="flex items-center justify-between border border-border p-2.5 rounded-lg text-xs font-semibold"
+              >
+                <span>Active Theme Mode</span>
+                {mode === "dark" ? <Sun className="size-4 text-amber-500" /> : <Moon className="size-4 text-emerald-600" />}
+              </button>
               {user ? (
                 <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>
                   <Button className="w-full bg-emerald-600 text-white font-bold">
@@ -237,7 +279,7 @@ export default function LandingPage() {
             <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-4 pt-8 text-xs font-semibold text-muted-foreground max-w-3xl mx-auto border-t border-border/60">
               <div className="flex items-center gap-1.5 hover:text-emerald-500 transition-colors cursor-pointer"><CheckCircle2 className="size-4 text-emerald-500" /> WhatsApp Cloud API Integration</div>
               <div className="flex items-center gap-1.5 hover:text-emerald-500 transition-colors cursor-pointer"><CheckCircle2 className="size-4 text-emerald-500" /> Patient CRM & Pipelines</div>
-              <div className="flex items-center gap-1.5 hover:text-emerald-500 transition-colors cursor-pointer"><CheckCircle2 className="size-4 text-emerald-500" /> Automated Report Dispatch</div>
+              <div className="flex items-center gap-1.5 hover:text-emerald-500 transition-colors cursor-pointer"><CheckCircle2 className="size-4 text-emerald-500" /> Automated Lab Report Delivery</div>
               <div className="flex items-center gap-1.5 hover:text-emerald-500 transition-colors cursor-pointer"><CheckCircle2 className="size-4 text-emerald-500" /> Self-Hosted Supabase / Next.js</div>
             </div>
 
@@ -514,7 +556,7 @@ export default function LandingPage() {
 
         {/* Pricing Tiers Section */}
         <section id="pricing" className="py-20 bg-muted/20 border-t border-border">
-          <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center">
+          <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center space-y-8">
             
             <div className="max-w-3xl mx-auto space-y-4">
               <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl text-foreground">
@@ -525,7 +567,26 @@ export default function LandingPage() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-3 pt-12 max-w-5xl mx-auto text-left">
+            {/* Sliding Monthly/Yearly Billing Toggle */}
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <span className={`text-xs font-bold transition-colors ${!isYearly ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>Monthly</span>
+              <button
+                onClick={() => setIsYearly(!isYearly)}
+                className="w-12 h-6 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center p-0.5 transition-colors cursor-pointer relative"
+                type="button"
+                aria-label="Toggle Billing Interval"
+              >
+                <div className={`h-4.5 w-4.5 rounded-full bg-emerald-600 dark:bg-emerald-500 transition-transform ${isYearly ? "translate-x-6" : "translate-x-0"}`} />
+              </button>
+              <span className={`text-xs font-bold transition-colors flex items-center gap-1.5 ${isYearly ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>
+                Yearly
+                <span className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[9px] font-extrabold px-1.5 py-0.5 rounded-full">
+                  SAVE 20%
+                </span>
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-3 pt-6 max-w-5xl mx-auto text-left">
               
               {/* Tier 1: Free Trial */}
               <div className="flex flex-col justify-between bg-card border border-border rounded-2xl p-6 hover:border-emerald-500/30 hover:shadow-[0_12px_40px_rgba(16,185,129,0.05)] hover:scale-[1.03] active:scale-[0.99] transition-all duration-300 cursor-pointer">
@@ -533,7 +594,9 @@ export default function LandingPage() {
                   <h3 className="text-md font-bold text-foreground">14-Day Free Trial</h3>
                   <div className="mt-2 flex items-baseline gap-1">
                     <span className="text-3xl font-black text-foreground">$0</span>
-                    <span className="text-xs text-muted-foreground font-semibold">/14 days</span>
+                    <span className="text-xs text-muted-foreground font-semibold">
+                      /{isYearly ? "14 days" : "14 days"}
+                    </span>
                   </div>
                   <ul className="mt-6 space-y-2.5 text-xs text-muted-foreground font-medium">
                     <li className="flex items-center gap-2"><Check className="size-3.5 text-emerald-500" /> Up to 500 patient contacts</li>
@@ -557,8 +620,11 @@ export default function LandingPage() {
                 <div>
                   <h3 className="text-md font-bold text-foreground">Growth Premium</h3>
                   <div className="mt-2 flex items-baseline gap-1">
-                    <span className="text-3xl font-black text-foreground">$29</span>
+                    <span className="text-3xl font-black text-foreground">
+                      ${isYearly ? "23" : "29"}
+                    </span>
                     <span className="text-xs text-muted-foreground font-semibold">/month</span>
+                    {isYearly && <span className="text-[10px] text-muted-foreground font-semibold ml-2">billed yearly</span>}
                   </div>
                   <ul className="mt-6 space-y-2.5 text-xs text-muted-foreground font-medium">
                     <li className="flex items-center gap-2 text-foreground font-semibold"><Check className="size-3.5 text-emerald-500" /> Up to 5,000 patient contacts</li>
@@ -600,6 +666,37 @@ export default function LandingPage() {
 
             </div>
 
+          </div>
+        </section>
+
+        {/* Premium Testimonials Section */}
+        <section className="py-20 px-4 max-w-5xl mx-auto">
+          <div className="text-center space-y-4 mb-12">
+            <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl text-foreground">
+              Trusted by Clinics & Labs
+            </h2>
+            <p className="text-muted-foreground text-xs leading-relaxed">
+              Here is what system administrators and clinical directors say about using WACRM.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {TESTIMONIALS.map((t, i) => (
+              <div key={i} className="bg-card border border-border rounded-2xl p-6 space-y-4 hover:border-emerald-500/20 hover:shadow-[0_12px_30px_rgba(16,185,129,0.04)] transition-all duration-300">
+                <p className="text-xs text-foreground italic leading-relaxed">
+                  "{t.quote}"
+                </p>
+                <div className="flex items-center gap-3 pt-2">
+                  <div className="size-9 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center font-bold text-xs text-emerald-600 dark:text-emerald-400">
+                    {t.avatar}
+                  </div>
+                  <div className="text-left leading-tight">
+                    <p className="text-xs font-bold text-foreground">{t.author}</p>
+                    <p className="text-[10px] text-muted-foreground">{t.role} • {t.clinic}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </section>
 
