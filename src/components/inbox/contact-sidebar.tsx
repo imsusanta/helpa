@@ -350,9 +350,9 @@ export function ContactSidebar({ contact, conversation, isEmbedded }: ContactSid
           {conversation && (conversation.ai_intent || conversation.ai_lead_score || conversation.ai_summary) && (
             <>
               <div className="my-4 border-t border-border" />
-              <div className="rounded-xl border border-purple-500/20 bg-purple-950/10 p-3 text-card-foreground">
-                <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-purple-300">
-                  <Brain className="h-3.5 w-3.5 text-purple-400" />
+              <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-3 text-card-foreground">
+                <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                  <Brain className="h-3.5 w-3.5 text-emerald-500" />
                   AI Insights
                 </div>
 
@@ -383,7 +383,7 @@ export function ContactSidebar({ contact, conversation, isEmbedded }: ContactSid
                             : conversation.ai_intent === "support"
                             ? "bg-sky-500/10 text-sky-300 border-sky-500/20"
                             : conversation.ai_intent === "booking"
-                            ? "bg-purple-500/10 text-purple-300 border-purple-500/20"
+                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
                             : conversation.ai_intent === "complaint"
                             ? "bg-rose-500/10 text-rose-300 border-rose-500/20"
                             : "bg-gray-500/10 text-gray-300 border-gray-500/20"
@@ -407,7 +407,7 @@ export function ContactSidebar({ contact, conversation, isEmbedded }: ContactSid
                   {/* FAQ Category */}
                   {conversation.ai_faq_category && conversation.ai_faq_category !== "general" && (
                     <div className="text-[10px] text-muted-foreground flex items-center gap-1">
-                      <span className="font-semibold text-purple-300">Topic:</span>
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">Topic:</span>
                       <span className="capitalize">{conversation.ai_faq_category}</span>
                     </div>
                   )}

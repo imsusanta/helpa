@@ -927,11 +927,11 @@ export function MessageThread({
             className={cn(
               "inline-flex h-7 items-center justify-center gap-1.5 px-2.5 text-[11px] font-medium rounded-md border transition-all duration-200 cursor-pointer",
               conversation.ai_chat_enabled
-                ? "bg-purple-900/30 border-purple-500/55 text-purple-200 hover:bg-purple-900/40"
+                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20"
                 : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
             )}
           >
-            <Sparkles className={cn("h-3 w-3 text-purple-400", conversation.ai_chat_enabled && "animate-pulse")} />
+            <Sparkles className={cn("h-3 w-3 text-emerald-600 dark:text-emerald-400", conversation.ai_chat_enabled && "animate-pulse")} />
             <span>AI {conversation.ai_chat_enabled ? "ON" : "OFF"}</span>
           </button>
 
