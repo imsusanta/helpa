@@ -583,7 +583,7 @@ export function MessageComposer({
                 type="button"
                 disabled={isGeneratingSuggest || inputsDisabled}
                 onClick={handleSuggestReply}
-                className="h-7 text-[11px] font-medium gap-1 text-primary hover:text-primary/95 border-primary/25 hover:bg-primary/5 rounded-lg px-2.5 transition-all"
+                className="h-7 text-[11px] font-semibold gap-1 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 border-emerald-500/25 hover:bg-emerald-500/10 rounded-lg px-2.5 hover:scale-[1.04] active:scale-[0.96] transition-all duration-200 shadow-sm"
               >
                 {isGeneratingSuggest ? (
                   <Loader2 className="h-3 w-3 animate-spin" />
@@ -596,7 +596,7 @@ export function MessageComposer({
               <DropdownMenu>
                 <DropdownMenuTrigger
                   disabled={!text.trim() || isGeneratingRewrite || inputsDisabled}
-                  className="inline-flex h-7 items-center justify-center border border-border/70 bg-background text-[11px] font-medium gap-1 text-muted-foreground hover:bg-muted hover:text-foreground rounded-lg px-2.5 transition-all disabled:pointer-events-none disabled:opacity-50"
+                  className="inline-flex h-7 items-center justify-center border border-border/70 bg-background text-[11px] font-semibold gap-1 text-muted-foreground hover:bg-muted hover:text-foreground rounded-lg px-2.5 hover:scale-[1.04] active:scale-[0.96] transition-all duration-200 disabled:pointer-events-none disabled:opacity-50"
                 >
                   {isGeneratingRewrite ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
@@ -624,7 +624,7 @@ export function MessageComposer({
               <DropdownMenu>
                 <DropdownMenuTrigger
                   disabled={!text.trim() || isGeneratingTranslate || inputsDisabled}
-                  className="inline-flex h-7 items-center justify-center border border-border/70 bg-background text-[11px] font-medium gap-1 text-muted-foreground hover:bg-muted hover:text-foreground rounded-lg px-2.5 transition-all disabled:pointer-events-none disabled:opacity-50"
+                  className="inline-flex h-7 items-center justify-center border border-border/70 bg-background text-[11px] font-semibold gap-1 text-muted-foreground hover:bg-muted hover:text-foreground rounded-lg px-2.5 hover:scale-[1.04] active:scale-[0.96] transition-all duration-200 disabled:pointer-events-none disabled:opacity-50"
                 >
                   {isGeneratingTranslate ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
@@ -666,7 +666,7 @@ export function MessageComposer({
                       ? undefined
                       : "Attach media"
                 }
-                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md p-0 text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md p-0 text-muted-foreground hover:text-foreground hover:scale-[1.08] active:scale-[0.92] transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {busy ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -700,7 +700,7 @@ export function MessageComposer({
               canAct={!readOnly}
               gateReason="send messages"
               title={readOnly ? undefined : "Send template"}
-              className="h-9 w-9 shrink-0 p-0 text-muted-foreground hover:text-foreground"
+              className="h-9 w-9 shrink-0 p-0 text-muted-foreground hover:text-foreground hover:scale-[1.08] active:scale-[0.92] transition-all duration-150"
               onClick={onOpenTemplates}
             >
               <LayoutTemplate className="h-4 w-4" />
@@ -725,7 +725,7 @@ export function MessageComposer({
               // The placeholder text also surfaces the read-only state.
               title={readOnly ? "Read-only — your role can't send messages" : undefined}
               className={cn(
-                "flex-1 resize-none rounded-xl border border-border bg-muted px-4 py-2.5 text-sm text-foreground placeholder-muted-foreground outline-none transition-colors focus:border-primary/50",
+                "flex-1 resize-none rounded-xl border border-border bg-muted px-4 py-2.5 text-sm text-foreground placeholder-muted-foreground outline-none transition-colors focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/5",
                 (sessionExpired || readOnly) && "cursor-not-allowed opacity-50"
               )}
             />
@@ -736,7 +736,7 @@ export function MessageComposer({
               gateReason="send messages"
               disabled={!text.trim() || sessionExpired || sending}
               onClick={handleSend}
-              className="h-9 w-9 shrink-0 bg-primary p-0 hover:bg-primary/90 disabled:opacity-40"
+              className="h-9 w-9 shrink-0 bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white shadow-sm shadow-emerald-500/10 p-0 hover:scale-[1.08] active:scale-[0.92] transition-all duration-150 disabled:opacity-40"
             >
               <Send className="h-4 w-4" />
             </GatedButton>

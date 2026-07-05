@@ -1,6 +1,9 @@
 import { requireSuperAdmin } from "@/lib/auth/admin";
 import { AdminDashboardClient } from "@/components/admin/admin-dashboard-client";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export const metadata = {
   title: "Super Admin Dashboard - WACRM",
 };

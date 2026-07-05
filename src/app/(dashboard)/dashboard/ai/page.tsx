@@ -15,6 +15,7 @@ import {
   PieChart as PieIcon,
   HelpCircle,
   Activity,
+  ArrowRight,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -33,7 +34,7 @@ import { Button } from "@/components/ui/button";
 const COLORS = {
   sales: "#10b981",     // green
   support: "#0ea5e9",   // sky blue
-  booking: "#8b5cf6",   // purple
+  booking: "#10b981",   // emerald green theme
   complaint: "#f43f5e", // rose
   other: "#64748b",     // slate
 
@@ -42,7 +43,7 @@ const COLORS = {
   cold: "#3b82f6",      // blue
 
   positive: "#10b981",
-  neutral: "#e2e8f0",
+  neutral: "#64748b",
   negative: "#ef4444",
 };
 
@@ -285,7 +286,7 @@ export default function AiAnalyticsPage() {
     return (
       <div className="flex h-[80vh] items-center justify-center">
         <div className="text-center space-y-3">
-          <Loader2 className="mx-auto size-8 animate-spin text-purple-400" />
+          <Loader2 className="mx-auto size-8 animate-spin text-emerald-500" />
           <p className="text-sm text-muted-foreground">Aggregating AI Insights...</p>
         </div>
       </div>
@@ -301,15 +302,15 @@ export default function AiAnalyticsPage() {
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in-50 duration-200">
+    <div className="space-y-6 animate-in fade-in duration-300">
       {/* Header */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Brain className="size-6 text-purple-400" />
+      <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between p-6 bg-gradient-to-r from-emerald-500/10 via-background to-background border border-emerald-500/20 rounded-2xl gap-4 shadow-sm overflow-hidden transition-all duration-300">
+        <div className="z-10">
+          <h1 className="text-2xl font-extrabold text-foreground tracking-tight sm:text-3xl flex items-center gap-2">
+            <Brain className="size-8 text-emerald-600 dark:text-emerald-400" />
             AI Assistant Analytics
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-xs text-muted-foreground mt-1 max-w-xl leading-relaxed">
             Real-time intent detection, sentiment trends, lead qualification, and automated reply metrics.
           </p>
         </div>
@@ -317,7 +318,7 @@ export default function AiAnalyticsPage() {
           onClick={fetchAiMetrics}
           variant="outline"
           size="sm"
-          className="border-border text-foreground hover:bg-muted self-start"
+          className="border-border text-foreground hover:bg-muted font-semibold cursor-pointer hover:scale-[1.03] active:scale-[0.97] transition-all duration-200"
         >
           Refresh Data
         </Button>
@@ -325,73 +326,78 @@ export default function AiAnalyticsPage() {
 
       {/* Metrics Row */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-border bg-card">
+        
+        {/* AI Resolution Card */}
+        <Card className="border-border bg-card hover:border-emerald-500/20 hover:scale-[1.02] active:scale-[0.99] hover:shadow-[0_8px_30px_rgba(16,185,129,0.06)] transition-all duration-300">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 AI Resolution Rate
               </span>
-              <Sparkles className="size-4 text-purple-400" />
+              <Sparkles className="size-4 text-emerald-500" />
             </div>
             <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-foreground">{resolutionRate}%</span>
-              <span className="text-xs text-muted-foreground">handled on auto</span>
+              <span className="text-2xl font-black text-foreground tracking-tight">{resolutionRate}%</span>
+              <span className="text-xs text-muted-foreground font-medium">handled on auto</span>
             </div>
-            <div className="mt-2 text-xs text-muted-foreground">
+            <div className="mt-2 text-xs text-muted-foreground font-medium">
               {metrics.resolvedCount} resolved • {metrics.handoffCount} handoffs
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-border bg-card">
+        {/* Hot Leads Card */}
+        <Card className="border-border bg-card hover:border-red-500/20 hover:scale-[1.02] active:scale-[0.99] hover:shadow-[0_8px_30px_rgba(239,68,68,0.06)] transition-all duration-300">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 Hot Leads Identified
               </span>
               <Flame className="size-4 text-red-500 animate-pulse" />
             </div>
             <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-red-400">{metrics.leadHotCount}</span>
-              <span className="text-xs text-red-300/80">high interest</span>
+              <span className="text-2xl font-black text-red-600 dark:text-red-400 tracking-tight">{metrics.leadHotCount}</span>
+              <span className="text-xs text-red-500/80 font-semibold">high interest</span>
             </div>
-            <div className="mt-2 text-xs text-muted-foreground">
-              {metrics.leadWarmCount} warm leads • {metrics.leadColdCount} cold
+            <div className="mt-2 text-xs text-muted-foreground font-medium">
+              {metrics.leadWarmCount} qualified leads • {metrics.leadColdCount} other
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-border bg-card">
+        {/* AI Autopilot Share Card */}
+        <Card className="border-border bg-card hover:border-blue-500/20 hover:scale-[1.02] active:scale-[0.99] hover:shadow-[0_8px_30px_rgba(59,130,246,0.06)] transition-all duration-300">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 AI Autopilot Share
               </span>
-              <TrendingUp className="size-4 text-emerald-400" />
+              <TrendingUp className="size-4 text-blue-500" />
             </div>
             <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-foreground">{autopilotRate}%</span>
-              <span className="text-xs text-muted-foreground">of total replies</span>
+              <span className="text-2xl font-black text-foreground tracking-tight">{autopilotRate}%</span>
+              <span className="text-xs text-muted-foreground font-medium">of total replies</span>
             </div>
-            <div className="mt-2 text-xs text-muted-foreground">
+            <div className="mt-2 text-xs text-muted-foreground font-medium">
               {metrics.botMessagesCount.toLocaleString()} AI • {metrics.humanMessagesCount.toLocaleString()} human
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-border bg-card">
+        {/* Human Handoffs Card */}
+        <Card className="border-border bg-card hover:border-amber-500/20 hover:scale-[1.02] active:scale-[0.99] hover:shadow-[0_8px_30px_rgba(245,158,11,0.06)] transition-all duration-300">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 Human Handoffs
               </span>
-              <ShieldAlert className="size-4 text-rose-400" />
+              <ShieldAlert className="size-4 text-amber-500" />
             </div>
             <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-rose-400">{metrics.handoffCount}</span>
-              <span className="text-xs text-muted-foreground">escalated cases</span>
+              <span className="text-2xl font-black text-amber-600 dark:text-amber-400 tracking-tight">{metrics.handoffCount}</span>
+              <span className="text-xs text-muted-foreground font-medium">escalated cases</span>
             </div>
-            <div className="mt-2 text-xs text-muted-foreground">
+            <div className="mt-2 text-xs text-muted-foreground font-medium">
               {metrics.aiEnabledCount} of {metrics.totalConversations} chats have AI active
             </div>
           </CardContent>
@@ -401,10 +407,10 @@ export default function AiAnalyticsPage() {
       {/* Main Analytics Grid */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Intent Detection Breakdown */}
-        <Card className="border-border bg-card">
+        <Card className="border-border bg-card hover:border-emerald-500/10 hover:scale-[1.01] transition-all duration-300 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
-              <PieIcon className="size-4 text-purple-400" />
+            <CardTitle className="text-sm font-extrabold flex items-center gap-1.5 text-foreground">
+              <PieIcon className="size-4 text-emerald-500" />
               Customer Intent Analysis
             </CardTitle>
             <CardDescription className="text-xs text-muted-foreground">
@@ -413,7 +419,7 @@ export default function AiAnalyticsPage() {
           </CardHeader>
           <CardContent className="h-64 flex items-center justify-center">
             {intentData.length === 0 ? (
-              <p className="text-xs text-muted-foreground">No intent data registered yet.</p>
+              <p className="text-xs text-muted-foreground italic">No intent data registered yet.</p>
             ) : (
               <div className="h-full w-full flex items-center">
                 <ResponsiveContainer width="60%" height="100%">
@@ -432,15 +438,15 @@ export default function AiAnalyticsPage() {
                         <Cell key={`cell-${index}`} fill={entry.fill} />
                       ))}
                     </Pie>
-                    <Tooltip contentStyle={{ background: "#1e293b", border: "none", borderRadius: "8px", color: "#f8fafc", fontSize: "11px" }} />
+                    <Tooltip contentStyle={{ background: "var(--card)", borderColor: "var(--border)", color: "var(--foreground)", fontSize: "11px" }} />
                   </PieChart>
                 </ResponsiveContainer>
-                <div className="w-[40%] text-xs space-y-2 pl-4">
+                <div className="w-[40%] text-[11px] space-y-2.5 pl-4">
                   {intentData.map((d, i) => (
                     <div key={i} className="flex items-center gap-2">
                       <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: d.fill }} />
-                      <span className="truncate text-foreground font-medium">{d.name}</span>
-                      <span className="text-muted-foreground ml-auto">{d.value}</span>
+                      <span className="truncate text-foreground font-semibold">{d.name}</span>
+                      <span className="text-muted-foreground ml-auto font-bold">{d.value}</span>
                     </div>
                   ))}
                 </div>
@@ -450,11 +456,11 @@ export default function AiAnalyticsPage() {
         </Card>
 
         {/* Sentiment breakdown */}
-        <Card className="border-border bg-card">
+        <Card className="border-border bg-card hover:border-emerald-500/10 hover:scale-[1.01] transition-all duration-300 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
-              <Smile className="size-4 text-purple-400" />
-              Customer Sentiment breakdown
+            <CardTitle className="text-sm font-extrabold flex items-center gap-1.5 text-foreground">
+              <Smile className="size-4 text-emerald-500" />
+              Customer Sentiment Breakdown
             </CardTitle>
             <CardDescription className="text-xs text-muted-foreground">
               Atmosphere and attitude of conversations handled by the bot.
@@ -462,7 +468,7 @@ export default function AiAnalyticsPage() {
           </CardHeader>
           <CardContent className="h-64 flex items-center justify-center">
             {sentimentData.length === 0 ? (
-              <p className="text-xs text-muted-foreground">No sentiment data registered yet.</p>
+              <p className="text-xs text-muted-foreground italic">No sentiment data registered yet.</p>
             ) : (
               <div className="h-full w-full flex items-center">
                 <ResponsiveContainer width="60%" height="100%">
@@ -480,15 +486,15 @@ export default function AiAnalyticsPage() {
                         <Cell key={`cell-${index}`} fill={entry.fill} />
                       ))}
                     </Pie>
-                    <Tooltip contentStyle={{ background: "#1e293b", border: "none", borderRadius: "8px", color: "#f8fafc", fontSize: "11px" }} />
+                    <Tooltip contentStyle={{ background: "var(--card)", borderColor: "var(--border)", color: "var(--foreground)", fontSize: "11px" }} />
                   </PieChart>
                 </ResponsiveContainer>
-                <div className="w-[40%] text-xs space-y-2 pl-4">
+                <div className="w-[40%] text-[11px] space-y-2.5 pl-4">
                   {sentimentData.map((d, i) => (
                     <div key={i} className="flex items-center gap-2">
                       <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: d.fill }} />
-                      <span className="truncate text-foreground font-medium">{d.name}</span>
-                      <span className="text-muted-foreground ml-auto">{d.value}</span>
+                      <span className="truncate text-foreground font-semibold">{d.name}</span>
+                      <span className="text-muted-foreground ml-auto font-bold">{d.value}</span>
                     </div>
                   ))}
                 </div>
@@ -500,10 +506,10 @@ export default function AiAnalyticsPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* FAQ Analytics */}
-        <Card className="border-border bg-card lg:col-span-1">
+        <Card className="border-border bg-card lg:col-span-1 hover:border-emerald-500/10 hover:scale-[1.01] transition-all duration-300 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
-              <HelpCircle className="size-4 text-purple-400" />
+            <CardTitle className="text-sm font-extrabold flex items-center gap-1.5 text-foreground">
+              <HelpCircle className="size-4 text-emerald-500" />
               Top FAQ Analytics
             </CardTitle>
             <CardDescription className="text-xs text-muted-foreground">
@@ -512,19 +518,19 @@ export default function AiAnalyticsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             {faqData.length === 0 ? (
-              <p className="text-xs text-muted-foreground pt-4 text-center">No FAQ data captured yet.</p>
+              <p className="text-xs text-muted-foreground pt-4 text-center italic">No FAQ data captured yet.</p>
             ) : (
               faqData.map((faq, i) => {
                 const totalFaqs = faqData.reduce((acc, curr) => acc + curr.count, 0);
                 const percent = totalFaqs > 0 ? Math.round((faq.count / totalFaqs) * 100) : 0;
                 return (
                   <div key={i} className="space-y-1.5">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-medium text-foreground">{i + 1}. {faq.name}</span>
+                    <div className="flex items-center justify-between text-xs font-semibold">
+                      <span className="font-semibold text-foreground">{i + 1}. {faq.name}</span>
                       <span className="text-muted-foreground">{faq.count} ({percent}%)</span>
                     </div>
                     <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                      <div className="h-full bg-purple-500 rounded-full" style={{ width: `${percent}%` }} />
+                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${percent}%` }} />
                     </div>
                   </div>
                 );
@@ -534,10 +540,10 @@ export default function AiAnalyticsPage() {
         </Card>
 
         {/* Lead scoring metrics */}
-        <Card className="border-border bg-card lg:col-span-1">
+        <Card className="border-border bg-card lg:col-span-1 hover:border-emerald-500/10 hover:scale-[1.01] transition-all duration-300 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
-              <Activity className="size-4 text-purple-400" />
+            <CardTitle className="text-sm font-extrabold flex items-center gap-1.5 text-foreground">
+              <Activity className="size-4 text-emerald-500" />
               Lead Score Metrics
             </CardTitle>
             <CardDescription className="text-xs text-muted-foreground">
@@ -546,13 +552,13 @@ export default function AiAnalyticsPage() {
           </CardHeader>
           <CardContent className="h-[260px] flex items-center justify-center">
             {metrics.leadHotCount + metrics.leadWarmCount + metrics.leadColdCount === 0 ? (
-              <p className="text-xs text-muted-foreground">No leads qualified by AI yet.</p>
+              <p className="text-xs text-muted-foreground italic">No leads qualified by AI yet.</p>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={leadScoreData} layout="vertical" margin={{ left: -10, right: 10, top: 10, bottom: 5 }}>
                   <XAxis type="number" stroke="#64748b" fontSize={10} />
                   <YAxis dataKey="name" type="category" stroke="#64748b" fontSize={10} />
-                  <Tooltip cursor={{ fill: "rgba(255,255,255,0.05)" }} contentStyle={{ background: "#1e293b", border: "none", fontSize: "11px", color: "#fff" }} />
+                  <Tooltip cursor={{ fill: "rgba(255,255,255,0.05)" }} contentStyle={{ background: "var(--card)", borderColor: "var(--border)", fontSize: "11px", color: "var(--foreground)" }} />
                   <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={20}>
                     {leadScoreData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.fill} />
@@ -565,43 +571,43 @@ export default function AiAnalyticsPage() {
         </Card>
 
         {/* Daily AI Report Card */}
-        <Card className="border-purple-500/20 bg-purple-950/10 lg:col-span-1">
+        <Card className="border-emerald-500/25 bg-emerald-500/5 lg:col-span-1 hover:scale-[1.01] transition-all duration-300 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-sm font-semibold flex items-center gap-1.5 text-purple-300">
-              <Calendar className="size-4 text-purple-400" />
+            <CardTitle className="text-sm font-extrabold flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
+              <Calendar className="size-4 text-emerald-500" />
               Today&apos;s Executive AI Report
             </CardTitle>
-            <CardDescription className="text-xs text-purple-200/70">
+            <CardDescription className="text-xs text-emerald-600/75 dark:text-emerald-400/75 font-semibold">
               Aggregated automated operations summary for today.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-3 text-center">
-              <div className="bg-purple-900/10 border border-purple-500/10 rounded-lg p-2.5">
-                <span className="text-[10px] font-medium uppercase tracking-wider text-purple-300">New Leads</span>
-                <p className="text-lg font-bold text-purple-100 mt-0.5">{metrics.newLeadsToday}</p>
+              <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-2.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">New Leads</span>
+                <p className="text-lg font-black text-foreground mt-0.5">{metrics.newLeadsToday}</p>
               </div>
-              <div className="bg-purple-900/10 border border-purple-500/10 rounded-lg p-2.5">
-                <span className="text-[10px] font-medium uppercase tracking-wider text-purple-300">Hot Leads</span>
-                <p className="text-lg font-bold text-red-300 mt-0.5">{metrics.hotLeadsToday}</p>
+              <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-2.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">Hot Leads</span>
+                <p className="text-lg font-black text-red-500 dark:text-red-400 mt-0.5">{metrics.hotLeadsToday}</p>
               </div>
-              <div className="bg-purple-900/10 border border-purple-500/10 rounded-lg p-2.5">
-                <span className="text-[10px] font-medium uppercase tracking-wider text-purple-300">Bot Replies</span>
-                <p className="text-lg font-bold text-purple-100 mt-0.5">{metrics.botRepliesToday}</p>
+              <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-2.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">Bot Replies</span>
+                <p className="text-lg font-black text-foreground mt-0.5">{metrics.botRepliesToday}</p>
               </div>
-              <div className="bg-purple-900/10 border border-purple-500/10 rounded-lg p-2.5">
-                <span className="text-[10px] font-medium uppercase tracking-wider text-purple-300">Handoffs</span>
-                <p className="text-lg font-bold text-rose-300 mt-0.5">{metrics.handoffsToday}</p>
+              <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-2.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">Handoffs</span>
+                <p className="text-lg font-black text-amber-500 mt-0.5">{metrics.handoffsToday}</p>
               </div>
             </div>
 
-            <div className="text-xs text-purple-200/90 leading-relaxed border-t border-purple-500/15 pt-3.5 space-y-2">
-              <p className="font-semibold text-purple-300">Today&apos;s Summary:</p>
-              <ul className="list-disc pl-4 space-y-1 text-purple-100/80">
-                <li>Captured <strong className="text-purple-200">{metrics.newLeadsToday} new leads</strong> in workspace.</li>
-                <li>Identified <strong className="text-red-300">{metrics.hotLeadsToday} highly interested leads</strong>.</li>
-                <li>AI assistant automatically handled <strong className="text-purple-200">{metrics.botRepliesToday} customer queries</strong>.</li>
-                <li>Human handoffs were requested <strong className="text-rose-300">{metrics.handoffsToday} times</strong> for escalations.</li>
+            <div className="text-xs text-muted-foreground leading-relaxed border-t border-emerald-500/15 pt-3.5 space-y-2">
+              <p className="font-extrabold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider text-[10px]">Today&apos;s Summary:</p>
+              <ul className="list-disc pl-4 space-y-1 font-semibold text-muted-foreground">
+                <li>Captured <strong className="text-foreground">{metrics.newLeadsToday} new leads</strong> in workspace.</li>
+                <li>Identified <strong className="text-red-500 dark:text-red-400">{metrics.hotLeadsToday} highly interested leads</strong>.</li>
+                <li>AI assistant automatically handled <strong className="text-foreground">{metrics.botRepliesToday} customer queries</strong>.</li>
+                <li>Human handoffs were requested <strong className="text-amber-500">{metrics.handoffsToday} times</strong> for escalations.</li>
               </ul>
             </div>
           </CardContent>
