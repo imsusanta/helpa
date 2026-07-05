@@ -246,79 +246,52 @@ export function AiPanel() {
             </h3>
           </div>
           
-          {/* Card list selector */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {POPULAR_MODELS.map((m) => {
-              const isSelected = !isCustomModel && model === m.id;
-              return (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => {
-                    if (canEditSettings) {
-                      setIsCustomModel(false);
-                      setModel(m.id);
-                    }
-                  }}
-                  className={`text-left p-4 rounded-xl border transition-all duration-200 cursor-pointer flex flex-col justify-between h-36 ${
-                    isSelected
-                      ? "bg-emerald-50/50 dark:bg-emerald-950/10 border-emerald-500/40 dark:border-emerald-500/30 ring-1 ring-emerald-500/30"
-                      : "bg-muted/20 border-border hover:border-border hover:bg-muted/30"
-                  }`}
-                >
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between items-start">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                        {m.provider}
-                      </span>
-                      <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider ${m.badgeColor}`}>
-                        {m.badge}
-                      </span>
-                    </div>
-                    <p className="text-xs font-bold text-foreground">{m.name}</p>
-                    <p className="text-[10px] text-muted-foreground leading-normal line-clamp-2">
-                      {m.desc}
-                    </p>
-                  </div>
-                  <div className="text-[9px] font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
-                    <Zap className="h-3 w-3 shrink-0 text-emerald-500" />
-                    {m.stats}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+          <div className="space-y-4">
+            <div className="grid gap-1.5">
+              <Label htmlFor="model" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                Select LLM Model
+              </Label>
+              <select
+                id="model"
+                value={isCustomModel ? "custom" : model}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === "custom") {
+                    setIsCustomModel(true);
+                  } else {
+                    setIsCustomModel(false);
+                    setModel(val);
+                  }
+                }}
+                disabled={!canEditSettings}
+                className="max-w-md h-9 w-full rounded-lg border border-border bg-muted/40 px-2.5 text-sm text-foreground outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {POPULAR_MODELS.map((m) => (
+                  <option key={m.id} value={m.id} className="bg-background text-foreground">
+                    {m.name} ({m.provider})
+                  </option>
+                ))}
+                <option value="custom" className="bg-background text-foreground">Use custom model ID...</option>
+              </select>
+            </div>
 
-          {/* Toggle Custom Model */}
-          <div className="pt-2">
-            <button
-              type="button"
-              onClick={() => {
-                if (canEditSettings) {
-                  setIsCustomModel(!isCustomModel);
-                  if (!isCustomModel) setModel("custom");
-                  else setModel(POPULAR_MODELS[0].id);
-                }
-              }}
-              className="inline-flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-400 hover:text-emerald-600 dark:hover:text-emerald-300 font-bold"
-            >
-              Custom Model ID
-              <ChevronRight className={`h-3 w-3 transform transition-transform duration-200 ${isCustomModel ? "rotate-90" : ""}`} />
-            </button>
-
+            {/* Custom Model Input */}
             {isCustomModel && (
-              <div className="mt-3 pl-4 border-l-2 border-emerald-300 dark:border-emerald-500/30 space-y-2 animate-in slide-in-from-left-2 duration-200">
-                <Label htmlFor="customModelId" className="text-xs text-muted-foreground font-bold">
+              <div className="grid gap-1.5 pl-4 border-l-2 border-emerald-500/40 animate-in slide-in-from-left-2 duration-200">
+                <Label htmlFor="customModelId" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                   OpenRouter Model Identifier
                 </Label>
                 <Input
                   id="customModelId"
-                  placeholder="e.g. deepseek/deepseek-chat or anthropic/claude-3-haiku"
+                  placeholder="e.g. deepseek/deepseek-chat or cohere/north-mini-code:free"
                   value={customModelId}
                   onChange={(e) => setCustomModelId(e.target.value)}
                   disabled={!canEditSettings}
                   className="max-w-md bg-muted/40 border-border focus-visible:ring-emerald-500 text-foreground"
                 />
+                <p className="text-[10px] text-muted-foreground">
+                  Enter any valid model identifier from OpenRouter. For example: <code className="text-emerald-600 dark:text-emerald-400 font-mono">meta-llama/llama-3-8b-instruct:free</code> or <code className="text-emerald-600 dark:text-emerald-400 font-mono">cohere/north-mini-code:free</code>.
+                </p>
               </div>
             )}
           </div>
