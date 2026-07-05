@@ -253,12 +253,12 @@ export default function ClinicalDashboardPage() {
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="space-y-6 animate-in fade-in duration-500">
       
       {/* Dynamic Glassmorphism Welcome Header */}
-      <div className="relative flex flex-col md:flex-row md:items-center md:justify-between p-6 bg-gradient-to-r from-emerald-500/10 via-background to-background border border-emerald-500/20 rounded-2xl gap-4 shadow-sm overflow-hidden">
+      <div className="relative flex flex-col md:flex-row md:items-center md:justify-between p-6 bg-gradient-to-r from-emerald-500/10 via-background to-background border border-emerald-500/20 rounded-2xl gap-4 shadow-sm overflow-hidden transition-all duration-300">
         <div className="absolute top-0 right-0 p-8 opacity-5">
-          <Sparkles className="h-40 w-40 text-emerald-500" />
+          <Sparkles className="h-40 w-40 text-emerald-500 animate-pulse" />
         </div>
         <div className="z-10">
           <h1 className="text-2xl font-extrabold text-foreground tracking-tight sm:text-3xl">
@@ -271,7 +271,7 @@ export default function ClinicalDashboardPage() {
         <div className="flex flex-wrap items-center gap-3 z-10">
           {/* Active AI Status Badge */}
           <Link href="/settings?tab=ai">
-            <div className="flex items-center gap-2.5 px-4 py-2 bg-emerald-500/5 hover:bg-emerald-500/10 border border-emerald-500/20 rounded-xl cursor-pointer transition-all duration-200">
+            <div className="flex items-center gap-2.5 px-4 py-2 bg-emerald-500/5 hover:bg-emerald-500/10 border border-emerald-500/20 rounded-xl cursor-pointer hover:scale-[1.03] active:scale-[0.97] transition-all duration-200 shadow-sm">
               <span className="relative flex h-2 w-2">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
@@ -287,7 +287,7 @@ export default function ClinicalDashboardPage() {
             </div>
           </Link>
           <Link href="/appointments">
-            <Button className="bg-emerald-700 hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-bold cursor-pointer transition-all shadow-md shadow-emerald-500/10 py-5">
+            <Button className="bg-emerald-700 hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-bold cursor-pointer hover:scale-[1.03] active:scale-[0.97] transition-all duration-200 shadow-md shadow-emerald-500/10 py-5">
               <Plus className="h-4 w-4 mr-1.5" /> Book Appointment
             </Button>
           </Link>
@@ -298,13 +298,13 @@ export default function ClinicalDashboardPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         
         {/* Card 1: Today's Chats */}
-        <div className="relative group overflow-hidden bg-card border border-border/80 rounded-2xl p-5 hover:border-emerald-500/20 hover:shadow-md transition-all duration-300">
-          <div className="absolute -right-2 -bottom-2 opacity-5 text-emerald-500 group-hover:scale-110 transition-transform duration-300">
+        <div className="relative group overflow-hidden bg-card border border-border/80 rounded-2xl p-5 hover:border-emerald-500/20 hover:shadow-[0_8px_30px_rgba(16,185,129,0.06)] hover:scale-[1.02] active:scale-[0.99] transition-all duration-300">
+          <div className="absolute -right-2 -bottom-2 opacity-5 text-emerald-500 group-hover:scale-110 group-hover:rotate-6 transition-all duration-300">
             <MessageSquare className="h-20 w-20" />
           </div>
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Today's Chats</span>
-            <div className="p-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-lg">
+            <div className="p-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-lg group-hover:scale-110 transition-transform duration-200">
               <MessageSquare className="h-4 w-4" />
             </div>
           </div>
@@ -324,13 +324,13 @@ export default function ClinicalDashboardPage() {
         </div>
 
         {/* Card 2: AI Autopilot Success */}
-        <div className="relative group overflow-hidden bg-card border border-border/80 rounded-2xl p-5 hover:border-purple-500/20 hover:shadow-md transition-all duration-300">
-          <div className="absolute -right-2 -bottom-2 opacity-5 text-purple-500 group-hover:scale-110 transition-transform duration-300">
+        <div className="relative group overflow-hidden bg-card border border-border/80 rounded-2xl p-5 hover:border-purple-500/20 hover:shadow-[0_8px_30px_rgba(139,92,246,0.06)] hover:scale-[1.02] active:scale-[0.99] transition-all duration-300">
+          <div className="absolute -right-2 -bottom-2 opacity-5 text-purple-500 group-hover:scale-110 group-hover:rotate-6 transition-all duration-300">
             <Brain className="h-20 w-20" />
           </div>
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">AI Resolution Rate</span>
-            <div className="p-2 bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 rounded-lg">
+            <div className="p-2 bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 rounded-lg group-hover:scale-110 transition-transform duration-200">
               <Brain className="h-4 w-4" />
             </div>
           </div>
@@ -353,13 +353,13 @@ export default function ClinicalDashboardPage() {
         </div>
 
         {/* Card 3: Consultations Scheduled */}
-        <div className="relative group overflow-hidden bg-card border border-border/80 rounded-2xl p-5 hover:border-blue-500/20 hover:shadow-md transition-all duration-300">
-          <div className="absolute -right-2 -bottom-2 opacity-5 text-blue-500 group-hover:scale-110 transition-transform duration-300">
+        <div className="relative group overflow-hidden bg-card border border-border/80 rounded-2xl p-5 hover:border-blue-500/20 hover:shadow-[0_8px_30px_rgba(59,130,246,0.06)] hover:scale-[1.02] active:scale-[0.99] transition-all duration-300">
+          <div className="absolute -right-2 -bottom-2 opacity-5 text-blue-500 group-hover:scale-110 group-hover:rotate-6 transition-all duration-300">
             <Calendar className="h-20 w-20" />
           </div>
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Consultations Today</span>
-            <div className="p-2 bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 rounded-lg">
+            <div className="p-2 bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 rounded-lg group-hover:scale-110 transition-transform duration-200">
               <Calendar className="h-4 w-4" />
             </div>
           </div>
@@ -381,13 +381,13 @@ export default function ClinicalDashboardPage() {
         </div>
 
         {/* Card 4: Automated Outreach */}
-        <div className="relative group overflow-hidden bg-card border border-border/80 rounded-2xl p-5 hover:border-amber-500/20 hover:shadow-md transition-all duration-300">
-          <div className="absolute -right-2 -bottom-2 opacity-5 text-amber-500 group-hover:scale-110 transition-transform duration-300">
+        <div className="relative group overflow-hidden bg-card border border-border/80 rounded-2xl p-5 hover:border-amber-500/20 hover:shadow-[0_8px_30px_rgba(245,158,11,0.06)] hover:scale-[1.02] active:scale-[0.99] transition-all duration-300">
+          <div className="absolute -right-2 -bottom-2 opacity-5 text-amber-500 group-hover:scale-110 group-hover:rotate-6 transition-all duration-300">
             <Bell className="h-20 w-20" />
           </div>
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Reminders Dispatched</span>
-            <div className="p-2 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 rounded-lg">
+            <div className="p-2 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 rounded-lg group-hover:scale-110 transition-transform duration-200">
               <Bell className="h-4 w-4" />
             </div>
           </div>
@@ -409,7 +409,7 @@ export default function ClinicalDashboardPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         
         {/* Clinic Scheduler Health Panel */}
-        <div className="bg-card border border-border/80 rounded-2xl p-6 space-y-4 hover:border-emerald-500/10 transition-all duration-300 shadow-sm">
+        <div className="bg-card border border-border/80 rounded-2xl p-6 space-y-4 hover:border-emerald-500/20 hover:shadow-[0_8px_30px_rgba(16,185,129,0.04)] hover:scale-[1.01] transition-all duration-300 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-extrabold text-foreground text-md flex items-center gap-2">
@@ -425,13 +425,13 @@ export default function ClinicalDashboardPage() {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-3.5">
-              <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-muted/20 border border-border/50">
+              <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-muted/20 border border-border/50 hover:bg-muted/30 hover:scale-[1.02] transition-all duration-200">
                 <span className="text-muted-foreground flex items-center gap-1">
                   <CalendarCheck className="size-3.5 text-emerald-500" /> Confirmed
                 </span>
                 <span className="font-bold text-foreground">{stats.confirmedAppointments}</span>
               </div>
-              <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-muted/20 border border-border/50">
+              <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-muted/20 border border-border/50 hover:bg-muted/30 hover:scale-[1.02] transition-all duration-200">
                 <span className="text-muted-foreground flex items-center gap-1">
                   <Clock className="size-3.5 text-blue-500" /> Rescheduled
                 </span>
@@ -439,13 +439,13 @@ export default function ClinicalDashboardPage() {
               </div>
             </div>
             <div className="space-y-3.5">
-              <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-muted/20 border border-border/50">
+              <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-muted/20 border border-border/50 hover:bg-muted/30 hover:scale-[1.02] transition-all duration-200">
                 <span className="text-muted-foreground flex items-center gap-1">
                   <CalendarX className="size-3.5 text-red-500" /> Cancelled
                 </span>
                 <span className="font-bold text-foreground">{stats.cancelledAppointments}</span>
               </div>
-              <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-muted/20 border border-border/50">
+              <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-muted/20 border border-border/50 hover:bg-muted/30 hover:scale-[1.02] transition-all duration-200">
                 <span className="text-muted-foreground flex items-center gap-1">
                   <Percent className="size-3.5 text-amber-500" /> No Show Rate
                 </span>
@@ -504,7 +504,7 @@ export default function ClinicalDashboardPage() {
               />
             </div>
             <div className="flex gap-4 text-[9px] font-bold text-muted-foreground pt-1">
-              <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Confirmed</span>
+              <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" /> Confirmed</span>
               <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-blue-500" /> Rescheduled</span>
               <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-red-500" /> Cancelled</span>
             </div>
@@ -512,7 +512,7 @@ export default function ClinicalDashboardPage() {
         </div>
 
         {/* Laboratory & Diagnostics Operations Panel */}
-        <div className="bg-card border border-border/80 rounded-2xl p-6 space-y-4 hover:border-emerald-500/10 transition-all duration-300 shadow-sm">
+        <div className="bg-card border border-border/80 rounded-2xl p-6 space-y-4 hover:border-emerald-500/20 hover:shadow-[0_8px_30px_rgba(16,185,129,0.04)] hover:scale-[1.01] transition-all duration-300 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-extrabold text-foreground text-md flex items-center gap-2">
@@ -528,13 +528,13 @@ export default function ClinicalDashboardPage() {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-3.5">
-              <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-muted/20 border border-border/50">
+              <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-muted/20 border border-border/50 hover:bg-muted/30 hover:scale-[1.02] transition-all duration-200">
                 <span className="text-muted-foreground flex items-center gap-1">
-                  <Package className="size-3.5 text-amber-500" /> Awaiting Collection
+                  <Package className="size-3.5 text-amber-500 animate-pulse" /> Awaiting Collection
                 </span>
                 <span className="font-bold text-foreground">{stats.reportsAwaitingCollection}</span>
               </div>
-              <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-muted/20 border border-border/50">
+              <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-muted/20 border border-border/50 hover:bg-muted/30 hover:scale-[1.02] transition-all duration-200">
                 <span className="text-muted-foreground flex items-center gap-1">
                   <CheckCheck className="size-3.5 text-emerald-500" /> Ready Today
                 </span>
@@ -542,13 +542,13 @@ export default function ClinicalDashboardPage() {
               </div>
             </div>
             <div className="space-y-3.5">
-              <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-muted/20 border border-border/50">
+              <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-muted/20 border border-border/50 hover:bg-muted/30 hover:scale-[1.02] transition-all duration-200">
                 <span className="text-muted-foreground flex items-center gap-1">
                   <Clock className="size-3.5 text-sky-500" /> Pending/Processing
                 </span>
                 <span className="font-bold text-foreground">{stats.reportsPending}</span>
               </div>
-              <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-muted/20 border border-border/50">
+              <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-muted/20 border border-border/50 hover:bg-muted/30 hover:scale-[1.02] transition-all duration-200">
                 <span className="text-muted-foreground flex items-center gap-1">
                   <FileUp className="size-3.5 text-indigo-500" /> Dispatched/Delivered
                 </span>
@@ -582,7 +582,7 @@ export default function ClinicalDashboardPage() {
       {/* Charts & Split Panel Row */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Weekly Appointments Flow Chart */}
-        <div className="lg:col-span-2 bg-card border border-border rounded-2xl p-5 flex flex-col gap-4 shadow-sm hover:border-emerald-500/10 transition-colors">
+        <div className="lg:col-span-2 bg-card border border-border rounded-2xl p-5 flex flex-col gap-4 shadow-sm hover:border-emerald-500/20 hover:shadow-[0_8px_30px_rgba(0,0,0,0.02)] hover:scale-[1.005] transition-all duration-300">
           <div>
             <h3 className="font-extrabold text-foreground text-md flex items-center gap-1.5">
               <TrendingUp className="h-4 w-4 text-emerald-500" />
@@ -604,7 +604,7 @@ export default function ClinicalDashboardPage() {
         </div>
 
         {/* Active Departments Breakdown */}
-        <div className="bg-card border border-border rounded-2xl p-5 flex flex-col gap-4 shadow-sm hover:border-emerald-500/10 transition-colors">
+        <div className="bg-card border border-border rounded-2xl p-5 flex flex-col gap-4 shadow-sm hover:border-emerald-500/20 hover:shadow-[0_8px_30px_rgba(0,0,0,0.02)] hover:scale-[1.005] transition-all duration-300">
           <div>
             <h3 className="font-extrabold text-foreground text-md flex items-center gap-1.5">
               <Users className="h-4 w-4 text-emerald-500" />
@@ -636,7 +636,7 @@ export default function ClinicalDashboardPage() {
       </div>
 
       {/* Scheduler shortcut / Upcoming Table */}
-      <div className="bg-card border border-border rounded-2xl p-5 space-y-4 shadow-sm hover:border-emerald-500/10 transition-colors">
+      <div className="bg-card border border-border rounded-2xl p-5 space-y-4 shadow-sm hover:border-emerald-500/20 hover:shadow-[0_8px_30px_rgba(0,0,0,0.02)] transition-all duration-300">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="font-extrabold text-foreground text-md flex items-center gap-1.5">
@@ -668,7 +668,7 @@ export default function ClinicalDashboardPage() {
               </thead>
               <tbody className="divide-y divide-border text-foreground">
                 {recentAppointments.map((appt) => (
-                  <tr key={appt.id} className="hover:bg-muted/10 transition-colors">
+                  <tr key={appt.id} className="hover:bg-muted/10 hover:translate-x-1.5 transition-all duration-200 cursor-pointer">
                     <td className="px-4 py-3 font-bold text-emerald-600 dark:text-emerald-400">{appt.appointment_time}</td>
                     <td className="px-4 py-3 font-semibold">
                       {appt.patient?.name || appt.patient?.phone || "Unknown"}

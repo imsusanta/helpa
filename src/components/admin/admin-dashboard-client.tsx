@@ -351,7 +351,7 @@ export function AdminDashboardClient() {
     <div className="space-y-6 animate-in fade-in duration-300">
       
       {/* Redesigned Glassmorphism Control Center Header */}
-      <div className="relative flex flex-col md:flex-row md:items-center md:justify-between p-6 bg-gradient-to-r from-emerald-500/10 via-background to-background border border-emerald-500/20 rounded-2xl gap-4 shadow-sm overflow-hidden">
+      <div className="relative flex flex-col md:flex-row md:items-center md:justify-between p-6 bg-gradient-to-r from-emerald-500/10 via-background to-background border border-emerald-500/20 rounded-2xl gap-4 shadow-sm overflow-hidden transition-all duration-300">
         <div className="z-10 flex items-start gap-4">
           <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl shrink-0">
             <Shield className="size-8 animate-pulse drop-shadow-[0_0_8px_rgba(16,185,129,0.3)]" />
@@ -366,7 +366,7 @@ export function AdminDashboardClient() {
           </div>
         </div>
         <div className="flex items-center gap-2 z-10">
-          <Button onClick={loadData} variant="outline" className="border-border text-foreground hover:bg-muted font-semibold cursor-pointer">
+          <Button onClick={loadData} variant="outline" className="border-border text-foreground hover:bg-muted font-semibold cursor-pointer hover:scale-[1.03] active:scale-[0.97] transition-all duration-200">
             <RefreshCw className="size-4 mr-1.5" /> Sync Data
           </Button>
         </div>
@@ -400,13 +400,13 @@ export function AdminDashboardClient() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             
             {/* Active Tenants Card */}
-            <div className="relative group overflow-hidden bg-card border border-border/80 rounded-2xl p-5 hover:border-emerald-500/20 hover:shadow-md transition-all duration-300">
+            <div className="relative group overflow-hidden bg-card border border-border/80 rounded-2xl p-5 hover:border-emerald-500/20 hover:shadow-[0_8px_30px_rgba(16,185,129,0.06)] hover:scale-[1.02] active:scale-[0.99] transition-all duration-300">
               <div className="absolute -right-2 -bottom-2 opacity-5 text-emerald-500 group-hover:scale-110 transition-transform duration-300">
                 <Layers className="h-20 w-20" />
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Active Tenants</span>
-                <div className="p-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-lg">
+                <div className="p-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-lg group-hover:scale-110 transition-transform duration-200">
                   <Layers className="h-4 w-4" />
                 </div>
               </div>
@@ -419,13 +419,13 @@ export function AdminDashboardClient() {
             </div>
 
             {/* Platform Users Card */}
-            <div className="relative group overflow-hidden bg-card border border-border/80 rounded-2xl p-5 hover:border-blue-500/20 hover:shadow-md transition-all duration-300">
+            <div className="relative group overflow-hidden bg-card border border-border/80 rounded-2xl p-5 hover:border-blue-500/20 hover:shadow-[0_8px_30px_rgba(59,130,246,0.06)] hover:scale-[1.02] active:scale-[0.99] transition-all duration-300">
               <div className="absolute -right-2 -bottom-2 opacity-5 text-blue-500 group-hover:scale-110 transition-transform duration-300">
                 <Users className="h-20 w-20" />
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Platform Agents</span>
-                <div className="p-2 bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 rounded-lg">
+                <div className="p-2 bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 rounded-lg group-hover:scale-110 transition-transform duration-200">
                   <Users className="h-4 w-4" />
                 </div>
               </div>
@@ -438,13 +438,13 @@ export function AdminDashboardClient() {
             </div>
 
             {/* Monthly AI Requests Card */}
-            <div className="relative group overflow-hidden bg-card border border-border/80 rounded-2xl p-5 hover:border-purple-500/20 hover:shadow-md transition-all duration-300">
+            <div className="relative group overflow-hidden bg-card border border-border/80 rounded-2xl p-5 hover:border-purple-500/20 hover:shadow-[0_8px_30px_rgba(139,92,246,0.06)] hover:scale-[1.02] active:scale-[0.99] transition-all duration-300">
               <div className="absolute -right-2 -bottom-2 opacity-5 text-purple-500 group-hover:scale-110 transition-transform duration-300">
                 <Activity className="h-20 w-20" />
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">AI Pilots Month</span>
-                <div className="p-2 bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 rounded-lg">
+                <div className="p-2 bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 rounded-lg group-hover:scale-110 transition-transform duration-200">
                   <Activity className="h-4 w-4" />
                 </div>
               </div>
@@ -456,14 +456,14 @@ export function AdminDashboardClient() {
               <p className="text-[10px] text-muted-foreground mt-2 font-medium">Autopilot completions requested</p>
             </div>
 
-            {/* Total CRM Contacts Card */}
-            <div className="relative group overflow-hidden bg-card border border-border/80 rounded-2xl p-5 hover:border-amber-500/20 hover:shadow-md transition-all duration-300">
+            {/* Total Contacts Card */}
+            <div className="relative group overflow-hidden bg-card border border-border/80 rounded-2xl p-5 hover:border-amber-500/20 hover:shadow-[0_8px_30px_rgba(245,158,11,0.06)] hover:scale-[1.02] active:scale-[0.99] transition-all duration-300">
               <div className="absolute -right-2 -bottom-2 opacity-5 text-amber-500 group-hover:scale-110 transition-transform duration-300">
                 <Users className="h-20 w-20" />
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Total CRM Contacts</span>
-                <div className="p-2 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 rounded-lg">
+                <div className="p-2 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 rounded-lg group-hover:scale-110 transition-transform duration-200">
                   <Users className="h-4 w-4" />
                 </div>
               </div>
@@ -480,7 +480,7 @@ export function AdminDashboardClient() {
           <div className="grid gap-6 md:grid-cols-2">
             
             {/* Subscriptions Tier Card */}
-            <div className="bg-card border border-border/80 rounded-2xl p-6 space-y-4 hover:border-emerald-500/10 transition-colors shadow-sm">
+            <div className="bg-card border border-border/80 rounded-2xl p-6 space-y-4 hover:border-emerald-500/20 hover:shadow-[0_8px_30px_rgba(16,185,129,0.04)] hover:scale-[1.01] transition-all duration-300 shadow-sm">
               <div>
                 <h3 className="font-extrabold text-foreground text-md flex items-center gap-1.5">
                   <Layers className="h-4 w-4 text-emerald-500" />
@@ -489,19 +489,19 @@ export function AdminDashboardClient() {
                 <p className="text-muted-foreground text-xs">Breakdown of tenant plan registrations</p>
               </div>
               <div className="space-y-3.5 pt-2">
-                <div className="flex justify-between items-center text-xs p-2 rounded-lg bg-muted/20 border border-border/50">
+                <div className="flex justify-between items-center text-xs p-2 rounded-lg bg-muted/20 border border-border/50 hover:bg-muted/30 hover:scale-[1.02] transition-all duration-200">
                   <span className="text-muted-foreground font-semibold">Growth Premium ($29/mo)</span>
                   <span className="font-bold text-foreground bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded">
                     {metrics.subscriptions.planBreakdown["Growth"] || 0} active
                   </span>
                 </div>
-                <div className="flex justify-between items-center text-xs p-2 rounded-lg bg-muted/20 border border-border/50">
+                <div className="flex justify-between items-center text-xs p-2 rounded-lg bg-muted/20 border border-border/50 hover:bg-muted/30 hover:scale-[1.02] transition-all duration-200">
                   <span className="text-muted-foreground font-semibold">Enterprise custom plans</span>
                   <span className="font-bold text-foreground bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded">
                     {metrics.subscriptions.planBreakdown["Enterprise"] || 0} active
                   </span>
                 </div>
-                <div className="flex justify-between items-center text-xs p-2 rounded-lg bg-muted/20 border border-border/50">
+                <div className="flex justify-between items-center text-xs p-2 rounded-lg bg-muted/20 border border-border/50 hover:bg-muted/30 hover:scale-[1.02] transition-all duration-200">
                   <span className="text-muted-foreground font-semibold">14-Day Free Trials</span>
                   <span className="font-bold text-foreground bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded">
                     {metrics.subscriptions.planBreakdown["Free Trial"] || 0} trial
@@ -515,7 +515,7 @@ export function AdminDashboardClient() {
             </div>
 
             {/* Platform Active Usage Card */}
-            <div className="bg-card border border-border/80 rounded-2xl p-6 space-y-4 hover:border-emerald-500/10 transition-colors shadow-sm">
+            <div className="bg-card border border-border/80 rounded-2xl p-6 space-y-4 hover:border-emerald-500/20 hover:shadow-[0_8px_30px_rgba(16,185,129,0.04)] hover:scale-[1.01] transition-all duration-300 shadow-sm">
               <div>
                 <h3 className="font-extrabold text-foreground text-md flex items-center gap-1.5">
                   <TrendingUp className="h-4 w-4 text-emerald-500" />
@@ -524,11 +524,11 @@ export function AdminDashboardClient() {
                 <p className="text-muted-foreground text-xs">Monthly totals for API transactions</p>
               </div>
               <div className="space-y-3.5 pt-2">
-                <div className="flex justify-between items-center text-xs p-2 rounded-lg bg-muted/20 border border-border/50">
+                <div className="flex justify-between items-center text-xs p-2 rounded-lg bg-muted/20 border border-border/50 hover:bg-muted/30 hover:scale-[1.02] transition-all duration-200">
                   <span className="text-muted-foreground font-semibold">AI Requests Sum</span>
                   <span className="font-bold text-foreground">{metrics.usage.aiRequests.toLocaleString()} calls</span>
                 </div>
-                <div className="flex justify-between items-center text-xs p-2 rounded-lg bg-muted/20 border border-border/50">
+                <div className="flex justify-between items-center text-xs p-2 rounded-lg bg-muted/20 border border-border/50 hover:bg-muted/30 hover:scale-[1.02] transition-all duration-200">
                   <span className="text-muted-foreground font-semibold">WhatsApp Messages Sent</span>
                   <span className="font-bold text-foreground">{metrics.usage.whatsappMessages.toLocaleString()} msgs</span>
                 </div>
@@ -582,7 +582,7 @@ export function AdminDashboardClient() {
                     </TableRow>
                   ) : (
                     filteredTenants.map((t) => (
-                      <TableRow key={t.id} className="hover:bg-muted/10 transition-colors">
+                      <TableRow key={t.id} className="hover:bg-muted/10 hover:translate-x-1.5 transition-all duration-200 cursor-pointer">
                         <TableCell className="font-extrabold text-foreground">{t.name}</TableCell>
                         <TableCell>
                           <div className="font-bold text-foreground">{t.owner?.full_name || "N/A"}</div>
@@ -618,7 +618,7 @@ export function AdminDashboardClient() {
               <h3 className="text-md font-bold text-foreground">Billing Plans List</h3>
               <p className="text-xs text-muted-foreground">Setup maximum usage metrics limits for SaaS tiers</p>
             </div>
-            <Button onClick={handleOpenAddPlan} className="bg-emerald-700 hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-bold cursor-pointer transition-all">
+            <Button onClick={handleOpenAddPlan} className="bg-emerald-700 hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-bold cursor-pointer hover:scale-[1.03] active:scale-[0.97] transition-all">
               <Plus className="size-4 mr-1" /> Add Plan
             </Button>
           </div>
@@ -633,7 +633,7 @@ export function AdminDashboardClient() {
               }
 
               return (
-                <div key={p.id} className="flex flex-col justify-between bg-card border border-border rounded-2xl p-5 hover:border-emerald-500/20 hover:shadow-md transition-all duration-300">
+                <div key={p.id} className="flex flex-col justify-between bg-card border border-border rounded-2xl p-5 hover:border-emerald-500/20 hover:shadow-[0_8px_30px_rgba(16,185,129,0.06)] hover:scale-[1.02] active:scale-[0.99] transition-all duration-300">
                   <div className="pb-3 border-b border-border">
                     <div className="flex justify-between items-start">
                       <h4 className="text-md font-extrabold text-foreground">{p.name}</h4>
