@@ -91,6 +91,64 @@ export default function PatientsPage() {
   const [editPdfUrl, setEditPdfUrl] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [savingReport, setSavingReport] = useState(false);
+  
+  // File upload states
+  const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [uploadingEditPdf, setUploadingEditPdf] = useState(false);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== "application/pdf") {
+      toast.error("Only PDF files are supported for lab reports.");
+      return;
+    }
+
+    if (file.size > 16 * 1024 * 1024) {
+      toast.error("File exceeds maximum allowed size (16 MB).");
+      return;
+    }
+
+    setUploadingPdf(true);
+    try {
+      const { uploadAccountMedia } = await import("@/lib/storage/upload-media");
+      const result = await uploadAccountMedia("chat-media", file);
+      setReportPdfUrl(result.publicUrl);
+      toast.success("PDF uploaded successfully!");
+    } catch (err: any) {
+      toast.error("Upload failed: " + err.message);
+    } finally {
+      setUploadingPdf(false);
+    }
+  };
+
+  const handleEditFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== "application/pdf") {
+      toast.error("Only PDF files are supported.");
+      return;
+    }
+
+    if (file.size > 16 * 1024 * 1024) {
+      toast.error("File exceeds maximum allowed size (16 MB).");
+      return;
+    }
+
+    setUploadingEditPdf(true);
+    try {
+      const { uploadAccountMedia } = await import("@/lib/storage/upload-media");
+      const result = await uploadAccountMedia("chat-media", file);
+      setEditPdfUrl(result.publicUrl);
+      toast.success("PDF uploaded successfully!");
+    } catch (err: any) {
+      toast.error("Upload failed: " + err.message);
+    } finally {
+      setUploadingEditPdf(false);
+    }
+  };
 
   // Form states
   const [showAddForm, setShowAddForm] = useState(false);
@@ -681,14 +739,41 @@ export default function PatientsPage() {
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <Label htmlFor="rep-pdf" className="text-[10px]">Report PDF URL (optional)</Label>
-                      <Input
-                        id="rep-pdf"
-                        value={reportPdfUrl}
-                        onChange={(e) => setReportPdfUrl(e.target.value)}
-                        placeholder="https://example.com/report.pdf"
-                        className="h-7 text-xs px-2"
-                      />
+                      <Label htmlFor="rep-pdf" className="text-[10px]">Report PDF (Upload File or Enter Link)</Label>
+                      <div className="flex gap-1.5">
+                        <Input
+                          id="rep-pdf"
+                          value={reportPdfUrl}
+                          onChange={(e) => setReportPdfUrl(e.target.value)}
+                          placeholder="Link or upload →"
+                          className="h-7 text-xs px-2 flex-1"
+                        />
+                        <div className="relative">
+                          <input
+                            type="file"
+                            accept=".pdf,application/pdf"
+                            onChange={handleFileUpload}
+                            disabled={uploadingPdf}
+                            className="hidden"
+                            id="patient-report-upload-add"
+                          />
+                          <Button
+                            type="button"
+                            size="xs"
+                            variant="outline"
+                            disabled={uploadingPdf}
+                            onClick={() => document.getElementById("patient-report-upload-add")?.click()}
+                            className="h-7 text-[10px] cursor-pointer"
+                          >
+                            {uploadingPdf ? (
+                              <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                            ) : (
+                              <FileUp className="h-3 w-3 mr-1" />
+                            )}
+                            Upload
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                     <div className="space-y-1">
                       <Label htmlFor="rep-notes" className="text-[10px]">Internal Notes</Label>
@@ -750,13 +835,40 @@ export default function PatientsPage() {
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <Label htmlFor="edit-rep-pdf" className="text-[10px]">Report PDF URL</Label>
-                      <Input
-                        id="edit-rep-pdf"
-                        value={editPdfUrl}
-                        onChange={(e) => setEditPdfUrl(e.target.value)}
-                        className="h-7 text-xs px-2"
-                      />
+                      <Label htmlFor="edit-rep-pdf" className="text-[10px]">Report PDF (Upload File or Enter Link)</Label>
+                      <div className="flex gap-1.5">
+                        <Input
+                          id="edit-rep-pdf"
+                          value={editPdfUrl}
+                          onChange={(e) => setEditPdfUrl(e.target.value)}
+                          className="h-7 text-xs px-2 flex-1"
+                        />
+                        <div className="relative">
+                          <input
+                            type="file"
+                            accept=".pdf,application/pdf"
+                            onChange={handleEditFileUpload}
+                            disabled={uploadingEditPdf}
+                            className="hidden"
+                            id="patient-report-upload-edit"
+                          />
+                          <Button
+                            type="button"
+                            size="xs"
+                            variant="outline"
+                            disabled={uploadingEditPdf}
+                            onClick={() => document.getElementById("patient-report-upload-edit")?.click()}
+                            className="h-7 text-[10px] cursor-pointer"
+                          >
+                            {uploadingEditPdf ? (
+                              <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                            ) : (
+                              <FileUp className="h-3 w-3 mr-1" />
+                            )}
+                            Upload
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                     <div className="space-y-1">
                       <Label htmlFor="edit-rep-notes" className="text-[10px]">Internal Notes</Label>
