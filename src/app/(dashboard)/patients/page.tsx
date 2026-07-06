@@ -371,6 +371,7 @@ export default function PatientsPage() {
         account_id: accountId,
         contact_id: contact.id,
         status: "open",
+        ai_chat_enabled: true,
         last_message_text: "Registered manually via Patient CRM",
         last_message_at: new Date().toISOString(),
       });
