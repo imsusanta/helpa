@@ -1066,13 +1066,45 @@ export function parseCopilotSnapshotJson(
   raw: string,
   fallback: ReceptionistCopilotSnapshot,
 ): ReceptionistCopilotSnapshot {
-  const cleaned = raw
+  let cleaned = raw
     .trim()
     .replace(/^```json/i, "")
     .replace(/^```/i, "")
     .replace(/```$/i, "")
     .trim();
-  return snapshotFromUnknown(JSON.parse(cleaned), fallback);
+
+  // Attempt direct parse first
+  try {
+    return snapshotFromUnknown(JSON.parse(cleaned), fallback);
+  } catch {
+    // LLM may have returned truncated JSON — try to recover by
+    // closing open braces/brackets.
+    let openBraces = 0;
+    let openBrackets = 0;
+    let inString = false;
+    let escaped = false;
+    for (const ch of cleaned) {
+      if (escaped) { escaped = false; continue; }
+      if (ch === '\\') { escaped = true; continue; }
+      if (ch === '"') { inString = !inString; continue; }
+      if (inString) continue;
+      if (ch === '{') openBraces++;
+      if (ch === '}') openBraces--;
+      if (ch === '[') openBrackets++;
+      if (ch === ']') openBrackets--;
+    }
+    // Close any dangling strings, brackets, braces
+    if (inString) cleaned += '"';
+    while (openBrackets > 0) { cleaned += ']'; openBrackets--; }
+    while (openBraces > 0) { cleaned += '}'; openBraces--; }
+
+    try {
+      return snapshotFromUnknown(JSON.parse(cleaned), fallback);
+    } catch (innerErr) {
+      console.error('[Copilot AI] JSON recovery also failed:', innerErr);
+      throw innerErr;
+    }
+  }
 }
 
 export async function generateOpenRouterCopilotSnapshot({
@@ -1083,18 +1115,19 @@ export async function generateOpenRouterCopilotSnapshot({
   fallback,
 }: OpenRouterCopilotArgs): Promise<ReceptionistCopilotSnapshot> {
   const latestText = latestCustomerMessage(context.messages);
+  // Keep context compact — sending the full fallback object and 80
+  // messages was causing OpenRouter to time out on generation.
   const sourceContext = {
     accountName: context.accountName,
     patient: context.patient,
     contact: context.contact,
-    messages: context.messages.slice(-80),
-    previousConversations: context.conversationMemory?.slice(0, 8),
-    appointments: context.appointments?.slice(0, 12),
-    reports: context.reports?.slice(0, 8),
-    insuranceProviders: context.insuranceProviders?.slice(0, 20),
-    staffNotes: context.contactNotes?.slice(0, 8),
-    knowledgeBase: context.kbEntries?.slice(0, 20),
-    fallback,
+    messages: context.messages.slice(-30),
+    previousConversations: context.conversationMemory?.slice(0, 4),
+    appointments: context.appointments?.slice(0, 6),
+    reports: context.reports?.slice(0, 6),
+    insuranceProviders: context.insuranceProviders?.slice(0, 10),
+    staffNotes: context.contactNotes?.slice(0, 4),
+    knowledgeBase: context.kbEntries?.slice(0, 15),
   };
 
   const routeSafety = `You are generating a private AI Receptionist Copilot snapshot for hospital staff inside an inbox.
@@ -1162,7 +1195,7 @@ Return only a raw JSON object that matches the same shape as sourceContext.fallb
 
   try {
     console.log(`[Copilot AI] Querying primary model: ${model}`);
-    const content = await runCompletion(model, 5000);
+    const content = await runCompletion(model, 15000);
     return parseCopilotSnapshotJson(content, fallback);
   } catch (primaryErr) {
     console.warn(
@@ -1174,7 +1207,7 @@ Return only a raw JSON object that matches the same shape as sourceContext.fallb
     if (model !== fallbackModel) {
       try {
         console.log(`[Copilot AI] Retrying with fallback model: ${fallbackModel}`);
-        const content = await runCompletion(fallbackModel, 6000);
+        const content = await runCompletion(fallbackModel, 20000);
         return parseCopilotSnapshotJson(content, fallback);
       } catch (fallbackErr) {
         console.error(
