@@ -14,6 +14,7 @@ import {
   Search,
   Activity,
   FileDown,
+  FileUp,
   Bell,
   Package,
 } from "lucide-react";
@@ -70,6 +71,7 @@ export default function LabReportsPage() {
   const [resultUrl, setResultUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const [notifying, setNotifying] = useState("");
+  const [uploadingPdf, setUploadingPdf] = useState(false);
 
   const loadData = useCallback(async () => {
     if (!accountId) return;
@@ -129,6 +131,67 @@ export default function LabReportsPage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== "application/pdf") {
+      toast.error("Only PDF files are supported for lab reports.");
+      return;
+    }
+
+    if (file.size > 16 * 1024 * 1024) {
+      toast.error("File exceeds maximum allowed size (16 MB).");
+      return;
+    }
+
+    setUploadingPdf(true);
+    try {
+      const { uploadAccountMedia } = await import("@/lib/storage/upload-media");
+      const result = await uploadAccountMedia("chat-media", file);
+      setPdfUrl(result.publicUrl);
+      toast.success("PDF uploaded successfully!");
+    } catch (err: any) {
+      toast.error("Upload failed: " + err.message);
+    } finally {
+      setUploadingPdf(false);
+    }
+  };
+
+  const handleRowFileUpload = async (reportId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== "application/pdf") {
+      toast.error("Only PDF files are supported.");
+      return;
+    }
+
+    if (file.size > 16 * 1024 * 1024) {
+      toast.error("File exceeds maximum allowed size (16 MB).");
+      return;
+    }
+
+    const toastId = toast.loading("Uploading PDF...");
+    try {
+      const { uploadAccountMedia } = await import("@/lib/storage/upload-media");
+      const result = await uploadAccountMedia("chat-media", file);
+      
+      const db = createClient();
+      const { error } = await db
+        .from("hospital_lab_reports")
+        .update({ report_pdf_url: result.publicUrl, updated_at: new Date().toISOString() })
+        .eq("id", reportId);
+
+      if (error) throw error;
+
+      toast.success("PDF uploaded and linked to report!", { id: toastId });
+      loadData();
+    } catch (err: any) {
+      toast.error("Upload failed: " + err.message, { id: toastId });
+    }
+  };
 
   const handleCreateReport = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -310,8 +373,34 @@ export default function LabReportsPage() {
               </select>
             </div>
             <div className="space-y-2">
-              <Label>Report PDF URL (WhatsApp Direct Send)</Label>
-              <Input value={pdfUrl} onChange={(e) => setPdfUrl(e.target.value)} placeholder="Link to PDF document..." />
+              <Label>Report PDF (Upload File or Enter Link)</Label>
+              <div className="flex gap-2">
+                <Input value={pdfUrl} onChange={(e) => setPdfUrl(e.target.value)} placeholder="Link to PDF document or upload →" />
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    onChange={handleFileUpload}
+                    disabled={uploadingPdf}
+                    className="hidden"
+                    id="lab-report-file-upload"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={uploadingPdf}
+                    onClick={() => document.getElementById("lab-report-file-upload")?.click()}
+                    className="cursor-pointer whitespace-nowrap"
+                  >
+                    {uploadingPdf ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                    ) : (
+                      <FileUp className="h-4 w-4 mr-1" />
+                    )}
+                    Upload PDF
+                  </Button>
+                </div>
+              </div>
             </div>
             <div className="space-y-2">
               <Label>Lab Portal Link / External URL (Optional)</Label>
@@ -408,7 +497,26 @@ export default function LabReportsPage() {
                             <FileDown className="h-3.5 w-3.5" /> Download
                           </a>
                         ) : (
-                          <span className="text-xs text-muted-foreground">None</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs text-muted-foreground">None</span>
+                            <div className="relative">
+                              <input
+                                type="file"
+                                accept=".pdf,application/pdf"
+                                onChange={(e) => handleRowFileUpload(rep.id, e)}
+                                className="hidden"
+                                id={`row-upload-${rep.id}`}
+                              />
+                              <Button
+                                size="xs"
+                                variant="ghost"
+                                onClick={() => document.getElementById(`row-upload-${rep.id}`)?.click()}
+                                className="h-6 px-1.5 text-[10px] text-primary hover:bg-primary/10 cursor-pointer"
+                              >
+                                Upload
+                              </Button>
+                            </div>
+                          </div>
                         )}
                       </td>
                       <td className="px-6 py-4">
