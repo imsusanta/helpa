@@ -30,7 +30,7 @@ const pageTitles: Record<string, string> = {
   "/pipelines": "Appointment Status",
   "/broadcasts": "Broadcast Campaigns",
   "/knowledge-base": "Hospital Information",
-  "/dashboard/ai": "Analytics",
+  "/dashboard/analytics": "Analytics",
   "/settings": "Settings",
 };
 

@@ -103,7 +103,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/dashboard/ai", label: "AI Analytics", icon: Brain },
+  { href: "/dashboard/analytics", label: "AI Analytics", icon: Brain },
   { href: "/inbox", label: "Inbox", icon: MessageSquare },
   { href: "/contacts", label: "Contacts", icon: Users },
   { href: "/pipelines", label: "Pipelines", icon: GitBranch },
@@ -132,7 +132,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
     { href: "/appointments", label: "Appointments", icon: Calendar },
     { href: "/doctors", label: "Doctors", icon: UserCheck },
     { href: "/lab-reports", label: "Reports", icon: FileText },
-    { href: "/dashboard/ai", label: "Analytics", icon: BarChart3 },
+    { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
     { href: "/settings", label: "Settings", icon: Settings },
   ];
   // Only surface the account-name strip when it actually carries
