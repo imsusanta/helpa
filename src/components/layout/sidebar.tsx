@@ -36,6 +36,7 @@ import {
   Dumbbell,
   ShoppingBag,
   Bot,
+  BarChart3,
 } from "lucide-react";
 import type { AccountRole } from "@/lib/auth/roles";
 
@@ -131,7 +132,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
     { href: "/appointments", label: "Appointments", icon: Calendar },
     { href: "/doctors", label: "Doctors", icon: UserCheck },
     { href: "/lab-reports", label: "Reports", icon: FileText },
-    { href: "/dashboard/ai", label: "AI Receptionist", icon: Bot },
+    { href: "/dashboard/ai", label: "Analytics", icon: BarChart3 },
     { href: "/settings", label: "Settings", icon: Settings },
   ];
   // Only surface the account-name strip when it actually carries
