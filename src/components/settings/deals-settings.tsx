@@ -70,19 +70,18 @@ export function DealsSettings() {
   return (
     <section className="max-w-2xl animate-in fade-in-50 duration-200">
       <SettingsPanelHead
-        title="Deals & currency"
-        description="The currency used for new deals and for pipeline and dashboard totals."
+        title="Appointment Settings & Currency"
+        description="The currency used for clinical billing, consultation fees, and dashboard totals."
       />
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-foreground">
             <Coins className="size-4 text-primary" />
-            Default currency
+            Default Currency
           </CardTitle>
           <CardDescription className="text-muted-foreground">
-            New deals default to this currency, and pipeline and
-            dashboard totals are shown in it. Existing deals keep the
-            currency they were saved with.
+            New consultation fees default to this currency, and appointments and
+            dashboard totals are shown in it.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

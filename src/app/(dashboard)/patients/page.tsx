@@ -91,6 +91,7 @@ export default function PatientsPage() {
   const [editPdfUrl, setEditPdfUrl] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [savingReport, setSavingReport] = useState(false);
+  const [notifyingReportId, setNotifyingReportId] = useState<string | null>(null);
   
   // File upload states
   const [uploadingPdf, setUploadingPdf] = useState(false);
@@ -316,6 +317,34 @@ export default function PatientsPage() {
     }
   };
 
+  const handleSendToWhatsApp = async (reportId: string) => {
+    if (!accountId) return;
+    setNotifyingReportId(reportId);
+    try {
+      const res = await fetch("/api/lab-reports/notify", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ reportId, accountId }),
+      });
+
+      if (!res.ok) {
+        throw new Error(await res.text());
+      }
+
+      toast.success("Report successfully sent via WhatsApp!");
+      if (selectedPatient) {
+        loadPatientDetails(selectedPatient);
+      }
+    } catch (err: any) {
+      console.error("Failed to notify patient via WhatsApp:", err);
+      toast.error("Failed to send WhatsApp message: " + err.message);
+    } finally {
+      setNotifyingReportId(null);
+    }
+  };
+
   const startEditReport = (report: any) => {
     setEditingReportId(report.id);
     setEditTestName(report.test_name);
@@ -417,11 +446,11 @@ export default function PatientsPage() {
       <div className="lg:col-span-2 space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Patients Directory</h1>
-            <p className="text-sm text-muted-foreground font-medium">Manage clinical patient profiles.</p>
+            <h1 className="text-2xl font-bold text-foreground">Patients</h1>
+            <p className="text-sm text-muted-foreground font-medium">Manage clinic patient records and status.</p>
           </div>
           <Button onClick={() => setShowAddForm(!showAddForm)} className="cursor-pointer">
-            <Plus className="h-4 w-4 mr-2" /> Register Patient
+            <Plus className="h-4 w-4 mr-2" /> New Patient
           </Button>
         </div>
 
@@ -451,15 +480,15 @@ export default function PatientsPage() {
         {/* Registration form */}
         {showAddForm && (
           <form onSubmit={handleRegister} className="bg-card border border-border rounded-xl p-5 space-y-4 animate-in fade-in slide-in-from-top-4 duration-200">
-            <h3 className="font-bold text-foreground">Manually Register Patient</h3>
+            <h3 className="font-bold text-foreground">New Patient Registration</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Full Name *</Label>
                 <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. John Doe" required />
               </div>
               <div className="space-y-2">
-                <Label>Phone Number * (with country code)</Label>
-                <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="e.g. +15550199" required />
+                <Label>WhatsApp Number *</Label>
+                <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="e.g. +15550100" required />
               </div>
               <div className="space-y-2">
                 <Label>Email</Label>
@@ -493,7 +522,7 @@ export default function PatientsPage() {
             <div className="flex gap-2 justify-end pt-2">
               <Button type="button" variant="outline" onClick={() => setShowAddForm(false)}>Cancel</Button>
               <Button type="submit" disabled={saving}>
-                {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />} Register Patient
+                {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />} Add Patient
               </Button>
             </div>
           </form>
@@ -598,11 +627,11 @@ export default function PatientsPage() {
                 )}
               </div>
 
-              {/* AI summary */}
+              {/* Patient summary */}
               {selectedPatient.ai_summary && (
                 <div className="bg-primary/5 rounded-lg p-3 space-y-1">
                   <p className="font-bold text-primary text-xs flex items-center gap-1">
-                    <Brain className="h-3.5 w-3.5" /> AI Conversation Summary
+                    <Brain className="h-3.5 w-3.5" /> Patient Summary
                   </p>
                   <p className="text-xs text-muted-foreground leading-normal">
                     {selectedPatient.ai_summary}
@@ -610,11 +639,11 @@ export default function PatientsPage() {
                 </div>
               )}
 
-              {/* Internal Notes */}
+              {/* Staff Notes */}
               {selectedPatient.ai_notes && (
                 <div className="bg-amber-500/5 rounded-lg p-3 space-y-1">
                   <p className="font-bold text-amber-600 dark:text-amber-400 text-xs flex items-center gap-1">
-                    <FileText className="h-3.5 w-3.5" /> Internal Notes
+                    <FileText className="h-3.5 w-3.5" /> Staff Notes
                   </p>
                   <p className="text-xs text-muted-foreground leading-normal">
                     {selectedPatient.ai_notes}
@@ -931,18 +960,36 @@ export default function PatientsPage() {
                             "{rep.notes}"
                           </p>
                         )}
-                        {rep.report_pdf_url && (
-                          <div className="flex justify-end pt-0.5">
-                            <a
-                              href={rep.report_pdf_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline font-bold"
-                            >
-                              <FileUp className="h-3 w-3" /> View Report PDF
-                            </a>
+                        <div className="flex items-center justify-between pt-1.5 border-t border-border/20 mt-1.5">
+                          <div>
+                            {rep.report_pdf_url ? (
+                              <a
+                                href={rep.report_pdf_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline font-bold"
+                              >
+                                <FileUp className="h-3 w-3" /> View Report PDF
+                              </a>
+                            ) : (
+                              <span className="text-[9px] text-muted-foreground italic">No PDF attached</span>
+                            )}
                           </div>
-                        )}
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            onClick={() => handleSendToWhatsApp(rep.id)}
+                            disabled={notifyingReportId === rep.id}
+                            className="h-6 text-[10px] text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10 font-bold px-2 py-0 cursor-pointer shrink-0 flex items-center gap-1"
+                          >
+                            {notifyingReportId === rep.id ? (
+                              <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                            ) : (
+                              <MessageSquare className="h-2.5 w-2.5 text-emerald-500" />
+                            )}
+                            {rep.notified_patient ? "Resend WA" : "Send to WA"}
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>

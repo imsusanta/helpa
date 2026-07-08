@@ -198,17 +198,17 @@ export default function AppointmentsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Consultation Scheduler</h1>
-          <p className="text-sm text-muted-foreground font-medium">Manage and book patient consultations.</p>
+          <h1 className="text-2xl font-bold text-foreground">Appointments</h1>
+          <p className="text-sm text-muted-foreground font-medium">Schedule and manage patient clinical consultations.</p>
         </div>
         <Button onClick={() => setShowAddForm(!showAddForm)} className="cursor-pointer">
-          <Plus className="h-4 w-4 mr-2" /> Book Consultation
+          <Plus className="h-4 w-4 mr-2" /> New Appointment
         </Button>
       </div>
 
       {showAddForm && (
         <form onSubmit={handleCreateAppointment} className="bg-card border border-border rounded-xl p-5 space-y-4 max-w-2xl animate-in fade-in slide-in-from-top-4 duration-200">
-          <h3 className="font-bold text-foreground">Schedule Consultation</h3>
+          <h3 className="font-bold text-foreground">New Appointment</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Select Patient *</Label>
@@ -250,7 +250,7 @@ export default function AppointmentsPage() {
           <div className="flex gap-2 justify-end pt-2">
             <Button type="button" variant="outline" onClick={() => setShowAddForm(false)}>Cancel</Button>
             <Button type="submit" disabled={saving}>
-              {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />} Book Schedule
+              {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />} Schedule Appointment
             </Button>
           </div>
         </form>
@@ -268,7 +268,13 @@ export default function AppointmentsPage() {
                 : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >
-            {tab === "queue" ? "Live Queue" : tab}
+            {tab === "queue"
+              ? "Live Queue"
+              : tab === "upcoming"
+              ? "Upcoming Appointments"
+              : tab === "completed"
+              ? "Completed"
+              : "Cancelled / No Show"}
           </button>
         ))}
       </div>

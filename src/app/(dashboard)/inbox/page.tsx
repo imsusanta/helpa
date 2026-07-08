@@ -673,7 +673,7 @@ export default function InboxPage() {
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                👤 Patient CRM
+                👤 Patient Details
               </button>
             </div>
 

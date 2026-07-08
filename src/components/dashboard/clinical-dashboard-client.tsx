@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { cn } from "@/lib/utils";
 import {
   Calendar,
   Users,
@@ -23,10 +24,13 @@ import {
   Percent,
   Package,
   Sparkles,
+  Bot,
+  User,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { SkeletonCard } from "@/components/dashboard/skeleton";
+import { toast } from "sonner";
 import {
   BarChart,
   Bar,
@@ -75,6 +79,8 @@ export function ClinicalDashboardClient() {
     cancelledAppointments: 0,
     noShowRate: 0,
     reportsAwaitingCollection: 0,
+    waitingPatientsToday: 0,
+    unreadWhatsAppChats: 0,
   });
 
   const [recentAppointments, setRecentAppointments] = useState<AppointmentRow[]>([]);
@@ -138,6 +144,8 @@ export function ClinicalDashboardClient() {
         noShowCount,
         completedCount,
         awaitingCollection,
+        waitingToday,
+        unreadChats,
       ] = await Promise.all([
         db.from("conversations").select("id", { count: "exact", head: true }).gte("created_at", todayStart.toISOString()),
         db.from("messages").select("id", { count: "exact", head: true }).eq("sender_type", "bot").gte("created_at", todayStart.toISOString()),
@@ -151,7 +159,7 @@ export function ClinicalDashboardClient() {
           .select("id, appointment_time, department, status, patient:contacts(name, phone), doctor:hospital_doctors(name)")
           .eq("appointment_date", todayStr)
           .order("appointment_time", { ascending: true })
-          .limit(5),
+          .limit(30),
         db.from("hospital_lab_reports").select("id", { count: "exact", head: true }).in("status", ["pending", "processing"]),
         db.from("hospital_lab_reports").select("id", { count: "exact", head: true }).eq("status", "ready").gte("updated_at", todayStart.toISOString()),
         db.from("hospital_lab_reports").select("id", { count: "exact", head: true }).eq("status", "delivered").gte("updated_at", todayStart.toISOString()),
@@ -163,6 +171,8 @@ export function ClinicalDashboardClient() {
         db.from("appointments").select("id", { count: "exact", head: true }).eq("status", "No Show"),
         db.from("appointments").select("id", { count: "exact", head: true }).eq("status", "Completed"),
         db.from("hospital_lab_reports").select("id", { count: "exact", head: true }).eq("status", "ready"),
+        db.from("appointments").select("id", { count: "exact", head: true }).eq("appointment_date", todayStr).in("status", ["checked_in", "waiting"]),
+        db.from("conversations").select("id", { count: "exact", head: true }).gt("unread_count", 0),
       ]);
 
       const totalConvs = convsToday.count || 0;
@@ -201,6 +211,8 @@ export function ClinicalDashboardClient() {
         cancelledAppointments: cancelledCount.count || 0,
         noShowRate: noShowRatePercent,
         reportsAwaitingCollection: awaitingCollection.count || 0,
+        waitingPatientsToday: waitingToday.count || 0,
+        unreadWhatsAppChats: unreadChats.count || 0,
       });
 
       setRecentAppointments((recentAppts.data as any) || []);
@@ -233,6 +245,21 @@ export function ClinicalDashboardClient() {
     loadDashboardData();
   }, [loadDashboardData]);
 
+  const handleUpdateApptStatus = async (apptId: string, newStatus: string) => {
+    const db = createClient();
+    const { error } = await db
+      .from("appointments")
+      .update({ status: newStatus })
+      .eq("id", apptId);
+
+    if (error) {
+      toast.error(`Failed to update status to ${newStatus}`);
+    } else {
+      toast.success(`Appointment status updated to ${newStatus}`);
+      loadDashboardData();
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -253,29 +280,29 @@ export function ClinicalDashboardClient() {
     <div className="space-y-6 animate-in fade-in duration-500">
       
       {/* Dynamic Glassmorphism Welcome Header */}
-      <div className="relative flex flex-col md:flex-row md:items-center md:justify-between p-6 bg-gradient-to-r from-emerald-500/10 via-background to-background border border-emerald-500/20 rounded-2xl gap-4 shadow-sm overflow-hidden transition-all duration-300">
+      <div className="relative flex flex-col md:flex-row md:items-center md:justify-between p-6 bg-gradient-to-r from-blue-500/10 via-background to-background border border-blue-500/20 rounded-2xl gap-4 shadow-sm overflow-hidden transition-all duration-300">
         <div className="absolute top-0 right-0 p-8 opacity-5">
-          <Sparkles className="h-40 w-40 text-emerald-500 animate-pulse" />
+          <Sparkles className="h-40 w-40 text-blue-500 animate-pulse" />
         </div>
         <div className="z-10">
           <h1 className="text-2xl font-extrabold text-foreground tracking-tight sm:text-3xl">
-            {greeting}, WACRM Staff
+            {greeting}, Receptionist
           </h1>
           <p className="text-xs text-muted-foreground mt-1 max-w-xl leading-relaxed">
-            Here is your live clinical communication summary for today. Your WhatsApp receptionist is handling inbound enquiries on autopilot.
+            Welcome to your digital reception desk. Manage today's patients, appointments, and WhatsApp queries at a glance.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3 z-10">
           {/* Active AI Status Badge */}
           <Link href="/settings?tab=ai">
-            <div className="flex items-center gap-2.5 px-4 py-2 bg-emerald-500/5 hover:bg-emerald-500/10 border border-emerald-500/20 rounded-xl cursor-pointer hover:scale-[1.03] active:scale-[0.97] transition-all duration-200 shadow-sm">
+            <div className="flex items-center gap-2.5 px-4 py-2 bg-blue-500/5 hover:bg-blue-500/10 border border-blue-500/20 rounded-xl cursor-pointer hover:scale-[1.03] active:scale-[0.97] transition-all duration-200 shadow-sm">
               <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-blue-500" />
               </span>
               <div className="text-left">
-                <p className="text-[10px] uppercase font-bold text-emerald-600 dark:text-emerald-400 tracking-wider">
-                  AI Autopilot: ON
+                <p className="text-[10px] uppercase font-bold text-blue-600 dark:text-blue-400 tracking-wider">
+                  AI Receptionist: Active
                 </p>
                 <p className="text-[9px] text-muted-foreground font-semibold">
                   Model: {activeModelName}
@@ -284,407 +311,255 @@ export function ClinicalDashboardClient() {
             </div>
           </Link>
           <Link href="/appointments">
-            <Button className="bg-emerald-700 hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-bold cursor-pointer hover:scale-[1.03] active:scale-[0.97] transition-all duration-200 shadow-md shadow-emerald-500/10 py-5">
+            <Button className="bg-primary hover:bg-primary/90 text-white font-bold cursor-pointer hover:scale-[1.03] active:scale-[0.97] transition-all duration-200 py-5">
               <Plus className="h-4 w-4 mr-1.5" /> Book Appointment
             </Button>
           </Link>
         </div>
       </div>
 
-      {/* KPI Core Overview Hero Cards */}
+      {/* 8 Hospital Reception Desk Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         
-        {/* Card 1: Today's Chats */}
-        <div className="relative group overflow-hidden bg-card border border-border/80 rounded-2xl p-5 hover:border-emerald-500/20 hover:shadow-[0_8px_30px_rgba(16,185,129,0.06)] hover:scale-[1.02] active:scale-[0.99] transition-all duration-300">
-          <div className="absolute -right-2 -bottom-2 opacity-5 text-emerald-500 group-hover:scale-110 group-hover:rotate-6 transition-all duration-300">
-            <MessageSquare className="h-20 w-20" />
-          </div>
+        {/* Today's Appointments */}
+        <div className="bg-card border border-border/80 rounded-2xl p-5 hover:shadow-md transition-all duration-200">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Today's Chats</span>
-            <div className="p-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-lg group-hover:scale-110 transition-transform duration-200">
-              <MessageSquare className="h-4 w-4" />
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Today's Appointments</span>
+            <div className="p-2 bg-blue-500/10 text-blue-600 rounded-lg">
+              <Calendar className="h-5 w-5" />
             </div>
           </div>
-          <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-3xl font-black text-foreground tracking-tight tabular-nums">
-              {stats.conversationsToday}
-            </span>
-          </div>
-          <div className="mt-3 flex items-center gap-1.5 flex-wrap">
-            <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-              {stats.aiRepliesToday} AI
-            </span>
-            <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border">
-              {stats.humanRepliesToday} Staff
-            </span>
-          </div>
-        </div>
-
-        {/* Card 2: AI Autopilot Success */}
-        <div className="relative group overflow-hidden bg-card border border-border/80 rounded-2xl p-5 hover:border-purple-500/20 hover:shadow-[0_8px_30px_rgba(139,92,246,0.06)] hover:scale-[1.02] active:scale-[0.99] transition-all duration-300">
-          <div className="absolute -right-2 -bottom-2 opacity-5 text-purple-500 group-hover:scale-110 group-hover:rotate-6 transition-all duration-300">
-            <Brain className="h-20 w-20" />
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">AI Resolution Rate</span>
-            <div className="p-2 bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 rounded-lg group-hover:scale-110 transition-transform duration-200">
-              <Brain className="h-4 w-4" />
-            </div>
-          </div>
-          <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-3xl font-black text-foreground tracking-tight tabular-nums">
-              {stats.aiResolutionRate}%
-            </span>
-          </div>
-          <div className="mt-3 flex items-center gap-1">
-            <span className="text-[10px] font-semibold text-muted-foreground">
-              {stats.missedConversations > 0 ? (
-                <span className="text-amber-600 dark:text-amber-400 font-bold">
-                  {stats.missedConversations} chat{stats.missedConversations === 1 ? "" : "s"} need handoff
-                </span>
-              ) : (
-                "100% automated resolution"
-              )}
-            </span>
-          </div>
-        </div>
-
-        {/* Card 3: Consultations Scheduled */}
-        <div className="relative group overflow-hidden bg-card border border-border/80 rounded-2xl p-5 hover:border-blue-500/20 hover:shadow-[0_8px_30px_rgba(59,130,246,0.06)] hover:scale-[1.02] active:scale-[0.99] transition-all duration-300">
-          <div className="absolute -right-2 -bottom-2 opacity-5 text-blue-500 group-hover:scale-110 group-hover:rotate-6 transition-all duration-300">
-            <Calendar className="h-20 w-20" />
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Consultations Today</span>
-            <div className="p-2 bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 rounded-lg group-hover:scale-110 transition-transform duration-200">
-              <Calendar className="h-4 w-4" />
-            </div>
-          </div>
-          <div className="mt-4 flex items-baseline gap-2">
+          <div className="mt-4">
             <span className="text-3xl font-black text-foreground tracking-tight tabular-nums">
               {stats.appointmentsToday}
             </span>
           </div>
-          <div className="mt-3 flex items-center gap-1.5 flex-wrap">
-            <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
-              {stats.doctorsAvailable} Doctors On Duty
-            </span>
-            {stats.pendingAppointments > 0 && (
-              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 animate-pulse">
-                {stats.pendingAppointments} Pending
-              </span>
-            )}
-          </div>
         </div>
 
-        {/* Card 4: Automated Outreach */}
-        <div className="relative group overflow-hidden bg-card border border-border/80 rounded-2xl p-5 hover:border-amber-500/20 hover:shadow-[0_8px_30px_rgba(245,158,11,0.06)] hover:scale-[1.02] active:scale-[0.99] transition-all duration-300">
-          <div className="absolute -right-2 -bottom-2 opacity-5 text-amber-500 group-hover:scale-110 group-hover:rotate-6 transition-all duration-300">
-            <Bell className="h-20 w-20" />
-          </div>
+        {/* Pending Appointments */}
+        <div className="bg-card border border-border/80 rounded-2xl p-5 hover:shadow-md transition-all duration-200">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Reminders Dispatched</span>
-            <div className="p-2 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 rounded-lg group-hover:scale-110 transition-transform duration-200">
-              <Bell className="h-4 w-4" />
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Pending Appointments</span>
+            <div className="p-2 bg-amber-500/10 text-amber-600 rounded-lg">
+              <Clock className="h-5 w-5" />
             </div>
           </div>
-          <div className="mt-4 flex items-baseline gap-2">
+          <div className="mt-4">
             <span className="text-3xl font-black text-foreground tracking-tight tabular-nums">
-              {stats.remindersSentToday}
-            </span>
-          </div>
-          <div className="mt-3 flex items-center gap-1">
-            <span className="text-[10px] font-semibold text-muted-foreground">
-              Smart scheduling notifications today
+              {stats.pendingAppointments}
             </span>
           </div>
         </div>
 
-      </div>
-
-      {/* Structured Details Panel Row */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        
-        {/* Clinic Scheduler Health Panel */}
-        <div className="bg-card border border-border/80 rounded-2xl p-6 space-y-4 hover:border-emerald-500/20 hover:shadow-[0_8px_30px_rgba(16,185,129,0.04)] hover:scale-[1.01] transition-all duration-300 shadow-sm">
+        {/* Waiting Patients */}
+        <div className="bg-card border border-border/80 rounded-2xl p-5 hover:shadow-md transition-all duration-200">
           <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-extrabold text-foreground text-md flex items-center gap-2">
-                <CalendarCheck className="size-5 text-emerald-600 dark:text-emerald-400" />
-                Clinic Scheduler Health
-              </h3>
-              <p className="text-muted-foreground text-xs">Consultation states and patient show-up rates</p>
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Waiting Patients</span>
+            <div className="p-2 bg-rose-500/10 text-rose-600 rounded-lg">
+              <Users className="h-5 w-5" />
             </div>
-            <span className="text-xs font-bold bg-muted text-muted-foreground border px-2 py-0.5 rounded-lg">
-              Today
+          </div>
+          <div className="mt-4">
+            <span className="text-3xl font-black text-foreground tracking-tight tabular-nums">
+              {stats.waitingPatientsToday}
             </span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-3.5">
-              <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-muted/20 border border-border/50 hover:bg-muted/30 hover:scale-[1.02] transition-all duration-200">
-                <span className="text-muted-foreground flex items-center gap-1">
-                  <CalendarCheck className="size-3.5 text-emerald-500" /> Confirmed
-                </span>
-                <span className="font-bold text-foreground">{stats.confirmedAppointments}</span>
-              </div>
-              <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-muted/20 border border-border/50 hover:bg-muted/30 hover:scale-[1.02] transition-all duration-200">
-                <span className="text-muted-foreground flex items-center gap-1">
-                  <Clock className="size-3.5 text-blue-500" /> Rescheduled
-                </span>
-                <span className="font-bold text-foreground">{stats.rescheduledAppointments}</span>
-              </div>
-            </div>
-            <div className="space-y-3.5">
-              <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-muted/20 border border-border/50 hover:bg-muted/30 hover:scale-[1.02] transition-all duration-200">
-                <span className="text-muted-foreground flex items-center gap-1">
-                  <CalendarX className="size-3.5 text-red-500" /> Cancelled
-                </span>
-                <span className="font-bold text-foreground">{stats.cancelledAppointments}</span>
-              </div>
-              <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-muted/20 border border-border/50 hover:bg-muted/30 hover:scale-[1.02] transition-all duration-200">
-                <span className="text-muted-foreground flex items-center gap-1">
-                  <Percent className="size-3.5 text-amber-500" /> No Show Rate
-                </span>
-                <span className="font-bold text-foreground">{stats.noShowRate}%</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Visual Funnel Stack Bar */}
-          <div className="pt-2 space-y-1">
-            <div className="flex justify-between text-[10px] font-bold text-muted-foreground">
-              <span>APPOINTMENT FILL</span>
-              <span>
-                {stats.confirmedAppointments + stats.rescheduledAppointments + stats.cancelledAppointments} Total
-              </span>
-            </div>
-            <div className="h-2 w-full rounded-full bg-muted overflow-hidden flex">
-              <div
-                className="bg-emerald-500 h-full transition-all duration-300"
-                style={{
-                  width: `${
-                    stats.confirmedAppointments + stats.rescheduledAppointments + stats.cancelledAppointments > 0
-                      ? (stats.confirmedAppointments /
-                          (stats.confirmedAppointments + stats.rescheduledAppointments + stats.cancelledAppointments)) *
-                        100
-                      : 0
-                  }%`,
-                }}
-                title={`Confirmed: ${stats.confirmedAppointments}`}
-              />
-              <div
-                className="bg-blue-500 h-full transition-all duration-300"
-                style={{
-                  width: `${
-                    stats.confirmedAppointments + stats.rescheduledAppointments + stats.cancelledAppointments > 0
-                      ? (stats.rescheduledAppointments /
-                          (stats.confirmedAppointments + stats.rescheduledAppointments + stats.cancelledAppointments)) *
-                        100
-                      : 0
-                  }%`,
-                }}
-                title={`Rescheduled: ${stats.rescheduledAppointments}`}
-              />
-              <div
-                className="bg-red-500 h-full transition-all duration-300"
-                style={{
-                  width: `${
-                    stats.confirmedAppointments + stats.rescheduledAppointments + stats.cancelledAppointments > 0
-                      ? (stats.cancelledAppointments /
-                          (stats.confirmedAppointments + stats.rescheduledAppointments + stats.cancelledAppointments)) *
-                        100
-                      : 0
-                  }%`,
-                }}
-                title={`Cancelled: ${stats.cancelledAppointments}`}
-              />
-            </div>
-            <div className="flex gap-4 text-[9px] font-bold text-muted-foreground pt-1">
-              <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" /> Confirmed</span>
-              <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-blue-500" /> Rescheduled</span>
-              <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-red-500" /> Cancelled</span>
-            </div>
           </div>
         </div>
 
-        {/* Laboratory & Diagnostics Operations Panel */}
-        <div className="bg-card border border-border/80 rounded-2xl p-6 space-y-4 hover:border-emerald-500/20 hover:shadow-[0_8px_30px_rgba(16,185,129,0.04)] hover:scale-[1.01] transition-all duration-300 shadow-sm">
+        {/* Reports Ready */}
+        <div className="bg-card border border-border/80 rounded-2xl p-5 hover:shadow-md transition-all duration-200">
           <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-extrabold text-foreground text-md flex items-center gap-2">
-                <FileText className="size-5 text-emerald-600 dark:text-emerald-400" />
-                Laboratory & Diagnostics
-              </h3>
-              <p className="text-muted-foreground text-xs">Lab report generation and dispatch tracker</p>
-            </div>
-            <span className="text-xs font-bold bg-muted text-muted-foreground border px-2 py-0.5 rounded-lg">
-              Today
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-3.5">
-              <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-muted/20 border border-border/50 hover:bg-muted/30 hover:scale-[1.02] transition-all duration-200">
-                <span className="text-muted-foreground flex items-center gap-1">
-                  <Package className="size-3.5 text-amber-500 animate-pulse" /> Awaiting Collection
-                </span>
-                <span className="font-bold text-foreground">{stats.reportsAwaitingCollection}</span>
-              </div>
-              <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-muted/20 border border-border/50 hover:bg-muted/30 hover:scale-[1.02] transition-all duration-200">
-                <span className="text-muted-foreground flex items-center gap-1">
-                  <CheckCheck className="size-3.5 text-emerald-500" /> Ready Today
-                </span>
-                <span className="font-bold text-foreground">{stats.reportsReadyToday}</span>
-              </div>
-            </div>
-            <div className="space-y-3.5">
-              <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-muted/20 border border-border/50 hover:bg-muted/30 hover:scale-[1.02] transition-all duration-200">
-                <span className="text-muted-foreground flex items-center gap-1">
-                  <Clock className="size-3.5 text-sky-500" /> Pending/Processing
-                </span>
-                <span className="font-bold text-foreground">{stats.reportsPending}</span>
-              </div>
-              <div className="flex items-center justify-between text-xs p-2 rounded-lg bg-muted/20 border border-border/50 hover:bg-muted/30 hover:scale-[1.02] transition-all duration-200">
-                <span className="text-muted-foreground flex items-center gap-1">
-                  <FileUp className="size-3.5 text-indigo-500" /> Dispatched/Delivered
-                </span>
-                <span className="font-bold text-foreground">{stats.reportsDeliveredToday}</span>
-              </div>
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Reports Ready</span>
+            <div className="p-2 bg-emerald-500/10 text-emerald-600 rounded-lg">
+              <FileText className="h-5 w-5" />
             </div>
           </div>
-
-          {/* Quick info notification */}
-          <div className="pt-2 text-[10px] font-semibold text-muted-foreground bg-muted/10 border rounded-lg p-2.5 flex items-center gap-2">
-            <span className="relative flex h-2 w-2 shrink-0">
-              {stats.reportsAwaitingCollection > 0 ? (
-                <>
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500" />
-                </>
-              ) : (
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-              )}
+          <div className="mt-4">
+            <span className="text-3xl font-black text-foreground tracking-tight tabular-nums">
+              {stats.reportsAwaitingCollection}
             </span>
-            <span>
-              {stats.reportsAwaitingCollection > 0
-                ? `${stats.reportsAwaitingCollection} lab report PDFs are ready and awaiting collection/dispatch notifications.`
-                : "All lab reports generated today have been successfully dispatched."}
+          </div>
+        </div>
+
+        {/* Doctors Available */}
+        <div className="bg-card border border-border/80 rounded-2xl p-5 hover:shadow-md transition-all duration-200">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Doctors Available</span>
+            <div className="p-2 bg-indigo-500/10 text-indigo-600 rounded-lg">
+              <UserCheck className="h-5 w-5" />
+            </div>
+          </div>
+          <div className="mt-4">
+            <span className="text-3xl font-black text-foreground tracking-tight tabular-nums">
+              {stats.doctorsAvailable}
+            </span>
+          </div>
+        </div>
+
+        {/* Unread WhatsApp Chats */}
+        <div className="bg-card border border-border/80 rounded-2xl p-5 hover:shadow-md transition-all duration-200">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Unread Chats</span>
+            <div className="p-2 bg-green-500/10 text-green-600 rounded-lg">
+              <MessageSquare className="h-5 w-5" />
+            </div>
+          </div>
+          <div className="mt-4">
+            <span className="text-3xl font-black text-foreground tracking-tight tabular-nums">
+              {stats.unreadWhatsAppChats}
+            </span>
+          </div>
+        </div>
+
+        {/* Today's AI Replies */}
+        <div className="bg-card border border-border/80 rounded-2xl p-5 hover:shadow-md transition-all duration-200">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Today's AI Replies</span>
+            <div className="p-2 bg-purple-500/10 text-purple-600 rounded-lg">
+              <Sparkles className="h-5 w-5" />
+            </div>
+          </div>
+          <div className="mt-4">
+            <span className="text-3xl font-black text-foreground tracking-tight tabular-nums">
+              {stats.aiRepliesToday}
+            </span>
+          </div>
+        </div>
+
+        {/* Today's Human Replies */}
+        <div className="bg-card border border-border/80 rounded-2xl p-5 hover:shadow-md transition-all duration-200">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Today's Human Replies</span>
+            <div className="p-2 bg-sky-500/10 text-sky-600 rounded-lg">
+              <User className="h-5 w-5" />
+            </div>
+          </div>
+          <div className="mt-4">
+            <span className="text-3xl font-black text-foreground tracking-tight tabular-nums">
+              {stats.humanRepliesToday}
             </span>
           </div>
         </div>
 
       </div>
 
-      {/* Charts & Split Panel Row */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Weekly Appointments Flow Chart */}
-        <div className="lg:col-span-2 bg-card border border-border rounded-2xl p-5 flex flex-col gap-4 shadow-sm hover:border-emerald-500/20 hover:shadow-[0_8px_30px_rgba(0,0,0,0.02)] hover:scale-[1.005] transition-all duration-300">
-          <div>
-            <h3 className="font-extrabold text-foreground text-md flex items-center gap-1.5">
-              <TrendingUp className="h-4 w-4 text-emerald-500" />
-              Weekly Appointment Flow
-            </h3>
-            <p className="text-muted-foreground text-xs">Consultation volumes mapped day-by-day</p>
-          </div>
-          <div className="h-64 w-full mt-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-                <XAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis stroke="var(--muted-foreground)" fontSize={11} tickLine={false} axisLine={false} />
-                <Tooltip contentStyle={{ background: "var(--card)", borderColor: "var(--border)", color: "var(--foreground)" }} />
-                <Bar dataKey="appointments" fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={40} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Active Departments Breakdown */}
-        <div className="bg-card border border-border rounded-2xl p-5 flex flex-col gap-4 shadow-sm hover:border-emerald-500/20 hover:shadow-[0_8px_30px_rgba(0,0,0,0.02)] hover:scale-[1.005] transition-all duration-300">
-          <div>
-            <h3 className="font-extrabold text-foreground text-md flex items-center gap-1.5">
-              <Users className="h-4 w-4 text-emerald-500" />
-              Active Departments
-            </h3>
-            <p className="text-muted-foreground text-xs">Distribution of consultations today</p>
-          </div>
-          <div className="h-48 w-full flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={deptData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={4} dataKey="value">
-                  {deptData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip contentStyle={{ background: "var(--card)", borderColor: "var(--border)" }} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="grid grid-cols-2 gap-2 text-[10px]">
-            {deptData.map((d, i) => (
-              <div key={d.name} className="flex items-center gap-1.5 text-muted-foreground">
-                <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
-                <span className="truncate">{d.name} ({d.value}%)</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Upcoming Table */}
-      <div className="bg-card border border-border rounded-2xl p-5 space-y-4 shadow-sm hover:border-emerald-500/20 hover:shadow-[0_8px_30px_rgba(0,0,0,0.02)] transition-all duration-300">
+      {/* Today's Schedule Table */}
+      <div className="bg-card border border-border rounded-2xl p-5 space-y-4 shadow-sm hover:shadow-md transition-all duration-200">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="font-extrabold text-foreground text-md flex items-center gap-1.5">
-              <CalendarCheck className="size-4 text-emerald-500" />
+              <CalendarCheck className="size-5 text-blue-600 dark:text-blue-400" />
               Today's Appointment Schedule
             </h3>
-            <p className="text-muted-foreground text-xs">Consultation queues currently scheduled for today</p>
+            <p className="text-muted-foreground text-xs">Manage appointments and check-in status directly</p>
           </div>
-          <Link href="/appointments" className="text-xs text-emerald-600 dark:text-emerald-400 font-bold hover:underline flex items-center gap-1">
+          <Link href="/appointments" className="text-xs text-primary font-bold hover:underline flex items-center gap-1">
             View All Appointments <ArrowRight className="h-3 w-3" />
           </Link>
         </div>
 
         {recentAppointments.length === 0 ? (
-          <div className="text-center py-6 text-muted-foreground text-xs italic">
-            No consultations scheduled for today.
+          <div className="text-center py-10 text-muted-foreground text-sm italic">
+            No appointments scheduled for today.
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-left text-muted-foreground">
-              <thead className="text-[10px] uppercase bg-muted/40 border-b border-border text-foreground font-bold tracking-wider">
+              <thead className="text-[10px] uppercase bg-muted/60 border-b border-border text-foreground font-bold tracking-wider">
                 <tr>
                   <th className="px-4 py-3">Time</th>
                   <th className="px-4 py-3">Patient</th>
                   <th className="px-4 py-3">Doctor</th>
                   <th className="px-4 py-3">Department</th>
                   <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border text-foreground">
-                {recentAppointments.map((appt) => (
-                  <tr key={appt.id} className="hover:bg-muted/10 hover:translate-x-1.5 transition-all duration-200 cursor-pointer">
-                    <td className="px-4 py-3 font-bold text-emerald-600 dark:text-emerald-400">{appt.appointment_time}</td>
-                    <td className="px-4 py-3 font-semibold">
-                      {appt.patient?.name || appt.patient?.phone || "Unknown"}
-                    </td>
-                    <td className="px-4 py-3">{appt.doctor?.name || "Unassigned"}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{appt.department || "General"}</td>
-                    <td className="px-4 py-3">
-                      <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded border ${
-                        appt.status === "confirmed" || appt.status === "Confirmed"
-                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-                          : appt.status === "pending" || appt.status === "pending"
-                          ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
-                          : "bg-muted text-muted-foreground border-border"
-                      }`}>
-                        {appt.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                {recentAppointments.map((appt) => {
+                  const statusLower = appt.status.toLowerCase();
+                  return (
+                    <tr key={appt.id} className="hover:bg-muted/30 transition-all duration-150">
+                      <td className="px-4 py-3 font-bold text-primary">{appt.appointment_time}</td>
+                      <td className="px-4 py-3 font-semibold">
+                        {appt.patient?.name || appt.patient?.phone || "Unknown"}
+                      </td>
+                      <td className="px-4 py-3">{appt.doctor?.name || "Unassigned"}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{appt.department || "General"}</td>
+                      <td className="px-4 py-3">
+                        <span className={cn(
+                          "text-[9px] font-bold uppercase px-2 py-0.5 rounded border",
+                          statusLower === "confirmed" && "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+                          statusLower === "pending" && "bg-amber-500/10 text-amber-600 border-amber-500/20",
+                          statusLower === "checked_in" && "bg-blue-500/10 text-blue-600 border-blue-500/20",
+                          statusLower === "waiting" && "bg-purple-500/10 text-purple-600 border-purple-500/20",
+                          statusLower === "completed" && "bg-slate-500/10 text-slate-600 border-slate-500/20",
+                          statusLower === "cancelled" && "bg-red-500/10 text-red-600 border-red-500/20"
+                        )}>
+                          {appt.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right space-x-1.5">
+                        {(statusLower === "pending" || statusLower === "requested") && (
+                          <>
+                            <button
+                              onClick={() => handleUpdateApptStatus(appt.id, "Confirmed")}
+                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold transition-all shadow-sm cursor-pointer"
+                            >
+                              Confirm
+                            </button>
+                            <button
+                              onClick={() => handleUpdateApptStatus(appt.id, "Cancelled")}
+                              className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-[10px] font-bold transition-all shadow-sm cursor-pointer"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        )}
+                        {statusLower === "confirmed" && (
+                          <>
+                            <button
+                              onClick={() => handleUpdateApptStatus(appt.id, "Checked In")}
+                              className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-[10px] font-bold transition-all shadow-sm cursor-pointer"
+                            >
+                              Check In
+                            </button>
+                            <button
+                              onClick={() => handleUpdateApptStatus(appt.id, "Cancelled")}
+                              className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-[10px] font-bold transition-all shadow-sm cursor-pointer"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        )}
+                        {statusLower === "checked_in" && (
+                          <>
+                            <button
+                              onClick={() => handleUpdateApptStatus(appt.id, "Waiting")}
+                              className="px-2.5 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-[10px] font-bold transition-all shadow-sm cursor-pointer"
+                            >
+                              Mark Waiting
+                            </button>
+                            <button
+                              onClick={() => handleUpdateApptStatus(appt.id, "Completed")}
+                              className="px-2.5 py-1 bg-slate-600 hover:bg-slate-700 text-white rounded text-[10px] font-bold transition-all shadow-sm cursor-pointer"
+                            >
+                              Complete
+                            </button>
+                          </>
+                        )}
+                        {statusLower === "waiting" && (
+                          <button
+                            onClick={() => handleUpdateApptStatus(appt.id, "Completed")}
+                            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold transition-all shadow-sm cursor-pointer"
+                          >
+                            Complete
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

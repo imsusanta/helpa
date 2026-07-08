@@ -22,6 +22,7 @@ import {
   Clock,
   FileDown,
   Loader2,
+  MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -54,6 +55,7 @@ export function ContactSidebar({ contact, conversation, isEmbedded }: ContactSid
   const [loadingForm, setLoadingForm] = useState(false);
   const [upcomingAppointment, setUpcomingAppointment] = useState<any | null>(null);
   const [recentReports, setRecentReports] = useState<any[]>([]);
+  const [notifyingReportId, setNotifyingReportId] = useState<string | null>(null);
 
   const [bookingDocId, setBookingDocId] = useState("");
   const [bookingDate, setBookingDate] = useState("");
@@ -233,6 +235,32 @@ export function ContactSidebar({ contact, conversation, isEmbedded }: ContactSid
     } catch (err) {
       console.error(err);
       toast.error("Failed to send invitation");
+    }
+  };
+
+  const handleSendToWhatsApp = async (reportId: string) => {
+    if (!accountId) return;
+    setNotifyingReportId(reportId);
+    try {
+      const res = await fetch("/api/lab-reports/notify", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ reportId, accountId }),
+      });
+
+      if (!res.ok) {
+        throw new Error(await res.text());
+      }
+
+      toast.success("Report successfully sent via WhatsApp!");
+      fetchContactData();
+    } catch (err: any) {
+      console.error("Failed to notify patient via WhatsApp:", err);
+      toast.error("Failed to send WhatsApp message: " + err.message);
+    } finally {
+      setNotifyingReportId(null);
     }
   };
 
@@ -512,17 +540,31 @@ export function ContactSidebar({ contact, conversation, isEmbedded }: ContactSid
                                   </span>
                                 </div>
                               </div>
-                              {rep.report_pdf_url && (
-                                <a
-                                  href={rep.report_pdf_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 flex-shrink-0 cursor-pointer"
-                                  title="Download Report PDF"
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                {rep.report_pdf_url && (
+                                  <a
+                                    href={rep.report_pdf_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 cursor-pointer"
+                                    title="Download Report PDF"
+                                  >
+                                    <FileDown className="h-3.5 w-3.5" />
+                                  </a>
+                                )}
+                                <button
+                                  onClick={() => handleSendToWhatsApp(rep.id)}
+                                  disabled={notifyingReportId === rep.id}
+                                  className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 cursor-pointer disabled:opacity-50"
+                                  title={rep.notified_patient ? "Resend Report via WhatsApp" : "Send Report via WhatsApp"}
                                 >
-                                  <FileDown className="h-3.5 w-3.5" />
-                                </a>
-                              )}
+                                  {notifyingReportId === rep.id ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <MessageSquare className="h-3.5 w-3.5" />
+                                  )}
+                                </button>
+                              </div>
                             </div>
                           ))}
                         </div>

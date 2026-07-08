@@ -35,6 +35,7 @@ import {
   Utensils,
   Dumbbell,
   ShoppingBag,
+  Bot,
 } from "lucide-react";
 import type { AccountRole } from "@/lib/auth/roles";
 
@@ -110,9 +111,7 @@ const navItems: NavItem[] = [
   { href: "/flows", label: "Flows", icon: Workflow, beta: true },
 ];
 
-const bottomNavItems = [
-  { href: "/settings", label: "Settings", icon: Settings },
-];
+const bottomNavItems: any[] = [];
 
 interface SidebarProps {
   /** Controlled on mobile by the Header's hamburger button. Ignored on lg+. */
@@ -127,12 +126,13 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
 
   const activeNavItems: NavItem[] = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/inbox", label: "Inbox", icon: MessageSquare },
+    { href: "/inbox", label: "WhatsApp Chats", icon: MessageSquare },
     { href: "/patients", label: "Patients", icon: Users },
     { href: "/appointments", label: "Appointments", icon: Calendar },
     { href: "/doctors", label: "Doctors", icon: UserCheck },
-    { href: "/knowledge-base", label: "Knowledge Base", icon: FileText },
-    { href: "/settings?tab=ai", label: "AI Agent", icon: Brain },
+    { href: "/lab-reports", label: "Reports", icon: FileText },
+    { href: "/dashboard/ai", label: "AI Receptionist", icon: Bot },
+    { href: "/settings", label: "Settings", icon: Settings },
   ];
   // Only surface the account-name strip when it actually carries
   // information. A solo user's personal account is named after them
@@ -268,46 +268,27 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
             })}
           </ul>
 
-          <div className="my-4 border-t border-border" />
-
-          <ul className="flex flex-col gap-1">
-            {bottomNavItems.map((item) => {
-              const isActive = pathname.startsWith(item.href);
-              return (
-                <li key={item.href}>
+          {isSuperAdmin && (
+            <>
+              <div className="my-4 border-t border-border" />
+              <ul className="flex flex-col gap-1">
+                <li>
                   <Link
-                    href={item.href}
+                    href="/admin"
                     className={cn(
                       "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2",
-                      isActive
+                      pathname.startsWith("/admin")
                         ? "bg-primary/10 text-primary"
                         : "text-muted-foreground hover:bg-muted hover:text-foreground",
                     )}
                   >
-                    <item.icon className="h-4 w-4" />
-                    {item.label}
+                    <Shield className="h-4 w-4" />
+                    Super Admin
                   </Link>
                 </li>
-              );
-            })}
-
-            {isSuperAdmin && (
-              <li>
-                <Link
-                  href="/admin"
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2",
-                    pathname.startsWith("/admin")
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                  )}
-                >
-                  <Shield className="h-4 w-4" />
-                  Super Admin
-                </Link>
-              </li>
-            )}
-          </ul>
+              </ul>
+            </>
+          )}
         </nav>
 
         {/* User section */}

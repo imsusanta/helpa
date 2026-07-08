@@ -17,6 +17,7 @@ import {
   FileUp,
   Bell,
   Package,
+  MessageSquare,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -314,17 +315,17 @@ export default function LabReportsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Diagnostic Lab Manager</h1>
-          <p className="text-sm text-muted-foreground font-medium">Book lab diagnostics, track sample statuses, and deliver reports.</p>
+          <h1 className="text-2xl font-bold text-foreground">Reports</h1>
+          <p className="text-sm text-muted-foreground font-medium">Track patient reports and send via WhatsApp</p>
         </div>
         <Button onClick={() => setShowAddForm(!showAddForm)} className="cursor-pointer">
-          <Plus className="h-4 w-4 mr-2" /> Book Diagnostic Test
+          <Plus className="h-4 w-4 mr-2" /> New Report
         </Button>
       </div>
 
       {showAddForm && (
         <form onSubmit={handleCreateReport} className="bg-card border border-border rounded-xl p-5 space-y-4 max-w-2xl animate-in fade-in slide-in-from-top-4 duration-200">
-          <h3 className="font-bold text-foreground">Book Lab Test</h3>
+          <h3 className="font-bold text-foreground">New Diagnostic Report</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Select Patient *</Label>
@@ -418,7 +419,7 @@ export default function LabReportsPage() {
           <div className="flex gap-2 justify-end pt-2">
             <Button type="button" variant="outline" onClick={() => setShowAddForm(false)}>Cancel</Button>
             <Button type="submit" disabled={saving}>
-              {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />} Log Test
+              {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />} Save Report
             </Button>
           </div>
         </form>
@@ -487,37 +488,55 @@ export default function LabReportsPage() {
                         {rep.expected_delivery_date ? new Date(rep.expected_delivery_date).toLocaleDateString() : "—"}
                       </td>
                       <td className="px-6 py-4">
-                        {rep.report_pdf_url ? (
-                          <a
-                            href={rep.report_pdf_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline"
-                          >
-                            <FileDown className="h-3.5 w-3.5" /> Download
-                          </a>
-                        ) : (
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs text-muted-foreground">None</span>
-                            <div className="relative">
-                              <input
-                                type="file"
-                                accept=".pdf,application/pdf"
-                                onChange={(e) => handleRowFileUpload(rep.id, e)}
-                                className="hidden"
-                                id={`row-upload-${rep.id}`}
-                              />
-                              <Button
-                                size="xs"
-                                variant="ghost"
-                                onClick={() => document.getElementById(`row-upload-${rep.id}`)?.click()}
-                                className="h-6 px-1.5 text-[10px] text-primary hover:bg-primary/10 cursor-pointer"
-                              >
-                                Upload
-                              </Button>
+                        <div className="flex items-center gap-3">
+                          {rep.report_pdf_url ? (
+                            <a
+                              href={rep.report_pdf_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline shrink-0"
+                            >
+                              <FileDown className="h-3.5 w-3.5" /> Download
+                            </a>
+                          ) : (
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className="text-xs text-muted-foreground">None</span>
+                              <div className="relative">
+                                <input
+                                  type="file"
+                                  accept=".pdf,application/pdf"
+                                  onChange={(e) => handleRowFileUpload(rep.id, e)}
+                                  className="hidden"
+                                  id={`row-upload-${rep.id}`}
+                                />
+                                <Button
+                                  size="xs"
+                                  variant="ghost"
+                                  onClick={() => document.getElementById(`row-upload-${rep.id}`)?.click()}
+                                  className="h-6 px-1.5 text-[10px] text-primary hover:bg-primary/10 cursor-pointer"
+                                >
+                                  Upload
+                                </Button>
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          )}
+                          
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            onClick={() => handleTriggerManualNotification(rep.id)}
+                            disabled={notifying === rep.id}
+                            className="h-6 px-2 text-[10px] text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10 font-bold flex items-center gap-1 cursor-pointer shrink-0 border border-emerald-500/10"
+                            title={rep.notified_patient ? "Resend via WhatsApp" : "Send via WhatsApp"}
+                          >
+                            {notifying === rep.id ? (
+                              <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                            ) : (
+                              <MessageSquare className="h-2.5 w-2.5 text-emerald-500" />
+                            )}
+                            {rep.notified_patient ? "Resend WA" : "Send WA"}
+                          </Button>
+                        </div>
                       </td>
                       <td className="px-6 py-4">
                         <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${
@@ -573,7 +592,7 @@ export default function LabReportsPage() {
                               ) : (
                                 <Bell className="h-3.5 w-3.5 mr-1" />
                               )}
-                              {rep.notified_patient ? "Resend WA" : "Notify WA"}
+                              {rep.notified_patient ? "Resend WhatsApp" : "Send WhatsApp"}
                             </Button>
                             <Button
                               size="sm"

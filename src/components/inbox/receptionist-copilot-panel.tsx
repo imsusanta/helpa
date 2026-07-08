@@ -315,7 +315,7 @@ export function ReceptionistCopilotPanel({
               <InfoGrid rows={patientInfoRows} />
             </Section>
 
-            <Section title="AI Summary" icon={ClipboardList}>
+            <Section title="Patient Summary" icon={ClipboardList}>
               <ul className="space-y-1.5">
                 {snapshot.patientSummary.map((item) => (
                   <li key={item} className="flex gap-2 text-xs text-foreground">
@@ -364,7 +364,7 @@ export function ReceptionistCopilotPanel({
               )}
             </Section>
 
-            <Section title="Reports" icon={FileText}>
+            <Section title="Latest Report Status" icon={FileText}>
               {snapshot.reportInfo.exists ? (
                 <div className="space-y-2">
                   <InfoGrid
@@ -394,7 +394,7 @@ export function ReceptionistCopilotPanel({
               )}
             </Section>
 
-            <Section title="Insurance" icon={ShieldCheck}>
+            <Section title="Insurance Status" icon={ShieldCheck}>
               {snapshot.insuranceInfo.exists ? (
                 <div className="space-y-2">
                   <InfoGrid
@@ -416,13 +416,7 @@ export function ReceptionistCopilotPanel({
               )}
             </Section>
 
-            <Section title="Conversation Summary" icon={MessageSquareReply}>
-              <p className="whitespace-pre-wrap text-xs leading-relaxed text-foreground">
-                {snapshot.conversationSummary}
-              </p>
-            </Section>
-
-            <Section title="Suggested Reply" icon={Sparkles}>
+            <Section title="AI Reply" icon={Sparkles}>
               <div className="space-y-2">
                 <div className="rounded-md border border-border/70 bg-background/70 p-3 text-xs leading-relaxed text-foreground">
                   <p className="whitespace-pre-wrap">{snapshot.suggestedReply}</p>
@@ -434,12 +428,12 @@ export function ReceptionistCopilotPanel({
                   onClick={handleInsertReply}
                 >
                   <ClipboardCheck className="size-3.5" />
-                  Insert Reply
+                  Insert AI Reply
                 </Button>
               </div>
             </Section>
 
-            <Section title="Suggested Actions" icon={Zap}>
+            <Section title="Next Steps" icon={Zap}>
               <div className="flex flex-wrap gap-1.5">
                 {snapshot.suggestedActions.map((action) => (
                   <Badge
@@ -453,7 +447,13 @@ export function ReceptionistCopilotPanel({
               </div>
             </Section>
 
-            <Section title="Internal Notes" icon={StickyNote}>
+            <Section title="Chat Summary" icon={MessageSquareReply}>
+              <p className="whitespace-pre-wrap text-xs leading-relaxed text-foreground">
+                {snapshot.conversationSummary}
+              </p>
+            </Section>
+
+            <Section title="Staff Notes" icon={StickyNote}>
               {snapshot.internalNotes.length > 0 ? (
                 <ul className="space-y-1.5">
                   {snapshot.internalNotes.map((note) => (
@@ -463,7 +463,7 @@ export function ReceptionistCopilotPanel({
                   ))}
                 </ul>
               ) : (
-                <EmptyLine>No internal notes generated.</EmptyLine>
+                <EmptyLine>No staff notes generated.</EmptyLine>
               )}
             </Section>
 

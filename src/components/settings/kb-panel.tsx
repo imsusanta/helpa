@@ -66,10 +66,10 @@ const CATEGORY_MAP: Record<
   { label: string; icon: React.ElementType; color: string }
 > = {
   faq: { label: "FAQ", icon: HelpCircle, color: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
-  service: { label: "Service", icon: Briefcase, color: "bg-green-500/10 text-green-400 border-green-500/20" },
-  pricing: { label: "Pricing", icon: DollarSign, color: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" },
-  policy: { label: "Policy", icon: ShieldAlert, color: "bg-red-500/10 text-red-400 border-red-500/20" },
-  company: { label: "Company", icon: FileText, color: "bg-purple-500/10 text-purple-400 border-purple-500/20" },
+  service: { label: "Services", icon: Briefcase, color: "bg-green-500/10 text-green-400 border-green-500/20" },
+  pricing: { label: "Fees & Charges", icon: DollarSign, color: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" },
+  policy: { label: "Hospital Policies", icon: ShieldAlert, color: "bg-red-500/10 text-red-400 border-red-500/20" },
+  company: { label: "Hospital Profile", icon: FileText, color: "bg-purple-500/10 text-purple-400 border-purple-500/20" },
 };
 
 export function KbPanel() {
@@ -197,8 +197,8 @@ export function KbPanel() {
     return (
       <section className="max-w-4xl animate-in fade-in-50 duration-200">
         <SettingsPanelHead
-          title="Knowledge Base"
-          description="Manage FAQs, services, pricing, company guidelines, and policies that the AI uses to reply to customers."
+          title="Hospital Information"
+          description="Manage FAQs, clinical services, consultation fees, and hospital policies that the AI uses to reply to patient inquiries."
         />
         <Card className="flex h-64 items-center justify-center">
           <Loader2 className="size-6 animate-spin text-muted-foreground" />
@@ -211,13 +211,13 @@ export function KbPanel() {
     <section className="max-w-4xl animate-in fade-in-50 duration-200">
       <div className="flex items-center justify-between">
         <SettingsPanelHead
-          title="Knowledge Base"
-          description="Build a repository of verified knowledge about your business. The AI Reply Engine will search this context to answer customer questions accurately."
+          title="Hospital Information"
+          description="Build a repository of verified knowledge about your clinic/hospital. The AI Reply Engine will search this context to answer patient questions accurately."
         />
         {canSendMessages && (
           <Button onClick={handleOpenAddDialog} className="flex items-center gap-1.5 shrink-0">
             <Plus className="size-4" />
-            Add Entry
+            Add Info
           </Button>
         )}
       </div>
@@ -243,7 +243,7 @@ export function KbPanel() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-foreground">
             <Database className="size-4 text-primary" />
-            Knowledge Context ({filteredEntries.length})
+            Hospital Info Context ({filteredEntries.length})
           </CardTitle>
           <CardDescription className="text-muted-foreground">
             Keep your knowledge context concise and factual. The AI works best when given explicit Q&A formats or structured guides.

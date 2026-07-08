@@ -242,9 +242,9 @@ export default function AiAnalyticsPage() {
   const leadScoreData = useMemo(() => {
     if (!metrics) return [];
     return [
-      { name: "Hot", count: metrics.leadHotCount, fill: COLORS.hot },
-      { name: "Warm", count: metrics.leadWarmCount, fill: COLORS.warm },
-      { name: "Cold", count: metrics.leadColdCount, fill: COLORS.cold },
+      { name: "High", count: metrics.leadHotCount, fill: COLORS.hot },
+      { name: "Medium", count: metrics.leadWarmCount, fill: COLORS.warm },
+      { name: "Low", count: metrics.leadColdCount, fill: COLORS.cold },
     ];
   }, [metrics]);
 
@@ -311,7 +311,7 @@ export default function AiAnalyticsPage() {
             AI Assistant Analytics
           </h1>
           <p className="text-xs text-muted-foreground mt-1 max-w-xl leading-relaxed">
-            Real-time intent detection, sentiment trends, lead qualification, and automated reply metrics.
+            Real-time intent detection, sentiment trends, inquiry priority qualification, and automated receptionist metrics.
           </p>
         </div>
         <Button
@@ -346,21 +346,21 @@ export default function AiAnalyticsPage() {
           </CardContent>
         </Card>
 
-        {/* Hot Leads Card */}
+        {/* High Priority Inquiries Card */}
         <Card className="border-border bg-card hover:border-red-500/20 hover:scale-[1.02] active:scale-[0.99] hover:shadow-[0_8px_30px_rgba(239,68,68,0.06)] transition-all duration-300">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Hot Leads Identified
+                High Priority Inquiries
               </span>
               <Flame className="size-4 text-red-500 animate-pulse" />
             </div>
             <div className="mt-2 flex items-baseline gap-2">
               <span className="text-2xl font-black text-red-600 dark:text-red-400 tracking-tight">{metrics.leadHotCount}</span>
-              <span className="text-xs text-red-500/80 font-semibold">high interest</span>
+              <span className="text-xs text-red-500/80 font-semibold">action required</span>
             </div>
             <div className="mt-2 text-xs text-muted-foreground font-medium">
-              {metrics.leadWarmCount} qualified leads • {metrics.leadColdCount} other
+              {metrics.leadWarmCount} medium priority • {metrics.leadColdCount} low priority
             </div>
           </CardContent>
         </Card>
@@ -539,20 +539,20 @@ export default function AiAnalyticsPage() {
           </CardContent>
         </Card>
 
-        {/* Lead scoring metrics */}
+        {/* Inquiry priority metrics */}
         <Card className="border-border bg-card lg:col-span-1 hover:border-emerald-500/10 hover:scale-[1.01] transition-all duration-300 shadow-sm">
           <CardHeader>
             <CardTitle className="text-sm font-extrabold flex items-center gap-1.5 text-foreground">
               <Activity className="size-4 text-emerald-500" />
-              Lead Score Metrics
+              Inquiry Priority Metrics
             </CardTitle>
             <CardDescription className="text-xs text-muted-foreground">
-              Hot, Warm, and Cold lead distribution in workspace.
+              High, Medium, and Low priority inquiry distribution.
             </CardDescription>
           </CardHeader>
           <CardContent className="h-[260px] flex items-center justify-center">
             {metrics.leadHotCount + metrics.leadWarmCount + metrics.leadColdCount === 0 ? (
-              <p className="text-xs text-muted-foreground italic">No leads qualified by AI yet.</p>
+              <p className="text-xs text-muted-foreground italic">No inquiries qualified by AI yet.</p>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={leadScoreData} layout="vertical" margin={{ left: -10, right: 10, top: 10, bottom: 5 }}>
@@ -575,7 +575,7 @@ export default function AiAnalyticsPage() {
           <CardHeader>
             <CardTitle className="text-sm font-extrabold flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
               <Calendar className="size-4 text-emerald-500" />
-              Today&apos;s Executive AI Report
+              Today&apos;s AI Assistant Summary
             </CardTitle>
             <CardDescription className="text-xs text-emerald-600/75 dark:text-emerald-400/75 font-semibold">
               Aggregated automated operations summary for today.
@@ -584,15 +584,15 @@ export default function AiAnalyticsPage() {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-3 text-center">
               <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-2.5">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">New Leads</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">New Inquiries</span>
                 <p className="text-lg font-black text-foreground mt-0.5">{metrics.newLeadsToday}</p>
               </div>
               <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-2.5">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">Hot Leads</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">High Priority</span>
                 <p className="text-lg font-black text-red-500 dark:text-red-400 mt-0.5">{metrics.hotLeadsToday}</p>
               </div>
               <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-2.5">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">Bot Replies</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">AI Replies</span>
                 <p className="text-lg font-black text-foreground mt-0.5">{metrics.botRepliesToday}</p>
               </div>
               <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-2.5">
@@ -604,9 +604,9 @@ export default function AiAnalyticsPage() {
             <div className="text-xs text-muted-foreground leading-relaxed border-t border-emerald-500/15 pt-3.5 space-y-2">
               <p className="font-extrabold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider text-[10px]">Today&apos;s Summary:</p>
               <ul className="list-disc pl-4 space-y-1 font-semibold text-muted-foreground">
-                <li>Captured <strong className="text-foreground">{metrics.newLeadsToday} new leads</strong> in workspace.</li>
-                <li>Identified <strong className="text-red-500 dark:text-red-400">{metrics.hotLeadsToday} highly interested leads</strong>.</li>
-                <li>AI assistant automatically handled <strong className="text-foreground">{metrics.botRepliesToday} customer queries</strong>.</li>
+                <li>Captured <strong className="text-foreground">{metrics.newLeadsToday} new patient inquiries</strong> in workspace.</li>
+                <li>Identified <strong className="text-red-500 dark:text-red-400">{metrics.hotLeadsToday} high priority patient inquiries</strong>.</li>
+                <li>AI assistant automatically handled <strong className="text-foreground">{metrics.botRepliesToday} patient queries</strong>.</li>
                 <li>Human handoffs were requested <strong className="text-amber-500">{metrics.handoffsToday} times</strong> for escalations.</li>
               </ul>
             </div>

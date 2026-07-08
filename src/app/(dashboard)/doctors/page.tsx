@@ -127,17 +127,17 @@ export default function DoctorsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Doctors Directory</h1>
+          <h1 className="text-2xl font-bold text-foreground">Doctors</h1>
           <p className="text-sm text-muted-foreground font-medium">Manage clinical staff on-call rotas and consultation rates.</p>
         </div>
         <Button onClick={() => setShowAddForm(!showAddForm)} className="cursor-pointer">
-          <Plus className="h-4 w-4 mr-2" /> Register Doctor
+          <Plus className="h-4 w-4 mr-2" /> New Doctor
         </Button>
       </div>
 
       {showAddForm && (
         <form onSubmit={handleRegisterDoctor} className="bg-card border border-border rounded-xl p-5 space-y-4 max-w-2xl animate-in fade-in slide-in-from-top-4 duration-200">
-          <h3 className="font-bold text-foreground">Register New Doctor</h3>
+          <h3 className="font-bold text-foreground">New Doctor Profile</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Doctor Name *</Label>
@@ -152,8 +152,8 @@ export default function DoctorsPage() {
               <Input value={specialization} onChange={(e) => setSpecialization(e.target.value)} placeholder="e.g. Pediatric Surgery" />
             </div>
             <div className="space-y-2">
-              <Label>Consultation Fee ({defaultCurrency})</Label>
-              <Input type="number" value={fee} onChange={(e) => setFee(e.target.value)} placeholder="e.g. 150" />
+              <Label>Consultation Fee (₹)</Label>
+              <Input type="number" value={fee} onChange={(e) => setFee(e.target.value)} placeholder="e.g. 500" />
             </div>
             <div className="space-y-2">
               <Label>Shift Start Hour</Label>
@@ -189,7 +189,7 @@ export default function DoctorsPage() {
           <div className="flex gap-2 justify-end pt-2">
             <Button type="button" variant="outline" onClick={() => setShowAddForm(false)}>Cancel</Button>
             <Button type="submit" disabled={saving}>
-              {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />} Save Record
+              {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />} Save Doctor
             </Button>
           </div>
         </form>
@@ -200,7 +200,7 @@ export default function DoctorsPage() {
           <Stethoscope className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-bold text-foreground">No doctors registered</h3>
           <p className="text-muted-foreground text-sm mt-1 mb-4">Register on-call medical practitioners to allocate shift rotas.</p>
-          <Button onClick={() => setShowAddForm(true)}>Register Doctor</Button>
+          <Button onClick={() => setShowAddForm(true)}>New Doctor</Button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -231,7 +231,7 @@ export default function DoctorsPage() {
               <div className="border-t border-border pt-4 mt-auto flex items-center justify-between">
                 <span className="text-xs text-muted-foreground">Consultation Fee</span>
                 <p className="text-lg font-extrabold text-foreground">
-                  {formatCurrency(doc.consultation_fee, defaultCurrency)}
+                  ₹{doc.consultation_fee}
                 </p>
               </div>
             </div>

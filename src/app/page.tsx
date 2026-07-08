@@ -33,6 +33,12 @@ import {
   User,
   Share2,
   FileCheck,
+  Heart,
+  Users,
+  Smartphone,
+  PhoneCall,
+  DollarSign,
+  TrendingDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -46,17 +52,17 @@ interface Testimonial {
 
 const TESTIMONIALS: Testimonial[] = [
   {
-    quote: "Our front desk workload was cut by 60%. The AI handles appointment bookings and lab report delivery flawlessly on WhatsApp.",
+    quote: "Our front desk phone queries dropped by 70%. The AI handles appointment slotting and pathology report PDFs on WhatsApp effortlessly.",
     author: "Dr. Elena Rostova",
     role: "Clinical Director",
-    clinic: "Metro Health Group",
+    clinic: "Metro Health Clinic",
     avatar: "ER",
   },
   {
-    quote: "Patients love getting their diagnostic PDFs instantly on WhatsApp. No more phone queues or manual emails from staff.",
+    quote: "Patients are amazed when they receive their lab test PDFs instantly on WhatsApp. No more long queues at the reception desk just to collect paper reports.",
     author: "Susanta Lohar",
-    role: "System Administrator",
-    clinic: "Apollo Diagnostic Labs",
+    role: "System Admin",
+    clinic: "Apollo Diagnostics & Labs",
     avatar: "SL",
   },
 ];
@@ -75,12 +81,15 @@ export default function LandingPage() {
   // Theme support
   const { mode, setMode } = useTheme();
 
+  // Active feature tab for showcase
+  const [activeTab, setActiveTab] = useState<"ai" | "reports" | "queue" | "takeover">("ai");
+
   // WhatsApp Interactive Simulator State
   const [simStep, setSimStep] = useState(0);
   const [simMessages, setSimMessages] = useState<Array<{ sender: "user" | "bot"; text: string; time: string }>>([
     {
       sender: "bot",
-      text: "Hello! Welcome to Apollo Health Clinic. I am your AI Assistant. How can I help you today?",
+      text: "Namaste! Welcome to CareFlow Clinic. I am your AI Assistant. How can I help you today?",
       time: "10:30 AM",
     },
   ]);
@@ -113,7 +122,7 @@ export default function LandingPage() {
     
     const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     setSimMessages((prev) => [...prev, { sender: "user", text: questionText, time: now }]);
-    setDbLogs((prev) => [...prev, `[Inbound Event] Received patient text: "${questionText}"`]);
+    setDbLogs((prev) => [...prev, `[Inbound Event] Received patient message: "${questionText}"`]);
     setSimStep(nextStep);
     
     setSimTyping(true);
@@ -121,9 +130,9 @@ export default function LandingPage() {
       setSimMessages((prev) => [...prev, { sender: "bot", text: botResponseText, time: now }]);
       setDbLogs((prev) => [
         ...prev,
-        `[NLP Engine] Detected intent. Prompting OpenRouter...`,
+        `[NLP Engine] Parsing query intent using LLM...`,
         logAction,
-        `[Outbound Event] Dispatched WhatsApp message to patient.`
+        `[Outbound Event] WhatsApp auto-reply dispatched via Cloud API.`
       ]);
       setSimTyping(false);
     }, 1200);
@@ -134,7 +143,7 @@ export default function LandingPage() {
     setSimMessages([
       {
         sender: "bot",
-        text: "Hello! Welcome to Apollo Health Clinic. I am your AI Assistant. How can I help you today?",
+        text: "Namaste! Welcome to CareFlow Clinic. I am your AI Assistant. How can I help you today?",
         time: "10:30 AM",
       },
     ]);
@@ -143,71 +152,70 @@ export default function LandingPage() {
     ]);
   };
 
-  // ROI computations
+  // ROI computations (localized values)
   const calculatedSavings = useMemo(() => {
-    const hoursSaved = Math.round(monthlyPatients * 0.15); // 9 minutes (0.15h) saved per patient query
-    const responseTimeDrop = "98%"; // drops from minutes/hours to seconds
-    const monthlyReturn = Math.round(monthlyPatients * 4.5); // avg $4.5 leakage recovery per patient
+    const hoursSaved = Math.round(monthlyPatients * 0.2); // 12 minutes (0.2h) saved per patient query/call
+    const responseTimeDrop = "98%"; 
+    const monthlyReturn = Math.round(monthlyPatients * 250); // average ₹250 recovery per patient saved from unanswered calls/dropouts
     return { hoursSaved, responseTimeDrop, monthlyReturn };
   }, [monthlyPatients]);
 
   return (
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden selection:bg-emerald-500/20">
       
-      {/* Background Grid Pattern & Ambient Gradients */}
+      {/* Mesh Glow Background */}
       <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808007_1px,transparent_1px),linear-gradient(to_bottom,#80808007_1px,transparent_1px)] bg-[size:16px_28px]" />
-        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-emerald-500/5 dark:bg-emerald-500/10 rounded-full blur-[120px]" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-blue-500/5 dark:bg-blue-500/10 rounded-full blur-[120px]" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808006_1px,transparent_1px),linear-gradient(to_bottom,#80808006_1px,transparent_1px)] bg-[size:24px_36px]" />
+        <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-emerald-500/10 dark:bg-emerald-500/15 rounded-full blur-[140px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] bg-teal-500/5 dark:bg-teal-500/10 rounded-full blur-[140px]" />
       </div>
 
-      {/* Modern Floating Header Section */}
+      {/* Floating Header */}
       <div className="sticky top-0 z-50 w-full flex flex-col items-center px-4 pt-4 pointer-events-none">
-        <header className="w-full max-w-5xl rounded-full border border-border/80 bg-background/65 backdrop-blur-xl shadow-lg shadow-black/[0.02] dark:shadow-black/[0.12] transition-all duration-300 pointer-events-auto">
-          <div className="flex items-center justify-between py-2.5 px-5 sm:px-6">
+        <header className="w-full max-w-5xl rounded-full border border-border/80 bg-background/60 backdrop-blur-xl shadow-lg shadow-black/[0.02] dark:shadow-black/[0.1] transition-all duration-300 pointer-events-auto">
+          <div className="flex items-center justify-between py-2 px-5 sm:px-6">
             <div className="flex items-center gap-2 group cursor-pointer">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 text-white shadow-md shadow-emerald-500/20 group-hover:rotate-12 group-hover:scale-110 active:scale-90 transition-all duration-300">
-                <Stethoscope className="h-4.5 w-4.5" />
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-600 text-white shadow-md shadow-emerald-500/20 group-hover:rotate-12 group-hover:scale-110 transition-all duration-300">
+                <Stethoscope className="h-5 w-5" />
               </div>
-              <span className="font-black text-sm text-foreground tracking-tight sm:text-base">
-                WACRM<span className="text-emerald-500 font-medium text-[10px] ml-1">Hospital AI</span>
+              <span className="font-extrabold text-sm text-foreground tracking-tight sm:text-base">
+                CareFlow<span className="text-emerald-600 dark:text-emerald-400 font-bold text-[10px] ml-1 bg-emerald-500/10 px-1.5 py-0.5 rounded-full">HOSPITAL AI</span>
               </span>
             </div>
 
             {/* Desktop Navigation Links */}
-            <nav className="hidden md:flex items-center gap-1 p-0.5 rounded-full bg-muted/45 border border-border/50">
-              <a href="#features" className="hover:bg-background/80 hover:shadow-sm px-4 py-1 rounded-full text-xs font-bold text-muted-foreground hover:text-foreground transition-all duration-200">Features</a>
-              <a href="#pipeline" className="hover:bg-background/80 hover:shadow-sm px-4 py-1 rounded-full text-xs font-bold text-muted-foreground hover:text-foreground transition-all duration-200">How It Works</a>
-              <a href="#demo" className="hover:bg-background/80 hover:shadow-sm px-4 py-1 rounded-full text-xs font-bold text-muted-foreground hover:text-foreground transition-all duration-200">Live Demo</a>
+            <nav className="hidden md:flex items-center gap-1 p-0.5 rounded-full bg-muted/40 border border-border/40">
+              <a href="#hook" className="hover:bg-background/80 hover:shadow-sm px-4 py-1 rounded-full text-xs font-bold text-muted-foreground hover:text-foreground transition-all duration-200">The Hook</a>
+              <a href="#features" className="hover:bg-background/80 hover:shadow-sm px-4 py-1 rounded-full text-xs font-bold text-muted-foreground hover:text-foreground transition-all duration-200">Capabilities</a>
+              <a href="#demo" className="hover:bg-background/80 hover:shadow-sm px-4 py-1 rounded-full text-xs font-bold text-muted-foreground hover:text-foreground transition-all duration-200">Live Simulator</a>
+              <a href="#calculator" className="hover:bg-background/80 hover:shadow-sm px-4 py-1 rounded-full text-xs font-bold text-muted-foreground hover:text-foreground transition-all duration-200">ROI Calc</a>
               <a href="#pricing" className="hover:bg-background/80 hover:shadow-sm px-4 py-1 rounded-full text-xs font-bold text-muted-foreground hover:text-foreground transition-all duration-200">Pricing</a>
-              <a href="#faq" className="hover:bg-background/80 hover:shadow-sm px-4 py-1 rounded-full text-xs font-bold text-muted-foreground hover:text-foreground transition-all duration-200">FAQ</a>
             </nav>
 
-            {/* Dark Mode toggle & CTAs */}
+            {/* Header Right Actions */}
             <div className="hidden md:flex items-center gap-3">
-              {/* Theme Toggle Button */}
               <button
                 onClick={() => setMode(mode === "dark" ? "light" : "dark")}
                 type="button"
                 className="p-2 text-muted-foreground hover:text-foreground rounded-full border border-border bg-card/60 hover:scale-105 active:scale-95 transition-all cursor-pointer"
                 title={mode === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
               >
-                {mode === "dark" ? <Sun className="size-3.5 text-amber-500" /> : <Moon className="size-3.5 text-emerald-600" />}
+                {mode === "dark" ? <Sun className="size-4 text-amber-500" /> : <Moon className="size-4 text-emerald-600" />}
               </button>
 
               {user ? (
                 <Link href="/dashboard">
-                  <Button size="sm" className="bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-bold cursor-pointer rounded-full hover:scale-[1.03] active:scale-[0.97] transition-all px-4">
+                  <Button size="sm" className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold cursor-pointer rounded-full hover:scale-105 active:scale-95 transition-all px-4">
                     Dashboard <ArrowRight className="size-3.5 ml-1" />
                   </Button>
                 </Link>
               ) : (
                 <>
-                  <Link href="/login" className="text-xs font-bold text-muted-foreground hover:text-foreground hover:scale-105 active:scale-95 transition-all duration-200 mr-1.5">
+                  <Link href="/login" className="text-xs font-bold text-muted-foreground hover:text-foreground transition-all duration-200 mr-1.5">
                     Sign In
                   </Link>
                   <Link href="/signup">
-                    <Button size="sm" className="bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-bold cursor-pointer rounded-full hover:scale-[1.03] active:scale-[0.97] transition-all px-4">
+                    <Button size="sm" className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold cursor-pointer rounded-full hover:scale-105 active:scale-95 transition-all px-4">
                       Try Free
                     </Button>
                   </Link>
@@ -230,14 +238,13 @@ export default function LandingPage() {
         {mobileMenuOpen && (
           <div className="w-full max-w-5xl mt-2 border border-border/60 bg-card/90 backdrop-blur-lg p-5 space-y-4 rounded-3xl animate-in slide-in-from-top-4 duration-200 shadow-xl pointer-events-auto">
             <nav className="flex flex-col gap-2 font-semibold text-muted-foreground">
-              <a href="#features" onClick={() => setMobileMenuOpen(false)} className="hover:text-emerald-500 py-1.5 transition-colors">Features</a>
-              <a href="#pipeline" onClick={() => setMobileMenuOpen(false)} className="hover:text-emerald-500 py-1.5 transition-colors">How It Works</a>
-              <a href="#demo" onClick={() => setMobileMenuOpen(false)} className="hover:text-emerald-500 py-1.5 transition-colors">Live Demo</a>
+              <a href="#hook" onClick={() => setMobileMenuOpen(false)} className="hover:text-emerald-500 py-1.5 transition-colors">The Hook</a>
+              <a href="#features" onClick={() => setMobileMenuOpen(false)} className="hover:text-emerald-500 py-1.5 transition-colors">Capabilities</a>
+              <a href="#demo" onClick={() => setMobileMenuOpen(false)} className="hover:text-emerald-500 py-1.5 transition-colors">Live Simulator</a>
+              <a href="#calculator" onClick={() => setMobileMenuOpen(false)} className="hover:text-emerald-500 py-1.5 transition-colors">ROI Calc</a>
               <a href="#pricing" onClick={() => setMobileMenuOpen(false)} className="hover:text-emerald-500 py-1.5 transition-colors">Pricing</a>
-              <a href="#faq" onClick={() => setMobileMenuOpen(false)} className="hover:text-emerald-500 py-1.5 transition-colors">FAQ</a>
             </nav>
             <div className="flex flex-col gap-2 pt-2 border-t border-border">
-              {/* Mobile Mode Toggle */}
               <button
                 onClick={() => {
                   setMode(mode === "dark" ? "light" : "dark");
@@ -271,103 +278,203 @@ export default function LandingPage() {
         )}
       </div>
 
-      {/* Main Container */}
       <main className="relative z-10">
 
         {/* Hero Section */}
-        <section className="relative px-4 py-24 md:py-36 lg:px-8">
-          <div className="container mx-auto max-w-7xl text-center space-y-8">
+        <section id="hook" className="relative px-4 pt-16 pb-28 md:pt-24 md:pb-36 lg:px-8 overflow-hidden">
+          
+          {/* Custom style for floating visuals */}
+          <style>{`
+            @keyframes float-1 {
+              0%, 100% { transform: translateY(0px) rotate(1deg); }
+              50% { transform: translateY(-12px) rotate(-1deg); }
+            }
+            @keyframes float-2 {
+              0%, 100% { transform: translateY(0px) rotate(-1.5deg); }
+              50% { transform: translateY(-16px) rotate(1deg); }
+            }
+            @keyframes float-3 {
+              0%, 100% { transform: translateY(0px) rotate(0.5deg); }
+              50% { transform: translateY(-8px) rotate(-0.5deg); }
+            }
+            .animate-float-1 {
+              animation: float-1 7s ease-in-out infinite;
+            }
+            .animate-float-2 {
+              animation: float-2 9s ease-in-out infinite;
+            }
+            .animate-float-3 {
+              animation: float-3 8s ease-in-out infinite;
+            }
+          `}</style>
+
+          <div className="container mx-auto max-w-7xl">
             
-            {/* Top Badge */}
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-semibold uppercase tracking-wider animate-bounce">
-              <Sparkles className="h-3.5 w-3.5" />
-              Next-Gen Medical Communication Platform
-            </div>
+            {/* Split hero layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center text-left">
+              
+              {/* Left Column: Headline, Subheadline & CTAs */}
+              <div className="lg:col-span-7 space-y-8">
+                
+                {/* Glowing Hook Badge */}
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-bold uppercase tracking-wider animate-pulse shadow-[0_0_15px_rgba(16,185,129,0.1)]">
+                  <Sparkles className="h-4 w-4 text-emerald-600 dark:text-emerald-500" />
+                  98% of Indian patients prefer WhatsApp over phone calls
+                </div>
 
-            {/* Headline */}
-            <h1 className="text-4xl font-extrabold tracking-tight sm:text-7xl max-w-5xl mx-auto leading-none text-foreground">
-              Automate Patient Care on WhatsApp. <span className="bg-gradient-to-r from-emerald-600 to-emerald-400 bg-clip-text text-transparent">24/7.</span>
-            </h1>
+                {/* Massive Hook Headline */}
+                <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl leading-tight text-foreground">
+                  Why make patients wait in line when they can check-in on <span className="bg-gradient-to-r from-emerald-600 via-teal-500 to-emerald-400 bg-clip-text text-transparent drop-shadow-[0_2px_10px_rgba(16,185,129,0.15)]">WhatsApp?</span>
+                </h1>
 
-            {/* Subheadline */}
-            <p className="text-muted-foreground text-sm sm:text-lg max-w-2xl mx-auto leading-relaxed">
-              WACRM brings clinical intelligence to WhatsApp. Triage patient queries, structure appointment slots, and auto-dispatch diagnostic PDF files instantly with robust human-in-the-loop takeovers.
-            </p>
+                {/* Supporting Subheadline */}
+                <p className="text-muted-foreground text-sm sm:text-base leading-relaxed max-w-2xl">
+                  CareFlow is the digital reception desk for Indian hospitals & clinics. Triage symptoms, dispatch pathology report PDFs, and coordinate token queues 24/7 on WhatsApp without stressing your receptionist.
+                </p>
 
-            {/* CTAs */}
-            <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
-              <Link href={user ? "/dashboard" : "/signup"}>
-                <Button size="lg" className="bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-bold cursor-pointer py-6 px-8 hover:scale-[1.04] active:scale-[0.96] transition-all shadow-md shadow-emerald-500/10 rounded-full">
-                  {user ? "Go to Dashboard" : "Start 14-Day Free Trial"} <ArrowRight className="size-4 ml-1.5" />
-                </Button>
-              </Link>
-              <a href="#demo">
-                <Button size="lg" variant="outline" className="border-border text-foreground hover:bg-muted font-bold py-6 px-8 hover:scale-[1.04] active:scale-[0.96] transition-all rounded-full">
-                  Interactive Demo
-                </Button>
-              </a>
-            </div>
+                {/* Hero CTAs */}
+                <div className="flex flex-wrap items-center gap-4 pt-2">
+                  <Link href={user ? "/dashboard" : "/signup"}>
+                    <Button size="lg" className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold cursor-pointer py-6 px-9 hover:scale-105 active:scale-95 transition-all shadow-lg shadow-emerald-600/20 rounded-full">
+                      {user ? "Go to Dashboard" : "Start Free Trial"} <ArrowRight className="size-4 ml-1.5" />
+                    </Button>
+                  </Link>
+                  <a href="#demo">
+                    <Button size="lg" variant="outline" className="border-border text-foreground hover:bg-muted font-bold py-6 px-9 hover:scale-105 active:scale-95 transition-all rounded-full bg-card/45 backdrop-blur-sm">
+                      Try Simulator
+                    </Button>
+                  </a>
+                </div>
 
-            {/* Feature Badges Banner */}
-            <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-4 pt-8 text-xs font-semibold text-muted-foreground max-w-3xl mx-auto border-t border-border/60">
-              <div className="flex items-center gap-1.5 hover:text-emerald-500 transition-colors cursor-pointer"><CheckCircle2 className="size-4 text-emerald-500" /> WhatsApp Cloud API Integration</div>
-              <div className="flex items-center gap-1.5 hover:text-emerald-500 transition-colors cursor-pointer"><CheckCircle2 className="size-4 text-emerald-500" /> Patient CRM & Pipelines</div>
-              <div className="flex items-center gap-1.5 hover:text-emerald-500 transition-colors cursor-pointer"><CheckCircle2 className="size-4 text-emerald-500" /> Automated Report Dispatch</div>
-              <div className="flex items-center gap-1.5 hover:text-emerald-500 transition-colors cursor-pointer"><CheckCircle2 className="size-4 text-emerald-500" /> Self-Hosted Supabase / Next.js</div>
-            </div>
-
-            {/* Hero App Mockup Grid */}
-            <div className="pt-10 max-w-5xl mx-auto relative group">
-              <div className="absolute inset-0 bg-gradient-to-tr from-emerald-500/10 to-transparent blur-[50px] rounded-3xl opacity-50 pointer-events-none" />
-              <div className="relative border border-border bg-card/60 backdrop-blur-sm rounded-3xl overflow-hidden shadow-2xl p-2.5 transition-all duration-500 group-hover:scale-[1.01] group-hover:shadow-[0_20px_50px_rgba(16,185,129,0.05)] group-hover:border-emerald-500/20">
-                {/* Header Strip */}
-                <div className="flex items-center justify-between border-b border-border/80 px-4 py-2 bg-muted/40">
-                  <div className="flex items-center gap-1.5">
-                    <span className="size-3 rounded-full bg-red-500/80 hover:scale-110 transition-transform cursor-pointer" />
-                    <span className="size-3 rounded-full bg-yellow-500/80 hover:scale-110 transition-transform cursor-pointer" />
-                    <span className="size-3 rounded-full bg-green-500/80 hover:scale-110 transition-transform cursor-pointer" />
+                {/* Live Telemetry KPI Badges */}
+                <div className="grid grid-cols-3 gap-4 pt-6 border-t border-border/60 max-w-xl">
+                  <div>
+                    <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">1.4s</p>
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mt-0.5">Response Latency</span>
                   </div>
-                  <span className="text-[10px] text-muted-foreground font-semibold">wacrm.hospital.dashboard</span>
+                  <div>
+                    <p className="text-2xl font-black text-foreground">₹2.4M</p>
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mt-0.5">Leakage Saved</span>
+                  </div>
+                  <div>
+                    <p className="text-2xl font-black text-foreground">99.4%</p>
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mt-0.5">Patient Satisfaction</span>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Right Column: 3D Visual Floating Stack */}
+              <div className="lg:col-span-5 relative h-[380px] w-full hidden md:block select-none">
+                
+                {/* Background Ambient Glow */}
+                <div className="absolute inset-0 bg-gradient-to-tr from-emerald-500/20 to-transparent blur-[60px] rounded-full opacity-60 -z-10" />
+
+                {/* Floating Card 1: WhatsApp Message Bubble */}
+                <div className="absolute top-2 left-6 w-[270px] bg-card border border-border/80 p-4 rounded-2xl shadow-xl backdrop-blur-md animate-float-1 z-30">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="size-6 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-[10px]">CF</div>
+                    <span className="text-[10px] font-extrabold text-foreground">CareFlow Autopilot</span>
+                    <span className="text-[8px] text-muted-foreground ml-auto">10:30 AM</span>
+                  </div>
+                  <p className="text-[10px] text-foreground leading-relaxed">
+                    Namaste! Your Blood Report is Ready. Here is your PDF copy.
+                  </p>
+                  <div className="mt-2.5 p-2 bg-muted/60 border border-border/50 rounded-xl flex items-center gap-2">
+                    <FileText className="size-5 text-rose-500 shrink-0" />
+                    <span className="text-[9px] font-bold text-foreground truncate">Blood_Report.pdf</span>
+                  </div>
+                </div>
+
+                {/* Floating Card 2: AI Database Audit Log */}
+                <div className="absolute top-28 right-0 w-[260px] bg-zinc-950 border border-zinc-800 p-4 rounded-2xl shadow-2xl animate-float-2 z-20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Database className="size-3.5 text-emerald-500" />
+                    <span className="text-[9px] font-bold text-zinc-400 font-mono">OPD Live Audit</span>
+                  </div>
+                  <div className="space-y-1 font-mono text-[8px] text-zinc-500 text-left">
+                    <p className="text-emerald-400">✔ Match phone: +91 98765...</p>
+                    <p className="text-teal-400">✔ Intent: check_lab_report</p>
+                    <p>✔ Outbound PDF dispatched: 1.2s</p>
+                  </div>
+                </div>
+
+                {/* Floating Card 3: Appointment Queue Token Card */}
+                <div className="absolute bottom-6 left-12 w-[240px] bg-card/90 border border-emerald-500/10 p-4 rounded-2xl shadow-lg backdrop-blur-md animate-float-3 z-10">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <Calendar className="size-3.5 text-emerald-600 dark:text-emerald-400" />
+                    <span className="text-[9px] font-extrabold uppercase text-emerald-600 dark:text-emerald-400">TOKEN ISSUED</span>
+                  </div>
+                  <div className="flex items-baseline justify-between">
+                    <p className="text-lg font-black text-foreground">#14</p>
+                    <span className="text-[9px] text-muted-foreground">Dr. Gupta (OPD Room 4)</span>
+                  </div>
+                  <div className="mt-2 h-1 w-full bg-muted rounded-full overflow-hidden">
+                    <div className="h-full bg-emerald-500 rounded-full" style={{ width: "80%" }} />
+                  </div>
+                </div>
+
+              </div>
+
+            </div>
+
+            {/* Bottom Mac-style app mockup */}
+            <div className="pt-20 max-w-5xl mx-auto relative group">
+              <div className="absolute inset-0 bg-gradient-to-tr from-emerald-500/10 to-transparent blur-[50px] rounded-3xl opacity-50 pointer-events-none" />
+              <div className="relative border border-border bg-card/40 backdrop-blur-md rounded-3xl overflow-hidden shadow-2xl p-2.5 transition-all duration-500 group-hover:scale-[1.005] group-hover:shadow-[0_20px_50px_rgba(16,185,129,0.06)] group-hover:border-emerald-500/20">
+                {/* Window Control Panel */}
+                <div className="flex items-center justify-between border-b border-border/80 px-4 py-2.5 bg-muted/40">
+                  <div className="flex items-center gap-1.5">
+                    <span className="size-3 rounded-full bg-rose-500/80 cursor-pointer" />
+                    <span className="size-3 rounded-full bg-amber-500/80 cursor-pointer" />
+                    <span className="size-3 rounded-full bg-emerald-500/80 cursor-pointer" />
+                  </div>
+                  <span className="text-[10px] text-muted-foreground font-bold tracking-wider">careflow.receptionist.desk</span>
                   <div className="size-3" />
                 </div>
-                {/* Visual Preview */}
+                
+                {/* Mock UI Frame */}
                 <div className="grid grid-cols-12 gap-2 p-2 bg-background/80">
                   
-                  {/* Left Side: Mock Navigation */}
-                  <div className="col-span-3 border-r border-border/60 p-3 space-y-4 hidden sm:block text-left">
-                    <div className="h-6 w-24 bg-emerald-500/10 rounded-lg border border-emerald-500/20" />
-                    <div className="space-y-2">
-                      <div className="h-4 w-full bg-muted rounded animate-pulse" />
-                      <div className="h-4 w-[90%] bg-muted rounded" />
-                      <div className="h-4 w-[75%] bg-muted rounded" />
+                  {/* Sidebar mockup */}
+                  <div className="col-span-3 border-r border-border/60 p-4 space-y-4 hidden md:block text-left">
+                    <div className="h-8 w-28 bg-emerald-500/10 rounded-lg border border-emerald-500/20 mb-6 flex items-center px-2.5 gap-2">
+                      <div className="size-3 bg-emerald-500 rounded-full animate-ping" />
+                      <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400">ACTIVE DESK</span>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="h-4.5 w-full bg-emerald-500/15 rounded-md border border-emerald-500/20" />
+                      <div className="h-4.5 w-[90%] bg-muted rounded-md" />
+                      <div className="h-4.5 w-[85%] bg-muted rounded-md" />
+                      <div className="h-4.5 w-[70%] bg-muted rounded-md" />
                     </div>
                   </div>
 
-                  {/* Right Side: Mock KPIs and Charts */}
-                  <div className="col-span-12 sm:col-span-9 p-3 space-y-4 text-left">
+                  {/* Right Dashboard Body mockup */}
+                  <div className="col-span-12 md:col-span-9 p-3 space-y-4 text-left">
                     <div className="grid grid-cols-3 gap-3">
-                      <div className="border border-border p-3 rounded-xl bg-card hover:scale-[1.03] active:scale-[0.98] transition-all cursor-pointer">
-                        <span className="text-[9px] font-bold text-muted-foreground uppercase">Today's Chats</span>
-                        <p className="text-xl font-extrabold text-foreground mt-1">24</p>
+                      <div className="border border-border p-3.5 rounded-2xl bg-card hover:scale-105 transition-all shadow-sm">
+                        <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Patients in Queue</span>
+                        <p className="text-2xl font-black text-foreground mt-1">18</p>
                       </div>
-                      <div className="border border-border p-3 rounded-xl bg-card border-emerald-500/20 hover:scale-[1.03] active:scale-[0.98] transition-all cursor-pointer">
-                        <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase">AI Resolution</span>
-                        <p className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1">95%</p>
+                      <div className="border border-emerald-500/20 p-3.5 rounded-2xl bg-card hover:scale-105 transition-all shadow-sm">
+                        <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">AI Automated Triage</span>
+                        <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">94%</p>
                       </div>
-                      <div className="border border-border p-3 rounded-xl bg-card hover:scale-[1.03] active:scale-[0.98] transition-all cursor-pointer">
-                        <span className="text-[9px] font-bold text-muted-foreground uppercase">Booked Slots</span>
-                        <p className="text-xl font-extrabold text-foreground mt-1">8</p>
+                      <div className="border border-border p-3.5 rounded-2xl bg-card hover:scale-105 transition-all shadow-sm">
+                        <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Staff Workload Shifted</span>
+                        <p className="text-2xl font-black text-foreground mt-1">82 hr</p>
                       </div>
                     </div>
-                    {/* Simulated chart */}
-                    <div className="border border-border p-4 rounded-xl bg-card/50 h-32 flex items-end justify-between gap-1.5 pt-6 hover:shadow-inner transition-shadow">
-                      <div className="w-full bg-emerald-500/30 rounded-t h-[40%] hover:bg-emerald-500/40 transition-colors" />
-                      <div className="w-full bg-emerald-500/40 rounded-t h-[60%] hover:bg-emerald-500/50 transition-colors" />
-                      <div className="w-full bg-emerald-500 rounded-t h-[95%] relative flex justify-center hover:bg-emerald-600 transition-colors">
-                        <span className="absolute -top-6 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 animate-bounce">95%</span>
+                    {/* Simulated live chart */}
+                    <div className="border border-border/80 p-4 rounded-2xl bg-card/40 h-36 flex items-end justify-between gap-2.5 pt-8 hover:shadow-inner transition-shadow">
+                      <div className="w-full bg-emerald-500/20 rounded-t-lg h-[40%] hover:bg-emerald-500/30 transition-colors" />
+                      <div className="w-full bg-emerald-500/30 rounded-t-lg h-[55%] hover:bg-emerald-500/40 transition-colors" />
+                      <div className="w-full bg-emerald-50 rounded-t-lg h-[92%] relative flex justify-center hover:bg-emerald-600 transition-colors">
+                        <span className="absolute -top-7 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-full border border-emerald-500/20">94% Autopilot</span>
                       </div>
-                      <div className="w-full bg-emerald-500/50 rounded-t h-[50%] hover:bg-emerald-500/60 transition-colors" />
-                      <div className="w-full bg-emerald-500/60 rounded-t h-[80%] hover:bg-emerald-500/70 transition-colors" />
+                      <div className="w-full bg-emerald-500/40 rounded-t-lg h-[45%] hover:bg-emerald-500/50 transition-colors" />
+                      <div className="w-full bg-emerald-500/50 rounded-t-lg h-[75%] hover:bg-emerald-500/60 transition-colors" />
                     </div>
                   </div>
 
@@ -378,305 +485,254 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Premium Bento Box Features Section */}
+        {/* Clinical Capabilities Interactive Switcher Section */}
         <section id="features" className="py-24 bg-muted/20 border-y border-border">
           <div className="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             <div className="text-center max-w-3xl mx-auto space-y-4 mb-16">
               <h2 className="text-3xl font-extrabold tracking-tight sm:text-5xl text-foreground">
-                All-in-One WhatsApp Operations Hub
+                Built for the Realities of Indian OPDs
               </h2>
-              <p className="text-muted-foreground text-sm leading-relaxed max-w-xl mx-auto">
-                Ditch the chaotic phone calls. WACRM organizes patient charts, scheduling logs, and diagnostic pipelines into a clean unified console.
+              <p className="text-muted-foreground text-sm max-w-xl mx-auto leading-relaxed">
+                Most patients do not want to download another app or open emails. CareFlow brings all operations into WhatsApp, the only interface they already use daily.
               </p>
             </div>
 
-            {/* Bento Grid Layout */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+            {/* Interactive Tab Switcher Layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
               
-              {/* Box 1 (Large 2x2 content area): AI Receptionist */}
-              <div className="md:col-span-8 bg-card border border-border p-8 rounded-3xl space-y-4 hover:border-emerald-500/30 hover:shadow-[0_12px_40px_rgba(16,185,129,0.08)] hover:scale-[1.01] transition-all duration-300 cursor-pointer flex flex-col justify-between">
-                <div>
-                  <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-2xl w-fit mb-4">
-                    <Brain className="size-6" />
+              {/* Left Column: Tab Selectors */}
+              <div className="lg:col-span-5 space-y-3 text-left">
+                <button
+                  onClick={() => setActiveTab("ai")}
+                  className={`w-full text-left p-5 rounded-2xl transition-all cursor-pointer border flex items-start gap-4 ${
+                    activeTab === "ai"
+                      ? "bg-card border-emerald-500/30 shadow-md shadow-emerald-500/5"
+                      : "bg-transparent border-transparent hover:bg-muted/50"
+                  }`}
+                >
+                  <div className={`p-2.5 rounded-xl border ${activeTab === "ai" ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400" : "bg-muted border-border text-muted-foreground"}`}>
+                    <Brain className="size-5" />
                   </div>
-                  <h3 className="font-extrabold text-foreground text-xl">AI Receptionist Autopilot</h3>
-                  <p className="text-xs text-muted-foreground leading-relaxed mt-2 max-w-xl">
-                    Uses high-performance LLM engines to automatically communicate with patient text messages, detect booking inquiries, translate multiple languages, and filter spam.
-                  </p>
-                </div>
-                {/* Visual indicator inside card */}
-                <div className="border border-border/80 rounded-2xl p-4 bg-muted/20 flex flex-wrap gap-2 text-[10px] font-semibold mt-4">
-                  <span className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-1 rounded border border-emerald-500/20">Name Triage</span>
-                  <span className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-1 rounded border border-emerald-500/20">DOB Extraction</span>
-                  <span className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-1 rounded border border-emerald-500/20">Intent Tagging</span>
-                </div>
+                  <div>
+                    <h4 className="font-extrabold text-sm text-foreground">AI Receptionist Autopilot</h4>
+                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                      Automatically queries and collects Patient Name, Gender, and DOB on WhatsApp, matching them to slots.
+                    </p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab("reports")}
+                  className={`w-full text-left p-5 rounded-2xl transition-all cursor-pointer border flex items-start gap-4 ${
+                    activeTab === "reports"
+                      ? "bg-card border-emerald-500/30 shadow-md shadow-emerald-500/5"
+                      : "bg-transparent border-transparent hover:bg-muted/50"
+                  }`}
+                >
+                  <div className={`p-2.5 rounded-xl border ${activeTab === "reports" ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400" : "bg-muted border-border text-muted-foreground"}`}>
+                    <FileText className="size-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-sm text-foreground">Pathology PDF Dispatch</h4>
+                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                      Upload lab PDFs from the clinic panel. The AI identifies patient matching files and delivers them directly in chat.
+                    </p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab("queue")}
+                  className={`w-full text-left p-5 rounded-2xl transition-all cursor-pointer border flex items-start gap-4 ${
+                    activeTab === "queue"
+                      ? "bg-card border-emerald-500/30 shadow-md shadow-emerald-500/5"
+                      : "bg-transparent border-transparent hover:bg-muted/50"
+                  }`}
+                >
+                  <div className={`p-2.5 rounded-xl border ${activeTab === "queue" ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400" : "bg-muted border-border text-muted-foreground"}`}>
+                    <Calendar className="size-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-sm text-foreground">Live Token Queue</h4>
+                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                      Allows staff to assign queue token numbers. Patients ask "what is my position?" on WhatsApp and get instant alerts.
+                    </p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab("takeover")}
+                  className={`w-full text-left p-5 rounded-2xl transition-all cursor-pointer border flex items-start gap-4 ${
+                    activeTab === "takeover"
+                      ? "bg-card border-emerald-500/30 shadow-md shadow-emerald-500/5"
+                      : "bg-transparent border-transparent hover:bg-muted/50"
+                  }`}
+                >
+                  <div className={`p-2.5 rounded-xl border ${activeTab === "takeover" ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400" : "bg-muted border-border text-muted-foreground"}`}>
+                    <MessageSquare className="size-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-sm text-foreground">Manual Handoff Takeover</h4>
+                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                      Toggle off the AI engine with a single button. Front desk staff can jump in and converse with patients manually at any time.
+                    </p>
+                  </div>
+                </button>
               </div>
 
-              {/* Box 2 (Small content area): Document Dispatch */}
-              <div className="md:col-span-4 bg-card border border-border p-8 rounded-3xl space-y-4 hover:border-purple-500/30 hover:shadow-[0_12px_40px_rgba(139,92,246,0.08)] hover:scale-[1.01] transition-all duration-300 cursor-pointer flex flex-col justify-between">
-                <div>
-                  <div className="p-3 bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 rounded-2xl w-fit mb-4">
-                    <FileText className="size-6" />
+              {/* Right Column: Visual Graphic Panels */}
+              <div className="lg:col-span-7 bg-card border border-border rounded-3xl p-6 h-full flex flex-col justify-between hover:border-emerald-500/20 transition-all duration-300">
+                {activeTab === "ai" && (
+                  <div className="space-y-4 text-left animate-in fade-in duration-300">
+                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 w-fit">Interactive NLP Triage</span>
+                    <h3 className="text-xl font-extrabold text-foreground">Smart Appointment Autopilot</h3>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      No web forms or signup flows required. The AI assistant extracts parameters natively from plain patient text (e.g. "I want Dr. Kumar tomorrow at 5pm"), compares against doctor shift schedules, and books the token automatically.
+                    </p>
+                    <div className="border border-border/80 bg-muted/40 p-4 rounded-2xl font-mono text-[10px] text-muted-foreground space-y-2">
+                      <p className="text-emerald-600 dark:text-emerald-400 font-bold">// Parsed JSON Intent</p>
+                      <p>{"{"}</p>
+                      <p className="pl-4">"intent": "BOOK_APPOINTMENT",</p>
+                      <p className="pl-4">"doctor": "Dr. Kumar",</p>
+                      <p className="pl-4">"department": "Cardiology",</p>
+                      <p className="pl-4">"parsed_patient": {"{"} "name": "Susanta Lohar", "gender": "Male", "dob": "1996-05-25" {"}"}</p>
+                      <p>{"}"}</p>
+                    </div>
                   </div>
-                  <h3 className="font-extrabold text-foreground text-lg">Lab Report Auto-Send</h3>
-                  <p className="text-xs text-muted-foreground leading-relaxed mt-2">
-                    Automatically matches ready clinical PDF results with the patient record and uploads them directly to their active WhatsApp thread.
-                  </p>
-                </div>
-                <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                  <div className="h-full bg-purple-500 rounded-full animate-pulse" style={{ width: "80%" }} />
-                </div>
-              </div>
+                )}
 
-              {/* Box 3 (Small content area): Shift Schedulers */}
-              <div className="md:col-span-4 bg-card border border-border p-8 rounded-3xl space-y-4 hover:border-blue-500/30 hover:shadow-[0_12px_40px_rgba(59,130,246,0.08)] hover:scale-[1.01] transition-all duration-300 cursor-pointer flex flex-col justify-between">
-                <div>
-                  <div className="p-3 bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 rounded-2xl w-fit mb-4">
-                    <Calendar className="size-6" />
+                {activeTab === "reports" && (
+                  <div className="space-y-4 text-left animate-in fade-in duration-300">
+                    <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-widest bg-purple-500/10 px-2 py-0.5 rounded-full border border-purple-500/20 w-fit">Instant File Dispatch</span>
+                    <h3 className="text-xl font-extrabold text-foreground">Diagnostic PDF Delivery</h3>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Remove the friction of patient pickups and physical papers. Once a lab report changes to "Ready", CareFlow automatically coordinates the outbound pipeline to send the PDF file. Patients can also text "send blood report" to trigger auto-downloads.
+                    </p>
+                    <div className="flex gap-3 mt-2">
+                      <div className="border border-border bg-background p-3.5 rounded-2xl flex items-center gap-3.5 w-full hover:scale-105 transition-all">
+                        <FileText className="size-8 text-rose-500 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="font-extrabold text-xs text-foreground truncate">Blood_Report_Lohar.pdf</p>
+                          <span className="text-[10px] text-muted-foreground">1.4 MB • Pathology Lab</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <h3 className="font-extrabold text-foreground text-lg">Smart Shift Manager</h3>
-                  <p className="text-xs text-muted-foreground leading-relaxed mt-2">
-                    Coordinates shifts, calculates appointment quotas, and automatically blocks out unavailable dates.
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                  <span className="size-2 rounded-full bg-blue-500 animate-ping" />
-                  <span>Calendar slots computed instantly</span>
-                </div>
-              </div>
+                )}
 
-              {/* Box 4 (Large 2x2 content area): Shared Inbox */}
-              <div className="md:col-span-8 bg-card border border-border p-8 rounded-3xl space-y-4 hover:border-amber-500/30 hover:shadow-[0_12px_40px_rgba(245,158,11,0.08)] hover:scale-[1.01] transition-all duration-300 cursor-pointer flex flex-col justify-between">
-                <div>
-                  <div className="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 rounded-2xl w-fit mb-4">
-                    <MessageSquare className="size-6" />
+                {activeTab === "queue" && (
+                  <div className="space-y-4 text-left animate-in fade-in duration-300">
+                    <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded-full border border-blue-500/20 w-fit">OPD Queue Management</span>
+                    <h3 className="text-xl font-extrabold text-foreground">Live Waiting List Telemetry</h3>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Ditch crowded OPD waiting areas. CareFlow automatically sends real-time queue position updates. Patients know exactly how many consultations are ahead of them without bugging your receptionist.
+                    </p>
+                    <div className="grid grid-cols-2 gap-3 mt-2">
+                      <div className="border border-border bg-background p-3.5 rounded-xl text-center">
+                        <span className="text-[10px] font-bold text-muted-foreground block uppercase">Your Token</span>
+                        <p className="text-2xl font-black text-foreground mt-1">#14</p>
+                      </div>
+                      <div className="border border-emerald-500/25 bg-emerald-500/5 p-3.5 rounded-xl text-center">
+                        <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 block uppercase">Patients Ahead</span>
+                        <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">3</p>
+                      </div>
+                    </div>
                   </div>
-                  <h3 className="font-extrabold text-foreground text-xl">Shared Multi-Agent Inbox</h3>
-                  <p className="text-xs text-muted-foreground leading-relaxed mt-2 max-w-xl">
-                    Allows clinical staff members to monitor conversations simultaneously, manually toggle the AI engine ON/OFF, and send suggested prompt answers in one-click.
-                  </p>
-                </div>
-                {/* Visual mockup representation */}
-                <div className="grid grid-cols-2 gap-3 mt-4 text-[10px] font-semibold">
-                  <div className="bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-xl">
-                    <p className="text-amber-600">Copilot Panel Summary</p>
-                    <span className="block text-[8px] text-muted-foreground mt-0.5">Triage complete</span>
+                )}
+
+                {activeTab === "takeover" && (
+                  <div className="space-y-4 text-left animate-in fade-in duration-300">
+                    <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20 w-fit">Human-in-the-Loop Safeguard</span>
+                    <h3 className="text-xl font-extrabold text-foreground">Immediate Staff Takeover</h3>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      AI is a helper, not a replacement. Whenever a patient requires manual clarification or details not supported by prompt context, WACRM tags the chat as "Handoff Needed", flashes a red notice to the staff console, and pauses the AI auto-replies.
+                    </p>
+                    <div className="flex items-center justify-between border border-border bg-background/50 p-3.5 rounded-2xl mt-2">
+                      <div className="flex items-center gap-2.5">
+                        <div className="size-3 bg-red-500 rounded-full animate-ping" />
+                        <span className="text-xs font-extrabold text-foreground">AI Auto-Reply status</span>
+                      </div>
+                      <span className="text-[10px] font-black uppercase bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300 px-2.5 py-1 rounded-full border border-red-200 dark:border-red-900/20">PAUSED BY STAFF</span>
+                    </div>
                   </div>
-                  <div className="bg-muted p-2.5 rounded-xl border border-border">
-                    <p className="text-foreground">Manual Takeover Toggle</p>
-                    <span className="block text-[8px] text-muted-foreground mt-0.5">AI Paused</span>
-                  </div>
-                </div>
+                )}
+
               </div>
 
             </div>
           </div>
         </section>
 
-        {/* Visual Lifecycle Pipeline Graphics Section */}
-        <section id="pipeline" className="py-24 border-b border-border">
-          <div className="container mx-auto max-w-5xl px-4 text-center space-y-16">
-            
-            <div className="max-w-2xl mx-auto space-y-4">
-              <h2 className="text-3xl font-extrabold tracking-tight sm:text-5xl text-foreground">
-                Clinical Lifecycle Pipeline
-              </h2>
-              <p className="text-muted-foreground text-sm max-w-md mx-auto">
-                WACRM connects your patients directly to clinicians and databases in under 2 seconds.
-              </p>
-            </div>
-
-            {/* Custom Interactive SVG / Grid Graphic */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 relative">
-              
-              {/* Animated connector lines for wide viewports */}
-              <div className="hidden md:block absolute top-[40px] left-[15%] right-[15%] h-0.5 bg-gradient-to-r from-emerald-500/20 via-blue-500/20 to-purple-500/20 -z-10">
-                <div className="h-full w-[25%] bg-emerald-500 animate-[rebound_4s_infinite_linear] rounded-full blur-[1px]" />
-              </div>
-
-              {/* Graphic Node 1: Inbound Message */}
-              <div className="bg-card border border-border p-6 rounded-3xl space-y-4 hover:border-emerald-500/20 transition-all text-left flex flex-col justify-between">
-                <div className="flex items-center justify-between">
-                  <div className="size-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
-                    1
-                  </div>
-                  <MessageSquare className="size-4 text-muted-foreground" />
-                </div>
-                <div>
-                  <h4 className="font-extrabold text-sm text-foreground mt-4">WhatsApp Inbound</h4>
-                  <p className="text-[11px] text-muted-foreground leading-relaxed mt-1">
-                    Patient sends query: "Can I get my lab reports?"
-                  </p>
-                </div>
-                <div className="border border-border/60 bg-muted/40 p-2.5 rounded-xl text-[9px] font-semibold text-muted-foreground mt-2">
-                  ⚡ API trigger on port 443
-                </div>
-              </div>
-
-              {/* Graphic Node 2: AI Intent Classifier */}
-              <div className="bg-card border border-border p-6 rounded-3xl space-y-4 hover:border-blue-500/20 transition-all text-left flex flex-col justify-between">
-                <div className="flex items-center justify-between">
-                  <div className="size-10 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold">
-                    2
-                  </div>
-                  <Brain className="size-4 text-blue-500 animate-pulse" />
-                </div>
-                <div>
-                  <h4 className="font-extrabold text-sm text-foreground mt-4">AI Intent Classifier</h4>
-                  <p className="text-[11px] text-muted-foreground leading-relaxed mt-1">
-                    Extracts metadata and parses parameters using LLMs.
-                  </p>
-                </div>
-                <div className="border border-blue-500/10 bg-blue-500/5 p-2.5 rounded-xl text-[9px] font-semibold text-blue-600 dark:text-blue-400 mt-2">
-                  🧠 Intent Detected: LAB_REPORT
-                </div>
-              </div>
-
-              {/* Graphic Node 3: Supabase Sync */}
-              <div className="bg-card border border-border p-6 rounded-3xl space-y-4 hover:border-purple-500/20 transition-all text-left flex flex-col justify-between">
-                <div className="flex items-center justify-between">
-                  <div className="size-10 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold">
-                    3
-                  </div>
-                  <Database className="size-4 text-muted-foreground" />
-                </div>
-                <div>
-                  <h4 className="font-extrabold text-sm text-foreground mt-4">Database Sync</h4>
-                  <p className="text-[11px] text-muted-foreground leading-relaxed mt-1">
-                    Updates the database layout and logs booking parameters.
-                  </p>
-                </div>
-                <div className="border border-border/60 bg-muted/40 p-2.5 rounded-xl text-[9px] font-semibold text-muted-foreground mt-2">
-                  💾 set notified_patient = true
-                </div>
-              </div>
-
-              {/* Graphic Node 4: Autopilot confirmation */}
-              <div className="bg-card border border-border p-6 rounded-3xl space-y-4 hover:border-emerald-500/20 transition-all text-left flex flex-col justify-between">
-                <div className="flex items-center justify-between">
-                  <div className="size-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
-                    4
-                  </div>
-                  <FileCheck className="size-4 text-emerald-500" />
-                </div>
-                <div>
-                  <h4 className="font-extrabold text-sm text-foreground mt-4">Automated Confirmation</h4>
-                  <p className="text-[11px] text-muted-foreground leading-relaxed mt-1">
-                    Sends the PDF report document back on WhatsApp.
-                  </p>
-                </div>
-                <div className="border border-emerald-500/10 bg-emerald-500/5 p-2.5 rounded-xl text-[9px] font-semibold text-emerald-600 dark:text-emerald-400 mt-2">
-                  📄 PDF Dispatched: 100% Success
-                </div>
-              </div>
-
-            </div>
-
-            {/* Custom AI Insights Floating Dashboard Widget */}
-            <div className="border border-border bg-card/40 backdrop-blur-sm p-6 sm:p-8 rounded-3xl max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 hover:shadow-[0_20px_50px_rgba(16,185,129,0.03)] transition-all duration-300">
-              <div className="text-left space-y-3 max-w-md">
-                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest block">AI Copilot Intelligence</span>
-                <h3 className="text-xl font-extrabold text-foreground">Structured Clinical Telemetry</h3>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Below is the structured data mapped by the AI receptionist. No typing needed; it automatically fills clinical parameters for manual review.
-                </p>
-              </div>
-              
-              {/* Mapped parameters mock view */}
-              <div className="bg-background/80 border border-border p-5 rounded-2xl w-full md:w-80 text-left space-y-3.5 shadow-sm">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground flex items-center gap-1.5"><User className="size-3.5" /> Patient</span>
-                  <span className="font-bold text-foreground">Susanta Lohar</span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground flex items-center gap-1.5"><Activity className="size-3.5 text-red-500 animate-pulse" /> Detected Intent</span>
-                  <span className="font-bold text-emerald-600 dark:text-emerald-400">Cardiology Slot</span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground flex items-center gap-1.5"><Brain className="size-3.5 text-blue-500" /> Sentiment</span>
-                  <span className="font-bold text-foreground">Positive (98%)</span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground flex items-center gap-1.5"><Clock className="size-3.5" /> Est. Triage Duration</span>
-                  <span className="font-bold text-foreground">1.4 seconds</span>
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </section>
-
-        {/* WhatsApp Simulator Live Demo Section */}
-        <section id="demo" className="py-24 px-4">
+        {/* WhatsApp Live Simulator Section */}
+        <section id="demo" className="py-24 px-4 relative">
           <div className="container mx-auto max-w-5xl space-y-12">
             <div className="text-center max-w-3xl mx-auto space-y-4">
               <h2 className="text-3xl font-extrabold tracking-tight sm:text-5xl text-foreground">
-                Triage Tunnels In Action
+                Experience the Autopilot
               </h2>
               <p className="text-muted-foreground text-sm max-w-xl mx-auto">
-                Interact with the phone simulator below to check out how patient messages trigger clinical logs and database updates.
+                Click any interactive prompt trigger in the simulator panel below to see how CareFlow processes inbound queries and updates clinical databases instantly.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center pt-6">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch pt-4">
               
-              {/* Left Side: Question Actions & Trigger log */}
-              <div className="lg:col-span-5 space-y-6 text-left flex flex-col justify-between h-full">
+              {/* Left Column: Simulator prompts & Database Log */}
+              <div className="lg:col-span-5 flex flex-col justify-between space-y-6 text-left h-full">
                 
-                {/* Question Trigger buttons */}
-                <div className="space-y-3">
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-1">Interactive Triggers</span>
+                {/* Trigger Buttons */}
+                <div className="space-y-3.5">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest block mb-1">Click a Patient Action:</span>
                   {simStep === 0 && (
-                    <div className="space-y-3.5 animate-in fade-in duration-200">
+                    <div className="space-y-3 animate-in fade-in duration-200">
                       <button
                         onClick={() => handleSimReply(
-                          "I want to book an appointment with a Cardiologist tomorrow.",
-                          "Sure! I can help you with that. Dr. Gordon (Cardiology) is available tomorrow. May I know your full name and date of birth to reserve the slot?",
-                          "[DB Event] Inserted record into hospital_bookings (Intent: appointment, Dept: Cardiology).",
+                          "I want to book an appointment with Dr. Gupta tomorrow.",
+                          "Sure! Dr. Gupta (General Medicine) is available tomorrow morning. May I know your full name and date of birth to lock the booking slot?",
+                          "[DB Event] Appointment request logged under hospital_bookings (Intent: schedule, Doctor: Dr. Gupta).",
                           1
                         )}
-                        className="w-full text-left p-3.5 text-xs bg-card border border-border hover:border-emerald-500 hover:bg-emerald-500/5 text-foreground font-bold rounded-2xl transition-all cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98]"
+                        className="w-full text-left p-4 text-xs bg-card border border-border hover:border-emerald-500 hover:bg-emerald-500/5 text-foreground font-bold rounded-2xl transition-all cursor-pointer shadow-sm hover:scale-[1.01] active:scale-[0.99]"
                       >
-                        📅 Book a Cardiology slot tomorrow
+                        📅 Book an Appointment with Dr. Gupta
                       </button>
                       <button
                         onClick={() => handleSimReply(
-                          "Can I get my lab report details?",
-                          "Great news! Your Blood Test report is Ready. I am automatically sending you the PDF report now.",
-                          "[DB Event] Queried hospital_lab_reports. Found report_ready = true, file_path: storage/reports/blood_test.pdf.",
+                          "Send me my latest blood report PDF.",
+                          "Great news! Your Blood Count Report is ready. Sending your report PDF document now.",
+                          "[DB Event] Queried hospital_lab_reports. Matched target, fetched file_url: storage/reports/cbc_report.pdf.",
                           2
                         )}
-                        className="w-full text-left p-3.5 text-xs bg-card border border-border hover:border-emerald-500 hover:bg-emerald-500/5 text-foreground font-bold rounded-2xl transition-all cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98]"
+                        className="w-full text-left p-4 text-xs bg-card border border-border hover:border-emerald-500 hover:bg-emerald-500/5 text-foreground font-bold rounded-2xl transition-all cursor-pointer shadow-sm hover:scale-[1.01] active:scale-[0.99]"
                       >
-                        🩸 Check Lab Report Status
+                        🩸 Fetch blood report PDF
                       </button>
                     </div>
                   )}
 
                   {simStep === 1 && (
-                    <div className="space-y-3.5 animate-in fade-in duration-200">
+                    <div className="space-y-3 animate-in fade-in duration-200">
                       <button
                         onClick={() => handleSimReply(
                           "My name is Susanta Lohar, DOB 25th May 1996.",
-                          "Thank you, Susanta. I have qualifications logged: Appointment reserved with Dr. Gordon (Cardiology) for tomorrow morning. You will receive a WhatsApp confirmation soon!",
-                          "[DB Event] Updated hospital_patient_info. set name = 'Susanta Lohar', dob = '1996-05-25', status = 'confirmed'.",
+                          "Thanks, Susanta. I have matched your details: Appointment confirmed with Dr. Gupta (General Medicine) for tomorrow at 10:00 AM. Token #4. See you there!",
+                          "[DB Event] Updated patient file. set name = 'Susanta Lohar', dob = '1996-05-25', status = 'confirmed', token = 4.",
                           3
                         )}
-                        className="w-full text-left p-3.5 text-xs bg-card border border-border hover:border-emerald-500 hover:bg-emerald-500/5 text-foreground font-bold rounded-2xl transition-all cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98]"
+                        className="w-full text-left p-4 text-xs bg-card border border-border hover:border-emerald-500 hover:bg-emerald-500/5 text-emerald-700 dark:text-emerald-400 font-bold rounded-2xl transition-all cursor-pointer shadow-sm hover:scale-[1.01] active:scale-[0.99]"
                       >
-                        📝 Provide Patient Info (Name/DOB)
+                        👤 Reply with name & DOB (Susanta, 25/05/1996)
                       </button>
                     </div>
                   )}
 
                   {(simStep === 2 || simStep === 3) && (
                     <div className="space-y-3 animate-in fade-in duration-200">
-                      <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-4 text-xs text-emerald-600 dark:text-emerald-400 font-bold mb-2 flex items-center gap-2">
-                        <Check className="size-4 shrink-0" /> Simulation completed successfully!
+                      <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-4 text-xs text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-2">
+                        <Check className="size-4 shrink-0" /> Simulator demo flow complete!
                       </div>
                       <button
                         onClick={resetSimulator}
-                        className="w-full text-center p-3 text-xs bg-emerald-600 text-white hover:bg-emerald-500 font-bold rounded-full transition-all cursor-pointer"
+                        className="w-full text-center p-3 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-full transition-all cursor-pointer shadow-md shadow-emerald-600/10"
                       >
                         🔄 Restart Simulator
                       </button>
@@ -684,14 +740,14 @@ export default function LandingPage() {
                   )}
                 </div>
 
-                {/* DB System Logs view */}
+                {/* Audit Database Logs */}
                 <div className="space-y-2 pt-4">
                   <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
-                    <Database className="size-3.5 text-emerald-500" /> Database Audit Log
+                    <Database className="size-3.5 text-emerald-500 animate-pulse" /> Live DB Audit Log
                   </span>
-                  <div className="bg-zinc-950 text-[10px] text-zinc-400 font-mono p-4 rounded-2xl border border-zinc-800 h-36 overflow-y-auto space-y-1.5 text-left leading-relaxed">
+                  <div className="bg-zinc-950 text-[10px] text-zinc-400 font-mono p-4 rounded-2xl border border-zinc-800 h-36 overflow-y-auto space-y-1.5 text-left leading-relaxed shadow-lg">
                     {dbLogs.map((log, idx) => (
-                      <p key={idx} className={log.startsWith("[DB Event]") ? "text-emerald-400" : log.startsWith("[Inbound") ? "text-blue-400" : "text-zinc-500"}>
+                      <p key={idx} className={log.startsWith("[DB Event]") ? "text-emerald-400 font-bold" : log.startsWith("[NLP") ? "text-teal-400" : "text-zinc-500"}>
                         {log}
                       </p>
                     ))}
@@ -700,29 +756,29 @@ export default function LandingPage() {
 
               </div>
 
-              {/* Right Side: Phone Viewport mockup */}
+              {/* Right Column: Phone Mockup Viewport */}
               <div className="lg:col-span-7 flex justify-center">
-                <div className="w-[305px] h-[525px] rounded-[40px] border-[10px] border-foreground/90 bg-muted/10 relative shadow-2xl flex flex-col overflow-hidden hover:shadow-emerald-500/5 transition-shadow">
+                <div className="w-[305px] h-[525px] rounded-[42px] border-[10px] border-foreground/90 bg-muted/10 relative shadow-2xl flex flex-col overflow-hidden hover:shadow-emerald-500/5 transition-shadow">
                   
-                  {/* Phone Notch */}
+                  {/* Notch */}
                   <div className="absolute top-2 left-1/2 -translate-x-1/2 w-24 h-4.5 bg-foreground/90 rounded-full z-20 flex justify-center items-center">
-                    <span className="w-10 h-1 bg-muted/30 rounded-full" />
+                    <span className="w-9 h-1 bg-muted/30 rounded-full" />
                   </div>
                   
-                  {/* WhatsApp Top Info Bar */}
-                  <div className="bg-emerald-700 dark:bg-emerald-800 pt-8 pb-3.5 px-4 flex items-center justify-between text-white border-b shrink-0">
+                  {/* WhatsApp Header info bar */}
+                  <div className="bg-emerald-800 pt-8 pb-3 px-4 flex items-center justify-between text-white border-b border-emerald-900/20 shrink-0">
                     <div className="flex items-center gap-2">
-                      <div className="size-8 rounded-full bg-emerald-500/20 border border-white/20 flex items-center justify-center font-bold text-xs">
-                        A
+                      <div className="size-8 rounded-full bg-emerald-700 border border-white/20 flex items-center justify-center font-bold text-xs">
+                        CF
                       </div>
                       <div className="text-left leading-none">
-                        <p className="text-[11px] font-bold">Apollo AI Desk</p>
+                        <p className="text-[11px] font-extrabold tracking-wide">CareFlow Reception</p>
                         <span className="text-[8px] text-emerald-200">online</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Chat messages viewport */}
+                  {/* Chat message list area */}
                   <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[url('/whatsapp-bg.png')] bg-emerald-50/5 dark:bg-emerald-950/5">
                     {simMessages.map((msg, i) => (
                       <div
@@ -733,20 +789,30 @@ export default function LandingPage() {
                             : "bg-emerald-600 text-white ml-auto rounded-tr-none animate-in slide-in-from-right-2 duration-300"
                         }`}
                       >
-                        <p>{msg.text}</p>
-                        <span className={`block text-[8.5px] text-right mt-1.5 ${msg.sender === "bot" ? "text-muted-foreground" : "text-emerald-200"}`}>
+                        <p className="whitespace-pre-line">{msg.text}</p>
+                        <span className={`block text-[8.5px] text-right mt-1.5 ${msg.sender === "bot" ? "text-muted-foreground" : "text-emerald-100"}`}>
                           {msg.time}
                         </span>
                       </div>
                     ))}
                     
                     {simTyping && (
-                      <div className="bg-card border rounded-2xl p-2.5 max-w-[60%] mr-auto rounded-tl-none text-[10px] text-muted-foreground flex items-center gap-1 animate-pulse">
+                      <div className="bg-card border rounded-2xl p-2.5 max-w-[60%] mr-auto rounded-tl-none text-[10px] text-muted-foreground flex items-center gap-1.5 animate-pulse">
                         <span className="size-1.5 bg-muted-foreground rounded-full animate-bounce" />
-                        <span className="size-1.5 bg-muted-foreground rounded-full animate-bounce delay-100" />
-                        <span className="size-1.5 bg-muted-foreground rounded-full animate-bounce delay-200" />
+                        <span className="size-1.5 bg-muted-foreground rounded-full animate-bounce [animation-delay:0.2s]" />
+                        <span className="size-1.5 bg-muted-foreground rounded-full animate-bounce [animation-delay:0.4s]" />
                       </div>
                     )}
+                  </div>
+
+                  {/* Message Input Bottom Bar */}
+                  <div className="p-2 border-t bg-muted/40 flex items-center gap-1.5 shrink-0">
+                    <div className="flex-1 bg-card rounded-full h-8 px-3 border border-border flex items-center text-[10px] text-muted-foreground text-left">
+                      Message...
+                    </div>
+                    <div className="size-8 rounded-full bg-emerald-600 flex items-center justify-center text-white font-bold shrink-0">
+                      →
+                    </div>
                   </div>
 
                 </div>
@@ -756,56 +822,65 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ROI Calculator section */}
-        <section id="roi" className="py-24 border-t border-border">
-          <div className="container mx-auto max-w-5xl px-4 text-center space-y-12">
+        {/* Live ROI & Leakage Calculator Section */}
+        <section id="calculator" className="py-24 border-t border-border">
+          <div className="container mx-auto max-w-4xl px-4 text-center space-y-16">
+            
             <div className="max-w-2xl mx-auto space-y-4">
               <h2 className="text-3xl font-extrabold tracking-tight sm:text-5xl text-foreground">
-                Measure Your ROI
+                Revenue & Workload Impact
               </h2>
               <p className="text-muted-foreground text-sm max-w-md mx-auto">
-                Drag the slider to input your clinic's monthly patient flow and calculate average automated savings.
+                Unanswered front-desk calls and slow diagnostic delivery result in high dropouts. Drag the slider to see how CareFlow shifts your metrics.
               </p>
             </div>
 
-            {/* ROI Drag widget card */}
-            <div className="bg-card border border-border p-6 sm:p-10 rounded-3xl max-w-3xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 items-center hover:border-emerald-500/20 transition-colors shadow-sm">
-              <div className="space-y-6 text-left">
-                <div>
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest block mb-2">
-                    Monthly Patient Flow: <span className="text-emerald-600 dark:text-emerald-400 font-extrabold text-base ml-1">{monthlyPatients}</span>
-                  </label>
-                  <input
-                    type="range"
-                    min={100}
-                    max={3000}
-                    step={50}
-                    value={monthlyPatients}
-                    onChange={(e) => setMonthlyPatients(Number(e.target.value))}
-                    className="w-full accent-emerald-600 dark:accent-emerald-500 cursor-ew-resize bg-muted h-2 rounded-full outline-none"
-                  />
+            {/* Slider Widget */}
+            <div className="border border-border bg-card/40 backdrop-blur-md rounded-3xl p-6 sm:p-10 space-y-8 max-w-3xl mx-auto hover:border-emerald-500/20 transition-all duration-300">
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between font-bold text-sm">
+                  <span className="text-foreground">Monthly Patient Load:</span>
+                  <span className="text-emerald-600 dark:text-emerald-400 text-lg bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+                    {monthlyPatients} patients / month
+                  </span>
                 </div>
-                <div className="border-t border-border/60 pt-4 text-xs text-muted-foreground leading-relaxed">
-                  Based on a typical private clinic save threshold of **9 minutes** per patient call and **$4.5** qualified lead leakage prevented per encounter.
+                <input
+                  type="range"
+                  min="100"
+                  max="5000"
+                  step="50"
+                  value={monthlyPatients}
+                  onChange={(e) => setMonthlyPatients(Number(e.target.value))}
+                  className="w-full h-2 rounded-lg bg-muted appearance-none cursor-pointer accent-emerald-600 dark:accent-emerald-500"
+                />
+                <div className="flex items-center justify-between text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                  <span>100 Patients</span>
+                  <span>5,000 Patients</span>
                 </div>
               </div>
 
-              {/* Computed KPIs */}
-              <div className="grid grid-cols-1 gap-4 text-left">
-                <div className="border border-border/80 p-4 rounded-2xl bg-muted/20">
-                  <span className="text-[9px] font-bold text-muted-foreground uppercase block">Frontdesk Labor Saved</span>
-                  <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">{calculatedSavings.hoursSaved} Hours / mo</p>
+              {/* Calculator Output Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 text-left">
+                <div className="border border-border/80 p-5 rounded-2xl bg-background/50 hover:scale-105 transition-all shadow-sm">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase block tracking-wider">Staff Hours Reclaimed</span>
+                  <p className="text-2xl font-black text-foreground mt-1">+{calculatedSavings.hoursSaved} hrs / mo</p>
+                  <span className="text-[9px] text-muted-foreground block mt-1">12 mins triage saved per patient</span>
                 </div>
-                <div className="border border-border/80 p-4 rounded-2xl bg-muted/20">
-                  <span className="text-[9px] font-bold text-muted-foreground uppercase block">Response Latency Drop</span>
-                  <p className="text-2xl font-black text-foreground mt-1">98% Faster</p>
+                <div className="border border-border/80 p-5 rounded-2xl bg-background/50 hover:scale-105 transition-all shadow-sm">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase block tracking-wider">Response Speed Drop</span>
+                  <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">98% Faster</p>
+                  <span className="text-[9px] text-muted-foreground block mt-1">Average response drop to 1.4s</span>
                 </div>
-                <div className="border border-border/80 p-4 rounded-2xl bg-muted/20">
-                  <span className="text-[9px] font-bold text-muted-foreground uppercase block">Estimated Leaked Revenue Saved</span>
-                  <p className="text-2xl font-black text-foreground mt-1">${calculatedSavings.monthlyReturn.toLocaleString()} / mo</p>
+                <div className="border border-emerald-500/20 p-5 rounded-2xl bg-background/50 hover:scale-105 transition-all shadow-sm">
+                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase block tracking-wider">Leakage Saved (Est)</span>
+                  <p className="text-2xl font-black text-foreground mt-1">₹{calculatedSavings.monthlyReturn.toLocaleString()} / mo</p>
+                  <span className="text-[9px] text-muted-foreground block mt-1">Missed consultations recovered</span>
                 </div>
               </div>
+
             </div>
+
           </div>
         </section>
 
@@ -815,19 +890,19 @@ export default function LandingPage() {
             
             <div className="max-w-3xl mx-auto space-y-4">
               <h2 className="text-3xl font-extrabold tracking-tight sm:text-5xl text-foreground">
-                Transparent Pricing Tiers
+                Transparent Pricing for Every Clinic Size
               </h2>
-              <p className="text-muted-foreground text-sm">
-                Scale patient interactions as your clinic expands. Setup limits for staff or AI execution.
+              <p className="text-muted-foreground text-sm max-w-xl mx-auto leading-relaxed">
+                Start with our 14-day free trial. No credit card required. Upgrade or downgrade anytime.
               </p>
             </div>
 
-            {/* Sliding Monthly/Yearly Billing Toggle */}
+            {/* Billing interval slider/toggle */}
             <div className="flex items-center justify-center gap-3 pt-2">
               <span className={`text-xs font-bold transition-colors ${!isYearly ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"}`}>Monthly</span>
               <button
                 onClick={() => setIsYearly(!isYearly)}
-                className="w-12 h-6 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center p-0.5 transition-colors cursor-pointer relative"
+                className="w-12 h-6 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center p-0.5 transition-colors cursor-pointer relative animate-pulse"
                 type="button"
                 aria-label="Toggle Billing Interval"
               >
@@ -841,103 +916,103 @@ export default function LandingPage() {
               </span>
             </div>
 
+            {/* Pricing Cards Grid */}
             <div className="grid grid-cols-1 gap-6 md:grid-cols-3 pt-6 max-w-5xl mx-auto text-left">
               
               {/* Tier 1: Free Trial */}
-              <div className="flex flex-col justify-between bg-card border border-border rounded-3xl p-6 hover:border-emerald-500/30 hover:shadow-[0_12px_40px_rgba(16,185,129,0.05)] hover:scale-[1.03] active:scale-[0.99] transition-all duration-300 cursor-pointer">
+              <div className="flex flex-col justify-between bg-card border border-border rounded-3xl p-7 hover:border-emerald-500/30 hover:shadow-lg transition-all duration-300 cursor-pointer">
                 <div>
-                  <h3 className="text-md font-bold text-foreground">14-Day Free Trial</h3>
-                  <div className="mt-2 flex items-baseline gap-1">
-                    <span className="text-3xl font-black text-foreground">$0</span>
-                    <span className="text-xs text-muted-foreground font-semibold">
-                      /{isYearly ? "14 days" : "14 days"}
-                    </span>
+                  <span className="text-[9px] font-black uppercase bg-muted border border-border px-2 py-0.5 rounded-full text-muted-foreground tracking-wider">Evaluation</span>
+                  <h3 className="text-lg font-extrabold text-foreground mt-3">14-Day Trial</h3>
+                  <div className="mt-3.5 flex items-baseline gap-1">
+                    <span className="text-4xl font-black text-foreground">₹0</span>
+                    <span className="text-xs text-muted-foreground font-semibold">/14 days</span>
                   </div>
-                  <ul className="mt-6 space-y-2.5 text-xs text-muted-foreground font-medium">
-                    <li className="flex items-center gap-2"><Check className="size-3.5 text-emerald-500" /> Up to 500 patient contacts</li>
+                  <ul className="mt-6 space-y-3 text-xs text-muted-foreground font-medium font-semibold">
+                    <li className="flex items-center gap-2"><Check className="size-3.5 text-emerald-500" /> Up to 300 patients / contacts</li>
                     <li className="flex items-center gap-2"><Check className="size-3.5 text-emerald-500" /> 1 WhatsApp business number</li>
-                    <li className="flex items-center gap-2"><Check className="size-3.5 text-emerald-500" /> 100 AI queries / month</li>
-                    <li className="flex items-center gap-2"><Check className="size-3.5 text-emerald-500" /> Shared Inbox & pipelines</li>
+                    <li className="flex items-center gap-2"><Check className="size-3.5 text-emerald-500" /> 100 AI automated replies</li>
+                    <li className="flex items-center gap-2"><Check className="size-3.5 text-emerald-500" /> Token Queue & dashboard</li>
                   </ul>
                 </div>
                 <Link href="/signup" className="mt-8">
-                  <Button className="w-full bg-muted border border-border text-foreground hover:bg-muted/80 font-bold hover:scale-[1.03] active:scale-[0.97] transition-transform rounded-full">
-                    Start Trial
+                  <Button className="w-full bg-muted border border-border text-foreground hover:bg-muted/80 font-bold rounded-full py-5">
+                    Start Free Trial
                   </Button>
                 </Link>
               </div>
 
-              {/* Tier 2: Growth Premium */}
-              <div className="flex flex-col justify-between bg-card border-2 border-emerald-500 rounded-3xl p-6 hover:shadow-[0_12px_40px_rgba(16,185,129,0.12)] hover:scale-[1.03] active:scale-[0.99] transition-all duration-300 relative cursor-pointer">
-                <div className="absolute top-0 right-6 -translate-y-1/2 bg-emerald-500 text-white font-bold text-[9px] uppercase tracking-wider py-1 px-2.5 rounded-full shadow-md shadow-emerald-500/10">
+              {/* Tier 2: growth premium */}
+              <div className="flex flex-col justify-between bg-card border-2 border-emerald-500 rounded-3xl p-7 hover:shadow-[0_12px_40px_rgba(16,185,129,0.1)] hover:scale-[1.01] transition-all duration-300 relative cursor-pointer">
+                <div className="absolute top-0 right-6 -translate-y-1/2 bg-emerald-600 text-white font-bold text-[9px] uppercase tracking-wider py-1 px-3 rounded-full shadow-md shadow-emerald-500/10">
                   Most Popular
                 </div>
                 <div>
-                  <h3 className="text-md font-bold text-foreground">Growth Premium</h3>
-                  <div className="mt-2 flex items-baseline gap-1">
-                    <span className="text-3xl font-black text-foreground">
-                      ${isYearly ? "23" : "29"}
+                  <span className="text-[9px] font-black uppercase bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full text-emerald-600 dark:text-emerald-400 tracking-wider">OPD Autopilot</span>
+                  <h3 className="text-lg font-extrabold text-foreground mt-3">Growth Premium</h3>
+                  <div className="mt-3.5 flex items-baseline gap-1">
+                    <span className="text-4xl font-black text-foreground">
+                      ₹{isYearly ? "1,999" : "2,499"}
                     </span>
                     <span className="text-xs text-muted-foreground font-semibold">/month</span>
-                    {isYearly && <span className="text-[10px] text-muted-foreground font-semibold ml-2">billed yearly</span>}
                   </div>
-                  <ul className="mt-6 space-y-2.5 text-xs text-muted-foreground font-medium">
-                    <li className="flex items-center gap-2 text-foreground font-semibold"><Check className="size-3.5 text-emerald-500" /> Up to 5,000 patient contacts</li>
-                    <li className="flex items-center gap-2"><Check className="size-3.5 text-emerald-500" /> 3 WhatsApp business numbers</li>
-                    <li className="flex items-center gap-2"><Check className="size-3.5 text-emerald-500" /> 2,000 AI queries / month</li>
-                    <li className="flex items-center gap-2"><Check className="size-3.5 text-emerald-500" /> Automated Lab Report delivery</li>
-                    <li className="flex items-center gap-2"><Check className="size-3.5 text-emerald-500" /> Multi-agent manual takeover</li>
+                  <ul className="mt-6 space-y-3 text-xs text-muted-foreground font-medium">
+                    <li className="flex items-center gap-2 text-foreground font-bold"><Check className="size-3.5 text-emerald-500" /> Up to 5,000 patients / contacts</li>
+                    <li className="flex items-center gap-2"><Check className="size-3.5 text-emerald-500" /> 2 WhatsApp business numbers</li>
+                    <li className="flex items-center gap-2"><Check className="size-3.5 text-emerald-500" /> 2,000 AI automated replies</li>
+                    <li className="flex items-center gap-2"><Check className="size-3.5 text-emerald-500" /> Pathology report PDF dispatch</li>
+                    <li className="flex items-center gap-2"><Check className="size-3.5 text-emerald-500" /> Manual override desk takeover</li>
                   </ul>
                 </div>
                 <Link href="/signup" className="mt-8">
-                  <Button className="w-full bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-bold hover:scale-[1.03] active:scale-[0.97] transition-transform shadow-md shadow-emerald-500/10 rounded-full">
-                    Upgrade to Growth
+                  <Button className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-full py-5 shadow-lg shadow-emerald-600/10">
+                    Get Growth Now
                   </Button>
                 </Link>
               </div>
 
-              {/* Tier 3: Enterprise */}
-              <div className="flex flex-col justify-between bg-card border border-border rounded-3xl p-6 hover:border-emerald-500/30 hover:shadow-[0_12px_40px_rgba(16,185,129,0.05)] hover:scale-[1.03] active:scale-[0.99] transition-all duration-300 cursor-pointer">
+              {/* Tier 3: enterprise */}
+              <div className="flex flex-col justify-between bg-card border border-border rounded-3xl p-7 hover:border-emerald-500/30 hover:shadow-lg transition-all duration-300 cursor-pointer">
                 <div>
-                  <h3 className="text-md font-bold text-foreground">Enterprise Custom</h3>
-                  <div className="mt-2 flex items-baseline gap-1">
-                    <span className="text-2xl font-black text-foreground">Custom</span>
+                  <span className="text-[9px] font-black uppercase bg-muted border border-border px-2 py-0.5 rounded-full text-muted-foreground tracking-wider">Multi-Clinic Chain</span>
+                  <h3 className="text-lg font-extrabold text-foreground mt-3">Custom Enterprise</h3>
+                  <div className="mt-3.5 flex items-baseline gap-1">
+                    <span className="text-3xl font-black text-foreground">Contact</span>
                     <span className="text-xs text-muted-foreground font-semibold">/quote</span>
                   </div>
-                  <ul className="mt-6 space-y-2.5 text-xs text-muted-foreground font-medium">
-                    <li className="flex items-center gap-2"><Check className="size-3.5 text-emerald-500" /> Unlimited patients & staff</li>
-                    <li className="flex items-center gap-2"><Check className="size-3.5 text-emerald-500" /> Custom WhatsApp routes</li>
-                    <li className="flex items-center gap-2"><Check className="size-3.5 text-emerald-500" /> Unlimited AI request allowance</li>
-                    <li className="flex items-center gap-2"><Check className="size-3.5 text-emerald-500" /> Dedicated database hosting</li>
-                    <li className="flex items-center gap-2"><Check className="size-3.5 text-emerald-500" /> 24/7 SLA Technical Support</li>
+                  <ul className="mt-6 space-y-3 text-xs text-muted-foreground font-medium">
+                    <li className="flex items-center gap-2"><Check className="size-3.5 text-emerald-500" /> Unlimited patients & consultants</li>
+                    <li className="flex items-center gap-2"><Check className="size-3.5 text-emerald-500" /> Custom multi-branch slots</li>
+                    <li className="flex items-center gap-2"><Check className="size-3.5 text-emerald-500" /> Dedicated database & hosting</li>
+                    <li className="flex items-center gap-2"><Check className="size-3.5 text-emerald-500" /> Custom LLM / OpenRouter setups</li>
+                    <li className="flex items-center gap-2"><Check className="size-3.5 text-emerald-500" /> Dedicated WhatsApp manager support</li>
                   </ul>
                 </div>
-                <Link href="mailto:sales@wacrm.com" className="mt-8">
-                  <Button className="w-full bg-muted border border-border text-foreground hover:bg-muted/85 hover:scale-[1.03] active:scale-[0.97] font-bold rounded-full">
+                <Link href="mailto:support@wacrm.com" className="mt-8">
+                  <Button className="w-full bg-muted border border-border text-foreground hover:bg-muted/80 font-bold rounded-full py-5">
                     Contact Sales
                   </Button>
                 </Link>
               </div>
 
             </div>
-
           </div>
         </section>
 
-        {/* Premium Testimonials Section */}
+        {/* Testimonials */}
         <section className="py-24 px-4 max-w-5xl mx-auto">
           <div className="text-center space-y-4 mb-12">
             <h2 className="text-3xl font-extrabold tracking-tight sm:text-5xl text-foreground">
-              Trusted by Clinics & Labs
+              Trusted by Clinics & Diagnostics
             </h2>
-            <p className="text-muted-foreground text-sm leading-relaxed">
-              Here is what system administrators and clinical directors say about using WACRM.
+            <p className="text-muted-foreground text-sm max-w-xl mx-auto leading-relaxed">
+              Find out how clinics and labs are shifting workloads off physical phone lines.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {TESTIMONIALS.map((t, i) => (
-              <div key={i} className="bg-card border border-border rounded-3xl p-6 space-y-4 hover:border-emerald-500/20 hover:shadow-[0_12px_30px_rgba(16,185,129,0.04)] transition-all duration-300">
+              <div key={i} className="bg-card border border-border rounded-3xl p-6.5 space-y-4 hover:border-emerald-500/20 hover:shadow-md transition-all duration-300 text-left">
                 <p className="text-xs text-foreground italic leading-relaxed">
                   "{t.quote}"
                 </p>
@@ -955,48 +1030,48 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* FAQ Accordion Section */}
+        {/* FAQ section */}
         <section id="faq" className="py-24 max-w-4xl mx-auto px-4">
-          <div className="text-center space-y-4 mb-10">
+          <div className="text-center space-y-4 mb-12">
             <h2 className="text-3xl font-extrabold text-foreground tracking-tight sm:text-5xl">
               Frequently Asked Questions
             </h2>
-            <p className="text-muted-foreground text-sm leading-relaxed">
-              Find technical answers regarding self-hosting, WhatsApp API keys, and clinical deployments.
+            <p className="text-muted-foreground text-sm max-w-xl mx-auto leading-relaxed">
+              Answers regarding WhatsApp Business integration, security, and manual intervention controls.
             </p>
           </div>
 
-          <div className="space-y-3.5">
+          <div className="space-y-4">
             {[
               {
-                q: "What is WACRM Hospital AI?",
-                a: "WACRM is a self-hostable CRM and WhatsApp receptionist built using Next.js, Tailwind CSS, and Supabase. It uses the official Meta WhatsApp Cloud API to interact with patients, and connects to OpenRouter models (like Gemini and Claude) to parse clinical inquiries, arrange doctor appointment dates, and auto-dispatch ready reports."
+                q: "What is CareFlow (WACRM) Hospital AI?",
+                a: "CareFlow is an open-source, self-hostable digital receptionist dashboard for Indian clinics and hospitals. It connects your Next.js application to the official Meta WhatsApp Business Cloud API. Using OpenRouter LLM engines, the AI automatedly responds to patient scheduling slots, extracts name/gender/dob tags, and sends lab diagnostic PDFs without manual typing from your receptionists."
               },
               {
-                q: "Do I need a Meta Developer Account?",
-                a: "Yes. WACRM integrates with the official WhatsApp Business Cloud API. You will need a Meta Developer App setup, a Phone Number ID, and a Permanent Access Token. We provide step-by-step instructions inside your account settings panel to configure this."
+                q: "Do patients need to download anything to book or check report status?",
+                a: "No. The entire patient-facing experience is inside WhatsApp. Patients simply message your designated business phone number to schedule slot tokens, query queue positions, or receive diagnostic results. This yields a massive satisfaction upgrade because WhatsApp is already on every Indian smartphone."
               },
               {
-                q: "How does the AI auto-delivery of lab reports work?",
-                a: "When a clinical staff member generates or uploads a PDF lab report and changes its status to 'Ready', WACRM automatically matches the patient's record, flags their WhatsApp conversation, and drafts an outbound message. If the patient asks about their report, the AI Receptionist instantly fetches the PDF from Supabase storage and dispatches it directly as a document attachment on WhatsApp."
+                q: "How does the AI lab report auto-delivery work?",
+                a: "When your diagnostic team uploads a pathology/radiology PDF report in the Reports dashboard and changes the status to 'Ready', CareFlow automatically detects the patient's phone number, writes a secure log, and sends a WhatsApp template. If the patient inquires about their report on WhatsApp, the AI immediately extracts the PDF file from storage and attaches it on the chat thread."
               },
               {
-                q: "Can human staff override the AI receptionist?",
-                a: "Absolutely. In the shared Inbox, staff can toggle 'AI Assistant' ON/OFF in one click. If a patient asks a query requiring manual triage, the AI tags the conversation as 'Handoff Required', alerts staff, and pauses automated replies to that patient until a human takes over."
+                q: "How can staff intercept AI automated conversations?",
+                a: "In the shared receptionist inbox, staff can view all active conversation logs. Next to each chat thread is an 'AI Agent Toggle'. Switching it off stops all automated replies immediately, allowing staff to text the patient manually. The AI also detects complex or edge-case messages and triggers an automatic pause, alerting the receptionist."
               }
             ].map((faq, index) => {
               const isOpen = activeFaq === index;
               return (
-                <div key={index} className="border border-border rounded-2xl bg-card overflow-hidden">
+                <div key={index} className="border border-border rounded-2xl bg-card overflow-hidden transition-all duration-300">
                   <button
                     onClick={() => setActiveFaq(isOpen ? null : index)}
-                    className="w-full flex items-center justify-between p-4 font-semibold text-xs text-left text-foreground cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-400 hover:translate-x-1.5 transition-all duration-200"
+                    className="w-full flex items-center justify-between p-4.5 font-bold text-xs text-left text-foreground cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-400 hover:translate-x-1 transition-all duration-200"
                   >
                     <span>{faq.q}</span>
                     <ChevronDown className={`size-4 text-muted-foreground transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
                   </button>
                   {isOpen && (
-                    <div className="px-4 pb-4 text-xs text-muted-foreground leading-relaxed border-t border-border/40 pt-3 animate-in fade-in duration-200">
+                    <div className="px-4.5 pb-4.5 text-xs text-muted-foreground leading-relaxed border-t border-border/40 pt-3 animate-in fade-in duration-200">
                       {faq.a}
                     </div>
                   )}
@@ -1008,20 +1083,20 @@ export default function LandingPage() {
 
       </main>
 
-      {/* Footer Section */}
-      <footer className="border-t border-border/80 bg-muted/40 py-10 relative z-10">
+      {/* Footer */}
+      <footer className="border-t border-border/80 bg-muted/40 py-12 relative z-10">
         <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500 text-white font-bold text-xs">
-              W
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white font-bold text-sm">
+              C
             </div>
-            <span className="font-bold text-foreground text-sm">WACRM Hospital AI © 2026</span>
+            <span className="font-extrabold text-foreground text-sm tracking-tight">CareFlow Hospital Autopilot © 2026</span>
           </div>
           <div className="flex gap-6 text-xs text-muted-foreground font-semibold">
-            <a href="#features" className="hover:text-foreground">Features</a>
+            <a href="#hook" className="hover:text-foreground">The Hook</a>
+            <a href="#features" className="hover:text-foreground">Capabilities</a>
             <a href="#demo" className="hover:text-foreground">Live Demo</a>
-            <a href="#pricing" className="hover:text-foreground">Pricing</a>
-            <Link href="/login" className="hover:text-foreground">Login</Link>
+            <Link href="/login" className="hover:text-foreground">Sign In</Link>
           </div>
         </div>
       </footer>
