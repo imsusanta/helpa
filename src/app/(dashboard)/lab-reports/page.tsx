@@ -18,6 +18,7 @@ import {
   Bell,
   Package,
   MessageSquare,
+  Edit,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -73,6 +74,20 @@ export default function LabReportsPage() {
   const [saving, setSaving] = useState(false);
   const [notifying, setNotifying] = useState("");
   const [uploadingPdf, setUploadingPdf] = useState(false);
+
+  // Edit form states
+  const [editingReportId, setEditingReportId] = useState<string | null>(null);
+  const [editTestName, setEditTestName] = useState("");
+  const [editStatus, setEditStatus] = useState<"pending" | "processing" | "ready" | "delivered">("pending");
+  const [editDepartment, setEditDepartment] = useState("");
+  const [editDoctorId, setEditDoctorId] = useState("");
+  const [editExpectedDate, setEditExpectedDate] = useState("");
+  const [editPdfUrl, setEditPdfUrl] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+  const [editInternalNotes, setEditInternalNotes] = useState("");
+  const [editResultUrl, setEditResultUrl] = useState("");
+  const [updating, setUpdating] = useState(false);
+  const [uploadingEditPdf, setUploadingEditPdf] = useState(false);
 
   const loadData = useCallback(async () => {
     if (!accountId) return;
@@ -157,6 +172,80 @@ export default function LabReportsPage() {
       toast.error("Upload failed: " + err.message);
     } finally {
       setUploadingPdf(false);
+    }
+  };
+
+  const handleEditFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== "application/pdf") {
+      toast.error("Only PDF files are supported for lab reports.");
+      return;
+    }
+
+    if (file.size > 16 * 1024 * 1024) {
+      toast.error("File exceeds maximum allowed size (16 MB).");
+      return;
+    }
+
+    setUploadingEditPdf(true);
+    try {
+      const { uploadAccountMedia } = await import("@/lib/storage/upload-media");
+      const result = await uploadAccountMedia("chat-media", file);
+      setEditPdfUrl(result.publicUrl);
+      toast.success("PDF uploaded successfully!");
+    } catch (err: any) {
+      toast.error("Upload failed: " + err.message);
+    } finally {
+      setUploadingEditPdf(false);
+    }
+  };
+
+  const startEditReport = (rep: LabReport) => {
+    setEditingReportId(rep.id);
+    setEditTestName(rep.test_name);
+    setEditStatus(rep.status);
+    setEditDepartment(rep.department || "");
+    setEditDoctorId(rep.doctor_id || "");
+    setEditExpectedDate(rep.expected_delivery_date || "");
+    setEditPdfUrl(rep.report_pdf_url || "");
+    setEditNotes(rep.notes || "");
+    setEditInternalNotes(rep.internal_notes || "");
+    setEditResultUrl(rep.result_url || "");
+    setShowAddForm(false); // Close add form if open
+  };
+
+  const handleUpdateReport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingReportId || !accountId) return;
+    setUpdating(true);
+    const db = createClient();
+    try {
+      const { error } = await db
+        .from("hospital_lab_reports")
+        .update({
+          test_name: editTestName,
+          status: editStatus,
+          department: editDepartment || null,
+          doctor_id: editDoctorId || null,
+          expected_delivery_date: editExpectedDate || null,
+          report_pdf_url: editPdfUrl || null,
+          notes: editNotes || null,
+          internal_notes: editInternalNotes || null,
+          result_url: editResultUrl || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", editingReportId);
+
+      if (error) throw error;
+      toast.success("Diagnostic report updated successfully!");
+      setEditingReportId(null);
+      loadData();
+    } catch (err: any) {
+      toast.error("Failed to update report: " + err.message);
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -425,6 +514,105 @@ export default function LabReportsPage() {
         </form>
       )}
 
+      {editingReportId && (
+        <form onSubmit={handleUpdateReport} className="bg-card border border-border rounded-xl p-5 space-y-4 max-w-2xl animate-in fade-in slide-in-from-top-4 duration-200">
+          <h3 className="font-bold text-foreground">Edit Diagnostic Report</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2 md:col-span-2">
+              <span className="text-xs text-muted-foreground font-semibold">
+                Patient: {reports.find(r => r.id === editingReportId)?.patient?.name || "Unknown"}
+              </span>
+            </div>
+            <div className="space-y-2">
+              <Label>Test Name / Panel *</Label>
+              <Input value={editTestName} onChange={(e) => setEditTestName(e.target.value)} required />
+            </div>
+            <div className="space-y-2">
+              <Label>Department</Label>
+              <select value={editDepartment} onChange={(e) => setEditDepartment(e.target.value)} className="w-full flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <option value="">-- Select Department --</option>
+                <option value="Pathology">Pathology</option>
+                <option value="Radiology">Radiology</option>
+                <option value="Microbiology">Microbiology</option>
+                <option value="Biochemistry">Biochemistry</option>
+                <option value="Hematology">Hematology</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label>Referred By Doctor</Label>
+              <select value={editDoctorId} onChange={(e) => setEditDoctorId(e.target.value)} className="w-full flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <option value="">-- Select Doctor --</option>
+                {doctors.map((d) => (
+                  <option key={d.id} value={d.id}>Dr. {d.name} ({d.department})</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label>Expected Delivery Date</Label>
+              <Input type="date" value={editExpectedDate} onChange={(e) => setEditExpectedDate(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <select value={editStatus} onChange={(e) => setEditStatus(e.target.value as any)} className="w-full flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <option value="pending">Pending (Sample Collection Pending)</option>
+                <option value="processing">Processing (Sample Collected / In Progress)</option>
+                <option value="ready">Ready (Report Completed & Ready to Deliver)</option>
+                <option value="delivered">Delivered (Completed and Received by Patient)</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label>Report PDF (Upload File or Enter Link)</Label>
+              <div className="flex gap-2">
+                <Input value={editPdfUrl} onChange={(e) => setEditPdfUrl(e.target.value)} placeholder="Link to PDF document..." />
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    onChange={handleEditFileUpload}
+                    disabled={uploadingEditPdf}
+                    className="hidden"
+                    id="lab-report-file-upload-edit"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={uploadingEditPdf}
+                    onClick={() => document.getElementById("lab-report-file-upload-edit")?.click()}
+                    className="cursor-pointer whitespace-nowrap"
+                  >
+                    {uploadingEditPdf ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                    ) : (
+                      <FileUp className="h-4 w-4 mr-1" />
+                    )}
+                    Upload PDF
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Lab Portal Link / External URL (Optional)</Label>
+              <Input value={editResultUrl} onChange={(e) => setEditResultUrl(e.target.value)} placeholder="Link to patient portal result page..." />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label>Notes (Visible to Patient via WhatsApp)</Label>
+              <Input value={editNotes} onChange={(e) => setEditNotes(e.target.value)} placeholder="Preliminary remarks for the patient..." />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label>Internal Staff Notes (Private / Staff Only)</Label>
+              <Input value={editInternalNotes} onChange={(e) => setEditInternalNotes(e.target.value)} placeholder="Confidential lab notes..." />
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end pt-2">
+            <Button type="button" variant="outline" onClick={() => setEditingReportId(null)}>Cancel</Button>
+            <Button type="submit" disabled={updating}>
+              {updating && <Loader2 className="h-4 w-4 animate-spin mr-2" />} Save Changes
+            </Button>
+          </div>
+        </form>
+      )}
+
       {/* Tabs */}
       <div className="flex border-b border-border">
         {(["all", "pending", "processing", "ready", "delivered"] as const).map((tab) => (
@@ -552,6 +740,15 @@ export default function LabReportsPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right space-x-1.5 flex justify-end items-center">
+                        <Button
+                          size="xs"
+                          variant="ghost"
+                          onClick={() => startEditReport(rep)}
+                          className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground shrink-0 cursor-pointer flex items-center justify-center rounded-lg hover:bg-muted"
+                          title="Edit Report Details"
+                        >
+                          <Edit className="h-3.5 w-3.5" />
+                        </Button>
                         {rep.status === "pending" && (
                           <Button
                             size="sm"
