@@ -20,6 +20,9 @@ We have successfully refactored the platform from a multi-industry CRM into a de
 ## 2. Hardcoded Clinical Navigation & Gates
 - **`use-auth.tsx`**: Forced `enabledModules` to always include `"hospital_clinic"` and set the workspace template mode to always operate clinical views.
 - **`dashboard-shell.tsx`**: Removed the onboarding overlay selector so that users jump straight to the clinical interface.
+- **Landing Page Design Overhaul**:
+  - Integrated a client-side theme toggle button (using Sun/Moon icons) into the navigation bar that calls the system's `toggleMode` hook, switching the entire landing page dynamically between light mode and dark mode.
+  - Kept user session check so that authenticated users are directed to `/dashboard` directly, while new users are guided to `/signup`.
 - **`sidebar.tsx`**: Hardcoded the new clinical menu bar:
   - Dashboard
   - Inbox

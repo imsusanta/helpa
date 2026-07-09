@@ -355,6 +355,15 @@ export interface Broadcast {
   replied_count: number;
   failed_count: number;
   created_at: string;
+  category?: string;
+  message_body?: string;
+  attachment_url?: string;
+  attachment_type?: 'image' | 'document';
+  cta_type?: 'none' | 'appointment' | 'review' | 'url';
+  cta_text?: string;
+  cta_url?: string;
+  recurrence?: 'none' | 'weekly' | 'monthly' | 'yearly';
+  ai_suggested?: boolean;
 }
 
 export interface BroadcastRecipient {

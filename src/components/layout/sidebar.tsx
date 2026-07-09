@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { useTotalUnread } from "@/hooks/use-total-unread";
+import { hasMinRole, type AccountRole } from "@/lib/auth/roles";
 import {
   Crown,
   GitBranch,
@@ -13,6 +14,7 @@ import {
   LogOut,
   MessageSquare,
   Radio,
+  Megaphone,
   Settings,
   Shield,
   User,
@@ -38,7 +40,6 @@ import {
   Bot,
   BarChart3,
 } from "lucide-react";
-import type { AccountRole } from "@/lib/auth/roles";
 
 // Per-role chip metadata used in the sidebar's account strip + the
 // Members tab roster. Keeping this near both consumers in a single
@@ -133,6 +134,9 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
     { href: "/doctors", label: "Doctors", icon: UserCheck },
     { href: "/lab-reports", label: "Reports", icon: FileText },
     { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
+    ...(accountRole && hasMinRole(accountRole, "admin")
+      ? [{ href: "/broadcasts", label: "Campaigns", icon: Megaphone }]
+      : []),
     { href: "/settings", label: "Settings", icon: Settings },
   ];
   // Only surface the account-name strip when it actually carries

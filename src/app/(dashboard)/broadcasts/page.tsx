@@ -13,16 +13,24 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Radio, Plus, Loader2 } from 'lucide-react';
-import { useCan } from '@/hooks/use-can';
-import { GatedButton } from '@/components/ui/gated-button';
+import { 
+  Megaphone, 
+  Plus, 
+  Loader2, 
+  Percent, 
+  CheckCheck, 
+  MessageSquare, 
+  TrendingUp, 
+  Sparkles,
+  ArrowRight,
+  ShieldAlert,
+  Trash2
+} from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
+import { hasMinRole } from '@/lib/auth/roles';
 import { getBroadcastStatus } from '@/lib/broadcast-status';
+import { toast } from 'sonner';
 
-/**
- * Poll cadence while any broadcast is sending. Kept modest so we don't
- * beat on Supabase — the aggregate trigger in migration 003 keeps
- * counts consistent; we just need to surface the freshest snapshot.
- */
 const POLL_INTERVAL_MS = 5_000;
 
 function percent(numerator: number, denominator: number): number {
@@ -37,16 +45,15 @@ function RateCell({
 }: {
   value: number;
   total: number;
-  /** Tailwind bg class for the fill, e.g. "bg-primary" */
   color: string;
 }) {
   const pct = percent(value, total);
   return (
     <div className="flex items-center gap-2">
-      <span className="w-10 text-right text-xs tabular-nums text-muted-foreground">
+      <span className="w-10 text-right text-xs tabular-nums text-muted-foreground font-semibold">
         {pct}%
       </span>
-      <div className="h-1.5 w-20 overflow-hidden rounded-full bg-muted">
+      <div className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
         <div
           className={`h-1.5 rounded-full ${color}`}
           style={{ width: `${pct}%` }}
@@ -56,36 +63,79 @@ function RateCell({
   );
 }
 
-export default function BroadcastsPage() {
+export default function CampaignsPage() {
   const router = useRouter();
-  const canCreate = useCan('send-messages');
+  const { accountId, accountRole } = useAuth();
+  
+  const isAdmin = accountRole && hasMinRole(accountRole, 'admin');
+
   const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
+  const [bookingsCount, setBookingsCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Used to kick off polling only while something is actively sending.
+  // AI Opportunities state
+  const [oppStats, setOppStats] = useState({
+    inactive: 0,
+    missed: 0,
+    followup: 0,
+    pediatric: 0
+  });
+
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  async function fetchBroadcasts() {
+  async function fetchCampaignsAndStats() {
+    if (!accountId) return;
     try {
       const supabase = createClient();
-      const { data, error: fetchError } = await supabase
+      
+      // 1. Fetch campaigns
+      const { data: campaignRows, error: fetchError } = await supabase
         .from('broadcasts')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (fetchError) throw fetchError;
-      setBroadcasts(data ?? []);
+      setBroadcasts(campaignRows ?? []);
+
+      // 2. Fetch attributed bookings
+      const { count: bookings, error: bookingsErr } = await supabase
+        .from('appointments')
+        .select('id', { count: 'exact', head: true })
+        .not('campaign_id', 'is', null);
+      
+      if (!bookingsErr && bookings !== null) {
+        setBookingsCount(bookings);
+      }
+
+      // 3. Fetch AI Opportunities counts
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+      const [inactiveRes, missedRes, followupRes, pedRes] = await Promise.all([
+        supabase.from('patients').select('id', { count: 'exact', head: true }).lt('created_at', sixMonthsAgo.toISOString()),
+        supabase.from('appointments').select('id', { count: 'exact', head: true }).in('status', ['no_show', 'No Show', 'Cancelled']),
+        supabase.from('patients').select('id', { count: 'exact', head: true }).is('last_followup_sent_at', null),
+        supabase.from('patients').select('id', { count: 'exact', head: true }).eq('department', 'Pediatrics')
+      ]);
+
+      setOppStats({
+        inactive: inactiveRes.count || 0,
+        missed: missedRes.count || 0,
+        followup: followupRes.count || 0,
+        pediatric: pedRes.count || 0
+      });
+
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load broadcasts');
+      setError(err instanceof Error ? err.message : 'Failed to load campaigns');
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    fetchBroadcasts();
-  }, []);
+    fetchCampaignsAndStats();
+  }, [accountId]);
 
   const anySending = useMemo(
     () => broadcasts.some((b) => b.status === 'sending'),
@@ -95,7 +145,7 @@ export default function BroadcastsPage() {
   useEffect(() => {
     function startPolling() {
       if (pollTimer.current) return;
-      pollTimer.current = setInterval(fetchBroadcasts, POLL_INTERVAL_MS);
+      pollTimer.current = setInterval(fetchCampaignsAndStats, POLL_INTERVAL_MS);
     }
     function stopPolling() {
       if (!pollTimer.current) return;
@@ -103,30 +153,70 @@ export default function BroadcastsPage() {
       pollTimer.current = null;
     }
 
-    // Pause polling while the tab is hidden — keeps Supabase cold when
-    // the user is away, and ensures a fresh fetch the moment they
-    // refocus so they don't see stale data on return.
-    function handleVisibilityChange() {
-      if (!anySending) return;
-      if (document.visibilityState === 'hidden') {
-        stopPolling();
-      } else {
-        fetchBroadcasts();
-        startPolling();
-      }
-    }
-
     if (anySending && document.visibilityState === 'visible') {
       startPolling();
     } else {
       stopPolling();
     }
+
+    const handleVisibilityChange = () => {
+      if (!anySending) return;
+      if (document.visibilityState === 'hidden') {
+        stopPolling();
+      } else {
+        fetchCampaignsAndStats();
+        startPolling();
+      }
+    };
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       stopPolling();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [anySending]);
+
+  // Aggregate metrics
+  const totalCampaigns = broadcasts.length;
+  
+  const todayStart = new Date();
+  todayStart.setHours(0,0,0,0);
+  const campaignsSentToday = broadcasts.filter(
+    (b) => new Date(b.created_at) >= todayStart && b.status !== 'draft'
+  ).length;
+
+  const totalRecipients = useMemo(
+    () => broadcasts.reduce((acc, curr) => acc + (curr.total_recipients || 0), 0),
+    [broadcasts]
+  );
+  const totalDelivered = useMemo(
+    () => broadcasts.reduce((acc, curr) => acc + (curr.delivered_count || 0), 0),
+    [broadcasts]
+  );
+  const totalRead = useMemo(
+    () => broadcasts.reduce((acc, curr) => acc + (curr.read_count || 0), 0),
+    [broadcasts]
+  );
+  const totalReplied = useMemo(
+    () => broadcasts.reduce((acc, curr) => acc + (curr.replied_count || 0), 0),
+    [broadcasts]
+  );
+
+  const avgConversionRate = totalRecipients > 0 ? ((bookingsCount / totalRecipients) * 100).toFixed(1) : '0.0';
+
+  async function handleDeleteCampaign(id: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!confirm('Are you sure you want to delete this campaign and all its history?')) return;
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.from('broadcasts').delete().eq('id', id);
+      if (error) throw error;
+      toast.success('Campaign deleted successfully');
+      fetchCampaignsAndStats();
+    } catch (err) {
+      toast.error('Failed to delete campaign');
+    }
+  }
 
   if (loading) {
     return (
@@ -147,70 +237,203 @@ export default function BroadcastsPage() {
     );
   }
 
+  // Gated View: If receptionist, display read-only mode with a warning
+  if (!isAdmin) {
+    return (
+      <div className="space-y-6">
+        <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 flex items-start gap-3">
+          <ShieldAlert className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+          <div>
+            <h4 className="font-bold text-amber-500 text-sm">Read-Only Access</h4>
+            <p className="text-xs text-muted-foreground mt-1">
+              You are signed in as a Receptionist. Only Administrators and Marketing users can create, edit, schedule campaigns, or access advanced marketing analytics. You can still view active campaign statistics below for scheduling context.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Campaigns List</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Review outbound campaign deliveries and schedules.
+            </p>
+          </div>
+        </div>
+
+        {broadcasts.length === 0 ? (
+          <div className="flex h-64 flex-col items-center justify-center rounded-xl border border-border bg-card">
+            <Megaphone className="mb-3 h-10 w-10 text-muted-foreground" />
+            <p className="text-sm font-medium text-foreground">No active campaigns</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border border-border bg-card">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-border hover:bg-transparent">
+                  <TableHead className="text-muted-foreground">Name</TableHead>
+                  <TableHead className="text-muted-foreground">Category</TableHead>
+                  <TableHead className="text-right text-muted-foreground">Recipients</TableHead>
+                  <TableHead className="text-muted-foreground">Status</TableHead>
+                  <TableHead className="text-muted-foreground">Sent Date</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {broadcasts.map((b) => {
+                  const status = getBroadcastStatus(b.status);
+                  return (
+                    <TableRow
+                      key={b.id}
+                      className="cursor-pointer border-border hover:bg-muted/30"
+                      onClick={() => router.push(`/broadcasts/${b.id}`)}
+                    >
+                      <TableCell className="font-semibold text-foreground">{b.name}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground font-medium">{b.category || 'General Announcement'}</TableCell>
+                      <TableCell className="text-right text-muted-foreground font-semibold tabular-nums">{b.total_recipients}</TableCell>
+                      <TableCell>
+                        <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${status.classes}`}>
+                          {status.label}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{new Date(b.created_at).toLocaleDateString()}</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* Top indeterminate progress bar: only visible while a broadcast
-          is mid-send. Pure CSS animation so no extra deps. */}
       {anySending && (
         <div
           role="progressbar"
-          aria-label="Broadcast in progress"
-          className="broadcast-indeterminate fixed inset-x-0 top-0 z-40 h-0.5 overflow-hidden bg-muted"
+          aria-label="Campaign dispatch in progress"
+          className="fixed inset-x-0 top-0 z-50 h-0.5 overflow-hidden bg-muted"
         >
-          <div className="broadcast-indeterminate-bar h-0.5 bg-primary" />
-          <style jsx>{`
-            .broadcast-indeterminate-bar {
-              width: 33%;
-              transform: translateX(-100%);
-              animation: broadcast-slide 1.6s cubic-bezier(0.4, 0, 0.2, 1)
-                infinite;
-            }
-            @keyframes broadcast-slide {
-              0% {
-                transform: translateX(-100%);
-              }
-              100% {
-                transform: translateX(400%);
-              }
-            }
-          `}</style>
+          <div className="h-0.5 bg-indigo-600 animate-pulse w-1/3" />
         </div>
       )}
 
+      {/* Title Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Broadcasts</h1>
+          <h1 className="text-2xl font-bold text-foreground">Campaigns</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Send bulk messages to your contacts using approved templates.
+            Manage patient marketing, health camp broadcasts, and automated check-up reminders.
           </p>
         </div>
-        <GatedButton
-          canAct={canCreate}
-          gateReason="create broadcasts"
+        <Button
           onClick={() => router.push('/broadcasts/new')}
-          className="bg-primary text-primary-foreground hover:bg-primary/90"
+          className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-full px-5 py-2.5 text-sm font-semibold flex items-center gap-1.5"
         >
-          <Plus className="h-4 w-4" />
-          New Broadcast
-        </GatedButton>
+          <Plus className="h-4 w-4" /> New Campaign
+        </Button>
       </div>
 
+      {/* ═══════ CAMPAIGN METRICS DASHBOARD ═══════ */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="bg-card border border-border/80 rounded-2xl p-4 shadow-sm hover:shadow-md transition">
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Total Campaigns</p>
+          <p className="text-2xl font-black text-foreground mt-2 tabular-nums">{totalCampaigns}</p>
+        </div>
+        <div className="bg-card border border-border/80 rounded-2xl p-4 shadow-sm hover:shadow-md transition">
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Sent Today</p>
+          <p className="text-2xl font-black text-foreground mt-2 tabular-nums">{campaignsSentToday}</p>
+        </div>
+        <div className="bg-card border border-border/80 rounded-2xl p-4 shadow-sm hover:shadow-md transition">
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Delivered Rate</p>
+          <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-2 tabular-nums">{percent(totalDelivered, totalRecipients)}%</p>
+        </div>
+        <div className="bg-card border border-border/80 rounded-2xl p-4 shadow-sm hover:shadow-md transition">
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Read Rate</p>
+          <p className="text-2xl font-black text-blue-500 mt-2 tabular-nums">{percent(totalRead, totalRecipients)}%</p>
+        </div>
+        <div className="bg-card border border-border/80 rounded-2xl p-4 shadow-sm hover:shadow-md transition">
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Replies</p>
+          <p className="text-2xl font-black text-purple-500 mt-2 tabular-nums">{totalReplied}</p>
+        </div>
+        <div className="bg-card border border-border/80 rounded-2xl p-4 shadow-sm hover:shadow-md transition">
+          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Bookings (Conv. %)</p>
+          <p className="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-2 tabular-nums">
+            {bookingsCount} <span className="text-xs font-semibold text-muted-foreground">({avgConversionRate}%)</span>
+          </p>
+        </div>
+      </div>
+
+      {/* ═══════ AI RECOMMENDATIONS / OPPORTUNITIES ═══════ */}
+      <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
+        <h3 className="font-extrabold text-foreground text-sm flex items-center gap-1.5">
+          <Sparkles className="h-4 w-4 text-indigo-600 animate-pulse" /> AI Campaign Opportunities
+        </h3>
+        <div className="grid gap-4 md:grid-cols-3">
+          {oppStats.inactive > 0 && (
+            <div className="border border-border/70 rounded-xl p-4 bg-muted/20 flex flex-col justify-between">
+              <div>
+                <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">Inactive Patients</p>
+                <p className="text-sm font-semibold text-foreground mt-2">
+                  {oppStats.inactive} patients have not visited the clinic in the last 6 months.
+                </p>
+              </div>
+              <Button
+                onClick={() => router.push('/broadcasts/new?suggestion=inactive')}
+                variant="outline"
+                className="mt-4 border-indigo-500/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-600/5 rounded-xl text-xs py-1.5 w-full flex items-center justify-center gap-1"
+              >
+                Promote Health Checkup <ArrowRight className="h-3 w-3" />
+              </Button>
+            </div>
+          )}
+
+          {oppStats.missed > 0 && (
+            <div className="border border-border/70 rounded-xl p-4 bg-muted/20 flex flex-col justify-between">
+              <div>
+                <p className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wide">Missed Appointments</p>
+                <p className="text-sm font-semibold text-foreground mt-2">
+                  {oppStats.missed} patients missed or cancelled appointments this month.
+                </p>
+              </div>
+              <Button
+                onClick={() => router.push('/broadcasts/new?suggestion=missed')}
+                variant="outline"
+                className="mt-4 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-600/5 rounded-xl text-xs py-1.5 w-full flex items-center justify-center gap-1"
+              >
+                Send Re-booking Campaign <ArrowRight className="h-3 w-3" />
+              </Button>
+            </div>
+          )}
+
+          {oppStats.followup > 0 && (
+            <div className="border border-border/70 rounded-xl p-4 bg-muted/20 flex flex-col justify-between">
+              <div>
+                <p className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wide">Follow-ups Due</p>
+                <p className="text-sm font-semibold text-foreground mt-2">
+                  {oppStats.followup} patients are due for routine follow-up consultations.
+                </p>
+              </div>
+              <Button
+                onClick={() => router.push('/broadcasts/new?suggestion=followup')}
+                variant="outline"
+                className="mt-4 border-purple-500/30 text-purple-600 dark:text-purple-400 hover:bg-purple-600/5 rounded-xl text-xs py-1.5 w-full flex items-center justify-center gap-1"
+              >
+                Create Follow-up Reminder <ArrowRight className="h-3 w-3" />
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ═══════ CAMPAIGNS TABLE ═══════ */}
       {broadcasts.length === 0 ? (
         <div className="flex h-64 flex-col items-center justify-center rounded-xl border border-border bg-card">
-          <Radio className="mb-3 h-10 w-10 text-muted-foreground" />
-          <p className="text-sm font-medium text-foreground">No broadcasts yet</p>
+          <Megaphone className="mb-3 h-10 w-10 text-muted-foreground" />
+          <p className="text-sm font-medium text-foreground">No campaigns yet</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Create your first broadcast to reach your contacts at scale.
+            Create your first healthcare campaign to engage your patients.
           </p>
-          <GatedButton
-            canAct={canCreate}
-            gateReason="create broadcasts"
-            onClick={() => router.push('/broadcasts/new')}
-            className="mt-4 bg-primary text-primary-foreground hover:bg-primary/90"
-          >
-            <Plus className="h-4 w-4" />
-            New Broadcast
-          </GatedButton>
         </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border bg-card">
@@ -218,51 +441,54 @@ export default function BroadcastsPage() {
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
                 <TableHead className="text-muted-foreground">Name</TableHead>
-                <TableHead className="hidden text-muted-foreground md:table-cell">Template</TableHead>
-                <TableHead className="hidden text-right text-muted-foreground sm:table-cell">
-                  Recipients
-                </TableHead>
-                <TableHead className="hidden text-muted-foreground lg:table-cell">Delivery</TableHead>
-                <TableHead className="hidden text-muted-foreground lg:table-cell">Read</TableHead>
-                <TableHead className="text-muted-foreground">Status</TableHead>
-                <TableHead className="hidden text-muted-foreground sm:table-cell">Date</TableHead>
+                <TableHead className="text-muted-foreground">Category</TableHead>
+                <TableHead className="text-right text-muted-foreground">Recipients</TableHead>
+                <TableHead className="text-muted-foreground">Delivery</TableHead>
+                <TableHead className="text-muted-foreground">Read</TableHead>
+                <TableHead className="text-muted-foreground">Replies</TableHead>
+                <TableHead className="text-muted-foreground font-semibold">Status</TableHead>
+                <TableHead className="text-muted-foreground">Date</TableHead>
+                <TableHead className="text-right text-muted-foreground">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {broadcasts.map((broadcast) => {
-                const status = getBroadcastStatus(broadcast.status);
+              {broadcasts.map((b) => {
+                const status = getBroadcastStatus(b.status);
                 return (
                   <TableRow
-                    key={broadcast.id}
-                    className="cursor-pointer border-border hover:bg-muted/50"
-                    onClick={() => router.push(`/broadcasts/${broadcast.id}`)}
+                    key={b.id}
+                    className="cursor-pointer border-border hover:bg-muted/20"
+                    onClick={() => router.push(`/broadcasts/${b.id}`)}
                   >
-                    <TableCell className="font-medium text-foreground">
-                      {broadcast.name}
+                    <TableCell className="font-semibold text-foreground text-sm">
+                      {b.name}
                     </TableCell>
-                    <TableCell className="hidden text-muted-foreground md:table-cell">
-                      {broadcast.template_name}
+                    <TableCell className="text-xs text-muted-foreground font-semibold">
+                      {b.category || 'General Announcement'}
                     </TableCell>
-                    <TableCell className="hidden text-right text-muted-foreground tabular-nums sm:table-cell">
-                      {broadcast.total_recipients}
+                    <TableCell className="text-right text-muted-foreground font-bold tabular-nums">
+                      {b.total_recipients}
                     </TableCell>
-                    <TableCell className="hidden lg:table-cell">
+                    <TableCell>
                       <RateCell
-                        value={broadcast.delivered_count}
-                        total={broadcast.total_recipients}
-                        color="bg-primary"
-                      />
-                    </TableCell>
-                    <TableCell className="hidden lg:table-cell">
-                      <RateCell
-                        value={broadcast.read_count}
-                        total={broadcast.total_recipients}
-                        color="bg-blue-500"
+                        value={b.delivered_count}
+                        total={b.total_recipients}
+                        color="bg-emerald-500"
                       />
                     </TableCell>
                     <TableCell>
+                      <RateCell
+                        value={b.read_count}
+                        total={b.total_recipients}
+                        color="bg-blue-500"
+                      />
+                    </TableCell>
+                    <TableCell className="text-xs font-semibold tabular-nums text-purple-600 dark:text-purple-400">
+                      {b.replied_count || 0}
+                    </TableCell>
+                    <TableCell>
                       <span
-                        className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium ${status.classes}`}
+                        className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-bold ${status.classes}`}
                       >
                         {status.pulse && (
                           <span className="relative flex h-1.5 w-1.5">
@@ -273,8 +499,19 @@ export default function BroadcastsPage() {
                         {status.label}
                       </span>
                     </TableCell>
-                    <TableCell className="hidden text-muted-foreground sm:table-cell">
-                      {new Date(broadcast.created_at).toLocaleDateString()}
+                    <TableCell className="text-xs text-muted-foreground font-medium">
+                      {new Date(b.created_at).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        onClick={(e) => handleDeleteCampaign(b.id, e)}
+                        variant="ghost"
+                        size="icon"
+                        className="text-red-500 hover:text-red-700 hover:bg-red-500/10 cursor-pointer"
+                        title="Delete Campaign"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 );

@@ -114,6 +114,25 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
       .limit(10);
     labReports = labReportsData;
 
+    // Fetch last campaign details
+    const { data: lastCampaignRec } = await db
+      .from('broadcast_recipients')
+      .select('id, broadcast_id, broadcasts(*)')
+      .eq('contact_id', contactId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (lastCampaignRec && lastCampaignRec.broadcasts) {
+      const camp = lastCampaignRec.broadcasts as any;
+      hospitalContext += `Last Sent Campaign to Patient (within last 7 days):\n`;
+      hospitalContext += `- Campaign ID: ${camp.id}\n`;
+      hospitalContext += `- Name: ${camp.name}\n`;
+      hospitalContext += `- Category: ${camp.category || 'General Announcement'}\n`;
+      hospitalContext += `- Message Content: "${camp.message_body || ''}"\n`;
+      hospitalContext += `- CTA Configured: ${camp.cta_type || 'none'}\n\n`;
+    }
+
     if (doctors && doctors.length > 0) {
       hospitalContext += "Available Doctors & Clinic Schedules:\n";
       doctors.forEach((d: any) => {
@@ -197,7 +216,8 @@ AI RULES & MEDICAL SAFETY PROTOCOLS:
    - If they have exactly 1 active report (pending/processing/ready), respond with that report's status directly.
    - If they have multiple reports, list them and ask which one they want to check.
    - If they have 0 reports, say "I don't have any active reports on file for you."
-7. **REPORT SAFETY & NON-DIAGNOSIS**: NEVER share internal staff notes. NEVER interpret report values, explain medical findings, recommend medicines, or suggest treatments. If a patient asks: "My report says my sugar is high. What should I do?" or similar medical questions, you MUST politely respond: "I cannot interpret medical reports or provide medical advice. Please consult your doctor. I can help you book an appointment if you would like."`;
+7. **REPORT SAFETY & NON-DIAGNOSIS**: NEVER share internal staff notes. NEVER interpret report values, explain medical findings, recommend medicines, or suggest treatments. If a patient asks: "My report says my sugar is high. What should I do?" or similar medical questions, you MUST politely respond: "I cannot interpret medical reports or provide medical advice. Please consult your doctor. I can help you book an appointment if you would like."
+8. **CAMPAIGN RESPONSE HANDLING**: If the patient received a campaign recently (listed under Last Sent Campaign to Patient), acknowledge it when appropriate. If they reply "BOOK" or indicate interest in scheduling an appointment or check-up relative to that campaign, immediately display the Patient Registration Form to proceed with booking.`;
   }
 
   // Always enforce that the AI responds in the language of the latest customer message
@@ -559,6 +579,24 @@ Note:
               doctorId = doc?.id || null;
             }
 
+            // Campaign attribution: find last campaign received in last 7 days
+            let campaignIdToAttribute: string | null = null;
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+            
+            const { data: recentCampaignRec } = await db
+              .from('broadcast_recipients')
+              .select('broadcast_id')
+              .eq('contact_id', contactId)
+              .gte('created_at', sevenDaysAgo.toISOString())
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            
+            if (recentCampaignRec) {
+              campaignIdToAttribute = recentCampaignRec.broadcast_id;
+            }
+
             const { data: newAppt, error: insertError } = await db
               .from('appointments')
               .insert({
@@ -568,7 +606,8 @@ Note:
                 department: department || 'General Medicine',
                 appointment_date: date,
                 appointment_time: time,
-                status: 'pending'
+                status: 'pending',
+                campaign_id: campaignIdToAttribute
               })
               .select('id, booking_id, token_number, queue_position')
               .maybeSingle();

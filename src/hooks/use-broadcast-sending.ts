@@ -14,12 +14,29 @@ export interface CustomFieldFilter {
 }
 
 export interface AudienceConfig {
-  type: 'all' | 'tags' | 'custom_field' | 'csv';
+  type: 
+    | 'all' 
+    | 'tags' 
+    | 'custom_field' 
+    | 'csv'
+    | 'new_patients'
+    | 'returning_patients'
+    | 'upcoming_appointments'
+    | 'missed_appointments'
+    | 'due_followup'
+    | 'by_department'
+    | 'by_doctor'
+    | 'by_gender'
+    | 'by_age';
   tagIds?: string[];
   customField?: CustomFieldFilter;
   csvContacts?: { phone: string; name?: string }[];
-  /** Contacts carrying any of these tags are subtracted from the result. */
   excludeTagIds?: string[];
+  department?: string;
+  doctorId?: string;
+  gender?: string;
+  ageMin?: number;
+  ageMax?: number;
 }
 
 /**
@@ -39,6 +56,15 @@ interface BroadcastPayload {
   template: MessageTemplate;
   audience: AudienceConfig;
   variables: Record<string, VariableMapping>;
+  category?: string;
+  message_body?: string;
+  attachment_url?: string;
+  attachment_type?: 'image' | 'document';
+  cta_type?: 'none' | 'appointment' | 'review' | 'url';
+  cta_text?: string;
+  cta_url?: string;
+  recurrence?: 'none' | 'weekly' | 'monthly' | 'yearly';
+  ai_suggested?: boolean;
 }
 
 interface UseBroadcastSendingReturn {
@@ -182,6 +208,101 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
       contacts = await resolveCustomFieldAudience(supabase, audience.customField);
     } else if (audience.type === 'csv' && audience.csvContacts) {
       contacts = await upsertCsvContacts(supabase, audience.csvContacts);
+    } else if (audience.type === 'new_patients') {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const { data, error } = await supabase.from('contacts').select('*').gte('created_at', thirtyDaysAgo.toISOString());
+      if (error) throw error;
+      contacts = data ?? [];
+    } else if (audience.type === 'returning_patients') {
+      const { data: appts, error } = await supabase.from('appointments').select('patient_id');
+      if (error) throw error;
+      const counts: Record<string, number> = {};
+      appts?.forEach(r => { counts[r.patient_id] = (counts[r.patient_id] || 0) + 1; });
+      const returningIds = Object.keys(counts).filter(id => counts[id] >= 2);
+      if (returningIds.length > 0) {
+        const { data, error: fetchErr } = await supabase.from('contacts').select('*').in('id', returningIds);
+        if (fetchErr) throw fetchErr;
+        contacts = data ?? [];
+      }
+    } else if (audience.type === 'upcoming_appointments') {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const { data: appts, error } = await supabase.from('appointments').select('patient_id').gte('appointment_date', todayStr);
+      if (error) throw error;
+      const ids = [...new Set((appts || []).map(a => a.patient_id))];
+      if (ids.length > 0) {
+        const { data, error: fetchErr } = await supabase.from('contacts').select('*').in('id', ids);
+        if (fetchErr) throw fetchErr;
+        contacts = data ?? [];
+      }
+    } else if (audience.type === 'missed_appointments') {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const { data: appts, error } = await supabase.from('appointments').select('patient_id')
+        .or(`status.eq.no_show,status.eq.Cancelled,and(status.eq.pending,appointment_date.lt.${todayStr})`);
+      if (error) throw error;
+      const ids = [...new Set((appts || []).map(a => a.patient_id))];
+      if (ids.length > 0) {
+        const { data, error: fetchErr } = await supabase.from('contacts').select('*').in('id', ids);
+        if (fetchErr) throw fetchErr;
+        contacts = data ?? [];
+      }
+    } else if (audience.type === 'due_followup') {
+      const { data: pats, error } = await supabase.from('patients').select('id');
+      if (error) throw error;
+      const ids = (pats || []).map(p => p.id);
+      if (ids.length > 0) {
+        const { data, error: fetchErr } = await supabase.from('contacts').select('*').in('id', ids);
+        if (fetchErr) throw fetchErr;
+        contacts = data ?? [];
+      }
+    } else if (audience.type === 'by_department' && audience.department) {
+      const { data: pats, error } = await supabase.from('patients').select('id').eq('department', audience.department);
+      if (error) throw error;
+      const ids = (pats || []).map(p => p.id);
+      if (ids.length > 0) {
+        const { data, error: fetchErr } = await supabase.from('contacts').select('*').in('id', ids);
+        if (fetchErr) throw fetchErr;
+        contacts = data ?? [];
+      }
+    } else if (audience.type === 'by_doctor' && audience.doctorId) {
+      const { data: pats, error } = await supabase.from('patients').select('id').eq('assigned_doctor_id', audience.doctorId);
+      if (error) throw error;
+      const ids = (pats || []).map(p => p.id);
+      if (ids.length > 0) {
+        const { data, error: fetchErr } = await supabase.from('contacts').select('*').in('id', ids);
+        if (fetchErr) throw fetchErr;
+        contacts = data ?? [];
+      }
+    } else if (audience.type === 'by_gender' && audience.gender) {
+      const { data: pats, error } = await supabase.from('patients').select('id').eq('gender', audience.gender);
+      if (error) throw error;
+      const ids = (pats || []).map(p => p.id);
+      if (ids.length > 0) {
+        const { data, error: fetchErr } = await supabase.from('contacts').select('*').in('id', ids);
+        if (fetchErr) throw fetchErr;
+        contacts = data ?? [];
+      }
+    } else if (audience.type === 'by_age') {
+      const nowYear = new Date().getFullYear();
+      let query = supabase.from('patients').select('id');
+      if (audience.ageMin !== undefined) {
+        const maxDob = new Date();
+        maxDob.setFullYear(nowYear - audience.ageMin);
+        query = query.lte('date_of_birth', maxDob.toISOString().split('T')[0]);
+      }
+      if (audience.ageMax !== undefined) {
+        const minDob = new Date();
+        minDob.setFullYear(nowYear - audience.ageMax);
+        query = query.gte('date_of_birth', minDob.toISOString().split('T')[0]);
+      }
+      const { data: pats, error } = await query;
+      if (error) throw error;
+      const ids = (pats || []).map(p => p.id);
+      if (ids.length > 0) {
+        const { data, error: fetchErr } = await supabase.from('contacts').select('*').in('id', ids);
+        if (fetchErr) throw fetchErr;
+        contacts = data ?? [];
+      }
     }
 
     // Apply exclude tags (works across all contact-derived audience
@@ -360,6 +481,11 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
             tagIds: payload.audience.tagIds,
             customField: payload.audience.customField,
             excludeTagIds: payload.audience.excludeTagIds,
+            department: payload.audience.department,
+            doctorId: payload.audience.doctorId,
+            gender: payload.audience.gender,
+            ageMin: payload.audience.ageMin,
+            ageMax: payload.audience.ageMax,
           },
           status: 'sending',
           total_recipients: contacts.length,
@@ -368,6 +494,15 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
           read_count: 0,
           replied_count: 0,
           failed_count: 0,
+          category: payload.category || 'General Announcement',
+          message_body: payload.message_body,
+          attachment_url: payload.attachment_url,
+          attachment_type: payload.attachment_type,
+          cta_type: payload.cta_type || 'none',
+          cta_text: payload.cta_text,
+          cta_url: payload.cta_url,
+          recurrence: payload.recurrence || 'none',
+          ai_suggested: payload.ai_suggested || false,
         })
         .select()
         .single();
