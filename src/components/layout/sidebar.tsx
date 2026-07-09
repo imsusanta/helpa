@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { useTotalUnread } from "@/hooks/use-total-unread";
 import { hasMinRole, type AccountRole } from "@/lib/auth/roles";
+import { getIndustryModule } from "@/modules/registry";
 import {
   Crown,
   GitBranch,
@@ -121,24 +122,37 @@ interface SidebarProps {
   onClose?: () => void;
 }
 
+const ICON_COMPONENTS: Record<string, any> = {
+  LayoutDashboard,
+  MessageSquare,
+  Users,
+  UserCheck,
+  Calendar,
+  FileText,
+  Megaphone,
+  Brain,
+  Settings,
+};
+
 export function Sidebar({ open = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { profile, profileLoading, account, accountRole, signOut, isSuperAdmin, enabledModules } = useAuth();
   const totalUnread = useTotalUnread();
 
-  const activeNavItems: NavItem[] = [
-    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/inbox", label: "WhatsApp Chats", icon: MessageSquare },
-    { href: "/patients", label: "Patients", icon: Users },
-    { href: "/appointments", label: "Appointments", icon: Calendar },
-    { href: "/doctors", label: "Doctors", icon: UserCheck },
-    { href: "/lab-reports", label: "Reports", icon: FileText },
-    { href: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
-    ...(accountRole && hasMinRole(accountRole, "admin")
-      ? [{ href: "/broadcasts", label: "Campaigns", icon: Megaphone }]
-      : []),
-    { href: "/settings", label: "Settings", icon: Settings },
-  ];
+  const activeModule = getIndustryModule(account?.industry);
+
+  const activeNavItems: NavItem[] = activeModule.sidebar
+    .filter((item) => {
+      if (item.roleMin && (!accountRole || !hasMinRole(accountRole, item.roleMin))) {
+        return false;
+      }
+      return true;
+    })
+    .map((item) => ({
+      href: item.href,
+      label: item.label,
+      icon: ICON_COMPONENTS[item.iconName] || FileText,
+    }));
   // Only surface the account-name strip when it actually carries
   // information. A solo user's personal account is named after them
   // (the 017 signup trigger seeds it from `full_name`), so showing it

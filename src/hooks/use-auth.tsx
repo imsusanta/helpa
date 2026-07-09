@@ -169,7 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // missing account collapses to null rather than a half-
           // populated row (shouldn't happen post-017 NOT NULL, but
           // belt-and-braces against forks running older schemas).
-          "id, full_name, email, avatar_url, role, beta_features, account_id, account_role, is_super_admin, account:accounts!inner(id, name, default_currency)",
+          "id, full_name, email, avatar_url, role, beta_features, account_id, account_role, is_super_admin, account:accounts!inner(id, name, default_currency, industry, logo, status)",
         )
         .eq("user_id", userId)
         .maybeSingle();

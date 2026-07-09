@@ -52,6 +52,9 @@ export interface Account {
   ai_system_prompt?: string;
   created_at: string;
   updated_at: string;
+  industry?: string;
+  logo?: string;
+  status?: string;
 }
 
 /**

@@ -27,7 +27,7 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
   // 1. Fetch OpenRouter configuration from accounts
   const { data: account, error: accError } = await db
     .from('accounts')
-    .select('openrouter_api_key, openrouter_model, ai_system_prompt')
+    .select('openrouter_api_key, openrouter_model, ai_system_prompt, industry')
     .eq('id', accountId)
     .single()
 
@@ -165,7 +165,10 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
   }
 
   // 4. Formulate prompt messages
-  const basePrompt = account.ai_system_prompt || 
+  const { getIndustryModule } = require('@/modules/registry');
+  const activeModule = getIndustryModule(account?.industry);
+  
+  const basePrompt = account.ai_system_prompt || activeModule.systemPrompt ||
     `Use the System Message, Knowledge Base, and Conversation History as your primary sources of information.
 
 Always remember and maintain context from previous messages in the conversation. Use the Conversation History to understand the customer's intent, preferences, and previous interactions.
