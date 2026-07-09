@@ -58,6 +58,15 @@ export interface PipelineStageSeed {
   color: string;
 }
 
+export interface WorkflowSeed {
+  name: string;
+  description: string;
+  trigger_type: string;
+  trigger_config: any;
+  is_active: boolean;
+  steps: any[];
+}
+
 export interface IndustryModule {
   id: string;
   name: string;
@@ -69,4 +78,5 @@ export interface IndustryModule {
   campaignTemplates: CampaignTemplateItem[];
   copilotConfig: CopilotConfig;
   pipelineStages: PipelineStageSeed[];
+  workflows: WorkflowSeed[];
 }

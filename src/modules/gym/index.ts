@@ -7,10 +7,10 @@ import { campaignTemplateConfig } from './campaign-template';
 import { copilotConfig } from './copilot';
 import { workflowsConfig } from './workflows';
 
-export const coachingModule: IndustryModule = {
-  id: 'coaching',
-  name: 'Coaching Institute',
-  description: 'AI Admission Assistant',
+export const gymModule: IndustryModule = {
+  id: 'gym',
+  name: 'Gym & Fitness',
+  description: 'AI Membership Assistant',
   sidebar: sidebarConfig,
   dashboardMetrics: dashboardConfig,
   systemPrompt: systemPromptConfig,
@@ -19,10 +19,8 @@ export const coachingModule: IndustryModule = {
   copilotConfig: copilotConfig,
   workflows: workflowsConfig,
   pipelineStages: [
-    { name: 'Admission Lead Inbound', position: 1, color: '#3b82f6' },
-    { name: 'Demo Session Scheduled', position: 2, color: '#f59e0b' },
-    { name: 'Mock Test / Interview', position: 3, color: '#ec4899' },
-    { name: 'Fees Paid / Active Student', position: 4, color: '#10b981' }
+    { name: 'Trial Lead Inbound', position: 1, color: '#3b82f6' },
+    { name: 'Active Membership', position: 2, color: '#10b981' }
   ]
 };
 export * from './sidebar';

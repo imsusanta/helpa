@@ -202,6 +202,40 @@ export async function POST(request: Request) {
       }
     }
 
+    // 6. Pre-seed Workflow Automations
+    await ctx.supabase
+      .from("automations")
+      .delete()
+      .eq("account_id", ctx.accountId);
+
+    if (config.workflows && config.workflows.length > 0) {
+      const { insertSteps } = require("@/lib/automations/steps-tree");
+      for (const w of config.workflows) {
+        const { data: autoRecord, error: autoErr } = await ctx.supabase
+          .from("automations")
+          .insert({
+            account_id: ctx.accountId,
+            user_id: ctx.userId,
+            name: w.name,
+            description: w.description,
+            trigger_type: w.trigger_type,
+            trigger_config: w.trigger_config || {},
+            is_active: w.is_active,
+          })
+          .select("id")
+          .single();
+
+        if (autoErr || !autoRecord) {
+          console.error("[onboard route] failed to seed automation:", autoErr);
+          continue;
+        }
+
+        if (w.steps && w.steps.length > 0) {
+          await insertSteps(autoRecord.id, w.steps);
+        }
+      }
+    }
+
     return NextResponse.json({ success: true, industry: industryKey });
   } catch (err) {
     return toErrorResponse(err);

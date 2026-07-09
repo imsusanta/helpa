@@ -2,11 +2,17 @@ import { IndustryModule } from './types';
 import { hospitalModule } from './hospital';
 import { coachingModule } from './coaching';
 import { realEstateModule } from './real-estate';
+import { travelModule } from './travel';
+import { gymModule } from './gym';
+import { restaurantModule } from './restaurant';
 
 export const INDUSTRY_REGISTRY: Record<string, IndustryModule> = {
   hospital_clinic: hospitalModule,
   coaching: coachingModule,
   real_estate: realEstateModule,
+  travel: travelModule,
+  gym: gymModule,
+  restaurant: restaurantModule,
 };
 
 // Fallback module definition for 'general' or others
@@ -62,10 +68,13 @@ export const generalModule: IndustryModule = {
     { name: 'New Lead', position: 1, color: '#3b82f6' },
     { name: 'Won', position: 2, color: '#10b981' },
     { name: 'Lost', position: 3, color: '#ef4444' }
-  ]
+  ],
+  workflows: []
 };
 
 export function getIndustryModule(industry: string | null | undefined): IndustryModule {
   if (!industry) return generalModule;
   return INDUSTRY_REGISTRY[industry] || generalModule;
 }
+export * from './types';
+export * from './registry';
