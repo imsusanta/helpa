@@ -195,6 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               id: string;
               name: string;
               default_currency: string | null;
+              industry: string | null;
             } | null);
         // Narrow default_currency defensively: forks running pre-021
         // schemas won't have the column, so a missing/null value reads
@@ -204,7 +205,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               id: accountRaw.id,
               name: accountRaw.name,
               default_currency: accountRaw.default_currency ?? DEFAULT_CURRENCY,
-              industry: "hospital_clinic",
+              industry: accountRaw.industry ?? null,
             }
           : null;
 
