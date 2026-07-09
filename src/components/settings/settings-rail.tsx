@@ -3,9 +3,11 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/use-auth';
 import {
   RAIL_GROUPS,
-  SECTION_META,
+  getSectionMeta,
+  isSectionVisible,
   SETTINGS_SECTIONS,
   type SettingsSection,
 } from './settings-sections';
@@ -20,6 +22,9 @@ const RAIL_DESKTOP_MIN_PX = 1024;
  * horizontal scroller on narrow screens (mirrors the mockup's ≤920px
  * behaviour). The active item auto-scrolls into view when the rail is
  * horizontal so a deep-linked section is never off-screen.
+ *
+ * Labels and visible sections adapt dynamically based on the
+ * account's active industry template.
  */
 export function SettingsRail({
   active,
@@ -31,6 +36,8 @@ export function SettingsRail({
   hints?: Partial<Record<SettingsSection, ReactNode>>;
 }) {
   const activeRef = useRef<HTMLButtonElement>(null);
+  const { account } = useAuth();
+  const sectionMeta = getSectionMeta(account?.industry);
 
   // When horizontal (mobile), keep the active chip in view. On desktop
   // the rail is a static column, so skip.
@@ -55,8 +62,11 @@ export function SettingsRail({
     >
       {RAIL_GROUPS.map(({ label, group }) => {
         const items = SETTINGS_SECTIONS.filter(
-          (s) => SECTION_META[s].group === group,
+          (s) =>
+            sectionMeta[s].group === group &&
+            isSectionVisible(s, account?.industry),
         );
+        if (items.length === 0) return null;
         return (
           <div
             key={group}
@@ -68,7 +78,7 @@ export function SettingsRail({
               </div>
             ) : null}
             {items.map((s) => {
-              const meta = SECTION_META[s];
+              const meta = sectionMeta[s];
               const Icon = meta.icon;
               const isActive = s === active;
               return (

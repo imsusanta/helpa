@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,8 +9,115 @@ import { Textarea } from "@/components/ui/textarea";
 import { BellRing, Loader2, Sparkles, AlertCircle, Clock, FileText } from "lucide-react";
 import { toast } from "sonner";
 
+/* ------------------------------------------------------------------ */
+/*  Industry-aware context for reminder copy                           */
+/* ------------------------------------------------------------------ */
+
+interface ReminderContext {
+  /** e.g. "Appointment", "Booking", "Session", "Reservation" */
+  eventType: string;
+  /** e.g. "patients", "students", "clients", "members", "guests" */
+  personPlural: string;
+  /** Template variables shown in the helper box */
+  templateVars: { code: string; desc: string }[];
+}
+
+const REMINDER_CTX: Record<string, ReminderContext> = {
+  hospital_clinic: {
+    eventType: 'Appointment',
+    personPlural: 'patients',
+    templateVars: [
+      { code: '{{PatientName}}', desc: 'Patient Name' },
+      { code: '{{HospitalName}}', desc: 'Hospital Name' },
+      { code: '{{DoctorName}}', desc: 'Doctor Name' },
+      { code: '{{Department}}', desc: 'Doctor Department' },
+      { code: '{{AppointmentDate}}', desc: 'Booking Date' },
+      { code: '{{AppointmentTime}}', desc: 'Booking Time' },
+      { code: '{{TokenNumber}}', desc: 'Appointment Token' },
+      { code: '{{ReminderTime}}', desc: 'Time Left' },
+    ],
+  },
+  coaching: {
+    eventType: 'Session',
+    personPlural: 'students',
+    templateVars: [
+      { code: '{{StudentName}}', desc: 'Student Name' },
+      { code: '{{InstituteName}}', desc: 'Institute Name' },
+      { code: '{{TeacherName}}', desc: 'Teacher Name' },
+      { code: '{{CourseName}}', desc: 'Course Name' },
+      { code: '{{SessionDate}}', desc: 'Session Date' },
+      { code: '{{SessionTime}}', desc: 'Session Time' },
+      { code: '{{ReminderTime}}', desc: 'Time Left' },
+    ],
+  },
+  real_estate: {
+    eventType: 'Site Visit',
+    personPlural: 'clients',
+    templateVars: [
+      { code: '{{ClientName}}', desc: 'Client Name' },
+      { code: '{{AgencyName}}', desc: 'Agency Name' },
+      { code: '{{AgentName}}', desc: 'Agent Name' },
+      { code: '{{PropertyName}}', desc: 'Property Name' },
+      { code: '{{VisitDate}}', desc: 'Visit Date' },
+      { code: '{{VisitTime}}', desc: 'Visit Time' },
+      { code: '{{ReminderTime}}', desc: 'Time Left' },
+    ],
+  },
+  travel: {
+    eventType: 'Booking',
+    personPlural: 'travelers',
+    templateVars: [
+      { code: '{{TravelerName}}', desc: 'Traveler Name' },
+      { code: '{{AgencyName}}', desc: 'Agency Name' },
+      { code: '{{PackageName}}', desc: 'Package Name' },
+      { code: '{{TravelDate}}', desc: 'Travel Date' },
+      { code: '{{DepartureTime}}', desc: 'Departure Time' },
+      { code: '{{ReminderTime}}', desc: 'Time Left' },
+    ],
+  },
+  gym: {
+    eventType: 'Session',
+    personPlural: 'members',
+    templateVars: [
+      { code: '{{MemberName}}', desc: 'Member Name' },
+      { code: '{{GymName}}', desc: 'Gym Name' },
+      { code: '{{TrainerName}}', desc: 'Trainer Name' },
+      { code: '{{ClassName}}', desc: 'Class Name' },
+      { code: '{{SessionDate}}', desc: 'Session Date' },
+      { code: '{{SessionTime}}', desc: 'Session Time' },
+      { code: '{{ReminderTime}}', desc: 'Time Left' },
+    ],
+  },
+  restaurant: {
+    eventType: 'Reservation',
+    personPlural: 'guests',
+    templateVars: [
+      { code: '{{GuestName}}', desc: 'Guest Name' },
+      { code: '{{RestaurantName}}', desc: 'Restaurant Name' },
+      { code: '{{TableNumber}}', desc: 'Table Number' },
+      { code: '{{ReservationDate}}', desc: 'Reservation Date' },
+      { code: '{{ReservationTime}}', desc: 'Reservation Time' },
+      { code: '{{PartySize}}', desc: 'Party Size' },
+      { code: '{{ReminderTime}}', desc: 'Time Left' },
+    ],
+  },
+};
+
+const DEFAULT_CTX: ReminderContext = {
+  eventType: 'Event',
+  personPlural: 'contacts',
+  templateVars: [
+    { code: '{{ContactName}}', desc: 'Contact Name' },
+    { code: '{{BusinessName}}', desc: 'Business Name' },
+    { code: '{{EventDate}}', desc: 'Event Date' },
+    { code: '{{EventTime}}', desc: 'Event Time' },
+    { code: '{{ReminderTime}}', desc: 'Time Left' },
+  ],
+};
+
 export function ReminderPanel() {
-  const { canEditSettings } = useAuth();
+  const { canEditSettings, account } = useAuth();
+  const ctx = useMemo(() => REMINDER_CTX[account?.industry ?? ''] || DEFAULT_CTX, [account?.industry]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -99,7 +206,7 @@ export function ReminderPanel() {
         </div>
         <div>
           <h2 className="text-xl font-extrabold text-foreground flex items-center gap-2">
-            AI Smart Appointment Reminders
+            AI Smart {ctx.eventType} Reminders
             <span className="text-[10px] font-bold tracking-widest uppercase bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800/30">
               Active
             </span>
@@ -150,7 +257,7 @@ export function ReminderPanel() {
                     className="rounded border-border bg-background focus:ring-emerald-500 h-4 w-4 text-emerald-600 cursor-pointer"
                   />
                   <Label htmlFor="enable-24h" className="text-xs text-muted-foreground font-semibold cursor-pointer select-none">
-                    Send reminder 24 Hours before appointment
+                    Send reminder 24 Hours before {ctx.eventType.toLowerCase()}
                   </Label>
                 </div>
 
@@ -164,7 +271,7 @@ export function ReminderPanel() {
                     className="rounded border-border bg-background focus:ring-emerald-500 h-4 w-4 text-emerald-600 cursor-pointer"
                   />
                   <Label htmlFor="enable-2h" className="text-xs text-muted-foreground font-semibold cursor-pointer select-none">
-                    Send reminder 2 Hours before appointment
+                    Send reminder 2 Hours before {ctx.eventType.toLowerCase()}
                   </Label>
                 </div>
 
@@ -221,14 +328,9 @@ export function ReminderPanel() {
                 Available Template Variables:
               </p>
               <div className="grid grid-cols-2 gap-2.5 text-[10.5px] text-emerald-900/90 dark:text-emerald-300/90">
-                <div><code className="font-mono text-emerald-700 dark:text-emerald-400 bg-emerald-100/60 dark:bg-emerald-900/40 px-1 py-0.5 rounded border border-emerald-200/50 dark:border-emerald-800/30 font-bold">{"{{PatientName}}"}</code> - Patient Name</div>
-                <div><code className="font-mono text-emerald-700 dark:text-emerald-400 bg-emerald-100/60 dark:bg-emerald-900/40 px-1 py-0.5 rounded border border-emerald-200/50 dark:border-emerald-800/30 font-bold">{"{{HospitalName}}"}</code> - Hospital Name</div>
-                <div><code className="font-mono text-emerald-700 dark:text-emerald-400 bg-emerald-100/60 dark:bg-emerald-900/40 px-1 py-0.5 rounded border border-emerald-200/50 dark:border-emerald-800/30 font-bold">{"{{DoctorName}}"}</code> - Doctor Name</div>
-                <div><code className="font-mono text-emerald-700 dark:text-emerald-400 bg-emerald-100/60 dark:bg-emerald-900/40 px-1 py-0.5 rounded border border-emerald-200/50 dark:border-emerald-800/30 font-bold">{"{{Department}}"}</code> - Doctor Department</div>
-                <div><code className="font-mono text-emerald-700 dark:text-emerald-400 bg-emerald-100/60 dark:bg-emerald-900/40 px-1 py-0.5 rounded border border-emerald-200/50 dark:border-emerald-800/30 font-bold">{"{{AppointmentDate}}"}</code> - Booking Date</div>
-                <div><code className="font-mono text-emerald-700 dark:text-emerald-400 bg-emerald-100/60 dark:bg-emerald-900/40 px-1 py-0.5 rounded border border-emerald-200/50 dark:border-emerald-800/30 font-bold">{"{{AppointmentTime}}"}</code> - Booking Time</div>
-                <div><code className="font-mono text-emerald-700 dark:text-emerald-400 bg-emerald-100/60 dark:bg-emerald-900/40 px-1 py-0.5 rounded border border-emerald-200/50 dark:border-emerald-800/30 font-bold">{"{{TokenNumber}}"}</code> - Appointment Token</div>
-                <div><code className="font-mono text-emerald-700 dark:text-emerald-400 bg-emerald-100/60 dark:bg-emerald-900/40 px-1 py-0.5 rounded border border-emerald-200/50 dark:border-emerald-800/30 font-bold">{"{{ReminderTime}}"}</code> - Time Left</div>
+                {ctx.templateVars.map((v) => (
+                  <div key={v.code}><code className="font-mono text-emerald-700 dark:text-emerald-400 bg-emerald-100/60 dark:bg-emerald-900/40 px-1 py-0.5 rounded border border-emerald-200/50 dark:border-emerald-800/30 font-bold">{v.code}</code> - {v.desc}</div>
+                ))}
               </div>
             </div>
           </div>
@@ -257,7 +359,7 @@ export function ReminderPanel() {
                 className="rounded border-border bg-background focus:ring-emerald-500 h-4 w-4 text-emerald-600 cursor-pointer"
               />
               <Label htmlFor="bh-enabled" className="text-xs text-muted-foreground font-semibold cursor-pointer select-none">
-                Only send WhatsApp reminders during business hours (Avoids disturbing patients at night)
+                Only send WhatsApp reminders during business hours (Avoids disturbing {ctx.personPlural} at night)
               </Label>
             </div>
 
