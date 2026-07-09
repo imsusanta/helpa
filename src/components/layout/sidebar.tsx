@@ -40,6 +40,10 @@ import {
   ShoppingBag,
   Bot,
   BarChart3,
+  Building2,
+  Plane,
+  BookOpen,
+  type LucideIcon,
 } from "lucide-react";
 
 // Per-role chip metadata used in the sidebar's account strip + the
@@ -103,18 +107,16 @@ interface NavItem {
   beta?: boolean;
 }
 
-const navItems: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/dashboard/analytics", label: "AI Analytics", icon: Brain },
-  { href: "/inbox", label: "Inbox", icon: MessageSquare },
-  { href: "/contacts", label: "Contacts", icon: Users },
-  { href: "/pipelines", label: "Pipelines", icon: GitBranch },
-  { href: "/broadcasts", label: "Broadcasts", icon: Radio },
-  { href: "/automations", label: "Automations", icon: Zap },
-  { href: "/flows", label: "Flows", icon: Workflow, beta: true },
-];
-
-const bottomNavItems: any[] = [];
+/** Maps industry IDs to a Lucide icon for the sidebar logo. */
+const INDUSTRY_ICON: Record<string, LucideIcon> = {
+  hospital_clinic: Hospital,
+  coaching: GraduationCap,
+  real_estate: Building2,
+  travel: Plane,
+  gym: Dumbbell,
+  restaurant: Utensils,
+  general: Bot,
+};
 
 interface SidebarProps {
   /** Controlled on mobile by the Header's hamburger button. Ignored on lg+. */
@@ -122,7 +124,7 @@ interface SidebarProps {
   onClose?: () => void;
 }
 
-const ICON_COMPONENTS: Record<string, any> = {
+const ICON_COMPONENTS: Record<string, LucideIcon> = {
   LayoutDashboard,
   MessageSquare,
   Users,
@@ -132,6 +134,23 @@ const ICON_COMPONENTS: Record<string, any> = {
   Megaphone,
   Brain,
   Settings,
+  Hospital,
+  Home,
+  Compass,
+  GraduationCap,
+  Utensils,
+  Dumbbell,
+  ShoppingBag,
+  Bot,
+  BarChart3,
+  Building2,
+  Plane,
+  BookOpen,
+  CreditCard,
+  Radio,
+  GitBranch,
+  Zap,
+  Workflow,
 };
 
 export function Sidebar({ open = false, onClose }: SidebarProps) {
@@ -222,11 +241,16 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
             close button is hidden since the sidebar is always-visible. */}
         <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border px-4">
           <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Hospital className="h-4 w-4" />
-            </div>
-            <span className="text-sm font-semibold text-foreground">
-              AI Hospital Receptionist
+            {(() => {
+              const LogoIcon = INDUSTRY_ICON[activeModule.id] || Bot;
+              return (
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                  <LogoIcon className="h-4 w-4" />
+                </div>
+              );
+            })()}
+            <span className="text-sm font-semibold text-foreground truncate">
+              {activeModule.description || activeModule.name}
             </span>
           </Link>
           <button

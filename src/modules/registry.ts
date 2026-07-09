@@ -54,7 +54,7 @@ export const generalModule: IndustryModule = {
     {
       name: 'General Offer Newsletter',
       category: 'General Announcement',
-      messageBody: 'Hello {{PatientName}}, thank you for being a valued customer. Check out our website for updates!',
+      messageBody: 'Hello {{Name}}, thank you for being a valued customer. Check out our website for updates!',
       ctaType: 'none'
     }
   ],
