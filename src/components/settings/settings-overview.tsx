@@ -10,7 +10,10 @@ import { THEMES } from '@/lib/themes';
 import { CURRENCIES } from '@/lib/currency';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
 
 import { SECTION_META, type SettingsSection } from './settings-sections';
 import { SettingsChip, StatusDot } from './settings-chip';
@@ -35,18 +38,42 @@ export function SettingsOverview({
 }: {
   onSelect: (section: SettingsSection) => void;
 }) {
-  const { user, profile, accountId, accountRole, defaultCurrency, canManageMembers } =
+  const { user, profile, account, accountId, accountRole, defaultCurrency, canManageMembers, refreshProfile, refreshModules } =
     useAuth();
   const { mode, theme } = useTheme();
 
   const [counts, setCounts] = useState<OverviewCounts | null>(null);
   const [countsLoading, setCountsLoading] = useState(true);
-  // WhatsApp status is tracked separately: its health check decrypts the
-  // token and pings Meta, which is far slower than the cheap count
-  // queries. Gating it independently keeps a slow/flaky Meta round-trip
-  // from blanking the rest of the landing.
   const [whatsapp, setWhatsapp] = useState<WhatsAppStatus | null>(null);
   const [whatsappLoading, setWhatsappLoading] = useState(true);
+  const [resetting, setResetting] = useState(false);
+
+  const handleResetOnboarding = async () => {
+    if (!confirm('Are you sure you want to change your workspace business type? This will allow you to select a new industry template, which will reset your sidebar modules, pipeline stages, knowledge base, and campaign templates.')) {
+      return;
+    }
+
+    setResetting(true);
+    try {
+      const response = await fetch('/api/account/onboard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reset: true }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Failed to reset workspace template');
+
+      toast.success('Workspace template reset successfully! Redirecting...');
+      await refreshProfile();
+      await refreshModules();
+      window.location.href = '/dashboard'; // Force full page reload
+    } catch (err: any) {
+      toast.error(err.message || 'Reset failed.');
+    } finally {
+      setResetting(false);
+    }
+  };
 
   useEffect(() => {
     if (!user || !accountId) return;
@@ -250,6 +277,26 @@ export function SettingsOverview({
             {roleMeta.label}
           </SettingsChip>
         ) : null}
+      </Card>
+
+      {/* Workspace Switcher / Reset Template */}
+      <Card className="mt-4 flex flex-row items-center justify-between px-5 py-4 bg-card border border-border rounded-xl shadow-sm">
+        <div>
+          <h4 className="text-sm font-semibold text-foreground">Workspace Business Template</h4>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Active industry configuration: <span className="font-bold text-indigo-600 dark:text-indigo-400 capitalize">{account?.industry?.replace('_', ' ') || 'General'}</span>
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={resetting}
+          onClick={handleResetOnboarding}
+          className="cursor-pointer text-xs flex items-center gap-1 border-red-200 hover:bg-red-50 hover:text-red-600 dark:border-red-900/30 dark:hover:bg-red-900/10 text-red-500 font-semibold"
+        >
+          {resetting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+          Change Workspace Template
+        </Button>
       </Card>
 
       {/* Status tiles */}
