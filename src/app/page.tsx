@@ -82,7 +82,7 @@ export default function LandingPage() {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
               <MessageSquare className="h-4 w-4 text-white" />
             </div>
-            <span className="text-lg font-semibold tracking-tight text-white">CareFlow</span>
+            <span className="text-lg font-semibold tracking-tight text-white">Helpa</span>
           </Link>
           <nav className="hidden items-center gap-8 text-sm text-zinc-400 md:flex">
             <a href="#features" className="transition-colors hover:text-white">Features</a>
@@ -128,7 +128,7 @@ export default function LandingPage() {
             Your AI Receptionist<br />for WhatsApp
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-zinc-400">
-            CareFlow instantly answers customer questions, books appointments, captures leads, and works 24/7 — so your team can focus on running the business.
+            Helpa instantly answers customer questions, books appointments, captures leads, and works 24/7 — so your team can focus on running the business.
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link href={user ? "/dashboard" : "/signup"} className="flex items-center gap-2 rounded-full bg-indigo-600 px-7 py-3.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700">
@@ -148,7 +148,7 @@ export default function LandingPage() {
               <span className="h-3 w-3 rounded-full bg-red-500/70"></span>
               <span className="h-3 w-3 rounded-full bg-yellow-500/70"></span>
               <span className="h-3 w-3 rounded-full bg-green-500/70"></span>
-              <span className="ml-4 text-xs text-zinc-500">app.careflow.ai</span>
+              <span className="ml-4 text-xs text-zinc-500">app.helpa.ai</span>
             </div>
             <div className="grid gap-4 p-5 md:grid-cols-[1.2fr_1fr]">
               <div className="space-y-2">
@@ -245,7 +245,7 @@ export default function LandingPage() {
           <div className="group rounded-2xl border border-white/10 bg-white/[0.02] p-6 transition hover:-translate-y-1 hover:border-indigo-500/50">
             <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-400"><HelpCircle className="h-5 w-5" /></div>
             <h3 className="font-semibold text-zinc-100">FAQ Automation</h3>
-            <p className="mt-2 text-sm text-zinc-400">Train CareFlow once on your pricing, hours, and policies — it never gets tired of repeating them.</p>
+            <p className="mt-2 text-sm text-zinc-400">Train Helpa once on your pricing, hours, and policies — it never gets tired of repeating them.</p>
           </div>
           <div className="group rounded-2xl border border-white/10 bg-white/[0.02] p-6 transition hover:-translate-y-1 hover:border-indigo-500/50">
             <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-400"><UserCheck className="h-5 w-5" /></div>
@@ -255,7 +255,7 @@ export default function LandingPage() {
           <div className="group rounded-2xl border border-white/10 bg-white/[0.02] p-6 transition hover:-translate-y-1 hover:border-indigo-500/50">
             <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-400"><Globe2 className="h-5 w-5" /></div>
             <h3 className="font-semibold text-zinc-100">Multi-language Support</h3>
-            <p className="mt-2 text-sm text-zinc-400">CareFlow detects the customer's language and replies in kind, automatically.</p>
+            <p className="mt-2 text-sm text-zinc-400">Helpa detects the customer's language and replies in kind, automatically.</p>
           </div>
           <div className="group rounded-2xl border border-white/10 bg-white/[0.02] p-6 transition hover:-translate-y-1 hover:border-indigo-500/50">
             <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-400"><BarChart3 className="h-5 w-5" /></div>
@@ -275,7 +275,7 @@ export default function LandingPage() {
           <div className="group rounded-2xl border border-white/10 bg-white/[0.02] p-6 transition hover:-translate-y-1 hover:border-indigo-500/50">
             <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-400"><BookOpen className="h-5 w-5" /></div>
             <h3 className="font-semibold text-zinc-100">Knowledge Base Training</h3>
-            <p className="mt-2 text-sm text-zinc-400">Upload docs, PDFs, and past chats. CareFlow keeps learning your business over time.</p>
+            <p className="mt-2 text-sm text-zinc-400">Upload docs, PDFs, and past chats. Helpa keeps learning your business over time.</p>
           </div>
         </div>
       </section>
@@ -313,7 +313,7 @@ export default function LandingPage() {
       <section id="industries" className="mx-auto max-w-7xl px-6 py-24">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl text-white">Built for Every Service Business</h2>
-          <p className="mt-4 text-zinc-400">One location or fifty — CareFlow scales with your WhatsApp volume.</p>
+          <p className="mt-4 text-zinc-400">One location or fifty — Helpa scales with your WhatsApp volume.</p>
         </div>
         <div className="mt-14 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           <div className="flex flex-col items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.02] p-6 text-center transition hover:border-indigo-500/50">
@@ -416,7 +416,7 @@ export default function LandingPage() {
               <div className="grid gap-4 p-6 md:grid-cols-3 animate-in fade-in duration-200">
                 <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4"><p className="text-xs text-zinc-500">Active Numbers</p><p className="mt-1 text-2xl font-semibold">3</p><p className="mt-1 text-xs text-emerald-400">All connected</p></div>
                 <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4"><p className="text-xs text-zinc-500">Team Members</p><p className="mt-1 text-2xl font-semibold">12</p><p className="mt-1 text-xs text-zinc-400">Roles configured</p></div>
-                <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4"><p className="text-xs text-zinc-500">Integrations</p><p className="mt-1 text-2xl font-semibold">7</p><p className="mt-1 text-emerald-400">All synced</p></div>
+                <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4"><p className="text-xs text-zinc-500">Integrations</p><p className="mt-1 text-emerald-400">All synced</p></div>
               </div>
             )}
           </div>
@@ -430,7 +430,7 @@ export default function LandingPage() {
         </div>
         <div className="mt-14 grid gap-5 md:grid-cols-3 text-left">
           <div className="flex flex-col justify-between rounded-2xl border border-white/10 bg-white/[0.02] p-6">
-            <p className="text-sm text-zinc-200">"We used to miss 30–40% of WhatsApp enquiries after hours. With CareFlow, every message gets a response in seconds — bookings are up 40%."</p>
+            <p className="text-sm text-zinc-200">"We used to miss 30–40% of WhatsApp enquiries after hours. With Helpa, every message gets a response in seconds — bookings are up 40%."</p>
             <p className="mt-6 text-xs text-zinc-500">Owner, Multi-speciality Clinic</p>
           </div>
           <div className="flex flex-col justify-between rounded-2xl border border-white/10 bg-white/[0.02] p-6">
@@ -438,7 +438,7 @@ export default function LandingPage() {
             <p className="mt-6 text-xs text-zinc-500">Founder, Coaching Centre</p>
           </div>
           <div className="flex flex-col justify-between rounded-2xl border border-white/10 bg-white/[0.02] p-6">
-            <p className="text-sm text-zinc-200">"Our team only steps in for complex cases now. CareFlow quietly runs the front desk on WhatsApp, all day, every day."</p>
+            <p className="text-sm text-zinc-200">"Our team only steps in for complex cases now. Helpa quietly runs the front desk on WhatsApp, all day, every day."</p>
             <p className="mt-6 text-xs text-zinc-500">GM, Boutique Hotel</p>
           </div>
         </div>
@@ -494,7 +494,7 @@ export default function LandingPage() {
                 <li className="flex items-start gap-2 text-sm text-zinc-300"><CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-indigo-400" />Custom SLAs & security review</li>
                 <li className="flex items-start gap-2 text-sm text-zinc-300"><CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-indigo-400" />White-label option</li>
               </ul>
-              <a href="mailto:sales@careflow.ai" className="mt-8 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-center text-sm font-medium text-zinc-200 transition hover:bg-white/10">Contact Sales</a>
+              <a href="mailto:sales@helpa.ai" className="mt-8 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-center text-sm font-medium text-zinc-200 transition hover:bg-white/10">Contact Sales</a>
             </div>
           </div>
           <div className="mx-auto mt-8 flex max-w-3xl flex-col items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.02] p-6 text-center sm:flex-row sm:text-left">
@@ -502,7 +502,7 @@ export default function LandingPage() {
               <p className="font-medium">Need volume pricing or a custom setup?</p>
               <p className="mt-1 text-sm text-zinc-400">Talk to our team about multi-location or high-volume WhatsApp flows.</p>
             </div>
-            <a href="mailto:sales@careflow.ai" className="flex items-center gap-2 whitespace-nowrap rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium hover:bg-white/10 text-white">Contact Sales <ArrowRight className="h-4 w-4" /></a>
+            <a href="mailto:sales@helpa.ai" className="flex items-center gap-2 whitespace-nowrap rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium hover:bg-white/10 text-white">Contact Sales <ArrowRight className="h-4 w-4" /></a>
           </div>
         </div>
       </section>
@@ -515,12 +515,12 @@ export default function LandingPage() {
         <div className="mt-12 divide-y divide-white/10 text-left">
           <div className="py-5">
             <button onClick={() => setActiveFaq(activeFaq === 1 ? null : 1)} className="flex w-full items-center justify-between text-left cursor-pointer">
-              <span className="font-medium text-zinc-100">How does CareFlow integrate with WhatsApp?</span>
+              <span className="font-medium text-zinc-100">How does Helpa integrate with WhatsApp?</span>
               <ChevronDown className={`h-4 w-4 flex-shrink-0 text-zinc-500 transition-transform duration-300 ${activeFaq === 1 ? 'rotate-180' : ''}`} />
             </button>
             {activeFaq === 1 && (
               <div className="mt-3 text-sm text-zinc-400 animate-in fade-in duration-200">
-                CareFlow connects through the official WhatsApp Business API. You keep your existing number — no migrations, no new SIMs. Setup takes minutes and we handle the technical configuration.
+                Helpa connects through the official WhatsApp Business API. You keep your existing number — no migrations, no new SIMs. Setup takes minutes and we handle the technical configuration.
               </div>
             )}
           </div>
@@ -531,7 +531,7 @@ export default function LandingPage() {
             </button>
             {activeFaq === 2 && (
               <div className="mt-3 text-sm text-zinc-400 animate-in fade-in duration-200">
-                CareFlow only answers from the business information you provide — pricing, services, hours, policies. It never improvises. Anything outside its knowledge is escalated to a human instead of guessed.
+                Helpa only answers from the business information you provide — pricing, services, hours, policies. It never improvises. Anything outside its knowledge is escalated to a human instead of guessed.
               </div>
             )}
           </div>
@@ -564,7 +564,7 @@ export default function LandingPage() {
             </button>
             {activeFaq === 5 && (
               <div className="mt-3 text-sm text-zinc-400 animate-in fade-in duration-200">
-                Most businesses go live within a day. Connect your WhatsApp, upload your FAQs and pricing, and CareFlow starts handling real conversations immediately.
+                Most businesses go live within a day. Connect your WhatsApp, upload your FAQs and pricing, and Helpa starts handling real conversations immediately.
               </div>
             )}
           </div>
@@ -575,7 +575,7 @@ export default function LandingPage() {
       <section id="demo" className="px-6 py-24">
         <div className="relative mx-auto max-w-4xl overflow-hidden rounded-3xl border border-white/10 bg-[radial-gradient(ellipse_80%_80%_at_50%_0%,rgba(79,70,229,0.3),transparent)] p-14 text-center">
           <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl text-white">Never Miss Another Customer</h2>
-          <p className="mx-auto mt-4 max-w-md text-zinc-400">Let CareFlow answer customers 24/7 while you focus on growing your business.</p>
+          <p className="mx-auto mt-4 max-w-md text-zinc-400">Let Helpa answer customers 24/7 while you focus on growing your business.</p>
           <Link href={user ? "/dashboard" : "/signup"} className="mt-8 inline-flex items-center gap-2 rounded-full bg-indigo-600 px-8 py-3.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700">
             Book Your Free Demo <ArrowRight className="h-4 w-4" />
           </Link>
@@ -587,17 +587,17 @@ export default function LandingPage() {
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 sm:flex-row">
           <div className="flex items-center gap-2">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600"><MessageSquare className="h-3.5 w-3.5 text-white" /></div>
-            <span className="font-semibold text-white">CareFlow</span>
+            <span className="font-semibold text-white">Helpa</span>
           </div>
           <div className="flex flex-wrap justify-center gap-6 text-sm text-zinc-500">
             <a href="#features" className="hover:text-white">Features</a>
             <a href="#industries" className="hover:text-white">Industries</a>
             <a href="#pricing" className="hover:text-white">Pricing</a>
-            <a href="mailto:hello@careflow.ai" className="hover:text-white">Contact</a>
+            <a href="mailto:hello@helpa.ai" className="hover:text-white">Contact</a>
             <a href="#" className="hover:text-white">Privacy Policy</a>
             <a href="#" className="hover:text-white">Terms</a>
           </div>
-          <p className="text-sm text-zinc-600">© {new Date().getFullYear()} CareFlow</p>
+          <p className="text-sm text-zinc-600">© {new Date().getFullYear()} Helpa</p>
         </div>
       </footer>
 
