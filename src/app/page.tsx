@@ -67,12 +67,48 @@ export default function LandingPage() {
         html {
           scroll-behavior: smooth;
         }
-        .float-anim {
-          animation: floatAnim 6s ease-in-out infinite;
+        .hero-reveal {
+          animation: heroReveal 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
         }
-        @keyframes floatAnim {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-8px); }
+        .hero-reveal-delay-1 {
+          animation-delay: 80ms;
+        }
+        .hero-reveal-delay-2 {
+          animation-delay: 180ms;
+        }
+        .hero-reveal-delay-3 {
+          animation-delay: 280ms;
+        }
+        .hero-reveal-dashboard {
+          animation-delay: 380ms;
+          animation-duration: 800ms;
+        }
+        .hero-dashboard-float {
+          animation: heroFloat 6s ease-in-out infinite;
+        }
+        @keyframes heroReveal {
+          from {
+            opacity: 0;
+            transform: translateY(20px) scale(0.985);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+        @keyframes heroFloat {
+          0%, 100% {
+            transform: translateY(0);
+          }
+          50% {
+            transform: translateY(-8px);
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .hero-reveal,
+          .hero-dashboard-float {
+            animation: none;
+          }
         }
       `}</style>
 
@@ -131,17 +167,17 @@ export default function LandingPage() {
       <section className="relative overflow-hidden px-6 pb-24 pt-20 sm:pt-28">
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_60%_50%_at_50%_-10%,rgba(79,70,229,0.12),transparent)]"></div>
         <div className="mx-auto max-w-4xl text-center">
-          <div className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs font-medium text-muted-foreground shadow-sm transition-colors duration-300">
+          <div className="hero-reveal mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs font-medium text-muted-foreground shadow-sm transition-colors duration-300">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
             Automated WhatsApp Assistant for Indian Service Businesses
           </div>
-          <h1 className="text-5xl font-bold tracking-tight sm:text-6xl lg:text-7xl text-foreground">
+          <h1 className="hero-reveal hero-reveal-delay-1 text-5xl font-bold tracking-tight sm:text-6xl lg:text-7xl text-foreground">
             Your AI Receptionist<br />on WhatsApp
           </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground leading-relaxed">
+          <p className="hero-reveal hero-reveal-delay-2 mx-auto mt-6 max-w-2xl text-lg text-muted-foreground leading-relaxed">
             Helpa instantly replies to customer enquiries, books appointments, shares pricing details, and stays active 24/7 — so your team can focus on serving walk-in clients.
           </p>
-          <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+          <div className="hero-reveal hero-reveal-delay-3 mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link href={user ? "/dashboard" : "/signup"} className="flex items-center gap-2 rounded-full bg-indigo-600 px-7 py-3.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 shadow-sm shadow-indigo-600/10">
               Book a Demo <ArrowRight className="h-4 w-4" />
             </Link>
@@ -152,64 +188,66 @@ export default function LandingPage() {
         </div>
 
         {/* Dashboard mockup (Keep dark theme for premium developer contrast) */}
-        <div className="relative mx-auto mt-20 max-w-5xl float-anim">
-          <div className="absolute -inset-10 -z-10 rounded-3xl bg-indigo-600/5 blur-3xl"></div>
-          <div className="overflow-hidden rounded-3xl border border-zinc-200/80 bg-zinc-950 dark:border-zinc-800 shadow-2xl transition-colors duration-300">
-            <div className="flex items-center gap-2 border-b border-zinc-800 px-4 py-3 bg-zinc-900/50">
-              <span className="h-3 w-3 rounded-full bg-red-500/70"></span>
-              <span className="h-3 w-3 rounded-full bg-yellow-500/70"></span>
-              <span className="h-3 w-3 rounded-full bg-green-500/70"></span>
-              <span className="ml-4 text-xs text-zinc-500">app.helpa.ai</span>
-            </div>
-            <div className="grid gap-4 p-5 md:grid-cols-[1.2fr_1fr]">
-              <div className="space-y-2">
-                <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 px-4 py-3 text-left">
-                  <div className="flex justify-between text-xs">
-                    <span className="font-medium text-zinc-200">Priya — New Enquiry</span>
-                    <span className="text-zinc-500">WhatsApp</span>
-                  </div>
-                  <p className="mt-1 text-xs text-zinc-400">Do you have appointment slots available this evening?</p>
-                  <p className="mt-1 text-[11px] text-emerald-400">AI replied · 2m ago</p>
-                </div>
-                <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 px-4 py-3 text-left">
-                  <div className="flex justify-between text-xs">
-                    <span className="font-medium text-zinc-200">Rahul — Rescheduling</span>
-                    <span className="text-zinc-500">WhatsApp</span>
-                  </div>
-                  <p className="mt-1 text-xs text-zinc-400">Can I shift my booking to tomorrow morning?</p>
-                  <p className="mt-1 text-[11px] text-zinc-500">Awaiting staff takeover</p>
-                </div>
-                <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 px-4 py-3 text-left">
-                  <div className="flex justify-between text-xs">
-                    <span className="font-medium text-zinc-200">Mr. Sharma</span>
-                    <span className="text-zinc-500">WhatsApp</span>
-                  </div>
-                  <p className="mt-1 text-xs text-zinc-400">What are your consultation charges?</p>
-                  <p className="mt-1 text-[11px] text-emerald-400">AI replied · 5m ago</p>
-                </div>
+        <div className="hero-reveal hero-reveal-dashboard relative mx-auto mt-20 max-w-5xl">
+          <div className="hero-dashboard-float">
+            <div className="absolute -inset-10 -z-10 rounded-3xl bg-indigo-600/5 blur-3xl"></div>
+            <div className="overflow-hidden rounded-3xl border border-zinc-200/80 bg-zinc-950 dark:border-zinc-800 shadow-2xl transition-colors duration-300">
+              <div className="flex items-center gap-2 border-b border-zinc-800 px-4 py-3 bg-zinc-900/50">
+                <span className="h-3 w-3 rounded-full bg-red-500/70"></span>
+                <span className="h-3 w-3 rounded-full bg-yellow-500/70"></span>
+                <span className="h-3 w-3 rounded-full bg-green-500/70"></span>
+                <span className="ml-4 text-xs text-zinc-500">app.helpa.ai</span>
               </div>
-              <div className="space-y-3 text-left text-zinc-100">
-                <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 p-4">
-                  <p className="mb-3 text-xs text-zinc-500">Last 24 hours</p>
-                  <div className="grid grid-cols-3 gap-2 text-center">
-                    <div className="rounded-xl bg-black/40 p-2">
-                      <p className="text-[11px] text-zinc-500">Total Chats</p>
-                      <p className="text-lg font-semibold">182</p>
+              <div className="grid gap-4 p-5 md:grid-cols-[1.2fr_1fr]">
+                <div className="space-y-2">
+                  <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 px-4 py-3 text-left">
+                    <div className="flex justify-between text-xs">
+                      <span className="font-medium text-zinc-200">Priya — New Enquiry</span>
+                      <span className="text-zinc-500">WhatsApp</span>
                     </div>
-                    <div className="rounded-xl bg-black/40 p-2">
-                      <p className="text-[11px] text-zinc-500">Bookings</p>
-                      <p className="text-lg font-semibold text-emerald-400">29</p>
+                    <p className="mt-1 text-xs text-zinc-400">Do you have appointment slots available this evening?</p>
+                    <p className="mt-1 text-[11px] text-emerald-400">AI replied · 2m ago</p>
+                  </div>
+                  <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 px-4 py-3 text-left">
+                    <div className="flex justify-between text-xs">
+                      <span className="font-medium text-zinc-200">Rahul — Rescheduling</span>
+                      <span className="text-zinc-500">WhatsApp</span>
                     </div>
-                    <div className="rounded-xl bg-black/40 p-2">
-                      <p className="text-[11px] text-zinc-500">Enquiries</p>
-                      <p className="text-lg font-semibold text-indigo-400">47</p>
+                    <p className="mt-1 text-xs text-zinc-400">Can I shift my booking to tomorrow morning?</p>
+                    <p className="mt-1 text-[11px] text-zinc-500">Awaiting staff takeover</p>
+                  </div>
+                  <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 px-4 py-3 text-left">
+                    <div className="flex justify-between text-xs">
+                      <span className="font-medium text-zinc-200">Mr. Sharma</span>
+                      <span className="text-zinc-500">WhatsApp</span>
                     </div>
+                    <p className="mt-1 text-xs text-zinc-400">What are your consultation charges?</p>
+                    <p className="mt-1 text-[11px] text-emerald-400">AI replied · 5m ago</p>
                   </div>
                 </div>
-                <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 p-4 text-xs text-zinc-400">
-                  <p className="mb-2 font-medium text-zinc-200">Upcoming Today</p>
-                  <div className="flex justify-between"><span>Doctor consultation</span><span>5:30 PM</span></div>
-                  <div className="mt-1 flex justify-between"><span>Hair treatment — Glow Salon</span><span>6:15 PM</span></div>
+                <div className="space-y-3 text-left text-zinc-100">
+                  <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 p-4">
+                    <p className="mb-3 text-xs text-zinc-500">Last 24 hours</p>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="rounded-xl bg-black/40 p-2">
+                        <p className="text-[11px] text-zinc-500">Total Chats</p>
+                        <p className="text-lg font-semibold">182</p>
+                      </div>
+                      <div className="rounded-xl bg-black/40 p-2">
+                        <p className="text-[11px] text-zinc-500">Bookings</p>
+                        <p className="text-lg font-semibold text-emerald-400">29</p>
+                      </div>
+                      <div className="rounded-xl bg-black/40 p-2">
+                        <p className="text-[11px] text-zinc-500">Enquiries</p>
+                        <p className="text-lg font-semibold text-indigo-400">47</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 p-4 text-xs text-zinc-400">
+                    <p className="mb-2 font-medium text-zinc-200">Upcoming Today</p>
+                    <div className="flex justify-between"><span>Doctor consultation</span><span>5:30 PM</span></div>
+                    <div className="mt-1 flex justify-between"><span>Hair treatment — Glow Salon</span><span>6:15 PM</span></div>
+                  </div>
                 </div>
               </div>
             </div>
