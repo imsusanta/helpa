@@ -102,7 +102,7 @@ interface Plan {
 }
 
 export function AdminDashboardClient() {
-  const [activeTab, setActiveTab] = useState<"overview" | "tenants" | "plans">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "tenants" | "plans" | "landing">("overview");
   const [loading, setLoading] = useState(true);
 
   // States
@@ -110,6 +110,11 @@ export function AdminDashboardClient() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [landingSettings, setLandingSettings] = useState({
+    landing_hero_video_url: "https://www.youtube.com/embed/gFx-NjTw3sM",
+    landing_action_video_url: "https://www.youtube.com/embed/gFx-NjTw3sM",
+  });
+  const [submittingSettings, setSubmittingSettings] = useState(false);
 
   // Subscription Edit Dialog State
   const [subDialogOpen, setSubDialogOpen] = useState(false);
@@ -138,20 +143,55 @@ export function AdminDashboardClient() {
   async function loadData() {
     setLoading(true);
     try {
-      const [mRes, tRes, pRes] = await Promise.all([
+      const [mRes, tRes, pRes, sRes] = await Promise.all([
         fetch("/api/admin/metrics"),
         fetch("/api/admin/tenants"),
         fetch("/api/admin/plans"),
+        fetch("/api/admin/settings"),
       ]);
 
       if (mRes.ok) setMetrics(await mRes.json());
       if (tRes.ok) setTenants(await tRes.json());
       if (pRes.ok) setPlans(await pRes.json());
+      if (sRes.ok) {
+        const settings = await sRes.json();
+        setLandingSettings((prev) => ({
+          ...prev,
+          landing_hero_video_url: settings.landing_hero_video_url || prev.landing_hero_video_url,
+          landing_action_video_url: settings.landing_action_video_url || prev.landing_action_video_url,
+        }));
+      }
     } catch (err) {
       console.error(err);
       toast.error("Failed to load SaaS admin data");
     } finally {
       setLoading(false);
+    }
+  }
+
+  // Save Landing Page Settings
+  async function handleSaveSettings(e: React.FormEvent) {
+    e.preventDefault();
+    setSubmittingSettings(true);
+    try {
+      const response = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(landingSettings),
+      });
+
+      if (response.ok) {
+        toast.success("Landing page video links updated successfully");
+        loadData();
+      } else {
+        const data = await response.json();
+        toast.error(data.error || "Failed to update landing settings");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Error saving landing settings");
+    } finally {
+      setSubmittingSettings(false);
     }
   }
 
@@ -374,8 +414,9 @@ export function AdminDashboardClient() {
 
       {/* Modernized Tab selection triggers */}
       <div className="flex gap-2 border-b border-border">
-        {["overview", "tenants", "plans"].map((tab) => {
+        {["overview", "tenants", "plans", "landing"].map((tab) => {
           const isActive = activeTab === tab;
+          const label = tab === "landing" ? "landing page" : tab;
           return (
             <button
               key={tab}
@@ -386,7 +427,7 @@ export function AdminDashboardClient() {
                   : "border-transparent text-muted-foreground hover:text-foreground"
               }`}
             >
-              {tab}
+              {label}
             </button>
           );
         })}
@@ -675,6 +716,57 @@ export function AdminDashboardClient() {
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* LANDING TAB */}
+      {activeTab === "landing" && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <div>
+            <h3 className="text-md font-bold text-foreground">Landing Page Settings</h3>
+            <p className="text-xs text-muted-foreground">Manage the video embeds displayed on the public landing page</p>
+          </div>
+
+          <Card className="bg-card border-border max-w-2xl">
+            <CardHeader>
+              <CardTitle className="text-sm font-extrabold uppercase tracking-wider text-foreground">YouTube Video Embeds</CardTitle>
+              <CardDescription className="text-xs text-muted-foreground">
+                Provide valid YouTube embed URLs (e.g. <code>https://www.youtube.com/embed/VIDEO_ID</code>) to change the landing page videos.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSaveSettings} className="space-y-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="heroVideoInput" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Hero Video URL</Label>
+                  <Input
+                    id="heroVideoInput"
+                    placeholder="https://www.youtube.com/embed/..."
+                    value={landingSettings.landing_hero_video_url}
+                    onChange={(e) => setLandingSettings(prev => ({ ...prev, landing_hero_video_url: e.target.value }))}
+                    className="bg-background text-foreground border-border focus-visible:ring-emerald-500 text-xs font-mono"
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="actionVideoInput" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Product Walkthrough Video URL</Label>
+                  <Input
+                    id="actionVideoInput"
+                    placeholder="https://www.youtube.com/embed/..."
+                    value={landingSettings.landing_action_video_url}
+                    onChange={(e) => setLandingSettings(prev => ({ ...prev, landing_action_video_url: e.target.value }))}
+                    className="bg-background text-foreground border-border focus-visible:ring-emerald-500 text-xs font-mono"
+                  />
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <Button type="submit" disabled={submittingSettings} className="bg-emerald-700 hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-bold cursor-pointer transition-all">
+                    {submittingSettings && <Loader2 className="size-3.5 animate-spin mr-1.5" />}
+                    Save Video Settings
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
         </div>
       )}
 
