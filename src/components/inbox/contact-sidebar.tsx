@@ -31,14 +31,30 @@ import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 
+import { getIndustryModule } from "@/modules/registry";
+
 interface ContactSidebarProps {
   contact: Contact | null;
   conversation?: Conversation | null;
   isEmbedded?: boolean;
 }
 
-export function ContactSidebar({ contact, conversation, isEmbedded }: ContactSidebarProps) {
-  const { accountId, enabledModules } = useAuth();
+export function ContactSidebar({
+  contact,
+  conversation,
+  isEmbedded = false,
+}: ContactSidebarProps) {
+  const { accountId, enabledModules, account } = useAuth();
+  
+  const pipelineTitle = 
+    account?.industry === "hospital_clinic" ? "Patient Care Cycle" :
+    (account?.industry === "coaching" || account?.industry === "solo_teacher") ? "Enrollment Pipeline" :
+    account?.industry === "real_estate" ? "Deals / Pipeline" :
+    account?.industry === "travel" ? "Trip Bookings" :
+    account?.industry === "gym" ? "Membership Stages" :
+    account?.industry === "restaurant" ? "Reservation Pipeline" :
+    "Deals / Pipeline";
+
   const [copied, setCopied] = useState(false);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [notes, setNotes] = useState<ContactNote[]>([]);
@@ -66,61 +82,80 @@ export function ContactSidebar({ contact, conversation, isEmbedded }: ContactSid
     if (!contact) return;
 
     const supabase = createClient();
+    const isHospital = account?.industry === "hospital_clinic";
 
-    // Fetch deals, notes, tags, and patient in parallel
-    const [dealsRes, notesRes, tagsRes, patientRes, apptRes, reportRes] = await Promise.all([
-      supabase
-        .from("deals")
-        .select("*, stage:pipeline_stages(*)")
-        .eq("contact_id", contact.id)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("contact_notes")
-        .select("*")
-        .eq("contact_id", contact.id)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("contact_tags")
-        .select("id, tag_id, tags(*)")
-        .eq("contact_id", contact.id),
-      supabase
-        .from("patients")
-        .select("*")
-        .eq("id", contact.id)
-        .maybeSingle(),
-      supabase
-        .from("appointments")
-        .select("*, doctor:hospital_doctors(name)")
-        .eq("patient_id", contact.id)
-        .gte("appointment_date", new Date().toISOString().split("T")[0])
-        .order("appointment_date", { ascending: true })
-        .order("appointment_time", { ascending: true })
-        .limit(1)
-        .maybeSingle(),
-      supabase
-        .from("hospital_lab_reports")
-        .select("*")
-        .eq("patient_id", contact.id)
-        .order("created_at", { ascending: false })
-        .limit(5),
-    ]);
+    try {
+      // 1. Fetch core CRM fields (deals, notes, tags)
+      const [dealsRes, notesRes, tagsRes] = await Promise.all([
+        supabase
+          .from("deals")
+          .select("*, stage:pipeline_stages(*)")
+          .eq("contact_id", contact.id)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("contact_notes")
+          .select("*")
+          .eq("contact_id", contact.id)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("contact_tags")
+          .select("id, tag_id, tags(*)")
+          .eq("contact_id", contact.id),
+      ]);
 
-    if (dealsRes.data) setDeals(dealsRes.data);
-    if (notesRes.data) setNotes(notesRes.data);
-    if (patientRes.data) setPatient(patientRes.data);
-    if (apptRes.data) setUpcomingAppointment(apptRes.data);
-    else setUpcomingAppointment(null);
-    setRecentReports(Array.isArray(reportRes.data) ? reportRes.data : reportRes.data ? [reportRes.data] : []);
-    if (tagsRes.data) {
-      const mapped = tagsRes.data
-        .filter((ct: Record<string, unknown>) => ct.tags)
-        .map((ct: Record<string, unknown>) => ({
-          ...(ct.tags as Tag),
-          contact_tag_id: ct.id as string,
-        }));
-      setTags(mapped);
+      if (dealsRes.data) setDeals(dealsRes.data);
+      if (notesRes.data) setNotes(notesRes.data);
+      if (tagsRes.data) {
+        const mapped = tagsRes.data
+          .filter((ct: Record<string, unknown>) => ct.tags)
+          .map((ct: Record<string, unknown>) => ({
+            ...(ct.tags as Tag),
+            contact_tag_id: ct.id as string,
+          }));
+        setTags(mapped);
+      }
+
+      // 2. Fetch hospital-specific info if active workspace is Hospital & Clinic
+      if (isHospital) {
+        const [patientRes, apptRes, reportRes] = await Promise.all([
+          supabase
+            .from("patients")
+            .select("*")
+            .eq("id", contact.id)
+            .maybeSingle(),
+          supabase
+            .from("appointments")
+            .select("*, doctor:hospital_doctors(name)")
+            .eq("patient_id", contact.id)
+            .gte("appointment_date", new Date().toISOString().split("T")[0])
+            .order("appointment_date", { ascending: true })
+            .order("appointment_time", { ascending: true })
+            .limit(1)
+            .maybeSingle(),
+          supabase
+            .from("hospital_lab_reports")
+            .select("*")
+            .eq("patient_id", contact.id)
+            .order("created_at", { ascending: false })
+            .limit(5),
+        ]);
+
+        if (patientRes.data) setPatient(patientRes.data);
+        else setPatient(null);
+        
+        if (apptRes.data) setUpcomingAppointment(apptRes.data);
+        else setUpcomingAppointment(null);
+        
+        setRecentReports(Array.isArray(reportRes.data) ? reportRes.data : reportRes.data ? [reportRes.data] : []);
+      } else {
+        setPatient(null);
+        setUpcomingAppointment(null);
+        setRecentReports([]);
+      }
+    } catch (err) {
+      console.error("[ContactSidebar] Error fetching contact details:", err);
     }
-  }, [contact, enabledModules]);
+  }, [contact, enabledModules, account?.industry]);
 
   // Lazy-load doctors & branches for hospital booking widget
   useEffect(() => {
@@ -464,7 +499,7 @@ export function ContactSidebar({ contact, conversation, isEmbedded }: ContactSid
           )}
 
           {/* Hospital & Clinic Operations Module Widget */}
-          {enabledModules.includes("hospital_clinic") && (
+          {account?.industry === "hospital_clinic" && (
             <>
               <div className="my-4 border-t border-border" />
               <div className="rounded-xl border border-primary/20 bg-muted/20 p-3 space-y-3">
@@ -705,11 +740,11 @@ export function ContactSidebar({ contact, conversation, isEmbedded }: ContactSid
           <div>
             <div className="flex items-center gap-2 px-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
               <Activity className="h-3 w-3" />
-              Patient Care Cycle
+              {pipelineTitle}
             </div>
             <div className="mt-2 space-y-2">
               {deals.length === 0 ? (
-                <p className="px-1 text-xs text-muted-foreground">No active cycles</p>
+                <p className="px-1 text-xs text-muted-foreground">No active items</p>
               ) : (
                 deals.map((deal) => (
                   <div

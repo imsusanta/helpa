@@ -13,6 +13,7 @@ import { ReceptionistCopilotPanel } from "@/components/inbox/receptionist-copilo
 import type { InsertedComposerReply } from "@/components/inbox/message-composer";
 import { WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getIndustryModule } from "@/modules/registry";
 
 // Remembers the agent's show/hide choice for the desktop contact panel
 // across reloads and sessions (device-scoped, like the theme prefs).
@@ -21,7 +22,17 @@ const CONTACT_PANEL_STORAGE_KEY = "wacrm:inbox:contact-panel-open";
 export default function InboxPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { accountId } = useAuth();
+  const { accountId, account } = useAuth();
+  
+  const contactLabelSingular = 
+    account?.industry === "hospital_clinic" ? "Patient" :
+    (account?.industry === "coaching" || account?.industry === "solo_teacher") ? "Student" :
+    account?.industry === "real_estate" ? "Lead" :
+    account?.industry === "travel" ? "Traveler" :
+    account?.industry === "gym" ? "Member" :
+    account?.industry === "restaurant" ? "Guest" :
+    "Contact";
+
   const [rightTab, setRightTab] = useState<"copilot" | "crm">("copilot");
   /**
    * `?c=<id>` deep-link support. Used when landing here from the
@@ -673,7 +684,7 @@ export default function InboxPage() {
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                👤 Patient Details
+                👤 {contactLabelSingular} Details
               </button>
             </div>
 
