@@ -112,6 +112,112 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
       { key: 'feedback', label: 'Feedback / Notes', type: 'text' },
       { key: 'status', label: 'Status', type: 'select', options: ['scheduled', 'completed', 'cancelled'], required: true },
     ]
+  },
+  packages: {
+    tableName: 'travel_packages',
+    label: 'Tour Package',
+    pluralLabel: 'Tour Packages',
+    fields: [
+      { key: 'name', label: 'Package Name', type: 'text', required: true },
+      { key: 'destination', label: 'Destination', type: 'text', required: true },
+      { key: 'duration_days', label: 'Duration (Days)', type: 'number', required: true },
+      { key: 'price', label: 'Price (in ₹)', type: 'number', required: true },
+      { key: 'description', label: 'Description', type: 'text' },
+    ]
+  },
+  bookings: {
+    tableName: 'travel_bookings',
+    label: 'Booking',
+    pluralLabel: 'Bookings',
+    fields: [
+      { key: 'travel_date', label: 'Travel Date', type: 'date', required: true },
+      { key: 'guests_count', label: 'Number of Guests', type: 'number', required: true },
+      { key: 'total_price', label: 'Total Price (in ₹)', type: 'number', required: true },
+      { key: 'status', label: 'Status', type: 'select', options: ['Pending', 'Confirmed', 'Cancelled'], required: true },
+    ]
+  },
+  customers: {
+    tableName: 'contacts',
+    label: 'Customer',
+    pluralLabel: 'Customers',
+    fields: [
+      { key: 'name', label: 'Full Name', type: 'text', required: true },
+      { key: 'phone', label: 'Phone Number', type: 'text', required: true },
+      { key: 'email', label: 'Email Address', type: 'text' },
+      { key: 'company', label: 'Company / Notes', type: 'text' },
+    ]
+  },
+  members: {
+    tableName: 'contacts',
+    label: 'Member',
+    pluralLabel: 'Members',
+    fields: [
+      { key: 'name', label: 'Member Name', type: 'text', required: true },
+      { key: 'phone', label: 'Phone Number', type: 'text', required: true },
+      { key: 'email', label: 'Email Address', type: 'text' },
+      { key: 'company', label: 'Company / Notes', type: 'text' },
+    ]
+  },
+  trainers: {
+    tableName: 'realestate_agents',
+    label: 'Trainer',
+    pluralLabel: 'Trainers',
+    fields: [
+      { key: 'name', label: 'Trainer Name', type: 'text', required: true },
+      { key: 'phone', label: 'Phone Number', type: 'text' },
+      { key: 'email', label: 'Email Address', type: 'text' },
+      { key: 'status', label: 'Status', type: 'select', options: ['active', 'inactive'], required: true },
+    ]
+  },
+  memberships: {
+    tableName: 'coaching_courses',
+    label: 'Membership Plan',
+    pluralLabel: 'Membership Plans',
+    fields: [
+      { key: 'name', label: 'Plan Name', type: 'text', required: true },
+      { key: 'fee', label: 'Monthly Fee (in ₹)', type: 'number', required: true },
+      { key: 'duration', label: 'Duration (e.g. 1 Month)', type: 'text' },
+    ]
+  },
+  classes: {
+    tableName: 'coaching_batches',
+    label: 'Class',
+    pluralLabel: 'Classes',
+    fields: [
+      { key: 'name', label: 'Class Name', type: 'text', required: true },
+      { key: 'timing', label: 'Timings (e.g. 6 PM - 7 PM)', type: 'text', required: true },
+      { key: 'status', label: 'Status', type: 'select', options: ['active', 'inactive'], required: true },
+    ]
+  },
+  reservations: {
+    tableName: 'appointments',
+    label: 'Reservation',
+    pluralLabel: 'Reservations',
+    fields: [
+      { key: 'appointment_date', label: 'Reservation Date', type: 'date', required: true },
+      { key: 'appointment_time', label: 'Reservation Time (e.g. 20:00)', type: 'text', required: true },
+      { key: 'status', label: 'Status', type: 'select', options: ['scheduled', 'completed', 'cancelled'], required: true },
+    ]
+  },
+  tables: {
+    tableName: 'coaching_courses',
+    label: 'Table',
+    pluralLabel: 'Tables',
+    fields: [
+      { key: 'name', label: 'Table Name/Number', type: 'text', required: true },
+      { key: 'fee', label: 'Seating Capacity', type: 'number', required: true },
+      { key: 'duration', label: 'Area / Placement (e.g. Terrace)', type: 'text' },
+    ]
+  },
+  orders: {
+    tableName: 'deals',
+    label: 'Order',
+    pluralLabel: 'Orders',
+    fields: [
+      { key: 'title', label: 'Order Description', type: 'text', required: true },
+      { key: 'value', label: 'Order Value (in ₹)', type: 'number', required: true },
+      { key: 'status', label: 'Status', type: 'select', options: ['open', 'won', 'lost'], required: true },
+    ]
   }
 };
 
@@ -201,6 +307,66 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
 
         if (contactErr) throw contactErr;
         dataToInsert.id = newContact.id;
+      }
+
+      // Special case: resolve foreign key constraints dynamically
+      if (config.tableName === 'travel_bookings') {
+        const { data: firstPack } = await db.from('travel_packages').select('id').limit(1);
+        const { data: firstContact } = await db.from('contacts').select('id').limit(1);
+        
+        let packageId = firstPack?.[0]?.id;
+        if (!packageId) {
+          const { data: newPack } = await db.from('travel_packages').insert({
+            account_id: accountId,
+            name: 'Standard Package',
+            destination: 'Universal Destination',
+            price: 5000,
+            duration_days: 3
+          }).select('id').single();
+          packageId = newPack?.id;
+        }
+
+        let contactId = firstContact?.[0]?.id;
+        if (!contactId) {
+          const { data: newContact } = await db.from('contacts').insert({
+            account_id: accountId,
+            name: 'Sample Customer',
+            phone: '+910000000000'
+          }).select('id').single();
+          contactId = newContact?.id;
+        }
+
+        dataToInsert.package_id = packageId;
+        dataToInsert.contact_id = contactId;
+      }
+
+      if (config.tableName === 'coaching_admissions') {
+        const { data: firstContact } = await db.from('contacts').select('id').limit(1);
+        const { data: firstCourse } = await db.from('coaching_courses').select('id').limit(1);
+
+        let studentId = firstContact?.[0]?.id;
+        if (!studentId) {
+          const { data: newContact } = await db.from('contacts').insert({
+            account_id: accountId,
+            name: 'Sample Student',
+            phone: '+910000000000'
+          }).select('id').single();
+          studentId = newContact?.id;
+        }
+
+        let courseId = firstCourse?.[0]?.id;
+        if (!courseId) {
+          const { data: newCourse } = await db.from('coaching_courses').insert({
+            account_id: accountId,
+            name: 'Basic Course',
+            fee: 1000,
+            duration: '3 Months'
+          }).select('id').single();
+          courseId = newCourse?.id;
+        }
+
+        dataToInsert.student_id = studentId;
+        dataToInsert.course_id = courseId;
       }
 
       const { error } = await db
