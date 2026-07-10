@@ -57,6 +57,20 @@ export interface PipelineStageSeed {
   position: number;
   color: string;
 }
+export interface FieldConfig {
+  key: string;
+  label: string;
+  type: 'text' | 'number' | 'date' | 'select';
+  options?: string[];
+  required?: boolean;
+}
+
+export interface EntityConfig {
+  tableName: string;
+  label: string;
+  pluralLabel: string;
+  fields: FieldConfig[];
+}
 
 export interface WorkflowSeed {
   name: string;
@@ -79,4 +93,5 @@ export interface IndustryModule {
   copilotConfig: CopilotConfig;
   pipelineStages: PipelineStageSeed[];
   workflows: WorkflowSeed[];
+  entityConfigs?: Record<string, EntityConfig>;
 }

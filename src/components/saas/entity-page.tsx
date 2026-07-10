@@ -9,20 +9,8 @@ import { Label } from '@/components/ui/label';
 import { Loader2, Plus, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-interface FieldConfig {
-  key: string;
-  label: string;
-  type: 'text' | 'number' | 'date' | 'select';
-  options?: string[];
-  required?: boolean;
-}
-
-interface EntityConfig {
-  tableName: string;
-  label: string;
-  pluralLabel: string;
-  fields: FieldConfig[];
-}
+import { getIndustryModule } from '@/modules/registry';
+import type { FieldConfig, EntityConfig } from '@/modules/types';
 
 const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   students: {
@@ -222,10 +210,15 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
 };
 
 export function EntityPage({ entityKey }: { entityKey: string }) {
-  const { accountId } = useAuth();
+  const { accountId, account } = useAuth();
   const db = createClient();
 
-  const config = ENTITY_CONFIGS[entityKey];
+  const activeModule = getIndustryModule(account?.industry);
+  const mergedConfigs = {
+    ...ENTITY_CONFIGS,
+    ...(activeModule?.entityConfigs || {})
+  };
+  const config = mergedConfigs[entityKey];
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
