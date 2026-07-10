@@ -101,6 +101,19 @@ const REMINDER_CTX: Record<string, ReminderContext> = {
       { code: '{{ReminderTime}}', desc: 'Time Left' },
     ],
   },
+  solo_teacher: {
+    eventType: 'Class',
+    personPlural: 'students',
+    templateVars: [
+      { code: '{{StudentName}}', desc: 'Student Name' },
+      { code: '{{TeacherName}}', desc: 'Teacher Name' },
+      { code: '{{CourseName}}', desc: 'Course Name' },
+      { code: '{{BatchName}}', desc: 'Batch Name' },
+      { code: '{{ClassDate}}', desc: 'Class Date' },
+      { code: '{{ClassTime}}', desc: 'Class Time' },
+      { code: '{{ReminderTime}}', desc: 'Time Left' },
+    ],
+  },
 };
 
 const DEFAULT_CTX: ReminderContext = {

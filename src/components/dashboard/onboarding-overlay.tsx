@@ -17,7 +17,8 @@ import {
   ArrowRight,
   HelpCircle,
   CheckCircle2,
-  Circle
+  Circle,
+  BookOpenCheck
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -92,6 +93,16 @@ const INDUSTRIES: IndustryItem[] = [
     color: 'text-orange-500',
     bg: 'bg-orange-500/5 hover:bg-orange-500/10',
     border: 'border-orange-500/20 hover:border-orange-500/40',
+  },
+  {
+    id: 'solo_teacher',
+    name: 'Solo Teacher',
+    description: 'AI Teaching Assistant',
+    features: ['Student Communication', 'Course Management', 'Enrollment Tracking', 'AI Tutor'],
+    icon: BookOpenCheck,
+    color: 'text-violet-500',
+    bg: 'bg-violet-500/5 hover:bg-violet-500/10',
+    border: 'border-violet-500/20 hover:border-violet-500/40',
   },
   {
     id: 'other',

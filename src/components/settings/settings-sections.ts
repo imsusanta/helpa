@@ -109,6 +109,13 @@ const INDUSTRY_LABELS: Record<string, IndustryLabels> = {
     kb: 'Restaurant Knowledge Base',
     reminders: 'Smart Reminders',
   },
+  solo_teacher: {
+    fields: 'Student Custom Fields',
+    deals: 'Enrollment Settings',
+    ai: 'AI Teaching Assistant',
+    kb: 'Course Knowledge Base',
+    reminders: 'Smart Reminders',
+  },
 };
 
 const DEFAULT_LABELS: IndustryLabels = {

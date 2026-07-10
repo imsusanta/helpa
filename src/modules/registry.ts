@@ -5,6 +5,7 @@ import { realEstateModule } from './real-estate';
 import { travelModule } from './travel';
 import { gymModule } from './gym';
 import { restaurantModule } from './restaurant';
+import { soloTeacherModule } from './solo-teacher';
 
 export const INDUSTRY_REGISTRY: Record<string, IndustryModule> = {
   hospital_clinic: hospitalModule,
@@ -13,6 +14,7 @@ export const INDUSTRY_REGISTRY: Record<string, IndustryModule> = {
   travel: travelModule,
   gym: gymModule,
   restaurant: restaurantModule,
+  solo_teacher: soloTeacherModule,
 };
 
 // Fallback module definition for 'general' or others

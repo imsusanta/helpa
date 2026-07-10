@@ -54,6 +54,7 @@ export async function POST(request: Request) {
       "coaching",
       "restaurant",
       "gym",
+      "solo_teacher",
     ];
 
     for (const mod of allKnownModules) {
