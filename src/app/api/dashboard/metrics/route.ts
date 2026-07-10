@@ -25,7 +25,7 @@ export async function POST(request: Request) {
       if (metric.queryFilters) {
         for (const filter of metric.queryFilters) {
           let val = filter.value;
-          if (val === 'TODAY') {
+          if (typeof val === 'string' && val.toUpperCase() === 'TODAY') {
             val = todayStr;
           }
           
@@ -37,6 +37,10 @@ export async function POST(request: Request) {
             query = query.gt(filter.field, val);
           } else if (filter.operator === 'lt') {
             query = query.lt(filter.field, val);
+          } else if (filter.operator === 'gte') {
+            query = query.gte(filter.field, val);
+          } else if (filter.operator === 'lte') {
+            query = query.lte(filter.field, val);
           }
         }
       }
