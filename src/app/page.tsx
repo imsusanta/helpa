@@ -848,11 +848,11 @@ export default function LandingPage() {
             <a href="#features" className="hover:text-foreground transition-colors">Features</a>
             <a href="#industries" className="hover:text-foreground transition-colors">Industries</a>
             <a href="#pricing" className="hover:text-foreground transition-colors">Pricing</a>
-            <a href="mailto:hello@helpa.ai" className="hover:text-foreground transition-colors">Contact</a>
-            <a href="#" className="hover:text-foreground transition-colors">Privacy Policy</a>
-            <a href="#" className="hover:text-foreground transition-colors">Terms</a>
+            <a href="mailto:hello@helpa.studio" className="hover:text-foreground transition-colors">Contact</a>
+            <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
+            <Link href="/terms" className="hover:text-foreground transition-colors">Terms</Link>
           </div>
-          <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} Helpa</p>
+          <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} Helpa Studio</p>
         </div>
       </footer>
 
