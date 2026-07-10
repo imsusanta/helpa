@@ -23,7 +23,6 @@ export const dashboardConfig: DashboardMetricWidget[] = [
     iconName: 'UserCheck',
     queryTable: 'contacts',
     queryType: 'count',
-    queryFilters: [{ field: 'status', operator: 'eq', value: 'active' }]
   },
   {
     key: 'pending_enrollments',
