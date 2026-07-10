@@ -104,16 +104,20 @@ export default function LandingPage() {
     <div className="bg-background text-foreground antialiased selection:bg-indigo-600 selection:text-white min-h-screen relative font-sans overflow-x-hidden transition-colors duration-300">
       
       {/* Premium Ambient Glow Blobs */}
-      <div className="absolute top-[3%] left-[-15%] w-[45%] h-[45%] rounded-full bg-emerald-500/5 dark:bg-emerald-500/[0.04] blur-[130px] pointer-events-none animate-pulse-slow" />
-      <div className="absolute top-[28%] right-[-15%] w-[45%] h-[45%] rounded-full bg-indigo-500/5 dark:bg-indigo-500/[0.04] blur-[130px] pointer-events-none animate-pulse-slow" style={{ animationDelay: "2.5s" }} />
-      <div className="absolute top-[60%] left-[-15%] w-[45%] h-[45%] rounded-full bg-purple-500/5 dark:bg-purple-500/[0.04] blur-[130px] pointer-events-none animate-pulse-slow" style={{ animationDelay: "5s" }} />
-      <div className="absolute bottom-[5%] right-[-15%] w-[45%] h-[45%] rounded-full bg-emerald-500/5 dark:bg-emerald-500/[0.04] blur-[130px] pointer-events-none animate-pulse-slow" style={{ animationDelay: "7.5s" }} />
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        <div className="absolute top-[3%] left-[-15%] w-[45%] h-[45%] rounded-full bg-emerald-500/5 dark:bg-emerald-500/[0.04] blur-[130px] animate-pulse-slow" />
+        <div className="absolute top-[28%] right-[-15%] w-[45%] h-[45%] rounded-full bg-indigo-500/5 dark:bg-indigo-500/[0.04] blur-[130px] animate-pulse-slow" style={{ animationDelay: "2.5s" }} />
+        <div className="absolute top-[60%] left-[-15%] w-[45%] h-[45%] rounded-full bg-purple-500/5 dark:bg-purple-500/[0.04] blur-[130px] animate-pulse-slow" style={{ animationDelay: "5s" }} />
+        <div className="absolute bottom-[5%] right-[-15%] w-[45%] h-[45%] rounded-full bg-emerald-500/5 dark:bg-emerald-500/[0.04] blur-[130px] animate-pulse-slow" style={{ animationDelay: "7.5s" }} />
+      </div>
       
       {/* Premium Ambient Glow Blobs */}
-      <div className="absolute top-[3%] left-[-15%] w-[45%] h-[45%] rounded-full bg-emerald-500/5 dark:bg-emerald-500/[0.04] blur-[130px] pointer-events-none animate-pulse-slow" />
-      <div className="absolute top-[28%] right-[-15%] w-[45%] h-[45%] rounded-full bg-indigo-500/5 dark:bg-indigo-500/[0.04] blur-[130px] pointer-events-none animate-pulse-slow" style={{ animationDelay: "2.5s" }} />
-      <div className="absolute top-[60%] left-[-15%] w-[45%] h-[45%] rounded-full bg-purple-500/5 dark:bg-purple-500/[0.04] blur-[130px] pointer-events-none animate-pulse-slow" style={{ animationDelay: "5s" }} />
-      <div className="absolute bottom-[5%] right-[-15%] w-[45%] h-[45%] rounded-full bg-emerald-500/5 dark:bg-emerald-500/[0.04] blur-[130px] pointer-events-none animate-pulse-slow" style={{ animationDelay: "7.5s" }} />
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        <div className="absolute top-[3%] left-[-15%] w-[45%] h-[45%] rounded-full bg-emerald-500/5 dark:bg-emerald-500/[0.04] blur-[130px] animate-pulse-slow" />
+        <div className="absolute top-[28%] right-[-15%] w-[45%] h-[45%] rounded-full bg-indigo-500/5 dark:bg-indigo-500/[0.04] blur-[130px] animate-pulse-slow" style={{ animationDelay: "2.5s" }} />
+        <div className="absolute top-[60%] left-[-15%] w-[45%] h-[45%] rounded-full bg-purple-500/5 dark:bg-purple-500/[0.04] blur-[130px] animate-pulse-slow" style={{ animationDelay: "5s" }} />
+        <div className="absolute bottom-[5%] right-[-15%] w-[45%] h-[45%] rounded-full bg-emerald-500/5 dark:bg-emerald-500/[0.04] blur-[130px] animate-pulse-slow" style={{ animationDelay: "7.5s" }} />
+      </div>
       
       {/* Custom Styles for Animations & Selection */}
       <style jsx global>{`
@@ -143,11 +147,7 @@ export default function LandingPage() {
       `}</style>
 
       {/* ═══════ NAV ═══════ */}
-      <header className={`sticky top-0 z-50 border-b transition-all duration-300 ${
-        scrolled 
-          ? "bg-background/80 backdrop-blur-md border-border/80 shadow-sm" 
-          : "bg-background/0 border-transparent"
-      }`}>
+      <header className="relative border-b border-border bg-background transition-colors duration-300">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <Link href="#" className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
@@ -206,34 +206,34 @@ export default function LandingPage() {
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_60%_50%_at_50%_-10%,rgba(79,70,229,0.12),transparent)]"></div>
         <div className="mx-auto max-w-4xl text-center">
           <motion.div
-            initial={{ opacity: 0, y: 15 }}
+            initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
+            transition={{ duration: 0.35, ease: "easeOut" }}
             className="hero-reveal mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs font-semibold text-muted-foreground shadow-sm transition-colors duration-300"
           >
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
             ✓ Setup in 24 Hours
           </motion.div>
           <motion.h1
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.1, ease: "easeOut" }}
+            transition={{ duration: 0.4, delay: 0.1, ease: "easeOut" }}
             className="hero-reveal hero-reveal-delay-1 text-5xl font-extrabold tracking-tight sm:text-6xl lg:text-7xl text-foreground"
           >
             Never Miss Another<br />Customer.
           </motion.h1>
           <motion.p
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2, ease: "easeOut" }}
+            transition={{ duration: 0.4, delay: 0.2, ease: "easeOut" }}
             className="hero-reveal hero-reveal-delay-2 mx-auto mt-6 max-w-2xl text-lg text-muted-foreground leading-relaxed"
           >
             Helpa answers every WhatsApp enquiry instantly, books appointments automatically, captures leads, and works 24/7—so your team can focus on running the business.
           </motion.p>
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.3, ease: "easeOut" }}
+            transition={{ duration: 0.4, delay: 0.3, ease: "easeOut" }}
             className="hero-reveal hero-reveal-delay-3 mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row"
           >
             <Link href={user ? "/dashboard" : "/signup"} className="flex items-center gap-2 rounded-full bg-indigo-600 px-7 py-3.5 text-sm font-bold text-white transition-all hover:bg-indigo-700 shadow-lg shadow-indigo-600/15 hover:scale-[1.03] active:scale-[0.97] duration-200">
@@ -247,7 +247,7 @@ export default function LandingPage() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 0.8, delay: 0.4 }}
+            transition={{ duration: 0.5, delay: 0.4 }}
             className="hero-reveal hero-reveal-delay-3 mt-6 flex flex-wrap justify-center gap-x-6 gap-y-2 text-xs font-semibold text-muted-foreground"
           >
             <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">✓ No Coding</span>
@@ -258,9 +258,9 @@ export default function LandingPage() {
 
         {/* Embedded YouTube video preview */}
         <motion.div
-          initial={{ opacity: 0, y: 40 }}
+          initial={{ opacity: 0, y: 15 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.45, ease: "easeOut" }}
+          transition={{ duration: 0.5, delay: 0.45, ease: "easeOut" }}
           className="hero-reveal hero-reveal-dashboard relative mx-auto mt-20 max-w-4xl"
         >
           <div className="absolute -inset-10 -z-10 rounded-3xl bg-indigo-600/5 blur-3xl"></div>
@@ -283,7 +283,7 @@ export default function LandingPage() {
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
         viewport={{ once: true, margin: "-50px" }}
-        transition={{ duration: 0.6 }}
+        transition={{ duration: 0.4 }}
         className="border-y border-border bg-muted/30 py-12 transition-colors duration-300"
       >
         <p className="mb-6 text-center text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
@@ -301,10 +301,10 @@ export default function LandingPage() {
       {/* ═══════ AFTER HERO: WHY HELPA ═══════ */}
       <section id="why-helpa" className="mx-auto max-w-7xl px-6 py-24 scroll-mt-14 relative">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 10 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.6 }}
+          viewport={{ once: true, margin: "-15px" }}
+          transition={{ duration: 0.4 }}
           className="mx-auto max-w-2xl text-center"
         >
           <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl text-foreground">Why Businesses Choose Helpa</h2>
@@ -312,10 +312,10 @@ export default function LandingPage() {
         </motion.div>
         <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4 text-left">
           <motion.div
-            initial={{ opacity: 0, y: 25 }}
+            initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
-            transition={{ duration: 0.5, delay: 0 }}
+            viewport={{ once: true, margin: "-15px" }}
+            transition={{ duration: 0.35, delay: 0 }}
             className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200"
           >
             <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400">
@@ -326,10 +326,10 @@ export default function LandingPage() {
           </motion.div>
           
           <motion.div
-            initial={{ opacity: 0, y: 25 }}
+            initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
-            transition={{ duration: 0.5, delay: 0.1 }}
+            viewport={{ once: true, margin: "-15px" }}
+            transition={{ duration: 0.35, delay: 0.1 }}
             className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200"
           >
             <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400">
@@ -340,10 +340,10 @@ export default function LandingPage() {
           </motion.div>
 
           <motion.div
-            initial={{ opacity: 0, y: 25 }}
+            initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
-            transition={{ duration: 0.5, delay: 0.2 }}
+            viewport={{ once: true, margin: "-15px" }}
+            transition={{ duration: 0.35, delay: 0.2 }}
             className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200"
           >
             <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400">
@@ -354,10 +354,10 @@ export default function LandingPage() {
           </motion.div>
 
           <motion.div
-            initial={{ opacity: 0, y: 25 }}
+            initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
-            transition={{ duration: 0.5, delay: 0.3 }}
+            viewport={{ once: true, margin: "-15px" }}
+            transition={{ duration: 0.35, delay: 0.3 }}
             className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200"
           >
             <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400">
@@ -373,10 +373,10 @@ export default function LandingPage() {
       <section id="roi" className="border-y border-border bg-muted/30 py-24 scroll-mt-14 transition-colors duration-300">
         <div className="mx-auto max-w-7xl px-6">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 10 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
-            transition={{ duration: 0.6 }}
+            viewport={{ once: true, margin: "-15px" }}
+            transition={{ duration: 0.4 }}
             className="mx-auto max-w-2xl text-center"
           >
             <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl text-foreground">Helpa Pays For Itself.</h2>
@@ -388,8 +388,8 @@ export default function LandingPage() {
             <motion.div
               initial={{ opacity: 0, x: -30 }}
               whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true, margin: "-100px" }}
-              transition={{ duration: 0.6 }}
+              viewport={{ once: true, margin: "-15px" }}
+              transition={{ duration: 0.4 }}
               className="rounded-2xl border border-border bg-card p-8 shadow-sm hover-card-lift transition-all duration-300"
             >
               <h3 className="text-lg font-bold text-red-500 flex items-center gap-2 mb-6">
@@ -415,8 +415,8 @@ export default function LandingPage() {
             <motion.div
               initial={{ opacity: 0, x: 30 }}
               whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true, margin: "-100px" }}
-              transition={{ duration: 0.6 }}
+              viewport={{ once: true, margin: "-15px" }}
+              transition={{ duration: 0.4 }}
               className="rounded-2xl border-2 border-indigo-600 bg-card p-8 shadow-md relative hover-card-lift transition-all duration-300"
             >
               <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-indigo-600 px-3 py-1 text-[9px] font-extrabold text-white uppercase tracking-wider">Recommended</span>
@@ -441,10 +441,10 @@ export default function LandingPage() {
           </div>
 
           <motion.div
-            initial={{ opacity: 0, y: 15 }}
+            initial={{ opacity: 0, y: 8 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.2 }}
+            transition={{ duration: 0.4, delay: 0.2 }}
             className="text-center mt-12 max-w-md mx-auto"
           >
             <p className="text-sm font-semibold text-muted-foreground">
@@ -457,20 +457,20 @@ export default function LandingPage() {
       {/* ═══════ PRODUCT VIDEO SECTION ═══════ */}
       <section id="product-video" className="mx-auto max-w-7xl px-6 py-24 scroll-mt-14">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 10 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.6 }}
+          viewport={{ once: true, margin: "-15px" }}
+          transition={{ duration: 0.4 }}
           className="mx-auto max-w-2xl text-center mb-12"
         >
           <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl text-foreground">Watch Helpa In Action</h2>
           <p className="mt-3 text-muted-foreground">See how instantly Helpa responds, gathers info, and schedules customers.</p>
         </motion.div>
         <motion.div
-          initial={{ opacity: 0, scale: 0.96, y: 20 }}
+          initial={{ opacity: 0, scale: 0.96, y: 10 }}
           whileInView={{ opacity: 1, scale: 1, y: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.7, ease: "easeOut" }}
+          viewport={{ once: true, margin: "-15px" }}
+          transition={{ duration: 0.45, ease: "easeOut" }}
           className="aspect-video max-w-4xl mx-auto rounded-2xl overflow-hidden shadow-2xl border border-border bg-zinc-950 transition-all duration-300"
         >
           <iframe
@@ -488,10 +488,10 @@ export default function LandingPage() {
       {/* ═══════ FEATURES ═══════ */}
       <section id="features" className="mx-auto max-w-7xl px-6 py-24 scroll-mt-14">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 10 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.6 }}
+          viewport={{ once: true, margin: "-15px" }}
+          transition={{ duration: 0.4 }}
           className="mx-auto max-w-2xl text-center"
         >
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl text-foreground">Everything your WhatsApp reception needs</h2>
@@ -499,10 +499,10 @@ export default function LandingPage() {
         </motion.div>
         <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 text-left">
           <motion.div
-            initial={{ opacity: 0, y: 25 }}
+            initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
-            transition={{ duration: 0.5, delay: 0.0 }}
+            viewport={{ once: true, margin: "-15px" }}
+            transition={{ duration: 0.35, delay: 0.0 }}
             className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200"
           >
             <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><Zap className="h-5 w-5" /></div>
@@ -510,10 +510,10 @@ export default function LandingPage() {
             <p className="mt-2 text-sm text-muted-foreground">Every customer enquiry gets an accurate, on-brand reply in seconds — 24/7, without fail.</p>
           </motion.div>
           <motion.div
-            initial={{ opacity: 0, y: 25 }}
+            initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
-            transition={{ duration: 0.5, delay: 0.1 }}
+            viewport={{ once: true, margin: "-15px" }}
+            transition={{ duration: 0.35, delay: 0.1 }}
             className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200"
           >
             <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><CalendarCheck className="h-5 w-5" /></div>
@@ -521,10 +521,10 @@ export default function LandingPage() {
             <p className="mt-2 text-sm text-muted-foreground">Clients can book, reschedule, or cancel slots directly inside WhatsApp, synced to your calendar.</p>
           </motion.div>
           <motion.div
-            initial={{ opacity: 0, y: 25 }}
+            initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
-            transition={{ duration: 0.5, delay: 0.2 }}
+            viewport={{ once: true, margin: "-15px" }}
+            transition={{ duration: 0.35, delay: 0.2 }}
             className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200"
           >
             <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><UserPlus className="h-5 w-5" /></div>
@@ -532,10 +532,10 @@ export default function LandingPage() {
             <p className="mt-2 text-sm text-muted-foreground">Names, phone numbers, and requirements are structured and saved from every chat conversation.</p>
           </motion.div>
           <motion.div
-            initial={{ opacity: 0, y: 25 }}
+            initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
-            transition={{ duration: 0.5, delay: 0.0 }}
+            viewport={{ once: true, margin: "-15px" }}
+            transition={{ duration: 0.35, delay: 0.0 }}
             className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200"
           >
             <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><HelpCircle className="h-5 w-5" /></div>
@@ -543,10 +543,10 @@ export default function LandingPage() {
             <p className="mt-2 text-sm text-muted-foreground">Train Helpa once on your fees, timings, and business location — it replies instantly without getting tired.</p>
           </motion.div>
           <motion.div
-            initial={{ opacity: 0, y: 25 }}
+            initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
-            transition={{ duration: 0.5, delay: 0.1 }}
+            viewport={{ once: true, margin: "-15px" }}
+            transition={{ duration: 0.35, delay: 0.1 }}
             className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200"
           >
             <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><UserCheck className="h-5 w-5" /></div>
@@ -554,10 +554,10 @@ export default function LandingPage() {
             <p className="mt-2 text-sm text-muted-foreground">Complex or VIP chats route to your support team instantly, with the complete history attached.</p>
           </motion.div>
           <motion.div
-            initial={{ opacity: 0, y: 25 }}
+            initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
-            transition={{ duration: 0.5, delay: 0.2 }}
+            viewport={{ once: true, margin: "-15px" }}
+            transition={{ duration: 0.35, delay: 0.2 }}
             className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200"
           >
             <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><Globe2 className="h-5 w-5" /></div>
@@ -565,10 +565,10 @@ export default function LandingPage() {
             <p className="mt-2 text-sm text-muted-foreground">Helpa automatically detects if the user is texting in English, Hindi, or Bengali, and replies back in the same language.</p>
           </motion.div>
           <motion.div
-            initial={{ opacity: 0, y: 25 }}
+            initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
-            transition={{ duration: 0.5, delay: 0.0 }}
+            viewport={{ once: true, margin: "-15px" }}
+            transition={{ duration: 0.35, delay: 0.0 }}
             className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200"
           >
             <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><BarChart3 className="h-5 w-5" /></div>
@@ -576,10 +576,10 @@ export default function LandingPage() {
             <p className="mt-2 text-sm text-muted-foreground">Monitor response speed, chat resolution rate, bookings, and customer inquiries in one clean panel.</p>
           </motion.div>
           <motion.div
-            initial={{ opacity: 0, y: 25 }}
+            initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
-            transition={{ duration: 0.5, delay: 0.1 }}
+            viewport={{ once: true, margin: "-15px" }}
+            transition={{ duration: 0.35, delay: 0.1 }}
             className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200"
           >
             <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><Radio className="h-5 w-5" /></div>
@@ -587,10 +587,10 @@ export default function LandingPage() {
             <p className="mt-2 text-sm text-muted-foreground">Send festival offers, reminders, and service updates to filtered customer lists with a single click.</p>
           </motion.div>
           <motion.div
-            initial={{ opacity: 0, y: 25 }}
+            initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
-            transition={{ duration: 0.5, delay: 0.2 }}
+            viewport={{ once: true, margin: "-15px" }}
+            transition={{ duration: 0.35, delay: 0.2 }}
             className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200"
           >
             <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><RefreshCw className="h-5 w-5" /></div>
@@ -604,10 +604,10 @@ export default function LandingPage() {
       <section className="border-y border-border bg-muted/30 py-24 transition-colors duration-300">
         <div className="mx-auto max-w-7xl px-6">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 10 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
-            transition={{ duration: 0.6 }}
+            viewport={{ once: true, margin: "-15px" }}
+            transition={{ duration: 0.4 }}
             className="mx-auto max-w-2xl text-center"
           >
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl text-foreground">Go Live in Less Than 24 Hours</h2>
@@ -617,10 +617,10 @@ export default function LandingPage() {
             <div className="absolute left-0 right-0 top-6 hidden h-px bg-border md:block"></div>
             
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 10 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-100px" }}
-              transition={{ duration: 0.5, delay: 0.0 }}
+              viewport={{ once: true, margin: "-15px" }}
+              transition={{ duration: 0.35, delay: 0.0 }}
               className="relative"
             >
               <div className="relative z-10 mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-600 text-sm font-semibold text-white md:mx-0 shadow-sm">1</div>
@@ -628,10 +628,10 @@ export default function LandingPage() {
             </motion.div>
 
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 10 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-100px" }}
-              transition={{ duration: 0.5, delay: 0.1 }}
+              viewport={{ once: true, margin: "-15px" }}
+              transition={{ duration: 0.35, delay: 0.1 }}
               className="relative"
             >
               <div className="relative z-10 mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-600 text-sm font-semibold text-white md:mx-0 shadow-sm">2</div>
@@ -639,10 +639,10 @@ export default function LandingPage() {
             </motion.div>
 
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 10 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-100px" }}
-              transition={{ duration: 0.5, delay: 0.2 }}
+              viewport={{ once: true, margin: "-15px" }}
+              transition={{ duration: 0.35, delay: 0.2 }}
               className="relative"
             >
               <div className="relative z-10 mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-600 text-sm font-semibold text-white md:mx-0 shadow-sm">3</div>
@@ -650,10 +650,10 @@ export default function LandingPage() {
             </motion.div>
 
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 10 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-100px" }}
-              transition={{ duration: 0.5, delay: 0.3 }}
+              viewport={{ once: true, margin: "-15px" }}
+              transition={{ duration: 0.35, delay: 0.3 }}
               className="relative"
             >
               <div className="relative z-10 mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-600 text-sm font-semibold text-white md:mx-0 shadow-sm">4</div>
@@ -666,10 +666,10 @@ export default function LandingPage() {
       {/* ═══════ INDUSTRIES ═══════ */}
       <section id="industries" className="mx-auto max-w-7xl px-6 py-24 scroll-mt-14">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 10 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.6 }}
+          viewport={{ once: true, margin: "-15px" }}
+          transition={{ duration: 0.4 }}
           className="mx-auto max-w-2xl text-center"
         >
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl text-foreground">Built for Every Service Business</h2>
@@ -681,9 +681,9 @@ export default function LandingPage() {
             <span className="text-sm font-medium text-foreground">Clinics & Hospitals</span>
           </div>
           <motion.div
-            initial={{ opacity: 0, y: 15 }}
+            initial={{ opacity: 0, y: 8 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
+            viewport={{ once: true, margin: "-15px" }}
             transition={{ duration: 0.4, delay: 0.05 }}
             className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-6 text-center shadow-sm hover:border-indigo-500/50 transition duration-300"
           >
@@ -691,9 +691,9 @@ export default function LandingPage() {
             <span className="text-sm font-medium text-foreground">Coaching Institutes</span>
           </motion.div>
           <motion.div
-            initial={{ opacity: 0, y: 15 }}
+            initial={{ opacity: 0, y: 8 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
+            viewport={{ once: true, margin: "-15px" }}
             transition={{ duration: 0.4, delay: 0.1 }}
             className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-6 text-center shadow-sm hover:border-indigo-500/50 transition duration-300"
           >
@@ -701,9 +701,9 @@ export default function LandingPage() {
             <span className="text-sm font-medium text-foreground">Schools & Colleges</span>
           </motion.div>
           <motion.div
-            initial={{ opacity: 0, y: 15 }}
+            initial={{ opacity: 0, y: 8 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
+            viewport={{ once: true, margin: "-15px" }}
             transition={{ duration: 0.4, delay: 0.15000000000000002 }}
             className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-6 text-center shadow-sm hover:border-indigo-500/50 transition duration-300"
           >
@@ -711,9 +711,9 @@ export default function LandingPage() {
             <span className="text-sm font-medium text-foreground">Salons & Spas</span>
           </motion.div>
           <motion.div
-            initial={{ opacity: 0, y: 15 }}
+            initial={{ opacity: 0, y: 8 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
+            viewport={{ once: true, margin: "-15px" }}
             transition={{ duration: 0.4, delay: 0.2 }}
             className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-6 text-center shadow-sm hover:border-indigo-500/50 transition duration-300"
           >
@@ -721,9 +721,9 @@ export default function LandingPage() {
             <span className="text-sm font-medium text-foreground">Hotels & Guest Houses</span>
           </motion.div>
           <motion.div
-            initial={{ opacity: 0, y: 15 }}
+            initial={{ opacity: 0, y: 8 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
+            viewport={{ once: true, margin: "-15px" }}
             transition={{ duration: 0.4, delay: 0.25 }}
             className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-6 text-center shadow-sm hover:border-indigo-500/50 transition duration-300"
           >
@@ -731,9 +731,9 @@ export default function LandingPage() {
             <span className="text-sm font-medium text-foreground">Restaurants & Cafes</span>
           </motion.div>
           <motion.div
-            initial={{ opacity: 0, y: 15 }}
+            initial={{ opacity: 0, y: 8 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
+            viewport={{ once: true, margin: "-15px" }}
             transition={{ duration: 0.4, delay: 0.0 }}
             className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-6 text-center shadow-sm hover:border-indigo-500/50 transition duration-300"
           >
@@ -741,9 +741,9 @@ export default function LandingPage() {
             <span className="text-sm font-medium text-foreground">Real Estate Consultants</span>
           </motion.div>
           <motion.div
-            initial={{ opacity: 0, y: 15 }}
+            initial={{ opacity: 0, y: 8 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
+            viewport={{ once: true, margin: "-15px" }}
             transition={{ duration: 0.4, delay: 0.05 }}
             className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-6 text-center shadow-sm hover:border-indigo-500/50 transition duration-300"
           >
@@ -752,9 +752,9 @@ export default function LandingPage() {
           </motion.div>
           {/* New Industries requested */}
           <motion.div
-            initial={{ opacity: 0, y: 15 }}
+            initial={{ opacity: 0, y: 8 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
+            viewport={{ once: true, margin: "-15px" }}
             transition={{ duration: 0.4, delay: 0.1 }}
             className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-6 text-center shadow-sm hover:border-indigo-500/50 transition duration-300"
           >
@@ -762,9 +762,9 @@ export default function LandingPage() {
             <span className="text-sm font-medium text-foreground">Dentists</span>
           </motion.div>
           <motion.div
-            initial={{ opacity: 0, y: 15 }}
+            initial={{ opacity: 0, y: 8 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
+            viewport={{ once: true, margin: "-15px" }}
             transition={{ duration: 0.4, delay: 0.15000000000000002 }}
             className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-6 text-center shadow-sm hover:border-indigo-500/50 transition duration-300"
           >
@@ -772,9 +772,9 @@ export default function LandingPage() {
             <span className="text-sm font-medium text-foreground">Law Firms</span>
           </motion.div>
           <motion.div
-            initial={{ opacity: 0, y: 15 }}
+            initial={{ opacity: 0, y: 8 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
+            viewport={{ once: true, margin: "-15px" }}
             transition={{ duration: 0.4, delay: 0.2 }}
             className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-6 text-center shadow-sm hover:border-indigo-500/50 transition duration-300"
           >
@@ -782,9 +782,9 @@ export default function LandingPage() {
             <span className="text-sm font-medium text-foreground">Fitness Centers</span>
           </motion.div>
           <motion.div
-            initial={{ opacity: 0, y: 15 }}
+            initial={{ opacity: 0, y: 8 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
+            viewport={{ once: true, margin: "-15px" }}
             transition={{ duration: 0.4, delay: 0.25 }}
             className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-6 text-center shadow-sm hover:border-indigo-500/50 transition duration-300"
           >
@@ -792,9 +792,9 @@ export default function LandingPage() {
             <span className="text-sm font-medium text-foreground">Repair Shops</span>
           </motion.div>
           <motion.div
-            initial={{ opacity: 0, y: 15 }}
+            initial={{ opacity: 0, y: 8 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
+            viewport={{ once: true, margin: "-15px" }}
             transition={{ duration: 0.4, delay: 0.0 }}
             className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-6 text-center shadow-sm hover:border-indigo-500/50 transition duration-300 col-span-2 sm:col-span-1 lg:col-span-1"
           >
@@ -956,10 +956,10 @@ export default function LandingPage() {
       <section id="pricing" className="border-t border-border bg-muted/30 py-24 scroll-mt-14 transition-colors duration-300">
         <div className="mx-auto max-w-7xl px-6">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 10 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
-            transition={{ duration: 0.6 }}
+            viewport={{ once: true, margin: "-15px" }}
+            transition={{ duration: 0.4 }}
             className="mx-auto max-w-2xl text-center"
           >
             <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl text-foreground">Simple pricing that grows with your business</h2>
@@ -969,10 +969,10 @@ export default function LandingPage() {
           <div className="mt-14 grid gap-6 md:grid-cols-3 text-left">
             {/* Starter Plan */}
             <motion.div
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 0, y: 12 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-100px" }}
-              transition={{ duration: 0.5, delay: 0 }}
+              viewport={{ once: true, margin: "-15px" }}
+              transition={{ duration: 0.35, delay: 0 }}
               className="flex flex-col rounded-2xl border border-border bg-card p-7 shadow-sm hover-card-lift transition duration-200"
             >
               <span className="text-xs font-semibold uppercase text-muted-foreground tracking-wider block mb-2">Perfect for small businesses</span>
@@ -1003,10 +1003,10 @@ export default function LandingPage() {
             
             {/* Growth Plan */}
             <motion.div
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 0, y: 12 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-100px" }}
-              transition={{ duration: 0.5, delay: 0.1 }}
+              viewport={{ once: true, margin: "-15px" }}
+              transition={{ duration: 0.35, delay: 0.1 }}
               className="flex flex-col rounded-2xl border-2 border-indigo-600 bg-card p-7 shadow-xl shadow-indigo-600/5 relative hover-card-lift transition duration-200"
             >
               <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-indigo-600 px-3 py-1 text-[10px] font-extrabold text-white uppercase tracking-wider">Most Popular</span>
@@ -1037,10 +1037,10 @@ export default function LandingPage() {
 
             {/* Enterprise Plan */}
             <motion.div
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 0, y: 12 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-100px" }}
-              transition={{ duration: 0.5, delay: 0.2 }}
+              viewport={{ once: true, margin: "-15px" }}
+              transition={{ duration: 0.35, delay: 0.2 }}
               className="flex flex-col rounded-2xl border border-border bg-card p-7 shadow-sm hover-card-lift transition duration-200"
             >
               <span className="text-xs font-semibold uppercase text-muted-foreground tracking-wider block mb-2">For high-volume operations</span>
@@ -1102,10 +1102,10 @@ export default function LandingPage() {
       {/* ═══════ FAQ ═══════ */}
       <section id="faq" className="mx-auto max-w-3xl px-6 py-24 scroll-mt-14">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 10 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.6 }}
+          viewport={{ once: true, margin: "-15px" }}
+          transition={{ duration: 0.4 }}
           className="text-center"
         >
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl text-foreground">Frequently asked questions</h2>
