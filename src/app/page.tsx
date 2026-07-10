@@ -37,7 +37,14 @@ import {
   LineChart,
   Loader2,
   Sun,
-  Moon
+  Moon,
+  Scale,
+  Wrench,
+  Plane,
+  Dumbbell,
+  Smile,
+  Shield,
+  Check
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -46,6 +53,7 @@ export default function LandingPage() {
   const [user, setUser] = useState<any>(null);
   const [activeFaq, setActiveFaq] = useState<number | null>(1);
   const [activeTab, setActiveTab] = useState("conversations");
+  const [scrolled, setScrolled] = useState(false);
 
   const { mode, toggleMode } = useTheme();
 
@@ -57,6 +65,15 @@ export default function LandingPage() {
       setUser(user);
     }
     checkAuth();
+  }, []);
+
+  // Scroll event for navbar glassmorphism
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 20);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   return (
@@ -83,8 +100,11 @@ export default function LandingPage() {
           animation-delay: 380ms;
           animation-duration: 800ms;
         }
-        .hero-dashboard-float {
-          animation: heroFloat 6s ease-in-out infinite;
+        .hover-card-lift {
+          transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .hover-card-lift:hover {
+          transform: translateY(-4px);
         }
         @keyframes heroReveal {
           from {
@@ -96,24 +116,14 @@ export default function LandingPage() {
             transform: translateY(0) scale(1);
           }
         }
-        @keyframes heroFloat {
-          0%, 100% {
-            transform: translateY(0);
-          }
-          50% {
-            transform: translateY(-8px);
-          }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .hero-reveal,
-          .hero-dashboard-float {
-            animation: none;
-          }
-        }
       `}</style>
 
       {/* ═══════ NAV ═══════ */}
-      <header className="sticky top-0 z-50 border-b border-border/50 bg-background/70 backdrop-blur-xl transition-colors duration-300">
+      <header className={`sticky top-0 z-50 border-b transition-all duration-300 ${
+        scrolled 
+          ? "bg-background/80 backdrop-blur-md border-border/80 shadow-sm" 
+          : "bg-background/0 border-transparent"
+      }`}>
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <Link href="#" className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
@@ -122,6 +132,8 @@ export default function LandingPage() {
             <span className="text-lg font-semibold tracking-tight text-foreground">Helpa</span>
           </Link>
           <nav className="hidden items-center gap-8 text-sm text-muted-foreground md:flex font-medium">
+            <a href="#why-helpa" className="transition-colors hover:text-foreground">Why Helpa</a>
+            <a href="#roi" className="transition-colors hover:text-foreground">ROI</a>
             <a href="#features" className="transition-colors hover:text-foreground">Features</a>
             <a href="#industries" className="transition-colors hover:text-foreground">Industries</a>
             <a href="#pricing" className="transition-colors hover:text-foreground">Pricing</a>
@@ -138,7 +150,7 @@ export default function LandingPage() {
             </button>
 
             <Link href={user ? "/dashboard" : "/signup"} className="hidden rounded-full bg-indigo-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 sm:inline-block">
-              {user ? "Go to Dashboard" : "Book a Demo"}
+              {user ? "Dashboard" : "Book Demo"}
             </Link>
             
             <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="flex items-center justify-center rounded-lg border border-border p-2 md:hidden text-foreground bg-card hover:bg-accent transition-colors cursor-pointer" aria-label="Toggle menu">
@@ -151,12 +163,14 @@ export default function LandingPage() {
         {mobileMenuOpen && (
           <div className="border-t border-border md:hidden bg-background/95 animate-in fade-in slide-in-from-top-4 duration-200">
             <div className="flex flex-col gap-1 px-6 py-4">
+              <a href="#why-helpa" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-3 py-2.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground font-medium transition-colors">Why Helpa</a>
+              <a href="#roi" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-3 py-2.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground font-medium transition-colors">ROI</a>
               <a href="#features" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-3 py-2.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground font-medium transition-colors">Features</a>
               <a href="#industries" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-3 py-2.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground font-medium transition-colors">Industries</a>
               <a href="#pricing" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-3 py-2.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground font-medium transition-colors">Pricing</a>
               <a href="#faq" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-3 py-2.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground font-medium transition-colors">FAQ</a>
               <Link href={user ? "/dashboard" : "/signup"} onClick={() => setMobileMenuOpen(false)} className="mt-2 rounded-full bg-indigo-600 px-5 py-2.5 text-center text-sm font-medium text-white">
-                {user ? "Go to Dashboard" : "Book a Demo"}
+                {user ? "Dashboard" : "Book Demo"}
               </Link>
             </div>
           </div>
@@ -167,90 +181,45 @@ export default function LandingPage() {
       <section className="relative overflow-hidden px-6 pb-24 pt-20 sm:pt-28">
         <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_60%_50%_at_50%_-10%,rgba(79,70,229,0.12),transparent)]"></div>
         <div className="mx-auto max-w-4xl text-center">
-          <div className="hero-reveal mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs font-medium text-muted-foreground shadow-sm transition-colors duration-300">
+          <div className="hero-reveal mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs font-semibold text-muted-foreground shadow-sm transition-colors duration-300">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            Automated WhatsApp Assistant for Indian Service Businesses
+            ✓ Setup in 24 Hours
           </div>
-          <h1 className="hero-reveal hero-reveal-delay-1 text-5xl font-bold tracking-tight sm:text-6xl lg:text-7xl text-foreground">
-            Your AI Receptionist<br />on WhatsApp
+          <h1 className="hero-reveal hero-reveal-delay-1 text-5xl font-extrabold tracking-tight sm:text-6xl lg:text-7xl text-foreground">
+            Never Miss Another<br />Customer.
           </h1>
           <p className="hero-reveal hero-reveal-delay-2 mx-auto mt-6 max-w-2xl text-lg text-muted-foreground leading-relaxed">
-            Helpa instantly replies to customer enquiries, books appointments, shares pricing details, and stays active 24/7 — so your team can focus on serving walk-in clients.
+            Helpa answers every WhatsApp enquiry instantly, books appointments automatically, captures leads, and works 24/7—so your team can focus on running the business.
           </p>
           <div className="hero-reveal hero-reveal-delay-3 mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <Link href={user ? "/dashboard" : "/signup"} className="flex items-center gap-2 rounded-full bg-indigo-600 px-7 py-3.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 shadow-sm shadow-indigo-600/10">
-              Book a Demo <ArrowRight className="h-4 w-4" />
+            <Link href={user ? "/dashboard" : "/signup"} className="flex items-center gap-2 rounded-full bg-indigo-600 px-7 py-3.5 text-sm font-bold text-white transition-all hover:bg-indigo-700 shadow-lg shadow-indigo-600/15 hover:scale-[1.02] duration-200">
+              Book Free Demo <ArrowRight className="h-4 w-4" />
             </Link>
-            <a href="#demo" className="flex items-center gap-2 rounded-full border border-border bg-card px-7 py-3.5 text-sm font-medium text-foreground transition-colors hover:bg-accent shadow-sm">
-              <PlayCircle className="h-4 w-4" /> Watch Demo
+            <a href="#product-video" className="flex items-center gap-2 rounded-full border border-border bg-card px-7 py-3.5 text-sm font-bold text-foreground transition-all hover:bg-accent shadow-sm hover:scale-[1.02] duration-200">
+              <PlayCircle className="h-4 w-4 text-indigo-600" /> Watch 60-sec Demo
             </a>
+          </div>
+
+          <div className="hero-reveal hero-reveal-delay-3 mt-6 flex flex-wrap justify-center gap-x-6 gap-y-2 text-xs font-semibold text-muted-foreground">
+            <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">✓ No Coding</span>
+            <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">✓ Setup in 1 Day</span>
+            <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">✓ Works with WhatsApp Business</span>
           </div>
         </div>
 
-        {/* Dashboard mockup (Keep dark theme for premium developer contrast) */}
-        <div className="hero-reveal hero-reveal-dashboard relative mx-auto mt-20 max-w-5xl">
-          <div className="hero-dashboard-float">
-            <div className="absolute -inset-10 -z-10 rounded-3xl bg-indigo-600/5 blur-3xl"></div>
-            <div className="overflow-hidden rounded-3xl border border-zinc-200/80 bg-zinc-950 dark:border-zinc-800 shadow-2xl transition-colors duration-300">
-              <div className="flex items-center gap-2 border-b border-zinc-800 px-4 py-3 bg-zinc-900/50">
-                <span className="h-3 w-3 rounded-full bg-red-500/70"></span>
-                <span className="h-3 w-3 rounded-full bg-yellow-500/70"></span>
-                <span className="h-3 w-3 rounded-full bg-green-500/70"></span>
-                <span className="ml-4 text-xs text-zinc-500">app.helpa.ai</span>
-              </div>
-              <div className="grid gap-4 p-5 md:grid-cols-[1.2fr_1fr]">
-                <div className="space-y-2">
-                  <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 px-4 py-3 text-left">
-                    <div className="flex justify-between text-xs">
-                      <span className="font-medium text-zinc-200">Priya — New Enquiry</span>
-                      <span className="text-zinc-500">WhatsApp</span>
-                    </div>
-                    <p className="mt-1 text-xs text-zinc-400">Do you have appointment slots available this evening?</p>
-                    <p className="mt-1 text-[11px] text-emerald-400">AI replied · 2m ago</p>
-                  </div>
-                  <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 px-4 py-3 text-left">
-                    <div className="flex justify-between text-xs">
-                      <span className="font-medium text-zinc-200">Rahul — Rescheduling</span>
-                      <span className="text-zinc-500">WhatsApp</span>
-                    </div>
-                    <p className="mt-1 text-xs text-zinc-400">Can I shift my booking to tomorrow morning?</p>
-                    <p className="mt-1 text-[11px] text-zinc-500">Awaiting staff takeover</p>
-                  </div>
-                  <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 px-4 py-3 text-left">
-                    <div className="flex justify-between text-xs">
-                      <span className="font-medium text-zinc-200">Mr. Sharma</span>
-                      <span className="text-zinc-500">WhatsApp</span>
-                    </div>
-                    <p className="mt-1 text-xs text-zinc-400">What are your consultation charges?</p>
-                    <p className="mt-1 text-[11px] text-emerald-400">AI replied · 5m ago</p>
-                  </div>
-                </div>
-                <div className="space-y-3 text-left text-zinc-100">
-                  <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 p-4">
-                    <p className="mb-3 text-xs text-zinc-500">Last 24 hours</p>
-                    <div className="grid grid-cols-3 gap-2 text-center">
-                      <div className="rounded-xl bg-black/40 p-2">
-                        <p className="text-[11px] text-zinc-500">Total Chats</p>
-                        <p className="text-lg font-semibold">182</p>
-                      </div>
-                      <div className="rounded-xl bg-black/40 p-2">
-                        <p className="text-[11px] text-zinc-500">Bookings</p>
-                        <p className="text-lg font-semibold text-emerald-400">29</p>
-                      </div>
-                      <div className="rounded-xl bg-black/40 p-2">
-                        <p className="text-[11px] text-zinc-500">Enquiries</p>
-                        <p className="text-lg font-semibold text-indigo-400">47</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 p-4 text-xs text-zinc-400">
-                    <p className="mb-2 font-medium text-zinc-200">Upcoming Today</p>
-                    <div className="flex justify-between"><span>Doctor consultation</span><span>5:30 PM</span></div>
-                    <div className="mt-1 flex justify-between"><span>Hair treatment — Glow Salon</span><span>6:15 PM</span></div>
-                  </div>
-                </div>
-              </div>
-            </div>
+        {/* Embedded YouTube video preview */}
+        <div className="hero-reveal hero-reveal-dashboard relative mx-auto mt-20 max-w-4xl">
+          <div className="absolute -inset-10 -z-10 rounded-3xl bg-indigo-600/5 blur-3xl"></div>
+          <div className="aspect-video overflow-hidden rounded-2xl border border-border shadow-2xl bg-zinc-950">
+            <iframe
+              className="w-full h-full"
+              src="https://www.youtube.com/embed/gFx-NjTw3sM"
+              title="Helpa Demo Video"
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              loading="lazy"
+            />
           </div>
         </div>
       </section>
@@ -269,56 +238,174 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ═══════ AFTER HERO: WHY HELPA ═══════ */}
+      <section id="why-helpa" className="mx-auto max-w-7xl px-6 py-24 scroll-mt-14">
+        <div className="mx-auto max-w-2xl text-center">
+          <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl text-foreground">Why Businesses Choose Helpa</h2>
+          <p className="mt-4 text-muted-foreground leading-relaxed">Streamline your patient, student, or client inquiries without the overhead of additional staff.</p>
+        </div>
+        <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4 text-left">
+          <div className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200">
+            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400">
+              <Zap className="h-5 w-5" />
+            </div>
+            <h3 className="font-bold text-foreground text-base">Never Miss Leads</h3>
+            <p className="mt-2 text-sm text-muted-foreground">Every enquiry gets answered.</p>
+          </div>
+          <div className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200">
+            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400">
+              <UserCheck className="h-5 w-5" />
+            </div>
+            <h3 className="font-bold text-foreground text-base">24/7 Receptionist</h3>
+            <p className="mt-2 text-sm text-muted-foreground">Customers receive replies even outside business hours.</p>
+          </div>
+          <div className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200">
+            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400">
+              <CalendarCheck className="h-5 w-5" />
+            </div>
+            <h3 className="font-bold text-foreground text-base">Book Appointments Automatically</h3>
+            <p className="mt-2 text-sm text-muted-foreground">Reduce receptionist workload.</p>
+          </div>
+          <div className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200">
+            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400">
+              <UserPlus className="h-5 w-5" />
+            </div>
+            <h3 className="font-bold text-foreground text-base">Capture Every Customer</h3>
+            <p className="mt-2 text-sm text-muted-foreground">Every lead is stored inside CRM.</p>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════ ROI SECTION ═══════ */}
+      <section id="roi" className="border-y border-border bg-muted/30 py-24 scroll-mt-14 transition-colors duration-300">
+        <div className="mx-auto max-w-7xl px-6">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl text-foreground">Helpa Pays For Itself.</h2>
+            <p className="mt-4 text-muted-foreground">Compare the difference in efficiency, response times, and booked revenue.</p>
+          </div>
+
+          <div className="mt-14 grid gap-8 md:grid-cols-2 max-w-4xl mx-auto">
+            {/* Without Helpa */}
+            <div className="rounded-2xl border border-border bg-card p-8 shadow-sm transition-all duration-300">
+              <h3 className="text-lg font-bold text-red-500 flex items-center gap-2 mb-6">
+                Without Helpa
+              </h3>
+              <ul className="space-y-4">
+                <li className="flex items-start gap-3 text-sm text-muted-foreground font-medium">
+                  <span className="text-red-500 font-bold">❌</span> Missed enquiries after work hours
+                </li>
+                <li className="flex items-start gap-3 text-sm text-muted-foreground font-medium">
+                  <span className="text-red-500 font-bold">❌</span> Slow replies during busy rush times
+                </li>
+                <li className="flex items-start gap-3 text-sm text-muted-foreground font-medium">
+                  <span className="text-red-500 font-bold">❌</span> Busy receptionist answering same basic queries
+                </li>
+                <li className="flex items-start gap-3 text-sm text-muted-foreground font-medium">
+                  <span className="text-red-500 font-bold">❌</span> Lost bookings because patients/clients got tired of waiting
+                </li>
+              </ul>
+            </div>
+
+            {/* With Helpa */}
+            <div className="rounded-2xl border-2 border-indigo-600 bg-card p-8 shadow-md relative transition-all duration-300">
+              <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-indigo-600 px-3 py-1 text-[9px] font-extrabold text-white uppercase tracking-wider">Recommended</span>
+              <h3 className="text-lg font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-2 mb-6">
+                With Helpa
+              </h3>
+              <ul className="space-y-4">
+                <li className="flex items-start gap-3 text-sm text-foreground font-semibold">
+                  <span className="text-emerald-500 font-bold">✅</span> Instant replies to queries 24/7/365
+                </li>
+                <li className="flex items-start gap-3 text-sm text-foreground font-semibold">
+                  <span className="text-emerald-500 font-bold">✅</span> Every single lead captured and stored inside your CRM
+                </li>
+                <li className="flex items-start gap-3 text-sm text-foreground font-semibold">
+                  <span className="text-emerald-500 font-bold">✅</span> Bookings automated without picking up a call
+                </li>
+                <li className="flex items-start gap-3 text-sm text-foreground font-semibold">
+                  <span className="text-emerald-500 font-bold">✅</span> Staff only handles complex or custom operations
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="text-center mt-12 max-w-md mx-auto">
+            <p className="text-sm font-semibold text-muted-foreground">
+              Just one missed customer each day can cost more than Helpa's monthly subscription.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════ PRODUCT VIDEO SECTION ═══════ */}
+      <section id="product-video" className="mx-auto max-w-7xl px-6 py-24 scroll-mt-14">
+        <div className="mx-auto max-w-2xl text-center mb-12">
+          <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl text-foreground">Watch Helpa In Action</h2>
+          <p className="mt-3 text-muted-foreground">See how instantly Helpa responds, gathers info, and schedules customers.</p>
+        </div>
+        <div className="aspect-video max-w-4xl mx-auto rounded-2xl overflow-hidden shadow-2xl border border-border bg-zinc-950 transition-all duration-300">
+          <iframe
+            className="w-full h-full"
+            src="https://www.youtube.com/embed/gFx-NjTw3sM"
+            title="Helpa Walkthrough Video"
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            loading="lazy"
+          />
+        </div>
+      </section>
+
       {/* ═══════ FEATURES ═══════ */}
-      <section id="features" className="mx-auto max-w-7xl px-6 py-24">
+      <section id="features" className="mx-auto max-w-7xl px-6 py-24 scroll-mt-14">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl text-foreground">Everything your WhatsApp reception needs</h2>
           <p className="mt-4 text-muted-foreground">Built specifically for customer-facing businesses that live on WhatsApp.</p>
         </div>
         <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 text-left">
-          <div className="group rounded-2xl border border-border bg-card p-6 shadow-sm transition hover:-translate-y-1 hover:border-indigo-500/50 hover:shadow-md dark:hover:shadow-indigo-950/20">
+          <div className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200">
             <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><Zap className="h-5 w-5" /></div>
-            <h3 className="font-semibold text-foreground text-base">Instant AI Replies</h3>
+            <h3 className="font-semibold text-foreground text-base">Reply to Every Customer in Under 3 Seconds</h3>
             <p className="mt-2 text-sm text-muted-foreground">Every customer enquiry gets an accurate, on-brand reply in seconds — 24/7, without fail.</p>
           </div>
-          <div className="group rounded-2xl border border-border bg-card p-6 shadow-sm transition hover:-translate-y-1 hover:border-indigo-500/50 hover:shadow-md dark:hover:shadow-indigo-950/20">
+          <div className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200">
             <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><CalendarCheck className="h-5 w-5" /></div>
-            <h3 className="font-semibold text-foreground text-base">Appointment Booking</h3>
+            <h3 className="font-semibold text-foreground text-base">Book Appointments Automatically</h3>
             <p className="mt-2 text-sm text-muted-foreground">Clients can book, reschedule, or cancel slots directly inside WhatsApp, synced to your calendar.</p>
           </div>
-          <div className="group rounded-2xl border border-border bg-card p-6 shadow-sm transition hover:-translate-y-1 hover:border-indigo-500/50 hover:shadow-md dark:hover:shadow-indigo-950/20">
+          <div className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200">
             <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><UserPlus className="h-5 w-5" /></div>
-            <h3 className="font-semibold text-foreground text-base">Lead & Enquiry Capture</h3>
+            <h3 className="font-semibold text-foreground text-base">Capture Leads & Enquiries Automatically</h3>
             <p className="mt-2 text-sm text-muted-foreground">Names, phone numbers, and requirements are structured and saved from every chat conversation.</p>
           </div>
-          <div className="group rounded-2xl border border-border bg-card p-6 shadow-sm transition hover:-translate-y-1 hover:border-indigo-500/50 hover:shadow-md dark:hover:shadow-indigo-950/20">
+          <div className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200">
             <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><HelpCircle className="h-5 w-5" /></div>
-            <h3 className="font-semibold text-foreground text-base">FAQ Automation</h3>
+            <h3 className="font-semibold text-foreground text-base">Automate Answers to Frequent Questions</h3>
             <p className="mt-2 text-sm text-muted-foreground">Train Helpa once on your fees, timings, and business location — it replies instantly without getting tired.</p>
           </div>
-          <div className="group rounded-2xl border border-border bg-card p-6 shadow-sm transition hover:-translate-y-1 hover:border-indigo-500/50 hover:shadow-md dark:hover:shadow-indigo-950/20">
+          <div className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200">
             <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><UserCheck className="h-5 w-5" /></div>
-            <h3 className="font-semibold text-foreground text-base">Human Takeover</h3>
+            <h3 className="font-semibold text-foreground text-base">Hand Off to Live Staff Instantly</h3>
             <p className="mt-2 text-sm text-muted-foreground">Complex or VIP chats route to your support team instantly, with the complete history attached.</p>
           </div>
-          <div className="group rounded-2xl border border-border bg-card p-6 shadow-sm transition hover:-translate-y-1 hover:border-indigo-500/50 hover:shadow-md dark:hover:shadow-indigo-950/20">
+          <div className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200">
             <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><Globe2 className="h-5 w-5" /></div>
-            <h3 className="font-semibold text-foreground text-base">Multi-language Support</h3>
+            <h3 className="font-semibold text-foreground text-base">Speak Any Local Language Fluently</h3>
             <p className="mt-2 text-sm text-muted-foreground">Helpa automatically detects if the user is texting in English, Hindi, or Bengali, and replies back in the same language.</p>
           </div>
-          <div className="group rounded-2xl border border-border bg-card p-6 shadow-sm transition hover:-translate-y-1 hover:border-indigo-500/50 hover:shadow-md dark:hover:shadow-indigo-950/20">
+          <div className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200">
             <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><BarChart3 className="h-5 w-5" /></div>
-            <h3 className="font-semibold text-foreground text-base">Analytics Dashboard</h3>
+            <h3 className="font-semibold text-foreground text-base">Gain Clear Performance Analytics</h3>
             <p className="mt-2 text-sm text-muted-foreground">Monitor response speed, chat resolution rate, bookings, and customer inquiries in one clean panel.</p>
           </div>
-          <div className="group rounded-2xl border border-border bg-card p-6 shadow-sm transition hover:-translate-y-1 hover:border-indigo-500/50 hover:shadow-md dark:hover:shadow-indigo-950/20">
+          <div className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200">
             <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><Radio className="h-5 w-5" /></div>
-            <h3 className="font-semibold text-foreground text-base">Broadcast Messages</h3>
+            <h3 className="font-semibold text-foreground text-base">Broadcast Festival & Promotional Offers</h3>
             <p className="mt-2 text-sm text-muted-foreground">Send festival offers, reminders, and service updates to filtered customer lists with a single click.</p>
           </div>
-          <div className="group rounded-2xl border border-border bg-card p-6 shadow-sm transition hover:-translate-y-1 hover:border-indigo-500/50 hover:shadow-md dark:hover:shadow-indigo-950/20">
+          <div className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200">
             <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><RefreshCw className="h-5 w-5" /></div>
-            <h3 className="font-semibold text-foreground text-base">Follow-up Automation</h3>
+            <h3 className="font-semibold text-foreground text-base">Trigger Smart Automatic Follow-ups</h3>
             <p className="mt-2 text-sm text-muted-foreground">Remind clients of upcoming appointments or follow-up with cold leads automatically.</p>
           </div>
         </div>
@@ -328,7 +415,7 @@ export default function LandingPage() {
       <section className="border-y border-border bg-muted/30 py-24 transition-colors duration-300">
         <div className="mx-auto max-w-7xl px-6">
           <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl text-foreground">Get started in under a day</h2>
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl text-foreground">Go Live in Less Than 24 Hours</h2>
             <p className="mt-4 text-muted-foreground">No coding or developers required. Connect, train, and go live.</p>
           </div>
           <div className="relative mt-16 grid gap-8 md:grid-cols-4">
@@ -354,7 +441,7 @@ export default function LandingPage() {
       </section>
 
       {/* ═══════ INDUSTRIES ═══════ */}
-      <section id="industries" className="mx-auto max-w-7xl px-6 py-24">
+      <section id="industries" className="mx-auto max-w-7xl px-6 py-24 scroll-mt-14">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl text-foreground">Built for Every Service Business</h2>
           <p className="mt-4 text-muted-foreground">Whether you operate one clinic or fifty coaching branches — Helpa handles the volume.</p>
@@ -392,6 +479,27 @@ export default function LandingPage() {
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><Store className="h-5 w-5" /></div>
             <span className="text-sm font-medium text-foreground">Local Service Shops</span>
           </div>
+          {/* New Industries requested */}
+          <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-6 text-center shadow-sm hover:border-indigo-500/50 transition duration-300">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><Smile className="h-5 w-5" /></div>
+            <span className="text-sm font-medium text-foreground">Dentists</span>
+          </div>
+          <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-6 text-center shadow-sm hover:border-indigo-500/50 transition duration-300">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><Scale className="h-5 w-5" /></div>
+            <span className="text-sm font-medium text-foreground">Law Firms</span>
+          </div>
+          <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-6 text-center shadow-sm hover:border-indigo-500/50 transition duration-300">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><Dumbbell className="h-5 w-5" /></div>
+            <span className="text-sm font-medium text-foreground">Fitness Centers</span>
+          </div>
+          <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-6 text-center shadow-sm hover:border-indigo-500/50 transition duration-300">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><Wrench className="h-5 w-5" /></div>
+            <span className="text-sm font-medium text-foreground">Repair Shops</span>
+          </div>
+          <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-6 text-center shadow-sm hover:border-indigo-500/50 transition duration-300 col-span-2 sm:col-span-1 lg:col-span-1">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><Plane className="h-5 w-5" /></div>
+            <span className="text-sm font-medium text-foreground">Travel Agencies</span>
+          </div>
         </div>
       </section>
 
@@ -413,7 +521,17 @@ export default function LandingPage() {
             <button onClick={() => setActiveTab("settings")} className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold transition cursor-pointer ${activeTab === 'settings' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-card border border-border text-muted-foreground hover:bg-accent hover:text-foreground'}`}><Settings className="h-3.5 w-3.5" /> Settings</button>
           </div>
 
-          <div className="mx-auto mt-8 max-w-5xl overflow-hidden rounded-3xl border border-border bg-card shadow-xl text-left transition-colors duration-300">
+          <div className="mx-auto mt-8 max-w-5xl overflow-hidden rounded-3xl border border-border bg-card shadow-xl text-left transition-colors duration-300 relative">
+            
+            {/* Floating indicator labels pointing to features */}
+            <div className="absolute top-3 right-3 z-20 flex flex-wrap gap-1.5 pointer-events-none">
+              <span className="rounded-full bg-indigo-500/10 backdrop-blur-md border border-indigo-500/20 px-2.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-indigo-400 animate-pulse">AI Replies</span>
+              <span className="rounded-full bg-emerald-500/10 backdrop-blur-md border border-emerald-500/20 px-2.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-emerald-400 animate-pulse">Bookings</span>
+              <span className="rounded-full bg-blue-500/10 backdrop-blur-md border border-blue-500/20 px-2.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-blue-400 animate-pulse">CRM</span>
+              <span className="rounded-full bg-amber-500/10 backdrop-blur-md border border-amber-500/20 px-2.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-amber-400 animate-pulse">Broadcasts</span>
+              <span className="rounded-full bg-sky-500/10 backdrop-blur-md border border-sky-500/20 px-2.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-sky-400 animate-pulse">Analytics</span>
+            </div>
+
             {activeTab === 'conversations' && (
               <div className="grid gap-4 p-6 md:grid-cols-3 animate-in fade-in duration-200">
                 <div className="rounded-2xl border border-border bg-muted/40 p-4"><p className="text-xs text-muted-foreground font-semibold">Total Chats</p><p className="mt-1 text-2xl font-bold text-foreground">12,847</p><p className="mt-1 text-xs text-emerald-600 font-medium">+34% this month</p></div>
@@ -470,33 +588,78 @@ export default function LandingPage() {
       {/* ═══════ TESTIMONIALS ═══════ */}
       <section className="mx-auto max-w-7xl px-6 py-24">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl text-foreground font-sans">Businesses that switch don't go back</h2>
+          <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl text-foreground font-sans">Early Beta Feedback</h2>
+          <p className="mt-4 text-muted-foreground">Real feedback from early trial users across India.</p>
         </div>
         <div className="mt-14 grid gap-5 md:grid-cols-3 text-left">
-          <div className="flex flex-col justify-between rounded-2xl border border-border bg-card p-6 shadow-sm transition duration-300">
-            <p className="text-sm text-foreground font-medium leading-relaxed">"We used to miss 30–40% of patient enquiries after hospital hours. With Helpa, every WhatsApp message gets a response in seconds — appointment bookings are up 40%."</p>
-            <p className="mt-6 text-xs font-semibold text-muted-foreground">Clinical Director, Multi-speciality Clinic</p>
+          <div className="flex flex-col justify-between rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift transition duration-200">
+            <p className="text-sm text-foreground font-medium leading-relaxed">"Helpa has significantly reduced our front desk call volume. Customers love getting instant answers to our treatment fees and booking details directly on WhatsApp."</p>
+            <p className="mt-6 text-xs font-bold text-indigo-600 dark:text-indigo-400">Clinic Partner · Mumbai</p>
           </div>
-          <div className="flex flex-col justify-between rounded-2xl border border-border bg-card p-6 shadow-sm transition duration-300">
-            <p className="text-sm text-foreground font-medium leading-relaxed">"Booking classes and batch scheduling over WhatsApp is now completely automated. Our front desk finally stopped being crowded with calls."</p>
-            <p className="mt-6 text-xs font-semibold text-muted-foreground">Founder, Coaching Centre</p>
+          <div className="flex flex-col justify-between rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift transition duration-200">
+            <p className="text-sm text-foreground font-medium leading-relaxed">"The automated appointment scheduling and course enquiry flow worked flawlessly during our testing phase. It handles multiple parents simultaneously."</p>
+            <p className="mt-6 text-xs font-bold text-indigo-600 dark:text-indigo-400">Coaching Institute Admin · Bangalore</p>
           </div>
-          <div className="flex flex-col justify-between rounded-2xl border border-border bg-card p-6 shadow-sm transition duration-300">
-            <p className="text-sm text-foreground font-medium leading-relaxed">"Our staff only steps in for complex customer cases now. Helpa quietly runs our guest reception desk on WhatsApp, all day, every day."</p>
-            <p className="mt-6 text-xs font-semibold text-muted-foreground">GM, Boutique Hotel</p>
+          <div className="flex flex-col justify-between rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift transition duration-200">
+            <p className="text-sm text-foreground font-medium leading-relaxed">"A complete game-changer for businesses that handle high volumes of customer enquiries daily. The CRM sync has made it impossible to lose contacts."</p>
+            <p className="mt-6 text-xs font-bold text-indigo-600 dark:text-indigo-400">Service Agency Partner · Delhi</p>
           </div>
         </div>
       </section>
 
-      {/* ═══════ PRICING (Converted to INR) ═══════ */}
-      <section id="pricing" className="border-y border-border bg-muted/30 py-24 transition-colors duration-300">
+      {/* ═══════ TRUST SECTION ═══════ */}
+      <section className="border-t border-border bg-muted/20 py-24 transition-colors duration-300">
+        <div className="mx-auto max-w-7xl px-6">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl text-foreground">Everything You Need. <span className="text-indigo-600 dark:text-indigo-400">Nothing You Don't.</span></h2>
+            <p className="mt-4 text-muted-foreground">Minimal setup overhead. Engineered to drive bookings and capture customers instantly.</p>
+          </div>
+          <div className="mt-14 max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-6 text-left">
+            <div className="flex items-center gap-3 p-4 rounded-xl border border-border/80 bg-card">
+              <div className="h-8 w-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500"><Check className="h-4.5 w-4.5" /></div>
+              <span className="text-sm font-semibold text-foreground">WhatsApp Business</span>
+            </div>
+            <div className="flex items-center gap-3 p-4 rounded-xl border border-border/80 bg-card">
+              <div className="h-8 w-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500"><Check className="h-4.5 w-4.5" /></div>
+              <span className="text-sm font-semibold text-foreground">Multi-language</span>
+            </div>
+            <div className="flex items-center gap-3 p-4 rounded-xl border border-border/80 bg-card">
+              <div className="h-8 w-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500"><Check className="h-4.5 w-4.5" /></div>
+              <span className="text-sm font-semibold text-foreground">Human Takeover</span>
+            </div>
+            <div className="flex items-center gap-3 p-4 rounded-xl border border-border/80 bg-card">
+              <div className="h-8 w-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500"><Check className="h-4.5 w-4.5" /></div>
+              <span className="text-sm font-semibold text-foreground">CRM</span>
+            </div>
+            <div className="flex items-center gap-3 p-4 rounded-xl border border-border/80 bg-card">
+              <div className="h-8 w-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500"><Check className="h-4.5 w-4.5" /></div>
+              <span className="text-sm font-semibold text-foreground">Broadcasts</span>
+            </div>
+            <div className="flex items-center gap-3 p-4 rounded-xl border border-border/80 bg-card">
+              <div className="h-8 w-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500"><Check className="h-4.5 w-4.5" /></div>
+              <span className="text-sm font-semibold text-foreground">Analytics</span>
+            </div>
+            <div className="flex items-center gap-3 p-4 rounded-xl border border-border/80 bg-card">
+              <div className="h-8 w-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500"><Check className="h-4.5 w-4.5" /></div>
+              <span className="text-sm font-semibold text-foreground">Secure Cloud</span>
+            </div>
+            <div className="flex items-center gap-3 p-4 rounded-xl border border-border/80 bg-card">
+              <div className="h-8 w-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500"><Check className="h-4.5 w-4.5" /></div>
+              <span className="text-sm font-semibold text-foreground">Fast Setup</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════ PRICING ═══════ */}
+      <section id="pricing" className="border-t border-border bg-muted/30 py-24 scroll-mt-14 transition-colors duration-300">
         <div className="mx-auto max-w-7xl px-6">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl text-foreground">Simple, transparent pricing</h2>
             <p className="mt-4 text-muted-foreground">Choose a plan that fits your business volume. No hidden charges.</p>
           </div>
           <div className="mt-14 grid gap-6 md:grid-cols-3 text-left">
-            <div className="flex flex-col rounded-2xl border border-border bg-card p-7 shadow-sm transition-colors duration-300">
+            <div className="flex flex-col rounded-2xl border border-border bg-card p-7 shadow-sm hover-card-lift transition duration-200">
               <h3 className="text-lg font-bold text-foreground">Starter</h3>
               <p className="mt-1 text-sm text-muted-foreground leading-relaxed">For individual clinics, classrooms, and small shops getting started.</p>
               <div className="mt-6 flex items-baseline gap-1"><span className="text-4xl font-extrabold text-foreground">₹1,999</span><span className="text-sm text-muted-foreground font-medium">/month</span></div>
@@ -512,7 +675,7 @@ export default function LandingPage() {
               </Link>
             </div>
             
-            <div className="flex flex-col rounded-2xl border-2 border-indigo-600 bg-card p-7 shadow-xl shadow-indigo-600/5 relative transition-colors duration-300">
+            <div className="flex flex-col rounded-2xl border-2 border-indigo-600 bg-card p-7 shadow-xl shadow-indigo-600/5 relative hover-card-lift transition duration-200">
               <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-indigo-600 px-3 py-1 text-[10px] font-extrabold text-white uppercase tracking-wider">Most popular</span>
               <h3 className="text-lg font-bold text-foreground mt-2">Growth</h3>
               <p className="mt-1 text-sm text-muted-foreground leading-relaxed">For busy clinics, growing institutes, and multi-staff teams.</p>
@@ -529,7 +692,7 @@ export default function LandingPage() {
               </Link>
             </div>
 
-            <div className="flex flex-col rounded-2xl border border-border bg-card p-7 shadow-sm transition-colors duration-300">
+            <div className="flex flex-col rounded-2xl border border-border bg-card p-7 shadow-sm hover-card-lift transition duration-200">
               <h3 className="text-lg font-bold text-foreground">Enterprise</h3>
               <p className="mt-1 text-sm text-muted-foreground leading-relaxed">For hospitals, multiple franchise locations, and high volumes.</p>
               <div className="mt-6 flex items-baseline gap-1"><span className="text-4xl font-extrabold text-foreground">Custom</span></div>
@@ -543,18 +706,19 @@ export default function LandingPage() {
               <a href="mailto:sales@helpa.ai" className="mt-8 rounded-full border border-border bg-card px-5 py-3 text-center text-sm font-semibold text-foreground hover:bg-accent transition shadow-sm">Contact Sales</a>
             </div>
           </div>
-          <div className="mx-auto mt-8 flex max-w-3xl flex-col items-center justify-between gap-4 rounded-2xl border border-border bg-card p-6 text-center sm:flex-row sm:text-left shadow-sm transition-colors duration-300">
+
+          <div className="mx-auto mt-12 flex max-w-3xl flex-col items-center justify-between gap-4 rounded-2xl border border-border bg-card p-6 text-center sm:flex-row sm:text-left shadow-sm transition-colors duration-300">
             <div>
-              <p className="font-semibold text-foreground">Need custom integrations or high-volume plans?</p>
-              <p className="mt-1 text-sm text-muted-foreground">Get in touch with us to configure custom workflows and routing for your organization.</p>
+              <p className="font-semibold text-foreground">Need custom workflows?</p>
+              <p className="mt-1 text-sm text-muted-foreground">Book a consultation with our engineers to configure bespoke enterprise modules.</p>
             </div>
-            <a href="mailto:sales@helpa.ai" className="flex items-center gap-2 whitespace-nowrap rounded-full border border-border bg-card px-5 py-2.5 text-sm font-semibold text-foreground hover:bg-accent transition shadow-sm">Contact Sales <ArrowRight className="h-4 w-4" /></a>
+            <a href="mailto:sales@helpa.ai" className="flex items-center gap-2 whitespace-nowrap rounded-full border border-border bg-card px-5 py-2.5 text-sm font-semibold text-foreground hover:bg-accent transition shadow-sm">Book a Consultation <ArrowRight className="h-4 w-4" /></a>
           </div>
         </div>
       </section>
 
       {/* ═══════ FAQ ═══════ */}
-      <section id="faq" className="mx-auto max-w-3xl px-6 py-24">
+      <section id="faq" className="mx-auto max-w-3xl px-6 py-24 scroll-mt-14">
         <div className="text-center">
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl text-foreground">Frequently asked questions</h2>
         </div>
@@ -614,16 +778,61 @@ export default function LandingPage() {
               </div>
             )}
           </div>
+          {/* New FAQs requested */}
+          <div className="py-5">
+            <button onClick={() => setActiveFaq(activeFaq === 6 ? null : 6)} className="flex w-full items-center justify-between text-left cursor-pointer">
+              <span className="font-semibold text-foreground">Is my data secure?</span>
+              <ChevronDown className={`h-4 w-4 flex-shrink-0 text-muted-foreground transition-transform duration-300 ${activeFaq === 6 ? 'rotate-180' : ''}`} />
+            </button>
+            {activeFaq === 6 && (
+              <div className="mt-3 text-sm text-muted-foreground bg-muted/30 p-4 rounded-xl animate-in fade-in duration-200">
+                Yes. Your data is stored on secure cloud databases with end-to-end encryption. Helpa complies with global standard data privacy regulations.
+              </div>
+            )}
+          </div>
+          <div className="py-5">
+            <button onClick={() => setActiveFaq(activeFaq === 7 ? null : 7)} className="flex w-full items-center justify-between text-left cursor-pointer">
+              <span className="font-semibold text-foreground">Can Helpa answer in multiple languages?</span>
+              <ChevronDown className={`h-4 w-4 flex-shrink-0 text-muted-foreground transition-transform duration-300 ${activeFaq === 7 ? 'rotate-180' : ''}`} />
+            </button>
+            {activeFaq === 7 && (
+              <div className="mt-3 text-sm text-muted-foreground bg-muted/30 p-4 rounded-xl animate-in fade-in duration-200">
+                Yes, Helpa is natively multilingual. It automatically detects and responds in the customer's language, including English, Hindi, Bengali, Spanish, and many more.
+              </div>
+            )}
+          </div>
+          <div className="py-5">
+            <button onClick={() => setActiveFaq(activeFaq === 8 ? null : 8)} className="flex w-full items-center justify-between text-left cursor-pointer">
+              <span className="font-semibold text-foreground">Can staff take over a conversation?</span>
+              <ChevronDown className={`h-4 w-4 flex-shrink-0 text-muted-foreground transition-transform duration-300 ${activeFaq === 8 ? 'rotate-180' : ''}`} />
+            </button>
+            {activeFaq === 8 && (
+              <div className="mt-3 text-sm text-muted-foreground bg-muted/30 p-4 rounded-xl animate-in fade-in duration-200">
+                Absolutely. You can choose to pause the AI anytime and take over the conversation directly from your dashboard to chat with the customer manually.
+              </div>
+            )}
+          </div>
+          <div className="py-5">
+            <button onClick={() => setActiveFaq(activeFaq === 9 ? null : 9)} className="flex w-full items-center justify-between text-left cursor-pointer">
+              <span className="font-semibold text-foreground">Can I connect multiple WhatsApp numbers?</span>
+              <ChevronDown className={`h-4 w-4 flex-shrink-0 text-muted-foreground transition-transform duration-300 ${activeFaq === 9 ? 'rotate-180' : ''}`} />
+            </button>
+            {activeFaq === 9 && (
+              <div className="mt-3 text-sm text-muted-foreground bg-muted/30 p-4 rounded-xl animate-in fade-in duration-200">
+                Yes, depending on your plan tier (e.g. Growth or Enterprise), you can connect multiple WhatsApp numbers to manage conversations across branches or departments under one single account.
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
       {/* ═══════ FINAL CTA ═══════ */}
       <section id="demo" className="px-6 py-24">
         <div className="relative mx-auto max-w-4xl overflow-hidden rounded-3xl border border-border bg-[radial-gradient(ellipse_80%_80%_at_50%_0%,rgba(79,70,229,0.05),transparent)] p-14 text-center bg-card shadow-sm transition-colors duration-300">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl text-foreground">Never miss another walk-in or enquiry</h2>
-          <p className="mx-auto mt-4 max-w-md text-muted-foreground">Let Helpa manage your WhatsApp inbox 24/7 so you and your team can focus on the business.</p>
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl text-foreground">Ready to Stop Missing Customers?</h2>
+          <p className="mx-auto mt-4 max-w-md text-muted-foreground">See Helpa working with your own business in a live 15-minute demo.</p>
           <Link href={user ? "/dashboard" : "/signup"} className="mt-8 inline-flex items-center gap-2 rounded-full bg-indigo-600 px-8 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 shadow-sm shadow-indigo-600/10">
-            Book Your Free Demo <ArrowRight className="h-4 w-4" />
+            Book My Demo <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
       </section>
