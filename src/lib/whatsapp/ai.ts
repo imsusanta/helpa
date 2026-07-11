@@ -24,6 +24,13 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
 
   const db = supabaseAdmin()
 
+  // Fetch contact details (name and phone)
+  const { data: contact } = await db
+    .from('contacts')
+    .select('name, phone')
+    .eq('id', contactId)
+    .maybeSingle();
+
   // 1. Fetch OpenRouter configuration from accounts
   const { data: account, error: accError } = await db
     .from('accounts')
@@ -200,13 +207,15 @@ AI RULES & MEDICAL SAFETY PROTOCOLS:
      📋 *PATIENT REGISTRATION FORM*
      Please reply with the following details:
      - *Full Name:* [Enter Name]
+     - *Mobile Number:* [Enter Mobile Number]
      - *Gender:* [Male/Female/Other]
      - *Date of Birth:* [YYYY-MM-DD]
+     - *Doctor Name:* [Name of Doctor you want to book with]
      - *Blood Group:* [e.g. O+, A-]
      - *Emergency Contact:* [Name & Phone]
      
-     (You can also specify your preferred Doctor or Department, and preferred Date & Time in your reply)
-   - Do NOT confirm the appointment booking until you have collected at least their Name, Gender, and DOB.
+     (You can also specify your preferred Department, and preferred Date & Time in your reply)
+   - Do NOT confirm the appointment booking until you have collected their Name, Mobile Number, Gender, DOB, and Doctor name.
 4. **Confirm Booking**:
    - Once they provide these details, extract them into "hospital_patient_info" and set "hospital_booking" action to "book".
    - Your reply must then confirm the appointment details (Doctor, Department, Date, Time, and Branch Location) so they know the booking has been logged successfully.
@@ -483,11 +492,7 @@ Note:
             const newLeadStage = stages.find(s => s.name.toLowerCase() === 'new inquiry' || s.name.toLowerCase() === 'new lead') || stages[0];
             const stageId = newLeadStage.id;
 
-            const { data: contact } = await db
-              .from('contacts')
-              .select('name, phone')
-              .eq('id', contactId)
-              .single();
+
 
             const contactName = contact?.name || contact?.phone || 'Unknown Client';
             const cardTitle = interested_service ? `${contactName} - ${interested_service}` : `${contactName} - WhatsApp Lead`;
@@ -569,17 +574,45 @@ Note:
       // 3. Appointment Booking via Chat
       if (hospital_booking && hospital_booking.action === 'book') {
         const { doctor_name, department, date, time } = hospital_booking;
-        if (date && time) {
+
+        // Fetch existing patient details to verify if we already have Gender and DOB
+        const { data: extPatient } = await db
+          .from('patients')
+          .select('patient_seq_id, gender, date_of_birth')
+          .eq('id', contactId)
+          .maybeSingle();
+
+        const pName = hospital_patient_info?.name || contact?.name;
+        const pGender = hospital_patient_info?.gender || extPatient?.gender;
+        const pDob = hospital_patient_info?.dob || extPatient?.date_of_birth;
+        const hasDoctor = !!doctor_name;
+
+        if (!pName) {
+          reply = "I'm ready to schedule your appointment, but I need your full name first. Could you please reply with your name?";
+        } else if (!pGender) {
+          reply = "I'm ready to schedule your appointment, but I need to know your gender first (Male/Female/Other). Could you please let me know?";
+        } else if (!pDob) {
+          reply = "I'm ready to schedule your appointment, but I need your Date of Birth first (YYYY-MM-DD). Could you please provide it?";
+        } else if (!hasDoctor) {
+          reply = "I'm ready to schedule your appointment, but could you please let me know which doctor you would like to book with?";
+        } else if (date && time) {
           try {
             let doctorId: string | null = null;
+            let actualDocName = doctor_name || 'On-Duty Physician';
+            let actualSpecialization = '';
+
             if (doctor_name) {
               const { data: doc } = await db
                 .from('hospital_doctors')
-                .select('id')
+                .select('id, name, specialization')
                 .eq('account_id', accountId)
                 .ilike('name', `%${doctor_name.replace('Dr.', '').trim()}%`)
                 .maybeSingle();
-              doctorId = doc?.id || null;
+              if (doc) {
+                doctorId = doc.id;
+                actualDocName = doc.name;
+                actualSpecialization = doc.specialization || '';
+              }
             }
 
             // Campaign attribution: find last campaign received in last 7 days
@@ -622,12 +655,15 @@ Note:
               const pdfUrl = `${siteUrl}/api/appointments/${newAppt.id}/pdf`;
               const bookingIdStr = newAppt.booking_id || `APT-2026-${newAppt.id.slice(0, 5).toUpperCase()}`;
 
+              const displayDoc = actualDocName.startsWith('Dr.') ? actualDocName : 'Dr. ' + actualDocName;
+              const displaySpec = actualSpecialization ? ` (${actualSpecialization})` : '';
+
               reply = `✅ *APPOINTMENT CONFIRMED!*
 
 *Booking ID:* ${bookingIdStr}
 *Token Number:* #${newAppt.token_number || 1}
 *Queue Position:* ${newAppt.queue_position || 1}
-*Doctor:* ${doctor_name || 'On-Duty'}
+*Doctor:* ${displayDoc}${displaySpec}
 *Department:* ${department || 'General Medicine'}
 *Date & Time:* ${date} at ${time}
 
@@ -645,7 +681,7 @@ Please arrive 15 minutes before your time slot. Thank you!`;
                 contactId,
                 documentUrl: pdfUrl,
                 filename: `appointment-${bookingIdStr}.pdf`,
-                caption: `Digital Appointment Ticket for ${doctor_name || 'Clinic'}`
+                caption: `Digital Appointment Ticket for ${displayDoc}`
               }).catch((e: any) => console.error('[AI Hospital] Failed to auto-send appointment PDF:', e));
             }
           } catch (apptErr) {

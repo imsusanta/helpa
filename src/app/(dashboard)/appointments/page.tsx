@@ -61,6 +61,8 @@ export default function AppointmentsPage() {
   const [time, setTime] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [editingApptId, setEditingApptId] = useState<string | null>(null);
 
   const loadAllData = useCallback(async () => {
     if (!accountId) return;
@@ -146,6 +148,51 @@ export default function AppointmentsPage() {
       loadAllData();
     } catch (err: any) {
       toast.error("Failed to book appointment: " + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleUpdateAppointment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingApptId || !date || !time) {
+      toast.error("Please fill in date and time.");
+      return;
+    }
+
+    setSaving(true);
+    const db = createClient();
+
+    try {
+      const selectedDoc = doctors.find((d) => d.id === doctorId);
+      const apptDept = selectedDoc ? selectedDoc.department : department || "General";
+
+      const { error } = await db
+        .from("appointments")
+        .update({
+          doctor_id: doctorId || null,
+          department: apptDept,
+          appointment_date: date,
+          appointment_time: time,
+          notes: notes || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", editingApptId);
+
+      if (error) throw error;
+
+      toast.success("Appointment updated successfully!");
+      setPatientId("");
+      setDoctorId("");
+      setDepartment("");
+      setDate("");
+      setTime("");
+      setNotes("");
+      setShowEditForm(false);
+      setEditingApptId(null);
+      loadAllData();
+    } catch (err: any) {
+      toast.error("Failed to update appointment: " + err.message);
     } finally {
       setSaving(false);
     }
@@ -256,6 +303,65 @@ export default function AppointmentsPage() {
         </form>
       )}
 
+      {showEditForm && (
+        <form onSubmit={handleUpdateAppointment} className="bg-card border border-border rounded-xl p-5 space-y-4 max-w-2xl animate-in fade-in slide-in-from-top-4 duration-200">
+          <h3 className="font-bold text-foreground flex items-center justify-between">
+            <span>Edit Appointment</span>
+            <span className="text-xs font-normal text-muted-foreground">Editing ID: {editingApptId}</span>
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Patient *</Label>
+              <select value={patientId} onChange={(e) => setPatientId(e.target.value)} required className="w-full flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" disabled>
+                {patients.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label>Select Doctor (Optional)</Label>
+              <select value={doctorId} onChange={(e) => setDoctorId(e.target.value)} className="w-full flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <option value="">-- Choose Doctor --</option>
+                {doctors.map((d) => (
+                  <option key={d.id} value={d.id}>{d.name} ({d.department})</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label>Clinical Department</Label>
+              <Input value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="e.g. Pediatrics, Cardiology" />
+            </div>
+            <div className="space-y-2">
+              <Label>Appointment Date *</Label>
+              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+            </div>
+            <div className="space-y-2">
+              <Label>Appointment Time *</Label>
+              <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} required />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label>Special Instructions / Symptoms / Notes</Label>
+              <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Brief consultation notes..." />
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end pt-2">
+            <Button type="button" variant="outline" onClick={() => {
+              setShowEditForm(false);
+              setEditingApptId(null);
+              setPatientId("");
+              setDoctorId("");
+              setDepartment("");
+              setDate("");
+              setTime("");
+              setNotes("");
+            }}>Cancel</Button>
+            <Button type="submit" disabled={saving}>
+              {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />} Save Changes
+            </Button>
+          </div>
+        </form>
+      )}
+
       {/* Tabs */}
       <div className="flex border-b border-border">
         {(["upcoming", "queue", "completed", "cancelled"] as const).map((tab) => (
@@ -346,6 +452,25 @@ export default function AppointmentsPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right space-x-1.5 flex justify-end items-center">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setEditingApptId(appt.id);
+                          setPatientId(appt.patient?.id || "");
+                          setDoctorId(appt.doctor?.id || "");
+                          setDepartment(appt.department || "");
+                          setDate(appt.appointment_date);
+                          setTime(appt.appointment_time);
+                          setNotes(appt.notes || "");
+                          setShowEditForm(true);
+                          setShowAddForm(false);
+                        }}
+                        className="border-border text-xs py-1.5 px-3 font-semibold text-foreground cursor-pointer transition-colors"
+                      >
+                        Edit
+                      </Button>
+
                       <a
                         href={`/api/appointments/${appt.id}/pdf`}
                         target="_blank"

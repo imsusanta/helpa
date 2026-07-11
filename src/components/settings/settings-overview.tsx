@@ -25,6 +25,8 @@ import { CURRENCIES } from '@/lib/currency';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
@@ -157,6 +159,8 @@ export function SettingsOverview({
 
   const [counts, setCounts] = useState<OverviewCounts | null>(null);
   const [countsLoading, setCountsLoading] = useState(true);
+  const [businessName, setBusinessName] = useState('');
+  const [updatingName, setUpdatingName] = useState(false);
   const [whatsapp, setWhatsapp] = useState<WhatsAppStatus | null>(null);
   const [whatsappLoading, setWhatsappLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -242,6 +246,31 @@ export function SettingsOverview({
     } catch (err: any) {
       toast.error(err.message || 'Template application failed.');
       setInstallationStep('idle');
+    }
+  };
+
+  useEffect(() => {
+    if (account?.name) {
+      setBusinessName(account.name);
+    }
+  }, [account]);
+
+  const handleUpdateBusinessName = async () => {
+    if (!businessName.trim() || !accountId) return;
+    setUpdatingName(true);
+    const supabase = createClient();
+    try {
+      const { error } = await supabase
+        .from('accounts')
+        .update({ name: businessName.trim() })
+        .eq('id', accountId);
+      if (error) throw error;
+      toast.success("Business name updated successfully!");
+      window.location.reload();
+    } catch (err: any) {
+      toast.error("Failed to update business name: " + err.message);
+    } finally {
+      setUpdatingName(false);
     }
   };
 
@@ -447,6 +476,35 @@ export function SettingsOverview({
             {roleMeta.label}
           </SettingsChip>
         ) : null}
+      </Card>
+
+      {/* Business Details Editor */}
+      <Card className="mt-4 p-5 bg-card border border-border rounded-xl shadow-sm space-y-4">
+        <div>
+          <h4 className="text-sm font-semibold text-foreground">Business Details</h4>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            This name appears in your automated PDF slips, WhatsApp bookings, and team invitations.
+          </p>
+        </div>
+        <div className="flex gap-3 max-w-md items-end">
+          <div className="flex-1 space-y-1.5">
+            <Label htmlFor="workspace-name" className="text-xs font-semibold text-muted-foreground">Business / Workspace Name</Label>
+            <Input
+              id="workspace-name"
+              value={businessName}
+              onChange={(e) => setBusinessName(e.target.value)}
+              placeholder="e.g. Apollo Diagnostics"
+            />
+          </div>
+          <Button
+            size="sm"
+            onClick={handleUpdateBusinessName}
+            disabled={updatingName || businessName.trim() === (account?.name || '')}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg px-4 font-semibold cursor-pointer disabled:opacity-50"
+          >
+            {updatingName ? "Saving..." : "Save Name"}
+          </Button>
+        </div>
       </Card>
 
       {/* Workspace Switcher / Reset Template */}

@@ -9,13 +9,15 @@ AI RULES & MEDICAL SAFETY PROTOCOLS:
      📋 *PATIENT REGISTRATION FORM*
      Please reply with the following details:
      - *Full Name:* [Enter Name]
+     - *Mobile Number:* [Enter Mobile Number]
      - *Gender:* [Male/Female/Other]
      - *Date of Birth:* [YYYY-MM-DD]
+     - *Doctor Name:* [Name of Doctor you want to book with]
      - *Blood Group:* [e.g. O+, A-]
      - *Emergency Contact:* [Name & Phone]
      
-     (You can also specify your preferred Doctor or Department, and preferred Date & Time in your reply)
-   - Do NOT confirm the appointment booking until you have collected at least their Name, Gender, and DOB.
+     (You can also specify your preferred Department, and preferred Date & Time in your reply)
+   - Do NOT confirm the appointment booking until you have collected their Name, Mobile Number, Gender, DOB, and Doctor name.
 4. **Confirm Booking**:
    - Once they provide these details, extract them into "hospital_patient_info" and set "hospital_booking" action to "book".
    - Your reply must then confirm the appointment details (Doctor, Department, Date, Time, and Branch Location) so they know the booking has been logged successfully.

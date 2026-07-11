@@ -23,6 +23,7 @@ import {
   UserCheck,
   FileDown,
   Edit,
+  Send,
   Activity,
   FileUp,
 } from "lucide-react";
@@ -72,6 +73,7 @@ export default function PatientsPage() {
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [timeline, setTimeline] = useState<Message[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [resending, setResending] = useState<string | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
 
   // Lab reports state
@@ -251,6 +253,28 @@ export default function PatientsPage() {
           .order("appointment_date", { ascending: false });
         setAppointments((appts as any) || []);
       }
+    }
+  };
+
+  const handleResendWhatsApp = async (apptId: string) => {
+    if (!accountId) return;
+    setResending(apptId);
+    try {
+      const res = await fetch("/api/appointments/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ appointmentId: apptId, accountId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success("Appointment slip sent to WhatsApp successfully!");
+      } else {
+        throw new Error(data.error || "Failed to send WhatsApp slip.");
+      }
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setResending(null);
     }
   };
 
@@ -698,7 +722,7 @@ export default function PatientsPage() {
                             <span className="text-foreground font-semibold">{appt.queue_position || 1}</span>
                           </div>
                         </div>
-                        <div className="flex justify-end pt-1">
+                        <div className="flex justify-end pt-1 gap-3">
                           <a
                             href={`/api/appointments/${appt.id}/pdf`}
                             target="_blank"
@@ -707,6 +731,13 @@ export default function PatientsPage() {
                           >
                             <FileDown className="h-3 w-3" /> Download Slip PDF
                           </a>
+                          <button
+                            onClick={() => handleResendWhatsApp(appt.id)}
+                            disabled={resending === appt.id}
+                            className="inline-flex items-center gap-1 text-[10px] text-emerald-600 hover:underline font-bold cursor-pointer disabled:opacity-50"
+                          >
+                            <Send className="h-3 w-3" /> {resending === appt.id ? "Sending..." : "Resend WA"}
+                          </button>
                         </div>
                       </div>
                     ))}
