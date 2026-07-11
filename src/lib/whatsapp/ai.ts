@@ -128,6 +128,21 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
       .limit(10);
     labReports = labReportsData;
 
+    const { data: registeredPatients } = await db
+      .from('patients')
+      .select('patient_seq_id, gender, date_of_birth, blood_group, contact:contacts(name, phone)')
+      .in('id', contactIds);
+
+    if (registeredPatients && registeredPatients.length > 0) {
+      hospitalContext += "Registered Patients under this WhatsApp/Phone Number:\n";
+      registeredPatients.forEach((p: any) => {
+        const contactData = p.contact as any;
+        const name = (Array.isArray(contactData) ? contactData[0]?.name : contactData?.name) || 'Unknown';
+        hospitalContext += `- Name: ${name}, Patient ID: ${p.patient_seq_id}, Gender: ${p.gender || 'N/A'}, DOB: ${p.date_of_birth || 'N/A'}, Blood Group: ${p.blood_group || 'N/A'}\n`;
+      });
+      hospitalContext += "\n";
+    }
+
     // Fetch last campaign details
     const { data: lastCampaignRec } = await db
       .from('broadcast_recipients')
