@@ -26,6 +26,7 @@ import {
   Send,
   Activity,
   FileUp,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -280,6 +281,26 @@ export default function PatientsPage() {
     setEditAddress(patient.address || "");
     setEditPatientStatus(patient.status || "active");
     setShowEditProfileForm(true);
+  };
+
+  const handleDeletePatient = async (patientId: string) => {
+    if (!confirm("Are you sure you want to delete this patient profile and all associated appointments? This action cannot be undone.")) return;
+
+    const db = createClient();
+    try {
+      const { error } = await db
+        .from("contacts")
+        .delete()
+        .eq("id", patientId);
+
+      if (error) throw error;
+
+      toast.success("Patient profile and records deleted successfully.");
+      setSelectedPatient(null);
+      loadPatients();
+    } catch (err: any) {
+      toast.error("Failed to delete patient: " + err.message);
+    }
   };
 
   const handleUpdatePatientProfile = async (e: React.FormEvent) => {
@@ -747,14 +768,24 @@ export default function PatientsPage() {
                 </h2>
               </div>
               {!showEditProfileForm && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleStartEditProfile(selectedPatient)}
-                  className="cursor-pointer text-xs flex items-center gap-1 border-border text-foreground hover:bg-muted font-semibold"
-                >
-                  <Edit className="h-3 w-3" /> Edit Profile
-                </Button>
+                <div className="flex gap-1.5">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleStartEditProfile(selectedPatient)}
+                    className="cursor-pointer text-xs flex items-center gap-1 border-border text-foreground hover:bg-muted font-semibold"
+                  >
+                    <Edit className="h-3.5 w-3.5 mr-0.5" /> Edit Profile
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDeletePatient(selectedPatient.id)}
+                    className="cursor-pointer text-xs flex items-center gap-1 text-red-500 hover:text-red-600 hover:bg-red-500/10 font-semibold"
+                  >
+                    <Trash2 className="h-3.5 w-3.5 mr-0.5" /> Delete
+                  </Button>
+                </div>
               )}
             </div>
 
