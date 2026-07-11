@@ -732,6 +732,7 @@ export default function PatientsPage() {
                   <th className="px-6 py-4">Gender / Age</th>
                   <th className="px-6 py-4">Blood Group</th>
                   <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border text-foreground">
@@ -756,6 +757,27 @@ export default function PatientsPage() {
                       <span className="text-[10px] font-bold uppercase px-2.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500">
                         {p.status}
                       </span>
+                    </td>
+                    <td className="px-6 py-4 text-right space-x-1.5 flex justify-end items-center" onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setSelectedPatient(p);
+                          handleStartEditProfile(p);
+                        }}
+                        className="border-border text-xs py-1.5 px-3 font-semibold text-foreground cursor-pointer transition-colors"
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDeletePatient(p.id)}
+                        className="text-red-500 hover:text-red-600 hover:bg-red-500/10 text-xs py-1.5 px-3 font-semibold cursor-pointer transition-colors"
+                      >
+                        Delete
+                      </Button>
                     </td>
                   </tr>
                 ))}
