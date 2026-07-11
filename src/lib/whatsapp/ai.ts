@@ -618,7 +618,7 @@ Note:
             if (insertError) throw insertError;
 
             if (newAppt) {
-              const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://wacrmsusanta.vercel.app';
+              const siteUrl = 'https://helpa.studio';
               const pdfUrl = `${siteUrl}/api/appointments/${newAppt.id}/pdf`;
               const bookingIdStr = newAppt.booking_id || `APT-2026-${newAppt.id.slice(0, 5).toUpperCase()}`;
 

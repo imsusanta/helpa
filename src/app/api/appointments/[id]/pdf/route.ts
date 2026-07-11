@@ -20,6 +20,7 @@ export async function GET(
       .from("appointments")
       .select(`
         id, 
+        account_id,
         appointment_date, 
         appointment_time, 
         token_number, 
@@ -35,6 +36,19 @@ export async function GET(
 
     if (error || !appt) {
       return NextResponse.json({ error: "Appointment not found" }, { status: 404 });
+    }
+
+    // Fetch hospital name from account
+    let hospitalName = "AI CLINICAL CENTER";
+    if (appt.account_id) {
+      const { data: acc } = await db
+        .from("accounts")
+        .select("name")
+        .eq("id", appt.account_id)
+        .maybeSingle();
+      if (acc?.name) {
+        hospitalName = acc.name;
+      }
     }
 
     const patient = appt.patient as any;
@@ -57,13 +71,14 @@ export async function GET(
     // Title
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(22);
-    doc.text("AI CLINICAL CENTER", 15, 18);
+    const titleSize = hospitalName.length > 20 ? 16 : 20;
+    doc.setFontSize(titleSize);
+    doc.text(hospitalName.toUpperCase(), 15, 18);
     
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
-    doc.text("Automated Patient Care & Token Confirmation System", 15, 25);
-    doc.text("Emergency Hotline: +1 (555) 0199 | care@clinic.ai", 15, 30);
+    doc.text("Automated Doctor Booking & Token Confirmation Slip", 15, 25);
+    doc.text("WhatsApp Helpline & Support | Powered by Helpa Studio", 15, 30);
 
     // 2. Booking Header Box
     doc.setFillColor(243, 244, 246); // Gray 100
@@ -132,10 +147,10 @@ export async function GET(
     doc.setTextColor(146, 64, 14); // Amber 800
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
-    doc.text("IMPORTANT CLINIC GUIDELINES:", 20, 184);
+    doc.text(`IMPORTANT ${hospitalName.toUpperCase()} GUIDELINES:`, 20, 184);
     doc.setFont("helvetica", "normal");
-    doc.text("- Please arrive at the reception desk 15 minutes prior to your scheduled consultation slot.", 20, 189);
-    doc.text("- Present this Digital Token PDF or your Booking ID on WhatsApp to collect your physical card.", 20, 194);
+    doc.text("- Please arrive 15 minutes prior to your scheduled consultation slot.", 20, 189);
+    doc.text("- Present this Digital Token PDF or your Booking ID on WhatsApp to the reception.", 20, 194);
 
     // 6. QR Code Section
     doc.setTextColor(100, 116, 139);
@@ -147,7 +162,7 @@ export async function GET(
 
     // 7. Footer brand
     doc.setFontSize(8);
-    doc.text("Generated automatically by AI Clinical Assistant. Security verification valid.", 15, 280);
+    doc.text(`Generated automatically for ${hospitalName} by Helpa Studio. Security verification valid.`, 15, 280);
 
     const pdfOutput = doc.output("arraybuffer");
 
