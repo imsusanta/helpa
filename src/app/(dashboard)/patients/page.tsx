@@ -1,3 +1,4 @@
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -88,6 +89,8 @@ export default function PatientsPage() {
   const [editAddress, setEditAddress] = useState("");
   const [editPatientStatus, setEditPatientStatus] = useState("active");
   const [savingProfile, setSavingProfile] = useState(false);
+  const [patientIdToDelete, setPatientIdToDelete] = useState<string | null>(null);
+  const [deletingPatient, setDeletingPatient] = useState(false);
   const [loadingDetails, setLoadingDetails] = useState(false);
 
   // Lab reports state
@@ -284,22 +287,29 @@ export default function PatientsPage() {
   };
 
   const handleDeletePatient = async (patientId: string) => {
-    if (!confirm("Are you sure you want to delete this patient profile and all associated appointments? This action cannot be undone.")) return;
+    setPatientIdToDelete(patientId);
+  };
 
+  const executeDeletePatient = async () => {
+    if (!patientIdToDelete) return;
+    setDeletingPatient(true);
     const db = createClient();
     try {
       const { error } = await db
         .from("contacts")
         .delete()
-        .eq("id", patientId);
+        .eq("id", patientIdToDelete);
 
       if (error) throw error;
 
       toast.success("Patient profile and records deleted successfully.");
       setSelectedPatient(null);
+      setPatientIdToDelete(null);
       loadPatients();
     } catch (err: any) {
       toast.error("Failed to delete patient: " + err.message);
+    } finally {
+      setDeletingPatient(false);
     }
   };
 
@@ -1332,6 +1342,15 @@ export default function PatientsPage() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={!!patientIdToDelete}
+        onOpenChange={(open) => !open && setPatientIdToDelete(null)}
+        title="Delete Patient Profile"
+        description="Are you sure you want to delete this patient profile and all associated appointments? This action cannot be undone."
+        onConfirm={executeDeletePatient}
+        loading={deletingPatient}
+      />
 
     </div>
   );

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo, useRef } from 'react';
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Broadcast } from '@/types';
@@ -73,6 +74,8 @@ export default function CampaignsPage() {
   const [bookingsCount, setBookingsCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [campaignIdToDelete, setCampaignIdToDelete] = useState<string | null>(null);
+  const [deletingCampaign, setDeletingCampaign] = useState(false);
 
   // AI Opportunities state
   const [oppStats, setOppStats] = useState({
@@ -206,15 +209,23 @@ export default function CampaignsPage() {
 
   async function handleDeleteCampaign(id: string, e: React.MouseEvent) {
     e.stopPropagation();
-    if (!confirm('Are you sure you want to delete this campaign and all its history?')) return;
+    setCampaignIdToDelete(id);
+  }
+
+  async function executeDeleteCampaign() {
+    if (!campaignIdToDelete) return;
+    setDeletingCampaign(true);
     try {
       const supabase = createClient();
-      const { error } = await supabase.from('broadcasts').delete().eq('id', id);
+      const { error } = await supabase.from('broadcasts').delete().eq('id', campaignIdToDelete);
       if (error) throw error;
       toast.success('Campaign deleted successfully');
+      setCampaignIdToDelete(null);
       fetchCampaignsAndStats();
     } catch (err) {
       toast.error('Failed to delete campaign');
+    } finally {
+      setDeletingCampaign(false);
     }
   }
 
@@ -520,6 +531,15 @@ export default function CampaignsPage() {
           </Table>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!campaignIdToDelete}
+        onOpenChange={(open) => !open && setCampaignIdToDelete(null)}
+        title="Delete Campaign"
+        description="Are you sure you want to delete this campaign and all its history? This action cannot be undone."
+        onConfirm={executeDeleteCampaign}
+        loading={deletingCampaign}
+      />
     </div>
   );
 }

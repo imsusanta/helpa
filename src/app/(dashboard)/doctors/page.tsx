@@ -1,3 +1,4 @@
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -50,6 +51,8 @@ export default function DoctorsPage() {
   const [saving, setSaving] = useState(false);
   const [editingDocId, setEditingDocId] = useState<string | null>(null);
   const [docStatus, setDocStatus] = useState("active");
+  const [docIdToDelete, setDocIdToDelete] = useState<string | null>(null);
+  const [deletingDoc, setDeletingDoc] = useState(false);
 
   const loadDoctors = useCallback(async () => {
     if (!accountId) return;
@@ -153,21 +156,28 @@ export default function DoctorsPage() {
   };
 
   const handleDeleteDoctor = async (docId: string) => {
-    if (!confirm("Are you sure you want to delete this doctor? This will remove all their scheduling data.")) return;
+    setDocIdToDelete(docId);
+  };
 
+  const executeDeleteDoctor = async () => {
+    if (!docIdToDelete) return;
+    setDeletingDoc(true);
     const db = createClient();
     try {
       const { error } = await db
         .from("hospital_doctors")
         .delete()
-        .eq("id", docId);
+        .eq("id", docIdToDelete);
 
       if (error) throw error;
 
       toast.success("Doctor deleted successfully!");
+      setDocIdToDelete(null);
       loadDoctors();
     } catch (err: any) {
       toast.error("Failed to delete doctor: " + err.message);
+    } finally {
+      setDeletingDoc(false);
     }
   };
 
@@ -325,6 +335,14 @@ export default function DoctorsPage() {
           ))}
         </div>
       )}
+      <ConfirmDialog
+        open={!!docIdToDelete}
+        onOpenChange={(open) => !open && setDocIdToDelete(null)}
+        title="Delete Doctor Profile"
+        description="Are you sure you want to delete this doctor? This will remove all their scheduling data."
+        onConfirm={executeDeleteDoctor}
+        loading={deletingDoc}
+      />
     </div>
   );
 }
