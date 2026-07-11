@@ -407,13 +407,13 @@ export function ImportModal({
             <DialogDescription className="leading-relaxed text-muted-foreground">
               Upload a CSV with a required{' '}
               <code className="rounded bg-muted px-1 py-0.5 text-[11px] text-muted-foreground">
+                name
+              </code>{' '}
+              and{' '}
+              <code className="rounded bg-muted px-1 py-0.5 text-[11px] text-muted-foreground">
                 phone
               </code>{' '}
-              column. Optional:{' '}
-              <code className="rounded bg-muted px-1 py-0.5 text-[11px] text-muted-foreground">
-                name
-              </code>
-              ,{' '}
+              columns (Name first, then Phone). Optional:{' '}
               <code className="rounded bg-muted px-1 py-0.5 text-[11px] text-muted-foreground">
                 email
               </code>

@@ -154,6 +154,7 @@ const ICON_COMPONENTS: Record<string, LucideIcon> = {
   Zap,
   Workflow,
   BookOpenCheck,
+  UsersRound,
 };
 
 export function Sidebar({ open = false, onClose }: SidebarProps) {

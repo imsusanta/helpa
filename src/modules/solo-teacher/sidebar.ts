@@ -4,6 +4,7 @@ export const sidebarConfig: ModuleNavItem[] = [
   { href: '/dashboard', label: 'Dashboard', iconName: 'LayoutDashboard' },
   { href: '/inbox', label: 'WhatsApp Chats', iconName: 'MessageSquare' },
   { href: '/students', label: 'Students', iconName: 'Users' },
+  { href: '/contacts', label: 'Contacts', iconName: 'UsersRound' },
   { href: '/courses', label: 'Courses', iconName: 'BookOpen' },
   { href: '/admissions', label: 'Enrollments', iconName: 'Calendar' },
   { href: '/broadcasts', label: 'Campaigns', iconName: 'Megaphone', roleMin: 'admin' },
