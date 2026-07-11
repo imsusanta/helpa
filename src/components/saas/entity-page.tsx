@@ -21,11 +21,6 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
     fields: [
       { key: 'name', label: 'Student Name', type: 'text', required: true },
       { key: 'phone', label: 'Phone Number', type: 'text', required: true },
-      { key: 'student_seq_id', label: 'Student ID (e.g. STU-1001)', type: 'text', required: true },
-      { key: 'gender', label: 'Gender', type: 'select', options: ['Male', 'Female', 'Other'] },
-      { key: 'date_of_birth', label: 'Date of Birth', type: 'date' },
-      { key: 'parent_name', label: 'Parent / Guardian Name', type: 'text' },
-      { key: 'status', label: 'Status', type: 'select', options: ['active', 'inactive', 'suspended'], required: true },
     ]
   },
   courses: {
@@ -418,6 +413,8 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
         dataToInsert.id = newContact.id;
 
         if (config.tableName === 'coaching_students') {
+          dataToInsert.student_seq_id = `STU-${Math.floor(10000 + Math.random() * 90000)}`;
+          dataToInsert.status = 'active';
           delete dataToInsert.name;
           delete dataToInsert.phone;
         }
@@ -527,6 +524,14 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
     const valuesStr = Object.values(rec).join(' ').toLowerCase();
     return valuesStr.includes(searchQuery.toLowerCase());
   });
+
+  const tableFields = [...config.fields];
+  if (entityKey === 'students') {
+    tableFields.push(
+      { key: 'student_seq_id', label: 'Student ID', type: 'text' },
+      { key: 'status', label: 'Status', type: 'text' }
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -687,7 +692,7 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
           <table className="w-full text-left text-sm border-collapse">
             <thead>
               <tr className="border-b border-border bg-muted/30 text-muted-foreground font-semibold">
-                {config.fields.map(col => (
+                {tableFields.map(col => (
                   <th key={col.key} className="p-4">{col.label}</th>
                 ))}
                 <th className="p-4 text-right">Actions</th>
@@ -696,7 +701,7 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
             <tbody>
               {filteredRecords.map(rec => (
                 <tr key={rec.id} className="border-b border-border/50 hover:bg-muted/10 transition-colors">
-                  {config.fields.map(col => {
+                  {tableFields.map(col => {
                     let val = col.type === 'number' && col.key.includes('fee') ? `₹${rec[col.key] || 0}` : rec[col.key]?.toString() || '—';
                     if (col.key === 'name' && rec.contact) {
                       val = rec.contact.name || '—';
