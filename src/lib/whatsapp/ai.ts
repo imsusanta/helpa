@@ -275,6 +275,7 @@ JSON Schema:
   },
   "hospital_patient_info": {
     "name": "string or null",
+    "phone": "string or null",
     "gender": "Male | Female | Other | null",
     "dob": "YYYY-MM-DD string or null",
     "blood_group": "string or null",
@@ -542,6 +543,53 @@ Note:
         reply = `🚨 *EMERGENCY DETECTED:* Please call our emergency clinic staff immediately or go to the nearest ER. We have disabled the AI autopilot for this chat so our agents can step in.`;
       }
 
+      // Resolve target contact for patient (handles multiple family members / patients under same/other number)
+      let targetContactId = contactId;
+      const patientNameProvided = hospital_patient_info?.name;
+      const patientPhoneProvided = hospital_patient_info?.phone || contact?.phone;
+
+      if (patientNameProvided) {
+        try {
+          const { data: matchedContact } = await db
+            .from('contacts')
+            .select('id')
+            .eq('account_id', accountId)
+            .eq('phone', patientPhoneProvided)
+            .ilike('name', patientNameProvided.trim())
+            .maybeSingle();
+
+          if (matchedContact) {
+            targetContactId = matchedContact.id;
+          } else {
+            const { data: newContact } = await db
+              .from('contacts')
+              .insert({
+                account_id: accountId,
+                user_id: userId,
+                phone: patientPhoneProvided,
+                name: patientNameProvided.trim()
+              })
+              .select('id')
+              .single();
+
+            if (newContact) {
+              targetContactId = newContact.id;
+              
+              // Also create conversation for new contact so it can be viewed in CRM
+              await db.from('conversations').insert({
+                account_id: accountId,
+                contact_id: targetContactId,
+                status: 'open',
+                last_message_text: `Registered automatically via WhatsApp AI (Family Booking by ${contact?.name || contact?.phone})`,
+                last_message_at: new Date().toISOString()
+              });
+            }
+          }
+        } catch (e) {
+          console.error('[AI Hospital] Error resolving unique patient contact:', e);
+        }
+      }
+
       // 2. Patient Profile Creation / Update
       if (hospital_patient_info) {
         const pName = hospital_patient_info.name;
@@ -555,13 +603,13 @@ Note:
             const { data: extPatient } = await db
               .from('patients')
               .select('patient_seq_id, gender, date_of_birth, blood_group, emergency_contact')
-              .eq('id', contactId)
+              .eq('id', targetContactId)
               .maybeSingle();
 
             const seq = extPatient?.patient_seq_id || `PAT-${Date.now().toString().slice(-5)}`;
 
             await db.from('patients').upsert({
-              id: contactId,
+              id: targetContactId,
               account_id: accountId,
               patient_seq_id: seq,
               gender: pGender || extPatient?.gender || null,
@@ -585,10 +633,10 @@ Note:
         const { data: extPatient } = await db
           .from('patients')
           .select('patient_seq_id, gender, date_of_birth')
-          .eq('id', contactId)
+          .eq('id', targetContactId)
           .maybeSingle();
 
-        const pName = hospital_patient_info?.name || contact?.name;
+        const pName = hospital_patient_info?.name || patientNameProvided || contact?.name;
         const pGender = hospital_patient_info?.gender || extPatient?.gender;
         const pDob = hospital_patient_info?.dob || extPatient?.date_of_birth;
 
@@ -651,7 +699,7 @@ Note:
             const { data: recentCampaignRec } = await db
               .from('broadcast_recipients')
               .select('broadcast_id')
-              .eq('contact_id', contactId)
+              .eq('contact_id', targetContactId)
               .gte('created_at', sevenDaysAgo.toISOString())
               .order('created_at', { ascending: false })
               .limit(1)
@@ -665,7 +713,7 @@ Note:
               .from('appointments')
               .insert({
                 account_id: accountId,
-                patient_id: contactId,
+                patient_id: targetContactId,
                 doctor_id: doctorId,
                 department: department || 'General Medicine',
                 appointment_date: date,
