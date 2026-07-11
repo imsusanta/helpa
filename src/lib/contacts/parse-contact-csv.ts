@@ -49,12 +49,24 @@ export function parseContactCsv(text: string): ParseContactCsvResult {
     .split(',')
     .map((h) => h.trim().toLowerCase().replace(/["']/g, ''));
 
-  const phoneIdx = headers.indexOf('phone');
+  // Find phone/mobile index with alternative headers
+  let phoneIdx = headers.indexOf('phone');
+  if (phoneIdx === -1) phoneIdx = headers.indexOf('mobile');
+  if (phoneIdx === -1) phoneIdx = headers.indexOf('mobile number');
+  if (phoneIdx === -1) phoneIdx = headers.indexOf('mobile_number');
+  if (phoneIdx === -1) phoneIdx = headers.indexOf('contact');
+  if (phoneIdx === -1) phoneIdx = headers.indexOf('contact number');
+  if (phoneIdx === -1) phoneIdx = headers.indexOf('contact_number');
+
   if (phoneIdx === -1) {
     return { rows: [], hasTagsColumn: false, hasCompanyColumn: false };
   }
 
-  const nameIdx = headers.indexOf('name');
+  // Find name index with alternative headers
+  let nameIdx = headers.indexOf('name');
+  if (nameIdx === -1) nameIdx = headers.indexOf('student name');
+  if (nameIdx === -1) nameIdx = headers.indexOf('student_name');
+
   const emailIdx = headers.indexOf('email');
   const companyIdx = headers.indexOf('company');
   const tagsIdx = headers.indexOf('tags');
