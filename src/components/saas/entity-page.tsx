@@ -385,6 +385,10 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
 
     setSaving(true);
     try {
+      const { data: { session } } = await db.auth.getSession();
+      const user = session?.user;
+      if (!user) throw new Error('Not authenticated');
+
       const dataToInsert: any = {
         ...formData,
         account_id: accountId,
@@ -403,6 +407,7 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
           .from('contacts')
           .insert({
             account_id: accountId,
+            user_id: user.id,
             name: contactName,
             phone: contactPhone,
           })
