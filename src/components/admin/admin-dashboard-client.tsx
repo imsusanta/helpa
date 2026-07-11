@@ -688,9 +688,9 @@ export function AdminDashboardClient() {
                       </div>
                     </div>
                     <div className="flex gap-1 items-baseline mt-2">
-                      <span className="text-2xl font-black text-foreground">${(p.monthly_price / 100).toFixed(0)}</span>
+                      <span className="text-2xl font-black text-foreground">₹{p.monthly_price.toLocaleString("en-IN")}</span>
                       <span className="text-xs text-muted-foreground font-semibold">/mo</span>
-                      <span className="text-[10px] text-muted-foreground font-semibold ml-2">(${(p.yearly_price / 1200).toFixed(0)}/yr)</span>
+                      <span className="text-[10px] text-muted-foreground font-semibold ml-2">(₹{Math.round(p.yearly_price / 12).toLocaleString("en-IN")}/mo billed yearly)</span>
                     </div>
                   </div>
                   <div className="py-3 text-[11px] space-y-4">
@@ -790,7 +790,7 @@ export function AdminDashboardClient() {
                 <SelectContent className="bg-popover text-popover-foreground border-border">
                   {plans.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
-                      {p.name} (${(p.monthly_price / 100).toFixed(0)}/mo)
+                      {p.name} (₹{p.monthly_price.toLocaleString("en-IN")}/mo)
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -860,7 +860,7 @@ export function AdminDashboardClient() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="monthlyPriceInput" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Monthly Cost (Cents)</Label>
+                <Label htmlFor="monthlyPriceInput" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Monthly Price (₹)</Label>
                 <Input
                   id="monthlyPriceInput"
                   type="number"
@@ -870,7 +870,7 @@ export function AdminDashboardClient() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="yearlyPriceInput" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Yearly Cost (Cents)</Label>
+                <Label htmlFor="yearlyPriceInput" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Yearly Price (₹)</Label>
                 <Input
                   id="yearlyPriceInput"
                   type="number"

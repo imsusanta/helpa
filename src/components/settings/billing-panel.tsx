@@ -54,46 +54,46 @@ interface PlanOffer {
 
 const AVAILABLE_PLANS: PlanOffer[] = [
   {
-    id: "Free Trial",
-    name: "Free Trial",
-    price: "$0",
-    maxUsers: "3 users",
-    maxContacts: "100 contacts",
-    maxAi: "50 requests/mo",
-    features: ["AI Chat Assistant autopilot", "Deals pipelines", "Basic automation rules"],
+    id: "Starter",
+    name: "Starter",
+    price: "₹2,999",
+    maxUsers: "5 users",
+    maxContacts: "500 contacts",
+    maxAi: "500 requests/mo",
+    features: ["AI Chat Assistant autopilot", "Appointment Booking", "FAQ Automation"],
     cta: "Current Plan",
   },
   {
     id: "Growth",
     name: "Growth",
-    price: "$29",
-    maxUsers: "10 users",
-    maxContacts: "2,000 contacts",
-    maxAi: "1,000 requests/mo",
+    price: "₹4,999",
+    maxUsers: "15 users",
+    maxContacts: "5,000 contacts",
+    maxAi: "3,000 requests/mo",
     features: [
       "AI Chat Assistant autopilot",
       "Deals pipelines",
+      "Broadcast campaigns",
       "Advanced automation rules",
-      "Mass broadcast campaigns",
     ],
     cta: "Upgrade to Growth",
   },
   {
     id: "Enterprise",
     name: "Enterprise",
-    price: "$99",
+    price: "₹9,999",
     maxUsers: "Unlimited",
     maxContacts: "Unlimited",
-    maxAi: "50,000 requests/mo",
+    maxAi: "Unlimited",
     features: [
       "AI Chat Assistant autopilot",
       "Deals pipelines",
+      "Broadcast campaigns",
       "Advanced automation rules",
-      "Mass broadcast campaigns",
-      "Dynamic interactive Flows (Beta)",
+      "Dynamic interactive Flows",
       "Dedicated account manager",
     ],
-    cta: "Contact Enterprise Sales",
+    cta: "Contact Sales",
   },
 ];
 
@@ -438,7 +438,7 @@ export function BillingPanel() {
                     disabled={isCurrent}
                     onClick={() => {
                       if (plan.id === "Enterprise") {
-                        toast.info("Please request enterprise billing upgrades through Susanta (WACRM Super Admin).");
+                        toast.info("Please contact Helpa Studio team for enterprise billing upgrades.");
                       } else {
                         toast.success(`Upgrade request for "${plan.name}" plan sent successfully!`);
                       }
