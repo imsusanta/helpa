@@ -31,6 +31,13 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
     .eq('id', contactId)
     .maybeSingle();
 
+  // Fetch all contacts sharing the same phone number (family/siblings)
+  const { data: siblingContacts } = await db
+    .from('contacts')
+    .select('id')
+    .eq('phone', contact?.phone || '');
+  const contactIds = siblingContacts && siblingContacts.length > 0 ? siblingContacts.map(c => c.id) : [contactId];
+
   // 1. Fetch OpenRouter configuration from accounts
   const { data: account, error: accError } = await db
     .from('accounts')
@@ -109,14 +116,14 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
     const { data: appts } = await db
       .from('appointments')
       .select('*, doctor:hospital_doctors(name)')
-      .eq('patient_id', contactId)
+      .in('patient_id', contactIds)
       .order('appointment_date', { ascending: false })
       .limit(3);
 
     const { data: labReportsData } = await db
       .from('hospital_lab_reports')
       .select('id, test_name, status, expected_delivery_date, report_pdf_url, notes, department, doctor:hospital_doctors(name)')
-      .eq('patient_id', contactId)
+      .in('patient_id', contactIds)
       .order('created_at', { ascending: false })
       .limit(10);
     labReports = labReportsData;

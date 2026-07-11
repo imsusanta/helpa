@@ -74,6 +74,19 @@ export default function PatientsPage() {
   const [timeline, setTimeline] = useState<Message[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [resending, setResending] = useState<string | null>(null);
+
+  // Patient Profile Edit States
+  const [showEditProfileForm, setShowEditProfileForm] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editGender, setEditGender] = useState("Male");
+  const [editDob, setEditDob] = useState("");
+  const [editBloodGroup, setEditBloodGroup] = useState("");
+  const [editEmergencyContact, setEditEmergencyContact] = useState("");
+  const [editAddress, setEditAddress] = useState("");
+  const [editPatientStatus, setEditPatientStatus] = useState("active");
+  const [savingProfile, setSavingProfile] = useState(false);
   const [loadingDetails, setLoadingDetails] = useState(false);
 
   // Lab reports state
@@ -253,6 +266,82 @@ export default function PatientsPage() {
           .order("appointment_date", { ascending: false });
         setAppointments((appts as any) || []);
       }
+    }
+  };
+
+  const handleStartEditProfile = (patient: any) => {
+    setEditName(patient.contact?.name || "");
+    setEditPhone(patient.contact?.phone || "");
+    setEditEmail(patient.contact?.email || "");
+    setEditGender(patient.gender || "Male");
+    setEditDob(patient.date_of_birth || "");
+    setEditBloodGroup(patient.blood_group || "");
+    setEditEmergencyContact(patient.emergency_contact || "");
+    setEditAddress(patient.address || "");
+    setEditPatientStatus(patient.status || "active");
+    setShowEditProfileForm(true);
+  };
+
+  const handleUpdatePatientProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedPatient) return;
+    if (!editName.trim() || !editPhone.trim() || !editDob) {
+      toast.error("Name, Phone, and DOB are required.");
+      return;
+    }
+
+    setSavingProfile(true);
+    const db = createClient();
+
+    try {
+      // 1. Update contact
+      const { error: contactErr } = await db
+        .from("contacts")
+        .update({
+          name: editName.trim(),
+          phone: editPhone.trim(),
+          email: editEmail.trim() || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", selectedPatient.id);
+
+      if (contactErr) throw contactErr;
+
+      // 2. Update patient details
+      const { error: patientErr } = await db
+        .from("patients")
+        .update({
+          gender: editGender,
+          date_of_birth: editDob,
+          blood_group: editBloodGroup.trim() || null,
+          emergency_contact: editEmergencyContact.trim() || null,
+          address: editAddress.trim() || null,
+          status: editPatientStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", selectedPatient.id);
+
+      if (patientErr) throw patientErr;
+
+      toast.success("Patient profile updated successfully!");
+      setShowEditProfileForm(false);
+      
+      // Reload current details
+      const { data: updatedPatient } = await db
+        .from("patients")
+        .select("*, contact:contacts(*)")
+        .eq("id", selectedPatient.id)
+        .single();
+      
+      if (updatedPatient) {
+        setSelectedPatient(updatedPatient as any);
+      }
+      
+      loadPatients();
+    } catch (err: any) {
+      toast.error("Failed to update profile: " + err.message);
+    } finally {
+      setSavingProfile(false);
     }
   };
 
@@ -606,13 +695,25 @@ export default function PatientsPage() {
       <div className="bg-card border border-border rounded-xl p-5 flex flex-col gap-6">
         {selectedPatient ? (
           <>
-            <div>
-              <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded uppercase tracking-wider">
-                {selectedPatient.patient_seq_id}
-              </span>
-              <h2 className="text-xl font-extrabold text-foreground mt-2">
-                {selectedPatient.contact?.name || "Unknown Patient"}
-              </h2>
+            <div className="flex justify-between items-start gap-4">
+              <div>
+                <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded uppercase tracking-wider">
+                  {selectedPatient.patient_seq_id}
+                </span>
+                <h2 className="text-xl font-extrabold text-foreground mt-2">
+                  {selectedPatient.contact?.name || "Unknown Patient"}
+                </h2>
+              </div>
+              {!showEditProfileForm && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleStartEditProfile(selectedPatient)}
+                  className="cursor-pointer text-xs flex items-center gap-1 border-border text-foreground hover:bg-muted font-semibold"
+                >
+                  <Edit className="h-3 w-3" /> Edit Profile
+                </Button>
+              )}
             </div>
 
             {/* Tabs details */}
