@@ -165,7 +165,9 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
     if (appts && appts.length > 0) {
       hospitalContext += "\nPatient's Recent/Upcoming Appointments:\n";
       appts.forEach((a: any) => {
-        hospitalContext += `- Date: ${a.appointment_date}, Time: ${a.appointment_time}, Doctor: ${a.doctor?.name || 'Unassigned'}, Status: ${a.status}, Token: #${a.token_number || 'N/A'}, Queue Pos: ${a.queue_position || 'N/A'}\n`;
+        const patientData = a.patient as any;
+        const pName = (Array.isArray(patientData) ? patientData[0]?.name : patientData?.name) || 'Unknown';
+        hospitalContext += `- Patient: ${pName}, Date: ${a.appointment_date}, Time: ${a.appointment_time}, Doctor: ${a.doctor?.name || 'Unassigned'}, Status: ${a.status}, Token: #${a.token_number || 'N/A'}, Queue Pos: ${a.queue_position || 'N/A'}\n`;
       });
     }
     if (labReports && labReports.length > 0) {
@@ -173,7 +175,9 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
       labReports.forEach((r: any) => {
         const docData = r.doctor as any;
         const docName = (Array.isArray(docData) ? docData[0]?.name : docData?.name) || 'Doctor';
-        hospitalContext += `- Report Name: ${r.test_name}, Department: ${r.department || 'General'}, Referred By: Dr. ${docName.replace(/^Dr\.\s+/i, '')}, Status: ${r.status}, Expected Delivery: ${r.expected_delivery_date || 'N/A'}, Notes: ${r.notes || 'None'}, PDF Available: ${r.report_pdf_url ? 'Yes' : 'No'}\n`;
+        const patientData = r.patient as any;
+        const pName = (Array.isArray(patientData) ? patientData[0]?.name : patientData?.name) || 'Unknown';
+        hospitalContext += `- Patient: ${pName}, Report Name: ${r.test_name}, Department: ${r.department || 'General'}, Referred By: Dr. ${docName.replace(/^Dr\.\s+/i, '')}, Status: ${r.status}, Expected Delivery: ${r.expected_delivery_date || 'N/A'}, Notes: ${r.notes || 'None'}, PDF Available: ${r.report_pdf_url ? 'Yes' : 'No'}\n`;
       });
     }
   }
