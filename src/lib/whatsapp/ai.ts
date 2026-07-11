@@ -568,12 +568,31 @@ Note:
           if (matchedContact) {
             targetContactId = matchedContact.id;
           } else {
+            // Check if phone number already exists in contacts for this account
+            let finalPhone = patientPhoneProvided.trim();
+            const { data: existingContacts } = await db
+              .from('contacts')
+              .select('phone')
+              .eq('account_id', accountId)
+              .like('phone', `${patientPhoneProvided.trim()}%`);
+
+            if (existingContacts && existingContacts.length > 0) {
+              const suffixes = existingContacts
+                .map(c => {
+                  const parts = c.phone.split('-');
+                  return parts.length > 1 ? parseInt(parts[1], 10) : 0;
+                })
+                .filter(val => !isNaN(val));
+              const nextSuffix = suffixes.length > 0 ? Math.max(...suffixes) + 1 : 1;
+              finalPhone = `${patientPhoneProvided.trim()}-${nextSuffix}`;
+            }
+
             const { data: newContact } = await db
               .from('contacts')
               .insert({
                 account_id: accountId,
                 user_id: userId,
-                phone: patientPhoneProvided,
+                phone: finalPhone,
                 name: patientNameProvided.trim()
               })
               .select('id')

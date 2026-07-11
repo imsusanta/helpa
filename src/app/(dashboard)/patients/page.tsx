@@ -271,7 +271,7 @@ export default function PatientsPage() {
 
   const handleStartEditProfile = (patient: any) => {
     setEditName(patient.contact?.name || "");
-    setEditPhone(patient.contact?.phone || "");
+    setEditPhone(patient.contact?.phone?.split('-')[0] || "");
     setEditEmail(patient.contact?.email || "");
     setEditGender(patient.gender || "Male");
     setEditDob(patient.date_of_birth || "");
@@ -294,12 +294,34 @@ export default function PatientsPage() {
     const db = createClient();
 
     try {
+      // De-duplicate: check if phone number already exists
+      let finalPhone = editPhone.trim();
+      if (editPhone.trim() !== selectedPatient.contact?.phone?.split('-')[0]) {
+        const { data: existingContacts } = await db
+          .from("contacts")
+          .select("phone")
+          .eq("account_id", accountId)
+          .like("phone", `${editPhone.trim()}%`);
+
+        if (existingContacts && existingContacts.length > 0) {
+          const suffixes = existingContacts
+            .map(c => {
+              const parts = c.phone.split('-');
+              return parts.length > 1 ? parseInt(parts[1], 10) : 0;
+            })
+            .filter(val => !isNaN(val));
+          
+          const nextSuffix = suffixes.length > 0 ? Math.max(...suffixes) + 1 : 1;
+          finalPhone = `${editPhone.trim()}-${nextSuffix}`;
+        }
+      }
+
       // 1. Update contact
       const { error: contactErr } = await db
         .from("contacts")
         .update({
           name: editName.trim(),
-          phone: editPhone.trim(),
+          phone: finalPhone,
           email: editEmail.trim() || null,
           updated_at: new Date().toISOString()
         })
@@ -478,13 +500,33 @@ export default function PatientsPage() {
     const db = createClient();
 
     try {
+      // Check if phone number already exists in contacts for this account
+      let finalPhone = phone.trim();
+      const { data: existingContacts } = await db
+        .from("contacts")
+        .select("phone")
+        .eq("account_id", accountId)
+        .like("phone", `${phone.trim()}%`);
+
+      if (existingContacts && existingContacts.length > 0) {
+        const suffixes = existingContacts
+          .map(c => {
+            const parts = c.phone.split('-');
+            return parts.length > 1 ? parseInt(parts[1], 10) : 0;
+          })
+          .filter(val => !isNaN(val));
+        
+        const nextSuffix = suffixes.length > 0 ? Math.max(...suffixes) + 1 : 1;
+        finalPhone = `${phone.trim()}-${nextSuffix}`;
+      }
+
       // 1. Create contact
       const { data: contact, error: contactErr } = await db
         .from("contacts")
         .insert({
           account_id: accountId,
           name,
-          phone,
+          phone: finalPhone,
           email: email || null,
         })
         .select("id")
@@ -672,7 +714,7 @@ export default function PatientsPage() {
                     <td className="px-6 py-4 font-bold text-primary">{p.patient_seq_id}</td>
                     <td className="px-6 py-4 font-semibold">
                       <div>{p.contact?.name || "Unknown"}</div>
-                      <div className="text-xs text-muted-foreground font-normal">{p.contact?.phone}</div>
+                      <div className="text-xs text-muted-foreground font-normal">{p.contact?.phone?.split('-')[0]}</div>
                     </td>
                     <td className="px-6 py-4 text-xs font-medium">
                       {p.gender} / {p.date_of_birth ? `${new Date().getFullYear() - new Date(p.date_of_birth).getFullYear()} yrs` : "N/A"}

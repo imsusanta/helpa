@@ -5,7 +5,8 @@
  */
 export function sanitizePhoneForMeta(phone: string): string {
   if (!phone) return ''
-  return phone.replace(/\D/g, '')
+  const base = phone.split('-')[0]
+  return base.replace(/\D/g, '')
 }
 
 /**
@@ -14,7 +15,8 @@ export function sanitizePhoneForMeta(phone: string): string {
  */
 export function normalizePhone(phone: string): string {
   if (!phone) return ''
-  return phone.replace(/\D/g, '')
+  const base = phone.split('-')[0]
+  return base.replace(/\D/g, '')
 }
 
 /**
