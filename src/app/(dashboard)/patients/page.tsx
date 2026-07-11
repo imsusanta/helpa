@@ -521,14 +521,25 @@ export default function PatientsPage() {
     const db = createClient();
 
     try {
-      // Check if phone number already exists in contacts for this account
-      let finalPhone = phone.trim();
+      // 1. Fetch all contacts with this base phone number to check if name is already registered
       const { data: existingContacts } = await db
         .from("contacts")
-        .select("phone")
+        .select("id, name, phone")
         .eq("account_id", accountId)
         .like("phone", `${phone.trim()}%`);
 
+      const exactMatch = existingContacts?.find(c => 
+        c.name.toLowerCase().trim() === name.trim().toLowerCase()
+      );
+
+      if (exactMatch) {
+        toast.error("A patient with this exact name and phone number is already registered.");
+        setSaving(false);
+        return;
+      }
+
+      // Check if phone number already exists in contacts for this account (to suffix)
+      let finalPhone = phone.trim();
       if (existingContacts && existingContacts.length > 0) {
         const suffixes = existingContacts
           .map(c => {

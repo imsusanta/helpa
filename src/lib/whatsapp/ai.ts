@@ -557,13 +557,17 @@ Note:
 
       if (patientNameProvided) {
         try {
-          const { data: matchedContact } = await db
+          // Fetch all contacts sharing the same base phone number prefix
+          const basePhone = patientPhoneProvided.split('-')[0].trim();
+          const { data: candidates } = await db
             .from('contacts')
-            .select('id')
+            .select('id, name, phone')
             .eq('account_id', accountId)
-            .eq('phone', patientPhoneProvided)
-            .ilike('name', patientNameProvided.trim())
-            .maybeSingle();
+            .like('phone', `${basePhone}%`);
+
+          const matchedContact = candidates?.find(c => 
+            c.name.toLowerCase().trim() === patientNameProvided.toLowerCase().trim()
+          );
 
           if (matchedContact) {
             targetContactId = matchedContact.id;

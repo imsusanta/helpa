@@ -50,9 +50,15 @@ export async function findExistingContact(
 
   if (error || !data) return null;
 
-  return (
-    (data as ExistingContact[]).find((c) => phonesMatch(c.phone, phone)) ?? null
-  );
+  const matched = (data as ExistingContact[]).filter((c) => phonesMatch(c.phone, phone));
+  if (matched.length === 0) return null;
+
+  // Prioritize primary contact (no suffix containing '-') first
+  const primary = matched.find(c => !c.phone.includes('-'));
+  if (primary) return primary;
+
+  // Fallback to the oldest contact
+  return matched.sort((a, b) => new Date((a.created_at as string) || 0).getTime() - new Date((b.created_at as string) || 0).getTime())[0];
 }
 
 /**
