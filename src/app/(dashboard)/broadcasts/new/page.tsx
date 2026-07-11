@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
 import { MessageTemplate } from '@/types';
 import { useBroadcastSending } from '@/hooks/use-broadcast-sending';
+import { parseContactCsv } from '@/lib/contacts/parse-contact-csv';
 import { 
   ArrowLeft, 
   Sparkles, 
@@ -22,7 +23,8 @@ import {
   Loader2, 
   MessageSquare,
   Globe,
-  Settings
+  Settings,
+  Upload
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -50,12 +52,14 @@ export default function NewCampaignPage() {
   const [category, setCategory] = useState('General Announcement');
   
   // Audience
-  const [audienceType, setAudienceType] = useState<'all' | 'new_patients' | 'returning_patients' | 'upcoming_appointments' | 'missed_appointments' | 'due_followup' | 'by_department' | 'by_doctor' | 'by_gender' | 'by_age'>('all');
+  const [audienceType, setAudienceType] = useState<'all' | 'new_patients' | 'returning_patients' | 'upcoming_appointments' | 'missed_appointments' | 'due_followup' | 'by_department' | 'by_doctor' | 'by_gender' | 'by_age' | 'csv'>('all');
   const [selectedDept, setSelectedDept] = useState('');
   const [selectedDoctorId, setSelectedDoctorId] = useState('');
   const [selectedGender, setSelectedGender] = useState('Male');
   const [ageMin, setAgeMin] = useState(0);
   const [ageMax, setAgeMax] = useState(100);
+  const [csvContacts, setCsvContacts] = useState<{ phone: string; name?: string }[]>([]);
+  const [csvFileName, setCsvFileName] = useState('');
 
   // Content Mode: 'custom' or 'template'
   const [contentMode, setContentMode] = useState<'custom' | 'template'>('custom');
@@ -271,6 +275,7 @@ export default function NewCampaignPage() {
           gender: selectedGender || undefined,
           ageMin: ageMin || undefined,
           ageMax: ageMax || undefined,
+          csvContacts: audienceType === 'csv' ? csvContacts : undefined,
         },
         variables: finalVariables,
         category,
@@ -410,6 +415,7 @@ export default function NewCampaignPage() {
                   <option value="by_doctor">Filter Patients by Referring Doctor</option>
                   <option value="by_gender">Filter Patients by Gender</option>
                   <option value="by_age">Filter Patients by Age Range</option>
+                  <option value="csv">Upload CSV / Excel File List</option>
                 </select>
               </div>
 
@@ -487,6 +493,93 @@ export default function NewCampaignPage() {
                 </div>
               )}
 
+              {audienceType === 'csv' && (
+                <div className="space-y-4 rounded-xl border border-border/80 bg-muted/20 p-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-muted-foreground uppercase block">Upload CSV Contact List</label>
+                    <div 
+                      onClick={() => document.getElementById('csv-file-input')?.click()}
+                      className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-border rounded-xl cursor-pointer hover:bg-muted/50 transition-all bg-card"
+                    >
+                      <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+                      {csvFileName && csvFileName !== 'Pasted List' ? (
+                        <div className="text-center">
+                          <p className="text-sm font-semibold text-foreground">{csvFileName}</p>
+                          <p className="text-xs text-emerald-500 font-medium mt-0.5">{csvContacts.length} contacts parsed successfully</p>
+                        </div>
+                      ) : (
+                        <div className="text-center">
+                          <p className="text-sm font-semibold text-foreground">Click to upload CSV file</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Required header: "phone". Optional: "name"</p>
+                        </div>
+                      )}
+                    </div>
+                    <input
+                      id="csv-file-input"
+                      type="file"
+                      accept=".csv,text/csv"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        setCsvFileName(file.name);
+                        try {
+                          const text = await file.text();
+                          const { rows } = parseContactCsv(text);
+                          if (rows.length === 0) {
+                            toast.error('No contacts found. Ensure CSV has a "phone" column header.');
+                            return;
+                          }
+                          const formatted = rows.map(r => ({
+                            phone: r.phone,
+                            name: r.name
+                          }));
+                          setCsvContacts(formatted);
+                          toast.success(`${formatted.length} contacts loaded successfully!`);
+                        } catch (err: any) {
+                          toast.error('Failed to parse file: ' + err.message);
+                        }
+                      }}
+                    />
+                    <p className="text-[11px] text-muted-foreground italic mt-1">
+                      💡 Tip: If you have an Excel (.xlsx) file, save it as a CSV (.csv) first to upload.
+                    </p>
+                  </div>
+
+                  <div className="relative flex py-2 items-center">
+                    <div className="flex-grow border-t border-border/80"></div>
+                    <span className="flex-shrink mx-4 text-muted-foreground text-[10px] font-bold uppercase tracking-wider">Or Paste Numbers</span>
+                    <div className="flex-grow border-t border-border/80"></div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-muted-foreground uppercase">Paste Comma or Line Separated Phone Numbers</label>
+                    <textarea
+                      placeholder="e.g. 919547771118, 919876543210"
+                      rows={3}
+                      value={csvFileName === 'Pasted List' ? csvContacts.map(c => c.phone).join(', ') : ''}
+                      className="w-full p-3 rounded-lg border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono text-xs"
+                      onChange={(e) => {
+                        const text = e.target.value;
+                        const numbers = text.split(/[\n,;]/)
+                          .map(n => n.trim().replace(/[^0-9]/g, ''))
+                          .filter(n => n.length >= 8);
+                        
+                        const formatted = numbers.map(num => ({
+                          phone: num,
+                          name: undefined
+                        }));
+                        setCsvContacts(formatted);
+                        setCsvFileName(formatted.length > 0 ? 'Pasted List' : '');
+                      }}
+                    />
+                    {csvFileName === 'Pasted List' && (
+                      <p className="text-xs text-emerald-500 font-medium">{csvContacts.length} numbers ready</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="pt-4 flex justify-between">
                 <Button
                   onClick={() => setCurrentStep(0)}
@@ -497,7 +590,8 @@ export default function NewCampaignPage() {
                 </Button>
                 <Button
                   onClick={() => setCurrentStep(2)}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-full px-5 py-2"
+                  disabled={audienceType === 'csv' && csvContacts.length === 0}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-full px-5 py-2 disabled:opacity-50"
                 >
                   Next: Write Message
                 </Button>
