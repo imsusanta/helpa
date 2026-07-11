@@ -989,8 +989,13 @@ async function findOrCreateContact(
   )
 
   if (existingContact) {
-    // Update name if it changed
-    if (name && name !== existingContact.name) {
+    // Update name if it changed, but ONLY if the current contact name is empty/placeholder
+    const isPlaceholderName = !existingContact.name || 
+      existingContact.name === phone || 
+      existingContact.name.startsWith('+') || 
+      /^\d+$/.test(existingContact.name.replace(/[\s\-\+]/g, ''));
+      
+    if (name && isPlaceholderName && name !== existingContact.name) {
       await supabaseAdmin()
         .from('contacts')
         .update({ name, updated_at: new Date().toISOString() })
