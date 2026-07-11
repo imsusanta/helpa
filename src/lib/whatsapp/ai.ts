@@ -300,6 +300,17 @@ JSON Schema:
     "date": "YYYY-MM-DD string or null",
     "time": "HH:MM string or null"
   },
+  "hospital_profile_update": {
+    "patient_id": "string or null (The Patient ID to modify, e.g. PAT-90325)",
+    "name": "string or null (New or updated full name if corrected)",
+    "phone": "string or null (New or updated phone number if corrected)",
+    "email": "string or null (New or updated email if corrected)",
+    "gender": "Male | Female | Other | null (New or updated gender if corrected)",
+    "dob": "YYYY-MM-DD string or null (New or updated date of birth if corrected)",
+    "blood_group": "string or null (New or updated blood group if corrected)",
+    "emergency_contact": "string or null (New or updated emergency contact if corrected)",
+    "address": "string or null (New or updated address if corrected)"
+  },
   "emergency_detected": true | false
 }
 
@@ -416,6 +427,7 @@ Note:
 
     let hospital_patient_info: any = null;
     let hospital_booking: any = null;
+    let hospital_profile_update: any = null;
     let emergency_detected = false;
 
     try {
@@ -438,6 +450,7 @@ Note:
 
       hospital_patient_info = parsed.hospital_patient_info || null;
       hospital_booking = parsed.hospital_booking || null;
+      hospital_profile_update = parsed.hospital_profile_update || null;
       emergency_detected = !!parsed.emergency_detected;
     } catch (err) {
       console.warn('[AI Assistant] Failed to parse structured JSON from response, falling back to plain text reply:', err);
@@ -657,6 +670,53 @@ Note:
           } catch (patErr) {
             console.error('[AI Hospital] Error updating patient demographics:', patErr);
           }
+        }
+      }
+
+      // 5. Patient Profile self-update via WhatsApp
+      // Uses scope-level hospital_profile_update
+      if (hospital_profile_update && hospital_profile_update.patient_id) {
+        try {
+          const pId = hospital_profile_update.patient_id.trim().toUpperCase();
+          console.log('[AI Hospital] Patient self-edit requested for ID:', pId);
+
+          const { data: targetPatient } = await db
+            .from('patients')
+            .select('id')
+            .eq('account_id', accountId)
+            .eq('patient_seq_id', pId)
+            .maybeSingle();
+
+          if (targetPatient) {
+            const contactUpdates: any = {};
+            if (hospital_profile_update.name) contactUpdates.name = hospital_profile_update.name.trim();
+            if (hospital_profile_update.email) contactUpdates.email = hospital_profile_update.email.trim();
+            if (hospital_profile_update.phone) contactUpdates.phone = hospital_profile_update.phone.trim();
+
+            if (Object.keys(contactUpdates).length > 0) {
+              await db
+                .from('contacts')
+                .update(contactUpdates)
+                .eq('id', targetPatient.id);
+            }
+
+            const patientUpdates: any = {};
+            if (hospital_profile_update.gender) patientUpdates.gender = hospital_profile_update.gender;
+            if (hospital_profile_update.dob) patientUpdates.date_of_birth = hospital_profile_update.dob;
+            if (hospital_profile_update.blood_group) patientUpdates.blood_group = hospital_profile_update.blood_group.trim();
+            if (hospital_profile_update.emergency_contact) patientUpdates.emergency_contact = hospital_profile_update.emergency_contact.trim();
+            if (hospital_profile_update.address) patientUpdates.address = hospital_profile_update.address.trim();
+
+            if (Object.keys(patientUpdates).length > 0) {
+              await db
+                .from('patients')
+                .update(patientUpdates)
+                .eq('id', targetPatient.id);
+            }
+            console.log('[AI Hospital] Profile successfully updated for:', pId);
+          }
+        } catch (profileErr) {
+          console.error('[AI Hospital] Error updating patient profile self-edit:', profileErr);
         }
       }
 

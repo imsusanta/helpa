@@ -15,6 +15,8 @@ import {
   Clock,
   Calendar,
   Building,
+  Edit,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -46,6 +48,8 @@ export default function DoctorsPage() {
   const [endHour, setEndHour] = useState("17:00");
   const [selectedDays, setSelectedDays] = useState<string[]>(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]);
   const [saving, setSaving] = useState(false);
+  const [editingDocId, setEditingDocId] = useState<string | null>(null);
+  const [docStatus, setDocStatus] = useState("active");
 
   const loadDoctors = useCallback(async () => {
     if (!accountId) return;
@@ -74,7 +78,7 @@ export default function DoctorsPage() {
     );
   };
 
-  const handleRegisterDoctor = async (e: React.FormEvent) => {
+  const handleSaveDoctor = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !department) {
       toast.error("Please fill in Doctor Name and Department.");
@@ -85,20 +89,38 @@ export default function DoctorsPage() {
     const db = createClient();
 
     try {
-      const { error } = await db.from("hospital_doctors").insert({
-        account_id: accountId,
-        name,
-        department,
-        specialization: specialization || null,
-        consultation_fee: parseFloat(fee) || 0,
-        working_hours: { start: startHour, end: endHour },
-        available_days: selectedDays,
-        status: "active",
-      });
+      if (editingDocId) {
+        const { error } = await db
+          .from("hospital_doctors")
+          .update({
+            name,
+            department,
+            specialization: specialization || null,
+            consultation_fee: parseFloat(fee) || 0,
+            working_hours: { start: startHour, end: endHour },
+            available_days: selectedDays,
+            status: docStatus,
+          })
+          .eq("id", editingDocId);
 
-      if (error) throw error;
+        if (error) throw error;
+        toast.success("Doctor profile updated successfully!");
+      } else {
+        const { error } = await db.from("hospital_doctors").insert({
+          account_id: accountId,
+          name,
+          department,
+          specialization: specialization || null,
+          consultation_fee: parseFloat(fee) || 0,
+          working_hours: { start: startHour, end: endHour },
+          available_days: selectedDays,
+          status: "active",
+        });
 
-      toast.success("Doctor registered successfully!");
+        if (error) throw error;
+        toast.success("Doctor registered successfully!");
+      }
+
       setName("");
       setDepartment("");
       setSpecialization("");
@@ -106,12 +128,46 @@ export default function DoctorsPage() {
       setStartHour("09:00");
       setEndHour("17:00");
       setSelectedDays(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]);
+      setDocStatus("active");
+      setEditingDocId(null);
       setShowAddForm(false);
       loadDoctors();
     } catch (err: any) {
-      toast.error("Failed to add doctor: " + err.message);
+      toast.error("Failed to save doctor: " + err.message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const startEdit = (doc: Doctor) => {
+    setEditingDocId(doc.id);
+    setName(doc.name);
+    setDepartment(doc.department);
+    setSpecialization(doc.specialization || "");
+    setFee(doc.consultation_fee.toString());
+    setStartHour(doc.working_hours?.start || "09:00");
+    setEndHour(doc.working_hours?.end || "17:00");
+    setSelectedDays(doc.available_days || []);
+    setDocStatus(doc.status || "active");
+    setShowAddForm(true);
+  };
+
+  const handleDeleteDoctor = async (docId: string) => {
+    if (!confirm("Are you sure you want to delete this doctor? This will remove all their scheduling data.")) return;
+
+    const db = createClient();
+    try {
+      const { error } = await db
+        .from("hospital_doctors")
+        .delete()
+        .eq("id", docId);
+
+      if (error) throw error;
+
+      toast.success("Doctor deleted successfully!");
+      loadDoctors();
+    } catch (err: any) {
+      toast.error("Failed to delete doctor: " + err.message);
     }
   };
 
@@ -136,8 +192,8 @@ export default function DoctorsPage() {
       </div>
 
       {showAddForm && (
-        <form onSubmit={handleRegisterDoctor} className="bg-card border border-border rounded-xl p-5 space-y-4 max-w-2xl animate-in fade-in slide-in-from-top-4 duration-200">
-          <h3 className="font-bold text-foreground">New Doctor Profile</h3>
+        <form onSubmit={handleSaveDoctor} className="bg-card border border-border rounded-xl p-5 space-y-4 max-w-2xl animate-in fade-in slide-in-from-top-4 duration-200">
+          <h3 className="font-bold text-foreground">{editingDocId ? "Edit Doctor Profile" : "New Doctor Profile"}</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Doctor Name *</Label>
@@ -163,6 +219,19 @@ export default function DoctorsPage() {
               <Label>Shift End Hour</Label>
               <Input type="time" value={endHour} onChange={(e) => setEndHour(e.target.value)} />
             </div>
+            {editingDocId && (
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <select
+                  value={docStatus}
+                  onChange={(e) => setDocStatus(e.target.value)}
+                  className="w-full flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+            )}
             <div className="space-y-2 md:col-span-2">
               <Label className="block mb-1.5">Available Working Days</Label>
               <div className="flex flex-wrap gap-2">
@@ -187,7 +256,7 @@ export default function DoctorsPage() {
             </div>
           </div>
           <div className="flex gap-2 justify-end pt-2">
-            <Button type="button" variant="outline" onClick={() => setShowAddForm(false)}>Cancel</Button>
+            <Button type="button" variant="outline" onClick={() => { setShowAddForm(false); setEditingDocId(null); }}>Cancel</Button>
             <Button type="submit" disabled={saving}>
               {saving && <Loader2 className="h-4 w-4 animate-spin mr-2" />} Save Doctor
             </Button>
@@ -233,6 +302,24 @@ export default function DoctorsPage() {
                 <p className="text-lg font-extrabold text-foreground">
                   ₹{doc.consultation_fee}
                 </p>
+              </div>
+              <div className="flex gap-2 justify-end mt-1 border-t border-border/40 pt-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => startEdit(doc)}
+                  className="cursor-pointer text-xs font-semibold text-foreground py-1 px-3 border-border hover:bg-muted flex items-center gap-1"
+                >
+                  <Edit className="h-3.5 w-3.5" /> Edit
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleDeleteDoctor(doc.id)}
+                  className="cursor-pointer text-xs font-semibold text-red-500 hover:text-red-600 hover:bg-red-500/10 py-1 px-3 flex items-center gap-1"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Delete
+                </Button>
               </div>
             </div>
           ))}
