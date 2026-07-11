@@ -584,7 +584,7 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
               ) : (
                 <div className="text-center">
                   <p className="text-sm font-semibold text-foreground">Click to upload Student CSV / Excel file</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Headers required: "phone", "name"</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Headers required: "name", "phone" (Name first, then Phone)</p>
                 </div>
               )}
             </div>
