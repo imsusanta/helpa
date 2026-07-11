@@ -824,39 +824,105 @@ export default function PatientsPage() {
 
             {/* Tabs details */}
             <div className="space-y-4 text-sm">
-              <h4 className="font-bold text-foreground border-b border-border pb-1">Patient Details</h4>
-              <div className="space-y-2.5">
-                <p className="flex items-center gap-2 text-muted-foreground">
-                  <Phone className="h-4 w-4 text-muted-foreground/60 shrink-0" />
-                  <span className="text-foreground">{selectedPatient.contact?.phone}</span>
-                </p>
-                {selectedPatient.contact?.email && (
-                  <p className="flex items-center gap-2 text-muted-foreground">
-                    <Mail className="h-4 w-4 text-muted-foreground/60 shrink-0" />
-                    <span className="text-foreground truncate">{selectedPatient.contact.email}</span>
-                  </p>
-                )}
-                <p className="flex items-center gap-2 text-muted-foreground">
-                  <User className="h-4 w-4 text-muted-foreground/60 shrink-0" />
-                  <span>DOB: <span className="text-foreground">{selectedPatient.date_of_birth || "N/A"}</span></span>
-                </p>
-                <p className="flex items-center gap-2 text-muted-foreground">
-                  <Heart className="h-4 w-4 text-muted-foreground/60 shrink-0" />
-                  <span>Blood Group: <span className="text-foreground font-bold text-red-500">{selectedPatient.blood_group || "N/A"}</span></span>
-                </p>
-                {selectedPatient.doctor?.name && (
-                  <p className="flex items-center gap-2 text-muted-foreground">
-                    <UserCheck className="h-4 w-4 text-muted-foreground/60 shrink-0" />
-                    <span>Preferred Doctor: <span className="text-foreground">{selectedPatient.doctor.name}</span></span>
-                  </p>
-                )}
-                {selectedPatient.emergency_contact && (
-                  <p className="flex items-center gap-2 text-muted-foreground">
-                    <AlertCircle className="h-4 w-4 text-muted-foreground/60 shrink-0" />
-                    <span>ICE: <span className="text-foreground">{selectedPatient.emergency_contact}</span></span>
-                  </p>
-                )}
-              </div>
+              {showEditProfileForm ? (
+                <form onSubmit={handleUpdatePatientProfile} className="space-y-4 text-sm bg-muted/20 border border-border rounded-xl p-4">
+                  <h4 className="font-bold text-foreground border-b border-border pb-1 flex justify-between items-center">
+                    <span>Edit Patient Profile</span>
+                    <button type="button" onClick={() => setShowEditProfileForm(false)} className="text-xs text-muted-foreground hover:underline">Cancel</button>
+                  </h4>
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Full Name *</Label>
+                      <Input value={editName} onChange={(e) => setEditName(e.target.value)} required />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">WhatsApp Number *</Label>
+                      <Input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} required />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Email</Label>
+                      <Input type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Gender</Label>
+                        <select value={editGender} onChange={(e) => setEditGender(e.target.value)} className="w-full flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                          <option value="Male">Male</option>
+                          <option value="Female">Female</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Date of Birth *</Label>
+                        <Input type="date" value={editDob} onChange={(e) => setEditDob(e.target.value)} required />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Blood Group</Label>
+                        <Input value={editBloodGroup} onChange={(e) => setEditBloodGroup(e.target.value)} placeholder="e.g. O+" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Status</Label>
+                        <select value={editPatientStatus} onChange={(e) => setEditPatientStatus(e.target.value)} className="w-full flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                          <option value="active">Active</option>
+                          <option value="inactive">Inactive</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Emergency Contact</Label>
+                      <Input value={editEmergencyContact} onChange={(e) => setEditEmergencyContact(e.target.value)} placeholder="Name & Phone" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Home Address</Label>
+                      <Input value={editAddress} onChange={(e) => setEditAddress(e.target.value)} placeholder="Full address" />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 justify-end pt-1 border-t border-border mt-3">
+                    <Button type="button" variant="outline" size="sm" onClick={() => setShowEditProfileForm(false)}>Cancel</Button>
+                    <Button type="submit" size="sm" disabled={savingProfile} className="bg-primary text-white">
+                      {savingProfile ? "Saving..." : "Save Changes"}
+                    </Button>
+                  </div>
+                </form>
+              ) : (
+                <>
+                  <h4 className="font-bold text-foreground border-b border-border pb-1">Patient Details</h4>
+                  <div className="space-y-2.5">
+                    <p className="flex items-center gap-2 text-muted-foreground">
+                      <Phone className="h-4 w-4 text-muted-foreground/60 shrink-0" />
+                      <span className="text-foreground">{selectedPatient.contact?.phone?.split('-')[0]}</span>
+                    </p>
+                    {selectedPatient.contact?.email && (
+                      <p className="flex items-center gap-2 text-muted-foreground">
+                        <Mail className="h-4 w-4 text-muted-foreground/60 shrink-0" />
+                        <span className="text-foreground truncate">{selectedPatient.contact.email}</span>
+                      </p>
+                    )}
+                    <p className="flex items-center gap-2 text-muted-foreground">
+                      <User className="h-4 w-4 text-muted-foreground/60 shrink-0" />
+                      <span>DOB: <span className="text-foreground">{selectedPatient.date_of_birth || "N/A"}</span></span>
+                    </p>
+                    <p className="flex items-center gap-2 text-muted-foreground">
+                      <Heart className="h-4 w-4 text-muted-foreground/60 shrink-0" />
+                      <span>Blood Group: <span className="text-foreground font-bold text-red-500">{selectedPatient.blood_group || "N/A"}</span></span>
+                    </p>
+                    {selectedPatient.doctor?.name && (
+                      <p className="flex items-center gap-2 text-muted-foreground">
+                        <UserCheck className="h-4 w-4 text-muted-foreground/60 shrink-0" />
+                        <span>Preferred Doctor: <span className="text-foreground">{selectedPatient.doctor.name}</span></span>
+                      </p>
+                    )}
+                    {selectedPatient.emergency_contact && (
+                      <p className="flex items-center gap-2 text-muted-foreground">
+                        <AlertCircle className="h-4 w-4 text-muted-foreground/60 shrink-0" />
+                        <span>ICE: <span className="text-foreground">{selectedPatient.emergency_contact}</span></span>
+                      </p>
+                    )}
+                  </div>
+                </>
+              )}
 
               {/* Patient summary */}
               {selectedPatient.ai_summary && (
