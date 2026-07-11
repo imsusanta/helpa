@@ -6,10 +6,11 @@ import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Plus, Search, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Search, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { getIndustryModule } from '@/modules/registry';
+import { parseContactCsv } from '@/lib/contacts/parse-contact-csv';
 import type { FieldConfig, EntityConfig } from '@/modules/types';
 
 const ENTITY_CONFIGS: Record<string, EntityConfig> = {
@@ -18,6 +19,8 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
     label: 'Student',
     pluralLabel: 'Students',
     fields: [
+      { key: 'name', label: 'Student Name', type: 'text', required: true },
+      { key: 'phone', label: 'Phone Number', type: 'text', required: true },
       { key: 'student_seq_id', label: 'Student ID (e.g. STU-1001)', type: 'text', required: true },
       { key: 'gender', label: 'Gender', type: 'select', options: ['Male', 'Female', 'Other'] },
       { key: 'date_of_birth', label: 'Date of Birth', type: 'date' },
@@ -225,8 +228,115 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
   const [isOpen, setIsOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // Bulk Import State
+  const [importOpen, setImportOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [parsedRows, setParsedRows] = useState<any[]>([]);
+  const [fileName, setFileName] = useState('');
+
   // Form State
   const [formData, setFormData] = useState<Record<string, any>>({});
+
+  const handleBulkImport = async () => {
+    if (!accountId || parsedRows.length === 0) return;
+    setImporting(true);
+    let successCount = 0;
+    let skipCount = 0;
+    let failCount = 0;
+
+    try {
+      const { data: { session } } = await db.auth.getSession();
+      const user = session?.user;
+      if (!user) throw new Error('Not authenticated');
+
+      for (const row of parsedRows) {
+        const rawPhone = row.phone?.trim();
+        if (!rawPhone) {
+          skipCount++;
+          continue;
+        }
+
+        // Normalize phone number (simple cleanup or normalizeKey)
+        const phone = rawPhone.startsWith('+') ? rawPhone : `+${rawPhone.replace(/[^0-9]/g, '')}`;
+
+        try {
+          // 1. Check if contact already exists
+          let contactId = '';
+          const { data: existingContact } = await db
+            .from('contacts')
+            .select('id')
+            .eq('account_id', accountId)
+            .eq('phone', phone)
+            .maybeSingle();
+
+          if (existingContact) {
+            contactId = existingContact.id;
+          } else {
+            // Create contact record
+            const { data: newContact, error: contactErr } = await db
+              .from('contacts')
+              .insert({
+                account_id: accountId,
+                user_id: user.id,
+                name: row.name || `Student ${phone.slice(-4)}`,
+                phone: phone,
+              })
+              .select('id')
+              .single();
+
+            if (contactErr) throw contactErr;
+            contactId = newContact.id;
+          }
+
+          // 2. Check if student already exists in coaching_students
+          const { data: existingStudent } = await db
+            .from('coaching_students')
+            .select('id')
+            .eq('id', contactId)
+            .maybeSingle();
+
+          if (existingStudent) {
+            // Already a student
+            skipCount++;
+            continue;
+          }
+
+          // 3. Create coaching_students record
+          const studentSeq = `STU-${Math.floor(10000 + Math.random() * 90000)}`;
+          const { error: studentErr } = await db
+            .from('coaching_students')
+            .insert({
+              id: contactId,
+              account_id: accountId,
+              student_seq_id: studentSeq,
+              status: 'active',
+              gender: 'Male',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            });
+
+          if (studentErr) throw studentErr;
+          successCount++;
+        } catch (err) {
+          console.error('Import row error:', err);
+          failCount++;
+        }
+      }
+
+      toast.success(`Import complete! ${successCount} students imported.`);
+      if (skipCount > 0) toast.info(`${skipCount} duplicate/existing students skipped.`);
+      if (failCount > 0) toast.error(`${failCount} rows failed to import.`);
+
+      setImportOpen(false);
+      setFileName('');
+      setParsedRows([]);
+      loadRecords();
+    } catch (err: any) {
+      toast.error('Import failed: ' + err.message);
+    } finally {
+      setImporting(false);
+    }
+  };
 
   useEffect(() => {
     if (!config) return;
@@ -248,9 +358,12 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
     if (!accountId || !config) return;
     setLoading(true);
     try {
-      const { data, error } = await db
-        .from(config.tableName)
-        .select('*')
+      let query = db.from(config.tableName).select('*');
+      if (config.tableName === 'coaching_students') {
+        query = db.from('coaching_students').select('*, contact:contacts(name, phone)');
+      }
+
+      const { data, error } = await query
         .eq('account_id', accountId)
         .order('created_at', { ascending: false });
 
@@ -287,19 +400,27 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
       // Special case: if table extends contacts table (like students and leads), we need to create a dummy contact or bind it.
       // For simplicity, if they aren't bound to contacts directly, we generate a random contact uuid or insert directly.
       if (config.tableName === 'coaching_students' || config.tableName === 'realestate_leads') {
-        // Create a parent contact first
+        const contactName = config.tableName === 'coaching_students' ? formData.name : (formData.parent_name || formData.lead_seq_id);
+        const contactPhone = config.tableName === 'coaching_students' ? formData.phone : '+9100000000';
+
+        // Create a contact first
         const { data: newContact, error: contactErr } = await db
           .from('contacts')
           .insert({
             account_id: accountId,
-            name: formData.parent_name || formData.lead_seq_id,
-            phone: '+9100000000',
+            name: contactName,
+            phone: contactPhone,
           })
           .select('id')
           .single();
 
         if (contactErr) throw contactErr;
         dataToInsert.id = newContact.id;
+
+        if (config.tableName === 'coaching_students') {
+          delete dataToInsert.name;
+          delete dataToInsert.phone;
+        }
       }
 
       // Special case: resolve foreign key constraints dynamically
@@ -418,10 +539,89 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
             Manage your {config.pluralLabel.toLowerCase()} templates.
           </p>
         </div>
-        <Button onClick={() => setIsOpen(!isOpen)} className="cursor-pointer bg-primary hover:bg-primary/95 text-primary-foreground font-semibold flex items-center gap-1.5 rounded-full px-5">
-          <Plus className="h-4 w-4" /> Add {config.label}
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {entityKey === 'students' && (
+            <Button 
+              onClick={() => { setImportOpen(!importOpen); setIsOpen(false); }} 
+              variant="outline"
+              className="cursor-pointer border-border text-muted-foreground hover:bg-muted font-semibold flex items-center gap-1.5 rounded-full px-5"
+            >
+              <Upload className="h-4 w-4" /> Bulk Import
+            </Button>
+          )}
+          <Button onClick={() => { setIsOpen(!isOpen); setImportOpen(false); }} className="cursor-pointer bg-primary hover:bg-primary/95 text-primary-foreground font-semibold flex items-center gap-1.5 rounded-full px-5">
+            <Plus className="h-4 w-4" /> Add {config.label}
+          </Button>
+        </div>
       </div>
+
+      {importOpen && entityKey === 'students' && (
+        <div className="border border-border rounded-xl bg-card p-6 space-y-4 max-w-xl animate-in slide-in-from-top-4 duration-200">
+          <h3 className="font-bold text-foreground text-sm border-b border-border pb-2">
+            Bulk Import Students
+          </h3>
+          <div className="space-y-3">
+            <div 
+              onClick={() => document.getElementById('student-csv-input')?.click()}
+              className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-border rounded-xl cursor-pointer hover:bg-muted/50 transition-all bg-background/50"
+            >
+              <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+              {fileName ? (
+                <div className="text-center">
+                  <p className="text-sm font-semibold text-foreground">{fileName}</p>
+                  <p className="text-xs text-emerald-500 font-medium mt-0.5">{parsedRows.length} students found</p>
+                </div>
+              ) : (
+                <div className="text-center">
+                  <p className="text-sm font-semibold text-foreground">Click to upload Student CSV / Excel file</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Headers required: "phone", "name"</p>
+                </div>
+              )}
+            </div>
+            <input
+              id="student-csv-input"
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                setFileName(file.name);
+                try {
+                  const text = await file.text();
+                  const { rows } = parseContactCsv(text);
+                  if (rows.length === 0) {
+                    toast.error('No valid rows found. Ensure CSV has a "phone" column header.');
+                    return;
+                  }
+                  setParsedRows(rows);
+                  toast.success(`${rows.length} students parsed successfully.`);
+                } catch (err: any) {
+                  toast.error('Failed to parse CSV: ' + err.message);
+                }
+              }}
+            />
+            <p className="text-[11px] text-muted-foreground italic">
+              💡 Tip: If you have an Excel (.xlsx) file, save it as a CSV (.csv) first to upload.
+            </p>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => { setImportOpen(false); setFileName(''); setParsedRows([]); }} className="cursor-pointer rounded-full px-5">
+              Cancel
+            </Button>
+            <Button 
+              type="button" 
+              onClick={handleBulkImport} 
+              disabled={importing || parsedRows.length === 0} 
+              className="cursor-pointer rounded-full px-6 font-semibold"
+            >
+              {importing ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+              Import {parsedRows.length > 0 ? parsedRows.length : ''} Students
+            </Button>
+          </div>
+        </div>
+      )}
 
       {isOpen && (
         <form onSubmit={handleSubmit} className="border border-border rounded-xl bg-card p-6 space-y-4 max-w-xl animate-in slide-in-from-top-4 duration-200">
@@ -496,11 +696,19 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
             <tbody>
               {filteredRecords.map(rec => (
                 <tr key={rec.id} className="border-b border-border/50 hover:bg-muted/10 transition-colors">
-                  {config.fields.map(col => (
-                    <td key={col.key} className="p-4 font-medium text-foreground">
-                      {col.type === 'number' && col.key.includes('fee') ? `₹${rec[col.key] || 0}` : rec[col.key]?.toString() || '—'}
-                    </td>
-                  ))}
+                  {config.fields.map(col => {
+                    let val = col.type === 'number' && col.key.includes('fee') ? `₹${rec[col.key] || 0}` : rec[col.key]?.toString() || '—';
+                    if (col.key === 'name' && rec.contact) {
+                      val = rec.contact.name || '—';
+                    } else if (col.key === 'phone' && rec.contact) {
+                      val = rec.contact.phone || '—';
+                    }
+                    return (
+                      <td key={col.key} className="p-4 font-medium text-foreground">
+                        {val}
+                      </td>
+                    );
+                  })}
                   <td className="p-4 text-right">
                     <button
                       onClick={() => handleDelete(rec.id)}
