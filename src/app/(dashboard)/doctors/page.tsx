@@ -1,5 +1,6 @@
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 "use client";
+
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
