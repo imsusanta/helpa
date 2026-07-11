@@ -290,6 +290,7 @@ JSON Schema:
   },
   "hospital_booking": {
     "action": "book | reschedule | cancel | null",
+    "patient_name": "string or null (Full name of the patient this action is for)",
     "doctor_name": "string or null",
     "department": "string or null",
     "date": "YYYY-MM-DD string or null",
@@ -552,7 +553,7 @@ Note:
 
       // Resolve target contact for patient (handles multiple family members / patients under same/other number)
       let targetContactId = contactId;
-      const patientNameProvided = hospital_patient_info?.name;
+      const patientNameProvided = hospital_patient_info?.name || hospital_booking?.patient_name;
       const patientPhoneProvided = hospital_patient_info?.phone || contact?.phone;
 
       if (patientNameProvided) {
