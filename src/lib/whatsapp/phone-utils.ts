@@ -4,9 +4,10 @@
  * e.g. "+370 63949836" → "37063949836"
  */
 export function sanitizePhoneForMeta(phone: string): string {
-  if (!phone) return ''
-  const base = phone.split('-')[0]
-  return base.replace(/\D/g, '')
+  if (!phone) return '';
+  const match = phone.match(/^(.*)-(\d{1,3})$/);
+  const base = match && match[1].replace(/\D/g, '').length >= 7 ? match[1] : phone;
+  return base.replace(/\D/g, '');
 }
 
 /**
@@ -14,9 +15,10 @@ export function sanitizePhoneForMeta(phone: string): string {
  * Used for comparing phone numbers in different formats.
  */
 export function normalizePhone(phone: string): string {
-  if (!phone) return ''
-  const base = phone.split('-')[0]
-  return base.replace(/\D/g, '')
+  if (!phone) return '';
+  const match = phone.match(/^(.*)-(\d{1,3})$/);
+  const base = match && match[1].replace(/\D/g, '').length >= 7 ? match[1] : phone;
+  return base.replace(/\D/g, '');
 }
 
 /**
