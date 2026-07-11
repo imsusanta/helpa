@@ -534,6 +534,7 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
   if (entityKey === 'students') {
     tableFields.push(
       { key: 'student_seq_id', label: 'Student ID', type: 'text' },
+      { key: 'parent_name', label: 'Exam Preparation', type: 'text' },
       { key: 'status', label: 'Status', type: 'text' }
     );
   }

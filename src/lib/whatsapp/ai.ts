@@ -98,9 +98,29 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
     })
   }
 
-  const isHospitalEnabled = true;
+  const isHospitalEnabled = account?.industry === 'hospital';
+  const isCoachingEnabled = account?.industry === 'coaching';
   let hospitalContext = "";
+  let coachingContext = "";
   let labReports: any[] | null = null;
+
+  if (isCoachingEnabled) {
+    const { data: coachingStudents } = await db
+      .from('coaching_students')
+      .select('student_seq_id, parent_name, status, contact:contacts(name, phone)')
+      .in('id', contactIds);
+
+    if (coachingStudents && coachingStudents.length > 0) {
+      coachingContext += "Registered Students under this WhatsApp/Phone Number:\n";
+      coachingStudents.forEach((s: any) => {
+        const contactData = s.contact as any;
+        const name = (Array.isArray(contactData) ? contactData[0]?.name : contactData?.name) || 'Unknown';
+        coachingContext += `- Name: ${name}, Student ID: ${s.student_seq_id}, Exam Preparation (Target Exam): ${s.parent_name || 'Not set'}, Status: ${s.status}\n`;
+      });
+      coachingContext += "\n";
+    }
+  }
+
   if (isHospitalEnabled) {
     const { data: doctors } = await db
       .from('hospital_doctors')
@@ -274,6 +294,17 @@ AI RULES & MEDICAL SAFETY PROTOCOLS:
 8. **CAMPAIGN RESPONSE HANDLING**: If the patient received a campaign recently (listed under Last Sent Campaign to Patient), acknowledge it when appropriate. If they reply "BOOK" or indicate interest in scheduling an appointment or check-up relative to that campaign, immediately display the Patient Registration Form to proceed with booking.`;
   }
 
+  if (isCoachingEnabled) {
+    systemPromptContent += `\n\n=== COACHING & ACADEMY SYSTEM CONTEXT ===\n${coachingContext}
+You are acting as the AI student counselor and assistant for the coaching academy.
+Your primary role is to answer student/parent inquiries, guide them on available courses, fee structures, schedules, and capture/update their targeted competitive exam or board exam preparation details (e.g. JEE, NEET, UPSC, Board Exam).
+
+AI RULES & STUDENT PROFILE UPDATES:
+1. **EXAM PREPARATION IDENTIFICATION**: When a student mentions which exam they are preparing for, or replies to a query about their preparation target, you MUST extract the exam name (e.g. "NEET") and their Student ID (if present in the context, e.g. STU-10001) into the "coaching_student_update" object in your JSON output.
+2. **ACCOMMODATIVE INQUIRIES**: Keep the conversation friendly and helpful. If they have not specified their targeted exam yet, politely ask: "Which exam are you currently preparing for? (e.g. JEE, NEET, UPSC, etc.)" so we can tailor our academy details for them.
+`;
+  }
+
   // Always enforce that the AI responds in the language of the latest customer message
   systemPromptContent += `\n\nCRITICAL LANGUAGE RULE: Always respond in the EXACT same language that the customer used in their latest message (e.g., if they message in Bengali, respond in Bengali; if in Hindi, respond in Hindi; if in English, respond in English). Under no circumstances should you reply in English if the customer's latest message is in another language.`;
 
@@ -335,6 +366,10 @@ JSON Schema:
     "blood_group": "string or null (New or updated blood group if corrected)",
     "emergency_contact": "string or null (New or updated emergency contact if corrected)",
     "address": "string or null (New or updated address if corrected)"
+  },
+  "coaching_student_update": {
+    "student_id": "string or null (The Student ID to modify, e.g. STU-10001)",
+    "target_exam": "string or null (The targeted competitive or board exam they are preparing for, e.g. JEE, NEET, UPSC)"
   },
   "emergency_detected": true | false
 }
@@ -453,6 +488,7 @@ Note:
     let hospital_patient_info: any = null;
     let hospital_booking: any = null;
     let hospital_profile_update: any = null;
+    let coaching_student_update: any = null;
     let emergency_detected = false;
 
     try {
@@ -476,6 +512,7 @@ Note:
       hospital_patient_info = parsed.hospital_patient_info || null;
       hospital_booking = parsed.hospital_booking || null;
       hospital_profile_update = parsed.hospital_profile_update || null;
+      coaching_student_update = parsed.coaching_student_update || null;
       emergency_detected = !!parsed.emergency_detected;
     } catch (err) {
       console.warn('[AI Assistant] Failed to parse structured JSON from response, falling back to plain text reply:', err);
@@ -742,6 +779,53 @@ Note:
           }
         } catch (profileErr) {
           console.error('[AI Hospital] Error updating patient profile self-edit:', profileErr);
+        }
+      }
+
+      // 5.5 Student target exam self-update via WhatsApp
+      if (coaching_student_update) {
+        try {
+          const sId = coaching_student_update.student_id ? coaching_student_update.student_id.trim().toUpperCase() : null;
+          const targetExam = coaching_student_update.target_exam ? coaching_student_update.target_exam.trim() : null;
+
+          if (targetExam) {
+            let targetStudentId: string | null = null;
+
+            if (sId) {
+              const { data: targetStudent } = await db
+                .from('coaching_students')
+                .select('id')
+                .eq('account_id', accountId)
+                .eq('student_seq_id', sId)
+                .maybeSingle();
+              if (targetStudent) {
+                targetStudentId = targetStudent.id;
+              }
+            } else {
+              // If student ID is not specified, lookup student(s) linked to this phone number
+              const { data: studentList } = await db
+                .from('coaching_students')
+                .select('id')
+                .eq('account_id', accountId)
+                .in('id', contactIds);
+              if (studentList && studentList.length === 1) {
+                targetStudentId = studentList[0].id;
+              }
+            }
+
+            if (targetStudentId) {
+              console.log('[AI Coaching] Updating student exam preparation for ID:', targetStudentId, 'to:', targetExam);
+              await db
+                .from('coaching_students')
+                .update({
+                  parent_name: targetExam,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', targetStudentId);
+            }
+          }
+        } catch (coachingErr) {
+          console.error('[AI Coaching] Error updating student target exam:', coachingErr);
         }
       }
 
