@@ -37,7 +37,7 @@ interface DoctorOption {
 export default function NewCampaignPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { accountId } = useAuth();
+  const { accountId, account } = useAuth();
   const { createAndSendBroadcast, isProcessing, progress } = useBroadcastSending();
 
   // Wizard Steps
@@ -52,7 +52,7 @@ export default function NewCampaignPage() {
   const [category, setCategory] = useState('General Announcement');
   
   // Audience
-  const [audienceType, setAudienceType] = useState<'all' | 'new_patients' | 'returning_patients' | 'upcoming_appointments' | 'missed_appointments' | 'due_followup' | 'by_department' | 'by_doctor' | 'by_gender' | 'by_age' | 'csv'>('all');
+  const [audienceType, setAudienceType] = useState<'all' | 'new_patients' | 'returning_patients' | 'upcoming_appointments' | 'missed_appointments' | 'due_followup' | 'by_department' | 'by_doctor' | 'by_gender' | 'by_age' | 'csv' | 'contact_list'>('all');
   const [selectedDept, setSelectedDept] = useState('');
   const [selectedDoctorId, setSelectedDoctorId] = useState('');
   const [selectedGender, setSelectedGender] = useState('Male');
@@ -60,6 +60,15 @@ export default function NewCampaignPage() {
   const [ageMax, setAgeMax] = useState(100);
   const [csvContacts, setCsvContacts] = useState<{ phone: string; name?: string }[]>([]);
   const [csvFileName, setCsvFileName] = useState('');
+
+  // Contact List States
+  const [tags, setTags] = useState<{ id: string; name: string }[]>([]);
+  const [selectedTagId, setSelectedTagId] = useState('');
+  const [newTagName, setNewTagName] = useState('');
+  const [isCreatingNewTag, setIsCreatingNewTag] = useState(false);
+  const [manualContactName, setManualContactName] = useState('');
+  const [manualContactPhone, setManualContactPhone] = useState('');
+  const [tempContacts, setTempContacts] = useState<{ name: string; phone: string }[]>([]);
 
   // Content Mode: 'custom' or 'template'
   const [contentMode, setContentMode] = useState<'custom' | 'template'>('custom');
@@ -114,6 +123,13 @@ export default function NewCampaignPage() {
           .eq('account_id', accountId)
           .eq('status', 'APPROVED');
         setTemplates(tempRows || []);
+
+        // 3. Fetch contact tags
+        const { data: tagRows } = await supabase
+          .from('tags')
+          .select('id, name')
+          .eq('account_id', accountId);
+        setTags(tagRows || []);
 
       } catch (err) {
         console.error('Failed to load builder configurations:', err);
@@ -243,6 +259,106 @@ export default function NewCampaignPage() {
     }
 
     try {
+      let finalAudienceType: any = audienceType;
+      let finalTagIds: string[] | undefined = undefined;
+
+      if (audienceType === 'contact_list') {
+        const supabase = createClient();
+        let tagId = selectedTagId;
+
+        // 1. Create a new tag if needed
+        if (isCreatingNewTag && newTagName.trim()) {
+          const { data: existingTag } = await supabase
+            .from('tags')
+            .select('id')
+            .eq('account_id', accountId)
+            .eq('name', newTagName.trim())
+            .maybeSingle();
+
+          if (existingTag) {
+            tagId = existingTag.id;
+          } else {
+            const { data: newTag, error: tagErr } = await supabase
+              .from('tags')
+              .insert({
+                account_id: accountId,
+                name: newTagName.trim(),
+                color: '#4f46e5',
+              })
+              .select('id')
+              .single();
+            if (tagErr) throw tagErr;
+            tagId = newTag.id;
+          }
+        }
+
+        if (!tagId) {
+          throw new Error('Please select or create a contact list (group).');
+        }
+
+        // 2. Insert and tag temporary contacts
+        if (tempContacts.length > 0) {
+          const { data: { session } } = await supabase.auth.getSession();
+          const user = session?.user;
+          if (!user) throw new Error('Not authenticated');
+
+          const uniqueContacts = new Map<string, { name: string; phone: string }>();
+          for (const c of tempContacts) {
+            const phoneClean = c.phone.trim().replace(/[^0-9+]/g, '');
+            if (phoneClean) uniqueContacts.set(phoneClean, c);
+          }
+
+          const phones = [...uniqueContacts.keys()];
+
+          // Look up existing
+          const { data: existing } = await supabase
+            .from('contacts')
+            .select('id, phone')
+            .eq('account_id', accountId)
+            .in('phone', phones);
+
+          const existingByPhone = new Map<string, string>();
+          for (const c of existing ?? []) {
+            existingByPhone.set(c.phone, c.id);
+          }
+
+          const missing = phones
+            .filter(p => !existingByPhone.has(p))
+            .map(phone => ({
+              account_id: accountId,
+              user_id: user.id,
+              phone,
+              name: uniqueContacts.get(phone)?.name || null,
+            }));
+
+          const insertedIds: string[] = [];
+          if (missing.length > 0) {
+            const { data: newC, error: insertErr } = await supabase
+              .from('contacts')
+              .insert(missing)
+              .select('id');
+            if (insertErr) throw insertErr;
+            if (newC) insertedIds.push(...newC.map(c => c.id));
+          }
+
+          const allContactIds = [...existingByPhone.values(), ...insertedIds];
+
+          if (allContactIds.length > 0) {
+            const tagLinks = allContactIds.map(cid => ({
+              contact_id: cid,
+              tag_id: tagId
+            }));
+            await supabase
+              .from('contact_tags')
+              .upsert(tagLinks, { onConflict: 'contact_id,tag_id' });
+          }
+        }
+
+        // Override audience type to 'tags' so hook executes natively
+        finalAudienceType = 'tags';
+        finalTagIds = [tagId];
+      }
+
       // Mocking template structure for custom campaigns so useBroadcastSending executes natively
       let finalTemplate: MessageTemplate;
       let finalVariables: any = {};
@@ -269,7 +385,8 @@ export default function NewCampaignPage() {
         name,
         template: finalTemplate,
         audience: {
-          type: audienceType,
+          type: finalAudienceType,
+          tagIds: finalTagIds,
           department: selectedDept || undefined,
           doctorId: selectedDoctorId || undefined,
           gender: selectedGender || undefined,
@@ -396,7 +513,10 @@ export default function NewCampaignPage() {
           {/* STEP 1: AUDIENCE SEGMENTATION */}
           {currentStep === 1 && (
             <div className="space-y-4">
-              <h2 className="text-base font-bold text-foreground flex items-center gap-1.5"><Users className="h-4 w-4" /> Target Patients Segment</h2>
+              <h2 className="text-base font-bold text-foreground flex items-center gap-1.5">
+                <Users className="h-4 w-4" /> 
+                {account?.industry === 'hospital' ? 'Target Patients Segment' : 'Target Contacts Segment'}
+              </h2>
               
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-muted-foreground uppercase">Target Audience Type</label>
@@ -405,16 +525,25 @@ export default function NewCampaignPage() {
                   onChange={(e) => setAudienceType(e.target.value as any)}
                   className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 >
-                  <option value="all">All Registered Patients</option>
-                  <option value="new_patients">New Patients (Last 30 Days)</option>
-                  <option value="returning_patients">Returning Patients (Frequent Visits)</option>
-                  <option value="upcoming_appointments">Patients with Upcoming Appointments</option>
-                  <option value="missed_appointments">Patients with Missed/Cancelled Appointments</option>
-                  <option value="due_followup">Patients Due for Routine Follow-up</option>
-                  <option value="by_department">Filter Patients by Department</option>
-                  <option value="by_doctor">Filter Patients by Referring Doctor</option>
-                  <option value="by_gender">Filter Patients by Gender</option>
-                  <option value="by_age">Filter Patients by Age Range</option>
+                  {account?.industry === 'hospital' ? (
+                    <>
+                      <option value="all">All Registered Patients</option>
+                      <option value="new_patients">New Patients (Last 30 Days)</option>
+                      <option value="returning_patients">Returning Patients (Frequent Visits)</option>
+                      <option value="upcoming_appointments">Patients with Upcoming Appointments</option>
+                      <option value="missed_appointments">Patients with Missed/Cancelled Appointments</option>
+                      <option value="due_followup">Patients Due for Routine Follow-up</option>
+                      <option value="by_department">Filter Patients by Department</option>
+                      <option value="by_doctor">Filter Patients by Referring Doctor</option>
+                      <option value="by_gender">Filter Patients by Gender</option>
+                      <option value="by_age">Filter Patients by Age Range</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="all">All Contacts</option>
+                    </>
+                  )}
+                  <option value="contact_list">Contact List (Group / Tag)</option>
                   <option value="csv">Upload CSV / Excel File List</option>
                 </select>
               </div>
@@ -580,6 +709,173 @@ export default function NewCampaignPage() {
                 </div>
               )}
 
+              {audienceType === 'contact_list' && (
+                <div className="space-y-4 rounded-xl border border-border/80 bg-muted/20 p-4">
+                  {/* Select or Create List */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-muted-foreground uppercase">Select Contact List (Tag)</label>
+                      <select
+                        value={isCreatingNewTag ? 'new_list' : selectedTagId}
+                        onChange={(e) => {
+                          if (e.target.value === 'new_list') {
+                            setIsCreatingNewTag(true);
+                            setSelectedTagId('');
+                          } else {
+                            setIsCreatingNewTag(false);
+                            setSelectedTagId(e.target.value);
+                          }
+                        }}
+                        className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm text-foreground focus:outline-none"
+                      >
+                        <option value="">-- Choose List --</option>
+                        {tags.map((t) => (
+                          <option key={t.id} value={t.id}>{t.name}</option>
+                        ))}
+                        <option value="new_list">+ Create New List...</option>
+                      </select>
+                    </div>
+
+                    {isCreatingNewTag && (
+                      <div className="space-y-1.5 animate-in slide-in-from-left-2 duration-150">
+                        <label className="text-xs font-bold text-muted-foreground uppercase">New List Name</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Summer Batch"
+                          value={newTagName}
+                          onChange={(e) => setNewTagName(e.target.value)}
+                          className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm text-foreground focus:outline-none"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Add contact manually */}
+                  <div className="space-y-2 border-t border-border/80 pt-3">
+                    <label className="text-xs font-bold text-muted-foreground uppercase block">Add Contact manually</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <input
+                        type="text"
+                        placeholder="Contact Name"
+                        value={manualContactName}
+                        onChange={(e) => setManualContactName(e.target.value)}
+                        className="h-10 px-3 rounded-lg border border-border bg-background text-sm text-foreground focus:outline-none"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Mobile Number"
+                        value={manualContactPhone}
+                        onChange={(e) => setManualContactPhone(e.target.value)}
+                        className="h-10 px-3 rounded-lg border border-border bg-background text-sm text-foreground focus:outline-none"
+                      />
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          if (!manualContactPhone.trim()) {
+                            toast.error('Mobile Number is required');
+                            return;
+                          }
+                          const newC = {
+                            name: manualContactName.trim() || `Contact ${manualContactPhone.slice(-4)}`,
+                            phone: manualContactPhone.trim().replace(/[^0-9+]/g, '')
+                          };
+                          setTempContacts([...tempContacts, newC]);
+                          setManualContactName('');
+                          setManualContactPhone('');
+                          toast.success('Contact added. Click Next to save.');
+                        }}
+                        className="h-10 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold cursor-pointer"
+                      >
+                        Add Contact
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Bulk Upload CSV */}
+                  <div className="relative flex py-2 items-center">
+                    <div className="flex-grow border-t border-border/80"></div>
+                    <span className="flex-shrink mx-4 text-muted-foreground text-[10px] font-bold uppercase tracking-wider">Or Upload CSV in Bulk</span>
+                    <div className="flex-grow border-t border-border/80"></div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div 
+                      onClick={() => document.getElementById('list-csv-input')?.click()}
+                      className="flex flex-col items-center justify-center p-5 border border-dashed border-border rounded-xl cursor-pointer hover:bg-muted/50 transition-all bg-card"
+                    >
+                      <Upload className="h-6 w-6 text-muted-foreground mb-1" />
+                      {csvFileName ? (
+                        <div className="text-center">
+                          <p className="text-xs font-semibold text-foreground">{csvFileName}</p>
+                        </div>
+                      ) : (
+                        <div className="text-center">
+                          <p className="text-xs font-semibold text-foreground">Click to upload CSV file</p>
+                          <p className="text-[10px] text-muted-foreground">Name first, then Mobile Number</p>
+                        </div>
+                      )}
+                    </div>
+                    <input
+                      id="list-csv-input"
+                      type="file"
+                      accept=".csv,text/csv"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        setCsvFileName(file.name);
+                        try {
+                          const text = await file.text();
+                          const { rows } = parseContactCsv(text);
+                          if (rows.length === 0) {
+                            toast.error('No contacts found in CSV.');
+                            return;
+                          }
+                          const formatted = rows.map(r => ({
+                            name: r.name || `Contact ${r.phone.slice(-4)}`,
+                            phone: r.phone
+                          }));
+                          setTempContacts([...tempContacts, ...formatted]);
+                          toast.success(`${formatted.length} contacts loaded.`);
+                        } catch (err: any) {
+                          toast.error('Failed to parse file: ' + err.message);
+                        }
+                      }}
+                    />
+                  </div>
+
+                  {/* Preview contacts */}
+                  {tempContacts.length > 0 && (
+                    <div className="space-y-1.5 border-t border-border/80 pt-3">
+                      <div className="flex justify-between items-center">
+                        <label className="text-xs font-bold text-muted-foreground uppercase">Contacts to add ({tempContacts.length})</label>
+                        <button 
+                          type="button"
+                          onClick={() => setTempContacts([])} 
+                          className="text-[10px] text-red-500 hover:underline"
+                        >
+                          Clear All
+                        </button>
+                      </div>
+                      <div className="max-h-32 overflow-y-auto space-y-1 rounded-lg border border-border bg-background p-2 font-mono text-[11px] text-foreground">
+                        {tempContacts.map((c, i) => (
+                          <div key={i} className="flex justify-between items-center py-0.5 border-b border-border/40 last:border-0 animate-in fade-in duration-100">
+                            <span>{c.name} ({c.phone})</span>
+                            <button 
+                              type="button"
+                              onClick={() => setTempContacts(tempContacts.filter((_, idx) => idx !== i))}
+                              className="text-red-500 hover:text-red-700"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="pt-4 flex justify-between">
                 <Button
                   onClick={() => setCurrentStep(0)}
@@ -590,7 +886,10 @@ export default function NewCampaignPage() {
                 </Button>
                 <Button
                   onClick={() => setCurrentStep(2)}
-                  disabled={audienceType === 'csv' && csvContacts.length === 0}
+                  disabled={
+                    (audienceType === 'csv' && csvContacts.length === 0) ||
+                    (audienceType === 'contact_list' && !selectedTagId && !newTagName.trim())
+                  }
                   className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-full px-5 py-2 disabled:opacity-50"
                 >
                   Next: Write Message
