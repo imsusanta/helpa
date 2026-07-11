@@ -146,7 +146,7 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
         const days = Array.isArray(d.available_days) ? d.available_days.join(', ') : '';
         const start = d.working_hours?.start || '09:00';
         const end = d.working_hours?.end || '17:00';
-        hospitalContext += `- Dr. ${d.name.replace(/^Dr\.\s+/i, '')} (${d.department} - ${d.specialization || 'General'}): Fee: $${d.consultation_fee / 100}, Working Days: ${days}, Working Hours: ${start} to ${end}\n`;
+        hospitalContext += `- Dr. ${d.name.replace(/^Dr\.\s+/i, '')} (${d.department} - ${d.specialization || 'General'}): Fee: ₹${d.consultation_fee}, Working Days: ${days}, Working Hours: ${start} to ${end}\n`;
       });
     }
     if (branches && branches.length > 0) {
@@ -210,12 +210,18 @@ AI RULES & MEDICAL SAFETY PROTOCOLS:
      - *Mobile Number:* [Enter Mobile Number]
      - *Gender:* [Male/Female/Other]
      - *Date of Birth:* [YYYY-MM-DD]
-     - *Doctor Name:* [Name of Doctor you want to book with]
+     - *Department:* [e.g. Cardiology, Orthopedics, General Medicine]
      - *Blood Group:* [e.g. O+, A-]
      - *Emergency Contact:* [Name & Phone]
      
-     (You can also specify your preferred Department, and preferred Date & Time in your reply)
-   - Do NOT confirm the appointment booking until you have collected their Name, Mobile Number, Gender, DOB, and Doctor name.
+     (You can also specify your preferred Doctor name, and preferred Date & Time in your reply)
+   - Do NOT confirm the appointment booking until you have collected their Name, Mobile Number, Gender, DOB, and Department.
+   - **DEPARTMENT-FIRST DOCTOR SELECTION**: When a patient provides a department (e.g. "Cardiology", "Orthopedics") but has NOT specified a doctor name, you MUST look up the "Available Doctors & Clinic Schedules" list from the Hospital Context above, filter doctors matching that department, and present them as a numbered list for the patient to choose from. Example reply:
+     "Here are the available doctors in *Cardiology*:
+     1️⃣ Dr. Susanta Lohar — Fee: ₹500 — Mon, Wed, Fri (10:00–17:00)
+     2️⃣ Dr. Priya Sharma — Fee: ₹700 — Tue, Thu (09:00–14:00)
+     Please reply with the doctor number or name to proceed with booking."
+   - Once the patient picks a doctor from the list, THEN set "hospital_booking" action to "book" with the selected doctor_name.
 4. **Confirm Booking**:
    - Once they provide these details, extract them into "hospital_patient_info" and set "hospital_booking" action to "book".
    - Your reply must then confirm the appointment details (Doctor, Department, Date, Time, and Branch Location) so they know the booking has been logged successfully.
@@ -585,7 +591,6 @@ Note:
         const pName = hospital_patient_info?.name || contact?.name;
         const pGender = hospital_patient_info?.gender || extPatient?.gender;
         const pDob = hospital_patient_info?.dob || extPatient?.date_of_birth;
-        const hasDoctor = !!doctor_name;
 
         if (!pName) {
           reply = "I'm ready to schedule your appointment, but I need your full name first. Could you please reply with your name?";
@@ -593,8 +598,31 @@ Note:
           reply = "I'm ready to schedule your appointment, but I need to know your gender first (Male/Female/Other). Could you please let me know?";
         } else if (!pDob) {
           reply = "I'm ready to schedule your appointment, but I need your Date of Birth first (YYYY-MM-DD). Could you please provide it?";
-        } else if (!hasDoctor) {
-          reply = "I'm ready to schedule your appointment, but could you please let me know which doctor you would like to book with?";
+        } else if (!doctor_name && !department) {
+          reply = "I'm ready to schedule your appointment. Could you please let me know which department you'd like to visit (e.g. Cardiology, Orthopedics, General Medicine)?";
+        } else if (department && !doctor_name) {
+          // Department given but no doctor — look up doctors in that department and list them
+          const { data: deptDoctors } = await db
+            .from('hospital_doctors')
+            .select('name, consultation_fee, available_days, working_hours')
+            .eq('account_id', accountId)
+            .eq('status', 'active')
+            .ilike('department', `%${department}%`);
+
+          if (deptDoctors && deptDoctors.length > 0) {
+            let doctorList = `Here are the available doctors in *${department}*:\n\n`;
+            deptDoctors.forEach((doc: any, idx: number) => {
+              const days = Array.isArray(doc.available_days) ? doc.available_days.join(', ') : 'All days';
+              const start = doc.working_hours?.start || '09:00';
+              const end = doc.working_hours?.end || '17:00';
+              const fee = doc.consultation_fee || 0;
+              doctorList += `${idx + 1}️⃣ *Dr. ${doc.name.replace(/^Dr\.\s+/i, '')}* — Fee: ₹${fee} — ${days} (${start}–${end})\n`;
+            });
+            doctorList += `\nPlease reply with the doctor's name to proceed with your appointment booking.`;
+            reply = doctorList;
+          } else {
+            reply = `I couldn't find any doctors in the *${department}* department. Could you please check the department name or tell me which doctor you'd like to book with?`;
+          }
         } else if (date && time) {
           try {
             let doctorId: string | null = null;
