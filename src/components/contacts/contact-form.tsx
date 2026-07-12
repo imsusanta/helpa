@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
 import type { Contact, Tag, ContactTag } from '@/types';
+import { getIndustryModule } from '@/modules/registry';
 import {
   findExistingContact,
   isExactMatch,
@@ -22,7 +23,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Loader2, AlertTriangle } from 'lucide-react';
 
 interface ContactFormProps {
@@ -31,8 +31,6 @@ interface ContactFormProps {
   contact?: Contact | null;
   contactTags?: ContactTag[];
   onSaved: () => void;
-  /** Open an existing contact's detail view — used by the duplicate
-   *  notice to jump to the contact that already owns this number. */
   onViewExisting?: (contactId: string) => void;
 }
 
@@ -45,19 +43,25 @@ export function ContactForm({
   onViewExisting,
 }: ContactFormProps) {
   const supabase = createClient();
-  const { accountId } = useAuth();
+  const { accountId, account } = useAuth();
   const isEdit = !!contact;
+
+  // Active industry configuration
+  const industryModule = getIndustryModule(account?.industry);
+  const contactConfig = industryModule.entityConfigs?.contacts;
+  const entityLabel = contactConfig?.label || 'Contact';
+  const customFields = contactConfig?.fields || [];
+  const isHospitalWorkspace = industryModule.id === 'hospital_clinic';
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
-  const [company, setCompany] = useState('');
+  const [address, setAddress] = useState('');
+  const [notes, setNotes] = useState('');
+  const [metadata, setMetadata] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState(false);
 
-  // Duplicate-phone detection for NEW contacts. `exact` (same digits)
-  // hard-blocks the save; a fuzzy trunk-variant match only warns. The
-  // DB unique index (migration 022) is the real backstop — this is the
-  // friendly heads-up before we get there.
+  // Duplicate-phone detection for NEW contacts.
   const [dupMatch, setDupMatch] = useState<
     { contact: ExistingContact; exact: boolean } | null
   >(null);
@@ -72,15 +76,15 @@ export function ContactForm({
       setName(contact?.name ?? '');
       setPhone(contact?.phone ?? '');
       setEmail(contact?.email ?? '');
-      setCompany(contact?.company ?? '');
+      setAddress(contact?.address ?? '');
+      setNotes(contact?.notes ?? '');
+      setMetadata(contact?.metadata ?? {});
       setSelectedTagIds(contactTags.map((ct) => ct.tag_id));
       setDupMatch(null);
       fetchTags();
     }
   }, [open, contact]);
 
-  // Look up an existing contact with this number (new contacts only).
-  // Runs on blur so we don't query on every keystroke.
   async function checkDuplicate() {
     if (isEdit || !accountId) return;
     const value = phone.trim();
@@ -127,11 +131,17 @@ export function ContactForm({
       return;
     }
 
-    // Hard-block an exact duplicate on create (the DB unique index is
-    // the real backstop; this avoids a round-trip + a raw error toast).
-    if (!isEdit && dupMatch?.exact) {
-      toast.error('A contact with this phone number already exists');
+    if (!isEdit && !isHospitalWorkspace && dupMatch?.exact) {
+      toast.error(`A ${entityLabel.toLowerCase()} with this phone number already exists`);
       return;
+    }
+
+    // Validate required custom fields
+    for (const field of customFields) {
+      if (field.required && !metadata[field.key]) {
+        toast.error(`${field.label} is required`);
+        return;
+      }
     }
 
     setSaving(true);
@@ -145,15 +155,30 @@ export function ContactForm({
       if (!accountId) throw new Error('Your profile is not linked to an account.');
 
       let contactId = contact?.id;
+      const contactMetadata = { ...metadata };
+
+      // Patient IDs are always created by the database after the contact is
+      // saved, never accepted from the form.
+      if (isHospitalWorkspace && !isEdit) {
+        delete contactMetadata.patient_id;
+      }
+
+      const payload = {
+        name: name.trim() || null,
+        phone: phone.trim(),
+        email: email.trim() || null,
+        address: address.trim() || null,
+        notes: notes.trim() || null,
+        industry: account?.industry || 'general',
+        entity_type: entityLabel,
+        metadata: contactMetadata,
+      };
 
       if (isEdit && contactId) {
         const { error } = await supabase
           .from('contacts')
           .update({
-            name: name.trim() || null,
-            phone: phone.trim(),
-            email: email.trim() || null,
-            company: company.trim() || null,
+            ...payload,
             updated_at: new Date().toISOString(),
           })
           .eq('id', contactId);
@@ -164,15 +189,39 @@ export function ContactForm({
           .insert({
             user_id: user.id,
             account_id: accountId,
-            name: name.trim() || null,
-            phone: phone.trim(),
-            email: email.trim() || null,
-            company: company.trim() || null,
+            ...payload,
           })
           .select('id')
           .single();
         if (error) throw error;
         contactId = data.id;
+      }
+
+      if (isHospitalWorkspace && !isEdit && contactId) {
+        const { data: patient, error: patientError } = await supabase
+          .from('patients')
+          .insert({
+            id: contactId,
+            account_id: accountId,
+            status: 'active',
+          })
+          .select('patient_seq_id')
+          .single();
+        if (patientError || !patient?.patient_seq_id) {
+          throw patientError || new Error('Could not assign a Patient ID');
+        }
+
+        const { error: metadataError } = await supabase
+          .from('contacts')
+          .update({
+            metadata: {
+              ...contactMetadata,
+              patient_id: patient.patient_seq_id,
+            },
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', contactId);
+        if (metadataError) throw metadataError;
       }
 
       // Sync tags
@@ -194,16 +243,16 @@ export function ContactForm({
         }
       }
 
-      toast.success(isEdit ? 'Contact updated' : 'Contact created');
+      toast.success(isEdit ? `${entityLabel} updated` : `${entityLabel} created`);
       onOpenChange(false);
       onSaved();
     } catch (err: unknown) {
-      // The unique index (migration 022) rejects a duplicate phone that
-      // slipped past the on-blur check (race, or a format that
-      // normalizes equal). Surface it as the friendly duplicate notice
-      // and, for new contacts, point the user at the existing record.
       if (isUniqueViolation(err)) {
-        toast.error('A contact with this phone number already exists');
+        if (isHospitalWorkspace) {
+          toast.error('Could not assign a unique Patient ID. Please try again.');
+          return;
+        }
+        toast.error(`A ${entityLabel.toLowerCase()} with this phone number already exists`);
         if (!isEdit && accountId) {
           const existing = await findExistingContact(
             supabase,
@@ -223,35 +272,36 @@ export function ContactForm({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-popover border-border text-popover-foreground sm:max-w-md">
+      <DialogContent className="bg-popover border-border text-popover-foreground sm:max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-popover-foreground">
-            {isEdit ? 'Edit Contact' : 'Add Contact'}
+            {isEdit ? `Edit ${entityLabel}` : `Add ${entityLabel}`}
           </DialogTitle>
           <DialogDescription className="text-muted-foreground">
             {isEdit
-              ? 'Update the contact details below.'
-              : 'Fill in the details to create a new contact.'}
+              ? `Update the ${entityLabel.toLowerCase()} details below.`
+              : `Fill in the details to create a new ${entityLabel.toLowerCase()}.`}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="cf-name" className="text-muted-foreground">
-              Name
+              Full Name <span className="text-red-400">*</span>
             </Label>
             <Input
               id="cf-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="John Doe"
+              required
               className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
             />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="cf-phone" className="text-muted-foreground">
-              Phone <span className="text-red-400">*</span>
+              Mobile Number <span className="text-red-400">*</span>
             </Label>
             <Input
               id="cf-phone"
@@ -262,12 +312,13 @@ export function ContactForm({
               }}
               onBlur={checkDuplicate}
               placeholder="+1 234 567 8900"
+              required
               className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
             />
             {dupMatch ? (
               <div
                 className={`flex items-start gap-2 rounded-md border px-2.5 py-2 text-xs ${
-                  dupMatch.exact
+                  dupMatch.exact && !isHospitalWorkspace
                     ? 'border-red-500/40 bg-red-500/10 text-red-300'
                     : 'border-amber-500/40 bg-amber-500/10 text-amber-300'
                 }`}
@@ -275,9 +326,11 @@ export function ContactForm({
                 <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
                 <div className="space-y-1">
                   <p>
-                    {dupMatch.exact
-                      ? 'A contact with this phone number already exists.'
-                      : 'A contact with a very similar number already exists.'}
+                    {dupMatch.exact && isHospitalWorkspace
+                      ? 'This mobile number is already used by another patient. You can add this patient with a new Patient ID.'
+                      : dupMatch.exact
+                      ? `A ${entityLabel.toLowerCase()} with this phone number already exists.`
+                      : `A ${entityLabel.toLowerCase()} with a very similar number already exists.`}
                   </p>
                   {onViewExisting && (
                     <button
@@ -312,14 +365,98 @@ export function ContactForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="cf-company" className="text-muted-foreground">
-              Company
+            <Label htmlFor="cf-address" className="text-muted-foreground">
+              Address
             </Label>
             <Input
-              id="cf-company"
-              value={company}
-              onChange={(e) => setCompany(e.target.value)}
-              placeholder="Acme Inc."
+              id="cf-address"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="123 Main St"
+              className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
+            />
+          </div>
+
+          {/* Industry Custom Fields */}
+          {customFields.length > 0 && (
+            <div className="pt-2 border-t border-border/50 space-y-4">
+              <span className="text-xs font-semibold text-primary uppercase block">
+                {entityLabel} Information
+              </span>
+              {customFields.map((field) => {
+                const value = metadata[field.key] ?? '';
+                const isGeneratedPatientId = isHospitalWorkspace && field.key === 'patient_id';
+                const handleChange = (val: any) => {
+                  setMetadata((prev) => ({ ...prev, [field.key]: val }));
+                };
+
+                return (
+                  <div key={field.key} className="space-y-2">
+                    <Label htmlFor={`cf-${field.key}`} className="text-muted-foreground">
+                      {field.label} {isGeneratedPatientId ? '(assigned automatically)' : field.required && <span className="text-red-400">*</span>}
+                    </Label>
+                    {isGeneratedPatientId ? (
+                      <Input
+                        id={`cf-${field.key}`}
+                        value={value || 'Assigned after saving'}
+                        disabled
+                        className="bg-muted border-border text-muted-foreground"
+                      />
+                    ) : field.type === 'select' ? (
+                      <select
+                        id={`cf-${field.key}`}
+                        value={value}
+                        onChange={(e) => handleChange(e.target.value)}
+                        className="flex h-9 w-full rounded-md border border-border bg-muted px-3 py-1 text-sm text-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      >
+                        <option value="">Select option...</option>
+                        {field.options?.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+                    ) : field.type === 'number' ? (
+                      <Input
+                        id={`cf-${field.key}`}
+                        type="number"
+                        value={value}
+                        onChange={(e) => handleChange(e.target.value)}
+                        placeholder={`Enter ${field.label.toLowerCase()}...`}
+                        className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
+                      />
+                    ) : field.type === 'date' ? (
+                      <Input
+                        id={`cf-${field.key}`}
+                        type="date"
+                        value={value}
+                        onChange={(e) => handleChange(e.target.value)}
+                        className="bg-muted border-border text-foreground"
+                      />
+                    ) : (
+                      <Input
+                        id={`cf-${field.key}`}
+                        value={value}
+                        onChange={(e) => handleChange(e.target.value)}
+                        placeholder={`Enter ${field.label.toLowerCase()}...`}
+                        className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <Label htmlFor="cf-notes" className="text-muted-foreground">
+              Notes
+            </Label>
+            <Input
+              id="cf-notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Additional comments..."
               className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
             />
           </div>
@@ -363,7 +500,7 @@ export function ContactForm({
             )}
           </div>
 
-          <DialogFooter className="bg-popover border-border">
+          <DialogFooter className="bg-popover border-border pt-2 border-t border-border/50">
             <Button
               type="button"
               variant="outline"

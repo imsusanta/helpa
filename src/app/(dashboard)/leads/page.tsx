@@ -1,8 +1,5 @@
-import { EntityPage } from '@/components/saas/entity-page';
+import { redirect } from 'next/navigation';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-
-export default function LeadsPage() {
-  return <EntityPage entityKey="leads" />;
+export default function LeadsRedirectPage() {
+  redirect('/contacts');
 }

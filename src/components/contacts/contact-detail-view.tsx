@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
+import { getIndustryModule } from '@/modules/registry';
 import { formatCurrency } from '@/lib/currency';
 import { toast } from 'sonner';
 import type { Contact, Tag, ContactTag, ContactNote, CustomField, ContactCustomValue, Deal } from '@/types';
@@ -49,7 +50,7 @@ export function ContactDetailView({
   onUpdated,
 }: ContactDetailViewProps) {
   const supabase = createClient();
-  const { accountId, defaultCurrency } = useAuth();
+  const { accountId, defaultCurrency, account } = useAuth();
 
   const [contact, setContact] = useState<Contact | null>(null);
   const [loading, setLoading] = useState(false);
@@ -60,6 +61,9 @@ export function ContactDetailView({
   const [editPhone, setEditPhone] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editCompany, setEditCompany] = useState('');
+  const [editAddress, setEditAddress] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+  const [editMetadata, setEditMetadata] = useState<Record<string, any>>({});
   const [savingDetails, setSavingDetails] = useState(false);
 
   // Tags tab
@@ -99,6 +103,9 @@ export function ContactDetailView({
       setEditPhone(data.phone);
       setEditEmail(data.email ?? '');
       setEditCompany(data.company ?? '');
+      setEditAddress(data.address ?? '');
+      setEditNotes(data.notes ?? '');
+      setEditMetadata(data.metadata ?? {});
     }
     setLoading(false);
   }, [contactId, supabase]);
@@ -189,6 +196,17 @@ export function ContactDetailView({
       return;
     }
 
+    // Validate required custom fields
+    const industryModule = getIndustryModule(account?.industry);
+    const contactConfig = industryModule.entityConfigs?.contacts;
+    const customFields = contactConfig?.fields || [];
+    for (const field of customFields) {
+      if (field.required && !editMetadata[field.key]) {
+        toast.error(`${field.label} is required`);
+        return;
+      }
+    }
+
     setSavingDetails(true);
     const { error } = await supabase
       .from('contacts')
@@ -197,6 +215,9 @@ export function ContactDetailView({
         phone: editPhone.trim(),
         email: editEmail.trim() || null,
         company: editCompany.trim() || null,
+        address: editAddress.trim() || null,
+        notes: editNotes.trim() || null,
+        metadata: editMetadata,
         updated_at: new Date().toISOString(),
       })
       .eq('id', contactId);
@@ -421,9 +442,9 @@ export function ContactDetailView({
 
               {/* Details Tab */}
               <TabsContent value="details" className="flex-1 overflow-y-auto px-4 py-3">
-                <div className="space-y-3">
+                <div className="space-y-3 pb-4">
                   <div className="space-y-1.5">
-                    <Label className="text-muted-foreground text-xs">Name</Label>
+                    <Label className="text-muted-foreground text-xs">Full Name</Label>
                     <Input
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
@@ -432,7 +453,7 @@ export function ContactDetailView({
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-muted-foreground text-xs">
-                      Phone <span className="text-red-400">*</span>
+                      Mobile Number <span className="text-red-400">*</span>
                     </Label>
                     <Input
                       value={editPhone}
@@ -456,10 +477,93 @@ export function ContactDetailView({
                       className="bg-muted border-border text-foreground h-8 text-sm"
                     />
                   </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-muted-foreground text-xs">Address</Label>
+                    <Input
+                      value={editAddress}
+                      onChange={(e) => setEditAddress(e.target.value)}
+                      className="bg-muted border-border text-foreground h-8 text-sm"
+                    />
+                  </div>
+
+                  {/* Industry Dynamic Custom Fields */}
+                  {(() => {
+                    const industryModule = getIndustryModule(account?.industry);
+                    const contactConfig = industryModule.entityConfigs?.contacts;
+                    const fields = contactConfig?.fields || [];
+                    if (fields.length === 0) return null;
+
+                    return (
+                      <div className="pt-2 border-t border-border/50 space-y-3">
+                        <span className="text-[10px] font-bold text-primary uppercase block">
+                          {contactConfig?.label || 'Contact'} Details
+                        </span>
+                        {fields.map((field) => {
+                          const val = editMetadata[field.key] ?? '';
+                          const handleChange = (newVal: any) => {
+                            setEditMetadata((prev) => ({ ...prev, [field.key]: newVal }));
+                          };
+
+                          return (
+                            <div key={field.key} className="space-y-1.5">
+                              <Label className="text-muted-foreground text-xs">
+                                {field.label} {field.required && <span className="text-red-400">*</span>}
+                              </Label>
+                              {field.type === 'select' ? (
+                                <select
+                                  value={val}
+                                  onChange={(e) => handleChange(e.target.value)}
+                                  className="flex h-8 w-full rounded-md border border-border bg-muted px-3 py-1 text-sm text-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                >
+                                  <option value="">Select option...</option>
+                                  {field.options?.map((opt) => (
+                                    <option key={opt} value={opt}>
+                                      {opt}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : field.type === 'number' ? (
+                                <Input
+                                  type="number"
+                                  value={val}
+                                  onChange={(e) => handleChange(e.target.value)}
+                                  className="bg-muted border-border text-foreground h-8 text-sm"
+                                />
+                              ) : field.type === 'date' ? (
+                                <Input
+                                  type="date"
+                                  value={val}
+                                  onChange={(e) => handleChange(e.target.value)}
+                                  className="bg-muted border-border text-foreground h-8 text-sm"
+                                />
+                              ) : (
+                                <Input
+                                  value={val}
+                                  onChange={(e) => handleChange(e.target.value)}
+                                  className="bg-muted border-border text-foreground h-8 text-sm"
+                                />
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+
+                  <div className="space-y-1.5">
+                    <Label className="text-muted-foreground text-xs">Notes</Label>
+                    <Textarea
+                      value={editNotes}
+                      onChange={(e) => setEditNotes(e.target.value)}
+                      placeholder="Enter private notes..."
+                      className="bg-muted border-border text-foreground text-sm min-h-[60px] resize-none"
+                    />
+                  </div>
+
                   <Button
                     onClick={saveDetails}
                     disabled={savingDetails}
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground w-full"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground w-full mt-2"
                     size="sm"
                   >
                     {savingDetails ? (

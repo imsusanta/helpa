@@ -23,6 +23,7 @@ import {
 } from "@/lib/ai/receptionist-copilot";
 import { decrypt } from "@/lib/whatsapp/encryption";
 import { checkPlanLimits, incrementUsage } from "@/lib/saas/subscription";
+import { resolveSystemPrompt } from "@/modules/registry";
 
 type Related<T> = T | T[] | null | undefined;
 
@@ -43,6 +44,7 @@ interface AccountAiRow {
   openrouter_api_key?: string | null;
   openrouter_model?: string | null;
   ai_system_prompt?: string | null;
+  industry?: string | null;
 }
 
 function relatedOne<T>(value: Related<T>): T | null {
@@ -258,7 +260,7 @@ export async function POST(request: Request) {
     const context = contextOrResponse;
     const account = await ctx.supabase
       .from("accounts")
-      .select("openrouter_api_key, openrouter_model, ai_system_prompt")
+      .select("openrouter_api_key, openrouter_model, ai_system_prompt, industry")
       .eq("id", ctx.accountId)
       .maybeSingle();
     const accountData = (account.data ?? {}) as AccountAiRow;
@@ -280,7 +282,10 @@ export async function POST(request: Request) {
       const snapshot = await generateOpenRouterCopilotSnapshot({
         apiKey,
         model: accountData.openrouter_model || "google/gemini-2.5-flash",
-        systemPrompt: accountData.ai_system_prompt,
+        systemPrompt: resolveSystemPrompt(
+          accountData.industry,
+          accountData.ai_system_prompt,
+        ),
         context,
         fallback,
       });

@@ -24,7 +24,26 @@ export const hospitalModule: IndustryModule = {
     { name: 'Diagnostic Testing / Labs', position: 3, color: '#ec4899' },
     { name: 'Treatment & Pharmacy', position: 4, color: '#8b5cf6' },
     { name: 'Discharged / Checked Out', position: 5, color: '#10b981' }
-  ]
+  ],
+  entityConfigs: {
+    contacts: {
+      tableName: 'contacts',
+      label: 'Patient',
+      pluralLabel: 'Patients',
+      fields: [
+        { key: 'patient_id', label: 'Patient ID', type: 'text' },
+        { key: 'blood_group', label: 'Blood Group', type: 'select', options: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] },
+        { key: 'age', label: 'Age', type: 'number' },
+        { key: 'emergency_contact', label: 'Emergency Contact', type: 'text' },
+        { key: 'insurance_provider', label: 'Insurance Provider', type: 'text' },
+        { key: 'insurance_number', label: 'Insurance Number', type: 'text' },
+        { key: 'preferred_doctor', label: 'Preferred Doctor', type: 'text' },
+        { key: 'preferred_department', label: 'Preferred Department', type: 'text' },
+        { key: 'allergies', label: 'Allergies', type: 'text' },
+        { key: 'medical_notes', label: 'Medical Notes', type: 'text' }
+      ]
+    }
+  }
 };
 export * from './sidebar';
 export * from './dashboard';

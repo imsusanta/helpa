@@ -21,7 +21,19 @@ export const restaurantModule: IndustryModule = {
   pipelineStages: [
     { name: 'Reservation Pending', position: 1, color: '#f59e0b' },
     { name: 'Table Seated', position: 2, color: '#10b981' }
-  ]
+  ],
+  entityConfigs: {
+    contacts: {
+      tableName: 'contacts',
+      label: 'Customer',
+      pluralLabel: 'Customers',
+      fields: [
+        { key: 'preferred_table', label: 'Preferred Table', type: 'text' },
+        { key: 'food_preference', label: 'Food Preference', type: 'select', options: ['Veg', 'Non-Veg', 'Vegan', 'Other'] },
+        { key: 'allergies', label: 'Allergies', type: 'text' }
+      ]
+    }
+  }
 };
 export * from './sidebar';
 export * from './dashboard';

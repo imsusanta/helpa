@@ -25,7 +25,23 @@ export const soloTeacherModule: IndustryModule = {
     { name: 'Enrolled', position: 4, color: '#10b981' },
     { name: 'Completed', position: 5, color: '#06b6d4' },
     { name: 'Cancelled', position: 6, color: '#ef4444' },
-  ]
+  ],
+  entityConfigs: {
+    contacts: {
+      tableName: 'contacts',
+      label: 'Student',
+      pluralLabel: 'Students',
+      fields: [
+        { key: 'student_id', label: 'Student ID', type: 'text' },
+        { key: 'parent_name', label: 'Parent Name', type: 'text' },
+        { key: 'parent_mobile', label: 'Parent Mobile', type: 'text' },
+        { key: 'school_college', label: 'School / College', type: 'text' },
+        { key: 'class_grade', label: 'Class / Grade', type: 'text' },
+        { key: 'course', label: 'Course', type: 'text' },
+        { key: 'batch', label: 'Batch', type: 'text' }
+      ]
+    }
+  }
 };
 export * from './sidebar';
 export * from './dashboard';

@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS system_settings (
 ALTER TABLE system_settings ENABLE ROW LEVEL SECURITY;
 
 -- Allow anyone to read system settings (needed for landing page)
+DROP POLICY IF EXISTS "Allow public read access to system_settings" ON system_settings;
 CREATE POLICY "Allow public read access to system_settings" ON system_settings
   FOR SELECT USING (true);
 

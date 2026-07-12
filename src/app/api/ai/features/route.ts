@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { decrypt } from '@/lib/whatsapp/encryption';
+import { resolveSystemPrompt } from '@/modules/registry';
 
 export async function POST(request: Request) {
   try {
@@ -37,7 +38,7 @@ export async function POST(request: Request) {
     // Fetch OpenRouter configuration from accounts
     const { data: account, error: accError } = await supabase
       .from('accounts')
-      .select('openrouter_api_key, openrouter_model, ai_system_prompt')
+      .select('openrouter_api_key, openrouter_model, ai_system_prompt, industry')
       .eq('id', accountId)
       .single();
 
@@ -103,8 +104,10 @@ export async function POST(request: Request) {
       const latestMessage = messages[messages.length - 1];
 
       // Formulate prompt messages
-      const basePrompt = account.ai_system_prompt || 
-        `Use the System Message, Knowledge Base, and Conversation History as your primary sources of information to suggest a helpful response.`;
+      const basePrompt = resolveSystemPrompt(
+        account.industry,
+        account.ai_system_prompt,
+      );
 
       let systemPromptContent = basePrompt;
       if (kbContext) {

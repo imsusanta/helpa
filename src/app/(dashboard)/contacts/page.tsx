@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import type { Contact, Tag, ContactTag } from '@/types';
+import { useAuth } from '@/hooks/use-auth';
+import { getIndustryModule } from '@/modules/registry';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -58,8 +60,16 @@ interface ContactWithTags extends Contact {
 
 export default function ContactsPage() {
   const supabase = createClient();
+  const { account, accountId } = useAuth();
   const canEdit = useCan('send-messages');
   const canEditSettings = useCan('edit-settings');
+
+  // Industry-specific entity configurations
+  const industryModule = getIndustryModule(account?.industry);
+  const contactConfig = industryModule.entityConfigs?.contacts;
+  const entityLabel = contactConfig?.label || 'Contact';
+  const entityLabelPlural = contactConfig?.pluralLabel || 'Contacts';
+  const customFields = contactConfig?.fields || [];
 
   const [contacts, setContacts] = useState<ContactWithTags[]>([]);
   const [loading, setLoading] = useState(true);
@@ -200,21 +210,47 @@ export default function ContactsPage() {
     if (!deleteTarget) return;
     setDeleting(true);
 
-    const { error } = await supabase
-      .from('contacts')
-      .delete()
-      .eq('id', deleteTarget.id);
+    try {
+      // 1. Fetch conversation IDs associated with the contact
+      const { data: conversations } = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('contact_id', deleteTarget.id);
+      
+      const convIds = (conversations || []).map((c: any) => c.id);
 
-    if (error) {
-      toast.error('Failed to delete contact');
-    } else {
-      toast.success('Contact deleted');
-      fetchContacts();
+      // 2. Delete related deals
+      if (convIds.length > 0) {
+        await supabase.from('deals').delete().in('conversation_id', convIds);
+      }
+
+      // 3. Delete related appointments, reports, notes, patients, conversations
+      await supabase.from('appointments').delete().eq('patient_id', deleteTarget.id);
+      await supabase.from('hospital_lab_reports').delete().eq('patient_id', deleteTarget.id);
+      await supabase.from('contact_notes').delete().eq('contact_id', deleteTarget.id);
+      await supabase.from('patients').delete().eq('id', deleteTarget.id);
+      await supabase.from('conversations').delete().eq('contact_id', deleteTarget.id);
+
+      // 4. Finally, delete the contact itself
+      const { error } = await supabase
+        .from('contacts')
+        .delete()
+        .eq('id', deleteTarget.id);
+
+      if (error) {
+        throw error;
+      } else {
+        toast.success('Patient profile and records deleted');
+        fetchContacts();
+      }
+    } catch (err: any) {
+      console.error('[Delete Patient] Error:', err);
+      toast.error('Failed to delete patient profile: ' + err.message);
+    } finally {
+      setDeleting(false);
+      setDeleteConfirmOpen(false);
+      setDeleteTarget(null);
     }
-
-    setDeleting(false);
-    setDeleteConfirmOpen(false);
-    setDeleteTarget(null);
   }
 
   const allOnPageSelected =
@@ -247,18 +283,44 @@ export default function ContactsPage() {
     if (ids.length === 0) return;
     setDeleting(true);
 
-    const { error } = await supabase.from('contacts').delete().in('id', ids);
+    try {
+      // 1. Fetch conversation IDs associated with the contacts
+      const { data: conversations } = await supabase
+        .from('conversations')
+        .select('id')
+        .in('contact_id', ids);
+      
+      const convIds = (conversations || []).map((c: any) => c.id);
 
-    if (error) {
-      toast.error('Failed to delete contacts');
-    } else {
-      toast.success(`${ids.length} contact${ids.length === 1 ? '' : 's'} deleted`);
-      setSelected(new Set());
-      fetchContacts();
+      // 2. Delete related deals
+      if (convIds.length > 0) {
+        await supabase.from('deals').delete().in('conversation_id', convIds);
+      }
+
+      // 3. Delete related appointments, reports, notes, patients, conversations
+      await supabase.from('appointments').delete().in('patient_id', ids);
+      await supabase.from('hospital_lab_reports').delete().in('patient_id', ids);
+      await supabase.from('contact_notes').delete().in('contact_id', ids);
+      await supabase.from('patients').delete().in('id', ids);
+      await supabase.from('conversations').delete().in('contact_id', ids);
+
+      // 4. Finally, delete the contacts
+      const { error } = await supabase.from('contacts').delete().in('id', ids);
+
+      if (error) {
+        throw error;
+      } else {
+        toast.success(`${ids.length} patient profiles deleted`);
+        setSelected(new Set());
+        fetchContacts();
+      }
+    } catch (err: any) {
+      console.error('[Bulk Delete Patients] Error:', err);
+      toast.error('Failed to delete patient profiles: ' + err.message);
+    } finally {
+      setDeleting(false);
+      setBulkDeleteOpen(false);
     }
-
-    setDeleting(false);
-    setBulkDeleteOpen(false);
   }
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
@@ -270,9 +332,9 @@ export default function ContactsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Contacts</h1>
+          <h1 className="text-2xl font-bold text-foreground">{entityLabelPlural}</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Manage your contact list. {totalCount > 0 && `${totalCount} total contacts.`}
+            Manage your {entityLabelPlural.toLowerCase()} list. {totalCount > 0 && `${totalCount} total ${entityLabelPlural.toLowerCase()}.`}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -289,7 +351,7 @@ export default function ContactsPage() {
           <GatedButton
             variant="outline"
             canAct={canEdit}
-            gateReason="add or import contacts"
+            gateReason={`add or import ${entityLabelPlural.toLowerCase()}`}
             onClick={() => setImportOpen(true)}
             className="border-border text-muted-foreground hover:bg-muted"
           >
@@ -298,12 +360,12 @@ export default function ContactsPage() {
           </GatedButton>
           <GatedButton
             canAct={canEdit}
-            gateReason="add or import contacts"
+            gateReason={`add or import ${entityLabelPlural.toLowerCase()}`}
             onClick={openAddForm}
             className="bg-primary hover:bg-primary/90 text-primary-foreground"
           >
             <Plus className="size-4" />
-            Add Contact
+            Add {entityLabel}
           </GatedButton>
         </div>
       </div>
@@ -319,7 +381,7 @@ export default function ContactsPage() {
             // set shrinks/grows, page N may no longer be valid.
             setPage(0);
           }}
-          placeholder="Search by name, phone, or email..."
+          placeholder={`Search by name, phone, or email...`}
           className="pl-8 bg-card border-border text-foreground placeholder:text-muted-foreground"
         />
       </div>
@@ -365,13 +427,17 @@ export default function ContactsPage() {
                   indeterminate={!allOnPageSelected && someOnPageSelected}
                   onCheckedChange={toggleSelectAll}
                   disabled={contacts.length === 0}
-                  aria-label="Select all contacts on this page"
+                  aria-label={`Select all ${entityLabelPlural.toLowerCase()} on this page`}
                 />
               </TableHead>
               <TableHead className="text-muted-foreground">Name</TableHead>
               <TableHead className="text-muted-foreground">Phone</TableHead>
-              <TableHead className="text-muted-foreground hidden md:table-cell">Email</TableHead>
-              <TableHead className="text-muted-foreground hidden lg:table-cell">Company</TableHead>
+              {customFields.slice(0, 2).map((field) => (
+                <TableHead key={field.key} className="text-muted-foreground hidden md:table-cell">
+                  {field.label}
+                </TableHead>
+              ))}
+              <TableHead className="text-muted-foreground hidden lg:table-cell">Address</TableHead>
               <TableHead className="text-muted-foreground hidden md:table-cell">Tags</TableHead>
               <TableHead className="text-muted-foreground hidden lg:table-cell">Created</TableHead>
               <TableHead className="text-muted-foreground w-12" />
@@ -380,20 +446,20 @@ export default function ContactsPage() {
           <TableBody>
             {loading ? (
               <TableRow className="border-border">
-                <TableCell colSpan={8} className="text-center py-12">
+                <TableCell colSpan={8 + Math.min(2, customFields.length)} className="text-center py-12">
                   <div className="flex flex-col items-center gap-2">
                     <Loader2 className="size-6 animate-spin text-primary" />
-                    <p className="text-sm text-muted-foreground">Loading contacts...</p>
+                    <p className="text-sm text-muted-foreground">Loading {entityLabelPlural.toLowerCase()}...</p>
                   </div>
                 </TableCell>
               </TableRow>
             ) : contacts.length === 0 ? (
               <TableRow className="border-border">
-                <TableCell colSpan={8} className="text-center py-12">
+                <TableCell colSpan={8 + Math.min(2, customFields.length)} className="text-center py-12">
                   <div className="flex flex-col items-center gap-2">
                     <Users className="size-8 text-muted-foreground" />
                     <p className="text-sm text-muted-foreground">
-                      {search ? 'No contacts match your search.' : 'No contacts yet.'}
+                      {search ? `No ${entityLabelPlural.toLowerCase()} match your search.` : `No ${entityLabelPlural.toLowerCase()} yet.`}
                     </p>
                     {!search && (
                       <Button
@@ -403,7 +469,7 @@ export default function ContactsPage() {
                         className="mt-2 border-border text-muted-foreground hover:bg-muted"
                       >
                         <Plus className="size-3.5" />
-                        Add your first contact
+                        Add your first {entityLabel.toLowerCase()}
                       </Button>
                     )}
                   </div>
@@ -429,11 +495,16 @@ export default function ContactsPage() {
                   <TableCell className="text-muted-foreground font-mono text-xs">
                     {contact.phone}
                   </TableCell>
-                  <TableCell className="text-muted-foreground hidden md:table-cell text-sm">
-                    {contact.email || <span className="text-muted-foreground">-</span>}
-                  </TableCell>
+                  {customFields.slice(0, 2).map((field) => {
+                    const val = contact.metadata?.[field.key] ?? '—';
+                    return (
+                      <TableCell key={field.key} className="text-muted-foreground hidden md:table-cell text-sm">
+                        {val}
+                      </TableCell>
+                    );
+                  })}
                   <TableCell className="text-muted-foreground hidden lg:table-cell text-sm">
-                    {contact.company || <span className="text-muted-foreground">-</span>}
+                    {contact.address || <span className="text-muted-foreground">-</span>}
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
                     <div className="flex flex-wrap gap-1">

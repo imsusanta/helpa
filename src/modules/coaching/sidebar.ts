@@ -3,8 +3,7 @@ import { ModuleNavItem } from '../types';
 export const sidebarConfig: ModuleNavItem[] = [
   { href: '/dashboard', label: 'Dashboard', iconName: 'LayoutDashboard' },
   { href: '/inbox', label: 'WhatsApp Chats', iconName: 'MessageSquare' },
-  { href: '/students', label: 'Students', iconName: 'Users' },
-  { href: '/contacts', label: 'Contacts', iconName: 'UsersRound' },
+  { href: '/contacts', label: 'Students', iconName: 'Users' },
   { href: '/teachers', label: 'Teachers', iconName: 'UserCheck' },
   { href: '/courses', label: 'Courses', iconName: 'FileText' },
   { href: '/admissions', label: 'Admissions', iconName: 'Calendar' },

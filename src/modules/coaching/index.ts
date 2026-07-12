@@ -23,7 +23,22 @@ export const coachingModule: IndustryModule = {
     { name: 'Demo Session Scheduled', position: 2, color: '#f59e0b' },
     { name: 'Mock Test / Interview', position: 3, color: '#ec4899' },
     { name: 'Fees Paid / Active Student', position: 4, color: '#10b981' }
-  ]
+  ],
+  entityConfigs: {
+    contacts: {
+      tableName: 'contacts',
+      label: 'Student',
+      pluralLabel: 'Students',
+      fields: [
+        { key: 'student_id', label: 'Student ID', type: 'text' },
+        { key: 'parent_name', label: 'Parent Name', type: 'text' },
+        { key: 'parent_mobile', label: 'Parent Mobile', type: 'text' },
+        { key: 'course', label: 'Course', type: 'text' },
+        { key: 'batch', label: 'Batch', type: 'text' },
+        { key: 'roll_number', label: 'Roll Number', type: 'text' }
+      ]
+    }
+  }
 };
 export * from './sidebar';
 export * from './dashboard';

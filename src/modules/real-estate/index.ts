@@ -23,7 +23,20 @@ export const realEstateModule: IndustryModule = {
     { name: 'Site Visit Scheduled', position: 2, color: '#f59e0b' },
     { name: 'Offer / Token Submitted', position: 3, color: '#ec4899' },
     { name: 'Closed Won / Handed Over', position: 4, color: '#10b981' }
-  ]
+  ],
+  entityConfigs: {
+    contacts: {
+      tableName: 'contacts',
+      label: 'Lead',
+      pluralLabel: 'Leads',
+      fields: [
+        { key: 'budget', label: 'Budget', type: 'number' },
+        { key: 'interested_property', label: 'Interested Property', type: 'text' },
+        { key: 'preferred_location', label: 'Preferred Location', type: 'text' },
+        { key: 'property_type', label: 'Property Type', type: 'select', options: ['Apartment', 'Villa', 'Plot', 'Commercial', 'Other'] }
+      ]
+    }
+  }
 };
 export * from './sidebar';
 export * from './dashboard';

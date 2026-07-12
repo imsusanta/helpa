@@ -104,6 +104,11 @@ export interface Contact {
   email?: string;
   company?: string;
   avatar_url?: string;
+  address?: string;
+  notes?: string;
+  industry?: string;
+  entity_type?: string;
+  metadata?: Record<string, any>;
   created_at: string;
   updated_at: string;
 }

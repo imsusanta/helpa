@@ -17,6 +17,10 @@ export const INDUSTRY_REGISTRY: Record<string, IndustryModule> = {
   solo_teacher: soloTeacherModule,
 };
 
+const INDUSTRY_ALIASES: Record<string, keyof typeof INDUSTRY_REGISTRY> = {
+  hospital: 'hospital_clinic',
+};
+
 // Fallback module definition for 'general' or others
 export const generalModule: IndustryModule = {
   id: 'general',
@@ -71,12 +75,33 @@ export const generalModule: IndustryModule = {
     { name: 'Won', position: 2, color: '#10b981' },
     { name: 'Lost', position: 3, color: '#ef4444' }
   ],
-  workflows: []
+  workflows: [],
+  entityConfigs: {
+    contacts: {
+      tableName: 'contacts',
+      label: 'Contact',
+      pluralLabel: 'Contacts',
+      fields: []
+    }
+  }
 };
 
 export function getIndustryModule(industry: string | null | undefined): IndustryModule {
   if (!industry) return generalModule;
-  return INDUSTRY_REGISTRY[industry] || generalModule;
+  const industryKey = INDUSTRY_ALIASES[industry] || industry;
+  return INDUSTRY_REGISTRY[industryKey] || generalModule;
+}
+
+/**
+ * A workspace may override its default industry instructions. Empty or
+ * missing overrides must still resolve to the appropriate industry prompt.
+ */
+export function resolveSystemPrompt(
+  industry: string | null | undefined,
+  customPrompt: string | null | undefined,
+): string {
+  const prompt = customPrompt?.trim();
+  return prompt || getIndustryModule(industry).systemPrompt;
 }
 export * from './types';
 export * from './registry';

@@ -3,10 +3,10 @@ import { ModuleNavItem } from '../types';
 export const sidebarConfig: ModuleNavItem[] = [
   { href: '/dashboard', label: 'Dashboard', iconName: 'LayoutDashboard' },
   { href: '/inbox', label: 'WhatsApp Chats', iconName: 'MessageSquare' },
-  { href: '/patients', label: 'Patients', iconName: 'Users' },
-  { href: '/contacts', label: 'Contacts', iconName: 'UsersRound' },
+  { href: '/contacts', label: 'Patients', iconName: 'Users' },
   { href: '/doctors', label: 'Doctors', iconName: 'UserCheck' },
   { href: '/appointments', label: 'Appointments', iconName: 'Calendar' },
+  { href: '/lab-reports', label: 'Reports', iconName: 'FileText' },
   { href: '/broadcasts', label: 'Campaigns', iconName: 'Megaphone', roleMin: 'admin' },
   { href: '/knowledge-base', label: 'Knowledge', iconName: 'FileText' },
   { href: '/dashboard/analytics', label: 'AI Analytics', iconName: 'Brain' },

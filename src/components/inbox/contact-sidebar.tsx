@@ -182,13 +182,11 @@ export function ContactSidebar({
       // 1. Ensure patient record exists
       let pat = patient;
       if (!pat) {
-        const seq = `PAT-${Date.now().toString().slice(-5)}`;
         const { data: newPat, error: pErr } = await supabase
           .from("patients")
           .insert({
             id: contact.id,
             account_id: accountId,
-            patient_seq_id: seq,
             status: "active",
           })
           .select()

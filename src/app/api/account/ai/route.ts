@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireRole, toErrorResponse } from '@/lib/auth/account'
 import { encrypt } from '@/lib/whatsapp/encryption'
 import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit'
+import { resolveSystemPrompt } from '@/modules/registry'
 
 export async function GET() {
   try {
@@ -9,7 +10,7 @@ export async function GET() {
 
     const { data: account, error } = await ctx.supabase
       .from('accounts')
-      .select('openrouter_model, openrouter_api_key, ai_system_prompt')
+      .select('openrouter_model, openrouter_api_key, ai_system_prompt, industry')
       .eq('id', ctx.accountId)
       .single()
 
@@ -21,7 +22,10 @@ export async function GET() {
     return NextResponse.json({
       openrouter_model: account?.openrouter_model || '',
       has_api_key: !!account?.openrouter_api_key,
-      ai_system_prompt: account?.ai_system_prompt || '',
+      ai_system_prompt: resolveSystemPrompt(
+        account?.industry,
+        account?.ai_system_prompt,
+      ),
     })
   } catch (err) {
     return toErrorResponse(err)
@@ -67,7 +71,7 @@ export async function PATCH(request: Request) {
       .from('accounts')
       .update(updates)
       .eq('id', ctx.accountId)
-      .select('openrouter_model, openrouter_api_key, ai_system_prompt')
+      .select('openrouter_model, openrouter_api_key, ai_system_prompt, industry')
       .single()
 
     if (error) {
@@ -78,7 +82,10 @@ export async function PATCH(request: Request) {
     return NextResponse.json({
       openrouter_model: data?.openrouter_model || '',
       has_api_key: !!data?.openrouter_api_key,
-      ai_system_prompt: data?.ai_system_prompt || '',
+      ai_system_prompt: resolveSystemPrompt(
+        data?.industry,
+        data?.ai_system_prompt,
+      ),
     })
   } catch (err) {
     return toErrorResponse(err)
