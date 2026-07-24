@@ -10,16 +10,30 @@ export async function GET() {
     const ctx = await requireRole('admin')
     const db = supabaseAdmin()
 
-    const { data: account, error } = await db
+    let account: any = null
+    let { data, error } = await db
       .from('accounts')
       .select('openrouter_model, openrouter_api_key, ai_system_prompt, welcome_message, industry')
       .eq('id', ctx.accountId)
       .single()
 
+    if (error && error.message?.includes('welcome_message')) {
+      // Fallback query if welcome_message column is not yet in PostgREST schema cache
+      const fallback = await db
+        .from('accounts')
+        .select('openrouter_model, openrouter_api_key, ai_system_prompt, industry')
+        .eq('id', ctx.accountId)
+        .single()
+      data = fallback.data as any
+      error = fallback.error
+    }
+
     if (error) {
       console.error('[GET /api/account/ai] fetch error:', error)
       return NextResponse.json({ error: 'Failed to fetch AI configuration: ' + error.message }, { status: 500 })
     }
+
+    account = data
 
     return NextResponse.json({
       openrouter_model: account?.openrouter_model || '',
@@ -80,12 +94,29 @@ export async function PATCH(request: Request) {
     }
 
     const db = supabaseAdmin()
-    const { data, error } = await db
+    let { data, error } = await db
       .from('accounts')
       .update(updates)
       .eq('id', ctx.accountId)
       .select('openrouter_model, openrouter_api_key, ai_system_prompt, welcome_message, industry')
       .single()
+
+    // If welcome_message is not in PostgREST schema cache yet, retry without welcome_message
+    if (error && (error.message?.includes('welcome_message') || error.message?.includes('schema cache'))) {
+      delete updates.welcome_message
+      if (Object.keys(updates).length > 0) {
+        const retry = await db
+          .from('accounts')
+          .update(updates)
+          .eq('id', ctx.accountId)
+          .select('openrouter_model, openrouter_api_key, ai_system_prompt, industry')
+          .single()
+        data = retry.data as any
+        error = retry.error
+      } else {
+        error = null
+      }
+    }
 
     if (error) {
       console.error('[PATCH /api/account/ai] update error:', error)
