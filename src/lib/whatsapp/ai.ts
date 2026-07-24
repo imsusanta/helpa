@@ -41,14 +41,28 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
   const contactIds = siblingContacts && siblingContacts.length > 0 ? siblingContacts.map(c => c.id) : [contactId];
 
   // 1. Fetch OpenRouter configuration from accounts
-  const { data: account, error: accError } = await db
+  let account: any = null;
+  let { data: accData, error: accError } = await db
     .from('accounts')
     .select('openrouter_api_key, openrouter_model, ai_system_prompt, welcome_message, industry')
     .eq('id', accountId)
     .single()
 
+  if (accError && (accError.message?.includes('welcome_message') || accError.code === '42703')) {
+    // Fallback if welcome_message column is missing in database table
+    const fallback = await db
+      .from('accounts')
+      .select('openrouter_api_key, openrouter_model, ai_system_prompt, industry')
+      .eq('id', accountId)
+      .single()
+    accData = fallback.data as any
+    accError = fallback.error
+  }
+
+  account = accData
+
   if (accError || !account?.openrouter_api_key) {
-    console.warn('[AI Assistant] OpenRouter credentials not configured for account:', accountId)
+    console.warn('[AI Assistant] OpenRouter credentials not configured for account:', accountId, accError?.message || '')
     return
   }
 
@@ -57,8 +71,12 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
   try {
     apiKey = decrypt(account.openrouter_api_key)
   } catch (err) {
-    console.error('[AI Assistant] Failed to decrypt OpenRouter API Key:', err)
-    return
+    console.error('[AI Assistant] Failed to decrypt saved OpenRouter API Key:', err)
+    if (process.env.OPENROUTER_API_KEY) {
+      apiKey = process.env.OPENROUTER_API_KEY
+    } else {
+      return
+    }
   }
 
   const model = account.openrouter_model || 'google/gemini-2.5-flash'

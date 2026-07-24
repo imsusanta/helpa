@@ -55,6 +55,11 @@ export function encrypt(text: string): string {
 }
 
 export function decrypt(encryptedText: string): string {
+  if (!encryptedText) return ''
+  if (encryptedText.startsWith('sk-') || !encryptedText.includes(':')) {
+    return encryptedText
+  }
+
   const parts = encryptedText.split(':')
 
   if (parts.length === 3) {
