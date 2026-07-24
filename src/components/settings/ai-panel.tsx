@@ -106,15 +106,24 @@ export function AiPanel() {
       });
 
       if (!response.ok) {
-        throw new Error(await response.text());
+        const rawText = await response.text();
+        let errMsg = "Failed to save AI configuration";
+        try {
+          const json = JSON.parse(rawText);
+          if (json.error) errMsg = json.error;
+        } catch {
+          if (rawText) errMsg = rawText;
+        }
+        toast.error(errMsg);
+        return;
       }
 
       const data = await response.json();
       setHasApiKey(data.has_api_key);
       setApiKey(""); // clear password field after saving
       toast.success("AI Assistant configuration saved");
-    } catch (err) {
-      toast.error("Failed to save AI configuration");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to save AI configuration");
       console.error(err);
     } finally {
       setSaving(false);
