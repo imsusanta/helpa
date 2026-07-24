@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useTheme } from "@/hooks/use-theme";
@@ -36,7 +36,6 @@ import {
   Settings,
   Users2,
   LineChart,
-  Loader2,
   Sun,
   Moon,
   Scale,
@@ -45,9 +44,68 @@ import {
   Dumbbell,
   Smile,
   Shield,
-  Check
+  Check,
+  Sparkles,
+  Calculator,
+  TrendingUp,
+  Clock,
+  CheckCircle,
+  Bot,
+  MessageCircle,
+  Award,
+  ChevronRight,
+  PhoneCall,
+  Star
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+
+// Chat Simulator Scenarios
+const CHAT_SCENARIOS = {
+  clinic: {
+    title: "Dr. Sharma Dental Clinic",
+    status: "Online • Helpa AI Active",
+    avatarBg: "bg-emerald-600",
+    messages: [
+      { text: "Hi, do you have any open slots for a teeth cleaning tomorrow afternoon?", sender: "user", time: "06:14 PM" },
+      { text: "Hello! Yes, we have 2 open slots available tomorrow:\n1️⃣ 02:30 PM with Dr. Sharma\n2️⃣ 05:00 PM with Dr. Verma\n\nWhich slot works best for you?", sender: "bot", time: "06:14 PM", quickReplies: ["Book 02:30 PM", "Book 05:00 PM"] },
+      { text: "02:30 PM works great!", sender: "user", time: "06:15 PM" },
+      { text: "Awesome! 🎉 Your teeth cleaning appointment is confirmed for Tomorrow at 02:30 PM.\n\n📅 Date: Tomorrow\n⏰ Time: 02:30 PM\n📍 Location: 4th Block, Indiranagar\n\nI have added this to our clinic calendar and sent a confirmation SMS to your number!", sender: "bot", time: "06:15 PM" }
+    ]
+  },
+  coaching: {
+    title: "Apex JEE Academy",
+    status: "Online • Helpa AI Active",
+    avatarBg: "bg-indigo-600",
+    messages: [
+      { text: "Hello, what are the fees and batch timings for 11th Science coaching?", sender: "user", time: "09:30 PM" },
+      { text: "Welcome to Apex Academy! 📚 Our 11th Science (JEE/NEET) batches start on Monday:\n\n• Morning Batch: 08:00 AM - 11:30 AM\n• Evening Batch: 04:30 PM - 08:00 PM\n• Course Fee: ₹45,000 / year (Installments available)\n\nWould you like to book a free 2-day trial class?", sender: "bot", time: "09:30 PM", quickReplies: ["Book Trial Class", "Download Syllabus PDF"] },
+      { text: "Book Trial Class for Evening Batch please", sender: "user", time: "09:31 PM" },
+      { text: "Done! 🎓 Your seat for the 2-Day Free Trial (Evening Batch) has been registered. See you this Monday at 04:30 PM!", sender: "bot", time: "09:31 PM" }
+    ]
+  },
+  salon: {
+    title: "Glow & Shine Luxury Spa",
+    status: "Online • Helpa AI Active",
+    avatarBg: "bg-pink-600",
+    messages: [
+      { text: "Hi! Can I get price details for Hair Smoothening and Keratin?", sender: "user", time: "08:05 PM" },
+      { text: "Hello Gorgeous! ✨ Here are our current festival special prices:\n\n💇‍♀️ Hair Smoothening: ₹2,999 (Reg. ₹4,500)\n✨ Keratin Treatment: ₹3,499 (Reg. ₹5,200)\n\nBoth packages include complimentary Hair Spa!", sender: "bot", time: "08:05 PM", quickReplies: ["Book Smoothening", "Book Keratin"] },
+      { text: "I'd like to book Keratin for Sunday at 11 AM", sender: "user", time: "08:06 PM" },
+      { text: "Reserved! 💇‍♀️ Sunday at 11:00 AM is booked under your number. We look forward to pampering you!", sender: "bot", time: "08:06 PM" }
+    ]
+  },
+  realestate: {
+    title: "Skyline Properties",
+    status: "Online • Helpa AI Active",
+    avatarBg: "bg-sky-600",
+    messages: [
+      { text: "Are 3BHK flats still available in Crestview Towers?", sender: "user", time: "11:20 PM" },
+      { text: "Hello! Yes, we have 3 premium 3BHK units remaining on upper floors (12th & 15th floor).\n\n📐 Size: 1,850 sq.ft\n💰 Price: Starting ₹1.25 Cr\n📍 Location: HSR Layout, Sector 2\n\nWould you like a virtual video tour or to schedule a site visit?", sender: "bot", time: "11:20 PM", quickReplies: ["Schedule Site Visit", "Get Brochure PDF"] },
+      { text: "Schedule Site Visit for Saturday 11 AM", sender: "user", time: "11:21 PM" },
+      { text: "Confirmed! 🏢 Our relationship manager Amit will meet you at the site location Saturday at 11:00 AM. Location pin sent below!", sender: "bot", time: "11:21 PM" }
+    ]
+  }
+};
 
 export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -55,21 +113,42 @@ export default function LandingPage() {
   const [activeFaq, setActiveFaq] = useState<number | null>(1);
   const [activeTab, setActiveTab] = useState("conversations");
   const [scrolled, setScrolled] = useState(false);
+  const [scrollProgress, setScrollProgress] = useState(0);
   const [heroVideoUrl, setHeroVideoUrl] = useState("https://www.youtube.com/embed/gFx-NjTw3sM");
   const [actionVideoUrl, setActionVideoUrl] = useState("https://www.youtube.com/embed/gFx-NjTw3sM");
 
+  // Simulator State
+  const [activeScenario, setActiveScenario] = useState<keyof typeof CHAT_SCENARIOS>("clinic");
+  const [simStep, setSimStep] = useState(4);
+  const [isTyping, setIsTyping] = useState(false);
+
+  // ROI Calculator State
+  const [dailyEnquiries, setDailyEnquiries] = useState(30);
+  const [avgTicketValue, setAvgTicketValue] = useState(1500);
+  const [missedPercent, setMissedPercent] = useState(25);
+
   const { mode, toggleMode } = useTheme();
+
+  // Scroll listener for sticky header glass and progress bar
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 20);
+      const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
+      if (totalHeight > 0) {
+        setScrollProgress((window.scrollY / totalHeight) * 100);
+      }
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   // Load user session & landing page settings
   useEffect(() => {
     async function checkAuthAndSettings() {
       const supabase = createClient();
-      
-      // Load user auth session
       const { data: { user: authUser } } = await supabase.auth.getUser();
       setUser(authUser);
 
-      // Load landing page video settings
       try {
         const { data: settingsData, error } = await supabase
           .from("system_settings")
@@ -91,184 +170,212 @@ export default function LandingPage() {
     checkAuthAndSettings();
   }, []);
 
-  // Scroll event for navbar glassmorphism
-  useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 20);
-    };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+  // Reset chat simulation step when scenario changes
+  const handleScenarioChange = (key: keyof typeof CHAT_SCENARIOS) => {
+    setActiveScenario(key);
+    setSimStep(1);
+    setIsTyping(true);
+    setTimeout(() => {
+      setIsTyping(false);
+      setSimStep(2);
+    }, 1200);
+  };
+
+  const currentChat = CHAT_SCENARIOS[activeScenario];
+
+  // ROI Calculations
+  const monthlyEnquiries = dailyEnquiries * 30;
+  const missedMonthlyEnquiries = Math.round((monthlyEnquiries * missedPercent) / 100);
+  const potentialLostRevenue = missedMonthlyEnquiries * avgTicketValue * 0.4; // assuming 40% conversion of missed leads
+  const recoveredRevenue = Math.round(potentialLostRevenue * 0.85);
 
   return (
     <div className="bg-background text-foreground antialiased selection:bg-indigo-600 selection:text-white min-h-screen relative font-sans overflow-x-hidden transition-colors duration-300">
       
-      {/* Premium Ambient Glow Blobs */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-        <div className="absolute top-[3%] left-[-15%] w-[45%] h-[45%] rounded-full bg-emerald-500/5 dark:bg-emerald-500/[0.04] blur-[130px] animate-pulse-slow" />
-        <div className="absolute top-[28%] right-[-15%] w-[45%] h-[45%] rounded-full bg-indigo-500/5 dark:bg-indigo-500/[0.04] blur-[130px] animate-pulse-slow" style={{ animationDelay: "2.5s" }} />
-        <div className="absolute top-[60%] left-[-15%] w-[45%] h-[45%] rounded-full bg-purple-500/5 dark:bg-purple-500/[0.04] blur-[130px] animate-pulse-slow" style={{ animationDelay: "5s" }} />
-        <div className="absolute bottom-[5%] right-[-15%] w-[45%] h-[45%] rounded-full bg-emerald-500/5 dark:bg-emerald-500/[0.04] blur-[130px] animate-pulse-slow" style={{ animationDelay: "7.5s" }} />
-      </div>
-      
-      {/* Premium Ambient Glow Blobs */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-        <div className="absolute top-[3%] left-[-15%] w-[45%] h-[45%] rounded-full bg-emerald-500/5 dark:bg-emerald-500/[0.04] blur-[130px] animate-pulse-slow" />
-        <div className="absolute top-[28%] right-[-15%] w-[45%] h-[45%] rounded-full bg-indigo-500/5 dark:bg-indigo-500/[0.04] blur-[130px] animate-pulse-slow" style={{ animationDelay: "2.5s" }} />
-        <div className="absolute top-[60%] left-[-15%] w-[45%] h-[45%] rounded-full bg-purple-500/5 dark:bg-purple-500/[0.04] blur-[130px] animate-pulse-slow" style={{ animationDelay: "5s" }} />
-        <div className="absolute bottom-[5%] right-[-15%] w-[45%] h-[45%] rounded-full bg-emerald-500/5 dark:bg-emerald-500/[0.04] blur-[130px] animate-pulse-slow" style={{ animationDelay: "7.5s" }} />
-      </div>
-      
-      {/* Custom Styles for Animations & Selection */}
-      <style jsx global>{`
-        html {
-          scroll-behavior: smooth;
-        }
-        @keyframes float-badge {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-6px); }
-        }
-        @keyframes pulse-slow {
-          0%, 100% { opacity: 0.15; transform: scale(1); }
-          50% { opacity: 0.25; transform: scale(1.03); }
-        }
-        .animate-float-badge {
-          animation: float-badge 6s ease-in-out infinite;
-        }
-        .animate-pulse-slow {
-          animation: pulse-slow 8s ease-in-out infinite;
-        }
-        .hover-card-lift {
-          transition: transform 0.25s cubic-bezier(0.25, 1, 0.5, 1), border-color 0.25s ease, box-shadow 0.25s ease !important;
-        }
-        .hover-card-lift:hover {
-          transform: translateY(-6px) !important;
-        }
-      `}</style>
+      {/* Scroll Progress Bar */}
+      <div
+        className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 via-indigo-600 to-purple-600 z-50 transition-all duration-150 origin-left"
+        style={{ width: `${scrollProgress}%` }}
+      />
 
-      {/* ═══════ NAV ═══════ */}
-      <header className="relative border-b border-border bg-background transition-colors duration-300">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <Link href="#" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
-              <MessageSquare className="h-4 w-4 text-white" />
+      {/* Dynamic Ambient Background Light Orbs */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-emerald-500/10 dark:bg-emerald-500/5 blur-[140px] animate-pulse-glow" />
+        <div className="absolute top-[35%] right-[-10%] w-[55%] h-[55%] rounded-full bg-indigo-600/10 dark:bg-indigo-600/5 blur-[160px] animate-pulse-glow" style={{ animationDelay: "3s" }} />
+        <div className="absolute bottom-[-10%] left-[20%] w-[50%] h-[50%] rounded-full bg-purple-600/10 dark:bg-purple-600/5 blur-[150px] animate-pulse-glow" style={{ animationDelay: "6s" }} />
+      </div>
+
+      {/* ═══════ HEADER / NAVIGATION ═══════ */}
+      <header className={`sticky top-0 z-40 transition-all duration-300 ${scrolled ? "glass-header border-b border-border shadow-md" : "bg-transparent border-b border-border/40"}`}>
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3.5">
+          <Link href="#" className="flex items-center gap-2.5 group">
+            <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 shadow-md shadow-indigo-600/20 group-hover:scale-105 transition-transform">
+              <MessageSquare className="h-5 w-5 text-white" />
+              <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+              </span>
             </div>
-            <span className="text-lg font-semibold tracking-tight text-foreground">Helpa</span>
+            <div className="flex flex-col">
+              <span className="text-xl font-black tracking-tight text-foreground flex items-center gap-1">
+                Helpa <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 uppercase tracking-widest">AI</span>
+              </span>
+            </div>
           </Link>
-          <nav className="hidden items-center gap-8 text-sm text-muted-foreground md:flex font-medium">
-            <a href="#why-helpa" className="transition-colors hover:text-foreground">Why Helpa</a>
-            <a href="#roi" className="transition-colors hover:text-foreground">ROI</a>
-            <a href="#features" className="transition-colors hover:text-foreground">Features</a>
-            <a href="#industries" className="transition-colors hover:text-foreground">Industries</a>
-            <a href="#pricing" className="transition-colors hover:text-foreground">Pricing</a>
-            <a href="#faq" className="transition-colors hover:text-foreground">FAQ</a>
+
+          <nav className="hidden items-center gap-7 text-sm text-muted-foreground md:flex font-medium">
+            <a href="#demo-simulator" className="transition-colors hover:text-indigo-600 dark:hover:text-indigo-400">Live Demo</a>
+            <a href="#why-helpa" className="transition-colors hover:text-indigo-600 dark:hover:text-indigo-400">Why Helpa</a>
+            <a href="#roi" className="transition-colors hover:text-indigo-600 dark:hover:text-indigo-400">ROI Calculator</a>
+            <a href="#features" className="transition-colors hover:text-indigo-600 dark:hover:text-indigo-400">Features</a>
+            <a href="#industries" className="transition-colors hover:text-indigo-600 dark:hover:text-indigo-400">Industries</a>
+            <a href="#pricing" className="transition-colors hover:text-indigo-600 dark:hover:text-indigo-400">Pricing</a>
+            <a href="#faq" className="transition-colors hover:text-indigo-600 dark:hover:text-indigo-400">FAQ</a>
           </nav>
+
           <div className="flex items-center gap-3">
             {/* Theme Toggle Button */}
             <button
               onClick={toggleMode}
-              className="p-2 rounded-full border border-border bg-card hover:bg-accent text-foreground transition-colors duration-200 cursor-pointer"
+              className="p-2.5 rounded-full border border-border bg-card/80 hover:bg-accent text-foreground transition-all duration-200 cursor-pointer shadow-sm hover:scale-105"
               aria-label="Toggle theme"
             >
-              {mode === "dark" ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4 text-indigo-600" />}
+              {mode === "dark" ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4 text-indigo-600" />}
             </button>
 
-            <Link href={user ? "/dashboard" : "/signup"} className="hidden rounded-full bg-indigo-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 sm:inline-block">
-              {user ? "Dashboard" : "Book Demo"}
+            <Link href={user ? "/dashboard" : "/signup"} className="hidden rounded-full bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 px-6 py-2.5 text-sm font-bold text-white transition-all hover:shadow-lg hover:shadow-indigo-600/25 hover:scale-[1.03] active:scale-[0.97] sm:inline-flex items-center gap-2">
+              <span>{user ? "Go to Dashboard" : "Book Free Demo"}</span>
+              <ArrowRight className="h-4 w-4" />
             </Link>
             
-            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="flex items-center justify-center rounded-lg border border-border p-2 md:hidden text-foreground bg-card hover:bg-accent transition-colors cursor-pointer" aria-label="Toggle menu">
-              {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="flex items-center justify-center rounded-xl border border-border p-2 md:hidden text-foreground bg-card hover:bg-accent transition-colors cursor-pointer" aria-label="Toggle menu">
+              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
           </div>
         </div>
         
-        {/* Mobile menu */}
-        {mobileMenuOpen && (
-          <div className="border-t border-border md:hidden bg-background/95 animate-in fade-in slide-in-from-top-4 duration-200">
-            <div className="flex flex-col gap-1 px-6 py-4">
-              <a href="#why-helpa" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-3 py-2.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground font-medium transition-colors">Why Helpa</a>
-              <a href="#roi" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-3 py-2.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground font-medium transition-colors">ROI</a>
-              <a href="#features" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-3 py-2.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground font-medium transition-colors">Features</a>
-              <a href="#industries" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-3 py-2.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground font-medium transition-colors">Industries</a>
-              <a href="#pricing" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-3 py-2.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground font-medium transition-colors">Pricing</a>
-              <a href="#faq" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-3 py-2.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground font-medium transition-colors">FAQ</a>
-              <Link href={user ? "/dashboard" : "/signup"} onClick={() => setMobileMenuOpen(false)} className="mt-2 rounded-full bg-indigo-600 px-5 py-2.5 text-center text-sm font-medium text-white">
-                {user ? "Dashboard" : "Book Demo"}
-              </Link>
-            </div>
-          </div>
-        )}
+        {/* Mobile Navigation Drawer */}
+        <AnimatePresence>
+          {mobileMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="border-t border-border md:hidden glass-header overflow-hidden"
+            >
+              <div className="flex flex-col gap-1.5 px-6 py-5">
+                <a href="#demo-simulator" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-4 py-3 text-sm text-foreground font-semibold hover:bg-accent transition-colors">Live Demo Simulator</a>
+                <a href="#why-helpa" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-4 py-3 text-sm text-foreground font-semibold hover:bg-accent transition-colors">Why Helpa</a>
+                <a href="#roi" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-4 py-3 text-sm text-foreground font-semibold hover:bg-accent transition-colors">ROI Calculator</a>
+                <a href="#features" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-4 py-3 text-sm text-foreground font-semibold hover:bg-accent transition-colors">Features</a>
+                <a href="#industries" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-4 py-3 text-sm text-foreground font-semibold hover:bg-accent transition-colors">Industries</a>
+                <a href="#pricing" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-4 py-3 text-sm text-foreground font-semibold hover:bg-accent transition-colors">Pricing</a>
+                <a href="#faq" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-4 py-3 text-sm text-foreground font-semibold hover:bg-accent transition-colors">FAQ</a>
+                <Link href={user ? "/dashboard" : "/signup"} onClick={() => setMobileMenuOpen(false)} className="mt-3 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-3 text-center text-sm font-bold text-white shadow-md">
+                  {user ? "Dashboard" : "Book Free Demo"}
+                </Link>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </header>
 
-      {/* ═══════ HERO ═══════ */}
-      <section className="relative overflow-hidden px-6 pb-24 pt-20 sm:pt-28">
-        <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_60%_50%_at_50%_-10%,rgba(79,70,229,0.12),transparent)]"></div>
-        <div className="mx-auto max-w-4xl text-center">
+      {/* ═══════ HERO SECTION ═══════ */}
+      <section className="relative overflow-hidden px-6 pb-20 pt-16 sm:pt-24 z-10">
+        <div className="mx-auto max-w-5xl text-center">
+          
+          {/* Animated Badge Pill */}
           <motion.div
-            initial={{ opacity: 0, y: 8 }}
+            initial={{ opacity: 0, y: -12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.35, ease: "easeOut" }}
-            className="hero-reveal mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs font-semibold text-muted-foreground shadow-sm transition-colors duration-300"
+            transition={{ duration: 0.5 }}
+            className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-4 py-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-300 shadow-sm backdrop-blur-md"
           >
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            ✓ Setup in 24 Hours
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span>⚡ Setup in 24 Hours • 99.4% AI Accuracy</span>
+            <Sparkles className="h-3.5 w-3.5 text-amber-400 ml-1" />
           </motion.div>
+
+          {/* Dynamic Headline */}
           <motion.h1
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.1, ease: "easeOut" }}
-            className="hero-reveal hero-reveal-delay-1 text-5xl font-extrabold tracking-tight sm:text-6xl lg:text-7xl text-foreground"
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="text-5xl font-black tracking-tight sm:text-6xl lg:text-7xl leading-[1.1] text-foreground"
           >
-            Never Miss Another<br />Customer.
+            Never Miss Another <br className="hidden sm:inline" />
+            <span className="bg-gradient-to-r from-indigo-600 via-purple-600 to-emerald-500 bg-clip-text text-transparent">
+              Customer Enquiry.
+            </span>
           </motion.h1>
+
           <motion.p
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.2, ease: "easeOut" }}
-            className="hero-reveal hero-reveal-delay-2 mx-auto mt-6 max-w-2xl text-lg text-muted-foreground leading-relaxed"
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="mx-auto mt-6 max-w-2xl text-lg sm:text-xl text-muted-foreground leading-relaxed font-normal"
           >
-            Helpa answers every WhatsApp enquiry instantly, books appointments automatically, captures leads, and works 24/7—so your team can focus on running the business.
+            Helpa answers every WhatsApp chat in <strong>under 3 seconds</strong>, books appointments automatically into your calendar, captures qualified leads 24/7, and drives sales while you sleep.
           </motion.p>
+
+          {/* CTA Buttons */}
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.3, ease: "easeOut" }}
-            className="hero-reveal hero-reveal-delay-3 mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row"
+            transition={{ duration: 0.5, delay: 0.3 }}
+            className="mt-9 flex flex-col items-center justify-center gap-4 sm:flex-row"
           >
-            <Link href={user ? "/dashboard" : "/signup"} className="flex items-center gap-2 rounded-full bg-indigo-600 px-7 py-3.5 text-sm font-bold text-white transition-all hover:bg-indigo-700 shadow-lg shadow-indigo-600/15 hover:scale-[1.03] active:scale-[0.97] duration-200">
-              Book Free Demo <ArrowRight className="h-4 w-4" />
+            <Link
+              href={user ? "/dashboard" : "/signup"}
+              className="w-full sm:w-auto flex items-center justify-center gap-2.5 rounded-full bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 px-8 py-4 text-base font-bold text-white transition-all shadow-xl shadow-indigo-600/25 hover:shadow-indigo-600/40 hover:scale-[1.04] active:scale-[0.98] duration-200 cursor-pointer"
+            >
+              <span>Book 15-Min Free Demo</span>
+              <ArrowRight className="h-5 w-5" />
             </Link>
-            <a href="#product-video" className="flex items-center gap-2 rounded-full border border-border bg-card px-7 py-3.5 text-sm font-bold text-foreground transition-all hover:bg-accent shadow-sm hover:scale-[1.03] active:scale-[0.97] duration-200">
-              <PlayCircle className="h-4 w-4 text-indigo-600" /> Watch 60-sec Demo
+            <a
+              href="#demo-simulator"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-full border border-border bg-card/80 px-7 py-4 text-base font-bold text-foreground transition-all shadow-sm hover:bg-accent hover:scale-[1.03] active:scale-[0.98] duration-200 backdrop-blur-md cursor-pointer"
+            >
+              <Bot className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+              <span>Try Live Interactive Chat</span>
             </a>
           </motion.div>
 
+          {/* Micro Trust Indicators */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 0.5, delay: 0.4 }}
-            className="hero-reveal hero-reveal-delay-3 mt-6 flex flex-wrap justify-center gap-x-6 gap-y-2 text-xs font-semibold text-muted-foreground"
+            transition={{ duration: 0.6, delay: 0.4 }}
+            className="mt-8 flex flex-wrap justify-center gap-x-6 gap-y-2 text-xs font-bold text-muted-foreground"
           >
-            <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">✓ No Coding</span>
-            <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">✓ Setup in 1 Day</span>
-            <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">✓ Works with WhatsApp Business</span>
+            <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+              <CheckCircle2 className="h-4 w-4" /> 0 Coding Required
+            </span>
+            <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+              <CheckCircle2 className="h-4 w-4" /> Official Meta WhatsApp API
+            </span>
+            <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+              <CheckCircle2 className="h-4 w-4" /> English, Hindi & Regional AI
+            </span>
           </motion.div>
         </div>
 
-        {/* Embedded YouTube video preview */}
+        {/* Embedded Demo Video Container */}
         <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.45, ease: "easeOut" }}
-          className="hero-reveal hero-reveal-dashboard relative mx-auto mt-20 max-w-4xl"
+          initial={{ opacity: 0, y: 24, scale: 0.96 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.6, delay: 0.45 }}
+          className="relative mx-auto mt-16 max-w-4xl"
         >
-          <div className="absolute -inset-10 -z-10 rounded-3xl bg-indigo-600/5 blur-3xl"></div>
+          <div className="absolute -inset-4 -z-10 rounded-3xl bg-gradient-to-r from-indigo-500/20 via-purple-500/20 to-emerald-500/20 blur-2xl opacity-75 animate-pulse-glow"></div>
           <div className="aspect-video overflow-hidden rounded-2xl border border-border shadow-2xl bg-zinc-950">
             <iframe
               className="w-full h-full"
               src={heroVideoUrl}
-              title="Helpa Demo Video"
+              title="Helpa Product Overview Video"
               frameBorder="0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
@@ -278,205 +385,398 @@ export default function LandingPage() {
         </motion.div>
       </section>
 
-      {/* ═══════ TRUSTED BY ═══════ */}
-      <motion.section
-        initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
-        viewport={{ once: true, margin: "-50px" }}
-        transition={{ duration: 0.4 }}
-        className="border-y border-border bg-muted/30 py-12 transition-colors duration-300"
-      >
-        <p className="mb-6 text-center text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-          Trusted by service businesses across India
+      {/* ═══════ INFINITE TRUST MARQUEE ═══════ */}
+      <section className="border-y border-border bg-muted/40 py-8 overflow-hidden relative">
+        <p className="mb-4 text-center text-xs font-bold uppercase tracking-[0.25em] text-muted-foreground">
+          Trusted by 500+ Indian Service Businesses
         </p>
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-center gap-4 px-6">
-          <div className="rounded-full border border-border bg-card px-5 py-2 text-sm text-muted-foreground shadow-sm transition-colors">Clinics & Labs</div>
-          <div className="rounded-full border border-border bg-card px-5 py-2 text-sm text-muted-foreground shadow-sm transition-colors">Coaching Classes</div>
-          <div className="rounded-full border border-border bg-card px-5 py-2 text-sm text-muted-foreground shadow-sm transition-colors">Salons & Spas</div>
-          <div className="rounded-full border border-border bg-card px-5 py-2 text-sm text-muted-foreground shadow-sm transition-colors">Boutique Hotels</div>
-          <div className="rounded-full border border-border bg-card px-5 py-2 text-sm text-muted-foreground shadow-sm transition-colors">Real Estate Agents</div>
-        </div>
-      </motion.section>
-
-      {/* ═══════ AFTER HERO: WHY HELPA ═══════ */}
-      <section id="why-helpa" className="mx-auto max-w-7xl px-6 py-24 scroll-mt-14 relative">
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-15px" }}
-          transition={{ duration: 0.4 }}
-          className="mx-auto max-w-2xl text-center"
-        >
-          <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl text-foreground">Why Businesses Choose Helpa</h2>
-          <p className="mt-4 text-muted-foreground leading-relaxed">Streamline your patient, student, or client inquiries without the overhead of additional staff.</p>
-        </motion.div>
-        <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4 text-left">
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-15px" }}
-            transition={{ duration: 0.35, delay: 0 }}
-            className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200"
-          >
-            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400">
-              <Zap className="h-5 w-5" />
-            </div>
-            <h3 className="font-bold text-foreground text-base">Never Miss Leads</h3>
-            <p className="mt-2 text-sm text-muted-foreground">Every enquiry gets answered.</p>
-          </motion.div>
-          
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-15px" }}
-            transition={{ duration: 0.35, delay: 0.1 }}
-            className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200"
-          >
-            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400">
-              <UserCheck className="h-5 w-5" />
-            </div>
-            <h3 className="font-bold text-foreground text-base">24/7 Receptionist</h3>
-            <p className="mt-2 text-sm text-muted-foreground">Customers receive replies even outside business hours.</p>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-15px" }}
-            transition={{ duration: 0.35, delay: 0.2 }}
-            className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200"
-          >
-            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400">
-              <CalendarCheck className="h-5 w-5" />
-            </div>
-            <h3 className="font-bold text-foreground text-base">Book Appointments Automatically</h3>
-            <p className="mt-2 text-sm text-muted-foreground">Reduce receptionist workload.</p>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-15px" }}
-            transition={{ duration: 0.35, delay: 0.3 }}
-            className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200"
-          >
-            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400">
-              <UserPlus className="h-5 w-5" />
-            </div>
-            <h3 className="font-bold text-foreground text-base">Capture Every Customer</h3>
-            <p className="mt-2 text-sm text-muted-foreground">Every lead is stored inside CRM.</p>
-          </motion.div>
+        <div className="flex overflow-hidden select-none">
+          <div className="animate-marquee flex items-center gap-4 whitespace-nowrap">
+            {[
+              "🏥 Clinics & Diagnostic Labs",
+              "📚 JEE & NEET Coaching Institutes",
+              "💇‍♀️ Salons & Luxury Spas",
+              "🏨 Boutique Hotels & Resorts",
+              "🏢 Real Estate Consultants",
+              "🏋️‍♂️ Fitness & Gym Centers",
+              "🦷 Dental Care Clinics",
+              "⚖️ Legal & Accounting Firms",
+              "🚗 Auto Repair & Detailing",
+              "✈️ Travel & Visa Agencies"
+            ].concat([
+              "🏥 Clinics & Diagnostic Labs",
+              "📚 JEE & NEET Coaching Institutes",
+              "💇‍♀️ Salons & Luxury Spas",
+              "🏨 Boutique Hotels & Resorts",
+              "🏢 Real Estate Consultants",
+              "🏋️‍♂️ Fitness & Gym Centers",
+              "🦷 Dental Care Clinics",
+              "⚖️ Legal & Accounting Firms",
+              "🚗 Auto Repair & Detailing",
+              "✈️ Travel & Visa Agencies"
+            ]).map((item, idx) => (
+              <div
+                key={idx}
+                className="rounded-full border border-border/80 bg-card px-5 py-2 text-xs font-semibold text-foreground shadow-sm hover:border-indigo-500/50 transition-colors"
+              >
+                {item}
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
-      {/* ═══════ ROI SECTION ═══════ */}
-      <section id="roi" className="border-y border-border bg-muted/30 py-24 scroll-mt-14 transition-colors duration-300">
+      {/* ═══════ INTERACTIVE WHATSAPP LIVE DEMO SIMULATOR ═══════ */}
+      <section id="demo-simulator" className="mx-auto max-w-7xl px-6 py-24 scroll-mt-16 relative">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-20px" }}
+          transition={{ duration: 0.5 }}
+          className="mx-auto max-w-2xl text-center"
+        >
+          <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-3.5 py-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest inline-block mb-3">
+            Interactive Experience
+          </span>
+          <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl text-foreground">
+            Test Helpa AI Right Now
+          </h2>
+          <p className="mt-3 text-muted-foreground">
+            Click any industry below to see how Helpa handles customer inquiries, schedules bookings, and answers questions instantly on WhatsApp.
+          </p>
+        </motion.div>
+
+        {/* Industry Selector Tabs */}
+        <div className="mt-8 flex flex-wrap justify-center gap-2">
+          <button
+            onClick={() => handleScenarioChange("clinic")}
+            className={`flex items-center gap-2 rounded-full px-5 py-2.5 text-xs font-bold transition-all cursor-pointer ${
+              activeScenario === "clinic"
+                ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20 scale-105"
+                : "bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-accent"
+            }`}
+          >
+            <Stethoscope className="h-4 w-4" /> Dental Clinic
+          </button>
+          <button
+            onClick={() => handleScenarioChange("coaching")}
+            className={`flex items-center gap-2 rounded-full px-5 py-2.5 text-xs font-bold transition-all cursor-pointer ${
+              activeScenario === "coaching"
+                ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20 scale-105"
+                : "bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-accent"
+            }`}
+          >
+            <GraduationCap className="h-4 w-4" /> Coaching Institute
+          </button>
+          <button
+            onClick={() => handleScenarioChange("salon")}
+            className={`flex items-center gap-2 rounded-full px-5 py-2.5 text-xs font-bold transition-all cursor-pointer ${
+              activeScenario === "salon"
+                ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20 scale-105"
+                : "bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-accent"
+            }`}
+          >
+            <Scissors className="h-4 w-4" /> Salon & Spa
+          </button>
+          <button
+            onClick={() => handleScenarioChange("realestate")}
+            className={`flex items-center gap-2 rounded-full px-5 py-2.5 text-xs font-bold transition-all cursor-pointer ${
+              activeScenario === "realestate"
+                ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20 scale-105"
+                : "bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-accent"
+            }`}
+          >
+            <Building2 className="h-4 w-4" /> Real Estate
+          </button>
+        </div>
+
+        {/* WhatsApp Phone Mockup Container */}
+        <div className="mt-10 mx-auto max-w-md">
+          <div className="rounded-[2.5rem] border-4 border-zinc-800 bg-zinc-950 p-3 shadow-2xl shadow-indigo-500/10">
+            {/* Camera notch */}
+            <div className="mx-auto mb-2 h-4 w-28 rounded-full bg-zinc-800"></div>
+
+            {/* Chat App Shell */}
+            <div className="overflow-hidden rounded-[2rem] bg-[#0b141a] text-zinc-100 min-h-[480px] flex flex-col justify-between border border-zinc-800">
+              
+              {/* WhatsApp Header */}
+              <div className="bg-[#202c33] px-4 py-3 flex items-center gap-3 border-b border-zinc-700/50">
+                <div className={`h-10 w-10 rounded-full ${currentChat.avatarBg} flex items-center justify-center font-bold text-white text-sm shadow-md`}>
+                  H
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-bold text-sm text-zinc-100 flex items-center gap-1.5">
+                    {currentChat.title}
+                    <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
+                  </h4>
+                  <p className="text-[10px] text-emerald-400 font-medium">{currentChat.status}</p>
+                </div>
+                <div className="flex items-center gap-2 text-zinc-400">
+                  <PhoneCall className="h-4 w-4" />
+                </div>
+              </div>
+
+              {/* Chat Conversation Window */}
+              <div className="p-4 space-y-3 flex-1 overflow-y-auto bg-[radial-gradient(#1f2c34_1px,transparent_1px)] [background-size:16px_16px]">
+                {currentChat.messages.slice(0, simStep).map((msg, idx) => (
+                  <motion.div
+                    key={idx}
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ duration: 0.25 }}
+                    className={`flex flex-col ${msg.sender === "user" ? "items-end" : "items-start"}`}
+                  >
+                    <div
+                      className={`max-w-[85%] rounded-2xl px-3.5 py-2 text-xs leading-relaxed shadow-sm ${
+                        msg.sender === "user"
+                          ? "bg-[#005c4b] text-zinc-100 rounded-tr-none"
+                          : "bg-[#202c33] text-zinc-100 rounded-tl-none border border-zinc-700/40"
+                      }`}
+                    >
+                      <p className="whitespace-pre-line">{msg.text}</p>
+                      <span className="mt-1 block text-[9px] text-right text-zinc-400 opacity-80">{msg.time}</span>
+                    </div>
+
+                    {/* Quick reply buttons if bot */}
+                    {msg.quickReplies && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {msg.quickReplies.map((qr, qIdx) => (
+                          <button
+                            key={qIdx}
+                            onClick={() => setSimStep((prev) => Math.min(prev + 1, currentChat.messages.length))}
+                            className="rounded-full bg-emerald-500/20 border border-emerald-500/40 px-3 py-1 text-[10px] font-bold text-emerald-300 hover:bg-emerald-500/30 transition cursor-pointer"
+                          >
+                            ⚡ {qr}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </motion.div>
+                ))}
+
+                {/* Typing Indicator */}
+                {isTyping && (
+                  <div className="flex items-center gap-1 bg-[#202c33] px-3 py-2 rounded-xl w-16 text-zinc-400">
+                    <span className="h-1.5 w-1.5 rounded-full bg-zinc-400 animate-bounce"></span>
+                    <span className="h-1.5 w-1.5 rounded-full bg-zinc-400 animate-bounce [animation-delay:0.2s]"></span>
+                    <span className="h-1.5 w-1.5 rounded-full bg-zinc-400 animate-bounce [animation-delay:0.4s]"></span>
+                  </div>
+                )}
+              </div>
+
+              {/* Chat Input Bar */}
+              <div className="bg-[#202c33] p-2.5 flex items-center gap-2 border-t border-zinc-700/50">
+                <div className="flex-1 rounded-full bg-[#2a3942] px-4 py-2 text-xs text-zinc-400 flex items-center justify-between">
+                  <span>Type a message...</span>
+                  <Bot className="h-3.5 w-3.5 text-emerald-400" />
+                </div>
+                <div className="h-8 w-8 rounded-full bg-emerald-600 flex items-center justify-center text-white shadow-md">
+                  <Send className="h-3.5 w-3.5" />
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════ WHY HELPA ═══════ */}
+      <section id="why-helpa" className="mx-auto max-w-7xl px-6 py-24 scroll-mt-16">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-20px" }}
+          transition={{ duration: 0.5 }}
+          className="mx-auto max-w-2xl text-center"
+        >
+          <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl text-foreground">
+            Why Businesses Choose Helpa
+          </h2>
+          <p className="mt-4 text-muted-foreground leading-relaxed">
+            Eliminate customer wait times, capture every lead, and cut operational costs without adding headcount.
+          </p>
+        </motion.div>
+
+        <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            {
+              icon: Zap,
+              title: "Never Miss Leads",
+              desc: "Every incoming inquiry receives an immediate, intelligent response in under 3 seconds.",
+              color: "text-amber-500 bg-amber-500/10"
+            },
+            {
+              icon: UserCheck,
+              title: "24/7 Digital Receptionist",
+              desc: "Customers get instant replies even outside business hours, on weekends, and holidays.",
+              color: "text-indigo-600 bg-indigo-600/10 dark:text-indigo-400"
+            },
+            {
+              icon: CalendarCheck,
+              title: "Automated Bookings",
+              desc: "Allows clients to view slots, confirm appointments, or reschedule without staff intervention.",
+              color: "text-emerald-500 bg-emerald-500/10"
+            },
+            {
+              icon: UserPlus,
+              title: "Automatic Lead Sync",
+              desc: "Name, phone, service interest, and chat transcript are formatted and saved directly into your CRM.",
+              color: "text-purple-600 bg-purple-600/10 dark:text-purple-400"
+            }
+          ].map((item, idx) => (
+            <motion.div
+              key={idx}
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-20px" }}
+              transition={{ duration: 0.4, delay: idx * 0.1 }}
+              className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover:border-indigo-500/50 hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300"
+            >
+              <div className={`mb-4 flex h-12 w-12 items-center justify-center rounded-xl ${item.color} group-hover:scale-110 transition-transform`}>
+                <item.icon className="h-6 w-6" />
+              </div>
+              <h3 className="font-bold text-foreground text-lg">{item.title}</h3>
+              <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{item.desc}</p>
+            </motion.div>
+          ))}
+        </div>
+      </section>
+
+      {/* ═══════ INTERACTIVE ROI CALCULATOR SECTION ═══════ */}
+      <section id="roi" className="border-y border-border bg-muted/30 py-24 scroll-mt-16 relative">
         <div className="mx-auto max-w-7xl px-6">
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 16 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-15px" }}
-            transition={{ duration: 0.4 }}
+            viewport={{ once: true, margin: "-20px" }}
+            transition={{ duration: 0.5 }}
             className="mx-auto max-w-2xl text-center"
           >
-            <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl text-foreground">Helpa Pays For Itself.</h2>
-            <p className="mt-4 text-muted-foreground">Compare the difference in efficiency, response times, and booked revenue.</p>
-          </motion.div>
-
-          <div className="mt-14 grid gap-8 md:grid-cols-2 max-w-4xl mx-auto">
-            {/* Without Helpa */}
-            <motion.div
-              initial={{ opacity: 0, x: -30 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true, margin: "-15px" }}
-              transition={{ duration: 0.4 }}
-              className="rounded-2xl border border-border bg-card p-8 shadow-sm hover-card-lift transition-all duration-300"
-            >
-              <h3 className="text-lg font-bold text-red-500 flex items-center gap-2 mb-6">
-                Without Helpa
-              </h3>
-              <ul className="space-y-4">
-                <li className="flex items-start gap-3 text-sm text-muted-foreground font-medium">
-                  <span className="text-red-500 font-bold">❌</span> Missed enquiries after work hours
-                </li>
-                <li className="flex items-start gap-3 text-sm text-muted-foreground font-medium">
-                  <span className="text-red-500 font-bold">❌</span> Slow replies during busy rush times
-                </li>
-                <li className="flex items-start gap-3 text-sm text-muted-foreground font-medium">
-                  <span className="text-red-500 font-bold">❌</span> Busy receptionist answering same basic queries
-                </li>
-                <li className="flex items-start gap-3 text-sm text-muted-foreground font-medium">
-                  <span className="text-red-500 font-bold">❌</span> Lost bookings because patients/clients got tired of waiting
-                </li>
-              </ul>
-            </motion.div>
-
-            {/* With Helpa */}
-            <motion.div
-              initial={{ opacity: 0, x: 30 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true, margin: "-15px" }}
-              transition={{ duration: 0.4 }}
-              className="rounded-2xl border-2 border-indigo-600 bg-card p-8 shadow-md relative hover-card-lift transition-all duration-300"
-            >
-              <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-indigo-600 px-3 py-1 text-[9px] font-extrabold text-white uppercase tracking-wider">Recommended</span>
-              <h3 className="text-lg font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-2 mb-6">
-                With Helpa
-              </h3>
-              <ul className="space-y-4">
-                <li className="flex items-start gap-3 text-sm text-foreground font-semibold">
-                  <span className="text-emerald-500 font-bold">✅</span> Instant replies to queries 24/7/365
-                </li>
-                <li className="flex items-start gap-3 text-sm text-foreground font-semibold">
-                  <span className="text-emerald-500 font-bold">✅</span> Every single lead captured and stored inside your CRM
-                </li>
-                <li className="flex items-start gap-3 text-sm text-foreground font-semibold">
-                  <span className="text-emerald-500 font-bold">✅</span> Bookings automated without picking up a call
-                </li>
-                <li className="flex items-start gap-3 text-sm text-foreground font-semibold">
-                  <span className="text-emerald-500 font-bold">✅</span> Staff only handles complex or custom operations
-                </li>
-              </ul>
-            </motion.div>
-          </div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.4, delay: 0.2 }}
-            className="text-center mt-12 max-w-md mx-auto"
-          >
-            <p className="text-sm font-semibold text-muted-foreground">
-              Just one missed customer each day can cost more than Helpa's monthly subscription.
+            <span className="rounded-full bg-indigo-500/10 border border-indigo-500/20 px-3.5 py-1 text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest inline-block mb-3">
+              Calculate Your Growth
+            </span>
+            <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl text-foreground">
+              How Much Revenue Are You Missing?
+            </h2>
+            <p className="mt-3 text-muted-foreground">
+              Drag the sliders below to calculate your estimated lost revenue from delayed WhatsApp responses.
             </p>
           </motion.div>
+
+          <div className="mt-14 max-w-4xl mx-auto grid gap-8 md:grid-cols-2 bg-card border border-border rounded-3xl p-8 shadow-xl">
+            {/* Sliders Input Panel */}
+            <div className="space-y-6">
+              <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+                <Calculator className="h-5 w-5 text-indigo-600" />
+                Your Business Parameters
+              </h3>
+
+              {/* Slider 1: Daily Enquiries */}
+              <div>
+                <div className="flex justify-between text-sm font-semibold mb-2">
+                  <span className="text-muted-foreground">Daily WhatsApp Enquiries:</span>
+                  <span className="text-indigo-600 dark:text-indigo-400 font-bold">{dailyEnquiries} / day</span>
+                </div>
+                <input
+                  type="range"
+                  min="5"
+                  max="150"
+                  value={dailyEnquiries}
+                  onChange={(e) => setDailyEnquiries(Number(e.target.value))}
+                  className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                />
+              </div>
+
+              {/* Slider 2: Average Booking Value */}
+              <div>
+                <div className="flex justify-between text-sm font-semibold mb-2">
+                  <span className="text-muted-foreground">Avg Booking / Deal Value:</span>
+                  <span className="text-indigo-600 dark:text-indigo-400 font-bold">₹{avgTicketValue.toLocaleString()}</span>
+                </div>
+                <input
+                  type="range"
+                  min="300"
+                  max="10000"
+                  step="100"
+                  value={avgTicketValue}
+                  onChange={(e) => setAvgTicketValue(Number(e.target.value))}
+                  className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                />
+              </div>
+
+              {/* Slider 3: Estimated Missed After Hours % */}
+              <div>
+                <div className="flex justify-between text-sm font-semibold mb-2">
+                  <span className="text-muted-foreground">Estimated Missed / Delayed Leads:</span>
+                  <span className="text-indigo-600 dark:text-indigo-400 font-bold">{missedPercent}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="10"
+                  max="50"
+                  value={missedPercent}
+                  onChange={(e) => setMissedPercent(Number(e.target.value))}
+                  className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                />
+              </div>
+            </div>
+
+            {/* Live Calculated Results Card */}
+            <div className="flex flex-col justify-between rounded-2xl bg-gradient-to-br from-indigo-600/10 via-purple-600/10 to-emerald-600/10 border border-indigo-500/20 p-6">
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block mb-1">Estimated Monthly Impact</span>
+                
+                <div className="mt-4">
+                  <p className="text-xs text-red-500 dark:text-red-400 font-semibold uppercase tracking-wider">Estimated Monthly Lost Revenue</p>
+                  <p className="text-3xl font-black text-red-500 dark:text-red-400 mt-1">₹{potentialLostRevenue.toLocaleString()}</p>
+                </div>
+
+                <div className="mt-6 border-t border-border/50 pt-4">
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold uppercase tracking-wider flex items-center gap-1">
+                    <TrendingUp className="h-4 w-4" /> Potential Recovered Revenue With Helpa
+                  </p>
+                  <p className="text-4xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
+                    +₹{recoveredRevenue.toLocaleString()} <span className="text-xs font-bold text-muted-foreground">/ month</span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6">
+                <Link
+                  href={user ? "/dashboard" : "/signup"}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-bold text-white shadow-md hover:bg-indigo-700 transition"
+                >
+                  Claim Recovered Revenue Now <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
       {/* ═══════ PRODUCT VIDEO SECTION ═══════ */}
-      <section id="product-video" className="mx-auto max-w-7xl px-6 py-24 scroll-mt-14">
+      <section className="mx-auto max-w-7xl px-6 py-24">
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
+          initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-15px" }}
-          transition={{ duration: 0.4 }}
+          viewport={{ once: true, margin: "-20px" }}
+          transition={{ duration: 0.5 }}
           className="mx-auto max-w-2xl text-center mb-12"
         >
           <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl text-foreground">Watch Helpa In Action</h2>
-          <p className="mt-3 text-muted-foreground">See how instantly Helpa responds, gathers info, and schedules customers.</p>
+          <p className="mt-3 text-muted-foreground">See how effortlessly Helpa manages high chat volumes, schedules appointments, and sends notifications.</p>
         </motion.div>
         <motion.div
-          initial={{ opacity: 0, scale: 0.96, y: 10 }}
-          whileInView={{ opacity: 1, scale: 1, y: 0 }}
-          viewport={{ once: true, margin: "-15px" }}
-          transition={{ duration: 0.45, ease: "easeOut" }}
-          className="aspect-video max-w-4xl mx-auto rounded-2xl overflow-hidden shadow-2xl border border-border bg-zinc-950 transition-all duration-300"
+          initial={{ opacity: 0, scale: 0.96 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: true, margin: "-20px" }}
+          transition={{ duration: 0.5 }}
+          className="aspect-video max-w-4xl mx-auto rounded-2xl overflow-hidden shadow-2xl border border-border bg-zinc-950"
         >
           <iframe
             className="w-full h-full"
             src={actionVideoUrl}
-            title="Helpa Walkthrough Video"
+            title="Helpa Detailed Walkthrough Video"
             frameBorder="0"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
@@ -485,764 +785,557 @@ export default function LandingPage() {
         </motion.div>
       </section>
 
-      {/* ═══════ FEATURES ═══════ */}
-      <section id="features" className="mx-auto max-w-7xl px-6 py-24 scroll-mt-14">
+      {/* ═══════ FEATURES GRID ═══════ */}
+      <section id="features" className="mx-auto max-w-7xl px-6 py-24 scroll-mt-16">
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
+          initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-15px" }}
-          transition={{ duration: 0.4 }}
+          viewport={{ once: true, margin: "-20px" }}
+          transition={{ duration: 0.5 }}
           className="mx-auto max-w-2xl text-center"
         >
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl text-foreground">Everything your WhatsApp reception needs</h2>
-          <p className="mt-4 text-muted-foreground">Built specifically for customer-facing businesses that live on WhatsApp.</p>
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl text-foreground">
+            Everything your WhatsApp Reception Needs
+          </h2>
+          <p className="mt-4 text-muted-foreground">Built specifically for businesses that depend on WhatsApp for customer leads.</p>
         </motion.div>
-        <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 text-left">
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-15px" }}
-            transition={{ duration: 0.35, delay: 0.0 }}
-            className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200"
-          >
-            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><Zap className="h-5 w-5" /></div>
-            <h3 className="font-semibold text-foreground text-base">Reply to Every Customer in Under 3 Seconds</h3>
-            <p className="mt-2 text-sm text-muted-foreground">Every customer enquiry gets an accurate, on-brand reply in seconds — 24/7, without fail.</p>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-15px" }}
-            transition={{ duration: 0.35, delay: 0.1 }}
-            className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200"
-          >
-            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><CalendarCheck className="h-5 w-5" /></div>
-            <h3 className="font-semibold text-foreground text-base">Book Appointments Automatically</h3>
-            <p className="mt-2 text-sm text-muted-foreground">Clients can book, reschedule, or cancel slots directly inside WhatsApp, synced to your calendar.</p>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-15px" }}
-            transition={{ duration: 0.35, delay: 0.2 }}
-            className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200"
-          >
-            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><UserPlus className="h-5 w-5" /></div>
-            <h3 className="font-semibold text-foreground text-base">Capture Leads & Enquiries Automatically</h3>
-            <p className="mt-2 text-sm text-muted-foreground">Names, phone numbers, and requirements are structured and saved from every chat conversation.</p>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-15px" }}
-            transition={{ duration: 0.35, delay: 0.0 }}
-            className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200"
-          >
-            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><HelpCircle className="h-5 w-5" /></div>
-            <h3 className="font-semibold text-foreground text-base">Automate Answers to Frequent Questions</h3>
-            <p className="mt-2 text-sm text-muted-foreground">Train Helpa once on your fees, timings, and business location — it replies instantly without getting tired.</p>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-15px" }}
-            transition={{ duration: 0.35, delay: 0.1 }}
-            className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200"
-          >
-            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><UserCheck className="h-5 w-5" /></div>
-            <h3 className="font-semibold text-foreground text-base">Hand Off to Live Staff Instantly</h3>
-            <p className="mt-2 text-sm text-muted-foreground">Complex or VIP chats route to your support team instantly, with the complete history attached.</p>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-15px" }}
-            transition={{ duration: 0.35, delay: 0.2 }}
-            className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200"
-          >
-            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><Globe2 className="h-5 w-5" /></div>
-            <h3 className="font-semibold text-foreground text-base">Speak Any Local Language Fluently</h3>
-            <p className="mt-2 text-sm text-muted-foreground">Helpa automatically detects if the user is texting in English, Hindi, or Bengali, and replies back in the same language.</p>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-15px" }}
-            transition={{ duration: 0.35, delay: 0.0 }}
-            className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200"
-          >
-            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><BarChart3 className="h-5 w-5" /></div>
-            <h3 className="font-semibold text-foreground text-base">Gain Clear Performance Analytics</h3>
-            <p className="mt-2 text-sm text-muted-foreground">Monitor response speed, chat resolution rate, bookings, and customer inquiries in one clean panel.</p>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-15px" }}
-            transition={{ duration: 0.35, delay: 0.1 }}
-            className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200"
-          >
-            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><Radio className="h-5 w-5" /></div>
-            <h3 className="font-semibold text-foreground text-base">Broadcast Festival & Promotional Offers</h3>
-            <p className="mt-2 text-sm text-muted-foreground">Send festival offers, reminders, and service updates to filtered customer lists with a single click.</p>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-15px" }}
-            transition={{ duration: 0.35, delay: 0.2 }}
-            className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift hover:border-indigo-500/50 hover:shadow-md transition-all duration-200"
-          >
-            <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><RefreshCw className="h-5 w-5" /></div>
-            <h3 className="font-semibold text-foreground text-base">Trigger Smart Automatic Follow-ups</h3>
-            <p className="mt-2 text-sm text-muted-foreground">Remind clients of upcoming appointments or follow-up with cold leads automatically.</p>
-          </motion.div>
+
+        <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {[
+            { icon: Zap, title: "Sub-3-Second AI Replies", desc: "Instantly answers questions about pricing, availability, and business locations accurately." },
+            { icon: CalendarCheck, title: "Automated Slot Booking", desc: "Customers pick available slots directly inside WhatsApp, synced to your Google or CRM calendar." },
+            { icon: UserPlus, title: "Structured Lead Capture", desc: "Automatically extracts and stores contact details, service needs, and notes into your CRM." },
+            { icon: HelpCircle, title: "Custom FAQ Training", desc: "Upload your existing PDF brochure or FAQ sheet — Helpa learns your entire business in 5 minutes." },
+            { icon: UserCheck, title: "1-Click Human Takeover", desc: "Staff can pause the AI and take over any complex conversation immediately from the dashboard." },
+            { icon: Globe2, title: "Multilingual Intelligence", desc: "Auto-detects and responds in English, Hindi, Bengali, Hinglish, Spanish, and 20+ languages." },
+            { icon: BarChart3, title: "Real-time Analytics", desc: "Track conversation resolution speed, booking conversion rates, and total captured leads." },
+            { icon: Radio, title: "WhatsApp Broadcast Campaigns", desc: "Send targeted promotional announcements or festival offers to thousands of contacts safely." },
+            { icon: RefreshCw, title: "Automated Reminders", desc: "Reduces appointment no-shows by automatically sending reminder notifications prior to bookings." }
+          ].map((item, idx) => (
+            <motion.div
+              key={idx}
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-20px" }}
+              transition={{ duration: 0.4, delay: idx * 0.05 }}
+              className="group rounded-2xl border border-border bg-card p-6 shadow-sm hover:border-indigo-500/50 hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
+            >
+              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform">
+                <item.icon className="h-5 w-5" />
+              </div>
+              <h3 className="font-bold text-foreground text-base">{item.title}</h3>
+              <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{item.desc}</p>
+            </motion.div>
+          ))}
         </div>
       </section>
 
       {/* ═══════ HOW IT WORKS ═══════ */}
-      <section className="border-y border-border bg-muted/30 py-24 transition-colors duration-300">
+      <section className="border-y border-border bg-muted/30 py-24 relative">
         <div className="mx-auto max-w-7xl px-6">
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 16 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-15px" }}
-            transition={{ duration: 0.4 }}
+            viewport={{ once: true, margin: "-20px" }}
+            transition={{ duration: 0.5 }}
             className="mx-auto max-w-2xl text-center"
           >
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl text-foreground">Go Live in Less Than 24 Hours</h2>
-            <p className="mt-4 text-muted-foreground">No coding or developers required. Connect, train, and go live.</p>
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl text-foreground">Go Live in 4 Simple Steps</h2>
+            <p className="mt-4 text-muted-foreground">No coding or IT setup required. Up and running in 24 hours.</p>
           </motion.div>
+
           <div className="relative mt-16 grid gap-8 md:grid-cols-4">
-            <div className="absolute left-0 right-0 top-6 hidden h-px bg-border md:block"></div>
-            
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-15px" }}
-              transition={{ duration: 0.35, delay: 0.0 }}
-              className="relative"
-            >
-              <div className="relative z-10 mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-600 text-sm font-semibold text-white md:mx-0 shadow-sm">1</div>
-              <h3 className="text-center text-base font-semibold text-foreground md:text-left">Connect WhatsApp Number</h3>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-15px" }}
-              transition={{ duration: 0.35, delay: 0.1 }}
-              className="relative"
-            >
-              <div className="relative z-10 mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-600 text-sm font-semibold text-white md:mx-0 shadow-sm">2</div>
-              <h3 className="text-center text-base font-semibold text-foreground md:text-left">Upload Business Details</h3>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-15px" }}
-              transition={{ duration: 0.35, delay: 0.2 }}
-              className="relative"
-            >
-              <div className="relative z-10 mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-600 text-sm font-semibold text-white md:mx-0 shadow-sm">3</div>
-              <h3 className="text-center text-base font-semibold text-foreground md:text-left">AI Starts Answering Chats</h3>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-15px" }}
-              transition={{ duration: 0.35, delay: 0.3 }}
-              className="relative"
-            >
-              <div className="relative z-10 mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-600 text-sm font-semibold text-white md:mx-0 shadow-sm">4</div>
-              <h3 className="text-center text-base font-semibold text-foreground md:text-left">Monitor from CRM Panel</h3>
-            </motion.div>
+            {[
+              { num: "1", title: "Connect WhatsApp", desc: "Link your business phone number securely via official Meta API." },
+              { num: "2", title: "Upload Knowledge", desc: "Paste your website link, price list, or FAQ document." },
+              { num: "3", title: "AI Takes Over", desc: "Helpa starts answering inquiries & booking clients automatically 24/7." },
+              { num: "4", title: "Track & Scale", desc: "Monitor leads and manage your team from the central CRM dashboard." }
+            ].map((step, idx) => (
+              <motion.div
+                key={idx}
+                initial={{ opacity: 0, y: 16 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-20px" }}
+                transition={{ duration: 0.4, delay: idx * 0.1 }}
+                className="relative rounded-2xl border border-border/80 bg-card p-6 shadow-sm text-center md:text-left hover:border-indigo-500/50 transition-colors"
+              >
+                <div className="mx-auto md:mx-0 mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-lg font-black text-white shadow-md">
+                  {step.num}
+                </div>
+                <h3 className="text-base font-bold text-foreground">{step.title}</h3>
+                <p className="mt-2 text-xs text-muted-foreground leading-relaxed">{step.desc}</p>
+              </motion.div>
+            ))}
           </div>
-        </div>
-      </section>
-
-      {/* ═══════ INDUSTRIES ═══════ */}
-      <section id="industries" className="mx-auto max-w-7xl px-6 py-24 scroll-mt-14">
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-15px" }}
-          transition={{ duration: 0.4 }}
-          className="mx-auto max-w-2xl text-center"
-        >
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl text-foreground">Built for Every Service Business</h2>
-          <p className="mt-4 text-muted-foreground">Whether you operate one clinic or fifty coaching branches — Helpa handles the volume.</p>
-        </motion.div>
-        <div className="mt-14 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          <div className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-6 text-center shadow-sm hover:border-indigo-500/50 transition duration-300">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><Stethoscope className="h-5 w-5" /></div>
-            <span className="text-sm font-medium text-foreground">Clinics & Hospitals</span>
-          </div>
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-15px" }}
-            transition={{ duration: 0.4, delay: 0.05 }}
-            className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-6 text-center shadow-sm hover:border-indigo-500/50 transition duration-300"
-          >
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><GraduationCap className="h-5 w-5" /></div>
-            <span className="text-sm font-medium text-foreground">Coaching Institutes</span>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-15px" }}
-            transition={{ duration: 0.4, delay: 0.1 }}
-            className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-6 text-center shadow-sm hover:border-indigo-500/50 transition duration-300"
-          >
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><School className="h-5 w-5" /></div>
-            <span className="text-sm font-medium text-foreground">Schools & Colleges</span>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-15px" }}
-            transition={{ duration: 0.4, delay: 0.15000000000000002 }}
-            className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-6 text-center shadow-sm hover:border-indigo-500/50 transition duration-300"
-          >
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><Scissors className="h-5 w-5" /></div>
-            <span className="text-sm font-medium text-foreground">Salons & Spas</span>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-15px" }}
-            transition={{ duration: 0.4, delay: 0.2 }}
-            className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-6 text-center shadow-sm hover:border-indigo-500/50 transition duration-300"
-          >
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><Hotel className="h-5 w-5" /></div>
-            <span className="text-sm font-medium text-foreground">Hotels & Guest Houses</span>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-15px" }}
-            transition={{ duration: 0.4, delay: 0.25 }}
-            className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-6 text-center shadow-sm hover:border-indigo-500/50 transition duration-300"
-          >
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><UtensilsCrossed className="h-5 w-5" /></div>
-            <span className="text-sm font-medium text-foreground">Restaurants & Cafes</span>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-15px" }}
-            transition={{ duration: 0.4, delay: 0.0 }}
-            className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-6 text-center shadow-sm hover:border-indigo-500/50 transition duration-300"
-          >
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><Building2 className="h-5 w-5" /></div>
-            <span className="text-sm font-medium text-foreground">Real Estate Consultants</span>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-15px" }}
-            transition={{ duration: 0.4, delay: 0.05 }}
-            className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-6 text-center shadow-sm hover:border-indigo-500/50 transition duration-300"
-          >
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><Store className="h-5 w-5" /></div>
-            <span className="text-sm font-medium text-foreground">Local Service Shops</span>
-          </motion.div>
-          {/* New Industries requested */}
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-15px" }}
-            transition={{ duration: 0.4, delay: 0.1 }}
-            className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-6 text-center shadow-sm hover:border-indigo-500/50 transition duration-300"
-          >
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><Smile className="h-5 w-5" /></div>
-            <span className="text-sm font-medium text-foreground">Dentists</span>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-15px" }}
-            transition={{ duration: 0.4, delay: 0.15000000000000002 }}
-            className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-6 text-center shadow-sm hover:border-indigo-500/50 transition duration-300"
-          >
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><Scale className="h-5 w-5" /></div>
-            <span className="text-sm font-medium text-foreground">Law Firms</span>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-15px" }}
-            transition={{ duration: 0.4, delay: 0.2 }}
-            className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-6 text-center shadow-sm hover:border-indigo-500/50 transition duration-300"
-          >
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><Dumbbell className="h-5 w-5" /></div>
-            <span className="text-sm font-medium text-foreground">Fitness Centers</span>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-15px" }}
-            transition={{ duration: 0.4, delay: 0.25 }}
-            className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-6 text-center shadow-sm hover:border-indigo-500/50 transition duration-300"
-          >
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><Wrench className="h-5 w-5" /></div>
-            <span className="text-sm font-medium text-foreground">Repair Shops</span>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-15px" }}
-            transition={{ duration: 0.4, delay: 0.0 }}
-            className="flex flex-col items-center gap-3 rounded-2xl border border-border bg-card p-6 text-center shadow-sm hover:border-indigo-500/50 transition duration-300 col-span-2 sm:col-span-1 lg:col-span-1"
-          >
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400"><Plane className="h-5 w-5" /></div>
-            <span className="text-sm font-medium text-foreground">Travel Agencies</span>
-          </motion.div>
         </div>
       </section>
 
       {/* ═══════ DASHBOARD SHOWCASE ═══════ */}
-      <section className="border-y border-border bg-muted/30 py-24 transition-colors duration-300">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl text-foreground">One dashboard. Total visibility.</h2>
-            <p className="mt-4 text-muted-foreground">Manage conversations, schedule bookings, and track analytics — all in one place.</p>
-          </div>
-
-          <div className="mt-10 flex flex-wrap justify-center gap-2">
-            <button onClick={() => setActiveTab("conversations")} className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold transition cursor-pointer ${activeTab === 'conversations' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-card border border-border text-muted-foreground hover:bg-accent hover:text-foreground'}`}><Inbox className="h-3.5 w-3.5" /> Conversations</button>
-            <button onClick={() => setActiveTab("knowledge")} className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold transition cursor-pointer ${activeTab === 'knowledge' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-card border border-border text-muted-foreground hover:bg-accent hover:text-foreground'}`}><BookOpen className="h-3.5 w-3.5" /> AI Knowledge Base</button>
-            <button onClick={() => setActiveTab("contacts")} className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold transition cursor-pointer ${activeTab === 'contacts' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-card border border-border text-muted-foreground hover:bg-accent hover:text-foreground'}`}><Users2 className="h-3.5 w-3.5" /> Contacts</button>
-            <button onClick={() => setActiveTab("bookings")} className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold transition cursor-pointer ${activeTab === 'bookings' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-card border border-border text-muted-foreground hover:bg-accent hover:text-foreground'}`}><CalendarCheck className="h-3.5 w-3.5" /> Bookings</button>
-            <button onClick={() => setActiveTab("analytics")} className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold transition cursor-pointer ${activeTab === 'analytics' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-card border border-border text-muted-foreground hover:bg-accent hover:text-foreground'}`}><LineChart className="h-3.5 w-3.5" /> Analytics</button>
-            <button onClick={() => setActiveTab("broadcast")} className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold transition cursor-pointer ${activeTab === 'broadcast' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-card border border-border text-muted-foreground hover:bg-accent hover:text-foreground'}`}><Send className="h-3.5 w-3.5" /> Broadcasts</button>
-            <button onClick={() => setActiveTab("settings")} className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold transition cursor-pointer ${activeTab === 'settings' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-card border border-border text-muted-foreground hover:bg-accent hover:text-foreground'}`}><Settings className="h-3.5 w-3.5" /> Settings</button>
-          </div>
-
-          <div className="mx-auto mt-8 max-w-5xl overflow-hidden rounded-3xl border border-border bg-card shadow-xl text-left transition-colors duration-300 relative">
-            
-            {/* Floating indicator labels pointing to features */}
-            <div className="absolute top-3 right-3 z-20 flex flex-wrap gap-1.5 pointer-events-none">
-              <span className="rounded-full bg-indigo-500/10 backdrop-blur-md border border-indigo-500/20 px-2.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-indigo-400 animate-pulse">AI Replies</span>
-              <span className="rounded-full bg-emerald-500/10 backdrop-blur-md border border-emerald-500/20 px-2.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-emerald-400 animate-pulse">Bookings</span>
-              <span className="rounded-full bg-blue-500/10 backdrop-blur-md border border-blue-500/20 px-2.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-blue-400 animate-pulse">CRM</span>
-              <span className="rounded-full bg-amber-500/10 backdrop-blur-md border border-amber-500/20 px-2.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-amber-400 animate-pulse">Broadcasts</span>
-              <span className="rounded-full bg-sky-500/10 backdrop-blur-md border border-sky-500/20 px-2.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide text-sky-400 animate-pulse">Analytics</span>
-            </div>
-
-            {activeTab === 'conversations' && (
-              <div className="grid gap-4 p-6 md:grid-cols-3 animate-in fade-in duration-200">
-                <div className="rounded-2xl border border-border bg-muted/40 p-4"><p className="text-xs text-muted-foreground font-semibold">Total Chats</p><p className="mt-1 text-2xl font-bold text-foreground">12,847</p><p className="mt-1 text-xs text-emerald-600 font-medium">+34% this month</p></div>
-                <div className="rounded-2xl border border-border bg-muted/40 p-4"><p className="text-xs text-muted-foreground font-semibold">Bookings</p><p className="mt-1 text-2xl font-bold text-foreground">3,291</p><p className="mt-1 text-xs text-emerald-600 font-medium">+18% this month</p></div>
-                <div className="rounded-2xl border border-border bg-muted/40 p-4"><p className="text-xs text-muted-foreground font-semibold">AI Resolution Rate</p><p className="mt-1 text-2xl font-bold text-foreground">96.4%</p><p className="mt-1 text-xs text-emerald-600 font-medium">Excellent</p></div>
-              </div>
-            )}
-            {activeTab === 'knowledge' && (
-              <div className="grid gap-4 p-6 md:grid-cols-3 animate-in fade-in duration-200">
-                <div className="rounded-2xl border border-border bg-muted/40 p-4"><p className="text-xs text-muted-foreground font-semibold">Documents Trained</p><p className="mt-1 text-2xl font-bold text-foreground">47</p><p className="mt-1 text-xs text-emerald-600 font-medium">+6 this week</p></div>
-                <div className="rounded-2xl border border-border bg-muted/40 p-4"><p className="text-xs text-muted-foreground font-semibold">FAQs Learned</p><p className="mt-1 text-2xl font-bold text-foreground">312</p><p className="mt-1 text-xs text-muted-foreground font-medium">Auto-updated</p></div>
-                <div className="rounded-2xl border border-border bg-muted/40 p-4"><p className="text-xs text-muted-foreground font-semibold">Answer Accuracy</p><p className="mt-1 text-2xl font-bold text-foreground">98.2%</p><p className="mt-1 text-xs text-emerald-600 font-medium">Verified</p></div>
-              </div>
-            )}
-            {activeTab === 'contacts' && (
-              <div className="grid gap-4 p-6 md:grid-cols-3 animate-in fade-in duration-200">
-                <div className="rounded-2xl border border-border bg-muted/40 p-4"><p className="text-xs text-muted-foreground font-semibold">Total Contacts</p><p className="mt-1 text-2xl font-bold text-foreground">8,291</p><p className="mt-1 text-xs text-emerald-600 font-medium">+143 this week</p></div>
-                <div className="rounded-2xl border border-border bg-muted/40 p-4"><p className="text-xs text-muted-foreground font-semibold">New Enquiries</p><p className="mt-1 text-2xl font-bold text-foreground">621</p><p className="mt-1 text-xs text-muted-foreground font-medium">Auto-captured</p></div>
-                <div className="rounded-2xl border border-border bg-muted/40 p-4"><p className="text-xs text-muted-foreground font-semibold">Repeat Customers</p><p className="mt-1 text-2xl font-bold text-foreground">2,004</p><p className="mt-1 text-xs text-emerald-600 font-medium">+9% this month</p></div>
-              </div>
-            )}
-            {activeTab === 'bookings' && (
-              <div className="grid gap-4 p-6 md:grid-cols-3 animate-in fade-in duration-200">
-                <div className="rounded-2xl border border-border bg-muted/40 p-4"><p className="text-xs text-muted-foreground font-semibold">This Month</p><p className="mt-1 text-2xl font-bold text-foreground">3,291</p><p className="mt-1 text-xs text-emerald-600 font-medium">+18% this month</p></div>
-                <div className="rounded-2xl border border-border bg-muted/40 p-4"><p className="text-xs text-muted-foreground font-semibold">Upcoming Today</p><p className="mt-1 text-2xl font-bold text-foreground">29</p><p className="mt-1 text-xs text-muted-foreground font-medium">Live</p></div>
-                <div className="rounded-2xl border border-border bg-muted/40 p-4"><p className="text-xs text-muted-foreground font-semibold">No-shows</p><p className="mt-1 text-2xl font-bold text-foreground">4</p><p className="mt-1 text-xs text-amber-600 font-medium">Auto follow-up sent</p></div>
-              </div>
-            )}
-            {activeTab === 'analytics' && (
-              <div className="grid gap-4 p-6 md:grid-cols-3 animate-in fade-in duration-200">
-                <div className="rounded-2xl border border-border bg-muted/40 p-4"><p className="text-xs text-muted-foreground font-semibold">Resolution Rate</p><p className="mt-1 text-2xl font-bold text-foreground">96.4%</p><p className="mt-1 text-xs text-emerald-600 font-medium">Excellent</p></div>
-                <div className="rounded-2xl border border-border bg-muted/40 p-4"><p className="text-xs text-muted-foreground font-semibold">Avg Response Time</p><p className="mt-1 text-2xl font-bold text-foreground">1.2s</p><p className="mt-1 text-xs text-emerald-600 font-medium">Instant</p></div>
-                <div className="rounded-2xl border border-border bg-muted/40 p-4"><p className="text-xs text-muted-foreground font-semibold">CSAT Score</p><p className="mt-1 text-2xl font-bold text-foreground">4.8 / 5</p><p className="mt-1 text-xs text-emerald-600 font-medium">+0.2 this month</p></div>
-              </div>
-            )}
-            {activeTab === 'broadcast' && (
-              <div className="grid gap-4 p-6 md:grid-cols-3 animate-in fade-in duration-200">
-                <div className="rounded-2xl border border-border bg-muted/40 p-4"><p className="text-xs text-muted-foreground font-semibold">Messages Sent</p><p className="mt-1 text-2xl font-bold text-foreground">24,100</p><p className="mt-1 text-xs text-muted-foreground font-medium">This month</p></div>
-                <div className="rounded-2xl border border-border bg-muted/40 p-4"><p className="text-xs text-muted-foreground font-semibold">Open Rate</p><p className="mt-1 text-2xl font-bold text-foreground">91%</p><p className="mt-1 text-xs text-emerald-600 font-medium">Above average</p></div>
-                <div className="rounded-2xl border border-border bg-muted/40 p-4"><p className="text-xs text-muted-foreground font-semibold">Conversions</p><p className="mt-1 text-2xl font-bold text-foreground">1,840</p><p className="mt-1 text-xs text-emerald-600 font-medium">+22% this month</p></div>
-              </div>
-            )}
-            {activeTab === 'settings' && (
-              <div className="grid gap-4 p-6 md:grid-cols-3 animate-in fade-in duration-200">
-                <div className="rounded-2xl border border-border bg-muted/40 p-4"><p className="text-xs text-muted-foreground font-semibold">Active Numbers</p><p className="mt-1 text-2xl font-bold text-foreground">3</p><p className="mt-1 text-xs text-emerald-400 font-medium">All connected</p></div>
-                <div className="rounded-2xl border border-border bg-muted/40 p-4"><p className="text-xs text-muted-foreground font-semibold">Team Members</p><p className="mt-1 text-2xl font-bold text-foreground">12</p><p className="mt-1 text-muted-foreground font-medium">Roles configured</p></div>
-                <div className="rounded-2xl border border-border bg-muted/40 p-4"><p className="text-xs text-muted-foreground font-semibold">Integrations</p><p className="mt-1 text-2xl font-bold text-foreground">7</p><p className="mt-1 text-emerald-600 font-medium">All synced</p></div>
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════ TESTIMONIALS ═══════ */}
       <section className="mx-auto max-w-7xl px-6 py-24">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl text-foreground font-sans">Early Beta Feedback</h2>
-          <p className="mt-4 text-muted-foreground">Real feedback from early trial users across India.</p>
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl text-foreground">
+            One Dashboard. Total Control.
+          </h2>
+          <p className="mt-4 text-muted-foreground">Manage conversations, update AI knowledge, and track growth metrics in one place.</p>
         </div>
-        <div className="mt-14 grid gap-5 md:grid-cols-3 text-left">
-          <div className="flex flex-col justify-between rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift transition duration-200">
-            <p className="text-sm text-foreground font-medium leading-relaxed">"Helpa has significantly reduced our front desk call volume. Customers love getting instant answers to our treatment fees and booking details directly on WhatsApp."</p>
-            <p className="mt-6 text-xs font-bold text-indigo-600 dark:text-indigo-400">Clinic Partner · Mumbai</p>
-          </div>
-          <div className="flex flex-col justify-between rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift transition duration-200">
-            <p className="text-sm text-foreground font-medium leading-relaxed">"The automated appointment scheduling and course enquiry flow worked flawlessly during our testing phase. It handles multiple parents simultaneously."</p>
-            <p className="mt-6 text-xs font-bold text-indigo-600 dark:text-indigo-400">Coaching Institute Admin · Bangalore</p>
-          </div>
-          <div className="flex flex-col justify-between rounded-2xl border border-border bg-card p-6 shadow-sm hover-card-lift transition duration-200">
-            <p className="text-sm text-foreground font-medium leading-relaxed">"A complete game-changer for businesses that handle high volumes of customer enquiries daily. The CRM sync has made it impossible to lose contacts."</p>
-            <p className="mt-6 text-xs font-bold text-indigo-600 dark:text-indigo-400">Service Agency Partner · Delhi</p>
-          </div>
+
+        {/* Tab Buttons */}
+        <div className="mt-10 flex flex-wrap justify-center gap-2">
+          {[
+            { id: "conversations", label: "Conversations", icon: Inbox },
+            { id: "knowledge", label: "AI Knowledge Base", icon: BookOpen },
+            { id: "contacts", label: "Contacts & Leads", icon: Users2 },
+            { id: "bookings", label: "Bookings", icon: CalendarCheck },
+            { id: "analytics", label: "Analytics", icon: LineChart },
+            { id: "broadcast", label: "Broadcasts", icon: Send },
+            { id: "settings", label: "Settings", icon: Settings }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`relative flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold transition cursor-pointer ${
+                activeTab === tab.id
+                  ? "bg-indigo-600 text-white shadow-md"
+                  : "bg-card border border-border text-muted-foreground hover:bg-accent hover:text-foreground"
+              }`}
+            >
+              <tab.icon className="h-3.5 w-3.5" />
+              <span>{tab.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Dynamic Preview Container */}
+        <div className="mx-auto mt-8 max-w-5xl overflow-hidden rounded-3xl border border-border bg-card shadow-2xl p-6 transition-all duration-300">
+          {activeTab === "conversations" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid gap-4 md:grid-cols-3">
+              <div className="rounded-2xl border border-border bg-muted/40 p-5">
+                <p className="text-xs text-muted-foreground font-semibold">Total Chats Managed</p>
+                <p className="mt-2 text-3xl font-black text-foreground">14,290</p>
+                <p className="mt-1 text-xs text-emerald-600 font-bold">+38% vs last month</p>
+              </div>
+              <div className="rounded-2xl border border-border bg-muted/40 p-5">
+                <p className="text-xs text-muted-foreground font-semibold">Appointments Scheduled</p>
+                <p className="mt-2 text-3xl font-black text-foreground">3,840</p>
+                <p className="mt-1 text-xs text-emerald-600 font-bold">+24% vs last month</p>
+              </div>
+              <div className="rounded-2xl border border-border bg-muted/40 p-5">
+                <p className="text-xs text-muted-foreground font-semibold">AI Resolution Rate</p>
+                <p className="mt-2 text-3xl font-black text-foreground">96.8%</p>
+                <p className="mt-1 text-xs text-emerald-600 font-bold">Optimal Performance</p>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === "knowledge" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid gap-4 md:grid-cols-3">
+              <div className="rounded-2xl border border-border bg-muted/40 p-5">
+                <p className="text-xs text-muted-foreground font-semibold">Documents & FAQs Learned</p>
+                <p className="mt-2 text-3xl font-black text-foreground">348</p>
+                <p className="mt-1 text-xs text-emerald-600 font-bold">Auto-synced</p>
+              </div>
+              <div className="rounded-2xl border border-border bg-muted/40 p-5">
+                <p className="text-xs text-muted-foreground font-semibold">Answer Accuracy Rate</p>
+                <p className="mt-2 text-3xl font-black text-foreground">99.4%</p>
+                <p className="mt-1 text-xs text-emerald-600 font-bold">Verified</p>
+              </div>
+              <div className="rounded-2xl border border-border bg-muted/40 p-5">
+                <p className="text-xs text-muted-foreground font-semibold">Unanswered Escalations</p>
+                <p className="mt-2 text-3xl font-black text-foreground">3</p>
+                <p className="mt-1 text-xs text-muted-foreground font-semibold">Handed off to staff</p>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === "contacts" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid gap-4 md:grid-cols-3">
+              <div className="rounded-2xl border border-border bg-muted/40 p-5">
+                <p className="text-xs text-muted-foreground font-semibold">Total Contacts Stored</p>
+                <p className="mt-2 text-3xl font-black text-foreground">9,410</p>
+                <p className="mt-1 text-xs text-emerald-600 font-bold">+180 this week</p>
+              </div>
+              <div className="rounded-2xl border border-border bg-muted/40 p-5">
+                <p className="text-xs text-muted-foreground font-semibold">Hot Leads Captured</p>
+                <p className="mt-2 text-3xl font-black text-foreground">742</p>
+                <p className="mt-1 text-xs text-emerald-600 font-bold">Ready for sales</p>
+              </div>
+              <div className="rounded-2xl border border-border bg-muted/40 p-5">
+                <p className="text-xs text-muted-foreground font-semibold">Repeat Customer Ratio</p>
+                <p className="mt-2 text-3xl font-black text-foreground">42%</p>
+                <p className="mt-1 text-xs text-emerald-600 font-bold">High Loyalty</p>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === "bookings" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid gap-4 md:grid-cols-3">
+              <div className="rounded-2xl border border-border bg-muted/40 p-5">
+                <p className="text-xs text-muted-foreground font-semibold">Bookings Today</p>
+                <p className="mt-2 text-3xl font-black text-foreground">42</p>
+                <p className="mt-1 text-xs text-emerald-600 font-bold">All confirmed</p>
+              </div>
+              <div className="rounded-2xl border border-border bg-muted/40 p-5">
+                <p className="text-xs text-muted-foreground font-semibold">No-Show Rate</p>
+                <p className="mt-2 text-3xl font-black text-foreground font-semibold text-emerald-500">&lt; 2%</p>
+                <p className="mt-1 text-xs text-emerald-600 font-bold">Auto reminders active</p>
+              </div>
+              <div className="rounded-2xl border border-border bg-muted/40 p-5">
+                <p className="text-xs text-muted-foreground font-semibold">Calendar Sync</p>
+                <p className="mt-2 text-3xl font-black text-foreground">Google / Outlook</p>
+                <p className="mt-1 text-xs text-emerald-600 font-bold">Real-time sync</p>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === "analytics" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid gap-4 md:grid-cols-3">
+              <div className="rounded-2xl border border-border bg-muted/40 p-5">
+                <p className="text-xs text-muted-foreground font-semibold">Average Response Time</p>
+                <p className="mt-2 text-3xl font-black text-foreground">1.8s</p>
+                <p className="mt-1 text-xs text-emerald-600 font-bold">Instant</p>
+              </div>
+              <div className="rounded-2xl border border-border bg-muted/40 p-5">
+                <p className="text-xs text-muted-foreground font-semibold">Customer CSAT Score</p>
+                <p className="mt-2 text-3xl font-black text-foreground">4.9 / 5.0</p>
+                <p className="mt-1 text-xs text-emerald-600 font-bold">98% Satisfied</p>
+              </div>
+              <div className="rounded-2xl border border-border bg-muted/40 p-5">
+                <p className="text-xs text-muted-foreground font-semibold">Monthly Saved Hours</p>
+                <p className="mt-2 text-3xl font-black text-foreground">120 hrs</p>
+                <p className="mt-1 text-xs text-emerald-600 font-bold">Staff efficiency boost</p>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === "broadcast" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid gap-4 md:grid-cols-3">
+              <div className="rounded-2xl border border-border bg-muted/40 p-5">
+                <p className="text-xs text-muted-foreground font-semibold">Broadcast Delivery Rate</p>
+                <p className="mt-2 text-3xl font-black text-foreground">99.2%</p>
+                <p className="mt-1 text-xs text-emerald-600 font-bold">Meta Approved</p>
+              </div>
+              <div className="rounded-2xl border border-border bg-muted/40 p-5">
+                <p className="text-xs text-muted-foreground font-semibold">Open Rate</p>
+                <p className="mt-2 text-3xl font-black text-foreground">93%</p>
+                <p className="mt-1 text-xs text-emerald-600 font-bold">5x higher than email</p>
+              </div>
+              <div className="rounded-2xl border border-border bg-muted/40 p-5">
+                <p className="text-xs text-muted-foreground font-semibold">Direct Broadcast Bookings</p>
+                <p className="mt-2 text-3xl font-black text-foreground">1,240</p>
+                <p className="mt-1 text-xs text-emerald-600 font-bold">High ROI</p>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === "settings" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid gap-4 md:grid-cols-3">
+              <div className="rounded-2xl border border-border bg-muted/40 p-5">
+                <p className="text-xs text-muted-foreground font-semibold">Active WhatsApp Numbers</p>
+                <p className="mt-2 text-3xl font-black text-foreground">3 Numbers</p>
+                <p className="mt-1 text-xs text-emerald-600 font-bold">All Connected</p>
+              </div>
+              <div className="rounded-2xl border border-border bg-muted/40 p-5">
+                <p className="text-xs text-muted-foreground font-semibold">Team Members</p>
+                <p className="mt-2 text-3xl font-black text-foreground">12 Staff</p>
+                <p className="mt-1 text-xs text-muted-foreground font-semibold">Roles configured</p>
+              </div>
+              <div className="rounded-2xl border border-border bg-muted/40 p-5">
+                <p className="text-xs text-muted-foreground font-semibold">Security & SSL</p>
+                <p className="mt-2 text-3xl font-black text-foreground">256-bit AES</p>
+                <p className="mt-1 text-xs text-emerald-600 font-bold">Encrypted</p>
+              </div>
+            </motion.div>
+          )}
         </div>
       </section>
 
-      {/* ═══════ TRUST SECTION ═══════ */}
-      <section className="border-t border-border bg-muted/20 py-24 transition-colors duration-300">
-        <div className="mx-auto max-w-7xl px-6">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl text-foreground">Everything You Need. <span className="text-indigo-600 dark:text-indigo-400">Nothing You Don't.</span></h2>
-            <p className="mt-4 text-muted-foreground">Minimal setup overhead. Engineered to drive bookings and capture customers instantly.</p>
-          </div>
-          <div className="mt-14 max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-6 text-left">
-            <div className="flex items-center gap-3 p-4 rounded-xl border border-border/80 bg-card">
-              <div className="h-8 w-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500"><Check className="h-4.5 w-4.5" /></div>
-              <span className="text-sm font-semibold text-foreground">WhatsApp Business</span>
-            </div>
-            <div className="flex items-center gap-3 p-4 rounded-xl border border-border/80 bg-card">
-              <div className="h-8 w-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500"><Check className="h-4.5 w-4.5" /></div>
-              <span className="text-sm font-semibold text-foreground">Multi-language</span>
-            </div>
-            <div className="flex items-center gap-3 p-4 rounded-xl border border-border/80 bg-card">
-              <div className="h-8 w-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500"><Check className="h-4.5 w-4.5" /></div>
-              <span className="text-sm font-semibold text-foreground">Human Takeover</span>
-            </div>
-            <div className="flex items-center gap-3 p-4 rounded-xl border border-border/80 bg-card">
-              <div className="h-8 w-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500"><Check className="h-4.5 w-4.5" /></div>
-              <span className="text-sm font-semibold text-foreground">CRM</span>
-            </div>
-            <div className="flex items-center gap-3 p-4 rounded-xl border border-border/80 bg-card">
-              <div className="h-8 w-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500"><Check className="h-4.5 w-4.5" /></div>
-              <span className="text-sm font-semibold text-foreground">Broadcasts</span>
-            </div>
-            <div className="flex items-center gap-3 p-4 rounded-xl border border-border/80 bg-card">
-              <div className="h-8 w-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500"><Check className="h-4.5 w-4.5" /></div>
-              <span className="text-sm font-semibold text-foreground">Analytics</span>
-            </div>
-            <div className="flex items-center gap-3 p-4 rounded-xl border border-border/80 bg-card">
-              <div className="h-8 w-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500"><Check className="h-4.5 w-4.5" /></div>
-              <span className="text-sm font-semibold text-foreground">Secure Cloud</span>
-            </div>
-            <div className="flex items-center gap-3 p-4 rounded-xl border border-border/80 bg-card">
-              <div className="h-8 w-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500"><Check className="h-4.5 w-4.5" /></div>
-              <span className="text-sm font-semibold text-foreground">Fast Setup</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════ PRICING ═══════ */}
-      <section id="pricing" className="border-t border-border bg-muted/30 py-24 scroll-mt-14 transition-colors duration-300">
+      {/* ═══════ PRICING SECTION ═══════ */}
+      <section id="pricing" className="border-t border-border bg-muted/30 py-24 scroll-mt-16">
         <div className="mx-auto max-w-7xl px-6">
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 16 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-15px" }}
-            transition={{ duration: 0.4 }}
+            viewport={{ once: true, margin: "-20px" }}
+            transition={{ duration: 0.5 }}
             className="mx-auto max-w-2xl text-center"
           >
-            <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl text-foreground">Simple pricing that grows with your business</h2>
-            <p className="mt-4 text-muted-foreground">Every plan includes onboarding, AI training, WhatsApp setup and dedicated support.</p>
+            <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl text-foreground">
+              Simple Pricing That Pays For Itself
+            </h2>
+            <p className="mt-4 text-muted-foreground">Every plan includes complete onboarding, AI setup, WhatsApp connection and dedicated support.</p>
           </motion.div>
           
           <div className="mt-14 grid gap-6 md:grid-cols-3 text-left">
+            
             {/* Starter Plan */}
             <motion.div
-              initial={{ opacity: 0, y: 12 }}
+              initial={{ opacity: 0, y: 16 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-15px" }}
-              transition={{ duration: 0.35, delay: 0 }}
-              className="flex flex-col rounded-2xl border border-border bg-card p-7 shadow-sm hover-card-lift transition duration-200"
+              viewport={{ once: true }}
+              transition={{ duration: 0.4 }}
+              className="flex flex-col rounded-3xl border border-border bg-card p-8 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
             >
-              <span className="text-xs font-semibold uppercase text-muted-foreground tracking-wider block mb-2">Perfect for small businesses</span>
-              <h3 className="text-xl font-bold text-foreground">Starter</h3>
-              <p className="mt-2 text-xs text-muted-foreground leading-relaxed">Setup Fee: ₹9,999 (One Time)</p>
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block mb-2">Starter Tier</span>
+              <h3 className="text-2xl font-black text-foreground">Starter</h3>
+              <p className="mt-1 text-xs text-muted-foreground">Setup Fee: ₹9,999 (One-Time)</p>
               
               <div className="mt-6 flex items-baseline gap-1">
-                <span className="text-4xl font-extrabold text-foreground">₹2,999</span>
-                <span className="text-sm text-muted-foreground font-medium">/month</span>
+                <span className="text-4xl font-black text-foreground">₹2,999</span>
+                <span className="text-sm font-semibold text-muted-foreground">/month</span>
               </div>
               
-              <ul className="mt-6 space-y-3 flex-1 border-t border-border/40 pt-6">
-                <li className="flex items-start gap-2 text-sm text-muted-foreground font-medium"><CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-indigo-600 dark:text-indigo-400" />1 WhatsApp Business Number</li>
-                <li className="flex items-start gap-2 text-sm text-muted-foreground font-medium"><CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-indigo-600 dark:text-indigo-400" />AI Receptionist</li>
-                <li className="flex items-start gap-2 text-sm text-muted-foreground font-medium"><CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-indigo-600 dark:text-indigo-400" />Appointment Booking</li>
-                <li className="flex items-start gap-2 text-sm text-muted-foreground font-medium"><CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-indigo-600 dark:text-indigo-400" />FAQ Automation</li>
-                <li className="flex items-start gap-2 text-sm text-muted-foreground font-medium"><CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-indigo-600 dark:text-indigo-400" />Lead Capture</li>
-                <li className="flex items-start gap-2 text-sm text-muted-foreground font-medium"><CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-indigo-600 dark:text-indigo-400" />Human Takeover</li>
-                <li className="flex items-start gap-2 text-sm text-muted-foreground font-medium"><CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-indigo-600 dark:text-indigo-400" />Dashboard Analytics</li>
-                <li className="flex items-start gap-2 text-sm text-muted-foreground font-medium"><CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-indigo-600 dark:text-indigo-400" />Multilingual AI</li>
-                <li className="flex items-start gap-2 text-sm text-muted-foreground font-medium"><CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-indigo-600 dark:text-indigo-400" />Email Support</li>
-                <li className="flex items-start gap-2 text-sm text-muted-foreground font-medium"><CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-indigo-600 dark:text-indigo-400" />Free Onboarding</li>
+              <ul className="mt-6 space-y-3.5 flex-1 border-t border-border/40 pt-6">
+                {[
+                  "1 WhatsApp Business Number",
+                  "24/7 AI Receptionist",
+                  "Appointment Scheduling",
+                  "FAQ Automation",
+                  "Lead Capture & Sync",
+                  "Human Takeover Mode",
+                  "Analytics Dashboard",
+                  "Multilingual Support",
+                  "Free Onboarding Session"
+                ].map((item, idx) => (
+                  <li key={idx} className="flex items-center gap-2.5 text-xs text-muted-foreground font-semibold">
+                    <CheckCircle2 className="h-4 w-4 text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
+                    <span>{item}</span>
+                  </li>
+                ))}
               </ul>
-              <Link href={user ? "/dashboard" : "/signup"} className="mt-8 rounded-full border border-border bg-card px-5 py-3 text-center text-sm font-semibold text-foreground hover:bg-accent transition shadow-sm">
-                Book Demo
+              <Link
+                href={user ? "/dashboard" : "/signup"}
+                className="mt-8 rounded-full border border-border bg-card px-6 py-3.5 text-center text-sm font-bold text-foreground hover:bg-accent transition shadow-sm"
+              >
+                Book Free Demo
               </Link>
             </motion.div>
             
-            {/* Growth Plan */}
+            {/* Growth Plan (Popular) */}
             <motion.div
-              initial={{ opacity: 0, y: 12 }}
+              initial={{ opacity: 0, y: 16 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-15px" }}
-              transition={{ duration: 0.35, delay: 0.1 }}
-              className="flex flex-col rounded-2xl border-2 border-indigo-600 bg-card p-7 shadow-xl shadow-indigo-600/5 relative hover-card-lift transition duration-200"
+              viewport={{ once: true }}
+              transition={{ duration: 0.4, delay: 0.1 }}
+              className="relative flex flex-col rounded-3xl border-2 border-indigo-600 bg-card p-8 shadow-2xl shadow-indigo-600/10 hover:-translate-y-1.5 transition-all duration-300"
             >
-              <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-indigo-600 px-3 py-1 text-[10px] font-extrabold text-white uppercase tracking-wider">Most Popular</span>
-              <span className="text-xs font-semibold uppercase text-indigo-600 dark:text-indigo-400 tracking-wider block mb-2 mt-2">Scale your operations</span>
-              <h3 className="text-xl font-bold text-foreground">Growth</h3>
-              <p className="mt-2 text-xs text-muted-foreground leading-relaxed">Setup Fee: ₹19,999</p>
+              <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-indigo-600 px-4 py-1 text-[10px] font-black text-white uppercase tracking-widest shadow-md">
+                ★ Most Popular
+              </span>
+              <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 block mb-2">Growth Tier</span>
+              <h3 className="text-2xl font-black text-foreground">Growth</h3>
+              <p className="mt-1 text-xs text-muted-foreground">Setup Fee: ₹19,999 (One-Time)</p>
               
               <div className="mt-6 flex items-baseline gap-1">
-                <span className="text-4xl font-extrabold text-foreground">₹5,999</span>
-                <span className="text-sm text-muted-foreground font-medium">/month</span>
+                <span className="text-4xl font-black text-foreground">₹5,999</span>
+                <span className="text-sm font-semibold text-muted-foreground">/month</span>
               </div>
               
-              <ul className="mt-6 space-y-3 flex-1 border-t border-border/40 pt-6">
-                <li className="text-xs font-semibold text-foreground tracking-wider uppercase mb-1">Everything in Starter plus</li>
-                <li className="flex items-start gap-2 text-sm text-muted-foreground font-medium"><CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-indigo-600 dark:text-indigo-400" />Up to 3 WhatsApp Numbers</li>
-                <li className="flex items-start gap-2 text-sm text-muted-foreground font-medium"><CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-indigo-600 dark:text-indigo-400" />Shared Team Inbox</li>
-                <li className="flex items-start gap-2 text-sm text-muted-foreground font-medium"><CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-indigo-600 dark:text-indigo-400" />CRM Integration</li>
-                <li className="flex items-start gap-2 text-sm text-muted-foreground font-medium"><CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-indigo-600 dark:text-indigo-400" />Broadcast Campaigns</li>
-                <li className="flex items-start gap-2 text-sm text-muted-foreground font-medium"><CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-indigo-600 dark:text-indigo-400" />Automated Follow-ups</li>
-                <li className="flex items-start gap-2 text-sm text-muted-foreground font-medium"><CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-indigo-600 dark:text-indigo-400" />Priority Support</li>
-                <li className="flex items-start gap-2 text-sm text-muted-foreground font-medium"><CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-indigo-600 dark:text-indigo-400" />Multiple Staff Members</li>
-                <li className="flex items-start gap-2 text-sm text-muted-foreground font-medium"><CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-indigo-600 dark:text-indigo-400" />Advanced Analytics</li>
+              <ul className="mt-6 space-y-3.5 flex-1 border-t border-border/40 pt-6">
+                <li className="text-xs font-bold text-foreground uppercase tracking-wider mb-2">Everything in Starter plus:</li>
+                {[
+                  "Up to 3 WhatsApp Numbers",
+                  "Shared Team Inbox",
+                  "CRM Integration & Pipeline",
+                  "WhatsApp Broadcast Campaigns",
+                  "Automated Follow-up Sequences",
+                  "Multiple Staff Member Roles",
+                  "Priority 24/7 Support"
+                ].map((item, idx) => (
+                  <li key={idx} className="flex items-center gap-2.5 text-xs text-foreground font-bold">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                    <span>{item}</span>
+                  </li>
+                ))}
               </ul>
-              <a href="mailto:hello@helpa.studio" className="mt-8 rounded-full bg-indigo-600 px-5 py-3 text-center text-sm font-semibold text-white transition hover:bg-indigo-700 shadow-md shadow-indigo-600/10">
+              <Link
+                href={user ? "/dashboard" : "/signup"}
+                className="mt-8 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-3.5 text-center text-sm font-bold text-white transition hover:shadow-lg shadow-md"
+              >
                 Book Free Consultation
-              </a>
+              </Link>
             </motion.div>
 
             {/* Enterprise Plan */}
             <motion.div
-              initial={{ opacity: 0, y: 12 }}
+              initial={{ opacity: 0, y: 16 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-15px" }}
-              transition={{ duration: 0.35, delay: 0.2 }}
-              className="flex flex-col rounded-2xl border border-border bg-card p-7 shadow-sm hover-card-lift transition duration-200"
+              viewport={{ once: true }}
+              transition={{ duration: 0.4, delay: 0.2 }}
+              className="flex flex-col rounded-3xl border border-border bg-card p-8 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300"
             >
-              <span className="text-xs font-semibold uppercase text-muted-foreground tracking-wider block mb-2">For high-volume operations</span>
-              <h3 className="text-xl font-bold text-foreground">Enterprise</h3>
-              <p className="mt-2 text-xs text-muted-foreground leading-relaxed">Built for hospitals, franchises and high-volume businesses.</p>
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block mb-2">Enterprise Tier</span>
+              <h3 className="text-2xl font-black text-foreground">Enterprise</h3>
+              <p className="mt-1 text-xs text-muted-foreground">Custom Multi-Branch Setup</p>
               
               <div className="mt-6 flex items-baseline gap-1">
-                <span className="text-4xl font-extrabold text-foreground">Custom</span>
+                <span className="text-4xl font-black text-foreground">Custom</span>
               </div>
               
-              <ul className="mt-6 space-y-3 flex-1 border-t border-border/40 pt-6">
-                <li className="flex items-start gap-2 text-sm text-muted-foreground font-medium"><CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-indigo-600 dark:text-indigo-400" />Unlimited Numbers</li>
-                <li className="flex items-start gap-2 text-sm text-muted-foreground font-medium"><CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-indigo-600 dark:text-indigo-400" />Custom AI Training</li>
-                <li className="flex items-start gap-2 text-sm text-muted-foreground font-medium"><CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-indigo-600 dark:text-indigo-400" />API Access</li>
-                <li className="flex items-start gap-2 text-sm text-muted-foreground font-medium"><CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-indigo-600 dark:text-indigo-400" />Custom Integrations</li>
-                <li className="flex items-start gap-2 text-sm text-muted-foreground font-medium"><CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-indigo-600 dark:text-indigo-400" />Dedicated Account Manager</li>
-                <li className="flex items-start gap-2 text-sm text-muted-foreground font-medium"><CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-indigo-600 dark:text-indigo-400" />SLA</li>
-                <li className="flex items-start gap-2 text-sm text-muted-foreground font-medium"><CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-indigo-600 dark:text-indigo-400" />On-premise Deployment (Optional)</li>
-                <li className="flex items-start gap-2 text-sm text-muted-foreground font-medium"><CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-indigo-600 dark:text-indigo-400" />White Label</li>
+              <ul className="mt-6 space-y-3.5 flex-1 border-t border-border/40 pt-6">
+                {[
+                  "Unlimited WhatsApp Numbers",
+                  "Custom Fine-Tuned AI Models",
+                  "Full REST API & Webhooks Access",
+                  "Custom Database Integrations",
+                  "Dedicated Account Manager",
+                  "Guaranteed SLA Agreement",
+                  "White-Label Option Available"
+                ].map((item, idx) => (
+                  <li key={idx} className="flex items-center gap-2.5 text-xs text-muted-foreground font-semibold">
+                    <CheckCircle2 className="h-4 w-4 text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
+                    <span>{item}</span>
+                  </li>
+                ))}
               </ul>
-              <a href="mailto:sales@helpa.studio" className="mt-8 rounded-full border border-border bg-card px-5 py-3 text-center text-sm font-semibold text-foreground hover:bg-accent transition shadow-sm">Contact Sales</a>
+              <a
+                href="mailto:sales@helpa.studio"
+                className="mt-8 rounded-full border border-border bg-card px-6 py-3.5 text-center text-sm font-bold text-foreground hover:bg-accent transition shadow-sm"
+              >
+                Contact Sales Team
+              </a>
             </motion.div>
-          </div>
 
-          {/* Premium Info Box: What's included in the setup fee */}
-          <div className="mx-auto mt-12 max-w-3xl border border-border bg-card rounded-2xl p-8 shadow-sm text-left transition-colors duration-300">
-            <h3 className="text-lg font-bold text-foreground mb-4">What's included in the setup fee?</h3>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground font-medium">
-                <span className="text-indigo-600 font-bold text-base">•</span> WhatsApp Business configuration
-              </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground font-medium">
-                <span className="text-indigo-600 font-bold text-base">•</span> AI knowledge base training
-              </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground font-medium">
-                <span className="text-indigo-600 font-bold text-base">•</span> Business workflow setup
-              </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground font-medium">
-                <span className="text-indigo-600 font-bold text-base">•</span> Appointment flow configuration
-              </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground font-medium">
-                <span className="text-indigo-600 font-bold text-base">•</span> Team onboarding
-              </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground font-medium">
-                <span className="text-indigo-600 font-bold text-base">•</span> Go-live assistance
-              </div>
-            </div>
-          </div>
-
-          {/* Usage Policy Note */}
-          <div className="text-center mt-8 max-w-lg mx-auto">
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              "Each plan includes generous AI usage. If your business exceeds the included usage, additional AI credits are billed separately."
-            </p>
           </div>
         </div>
       </section>
 
-      {/* ═══════ FAQ ═══════ */}
-      <section id="faq" className="mx-auto max-w-3xl px-6 py-24 scroll-mt-14">
+      {/* ═══════ FAQ SECTION (ANIMATED ACCORDION) ═══════ */}
+      <section id="faq" className="mx-auto max-w-3xl px-6 py-24 scroll-mt-16">
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
+          initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-15px" }}
-          transition={{ duration: 0.4 }}
+          viewport={{ once: true, margin: "-20px" }}
+          transition={{ duration: 0.5 }}
           className="text-center"
         >
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl text-foreground">Frequently asked questions</h2>
+          <h2 className="text-3xl font-extrabold tracking-tight sm:text-4xl text-foreground">
+            Frequently Asked Questions
+          </h2>
+          <p className="mt-3 text-muted-foreground">Everything you need to know about setting up Helpa for your business.</p>
         </motion.div>
-        <div className="mt-12 divide-y divide-border text-left">
-          <div className="py-5">
-            <button onClick={() => setActiveFaq(activeFaq === 1 ? null : 1)} className="flex w-full items-center justify-between text-left cursor-pointer">
-              <span className="font-semibold text-foreground">How does Helpa connect to our WhatsApp number?</span>
-              <ChevronDown className={`h-4 w-4 flex-shrink-0 text-muted-foreground transition-transform duration-300 ${activeFaq === 1 ? 'rotate-180' : ''}`} />
-            </button>
-            {activeFaq === 1 && (
-              <div className="mt-3 text-sm text-muted-foreground bg-muted/30 p-4 rounded-xl animate-in fade-in duration-200">
-                Helpa connects directly using the official Meta WhatsApp Business Cloud API. You can continue using your existing business number — no SIM card changes or data migrations required. Setup takes only a few minutes.
-              </div>
-            )}
-          </div>
-          <div className="py-5">
-            <button onClick={() => setActiveFaq(activeFaq === 2 ? null : 2)} className="flex w-full items-center justify-between text-left cursor-pointer">
-              <span className="font-semibold text-foreground">How accurate are the AI assistant's replies?</span>
-              <ChevronDown className={`h-4 w-4 flex-shrink-0 text-muted-foreground transition-transform duration-300 ${activeFaq === 2 ? 'rotate-180' : ''}`} />
-            </button>
-            {activeFaq === 2 && (
-              <div className="mt-3 text-sm text-muted-foreground bg-muted/30 p-4 rounded-xl animate-in fade-in duration-200">
-                Helpa strictly answers based on the knowledge documents, FAQs, timings, and pricing list you upload. It never makes up or guesses details. If a customer asks something outside the scope, Helpa quietly flags it for human staff takeover.
-              </div>
-            )}
-          </div>
-          <div className="py-5">
-            <button onClick={() => setActiveFaq(activeFaq === 3 ? null : 3)} className="flex w-full items-center justify-between text-left cursor-pointer">
-              <span className="font-semibold text-foreground">Can our staff step in and text the customer?</span>
-              <ChevronDown className={`h-4 w-4 flex-shrink-0 text-muted-foreground transition-transform duration-300 ${activeFaq === 3 ? 'rotate-180' : ''}`} />
-            </button>
-            {activeFaq === 3 && (
-              <div className="mt-3 text-sm text-muted-foreground bg-muted/30 p-4 rounded-xl animate-in fade-in duration-200">
-                Yes, absolutely. A human takeover is built into Helpa. Your receptionist can click "Takeover" on the CRM dashboard to pause the AI and reply manually on the same thread anytime.
-              </div>
-            )}
-          </div>
-          <div className="py-5">
-            <button onClick={() => setActiveFaq(activeFaq === 4 ? null : 4)} className="flex w-full items-center justify-between text-left cursor-pointer">
-              <span className="font-semibold text-foreground">How is the billing calculated?</span>
-              <ChevronDown className={`h-4 w-4 flex-shrink-0 text-muted-foreground transition-transform duration-300 ${activeFaq === 4 ? 'rotate-180' : ''}`} />
-            </button>
-            {activeFaq === 4 && (
-              <div className="mt-3 text-sm text-muted-foreground bg-muted/30 p-4 rounded-xl animate-in fade-in duration-200">
-                Pricing is based on monthly conversation volume and the features you need. There are no hidden per-message fees, and usage is always visible from your dashboard.
-              </div>
-            )}
-          </div>
-          <div className="py-5">
-            <button onClick={() => setActiveFaq(activeFaq === 5 ? null : 5)} className="flex w-full items-center justify-between text-left cursor-pointer">
-              <span className="font-semibold text-foreground">How long does it take to go live?</span>
-              <ChevronDown className={`h-4 w-4 flex-shrink-0 text-muted-foreground transition-transform duration-300 ${activeFaq === 5 ? 'rotate-180' : ''}`} />
-            </button>
-            {activeFaq === 5 && (
-              <div className="mt-3 text-sm text-muted-foreground bg-muted/30 p-4 rounded-xl animate-in fade-in duration-200">
-                Most Indian businesses set up Helpa and go live in less than 24 hours. Just sign up, connect your WhatsApp channel, paste your business FAQs, and Helpa starts responding to customer chats immediately.
-              </div>
-            )}
-          </div>
-          {/* New FAQs requested */}
-          <div className="py-5">
-            <button onClick={() => setActiveFaq(activeFaq === 6 ? null : 6)} className="flex w-full items-center justify-between text-left cursor-pointer">
-              <span className="font-semibold text-foreground">Is my data secure?</span>
-              <ChevronDown className={`h-4 w-4 flex-shrink-0 text-muted-foreground transition-transform duration-300 ${activeFaq === 6 ? 'rotate-180' : ''}`} />
-            </button>
-            {activeFaq === 6 && (
-              <div className="mt-3 text-sm text-muted-foreground bg-muted/30 p-4 rounded-xl animate-in fade-in duration-200">
-                Yes. Your data is stored on secure cloud databases with end-to-end encryption. Helpa complies with global standard data privacy regulations.
-              </div>
-            )}
-          </div>
-          <div className="py-5">
-            <button onClick={() => setActiveFaq(activeFaq === 7 ? null : 7)} className="flex w-full items-center justify-between text-left cursor-pointer">
-              <span className="font-semibold text-foreground">Can Helpa answer in multiple languages?</span>
-              <ChevronDown className={`h-4 w-4 flex-shrink-0 text-muted-foreground transition-transform duration-300 ${activeFaq === 7 ? 'rotate-180' : ''}`} />
-            </button>
-            {activeFaq === 7 && (
-              <div className="mt-3 text-sm text-muted-foreground bg-muted/30 p-4 rounded-xl animate-in fade-in duration-200">
-                Yes, Helpa is natively multilingual. It automatically detects and responds in the customer's language, including English, Hindi, Bengali, Spanish, and many more.
-              </div>
-            )}
-          </div>
-          <div className="py-5">
-            <button onClick={() => setActiveFaq(activeFaq === 8 ? null : 8)} className="flex w-full items-center justify-between text-left cursor-pointer">
-              <span className="font-semibold text-foreground">Can staff take over a conversation?</span>
-              <ChevronDown className={`h-4 w-4 flex-shrink-0 text-muted-foreground transition-transform duration-300 ${activeFaq === 8 ? 'rotate-180' : ''}`} />
-            </button>
-            {activeFaq === 8 && (
-              <div className="mt-3 text-sm text-muted-foreground bg-muted/30 p-4 rounded-xl animate-in fade-in duration-200">
-                Absolutely. You can choose to pause the AI anytime and take over the conversation directly from your dashboard to chat with the customer manually.
-              </div>
-            )}
-          </div>
-          <div className="py-5">
-            <button onClick={() => setActiveFaq(activeFaq === 9 ? null : 9)} className="flex w-full items-center justify-between text-left cursor-pointer">
-              <span className="font-semibold text-foreground">Can I connect multiple WhatsApp numbers?</span>
-              <ChevronDown className={`h-4 w-4 flex-shrink-0 text-muted-foreground transition-transform duration-300 ${activeFaq === 9 ? 'rotate-180' : ''}`} />
-            </button>
-            {activeFaq === 9 && (
-              <div className="mt-3 text-sm text-muted-foreground bg-muted/30 p-4 rounded-xl animate-in fade-in duration-200">
-                Yes, depending on your plan tier (e.g. Growth or Enterprise), you can connect multiple WhatsApp numbers to manage conversations across branches or departments under one single account.
-              </div>
-            )}
-          </div>
+
+        <div className="mt-12 space-y-3">
+          {[
+            {
+              id: 1,
+              q: "How does Helpa connect to our existing WhatsApp number?",
+              a: "Helpa connects directly via Meta's official WhatsApp Business Cloud API. You keep your current number — no SIM card change or data migration needed. Setup takes less than 15 minutes."
+            },
+            {
+              id: 2,
+              q: "How accurate are the AI's answers?",
+              a: "Helpa strictly bases its answers on the knowledge documents, pricing lists, and FAQs you upload. It never invents information. If a customer asks a question outside its training, it hands off the conversation to your staff."
+            },
+            {
+              id: 3,
+              q: "Can our staff step in and text customers manually?",
+              a: "Yes! A 1-click Human Takeover is built into Helpa. Your staff can pause the AI and reply manually from the CRM dashboard anytime."
+            },
+            {
+              id: 4,
+              q: "Does Helpa support regional languages like Hindi or Bengali?",
+              a: "Yes, Helpa is natively multilingual. It automatically detects and responds in the customer's preferred language, including English, Hindi, Hinglish, Bengali, Marathi, and Tamil."
+            },
+            {
+              id: 5,
+              q: "How long does setup take?",
+              a: "Most businesses complete setup and go live in less than 24 hours. Our onboarding team assists you step-by-step."
+            }
+          ].map((item) => (
+            <div key={item.id} className="rounded-2xl border border-border bg-card overflow-hidden transition-all">
+              <button
+                onClick={() => setActiveFaq(activeFaq === item.id ? null : item.id)}
+                className="flex w-full items-center justify-between p-5 text-left font-bold text-foreground text-sm sm:text-base cursor-pointer hover:bg-accent/50 transition-colors"
+              >
+                <span>{item.q}</span>
+                <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform duration-300 ${activeFaq === item.id ? "rotate-180 text-indigo-600" : ""}`} />
+              </button>
+              
+              <AnimatePresence>
+                {activeFaq === item.id && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.25 }}
+                    className="border-t border-border/50 px-5 py-4 text-xs sm:text-sm text-muted-foreground leading-relaxed bg-muted/20"
+                  >
+                    {item.a}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          ))}
         </div>
       </section>
 
-      {/* ═══════ FINAL CTA ═══════ */}
-      <section id="demo" className="px-6 py-24">
-        <div className="relative mx-auto max-w-4xl overflow-hidden rounded-3xl border border-border bg-[radial-gradient(ellipse_80%_80%_at_50%_0%,rgba(79,70,229,0.05),transparent)] p-14 text-center bg-card shadow-sm transition-colors duration-300">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl text-foreground">Ready to Stop Missing Customers?</h2>
-          <p className="mx-auto mt-4 max-w-md text-muted-foreground">See Helpa working with your own business in a live 15-minute demo.</p>
-          <Link href={user ? "/dashboard" : "/signup"} className="mt-8 inline-flex items-center gap-2 rounded-full bg-indigo-600 px-8 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 shadow-sm shadow-indigo-600/10">
-            Book My Demo <ArrowRight className="h-4 w-4" />
-          </Link>
+      {/* ═══════ FINAL CALL TO ACTION ═══════ */}
+      <section className="px-6 py-20 z-10 relative">
+        <div className="relative mx-auto max-w-4xl overflow-hidden rounded-[2.5rem] border border-indigo-500/30 bg-gradient-to-br from-indigo-900/90 via-zinc-900 to-purple-950 p-10 sm:p-16 text-center text-white shadow-2xl">
+          <div className="absolute -top-24 -left-24 h-64 w-64 rounded-full bg-indigo-500/20 blur-3xl"></div>
+          <div className="absolute -bottom-24 -right-24 h-64 w-64 rounded-full bg-purple-500/20 blur-3xl"></div>
+          
+          <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-white relative z-10">
+            Ready to Stop Missing Customers?
+          </h2>
+          <p className="mx-auto mt-4 max-w-lg text-indigo-100 text-sm sm:text-base leading-relaxed relative z-10">
+            See Helpa configured live with your business FAQs in a 15-minute demo session.
+          </p>
+
+          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4 relative z-10">
+            <Link
+              href={user ? "/dashboard" : "/signup"}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-full bg-white px-8 py-4 text-sm font-extrabold text-indigo-950 hover:bg-zinc-100 transition-all shadow-xl hover:scale-105"
+            >
+              <span>Book My 15-Min Demo</span>
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
         </div>
       </section>
 
       {/* ═══════ FOOTER ═══════ */}
-      <footer className="border-t border-border bg-card px-6 py-10 transition-colors duration-300">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 sm:flex-row">
-          <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600"><MessageSquare className="h-3.5 w-3.5 text-white" /></div>
-            <span className="font-semibold text-foreground">Helpa</span>
+      <footer className="border-t border-border bg-card px-6 py-10">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-6 sm:flex-row">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-md">
+              <MessageSquare className="h-4 w-4" />
+            </div>
+            <span className="font-extrabold text-foreground text-lg">Helpa AI</span>
           </div>
-          <div className="flex flex-wrap justify-center gap-6 text-sm text-muted-foreground font-medium">
+
+          <div className="flex flex-wrap justify-center gap-6 text-xs text-muted-foreground font-semibold">
             <a href="#features" className="hover:text-foreground transition-colors">Features</a>
-            <a href="#industries" className="hover:text-foreground transition-colors">Industries</a>
+            <a href="#demo-simulator" className="hover:text-foreground transition-colors">Live Demo</a>
+            <a href="#roi" className="hover:text-foreground transition-colors">ROI Calculator</a>
             <a href="#pricing" className="hover:text-foreground transition-colors">Pricing</a>
             <a href="mailto:hello@helpa.studio" className="hover:text-foreground transition-colors">Contact</a>
             <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
-            <Link href="/terms" className="hover:text-foreground transition-colors">Terms</Link>
+            <Link href="/terms" className="hover:text-foreground transition-colors">Terms of Service</Link>
           </div>
-          <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} Helpa Studio</p>
+
+          <p className="text-xs text-muted-foreground font-medium">
+            © {new Date().getFullYear()} Helpa AI Studio. All rights reserved.
+          </p>
         </div>
       </footer>
+
+      {/* Sticky Bottom-Right Quick Demo Floating Widget */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 1 }}
+        className="fixed bottom-6 right-6 z-40"
+      >
+        <Link
+          href={user ? "/dashboard" : "/signup"}
+          className="flex items-center gap-2.5 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-3 text-xs font-bold text-white shadow-2xl hover:scale-105 active:scale-95 transition-all border border-white/20"
+        >
+          <MessageCircle className="h-4 w-4 text-emerald-300 animate-pulse" />
+          <span className="hidden sm:inline">Book Demo</span>
+          <ChevronRight className="h-3.5 w-3.5" />
+        </Link>
+      </motion.div>
 
     </div>
   );
