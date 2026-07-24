@@ -798,7 +798,7 @@ async function processMessage(
     }
 
     // Trigger AI Assistant response if enabled and flow did not consume the message
-    if (conversation.ai_chat_enabled && !flowConsumed) {
+    if (conversation.ai_chat_enabled !== false && !flowConsumed) {
       try {
         await triggerAiResponse({
           accountId,
