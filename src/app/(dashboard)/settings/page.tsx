@@ -20,6 +20,7 @@ import { KbPanel } from '@/components/settings/kb-panel';
 import { BillingPanel } from '@/components/settings/billing-panel';
 import { InsurancePanel } from '@/components/settings/insurance-panel';
 import { ReminderPanel } from '@/components/settings/reminder-panel';
+import { WelcomePanel } from '@/components/settings/welcome-panel';
 import {
   resolveSection,
   type SettingsSection,
@@ -60,6 +61,7 @@ export default function SettingsPage() {
     security: <SecurityPanel />,
     appearance: <AppearancePanel />,
     whatsapp: <WhatsAppConfig />,
+    welcome: <WelcomePanel />,
     templates: <TemplateManager />,
     fields: <FieldsAndTagsPanel />,
     deals: <DealsSettings />,

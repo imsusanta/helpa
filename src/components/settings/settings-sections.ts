@@ -13,6 +13,7 @@ import {
   CreditCard,
   Boxes,
   BellRing,
+  MessageSquare,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -31,6 +32,7 @@ export const SETTINGS_SECTIONS = [
   'appearance',
   'billing',
   'whatsapp',
+  'welcome',
   'templates',
   'fields',
   'deals',
@@ -163,6 +165,7 @@ export function getSectionMeta(
     appearance: { id: 'appearance', label: 'Appearance', icon: Palette, group: 'account' },
     billing: { id: 'billing', label: 'Billing & Plans', icon: CreditCard, group: 'account' },
     whatsapp: { id: 'whatsapp', label: 'WhatsApp', icon: PlugZap, group: 'workspace' },
+    welcome: { id: 'welcome', label: 'Welcome Message', icon: MessageSquare, group: 'workspace' },
     templates: { id: 'templates', label: 'Templates', icon: FileText, group: 'workspace' },
     fields: { id: 'fields', label: labels.fields, icon: Tags, group: 'workspace' },
     deals: { id: 'deals', label: labels.deals, icon: Coins, group: 'workspace' },
