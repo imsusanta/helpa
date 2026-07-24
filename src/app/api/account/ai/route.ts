@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { requireRole, toErrorResponse } from '@/lib/auth/account'
+import { requireRole } from '@/lib/auth/account'
+import { supabaseAdmin } from '@/lib/automations/admin-client'
 import { encrypt } from '@/lib/whatsapp/encryption'
 import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit'
 import { resolveSystemPrompt } from '@/modules/registry'
@@ -7,8 +8,9 @@ import { resolveSystemPrompt } from '@/modules/registry'
 export async function GET() {
   try {
     const ctx = await requireRole('admin')
+    const db = supabaseAdmin()
 
-    const { data: account, error } = await ctx.supabase
+    const { data: account, error } = await db
       .from('accounts')
       .select('openrouter_model, openrouter_api_key, ai_system_prompt, welcome_message, industry')
       .eq('id', ctx.accountId)
@@ -16,7 +18,7 @@ export async function GET() {
 
     if (error) {
       console.error('[GET /api/account/ai] fetch error:', error)
-      return NextResponse.json({ error: 'Failed to fetch AI configuration' }, { status: 500 })
+      return NextResponse.json({ error: 'Failed to fetch AI configuration: ' + error.message }, { status: 500 })
     }
 
     return NextResponse.json({
@@ -28,8 +30,12 @@ export async function GET() {
       ),
       welcome_message: account?.welcome_message || '',
     })
-  } catch (err) {
-    return toErrorResponse(err)
+  } catch (err: any) {
+    console.error('[GET /api/account/ai] exception:', err)
+    return NextResponse.json(
+      { error: err?.message || 'Failed to fetch AI configuration' },
+      { status: err?.status || 500 }
+    )
   }
 }
 
@@ -70,10 +76,11 @@ export async function PATCH(request: Request) {
     }
 
     if (Object.keys(updates).length === 0) {
-      return NextResponse.json({ error: 'No valid fields provided' }, { status: 400 })
+      return NextResponse.json({ error: 'No valid fields provided to update' }, { status: 400 })
     }
 
-    const { data, error } = await ctx.supabase
+    const db = supabaseAdmin()
+    const { data, error } = await db
       .from('accounts')
       .update(updates)
       .eq('id', ctx.accountId)
@@ -82,7 +89,7 @@ export async function PATCH(request: Request) {
 
     if (error) {
       console.error('[PATCH /api/account/ai] update error:', error)
-      return NextResponse.json({ error: 'Failed to update AI configuration' }, { status: 500 })
+      return NextResponse.json({ error: 'Failed to update AI configuration: ' + error.message }, { status: 500 })
     }
 
     return NextResponse.json({
@@ -94,7 +101,11 @@ export async function PATCH(request: Request) {
       ),
       welcome_message: data?.welcome_message || '',
     })
-  } catch (err) {
-    return toErrorResponse(err)
+  } catch (err: any) {
+    console.error('[PATCH /api/account/ai] exception:', err)
+    return NextResponse.json(
+      { error: err?.message || 'Failed to update AI configuration' },
+      { status: err?.status || 500 }
+    )
   }
 }
