@@ -78,12 +78,12 @@ export function WelcomePanel() {
         <div>
           <h2 className="text-xl font-extrabold text-foreground flex items-center gap-2">
             Customizable Welcome Message
-            <span className="text-[10px] font-bold tracking-widest uppercase bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800/30">
-              WhatsApp Greeting
+            <span className="text-[10px] font-bold tracking-widest uppercase bg-muted text-muted-foreground px-2 py-0.5 rounded-full border border-border">
+              Optional
             </span>
           </h2>
           <p className="text-xs text-muted-foreground mt-1 max-w-xl leading-relaxed">
-            Set and customize the default opening greeting message sent to customers when they reach out on WhatsApp or initiate a new chat with your assistant.
+            Optionally customize the default opening greeting message sent to customers. If left blank, the AI will answer queries directly using your <strong>AI System Instructions & Guidelines</strong>.
           </p>
         </div>
       </div>

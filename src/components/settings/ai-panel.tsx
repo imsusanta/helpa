@@ -302,19 +302,27 @@ export function AiPanel() {
 
         {/* Step 3: AI System prompt guidelines */}
         <div className="bg-card border border-border rounded-2xl p-6 space-y-4 hover:border-emerald-500/20 dark:hover:border-emerald-500/30 transition-all duration-300 shadow-md">
-          <div className="flex items-center gap-2">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-xs font-bold text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/30">
-              3
+          <div className="flex items-center justify-between max-w-xl">
+            <div className="flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-xs font-bold text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/30">
+                3
+              </span>
+              <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                <Brain className="size-4 text-emerald-600 dark:text-emerald-400" />
+                AI System Instructions & Guidelines
+              </h3>
+            </div>
+            <span className="text-[10px] font-bold tracking-wider uppercase bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/20">
+              Primary Rules
             </span>
-            <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5">
-              <Brain className="size-4 text-emerald-600 dark:text-emerald-400" />
-              AI System Instructions & Guidelines
-            </h3>
           </div>
+          <p className="text-xs text-muted-foreground leading-relaxed max-w-lg">
+            Define the core behavior, business rules, safety protocols, and operational guidelines for your AI Assistant.
+          </p>
           <div className="space-y-3">
             <div className="grid gap-1.5">
               <Label htmlFor="systemPrompt" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                System Prompt Rules
+                System Prompt Rules & Guidelines
               </Label>
               <Textarea
                 id="systemPrompt"
@@ -322,8 +330,8 @@ export function AiPanel() {
                 value={systemPrompt}
                 onChange={(e) => setSystemPrompt(e.target.value)}
                 disabled={!canEditSettings}
-                rows={9}
-                className="max-w-xl bg-muted/40 border-border focus-visible:ring-emerald-500 text-foreground font-normal leading-relaxed text-xs resize-y"
+                rows={10}
+                className="max-w-xl bg-muted/40 border-border focus-visible:ring-emerald-500 text-foreground font-mono leading-relaxed text-xs resize-y"
               />
             </div>
             <div className="rounded-xl border border-emerald-200 dark:border-emerald-500/10 bg-emerald-50 dark:bg-emerald-950/10 p-4 text-[11px] text-emerald-950 dark:text-emerald-200 space-y-2 max-w-xl">
@@ -342,17 +350,22 @@ export function AiPanel() {
 
         {/* Step 4: Customizable Welcome Message */}
         <div className="bg-card border border-border rounded-2xl p-6 space-y-4 hover:border-emerald-500/20 dark:hover:border-emerald-500/30 transition-all duration-300 shadow-md">
-          <div className="flex items-center gap-2">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-xs font-bold text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/30">
-              4
+          <div className="flex items-center justify-between max-w-xl">
+            <div className="flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-xs font-bold text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/30">
+                4
+              </span>
+              <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                <MessageSquare className="size-4 text-emerald-600 dark:text-emerald-400" />
+                Customizable Welcome Message
+              </h3>
+            </div>
+            <span className="text-[10px] font-bold tracking-wider uppercase bg-muted text-muted-foreground px-2 py-0.5 rounded-full border border-border">
+              Optional
             </span>
-            <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5">
-              <MessageSquare className="size-4 text-emerald-600 dark:text-emerald-400" />
-              Customizable Welcome Message
-            </h3>
           </div>
           <p className="text-xs text-muted-foreground leading-relaxed max-w-lg">
-            Customize the default opening welcome message sent when new customers reach out on WhatsApp or start a conversation with your AI assistant.
+            Optional: Customize the opening welcome message. If left blank, the AI will answer customer queries directly using your AI System Instructions & Guidelines above.
           </p>
 
           <div className="space-y-4">

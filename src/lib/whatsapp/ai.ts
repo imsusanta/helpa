@@ -244,8 +244,8 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
 
   let systemPromptContent = basePrompt + overrideRules;
 
-  if (account.welcome_message) {
-    systemPromptContent += `\n\n[CUSTOMIZABLE WELCOME MESSAGE GREETING]:\nWhen greeting new customers or initiating a conversation, use the following customized welcome message as your default greeting tone and opening message template:\n"${account.welcome_message}"\n`;
+  if (account.welcome_message && account.welcome_message.trim().length > 0) {
+    systemPromptContent += `\n\n[OPTIONAL CUSTOM WELCOME MESSAGE GREETING]:\nIf greeting a new customer or starting a conversation, you may optionally adapt this welcome greeting template:\n"${account.welcome_message.trim()}"\nOtherwise, respond directly according to the customer query and AI System Instructions & Guidelines below.\n`;
   }
 
   if (kbContext) {
