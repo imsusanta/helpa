@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Brain, Loader2, Sparkles, Key, Cpu, AlertCircle, CheckCircle2, ChevronRight, Zap } from "lucide-react";
+import { Brain, Loader2, Sparkles, Key, Cpu, AlertCircle, CheckCircle2, ChevronRight, Zap, MessageSquare, MessageCircle, RotateCcw } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +47,7 @@ export function AiPanel() {
   const [apiKey, setApiKey] = useState("");
   const [hasApiKey, setHasApiKey] = useState(false);
   const [systemPrompt, setSystemPrompt] = useState("");
+  const [welcomeMessage, setWelcomeMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testingConnection, setTestingConnection] = useState(false);
@@ -61,6 +62,7 @@ export function AiPanel() {
           const dbModel = data.openrouter_model || "google/gemini-2.5-flash";
           setHasApiKey(data.has_api_key);
           setSystemPrompt(data.ai_system_prompt || "");
+          setWelcomeMessage(data.welcome_message || "");
           
           const matched = POPULAR_MODELS.some(m => m.id === dbModel);
           if (matched) {
@@ -98,6 +100,7 @@ export function AiPanel() {
         body: JSON.stringify({
           openrouter_model: activeModel,
           ai_system_prompt: systemPrompt,
+          welcome_message: welcomeMessage,
           ...(apiKey.trim() ? { openrouter_api_key: apiKey } : {}),
         }),
       });
@@ -333,6 +336,117 @@ export function AiPanel() {
                 <li>Make it identify patients by their Phone Number or Patient ID when checking Lab Reports.</li>
                 <li>Ensure strict medical guidelines: AI must politely decline giving diagnostics or recommending drugs.</li>
               </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Step 4: Customizable Welcome Message */}
+        <div className="bg-card border border-border rounded-2xl p-6 space-y-4 hover:border-emerald-500/20 dark:hover:border-emerald-500/30 transition-all duration-300 shadow-md">
+          <div className="flex items-center gap-2">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-xs font-bold text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/30">
+              4
+            </span>
+            <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5">
+              <MessageSquare className="size-4 text-emerald-600 dark:text-emerald-400" />
+              Customizable Welcome Message
+            </h3>
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed max-w-lg">
+            Customize the default opening welcome message sent when new customers reach out on WhatsApp or start a conversation with your AI assistant.
+          </p>
+
+          <div className="space-y-4">
+            <div className="grid gap-1.5">
+              <div className="flex items-center justify-between max-w-xl">
+                <Label htmlFor="welcomeMessage" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  Welcome Message Greeting
+                </Label>
+                <span className="text-[10px] text-muted-foreground font-mono">
+                  {welcomeMessage.length} characters
+                </span>
+              </div>
+              <Textarea
+                id="welcomeMessage"
+                placeholder="👋 Hello! Welcome to our reception desk. How can we assist you today? You can ask about doctor schedules, book an appointment, or check lab report status."
+                value={welcomeMessage}
+                onChange={(e) => setWelcomeMessage(e.target.value)}
+                disabled={!canEditSettings}
+                rows={4}
+                className="max-w-xl bg-muted/40 border-border focus-visible:ring-emerald-500 text-foreground font-normal leading-relaxed text-xs resize-y"
+              />
+            </div>
+
+            {/* Quick Presets */}
+            {canEditSettings && (
+              <div className="space-y-2 max-w-xl">
+                <p className="text-[11px] font-bold text-muted-foreground flex items-center gap-1">
+                  <Sparkles className="size-3 text-emerald-600 dark:text-emerald-400" />
+                  Quick Presets & Templates:
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-[11px] h-7 cursor-pointer border-border hover:border-emerald-500/40 hover:bg-emerald-50 dark:hover:bg-emerald-950/20"
+                    onClick={() => setWelcomeMessage("👋 Hello! Welcome to our Hospital & Clinic reception. 🏥 How can we assist you today? You can ask for Doctor schedules, book an appointment, or check report status.")}
+                  >
+                    🏥 Hospital & Clinic
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-[11px] h-7 cursor-pointer border-border hover:border-emerald-500/40 hover:bg-emerald-50 dark:hover:bg-emerald-950/20"
+                    onClick={() => setWelcomeMessage("👋 Welcome to our Coaching Institute! 🏫 How can we help you with your studies, course information, or exam preparation today?")}
+                  >
+                    🏫 Coaching & Education
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-[11px] h-7 cursor-pointer border-border hover:border-emerald-500/40 hover:bg-emerald-50 dark:hover:bg-emerald-950/20"
+                    onClick={() => setWelcomeMessage("👋 Hi there! Welcome to our business. 🚀 How can our team assist you today?")}
+                  >
+                    🏢 General Business
+                  </Button>
+                  {welcomeMessage && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="text-[11px] h-7 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 cursor-pointer"
+                      onClick={() => setWelcomeMessage("")}
+                    >
+                      <RotateCcw className="size-3 mr-1" />
+                      Clear
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Live WhatsApp Message Preview */}
+            <div className="max-w-xl rounded-xl border border-emerald-500/20 bg-emerald-950/5 dark:bg-emerald-950/20 p-3.5 space-y-2">
+              <div className="flex items-center justify-between text-[11px] font-bold text-emerald-800 dark:text-emerald-300">
+                <span className="flex items-center gap-1.5">
+                  <MessageCircle className="size-3.5 text-emerald-600 dark:text-emerald-400" />
+                  Live Preview (Customer View)
+                </span>
+                <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold border border-emerald-500/20">
+                  WhatsApp Auto-Reply
+                </span>
+              </div>
+              <div className="bg-card dark:bg-zinc-900 border border-border p-3 rounded-lg text-xs leading-relaxed shadow-sm text-foreground">
+                {welcomeMessage.trim() ? (
+                  <p className="whitespace-pre-wrap">{welcomeMessage}</p>
+                ) : (
+                  <p className="text-muted-foreground italic">
+                    "👋 Hello! Welcome to our reception desk. How can we assist you today?"
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </div>

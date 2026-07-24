@@ -10,7 +10,7 @@ export async function GET() {
 
     const { data: account, error } = await ctx.supabase
       .from('accounts')
-      .select('openrouter_model, openrouter_api_key, ai_system_prompt, industry')
+      .select('openrouter_model, openrouter_api_key, ai_system_prompt, welcome_message, industry')
       .eq('id', ctx.accountId)
       .single()
 
@@ -26,6 +26,7 @@ export async function GET() {
         account?.industry,
         account?.ai_system_prompt,
       ),
+      welcome_message: account?.welcome_message || '',
     })
   } catch (err) {
     return toErrorResponse(err)
@@ -43,6 +44,7 @@ export async function PATCH(request: Request) {
     const openrouter_api_key = body?.openrouter_api_key
     const openrouter_model = body?.openrouter_model
     const ai_system_prompt = body?.ai_system_prompt
+    const welcome_message = body?.welcome_message
 
     const updates: Record<string, unknown> = {}
 
@@ -63,6 +65,10 @@ export async function PATCH(request: Request) {
       updates.ai_system_prompt = ai_system_prompt.trim()
     }
 
+    if (typeof welcome_message === 'string') {
+      updates.welcome_message = welcome_message.trim()
+    }
+
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: 'No valid fields provided' }, { status: 400 })
     }
@@ -71,7 +77,7 @@ export async function PATCH(request: Request) {
       .from('accounts')
       .update(updates)
       .eq('id', ctx.accountId)
-      .select('openrouter_model, openrouter_api_key, ai_system_prompt, industry')
+      .select('openrouter_model, openrouter_api_key, ai_system_prompt, welcome_message, industry')
       .single()
 
     if (error) {
@@ -86,6 +92,7 @@ export async function PATCH(request: Request) {
         data?.industry,
         data?.ai_system_prompt,
       ),
+      welcome_message: data?.welcome_message || '',
     })
   } catch (err) {
     return toErrorResponse(err)

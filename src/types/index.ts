@@ -50,6 +50,7 @@ export interface Account {
   openrouter_api_key?: string;
   openrouter_model?: string;
   ai_system_prompt?: string;
+  welcome_message?: string;
   created_at: string;
   updated_at: string;
   industry?: string;

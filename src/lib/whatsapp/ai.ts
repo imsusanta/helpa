@@ -43,7 +43,7 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
   // 1. Fetch OpenRouter configuration from accounts
   const { data: account, error: accError } = await db
     .from('accounts')
-    .select('openrouter_api_key, openrouter_model, ai_system_prompt, industry')
+    .select('openrouter_api_key, openrouter_model, ai_system_prompt, welcome_message, industry')
     .eq('id', accountId)
     .single()
 
@@ -243,6 +243,11 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
 5. Never diagnose, recommend treatments/medicines, or interpret report values.`;
 
   let systemPromptContent = basePrompt + overrideRules;
+
+  if (account.welcome_message) {
+    systemPromptContent += `\n\n[CUSTOMIZABLE WELCOME MESSAGE GREETING]:\nWhen greeting new customers or initiating a conversation, use the following customized welcome message as your default greeting tone and opening message template:\n"${account.welcome_message}"\n`;
+  }
+
   if (kbContext) {
     systemPromptContent += `\n\n${kbContext}`
   }
