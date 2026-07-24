@@ -36,22 +36,23 @@ import {
   Sparkles,
   Calculator,
   TrendingUp,
-  Clock,
   Bot,
   MessageCircle,
   ChevronRight,
   PhoneCall,
   RotateCcw,
   Play,
-  ShieldCheck,
   Cpu,
-  Database,
-  Layers,
-  Activity,
-  Check,
-  ExternalLink,
   Terminal
 } from "lucide-react";
+
+// Dynamic Rotator Words for 5-Second Instant Clarity
+const ROTATOR_WORDS = [
+  "Automatic 24/7 AI Receptionist",
+  "Instant Booking Assistant",
+  "24/7 Lead Capture Engine",
+  "Smart WhatsApp Support Agent"
+];
 
 // Chat Simulator Scenarios
 const CHAT_SCENARIOS = {
@@ -115,6 +116,9 @@ export default function LandingPage() {
   const [heroVideoUrl, setHeroVideoUrl] = useState("https://www.youtube.com/embed/gFx-NjTw3sM");
   const [actionVideoUrl, setActionVideoUrl] = useState("https://www.youtube.com/embed/gFx-NjTw3sM");
 
+  // Dynamic Word Rotator State
+  const [wordIndex, setWordIndex] = useState(0);
+
   // Simulator State
   const [activeScenario, setActiveScenario] = useState<keyof typeof CHAT_SCENARIOS>("clinic");
   const [simStep, setSimStep] = useState(4);
@@ -127,6 +131,14 @@ export default function LandingPage() {
   const [missedPercent, setMissedPercent] = useState(30);
 
   const { mode, toggleMode } = useTheme();
+
+  // Rotate hero words every 2.8 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setWordIndex((prev) => (prev + 1) % ROTATOR_WORDS.length);
+    }, 2800);
+    return () => clearInterval(interval);
+  }, []);
 
   // Scroll listener for sticky header glass and progress bar
   useEffect(() => {
@@ -223,7 +235,7 @@ export default function LandingPage() {
 
       {/* Ambient Spotlight & Grid Pattern Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-        <div className="absolute top-0 left-0 right-0 h-[600px] bg-spotlight" />
+        <div className="absolute top-0 left-0 right-0 h-[650px] bg-spotlight" />
         <div className="absolute inset-0 bg-grid-pattern opacity-40 dark:opacity-30" />
       </div>
 
@@ -239,17 +251,17 @@ export default function LandingPage() {
               <span className="text-xl font-black tracking-tight text-foreground">Helpa</span>
               <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
-                SYSTEMS OPERATIONAL
+                24/7 AI RECEPTIONS OPERATIONAL
               </span>
             </div>
           </Link>
 
           <nav className="hidden items-center gap-8 text-xs font-mono font-bold text-muted-foreground uppercase tracking-widest md:flex">
-            <a href="#command-center" className="transition-colors hover:text-foreground">Command Center</a>
-            <a href="#bento-architecture" className="transition-colors hover:text-foreground">Architecture</a>
-            <a href="#roi-engine" className="transition-colors hover:text-foreground">ROI Metric</a>
+            <a href="#command-center" className="transition-colors hover:text-foreground">Live Demo</a>
+            <a href="#bento-architecture" className="transition-colors hover:text-foreground">How It Works</a>
+            <a href="#roi-engine" className="transition-colors hover:text-foreground">ROI Calculator</a>
             <a href="#pricing" className="transition-colors hover:text-foreground">Pricing</a>
-            <a href="#faq" className="transition-colors hover:text-foreground">Docs & FAQ</a>
+            <a href="#faq" className="transition-colors hover:text-foreground">FAQ</a>
           </nav>
 
           <div className="flex items-center gap-3">
@@ -263,7 +275,7 @@ export default function LandingPage() {
             </button>
 
             <Link href={user ? "/dashboard" : "/signup"} className="hidden sm:inline-flex items-center gap-2 rounded-full bg-foreground px-5 py-2 text-xs font-mono font-bold text-background transition-all hover:opacity-90 hover:scale-[1.02] active:scale-[0.98]">
-              <span>{user ? "CONSOLE" : "BOOK DEMO"}</span>
+              <span>{user ? "CONSOLE" : "BOOK FREE DEMO"}</span>
               <ArrowRight className="h-3.5 w-3.5" />
             </Link>
             
@@ -283,13 +295,13 @@ export default function LandingPage() {
               className="border-t border-border md:hidden glass-header overflow-hidden"
             >
               <div className="flex flex-col gap-1 px-5 py-5 text-sm font-mono font-bold uppercase tracking-wider">
-                <a href="#command-center" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-4 py-3 hover:bg-accent transition-colors">Command Center</a>
-                <a href="#bento-architecture" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-4 py-3 hover:bg-accent transition-colors">Architecture</a>
-                <a href="#roi-engine" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-4 py-3 hover:bg-accent transition-colors">ROI Metric Engine</a>
+                <a href="#command-center" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-4 py-3 hover:bg-accent transition-colors">Live Demo</a>
+                <a href="#bento-architecture" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-4 py-3 hover:bg-accent transition-colors">How It Works</a>
+                <a href="#roi-engine" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-4 py-3 hover:bg-accent transition-colors">ROI Calculator</a>
                 <a href="#pricing" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-4 py-3 hover:bg-accent transition-colors">Pricing Tiers</a>
-                <a href="#faq" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-4 py-3 hover:bg-accent transition-colors">Docs & FAQ</a>
+                <a href="#faq" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-4 py-3 hover:bg-accent transition-colors">FAQ</a>
                 <Link href={user ? "/dashboard" : "/signup"} onClick={() => setMobileMenuOpen(false)} className="mt-3 rounded-full bg-foreground py-3.5 text-center text-xs font-mono font-bold text-background">
-                  {user ? "GO TO CONSOLE" : "BOOK 15-MIN DEMO"}
+                  {user ? "GO TO CONSOLE" : "BOOK FREE DEMO"}
                 </Link>
               </div>
             </motion.div>
@@ -297,44 +309,128 @@ export default function LandingPage() {
         </AnimatePresence>
       </header>
 
-      {/* ═══════ HERO SECTION ═══════ */}
-      <section className="relative overflow-hidden px-4 sm:px-6 pb-20 pt-16 sm:pt-24 z-10">
+      {/* ═══════ 10/10 ANIMATED HERO SECTION (5-SECOND CLARITY) ═══════ */}
+      <section className="relative overflow-hidden px-4 sm:px-6 pb-20 pt-12 sm:pt-20 z-10">
+        
+        {/* Floating Animated Interactive Micro-Widgets (Desktop) */}
+        <div className="hidden lg:block pointer-events-none">
+          {/* Left Floating Card: Latency Meter */}
+          <motion.div
+            initial={{ opacity: 0, x: -30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8, delay: 0.4 }}
+            className="absolute top-24 left-[4%] animate-float-slow"
+          >
+            <div className="flex items-center gap-3 rounded-2xl border border-indigo-500/30 bg-card/90 p-4 shadow-2xl backdrop-blur-xl">
+              <div className="h-10 w-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-mono font-bold">
+                ⚡
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-extrabold text-foreground">1.1s Response Speed</span>
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
+                </div>
+                <p className="text-[10px] font-mono text-muted-foreground">Instant WhatsApp Reply</p>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Right Floating Card: Live Booking Confirmed Notification */}
+          <motion.div
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8, delay: 0.5 }}
+            className="absolute top-28 right-[4%] animate-float-reverse"
+          >
+            <div className="flex items-center gap-3 rounded-2xl border border-emerald-500/30 bg-card/90 p-4 shadow-2xl backdrop-blur-xl">
+              <div className="h-10 w-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-bold text-lg">
+                🎉
+              </div>
+              <div>
+                <p className="text-xs font-extrabold text-foreground">New Booking Confirmed!</p>
+                <p className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400">Tomorrow • 02:30 PM (Auto-Synced)</p>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+
         <div className="mx-auto max-w-5xl text-center">
           
-          {/* Monospaced Tech Pill */}
+          {/* Hero Badge */}
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
-            className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900/60 px-4 py-1.5 text-[11px] font-mono font-bold text-zinc-400 backdrop-blur-md"
+            className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-4 py-1.5 text-xs font-mono font-bold text-indigo-600 dark:text-indigo-300 shadow-sm backdrop-blur-md"
           >
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span>[ OFFICIAL META CLOUD API PARTNER ]</span>
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span>[ ⚡ 24/7 AUTOMATIC WHATSAPP RECEPTIONIST ]</span>
+            <Sparkles className="h-3.5 w-3.5 text-amber-400 ml-1 animate-spin" style={{ animationDuration: "6s" }} />
           </motion.div>
 
-          {/* Masterclass Authoritative Headline */}
-          <motion.h1
+          {/* Headline with 5-Second Clarity & Animated Word Rotator */}
+          <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight leading-[1.08] text-foreground max-w-4xl mx-auto"
+            className="max-w-4xl mx-auto"
           >
-            The Infrastructure for <br className="hidden sm:inline" />
-            <span className="bg-gradient-to-r from-zinc-100 via-indigo-200 to-zinc-400 dark:from-white dark:via-zinc-200 dark:to-zinc-500 bg-clip-text text-transparent">
-              Autonomous WhatsApp Operations.
-            </span>
-          </motion.h1>
+            <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight leading-[1.08] text-foreground">
+              Turn Your WhatsApp Into An
+            </h1>
 
+            {/* Dynamic Word Rotator Component */}
+            <div className="h-[48px] sm:h-[72px] lg:h-[84px] overflow-hidden flex items-center justify-center mt-1">
+              <AnimatePresence mode="wait">
+                <motion.span
+                  key={wordIndex}
+                  initial={{ opacity: 0, y: 24, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -24, scale: 0.95 }}
+                  transition={{ duration: 0.4, ease: "easeOut" }}
+                  className="bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-400 bg-clip-text text-transparent font-black text-3xl sm:text-5xl lg:text-6xl tracking-tight block"
+                >
+                  {ROTATOR_WORDS[wordIndex]}
+                </motion.span>
+              </AnimatePresence>
+            </div>
+          </motion.div>
+
+          {/* 5-Second Subheadline */}
           <motion.p
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="mx-auto mt-6 max-w-2xl text-base sm:text-lg text-muted-foreground leading-relaxed font-normal px-2"
+            className="mx-auto mt-6 max-w-2xl text-base sm:text-xl text-muted-foreground leading-relaxed font-normal px-2"
           >
-            Helpa routes 98% of incoming customer inquiries, appointment bookings, and CRM lead extraction in <strong>&lt; 1.2s</strong> with zero human intervention.
+            Helpa instantly answers every customer question, books appointments into your calendar, and captures new leads 24/7—so you never lose another client.
           </motion.p>
 
-          {/* High-Contrast Action Buttons */}
+          {/* 5-Second Value Pills */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.25 }}
+            className="mt-6 flex flex-wrap justify-center gap-2.5 px-2"
+          >
+            <div className="rounded-full border border-border bg-card/80 px-4 py-1.5 text-xs font-bold text-foreground shadow-sm flex items-center gap-1.5 backdrop-blur-md">
+              <span className="text-emerald-500">⚡</span> Replies in 3 Seconds
+            </div>
+            <div className="rounded-full border border-border bg-card/80 px-4 py-1.5 text-xs font-bold text-foreground shadow-sm flex items-center gap-1.5 backdrop-blur-md">
+              <span className="text-indigo-500">📅</span> Books Slots Automatically
+            </div>
+            <div className="rounded-full border border-border bg-card/80 px-4 py-1.5 text-xs font-bold text-foreground shadow-sm flex items-center gap-1.5 backdrop-blur-md">
+              <span className="text-purple-500">🗣️</span> Speaks English & Hindi
+            </div>
+            <div className="rounded-full border border-border bg-card/80 px-4 py-1.5 text-xs font-bold text-foreground shadow-sm flex items-center gap-1.5 backdrop-blur-md">
+              <span className="text-amber-500">🚀</span> Setup in 24 Hours
+            </div>
+          </motion.div>
+
+          {/* Shimmer Action Buttons */}
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
@@ -343,47 +439,47 @@ export default function LandingPage() {
           >
             <Link
               href={user ? "/dashboard" : "/signup"}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 rounded-full bg-foreground px-8 py-4 text-xs sm:text-sm font-mono font-bold text-background transition-all shadow-xl hover:opacity-90 hover:scale-[1.03] active:scale-[0.98]"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 rounded-full bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 px-8 py-4 text-xs sm:text-sm font-mono font-bold text-white transition-all shadow-xl shadow-indigo-600/25 hover:shadow-indigo-600/40 hover:scale-[1.04] active:scale-[0.98] cursor-pointer"
             >
-              <span>BOOK 15-MIN DEMO</span>
+              <span>BOOK FREE DEMO</span>
               <ArrowRight className="h-4 w-4" />
             </Link>
             <a
               href="#command-center"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-full border border-border bg-card/60 px-7 py-4 text-xs sm:text-sm font-mono font-bold text-foreground transition-all hover:bg-accent hover:scale-[1.02] active:scale-[0.98]"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-full border border-border bg-card/80 px-7 py-4 text-xs sm:text-sm font-mono font-bold text-foreground transition-all hover:bg-accent hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
             >
-              <Terminal className="h-4 w-4 text-indigo-500" />
-              <span>EXPLORE COMMAND CENTER</span>
+              <Bot className="h-4 w-4 text-indigo-500" />
+              <span>TEST LIVE DEMO CHAT</span>
             </a>
           </motion.div>
 
-          {/* Developer-Grade Specifications Banner */}
+          {/* Micro Specs Bar */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.6, delay: 0.4 }}
             className="mt-12 max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-3 text-left font-mono"
           >
-            <div className="rounded-2xl border border-border/80 bg-card/50 p-4 backdrop-blur-md">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Response Latency</p>
-              <p className="text-lg font-black text-foreground mt-1">&lt; 1.2 Seconds</p>
+            <div className="rounded-2xl border border-border/80 bg-card/50 p-4 backdrop-blur-md hover:border-indigo-500/40 transition-colors">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Response Speed</p>
+              <p className="text-lg font-black text-foreground mt-1">&lt; 3 Seconds</p>
             </div>
-            <div className="rounded-2xl border border-border/80 bg-card/50 p-4 backdrop-blur-md">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Uptime SLA</p>
-              <p className="text-lg font-black text-emerald-500 mt-1">99.99% Guaranteed</p>
+            <div className="rounded-2xl border border-border/80 bg-card/50 p-4 backdrop-blur-md hover:border-emerald-500/40 transition-colors">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Accuracy Rate</p>
+              <p className="text-lg font-black text-emerald-500 mt-1">99.4% Verified</p>
             </div>
-            <div className="rounded-2xl border border-border/80 bg-card/50 p-4 backdrop-blur-md">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Security Standard</p>
-              <p className="text-lg font-black text-foreground mt-1">SOC2 Ready / AES256</p>
+            <div className="rounded-2xl border border-border/80 bg-card/50 p-4 backdrop-blur-md hover:border-purple-500/40 transition-colors">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Meta API Status</p>
+              <p className="text-lg font-black text-foreground mt-1">Official Cloud API</p>
             </div>
-            <div className="rounded-2xl border border-border/80 bg-card/50 p-4 backdrop-blur-md">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Messages Routed</p>
+            <div className="rounded-2xl border border-border/80 bg-card/50 p-4 backdrop-blur-md hover:border-indigo-500/40 transition-colors">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Total Chats Handled</p>
               <p className="text-lg font-black text-indigo-400 mt-1">10,000,000+</p>
             </div>
           </motion.div>
         </div>
 
-        {/* Embedded Demo Video Frame */}
+        {/* Embedded Video Showcase Container */}
         <motion.div
           initial={{ opacity: 0, y: 24, scale: 0.97 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -417,10 +513,10 @@ export default function LandingPage() {
             [ LIVE CONSOLE SIMULATOR ]
           </span>
           <h2 className="text-3xl font-black tracking-tight sm:text-4xl text-foreground">
-            WhatsApp Operations Command Center
+            Test Helpa AI Right Now
           </h2>
           <p className="mt-3 text-sm sm:text-base text-muted-foreground">
-            Select a business model below to test how Helpa executes automated RAG answers, slot locking, and lead parsing.
+            Select a business model below to test how Helpa executes automated replies, slot bookings, and lead parsing live.
           </p>
         </motion.div>
 
@@ -540,7 +636,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ═══════ BENTO GRID ARCHITECTURE (LINEAR / VERCEL STYLE) ═══════ */}
+      {/* ═══════ BENTO GRID ARCHITECTURE ═══════ */}
       <section id="bento-architecture" className="mx-auto max-w-7xl px-4 sm:px-6 py-20 sm:py-24 relative">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
@@ -550,10 +646,10 @@ export default function LandingPage() {
           className="mx-auto max-w-2xl text-center"
         >
           <span className="text-xs font-mono font-bold uppercase tracking-widest text-indigo-500 block mb-2">
-            [ ARCHITECTURE & ENGINE ]
+            [ HOW HELPA WORKS ]
           </span>
           <h2 className="text-3xl font-black tracking-tight sm:text-4xl text-foreground">
-            Engineered for Zero Latency
+            How Your 24/7 AI Receptionist Works
           </h2>
           <p className="mt-3 text-sm sm:text-base text-muted-foreground">
             Built from the ground up for high-concurrency WhatsApp traffic, strict knowledge accuracy, and seamless CRM integrations.
@@ -575,13 +671,13 @@ export default function LandingPage() {
                 <Cpu className="h-5 w-5" />
               </div>
               <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-indigo-500">01 / REASONING ENGINE</span>
-              <h3 className="text-2xl font-black text-foreground mt-1">Sub-Second RAG Knowledge Retrieval</h3>
+              <h3 className="text-2xl font-black text-foreground mt-1">Instant Accurate Answers</h3>
               <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-                Helpa indexes your existing business brochures, FAQ docs, and pricing sheets into high-dimensional vector embeddings. Questions are matched and verified in &lt; 1.2 seconds without hallucination.
+                Helpa learns your business fees, schedules, and FAQs from your documents. Questions are answered accurately in under 3 seconds without making up details.
               </p>
             </div>
             <div className="mt-6 font-mono text-[11px] bg-zinc-950 p-4 rounded-2xl border border-zinc-800 text-zinc-400">
-              <span className="text-emerald-400 font-bold">query_embedding</span> -&gt; Vector Match (cos_sim: 0.994) -&gt; Verified Answer Dispatched
+              <span className="text-emerald-400 font-bold">query_matched</span> -&gt; Vector Confidence: 99.4% -&gt; Instant Reply Sent
             </div>
           </motion.div>
 
@@ -598,9 +694,9 @@ export default function LandingPage() {
                 <CalendarCheck className="h-5 w-5" />
               </div>
               <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-emerald-500">02 / CALENDAR SYNC</span>
-              <h3 className="text-xl font-black text-foreground mt-1">Real-Time Slot Lock</h3>
+              <h3 className="text-xl font-black text-foreground mt-1">Automatic Slot Lock</h3>
               <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                Clients pick slots inside WhatsApp threads. Directly locks Google Calendar & Outlook slots to prevent double-booking.
+                Clients select open appointment slots inside WhatsApp threads. Automatically locks Google Calendar & Outlook slots.
               </p>
             </div>
           </motion.div>
@@ -617,10 +713,10 @@ export default function LandingPage() {
               <div className="h-10 w-10 rounded-xl bg-purple-500/10 text-purple-500 flex items-center justify-center font-mono font-bold mb-4">
                 <UserPlus className="h-5 w-5" />
               </div>
-              <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-purple-500">03 / CRM EXTRACTOR</span>
-              <h3 className="text-xl font-black text-foreground mt-1">Structured Lead Parsing</h3>
+              <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-purple-500">03 / CRM SAVER</span>
+              <h3 className="text-xl font-black text-foreground mt-1">Automatic Lead Capture</h3>
               <p className="mt-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                Extracts phone numbers, customer names, intended budget, and service requirements into clean CRM tables automatically.
+                Extracts phone numbers, customer names, intent, and service requirements directly into your CRM database tables.
               </p>
             </div>
           </motion.div>
@@ -637,14 +733,14 @@ export default function LandingPage() {
               <div className="h-10 w-10 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center font-mono font-bold mb-4">
                 <UserCheck className="h-5 w-5" />
               </div>
-              <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-amber-500">04 / ESCROW HANDOFF</span>
-              <h3 className="text-2xl font-black text-foreground mt-1">1-Click Human Escrow Handoff</h3>
+              <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-amber-500">04 / HUMAN HANDOFF</span>
+              <h3 className="text-2xl font-black text-foreground mt-1">1-Click Human Staff Escrow</h3>
               <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
-                If confidence falls below 95% or if a customer requests human staff, Helpa silently alerts support reps and hands off the thread with full transcript history attached.
+                If a customer asks a complex question or requests human assistance, Helpa quietly alerts your staff and hands off the thread with complete history.
               </p>
             </div>
             <div className="mt-6 flex items-center gap-2 text-xs font-mono text-emerald-500">
-              <CheckCircle2 className="h-4 w-4" /> 100% Audit Log & Transcript Saved
+              <CheckCircle2 className="h-4 w-4" /> 100% Transcript History Saved
             </div>
           </motion.div>
 
@@ -665,7 +761,7 @@ export default function LandingPage() {
               [ HIGH-PRECISION REVENUE CALCULATOR ]
             </span>
             <h2 className="text-3xl font-black tracking-tight sm:text-4xl text-foreground font-sans">
-              Quantify Your Lost ARR
+              Quantify Your Lost Revenue
             </h2>
             <p className="mt-3 text-sm sm:text-base text-muted-foreground font-sans">
               Adjust parameters below to compute real-time revenue lost from delayed WhatsApp response times.
@@ -776,7 +872,7 @@ export default function LandingPage() {
             <h2 className="text-3xl font-black tracking-tight sm:text-4xl text-foreground">
               Simple Transparent Tiers
             </h2>
-            <p className="mt-3 text-sm sm:text-base text-muted-foreground">Every plan includes Meta API setup, custom RAG document indexing, and 24/7 dedicated support.</p>
+            <p className="mt-3 text-sm sm:text-base text-muted-foreground">Every plan includes Meta API setup, custom document indexing, and 24/7 dedicated support.</p>
           </motion.div>
           
           <div className="mt-12 sm:mt-14 grid gap-6 md:grid-cols-3 text-left">
@@ -800,7 +896,7 @@ export default function LandingPage() {
               <ul className="mt-6 space-y-3 flex-1 border-t border-border/40 pt-6 font-mono text-xs">
                 {[
                   "1 Meta WhatsApp Business Number",
-                  "24/7 RAG AI Receptionist Engine",
+                  "24/7 AI Receptionist Engine",
                   "Google / Outlook Slot Locking",
                   "Custom FAQ Document Training",
                   "CRM Lead Parsing & Storage",
@@ -884,9 +980,9 @@ export default function LandingPage() {
               <ul className="mt-6 space-y-3 flex-1 border-t border-border/40 pt-6 font-mono text-xs">
                 {[
                   "Unlimited WhatsApp Business Numbers",
-                  "Fine-Tuned LLM Model Weights",
+                  "Fine-Tuned Model Weights",
                   "Full REST API & Webhook Stream",
-                  "Dedicated Account Solutions Architect",
+                  "Dedicated Account Manager",
                   "Guaranteed 99.99% SLA Agreement",
                   "White-Label Options Available"
                 ].map((item, idx) => (
@@ -1015,7 +1111,7 @@ export default function LandingPage() {
 
           <div className="flex flex-wrap justify-center gap-5 sm:gap-6 text-xs font-mono text-muted-foreground uppercase tracking-widest font-bold">
             <a href="#command-center" className="hover:text-foreground transition-colors">Console</a>
-            <a href="#bento-architecture" className="hover:text-foreground transition-colors">Architecture</a>
+            <a href="#bento-architecture" className="hover:text-foreground transition-colors">How It Works</a>
             <a href="#roi-engine" className="hover:text-foreground transition-colors">ROI Metric</a>
             <a href="#pricing" className="hover:text-foreground transition-colors">Pricing</a>
             <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
