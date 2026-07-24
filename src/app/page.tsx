@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -43,8 +43,103 @@ import {
   RotateCcw,
   Play,
   Cpu,
-  Terminal
+  Terminal,
+  ShieldCheck,
+  Lock,
+  MessageCircleQuestion
 } from "lucide-react";
+
+// 21st.dev Border Beam Component
+function BorderBeam({
+  className = "",
+  size = 200,
+  duration = 12,
+  anchor = 90,
+  borderWidth = 1.5,
+  colorFrom = "#6366f1",
+  colorTo = "#a855f7",
+  delay = 0
+}: {
+  className?: string;
+  size?: number;
+  duration?: number;
+  anchor?: number;
+  borderWidth?: number;
+  colorFrom?: string;
+  colorTo?: string;
+  delay?: number;
+}) {
+  return (
+    <div
+      style={
+        {
+          "--size": size,
+          "--duration": `${duration}s`,
+          "--anchor": anchor,
+          "--border-width": borderWidth,
+          "--color-from": colorFrom,
+          "--color-to": colorTo,
+          "--delay": `-${delay}s`
+        } as React.CSSProperties
+      }
+      className={`pointer-events-none absolute inset-0 rounded-[inherit] [border:calc(var(--border-width)*1px)_solid_transparent] ![mask-clip:padding-box,border-box] ![mask-composite:intersect] [mask:linear-gradient(transparent,transparent),linear-gradient(white,white)] after:absolute after:aspect-square after:w-[calc(var(--size)*1px)] after:animate-border-beam after:[animation-delay:var(--delay)] after:[background:linear-gradient(to_left,var(--color-from),var(--color-to),transparent)] after:[offset-path:rect(0_auto_auto_0_round_calc(var(--size)*1px))] ${className}`}
+    />
+  );
+}
+
+// 21st.dev Orbiting Circles Component
+function OrbitingCircles({
+  className = "",
+  children,
+  reverse = false,
+  duration = 20,
+  delay = 10,
+  radius = 160,
+  path = true
+}: {
+  className?: string;
+  children?: React.ReactNode;
+  reverse?: boolean;
+  duration?: number;
+  delay?: number;
+  radius?: number;
+  path?: boolean;
+}) {
+  return (
+    <>
+      {path && (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          version="1.1"
+          className="pointer-events-none absolute inset-0 size-full"
+        >
+          <circle
+            className="stroke-indigo-500/20 stroke-1 dark:stroke-indigo-400/20"
+            cx="50%"
+            cy="50%"
+            r={radius}
+            fill="none"
+            strokeDasharray="4 4"
+          />
+        </svg>
+      )}
+      <div
+        style={
+          {
+            "--duration": `${duration}s`,
+            "--radius": radius,
+            "--delay": `-${delay}s`
+          } as React.CSSProperties
+        }
+        className={`absolute flex size-8 transform-gpu items-center justify-center rounded-full border border-indigo-500/30 bg-card/80 backdrop-blur-md shadow-md ${
+          reverse ? "[animation-direction:reverse]" : ""
+        } animate-orbit ${className}`}
+      >
+        {children}
+      </div>
+    </>
+  );
+}
 
 // Dynamic Rotator Words for 5-Second Instant Clarity
 const ROTATOR_WORDS = [
@@ -309,9 +404,27 @@ export default function LandingPage() {
         </AnimatePresence>
       </header>
 
-      {/* ═══════ 10/10 ANIMATED HERO SECTION (5-SECOND CLARITY) ═══════ */}
+      {/* ═══════ 21ST.DEV POWERED ANIMATED HERO SECTION (5-SECOND CLARITY) ═══════ */}
       <section className="relative overflow-hidden px-4 sm:px-6 pb-20 pt-12 sm:pt-20 z-10">
         
+        {/* 21st.dev Orbiting Circles Background Element */}
+        <div className="hidden lg:block pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="relative mx-auto h-full max-w-5xl flex items-center justify-center">
+            <OrbitingCircles radius={280} duration={35} delay={0}>
+              <MessageSquare className="h-4 w-4 text-indigo-500" />
+            </OrbitingCircles>
+            <OrbitingCircles radius={280} duration={35} delay={17.5} reverse>
+              <CalendarCheck className="h-4 w-4 text-emerald-500" />
+            </OrbitingCircles>
+            <OrbitingCircles radius={400} duration={50} delay={0}>
+              <Zap className="h-4 w-4 text-amber-500" />
+            </OrbitingCircles>
+            <OrbitingCircles radius={400} duration={50} delay={25} reverse>
+              <Lock className="h-4 w-4 text-purple-500" />
+            </OrbitingCircles>
+          </div>
+        </div>
+
         {/* Floating Animated Interactive Micro-Widgets (Desktop) */}
         <div className="hidden lg:block pointer-events-none">
           {/* Left Floating Card: Latency Meter */}
@@ -319,9 +432,10 @@ export default function LandingPage() {
             initial={{ opacity: 0, x: -30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8, delay: 0.4 }}
-            className="absolute top-24 left-[4%] animate-float-slow"
+            className="absolute top-24 left-[4%] animate-float-slow z-20"
           >
-            <div className="flex items-center gap-3 rounded-2xl border border-indigo-500/30 bg-card/90 p-4 shadow-2xl backdrop-blur-xl">
+            <div className="relative flex items-center gap-3 rounded-2xl border border-indigo-500/30 bg-card/90 p-4 shadow-2xl backdrop-blur-xl">
+              <BorderBeam size={120} duration={8} colorFrom="#6366f1" colorTo="#a855f7" />
               <div className="h-10 w-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-mono font-bold">
                 ⚡
               </div>
@@ -340,9 +454,10 @@ export default function LandingPage() {
             initial={{ opacity: 0, x: 30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8, delay: 0.5 }}
-            className="absolute top-28 right-[4%] animate-float-reverse"
+            className="absolute top-28 right-[4%] animate-float-reverse z-20"
           >
-            <div className="flex items-center gap-3 rounded-2xl border border-emerald-500/30 bg-card/90 p-4 shadow-2xl backdrop-blur-xl">
+            <div className="relative flex items-center gap-3 rounded-2xl border border-emerald-500/30 bg-card/90 p-4 shadow-2xl backdrop-blur-xl">
+              <BorderBeam size={120} duration={10} colorFrom="#10b981" colorTo="#6366f1" delay={2} />
               <div className="h-10 w-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-bold text-lg">
                 🎉
               </div>
@@ -354,15 +469,16 @@ export default function LandingPage() {
           </motion.div>
         </div>
 
-        <div className="mx-auto max-w-5xl text-center">
+        <div className="mx-auto max-w-5xl text-center relative z-20">
           
-          {/* Hero Badge */}
+          {/* 21st.dev Shimmer Hero Badge */}
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
-            className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-4 py-1.5 text-xs font-mono font-bold text-indigo-600 dark:text-indigo-300 shadow-sm backdrop-blur-md"
+            className="relative mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-4.5 py-1.5 text-xs font-mono font-bold text-indigo-600 dark:text-indigo-300 shadow-sm backdrop-blur-md overflow-hidden"
           >
+            <BorderBeam size={100} duration={6} colorFrom="#6366f1" colorTo="#ec4899" />
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
@@ -430,20 +546,24 @@ export default function LandingPage() {
             </div>
           </motion.div>
 
-          {/* Shimmer Action Buttons */}
+          {/* 21st.dev Border Beam Shimmer Action Buttons */}
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
             className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3.5 px-2"
           >
-            <Link
-              href={user ? "/dashboard" : "/signup"}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 rounded-full bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 px-8 py-4 text-xs sm:text-sm font-mono font-bold text-white transition-all shadow-xl shadow-indigo-600/25 hover:shadow-indigo-600/40 hover:scale-[1.04] active:scale-[0.98] cursor-pointer"
-            >
-              <span>BOOK FREE DEMO</span>
-              <ArrowRight className="h-4 w-4" />
-            </Link>
+            <div className="relative w-full sm:w-auto rounded-full overflow-hidden p-[1px]">
+              <BorderBeam size={140} duration={7} colorFrom="#6366f1" colorTo="#10b981" />
+              <Link
+                href={user ? "/dashboard" : "/signup"}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 rounded-full bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 px-8 py-4 text-xs sm:text-sm font-mono font-bold text-white transition-all shadow-xl hover:scale-[1.04] active:scale-[0.98] cursor-pointer"
+              >
+                <span>BOOK FREE DEMO</span>
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+
             <a
               href="#command-center"
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-full border border-border bg-card/80 px-7 py-4 text-xs sm:text-sm font-mono font-bold text-foreground transition-all hover:bg-accent hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
@@ -479,14 +599,15 @@ export default function LandingPage() {
           </motion.div>
         </div>
 
-        {/* Embedded Video Showcase Container */}
+        {/* Embedded Video Showcase Container with 21st.dev Border Beam */}
         <motion.div
           initial={{ opacity: 0, y: 24, scale: 0.97 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.6, delay: 0.45 }}
           className="relative mx-auto mt-14 max-w-4xl"
         >
-          <div className="aspect-video overflow-hidden rounded-2xl border border-border shadow-2xl bg-zinc-950">
+          <div className="relative aspect-video overflow-hidden rounded-2xl border border-border shadow-2xl bg-zinc-950">
+            <BorderBeam size={300} duration={14} colorFrom="#6366f1" colorTo="#a855f7" borderWidth={2} />
             <iframe
               className="w-full h-full"
               src={heroVideoUrl}
@@ -566,7 +687,8 @@ export default function LandingPage() {
 
         {/* Command Center Mockup */}
         <div className="mt-8 mx-auto max-w-xl">
-          <div className="rounded-3xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl font-sans">
+          <div className="relative rounded-3xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl font-sans overflow-hidden">
+            <BorderBeam size={220} duration={12} colorFrom="#6366f1" colorTo="#10b981" />
             {/* Header bar */}
             <div className="bg-zinc-900/90 rounded-2xl px-4 py-3 flex items-center justify-between border border-zinc-800">
               <div className="flex items-center gap-3">
@@ -664,7 +786,7 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 16 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="md:col-span-2 rounded-3xl border border-border bg-card p-6 sm:p-8 shadow-sm flex flex-col justify-between hover:border-indigo-500/40 transition-colors"
+            className="md:col-span-2 rounded-3xl border border-border bg-card p-6 sm:p-8 shadow-sm flex flex-col justify-between hover:border-indigo-500/40 transition-colors relative overflow-hidden"
           >
             <div>
               <div className="h-10 w-10 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center font-mono font-bold mb-4">
@@ -827,7 +949,8 @@ export default function LandingPage() {
             </div>
 
             {/* Live Calculated Results Panel */}
-            <div className="flex flex-col justify-between rounded-2xl bg-zinc-900 border border-zinc-800 p-5 sm:p-6">
+            <div className="flex flex-col justify-between rounded-2xl bg-zinc-900 border border-zinc-800 p-5 sm:p-6 relative overflow-hidden">
+              <BorderBeam size={160} duration={10} colorFrom="#10b981" colorTo="#6366f1" />
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 block mb-1">REAL-TIME IMPACT ANALYSIS</span>
                 
@@ -923,8 +1046,9 @@ export default function LandingPage() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ delay: 0.1 }}
-              className="relative flex flex-col rounded-3xl border-2 border-foreground bg-card p-6 sm:p-8 shadow-2xl"
+              className="relative flex flex-col rounded-3xl border-2 border-foreground bg-card p-6 sm:p-8 shadow-2xl overflow-hidden"
             >
+              <BorderBeam size={200} duration={8} colorFrom="#6366f1" colorTo="#10b981" />
               <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-foreground px-4 py-1 text-[9px] font-mono font-black text-background uppercase tracking-widest shadow-md">
                 ★ MOST POPULAR
               </span>
@@ -1077,6 +1201,7 @@ export default function LandingPage() {
       {/* ═══════ FINAL CALL TO ACTION ═══════ */}
       <section className="px-4 sm:px-6 py-16 sm:py-20 z-10 relative">
         <div className="relative mx-auto max-w-4xl overflow-hidden rounded-[2.5rem] border border-border bg-zinc-950 p-8 sm:p-16 text-center text-white shadow-2xl">
+          <BorderBeam size={250} duration={12} colorFrom="#6366f1" colorTo="#10b981" />
           <h2 className="text-2xl sm:text-4xl font-black tracking-tight text-white relative z-10">
             Ready to Automate Your WhatsApp Operations?
           </h2>
