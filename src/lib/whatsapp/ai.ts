@@ -250,15 +250,18 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
     account.ai_system_prompt,
   );
 
+  const businessName = account.name || 'Siliguri Nursing Home';
+
   // Inject system-level rules override to ensure database values override conversation history for patient profiles and actions
   const overrideRules = `
 
-[CRITICAL INSTRUCTION - SYSTEM OVERRIDE]:
-1. The "Registered Patients under this WhatsApp/Phone Number" list in the Hospital Context contains the absolute, real-time database records for patient registrations.
-2. If the name, ID, or details of a patient in the Hospital Context differs from what was mentioned in previous chat history, you MUST ignore the chat history name and use the database name/details from the Hospital Context (e.g. if database says PAT-90325 is "Susanta Lohar", you must output "Susanta Lohar" and NEVER output any other name like "Puja Namata").
-3. When asked for the name of a Patient ID (e.g. "PAT-90325"), lookup the ID in the Hospital Context and output the associated name.
-4. If a patient wants to correct/edit their profile details (Name, DOB, Mobile, Gender, Blood Group), they must specify their Patient ID (e.g. PAT-90325). Once provided, extract the corrections into "hospital_profile_update" with the fields to update.
-5. Never diagnose, recommend treatments/medicines, or interpret report values.`;
+[CRITICAL INSTRUCTION - BUSINESS & SYSTEM OVERRIDE]:
+1. BUSINESS IDENTITY: You are the official AI assistant representing "${businessName}". When welcoming a new patient/customer or starting a conversation, you MUST explicitly mention "${businessName}" by name (e.g. "Welcome to *${businessName}*!"). Never use generic phrases like "our Hospital & Clinic" without mentioning "${businessName}".
+2. The "Registered Patients under this WhatsApp/Phone Number" list in the Hospital Context contains the absolute, real-time database records for patient registrations.
+3. If the name, ID, or details of a patient in the Hospital Context differs from what was mentioned in previous chat history, you MUST ignore the chat history name and use the database name/details from the Hospital Context (e.g. if database says PAT-90325 is "Susanta Lohar", you must output "Susanta Lohar" and NEVER output any other name like "Puja Namata").
+4. When asked for the name of a Patient ID (e.g. "PAT-90325"), lookup the ID in the Hospital Context and output the associated name.
+5. If a patient wants to correct/edit their profile details (Name, DOB, Mobile, Gender, Blood Group), they must specify their Patient ID (e.g. PAT-90325). Once provided, extract the corrections into "hospital_profile_update" with the fields to update.
+6. Never diagnose, recommend treatments/medicines, or interpret report values.`;
 
   let systemPromptContent = basePrompt + overrideRules;
 

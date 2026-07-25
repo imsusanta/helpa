@@ -48,6 +48,7 @@ export function AiPanel() {
   const [hasApiKey, setHasApiKey] = useState(false);
   const [systemPrompt, setSystemPrompt] = useState("");
   const [welcomeMessage, setWelcomeMessage] = useState("");
+  const [accountName, setAccountName] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testingConnection, setTestingConnection] = useState(false);
@@ -63,6 +64,7 @@ export function AiPanel() {
           setHasApiKey(data.has_api_key);
           setSystemPrompt(data.ai_system_prompt || "");
           setWelcomeMessage(data.welcome_message || "");
+          setAccountName(data.account_name || "");
           
           const matched = POPULAR_MODELS.some(m => m.id === dbModel);
           if (matched) {
@@ -389,7 +391,7 @@ export function AiPanel() {
               </div>
               <Textarea
                 id="welcomeMessage"
-                placeholder="👋 Hello! Welcome to our reception desk. How can we assist you today? You can ask about doctor schedules, book an appointment, or check lab report status."
+                placeholder={`👋 Hello! Welcome to ${accountName || 'our Hospital & Clinic'}. 🏥 How can we assist you today? You can ask about doctor schedules, book an appointment, or check lab report status.`}
                 value={welcomeMessage}
                 onChange={(e) => setWelcomeMessage(e.target.value)}
                 disabled={!canEditSettings}
@@ -411,7 +413,7 @@ export function AiPanel() {
                     variant="outline"
                     size="sm"
                     className="text-[11px] h-7 cursor-pointer border-border hover:border-emerald-500/40 hover:bg-emerald-50 dark:hover:bg-emerald-950/20"
-                    onClick={() => setWelcomeMessage("👋 Hello! Welcome to our Hospital & Clinic reception. 🏥 How can we assist you today? You can ask for Doctor schedules, book an appointment, or check report status.")}
+                    onClick={() => setWelcomeMessage(`👋 Hello! Welcome to *${accountName || 'Siliguri Nursing Home'}*! 🏥 How can we assist you today? You can ask for Doctor schedules, book an appointment, or check report status.`)}
                   >
                     🏥 Hospital & Clinic
                   </Button>
@@ -420,7 +422,7 @@ export function AiPanel() {
                     variant="outline"
                     size="sm"
                     className="text-[11px] h-7 cursor-pointer border-border hover:border-emerald-500/40 hover:bg-emerald-50 dark:hover:bg-emerald-950/20"
-                    onClick={() => setWelcomeMessage("👋 Welcome to our Coaching Institute! 🏫 How can we help you with your studies, course information, or exam preparation today?")}
+                    onClick={() => setWelcomeMessage(`👋 Welcome to *${accountName || 'our Academy'}*! 🏫 How can we help you with your studies, course information, or exam preparation today?`)}
                   >
                     🏫 Coaching & Education
                   </Button>
@@ -429,7 +431,7 @@ export function AiPanel() {
                     variant="outline"
                     size="sm"
                     className="text-[11px] h-7 cursor-pointer border-border hover:border-emerald-500/40 hover:bg-emerald-50 dark:hover:bg-emerald-950/20"
-                    onClick={() => setWelcomeMessage("👋 Hi there! Welcome to our business. 🚀 How can our team assist you today?")}
+                    onClick={() => setWelcomeMessage(`👋 Hi there! Welcome to *${accountName || 'our business'}*! 🚀 How can our team assist you today?`)}
                   >
                     🏢 General Business
                   </Button>

@@ -13,7 +13,7 @@ export async function GET() {
     let account: any = null
     let { data, error } = await db
       .from('accounts')
-      .select('openrouter_model, openrouter_api_key, ai_system_prompt, welcome_message, industry')
+      .select('name, openrouter_model, openrouter_api_key, ai_system_prompt, welcome_message, industry')
       .eq('id', ctx.accountId)
       .single()
 
@@ -21,7 +21,7 @@ export async function GET() {
       // Fallback query if welcome_message column is not yet in PostgREST schema cache
       const fallback = await db
         .from('accounts')
-        .select('openrouter_model, openrouter_api_key, ai_system_prompt, industry')
+        .select('name, openrouter_model, openrouter_api_key, ai_system_prompt, industry')
         .eq('id', ctx.accountId)
         .single()
       data = fallback.data as any
@@ -36,6 +36,7 @@ export async function GET() {
     account = data
 
     return NextResponse.json({
+      account_name: account?.name || '',
       openrouter_model: account?.openrouter_model || '',
       has_api_key: !!account?.openrouter_api_key,
       ai_system_prompt: resolveSystemPrompt(
@@ -98,7 +99,7 @@ export async function PATCH(request: Request) {
       .from('accounts')
       .update(updates)
       .eq('id', ctx.accountId)
-      .select('openrouter_model, openrouter_api_key, ai_system_prompt, welcome_message, industry')
+      .select('name, openrouter_model, openrouter_api_key, ai_system_prompt, welcome_message, industry')
       .single()
 
     // If welcome_message is not in PostgREST schema cache yet, retry without welcome_message
@@ -109,7 +110,7 @@ export async function PATCH(request: Request) {
           .from('accounts')
           .update(updates)
           .eq('id', ctx.accountId)
-          .select('openrouter_model, openrouter_api_key, ai_system_prompt, industry')
+          .select('name, openrouter_model, openrouter_api_key, ai_system_prompt, industry')
           .single()
         data = retry.data as any
         error = retry.error
@@ -124,6 +125,7 @@ export async function PATCH(request: Request) {
     }
 
     return NextResponse.json({
+      account_name: data?.name || '',
       openrouter_model: data?.openrouter_model || '',
       has_api_key: !!data?.openrouter_api_key,
       ai_system_prompt: resolveSystemPrompt(

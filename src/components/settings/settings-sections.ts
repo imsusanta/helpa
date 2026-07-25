@@ -14,6 +14,7 @@ import {
   Boxes,
   BellRing,
   MessageSquare,
+  Cpu,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -41,6 +42,7 @@ export const SETTINGS_SECTIONS = [
   'kb',
   'insurance',
   'reminders',
+  'mcp',
 ] as const;
 
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
@@ -174,6 +176,7 @@ export function getSectionMeta(
     kb: { id: 'kb', label: labels.kb, icon: Database, group: 'workspace' },
     insurance: { id: 'insurance', label: 'Health Insurance', icon: Shield, group: 'workspace' },
     reminders: { id: 'reminders', label: labels.reminders, icon: BellRing, group: 'workspace' },
+    mcp: { id: 'mcp', label: 'MCP Server (AI Connect)', icon: Cpu, group: 'workspace' },
   };
 }
 
