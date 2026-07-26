@@ -478,22 +478,22 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="max-w-4xl mx-auto"
+            className="max-w-4xl mx-auto relative z-30"
           >
-            <h1 className="text-3xl xs:text-4xl sm:text-5xl lg:text-7xl font-black tracking-tight leading-[1.1] text-foreground">
+            <h1 className="text-3xl xs:text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight leading-[1.12] text-foreground">
               Turn Your WhatsApp Into An
             </h1>
 
-            {/* Dynamic Word Rotator Component */}
-            <div className="h-[40px] xs:h-[48px] sm:h-[68px] lg:h-[80px] overflow-hidden flex items-center justify-center mt-1">
+            {/* Dynamic Word Rotator Component - Fluid Height & Zero Clipping */}
+            <div className="min-h-[52px] sm:min-h-[76px] flex items-center justify-center py-1 mt-1 font-black">
               <AnimatePresence mode="wait">
                 <motion.span
                   key={wordIndex}
-                  initial={{ opacity: 0, y: 20, scale: 0.96 }}
+                  initial={{ opacity: 0, y: 18, scale: 0.96 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -20, scale: 0.96 }}
+                  exit={{ opacity: 0, y: -18, scale: 0.96 }}
                   transition={{ duration: 0.35, ease: "easeOut" }}
-                  className="bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-400 bg-clip-text text-transparent font-black text-2xl xs:text-3xl sm:text-5xl lg:text-6xl tracking-tight block px-1"
+                  className="bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-400 dark:from-indigo-400 dark:via-purple-300 dark:to-emerald-300 bg-clip-text text-transparent font-black text-2xl xs:text-3xl sm:text-5xl lg:text-6xl tracking-tight leading-[1.2] inline-block px-2 py-1"
                 >
                   {ROTATOR_WORDS[wordIndex]}
                 </motion.span>
