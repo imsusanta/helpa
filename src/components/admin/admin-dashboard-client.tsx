@@ -46,6 +46,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { McpConnectView } from "./mcp-connect-view";
 
 interface Metrics {
   totalAccounts: number;
@@ -102,7 +103,7 @@ interface Plan {
 }
 
 export function AdminDashboardClient() {
-  const [activeTab, setActiveTab] = useState<"overview" | "tenants" | "plans" | "landing">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "tenants" | "plans" | "landing" | "mcp">("overview");
   const [loading, setLoading] = useState(true);
 
   // States
@@ -413,15 +414,15 @@ export function AdminDashboardClient() {
       </div>
 
       {/* Modernized Tab selection triggers */}
-      <div className="flex gap-2 border-b border-border">
-        {["overview", "tenants", "plans", "landing"].map((tab) => {
+      <div className="flex gap-2 border-b border-border overflow-x-auto">
+        {["overview", "tenants", "plans", "landing", "mcp"].map((tab) => {
           const isActive = activeTab === tab;
-          const label = tab === "landing" ? "landing page" : tab;
+          const label = tab === "landing" ? "landing page" : tab === "mcp" ? "MCP Connect" : tab;
           return (
             <button
               key={tab}
               onClick={() => setActiveTab(tab as typeof activeTab)}
-              className={`px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
+              className={`px-5 py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer whitespace-nowrap ${
                 isActive
                   ? "border-emerald-500 text-emerald-600 dark:text-emerald-400"
                   : "border-transparent text-muted-foreground hover:text-foreground"
@@ -432,6 +433,9 @@ export function AdminDashboardClient() {
           );
         })}
       </div>
+
+      {/* MCP CONNECT TAB */}
+      {activeTab === "mcp" && <McpConnectView />}
 
       {/* OVERVIEW TAB */}
       {activeTab === "overview" && metrics && (
