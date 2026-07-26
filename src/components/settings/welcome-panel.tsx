@@ -180,7 +180,7 @@ export function WelcomePanel() {
                 <p className="whitespace-pre-wrap">{welcomeMessage}</p>
               ) : (
                 <p className="text-muted-foreground italic">
-                  "👋 Hello! Welcome to our reception desk. How can we assist you today?"
+                  {`"👋 Hello! Welcome to ${accountName || 'Siliguri Nursing Home'}. 🏥 How can we assist you today?"`}
                 </p>
               )}
             </div>
