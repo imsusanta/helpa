@@ -250,7 +250,7 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
     account.ai_system_prompt,
   );
 
-  const businessName = account.name || 'Siliguri Nursing Home';
+  const businessName = account.name || 'our Business';
 
   // Inject system-level rules override to ensure database values override conversation history for patient profiles and actions
   const overrideRules = `

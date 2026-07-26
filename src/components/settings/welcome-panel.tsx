@@ -126,7 +126,7 @@ export function WelcomePanel() {
                   variant="outline"
                   size="sm"
                   className="text-[11px] h-7 cursor-pointer border-border hover:border-emerald-500/40 hover:bg-emerald-50 dark:hover:bg-emerald-950/20"
-                  onClick={() => setWelcomeMessage(`👋 Hello! Welcome to *${accountName || 'Siliguri Nursing Home'}*! 🏥 How can we assist you today? You can ask for Doctor schedules, book an appointment, or check report status.`)}
+                  onClick={() => setWelcomeMessage(`👋 Hello! Welcome to *${accountName || 'our Hospital'}*! 🏥 How can we assist you today? You can ask for Doctor schedules, book an appointment, or check report status.`)}
                 >
                   🏥 Hospital & Clinic
                 </Button>
@@ -180,7 +180,7 @@ export function WelcomePanel() {
                 <p className="whitespace-pre-wrap">{welcomeMessage}</p>
               ) : (
                 <p className="text-muted-foreground italic">
-                  {`"👋 Hello! Welcome to ${accountName || 'Siliguri Nursing Home'}. 🏥 How can we assist you today?"`}
+                  {`"👋 Hello! Welcome to ${accountName || 'our Hospital'}. 🏥 How can we assist you today?"`}
                 </p>
               )}
             </div>
