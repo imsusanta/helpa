@@ -21,6 +21,7 @@ import { BillingPanel } from '@/components/settings/billing-panel';
 import { InsurancePanel } from '@/components/settings/insurance-panel';
 import { ReminderPanel } from '@/components/settings/reminder-panel';
 import { WelcomePanel } from '@/components/settings/welcome-panel';
+import { BookingFormPanel } from '@/components/settings/booking-form-panel';
 import { McpConnectView } from '@/components/admin/mcp-connect-view';
 import {
   resolveSection,
@@ -72,6 +73,7 @@ export default function SettingsPage() {
     billing: <BillingPanel />,
     insurance: <InsurancePanel />,
     reminders: <ReminderPanel />,
+    booking_form: <BookingFormPanel />,
     mcp: <McpConnectView />,
   };
 

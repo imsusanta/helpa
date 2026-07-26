@@ -142,12 +142,22 @@ export default function ContactsPage() {
       return;
     }
 
-    // Fetch tags for these contacts
+    // Fetch tags & patients for these contacts
     const contactIds = data.map((c) => c.id);
     const { data: contactTags } = await supabase
       .from('contact_tags')
       .select('contact_id, tag_id')
       .in('contact_id', contactIds);
+
+    const { data: patientsList } = await supabase
+      .from('patients')
+      .select('id, patient_seq_id')
+      .in('id', contactIds);
+
+    const patientsMap: Record<string, string> = {};
+    patientsList?.forEach((p) => {
+      if (p.patient_seq_id) patientsMap[p.id] = p.patient_seq_id;
+    });
 
     const tagsByContact: Record<string, string[]> = {};
     contactTags?.forEach((ct) => {
@@ -155,12 +165,20 @@ export default function ContactsPage() {
       tagsByContact[ct.contact_id].push(ct.tag_id);
     });
 
-    const enriched: ContactWithTags[] = data.map((c) => ({
-      ...c,
-      tags: (tagsByContact[c.id] ?? [])
-        .map((tid) => tagsMap[tid])
-        .filter(Boolean),
-    }));
+    const enriched: ContactWithTags[] = data.map((c) => {
+      const meta = c.metadata && typeof c.metadata === 'object' ? c.metadata : {};
+      const patientIdVal = patientsMap[c.id] || (meta as any).patient_id || null;
+      return {
+        ...c,
+        metadata: {
+          ...meta,
+          ...(patientIdVal ? { patient_id: patientIdVal } : {}),
+        },
+        tags: (tagsByContact[c.id] ?? [])
+          .map((tid) => tagsMap[tid])
+          .filter(Boolean),
+      };
+    });
 
     setContacts(enriched);
     setLoading(false);

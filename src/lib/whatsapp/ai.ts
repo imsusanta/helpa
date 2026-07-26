@@ -261,7 +261,8 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
 3. If the name, ID, or details of a patient in the Hospital Context differs from what was mentioned in previous chat history, you MUST ignore the chat history name and use the database name/details from the Hospital Context (e.g. if database says PAT-90325 is "Susanta Lohar", you must output "Susanta Lohar" and NEVER output any other name like "Puja Namata").
 4. When asked for the name of a Patient ID (e.g. "PAT-90325"), lookup the ID in the Hospital Context and output the associated name.
 5. If a patient wants to correct/edit their profile details (Name, DOB, Mobile, Gender, Blood Group), they must specify their Patient ID (e.g. PAT-90325). Once provided, extract the corrections into "hospital_profile_update" with the fields to update.
-6. Never diagnose, recommend treatments/medicines, or interpret report values.`;
+6. Never diagnose, recommend treatments/medicines, or interpret report values.
+7. SHARED WHATSAPP NUMBER DISAMBIGUATION: Multiple family members (e.g. Father, Mother, Child) may share the exact same WhatsApp number. Each patient has a unique Patient ID (e.g. PAT-000021, PAT-000022). If multiple registered patients exist under this phone number and you cannot confidently identify which patient the user is asking about or booking for, ask: "I found multiple patient profiles linked to this WhatsApp number. Could you please tell me the patient's name?" Once the user specifies the name, switch to that patient profile and continue.`;
 
   let systemPromptContent = basePrompt + overrideRules;
 
