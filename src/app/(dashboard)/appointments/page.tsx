@@ -841,6 +841,28 @@ export default function AppointmentsPage() {
                         PDF Slip
                       </a>
 
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={async () => {
+                          toast.info("Sending Watermarked OPD Ticket PDF to patient's WhatsApp...");
+                          try {
+                            const res = await fetch(`/api/appointments/${appt.id}/confirm`, { method: "POST" });
+                            if (res.ok) {
+                              toast.success("OPD Ticket PDF sent to patient's WhatsApp!");
+                            } else {
+                              const data = await res.json().catch(() => ({}));
+                              toast.error(data.error || "Failed to send ticket PDF");
+                            }
+                          } catch (e: any) {
+                            toast.error("Error sending ticket PDF: " + e.message);
+                          }
+                        }}
+                        className="bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 text-xs py-1.5 px-2.5 font-semibold cursor-pointer"
+                      >
+                        Send Ticket PDF
+                      </Button>
+
                       {activeTab === "queue" && (
                         <>
                           {appt.status !== "calling" && (
