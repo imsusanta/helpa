@@ -23,7 +23,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
-import { DEFAULT_BOOKING_FORM_CONFIG } from "@/app/api/account/booking-form/route";
+import { DEFAULT_BOOKING_FORM_CONFIG } from "@/lib/booking-form/config";
 
 interface Appointment {
   id: string;

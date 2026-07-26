@@ -148,36 +148,23 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
   }
 
   if (isHospitalEnabled) {
-    const { data: doctors } = await db
-      .from('hospital_doctors')
-      .select('name, department, specialization, consultation_fee, available_days, working_hours')
-      .eq('account_id', accountId)
-      .eq('status', 'active');
+    const [
+      { data: doctors },
+      { data: branches },
+      { data: appts },
+      { data: labReportsData },
+      { data: registeredPatients },
+      { data: lastCampaignRec },
+    ] = await Promise.all([
+      db.from('hospital_doctors').select('name, department, specialization, consultation_fee, available_days, working_hours').eq('account_id', accountId).eq('status', 'active'),
+      db.from('hospital_branches').select('name, address, phone').eq('account_id', accountId),
+      db.from('appointments').select('*, doctor:hospital_doctors(name), patient:contacts(name)').in('patient_id', contactIds).order('appointment_date', { ascending: false }).limit(3),
+      db.from('hospital_lab_reports').select('id, test_name, status, expected_delivery_date, report_pdf_url, notes, department, doctor:hospital_doctors(name), patient:contacts(name)').in('patient_id', contactIds).order('created_at', { ascending: false }).limit(10),
+      db.from('patients').select('patient_seq_id, gender, date_of_birth, blood_group, emergency_contact, contact:contacts(name, phone)').in('id', contactIds),
+      db.from('broadcast_recipients').select('id, broadcast_id, broadcasts(*)').eq('contact_id', contactId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+    ]);
 
-    const { data: branches } = await db
-      .from('hospital_branches')
-      .select('name, address, phone')
-      .eq('account_id', accountId);
-
-    const { data: appts } = await db
-      .from('appointments')
-      .select('*, doctor:hospital_doctors(name), patient:contacts(name)')
-      .in('patient_id', contactIds)
-      .order('appointment_date', { ascending: false })
-      .limit(3);
-
-    const { data: labReportsData } = await db
-      .from('hospital_lab_reports')
-      .select('id, test_name, status, expected_delivery_date, report_pdf_url, notes, department, doctor:hospital_doctors(name), patient:contacts(name)')
-      .in('patient_id', contactIds)
-      .order('created_at', { ascending: false })
-      .limit(10);
     labReports = labReportsData;
-
-    const { data: registeredPatients } = await db
-      .from('patients')
-      .select('patient_seq_id, gender, date_of_birth, blood_group, emergency_contact, contact:contacts(name, phone)')
-      .in('id', contactIds);
 
     if (registeredPatients && registeredPatients.length > 0) {
       hospitalContext += "Registered Patients under this WhatsApp/Phone Number:\n";
@@ -189,15 +176,6 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
       });
       hospitalContext += "\n";
     }
-
-    // Fetch last campaign details
-    const { data: lastCampaignRec } = await db
-      .from('broadcast_recipients')
-      .select('id, broadcast_id, broadcasts(*)')
-      .eq('contact_id', contactId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
 
     if (lastCampaignRec && lastCampaignRec.broadcasts) {
       const camp = lastCampaignRec.broadcasts as any;
@@ -256,18 +234,18 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
   const overrideRules = `
 
 [CRITICAL INSTRUCTION - BUSINESS & SYSTEM OVERRIDE]:
-1. BUSINESS IDENTITY: You are the official AI assistant representing "${businessName}". When welcoming a new patient/customer or starting a conversation, you MUST explicitly mention "${businessName}" by name (e.g. "Welcome to *${businessName}*!"). Never use generic phrases like "our Hospital & Clinic" without mentioning "${businessName}".
-2. The "Registered Patients under this WhatsApp/Phone Number" list in the Hospital Context contains the absolute, real-time database records for patient registrations.
-3. If the name, ID, or details of a patient in the Hospital Context differs from what was mentioned in previous chat history, you MUST ignore the chat history name and use the database name/details from the Hospital Context (e.g. if database says PAT-90325 is "Susanta Lohar", you must output "Susanta Lohar" and NEVER output any other name like "Puja Namata").
-4. When asked for the name of a Patient ID (e.g. "PAT-90325"), lookup the ID in the Hospital Context and output the associated name.
-5. If a patient wants to correct/edit their profile details (Name, DOB, Mobile, Gender, Blood Group), they must specify their Patient ID (e.g. PAT-90325). Once provided, extract the corrections into "hospital_profile_update" with the fields to update.
+1. BUSINESS IDENTITY: You are the official AI assistant representing "${businessName}". When welcoming a new patient/customer or starting a conversation, you MUST explicitly mention "${businessName}" by name (e.g. "Welcome to *${businessName}*!").
+2. REAL-TIME DATABASE DATA ACCURACY: The "Registered Patients", "Available Doctors & Clinic Schedules", "Appointments", and "Lab Reports" sections in the Hospital Context contain the absolute, real-time database records.
+3. DOCTOR & CLINIC DETAILS: When asked about doctors, departments, consultation fees, working hours, or available slots, ALWAYS reply using the exact database details from the "Available Doctors & Clinic Schedules" list.
+4. PATIENT DETAILS & LOOKUP: When responding to a patient, prioritize their registered database details (Patient ID PAT-XXXXXX, Full Name, Blood Group, Gender, Appointments).
+5. If a patient wants to correct/edit their profile details, extract the corrections into "hospital_profile_update" with the fields to update.
 6. Never diagnose, recommend treatments/medicines, or interpret report values.
 7. SHARED WHATSAPP NUMBER DISAMBIGUATION: Multiple family members (e.g. Father, Mother, Child) may share the exact same WhatsApp number. Each patient has a unique Patient ID (e.g. PAT-000021, PAT-000022). If multiple registered patients exist under this phone number and you cannot confidently identify which patient the user is asking about or booking for, ask: "I found multiple patient profiles linked to this WhatsApp number. Could you please tell me the patient's name?" Once the user specifies the name, switch to that patient profile and continue.`;
 
   let systemPromptContent = basePrompt + overrideRules;
 
   if (account.welcome_message && account.welcome_message.trim().length > 0) {
-    systemPromptContent += `\n\n[OPTIONAL CUSTOM WELCOME MESSAGE GREETING]:\nIf greeting a new customer or starting a conversation, you may optionally adapt this welcome greeting template:\n"${account.welcome_message.trim()}"\nOtherwise, respond directly according to the customer query and AI System Instructions & Guidelines below.\n`;
+    systemPromptContent += `\n\n[MANDATORY CUSTOM WELCOME GREETING TEMPLATE]:\nWhen greeting a new patient/customer or starting a new conversation, you MUST incorporate this custom welcome message:\n"${account.welcome_message.trim()}"\nFollowed by answering their query or guiding them through the registration/booking process using real-time database records.\n`;
   }
 
   if (kbContext) {

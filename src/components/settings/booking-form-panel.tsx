@@ -15,7 +15,7 @@ import {
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { DEFAULT_BOOKING_FORM_CONFIG } from '@/app/api/account/booking-form/route';
+import { DEFAULT_BOOKING_FORM_CONFIG } from '@/lib/booking-form/config';
 
 interface FieldMeta {
   key: string;
