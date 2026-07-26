@@ -46,7 +46,9 @@ import {
   Terminal,
   ShieldCheck,
   Lock,
-  MessageCircleQuestion
+  MessageCircleQuestion,
+  Smartphone,
+  Check
 } from "lucide-react";
 
 // 21st.dev Border Beam Component
@@ -160,7 +162,7 @@ const CHAT_SCENARIOS = {
       { text: "Hi, do you have any open slots for a teeth cleaning tomorrow afternoon?", sender: "user", time: "06:14 PM" },
       { text: "Hello! Yes, we have 2 open slots available tomorrow:\n1️⃣ 02:30 PM with Dr. Sharma\n2️⃣ 05:00 PM with Dr. Verma\n\nWhich slot works best for you?", sender: "bot", time: "06:14 PM", quickReplies: ["Book 02:30 PM", "Book 05:00 PM"] },
       { text: "02:30 PM works great!", sender: "user", time: "06:15 PM" },
-      { text: "Awesome! 🎉 Your teeth cleaning appointment is confirmed for Tomorrow at 02:30 PM.\n\n📅 Date: Tomorrow\n⏰ Time: 02:30 PM\n📍 Location: 4th Block, Indiranagar\n\nAdded to calendar & confirmation SMS dispatched!", sender: "bot", time: "06:15 PM" }
+      { text: "Awesome! 🎉 Your teeth cleaning appointment is confirmed for Tomorrow at 02:30 PM.\n\n📅 Date: Tomorrow\n⏰ Time: 02:30 PM\n📍 Location: Indiranagar\n\nAdded to calendar & confirmation SMS dispatched!", sender: "bot", time: "06:15 PM" }
     ]
   },
   coaching: {
@@ -170,7 +172,7 @@ const CHAT_SCENARIOS = {
     confidence: "99.4%",
     messages: [
       { text: "Hello, what are the fees and batch timings for 11th Science coaching?", sender: "user", time: "09:30 PM" },
-      { text: "Welcome to Apex Academy! 📚 Our 11th Science (JEE/NEET) batches start on Monday:\n\n• Morning Batch: 08:00 AM - 11:30 AM\n• Evening Batch: 04:30 PM - 08:00 PM\n• Course Fee: ₹45,000 / year (Installments available)\n\nWould you like to book a free 2-day trial class?", sender: "bot", time: "09:30 PM", quickReplies: ["Book Trial Class", "Download Syllabus PDF"] },
+      { text: "Welcome to Apex Academy! 📚 Our 11th Science (JEE/NEET) batches start on Monday:\n\n• Morning Batch: 08:00 AM - 11:30 AM\n• Evening Batch: 04:30 PM - 08:00 PM\n• Course Fee: ₹45,000 / year\n\nWould you like to book a free 2-day trial class?", sender: "bot", time: "09:30 PM", quickReplies: ["Book Trial Class", "Download Syllabus"] },
       { text: "Book Trial Class for Evening Batch please", sender: "user", time: "09:31 PM" },
       { text: "Done! 🎓 Your seat for the 2-Day Free Trial (Evening Batch) has been registered. See you this Monday at 04:30 PM!", sender: "bot", time: "09:31 PM" }
     ]
@@ -182,7 +184,7 @@ const CHAT_SCENARIOS = {
     confidence: "99.6%",
     messages: [
       { text: "Hi! Can I get price details for Hair Smoothening and Keratin?", sender: "user", time: "08:05 PM" },
-      { text: "Hello Gorgeous! ✨ Here are our current festival special prices:\n\n💇‍♀️ Hair Smoothening: ₹2,999 (Reg. ₹4,500)\n✨ Keratin Treatment: ₹3,499 (Reg. ₹5,200)\n\nBoth packages include complimentary Hair Spa!", sender: "bot", time: "08:05 PM", quickReplies: ["Book Smoothening", "Book Keratin"] },
+      { text: "Hello Gorgeous! ✨ Here are our current festival special prices:\n\n💇‍♀️ Hair Smoothening: ₹2,999\n✨ Keratin Treatment: ₹3,499\n\nBoth packages include complimentary Hair Spa!", sender: "bot", time: "08:05 PM", quickReplies: ["Book Smoothening", "Book Keratin"] },
       { text: "I'd like to book Keratin for Sunday at 11 AM", sender: "user", time: "08:06 PM" },
       { text: "Reserved! 💇‍♀️ Sunday at 11:00 AM is booked under your number. We look forward to pampering you!", sender: "bot", time: "08:06 PM" }
     ]
@@ -194,9 +196,9 @@ const CHAT_SCENARIOS = {
     confidence: "99.2%",
     messages: [
       { text: "Are 3BHK flats still available in Crestview Towers?", sender: "user", time: "11:20 PM" },
-      { text: "Hello! Yes, we have 3 premium 3BHK units remaining on upper floors (12th & 15th floor).\n\n📐 Size: 1,850 sq.ft\n💰 Price: Starting ₹1.25 Cr\n📍 Location: HSR Layout, Sector 2\n\nWould you like a virtual video tour or to schedule a site visit?", sender: "bot", time: "11:20 PM", quickReplies: ["Schedule Site Visit", "Get Brochure PDF"] },
+      { text: "Hello! Yes, we have 3 premium 3BHK units remaining on upper floors (12th & 15th floor).\n\n📐 Size: 1,850 sq.ft\n💰 Price: Starting ₹1.25 Cr\n📍 Location: HSR Layout\n\nWould you like a virtual tour or site visit?", sender: "bot", time: "11:20 PM", quickReplies: ["Schedule Site Visit", "Get Brochure"] },
       { text: "Schedule Site Visit for Saturday 11 AM", sender: "user", time: "11:21 PM" },
-      { text: "Confirmed! 🏢 Our relationship manager Amit will meet you at the site location Saturday at 11:00 AM. Location pin sent below!", sender: "bot", time: "11:21 PM" }
+      { text: "Confirmed! 🏢 Our relationship manager Amit will meet you at the site Saturday at 11:00 AM!", sender: "bot", time: "11:21 PM" }
     ]
   }
 };
@@ -205,11 +207,9 @@ export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [activeFaq, setActiveFaq] = useState<number | null>(1);
-  const [activeTab, setActiveTab] = useState("conversations");
   const [scrolled, setScrolled] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [heroVideoUrl, setHeroVideoUrl] = useState("https://www.youtube.com/embed/gFx-NjTw3sM");
-  const [actionVideoUrl, setActionVideoUrl] = useState("https://www.youtube.com/embed/gFx-NjTw3sM");
 
   // Dynamic Word Rotator State
   const [wordIndex, setWordIndex] = useState(0);
@@ -259,13 +259,11 @@ export default function LandingPage() {
         const { data: settingsData, error } = await supabase
           .from("system_settings")
           .select("key, value")
-          .in("key", ["landing_hero_video_url", "landing_action_video_url"]);
+          .in("key", ["landing_hero_video_url"]);
         if (settingsData && !error) {
           settingsData.forEach((row: any) => {
             if (row.key === "landing_hero_video_url" && typeof row.value === "string") {
               setHeroVideoUrl(row.value);
-            } else if (row.key === "landing_action_video_url" && typeof row.value === "string") {
-              setActionVideoUrl(row.value);
             }
           });
         }
@@ -276,21 +274,6 @@ export default function LandingPage() {
     checkAuthAndSettings();
   }, []);
 
-  // AutoPlay simulation timer effect
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (autoPlay && simStep < CHAT_SCENARIOS[activeScenario].messages.length) {
-      setIsTyping(true);
-      timer = setTimeout(() => {
-        setIsTyping(false);
-        setSimStep((prev) => prev + 1);
-      }, 1400);
-    } else if (simStep >= CHAT_SCENARIOS[activeScenario].messages.length) {
-      setAutoPlay(false);
-    }
-    return () => clearTimeout(timer);
-  }, [autoPlay, simStep, activeScenario]);
-
   // Reset chat simulation step when scenario changes
   const handleScenarioChange = (key: keyof typeof CHAT_SCENARIOS) => {
     setActiveScenario(key);
@@ -300,15 +283,6 @@ export default function LandingPage() {
       setIsTyping(false);
       setSimStep(2);
     }, 1000);
-  };
-
-  const restartSimulation = () => {
-    setSimStep(1);
-    setIsTyping(true);
-    setTimeout(() => {
-      setIsTyping(false);
-      setSimStep(2);
-    }, 800);
   };
 
   const currentChat = CHAT_SCENARIOS[activeScenario];
@@ -404,39 +378,38 @@ export default function LandingPage() {
         </AnimatePresence>
       </header>
 
-      {/* ═══════ 21ST.DEV POWERED ANIMATED HERO SECTION (5-SECOND CLARITY) ═══════ */}
-      <section className="relative overflow-hidden px-4 sm:px-6 pb-20 pt-12 sm:pt-20 z-10">
+      {/* ═══════ REDESIGNED 10/10 ALL-DEVICE RESPONSIVE HERO SECTION ═══════ */}
+      <section className="relative overflow-hidden px-4 sm:px-6 lg:px-8 pt-8 sm:pt-16 lg:pt-20 pb-16 sm:pb-24 z-10">
         
-        {/* 21st.dev Orbiting Circles Background Element */}
+        {/* 21st.dev Orbiting Circles Background Element (Desktop) */}
         <div className="hidden lg:block pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="relative mx-auto h-full max-w-5xl flex items-center justify-center">
-            <OrbitingCircles radius={280} duration={35} delay={0}>
+          <div className="relative mx-auto h-full max-w-6xl flex items-center justify-center">
+            <OrbitingCircles radius={300} duration={35} delay={0}>
               <MessageSquare className="h-4 w-4 text-indigo-500" />
             </OrbitingCircles>
-            <OrbitingCircles radius={280} duration={35} delay={17.5} reverse>
+            <OrbitingCircles radius={300} duration={35} delay={17.5} reverse>
               <CalendarCheck className="h-4 w-4 text-emerald-500" />
             </OrbitingCircles>
-            <OrbitingCircles radius={400} duration={50} delay={0}>
+            <OrbitingCircles radius={440} duration={50} delay={0}>
               <Zap className="h-4 w-4 text-amber-500" />
             </OrbitingCircles>
-            <OrbitingCircles radius={400} duration={50} delay={25} reverse>
+            <OrbitingCircles radius={440} duration={50} delay={25} reverse>
               <Lock className="h-4 w-4 text-purple-500" />
             </OrbitingCircles>
           </div>
         </div>
 
-        {/* Floating Animated Interactive Micro-Widgets (Desktop) */}
+        {/* Desktop Floating Micro-Widgets */}
         <div className="hidden lg:block pointer-events-none">
-          {/* Left Floating Card: Latency Meter */}
           <motion.div
             initial={{ opacity: 0, x: -30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8, delay: 0.4 }}
-            className="absolute top-24 left-[4%] animate-float-slow z-20"
+            className="absolute top-24 left-[3%] animate-float-slow z-20"
           >
-            <div className="relative flex items-center gap-3 rounded-2xl border border-indigo-500/30 bg-card/90 p-4 shadow-2xl backdrop-blur-xl">
-              <BorderBeam size={120} duration={8} colorFrom="#6366f1" colorTo="#a855f7" />
-              <div className="h-10 w-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-mono font-bold">
+            <div className="relative flex items-center gap-3 rounded-2xl border border-indigo-500/30 bg-card/90 p-3.5 shadow-2xl backdrop-blur-xl">
+              <BorderBeam size={110} duration={8} colorFrom="#6366f1" colorTo="#a855f7" />
+              <div className="h-9 w-9 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-mono font-bold text-xs">
                 ⚡
               </div>
               <div>
@@ -449,16 +422,15 @@ export default function LandingPage() {
             </div>
           </motion.div>
 
-          {/* Right Floating Card: Live Booking Confirmed Notification */}
           <motion.div
             initial={{ opacity: 0, x: 30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8, delay: 0.5 }}
-            className="absolute top-28 right-[4%] animate-float-reverse z-20"
+            className="absolute top-28 right-[3%] animate-float-reverse z-20"
           >
-            <div className="relative flex items-center gap-3 rounded-2xl border border-emerald-500/30 bg-card/90 p-4 shadow-2xl backdrop-blur-xl">
-              <BorderBeam size={120} duration={10} colorFrom="#10b981" colorTo="#6366f1" delay={2} />
-              <div className="h-10 w-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-bold text-lg">
+            <div className="relative flex items-center gap-3 rounded-2xl border border-emerald-500/30 bg-card/90 p-3.5 shadow-2xl backdrop-blur-xl">
+              <BorderBeam size={110} duration={10} colorFrom="#10b981" colorTo="#6366f1" delay={2} />
+              <div className="h-9 w-9 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-bold text-sm">
                 🎉
               </div>
               <div>
@@ -471,43 +443,57 @@ export default function LandingPage() {
 
         <div className="mx-auto max-w-5xl text-center relative z-20">
           
+          {/* Mobile Swipeable Micro-Status Pill Bar (For Mobile & Tablet) */}
+          <div className="flex lg:hidden overflow-x-auto no-scrollbar gap-2 py-1 mb-5 justify-start sm:justify-center px-1">
+            <div className="shrink-0 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-[10px] font-mono font-bold text-indigo-500 dark:text-indigo-300 flex items-center gap-1.5 shadow-sm">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
+              ⚡ 1.1s Speed
+            </div>
+            <div className="shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 shadow-sm">
+              🎉 Booking Auto-Synced
+            </div>
+            <div className="shrink-0 rounded-full border border-purple-500/30 bg-purple-500/10 px-3 py-1 text-[10px] font-mono font-bold text-purple-500 dark:text-purple-300 flex items-center gap-1.5 shadow-sm">
+              🔒 99.4% Accuracy
+            </div>
+          </div>
+
           {/* 21st.dev Shimmer Hero Badge */}
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
-            className="relative mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-4.5 py-1.5 text-xs font-mono font-bold text-indigo-600 dark:text-indigo-300 shadow-sm backdrop-blur-md overflow-hidden"
+            className="relative mx-auto mb-5 inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3.5 sm:px-4.5 py-1.5 text-[11px] sm:text-xs font-mono font-bold text-indigo-600 dark:text-indigo-300 shadow-sm backdrop-blur-md overflow-hidden max-w-[95%] sm:max-w-none"
           >
-            <BorderBeam size={100} duration={6} colorFrom="#6366f1" colorTo="#ec4899" />
-            <span className="relative flex h-2 w-2">
+            <BorderBeam size={90} duration={6} colorFrom="#6366f1" colorTo="#ec4899" />
+            <span className="relative flex h-2 w-2 shrink-0">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            <span>[ ⚡ 24/7 AUTOMATIC WHATSAPP RECEPTIONIST ]</span>
-            <Sparkles className="h-3.5 w-3.5 text-amber-400 ml-1 animate-spin" style={{ animationDuration: "6s" }} />
+            <span className="truncate">[ ⚡ 24/7 AUTOMATIC WHATSAPP RECEPTIONIST ]</span>
+            <Sparkles className="h-3.5 w-3.5 text-amber-400 ml-1 animate-spin shrink-0" style={{ animationDuration: "6s" }} />
           </motion.div>
 
-          {/* Headline with 5-Second Clarity & Animated Word Rotator */}
+          {/* Fluid Responsive Headline */}
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
             className="max-w-4xl mx-auto"
           >
-            <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight leading-[1.08] text-foreground">
+            <h1 className="text-3xl xs:text-4xl sm:text-5xl lg:text-7xl font-black tracking-tight leading-[1.1] text-foreground">
               Turn Your WhatsApp Into An
             </h1>
 
             {/* Dynamic Word Rotator Component */}
-            <div className="h-[48px] sm:h-[72px] lg:h-[84px] overflow-hidden flex items-center justify-center mt-1">
+            <div className="h-[40px] xs:h-[48px] sm:h-[68px] lg:h-[80px] overflow-hidden flex items-center justify-center mt-1">
               <AnimatePresence mode="wait">
                 <motion.span
                   key={wordIndex}
-                  initial={{ opacity: 0, y: 24, scale: 0.95 }}
+                  initial={{ opacity: 0, y: 20, scale: 0.96 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -24, scale: 0.95 }}
-                  transition={{ duration: 0.4, ease: "easeOut" }}
-                  className="bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-400 bg-clip-text text-transparent font-black text-3xl sm:text-5xl lg:text-6xl tracking-tight block"
+                  exit={{ opacity: 0, y: -20, scale: 0.96 }}
+                  transition={{ duration: 0.35, ease: "easeOut" }}
+                  className="bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-400 bg-clip-text text-transparent font-black text-2xl xs:text-3xl sm:text-5xl lg:text-6xl tracking-tight block px-1"
                 >
                   {ROTATOR_WORDS[wordIndex]}
                 </motion.span>
@@ -520,7 +506,7 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="mx-auto mt-6 max-w-2xl text-base sm:text-xl text-muted-foreground leading-relaxed font-normal px-2"
+            className="mx-auto mt-5 sm:mt-6 max-w-2xl text-sm sm:text-lg lg:text-xl text-muted-foreground leading-relaxed font-normal px-2"
           >
             Helpa instantly answers every customer question, books appointments into your calendar, and captures new leads 24/7—so you never lose another client.
           </motion.p>
@@ -530,34 +516,34 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.25 }}
-            className="mt-6 flex flex-wrap justify-center gap-2.5 px-2"
+            className="mt-6 flex flex-wrap justify-center gap-2 sm:gap-2.5 px-1"
           >
-            <div className="rounded-full border border-border bg-card/80 px-4 py-1.5 text-xs font-bold text-foreground shadow-sm flex items-center gap-1.5 backdrop-blur-md">
+            <div className="rounded-full border border-border bg-card/80 px-3.5 py-1.5 text-[11px] sm:text-xs font-bold text-foreground shadow-sm flex items-center gap-1.5 backdrop-blur-md">
               <span className="text-emerald-500">⚡</span> Replies in 3 Seconds
             </div>
-            <div className="rounded-full border border-border bg-card/80 px-4 py-1.5 text-xs font-bold text-foreground shadow-sm flex items-center gap-1.5 backdrop-blur-md">
+            <div className="rounded-full border border-border bg-card/80 px-3.5 py-1.5 text-[11px] sm:text-xs font-bold text-foreground shadow-sm flex items-center gap-1.5 backdrop-blur-md">
               <span className="text-indigo-500">📅</span> Books Slots Automatically
             </div>
-            <div className="rounded-full border border-border bg-card/80 px-4 py-1.5 text-xs font-bold text-foreground shadow-sm flex items-center gap-1.5 backdrop-blur-md">
+            <div className="rounded-full border border-border bg-card/80 px-3.5 py-1.5 text-[11px] sm:text-xs font-bold text-foreground shadow-sm flex items-center gap-1.5 backdrop-blur-md">
               <span className="text-purple-500">🗣️</span> Speaks English & Hindi
             </div>
-            <div className="rounded-full border border-border bg-card/80 px-4 py-1.5 text-xs font-bold text-foreground shadow-sm flex items-center gap-1.5 backdrop-blur-md">
+            <div className="rounded-full border border-border bg-card/80 px-3.5 py-1.5 text-[11px] sm:text-xs font-bold text-foreground shadow-sm flex items-center gap-1.5 backdrop-blur-md">
               <span className="text-amber-500">🚀</span> Setup in 24 Hours
             </div>
           </motion.div>
 
-          {/* 21st.dev Border Beam Shimmer Action Buttons */}
+          {/* Shimmer Action Buttons (100% Touch Responsive) */}
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
-            className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3.5 px-2"
+            className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3 w-full max-w-md sm:max-w-none mx-auto px-2"
           >
             <div className="relative w-full sm:w-auto rounded-full overflow-hidden p-[1px]">
               <BorderBeam size={140} duration={7} colorFrom="#6366f1" colorTo="#10b981" />
               <Link
                 href={user ? "/dashboard" : "/signup"}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 rounded-full bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 px-8 py-4 text-xs sm:text-sm font-mono font-bold text-white transition-all shadow-xl hover:scale-[1.04] active:scale-[0.98] cursor-pointer"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 rounded-full bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600 px-8 py-4 min-h-[48px] text-xs sm:text-sm font-mono font-bold text-white transition-all shadow-xl hover:scale-[1.03] active:scale-[0.98] cursor-pointer"
               >
                 <span>BOOK FREE DEMO</span>
                 <ArrowRight className="h-4 w-4" />
@@ -566,35 +552,35 @@ export default function LandingPage() {
 
             <a
               href="#command-center"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-full border border-border bg-card/80 px-7 py-4 text-xs sm:text-sm font-mono font-bold text-foreground transition-all hover:bg-accent hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-full border border-border bg-card/80 px-7 py-4 min-h-[48px] text-xs sm:text-sm font-mono font-bold text-foreground transition-all hover:bg-accent hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
             >
               <Bot className="h-4 w-4 text-indigo-500" />
               <span>TEST LIVE DEMO CHAT</span>
             </a>
           </motion.div>
 
-          {/* Micro Specs Bar */}
+          {/* All-Device Responsive Micro Specs Grid */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.6, delay: 0.4 }}
-            className="mt-12 max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-3 text-left font-mono"
+            className="mt-10 sm:mt-12 max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-3 text-left font-mono"
           >
-            <div className="rounded-2xl border border-border/80 bg-card/50 p-4 backdrop-blur-md hover:border-indigo-500/40 transition-colors">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Response Speed</p>
-              <p className="text-lg font-black text-foreground mt-1">&lt; 3 Seconds</p>
+            <div className="rounded-2xl border border-border/80 bg-card/50 p-3.5 sm:p-4 backdrop-blur-md hover:border-indigo-500/40 transition-colors">
+              <p className="text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-widest">Response Speed</p>
+              <p className="text-base sm:text-lg font-black text-foreground mt-0.5 sm:mt-1">&lt; 3 Seconds</p>
             </div>
-            <div className="rounded-2xl border border-border/80 bg-card/50 p-4 backdrop-blur-md hover:border-emerald-500/40 transition-colors">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Accuracy Rate</p>
-              <p className="text-lg font-black text-emerald-500 mt-1">99.4% Verified</p>
+            <div className="rounded-2xl border border-border/80 bg-card/50 p-3.5 sm:p-4 backdrop-blur-md hover:border-emerald-500/40 transition-colors">
+              <p className="text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-widest">Accuracy Rate</p>
+              <p className="text-base sm:text-lg font-black text-emerald-500 mt-0.5 sm:mt-1">99.4% Verified</p>
             </div>
-            <div className="rounded-2xl border border-border/80 bg-card/50 p-4 backdrop-blur-md hover:border-purple-500/40 transition-colors">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Meta API Status</p>
-              <p className="text-lg font-black text-foreground mt-1">Official Cloud API</p>
+            <div className="rounded-2xl border border-border/80 bg-card/50 p-3.5 sm:p-4 backdrop-blur-md hover:border-purple-500/40 transition-colors">
+              <p className="text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-widest">Meta API Status</p>
+              <p className="text-base sm:text-lg font-black text-foreground mt-0.5 sm:mt-1">Official Cloud API</p>
             </div>
-            <div className="rounded-2xl border border-border/80 bg-card/50 p-4 backdrop-blur-md hover:border-indigo-500/40 transition-colors">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Total Chats Handled</p>
-              <p className="text-lg font-black text-indigo-400 mt-1">10,000,000+</p>
+            <div className="rounded-2xl border border-border/80 bg-card/50 p-3.5 sm:p-4 backdrop-blur-md hover:border-indigo-500/40 transition-colors">
+              <p className="text-[9px] sm:text-[10px] text-muted-foreground uppercase tracking-widest">Total Chats</p>
+              <p className="text-base sm:text-lg font-black text-indigo-400 mt-0.5 sm:mt-1">10,000,000+</p>
             </div>
           </motion.div>
         </div>
@@ -604,7 +590,7 @@ export default function LandingPage() {
           initial={{ opacity: 0, y: 24, scale: 0.97 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.6, delay: 0.45 }}
-          className="relative mx-auto mt-14 max-w-4xl"
+          className="relative mx-auto mt-10 sm:mt-14 max-w-4xl"
         >
           <div className="relative aspect-video overflow-hidden rounded-2xl border border-border shadow-2xl bg-zinc-950">
             <BorderBeam size={300} duration={14} colorFrom="#6366f1" colorTo="#a855f7" borderWidth={2} />
@@ -622,7 +608,7 @@ export default function LandingPage() {
       </section>
 
       {/* ═══════ COMMAND CENTER (INTERACTIVE PRODUCTION DASHBOARD) ═══════ */}
-      <section id="command-center" className="mx-auto max-w-7xl px-4 sm:px-6 py-20 sm:py-24 scroll-mt-16 relative">
+      <section id="command-center" className="mx-auto max-w-7xl px-4 sm:px-6 py-16 sm:py-24 scroll-mt-16 relative">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -645,7 +631,7 @@ export default function LandingPage() {
         <div className="mt-8 flex justify-start sm:justify-center overflow-x-auto no-scrollbar gap-2 px-1 pb-2">
           <button
             onClick={() => handleScenarioChange("clinic")}
-            className={`shrink-0 flex items-center gap-2 rounded-full px-5 py-2 text-xs font-mono font-bold transition-all cursor-pointer ${
+            className={`shrink-0 flex items-center gap-2 rounded-full px-4 sm:px-5 py-2 text-xs font-mono font-bold transition-all cursor-pointer ${
               activeScenario === "clinic"
                 ? "bg-foreground text-background shadow-md scale-105"
                 : "bg-card border border-border text-muted-foreground hover:text-foreground"
@@ -655,7 +641,7 @@ export default function LandingPage() {
           </button>
           <button
             onClick={() => handleScenarioChange("coaching")}
-            className={`shrink-0 flex items-center gap-2 rounded-full px-5 py-2 text-xs font-mono font-bold transition-all cursor-pointer ${
+            className={`shrink-0 flex items-center gap-2 rounded-full px-4 sm:px-5 py-2 text-xs font-mono font-bold transition-all cursor-pointer ${
               activeScenario === "coaching"
                 ? "bg-foreground text-background shadow-md scale-105"
                 : "bg-card border border-border text-muted-foreground hover:text-foreground"
@@ -665,7 +651,7 @@ export default function LandingPage() {
           </button>
           <button
             onClick={() => handleScenarioChange("salon")}
-            className={`shrink-0 flex items-center gap-2 rounded-full px-5 py-2 text-xs font-mono font-bold transition-all cursor-pointer ${
+            className={`shrink-0 flex items-center gap-2 rounded-full px-4 sm:px-5 py-2 text-xs font-mono font-bold transition-all cursor-pointer ${
               activeScenario === "salon"
                 ? "bg-foreground text-background shadow-md scale-105"
                 : "bg-card border border-border text-muted-foreground hover:text-foreground"
@@ -675,7 +661,7 @@ export default function LandingPage() {
           </button>
           <button
             onClick={() => handleScenarioChange("realestate")}
-            className={`shrink-0 flex items-center gap-2 rounded-full px-5 py-2 text-xs font-mono font-bold transition-all cursor-pointer ${
+            className={`shrink-0 flex items-center gap-2 rounded-full px-4 sm:px-5 py-2 text-xs font-mono font-bold transition-all cursor-pointer ${
               activeScenario === "realestate"
                 ? "bg-foreground text-background shadow-md scale-105"
                 : "bg-card border border-border text-muted-foreground hover:text-foreground"
@@ -687,12 +673,12 @@ export default function LandingPage() {
 
         {/* Command Center Mockup */}
         <div className="mt-8 mx-auto max-w-xl">
-          <div className="relative rounded-3xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl font-sans overflow-hidden">
+          <div className="relative rounded-3xl border border-zinc-800 bg-zinc-950 p-3.5 sm:p-4 shadow-2xl font-sans overflow-hidden">
             <BorderBeam size={220} duration={12} colorFrom="#6366f1" colorTo="#10b981" />
             {/* Header bar */}
-            <div className="bg-zinc-900/90 rounded-2xl px-4 py-3 flex items-center justify-between border border-zinc-800">
-              <div className="flex items-center gap-3">
-                <div className={`h-8 w-8 rounded-xl ${currentChat.avatarBg} flex items-center justify-center font-bold text-white text-xs`}>
+            <div className="bg-zinc-900/90 rounded-2xl px-3.5 py-3 flex items-center justify-between border border-zinc-800">
+              <div className="flex items-center gap-2.5">
+                <div className={`h-8 w-8 rounded-xl ${currentChat.avatarBg} flex items-center justify-center font-bold text-white text-xs shrink-0`}>
                   H
                 </div>
                 <div>
@@ -710,7 +696,7 @@ export default function LandingPage() {
             </div>
 
             {/* Conversation Window */}
-            <div className="p-4 space-y-3 min-h-[380px] bg-zinc-950/60 rounded-2xl mt-2 border border-zinc-900 overflow-y-auto">
+            <div className="p-3.5 sm:p-4 space-y-3 min-h-[360px] sm:min-h-[380px] bg-zinc-950/60 rounded-2xl mt-2 border border-zinc-900 overflow-y-auto">
               {currentChat.messages.slice(0, simStep).map((msg, idx) => (
                 <motion.div
                   key={idx}
@@ -720,7 +706,7 @@ export default function LandingPage() {
                   className={`flex flex-col ${msg.sender === "user" ? "items-end" : "items-start"}`}
                 >
                   <div
-                    className={`max-w-[88%] rounded-2xl px-3.5 py-2.5 text-xs leading-relaxed ${
+                    className={`max-w-[90%] sm:max-w-[88%] rounded-2xl px-3.5 py-2.5 text-xs leading-relaxed ${
                       msg.sender === "user"
                         ? "bg-indigo-600 text-white rounded-tr-none"
                         : "bg-zinc-900 text-zinc-200 border border-zinc-800 rounded-tl-none"
@@ -759,7 +745,7 @@ export default function LandingPage() {
       </section>
 
       {/* ═══════ BENTO GRID ARCHITECTURE ═══════ */}
-      <section id="bento-architecture" className="mx-auto max-w-7xl px-4 sm:px-6 py-20 sm:py-24 relative">
+      <section id="bento-architecture" className="mx-auto max-w-7xl px-4 sm:px-6 py-16 sm:py-24 relative">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -779,7 +765,7 @@ export default function LandingPage() {
         </motion.div>
 
         {/* 4-Card Bento Grid */}
-        <div className="mt-12 sm:mt-14 grid gap-5 md:grid-cols-3">
+        <div className="mt-10 sm:mt-14 grid gap-5 md:grid-cols-3">
           
           {/* Card 1: Span 2 (Large) */}
           <motion.div
@@ -870,7 +856,7 @@ export default function LandingPage() {
       </section>
 
       {/* ═══════ INTERACTIVE ROI METRIC ENGINE ═══════ */}
-      <section id="roi-engine" className="border-y border-border bg-muted/30 py-20 sm:py-24 scroll-mt-16 relative font-mono">
+      <section id="roi-engine" className="border-y border-border bg-muted/30 py-16 sm:py-24 scroll-mt-16 relative font-mono">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <motion.div
             initial={{ opacity: 0, y: 16 }}
@@ -890,7 +876,7 @@ export default function LandingPage() {
             </p>
           </motion.div>
 
-          <div className="mt-12 max-w-4xl mx-auto grid gap-6 md:grid-cols-2 bg-zinc-950 border border-zinc-800 rounded-3xl p-6 sm:p-8 shadow-2xl">
+          <div className="mt-10 sm:mt-12 max-w-4xl mx-auto grid gap-6 md:grid-cols-2 bg-zinc-950 border border-zinc-800 rounded-3xl p-5 sm:p-8 shadow-2xl">
             {/* Sliders Input Panel */}
             <div className="space-y-6">
               <h3 className="text-sm font-bold text-zinc-200 uppercase tracking-widest flex items-center gap-2 font-sans">
@@ -983,7 +969,7 @@ export default function LandingPage() {
       </section>
 
       {/* ═══════ PRICING TIERS ═══════ */}
-      <section id="pricing" className="border-t border-border bg-muted/20 py-20 sm:py-24 scroll-mt-16">
+      <section id="pricing" className="border-t border-border bg-muted/20 py-16 sm:py-24 scroll-mt-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <motion.div
             initial={{ opacity: 0, y: 16 }}
@@ -998,7 +984,7 @@ export default function LandingPage() {
             <p className="mt-3 text-sm sm:text-base text-muted-foreground">Every plan includes Meta API setup, custom document indexing, and 24/7 dedicated support.</p>
           </motion.div>
           
-          <div className="mt-12 sm:mt-14 grid gap-6 md:grid-cols-3 text-left">
+          <div className="mt-10 sm:mt-14 grid gap-6 md:grid-cols-3 text-left">
             
             {/* Starter Plan */}
             <motion.div
@@ -1129,7 +1115,7 @@ export default function LandingPage() {
       </section>
 
       {/* ═══════ FAQ SECTION ═══════ */}
-      <section id="faq" className="mx-auto max-w-3xl px-4 sm:px-6 py-20 sm:py-24 scroll-mt-16">
+      <section id="faq" className="mx-auto max-w-3xl px-4 sm:px-6 py-16 sm:py-24 scroll-mt-16">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -1174,7 +1160,7 @@ export default function LandingPage() {
             <div key={item.id} className="rounded-2xl border border-border bg-card overflow-hidden transition-all">
               <button
                 onClick={() => setActiveFaq(activeFaq === item.id ? null : item.id)}
-                className="flex w-full items-center justify-between p-4.5 sm:p-5 text-left font-bold text-foreground text-xs sm:text-base cursor-pointer hover:bg-accent/50 transition-colors"
+                className="flex w-full items-center justify-between p-4 sm:p-5 text-left font-bold text-foreground text-xs sm:text-base cursor-pointer hover:bg-accent/50 transition-colors"
               >
                 <span>{item.q}</span>
                 <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform duration-300 ${activeFaq === item.id ? "rotate-180 text-indigo-500" : ""}`} />
@@ -1187,7 +1173,7 @@ export default function LandingPage() {
                     animate={{ opacity: 1, height: "auto" }}
                     exit={{ opacity: 0, height: 0 }}
                     transition={{ duration: 0.25 }}
-                    className="border-t border-border/50 px-4.5 sm:px-5 py-4 text-xs sm:text-sm text-muted-foreground leading-relaxed bg-muted/20"
+                    className="border-t border-border/50 px-4 sm:px-5 py-4 text-xs sm:text-sm text-muted-foreground leading-relaxed bg-muted/20"
                   >
                     {item.a}
                   </motion.div>
@@ -1199,8 +1185,8 @@ export default function LandingPage() {
       </section>
 
       {/* ═══════ FINAL CALL TO ACTION ═══════ */}
-      <section className="px-4 sm:px-6 py-16 sm:py-20 z-10 relative">
-        <div className="relative mx-auto max-w-4xl overflow-hidden rounded-[2.5rem] border border-border bg-zinc-950 p-8 sm:p-16 text-center text-white shadow-2xl">
+      <section className="px-4 sm:px-6 py-14 sm:py-20 z-10 relative">
+        <div className="relative mx-auto max-w-4xl overflow-hidden rounded-[2.5rem] border border-border bg-zinc-950 p-6 sm:p-16 text-center text-white shadow-2xl">
           <BorderBeam size={250} duration={12} colorFrom="#6366f1" colorTo="#10b981" />
           <h2 className="text-2xl sm:text-4xl font-black tracking-tight text-white relative z-10">
             Ready to Automate Your WhatsApp Operations?
