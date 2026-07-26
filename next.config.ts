@@ -61,16 +61,15 @@ const SECURITY_HEADERS = [
 ] as const;
 
 const nextConfig: any = {
+  turbopack: {
+    root: process.cwd(),
+  },
   typescript: {
     // Dangerously allow production builds to successfully complete even if
     // your project has type errors.
     ignoreBuildErrors: true,
   },
-  eslint: {
-    // Warning: This allows production builds to successfully complete even if
-    // your project has ESLint errors.
-    ignoreDuringBuilds: true,
-  },
+
   /**
    * Cache-Control policy.
    *

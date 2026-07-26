@@ -151,12 +151,15 @@ export default function ContactsPage() {
 
     const { data: patientsList } = await supabase
       .from('patients')
-      .select('id, patient_seq_id')
+      .select('id, patient_seq_id, blood_group')
       .in('id', contactIds);
 
-    const patientsMap: Record<string, string> = {};
+    const patientsMap: Record<string, { patient_seq_id?: string; blood_group?: string }> = {};
     patientsList?.forEach((p) => {
-      if (p.patient_seq_id) patientsMap[p.id] = p.patient_seq_id;
+      patientsMap[p.id] = {
+        patient_seq_id: p.patient_seq_id || undefined,
+        blood_group: p.blood_group || undefined,
+      };
     });
 
     const tagsByContact: Record<string, string[]> = {};
@@ -167,12 +170,16 @@ export default function ContactsPage() {
 
     const enriched: ContactWithTags[] = data.map((c) => {
       const meta = c.metadata && typeof c.metadata === 'object' ? c.metadata : {};
-      const patientIdVal = patientsMap[c.id] || (meta as any).patient_id || null;
+      const pData = patientsMap[c.id];
+      const patientIdVal = pData?.patient_seq_id || (meta as any).patient_id || (meta as any).patient_seq_id || '—';
+      const bloodGroupVal = pData?.blood_group || (meta as any).blood_group || (meta as any)['Blood Group'] || '—';
+
       return {
         ...c,
         metadata: {
           ...meta,
-          ...(patientIdVal ? { patient_id: patientIdVal } : {}),
+          patient_id: patientIdVal,
+          blood_group: bloodGroupVal,
         },
         tags: (tagsByContact[c.id] ?? [])
           .map((tid) => tagsMap[tid])
@@ -514,10 +521,31 @@ export default function ContactsPage() {
                     {contact.phone}
                   </TableCell>
                   {customFields.slice(0, 2).map((field) => {
-                    const val = contact.metadata?.[field.key] ?? '—';
+                    const rawVal = contact.metadata?.[field.key] || '—';
+
+                    if (field.key === 'patient_id' && rawVal !== '—') {
+                      return (
+                        <TableCell key={field.key} className="hidden md:table-cell text-sm">
+                          <span className="inline-flex items-center font-mono font-bold text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">
+                            {rawVal}
+                          </span>
+                        </TableCell>
+                      );
+                    }
+
+                    if (field.key === 'blood_group' && rawVal !== '—') {
+                      return (
+                        <TableCell key={field.key} className="hidden md:table-cell text-sm">
+                          <span className="inline-flex items-center font-semibold text-xs text-rose-600 dark:text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-md">
+                            {rawVal}
+                          </span>
+                        </TableCell>
+                      );
+                    }
+
                     return (
                       <TableCell key={field.key} className="text-muted-foreground hidden md:table-cell text-sm">
-                        {val}
+                        {rawVal}
                       </TableCell>
                     );
                   })}

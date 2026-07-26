@@ -197,31 +197,62 @@ export function ContactForm({
         contactId = data.id;
       }
 
-      if (isHospitalWorkspace && !isEdit && contactId) {
-        const { data: patient, error: patientError } = await supabase
+      if (isHospitalWorkspace && contactId) {
+        const { data: existingPatient } = await supabase
           .from('patients')
-          .insert({
+          .select('patient_seq_id, blood_group')
+          .eq('id', contactId)
+          .maybeSingle();
+
+        let seqId = existingPatient?.patient_seq_id;
+        const inputBloodGroup = (contactMetadata as any).blood_group || (contactMetadata as any)['Blood Group'] || null;
+
+        if (!existingPatient) {
+          const { data: maxPatient } = await supabase
+            .from('patients')
+            .select('patient_seq_id')
+            .eq('account_id', accountId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          let nextNum = 1;
+          if (maxPatient?.patient_seq_id) {
+            const numMatch = maxPatient.patient_seq_id.match(/\d+/);
+            if (numMatch) {
+              nextNum = parseInt(numMatch[0], 10) + 1;
+            }
+          }
+
+          seqId = `PAT-${String(nextNum).padStart(6, '0')}`;
+
+          await supabase.from('patients').insert({
             id: contactId,
             account_id: accountId,
+            patient_seq_id: seqId,
+            blood_group: inputBloodGroup,
             status: 'active',
-          })
-          .select('patient_seq_id')
-          .single();
-        if (patientError || !patient?.patient_seq_id) {
-          throw patientError || new Error('Could not assign a Patient ID');
+          });
+        } else if (inputBloodGroup && inputBloodGroup !== existingPatient.blood_group) {
+          await supabase
+            .from('patients')
+            .update({ blood_group: inputBloodGroup })
+            .eq('id', contactId);
         }
 
-        const { error: metadataError } = await supabase
-          .from('contacts')
-          .update({
-            metadata: {
-              ...contactMetadata,
-              patient_id: patient.patient_seq_id,
-            },
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', contactId);
-        if (metadataError) throw metadataError;
+        if (seqId) {
+          await supabase
+            .from('contacts')
+            .update({
+              metadata: {
+                ...contactMetadata,
+                patient_id: seqId,
+                ...(inputBloodGroup ? { blood_group: inputBloodGroup } : {}),
+              },
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', contactId);
+        }
       }
 
       // Sync tags

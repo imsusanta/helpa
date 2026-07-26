@@ -1032,6 +1032,41 @@ async function findOrCreateContact(
     return null
   }
 
+  if (newContact) {
+    const db = supabaseAdmin();
+    const { data: maxPatient } = await db
+      .from('patients')
+      .select('patient_seq_id')
+      .eq('account_id', accountId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    let nextNum = 1;
+    if (maxPatient?.patient_seq_id) {
+      const numMatch = maxPatient.patient_seq_id.match(/\d+/);
+      if (numMatch) {
+        nextNum = parseInt(numMatch[0], 10) + 1;
+      }
+    }
+
+    const seqId = `PAT-${String(nextNum).padStart(6, '0')}`;
+
+    await db.from('patients').insert({
+      id: newContact.id,
+      account_id: accountId,
+      patient_seq_id: seqId,
+      status: 'active',
+    }).catch(() => {});
+
+    await db.from('contacts').update({
+      metadata: {
+        ...(newContact.metadata || {}),
+        patient_id: seqId,
+      },
+    }).eq('id', newContact.id).catch(() => {});
+  }
+
   return { contact: newContact, wasCreated: true }
 }
 
