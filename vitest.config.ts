@@ -15,6 +15,12 @@ export default defineConfig({
       ENCRYPTION_KEY:
         "0000000000000000000000000000000000000000000000000000000000000000",
       META_APP_SECRET: "test-meta-app-secret",
+      // signed-links.ts validates this at module load and throws when it is
+      // missing, so any suite importing a route that signs patient links
+      // needs it present. Deliberately different from ENCRYPTION_KEY — the
+      // two must never be interchangeable.
+      PDF_SIGNING_KEY:
+        "1111111111111111111111111111111111111111111111111111111111111111",
     },
     clearMocks: true,
   },

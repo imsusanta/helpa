@@ -1074,8 +1074,12 @@ Note:
                 metadata: updatedMetadata,
                 updated_at: new Date().toISOString()
               }).eq('id', targetContactId);
-              const siteUrl = 'https://helpa.studio';
-              const pdfUrl = `${siteUrl}/api/appointments/${newAppt.id}/pdf`;
+              // Signed, 7-day, single-appointment link. Meta fetches this URL
+              // server-side to build the attachment and the patient may tap it
+              // in the message body — both are unauthenticated, so the token is
+              // what keeps either working now the route is not public.
+              const { buildAppointmentPdfUrl } = require('@/lib/security/signed-links');
+              const pdfUrl = buildAppointmentPdfUrl(newAppt.id, accountId);
               const bookingIdStr = newAppt.booking_id || `APT-2026-${newAppt.id.slice(0, 5).toUpperCase()}`;
 
               const displayDoc = actualDocName.startsWith('Dr.') ? actualDocName : 'Dr. ' + actualDocName;

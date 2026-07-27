@@ -1,23 +1,45 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
 import { engineSendText, engineSendDocument } from '@/lib/automations/meta-send';
+import { requireRole, toErrorResponse } from '@/lib/auth/account';
+import { buildAppointmentPdfUrl } from '@/lib/security/signed-links';
 
+/**
+ * Resend an appointment slip to the patient over WhatsApp.
+ *
+ * Auth: requires a signed-in member. `accountId` is taken from the session,
+ * never from the request body — the previous version accepted both ids from
+ * an unauthenticated body and looked the appointment up by id alone, so any
+ * caller could make one clinic send another clinic's appointment details.
+ */
 export async function POST(request: Request) {
+  let accountId: string;
   try {
-    const { appointmentId, accountId } = await request.json();
-    if (!appointmentId || !accountId) {
-      return NextResponse.json({ error: 'Missing appointmentId or accountId' }, { status: 400 });
+    const ctx = await requireRole('agent');
+    accountId = ctx.accountId;
+  } catch (err) {
+    return toErrorResponse(err);
+  }
+
+  try {
+    const { appointmentId } = await request.json();
+    if (!appointmentId || typeof appointmentId !== 'string') {
+      return NextResponse.json({ error: 'Missing appointmentId' }, { status: 400 });
     }
 
     const db = supabaseAdmin();
 
-    // Fetch appointment with patient contact and doctor details
+    // Fetch appointment with patient contact and doctor details.
+    // The account_id filter is what proves the caller owns this row.
     const { data: appt, error: apptErr } = await db
       .from('appointments')
       .select('*, patient:contacts(id, name, phone), doctor:hospital_doctors(id, name)')
       .eq('id', appointmentId)
+      .eq('account_id', accountId)
       .single();
 
+    // Same 404 for "absent" and "belongs to another account", so the response
+    // cannot be used to probe for appointment ids in other tenants.
     if (apptErr || !appt) {
       return NextResponse.json({ error: 'Appointment not found' }, { status: 404 });
     }
@@ -64,7 +86,11 @@ export async function POST(request: Request) {
       : 'On-Duty Physician';
 
     const bookingIdStr = appt.booking_id || `APT-2026-${appt.id.slice(0, 5).toUpperCase()}`;
-    const pdfUrl = `https://helpa.studio/api/appointments/${appt.id}/pdf`;
+    // Signed, 7-day, single-appointment link. Meta fetches this URL
+    // server-side to build the attachment and the patient may tap it in the
+    // message body — both are unauthenticated, so the token is what makes
+    // either work now that the route is no longer public.
+    const pdfUrl = buildAppointmentPdfUrl(appt.id, accountId);
     const systemUserId = '00000000-0000-0000-0000-000000000000';
 
     // Formulate confirmation message
@@ -111,8 +137,9 @@ Please arrive 15 minutes before your time slot. Thank you!`;
     });
 
     return NextResponse.json({ success: true });
-  } catch (err: any) {
-    console.error('Failed to resend appointment slip:', err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  } catch (err) {
+    // No PII and no raw err.message on the wire.
+    console.error('[appointments/notify] failed to resend appointment slip:', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

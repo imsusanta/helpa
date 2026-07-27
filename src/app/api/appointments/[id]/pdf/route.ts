@@ -1,19 +1,118 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jsPDF } from "jspdf";
 import QRCode from "qrcode";
+import { getCurrentAccount, toErrorResponse } from "@/lib/auth/account";
+import { verifyAppointmentPdfToken } from "@/lib/security/signed-links";
+import { scopedAdmin } from "@/lib/supabase/scoped-admin";
+
+/**
+ * Render an appointment slip as a PDF.
+ *
+ * Auth: EITHER a signed-in member of the owning account (staff opening the
+ * slip from the dashboard) OR a valid signed link token (the patient tapping
+ * the link we messaged them over WhatsApp). Never neither.
+ *
+ * This route was previously fully public — the appointment UUID was the only
+ * secret, and it leaked patient name, phone, email, doctor and visit time to
+ * anyone holding or guessing it.
+ *
+ * Why a token path exists at all: Meta's media fetcher and the patient's
+ * browser are both unauthenticated. `engineSendDocument` passes this URL to
+ * Meta as `link:`, and Meta fetches it server-side to build the attachment, so
+ * a session-only gate would mean the patient receives no document at all — not
+ * merely a dead link. The token keeps that working while still being bound to
+ * one appointment, one account and a 7-day window.
+ */
+/** The appointment fields this route renders. */
+interface AppointmentRow {
+  id: string;
+  account_id: string;
+  appointment_date: string | null;
+  appointment_time: string | null;
+  token_number: number | null;
+  queue_position: number | null;
+  booking_id: string | null;
+  notes: string | null;
+  department: string | null;
+  patient: {
+    id: string;
+    name: string | null;
+    phone: string | null;
+    email: string | null;
+    metadata?: { patient_id?: string } | null;
+  } | null;
+  doctor: { id: string; name: string | null; specialization: string | null } | null;
+}
+
+/**
+ * The narrow slice of Postgrest this route uses. The session client and the
+ * scopedAdmin client are structurally different types, so a union of the two
+ * collapses `.select()` to `{}`. Declaring only what is used keeps both
+ * assignable without reaching for `any`.
+ */
+interface MinimalDb {
+  from(table: string): {
+    select(columns: string): {
+      eq(column: string, value: string): {
+        eq(column: string, value: string): {
+          maybeSingle(): PromiseLike<{ data: AppointmentRow | null; error: unknown }>;
+        };
+        maybeSingle(): PromiseLike<{
+          data: { name?: string | null; patient_seq_id?: string | null } | null;
+          error: unknown;
+        }>;
+      };
+    };
+  };
+}
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  
-  // Create supabase admin/service client to bypass RLS for PDF generation
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-  
-  const { createClient: createSupabase } = require("@supabase/supabase-js");
-  const db = createSupabase(supabaseUrl, supabaseKey);
+
+  // ── Authorise: session OR token, and resolve the account from whichever
+  // one succeeded. The account is never taken from the query string.
+  let accountId: string;
+  let db: MinimalDb;
+  let viaToken = false;
+
+  // Parse from request.url rather than request.nextUrl: nextUrl is a Next
+  // convenience that is absent on a plain Request, and this handler is also
+  // exercised directly in tests.
+  const token = new URL(request.url).searchParams.get("t");
+
+  if (token) {
+    const verified = verifyAppointmentPdfToken(token, id);
+    if (!verified.valid) {
+      // Uniform 401 regardless of reason — an attacker should not learn
+      // whether a token expired, was for another appointment, or was forged.
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    accountId = verified.accountId;
+    viaToken = true;
+    // The patient has no session, so there is no RLS context to ride on.
+    // scopedAdmin pins account_id on every query to the account the *token*
+    // was signed for, so this cannot read across tenants.
+    db = scopedAdmin(accountId);
+  } else {
+    let ctx;
+    try {
+      ctx = await getCurrentAccount();
+    } catch (err) {
+      return toErrorResponse(err);
+    }
+    accountId = ctx.accountId;
+    // RLS-scoped SSR client from the caller's session. The service-role client
+    // was only ever used here to bypass RLS, which is exactly the leak.
+    //
+    // The double assertion is a TypeScript limitation, not a safety hole:
+    // SupabaseClient's generic chain trips TS2589 ("excessively deep") when
+    // matched against a structural interface. The runtime shape is identical
+    // and both branches are still account-filtered below.
+    db = ctx.supabase as unknown as MinimalDb;
+  }
 
   try {
     const { data: appt, error } = await db
@@ -32,10 +131,23 @@ export async function GET(
         doctor:hospital_doctors(id, name, specialization)
       `)
       .eq("id", id)
+      // Belt and braces: the session client is RLS-restricted and the token
+      // client is scopedAdmin-pinned, but an explicit filter means neither a
+      // future RLS policy change nor a scoping bug can silently widen this.
+      .eq("account_id", accountId)
       .maybeSingle();
 
+    // Same 404 whether the appointment is absent or owned by another account.
     if (error || !appt) {
       return NextResponse.json({ error: "Appointment not found" }, { status: 404 });
+    }
+
+    // Audit trail for patient (token) reads. Deliberately id + timestamp only:
+    // no name, phone or email — this line lands in shared log storage.
+    if (viaToken) {
+      console.log(
+        `[appointment-pdf] token access appointment_id=${id} at=${new Date().toISOString()}`,
+      );
     }
 
     // Fetch registered patient ID from patients table if available
@@ -48,22 +160,20 @@ export async function GET(
         .maybeSingle();
       if (patRow?.patient_seq_id) {
         patientSeqId = patRow.patient_seq_id;
-      } else if ((appt.patient as any)?.metadata?.patient_id) {
-        patientSeqId = (appt.patient as any).metadata.patient_id;
+      } else if (appt.patient?.metadata?.patient_id) {
+        patientSeqId = appt.patient.metadata.patient_id;
       }
     }
 
-    // Fetch business/hospital name from account
+    // Hospital name for the letterhead — always the resolved account.
     let hospitalName = "AI CLINICAL CENTER";
-    if (appt.account_id) {
-      const { data: acc } = await db
-        .from("accounts")
-        .select("name")
-        .eq("id", appt.account_id)
-        .maybeSingle();
-      if (acc?.name) {
-        hospitalName = acc.name;
-      }
+    const { data: acc } = await db
+      .from("accounts")
+      .select("name")
+      .eq("id", accountId)
+      .maybeSingle();
+    if (acc?.name) {
+      hospitalName = acc.name;
     }
 
     const patient = appt.patient as any;
@@ -260,8 +370,9 @@ export async function GET(
         "Content-Disposition": `inline; filename="opd-ticket-${bookingId}.pdf"`,
       },
     });
-  } catch (err: any) {
-    console.error("PDF ticket generation failed:", err);
-    return NextResponse.json({ error: "Failed to generate PDF ticket: " + err.message }, { status: 500 });
+  } catch (err) {
+    // Generic message: the underlying error can carry row/field detail.
+    console.error("[appointment-pdf] ticket generation failed", err);
+    return NextResponse.json({ error: "Failed to generate PDF ticket" }, { status: 500 });
   }
 }

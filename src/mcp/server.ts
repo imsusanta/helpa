@@ -12,6 +12,7 @@ import { broadcastTools } from './tools/broadcasts'
 import { automationTools } from './tools/automations'
 import { appointmentTools } from './tools/appointments'
 import { analyticsTools } from './tools/analytics'
+import { isMcpServerEnabled } from '@/lib/config/feature-flags'
 
 export const ALL_TOOLS = [
   // Contacts
@@ -407,6 +408,15 @@ export function createMcpServer() {
 }
 
 async function main() {
+  // Same kill switch as /api/mcp. The tools perform no account_id filtering,
+  // so the stdio entrypoint must not be a way around the HTTP flag.
+  if (!isMcpServerEnabled()) {
+    console.error(
+      'wacrm MCP Server is disabled. Set ENABLE_MCP_SERVER=true to run it. ' +
+        'Note: the MCP tools are not yet tenant-scoped.',
+    )
+    process.exit(1)
+  }
   const server = createMcpServer()
   const transport = new StdioServerTransport()
   await server.connect(transport)

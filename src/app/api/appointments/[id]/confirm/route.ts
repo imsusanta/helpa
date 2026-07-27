@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
 import { engineSendText, engineSendDocument } from '@/lib/automations/meta-send';
+import { buildAppointmentPdfUrl } from '@/lib/security/signed-links';
 import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
 
@@ -266,7 +267,11 @@ export async function POST(
     const systemUserId = '00000000-0000-0000-0000-000000000000';
 
     // 4. Generate PDF Buffer & upload to Supabase Storage `chat-media`
-    let publicPdfUrl = `${request.nextUrl.origin}/api/appointments/${appt.id}/pdf`;
+    // Fallback if the Storage upload fails. Must be a SIGNED link: the
+    // /pdf route requires a session or a token, and Meta fetches this URL
+    // server-side, unauthenticated, to build the attachment. An unsigned
+    // fallback would 401 and the patient would receive no document.
+    let publicPdfUrl = buildAppointmentPdfUrl(appt.id, accountId);
     try {
       const pdfBuffer = await generatePdfBuffer(appt, hospitalName, patientSeqId);
       const storagePath = `account-${accountId}/opd-ticket-${appt.id}.pdf`;

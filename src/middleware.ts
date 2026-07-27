@@ -52,11 +52,38 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Protected pages - redirect to login if not authenticated
-  const protectedPaths = ['/dashboard', '/inbox', '/contacts', '/pipelines', '/broadcasts', '/automations', '/settings']
-  if (!user && protectedPaths.some(path => request.nextUrl.pathname.startsWith(path))) {
+  // Protected pages.
+  //
+  // This is deliberately a deny-by-default list of PUBLIC paths rather than an
+  // allowlist of protected ones. The previous version enumerated 7 protected
+  // prefixes while src/app/(dashboard) had grown to 34 route groups, leaving
+  // /admin, /patients, /lab-reports, /appointments, /doctors and 22 others
+  // reachable without a session. Any new dashboard route is now protected the
+  // moment it is created, with no middleware edit required.
+  const publicPaths = [
+    '/login',
+    '/signup',
+    '/forgot-password',
+    '/reset-password',
+    '/auth',      // Supabase auth callbacks
+    '/join',      // invitation acceptance (token-authenticated)
+    '/privacy',
+    '/terms',
+  ]
+  const { pathname } = request.nextUrl
+  const isPublicPath =
+    pathname === '/' ||
+    publicPaths.some(p => pathname === p || pathname.startsWith(`${p}/`))
+
+  // API routes authenticate themselves and must return JSON 401s rather than
+  // an HTML redirect, so they are excluded from the page-redirect rule.
+  const isApiPath = pathname.startsWith('/api/')
+
+  if (!user && !isPublicPath && !isApiPath) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
+    // Preserve the intended destination so login can bounce them back.
+    url.search = `?redirectedFrom=${encodeURIComponent(pathname)}`
     return NextResponse.redirect(url)
   }
 

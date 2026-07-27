@@ -1,23 +1,44 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
 import { engineSendText, engineSendDocument } from '@/lib/automations/meta-send';
+import { requireRole, toErrorResponse } from '@/lib/auth/account';
 
+/**
+ * Notify a patient over WhatsApp that a lab report is ready, attaching the PDF.
+ *
+ * Auth: requires a signed-in member. `accountId` comes from the session, never
+ * the request body. The previous version was unauthenticated and selected the
+ * report by id alone, so any caller who guessed or harvested a report UUID
+ * could have another clinic's report PDF delivered.
+ */
 export async function POST(request: Request) {
+  let accountId: string;
   try {
-    const { reportId, accountId } = await request.json();
-    if (!reportId || !accountId) {
-      return NextResponse.json({ error: 'Missing reportId or accountId' }, { status: 400 });
+    const ctx = await requireRole('agent');
+    accountId = ctx.accountId;
+  } catch (err) {
+    return toErrorResponse(err);
+  }
+
+  try {
+    const { reportId } = await request.json();
+    if (!reportId || typeof reportId !== 'string') {
+      return NextResponse.json({ error: 'Missing reportId' }, { status: 400 });
     }
 
     const db = supabaseAdmin();
 
-    // Fetch report with patient contact info and doctor details
+    // Fetch report with patient contact info and doctor details.
+    // The account_id filter is what proves the caller owns this row.
     const { data: report, error: reportErr } = await db
       .from('hospital_lab_reports')
       .select('*, patient:contacts(id, name, phone), doctor:hospital_doctors(id, name)')
       .eq('id', reportId)
+      .eq('account_id', accountId)
       .single();
 
+    // Same 404 for "absent" and "another account's", so the response cannot be
+    // used to probe for report ids across tenants.
     if (reportErr || !report) {
       return NextResponse.json({ error: 'Report not found' }, { status: 404 });
     }
@@ -94,7 +115,8 @@ export async function POST(request: Request) {
     await db
       .from('hospital_lab_reports')
       .update({ notified_patient: true })
-      .eq('id', reportId);
+      .eq('id', reportId)
+      .eq('account_id', accountId);
 
     // Save note in timeline
     await db.from('contact_notes').insert({
@@ -113,8 +135,9 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ success: true });
-  } catch (err: any) {
-    console.error('[Report Notify API] Crash:', err);
-    return NextResponse.json({ error: err.message || err }, { status: 500 });
+  } catch (err) {
+    // No PII and no raw err.message on the wire.
+    console.error('[lab-reports/notify] failed to notify patient:', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

@@ -1,6 +1,8 @@
+import { timingSafeEqual } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
 import { engineSendText, engineSendDocument } from '@/lib/automations/meta-send';
+import { isCampaignsCronEnabled } from '@/lib/config/feature-flags';
 
 // Helper to calculate next recurring date
 function getNextRecurringDate(currentDateStr: string, recurrence: 'weekly' | 'monthly' | 'yearly'): Date {
@@ -16,8 +18,33 @@ function getNextRecurringDate(currentDateStr: string, recurrence: 'weekly' | 'mo
 }
 
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization');
-  // Simple check for cron secret or allow standard trigger
+  // Shipped disabled. This route's ~28 queries carry no account_id filter and
+  // it dispatches broadcasts / sends documents for every tenant at once, so
+  // reachability is removed until it is rewritten. See feature-flags.ts.
+  if (!isCampaignsCronEnabled()) {
+    return NextResponse.json({ error: 'Campaigns cron is disabled' }, { status: 404 });
+  }
+
+  // CRON_SECRET is required, not optional: a missing secret is a
+  // misconfiguration, so refuse to run rather than running wide open.
+  const expected = process.env.CRON_SECRET;
+  if (!expected) {
+    return NextResponse.json({ error: 'cron not configured' }, { status: 503 });
+  }
+  // Read from a header, never the query string — query strings land in access
+  // logs, browser history and Referer headers. Constant-time compare so the
+  // secret can't be recovered byte-by-byte from response-time deltas; the
+  // length pre-check is required by timingSafeEqual and leaks only length.
+  const supplied = request.headers.get('x-cron-secret') ?? '';
+  const suppliedBuf = Buffer.from(supplied);
+  const expectedBuf = Buffer.from(expected);
+  if (
+    suppliedBuf.length !== expectedBuf.length ||
+    !timingSafeEqual(suppliedBuf, expectedBuf)
+  ) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   console.log('[Cron Campaigns] Executing cron automation triggers...');
 
   const db = supabaseAdmin();
