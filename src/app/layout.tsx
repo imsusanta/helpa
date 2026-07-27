@@ -20,14 +20,45 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: {
-    default: "Helpa Studio",
-    template: "%s — Helpa Studio",
+  metadataBase: new URL("https://helpa.studio"),
+  title: "Helpa — WhatsApp AI Receptionist for Clinics, Salons & Coaching Institutes",
+  description: "Answers WhatsApp enquiries in seconds, books appointments, and captures leads 24/7. Built on the official WhatsApp Cloud API for Indian businesses.",
+  keywords: [
+    "WhatsApp AI Receptionist",
+    "WhatsApp CRM India",
+    "Clinic Appointment Booking WhatsApp",
+    "Salon Booking Automation",
+    "Coaching Institute Lead Capture",
+    "WhatsApp Cloud API India",
+  ],
+  alternates: {
+    canonical: "/",
   },
-  description: "AI-Powered Communication CRM.",
+  openGraph: {
+    title: "Helpa — WhatsApp AI Receptionist for Clinics, Salons & Coaching Institutes",
+    description: "Answers WhatsApp enquiries in seconds, books appointments, and captures leads 24/7. Built on the official WhatsApp Cloud API for Indian businesses.",
+    url: "https://helpa.studio",
+    siteName: "Helpa Studio",
+    locale: "en_IN",
+    type: "website",
+    images: [
+      {
+        url: "/og-image.jpg",
+        width: 1200,
+        height: 630,
+        alt: "Helpa WhatsApp AI Receptionist & CRM",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Helpa — WhatsApp AI Receptionist for Clinics, Salons & Coaching Institutes",
+    description: "Answers WhatsApp enquiries in seconds, books appointments, and captures leads 24/7. Built on the official WhatsApp Cloud API for Indian businesses.",
+    images: ["/og-image.jpg"],
+  },
   robots: {
-    index: false,
-    follow: false,
+    index: true,
+    follow: true,
   },
   icons: {
     icon: [{ url: "/icon" }],
