@@ -53,6 +53,7 @@ export function ContactDetailView({
   const { accountId, defaultCurrency, account } = useAuth();
 
   const [contact, setContact] = useState<Contact | null>(null);
+  const [patientSeqId, setPatientSeqId] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [copiedPhone, setCopiedPhone] = useState(false);
 
@@ -91,13 +92,61 @@ export function ContactDetailView({
     if (!contactId) return;
     setLoading(true);
 
-    const { data } = await supabase
-      .from('contacts')
-      .select('*')
-      .eq('id', contactId)
-      .single();
+    const [contactRes, patientRes] = await Promise.all([
+      supabase.from('contacts').select('*').eq('id', contactId).single(),
+      supabase.from('patients').select('*').eq('id', contactId).maybeSingle(),
+    ]);
+
+    const data = contactRes.data;
+    let pData = patientRes.data;
 
     if (data) {
+      // Auto-generate patient_seq_id if missing in patients table
+      if (!pData && accountId) {
+        const { data: maxPatient } = await supabase
+          .from('patients')
+          .select('patient_seq_id')
+          .eq('account_id', accountId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        let nextNum = 1;
+        if (maxPatient?.patient_seq_id) {
+          const numMatch = maxPatient.patient_seq_id.match(/\d+/);
+          if (numMatch) {
+            nextNum = parseInt(numMatch[0], 10) + 1;
+          }
+        }
+
+        const generatedSeqId = `PAT-${String(nextNum).padStart(6, '0')}`;
+
+        const { data: newP } = await supabase
+          .from('patients')
+          .insert({
+            id: contactId,
+            account_id: accountId,
+            patient_seq_id: generatedSeqId,
+            status: 'active',
+          })
+          .select('*')
+          .single();
+
+        if (newP) {
+          pData = newP;
+        }
+
+        await supabase
+          .from('contacts')
+          .update({
+            metadata: {
+              ...(data.metadata || {}),
+              patient_id: generatedSeqId,
+            },
+          })
+          .eq('id', contactId);
+      }
+
       setContact(data);
       setEditName(data.name ?? '');
       setEditPhone(data.phone);
@@ -105,10 +154,23 @@ export function ContactDetailView({
       setEditCompany(data.company ?? '');
       setEditAddress(data.address ?? '');
       setEditNotes(data.notes ?? '');
-      setEditMetadata(data.metadata ?? {});
+
+      const seq = pData?.patient_seq_id || (data.metadata as any)?.patient_id || (data.metadata as any)?.patient_seq_id || 'PAT-000001';
+      setPatientSeqId(seq);
+
+      const mergedMeta = {
+        ...(data.metadata ?? {}),
+        patient_id: seq,
+        ...(pData?.blood_group ? { blood_group: pData.blood_group } : {}),
+        ...(pData?.gender ? { gender: pData.gender } : {}),
+        ...(pData?.date_of_birth ? { dob: pData.date_of_birth } : {}),
+        ...(pData?.emergency_contact ? { emergency_contact: pData.emergency_contact } : {}),
+      };
+
+      setEditMetadata(mergedMeta);
     }
     setLoading(false);
-  }, [contactId, supabase]);
+  }, [contactId, accountId, supabase]);
 
   const fetchTags = useCallback(async () => {
     if (!contactId) return;
@@ -208,6 +270,22 @@ export function ContactDetailView({
     }
 
     setSavingDetails(true);
+
+    if (patientSeqId && contactId && accountId) {
+      await supabase
+        .from('patients')
+        .upsert({
+          id: contactId,
+          account_id: accountId,
+          patient_seq_id: patientSeqId,
+          blood_group: editMetadata.blood_group || null,
+          gender: editMetadata.gender || null,
+          date_of_birth: editMetadata.dob || null,
+          emergency_contact: editMetadata.emergency_contact || null,
+          updated_at: new Date().toISOString(),
+        });
+    }
+
     const { error } = await supabase
       .from('contacts')
       .update({
@@ -217,7 +295,10 @@ export function ContactDetailView({
         company: editCompany.trim() || null,
         address: editAddress.trim() || null,
         notes: editNotes.trim() || null,
-        metadata: editMetadata,
+        metadata: {
+          ...editMetadata,
+          patient_id: patientSeqId,
+        },
         updated_at: new Date().toISOString(),
       })
       .eq('id', contactId);
@@ -369,11 +450,18 @@ export function ContactDetailView({
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
-                  <SheetTitle className="text-popover-foreground truncate">
-                    {contact.name || 'Unknown'}
-                  </SheetTitle>
+                  <div className="flex items-center gap-2">
+                    <SheetTitle className="text-popover-foreground truncate">
+                      {contact.name || 'Unknown'}
+                    </SheetTitle>
+                    {patientSeqId && (
+                      <span className="inline-flex items-center font-mono font-bold text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md shrink-0">
+                        {patientSeqId}
+                      </span>
+                    )}
+                  </div>
                   <SheetDescription className="text-muted-foreground text-xs mt-0.5">
-                    Contact details
+                    Patient Profile Details
                   </SheetDescription>
                   <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs text-muted-foreground">
                     <button
@@ -443,6 +531,24 @@ export function ContactDetailView({
               {/* Details Tab */}
               <TabsContent value="details" className="flex-1 overflow-y-auto px-4 py-3">
                 <div className="space-y-3 pb-4">
+                  {/* Permanent Unique Patient ID Field */}
+                  <div className="space-y-1.5 p-2.5 bg-emerald-500/5 border border-emerald-500/20 rounded-lg">
+                    <Label className="text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center justify-between">
+                      <span>Unique Patient ID (Permanent)</span>
+                      <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">Auto-Generated & Permanent</span>
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={patientSeqId || (editMetadata as any)?.patient_id || 'PAT-000001'}
+                        readOnly
+                        className="bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300 font-mono font-bold h-8 text-sm cursor-not-allowed"
+                      />
+                      <Badge variant="outline" className="bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-mono text-[10px] shrink-0">
+                        Unique
+                      </Badge>
+                    </div>
+                  </div>
+
                   <div className="space-y-1.5">
                     <Label className="text-muted-foreground text-xs">Full Name</Label>
                     <Input
