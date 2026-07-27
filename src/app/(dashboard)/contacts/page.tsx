@@ -43,7 +43,10 @@ import {
   ChevronLeft,
   ChevronRight,
   SlidersHorizontal,
+  UserCheck,
+  MessageSquare,
 } from 'lucide-react';
+import { SendOutboundModal } from '@/components/contacts/send-outbound-modal';
 import { ContactForm } from '@/components/contacts/contact-form';
 import { ContactDetailView } from '@/components/contacts/contact-detail-view';
 import { ImportModal } from '@/components/contacts/import-modal';
@@ -85,6 +88,8 @@ export default function ContactsPage() {
   const [detailContactId, setDetailContactId] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [customFieldsOpen, setCustomFieldsOpen] = useState(false);
+  const [outboundModalOpen, setOutboundModalOpen] = useState(false);
+  const [selectedOutboundContact, setSelectedOutboundContact] = useState<Contact | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Contact | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -383,6 +388,18 @@ export default function ContactsPage() {
             <Upload className="size-4" />
             Import
           </GatedButton>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setSelectedOutboundContact(null);
+              setOutboundModalOpen(true);
+            }}
+            className="border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 font-semibold gap-1.5 cursor-pointer"
+          >
+            <MessageSquare className="size-4" />
+            Outbound Message
+          </Button>
+
           <GatedButton
             canAct={canEdit}
             gateReason={`add or import ${entityLabelPlural.toLowerCase()}`}
@@ -605,6 +622,17 @@ export default function ContactsPage() {
                         <DropdownMenuItem
                           onClick={(e) => {
                             e.stopPropagation();
+                            setSelectedOutboundContact(contact);
+                            setOutboundModalOpen(true);
+                          }}
+                          className="text-emerald-600 dark:text-emerald-400 focus:bg-muted focus:text-emerald-500 font-medium"
+                        >
+                          <MessageSquare className="size-4" />
+                          Send Outbound WhatsApp
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation();
                             openEditForm(contact);
                           }}
                           className="text-popover-foreground focus:bg-muted focus:text-foreground"
@@ -695,6 +723,14 @@ export default function ContactsPage() {
         open={importOpen}
         onOpenChange={setImportOpen}
         onImported={fetchContacts}
+      />
+
+      {/* Outbound WhatsApp Message Modal */}
+      <SendOutboundModal
+        open={outboundModalOpen}
+        onOpenChange={setOutboundModalOpen}
+        defaultContact={selectedOutboundContact}
+        onSuccess={fetchContacts}
       />
 
       {/* Custom Fields Manager (admin+) */}

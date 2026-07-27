@@ -34,7 +34,9 @@ import {
   Save,
   X,
   DollarSign,
+  MessageSquare,
 } from 'lucide-react';
+import { SendOutboundModal } from '@/components/contacts/send-outbound-modal';
 
 interface ContactDetailViewProps {
   open: boolean;
@@ -56,6 +58,7 @@ export function ContactDetailView({
   const [patientSeqId, setPatientSeqId] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [copiedPhone, setCopiedPhone] = useState(false);
+  const [outboundOpen, setOutboundOpen] = useState(false);
 
   // Details tab
   const [editName, setEditName] = useState('');
@@ -490,6 +493,16 @@ export function ContactDetailView({
                     )}
                   </div>
                 </div>
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setOutboundOpen(true)}
+                  className="border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 font-semibold gap-1 text-xs shrink-0 cursor-pointer"
+                >
+                  <MessageSquare className="size-3.5" />
+                  Send WhatsApp
+                </Button>
               </div>
             </SheetHeader>
 
@@ -893,6 +906,11 @@ export function ContactDetailView({
           </div>
         )}
       </SheetContent>
+      <SendOutboundModal
+        open={outboundOpen}
+        onOpenChange={setOutboundOpen}
+        defaultContact={contact}
+      />
     </Sheet>
   );
 }

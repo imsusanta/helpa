@@ -1074,7 +1074,7 @@ Note:
                 metadata: updatedMetadata,
                 updated_at: new Date().toISOString()
               }).eq('id', targetContactId);
-              const siteUrl = 'https://helpa.studio';
+              const siteUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://helpa.studio';
               const pdfUrl = `${siteUrl}/api/appointments/${newAppt.id}/pdf`;
               const bookingIdStr = newAppt.booking_id || `APT-2026-${newAppt.id.slice(0, 5).toUpperCase()}`;
 

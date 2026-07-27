@@ -257,6 +257,16 @@ export async function POST(
         patientSeqId = patRow.patient_seq_id;
       } else if ((appt.patient as any)?.metadata?.patient_id) {
         patientSeqId = (appt.patient as any).metadata.patient_id;
+      } else {
+        // Create patient record if it doesn't exist to trigger sequence assignment
+        const { data: newPat } = await db
+          .from("patients")
+          .insert({ id: contactId, account_id: accountId })
+          .select("patient_seq_id")
+          .maybeSingle();
+        if (newPat?.patient_seq_id) {
+          patientSeqId = newPat.patient_seq_id;
+        }
       }
     }
 
@@ -266,7 +276,8 @@ export async function POST(
     const systemUserId = '00000000-0000-0000-0000-000000000000';
 
     // 4. Generate PDF Buffer & upload to Supabase Storage `chat-media`
-    let publicPdfUrl = `${request.nextUrl.origin}/api/appointments/${appt.id}/pdf`;
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || request.nextUrl.origin;
+    let publicPdfUrl = `${baseUrl}/api/appointments/${appt.id}/pdf`;
     try {
       const pdfBuffer = await generatePdfBuffer(appt, hospitalName, patientSeqId);
       const storagePath = `account-${accountId}/opd-ticket-${appt.id}.pdf`;

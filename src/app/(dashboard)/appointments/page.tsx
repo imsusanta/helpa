@@ -236,10 +236,17 @@ export default function AppointmentsPage() {
       toast.error("Department selection is required.");
       return;
     }
+    if (!date) {
+      toast.error("Appointment Date is required.");
+      return;
+    }
+    if (!time) {
+      toast.error("Appointment Time is required.");
+      return;
+    }
 
-    // Set default date/time if empty
-    const apptDate = date || new Date().toISOString().split("T")[0];
-    const apptTime = time || "10:00";
+    const apptDate = date;
+    const apptTime = time;
 
     setSaving(true);
     const db = createClient();
@@ -277,7 +284,7 @@ export default function AppointmentsPage() {
         finalContactId = newContact.id;
 
         // 2. Create patient record (triggers PAT-XXXXXX auto-sequence assignment)
-        await db.from("patients").insert({
+        const { error: patientInsertError } = await db.from("patients").insert({
           id: finalContactId,
           account_id: accountId,
           gender: gender || null,
@@ -285,6 +292,29 @@ export default function AppointmentsPage() {
           blood_group: bloodGroup || null,
           emergency_contact: emergencyContact || null,
         });
+        if (patientInsertError) {
+          console.error("Patient record insert error:", patientInsertError.message);
+          // Non-fatal: the patient trigger may have failed but the contact exists
+        }
+      } else {
+        // Existing patient selected — ensure a patients record exists
+        const { data: existingPatientRow } = await db
+          .from("patients")
+          .select("id")
+          .eq("id", finalContactId)
+          .maybeSingle();
+
+        if (!existingPatientRow) {
+          // Patient contact exists but no patients record — create one
+          await db.from("patients").insert({
+            id: finalContactId,
+            account_id: accountId,
+            gender: gender || null,
+            date_of_birth: dob || null,
+            blood_group: bloodGroup || null,
+            emergency_contact: emergencyContact || null,
+          });
+        }
       }
 
       const selectedDoc = doctors.find((d) => d.id === doctorId);
@@ -303,7 +333,7 @@ export default function AppointmentsPage() {
           status: "pending",
           notes: notes.trim() || null,
         })
-        .select("id")
+        .select("id, token_number, booking_id")
         .single();
 
       if (apptError) throw apptError;
@@ -313,7 +343,9 @@ export default function AppointmentsPage() {
         fetch(`/api/appointments/${newAppt.id}/confirm`, { method: "POST" }).catch(() => {});
       }
 
-      toast.success("Appointment booked successfully! Confirmation sent.");
+      const tokenInfo = newAppt?.token_number ? ` Token #${newAppt.token_number}` : "";
+      const bookingInfo = newAppt?.booking_id ? ` (${newAppt.booking_id})` : "";
+      toast.success(`Appointment booked!${tokenInfo}${bookingInfo} — WhatsApp confirmation sent.`);
       resetForm();
       setShowAddForm(false);
       loadAllData();
