@@ -75,9 +75,6 @@ export default function LandingPage() {
   const [heroVideoUrl, setHeroVideoUrl] = useState("https://www.youtube.com/embed/gFx-NjTw3sM");
   const [actionVideoUrl, setActionVideoUrl] = useState("https://www.youtube.com/embed/gFx-NjTw3sM");
 
-  // Interactive ROI Calculator State
-  const [dailyInquiries, setDailyInquiries] = useState<number>(45);
-
   // Interactive Dashboard Tab Tour State
   const [activeDashTab, setActiveDashTab] = useState<string>("conversations");
 
@@ -114,12 +111,6 @@ export default function LandingPage() {
   }, []);
 
   const ctaHref = user ? "/dashboard" : "/signup";
-
-  // Calculator calculations
-  const monthlyInquiries = dailyInquiries * 30;
-  const hoursSaved = Math.round((monthlyInquiries * 3.5) / 60); // 3.5 mins saved per chat
-  const extraBookings = Math.round(monthlyInquiries * 0.18); // 18% conversion lift
-  const estimatedRevenueSaved = extraBookings * 1500; // ~₹1,500 avg customer value
 
   // Preset WhatsApp simulator scenarios
   const scenarios: Record<string, { title: string; subtitle: string; icon: any; messages: Array<{ from: string; text: string; time: string; tokenBadge?: any }> }> = {
@@ -216,7 +207,6 @@ export default function LandingPage() {
           {/* Desktop Links - Pure White for maximum legibility */}
           <nav className="hidden items-center gap-1.5 text-sm text-white/90 md:flex font-semibold">
             <a href="#demo" className="px-3.5 py-1.5 rounded-full transition-all text-white/90 hover:text-white hover:bg-white/15">Live Demo</a>
-            <a href="#calculator" className="px-3.5 py-1.5 rounded-full transition-all text-white/90 hover:text-white hover:bg-white/15">ROI Calculator</a>
             <a href="#features" className="px-3.5 py-1.5 rounded-full transition-all text-white/90 hover:text-white hover:bg-white/15">Features</a>
             <a href="#industries" className="px-3.5 py-1.5 rounded-full transition-all text-white/90 hover:text-white hover:bg-white/15">Industries</a>
             <a href="#pricing" className="px-3.5 py-1.5 rounded-full transition-all text-white/90 hover:text-white hover:bg-white/15">Pricing</a>
@@ -248,7 +238,6 @@ export default function LandingPage() {
           <div className="mx-auto max-w-6xl mt-3 rounded-3xl border border-[#25D366]/40 md:hidden bg-[#075E54]/95 dark:bg-[#075E54]/95 backdrop-blur-2xl p-5 shadow-2xl animate-in fade-in slide-in-from-top-4 duration-200 text-white">
             <div className="flex flex-col gap-2 px-2 py-1">
               <a href="#demo" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-4 py-2.5 text-sm text-white/90 hover:bg-white/15 hover:text-white font-semibold transition-colors">Live Demo</a>
-              <a href="#calculator" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-4 py-2.5 text-sm text-white/90 hover:bg-white/15 hover:text-white font-semibold transition-colors">ROI Calculator</a>
               <a href="#features" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-4 py-2.5 text-sm text-white/90 hover:bg-white/15 hover:text-white font-semibold transition-colors">Features</a>
               <a href="#industries" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-4 py-2.5 text-sm text-white/90 hover:bg-white/15 hover:text-white font-semibold transition-colors">Industries</a>
               <a href="#pricing" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-4 py-2.5 text-sm text-white/90 hover:bg-white/15 hover:text-white font-semibold transition-colors">Pricing</a>
@@ -326,6 +315,7 @@ export default function LandingPage() {
             <span className="flex items-center gap-1.5 text-[#075E54] dark:text-[#25D366]"><Check className="h-4 w-4 text-[#25D366]" /> Official WhatsApp Cloud API</span>
           </motion.div>
         </div>
+      </section>
 
         {/* ═══════ INTERACTIVE LIVE WHATSAPP STUDIO SIMULATOR ═══════ */}
         <section id="demo" className="mx-auto max-w-6xl mt-16 scroll-mt-28 px-2 sm:px-4">
@@ -568,83 +558,6 @@ export default function LandingPage() {
 
           </div>
         </section>
-      </section>
-
-      {/* ═══════ INTERACTIVE ROI & SAVINGS CALCULATOR ═══════ */}
-      <section id="calculator" className="border-y border-border bg-muted/30 py-24 scroll-mt-24 transition-colors duration-300">
-        <div className="mx-auto max-w-5xl px-6">
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.4 }}
-            className="mx-auto max-w-2xl text-center"
-          >
-            <span className="text-xs font-black uppercase tracking-wider text-[#075E54] dark:text-[#25D366] bg-[#25D366]/10 px-4 py-1.5 rounded-full border border-[#25D366]/20">
-              📊 Interactive ROI Calculator
-            </span>
-            <h2 className="text-3xl font-black tracking-tight sm:text-4xl text-foreground font-sans mt-4">
-              Calculate Your Saved Hours & Revenue
-            </h2>
-            <p className="mt-3 text-muted-foreground font-medium">Slide to your average daily WhatsApp messages to see instant projected gains.</p>
-          </motion.div>
-
-          <div className="mt-14 max-w-3xl mx-auto rounded-3xl border border-[#075E54]/25 bg-card p-8 sm:p-10 shadow-xl bento-card-glow">
-            {/* Slider */}
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <label className="text-sm font-extrabold text-foreground flex items-center gap-2">
-                  <Sliders className="h-4 w-4 text-[#25D366]" /> Daily WhatsApp Inquiries:
-                </label>
-                <span className="text-2xl font-black text-[#25D366] bg-[#25D366]/10 px-4 py-1 rounded-2xl border border-[#25D366]/30">
-                  {dailyInquiries} chats/day
-                </span>
-              </div>
-              <input
-                type="range"
-                min="10"
-                max="300"
-                step="5"
-                value={dailyInquiries}
-                onChange={(e) => setDailyInquiries(Number(e.target.value))}
-                className="w-full h-3 bg-muted rounded-lg appearance-none cursor-pointer accent-[#25D366]"
-              />
-              <div className="flex justify-between text-xs font-semibold text-muted-foreground">
-                <span>10 chats</span>
-                <span>150 chats</span>
-                <span>300 chats</span>
-              </div>
-            </div>
-
-            {/* Calculations Grid */}
-            <div className="mt-8 grid gap-4 sm:grid-cols-3 text-center pt-8 border-t border-border">
-              <div className="rounded-2xl border border-border bg-muted/40 p-5">
-                <Clock className="h-6 w-6 text-[#25D366] mx-auto mb-2" />
-                <p className="text-3xl font-black text-foreground">{hoursSaved} hrs</p>
-                <p className="mt-1 text-xs text-muted-foreground font-bold">Staff Time Saved / Month</p>
-              </div>
-
-              <div className="rounded-2xl border border-border bg-muted/40 p-5">
-                <TrendingUp className="h-6 w-6 text-[#25D366] mx-auto mb-2" />
-                <p className="text-3xl font-black text-[#25D366]">+{extraBookings}</p>
-                <p className="mt-1 text-xs text-muted-foreground font-bold">Extra Bookings Converted</p>
-              </div>
-
-              <div className="rounded-2xl border border-border bg-muted/40 p-5">
-                <IndianRupee className="h-6 w-6 text-[#25D366] mx-auto mb-2" />
-                <p className="text-3xl font-black text-foreground">₹{estimatedRevenueSaved.toLocaleString("en-IN")}</p>
-                <p className="mt-1 text-xs text-muted-foreground font-bold">Est. Extra Monthly Revenue</p>
-              </div>
-            </div>
-
-            <div className="mt-8 text-center">
-              <Link href={ctaHref} className="inline-flex items-center gap-2.5 rounded-full bg-[#25D366] hover:bg-[#075E54] px-8 py-3.5 text-sm font-extrabold text-white transition-all shadow-lg shadow-[#25D366]/25">
-                Start Saving Today <ArrowRight className="h-4 w-4" />
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* ═══════ WHY HELPA BENTO GRID ═══════ */}
       <section className="mx-auto max-w-7xl px-6 py-28 relative">
@@ -1380,7 +1293,6 @@ export default function LandingPage() {
           
           <div className="flex flex-wrap justify-center gap-6 text-sm text-muted-foreground font-semibold">
             <a href="#demo" className="hover:text-[#25D366] transition-colors">Live Demo</a>
-            <a href="#calculator" className="hover:text-[#25D366] transition-colors">ROI Calculator</a>
             <a href="#features" className="hover:text-[#25D366] transition-colors">Features</a>
             <a href="#pricing" className="hover:text-[#25D366] transition-colors">Pricing</a>
             <a href="#faq" className="hover:text-[#25D366] transition-colors">FAQ</a>
