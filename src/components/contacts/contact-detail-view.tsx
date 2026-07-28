@@ -35,8 +35,10 @@ import {
   X,
   DollarSign,
   MessageSquare,
+  FileUp,
 } from 'lucide-react';
 import { SendOutboundModal } from '@/components/contacts/send-outbound-modal';
+import { UploadPatientPdfModal } from '@/components/contacts/upload-patient-pdf-modal';
 
 interface ContactDetailViewProps {
   open: boolean;
@@ -59,6 +61,7 @@ export function ContactDetailView({
   const [loading, setLoading] = useState(false);
   const [copiedPhone, setCopiedPhone] = useState(false);
   const [outboundOpen, setOutboundOpen] = useState(false);
+  const [uploadPdfOpen, setUploadPdfOpen] = useState(false);
 
   // Details tab
   const [editName, setEditName] = useState('');
@@ -494,15 +497,26 @@ export function ContactDetailView({
                   </div>
                 </div>
 
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setOutboundOpen(true)}
-                  className="border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 font-semibold gap-1 text-xs shrink-0 cursor-pointer"
-                >
-                  <MessageSquare className="size-3.5" />
-                  Send WhatsApp
-                </Button>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setUploadPdfOpen(true)}
+                    className="border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 font-semibold gap-1 text-xs cursor-pointer"
+                  >
+                    <FileUp className="size-3.5" />
+                    Upload PDF
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setOutboundOpen(true)}
+                    className="border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 font-semibold gap-1 text-xs cursor-pointer"
+                  >
+                    <MessageSquare className="size-3.5" />
+                    Send WhatsApp
+                  </Button>
+                </div>
               </div>
             </SheetHeader>
 
@@ -911,6 +925,17 @@ export function ContactDetailView({
         onOpenChange={setOutboundOpen}
         defaultContact={contact}
       />
+      {contact && (
+        <UploadPatientPdfModal
+          open={uploadPdfOpen}
+          onOpenChange={setUploadPdfOpen}
+          patientId={patientSeqId || 'PAT-000000'}
+          contactId={contact.id}
+          patientName={contact.name || 'Patient'}
+          patientPhone={contact.phone}
+          onSuccess={() => {}}
+        />
+      )}
     </Sheet>
   );
 }

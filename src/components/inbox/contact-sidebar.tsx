@@ -21,9 +21,11 @@ import {
   Calendar,
   Clock,
   FileDown,
+  FileUp,
   Loader2,
   MessageSquare,
 } from "lucide-react";
+import { UploadPatientPdfModal } from "@/components/contacts/upload-patient-pdf-modal";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
@@ -66,6 +68,7 @@ export function ContactSidebar({
   const [patient, setPatient] = useState<any | null>(null);
   const [showBookForm, setShowBookForm] = useState(false);
   const [showInviteForm, setShowInviteForm] = useState(false);
+  const [uploadPdfOpen, setUploadPdfOpen] = useState(false);
   const [doctors, setDoctors] = useState<any[]>([]);
   const [branches, setBranches] = useState<any[]>([]);
   const [loadingForm, setLoadingForm] = useState(false);
@@ -614,11 +617,15 @@ export function ContactSidebar({
                   </p>
                 )}
 
-                <div className="flex gap-2">
-                  <Button size="xs" variant="outline" className="flex-1 text-[10px]" onClick={() => { setShowBookForm(!showBookForm); setShowInviteForm(false); }}>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <Button size="xs" variant="outline" className="text-[10px] px-1" onClick={() => { setShowBookForm(!showBookForm); setShowInviteForm(false); }}>
                     Book Appointment
                   </Button>
-                  <Button size="xs" variant="outline" className="flex-1 text-[10px]" onClick={() => { setShowInviteForm(!showInviteForm); setShowBookForm(false); }}>
+                  <Button size="xs" variant="outline" className="text-[10px] px-1 border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold hover:bg-emerald-500/20 cursor-pointer" onClick={() => setUploadPdfOpen(true)}>
+                    <FileUp className="h-3 w-3 mr-1" />
+                    Upload PDF
+                  </Button>
+                  <Button size="xs" variant="outline" className="text-[10px] px-1" onClick={() => { setShowInviteForm(!showInviteForm); setShowBookForm(false); }}>
                     Send Invite
                   </Button>
                 </div>
@@ -831,6 +838,18 @@ export function ContactSidebar({
   return (
     <div className="flex h-full w-70 flex-col border-l border-border bg-card min-h-0 overflow-hidden">
       {content}
+
+      {contact && (
+        <UploadPatientPdfModal
+          open={uploadPdfOpen}
+          onOpenChange={setUploadPdfOpen}
+          patientId={patient?.patient_seq_id || 'PAT-000000'}
+          contactId={contact.id}
+          patientName={contact.name || 'Patient'}
+          patientPhone={contact.phone}
+          onSuccess={() => {}}
+        />
+      )}
     </div>
   );
 }
