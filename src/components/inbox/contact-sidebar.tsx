@@ -623,17 +623,36 @@ export function ContactSidebar({
                     )}
                   </div>
 
-                <div className="grid grid-cols-3 gap-1.5">
-                  <Button size="xs" variant="outline" className="text-[10px] px-1" onClick={() => { setShowBookForm(!showBookForm); setShowInviteForm(false); }}>
+                <div className="space-y-1.5">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full text-xs font-semibold border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 justify-center gap-1.5 h-8 cursor-pointer"
+                    onClick={() => { setShowBookForm(!showBookForm); setShowInviteForm(false); }}
+                  >
+                    <Calendar className="h-3.5 w-3.5" />
                     Book Appointment
                   </Button>
-                  <Button size="xs" variant="outline" className="text-[10px] px-1 border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold hover:bg-emerald-500/20 cursor-pointer" onClick={() => setUploadPdfOpen(true)}>
-                    <FileUp className="h-3 w-3 mr-1" />
-                    Upload PDF
-                  </Button>
-                  <Button size="xs" variant="outline" className="text-[10px] px-1" onClick={() => { setShowInviteForm(!showInviteForm); setShowBookForm(false); }}>
-                    Send Invite
-                  </Button>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      className="text-[11px] font-semibold border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 justify-center gap-1.5 h-7 cursor-pointer"
+                      onClick={() => setUploadPdfOpen(true)}
+                    >
+                      <FileUp className="h-3.5 w-3.5" />
+                      Upload PDF
+                    </Button>
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      className="text-[11px] text-muted-foreground hover:text-foreground justify-center gap-1.5 h-7 cursor-pointer"
+                      onClick={() => { setShowInviteForm(!showInviteForm); setShowBookForm(false); }}
+                    >
+                      <MessageSquare className="h-3.5 w-3.5" />
+                      Send Invite
+                    </Button>
+                  </div>
                 </div>
 
                 {/* Inline Book Appointment Form */}
