@@ -133,6 +133,7 @@ const ICON_COMPONENTS: Record<string, LucideIcon> = {
   Users,
   UserCheck,
   Calendar,
+  Clock,
   FileText,
   Megaphone,
   Brain,

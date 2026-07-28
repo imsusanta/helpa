@@ -81,6 +81,7 @@ export function ClinicalDashboardClient() {
     reportsAwaitingCollection: 0,
     waitingPatientsToday: 0,
     unreadWhatsAppChats: 0,
+    todayFollowups: 0,
   });
 
   const [recentAppointments, setRecentAppointments] = useState<AppointmentRow[]>([]);
@@ -146,6 +147,7 @@ export function ClinicalDashboardClient() {
         awaitingCollection,
         waitingToday,
         unreadChats,
+        todayFollowups,
       ] = await Promise.all([
         db.from("conversations").select("id", { count: "exact", head: true }).gte("created_at", todayStart.toISOString()),
         db.from("messages").select("id", { count: "exact", head: true }).eq("sender_type", "bot").gte("created_at", todayStart.toISOString()),
@@ -173,6 +175,7 @@ export function ClinicalDashboardClient() {
         db.from("hospital_lab_reports").select("id", { count: "exact", head: true }).eq("status", "ready"),
         db.from("appointments").select("id", { count: "exact", head: true }).eq("appointment_date", todayStr).in("status", ["checked_in", "waiting"]),
         db.from("conversations").select("id", { count: "exact", head: true }).gt("unread_count", 0),
+        db.from("hospital_followups").select("id", { count: "exact", head: true }).eq("due_date", todayStr),
       ]);
 
       const totalConvs = convsToday.count || 0;
@@ -213,6 +216,7 @@ export function ClinicalDashboardClient() {
         reportsAwaitingCollection: awaitingCollection.count || 0,
         waitingPatientsToday: waitingToday.count || 0,
         unreadWhatsAppChats: unreadChats.count || 0,
+        todayFollowups: todayFollowups?.count || 0,
       });
 
       setRecentAppointments((recentAppts.data as any) || []);
@@ -395,6 +399,23 @@ export function ClinicalDashboardClient() {
             </span>
           </div>
         </div>
+
+        {/* Today's Follow-ups */}
+        <Link href="/follow-ups">
+          <div className="bg-card border border-border/80 rounded-2xl p-5 hover:shadow-md transition-all duration-200 cursor-pointer hover:border-primary/40">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Today's Follow-ups</span>
+              <div className="p-2 bg-purple-500/10 text-purple-600 rounded-lg">
+                <Clock className="h-5 w-5" />
+              </div>
+            </div>
+            <div className="mt-4">
+              <span className="text-3xl font-black text-foreground tracking-tight tabular-nums">
+                {stats.todayFollowups}
+              </span>
+            </div>
+          </div>
+        </Link>
 
         {/* Unread WhatsApp Chats */}
         <div className="bg-card border border-border/80 rounded-2xl p-5 hover:shadow-md transition-all duration-200">

@@ -23,6 +23,7 @@ const pageTitles: Record<string, string> = {
   "/inbox": "WhatsApp Chats",
   "/patients": "Patients",
   "/appointments": "Appointments",
+  "/follow-ups": "Follow-ups & Patient Care",
   "/doctors": "Doctors",
   "/departments": "Departments",
   "/lab-reports": "Reports",
