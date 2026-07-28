@@ -112,15 +112,15 @@ export async function POST(request: Request) {
         let { data: extConv } = await dbAdmin
           .from('conversations')
           .select('id')
-          .eq('account_id', accountId)
           .eq('contact_id', resolvedContactId)
           .maybeSingle()
 
         if (!extConv) {
-          const { data: createdConv } = await dbAdmin
+          const { data: createdConv, error: convErr } = await dbAdmin
             .from('conversations')
             .insert({
               account_id: accountId,
+              user_id: user.id,
               contact_id: resolvedContactId,
               status: 'open',
               last_message_text: content_text || 'Outbound message',
@@ -128,6 +128,10 @@ export async function POST(request: Request) {
             })
             .select('id')
             .single()
+
+          if (convErr) {
+            console.error('[whatsapp/send] Conversation insert error:', convErr)
+          }
 
           extConv = createdConv
         }
