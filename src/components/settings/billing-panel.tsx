@@ -56,7 +56,7 @@ const AVAILABLE_PLANS: PlanOffer[] = [
   {
     id: "Starter",
     name: "Starter",
-    price: "₹2,999",
+    price: "₹4,999",
     maxUsers: "5 users",
     maxContacts: "500 contacts",
     maxAi: "500 requests/mo",
@@ -66,7 +66,7 @@ const AVAILABLE_PLANS: PlanOffer[] = [
   {
     id: "Growth",
     name: "Growth",
-    price: "₹4,999",
+    price: "₹14,999",
     maxUsers: "15 users",
     maxContacts: "5,000 contacts",
     maxAi: "3,000 requests/mo",
@@ -81,7 +81,7 @@ const AVAILABLE_PLANS: PlanOffer[] = [
   {
     id: "Enterprise",
     name: "Enterprise",
-    price: "₹9,999",
+    price: "Custom Rate",
     maxUsers: "Unlimited",
     maxContacts: "Unlimited",
     maxAi: "Unlimited",

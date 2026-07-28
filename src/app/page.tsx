@@ -636,7 +636,7 @@ export default function LandingPage() {
               <h3 className="text-xl font-black text-foreground">Starter</h3>
               <p className="text-xs text-muted-foreground font-medium mt-1">Setup: ₹9,999 (one-time)</p>
               <div className="mt-5 flex items-baseline gap-1">
-                <span className="text-4xl font-black text-foreground">₹2,999</span>
+                <span className="text-4xl font-black text-foreground">₹4,999</span>
                 <span className="text-sm text-muted-foreground">/mo</span>
               </div>
               <ul className="mt-6 space-y-3 flex-1 border-t border-border/50 pt-5">
@@ -657,7 +657,7 @@ export default function LandingPage() {
               <h3 className="text-xl font-black text-foreground">Growth</h3>
               <p className="text-xs text-muted-foreground font-medium mt-1">Setup: ₹19,999</p>
               <div className="mt-5 flex items-baseline gap-1">
-                <span className="text-4xl font-black text-foreground">₹5,999</span>
+                <span className="text-4xl font-black text-foreground">₹14,999</span>
                 <span className="text-sm text-muted-foreground">/mo</span>
               </div>
               <ul className="mt-6 space-y-3 flex-1 border-t border-border/50 pt-5">
