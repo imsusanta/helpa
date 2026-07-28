@@ -389,58 +389,87 @@ export async function sendTemplateMessage(
   } = args
   const url = `${META_API_BASE}/${phoneNumberId}/messages`
 
-  const templatePayload: Record<string, unknown> = {
-    name: templateName,
-    language: { code: language },
-  }
+  const primaryLang = template?.language || language || 'en_US'
+  const fallbackLangs = [
+    primaryLang,
+    primaryLang === 'en_US' ? 'en' : 'en_US',
+    'en_GB',
+    'hi',
+    'bn'
+  ].filter((l, idx, self) => self.indexOf(l) === idx)
 
-  if (template) {
-    const components = buildSendComponents(template, {
-      // Legacy callers pass body values in `params`; fold them into
-      // `messageParams.body` so the new path covers them too.
-      body: messageParams?.body ?? params,
-      headerText: messageParams?.headerText,
-      headerMediaUrl: messageParams?.headerMediaUrl,
-      headerMediaId: messageParams?.headerMediaId,
-      buttonParams: messageParams?.buttonParams,
-    })
-    if (components.length > 0) {
-      templatePayload.components = components
+  let lastError: Error | null = null
+
+  for (const langCode of fallbackLangs) {
+    const templatePayload: Record<string, unknown> = {
+      name: templateName,
+      language: { code: langCode },
     }
-  } else if (params && params.length > 0) {
-    // Legacy body-only path — no template row available.
-    templatePayload.components = [
-      {
-        type: 'body',
-        parameters: params.map((p) => ({ type: 'text', text: String(p) })),
+
+    if (template) {
+      const components = buildSendComponents(template, {
+        body: messageParams?.body ?? params,
+        headerText: messageParams?.headerText,
+        headerMediaUrl: messageParams?.headerMediaUrl,
+        headerMediaId: messageParams?.headerMediaId,
+        buttonParams: messageParams?.buttonParams,
+      })
+      if (components.length > 0) {
+        templatePayload.components = components
+      }
+    } else if (params && params.length > 0) {
+      templatePayload.components = [
+        {
+          type: 'body',
+          parameters: params.map((p) => ({ type: 'text', text: String(p) })),
+        },
+      ]
+    }
+
+    const body: Record<string, unknown> = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to,
+      type: 'template',
+      template: templatePayload,
+    }
+    if (contextMessageId) {
+      body.context = { message_id: contextMessageId }
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
       },
-    ]
+      body: JSON.stringify(body),
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      return { messageId: data.messages[0].id }
+    }
+
+    try {
+      const errData = await response.json()
+      const errMsg = errData.error?.message || `Meta API error: ${response.status}`
+      lastError = new Error(errMsg)
+
+      // Only retry on code 132001 or translation/language errors
+      if (!/132001|translation|does not exist/i.test(errMsg)) {
+        throw lastError
+      }
+    } catch (e: any) {
+      if (!/132001|translation|does not exist/i.test(e.message)) {
+        throw e
+      }
+      lastError = e
+    }
   }
 
-  const body: Record<string, unknown> = {
-    messaging_product: 'whatsapp',
-    recipient_type: 'individual',
-    to,
-    type: 'template',
-    template: templatePayload,
-  }
-  if (contextMessageId) {
-    body.context = { message_id: contextMessageId }
-  }
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
-    },
-    body: JSON.stringify(body),
-  })
-  if (!response.ok) {
-    await throwMetaError(response, `Meta API error: ${response.status}`)
-  }
-  const data = await response.json()
-  return { messageId: data.messages[0].id }
+  if (lastError) throw lastError
+  throw new Error('Failed to send template message')
 }
 
 // ============================================================

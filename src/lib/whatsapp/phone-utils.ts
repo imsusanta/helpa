@@ -7,7 +7,13 @@ export function sanitizePhoneForMeta(phone: string): string {
   if (!phone) return '';
   const match = phone.match(/^(.*)-(\d{1,3})$/);
   const base = match && match[1].replace(/\D/g, '').length >= 7 ? match[1] : phone;
-  return base.replace(/\D/g, '');
+  let digits = base.replace(/\D/g, '');
+
+  // Default to country code 91 for 10-digit Indian mobile numbers starting with 6, 7, 8, 9
+  if (digits.length === 10 && /^[6-9]/.test(digits)) {
+    digits = '91' + digits;
+  }
+  return digits;
 }
 
 /**
