@@ -63,22 +63,84 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const {
-      conversation_id,
-      message_type,
-      content_text,
-      media_url,
-      filename,
-      template_name,
-      template_language,
-      template_params,
-      template_message_params,
-      reply_to_message_id,
-    } = body
+    let conversation_id = body.conversation_id
+    const message_type = body.message_type || 'text'
+    const content_text = body.content_text || body.message
+    const media_url = body.media_url
+    const filename = body.filename
+    const template_name = body.template_name
+    const template_language = body.template_language
+    const template_params = body.template_params
+    const template_message_params = body.template_message_params
+    const reply_to_message_id = body.reply_to_message_id
 
-    if (!conversation_id || !message_type) {
+    const dbAdmin = supabaseAdmin()
+
+    // Auto-resolve or create conversation if conversation_id was not provided
+    if (!conversation_id && (body.contact_id || body.phone)) {
+      let resolvedContactId = body.contact_id
+
+      if (!resolvedContactId && body.phone) {
+        const cleanPhone = sanitizePhoneForMeta(body.phone)
+        const { data: extContact } = await dbAdmin
+          .from('contacts')
+          .select('id')
+          .eq('account_id', accountId)
+          .eq('phone', cleanPhone)
+          .maybeSingle()
+
+        if (extContact) {
+          resolvedContactId = extContact.id
+        } else {
+          const { data: newContact } = await dbAdmin
+            .from('contacts')
+            .insert({
+              account_id: accountId,
+              user_id: user.id,
+              phone: cleanPhone,
+              name: body.name || cleanPhone,
+              metadata: {},
+            })
+            .select('id')
+            .single()
+
+          if (newContact) resolvedContactId = newContact.id
+        }
+      }
+
+      if (resolvedContactId) {
+        let { data: extConv } = await dbAdmin
+          .from('conversations')
+          .select('id')
+          .eq('account_id', accountId)
+          .eq('contact_id', resolvedContactId)
+          .maybeSingle()
+
+        if (!extConv) {
+          const { data: createdConv } = await dbAdmin
+            .from('conversations')
+            .insert({
+              account_id: accountId,
+              contact_id: resolvedContactId,
+              status: 'open',
+              last_message_text: content_text || 'Outbound message',
+              last_message_at: new Date().toISOString(),
+            })
+            .select('id')
+            .single()
+
+          extConv = createdConv
+        }
+
+        if (extConv) {
+          conversation_id = extConv.id
+        }
+      }
+    }
+
+    if (!conversation_id) {
       return NextResponse.json(
-        { error: 'conversation_id and message_type are required' },
+        { error: 'Could not resolve conversation for recipient' },
         { status: 400 }
       )
     }
@@ -133,8 +195,8 @@ export async function POST(request: Request) {
       )
     }
 
-    // Fetch conversation and contact
-    const { data: conversation, error: convError } = await supabase
+    // Fetch conversation and contact via admin client to guarantee resolution
+    const { data: conversation, error: convError } = await dbAdmin
       .from('conversations')
       .select('*, contact:contacts(*)')
       .eq('id', conversation_id)

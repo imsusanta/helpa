@@ -103,68 +103,16 @@ export function SendOutboundModal({
     setSending(true);
 
     try {
-      // Find or resolve contact
-      let targetContactId = selectedContactId;
-      if (!targetContactId) {
-        const { data: existingContact } = await supabase
-          .from('contacts')
-          .select('id')
-          .eq('account_id', accountId)
-          .eq('phone', targetPhone)
-          .maybeSingle();
-
-        if (existingContact) {
-          targetContactId = existingContact.id;
-        } else {
-          // Create contact row
-          const { data: newContact, error: createErr } = await supabase
-            .from('contacts')
-            .insert({
-              account_id: accountId,
-              name: customName.trim() || targetPhone,
-              phone: targetPhone,
-              metadata: {},
-            })
-            .select('id')
-            .single();
-
-          if (createErr || !newContact) throw createErr || new Error('Could not create contact');
-          targetContactId = newContact.id;
-        }
-      }
-
-      // Find or create conversation
-      let { data: conv } = await supabase
-        .from('conversations')
-        .select('id')
-        .eq('contact_id', targetContactId)
-        .eq('account_id', accountId)
-        .maybeSingle();
-
-      if (!conv) {
-        const { data: newConv } = await supabase
-          .from('conversations')
-          .insert({
-            account_id: accountId,
-            contact_id: targetContactId,
-            status: 'open',
-            last_message_text: message.trim(),
-            last_message_at: new Date().toISOString(),
-          })
-          .select('id')
-          .single();
-        conv = newConv;
-      }
-
-      if (!conv) throw new Error('Could not resolve conversation');
-
-      // Send outbound WhatsApp message via API
+      // Send outbound WhatsApp message via API (Backend resolves or creates contact & conversation seamlessly)
       const res = await fetch('/api/whatsapp/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          conversation_id: conv.id,
-          message: message.trim(),
+          phone: targetPhone,
+          contact_id: selectedContactId || undefined,
+          name: customName.trim() || undefined,
+          message_type: 'text',
+          content_text: message.trim(),
         }),
       });
 
