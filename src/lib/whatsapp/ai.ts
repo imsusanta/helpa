@@ -26,33 +26,24 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
 
   const db = supabaseAdmin()
 
-  // Fetch contact details (name, phone, address, notes, metadata)
-  const { data: contact } = await db
-    .from('contacts')
-    .select('*')
-    .eq('id', contactId)
-    .maybeSingle();
+  // ═══════ PHASE 1: Parallel fetch all independent data in one shot ═══════
+  const [contactRes, accRes, messagesRes, kbRes] = await Promise.all([
+    db.from('contacts').select('*').eq('id', contactId).maybeSingle(),
+    db.from('accounts').select('openrouter_api_key, openrouter_model, ai_system_prompt, welcome_message, industry, name').eq('id', accountId).single(),
+    db.from('messages').select('sender_type, content_type, content_text, created_at').eq('conversation_id', conversationId).order('created_at', { ascending: false }).limit(15),
+    db.from('knowledge_base').select('category, question_title, answer_content').eq('account_id', accountId),
+  ]);
 
-  // Fetch all contacts sharing the same phone number (family/siblings)
-  const { data: siblingContacts } = await db
-    .from('contacts')
-    .select('id')
-    .eq('phone', contact?.phone || '');
-  const contactIds = siblingContacts && siblingContacts.length > 0 ? siblingContacts.map(c => c.id) : [contactId];
-
-  // 1. Fetch OpenRouter configuration from accounts
+  const contact = contactRes.data;
   let account: any = null;
-  let { data: accData, error: accError } = await db
-    .from('accounts')
-    .select('openrouter_api_key, openrouter_model, ai_system_prompt, welcome_message, industry')
-    .eq('id', accountId)
-    .single()
+  let accError = accRes.error;
+  let accData = accRes.data;
 
   if (accError && (accError.message?.includes('welcome_message') || accError.code === '42703')) {
     // Fallback if welcome_message column is missing in database table
     const fallback = await db
       .from('accounts')
-      .select('openrouter_api_key, openrouter_model, ai_system_prompt, industry')
+      .select('openrouter_api_key, openrouter_model, ai_system_prompt, industry, name')
       .eq('id', accountId)
       .single()
     accData = fallback.data as any
@@ -79,15 +70,11 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
     }
   }
 
-  const model = account.openrouter_model || 'google/gemini-2.5-flash'
+  const model = account.openrouter_model || 'google/gemini-2.0-flash'
 
-  // 3. Fetch conversation context (latest 15 messages)
-  const { data: messages, error: msgError } = await db
-    .from('messages')
-    .select('sender_type, content_type, content_text, created_at')
-    .eq('conversation_id', conversationId)
-    .order('created_at', { ascending: false })
-    .limit(15)
+  // 3. Use pre-fetched messages
+  const messages = messagesRes.data;
+  const msgError = messagesRes.error;
 
   if (msgError || !messages || messages.length === 0) {
     console.error('[AI Assistant] Failed to fetch message history or no messages found:', msgError)
@@ -104,12 +91,16 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
   // Reverse messages to restore chronological order (ascending) for the LLM
   messages.reverse()
 
-  // 3.5 Fetch Knowledge Base for Tenant Context
-  const { data: kbEntries } = await db
-    .from('knowledge_base')
-    .select('category, question_title, answer_content')
-    .eq('account_id', accountId)
+  // ═══════ PHASE 2: Sibling contacts (depends on contact phone) ═══════
+  // Fetch all contacts sharing the same phone number (family/siblings)
+  const { data: siblingContacts } = await db
+    .from('contacts')
+    .select('id')
+    .eq('phone', contact?.phone || '');
+  const contactIds = siblingContacts && siblingContacts.length > 0 ? siblingContacts.map(c => c.id) : [contactId];
 
+  // 3.5 Use pre-fetched Knowledge Base
+  const kbEntries = kbRes.data;
   let kbContext = ""
   if (kbEntries && kbEntries.length > 0) {
     kbContext = "Here is the verified knowledge base and pricing information for our company:\n\n"
@@ -321,7 +312,8 @@ AI RULES & STUDENT PROFILE UPDATES:
   - Use clear line breaks (\\n) to separate greetings, main details, lists, and the closing call-to-action.
   - Use WhatsApp markdown formatting where helpful (e.g., *bold* for key terms, headings, or pricing; _italics_ for emphasis).
   - Use relevant friendly emojis (like 👋, 😊, 🚀, 💬, ✅, etc.) naturally in the conversation to make the response feel warm, friendly, and visually engaging.
-  - Never output walls of plain, unformatted text. Keep it neat, spaced, and easy to read.`;
+  - Never output walls of plain, unformatted text. Keep it neat, spaced, and easy to read.
+  - KEEP REPLIES SHORT AND CONCISE. Maximum 3-4 short paragraphs. Do not write long essays. Speed matters.`;
 
   // Enforce JSON structured output format for analytics and features
   systemPromptContent += `\n\nCRITICAL OUTPUT FORMAT RULE: You must respond ONLY with a raw, valid JSON object matching the JSON schema below. Do not wrap the JSON block in markdown formatting (like \`\`\`json ... \`\`\`), do not output any other text before or after the JSON.
@@ -402,11 +394,11 @@ Note:
       .filter(m => m.content !== '')
   ]
 
-  // 5. Send request to OpenRouter (Optimized for quick 3-5 sec reply)
+  // 5. Send request to OpenRouter (Optimized for quick reply)
   let response;
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4500); // 4.5-second timeout for quick reply
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15-second timeout
 
     response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -427,10 +419,10 @@ Note:
     });
     clearTimeout(timeoutId);
   } catch (err) {
-    console.warn(`[AI Assistant] Request with model ${model} failed or timed out. Trying fast fallback model 'google/gemini-2.5-flash'...`, err);
+    console.warn(`[AI Assistant] Request with model ${model} failed or timed out. Trying fast fallback model 'google/gemini-2.0-flash'...`, err);
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4500);
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
 
       response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
@@ -441,7 +433,7 @@ Note:
           'X-Title': 'Helpa Health',
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
+          model: 'google/gemini-2.0-flash',
           messages: apiMessages,
           temperature: 0.3,
           max_tokens: 450,
