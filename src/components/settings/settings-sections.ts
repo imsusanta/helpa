@@ -43,7 +43,6 @@ export const SETTINGS_SECTIONS = [
   'insurance',
   'reminders',
   'booking_form',
-  'mcp',
 ] as const;
 
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number];
@@ -178,7 +177,6 @@ export function getSectionMeta(
     insurance: { id: 'insurance', label: 'Health Insurance', icon: Shield, group: 'workspace' },
     reminders: { id: 'reminders', label: labels.reminders, icon: BellRing, group: 'workspace' },
     booking_form: { id: 'booking_form', label: 'Booking Form Settings', icon: FileText, group: 'workspace' },
-    mcp: { id: 'mcp', label: 'MCP Server (AI Connect)', icon: Cpu, group: 'workspace' },
   };
 }
 

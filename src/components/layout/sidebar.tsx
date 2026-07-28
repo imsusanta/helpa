@@ -323,20 +323,6 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
               <ul className="flex flex-col gap-1">
                 <li>
                   <Link
-                    href="/admin/mcp"
-                    className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2",
-                      pathname === "/admin/mcp"
-                        ? "bg-primary/10 text-primary"
-                        : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                    )}
-                  >
-                    <Cpu className="h-4 w-4 text-emerald-500" />
-                    MCP Server
-                  </Link>
-                </li>
-                <li>
-                  <Link
                     href="/admin"
                     className={cn(
                       "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2",

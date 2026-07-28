@@ -46,7 +46,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { McpConnectView } from "./mcp-connect-view";
 
 interface Metrics {
   totalAccounts: number;
@@ -103,7 +102,7 @@ interface Plan {
 }
 
 export function AdminDashboardClient() {
-  const [activeTab, setActiveTab] = useState<"overview" | "tenants" | "plans" | "landing" | "mcp">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "tenants" | "plans" | "landing">("overview");
   const [loading, setLoading] = useState(true);
 
   // States
@@ -415,9 +414,9 @@ export function AdminDashboardClient() {
 
       {/* Modernized Tab selection triggers */}
       <div className="flex gap-2 border-b border-border overflow-x-auto">
-        {["overview", "tenants", "plans", "landing", "mcp"].map((tab) => {
+        {["overview", "tenants", "plans", "landing"].map((tab) => {
           const isActive = activeTab === tab;
-          const label = tab === "landing" ? "landing page" : tab === "mcp" ? "MCP Connect" : tab;
+          const label = tab === "landing" ? "landing page" : tab;
           return (
             <button
               key={tab}
@@ -433,9 +432,6 @@ export function AdminDashboardClient() {
           );
         })}
       </div>
-
-      {/* MCP CONNECT TAB */}
-      {activeTab === "mcp" && <McpConnectView />}
 
       {/* OVERVIEW TAB */}
       {activeTab === "overview" && metrics && (
