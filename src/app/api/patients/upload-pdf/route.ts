@@ -69,6 +69,20 @@ export async function POST(request: Request) {
       console.error('[Upload Patient PDF] Insert error:', reportErr);
     }
 
+    // Auto-detect & save Blood Group from report text if present
+    const combinedText = `${test_name} ${notes || ''}`;
+    const bgMatch = combinedText.match(/\b(A\+|A\-|B\+|B\-|AB\+|AB\-|O\+|O\-)\b/i) ||
+                    combinedText.match(/\b(A|B|AB|O)\s+(positive|negative|pos|neg)\b/i);
+
+    if (bgMatch) {
+      let detectedBg = bgMatch[0].toUpperCase().replace(/\s+POS(ITIVE)?/i, '+').replace(/\s+NEG(ATIVE)?/i, '-');
+      if (detectedBg) {
+        await db.from('patients').update({ blood_group: detectedBg }).eq('id', contact_id);
+        const meta = contact.metadata || {};
+        await db.from('contacts').update({ metadata: { ...meta, blood_group: detectedBg } }).eq('id', contact_id);
+      }
+    }
+
     // Auto-send via WhatsApp if enabled
     if (auto_send) {
       // Find or resolve conversation

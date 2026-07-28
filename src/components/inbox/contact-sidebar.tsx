@@ -34,7 +34,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 
 import { getIndustryModule } from "@/modules/registry";
-import { getOrGeneratePatientId } from "@/lib/patients/id-generator";
+import { getOrGeneratePatientId, resolveBloodGroup } from "@/lib/patients/id-generator";
 
 interface ContactSidebarProps {
   contact: Contact | null;
@@ -518,21 +518,25 @@ export function ContactSidebar({
                         {getOrGeneratePatientId(contact, patient?.patient_seq_id)}
                       </span>
                     </div>
-                    {patient?.blood_group ? (
-                      <div>
-                        <span className="block text-[8px] uppercase font-bold text-muted-foreground">Blood Group</span>
-                        <span className="text-foreground font-semibold text-rose-600 dark:text-rose-400">
-                          {patient.blood_group}
-                        </span>
-                      </div>
-                    ) : contact?.metadata?.blood_group ? (
-                      <div>
-                        <span className="block text-[8px] uppercase font-bold text-muted-foreground">Blood Group</span>
-                        <span className="text-foreground font-semibold text-rose-600 dark:text-rose-400">
-                          {contact.metadata.blood_group}
-                        </span>
-                      </div>
-                    ) : null}
+                    <div>
+                      <span className="block text-[8px] uppercase font-bold text-muted-foreground">Blood Group</span>
+                      {(() => {
+                        const { bg, source } = resolveBloodGroup(patient?.blood_group, contact?.metadata?.blood_group, recentReports);
+                        if (!bg) return <span className="text-muted-foreground italic text-[10px]">Not specified</span>;
+                        return (
+                          <div className="flex items-center gap-1">
+                            <span className="text-foreground font-bold text-[11px] text-rose-600 dark:text-rose-400">
+                              {bg}
+                            </span>
+                            {source === 'report' && (
+                              <span className="text-[8px] font-semibold text-sky-600 dark:text-sky-400 bg-sky-500/10 px-1 py-0.2 rounded" title="Extracted automatically from Patient Lab Report">
+                                Lab
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
                   </div>
 
                     {/* Upcoming Appointment Info */}

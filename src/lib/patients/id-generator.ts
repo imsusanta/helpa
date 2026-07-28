@@ -43,3 +43,42 @@ export function getOrGeneratePatientId(
   return 'PAT-000001';
 }
 
+export function resolveBloodGroup(
+  patientBg?: string | null,
+  metaBg?: string | null,
+  reports?: Array<{ test_name?: string; notes?: string; internal_notes?: string }> | null
+): { bg: string | null; source: 'patient' | 'report' | null } {
+  // 1. Direct patient setting
+  if (patientBg && patientBg.trim() && patientBg !== '—') {
+    return { bg: patientBg.trim().toUpperCase(), source: 'patient' };
+  }
+  if (metaBg && metaBg.trim() && metaBg !== '—') {
+    return { bg: metaBg.trim().toUpperCase(), source: 'patient' };
+  }
+
+  // 2. Extract from lab reports text
+  if (reports && reports.length > 0) {
+    const bgShortRegex = /\b(A\+|A\-|B\+|B\-|AB\+|AB\-|O\+|O\-)\b/i;
+    const bgWordsRegex = /\b(A|B|AB|O)\s+(positive|negative|pos|neg)\b/i;
+
+    for (const rep of reports) {
+      const text = `${rep.test_name || ''} ${rep.notes || ''} ${rep.internal_notes || ''}`;
+      
+      const shortMatch = text.match(bgShortRegex);
+      if (shortMatch) {
+        return { bg: shortMatch[0].toUpperCase(), source: 'report' };
+      }
+
+      const wordMatch = text.match(bgWordsRegex);
+      if (wordMatch) {
+        const grp = wordMatch[1].toUpperCase();
+        const sign = wordMatch[2].toLowerCase().startsWith('pos') ? '+' : '-';
+        return { bg: `${grp}${sign}`, source: 'report' };
+      }
+    }
+  }
+
+  return { bg: null, source: null };
+}
+
+
