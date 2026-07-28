@@ -246,18 +246,23 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         {/* Logo row. On mobile we put a close button here; on desktop the
             close button is hidden since the sidebar is always-visible. */}
         <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border px-4">
-          <Link href="/dashboard" className="flex items-center gap-2">
+          <Link href="/dashboard" className="flex items-center gap-2.5 min-w-0 flex-1">
             {(() => {
               const LogoIcon = INDUSTRY_ICON[activeModule.id] || Bot;
               return (
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-xs">
                   <LogoIcon className="h-4 w-4" />
                 </div>
               );
             })()}
-            <span className="text-sm font-semibold text-foreground truncate">
-              {activeModule.description || activeModule.name}
-            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-foreground truncate leading-tight">
+                {activeModule.name}
+              </p>
+              <p className="text-[10px] text-muted-foreground truncate leading-none mt-0.5 font-medium">
+                Helpa Studio
+              </p>
+            </div>
           </Link>
           <button
             type="button"

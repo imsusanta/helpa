@@ -10,7 +10,7 @@ import { workflowsConfig } from './workflows';
 export const hospitalModule: IndustryModule = {
   id: 'hospital_clinic',
   name: 'Helpa Health',
-  description: 'AI WhatsApp Receptionist for Clinics by Helpa Studio',
+  description: 'AI WhatsApp Receptionist for Clinics',
   sidebar: sidebarConfig,
   dashboardMetrics: dashboardConfig,
   systemPrompt: systemPromptConfig,
