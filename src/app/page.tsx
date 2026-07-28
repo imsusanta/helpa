@@ -200,60 +200,60 @@ export default function LandingPage() {
       <header className="fixed top-5 left-0 right-0 z-50 px-4 transition-all duration-300">
         <div className={`mx-auto flex max-w-6xl items-center justify-between rounded-full px-6 py-3.5 transition-all duration-300 ${
           scrolled 
-            ? "bg-slate-950/90 dark:bg-slate-950/90 backdrop-blur-2xl border border-[#25D366]/30 shadow-[0_12px_40px_rgba(7,94,84,0.25)] text-white" 
-            : "bg-background/85 dark:bg-slate-950/85 backdrop-blur-xl border border-[#075E54]/20 shadow-xl shadow-[#075E54]/10 text-foreground"
+            ? "bg-[#075E54]/95 dark:bg-[#075E54]/95 backdrop-blur-2xl border border-[#25D366]/40 shadow-[0_12px_40px_rgba(7,94,84,0.4)] text-white" 
+            : "bg-[#075E54]/90 dark:bg-[#075E54]/90 backdrop-blur-xl border border-[#25D366]/30 shadow-xl shadow-[#075E54]/20 text-white"
         }`}>
           {/* Logo */}
           <Link href="#" className="flex items-center gap-2.5 group">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-[#075E54] to-[#25D366] text-white shadow-lg shadow-[#25D366]/30 group-hover:scale-110 transition-transform duration-300">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-[#25D366] to-[#075E54] text-white shadow-lg shadow-[#25D366]/40 group-hover:scale-110 transition-transform duration-300">
               <MessageSquare className="h-5 w-5 text-white fill-white/20" />
             </div>
-            <span className="text-xl font-black tracking-tight text-foreground flex items-center gap-1.5 font-sans">
-              Helpa<span className="h-2.5 w-2.5 rounded-full bg-[#25D366] inline-block animate-pulse shadow-[0_0_8px_#25D366]"></span>
+            <span className="text-xl font-black tracking-tight text-white flex items-center gap-1.5 font-sans">
+              Helpa<span className="h-2.5 w-2.5 rounded-full bg-[#25D366] inline-block animate-pulse shadow-[0_0_10px_#25D366]"></span>
             </span>
           </Link>
 
-          {/* Desktop Links */}
-          <nav className="hidden items-center gap-1.5 text-sm text-muted-foreground md:flex font-semibold">
-            <a href="#demo" className="px-3.5 py-1.5 rounded-full transition-all hover:text-[#25D366] hover:bg-[#25D366]/10">Live Demo</a>
-            <a href="#calculator" className="px-3.5 py-1.5 rounded-full transition-all hover:text-[#25D366] hover:bg-[#25D366]/10">ROI Calculator</a>
-            <a href="#features" className="px-3.5 py-1.5 rounded-full transition-all hover:text-[#25D366] hover:bg-[#25D366]/10">Features</a>
-            <a href="#industries" className="px-3.5 py-1.5 rounded-full transition-all hover:text-[#25D366] hover:bg-[#25D366]/10">Industries</a>
-            <a href="#pricing" className="px-3.5 py-1.5 rounded-full transition-all hover:text-[#25D366] hover:bg-[#25D366]/10">Pricing</a>
-            <a href="#faq" className="px-3.5 py-1.5 rounded-full transition-all hover:text-[#25D366] hover:bg-[#25D366]/10">FAQ</a>
+          {/* Desktop Links - Pure White for maximum legibility */}
+          <nav className="hidden items-center gap-1.5 text-sm text-white/90 md:flex font-semibold">
+            <a href="#demo" className="px-3.5 py-1.5 rounded-full transition-all text-white/90 hover:text-white hover:bg-white/15">Live Demo</a>
+            <a href="#calculator" className="px-3.5 py-1.5 rounded-full transition-all text-white/90 hover:text-white hover:bg-white/15">ROI Calculator</a>
+            <a href="#features" className="px-3.5 py-1.5 rounded-full transition-all text-white/90 hover:text-white hover:bg-white/15">Features</a>
+            <a href="#industries" className="px-3.5 py-1.5 rounded-full transition-all text-white/90 hover:text-white hover:bg-white/15">Industries</a>
+            <a href="#pricing" className="px-3.5 py-1.5 rounded-full transition-all text-white/90 hover:text-white hover:bg-white/15">Pricing</a>
+            <a href="#faq" className="px-3.5 py-1.5 rounded-full transition-all text-white/90 hover:text-white hover:bg-white/15">FAQ</a>
           </nav>
 
           {/* Actions */}
           <div className="flex items-center gap-3">
             <button
               onClick={toggleMode}
-              className="p-2.5 rounded-full border border-[#075E54]/20 bg-[#075E54]/10 hover:bg-[#25D366]/20 text-foreground transition-colors duration-200 cursor-pointer"
+              className="p-2.5 rounded-full border border-white/20 bg-white/10 hover:bg-white/20 text-white transition-colors duration-200 cursor-pointer"
               aria-label="Toggle theme"
             >
-              {mode === "dark" ? <Sun className="h-4 w-4 text-[#25D366]" /> : <Moon className="h-4 w-4 text-[#075E54]" />}
+              {mode === "dark" ? <Sun className="h-4 w-4 text-[#25D366]" /> : <Moon className="h-4 w-4 text-white" />}
             </button>
 
-            <Link href={ctaHref} className="hidden rounded-full bg-[#25D366] hover:bg-[#075E54] px-6 py-2.5 text-sm font-extrabold text-white transition-all duration-200 shadow-lg shadow-[#25D366]/25 hover:shadow-[#075E54]/30 hover:scale-[1.04] active:scale-[0.96] sm:inline-block">
+            <Link href={ctaHref} className="hidden rounded-full bg-[#25D366] hover:bg-white hover:text-[#075E54] px-6 py-2.5 text-sm font-extrabold text-white transition-all duration-200 shadow-lg shadow-[#25D366]/30 hover:scale-[1.04] active:scale-[0.96] sm:inline-block">
               {user ? "Dashboard" : "Book Free Demo"}
             </Link>
             
-            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="flex items-center justify-center rounded-full border border-[#075E54]/20 p-2.5 md:hidden text-foreground bg-card hover:bg-accent transition-colors cursor-pointer" aria-label="Toggle menu">
-              {mobileMenuOpen ? <X className="h-5 w-5 text-[#25D366]" /> : <Menu className="h-5 w-5 text-[#075E54]" />}
+            <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="flex items-center justify-center rounded-full border border-white/20 p-2.5 md:hidden text-white bg-white/10 hover:bg-white/20 transition-colors cursor-pointer" aria-label="Toggle menu">
+              {mobileMenuOpen ? <X className="h-5 w-5 text-[#25D366]" /> : <Menu className="h-5 w-5 text-white" />}
             </button>
           </div>
         </div>
         
         {/* Mobile Menu Drawer */}
         {mobileMenuOpen && (
-          <div className="mx-auto max-w-6xl mt-3 rounded-3xl border border-[#075E54]/30 md:hidden bg-background/95 dark:bg-slate-950/95 backdrop-blur-2xl p-5 shadow-2xl animate-in fade-in slide-in-from-top-4 duration-200">
+          <div className="mx-auto max-w-6xl mt-3 rounded-3xl border border-[#25D366]/40 md:hidden bg-[#075E54]/95 dark:bg-[#075E54]/95 backdrop-blur-2xl p-5 shadow-2xl animate-in fade-in slide-in-from-top-4 duration-200 text-white">
             <div className="flex flex-col gap-2 px-2 py-1">
-              <a href="#demo" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-4 py-2.5 text-sm text-muted-foreground hover:bg-[#25D366]/10 hover:text-[#25D366] font-semibold transition-colors">Live Demo</a>
-              <a href="#calculator" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-4 py-2.5 text-sm text-muted-foreground hover:bg-[#25D366]/10 hover:text-[#25D366] font-semibold transition-colors">ROI Calculator</a>
-              <a href="#features" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-4 py-2.5 text-sm text-muted-foreground hover:bg-[#25D366]/10 hover:text-[#25D366] font-semibold transition-colors">Features</a>
-              <a href="#industries" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-4 py-2.5 text-sm text-muted-foreground hover:bg-[#25D366]/10 hover:text-[#25D366] font-semibold transition-colors">Industries</a>
-              <a href="#pricing" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-4 py-2.5 text-sm text-muted-foreground hover:bg-[#25D366]/10 hover:text-[#25D366] font-semibold transition-colors">Pricing</a>
-              <a href="#faq" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-4 py-2.5 text-sm text-muted-foreground hover:bg-[#25D366]/10 hover:text-[#25D366] font-semibold transition-colors">FAQ</a>
-              <Link href={ctaHref} onClick={() => setMobileMenuOpen(false)} className="mt-3 rounded-full bg-[#25D366] hover:bg-[#075E54] px-5 py-3 text-center text-sm font-extrabold text-white shadow-lg shadow-[#25D366]/25 transition-all">
+              <a href="#demo" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-4 py-2.5 text-sm text-white/90 hover:bg-white/15 hover:text-white font-semibold transition-colors">Live Demo</a>
+              <a href="#calculator" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-4 py-2.5 text-sm text-white/90 hover:bg-white/15 hover:text-white font-semibold transition-colors">ROI Calculator</a>
+              <a href="#features" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-4 py-2.5 text-sm text-white/90 hover:bg-white/15 hover:text-white font-semibold transition-colors">Features</a>
+              <a href="#industries" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-4 py-2.5 text-sm text-white/90 hover:bg-white/15 hover:text-white font-semibold transition-colors">Industries</a>
+              <a href="#pricing" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-4 py-2.5 text-sm text-white/90 hover:bg-white/15 hover:text-white font-semibold transition-colors">Pricing</a>
+              <a href="#faq" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-4 py-2.5 text-sm text-white/90 hover:bg-white/15 hover:text-white font-semibold transition-colors">FAQ</a>
+              <Link href={ctaHref} onClick={() => setMobileMenuOpen(false)} className="mt-3 rounded-full bg-[#25D366] hover:bg-white hover:text-[#075E54] px-5 py-3 text-center text-sm font-extrabold text-white shadow-lg shadow-[#25D366]/30 transition-all">
                 {user ? "Dashboard" : "Book Free Demo"}
               </Link>
             </div>
