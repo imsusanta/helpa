@@ -72,6 +72,15 @@ export async function GET(
     const tokenNum = appt.token_number || 1;
     const queuePos = appt.queue_position || 1;
 
+    // Generate Ticket Serial Number (daily count for this account on appointment date)
+    const { count: dailyCount } = await db
+      .from('appointments')
+      .select('id', { count: 'exact', head: true })
+      .eq('account_id', appt.account_id)
+      .eq('appointment_date', appt.appointment_date)
+      .lte('created_at', appt.created_at || new Date().toISOString());
+    const ticketSerial = `TKT-${String(dailyCount || 1).padStart(3, '0')}`;
+
     // Initialize PDF (A4 Portrait)
     const doc = new jsPDF({
       orientation: "portrait",
@@ -130,10 +139,10 @@ export async function GET(
     doc.setTextColor(51, 65, 85); // Slate 700
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
-    doc.text(`BOOKING REF ID: ${bookingId}`, 20, 60);
+    doc.text(`BOOKING REF: ${bookingId}`, 20, 60);
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
-    doc.text(`ISSUED DATE: ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`, 20, 67);
+    doc.text(`TICKET SERIAL: ${ticketSerial}   |   ISSUED: ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`, 20, 67);
     
     // Status Badge (CONFIRMED)
     doc.setFillColor(16, 185, 129); // Emerald 500

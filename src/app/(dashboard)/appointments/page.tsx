@@ -34,6 +34,7 @@ interface Appointment {
   patient: { id: string; name: string; phone: string } | null;
   doctor: { id: string; name: string; specialization: string } | null;
   department: string;
+  booking_id?: string;
   token_number?: number;
   queue_position?: number;
 }
@@ -123,7 +124,7 @@ export default function AppointmentsPage() {
       // 2. Fetch appointments
       const { data: appts } = await db
         .from("appointments")
-        .select("id, appointment_date, appointment_time, status, notes, department, token_number, queue_position, patient:contacts(id, name, phone), doctor:hospital_doctors(id, name, specialization)")
+        .select("id, booking_id, appointment_date, appointment_time, status, notes, department, token_number, queue_position, patient:contacts(id, name, phone), doctor:hospital_doctors(id, name, specialization)")
         .eq("account_id", accountId)
         .order("appointment_date", { ascending: true })
         .order("appointment_time", { ascending: true });
@@ -811,8 +812,9 @@ export default function AppointmentsPage() {
               <thead className="text-xs uppercase bg-muted/50 border-b border-border text-foreground font-semibold">
                 <tr>
                   <th className="px-6 py-4">Patient</th>
+                  <th className="px-6 py-4">Booking ID</th>
                   <th className="px-6 py-4">Doctor</th>
-                  <th className="px-6 py-4">Token Info</th>
+                  <th className="px-6 py-4">Token / Queue</th>
                   <th className="px-6 py-4">Schedule Date/Time</th>
                   <th className="px-6 py-4">Status</th>
                   <th className="px-6 py-4 text-right">Actions</th>
@@ -839,8 +841,13 @@ export default function AppointmentsPage() {
                         </div>
                       </div>
                     </td>
+                    <td className="px-6 py-4">
+                      {appt.booking_id ? (
+                        <span className="inline-flex items-center gap-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider">{appt.booking_id}</span>
+                      ) : <span className="text-muted-foreground">—</span>}
+                    </td>
                     <td className="px-6 py-4 font-bold text-foreground/80">
-                      {appt.token_number ? `#${appt.token_number} (Pos: ${appt.queue_position})` : "-"}
+                      {appt.token_number ? `#${appt.token_number} (Pos: ${appt.queue_position})` : "—"}
                     </td>
                     <td className="px-6 py-4 font-semibold text-emerald-600 dark:text-emerald-400">
                       <div className="flex items-center gap-1.5">

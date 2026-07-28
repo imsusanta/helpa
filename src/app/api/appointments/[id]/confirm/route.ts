@@ -4,7 +4,7 @@ import { engineSendText, engineSendDocument } from '@/lib/automations/meta-send'
 import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
 
-async function generatePdfBuffer(appt: any, hospitalName: string, patientSeqId: string): Promise<Buffer> {
+async function generatePdfBuffer(appt: any, hospitalName: string, patientSeqId: string, ticketSerial: string): Promise<Buffer> {
   const patient = appt.patient as any;
   const doctor = appt.doctor as any;
   const bookingId = appt.booking_id || `APT-2026-${appt.id.slice(0, 5).toUpperCase()}`;
@@ -51,10 +51,10 @@ async function generatePdfBuffer(appt: any, hospitalName: string, patientSeqId: 
   doc.setTextColor(51, 65, 85);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
-  doc.text(`BOOKING REF ID: ${bookingId}`, 20, 60);
+  doc.text(`BOOKING REF: ${bookingId}`, 20, 60);
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
-  doc.text(`ISSUED DATE: ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`, 20, 67);
+  doc.text(`TICKET SERIAL: ${ticketSerial}   |   ISSUED: ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`, 20, 67);
 
   // Badge
   doc.setFillColor(16, 185, 129);
@@ -274,12 +274,20 @@ export async function POST(
     const tokenNum = appt.token_number || 1;
     const queuePos = appt.queue_position || 1;
     const systemUserId = '00000000-0000-0000-0000-000000000000';
+    // Calculate Ticket Serial
+    const { count: dailyCount } = await db
+      .from('appointments')
+      .select('id', { count: 'exact', head: true })
+      .eq('account_id', accountId)
+      .eq('appointment_date', appt.appointment_date)
+      .lte('created_at', appt.created_at || new Date().toISOString());
+    const ticketSerial = `TKT-${String(dailyCount || 1).padStart(3, '0')}`;
 
     // 4. Generate PDF Buffer & upload to Supabase Storage `chat-media`
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || request.nextUrl.origin;
     let publicPdfUrl = `${baseUrl}/api/appointments/${appt.id}/pdf`;
     try {
-      const pdfBuffer = await generatePdfBuffer(appt, hospitalName, patientSeqId);
+      const pdfBuffer = await generatePdfBuffer(appt, hospitalName, patientSeqId, ticketSerial);
       const storagePath = `account-${accountId}/opd-ticket-${appt.id}.pdf`;
 
       const { error: uploadErr } = await db.storage

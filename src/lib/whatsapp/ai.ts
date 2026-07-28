@@ -1074,19 +1074,28 @@ Note:
               const pdfUrl = `${siteUrl}/api/appointments/${newAppt.id}/pdf`;
               const bookingIdStr = newAppt.booking_id || `APT-2026-${newAppt.id.slice(0, 5).toUpperCase()}`;
 
+              // Generate Ticket Serial Number (daily count for this account on this date)
+              const { count: dailyCount } = await db
+                .from('appointments')
+                .select('id', { count: 'exact', head: true })
+                .eq('account_id', accountId)
+                .eq('appointment_date', date);
+              const ticketSerial = `TKT-${String(dailyCount || 1).padStart(3, '0')}`;
+
               const displayDoc = actualDocName.startsWith('Dr.') ? actualDocName : 'Dr. ' + actualDocName;
               const displaySpec = actualSpecialization ? ` (${actualSpecialization})` : '';
 
               reply = `✅ *APPOINTMENT CONFIRMED!*
 
-*Booking ID:* ${bookingIdStr}
-*Token Number:* #${newAppt.token_number || 1}
-*Queue Position:* ${newAppt.queue_position || 1}
-*Doctor:* ${displayDoc}${displaySpec}
-*Department:* ${department || 'General Medicine'}
-*Date & Time:* ${date} at ${time}
+📋 *Booking ID:* ${bookingIdStr}
+🎫 *Ticket Serial:* ${ticketSerial}
+🔢 *Token Number:* #${newAppt.token_number || 1}
+📍 *Queue Position:* ${newAppt.queue_position || 1}
+👨‍⚕️ *Doctor:* ${displayDoc}${displaySpec}
+🏥 *Department:* ${department || 'General Medicine'}
+📅 *Date & Time:* ${date} at ${time}
 
-Download your digital ticket PDF:
+📄 Download your digital OPD ticket PDF:
 ${pdfUrl}
 
 Please arrive 15 minutes before your time slot. Thank you!`;
