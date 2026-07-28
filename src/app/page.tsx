@@ -1089,7 +1089,7 @@ export default function LandingPage() {
               <p className="mt-2 text-xs text-muted-foreground font-medium leading-relaxed">Setup Fee: ₹9,999 (One Time)</p>
               
               <div className="mt-6 flex items-baseline gap-1">
-                <span className="text-4xl font-black text-foreground">₹2,999</span>
+                <span className="text-4xl font-black text-foreground">₹4,999</span>
                 <span className="text-sm text-muted-foreground font-semibold">/month</span>
               </div>
               
@@ -1124,7 +1124,7 @@ export default function LandingPage() {
               <p className="mt-2 text-xs text-muted-foreground font-medium leading-relaxed">Setup Fee: ₹19,999</p>
               
               <div className="mt-6 flex items-baseline gap-1">
-                <span className="text-4xl font-black text-foreground">₹5,999</span>
+                <span className="text-4xl font-black text-foreground">₹14,999</span>
                 <span className="text-sm text-muted-foreground font-semibold">/month</span>
               </div>
               
