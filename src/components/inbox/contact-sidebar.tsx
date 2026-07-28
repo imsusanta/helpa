@@ -34,6 +34,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 
 import { getIndustryModule } from "@/modules/registry";
+import { getOrGeneratePatientId } from "@/lib/patients/id-generator";
 
 interface ContactSidebarProps {
   contact: Contact | null;
@@ -509,20 +510,30 @@ export function ContactSidebar({
                   Clinical Actions
                 </div>
 
-                {patient ? (
-                  <div className="space-y-2.5">
-                    <div className="grid grid-cols-2 gap-2 text-[10px] text-muted-foreground bg-background/50 p-2 rounded-lg border border-border/40">
-                      <div>
-                        <span className="block text-[8px] uppercase font-bold">Patient ID</span>
-                        <span className="text-foreground font-semibold">{patient.patient_seq_id}</span>
-                      </div>
-                      {patient.blood_group && (
-                        <div>
-                          <span className="block text-[8px] uppercase font-bold">Blood Group</span>
-                          <span className="text-foreground font-semibold">{patient.blood_group}</span>
-                        </div>
-                      )}
+                <div className="space-y-2.5">
+                  <div className="grid grid-cols-2 gap-2 text-[10px] text-muted-foreground bg-background/50 p-2 rounded-lg border border-border/40">
+                    <div>
+                      <span className="block text-[8px] uppercase font-bold text-muted-foreground">Patient ID</span>
+                      <span className="text-foreground font-bold font-mono text-[11px] text-emerald-600 dark:text-emerald-400">
+                        {getOrGeneratePatientId(contact, patient?.patient_seq_id)}
+                      </span>
                     </div>
+                    {patient?.blood_group ? (
+                      <div>
+                        <span className="block text-[8px] uppercase font-bold text-muted-foreground">Blood Group</span>
+                        <span className="text-foreground font-semibold text-rose-600 dark:text-rose-400">
+                          {patient.blood_group}
+                        </span>
+                      </div>
+                    ) : contact?.metadata?.blood_group ? (
+                      <div>
+                        <span className="block text-[8px] uppercase font-bold text-muted-foreground">Blood Group</span>
+                        <span className="text-foreground font-semibold text-rose-600 dark:text-rose-400">
+                          {contact.metadata.blood_group}
+                        </span>
+                      </div>
+                    ) : null}
+                  </div>
 
                     {/* Upcoming Appointment Info */}
                     {upcomingAppointment ? (
@@ -611,11 +622,6 @@ export function ContactSidebar({
                       </div>
                     )}
                   </div>
-                ) : (
-                  <p className="text-[11px] text-muted-foreground leading-normal">
-                    This contact is not registered as a clinical patient yet. Booking will auto-create their file.
-                  </p>
-                )}
 
                 <div className="grid grid-cols-3 gap-1.5">
                   <Button size="xs" variant="outline" className="text-[10px] px-1" onClick={() => { setShowBookForm(!showBookForm); setShowInviteForm(false); }}>
@@ -843,7 +849,7 @@ export function ContactSidebar({
         <UploadPatientPdfModal
           open={uploadPdfOpen}
           onOpenChange={setUploadPdfOpen}
-          patientId={patient?.patient_seq_id || 'PAT-000000'}
+          patientId={getOrGeneratePatientId(contact, patient?.patient_seq_id)}
           contactId={contact.id}
           patientName={contact.name || 'Patient'}
           patientPhone={contact.phone}

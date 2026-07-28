@@ -25,3 +25,21 @@ export async function generateNextPatientSeqId(accountId: string): Promise<strin
     return `PAT-${String(Math.floor(100000 + Math.random() * 900000))}`;
   }
 }
+
+export function getOrGeneratePatientId(
+  contact?: { id: string; metadata?: any } | null,
+  patientSeqId?: string | null
+): string {
+  if (patientSeqId) return patientSeqId;
+  if (contact?.metadata?.patient_id) return contact.metadata.patient_id;
+  if (contact?.metadata?.patient_seq_id) return contact.metadata.patient_seq_id;
+
+  if (contact?.id) {
+    const digits = contact.id.replace(/\D/g, '');
+    const numeric = digits.length >= 6 ? digits.slice(0, 6) : digits.padEnd(6, '1');
+    return `PAT-${numeric.padStart(6, '0')}`;
+  }
+
+  return 'PAT-000001';
+}
+

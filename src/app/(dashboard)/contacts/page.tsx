@@ -54,6 +54,7 @@ import { CustomFieldsManager } from '@/components/contacts/custom-fields-manager
 import { useCan } from '@/hooks/use-can';
 import { GatedButton } from '@/components/ui/gated-button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { getOrGeneratePatientId } from '@/lib/patients/id-generator';
 
 const PAGE_SIZE = 25;
 
@@ -540,11 +541,12 @@ export default function ContactsPage() {
                   {customFields.slice(0, 2).map((field) => {
                     const rawVal = contact.metadata?.[field.key] || '—';
 
-                    if (field.key === 'patient_id' && rawVal !== '—') {
+                    if (field.key === 'patient_id') {
+                      const displayId = getOrGeneratePatientId(contact);
                       return (
                         <TableCell key={field.key} className="hidden md:table-cell text-sm">
                           <span className="inline-flex items-center font-mono font-bold text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">
-                            {rawVal}
+                            {displayId}
                           </span>
                         </TableCell>
                       );

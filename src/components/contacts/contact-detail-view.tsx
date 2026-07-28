@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import { SendOutboundModal } from '@/components/contacts/send-outbound-modal';
 import { UploadPatientPdfModal } from '@/components/contacts/upload-patient-pdf-modal';
+import { getOrGeneratePatientId } from '@/lib/patients/id-generator';
 
 interface ContactDetailViewProps {
   open: boolean;
@@ -161,7 +162,7 @@ export function ContactDetailView({
       setEditAddress(data.address ?? '');
       setEditNotes(data.notes ?? '');
 
-      const seq = pData?.patient_seq_id || (data.metadata as any)?.patient_id || (data.metadata as any)?.patient_seq_id || 'PAT-000001';
+      const seq = getOrGeneratePatientId(data, pData?.patient_seq_id);
       setPatientSeqId(seq);
 
       const mergedMeta = {
