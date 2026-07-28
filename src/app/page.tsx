@@ -435,8 +435,8 @@ export default function LandingPage() {
                   <div className="flex items-center gap-2 mb-1.5 text-xs font-bold text-[#075E54] dark:text-[#25D366]">
                     <Zap className="h-4 w-4 text-[#25D366]" /> Response Speed
                   </div>
-                  <p className="text-2xl font-black text-foreground">1.8 Seconds</p>
-                  <p className="text-[11px] text-muted-foreground font-medium mt-1">Instant Automated Reply</p>
+                  <p className="text-2xl font-black text-foreground">3-5 Seconds</p>
+                  <p className="text-[11px] text-muted-foreground font-medium mt-1">Ultra-Fast AI Quick Reply</p>
                 </div>
 
                 <div className="rounded-2xl border border-border bg-card p-4 shadow-sm bento-card-glow">

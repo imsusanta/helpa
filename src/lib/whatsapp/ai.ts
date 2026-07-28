@@ -402,45 +402,49 @@ Note:
       .filter(m => m.content !== '')
   ]
 
-  // 5. Send request to OpenRouter
+  // 5. Send request to OpenRouter (Optimized for quick 3-5 sec reply)
   let response;
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8-second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 4500); // 4.5-second timeout for quick reply
 
     response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`,
-        'HTTP-Referer': 'https://wacrm.tech',
-        'X-Title': 'wacrm',
+        'HTTP-Referer': 'https://helpa.studio',
+        'X-Title': 'Helpa Health',
       },
       body: JSON.stringify({
         model,
         messages: apiMessages,
-        response_format: { type: 'json_object' }, // Ask OpenRouter for JSON format if supported
+        temperature: 0.3,
+        max_tokens: 450,
+        response_format: { type: 'json_object' },
       }),
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
   } catch (err) {
-    console.warn(`[AI Assistant] Request with model ${model} failed or timed out. Trying fallback model 'google/gemini-2.5-flash'...`, err);
+    console.warn(`[AI Assistant] Request with model ${model} failed or timed out. Trying fast fallback model 'google/gemini-2.5-flash'...`, err);
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      const timeoutId = setTimeout(() => controller.abort(), 4500);
 
       response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${apiKey}`,
-          'HTTP-Referer': 'https://wacrm.tech',
-          'X-Title': 'wacrm',
+          'HTTP-Referer': 'https://helpa.studio',
+          'X-Title': 'Helpa Health',
         },
         body: JSON.stringify({
           model: 'google/gemini-2.5-flash',
           messages: apiMessages,
+          temperature: 0.3,
+          max_tokens: 450,
           response_format: { type: 'json_object' },
         }),
         signal: controller.signal,

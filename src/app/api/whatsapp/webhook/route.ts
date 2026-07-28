@@ -781,35 +781,41 @@ async function processMessage(
     if (contactOutcome.wasCreated) automationTriggers.unshift('new_contact_created');
     if (isFirstInboundMessage) automationTriggers.unshift('first_inbound_message');
 
-    for (const triggerType of automationTriggers) {
-      try {
-        await runAutomationsForTrigger({
-          accountId,
-          triggerType,
-          contactId: contactRecord.id,
-          context: {
-            message_text: inboundText,
-            conversation_id: conversation.id,
-          },
-        });
-      } catch (err) {
-        console.error('[automations] dispatch failed:', err);
+    const automationPromise = (async () => {
+      for (const triggerType of automationTriggers) {
+        try {
+          await runAutomationsForTrigger({
+            accountId,
+            triggerType,
+            contactId: contactRecord.id,
+            context: {
+              message_text: inboundText,
+              conversation_id: conversation.id,
+            },
+          });
+        } catch (err) {
+          console.error('[automations] dispatch failed:', err);
+        }
       }
-    }
+    })();
 
-    // Trigger AI Assistant response if enabled and flow did not consume the message
-    if (conversation.ai_chat_enabled !== false && !flowConsumed) {
-      try {
-        await triggerAiResponse({
-          accountId,
-          userId: configOwnerUserId,
-          conversationId: conversation.id,
-          contactId: contactRecord.id,
-        });
-      } catch (err) {
-        console.error('[AI Assistant] trigger error:', err);
+    // Trigger AI Assistant response concurrently (sub-second dispatch for 3-5 sec reply)
+    const aiPromise = (async () => {
+      if (conversation.ai_chat_enabled !== false && !flowConsumed) {
+        try {
+          await triggerAiResponse({
+            accountId,
+            userId: configOwnerUserId,
+            conversationId: conversation.id,
+            contactId: contactRecord.id,
+          });
+        } catch (err) {
+          console.error('[AI Assistant] trigger error:', err);
+        }
       }
-    }
+    })();
+
+    await Promise.all([automationPromise, aiPromise]);
   } catch (backgroundErr) {
     console.error('[Webhook Background execution] error:', backgroundErr);
   }
