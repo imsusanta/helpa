@@ -327,112 +327,246 @@ export default function LandingPage() {
           </motion.div>
         </div>
 
-        {/* ═══════ INTERACTIVE LIVE WHATSAPP PLAYGROUND ═══════ */}
-        <section id="demo" className="mx-auto max-w-5xl mt-16 scroll-mt-28">
-          <div className="text-center mb-6">
-            <span className="text-xs font-black uppercase tracking-wider text-[#075E54] dark:text-[#25D366] bg-[#25D366]/10 px-4 py-1.5 rounded-full border border-[#25D366]/20">
-              ⚡ Interactive Live Demo Simulator
+        {/* ═══════ INTERACTIVE LIVE WHATSAPP STUDIO SIMULATOR ═══════ */}
+        <section id="demo" className="mx-auto max-w-6xl mt-16 scroll-mt-28 px-2 sm:px-4">
+          {/* Section Header */}
+          <div className="text-center mb-10">
+            <span className="text-xs font-black uppercase tracking-wider text-[#075E54] dark:text-[#25D366] bg-[#25D366]/10 px-4 py-2 rounded-full border border-[#25D366]/30 shadow-sm">
+              ⚡ Interactive Live WhatsApp Studio
             </span>
-            <p className="text-xs text-muted-foreground font-semibold mt-2">Click a business scenario below to test how Helpa AI replies in real time:</p>
+            <h2 className="text-3xl font-black tracking-tight sm:text-4xl text-foreground font-sans mt-4">
+              Test Helpa AI in Real-Time
+            </h2>
+            <p className="text-sm text-muted-foreground font-medium mt-2.5 max-w-xl mx-auto">
+              Select an industry below or click sample customer prompts to see how Helpa answers questions, handles bookings, and issues digital PDF tickets instantly.
+            </p>
           </div>
 
-          {/* Scenario Selector Chips */}
-          <div className="flex flex-wrap justify-center gap-2 mb-6">
+          {/* Industry Category Selector Bar */}
+          <div className="flex flex-wrap justify-center gap-2 mb-8">
             {[
-              { id: "clinic", label: "🦷 Dental Clinic", icon: Stethoscope },
-              { id: "coaching", label: "🎓 Coaching Admission", icon: GraduationCap },
-              { id: "salon", label: "💇‍♀️ Salon Booking", icon: Scissors },
+              { id: "clinic", label: "🩺 Dental & Clinic", icon: Stethoscope },
+              { id: "coaching", label: "🎓 Coaching Academy", icon: GraduationCap },
+              { id: "salon", label: "💇‍♀️ Salon & Spa", icon: Scissors },
               { id: "multilingual", label: "🌐 Bengali / Hindi Chat", icon: Globe2 },
             ].map((sc) => (
               <button
                 key={sc.id}
                 onClick={() => setSelectedScenario(sc.id)}
-                className={`flex items-center gap-2 rounded-full px-5 py-2.5 text-xs font-bold transition cursor-pointer ${
+                className={`flex items-center gap-2 rounded-full px-5 py-2.5 text-xs font-extrabold transition cursor-pointer ${
                   selectedScenario === sc.id
-                    ? "bg-[#25D366] text-white shadow-lg shadow-[#25D366]/25 scale-[1.03]"
+                    ? "bg-[#25D366] text-white shadow-xl shadow-[#25D366]/30 scale-[1.03]"
                     : "bg-card border border-border text-muted-foreground hover:bg-accent hover:text-foreground"
                 }`}
               >
-                <sc.icon className="h-3.5 w-3.5" /> {sc.label}
+                <sc.icon className="h-4 w-4" /> {sc.label}
               </button>
             ))}
           </div>
 
-          {/* WhatsApp Chat Frame */}
-          <motion.div
-            key={selectedScenario}
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.3 }}
-            className="relative mx-auto max-w-xl rounded-3xl border border-[#075E54]/30 bg-card shadow-2xl shadow-[#075E54]/15 overflow-hidden"
-          >
-            {/* Header Bar */}
-            <div className="bg-[#075E54] px-5 py-4 flex items-center justify-between text-white">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-sm">
-                  {currentScenario.title.slice(0, 2).toUpperCase()}
+          {/* Studio Split Grid */}
+          <div className="grid gap-8 lg:grid-cols-12 items-start">
+            
+            {/* Left Console: Interactive Launcher & Telemetry (6 Cols) */}
+            <div className="lg:col-span-6 space-y-6">
+              
+              {/* Quick Try Prompt Pills */}
+              <div className="rounded-3xl border border-[#075E54]/25 bg-card p-6 shadow-xl bento-card-glow">
+                <div className="flex items-center justify-between mb-4 border-b border-border pb-3">
+                  <h3 className="text-sm font-extrabold text-foreground flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-[#25D366]" /> Sample Customer Questions
+                  </h3>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#25D366] bg-[#25D366]/10 px-2.5 py-1 rounded-full">
+                    Click to Test
+                  </span>
                 </div>
-                <div>
-                  <p className="text-sm font-extrabold leading-tight">{currentScenario.title}</p>
-                  <p className="text-[11px] text-emerald-200/90 flex items-center gap-1.5 mt-0.5">
-                    <span className="h-2 w-2 rounded-full bg-[#25D366] animate-pulse"></span>
-                    {currentScenario.subtitle}
-                  </p>
+                <p className="text-xs text-muted-foreground font-medium mb-4">
+                  Click any real customer query below to simulate WhatsApp chat interaction:
+                </p>
+
+                <div className="grid gap-2.5">
+                  {selectedScenario === "clinic" && (
+                    <>
+                      <button onClick={() => setSelectedScenario("clinic")} className="text-left rounded-2xl border border-border bg-muted/40 hover:bg-[#25D366]/10 hover:border-[#25D366]/40 p-3 text-xs font-semibold text-foreground transition flex items-center justify-between group">
+                        <span>💬 &ldquo;Hi, I want to book a dental checkup slot for tomorrow 4 PM&rdquo;</span>
+                        <ArrowRight className="h-3.5 w-3.5 text-[#25D366] group-hover:translate-x-1 transition-transform" />
+                      </button>
+                      <button onClick={() => setSelectedScenario("clinic")} className="text-left rounded-2xl border border-border bg-muted/40 hover:bg-[#25D366]/10 hover:border-[#25D366]/40 p-3 text-xs font-semibold text-foreground transition flex items-center justify-between group">
+                        <span>💬 &ldquo;What are Dr. Sharma&apos;s consultation fees and timings?&rdquo;</span>
+                        <ArrowRight className="h-3.5 w-3.5 text-[#25D366] group-hover:translate-x-1 transition-transform" />
+                      </button>
+                    </>
+                  )}
+
+                  {selectedScenario === "coaching" && (
+                    <>
+                      <button onClick={() => setSelectedScenario("coaching")} className="text-left rounded-2xl border border-border bg-muted/40 hover:bg-[#25D366]/10 hover:border-[#25D366]/40 p-3 text-xs font-semibold text-foreground transition flex items-center justify-between group">
+                        <span>💬 &ldquo;What is the fee structure for Class 11 NEET batch?&rdquo;</span>
+                        <ArrowRight className="h-3.5 w-3.5 text-[#25D366] group-hover:translate-x-1 transition-transform" />
+                      </button>
+                      <button onClick={() => setSelectedScenario("coaching")} className="text-left rounded-2xl border border-border bg-muted/40 hover:bg-[#25D366]/10 hover:border-[#25D366]/40 p-3 text-xs font-semibold text-foreground transition flex items-center justify-between group">
+                        <span>💬 &ldquo;Book a free demo class for Saturday morning&rdquo;</span>
+                        <ArrowRight className="h-3.5 w-3.5 text-[#25D366] group-hover:translate-x-1 transition-transform" />
+                      </button>
+                    </>
+                  )}
+
+                  {selectedScenario === "salon" && (
+                    <>
+                      <button onClick={() => setSelectedScenario("salon")} className="text-left rounded-2xl border border-border bg-muted/40 hover:bg-[#25D366]/10 hover:border-[#25D366]/40 p-3 text-xs font-semibold text-foreground transition flex items-center justify-between group">
+                        <span>💬 &ldquo;Open slots for Hair Spa & HydraFacial today evening?&rdquo;</span>
+                        <ArrowRight className="h-3.5 w-3.5 text-[#25D366] group-hover:translate-x-1 transition-transform" />
+                      </button>
+                      <button onClick={() => setSelectedScenario("salon")} className="text-left rounded-2xl border border-border bg-muted/40 hover:bg-[#25D366]/10 hover:border-[#25D366]/40 p-3 text-xs font-semibold text-foreground transition flex items-center justify-between group">
+                        <span>💬 &ldquo;Book 6:30 PM with Stylist Priya please&rdquo;</span>
+                        <ArrowRight className="h-3.5 w-3.5 text-[#25D366] group-hover:translate-x-1 transition-transform" />
+                      </button>
+                    </>
+                  )}
+
+                  {selectedScenario === "multilingual" && (
+                    <>
+                      <button onClick={() => setSelectedScenario("multilingual")} className="text-left rounded-2xl border border-border bg-muted/40 hover:bg-[#25D366]/10 hover:border-[#25D366]/40 p-3 text-xs font-semibold text-foreground transition flex items-center justify-between group">
+                        <span>💬 &ldquo;ডাঃ সেন এর কালকের ওপিডি সময় কত?&rdquo;</span>
+                        <ArrowRight className="h-3.5 w-3.5 text-[#25D366] group-hover:translate-x-1 transition-transform" />
+                      </button>
+                      <button onClick={() => setSelectedScenario("multilingual")} className="text-left rounded-2xl border border-border bg-muted/40 hover:bg-[#25D366]/10 hover:border-[#25D366]/40 p-3 text-xs font-semibold text-foreground transition flex items-center justify-between group">
+                        <span>💬 &ldquo;হ্যাঁ, সকাল ১১ টা বুক করে দিন।&rdquo;</span>
+                        <ArrowRight className="h-3.5 w-3.5 text-[#25D366] group-hover:translate-x-1 transition-transform" />
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
-              <Bot className="h-5 w-5 text-emerald-200" />
-            </div>
 
-            {/* Chat Body */}
-            <div className="bg-[#0b141a] p-5 space-y-3.5 min-h-[380px]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.02'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")" }}>
-              {currentScenario.messages.map((msg, idx) => (
-                <motion.div
-                  key={idx}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3, delay: idx * 0.1 }}
-                  className={`flex ${msg.from === "customer" ? "justify-end" : "justify-start"}`}
-                >
-                  <div className={`relative max-w-[88%] rounded-2xl px-4 py-3 text-xs leading-relaxed shadow-sm ${
-                    msg.from === "customer"
-                      ? "bg-[#005c4b] text-emerald-50 rounded-tr-none"
-                      : "bg-[#1f2c34] text-gray-100 rounded-tl-none"
-                  }`}>
-                    {msg.from === "helpa" && (
-                      <p className="text-[10px] font-black text-[#25D366] mb-1 flex items-center gap-1">
-                        <Sparkles className="h-3 w-3" /> Helpa AI
-                      </p>
-                    )}
-                    <p className="whitespace-pre-line font-medium">{msg.text}</p>
-                    
-                    {/* Embedded OPD Token Ticket Preview Card if available */}
-                    {msg.tokenBadge && (
-                      <div className="mt-3 rounded-xl border border-[#25D366]/40 bg-[#075E54]/40 p-3 text-[11px] text-white">
-                        <div className="flex items-center justify-between border-b border-emerald-400/20 pb-1.5 mb-1.5">
-                          <span className="font-extrabold text-[#25D366]">🎫 DIGITAL OPD TICKET</span>
-                          <span className="bg-[#25D366] text-white text-[9px] font-black px-2 py-0.5 rounded-full">VERIFIED</span>
-                        </div>
-                        <p className="font-mono text-emerald-200">Ref: {msg.tokenBadge.id}</p>
-                        <p className="font-bold text-white mt-0.5">Token: {msg.tokenBadge.token} • Queue Pos: {msg.tokenBadge.queue}</p>
-                      </div>
-                    )}
-
-                    <p className={`text-[10px] mt-1.5 text-right font-mono ${msg.from === "customer" ? "text-emerald-300/70" : "text-gray-400"}`}>
-                      {msg.time} {msg.from === "customer" && "✓✓"}
-                    </p>
+              {/* AI Real-time Telemetry Stats Card */}
+              <div className="grid grid-cols-2 gap-3.5">
+                <div className="rounded-2xl border border-border bg-card p-4 shadow-sm bento-card-glow">
+                  <div className="flex items-center gap-2 mb-1.5 text-xs font-bold text-[#075E54] dark:text-[#25D366]">
+                    <Zap className="h-4 w-4 text-[#25D366]" /> Response Speed
                   </div>
-                </motion.div>
-              ))}
-            </div>
+                  <p className="text-2xl font-black text-foreground">1.8 Seconds</p>
+                  <p className="text-[11px] text-muted-foreground font-medium mt-1">Instant Automated Reply</p>
+                </div>
 
-            {/* Chat Input */}
-            <div className="bg-[#1f2c34] px-4 py-3 flex items-center gap-3 border-t border-white/5">
-              <div className="flex-1 rounded-full bg-[#2a3942] px-4 py-2.5 text-xs text-gray-400 font-medium">Type a message...</div>
-              <div className="h-9 w-9 rounded-full bg-[#25D366] flex items-center justify-center text-white shadow-md shadow-[#25D366]/30">
-                <Send className="h-4 w-4 text-white" />
+                <div className="rounded-2xl border border-border bg-card p-4 shadow-sm bento-card-glow">
+                  <div className="flex items-center gap-2 mb-1.5 text-xs font-bold text-[#075E54] dark:text-[#25D366]">
+                    <CalendarCheck className="h-4 w-4 text-[#25D366]" /> Auto PDF Ticket
+                  </div>
+                  <p className="text-2xl font-black text-foreground">Token #14</p>
+                  <p className="text-[11px] text-muted-foreground font-medium mt-1">QR Code Slip Generated</p>
+                </div>
+
+                <div className="rounded-2xl border border-border bg-card p-4 shadow-sm bento-card-glow">
+                  <div className="flex items-center gap-2 mb-1.5 text-xs font-bold text-[#075E54] dark:text-[#25D366]">
+                    <UserPlus className="h-4 w-4 text-[#25D366]" /> Lead Capture
+                  </div>
+                  <p className="text-2xl font-black text-foreground">100% Auto</p>
+                  <p className="text-[11px] text-muted-foreground font-medium mt-1">Saved to CRM Database</p>
+                </div>
+
+                <div className="rounded-2xl border border-border bg-card p-4 shadow-sm bento-card-glow">
+                  <div className="flex items-center gap-2 mb-1.5 text-xs font-bold text-[#075E54] dark:text-[#25D366]">
+                    <Globe2 className="h-4 w-4 text-[#25D366]" /> Multilingual
+                  </div>
+                  <p className="text-2xl font-black text-foreground">3 Languages</p>
+                  <p className="text-[11px] text-muted-foreground font-medium mt-1">English, Hindi, Bengali</p>
+                </div>
               </div>
             </div>
-          </motion.div>
+
+            {/* Right Console: Sleek Phone Mockup (6 Cols) */}
+            <div className="lg:col-span-6">
+              <motion.div
+                key={selectedScenario}
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.35 }}
+                className="relative mx-auto max-w-sm rounded-[2.5rem] border-4 border-slate-800 dark:border-slate-800 bg-slate-950 shadow-2xl shadow-[#075E54]/25 overflow-hidden"
+              >
+                {/* Phone Device Notch & Status Bar */}
+                <div className="bg-[#075E54] pt-2 px-6 flex items-center justify-between text-white/80 text-[10px] font-mono">
+                  <span>9:41 AM</span>
+                  <div className="h-3 w-20 bg-slate-900 rounded-b-xl mx-auto"></div>
+                  <span>5G ⚡ 100%</span>
+                </div>
+
+                {/* WhatsApp Chat Header Bar */}
+                <div className="bg-[#075E54] px-4 py-3 flex items-center justify-between text-white border-t border-white/10">
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-xs shadow-md">
+                      {currentScenario.title.slice(0, 2).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="text-xs font-extrabold leading-tight">{currentScenario.title}</p>
+                      <p className="text-[10px] text-emerald-200/90 flex items-center gap-1.5 mt-0.5">
+                        <span className="h-1.5 w-1.5 rounded-full bg-[#25D366] animate-pulse"></span>
+                        {currentScenario.subtitle}
+                      </p>
+                    </div>
+                  </div>
+                  <Bot className="h-4.5 w-4.5 text-emerald-200" />
+                </div>
+
+                {/* WhatsApp Chat Messages Stream */}
+                <div className="bg-[#0b141a] p-4 space-y-3 min-h-[380px] max-h-[420px] overflow-y-auto" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.02'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")" }}>
+                  {currentScenario.messages.map((msg, idx) => (
+                    <motion.div
+                      key={idx}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: idx * 0.12 }}
+                      className={`flex ${msg.from === "customer" ? "justify-end" : "justify-start"}`}
+                    >
+                      <div className={`relative max-w-[88%] rounded-2xl px-3.5 py-2.5 text-xs leading-relaxed shadow-sm ${
+                        msg.from === "customer"
+                          ? "bg-[#005c4b] text-emerald-50 rounded-tr-none"
+                          : "bg-[#1f2c34] text-gray-100 rounded-tl-none"
+                      }`}>
+                        {msg.from === "helpa" && (
+                          <p className="text-[10px] font-black text-[#25D366] mb-1 flex items-center gap-1">
+                            <Sparkles className="h-3 w-3" /> Helpa AI
+                          </p>
+                        )}
+                        <p className="whitespace-pre-line font-medium">{msg.text}</p>
+                        
+                        {/* High-Fidelity OPD Token Ticket Preview Card */}
+                        {msg.tokenBadge && (
+                          <div className="mt-2.5 rounded-xl border border-[#25D366]/40 bg-[#075E54]/50 p-2.5 text-[10px] text-white space-y-1">
+                            <div className="flex items-center justify-between border-b border-emerald-400/20 pb-1">
+                              <span className="font-extrabold text-[#25D366] flex items-center gap-1">
+                                🎫 DIGITAL OPD TICKET SLIP
+                              </span>
+                              <span className="bg-[#25D366] text-white text-[8px] font-black px-1.5 py-0.5 rounded-full">VERIFIED</span>
+                            </div>
+                            <p className="font-mono text-emerald-200">Ref: {msg.tokenBadge.id}</p>
+                            <p className="font-bold text-white">Token: {msg.tokenBadge.token} • Queue Pos: {msg.tokenBadge.queue}</p>
+                            <div className="mt-1 pt-1 border-t border-emerald-400/10 flex items-center justify-between">
+                              <span className="text-[9px] text-emerald-200/80">📄 opd-ticket-slip.pdf</span>
+                              <span className="text-[9px] font-bold text-[#25D366] underline">Download PDF</span>
+                            </div>
+                          </div>
+                        )}
+
+                        <p className={`text-[9px] mt-1 text-right font-mono ${msg.from === "customer" ? "text-emerald-300/70" : "text-gray-400"}`}>
+                          {msg.time} {msg.from === "customer" && "✓✓"}
+                        </p>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+
+                {/* WhatsApp Chat Input Bar */}
+                <div className="bg-[#1f2c34] px-3 py-2.5 flex items-center gap-2 border-t border-white/5">
+                  <div className="flex-1 rounded-full bg-[#2a3942] px-3.5 py-2 text-xs text-gray-400 font-medium">Type a message...</div>
+                  <div className="h-8 w-8 rounded-full bg-[#25D366] flex items-center justify-center text-white shadow-md shadow-[#25D366]/30">
+                    <Send className="h-3.5 w-3.5 text-white" />
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+
+          </div>
         </section>
       </section>
 
