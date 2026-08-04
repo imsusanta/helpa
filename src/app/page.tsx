@@ -244,9 +244,11 @@ export default function LandingPage() {
           </nav>
 
           <div className="flex items-center gap-2.5">
-            <Link href="/login" className="hidden px-2 py-2 text-sm font-semibold text-[#3d554a] transition-colors hover:text-[#075e54] sm:inline-flex">
-              Log in
-            </Link>
+            {!user && (
+              <Link href="/login" className="hidden px-2 py-2 text-sm font-semibold text-[#3d554a] transition-colors hover:text-[#075e54] sm:inline-flex">
+                Log in
+              </Link>
+            )}
             <Link href={ctaHref} className="hidden items-center gap-1.5 rounded-lg bg-[#075e54] px-4 py-2 text-sm font-semibold text-white shadow-[0_6px_16px_rgba(7,94,84,0.18)] transition-colors hover:bg-[#064b43] sm:inline-flex">
               {user ? "Open dashboard" : "Get started"}
               <ArrowUpRight className="size-3.5" />
@@ -281,9 +283,13 @@ export default function LandingPage() {
                   {label}
                 </a>
               ))}
-              <div className="mt-2 grid grid-cols-2 gap-2 border-t border-[#e5eee8] pt-3">
-                <Link href="/login" className="rounded-lg border border-[#cfe0d6] px-3 py-2.5 text-center text-sm font-semibold text-[#075e54]">Log in</Link>
-                <Link href={ctaHref} className="rounded-lg bg-[#075e54] px-3 py-2.5 text-center text-sm font-semibold text-white">Get started</Link>
+              <div className={`mt-2 grid ${user ? "grid-cols-1" : "grid-cols-2"} gap-2 border-t border-[#e5eee8] pt-3`}>
+                {!user && (
+                  <Link href="/login" className="rounded-lg border border-[#cfe0d6] px-3 py-2.5 text-center text-sm font-semibold text-[#075e54]">Log in</Link>
+                )}
+                <Link href={ctaHref} className="rounded-lg bg-[#075e54] px-3 py-2.5 text-center text-sm font-semibold text-white">
+                  {user ? "Open dashboard" : "Get started"}
+                </Link>
               </div>
             </motion.nav>
           )}
