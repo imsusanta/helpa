@@ -169,8 +169,11 @@ export async function POST(request: Request) {
   const signature = request.headers.get('x-hub-signature-256')
 
   if (!verifyMetaWebhookSignature(rawBody, signature)) {
-    // Log signature mismatch as warning but continue processing to prevent inbound message blocking
-    console.warn('[webhook] WARNING: Signature verification failed or META_APP_SECRET mismatch. Continuing processing for delivery tolerance.');
+    console.error('[webhook] Signature verification failed or missing — rejecting request with 401 Unauthorized.')
+    return NextResponse.json(
+      { error: 'Unauthorized: Invalid or missing webhook signature' },
+      { status: 401 }
+    )
   }
 
   let body: { entry?: WhatsAppWebhookEntry[] }
