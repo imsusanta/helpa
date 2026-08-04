@@ -27,11 +27,13 @@ import crypto from 'crypto'
  */
 
 function getEncryptionKeyBuffer(): Buffer {
-  const rawKey = process.env.ENCRYPTION_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || 'wacrm-default-encryption-secret-key-32bytes-hex-spec';
+  const rawKey = process.env.ENCRYPTION_KEY || (process.env.NODE_ENV === 'test' || process.env.CI ? '0000000000000000000000000000000000000000000000000000000000000000' : '')
   if (rawKey && /^[0-9a-fA-F]{64}$/.test(rawKey)) {
-    return Buffer.from(rawKey, 'hex');
+    return Buffer.from(rawKey, 'hex')
   }
-  return crypto.createHash('sha256').update(rawKey).digest();
+  throw new Error(
+    '[encryption] ENCRYPTION_KEY must be configured as a 64-character hex string (32 bytes). Generate with: node -e "console.log(crypto.randomBytes(32).toString(\'hex\'))"'
+  )
 }
 
 // 12 bytes is the NIST-recommended IV length for GCM — keeps the
@@ -56,8 +58,12 @@ export function encrypt(text: string): string {
 
 export function decrypt(encryptedText: string): string {
   if (!encryptedText) return ''
-  if (encryptedText.startsWith('sk-') || !encryptedText.includes(':')) {
+  // Allow unencrypted OpenRouter API keys starting with `sk-` for backwards compatibility
+  if (encryptedText.startsWith('sk-')) {
     return encryptedText
+  }
+  if (!encryptedText.includes(':')) {
+    throw new Error('Encrypted token has unrecognised format')
   }
 
   const parts = encryptedText.split(':')
@@ -107,11 +113,7 @@ export function decrypt(encryptedText: string): string {
     return decrypted
   }
 
-  throw new Error(
-    `Encrypted token has unrecognised format (expected 1 or 2 colons, got ${
-      parts.length - 1
-    })`,
-  )
+  throw new Error('Encrypted token has unrecognised format')
 }
 
 /**

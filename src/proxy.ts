@@ -1,6 +1,43 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+/**
+ * Default-Deny Route Protection Middleware
+ *
+ * All application routes and API endpoints require authentication by default,
+ * except explicitly listed public routes (auth, landing, legal, webhooks, static assets).
+ */
+
+const PUBLIC_EXACT_PATHS = new Set([
+  '/',
+  '/login',
+  '/signup',
+  '/forgot-password',
+  '/contact',
+  '/privacy',
+  '/terms',
+  '/refund',
+  '/robots.txt',
+  '/sitemap.xml',
+  '/icon',
+  '/api/whatsapp/webhook',
+  '/api/plans',
+])
+
+const PUBLIC_PATH_PREFIXES = [
+  '/join/',
+  '/api/invitations/',
+  '/_next/',
+]
+
+function isPublicRoute(pathname: string): boolean {
+  if (PUBLIC_EXACT_PATHS.has(pathname)) return true
+  if (PUBLIC_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix))) return true
+  // Allow public appointment PDF access path (it enforces HMAC token / staff session inside route handler)
+  if (pathname.startsWith('/api/appointments/') && pathname.endsWith('/pdf')) return true
+  return false
+}
+
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
@@ -24,19 +61,19 @@ export async function proxy(request: NextRequest) {
   )
 
   const { data: { user } } = await supabase.auth.getUser()
+  const pathname = request.nextUrl.pathname
 
   // Auth pages - redirect to dashboard if already logged in.
   if (user && (
-    request.nextUrl.pathname === '/login' ||
-    request.nextUrl.pathname === '/signup' ||
-    request.nextUrl.pathname === '/forgot-password'
+    pathname === '/login' ||
+    pathname === '/signup' ||
+    pathname === '/forgot-password'
   )) {
     const url = request.nextUrl.clone()
     const inviteToken = request.nextUrl.searchParams.get('invite')
     if (
       inviteToken &&
-      (request.nextUrl.pathname === '/login' ||
-        request.nextUrl.pathname === '/signup')
+      (pathname === '/login' || pathname === '/signup')
     ) {
       url.pathname = `/join/${encodeURIComponent(inviteToken)}`
       url.search = ''
@@ -47,18 +84,17 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Protected pages - redirect to login if not authenticated
-  const protectedPaths = ['/dashboard', '/inbox', '/contacts', '/pipelines', '/broadcasts', '/automations', '/settings']
-  if (!user && protectedPaths.some(path => request.nextUrl.pathname.startsWith(path))) {
+  // Default-Deny: Unauthenticated access to non-public paths
+  if (!user && !isPublicRoute(pathname)) {
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json(
+        { error: 'UNAUTHORIZED', message: 'Authentication required' },
+        { status: 401 }
+      )
+    }
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
-  }
-
-  // API routes that need auth (not webhooks)
-  if (!user && request.nextUrl.pathname.startsWith('/api/whatsapp/') &&
-      !request.nextUrl.pathname.includes('/webhook')) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   return supabaseResponse
