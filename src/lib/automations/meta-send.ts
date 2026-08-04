@@ -125,7 +125,15 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
     throw new Error('WhatsApp not configured for this account')
   }
 
-  const accessToken = decrypt(config.access_token)
+  let accessToken: string
+  try {
+    accessToken = decrypt(config.access_token)
+  } catch (err: any) {
+    throw new Error(
+      `Failed to decrypt WhatsApp Access Token for account ${input.accountId}: ${err?.message || err}. ` +
+      `The ENCRYPTION_KEY may have been updated. Please re-save your Meta WhatsApp Access Token in CRM Settings → WhatsApp Integration.`
+    )
+  }
 
   const attempt = async (phone: string): Promise<string> => {
     if (input.kind === 'template') {

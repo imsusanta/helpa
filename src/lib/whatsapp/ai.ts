@@ -53,19 +53,25 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
   account = accData
 
   if (accError || !account?.openrouter_api_key) {
-    console.warn('[AI Assistant] OpenRouter credentials not configured for account:', accountId, accError?.message || '')
-    return
+    if (process.env.OPENROUTER_API_KEY) {
+      account = account || {}
+      account.openrouter_api_key = process.env.OPENROUTER_API_KEY
+    } else {
+      console.warn('[AI Assistant] OpenRouter credentials not configured for account:', accountId, accError?.message || '')
+      return
+    }
   }
 
   // 2. Decrypt API key
   let apiKey: string
   try {
     apiKey = decrypt(account.openrouter_api_key)
-  } catch (err) {
-    console.error('[AI Assistant] Failed to decrypt saved OpenRouter API Key:', err)
+  } catch (err: any) {
     if (process.env.OPENROUTER_API_KEY) {
+      console.warn('[AI Assistant] Saved OpenRouter key decryption failed, falling back to process.env.OPENROUTER_API_KEY:', err?.message)
       apiKey = process.env.OPENROUTER_API_KEY
     } else {
+      console.error(`[AI Assistant] Failed to decrypt saved OpenRouter API Key for account ${accountId}:`, err?.message || err, 'Please re-save OpenRouter API key under Settings → AI Configuration.')
       return
     }
   }
