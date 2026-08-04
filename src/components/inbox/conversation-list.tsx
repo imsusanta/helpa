@@ -31,7 +31,7 @@ interface ConversationListProps {
 }
 
 const STATUS_COLORS: Record<ConversationStatus, string> = {
-  open: "bg-primary",
+  open: "",
   pending: "bg-amber-500",
   closed: "bg-muted-foreground",
 };
@@ -254,6 +254,8 @@ function ConversationItem({
       })
     : "";
 
+  const isUnread = (conversation.unread_count ?? 0) > 0 && !isActive;
+
   return (
     <button
       onClick={handleClick}
@@ -278,28 +280,55 @@ function ConversationItem({
       {/* Content */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <span className="truncate text-sm font-medium text-foreground">
+          <span
+            className={cn(
+              "truncate text-sm",
+              isUnread ? "font-bold text-foreground" : "font-medium text-foreground"
+            )}
+          >
             {displayName}
           </span>
-          <span className="shrink-0 text-[10px] text-muted-foreground">{timeAgo}</span>
+          <span
+            className={cn(
+              "shrink-0 text-[10px]",
+              isUnread ? "font-bold text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"
+            )}
+          >
+            {timeAgo}
+          </span>
         </div>
         <div className="mt-0.5 flex items-center justify-between gap-2">
-          <p className="truncate text-xs text-muted-foreground">
+          <p
+            className={cn(
+              "truncate text-xs",
+              isUnread ? "font-semibold text-foreground" : "text-muted-foreground"
+            )}
+          >
             {conversation.last_message_text || "No messages yet"}
           </p>
           <div className="flex shrink-0 items-center gap-1.5">
-            {conversation.unread_count > 0 && (
-              <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
-                {conversation.unread_count}
+            {isUnread && (
+              <span
+                className={cn(
+                  "flex shrink-0 items-center justify-center rounded-full bg-emerald-500 font-bold text-white shadow-sm",
+                  (conversation.unread_count ?? 0) > 1
+                    ? "h-4 min-w-4 px-1 text-[10px]"
+                    : "h-2.5 w-2.5"
+                )}
+                title={`${conversation.unread_count} unread message${conversation.unread_count === 1 ? "" : "s"}`}
+              >
+                {(conversation.unread_count ?? 0) > 1 ? conversation.unread_count : null}
               </span>
             )}
-            <span
-              className={cn(
-                "h-2 w-2 rounded-full",
-                STATUS_COLORS[conversation.status]
-              )}
-              title={conversation.status}
-            />
+            {conversation.status !== "open" && STATUS_COLORS[conversation.status] && (
+              <span
+                className={cn(
+                  "h-2 w-2 rounded-full",
+                  STATUS_COLORS[conversation.status]
+                )}
+                title={`Status: ${conversation.status}`}
+              />
+            )}
           </div>
         </div>
       </div>
