@@ -63,6 +63,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
+    const idempotencyKey = request.headers.get('x-idempotency-key') || body.idempotency_key
     let conversation_id = body.conversation_id
     const message_type = body.message_type || 'text'
     const content_text = body.content_text || body.message
@@ -76,6 +77,48 @@ export async function POST(request: Request) {
 
     const dbAdmin = supabaseAdmin()
 
+    // Validate contact_id tenant scoping if contact_id is explicitly provided
+    if (body.contact_id) {
+      const { data: verifiedContact } = await dbAdmin
+        .from('contacts')
+        .select('id')
+        .eq('id', body.contact_id)
+        .eq('account_id', accountId)
+        .maybeSingle()
+
+      if (!verifiedContact) {
+        return NextResponse.json(
+          { error: 'Contact not found or access denied' },
+          { status: 404 }
+        )
+      }
+    }
+
+    // Check optional Outbound Idempotency key
+    if (idempotencyKey) {
+      const { data: existingOutbox } = await dbAdmin
+        .from('outbound_outbox')
+        .select('*')
+        .eq('account_id', accountId)
+        .eq('idempotency_key', idempotencyKey)
+        .maybeSingle()
+
+      if (existingOutbox) {
+        if (existingOutbox.status === 'sent') {
+          return NextResponse.json({
+            success: true,
+            message_id: existingOutbox.meta_message_id,
+            idempotent: true,
+          })
+        }
+        if (existingOutbox.status === 'processing' || existingOutbox.status === 'pending') {
+          return NextResponse.json(
+            { error: 'DUPLICATE_REQUEST', message: 'Message send request already in progress' },
+            { status: 409 }
+          )
+        }
+      }
+    }
     // Auto-resolve or create conversation if conversation_id was not provided
     if (!conversation_id && (body.contact_id || body.phone)) {
       let resolvedContactId = body.contact_id
