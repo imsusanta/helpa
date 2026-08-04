@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jsPDF } from "jspdf";
 import QRCode from "qrcode";
+import { createClient as createServerClient } from "@/lib/supabase/server";
+import { verifyPdfToken } from "@/lib/pdf-signing";
 
 export async function GET(
   request: NextRequest,
@@ -36,6 +38,46 @@ export async function GET(
 
     if (error || !appt) {
       return NextResponse.json({ error: "Appointment not found" }, { status: 404 });
+    }
+
+    // Access Control Validation:
+    // Path A: Short-lived HMAC Token (Patient / WhatsApp / Meta server-side download)
+    const token = request.nextUrl.searchParams.get("token");
+    let isAuthorized = false;
+
+    if (token) {
+      const tokenVerification = verifyPdfToken(token, id);
+      if (tokenVerification.valid && tokenVerification.accountId === appt.account_id) {
+        isAuthorized = true;
+      }
+    }
+
+    // Path B: Staff Session (LoggedIn User via CRM Dashboard)
+    if (!isAuthorized) {
+      try {
+        const userClient = await createServerClient();
+        const { data: { user } } = await userClient.auth.getUser();
+        if (user) {
+          const { data: profile } = await db
+            .from("profiles")
+            .select("account_id")
+            .eq("user_id", user.id)
+            .maybeSingle();
+
+          if (profile?.account_id && profile.account_id === appt.account_id) {
+            isAuthorized = true;
+          }
+        }
+      } catch (authErr) {
+        console.warn("[PDF Route] Staff session check failed:", authErr);
+      }
+    }
+
+    if (!isAuthorized) {
+      return NextResponse.json(
+        { error: "Unauthorized: Invalid session or expired/missing PDF access token" },
+        { status: 401 }
+      );
     }
 
     // Fetch registered patient ID from patients table if available
