@@ -264,7 +264,15 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
 
       const config = configRows[0]
 
-      const decryptedAccessToken = decrypt(config.access_token)
+      let decryptedAccessToken = ''
+      try {
+        decryptedAccessToken = decrypt(config.access_token)
+      } catch (err: any) {
+        console.warn(
+          `[webhook] Access token decryption failed for phone_number_id ${phoneNumberId}: ${err?.message || err}. ` +
+          `Please re-save your WhatsApp configuration in CRM Settings → WhatsApp Integration.`
+        )
+      }
 
       for (let i = 0; i < value.messages.length; i++) {
         const message = value.messages[i]

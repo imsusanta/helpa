@@ -288,7 +288,19 @@ export async function POST(request: Request) {
       )
     }
 
-    const accessToken = decrypt(config.access_token)
+    let accessToken: string
+    try {
+      accessToken = decrypt(config.access_token)
+    } catch (err: any) {
+      console.error('[send/route.ts] Access token decryption failed:', err)
+      return NextResponse.json(
+        {
+          error:
+            'WhatsApp Access Token decryption failed. The ENCRYPTION_KEY may have been updated. Please re-save your Meta WhatsApp Access Token in Settings → WhatsApp Integration.',
+        },
+        { status: 400 }
+      )
+    }
 
     // Self-heal legacy CBC-encrypted tokens. Fire-and-forget: we
     // return from the send without waiting, so a failed upgrade just
