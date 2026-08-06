@@ -31,6 +31,7 @@ const PUBLIC_PATH_PREFIXES = [
 ]
 
 function isPublicRoute(pathname: string): boolean {
+  if (pathname.startsWith('/api/whatsapp/webhook')) return true
   if (PUBLIC_EXACT_PATHS.has(pathname)) return true
   if (PUBLIC_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix))) return true
   // Allow public appointment PDF access path (it enforces HMAC token / staff session inside route handler)

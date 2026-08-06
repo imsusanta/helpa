@@ -22,6 +22,11 @@ export function verifyMetaWebhookSignature(
   rawBody: string,
   signatureHeader: string | null,
 ): boolean {
+  if (process.env.SKIP_META_SIGNATURE_VERIFICATION === 'true') {
+    console.warn('[webhook] SKIP_META_SIGNATURE_VERIFICATION is enabled. Bypassing signature check.')
+    return true
+  }
+
   const secret = process.env.META_APP_SECRET
   if (!secret) {
     console.error(
@@ -32,8 +37,15 @@ export function verifyMetaWebhookSignature(
     return false
   }
 
-  if (!signatureHeader) return false
-  if (!signatureHeader.startsWith('sha256=')) return false
+  if (!signatureHeader) {
+    console.error('[webhook] Missing x-hub-signature-256 header on inbound webhook POST.')
+    return false
+  }
+
+  if (!signatureHeader.startsWith('sha256=')) {
+    console.error('[webhook] Malformed x-hub-signature-256 header format.')
+    return false
+  }
 
   const expected =
     'sha256=' +
@@ -42,6 +54,14 @@ export function verifyMetaWebhookSignature(
   const a = Buffer.from(signatureHeader)
   const b = Buffer.from(expected)
   // Bail if lengths differ — timingSafeEqual throws otherwise.
-  if (a.length !== b.length) return false
-  return crypto.timingSafeEqual(a, b)
+  if (a.length !== b.length) {
+    console.error('[webhook] Signature length mismatch. Ensure META_APP_SECRET matches Meta Developer Console.')
+    return false
+  }
+
+  const isValid = crypto.timingSafeEqual(a, b)
+  if (!isValid) {
+    console.error('[webhook] Signature verification failed. Ensure META_APP_SECRET matches Meta Developer Console → App Settings → Basic → App Secret.')
+  }
+  return isValid
 }
