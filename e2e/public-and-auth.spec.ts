@@ -24,10 +24,8 @@ test.describe('E2E: Public Routes & Authentication Protection', () => {
     await page.goto('/login');
     await expect(page).toHaveTitle(/login|sign in|helpa/i);
 
-    const emailInput = page
-      .getByPlaceholder(/name@hospital\.com|email|your email/i)
-      .first();
-    const passwordInput = page.getByPlaceholder(/••••••••|password/i).first();
+    const emailInput = page.locator('input[type="email"]').first();
+    const passwordInput = page.locator('input[type="password"]').first();
     const submitBtn = page
       .getByRole('button', { name: /sign in|log in/i })
       .first();

@@ -5,7 +5,10 @@ export default defineConfig({
   resolve: {
     tsconfigPaths: true,
     alias: {
-      'server-only': path.resolve(__dirname, './src/tests/mocks/server-only.ts'),
+      'server-only': path.resolve(
+        __dirname,
+        './src/tests/mocks/server-only.ts'
+      ),
     },
   },
   test: {
@@ -19,6 +22,9 @@ export default defineConfig({
       ENCRYPTION_KEY:
         '0000000000000000000000000000000000000000000000000000000000000000',
       META_APP_SECRET: 'test-meta-app-secret',
+      NEXT_PUBLIC_SUPABASE_URL: 'https://helpa-test-project.supabase.co',
+      SUPABASE_SERVICE_ROLE_KEY:
+        'test-service-role-key-secret-1234567890-abcdef',
     },
     clearMocks: true,
   },
