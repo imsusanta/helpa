@@ -11,7 +11,7 @@
  * light mode (a solid slate-400 would be too faint on white).
  */
 
-import type { BroadcastStatus, RecipientStatus } from "@/types";
+import type { BroadcastStatus, RecipientStatus } from '@/types';
 
 export interface StatusDisplay {
   label: string;
@@ -25,52 +25,52 @@ export interface StatusDisplay {
 
 export const broadcastStatusConfig: Record<BroadcastStatus, StatusDisplay> = {
   draft: {
-    label: "Draft",
-    classes: "bg-slate-500/10 text-muted-foreground border-slate-500/20",
+    label: 'Draft',
+    classes: 'bg-slate-500/10 text-muted-foreground border-slate-500/20',
   },
   scheduled: {
-    label: "Scheduled",
-    classes: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+    label: 'Scheduled',
+    classes: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
   },
   sending: {
-    label: "Sending",
-    classes: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
+    label: 'Sending',
+    classes: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
     pulse: true,
   },
   sent: {
-    label: "Sent",
-    classes: "bg-primary/10 text-primary border-primary/20",
+    label: 'Sent',
+    classes: 'bg-primary/10 text-primary border-primary/20',
   },
   failed: {
-    label: "Failed",
-    classes: "bg-red-500/10 text-red-400 border-red-500/20",
+    label: 'Failed',
+    classes: 'bg-red-500/10 text-red-400 border-red-500/20',
   },
 };
 
 export const recipientStatusConfig: Record<RecipientStatus, StatusDisplay> = {
   pending: {
-    label: "Pending",
-    classes: "bg-slate-500/10 text-muted-foreground border-slate-500/20",
+    label: 'Pending',
+    classes: 'bg-slate-500/10 text-muted-foreground border-slate-500/20',
   },
   sent: {
-    label: "Sent",
-    classes: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+    label: 'Sent',
+    classes: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
   },
   delivered: {
-    label: "Delivered",
-    classes: "bg-primary/10 text-primary border-primary/20",
+    label: 'Delivered',
+    classes: 'bg-primary/10 text-primary border-primary/20',
   },
   read: {
-    label: "Read",
-    classes: "bg-primary/10 text-primary border-primary/20",
+    label: 'Read',
+    classes: 'bg-primary/10 text-primary border-primary/20',
   },
   replied: {
-    label: "Replied",
-    classes: "bg-purple-500/10 text-purple-400 border-purple-500/20",
+    label: 'Replied',
+    classes: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
   },
   failed: {
-    label: "Failed",
-    classes: "bg-red-500/10 text-red-400 border-red-500/20",
+    label: 'Failed',
+    classes: 'bg-red-500/10 text-red-400 border-red-500/20',
   },
 };
 

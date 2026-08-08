@@ -21,7 +21,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
     fields: [
       { key: 'name', label: 'Student Name', type: 'text', required: true },
       { key: 'phone', label: 'Phone Number', type: 'text', required: true },
-    ]
+    ],
   },
   courses: {
     tableName: 'coaching_courses',
@@ -29,9 +29,14 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
     pluralLabel: 'Courses',
     fields: [
       { key: 'name', label: 'Course Name', type: 'text', required: true },
-      { key: 'fee', label: 'Course Fee (in ₹)', type: 'number', required: true },
+      {
+        key: 'fee',
+        label: 'Course Fee (in ₹)',
+        type: 'number',
+        required: true,
+      },
       { key: 'duration', label: 'Duration (e.g. 6 Months)', type: 'text' },
-    ]
+    ],
   },
   teachers: {
     tableName: 'realestate_agents', // Fallback teachers to agents table schema
@@ -41,28 +46,51 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
       { key: 'name', label: 'Full Name', type: 'text', required: true },
       { key: 'phone', label: 'Phone', type: 'text' },
       { key: 'email', label: 'Email', type: 'text' },
-      { key: 'status', label: 'Status', type: 'select', options: ['active', 'inactive'], required: true },
-    ]
+      {
+        key: 'status',
+        label: 'Status',
+        type: 'select',
+        options: ['active', 'inactive'],
+        required: true,
+      },
+    ],
   },
   admissions: {
     tableName: 'coaching_admissions',
     label: 'Admission Record',
     pluralLabel: 'Admission Records',
     fields: [
-      { key: 'status', label: 'Status', type: 'select', options: ['pending', 'active', 'completed', 'cancelled'], required: true },
+      {
+        key: 'status',
+        label: 'Status',
+        type: 'select',
+        options: ['pending', 'active', 'completed', 'cancelled'],
+        required: true,
+      },
       { key: 'paid_amount', label: 'Paid Amount (in ₹)', type: 'number' },
-    ]
+    ],
   },
   leads: {
     tableName: 'realestate_leads',
     label: 'Lead',
     pluralLabel: 'Leads',
     fields: [
-      { key: 'lead_seq_id', label: 'Lead ID (e.g. RLD-1001)', type: 'text', required: true },
+      {
+        key: 'lead_seq_id',
+        label: 'Lead ID (e.g. RLD-1001)',
+        type: 'text',
+        required: true,
+      },
       { key: 'budget', label: 'Budget Range (in ₹)', type: 'number' },
       { key: 'preferred_location', label: 'Preferred Location', type: 'text' },
-      { key: 'status', label: 'Status', type: 'select', options: ['new', 'contacted', 'viewing', 'offer', 'closed'], required: true },
-    ]
+      {
+        key: 'status',
+        label: 'Status',
+        type: 'select',
+        options: ['new', 'contacted', 'viewing', 'offer', 'closed'],
+        required: true,
+      },
+    ],
   },
   properties: {
     tableName: 'realestate_properties',
@@ -72,11 +100,22 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
       { key: 'name', label: 'Property Title', type: 'text', required: true },
       { key: 'location', label: 'Location', type: 'text', required: true },
       { key: 'price', label: 'Price (in ₹)', type: 'number', required: true },
-      { key: 'type', label: 'Property Type', type: 'select', options: ['Apartment', 'Villa', 'Penthouse', 'Commercial Plot'] },
+      {
+        key: 'type',
+        label: 'Property Type',
+        type: 'select',
+        options: ['Apartment', 'Villa', 'Penthouse', 'Commercial Plot'],
+      },
       { key: 'bedrooms', label: 'Bedrooms', type: 'number' },
       { key: 'bathrooms', label: 'Bathrooms', type: 'number' },
-      { key: 'status', label: 'Status', type: 'select', options: ['available', 'sold', 'rented'], required: true },
-    ]
+      {
+        key: 'status',
+        label: 'Status',
+        type: 'select',
+        options: ['available', 'sold', 'rented'],
+        required: true,
+      },
+    ],
   },
   agents: {
     tableName: 'realestate_agents',
@@ -86,8 +125,14 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
       { key: 'name', label: 'Agent Name', type: 'text', required: true },
       { key: 'phone', label: 'Phone Number', type: 'text' },
       { key: 'email', label: 'Email Address', type: 'text' },
-      { key: 'status', label: 'Status', type: 'select', options: ['active', 'inactive'], required: true },
-    ]
+      {
+        key: 'status',
+        label: 'Status',
+        type: 'select',
+        options: ['active', 'inactive'],
+        required: true,
+      },
+    ],
   },
   'site-visits': {
     tableName: 'realestate_visits',
@@ -96,8 +141,14 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
     fields: [
       { key: 'visit_date', label: 'Visit Date', type: 'date', required: true },
       { key: 'feedback', label: 'Feedback / Notes', type: 'text' },
-      { key: 'status', label: 'Status', type: 'select', options: ['scheduled', 'completed', 'cancelled'], required: true },
-    ]
+      {
+        key: 'status',
+        label: 'Status',
+        type: 'select',
+        options: ['scheduled', 'completed', 'cancelled'],
+        required: true,
+      },
+    ],
   },
   packages: {
     tableName: 'travel_packages',
@@ -105,22 +156,53 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
     pluralLabel: 'Tour Packages',
     fields: [
       { key: 'name', label: 'Package Name', type: 'text', required: true },
-      { key: 'destination', label: 'Destination', type: 'text', required: true },
-      { key: 'duration_days', label: 'Duration (Days)', type: 'number', required: true },
+      {
+        key: 'destination',
+        label: 'Destination',
+        type: 'text',
+        required: true,
+      },
+      {
+        key: 'duration_days',
+        label: 'Duration (Days)',
+        type: 'number',
+        required: true,
+      },
       { key: 'price', label: 'Price (in ₹)', type: 'number', required: true },
       { key: 'description', label: 'Description', type: 'text' },
-    ]
+    ],
   },
   bookings: {
     tableName: 'travel_bookings',
     label: 'Booking',
     pluralLabel: 'Bookings',
     fields: [
-      { key: 'travel_date', label: 'Travel Date', type: 'date', required: true },
-      { key: 'guests_count', label: 'Number of Guests', type: 'number', required: true },
-      { key: 'total_price', label: 'Total Price (in ₹)', type: 'number', required: true },
-      { key: 'status', label: 'Status', type: 'select', options: ['Pending', 'Confirmed', 'Cancelled'], required: true },
-    ]
+      {
+        key: 'travel_date',
+        label: 'Travel Date',
+        type: 'date',
+        required: true,
+      },
+      {
+        key: 'guests_count',
+        label: 'Number of Guests',
+        type: 'number',
+        required: true,
+      },
+      {
+        key: 'total_price',
+        label: 'Total Price (in ₹)',
+        type: 'number',
+        required: true,
+      },
+      {
+        key: 'status',
+        label: 'Status',
+        type: 'select',
+        options: ['Pending', 'Confirmed', 'Cancelled'],
+        required: true,
+      },
+    ],
   },
   customers: {
     tableName: 'contacts',
@@ -131,7 +213,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
       { key: 'phone', label: 'Phone Number', type: 'text', required: true },
       { key: 'email', label: 'Email Address', type: 'text' },
       { key: 'company', label: 'Company / Notes', type: 'text' },
-    ]
+    ],
   },
   members: {
     tableName: 'contacts',
@@ -142,7 +224,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
       { key: 'phone', label: 'Phone Number', type: 'text', required: true },
       { key: 'email', label: 'Email Address', type: 'text' },
       { key: 'company', label: 'Company / Notes', type: 'text' },
-    ]
+    ],
   },
   trainers: {
     tableName: 'realestate_agents',
@@ -152,8 +234,14 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
       { key: 'name', label: 'Trainer Name', type: 'text', required: true },
       { key: 'phone', label: 'Phone Number', type: 'text' },
       { key: 'email', label: 'Email Address', type: 'text' },
-      { key: 'status', label: 'Status', type: 'select', options: ['active', 'inactive'], required: true },
-    ]
+      {
+        key: 'status',
+        label: 'Status',
+        type: 'select',
+        options: ['active', 'inactive'],
+        required: true,
+      },
+    ],
   },
   memberships: {
     tableName: 'coaching_courses',
@@ -161,9 +249,14 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
     pluralLabel: 'Membership Plans',
     fields: [
       { key: 'name', label: 'Plan Name', type: 'text', required: true },
-      { key: 'fee', label: 'Monthly Fee (in ₹)', type: 'number', required: true },
+      {
+        key: 'fee',
+        label: 'Monthly Fee (in ₹)',
+        type: 'number',
+        required: true,
+      },
       { key: 'duration', label: 'Duration (e.g. 1 Month)', type: 'text' },
-    ]
+    ],
   },
   classes: {
     tableName: 'coaching_batches',
@@ -171,19 +264,46 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
     pluralLabel: 'Classes',
     fields: [
       { key: 'name', label: 'Class Name', type: 'text', required: true },
-      { key: 'timing', label: 'Timings (e.g. 6 PM - 7 PM)', type: 'text', required: true },
-      { key: 'status', label: 'Status', type: 'select', options: ['active', 'inactive'], required: true },
-    ]
+      {
+        key: 'timing',
+        label: 'Timings (e.g. 6 PM - 7 PM)',
+        type: 'text',
+        required: true,
+      },
+      {
+        key: 'status',
+        label: 'Status',
+        type: 'select',
+        options: ['active', 'inactive'],
+        required: true,
+      },
+    ],
   },
   reservations: {
     tableName: 'appointments',
     label: 'Reservation',
     pluralLabel: 'Reservations',
     fields: [
-      { key: 'appointment_date', label: 'Reservation Date', type: 'date', required: true },
-      { key: 'appointment_time', label: 'Reservation Time (e.g. 20:00)', type: 'text', required: true },
-      { key: 'status', label: 'Status', type: 'select', options: ['scheduled', 'completed', 'cancelled'], required: true },
-    ]
+      {
+        key: 'appointment_date',
+        label: 'Reservation Date',
+        type: 'date',
+        required: true,
+      },
+      {
+        key: 'appointment_time',
+        label: 'Reservation Time (e.g. 20:00)',
+        type: 'text',
+        required: true,
+      },
+      {
+        key: 'status',
+        label: 'Status',
+        type: 'select',
+        options: ['scheduled', 'completed', 'cancelled'],
+        required: true,
+      },
+    ],
   },
   tables: {
     tableName: 'coaching_courses',
@@ -192,19 +312,39 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
     fields: [
       { key: 'name', label: 'Table Name/Number', type: 'text', required: true },
       { key: 'fee', label: 'Seating Capacity', type: 'number', required: true },
-      { key: 'duration', label: 'Area / Placement (e.g. Terrace)', type: 'text' },
-    ]
+      {
+        key: 'duration',
+        label: 'Area / Placement (e.g. Terrace)',
+        type: 'text',
+      },
+    ],
   },
   orders: {
     tableName: 'deals',
     label: 'Order',
     pluralLabel: 'Orders',
     fields: [
-      { key: 'title', label: 'Order Description', type: 'text', required: true },
-      { key: 'value', label: 'Order Value (in ₹)', type: 'number', required: true },
-      { key: 'status', label: 'Status', type: 'select', options: ['open', 'won', 'lost'], required: true },
-    ]
-  }
+      {
+        key: 'title',
+        label: 'Order Description',
+        type: 'text',
+        required: true,
+      },
+      {
+        key: 'value',
+        label: 'Order Value (in ₹)',
+        type: 'number',
+        required: true,
+      },
+      {
+        key: 'status',
+        label: 'Status',
+        type: 'select',
+        options: ['open', 'won', 'lost'],
+        required: true,
+      },
+    ],
+  },
 };
 
 export function EntityPage({ entityKey }: { entityKey: string }) {
@@ -214,7 +354,7 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
   const activeModule = getIndustryModule(account?.industry);
   const mergedConfigs = {
     ...ENTITY_CONFIGS,
-    ...(activeModule?.entityConfigs || {})
+    ...(activeModule?.entityConfigs || {}),
   };
   const config = mergedConfigs[entityKey];
   const [records, setRecords] = useState<any[]>([]);
@@ -240,7 +380,9 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
     let failCount = 0;
 
     try {
-      const { data: { session } } = await db.auth.getSession();
+      const {
+        data: { session },
+      } = await db.auth.getSession();
       const user = session?.user;
       if (!user) throw new Error('Not authenticated');
 
@@ -252,7 +394,9 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
         }
 
         // Normalize phone number (simple cleanup or normalizeKey)
-        const phone = rawPhone.startsWith('+') ? rawPhone : `+${rawPhone.replace(/[^0-9]/g, '')}`;
+        const phone = rawPhone.startsWith('+')
+          ? rawPhone
+          : `+${rawPhone.replace(/[^0-9]/g, '')}`;
 
         try {
           // 1. Check if contact already exists
@@ -307,7 +451,7 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
               status: 'active',
               gender: 'Male',
               created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
+              updated_at: new Date().toISOString(),
             });
 
           if (studentErr) throw studentErr;
@@ -319,7 +463,8 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
       }
 
       toast.success(`Import complete! ${successCount} students imported.`);
-      if (skipCount > 0) toast.info(`${skipCount} duplicate/existing students skipped.`);
+      if (skipCount > 0)
+        toast.info(`${skipCount} duplicate/existing students skipped.`);
       if (failCount > 0) toast.error(`${failCount} rows failed to import.`);
 
       setImportOpen(false);
@@ -337,7 +482,7 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
     if (!config) return;
     // Prefill default select values
     const defaults: Record<string, any> = {};
-    config.fields.forEach(f => {
+    config.fields.forEach((f) => {
       if (f.type === 'select' && f.options) {
         defaults[f.key] = f.options[0];
       } else if (f.type === 'number') {
@@ -355,7 +500,9 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
     try {
       let query = db.from(config.tableName).select('*');
       if (config.tableName === 'coaching_students') {
-        query = db.from('coaching_students').select('*, contact:contacts(name, phone)');
+        query = db
+          .from('coaching_students')
+          .select('*, contact:contacts(name, phone)');
       }
 
       const { data, error } = await query
@@ -376,7 +523,7 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
   }, [accountId, entityKey]);
 
   if (!config) {
-    return <div className="p-6 text-red-500 font-bold">Invalid Entity Key</div>;
+    return <div className="p-6 font-bold text-red-500">Invalid Entity Key</div>;
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -385,7 +532,9 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
 
     setSaving(true);
     try {
-      const { data: { session } } = await db.auth.getSession();
+      const {
+        data: { session },
+      } = await db.auth.getSession();
       const user = session?.user;
       if (!user) throw new Error('Not authenticated');
 
@@ -398,9 +547,18 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
 
       // Special case: if table extends contacts table (like students and leads), we need to create a dummy contact or bind it.
       // For simplicity, if they aren't bound to contacts directly, we generate a random contact uuid or insert directly.
-      if (config.tableName === 'coaching_students' || config.tableName === 'realestate_leads') {
-        const contactName = config.tableName === 'coaching_students' ? formData.name : (formData.parent_name || formData.lead_seq_id);
-        const contactPhone = config.tableName === 'coaching_students' ? formData.phone : '+9100000000';
+      if (
+        config.tableName === 'coaching_students' ||
+        config.tableName === 'realestate_leads'
+      ) {
+        const contactName =
+          config.tableName === 'coaching_students'
+            ? formData.name
+            : formData.parent_name || formData.lead_seq_id;
+        const contactPhone =
+          config.tableName === 'coaching_students'
+            ? formData.phone
+            : '+9100000000';
 
         // Create a contact first
         const { data: newContact, error: contactErr } = await db
@@ -427,28 +585,42 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
 
       // Special case: resolve foreign key constraints dynamically
       if (config.tableName === 'travel_bookings') {
-        const { data: firstPack } = await db.from('travel_packages').select('id').limit(1);
-        const { data: firstContact } = await db.from('contacts').select('id').limit(1);
-        
+        const { data: firstPack } = await db
+          .from('travel_packages')
+          .select('id')
+          .limit(1);
+        const { data: firstContact } = await db
+          .from('contacts')
+          .select('id')
+          .limit(1);
+
         let packageId = firstPack?.[0]?.id;
         if (!packageId) {
-          const { data: newPack } = await db.from('travel_packages').insert({
-            account_id: accountId,
-            name: 'Standard Package',
-            destination: 'Universal Destination',
-            price: 5000,
-            duration_days: 3
-          }).select('id').single();
+          const { data: newPack } = await db
+            .from('travel_packages')
+            .insert({
+              account_id: accountId,
+              name: 'Standard Package',
+              destination: 'Universal Destination',
+              price: 5000,
+              duration_days: 3,
+            })
+            .select('id')
+            .single();
           packageId = newPack?.id;
         }
 
         let contactId = firstContact?.[0]?.id;
         if (!contactId) {
-          const { data: newContact } = await db.from('contacts').insert({
-            account_id: accountId,
-            name: 'Sample Customer',
-            phone: '+910000000000'
-          }).select('id').single();
+          const { data: newContact } = await db
+            .from('contacts')
+            .insert({
+              account_id: accountId,
+              name: 'Sample Customer',
+              phone: '+910000000000',
+            })
+            .select('id')
+            .single();
           contactId = newContact?.id;
         }
 
@@ -457,27 +629,41 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
       }
 
       if (config.tableName === 'coaching_admissions') {
-        const { data: firstContact } = await db.from('contacts').select('id').limit(1);
-        const { data: firstCourse } = await db.from('coaching_courses').select('id').limit(1);
+        const { data: firstContact } = await db
+          .from('contacts')
+          .select('id')
+          .limit(1);
+        const { data: firstCourse } = await db
+          .from('coaching_courses')
+          .select('id')
+          .limit(1);
 
         let studentId = firstContact?.[0]?.id;
         if (!studentId) {
-          const { data: newContact } = await db.from('contacts').insert({
-            account_id: accountId,
-            name: 'Sample Student',
-            phone: '+910000000000'
-          }).select('id').single();
+          const { data: newContact } = await db
+            .from('contacts')
+            .insert({
+              account_id: accountId,
+              name: 'Sample Student',
+              phone: '+910000000000',
+            })
+            .select('id')
+            .single();
           studentId = newContact?.id;
         }
 
         let courseId = firstCourse?.[0]?.id;
         if (!courseId) {
-          const { data: newCourse } = await db.from('coaching_courses').insert({
-            account_id: accountId,
-            name: 'Basic Course',
-            fee: 1000,
-            duration: '3 Months'
-          }).select('id').single();
+          const { data: newCourse } = await db
+            .from('coaching_courses')
+            .insert({
+              account_id: accountId,
+              name: 'Basic Course',
+              fee: 1000,
+              duration: '3 Months',
+            })
+            .select('id')
+            .single();
           courseId = newCourse?.id;
         }
 
@@ -485,22 +671,20 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
         dataToInsert.course_id = courseId;
       }
 
-      const { error } = await db
-        .from(config.tableName)
-        .insert(dataToInsert);
+      const { error } = await db.from(config.tableName).insert(dataToInsert);
 
       if (error) throw error;
 
       toast.success(`${config.label} created successfully!`);
       setIsOpen(false);
-      
+
       // Reset form
       const defaults: Record<string, any> = {};
-      config.fields.forEach(f => {
+      config.fields.forEach((f) => {
         defaults[f.key] = f.type === 'select' && f.options ? f.options[0] : '';
       });
       setFormData(defaults);
-      
+
       loadRecords();
     } catch (err: any) {
       toast.error(`Save error: ${err.message}`);
@@ -512,10 +696,7 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this record?')) return;
     try {
-      const { error } = await db
-        .from(config.tableName)
-        .delete()
-        .eq('id', id);
+      const { error } = await db.from(config.tableName).delete().eq('id', id);
 
       if (error) throw error;
       toast.success('Record deleted.');
@@ -525,7 +706,7 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
     }
   };
 
-  const filteredRecords = records.filter(rec => {
+  const filteredRecords = records.filter((rec) => {
     const valuesStr = Object.values(rec).join(' ').toLowerCase();
     return valuesStr.includes(searchQuery.toLowerCase());
   });
@@ -543,49 +724,68 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+          <h1 className="text-foreground text-2xl font-bold tracking-tight sm:text-3xl">
             {config.pluralLabel}
           </h1>
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="text-muted-foreground mt-1 text-xs">
             Manage your {config.pluralLabel.toLowerCase()} templates.
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex flex-wrap items-center gap-2">
           {entityKey === 'students' && (
-            <Button 
-              onClick={() => { setImportOpen(!importOpen); setIsOpen(false); }} 
+            <Button
+              onClick={() => {
+                setImportOpen(!importOpen);
+                setIsOpen(false);
+              }}
               variant="outline"
-              className="cursor-pointer border-border text-muted-foreground hover:bg-muted font-semibold flex items-center gap-1.5 rounded-full px-5"
+              className="border-border text-muted-foreground hover:bg-muted flex cursor-pointer items-center gap-1.5 rounded-full px-5 font-semibold"
             >
               <Upload className="h-4 w-4" /> Bulk Import
             </Button>
           )}
-          <Button onClick={() => { setIsOpen(!isOpen); setImportOpen(false); }} className="cursor-pointer bg-primary hover:bg-primary/95 text-primary-foreground font-semibold flex items-center gap-1.5 rounded-full px-5">
+          <Button
+            onClick={() => {
+              setIsOpen(!isOpen);
+              setImportOpen(false);
+            }}
+            className="bg-primary hover:bg-primary/95 text-primary-foreground flex cursor-pointer items-center gap-1.5 rounded-full px-5 font-semibold"
+          >
             <Plus className="h-4 w-4" /> Add {config.label}
           </Button>
         </div>
       </div>
 
       {importOpen && entityKey === 'students' && (
-        <div className="border border-border rounded-xl bg-card p-6 space-y-4 max-w-xl animate-in slide-in-from-top-4 duration-200">
-          <h3 className="font-bold text-foreground text-sm border-b border-border pb-2">
+        <div className="border-border bg-card animate-in slide-in-from-top-4 max-w-xl space-y-4 rounded-xl border p-6 duration-200">
+          <h3 className="text-foreground border-border border-b pb-2 text-sm font-bold">
             Bulk Import Students
           </h3>
           <div className="space-y-3">
-            <div 
-              onClick={() => document.getElementById('student-csv-input')?.click()}
-              className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-border rounded-xl cursor-pointer hover:bg-muted/50 transition-all bg-background/50"
+            <div
+              onClick={() =>
+                document.getElementById('student-csv-input')?.click()
+              }
+              className="border-border hover:bg-muted/50 bg-background/50 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 transition-all"
             >
-              <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+              <Upload className="text-muted-foreground mb-2 h-8 w-8" />
               {fileName ? (
                 <div className="text-center">
-                  <p className="text-sm font-semibold text-foreground">{fileName}</p>
-                  <p className="text-xs text-emerald-500 font-medium mt-0.5">{parsedRows.length} students found</p>
+                  <p className="text-foreground text-sm font-semibold">
+                    {fileName}
+                  </p>
+                  <p className="mt-0.5 text-xs font-medium text-emerald-500">
+                    {parsedRows.length} students found
+                  </p>
                 </div>
               ) : (
                 <div className="text-center">
-                  <p className="text-sm font-semibold text-foreground">Click to upload Student CSV / Excel file</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Headers required: "name", "phone" (Name first, then Phone)</p>
+                  <p className="text-foreground text-sm font-semibold">
+                    Click to upload Student CSV / Excel file
+                  </p>
+                  <p className="text-muted-foreground mt-0.5 text-xs">
+                    Headers required: "name", "phone" (Name first, then Phone)
+                  </p>
                 </div>
               )}
             </div>
@@ -602,7 +802,9 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
                   const text = await file.text();
                   const { rows } = parseContactCsv(text);
                   if (rows.length === 0) {
-                    toast.error('No valid rows found. Ensure CSV has a "phone" column header.');
+                    toast.error(
+                      'No valid rows found. Ensure CSV has a "phone" column header.'
+                    );
                     return;
                   }
                   setParsedRows(rows);
@@ -612,22 +814,34 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
                 }
               }}
             />
-            <p className="text-[11px] text-muted-foreground italic">
-              💡 Tip: If you have an Excel (.xlsx) file, save it as a CSV (.csv) first to upload.
+            <p className="text-muted-foreground text-[11px] italic">
+              💡 Tip: If you have an Excel (.xlsx) file, save it as a CSV (.csv)
+              first to upload.
             </p>
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => { setImportOpen(false); setFileName(''); setParsedRows([]); }} className="cursor-pointer rounded-full px-5">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setImportOpen(false);
+                setFileName('');
+                setParsedRows([]);
+              }}
+              className="cursor-pointer rounded-full px-5"
+            >
               Cancel
             </Button>
-            <Button 
-              type="button" 
-              onClick={handleBulkImport} 
-              disabled={importing || parsedRows.length === 0} 
+            <Button
+              type="button"
+              onClick={handleBulkImport}
+              disabled={importing || parsedRows.length === 0}
               className="cursor-pointer rounded-full px-6 font-semibold"
             >
-              {importing ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+              {importing ? (
+                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+              ) : null}
               Import {parsedRows.length > 0 ? parsedRows.length : ''} Students
             </Button>
           </div>
@@ -635,23 +849,35 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
       )}
 
       {isOpen && (
-        <form onSubmit={handleSubmit} className="border border-border rounded-xl bg-card p-6 space-y-4 max-w-xl animate-in slide-in-from-top-4 duration-200">
-          <h3 className="font-bold text-foreground text-sm border-b border-border pb-2">
+        <form
+          onSubmit={handleSubmit}
+          className="border-border bg-card animate-in slide-in-from-top-4 max-w-xl space-y-4 rounded-xl border p-6 duration-200"
+        >
+          <h3 className="text-foreground border-border border-b pb-2 text-sm font-bold">
             New {config.label} details
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {config.fields.map(field => (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {config.fields.map((field) => (
               <div key={field.key} className="space-y-1.5">
-                <Label htmlFor={field.key} className="text-muted-foreground font-semibold text-xs">{field.label}</Label>
+                <Label
+                  htmlFor={field.key}
+                  className="text-muted-foreground text-xs font-semibold"
+                >
+                  {field.label}
+                </Label>
                 {field.type === 'select' ? (
                   <select
                     id={field.key}
                     value={formData[field.key] || ''}
-                    onChange={e => setFormData({ ...formData, [field.key]: e.target.value })}
-                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-sm text-foreground focus:outline-none"
+                    onChange={(e) =>
+                      setFormData({ ...formData, [field.key]: e.target.value })
+                    }
+                    className="border-border bg-background text-foreground h-10 w-full rounded-lg border px-3 text-sm focus:outline-none"
                   >
-                    {field.options?.map(opt => (
-                      <option key={opt} value={opt}>{opt}</option>
+                    {field.options?.map((opt) => (
+                      <option key={opt} value={opt}>
+                        {opt}
+                      </option>
                     ))}
                   </select>
                 ) : (
@@ -659,7 +885,15 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
                     id={field.key}
                     type={field.type}
                     value={formData[field.key] || ''}
-                    onChange={e => setFormData({ ...formData, [field.key]: field.type === 'number' ? Number(e.target.value) : e.target.value })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        [field.key]:
+                          field.type === 'number'
+                            ? Number(e.target.value)
+                            : e.target.value,
+                      })
+                    }
                     required={field.required}
                   />
                 )}
@@ -667,55 +901,77 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
             ))}
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => setIsOpen(false)} className="cursor-pointer rounded-full px-5">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsOpen(false)}
+              className="cursor-pointer rounded-full px-5"
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={saving} className="cursor-pointer rounded-full px-6 font-semibold">
-              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+            <Button
+              type="submit"
+              disabled={saving}
+              className="cursor-pointer rounded-full px-6 font-semibold"
+            >
+              {saving ? (
+                <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+              ) : null}
               Save {config.label}
             </Button>
           </div>
         </form>
       )}
 
-      <div className="flex items-center gap-2 max-w-md bg-card border border-border rounded-full px-3.5 py-1.5 shadow-sm">
-        <Search className="h-4 w-4 text-muted-foreground" />
+      <div className="bg-card border-border flex max-w-md items-center gap-2 rounded-full border px-3.5 py-1.5 shadow-sm">
+        <Search className="text-muted-foreground h-4 w-4" />
         <input
           type="text"
           placeholder={`Search ${config.pluralLabel.toLowerCase()}...`}
           value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-          className="flex-1 bg-transparent text-sm text-foreground focus:outline-none border-none outline-none"
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="text-foreground flex-1 border-none bg-transparent text-sm outline-none focus:outline-none"
         />
       </div>
 
       {loading ? (
         <div className="flex h-32 items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
         </div>
       ) : filteredRecords.length > 0 ? (
-        <div className="rounded-xl border border-border bg-card overflow-hidden">
-          <table className="w-full text-left text-sm border-collapse">
+        <div className="border-border bg-card overflow-hidden rounded-xl border">
+          <table className="w-full border-collapse text-left text-sm">
             <thead>
-              <tr className="border-b border-border bg-muted/30 text-muted-foreground font-semibold">
-                {tableFields.map(col => (
-                  <th key={col.key} className="p-4">{col.label}</th>
+              <tr className="border-border bg-muted/30 text-muted-foreground border-b font-semibold">
+                {tableFields.map((col) => (
+                  <th key={col.key} className="p-4">
+                    {col.label}
+                  </th>
                 ))}
                 <th className="p-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filteredRecords.map(rec => (
-                <tr key={rec.id} className="border-b border-border/50 hover:bg-muted/10 transition-colors">
-                  {tableFields.map(col => {
-                    let val = col.type === 'number' && col.key.includes('fee') ? `₹${rec[col.key] || 0}` : rec[col.key]?.toString() || '—';
+              {filteredRecords.map((rec) => (
+                <tr
+                  key={rec.id}
+                  className="border-border/50 hover:bg-muted/10 border-b transition-colors"
+                >
+                  {tableFields.map((col) => {
+                    let val =
+                      col.type === 'number' && col.key.includes('fee')
+                        ? `₹${rec[col.key] || 0}`
+                        : rec[col.key]?.toString() || '—';
                     if (col.key === 'name' && rec.contact) {
                       val = rec.contact.name || '—';
                     } else if (col.key === 'phone' && rec.contact) {
                       val = rec.contact.phone || '—';
                     }
                     return (
-                      <td key={col.key} className="p-4 font-medium text-foreground">
+                      <td
+                        key={col.key}
+                        className="text-foreground p-4 font-medium"
+                      >
                         {val}
                       </td>
                     );
@@ -723,7 +979,7 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
                   <td className="p-4 text-right">
                     <button
                       onClick={() => handleDelete(rec.id)}
-                      className="text-red-500 hover:text-red-700 p-1.5 rounded-lg hover:bg-red-500/10 transition"
+                      className="rounded-lg p-1.5 text-red-500 transition hover:bg-red-500/10 hover:text-red-700"
                       title="Delete Record"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -735,7 +991,7 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
           </table>
         </div>
       ) : (
-        <div className="border border-dashed border-border rounded-xl p-12 text-center text-muted-foreground italic">
+        <div className="border-border text-muted-foreground rounded-xl border border-dashed p-12 text-center italic">
           No records found.
         </div>
       )}

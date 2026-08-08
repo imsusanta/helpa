@@ -1,4 +1,4 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next';
 
 /**
  * Baseline security headers applied to every response.
@@ -18,22 +18,22 @@ import type { NextConfig } from "next";
  */
 const SECURITY_HEADERS = [
   {
-    key: "Strict-Transport-Security",
-    value: "max-age=63072000; includeSubDomains; preload",
+    key: 'Strict-Transport-Security',
+    value: 'max-age=63072000; includeSubDomains; preload',
   },
-  { key: "X-Content-Type-Options", value: "nosniff" },
-  { key: "X-Frame-Options", value: "DENY" },
-  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'X-Frame-Options', value: 'DENY' },
+  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   {
     // Microphone is allowed for same-origin (`self`) so the inbox
     // composer can record voice notes via MediaRecorder. Everything
     // else stays denied — a compromised dependency can't silently grab
     // the camera / geolocation / etc.
-    key: "Permissions-Policy",
-    value: "camera=(), microphone=(self), geolocation=(), payment=(), usb=()",
+    key: 'Permissions-Policy',
+    value: 'camera=(), microphone=(self), geolocation=(), payment=(), usb=()',
   },
   {
-    key: "Content-Security-Policy-Report-Only",
+    key: 'Content-Security-Policy-Report-Only',
     value: [
       "default-src 'self'",
       // Next.js needs 'unsafe-inline' for its inline hydration script
@@ -56,18 +56,13 @@ const SECURITY_HEADERS = [
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
-    ].join("; "),
+    ].join('; '),
   },
 ] as const;
 
-const nextConfig: any = {
+const nextConfig: NextConfig = {
   turbopack: {
     root: process.cwd(),
-  },
-  typescript: {
-    // Dangerously allow production builds to successfully complete even if
-    // your project has type errors.
-    ignoreBuildErrors: true,
   },
 
   /**
@@ -110,16 +105,16 @@ const nextConfig: any = {
   async headers() {
     return [
       {
-        source: "/api/:path*",
-        headers: [{ key: "Cache-Control", value: "no-store" }],
+        source: '/api/:path*',
+        headers: [{ key: 'Cache-Control', value: 'no-store' }],
       },
       {
-        source: "/:path((?!_next/static|_next/image|api).*)",
+        source: '/:path((?!_next/static|_next/image|api).*)',
         headers: [
           {
-            key: "Cache-Control",
+            key: 'Cache-Control',
             value:
-              "public, max-age=0, s-maxage=300, stale-while-revalidate=86400",
+              'public, max-age=0, s-maxage=300, stale-while-revalidate=86400',
           },
         ],
       },
@@ -127,7 +122,7 @@ const nextConfig: any = {
         // Security headers on every response, including /_next/static
         // assets (nosniff matters there) and /api/* (HSTS + referrer-
         // policy don't hurt).
-        source: "/:path*",
+        source: '/:path*',
         headers: [...SECURITY_HEADERS],
       },
     ];

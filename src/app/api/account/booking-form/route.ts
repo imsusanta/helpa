@@ -3,7 +3,6 @@ import { requireRole } from '@/lib/auth/account';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
 import { DEFAULT_BOOKING_FORM_CONFIG } from '@/lib/booking-form/config';
 
-
 export async function GET() {
   try {
     const ctx = await requireRole('admin');
@@ -24,7 +23,10 @@ export async function GET() {
     return NextResponse.json({
       config: {
         ...DEFAULT_BOOKING_FORM_CONFIG,
-        ...(account.appointment_form_config as Record<string, { show: boolean; required: boolean }>),
+        ...(account.appointment_form_config as Record<
+          string,
+          { show: boolean; required: boolean }
+        >),
       },
     });
   } catch (err: any) {
@@ -43,7 +45,10 @@ export async function PATCH(request: Request) {
     const config = body?.config;
 
     if (!config || typeof config !== 'object') {
-      return NextResponse.json({ error: 'Invalid config payload' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid config payload' },
+        { status: 400 }
+      );
     }
 
     // Mandatory defaults protection: name & phone must always be show:true, required:true
@@ -66,7 +71,8 @@ export async function PATCH(request: Request) {
       console.error('[PATCH /api/account/booking-form] update error:', error);
       return NextResponse.json({
         config: sanitizedConfig,
-        warning: 'Configuration saved in memory (database column pending migration).'
+        warning:
+          'Configuration saved in memory (database column pending migration).',
       });
     }
 

@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import { useEffect, useState, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { useEffect, useState, useCallback } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/hooks/use-auth';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Calendar as CalendarIcon,
   Clock,
@@ -21,9 +21,9 @@ import {
   ShieldCheck,
   CheckCircle2,
   Sparkles,
-} from "lucide-react";
-import { toast } from "sonner";
-import { DEFAULT_BOOKING_FORM_CONFIG } from "@/lib/booking-form/config";
+} from 'lucide-react';
+import { toast } from 'sonner';
+import { DEFAULT_BOOKING_FORM_CONFIG } from '@/lib/booking-form/config';
 
 interface Appointment {
   id: string;
@@ -63,9 +63,13 @@ export default function AppointmentsPage() {
   const { accountId } = useAuth();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [formConfig, setFormConfig] = useState<Record<string, { show: boolean; required: boolean }>>(DEFAULT_BOOKING_FORM_CONFIG);
+  const [formConfig, setFormConfig] = useState<
+    Record<string, { show: boolean; required: boolean }>
+  >(DEFAULT_BOOKING_FORM_CONFIG);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"upcoming" | "queue" | "completed" | "cancelled">("upcoming");
+  const [activeTab, setActiveTab] = useState<
+    'upcoming' | 'queue' | 'completed' | 'cancelled'
+  >('upcoming');
 
   // Booking Form Modal State
   const [showAddForm, setShowAddForm] = useState(false);
@@ -73,34 +77,37 @@ export default function AppointmentsPage() {
   const [editingApptId, setEditingApptId] = useState<string | null>(null);
 
   // Real-time Patient Lookup & Family Sharing State
-  const [mobileQuery, setMobileQuery] = useState("");
-  const [patientMatches, setPatientMatches] = useState<PatientSearchMatch[]>([]);
-  const [selectedPatient, setSelectedPatient] = useState<PatientSearchMatch | null>(null);
+  const [mobileQuery, setMobileQuery] = useState('');
+  const [patientMatches, setPatientMatches] = useState<PatientSearchMatch[]>(
+    []
+  );
+  const [selectedPatient, setSelectedPatient] =
+    useState<PatientSearchMatch | null>(null);
   const [createNewFamilyMember, setCreateNewFamilyMember] = useState(false);
   const [searchingPatients, setSearchingPatients] = useState(false);
 
   // Dynamic Form Field States
-  const [patientName, setPatientName] = useState("");
-  const [mobileNumber, setMobileNumber] = useState("");
-  const [age, setAge] = useState("");
-  const [gender, setGender] = useState("");
-  const [dob, setDob] = useState("");
-  const [address, setAddress] = useState("");
-  const [bloodGroup, setBloodGroup] = useState("");
-  const [emergencyContact, setEmergencyContact] = useState("");
-  const [guardianName, setGuardianName] = useState("");
-  const [guardianMobile, setGuardianMobile] = useState("");
-  const [email, setEmail] = useState("");
-  const [doctorId, setDoctorId] = useState("");
-  const [department, setDepartment] = useState("");
-  const [appointmentType, setAppointmentType] = useState("");
-  const [reasonForVisit, setReasonForVisit] = useState("");
-  const [insuranceProvider, setInsuranceProvider] = useState("");
-  const [insuranceNumber, setInsuranceNumber] = useState("");
-  const [referredBy, setReferredBy] = useState("");
-  const [date, setDate] = useState("");
-  const [time, setTime] = useState("");
-  const [notes, setNotes] = useState("");
+  const [patientName, setPatientName] = useState('');
+  const [mobileNumber, setMobileNumber] = useState('');
+  const [age, setAge] = useState('');
+  const [gender, setGender] = useState('');
+  const [dob, setDob] = useState('');
+  const [address, setAddress] = useState('');
+  const [bloodGroup, setBloodGroup] = useState('');
+  const [emergencyContact, setEmergencyContact] = useState('');
+  const [guardianName, setGuardianName] = useState('');
+  const [guardianMobile, setGuardianMobile] = useState('');
+  const [email, setEmail] = useState('');
+  const [doctorId, setDoctorId] = useState('');
+  const [department, setDepartment] = useState('');
+  const [appointmentType, setAppointmentType] = useState('');
+  const [reasonForVisit, setReasonForVisit] = useState('');
+  const [insuranceProvider, setInsuranceProvider] = useState('');
+  const [insuranceNumber, setInsuranceNumber] = useState('');
+  const [referredBy, setReferredBy] = useState('');
+  const [date, setDate] = useState('');
+  const [time, setTime] = useState('');
+  const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
   const loadAllData = useCallback(async () => {
@@ -109,7 +116,7 @@ export default function AppointmentsPage() {
 
     try {
       // 1. Fetch booking form settings config
-      fetch("/api/account/booking-form")
+      fetch('/api/account/booking-form')
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
           if (data?.config) {
@@ -119,28 +126,30 @@ export default function AppointmentsPage() {
             });
           }
         })
-        .catch((e) => console.error("Form config load error:", e));
+        .catch((e) => console.error('Form config load error:', e));
 
       // 2. Fetch appointments
       const { data: appts } = await db
-        .from("appointments")
-        .select("id, booking_id, appointment_date, appointment_time, status, notes, department, token_number, queue_position, patient:contacts(id, name, phone), doctor:hospital_doctors(id, name, specialization)")
-        .eq("account_id", accountId)
-        .order("appointment_date", { ascending: true })
-        .order("appointment_time", { ascending: true });
+        .from('appointments')
+        .select(
+          'id, booking_id, appointment_date, appointment_time, status, notes, department, token_number, queue_position, patient:contacts(id, name, phone), doctor:hospital_doctors(id, name, specialization)'
+        )
+        .eq('account_id', accountId)
+        .order('appointment_date', { ascending: true })
+        .order('appointment_time', { ascending: true });
 
       setAppointments((appts as any) || []);
 
       // 3. Fetch doctors dropdown
       const { data: docs } = await db
-        .from("hospital_doctors")
-        .select("id, name, department, specialization")
-        .eq("account_id", accountId)
-        .eq("status", "active");
+        .from('hospital_doctors')
+        .select('id, name, department, specialization')
+        .eq('account_id', accountId)
+        .eq('status', 'active');
 
       setDoctors(docs || []);
     } catch (err) {
-      console.error("Error loading appointments dataset:", err);
+      console.error('Error loading appointments dataset:', err);
     } finally {
       setLoading(false);
     }
@@ -160,13 +169,15 @@ export default function AppointmentsPage() {
     const timer = setTimeout(async () => {
       setSearchingPatients(true);
       try {
-        const res = await fetch(`/api/patients/search?phone=${encodeURIComponent(mobileQuery.trim())}`);
+        const res = await fetch(
+          `/api/patients/search?phone=${encodeURIComponent(mobileQuery.trim())}`
+        );
         if (res.ok) {
           const data = await res.json();
           setPatientMatches(data.patients || []);
         }
       } catch (err) {
-        console.error("Patient phone search failed:", err);
+        console.error('Patient phone search failed:', err);
       } finally {
         setSearchingPatients(false);
       }
@@ -176,43 +187,43 @@ export default function AppointmentsPage() {
   }, [mobileQuery]);
 
   function resetForm() {
-    setPatientName("");
-    setMobileNumber("");
-    setMobileQuery("");
+    setPatientName('');
+    setMobileNumber('');
+    setMobileQuery('');
     setPatientMatches([]);
     setSelectedPatient(null);
     setCreateNewFamilyMember(false);
-    setAge("");
-    setGender("");
-    setDob("");
-    setAddress("");
-    setBloodGroup("");
-    setEmergencyContact("");
-    setGuardianName("");
-    setGuardianMobile("");
-    setEmail("");
-    setDoctorId("");
-    setDepartment("");
-    setAppointmentType("");
-    setReasonForVisit("");
-    setInsuranceProvider("");
-    setInsuranceNumber("");
-    setReferredBy("");
-    setDate("");
-    setTime("");
-    setNotes("");
+    setAge('');
+    setGender('');
+    setDob('');
+    setAddress('');
+    setBloodGroup('');
+    setEmergencyContact('');
+    setGuardianName('');
+    setGuardianMobile('');
+    setEmail('');
+    setDoctorId('');
+    setDepartment('');
+    setAppointmentType('');
+    setReasonForVisit('');
+    setInsuranceProvider('');
+    setInsuranceNumber('');
+    setReferredBy('');
+    setDate('');
+    setTime('');
+    setNotes('');
   }
 
   function handleSelectExistingPatient(p: PatientSearchMatch) {
     setSelectedPatient(p);
     setPatientName(p.name);
     setMobileNumber(p.phone);
-    setAge("");
-    setGender(p.gender || "");
-    setAddress(p.address || "");
-    setBloodGroup(p.blood_group || "");
-    setEmail(p.email || "");
-    setEmergencyContact(p.emergency_contact || "");
+    setAge('');
+    setGender(p.gender || '');
+    setAddress(p.address || '');
+    setBloodGroup(p.blood_group || '');
+    setEmail(p.email || '');
+    setEmergencyContact(p.emergency_contact || '');
     setCreateNewFamilyMember(false);
     toast.info(`Selected patient ${p.name} (${p.patient_seq_id})`);
   }
@@ -222,27 +233,27 @@ export default function AppointmentsPage() {
 
     // Validate mandatory required fields based on formConfig
     if (formConfig.name?.required && !patientName.trim()) {
-      toast.error("Patient Name is required.");
+      toast.error('Patient Name is required.');
       return;
     }
     if (formConfig.phone?.required && !mobileNumber.trim()) {
-      toast.error("Mobile Number is required.");
+      toast.error('Mobile Number is required.');
       return;
     }
     if (formConfig.doctor_id?.required && !doctorId) {
-      toast.error("Preferred Doctor selection is required.");
+      toast.error('Preferred Doctor selection is required.');
       return;
     }
     if (formConfig.department?.required && !department && !doctorId) {
-      toast.error("Department selection is required.");
+      toast.error('Department selection is required.');
       return;
     }
     if (!date) {
-      toast.error("Appointment Date is required.");
+      toast.error('Appointment Date is required.');
       return;
     }
     if (!time) {
-      toast.error("Appointment Time is required.");
+      toast.error('Appointment Time is required.');
       return;
     }
 
@@ -259,7 +270,7 @@ export default function AppointmentsPage() {
       if (!finalContactId || createNewFamilyMember) {
         // 1. Create contact record
         const { data: newContact, error: contactError } = await db
-          .from("contacts")
+          .from('contacts')
           .insert({
             account_id: accountId,
             name: patientName.trim(),
@@ -277,15 +288,18 @@ export default function AppointmentsPage() {
               referred_by: referredBy || null,
             },
           })
-          .select("id")
+          .select('id')
           .single();
 
-        if (contactError || !newContact) throw new Error("Failed to create patient profile: " + contactError?.message);
+        if (contactError || !newContact)
+          throw new Error(
+            'Failed to create patient profile: ' + contactError?.message
+          );
 
         finalContactId = newContact.id;
 
         // 2. Create patient record (triggers PAT-XXXXXX auto-sequence assignment)
-        const { error: patientInsertError } = await db.from("patients").insert({
+        const { error: patientInsertError } = await db.from('patients').insert({
           id: finalContactId,
           account_id: accountId,
           gender: gender || null,
@@ -294,20 +308,23 @@ export default function AppointmentsPage() {
           emergency_contact: emergencyContact || null,
         });
         if (patientInsertError) {
-          console.error("Patient record insert error:", patientInsertError.message);
+          console.error(
+            'Patient record insert error:',
+            patientInsertError.message
+          );
           // Non-fatal: the patient trigger may have failed but the contact exists
         }
       } else {
         // Existing patient selected — ensure a patients record exists
         const { data: existingPatientRow } = await db
-          .from("patients")
-          .select("id")
-          .eq("id", finalContactId)
+          .from('patients')
+          .select('id')
+          .eq('id', finalContactId)
           .maybeSingle();
 
         if (!existingPatientRow) {
           // Patient contact exists but no patients record — create one
-          await db.from("patients").insert({
+          await db.from('patients').insert({
             id: finalContactId,
             account_id: accountId,
             gender: gender || null,
@@ -319,11 +336,13 @@ export default function AppointmentsPage() {
       }
 
       const selectedDoc = doctors.find((d) => d.id === doctorId);
-      const apptDept = selectedDoc ? selectedDoc.department : department || "General";
+      const apptDept = selectedDoc
+        ? selectedDoc.department
+        : department || 'General';
 
       // 3. Create appointment record
       const { data: newAppt, error: apptError } = await db
-        .from("appointments")
+        .from('appointments')
         .insert({
           account_id: accountId,
           patient_id: finalContactId,
@@ -331,27 +350,33 @@ export default function AppointmentsPage() {
           department: apptDept,
           appointment_date: apptDate,
           appointment_time: apptTime,
-          status: "pending",
+          status: 'pending',
           notes: notes.trim() || null,
         })
-        .select("id, token_number, booking_id")
+        .select('id, token_number, booking_id')
         .single();
 
       if (apptError) throw apptError;
 
       // 4. Trigger WhatsApp Confirmation notification asynchronously
       if (newAppt?.id) {
-        fetch(`/api/appointments/${newAppt.id}/confirm`, { method: "POST" }).catch(() => {});
+        fetch(`/api/appointments/${newAppt.id}/confirm`, {
+          method: 'POST',
+        }).catch(() => {});
       }
 
-      const tokenInfo = newAppt?.token_number ? ` Token #${newAppt.token_number}` : "";
-      const bookingInfo = newAppt?.booking_id ? ` (${newAppt.booking_id})` : "";
-      toast.success(`Appointment booked!${tokenInfo}${bookingInfo} — WhatsApp confirmation sent.`);
+      const tokenInfo = newAppt?.token_number
+        ? ` Token #${newAppt.token_number}`
+        : '';
+      const bookingInfo = newAppt?.booking_id ? ` (${newAppt.booking_id})` : '';
+      toast.success(
+        `Appointment booked!${tokenInfo}${bookingInfo} — WhatsApp confirmation sent.`
+      );
       resetForm();
       setShowAddForm(false);
       loadAllData();
     } catch (err: any) {
-      toast.error("Failed to book appointment: " + err.message);
+      toast.error('Failed to book appointment: ' + err.message);
     } finally {
       setSaving(false);
     }
@@ -361,36 +386,51 @@ export default function AppointmentsPage() {
     const db = createClient();
     try {
       const { error } = await db
-        .from("appointments")
+        .from('appointments')
         .update({ status: newStatus, updated_at: new Date().toISOString() })
-        .eq("id", apptId);
+        .eq('id', apptId);
 
       if (error) throw error;
       toast.success(`Appointment status updated to ${newStatus}.`);
       loadAllData();
     } catch (err: any) {
-      toast.error("Status update failed: " + err.message);
+      toast.error('Status update failed: ' + err.message);
     }
   };
 
   // Filter based on active tabs
   const filteredAppointments = appointments.filter((appt) => {
-    const today = new Date().toISOString().split("T")[0];
-    if (activeTab === "upcoming") {
-      return (appt.status === "pending" || appt.status === "confirmed" || appt.status === "calling") && appt.appointment_date >= today;
+    const today = new Date().toISOString().split('T')[0];
+    if (activeTab === 'upcoming') {
+      return (
+        (appt.status === 'pending' ||
+          appt.status === 'confirmed' ||
+          appt.status === 'calling') &&
+        appt.appointment_date >= today
+      );
     }
-    if (activeTab === "queue") {
-      return appt.appointment_date === today && appt.status !== "cancelled" && appt.status !== "completed";
+    if (activeTab === 'queue') {
+      return (
+        appt.appointment_date === today &&
+        appt.status !== 'cancelled' &&
+        appt.status !== 'completed'
+      );
     }
-    if (activeTab === "completed") {
-      return appt.status === "completed" || (appt.appointment_date < today && appt.status !== "cancelled");
+    if (activeTab === 'completed') {
+      return (
+        appt.status === 'completed' ||
+        (appt.appointment_date < today && appt.status !== 'cancelled')
+      );
     }
-    return appt.status === "cancelled" || appt.status === "no_show";
+    return appt.status === 'cancelled' || appt.status === 'no_show';
   });
 
-  const displayAppointments = activeTab === "queue"
-    ? [...filteredAppointments].sort((a, b) => (a.token_number || 0) - (b.token_number || 0))
-    : filteredAppointments;
+  const displayAppointments =
+    activeTab === 'queue'
+      ? [...filteredAppointments].sort(
+          (a, b) => (a.token_number || 0) - (b.token_number || 0)
+        )
+      : filteredAppointments;
 
   if (loading) {
     return (
@@ -403,16 +443,17 @@ export default function AppointmentsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <h1 className="text-2xl font-extrabold text-foreground flex items-center gap-2">
+          <h1 className="text-foreground flex items-center gap-2 text-2xl font-extrabold">
             Appointments & OPD Reception
-            <span className="text-xs font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/20">
+            <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
               Live Desk
             </span>
           </h1>
-          <p className="text-xs text-muted-foreground font-medium mt-0.5">
-            Schedule and manage patient clinical consultations with auto-generated Patient IDs & WhatsApp confirmations.
+          <p className="text-muted-foreground mt-0.5 text-xs font-medium">
+            Schedule and manage patient clinical consultations with
+            auto-generated Patient IDs & WhatsApp confirmations.
           </p>
         </div>
         <Button
@@ -421,9 +462,9 @@ export default function AppointmentsPage() {
             setShowAddForm(!showAddForm);
             setShowEditForm(false);
           }}
-          className="bg-emerald-700 dark:bg-emerald-600 hover:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-bold cursor-pointer transition-all shadow-md shadow-emerald-600/10 self-start sm:self-auto"
+          className="cursor-pointer self-start bg-emerald-700 font-bold text-white shadow-md shadow-emerald-600/10 transition-all hover:bg-emerald-600 sm:self-auto dark:bg-emerald-600 dark:hover:bg-emerald-500"
         >
-          <Plus className="h-4 w-4 mr-2" /> Book Appointment
+          <Plus className="mr-2 h-4 w-4" /> Book Appointment
         </Button>
       </div>
 
@@ -431,10 +472,10 @@ export default function AppointmentsPage() {
       {showAddForm && (
         <form
           onSubmit={handleCreateAppointment}
-          className="bg-card border border-emerald-500/20 rounded-2xl p-6 space-y-6 max-w-3xl shadow-xl animate-in fade-in slide-in-from-top-4 duration-200"
+          className="bg-card animate-in fade-in slide-in-from-top-4 max-w-3xl space-y-6 rounded-2xl border border-emerald-500/20 p-6 shadow-xl duration-200"
         >
-          <div className="flex items-center justify-between border-b border-border pb-3">
-            <h3 className="font-extrabold text-foreground text-lg flex items-center gap-2">
+          <div className="border-border flex items-center justify-between border-b pb-3">
+            <h3 className="text-foreground flex items-center gap-2 text-lg font-extrabold">
               <Sparkles className="size-5 text-emerald-500" />
               Book Clinical Appointment
             </h3>
@@ -450,9 +491,10 @@ export default function AppointmentsPage() {
           </div>
 
           {/* Step 1: Mobile Number Search & Multi-Patient Detection */}
-          <div className="space-y-3 bg-muted/30 border border-border p-4 rounded-xl">
-            <Label className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
-              <Search className="size-3.5 text-emerald-500" /> Step 1: Enter Mobile Number or Search Existing Patient
+          <div className="bg-muted/30 border-border space-y-3 rounded-xl border p-4">
+            <Label className="text-foreground flex items-center gap-1.5 text-xs font-bold tracking-wider uppercase">
+              <Search className="size-3.5 text-emerald-500" /> Step 1: Enter
+              Mobile Number or Search Existing Patient
             </Label>
 
             <div className="flex gap-2">
@@ -468,38 +510,40 @@ export default function AppointmentsPage() {
                     }
                   }}
                   placeholder="Type Mobile Number (e.g. 9876543210)..."
-                  className="bg-background text-sm font-semibold pr-8"
+                  className="bg-background pr-8 text-sm font-semibold"
                   required={formConfig.phone?.required}
                 />
                 {searchingPatients && (
-                  <Loader2 className="size-4 animate-spin text-emerald-500 absolute right-2.5 top-3" />
+                  <Loader2 className="absolute top-3 right-2.5 size-4 animate-spin text-emerald-500" />
                 )}
               </div>
             </div>
 
             {/* Display Matching Patient Cards for Family Sharing */}
             {patientMatches.length > 0 && !selectedPatient && (
-              <div className="space-y-2 pt-2 animate-in fade-in duration-200">
-                <p className="text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                  <Users className="size-3.5" /> Multiple patient profiles found for this mobile number:
+              <div className="animate-in fade-in space-y-2 pt-2 duration-200">
+                <p className="flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400">
+                  <Users className="size-3.5" /> Multiple patient profiles found
+                  for this mobile number:
                 </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {patientMatches.map((p) => (
                     <div
                       key={p.id}
                       onClick={() => handleSelectExistingPatient(p)}
-                      className="p-3 rounded-lg border border-border bg-card hover:border-emerald-500/50 hover:bg-emerald-500/5 cursor-pointer transition-all space-y-1 group"
+                      className="border-border bg-card group cursor-pointer space-y-1 rounded-lg border p-3 transition-all hover:border-emerald-500/50 hover:bg-emerald-500/5"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="font-bold text-xs text-foreground group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
+                        <span className="text-foreground text-xs font-bold group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
                           {p.name}
                         </span>
-                        <span className="text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                        <span className="rounded border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
                           {p.patient_seq_id}
                         </span>
                       </div>
-                      <p className="text-[10px] text-muted-foreground">
-                        Phone: {p.phone} {p.gender ? `• ${p.gender}` : ''} {p.blood_group ? `• ${p.blood_group}` : ''}
+                      <p className="text-muted-foreground text-[10px]">
+                        Phone: {p.phone} {p.gender ? `• ${p.gender}` : ''}{' '}
+                        {p.blood_group ? `• ${p.blood_group}` : ''}
                       </p>
                     </div>
                   ))}
@@ -513,9 +557,11 @@ export default function AppointmentsPage() {
                     onClick={() => {
                       setSelectedPatient(null);
                       setCreateNewFamilyMember(true);
-                      toast.info("Registering new family member profile for this number.");
+                      toast.info(
+                        'Registering new family member profile for this number.'
+                      );
                     }}
-                    className="text-xs border-dashed border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 cursor-pointer"
+                    className="cursor-pointer border-dashed border-emerald-500/40 text-xs text-emerald-600 hover:bg-emerald-500/10 dark:text-emerald-400"
                   >
                     + Register New Family Member for this Number
                   </Button>
@@ -525,12 +571,16 @@ export default function AppointmentsPage() {
 
             {/* Selected Patient Banner */}
             {selectedPatient && (
-              <div className="flex items-center justify-between p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-xs text-emerald-800 dark:text-emerald-300">
+              <div className="flex items-center justify-between rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-800 dark:text-emerald-300">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="size-4 text-emerald-600 dark:text-emerald-400" />
                   <span>
-                    Selected Existing Patient: <strong>{selectedPatient.name}</strong> (
-                    <span className="font-mono font-bold">{selectedPatient.patient_seq_id}</span>)
+                    Selected Existing Patient:{' '}
+                    <strong>{selectedPatient.name}</strong> (
+                    <span className="font-mono font-bold">
+                      {selectedPatient.patient_seq_id}
+                    </span>
+                    )
                   </span>
                 </div>
                 <Button
@@ -538,7 +588,7 @@ export default function AppointmentsPage() {
                   variant="ghost"
                   size="sm"
                   onClick={() => setSelectedPatient(null)}
-                  className="h-6 text-[11px] text-muted-foreground hover:text-foreground"
+                  className="text-muted-foreground hover:text-foreground h-6 text-[11px]"
                 >
                   Change Patient
                 </Button>
@@ -548,16 +598,19 @@ export default function AppointmentsPage() {
 
           {/* Step 2: Patient & Clinical Information Fields (Configurable Rendering) */}
           <div className="space-y-4">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            <h4 className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
               Step 2: Patient & Consultation Details
             </h4>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               {/* Patient Name */}
               {formConfig.name?.show && (
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold">
-                    Patient Name {formConfig.name?.required && <span className="text-amber-500">*</span>}
+                    Patient Name{' '}
+                    {formConfig.name?.required && (
+                      <span className="text-amber-500">*</span>
+                    )}
                   </Label>
                   <Input
                     value={patientName}
@@ -573,7 +626,10 @@ export default function AppointmentsPage() {
               {formConfig.age?.show && (
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold">
-                    Age {formConfig.age?.required && <span className="text-amber-500">*</span>}
+                    Age{' '}
+                    {formConfig.age?.required && (
+                      <span className="text-amber-500">*</span>
+                    )}
                   </Label>
                   <Input
                     type="number"
@@ -590,13 +646,16 @@ export default function AppointmentsPage() {
               {formConfig.gender?.show && (
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold">
-                    Gender {formConfig.gender?.required && <span className="text-amber-500">*</span>}
+                    Gender{' '}
+                    {formConfig.gender?.required && (
+                      <span className="text-amber-500">*</span>
+                    )}
                   </Label>
                   <select
                     value={gender}
                     onChange={(e) => setGender(e.target.value)}
                     required={formConfig.gender?.required}
-                    className="w-full flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="border-input bg-background focus-visible:ring-ring flex h-9 w-full rounded-md border px-3 py-1 text-sm focus-visible:ring-2 focus-visible:outline-none"
                   >
                     <option value="">-- Select Gender --</option>
                     <option value="Male">Male</option>
@@ -610,7 +669,10 @@ export default function AppointmentsPage() {
               {formConfig.dob?.show && (
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold">
-                    Date of Birth {formConfig.dob?.required && <span className="text-amber-500">*</span>}
+                    Date of Birth{' '}
+                    {formConfig.dob?.required && (
+                      <span className="text-amber-500">*</span>
+                    )}
                   </Label>
                   <Input
                     type="date"
@@ -626,18 +688,25 @@ export default function AppointmentsPage() {
               {formConfig.blood_group?.show && (
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold">
-                    Blood Group {formConfig.blood_group?.required && <span className="text-amber-500">*</span>}
+                    Blood Group{' '}
+                    {formConfig.blood_group?.required && (
+                      <span className="text-amber-500">*</span>
+                    )}
                   </Label>
                   <select
                     value={bloodGroup}
                     onChange={(e) => setBloodGroup(e.target.value)}
                     required={formConfig.blood_group?.required}
-                    className="w-full flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="border-input bg-background focus-visible:ring-ring flex h-9 w-full rounded-md border px-3 py-1 text-sm focus-visible:ring-2 focus-visible:outline-none"
                   >
                     <option value="">-- Select Blood Group --</option>
-                    {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map((bg) => (
-                      <option key={bg} value={bg}>{bg}</option>
-                    ))}
+                    {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(
+                      (bg) => (
+                        <option key={bg} value={bg}>
+                          {bg}
+                        </option>
+                      )
+                    )}
                   </select>
                 </div>
               )}
@@ -646,13 +715,16 @@ export default function AppointmentsPage() {
               {formConfig.doctor_id?.show && (
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold">
-                    Attending Doctor {formConfig.doctor_id?.required && <span className="text-amber-500">*</span>}
+                    Attending Doctor{' '}
+                    {formConfig.doctor_id?.required && (
+                      <span className="text-amber-500">*</span>
+                    )}
                   </Label>
                   <select
                     value={doctorId}
                     onChange={(e) => setDoctorId(e.target.value)}
                     required={formConfig.doctor_id?.required}
-                    className="w-full flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="border-input bg-background focus-visible:ring-ring flex h-9 w-full rounded-md border px-3 py-1 text-sm focus-visible:ring-2 focus-visible:outline-none"
                   >
                     <option value="">-- Choose Doctor --</option>
                     {doctors.map((d) => (
@@ -668,7 +740,10 @@ export default function AppointmentsPage() {
               {formConfig.department?.show && (
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold">
-                    Clinical Department {formConfig.department?.required && <span className="text-amber-500">*</span>}
+                    Clinical Department{' '}
+                    {formConfig.department?.required && (
+                      <span className="text-amber-500">*</span>
+                    )}
                   </Label>
                   <Input
                     value={department}
@@ -684,7 +759,10 @@ export default function AppointmentsPage() {
               {formConfig.address?.show && (
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold">
-                    Address {formConfig.address?.required && <span className="text-amber-500">*</span>}
+                    Address{' '}
+                    {formConfig.address?.required && (
+                      <span className="text-amber-500">*</span>
+                    )}
                   </Label>
                   <Input
                     value={address}
@@ -700,7 +778,10 @@ export default function AppointmentsPage() {
               {formConfig.emergency_contact?.show && (
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold">
-                    Emergency Contact {formConfig.emergency_contact?.required && <span className="text-amber-500">*</span>}
+                    Emergency Contact{' '}
+                    {formConfig.emergency_contact?.required && (
+                      <span className="text-amber-500">*</span>
+                    )}
                   </Label>
                   <Input
                     value={emergencyContact}
@@ -714,7 +795,9 @@ export default function AppointmentsPage() {
 
               {/* Date & Time (Always Visible for Appointment) */}
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Appointment Date *</Label>
+                <Label className="text-xs font-semibold">
+                  Appointment Date *
+                </Label>
                 <Input
                   type="date"
                   value={date}
@@ -725,7 +808,9 @@ export default function AppointmentsPage() {
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Appointment Time *</Label>
+                <Label className="text-xs font-semibold">
+                  Appointment Time *
+                </Label>
                 <Input
                   type="time"
                   value={time}
@@ -739,7 +824,10 @@ export default function AppointmentsPage() {
               {formConfig.notes?.show && (
                 <div className="space-y-1.5 md:col-span-2">
                   <Label className="text-xs font-semibold">
-                    Special Instructions / Triage Notes {formConfig.notes?.required && <span className="text-amber-500">*</span>}
+                    Special Instructions / Triage Notes{' '}
+                    {formConfig.notes?.required && (
+                      <span className="text-amber-500">*</span>
+                    )}
                   </Label>
                   <Input
                     value={notes}
@@ -753,22 +841,26 @@ export default function AppointmentsPage() {
             </div>
           </div>
 
-          <div className="flex gap-2 justify-end pt-4 border-t border-border">
-            <Button type="button" variant="outline" onClick={() => setShowAddForm(false)}>
+          <div className="border-border flex justify-end gap-2 border-t pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowAddForm(false)}
+            >
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={saving}
-              className="bg-emerald-700 dark:bg-emerald-600 hover:bg-emerald-600 text-white font-bold cursor-pointer transition-all shadow-md shadow-emerald-600/10"
+              className="cursor-pointer bg-emerald-700 font-bold text-white shadow-md shadow-emerald-600/10 transition-all hover:bg-emerald-600 dark:bg-emerald-600"
             >
               {saving ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Booking Appointment...
                 </>
               ) : (
-                "Schedule & Generate Token"
+                'Schedule & Generate Token'
               )}
             </Button>
           </div>
@@ -776,40 +868,46 @@ export default function AppointmentsPage() {
       )}
 
       {/* Tabs */}
-      <div className="flex border-b border-border">
-        {(["upcoming", "queue", "completed", "cancelled"] as const).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 border-b-2 text-sm font-semibold capitalize transition-colors ${
-              activeTab === tab
-                ? "border-emerald-500 text-emerald-600 dark:text-emerald-400 font-bold"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {tab === "queue"
-              ? "Live Queue"
-              : tab === "upcoming"
-              ? "Upcoming Appointments"
-              : tab === "completed"
-              ? "Completed"
-              : "Cancelled / No Show"}
-          </button>
-        ))}
+      <div className="border-border flex border-b">
+        {(['upcoming', 'queue', 'completed', 'cancelled'] as const).map(
+          (tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`border-b-2 px-4 py-2 text-sm font-semibold capitalize transition-colors ${
+                activeTab === tab
+                  ? 'border-emerald-500 font-bold text-emerald-600 dark:text-emerald-400'
+                  : 'text-muted-foreground hover:text-foreground border-transparent'
+              }`}
+            >
+              {tab === 'queue'
+                ? 'Live Queue'
+                : tab === 'upcoming'
+                  ? 'Upcoming Appointments'
+                  : tab === 'completed'
+                    ? 'Completed'
+                    : 'Cancelled / No Show'}
+            </button>
+          )
+        )}
       </div>
 
       {/* Grid listing */}
       {displayAppointments.length === 0 ? (
-        <div className="border border-dashed border-border rounded-2xl p-12 text-center max-w-2xl mx-auto bg-card">
-          <CalendarIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-bold text-foreground">No appointments found</h3>
-          <p className="text-muted-foreground text-sm mt-1">There are no consultations matching this filter.</p>
+        <div className="border-border bg-card mx-auto max-w-2xl rounded-2xl border border-dashed p-12 text-center">
+          <CalendarIcon className="text-muted-foreground mx-auto mb-4 h-12 w-12" />
+          <h3 className="text-foreground text-lg font-bold">
+            No appointments found
+          </h3>
+          <p className="text-muted-foreground mt-1 text-sm">
+            There are no consultations matching this filter.
+          </p>
         </div>
       ) : (
-        <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+        <div className="bg-card border-border overflow-hidden rounded-2xl border shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left text-muted-foreground">
-              <thead className="text-xs uppercase bg-muted/50 border-b border-border text-foreground font-semibold">
+            <table className="text-muted-foreground w-full text-left text-sm">
+              <thead className="bg-muted/50 border-border text-foreground border-b text-xs font-semibold uppercase">
                 <tr>
                   <th className="px-6 py-4">Patient</th>
                   <th className="px-6 py-4">Booking ID</th>
@@ -820,62 +918,81 @@ export default function AppointmentsPage() {
                   <th className="px-6 py-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border text-foreground">
+              <tbody className="divide-border text-foreground divide-y">
                 {displayAppointments.map((appt) => (
-                  <tr key={appt.id} className="hover:bg-muted/30 transition-colors">
+                  <tr
+                    key={appt.id}
+                    className="hover:bg-muted/30 transition-colors"
+                  >
                     <td className="px-6 py-4 font-semibold">
                       <div className="flex items-center gap-2">
                         <User className="h-4.5 w-4.5 text-emerald-500" />
                         <div>
-                          <div className="text-foreground font-bold">{appt.patient?.name || "Unknown Patient"}</div>
-                          <div className="text-xs text-muted-foreground font-normal">{appt.patient?.phone}</div>
+                          <div className="text-foreground font-bold">
+                            {appt.patient?.name || 'Unknown Patient'}
+                          </div>
+                          <div className="text-muted-foreground text-xs font-normal">
+                            {appt.patient?.phone}
+                          </div>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 font-medium">
                       <div className="flex items-center gap-2">
-                        <UserCheck className="h-4.5 w-4.5 text-muted-foreground/70" />
+                        <UserCheck className="text-muted-foreground/70 h-4.5 w-4.5" />
                         <div>
-                          <div>{appt.doctor?.name || "Unassigned"}</div>
-                          <div className="text-xs text-muted-foreground font-normal">{appt.doctor?.specialization || appt.department}</div>
+                          <div>{appt.doctor?.name || 'Unassigned'}</div>
+                          <div className="text-muted-foreground text-xs font-normal">
+                            {appt.doctor?.specialization || appt.department}
+                          </div>
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       {appt.booking_id ? (
-                        <span className="inline-flex items-center gap-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider">{appt.booking_id}</span>
-                      ) : <span className="text-muted-foreground">—</span>}
+                        <span className="inline-flex items-center gap-1 rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-extrabold tracking-wider text-emerald-600 uppercase dark:text-emerald-400">
+                          {appt.booking_id}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </td>
-                    <td className="px-6 py-4 font-bold text-foreground/80">
-                      {appt.token_number ? `#${appt.token_number} (Pos: ${appt.queue_position})` : "—"}
+                    <td className="text-foreground/80 px-6 py-4 font-bold">
+                      {appt.token_number
+                        ? `#${appt.token_number} (Pos: ${appt.queue_position})`
+                        : '—'}
                     </td>
                     <td className="px-6 py-4 font-semibold text-emerald-600 dark:text-emerald-400">
                       <div className="flex items-center gap-1.5">
                         <Clock className="h-4 w-4" />
-                        <span>{appt.appointment_date} at {appt.appointment_time}</span>
+                        <span>
+                          {appt.appointment_date} at {appt.appointment_time}
+                        </span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${
-                        appt.status === "confirmed"
-                          ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
-                          : appt.status === "pending"
-                          ? "bg-amber-500/10 text-amber-500 border border-amber-500/20"
-                          : appt.status === "calling"
-                          ? "bg-blue-500/10 text-blue-500 animate-pulse border border-blue-500/20"
-                          : appt.status === "completed"
-                          ? "bg-indigo-500/10 text-indigo-500 border border-indigo-500/20"
-                          : "bg-red-500/10 text-red-500 border border-red-500/20"
-                      }`}>
+                      <span
+                        className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase ${
+                          appt.status === 'confirmed'
+                            ? 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-500'
+                            : appt.status === 'pending'
+                              ? 'border border-amber-500/20 bg-amber-500/10 text-amber-500'
+                              : appt.status === 'calling'
+                                ? 'animate-pulse border border-blue-500/20 bg-blue-500/10 text-blue-500'
+                                : appt.status === 'completed'
+                                  ? 'border border-indigo-500/20 bg-indigo-500/10 text-indigo-500'
+                                  : 'border border-red-500/20 bg-red-500/10 text-red-500'
+                        }`}
+                      >
                         {appt.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right space-x-1.5 flex justify-end items-center">
+                    <td className="flex items-center justify-end space-x-1.5 px-6 py-4 text-right">
                       <a
                         href={`/api/appointments/${appt.id}/pdf`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center justify-center rounded-md border border-border bg-card hover:bg-muted text-xs py-1.5 px-3 font-semibold text-foreground cursor-pointer transition-colors"
+                        className="border-border bg-card hover:bg-muted text-foreground inline-flex cursor-pointer items-center justify-center rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors"
                       >
                         PDF Slip
                       </a>
@@ -884,32 +1001,45 @@ export default function AppointmentsPage() {
                         size="sm"
                         variant="outline"
                         onClick={async () => {
-                          toast.info("Sending Watermarked OPD Ticket PDF to patient's WhatsApp...");
+                          toast.info(
+                            "Sending Watermarked OPD Ticket PDF to patient's WhatsApp..."
+                          );
                           try {
-                            const res = await fetch(`/api/appointments/${appt.id}/confirm`, { method: "POST" });
+                            const res = await fetch(
+                              `/api/appointments/${appt.id}/confirm`,
+                              { method: 'POST' }
+                            );
                             if (res.ok) {
-                              toast.success("OPD Ticket PDF sent to patient's WhatsApp!");
+                              toast.success(
+                                "OPD Ticket PDF sent to patient's WhatsApp!"
+                              );
                             } else {
                               const data = await res.json().catch(() => ({}));
-                              toast.error(data.error || "Failed to send ticket PDF");
+                              toast.error(
+                                data.error || 'Failed to send ticket PDF'
+                              );
                             }
                           } catch (e: any) {
-                            toast.error("Error sending ticket PDF: " + e.message);
+                            toast.error(
+                              'Error sending ticket PDF: ' + e.message
+                            );
                           }
                         }}
-                        className="bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 text-xs py-1.5 px-2.5 font-semibold cursor-pointer"
+                        className="cursor-pointer border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-semibold text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400"
                       >
                         Send Ticket PDF
                       </Button>
 
-                      {activeTab === "queue" && (
+                      {activeTab === 'queue' && (
                         <>
-                          {appt.status !== "calling" && (
+                          {appt.status !== 'calling' && (
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => handleUpdateStatus(appt.id, "calling")}
-                              className="bg-blue-500/10 border-blue-500/20 text-blue-500 hover:bg-blue-500/20 text-xs py-1 px-2.5 cursor-pointer"
+                              onClick={() =>
+                                handleUpdateStatus(appt.id, 'calling')
+                              }
+                              className="cursor-pointer border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-xs text-blue-500 hover:bg-blue-500/20"
                             >
                               Call Token
                             </Button>
@@ -917,54 +1047,65 @@ export default function AppointmentsPage() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => handleUpdateStatus(appt.id, "completed")}
-                            className="bg-emerald-500/10 border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20 text-xs py-1 px-2.5 cursor-pointer"
+                            onClick={() =>
+                              handleUpdateStatus(appt.id, 'completed')
+                            }
+                            className="cursor-pointer border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-xs text-emerald-500 hover:bg-emerald-500/20"
                           >
                             Complete
                           </Button>
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => handleUpdateStatus(appt.id, "cancelled")}
-                            className="bg-red-500/10 border-red-500/20 text-red-500 hover:bg-red-500/20 text-xs py-1 px-2.5 cursor-pointer"
+                            onClick={() =>
+                              handleUpdateStatus(appt.id, 'cancelled')
+                            }
+                            className="cursor-pointer border-red-500/20 bg-red-500/10 px-2.5 py-1 text-xs text-red-500 hover:bg-red-500/20"
                           >
                             Skip
                           </Button>
                         </>
                       )}
 
-                      {activeTab !== "queue" && (
+                      {activeTab !== 'queue' && (
                         <>
-                          {appt.status === "pending" && (
+                          {appt.status === 'pending' && (
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => handleUpdateStatus(appt.id, "confirmed")}
-                              className="bg-emerald-500/10 border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20 text-xs py-1 px-2.5 cursor-pointer"
+                              onClick={() =>
+                                handleUpdateStatus(appt.id, 'confirmed')
+                              }
+                              className="cursor-pointer border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-xs text-emerald-500 hover:bg-emerald-500/20"
                             >
                               Confirm
                             </Button>
                           )}
-                          {appt.status === "confirmed" && (
+                          {appt.status === 'confirmed' && (
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => handleUpdateStatus(appt.id, "completed")}
-                              className="bg-indigo-500/10 border-indigo-500/20 text-indigo-500 hover:bg-indigo-500/20 text-xs py-1 px-2.5 cursor-pointer"
+                              onClick={() =>
+                                handleUpdateStatus(appt.id, 'completed')
+                              }
+                              className="cursor-pointer border-indigo-500/20 bg-indigo-500/10 px-2.5 py-1 text-xs text-indigo-500 hover:bg-indigo-500/20"
                             >
                               Complete
                             </Button>
                           )}
-                          {appt.status !== "cancelled" && appt.status !== "completed" && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleUpdateStatus(appt.id, "cancelled")}
-                              className="bg-red-500/10 border-red-500/20 text-red-500 hover:bg-red-500/20 text-xs py-1 px-2.5 cursor-pointer"
-                            >
-                              Cancel
-                            </Button>
-                          )}
+                          {appt.status !== 'cancelled' &&
+                            appt.status !== 'completed' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  handleUpdateStatus(appt.id, 'cancelled')
+                                }
+                                className="cursor-pointer border-red-500/20 bg-red-500/10 px-2.5 py-1 text-xs text-red-500 hover:bg-red-500/20"
+                              >
+                                Cancel
+                              </Button>
+                            )}
                         </>
                       )}
                     </td>

@@ -34,10 +34,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import {
-  getBroadcastStatus,
-  getRecipientStatus,
-} from '@/lib/broadcast-status';
+import { getBroadcastStatus, getRecipientStatus } from '@/lib/broadcast-status';
 
 interface StatCardProps {
   label: string;
@@ -50,15 +47,19 @@ interface StatCardProps {
 function StatCard({ label, value, total, icon, color }: StatCardProps) {
   const pct = total > 0 ? Math.round((value / total) * 100) : 0;
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
+    <div className="border-border bg-card rounded-xl border p-4">
       <div className="flex items-center justify-between">
-        <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${color}`}>
+        <div
+          className={`flex h-8 w-8 items-center justify-center rounded-lg ${color}`}
+        >
           {icon}
         </div>
-        <span className="text-xs text-muted-foreground">{pct}%</span>
+        <span className="text-muted-foreground text-xs">{pct}%</span>
       </div>
-      <p className="mt-3 text-2xl font-bold text-foreground">{value.toLocaleString()}</p>
-      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="text-foreground mt-3 text-2xl font-bold">
+        {value.toLocaleString()}
+      </p>
+      <p className="text-muted-foreground text-xs">{label}</p>
     </div>
   );
 }
@@ -77,8 +78,8 @@ interface FunnelStep {
 function FunnelChart({ steps }: { steps: FunnelStep[] }) {
   const max = Math.max(...steps.map((s) => s.value), 1);
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
-      <h3 className="mb-4 text-sm font-medium text-foreground">Funnel</h3>
+    <div className="border-border bg-card rounded-xl border p-4">
+      <h3 className="text-foreground mb-4 text-sm font-medium">Funnel</h3>
       <div className="space-y-2">
         {steps.map((step) => {
           const pctOfMax = Math.max(5, Math.round((step.value / max) * 100));
@@ -88,17 +89,17 @@ function FunnelChart({ steps }: { steps: FunnelStep[] }) {
               : 0;
           return (
             <div key={step.label} className="flex items-center gap-3">
-              <span className="w-20 shrink-0 text-xs text-muted-foreground">
+              <span className="text-muted-foreground w-20 shrink-0 text-xs">
                 {step.label}
               </span>
-              <div className="relative h-7 flex-1 rounded-full bg-muted">
+              <div className="bg-muted relative h-7 flex-1 rounded-full">
                 <div
                   className={`h-7 rounded-full ${step.color} transition-[width] duration-500`}
                   style={{ width: `${pctOfMax}%` }}
                 />
-                <span className="absolute inset-0 flex items-center px-3 text-xs font-medium text-foreground">
+                <span className="text-foreground absolute inset-0 flex items-center px-3 text-xs font-medium">
                   {step.value.toLocaleString()}
-                  <span className="ml-2 text-muted-foreground/80">
+                  <span className="text-muted-foreground/80 ml-2">
                     ({pctOfSent}%)
                   </span>
                 </span>
@@ -151,7 +152,7 @@ export default function BroadcastDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<RecipientStatus | 'all'>(
-    'all',
+    'all'
   );
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -179,7 +180,9 @@ export default function BroadcastDetailPage() {
         if (recsError) throw recsError;
         setRecipients(recs ?? []);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load broadcast');
+        setError(
+          err instanceof Error ? err.message : 'Failed to load broadcast'
+        );
       } finally {
         setLoading(false);
       }
@@ -193,7 +196,7 @@ export default function BroadcastDetailPage() {
       statusFilter === 'all'
         ? recipients
         : recipients.filter((r) => r.status === statusFilter),
-    [recipients, statusFilter],
+    [recipients, statusFilter]
   );
 
   function handleExport() {
@@ -219,7 +222,9 @@ export default function BroadcastDetailPage() {
       r.error_message ?? '',
     ]);
     const csv = toCsv([header, ...rows]);
-    const safeName = broadcast.name.replace(/[^a-z0-9-_]+/gi, '-').toLowerCase();
+    const safeName = broadcast.name
+      .replace(/[^a-z0-9-_]+/gi, '-')
+      .toLowerCase();
     downloadBlob(`broadcast-${safeName}-${broadcastId.slice(0, 8)}.csv`, csv);
   }
 
@@ -246,7 +251,7 @@ export default function BroadcastDetailPage() {
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        <Loader2 className="text-primary h-6 w-6 animate-spin" />
       </div>
     );
   }
@@ -266,9 +271,17 @@ export default function BroadcastDetailPage() {
 
   const funnelSteps: FunnelStep[] = [
     { label: 'Sent', value: broadcast.sent_count, color: 'bg-primary' },
-    { label: 'Delivered', value: broadcast.delivered_count, color: 'bg-teal-500' },
+    {
+      label: 'Delivered',
+      value: broadcast.delivered_count,
+      color: 'bg-teal-500',
+    },
     { label: 'Read', value: broadcast.read_count, color: 'bg-blue-500' },
-    { label: 'Replied', value: broadcast.replied_count, color: 'bg-indigo-500' },
+    {
+      label: 'Replied',
+      value: broadcast.replied_count,
+      color: 'bg-indigo-500',
+    },
   ];
 
   return (
@@ -286,14 +299,16 @@ export default function BroadcastDetailPage() {
           </Button>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-foreground">{broadcast.name}</h1>
+              <h1 className="text-foreground text-2xl font-bold">
+                {broadcast.name}
+              </h1>
               <span
                 className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${status.classes}`}
               >
                 {status.label}
               </span>
             </div>
-            <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
+            <div className="text-muted-foreground mt-1 flex items-center gap-3 text-sm">
               <span>Template: {broadcast.template_name}</span>
               <span>-</span>
               <span>
@@ -315,7 +330,7 @@ export default function BroadcastDetailPage() {
               size="sm"
               onClick={() => setConfirmDelete(false)}
               disabled={deleting}
-              className="h-7 border-border bg-transparent text-muted-foreground hover:bg-muted"
+              className="border-border text-muted-foreground hover:bg-muted h-7 bg-transparent"
             >
               Cancel
             </Button>
@@ -396,9 +411,9 @@ export default function BroadcastDetailPage() {
       <FunnelChart steps={funnelSteps} />
 
       {/* Recipients Table */}
-      <div className="rounded-xl border border-border bg-card">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
-          <h2 className="text-sm font-medium text-foreground">
+      <div className="border-border bg-card rounded-xl border">
+        <div className="border-border flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
+          <h2 className="text-foreground text-sm font-medium">
             Recipients ({filteredRecipients.length}
             {statusFilter !== 'all' ? ` of ${recipients.length}` : ''})
           </h2>
@@ -423,7 +438,9 @@ export default function BroadcastDetailPage() {
                 <DropdownMenuItem
                   onClick={() => setStatusFilter('all')}
                   className={
-                    statusFilter === 'all' ? 'text-primary' : 'text-popover-foreground'
+                    statusFilter === 'all'
+                      ? 'text-primary'
+                      : 'text-popover-foreground'
                   }
                 >
                   All statuses
@@ -459,7 +476,7 @@ export default function BroadcastDetailPage() {
 
         {filteredRecipients.length === 0 ? (
           <div className="flex h-32 items-center justify-center">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-muted-foreground text-sm">
               {recipients.length === 0
                 ? 'No recipients found.'
                 : 'No recipients match this filter.'}
@@ -470,11 +487,17 @@ export default function BroadcastDetailPage() {
             <Table>
               <TableHeader>
                 <TableRow className="border-border hover:bg-transparent">
-                  <TableHead className="text-muted-foreground">Contact</TableHead>
+                  <TableHead className="text-muted-foreground">
+                    Contact
+                  </TableHead>
                   <TableHead className="text-muted-foreground">Phone</TableHead>
-                  <TableHead className="text-muted-foreground">Status</TableHead>
+                  <TableHead className="text-muted-foreground">
+                    Status
+                  </TableHead>
                   <TableHead className="text-muted-foreground">Sent</TableHead>
-                  <TableHead className="text-muted-foreground">Delivered</TableHead>
+                  <TableHead className="text-muted-foreground">
+                    Delivered
+                  </TableHead>
                   <TableHead className="text-muted-foreground">Read</TableHead>
                   <TableHead className="text-muted-foreground">Error</TableHead>
                 </TableRow>
@@ -484,7 +507,7 @@ export default function BroadcastDetailPage() {
                   const rStatus = getRecipientStatus(recipient.status);
                   return (
                     <TableRow key={recipient.id} className="border-border">
-                      <TableCell className="font-medium text-foreground">
+                      <TableCell className="text-foreground font-medium">
                         {recipient.contact?.name ?? 'Unknown'}
                       </TableCell>
                       <TableCell className="text-muted-foreground">

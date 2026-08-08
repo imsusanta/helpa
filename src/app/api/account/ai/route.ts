@@ -1,39 +1,50 @@
-import { NextResponse } from 'next/server'
-import { requireRole } from '@/lib/auth/account'
-import { supabaseAdmin } from '@/lib/automations/admin-client'
-import { encrypt } from '@/lib/whatsapp/encryption'
-import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit'
-import { resolveSystemPrompt } from '@/modules/registry'
+import { NextResponse } from 'next/server';
+import { requireRole } from '@/lib/auth/account';
+import { supabaseAdmin } from '@/lib/automations/admin-client';
+import { encrypt } from '@/lib/whatsapp/encryption';
+import {
+  checkRateLimit,
+  rateLimitResponse,
+  RATE_LIMITS,
+} from '@/lib/rate-limit';
+import { resolveSystemPrompt } from '@/modules/registry';
 
 export async function GET() {
   try {
-    const ctx = await requireRole('admin')
-    const db = supabaseAdmin()
+    const ctx = await requireRole('admin');
+    const db = supabaseAdmin();
 
-    let account: any = null
+    let account: any = null;
     let { data, error } = await db
       .from('accounts')
-      .select('name, openrouter_model, openrouter_api_key, ai_system_prompt, welcome_message, industry')
+      .select(
+        'name, openrouter_model, openrouter_api_key, ai_system_prompt, welcome_message, industry'
+      )
       .eq('id', ctx.accountId)
-      .single()
+      .single();
 
     if (error && error.message?.includes('welcome_message')) {
       // Fallback query if welcome_message column is not yet in PostgREST schema cache
       const fallback = await db
         .from('accounts')
-        .select('name, openrouter_model, openrouter_api_key, ai_system_prompt, industry')
+        .select(
+          'name, openrouter_model, openrouter_api_key, ai_system_prompt, industry'
+        )
         .eq('id', ctx.accountId)
-        .single()
-      data = fallback.data as any
-      error = fallback.error
+        .single();
+      data = fallback.data as any;
+      error = fallback.error;
     }
 
     if (error) {
-      console.error('[GET /api/account/ai] fetch error:', error)
-      return NextResponse.json({ error: 'Failed to fetch AI configuration: ' + error.message }, { status: 500 })
+      console.error('[GET /api/account/ai] fetch error:', error);
+      return NextResponse.json(
+        { error: 'Failed to fetch AI configuration: ' + error.message },
+        { status: 500 }
+      );
     }
 
-    account = data
+    account = data;
 
     return NextResponse.json({
       account_name: account?.name || '',
@@ -41,87 +52,104 @@ export async function GET() {
       has_api_key: !!account?.openrouter_api_key,
       ai_system_prompt: resolveSystemPrompt(
         account?.industry,
-        account?.ai_system_prompt,
+        account?.ai_system_prompt
       ),
       welcome_message: account?.welcome_message || '',
-    })
+    });
   } catch (err: any) {
-    console.error('[GET /api/account/ai] exception:', err)
+    console.error('[GET /api/account/ai] exception:', err);
     return NextResponse.json(
       { error: err?.message || 'Failed to fetch AI configuration' },
       { status: err?.status || 500 }
-    )
+    );
   }
 }
 
 export async function PATCH(request: Request) {
   try {
-    const ctx = await requireRole('admin')
+    const ctx = await requireRole('admin');
 
-    const limit = checkRateLimit(`admin:ai-config:${ctx.userId}`, RATE_LIMITS.adminAction)
-    if (!limit.success) return rateLimitResponse(limit)
+    const limit = checkRateLimit(
+      `admin:ai-config:${ctx.userId}`,
+      RATE_LIMITS.adminAction
+    );
+    if (!limit.success) return rateLimitResponse(limit);
 
-    const body = await request.json().catch(() => null)
-    const openrouter_api_key = body?.openrouter_api_key
-    const openrouter_model = body?.openrouter_model
-    const ai_system_prompt = body?.ai_system_prompt
-    const welcome_message = body?.welcome_message
+    const body = await request.json().catch(() => null);
+    const openrouter_api_key = body?.openrouter_api_key;
+    const openrouter_model = body?.openrouter_model;
+    const ai_system_prompt = body?.ai_system_prompt;
+    const welcome_message = body?.welcome_message;
 
-    const updates: Record<string, unknown> = {}
+    const updates: Record<string, unknown> = {};
 
     if (typeof openrouter_model === 'string') {
-      updates.openrouter_model = openrouter_model.trim()
+      updates.openrouter_model = openrouter_model.trim();
     }
 
     if (typeof openrouter_api_key === 'string') {
-      const keyTrimmed = openrouter_api_key.trim()
+      const keyTrimmed = openrouter_api_key.trim();
       if (keyTrimmed.length > 0) {
-        updates.openrouter_api_key = encrypt(keyTrimmed)
+        updates.openrouter_api_key = encrypt(keyTrimmed);
       } else if (openrouter_api_key === '') {
-        updates.openrouter_api_key = null
+        updates.openrouter_api_key = null;
       }
     }
 
     if (typeof ai_system_prompt === 'string') {
-      updates.ai_system_prompt = ai_system_prompt.trim()
+      updates.ai_system_prompt = ai_system_prompt.trim();
     }
 
     if (typeof welcome_message === 'string') {
-      updates.welcome_message = welcome_message.trim()
+      updates.welcome_message = welcome_message.trim();
     }
 
     if (Object.keys(updates).length === 0) {
-      return NextResponse.json({ error: 'No valid fields provided to update' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'No valid fields provided to update' },
+        { status: 400 }
+      );
     }
 
-    const db = supabaseAdmin()
+    const db = supabaseAdmin();
     let { data, error } = await db
       .from('accounts')
       .update(updates)
       .eq('id', ctx.accountId)
-      .select('name, openrouter_model, openrouter_api_key, ai_system_prompt, welcome_message, industry')
-      .single()
+      .select(
+        'name, openrouter_model, openrouter_api_key, ai_system_prompt, welcome_message, industry'
+      )
+      .single();
 
     // If welcome_message is not in PostgREST schema cache yet, retry without welcome_message
-    if (error && (error.message?.includes('welcome_message') || error.message?.includes('schema cache'))) {
-      delete updates.welcome_message
+    if (
+      error &&
+      (error.message?.includes('welcome_message') ||
+        error.message?.includes('schema cache'))
+    ) {
+      delete updates.welcome_message;
       if (Object.keys(updates).length > 0) {
         const retry = await db
           .from('accounts')
           .update(updates)
           .eq('id', ctx.accountId)
-          .select('name, openrouter_model, openrouter_api_key, ai_system_prompt, industry')
-          .single()
-        data = retry.data as any
-        error = retry.error
+          .select(
+            'name, openrouter_model, openrouter_api_key, ai_system_prompt, industry'
+          )
+          .single();
+        data = retry.data as any;
+        error = retry.error;
       } else {
-        error = null
+        error = null;
       }
     }
 
     if (error) {
-      console.error('[PATCH /api/account/ai] update error:', error)
-      return NextResponse.json({ error: 'Failed to update AI configuration: ' + error.message }, { status: 500 })
+      console.error('[PATCH /api/account/ai] update error:', error);
+      return NextResponse.json(
+        { error: 'Failed to update AI configuration: ' + error.message },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({
@@ -130,15 +158,15 @@ export async function PATCH(request: Request) {
       has_api_key: !!data?.openrouter_api_key,
       ai_system_prompt: resolveSystemPrompt(
         data?.industry,
-        data?.ai_system_prompt,
+        data?.ai_system_prompt
       ),
       welcome_message: data?.welcome_message || '',
-    })
+    });
   } catch (err: any) {
-    console.error('[PATCH /api/account/ai] exception:', err)
+    console.error('[PATCH /api/account/ai] exception:', err);
     return NextResponse.json(
       { error: err?.message || 'Failed to update AI configuration' },
       { status: err?.status || 500 }
-    )
+    );
   }
 }

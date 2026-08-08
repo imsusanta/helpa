@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import {
   createContext,
@@ -8,17 +8,17 @@ import {
   useCallback,
   useMemo,
   type ReactNode,
-} from "react";
-import { createClient } from "@/lib/supabase/client";
-import type { User } from "@supabase/supabase-js";
-import { DEFAULT_CURRENCY } from "@/lib/currency";
+} from 'react';
+import { createClient } from '@/lib/supabase/client';
+import type { User } from '@supabase/supabase-js';
+import { DEFAULT_CURRENCY } from '@/lib/currency';
 import {
   canEditSettings as canEditSettingsFor,
   canManageMembers as canManageMembersFor,
   canSendMessages as canSendMessagesFor,
   isAccountRole,
   type AccountRole,
-} from "@/lib/auth/roles";
+} from '@/lib/auth/roles';
 
 interface Profile {
   id: string;
@@ -135,22 +135,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const supabase = createClient();
       const { data, error } = await supabase
-        .from("tenant_modules")
-        .select("module_key")
-        .eq("account_id", acctId)
-        .eq("enabled", true);
+        .from('tenant_modules')
+        .select('module_key')
+        .eq('account_id', acctId)
+        .eq('enabled', true);
 
       if (error) {
-        console.error("[AuthProvider] Failed to fetch tenant modules:", error);
+        console.error('[AuthProvider] Failed to fetch tenant modules:', error);
         return;
       }
       const keys = (data || []).map((row) => row.module_key);
-      if (!keys.includes("hospital_clinic")) {
-        keys.push("hospital_clinic");
+      if (!keys.includes('hospital_clinic')) {
+        keys.push('hospital_clinic');
       }
       setEnabledModules(keys);
     } catch (err) {
-      console.error("[AuthProvider] Error fetching modules:", err);
+      console.error('[AuthProvider] Error fetching modules:', err);
     }
   }, []);
 
@@ -162,20 +162,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfileLoading(true);
     try {
       const { data, error } = await supabase
-        .from("profiles")
+        .from('profiles')
         .select(
           // `account:accounts!inner(id, name)` — explicit join on the
           // FK profiles.account_id → accounts.id. `!inner` so a
           // missing account collapses to null rather than a half-
           // populated row (shouldn't happen post-017 NOT NULL, but
           // belt-and-braces against forks running older schemas).
-          "id, full_name, email, avatar_url, role, beta_features, account_id, account_role, is_super_admin, account:accounts!inner(id, name, default_currency, industry, logo, status)",
+          'id, full_name, email, avatar_url, role, beta_features, account_id, account_role, is_super_admin, account:accounts!inner(id, name, default_currency, industry, logo, status)'
         )
-        .eq("user_id", userId)
+        .eq('user_id', userId)
         .maybeSingle();
 
       if (error) {
-        console.error("[AuthProvider] fetchProfile error:", {
+        console.error('[AuthProvider] fetchProfile error:', {
           message: error.message,
           details: error.details,
           hint: error.hint,
@@ -190,7 +190,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // the schema's inferred cardinality — normalise to the object
         // form before reading.
         const accountRaw = Array.isArray(data.account)
-          ? data.account[0] ?? null
+          ? (data.account[0] ?? null)
           : (data.account as {
               id: string;
               name: string;
@@ -239,7 +239,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
     } catch (err) {
-      console.error("[AuthProvider] fetchProfile threw:", err);
+      console.error('[AuthProvider] fetchProfile threw:', err);
     } finally {
       setProfileLoading(false);
     }
@@ -251,7 +251,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const safetyTimer = setTimeout(() => {
       if (mounted) {
-        console.warn("[AuthProvider] getSession() timed out after 3s");
+        console.warn('[AuthProvider] getSession() timed out after 3s');
         setLoading(false);
         setProfileLoading(false);
       }
@@ -264,7 +264,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           error,
         } = await supabase.auth.getSession();
 
-        if (error) console.error("[AuthProvider] getSession error:", error.message);
+        if (error)
+          console.error('[AuthProvider] getSession error:', error.message);
 
         if (!mounted) return;
         const currentUser = session?.user ?? null;
@@ -283,7 +284,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setProfileLoading(false);
         }
       } catch (err) {
-        console.error("[AuthProvider] init threw:", err);
+        console.error('[AuthProvider] init threw:', err);
       } finally {
         if (mounted) setLoading(false);
         clearTimeout(safetyTimer);
@@ -323,7 +324,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setProfile(null);
     setAccount(null);
-    window.location.href = "/login";
+    window.location.href = '/login';
   }, []);
 
   const refreshProfile = useCallback(async () => {
@@ -345,10 +346,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return {
       accountRole: role,
       accountId: profile?.account_id ?? null,
-      isOwner: role === "owner",
-      isAdmin: role === "admin",
-      isAgent: role === "agent",
-      isViewer: role === "viewer",
+      isOwner: role === 'owner',
+      isAdmin: role === 'admin',
+      isAgent: role === 'agent',
+      isViewer: role === 'viewer',
       canManageMembers: role ? canManageMembersFor(role) : false,
       canEditSettings: role ? canEditSettingsFor(role) : false,
       canSendMessages: role ? canSendMessagesFor(role) : false,
@@ -394,7 +395,7 @@ export function useAuth(): AuthContextValue {
       loading: false,
       profileLoading: false,
       signOut: async () => {
-        window.location.href = "/login";
+        window.location.href = '/login';
       },
       refreshProfile: async () => {},
       refreshModules: async () => {},

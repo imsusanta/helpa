@@ -1,158 +1,196 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
-import { engineSendText, engineSendDocument } from '@/lib/automations/meta-send';
+import {
+  engineSendText,
+  engineSendDocument,
+} from '@/lib/automations/meta-send';
 import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
 
-async function generatePdfBuffer(appt: any, hospitalName: string, patientSeqId: string, ticketSerial: string): Promise<Buffer> {
+async function generatePdfBuffer(
+  appt: any,
+  hospitalName: string,
+  patientSeqId: string,
+  ticketSerial: string
+): Promise<Buffer> {
   const patient = appt.patient as any;
   const doctor = appt.doctor as any;
-  const bookingId = appt.booking_id || `APT-2026-${appt.id.slice(0, 5).toUpperCase()}`;
+  const bookingId =
+    appt.booking_id || `APT-2026-${appt.id.slice(0, 5).toUpperCase()}`;
   const tokenNum = appt.token_number || 1;
   const queuePos = appt.queue_position || 1;
 
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
   // Watermark
   try {
     doc.saveGraphicsState();
     doc.setTextColor(225, 231, 239);
-    doc.setFont("helvetica", "bold");
+    doc.setFont('helvetica', 'bold');
     doc.setFontSize(hospitalName.length > 25 ? 24 : 32);
-    doc.text(hospitalName.toUpperCase(), 105, 145, { align: "center", angle: 45 });
+    doc.text(hospitalName.toUpperCase(), 105, 145, {
+      align: 'center',
+      angle: 45,
+    });
     doc.restoreGraphicsState();
   } catch (wmErr) {
-    console.warn("Watermark error:", wmErr);
+    console.warn('Watermark error:', wmErr);
   }
 
   // Header Banner
   doc.setFillColor(15, 23, 42);
-  doc.rect(0, 0, 210, 42, "F");
+  doc.rect(0, 0, 210, 42, 'F');
 
   doc.setTextColor(255, 255, 255);
-  doc.setFont("helvetica", "bold");
+  doc.setFont('helvetica', 'bold');
   doc.setFontSize(hospitalName.length > 22 ? 16 : 20);
   doc.text(hospitalName.toUpperCase(), 15, 18);
 
-  doc.setFont("helvetica", "normal");
+  doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
   doc.setTextColor(203, 213, 225);
-  doc.text("OFFICIAL OPD CONSULTATION TICKET & QUEUE TOKEN SLIP", 15, 26);
-  doc.text("WhatsApp Helpline & Digital Reception Desk", 15, 32);
+  doc.text('OFFICIAL OPD CONSULTATION TICKET & QUEUE TOKEN SLIP', 15, 26);
+  doc.text('WhatsApp Helpline & Digital Reception Desk', 15, 32);
 
   // Emerald Stripe
   doc.setFillColor(16, 185, 129);
-  doc.rect(0, 42, 210, 2.5, "F");
+  doc.rect(0, 42, 210, 2.5, 'F');
 
   // Booking Ref
   doc.setFillColor(241, 245, 249);
-  doc.rect(15, 52, 180, 22, "F");
+  doc.rect(15, 52, 180, 22, 'F');
 
   doc.setTextColor(51, 65, 85);
-  doc.setFont("helvetica", "bold");
+  doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.text(`BOOKING REF: ${bookingId}`, 20, 60);
   doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
-  doc.text(`TICKET SERIAL: ${ticketSerial}   |   ISSUED: ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`, 20, 67);
+  doc.setFont('helvetica', 'normal');
+  doc.text(
+    `TICKET SERIAL: ${ticketSerial}   |   ISSUED: ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`,
+    20,
+    67
+  );
 
   // Badge
   doc.setFillColor(16, 185, 129);
-  doc.rect(142, 56, 45, 9, "F");
+  doc.rect(142, 56, 45, 9, 'F');
   doc.setTextColor(255, 255, 255);
-  doc.setFont("helvetica", "bold");
+  doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
-  doc.text("CONFIRMED", 150, 62);
+  doc.text('CONFIRMED', 150, 62);
 
   // Token Spotlight Card
   doc.setFillColor(236, 253, 245);
   doc.setDrawColor(167, 243, 208);
-  doc.rect(15, 82, 180, 46, "FD");
+  doc.rect(15, 82, 180, 46, 'FD');
 
   doc.setTextColor(6, 95, 70);
-  doc.setFont("helvetica", "bold");
+  doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
-  doc.text("YOUR OPD CONSULTATION TICKET NUMBER", 25, 93);
+  doc.text('YOUR OPD CONSULTATION TICKET NUMBER', 25, 93);
 
   doc.setFontSize(40);
   doc.setTextColor(5, 150, 105);
   doc.text(`TOKEN #${tokenNum}`, 25, 117);
 
   doc.setFontSize(11);
-  doc.setFont("helvetica", "bold");
+  doc.setFont('helvetica', 'bold');
   doc.setTextColor(30, 41, 59);
   doc.text(`Queue Position: #${queuePos}`, 110, 98);
 
   doc.setFontSize(9.5);
-  doc.setFont("helvetica", "normal");
+  doc.setFont('helvetica', 'normal');
   doc.setTextColor(71, 85, 105);
   doc.text(`Patient ID: ${patientSeqId}`, 110, 105);
-  doc.text("Status: Verified Active Ticket", 110, 112);
-  doc.text("Est. Waiting Time: ~10-15 mins", 110, 119);
+  doc.text('Status: Verified Active Ticket', 110, 112);
+  doc.text('Est. Waiting Time: ~10-15 mins', 110, 119);
 
   // Details Grids
   doc.setFillColor(248, 250, 252);
   doc.setDrawColor(226, 232, 240);
-  doc.rect(15, 136, 86, 52, "FD");
+  doc.rect(15, 136, 86, 52, 'FD');
 
   doc.setTextColor(15, 23, 42);
-  doc.setFont("helvetica", "bold");
+  doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
-  doc.text("PATIENT DETAILS", 22, 145);
+  doc.text('PATIENT DETAILS', 22, 145);
   doc.line(22, 147, 93, 147);
 
-  doc.setFont("helvetica", "normal");
+  doc.setFont('helvetica', 'normal');
   doc.setFontSize(9.5);
   doc.setTextColor(51, 65, 85);
-  doc.text(`Name: ${patient?.name || "Patient"}`, 22, 156);
+  doc.text(`Name: ${patient?.name || 'Patient'}`, 22, 156);
   doc.text(`Patient ID: ${patientSeqId}`, 22, 163);
-  doc.text(`Mobile: ${patient?.phone || "N/A"}`, 22, 170);
-  doc.text(`Email: ${patient?.email || "N/A"}`, 22, 177);
+  doc.text(`Mobile: ${patient?.phone || 'N/A'}`, 22, 170);
+  doc.text(`Email: ${patient?.email || 'N/A'}`, 22, 177);
 
   doc.setFillColor(248, 250, 252);
   doc.setDrawColor(226, 232, 240);
-  doc.rect(109, 136, 86, 52, "FD");
+  doc.rect(109, 136, 86, 52, 'FD');
 
   doc.setTextColor(15, 23, 42);
-  doc.setFont("helvetica", "bold");
+  doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
-  doc.text("CONSULTATION DETAILS", 116, 145);
+  doc.text('CONSULTATION DETAILS', 116, 145);
   doc.line(116, 147, 187, 147);
 
-  doc.setFont("helvetica", "normal");
+  doc.setFont('helvetica', 'normal');
   doc.setFontSize(9.5);
   doc.setTextColor(51, 65, 85);
-  const doctorName = doctor?.name ? (doctor.name.startsWith("Dr.") ? doctor.name : `Dr. ${doctor.name}`) : "On-Duty Consultant";
+  const doctorName = doctor?.name
+    ? doctor.name.startsWith('Dr.')
+      ? doctor.name
+      : `Dr. ${doctor.name}`
+    : 'On-Duty Consultant';
   doc.text(`Doctor: ${doctorName}`, 116, 156);
-  doc.text(`Department: ${appt.department || "General OPD"}`, 116, 163);
+  doc.text(`Department: ${appt.department || 'General OPD'}`, 116, 163);
   doc.text(`Date: ${appt.appointment_date}`, 116, 170);
   doc.text(`Time Slot: ${appt.appointment_time}`, 116, 177);
 
   // Instructions Box
   doc.setFillColor(254, 243, 199);
   doc.setDrawColor(252, 211, 77);
-  doc.rect(15, 196, 180, 24, "FD");
+  doc.rect(15, 196, 180, 24, 'FD');
   doc.setTextColor(146, 64, 14);
-  doc.setFont("helvetica", "bold");
+  doc.setFont('helvetica', 'bold');
   doc.setFontSize(9.5);
-  doc.text(`IMPORTANT ${hospitalName.toUpperCase()} RECEPTION INSTRUCTIONS:`, 22, 203);
-  doc.setFont("helvetica", "normal");
+  doc.text(
+    `IMPORTANT ${hospitalName.toUpperCase()} RECEPTION INSTRUCTIONS:`,
+    22,
+    203
+  );
+  doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
-  doc.text("• Please arrive at reception at least 15 minutes before your scheduled appointment slot.", 22, 209);
-  doc.text("• Show this Digital OPD Ticket Slip PDF or your Ticket Token # on your mobile to the token desk.", 22, 214);
+  doc.text(
+    '• Please arrive at reception at least 15 minutes before your scheduled appointment slot.',
+    22,
+    209
+  );
+  doc.text(
+    '• Show this Digital OPD Ticket Slip PDF or your Ticket Token # on your mobile to the token desk.',
+    22,
+    214
+  );
 
   // QR Code
-  const qrDataUrl = await QRCode.toDataURL(`OPD-TICKET:${bookingId}|PAT:${patientSeqId}|TOKEN:${tokenNum}`);
-  doc.addImage(qrDataUrl, "PNG", 132, 224, 34, 34);
+  const qrDataUrl = await QRCode.toDataURL(
+    `OPD-TICKET:${bookingId}|PAT:${patientSeqId}|TOKEN:${tokenNum}`
+  );
+  doc.addImage(qrDataUrl, 'PNG', 132, 224, 34, 34);
 
   // Footer
   doc.setDrawColor(226, 232, 240);
   doc.line(15, 272, 195, 272);
   doc.setFontSize(8);
   doc.setTextColor(148, 163, 184);
-  doc.text(`Watermark verified: ${hospitalName} • Official Digital Consultation Ticket Slip`, 15, 278);
+  doc.text(
+    `Watermark verified: ${hospitalName} • Official Digital Consultation Ticket Slip`,
+    15,
+    278
+  );
 
-  const arrayBuffer = doc.output("arraybuffer");
+  const arrayBuffer = doc.output('arraybuffer');
   return Buffer.from(arrayBuffer);
 }
 
@@ -167,12 +205,17 @@ export async function POST(
     // 1. Fetch appointment details safely
     const { data: appt, error: apptErr } = await db
       .from('appointments')
-      .select('*, patient:contacts(id, name, phone, email, metadata), doctor:hospital_doctors(id, name, specialization)')
+      .select(
+        '*, patient:contacts(id, name, phone, email, metadata), doctor:hospital_doctors(id, name, specialization)'
+      )
       .eq('id', appointmentId)
       .maybeSingle();
 
     if (apptErr || !appt) {
-      return NextResponse.json({ error: 'Appointment not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Appointment not found' },
+        { status: 404 }
+      );
     }
 
     const accountId = appt.account_id;
@@ -209,7 +252,10 @@ export async function POST(
     }
 
     if (!patientPhone || !contactId) {
-      return NextResponse.json({ error: 'Patient contact details not found' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Patient contact details not found' },
+        { status: 400 }
+      );
     }
 
     // 2. Find or create conversation
@@ -223,14 +269,21 @@ export async function POST(
     if (!conv) {
       const { data: newConv } = await db
         .from('conversations')
-        .insert({ account_id: accountId, contact_id: contactId, status: 'open' })
+        .insert({
+          account_id: accountId,
+          contact_id: contactId,
+          status: 'open',
+        })
         .select('id')
         .single();
       conv = newConv;
     }
 
     if (!conv) {
-      return NextResponse.json({ error: 'Failed to find/create conversation' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to find/create conversation' },
+        { status: 500 }
+      );
     }
 
     // 3. Fetch account details & patient ID
@@ -243,15 +296,17 @@ export async function POST(
     const hospitalName = account?.name || 'Siliguri Nursing Home';
     const docObj = appt.doctor as any;
     const doctorName = docObj?.name
-      ? (docObj.name.startsWith('Dr.') ? docObj.name : `Dr. ${docObj.name}`)
+      ? docObj.name.startsWith('Dr.')
+        ? docObj.name
+        : `Dr. ${docObj.name}`
       : 'On-Duty Physician';
 
-    let patientSeqId = "PAT-000000";
+    let patientSeqId = 'PAT-000000';
     if (contactId) {
       const { data: patRow } = await db
-        .from("patients")
-        .select("patient_seq_id")
-        .eq("id", contactId)
+        .from('patients')
+        .select('patient_seq_id')
+        .eq('id', contactId)
         .maybeSingle();
       if (patRow?.patient_seq_id) {
         patientSeqId = patRow.patient_seq_id;
@@ -260,9 +315,9 @@ export async function POST(
       } else {
         // Create patient record if it doesn't exist to trigger sequence assignment
         const { data: newPat } = await db
-          .from("patients")
+          .from('patients')
           .insert({ id: contactId, account_id: accountId })
-          .select("patient_seq_id")
+          .select('patient_seq_id')
           .maybeSingle();
         if (newPat?.patient_seq_id) {
           patientSeqId = newPat.patient_seq_id;
@@ -270,7 +325,8 @@ export async function POST(
       }
     }
 
-    const bookingIdStr = appt.booking_id || `APT-2026-${appt.id.slice(0, 5).toUpperCase()}`;
+    const bookingIdStr =
+      appt.booking_id || `APT-2026-${appt.id.slice(0, 5).toUpperCase()}`;
     const tokenNum = appt.token_number || 1;
     const queuePos = appt.queue_position || 1;
     const systemUserId = '00000000-0000-0000-0000-000000000000';
@@ -284,10 +340,18 @@ export async function POST(
     const ticketSerial = `TKT-${String(dailyCount || 1).padStart(3, '0')}`;
 
     // 4. Generate PDF Buffer & upload to Supabase Storage `chat-media`
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || request.nextUrl.origin;
+    const baseUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      request.nextUrl.origin;
     let publicPdfUrl = `${baseUrl}/api/appointments/${appt.id}/pdf`;
     try {
-      const pdfBuffer = await generatePdfBuffer(appt, hospitalName, patientSeqId, ticketSerial);
+      const pdfBuffer = await generatePdfBuffer(
+        appt,
+        hospitalName,
+        patientSeqId,
+        ticketSerial
+      );
       const storagePath = `account-${accountId}/opd-ticket-${appt.id}.pdf`;
 
       const { error: uploadErr } = await db.storage
@@ -298,7 +362,9 @@ export async function POST(
         });
 
       if (!uploadErr) {
-        const { data: urlData } = db.storage.from('chat-media').getPublicUrl(storagePath);
+        const { data: urlData } = db.storage
+          .from('chat-media')
+          .getPublicUrl(storagePath);
         if (urlData?.publicUrl) {
           publicPdfUrl = urlData.publicUrl;
         }
@@ -352,6 +418,9 @@ Welcome to *${hospitalName}*! Your consultation ticket and token number have bee
     return NextResponse.json({ success: true, pdfUrl: publicPdfUrl });
   } catch (err: any) {
     console.error('Failed to send appointment PDF ticket:', err);
-    return NextResponse.json({ error: err.message || 'Failed to send ticket PDF' }, { status: 500 });
+    return NextResponse.json(
+      { error: err.message || 'Failed to send ticket PDF' },
+      { status: 500 }
+    );
   }
 }

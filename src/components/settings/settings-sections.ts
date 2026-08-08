@@ -145,7 +145,7 @@ const INDUSTRY_ONLY_SECTIONS: Partial<Record<SettingsSection, string[]>> = {
  */
 export function isSectionVisible(
   section: SettingsSection,
-  industry: string | null | undefined,
+  industry: string | null | undefined
 ): boolean {
   const allowed = INDUSTRY_ONLY_SECTIONS[section];
   if (!allowed) return true; // No restriction — always visible
@@ -156,34 +156,107 @@ export function isSectionVisible(
  * Build the section metadata dynamically based on the active industry.
  */
 export function getSectionMeta(
-  industry: string | null | undefined,
+  industry: string | null | undefined
 ): Record<SettingsSection, SectionMeta> {
   const labels = getLabels(industry);
 
   return {
-    overview: { id: 'overview', label: 'Overview', icon: LayoutGrid, group: 'top' },
-    profile: { id: 'profile', label: 'Your profile', icon: User, group: 'account' },
-    security: { id: 'security', label: 'Login & security', icon: Shield, group: 'account' },
-    appearance: { id: 'appearance', label: 'Appearance', icon: Palette, group: 'account' },
-    billing: { id: 'billing', label: 'Billing & Plans', icon: CreditCard, group: 'account' },
-    whatsapp: { id: 'whatsapp', label: 'WhatsApp', icon: PlugZap, group: 'workspace' },
-    welcome: { id: 'welcome', label: 'Welcome Message', icon: MessageSquare, group: 'workspace' },
-    templates: { id: 'templates', label: 'Templates', icon: FileText, group: 'workspace' },
-    fields: { id: 'fields', label: labels.fields, icon: Tags, group: 'workspace' },
-    deals: { id: 'deals', label: labels.deals, icon: Coins, group: 'workspace' },
-    members: { id: 'members', label: 'Team members', icon: UsersRound, group: 'workspace' },
+    overview: {
+      id: 'overview',
+      label: 'Overview',
+      icon: LayoutGrid,
+      group: 'top',
+    },
+    profile: {
+      id: 'profile',
+      label: 'Your profile',
+      icon: User,
+      group: 'account',
+    },
+    security: {
+      id: 'security',
+      label: 'Login & security',
+      icon: Shield,
+      group: 'account',
+    },
+    appearance: {
+      id: 'appearance',
+      label: 'Appearance',
+      icon: Palette,
+      group: 'account',
+    },
+    billing: {
+      id: 'billing',
+      label: 'Billing & Plans',
+      icon: CreditCard,
+      group: 'account',
+    },
+    whatsapp: {
+      id: 'whatsapp',
+      label: 'WhatsApp',
+      icon: PlugZap,
+      group: 'workspace',
+    },
+    welcome: {
+      id: 'welcome',
+      label: 'Welcome Message',
+      icon: MessageSquare,
+      group: 'workspace',
+    },
+    templates: {
+      id: 'templates',
+      label: 'Templates',
+      icon: FileText,
+      group: 'workspace',
+    },
+    fields: {
+      id: 'fields',
+      label: labels.fields,
+      icon: Tags,
+      group: 'workspace',
+    },
+    deals: {
+      id: 'deals',
+      label: labels.deals,
+      icon: Coins,
+      group: 'workspace',
+    },
+    members: {
+      id: 'members',
+      label: 'Team members',
+      icon: UsersRound,
+      group: 'workspace',
+    },
     ai: { id: 'ai', label: labels.ai, icon: Brain, group: 'workspace' },
     kb: { id: 'kb', label: labels.kb, icon: Database, group: 'workspace' },
-    insurance: { id: 'insurance', label: 'Health Insurance', icon: Shield, group: 'workspace' },
-    reminders: { id: 'reminders', label: labels.reminders, icon: BellRing, group: 'workspace' },
-    booking_form: { id: 'booking_form', label: 'Booking Form Settings', icon: FileText, group: 'workspace' },
+    insurance: {
+      id: 'insurance',
+      label: 'Health Insurance',
+      icon: Shield,
+      group: 'workspace',
+    },
+    reminders: {
+      id: 'reminders',
+      label: labels.reminders,
+      icon: BellRing,
+      group: 'workspace',
+    },
+    booking_form: {
+      id: 'booking_form',
+      label: 'Booking Form Settings',
+      icon: FileText,
+      group: 'workspace',
+    },
   };
 }
 
 /** @deprecated Use getSectionMeta(industry) instead. Kept for backward compat. */
 export const SECTION_META = getSectionMeta(null);
 
-export const RAIL_GROUPS: { label: string | null; group: SectionMeta['group'] }[] = [
+export const RAIL_GROUPS: {
+  label: string | null;
+  group: SectionMeta['group'];
+}[] = [
   { label: null, group: 'top' },
   { label: 'Account', group: 'account' },
   { label: 'Workspace', group: 'workspace' },

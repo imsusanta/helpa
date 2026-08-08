@@ -1,37 +1,53 @@
-import { decrypt } from '@/lib/whatsapp/encryption'
-import { supabaseAdmin } from '@/lib/automations/admin-client'
-import { engineSendText } from '@/lib/automations/meta-send'
-import { checkPlanLimits, incrementUsage } from '@/lib/saas/subscription'
-import { getIndustryModule, resolveSystemPrompt } from '@/modules/registry'
-import { parseAiResponse } from '@/lib/whatsapp/ai-response'
+import { decrypt } from '@/lib/whatsapp/encryption';
+import { supabaseAdmin } from '@/lib/automations/admin-client';
+import { engineSendText } from '@/lib/automations/meta-send';
+import { checkPlanLimits, incrementUsage } from '@/lib/saas/subscription';
+import { getIndustryModule, resolveSystemPrompt } from '@/modules/registry';
+import { parseAiResponse } from '@/lib/whatsapp/ai-response';
 
 interface TriggerAiResponseArgs {
-  accountId: string
-  userId: string
-  conversationId: string
-  contactId: string
+  accountId: string;
+  userId: string;
+  conversationId: string;
+  contactId: string;
 }
 
-export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<void> {
-  const { accountId, userId, conversationId, contactId } = args
-  
+export async function triggerAiResponse(
+  args: TriggerAiResponseArgs
+): Promise<void> {
+  const { accountId, userId, conversationId, contactId } = args;
+
   // Check SaaS subscription limits before running any AI requests
   try {
-    await checkPlanLimits(accountId, 'max_ai_requests')
+    await checkPlanLimits(accountId, 'max_ai_requests');
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.warn('[AI Assistant] Limit check failed, skipping response:', msg)
-    return
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn('[AI Assistant] Limit check failed, skipping response:', msg);
+    return;
   }
 
-  const db = supabaseAdmin()
+  const db = supabaseAdmin();
 
   // ═══════ PHASE 1: Parallel fetch all independent data in one shot ═══════
   const [contactRes, accRes, messagesRes, kbRes] = await Promise.all([
     db.from('contacts').select('*').eq('id', contactId).maybeSingle(),
-    db.from('accounts').select('openrouter_api_key, openrouter_model, ai_system_prompt, welcome_message, industry, name').eq('id', accountId).single(),
-    db.from('messages').select('sender_type, content_type, content_text, created_at').eq('conversation_id', conversationId).order('created_at', { ascending: false }).limit(15),
-    db.from('knowledge_base').select('category, question_title, answer_content').eq('account_id', accountId),
+    db
+      .from('accounts')
+      .select(
+        'openrouter_api_key, openrouter_model, ai_system_prompt, welcome_message, industry, name'
+      )
+      .eq('id', accountId)
+      .single(),
+    db
+      .from('messages')
+      .select('sender_type, content_type, content_text, created_at')
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: false })
+      .limit(15),
+    db
+      .from('knowledge_base')
+      .select('category, question_title, answer_content')
+      .eq('account_id', accountId),
   ]);
 
   const contact = contactRes.data;
@@ -39,63 +55,85 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
   let accError = accRes.error;
   let accData = accRes.data;
 
-  if (accError && (accError.message?.includes('welcome_message') || accError.code === '42703')) {
+  if (
+    accError &&
+    (accError.message?.includes('welcome_message') || accError.code === '42703')
+  ) {
     // Fallback if welcome_message column is missing in database table
     const fallback = await db
       .from('accounts')
-      .select('openrouter_api_key, openrouter_model, ai_system_prompt, industry, name')
+      .select(
+        'openrouter_api_key, openrouter_model, ai_system_prompt, industry, name'
+      )
       .eq('id', accountId)
-      .single()
-    accData = fallback.data as any
-    accError = fallback.error
+      .single();
+    accData = fallback.data as any;
+    accError = fallback.error;
   }
 
-  account = accData
+  account = accData;
 
   if (accError || !account?.openrouter_api_key) {
     if (process.env.OPENROUTER_API_KEY) {
-      account = account || {}
-      account.openrouter_api_key = process.env.OPENROUTER_API_KEY
+      account = account || {};
+      account.openrouter_api_key = process.env.OPENROUTER_API_KEY;
     } else {
-      console.warn('[AI Assistant] OpenRouter credentials not configured for account:', accountId, accError?.message || '')
-      return
+      console.warn(
+        '[AI Assistant] OpenRouter credentials not configured for account:',
+        accountId,
+        accError?.message || ''
+      );
+      return;
     }
   }
 
   // 2. Decrypt API key
-  let apiKey: string
+  let apiKey: string;
   try {
-    apiKey = decrypt(account.openrouter_api_key)
+    apiKey = decrypt(account.openrouter_api_key);
   } catch (err: any) {
     if (process.env.OPENROUTER_API_KEY) {
-      console.warn('[AI Assistant] Saved OpenRouter key decryption failed, falling back to process.env.OPENROUTER_API_KEY:', err?.message)
-      apiKey = process.env.OPENROUTER_API_KEY
+      console.warn(
+        '[AI Assistant] Saved OpenRouter key decryption failed, falling back to process.env.OPENROUTER_API_KEY:',
+        err?.message
+      );
+      apiKey = process.env.OPENROUTER_API_KEY;
     } else {
-      console.error(`[AI Assistant] Failed to decrypt saved OpenRouter API Key for account ${accountId}:`, err?.message || err, 'Please re-save OpenRouter API key under Settings → AI Configuration.')
-      return
+      console.error(
+        `[AI Assistant] Failed to decrypt saved OpenRouter API Key for account ${accountId}:`,
+        err?.message || err,
+        'Please re-save OpenRouter API key under Settings → AI Configuration.'
+      );
+      return;
     }
   }
 
-  const model = account.openrouter_model || 'google/gemini-2.0-flash'
+  const model = account.openrouter_model || 'google/gemini-2.0-flash';
 
   // 3. Use pre-fetched messages
   const messages = messagesRes.data;
   const msgError = messagesRes.error;
 
   if (msgError || !messages || messages.length === 0) {
-    console.error('[AI Assistant] Failed to fetch message history or no messages found:', msgError)
-    return
+    console.error(
+      '[AI Assistant] Failed to fetch message history or no messages found:',
+      msgError
+    );
+    return;
   }
 
   // Guard: Only respond if the latest message is from the customer
-  const latestMessage = messages[0]
+  const latestMessage = messages[0];
   if (latestMessage.sender_type !== 'customer') {
-    console.warn('[AI Assistant] Latest message is not from customer. Skipping AI response. Latest sender:', latestMessage.sender_type)
-    return
+    console.warn(
+      '[AI Assistant] Latest message is not from customer. Skipping AI response. Latest sender:',
+      latestMessage.sender_type
+    );
+    return;
   }
 
   // Reverse messages to restore chronological order (ascending) for the LLM
-  messages.reverse()
+  messages.reverse();
 
   // ═══════ PHASE 2: Sibling contacts (depends on contact phone) ═══════
   // Fetch all contacts sharing the same phone number (family/siblings)
@@ -103,28 +141,33 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
     .from('contacts')
     .select('id')
     .eq('phone', contact?.phone || '');
-  const contactIds = siblingContacts && siblingContacts.length > 0 ? siblingContacts.map(c => c.id) : [contactId];
+  const contactIds =
+    siblingContacts && siblingContacts.length > 0
+      ? siblingContacts.map((c) => c.id)
+      : [contactId];
 
   // 3.5 Use pre-fetched Knowledge Base
   const kbEntries = kbRes.data;
-  let kbContext = ""
+  let kbContext = '';
   if (kbEntries && kbEntries.length > 0) {
-    kbContext = "Here is the verified knowledge base and pricing information for our company:\n\n"
+    kbContext =
+      'Here is the verified knowledge base and pricing information for our company:\n\n';
     kbEntries.forEach((entry) => {
-      kbContext += `[${entry.category.toUpperCase()}] ${entry.question_title}: ${entry.answer_content}\n`
-    })
+      kbContext += `[${entry.category.toUpperCase()}] ${entry.question_title}: ${entry.answer_content}\n`;
+    });
   }
 
   const industryModuleForContext = getIndustryModule(account?.industry);
   const isHospitalEnabled = industryModuleForContext.id === 'hospital_clinic';
   const isCoachingEnabled = industryModuleForContext.id === 'coaching';
   const isSoloTeacherEnabled = industryModuleForContext.id === 'solo_teacher';
-  let hospitalContext = "";
-  let coachingContext = "";
+  let hospitalContext = '';
+  let coachingContext = '';
   let labReports: any[] | null = null;
 
   // Build Contact profile context dynamically using active industry entity config
-  const contactConfigForContext = industryModuleForContext.entityConfigs?.contacts;
+  const contactConfigForContext =
+    industryModuleForContext.entityConfigs?.contacts;
   const entityLabelForContext = contactConfigForContext?.label || 'Contact';
   const customFieldsForContext = contactConfigForContext?.fields || [];
 
@@ -137,10 +180,11 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
     if (coachingStudents && coachingStudents.length > 0) {
       coachingContext += `Registered ${entityLabelForContext}s under this WhatsApp/Phone Number:\n`;
       coachingStudents.forEach((s: any) => {
-        const meta = s.metadata && typeof s.metadata === 'object' ? s.metadata : {};
+        const meta =
+          s.metadata && typeof s.metadata === 'object' ? s.metadata : {};
         coachingContext += `- Name: ${s.name}, Student ID: ${meta.student_id || 'N/A'}, Exam Preparation (Target Exam): ${meta.parent_name || 'Not set'}\n`;
       });
-      coachingContext += "\n";
+      coachingContext += '\n';
     }
   }
 
@@ -153,25 +197,64 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
       { data: registeredPatients },
       { data: lastCampaignRec },
     ] = await Promise.all([
-      db.from('hospital_doctors').select('name, department, specialization, consultation_fee, available_days, working_hours').eq('account_id', accountId).eq('status', 'active'),
-      db.from('hospital_branches').select('name, address, phone').eq('account_id', accountId),
-      db.from('appointments').select('*, doctor:hospital_doctors(name), patient:contacts(name)').in('patient_id', contactIds).order('appointment_date', { ascending: false }).limit(3),
-      db.from('hospital_lab_reports').select('id, test_name, status, expected_delivery_date, report_pdf_url, notes, department, doctor:hospital_doctors(name), patient:contacts(name)').in('patient_id', contactIds).order('created_at', { ascending: false }).limit(10),
-      db.from('patients').select('patient_seq_id, gender, date_of_birth, blood_group, emergency_contact, contact:contacts(name, phone)').in('id', contactIds),
-      db.from('broadcast_recipients').select('id, broadcast_id, broadcasts(*)').eq('contact_id', contactId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+      db
+        .from('hospital_doctors')
+        .select(
+          'name, department, specialization, consultation_fee, available_days, working_hours'
+        )
+        .eq('account_id', accountId)
+        .eq('status', 'active'),
+      db
+        .from('hospital_branches')
+        .select('name, address, phone')
+        .eq('account_id', accountId),
+      db
+        .from('appointments')
+        .select('*, doctor:hospital_doctors(name), patient:contacts(name)')
+        .in('patient_id', contactIds)
+        .order('appointment_date', { ascending: false })
+        .limit(3),
+      db
+        .from('hospital_lab_reports')
+        .select(
+          'id, test_name, status, expected_delivery_date, report_pdf_url, notes, department, doctor:hospital_doctors(name), patient:contacts(name)'
+        )
+        .in('patient_id', contactIds)
+        .order('created_at', { ascending: false })
+        .limit(10),
+      db
+        .from('patients')
+        .select(
+          'patient_seq_id, gender, date_of_birth, blood_group, emergency_contact, contact:contacts(name, phone)'
+        )
+        .in('id', contactIds),
+      db
+        .from('broadcast_recipients')
+        .select('id, broadcast_id, broadcasts(*)')
+        .eq('contact_id', contactId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
     ]);
 
     labReports = labReportsData;
 
     if (registeredPatients && registeredPatients.length > 0) {
-      hospitalContext += "Registered Patients under this WhatsApp/Phone Number:\n";
+      hospitalContext +=
+        'Registered Patients under this WhatsApp/Phone Number:\n';
       registeredPatients.forEach((p: any) => {
         const contactData = p.contact as any;
-        const name = (Array.isArray(contactData) ? contactData[0]?.name : contactData?.name) || 'Unknown';
-        const phone = (Array.isArray(contactData) ? contactData[0]?.phone : contactData?.phone) || 'N/A';
+        const name =
+          (Array.isArray(contactData)
+            ? contactData[0]?.name
+            : contactData?.name) || 'Unknown';
+        const phone =
+          (Array.isArray(contactData)
+            ? contactData[0]?.phone
+            : contactData?.phone) || 'N/A';
         hospitalContext += `- Name: ${name}, Patient ID: ${p.patient_seq_id}, Gender: ${p.gender || 'N/A'}, DOB: ${p.date_of_birth || 'N/A'}, Blood Group: ${p.blood_group || 'N/A'}, Phone: ${phone}, Emergency Contact: ${p.emergency_contact || 'N/A'}\n`;
       });
-      hospitalContext += "\n";
+      hospitalContext += '\n';
     }
 
     if (lastCampaignRec && lastCampaignRec.broadcasts) {
@@ -185,16 +268,18 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
     }
 
     if (doctors && doctors.length > 0) {
-      hospitalContext += "Available Doctors & Clinic Schedules:\n";
+      hospitalContext += 'Available Doctors & Clinic Schedules:\n';
       doctors.forEach((d: any) => {
-        const days = Array.isArray(d.available_days) ? d.available_days.join(', ') : '';
+        const days = Array.isArray(d.available_days)
+          ? d.available_days.join(', ')
+          : '';
         const start = d.working_hours?.start || '09:00';
         const end = d.working_hours?.end || '17:00';
         hospitalContext += `- Dr. ${d.name.replace(/^Dr\.\s+/i, '')} (${d.department} - ${d.specialization || 'General'}): Fee: ₹${d.consultation_fee}, Working Days: ${days}, Working Hours: ${start} to ${end}\n`;
       });
     }
     if (branches && branches.length > 0) {
-      hospitalContext += "\nClinic Branches Locations:\n";
+      hospitalContext += '\nClinic Branches Locations:\n';
       branches.forEach((b: any) => {
         hospitalContext += `- ${b.name}: ${b.address || ''} (Phone: ${b.phone || ''})\n`;
       });
@@ -203,7 +288,10 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
       hospitalContext += "\nPatient's Recent/Upcoming Appointments:\n";
       appts.forEach((a: any) => {
         const patientData = a.patient as any;
-        const pName = (Array.isArray(patientData) ? patientData[0]?.name : patientData?.name) || 'Unknown';
+        const pName =
+          (Array.isArray(patientData)
+            ? patientData[0]?.name
+            : patientData?.name) || 'Unknown';
         hospitalContext += `- Patient: ${pName}, Date: ${a.appointment_date}, Time: ${a.appointment_time}, Doctor: ${a.doctor?.name || 'Unassigned'}, Status: ${a.status}, Token: #${a.token_number || 'N/A'}, Queue Pos: ${a.queue_position || 'N/A'}\n`;
       });
     }
@@ -211,9 +299,14 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
       hospitalContext += "\nPatient's Lab/Diagnostic Reports:\n";
       labReports.forEach((r: any) => {
         const docData = r.doctor as any;
-        const docName = (Array.isArray(docData) ? docData[0]?.name : docData?.name) || 'Doctor';
+        const docName =
+          (Array.isArray(docData) ? docData[0]?.name : docData?.name) ||
+          'Doctor';
         const patientData = r.patient as any;
-        const pName = (Array.isArray(patientData) ? patientData[0]?.name : patientData?.name) || 'Unknown';
+        const pName =
+          (Array.isArray(patientData)
+            ? patientData[0]?.name
+            : patientData?.name) || 'Unknown';
         hospitalContext += `- Patient: ${pName}, Report Name: ${r.test_name}, Department: ${r.department || 'General'}, Referred By: Dr. ${docName.replace(/^Dr\.\s+/i, '')}, Status: ${r.status}, Expected Delivery: ${r.expected_delivery_date || 'N/A'}, Notes: ${r.notes || 'None'}, PDF Available: ${r.report_pdf_url ? 'Yes' : 'No'}\n`;
       });
     }
@@ -222,7 +315,7 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
   // 4. Formulate prompt messages
   const basePrompt = resolveSystemPrompt(
     account.industry,
-    account.ai_system_prompt,
+    account.ai_system_prompt
   );
 
   const businessName = account.name || 'our Business';
@@ -246,7 +339,7 @@ export async function triggerAiResponse(args: TriggerAiResponseArgs): Promise<vo
   }
 
   if (kbContext) {
-    systemPromptContent += `\n\n${kbContext}`
+    systemPromptContent += `\n\n${kbContext}`;
   }
 
   if (isHospitalEnabled) {
@@ -381,13 +474,13 @@ Note:
 
   const systemPrompt = {
     role: 'system',
-    content: systemPromptContent
-  }
+    content: systemPromptContent,
+  };
 
   const apiMessages = [
     systemPrompt,
     ...messages
-      .map(m => {
+      .map((m) => {
         let content = m.content_text || '';
         if (!content && m.content_type) {
           content = `[${m.content_type}]`;
@@ -397,8 +490,8 @@ Note:
           content: content,
         };
       })
-      .filter(m => m.content !== '')
-  ]
+      .filter((m) => m.content !== ''),
+  ];
 
   // 5. Send request to OpenRouter (Optimized for quick reply)
   let response;
@@ -425,7 +518,10 @@ Note:
     });
     clearTimeout(timeoutId);
   } catch (err) {
-    console.warn(`[AI Assistant] Request with model ${model} failed or timed out. Trying fast fallback model 'google/gemini-2.0-flash'...`, err);
+    console.warn(
+      `[AI Assistant] Request with model ${model} failed or timed out. Trying fast fallback model 'google/gemini-2.0-flash'...`,
+      err
+    );
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 15000);
@@ -449,31 +545,36 @@ Note:
       });
       clearTimeout(timeoutId);
     } catch (fallbackErr) {
-      console.error('[AI Assistant] Both primary model and fallback model failed:', fallbackErr);
+      console.error(
+        '[AI Assistant] Both primary model and fallback model failed:',
+        fallbackErr
+      );
       return;
     }
   }
 
   try {
     if (!response.ok) {
-      const errText = await response.text()
-      throw new Error(`OpenRouter API error (status ${response.status}): ${errText}`)
+      const errText = await response.text();
+      throw new Error(
+        `OpenRouter API error (status ${response.status}): ${errText}`
+      );
     }
 
-    const resJson = await response.json()
-    const aiText = resJson.choices?.[0]?.message?.content?.trim()
+    const resJson = await response.json();
+    const aiText = resJson.choices?.[0]?.message?.content?.trim();
 
     if (!aiText) {
-      console.warn('[AI Assistant] OpenRouter returned empty response')
-      return
+      console.warn('[AI Assistant] OpenRouter returned empty response');
+      return;
     }
 
     const parsedResponse = parseAiResponse(aiText);
-    let reply = parsedResponse.reply || (
-      parsedResponse.isStructured
-        ? "Sorry, I could not process that response. Please try again."
-        : aiText
-    );
+    let reply =
+      parsedResponse.reply ||
+      (parsedResponse.isStructured
+        ? 'Sorry, I could not process that response. Please try again.'
+        : aiText);
     let intent = 'other';
     let lead_score = 'cold';
     let sentiment = 'neutral';
@@ -517,7 +618,9 @@ Note:
       coaching_student_update = parsed.coaching_student_update || null;
       emergency_detected = !!parsed.emergency_detected;
     } else if (parsedResponse.isStructured) {
-      console.warn('[AI Assistant] Structured AI response could not be parsed; sending only its recovered reply.');
+      console.warn(
+        '[AI Assistant] Structured AI response could not be parsed; sending only its recovered reply.'
+      );
     }
 
     // Update the conversation's AI insights in the database
@@ -532,10 +635,13 @@ Note:
         ai_resolved: resolved,
         ai_faq_category: faq_category,
       })
-      .eq('id', conversationId)
+      .eq('id', conversationId);
 
     if (updateError) {
-      console.error('[AI Assistant] Failed to update conversation AI insights:', updateError)
+      console.error(
+        '[AI Assistant] Failed to update conversation AI insights:',
+        updateError
+      );
     }
 
     // AI Pipeline Automation
@@ -558,15 +664,22 @@ Note:
             ai_timeline: timeline || existingDeal.ai_timeline,
             ai_summary: summary || existingDeal.ai_summary,
             ai_next_action: next_action || existingDeal.ai_next_action,
-            ai_product_service: interested_service || existingDeal.ai_product_service,
+            ai_product_service:
+              interested_service || existingDeal.ai_product_service,
             updated_at: new Date().toISOString(),
           })
           .eq('id', existingDeal.id);
 
         if (dealUpdateErr) {
-          console.error('[AI Pipeline] Failed to update existing deal:', dealUpdateErr);
+          console.error(
+            '[AI Pipeline] Failed to update existing deal:',
+            dealUpdateErr
+          );
         } else {
-          console.log('[AI Pipeline] Successfully updated existing Pipeline card:', existingDeal.id);
+          console.log(
+            '[AI Pipeline] Successfully updated existing Pipeline card:',
+            existingDeal.id
+          );
         }
       } else if (sales_signal) {
         // Create new Pipeline card in default stage of default pipeline
@@ -585,43 +698,56 @@ Note:
             .order('position', { ascending: true });
 
           if (stages && stages.length > 0) {
-            const newLeadStage = stages.find(s => s.name.toLowerCase() === 'new inquiry' || s.name.toLowerCase() === 'new lead') || stages[0];
+            const newLeadStage =
+              stages.find(
+                (s) =>
+                  s.name.toLowerCase() === 'new inquiry' ||
+                  s.name.toLowerCase() === 'new lead'
+              ) || stages[0];
             const stageId = newLeadStage.id;
 
+            const contactName =
+              contact?.name || contact?.phone || 'Unknown Client';
+            const cardTitle = interested_service
+              ? `${contactName} - ${interested_service}`
+              : `${contactName} - WhatsApp Lead`;
 
-
-            const contactName = contact?.name || contact?.phone || 'Unknown Client';
-            const cardTitle = interested_service ? `${contactName} - ${interested_service}` : `${contactName} - WhatsApp Lead`;
-
-            const { error: dealInsertErr } = await db
-              .from('deals')
-              .insert({
-                account_id: accountId,
-                user_id: userId,
-                pipeline_id: pipelineId,
-                stage_id: stageId,
-                contact_id: contactId,
-                conversation_id: conversationId,
-                title: cardTitle,
-                ai_lead_score: lead_score,
-                ai_buying_intent: intent,
-                ai_budget: budget,
-                ai_timeline: timeline,
-                ai_summary: summary,
-                ai_next_action: next_action,
-                ai_product_service: interested_service,
-              });
+            const { error: dealInsertErr } = await db.from('deals').insert({
+              account_id: accountId,
+              user_id: userId,
+              pipeline_id: pipelineId,
+              stage_id: stageId,
+              contact_id: contactId,
+              conversation_id: conversationId,
+              title: cardTitle,
+              ai_lead_score: lead_score,
+              ai_buying_intent: intent,
+              ai_budget: budget,
+              ai_timeline: timeline,
+              ai_summary: summary,
+              ai_next_action: next_action,
+              ai_product_service: interested_service,
+            });
 
             if (dealInsertErr) {
-              console.error('[AI Pipeline] Failed to create new deal:', dealInsertErr);
+              console.error(
+                '[AI Pipeline] Failed to create new deal:',
+                dealInsertErr
+              );
             } else {
-              console.log('[AI Pipeline] Successfully created new Pipeline card for contact:', contactId);
+              console.log(
+                '[AI Pipeline] Successfully created new Pipeline card for contact:',
+                contactId
+              );
             }
           }
         }
       }
     } catch (pipelineErr) {
-      console.error('[AI Pipeline] Error during pipeline synchronization:', pipelineErr);
+      console.error(
+        '[AI Pipeline] Error during pipeline synchronization:',
+        pipelineErr
+      );
     }
 
     // Hospital & Clinic Action Processing
@@ -635,27 +761,33 @@ Note:
       // Resolve the patient by name and number. Family members can share a
       // WhatsApp number, so a different name receives a separate contact.
       let targetContactId = contactId;
-      const patientNameProvided = hospital_patient_info?.name || hospital_booking?.patient_name;
-      const patientPhoneProvided = hospital_patient_info?.phone || contact?.phone;
+      const patientNameProvided =
+        hospital_patient_info?.name || hospital_booking?.patient_name;
+      const patientPhoneProvided =
+        hospital_patient_info?.phone || contact?.phone;
 
       if (patientNameProvided) {
         try {
           // Find a matching patient identity for this phone number.
           const basePhone = patientPhoneProvided.trim();
           const normalizedName = patientNameProvided.trim().toLocaleLowerCase();
-          const { data: existingContacts, error: existingContactsError } = await db
-            .from('contacts')
-            .select('id, name')
-            .eq('account_id', accountId)
-            .eq('phone', basePhone);
+          const { data: existingContacts, error: existingContactsError } =
+            await db
+              .from('contacts')
+              .select('id, name')
+              .eq('account_id', accountId)
+              .eq('phone', basePhone);
 
           if (existingContactsError) throw existingContactsError;
 
-          const existingContact = existingContacts?.find((candidate) =>
-            candidate.name?.trim().toLocaleLowerCase() === normalizedName,
-          ) || existingContacts?.find((candidate) =>
-            candidate.id === contactId && !candidate.name,
-          );
+          const existingContact =
+            existingContacts?.find(
+              (candidate) =>
+                candidate.name?.trim().toLocaleLowerCase() === normalizedName
+            ) ||
+            existingContacts?.find(
+              (candidate) => candidate.id === contactId && !candidate.name
+            );
 
           if (existingContact) {
             targetContactId = existingContact.id;
@@ -683,14 +815,14 @@ Note:
 
             if (newContact) {
               targetContactId = newContact.id;
-              
+
               // Also create conversation for new contact so it can be viewed in CRM
               await db.from('conversations').insert({
                 account_id: accountId,
                 contact_id: targetContactId,
                 status: 'open',
                 last_message_text: `Registered automatically via WhatsApp AI`,
-                last_message_at: new Date().toISOString()
+                last_message_at: new Date().toISOString(),
               });
             }
           }
@@ -715,8 +847,11 @@ Note:
               .eq('id', targetContactId)
               .single();
 
-            const existingMetadata = extContact?.metadata && typeof extContact.metadata === 'object' ? extContact.metadata : {};
-            
+            const existingMetadata =
+              extContact?.metadata && typeof extContact.metadata === 'object'
+                ? extContact.metadata
+                : {};
+
             // Check if patient details already exist in patients table
             const { data: extPatient } = await db
               .from('patients')
@@ -728,23 +863,46 @@ Note:
             const patientData = {
               id: targetContactId,
               account_id: accountId,
-              gender: pGender || extPatient?.gender || existingMetadata.gender || null,
-              date_of_birth: pDob || extPatient?.date_of_birth || existingMetadata.dob || null,
-              blood_group: pBg || extPatient?.blood_group || existingMetadata.blood_group || null,
-              emergency_contact: pEc || extPatient?.emergency_contact || existingMetadata.emergency_contact || null,
-              updated_at: new Date().toISOString()
+              gender:
+                pGender ||
+                extPatient?.gender ||
+                existingMetadata.gender ||
+                null,
+              date_of_birth:
+                pDob ||
+                extPatient?.date_of_birth ||
+                existingMetadata.dob ||
+                null,
+              blood_group:
+                pBg ||
+                extPatient?.blood_group ||
+                existingMetadata.blood_group ||
+                null,
+              emergency_contact:
+                pEc ||
+                extPatient?.emergency_contact ||
+                existingMetadata.emergency_contact ||
+                null,
+              updated_at: new Date().toISOString(),
             };
 
             if (extPatient) {
-              await db.from('patients').update(patientData).eq('id', targetContactId);
-            } else {
-              const { data: createdPatient, error: createPatientError } = await db
+              await db
                 .from('patients')
-                .insert(patientData)
-                .select('patient_seq_id')
-                .single();
+                .update(patientData)
+                .eq('id', targetContactId);
+            } else {
+              const { data: createdPatient, error: createPatientError } =
+                await db
+                  .from('patients')
+                  .insert(patientData)
+                  .select('patient_seq_id')
+                  .single();
               if (createPatientError || !createdPatient?.patient_seq_id) {
-                throw createPatientError || new Error('Could not assign a Patient ID');
+                throw (
+                  createPatientError ||
+                  new Error('Could not assign a Patient ID')
+                );
               }
               seq = createdPatient.patient_seq_id;
             }
@@ -754,21 +912,45 @@ Note:
             const updatedMetadata = {
               ...existingMetadata,
               patient_id: seq,
-              gender: pGender || extPatient?.gender || existingMetadata.gender || null,
-              dob: pDob || extPatient?.date_of_birth || existingMetadata.dob || null,
-              blood_group: pBg || extPatient?.blood_group || existingMetadata.blood_group || null,
-              emergency_contact: pEc || extPatient?.emergency_contact || existingMetadata.emergency_contact || null,
+              gender:
+                pGender ||
+                extPatient?.gender ||
+                existingMetadata.gender ||
+                null,
+              dob:
+                pDob ||
+                extPatient?.date_of_birth ||
+                existingMetadata.dob ||
+                null,
+              blood_group:
+                pBg ||
+                extPatient?.blood_group ||
+                existingMetadata.blood_group ||
+                null,
+              emergency_contact:
+                pEc ||
+                extPatient?.emergency_contact ||
+                existingMetadata.emergency_contact ||
+                null,
             };
 
-            await db.from('contacts').update({
-              name: pName || extContact?.name || null,
-              metadata: updatedMetadata,
-              updated_at: new Date().toISOString()
-            }).eq('id', targetContactId);
+            await db
+              .from('contacts')
+              .update({
+                name: pName || extContact?.name || null,
+                metadata: updatedMetadata,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', targetContactId);
 
-            console.log('[AI Hospital] Profile successfully updated in contacts metadata and patients table');
+            console.log(
+              '[AI Hospital] Profile successfully updated in contacts metadata and patients table'
+            );
           } catch (patErr) {
-            console.error('[AI Hospital] Error updating patient demographics:', patErr);
+            console.error(
+              '[AI Hospital] Error updating patient demographics:',
+              patErr
+            );
           }
         }
       }
@@ -805,28 +987,42 @@ Note:
               .eq('account_id', accountId)
               .filter('metadata->>patient_id', 'eq', pId)
               .maybeSingle();
-            
+
             targetContact = extContact;
             targetContactId = extContact?.id;
           }
 
           if (targetContactId && targetContact) {
-            const existingMetadata = targetContact.metadata && typeof targetContact.metadata === 'object' ? targetContact.metadata : {};
+            const existingMetadata =
+              targetContact.metadata &&
+              typeof targetContact.metadata === 'object'
+                ? targetContact.metadata
+                : {};
             const contactUpdates: any = {
               metadata: {
                 ...existingMetadata,
-                patient_id: pId
-              }
+                patient_id: pId,
+              },
             };
-            if (hospital_profile_update.name) contactUpdates.name = hospital_profile_update.name.trim();
-            if (hospital_profile_update.email) contactUpdates.email = hospital_profile_update.email.trim();
-            if (hospital_profile_update.phone) contactUpdates.phone = hospital_profile_update.phone.trim();
-            if (hospital_profile_update.address) contactUpdates.address = hospital_profile_update.address.trim();
+            if (hospital_profile_update.name)
+              contactUpdates.name = hospital_profile_update.name.trim();
+            if (hospital_profile_update.email)
+              contactUpdates.email = hospital_profile_update.email.trim();
+            if (hospital_profile_update.phone)
+              contactUpdates.phone = hospital_profile_update.phone.trim();
+            if (hospital_profile_update.address)
+              contactUpdates.address = hospital_profile_update.address.trim();
 
-            if (hospital_profile_update.gender) contactUpdates.metadata.gender = hospital_profile_update.gender;
-            if (hospital_profile_update.dob) contactUpdates.metadata.dob = hospital_profile_update.dob;
-            if (hospital_profile_update.blood_group) contactUpdates.metadata.blood_group = hospital_profile_update.blood_group.trim();
-            if (hospital_profile_update.emergency_contact) contactUpdates.metadata.emergency_contact = hospital_profile_update.emergency_contact.trim();
+            if (hospital_profile_update.gender)
+              contactUpdates.metadata.gender = hospital_profile_update.gender;
+            if (hospital_profile_update.dob)
+              contactUpdates.metadata.dob = hospital_profile_update.dob;
+            if (hospital_profile_update.blood_group)
+              contactUpdates.metadata.blood_group =
+                hospital_profile_update.blood_group.trim();
+            if (hospital_profile_update.emergency_contact)
+              contactUpdates.metadata.emergency_contact =
+                hospital_profile_update.emergency_contact.trim();
 
             // 1. Update contacts
             await db
@@ -845,31 +1041,60 @@ Note:
               id: targetContactId,
               account_id: accountId,
               patient_seq_id: pId,
-              gender: hospital_profile_update.gender || extPatient?.gender || existingMetadata.gender || null,
-              date_of_birth: hospital_profile_update.dob || extPatient?.date_of_birth || existingMetadata.dob || null,
-              blood_group: hospital_profile_update.blood_group?.trim() || extPatient?.blood_group || existingMetadata.blood_group || null,
-              emergency_contact: hospital_profile_update.emergency_contact?.trim() || extPatient?.emergency_contact || existingMetadata.emergency_contact || null,
-              updated_at: new Date().toISOString()
+              gender:
+                hospital_profile_update.gender ||
+                extPatient?.gender ||
+                existingMetadata.gender ||
+                null,
+              date_of_birth:
+                hospital_profile_update.dob ||
+                extPatient?.date_of_birth ||
+                existingMetadata.dob ||
+                null,
+              blood_group:
+                hospital_profile_update.blood_group?.trim() ||
+                extPatient?.blood_group ||
+                existingMetadata.blood_group ||
+                null,
+              emergency_contact:
+                hospital_profile_update.emergency_contact?.trim() ||
+                extPatient?.emergency_contact ||
+                existingMetadata.emergency_contact ||
+                null,
+              updated_at: new Date().toISOString(),
             };
 
             if (extPatient) {
-              await db.from('patients').update(patientData).eq('id', targetContactId);
+              await db
+                .from('patients')
+                .update(patientData)
+                .eq('id', targetContactId);
             } else {
               await db.from('patients').insert(patientData);
             }
 
-            console.log('[AI Hospital] Profile successfully updated in contacts & patients for patient ID:', pId);
+            console.log(
+              '[AI Hospital] Profile successfully updated in contacts & patients for patient ID:',
+              pId
+            );
           }
         } catch (profileErr) {
-          console.error('[AI Hospital] Error updating patient profile self-edit:', profileErr);
+          console.error(
+            '[AI Hospital] Error updating patient profile self-edit:',
+            profileErr
+          );
         }
       }
 
       // 5.5 Student target exam self-update via WhatsApp
       if (coaching_student_update) {
         try {
-          const sId = coaching_student_update.student_id ? coaching_student_update.student_id.trim().toUpperCase() : null;
-          const targetExam = coaching_student_update.target_exam ? coaching_student_update.target_exam.trim() : null;
+          const sId = coaching_student_update.student_id
+            ? coaching_student_update.student_id.trim().toUpperCase()
+            : null;
+          const targetExam = coaching_student_update.target_exam
+            ? coaching_student_update.target_exam.trim()
+            : null;
 
           if (targetExam) {
             let targetContactIdToUpdate: string | null = null;
@@ -897,28 +1122,39 @@ Note:
             }
 
             if (targetContactIdToUpdate) {
-              console.log('[AI Coaching] Updating student exam preparation in metadata for ID:', targetContactIdToUpdate, 'to:', targetExam);
+              console.log(
+                '[AI Coaching] Updating student exam preparation in metadata for ID:',
+                targetContactIdToUpdate,
+                'to:',
+                targetExam
+              );
               const { data: extContact } = await db
                 .from('contacts')
                 .select('metadata')
                 .eq('id', targetContactIdToUpdate)
                 .single();
-              const existingMetadata = extContact?.metadata && typeof extContact.metadata === 'object' ? extContact.metadata : {};
+              const existingMetadata =
+                extContact?.metadata && typeof extContact.metadata === 'object'
+                  ? extContact.metadata
+                  : {};
 
               await db
                 .from('contacts')
                 .update({
                   metadata: {
                     ...existingMetadata,
-                    parent_name: targetExam
+                    parent_name: targetExam,
                   },
-                  updated_at: new Date().toISOString()
+                  updated_at: new Date().toISOString(),
                 })
                 .eq('id', targetContactIdToUpdate);
             }
           }
         } catch (coachingErr) {
-          console.error('[AI Coaching] Error updating student target exam:', coachingErr);
+          console.error(
+            '[AI Coaching] Error updating student target exam:',
+            coachingErr
+          );
         }
       }
 
@@ -933,28 +1169,51 @@ Note:
           .eq('id', targetContactId)
           .single();
 
-        const existingMetadata = extContact?.metadata && typeof extContact.metadata === 'object' ? extContact.metadata : {};
-        
+        const existingMetadata =
+          extContact?.metadata && typeof extContact.metadata === 'object'
+            ? extContact.metadata
+            : {};
+
         const { data: extPatient } = await db
           .from('patients')
           .select('*')
           .eq('id', targetContactId)
           .maybeSingle();
 
-        const pName = hospital_patient_info?.name || patientNameProvided || extContact?.name || contact?.name;
-        const pGender = hospital_patient_info?.gender || extPatient?.gender || existingMetadata.gender;
-        const pDob = hospital_patient_info?.dob || extPatient?.date_of_birth || existingMetadata.dob;
-        const pBg = hospital_patient_info?.blood_group || extPatient?.blood_group || existingMetadata.blood_group;
-        const pEc = hospital_patient_info?.emergency_contact || extPatient?.emergency_contact || existingMetadata.emergency_contact;
+        const pName =
+          hospital_patient_info?.name ||
+          patientNameProvided ||
+          extContact?.name ||
+          contact?.name;
+        const pGender =
+          hospital_patient_info?.gender ||
+          extPatient?.gender ||
+          existingMetadata.gender;
+        const pDob =
+          hospital_patient_info?.dob ||
+          extPatient?.date_of_birth ||
+          existingMetadata.dob;
+        const pBg =
+          hospital_patient_info?.blood_group ||
+          extPatient?.blood_group ||
+          existingMetadata.blood_group;
+        const pEc =
+          hospital_patient_info?.emergency_contact ||
+          extPatient?.emergency_contact ||
+          existingMetadata.emergency_contact;
 
         if (!pName) {
-          reply = "I'm ready to schedule your appointment, but I need your full name first. Could you please reply with your name?";
+          reply =
+            "I'm ready to schedule your appointment, but I need your full name first. Could you please reply with your name?";
         } else if (!pGender) {
-          reply = "I'm ready to schedule your appointment, but I need to know your gender first (Male/Female/Other). Could you please let me know?";
+          reply =
+            "I'm ready to schedule your appointment, but I need to know your gender first (Male/Female/Other). Could you please let me know?";
         } else if (!pDob) {
-          reply = "I'm ready to schedule your appointment, but I need your Date of Birth first (YYYY-MM-DD). Could you please provide it?";
+          reply =
+            "I'm ready to schedule your appointment, but I need your Date of Birth first (YYYY-MM-DD). Could you please provide it?";
         } else if (!doctor_name && !department) {
-          reply = "I'm ready to schedule your appointment. Could you please let me know which department you'd like to visit (e.g. Cardiology, Orthopedics, General Medicine)?";
+          reply =
+            "I'm ready to schedule your appointment. Could you please let me know which department you'd like to visit (e.g. Cardiology, Orthopedics, General Medicine)?";
         } else if (department && !doctor_name) {
           // Department given but no doctor — look up doctors in that department and list them
           const { data: deptDoctors } = await db
@@ -967,7 +1226,9 @@ Note:
           if (deptDoctors && deptDoctors.length > 0) {
             let doctorList = `Here are the available doctors in *${department}*:\n\n`;
             deptDoctors.forEach((doc: any, idx: number) => {
-              const days = Array.isArray(doc.available_days) ? doc.available_days.join(', ') : 'All days';
+              const days = Array.isArray(doc.available_days)
+                ? doc.available_days.join(', ')
+                : 'All days';
               const start = doc.working_hours?.start || '09:00';
               const end = doc.working_hours?.end || '17:00';
               const fee = doc.consultation_fee || 0;
@@ -1002,7 +1263,7 @@ Note:
             let campaignIdToAttribute: string | null = null;
             const sevenDaysAgo = new Date();
             sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-            
+
             const { data: recentCampaignRec } = await db
               .from('broadcast_recipients')
               .select('broadcast_id')
@@ -1011,7 +1272,7 @@ Note:
               .order('created_at', { ascending: false })
               .limit(1)
               .maybeSingle();
-            
+
             if (recentCampaignRec) {
               campaignIdToAttribute = recentCampaignRec.broadcast_id;
             }
@@ -1026,7 +1287,7 @@ Note:
                 appointment_date: date,
                 appointment_time: time,
                 status: 'pending',
-                campaign_id: campaignIdToAttribute
+                campaign_id: campaignIdToAttribute,
               })
               .select('id, booking_id, token_number, queue_position')
               .maybeSingle();
@@ -1043,19 +1304,26 @@ Note:
                 date_of_birth: pDob || null,
                 blood_group: pBg || null,
                 emergency_contact: pEc || null,
-                updated_at: new Date().toISOString()
+                updated_at: new Date().toISOString(),
               };
 
               if (extPatient) {
-                await db.from('patients').update(patientData).eq('id', targetContactId);
-              } else {
-                const { data: createdPatient, error: createPatientError } = await db
+                await db
                   .from('patients')
-                  .insert(patientData)
-                  .select('patient_seq_id')
-                  .single();
+                  .update(patientData)
+                  .eq('id', targetContactId);
+              } else {
+                const { data: createdPatient, error: createPatientError } =
+                  await db
+                    .from('patients')
+                    .insert(patientData)
+                    .select('patient_seq_id')
+                    .single();
                 if (createPatientError || !createdPatient?.patient_seq_id) {
-                  throw createPatientError || new Error('Could not assign a Patient ID');
+                  throw (
+                    createPatientError ||
+                    new Error('Could not assign a Patient ID')
+                  );
                 }
                 seq = createdPatient.patient_seq_id;
               }
@@ -1071,14 +1339,22 @@ Note:
                 emergency_contact: pEc || null,
               };
 
-              await db.from('contacts').update({
-                name: pName || null,
-                metadata: updatedMetadata,
-                updated_at: new Date().toISOString()
-              }).eq('id', targetContactId);
-              const siteUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://helpa.studio';
+              await db
+                .from('contacts')
+                .update({
+                  name: pName || null,
+                  metadata: updatedMetadata,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', targetContactId);
+              const siteUrl =
+                process.env.NEXT_PUBLIC_APP_URL ||
+                process.env.NEXT_PUBLIC_SITE_URL ||
+                'https://helpa.studio';
               const pdfUrl = `${siteUrl}/api/appointments/${newAppt.id}/pdf`;
-              const bookingIdStr = newAppt.booking_id || `APT-2026-${newAppt.id.slice(0, 5).toUpperCase()}`;
+              const bookingIdStr =
+                newAppt.booking_id ||
+                `APT-2026-${newAppt.id.slice(0, 5).toUpperCase()}`;
 
               // Generate Ticket Serial Number (daily count for this account on this date)
               const { count: dailyCount } = await db
@@ -1088,8 +1364,12 @@ Note:
                 .eq('appointment_date', date);
               const ticketSerial = `TKT-${String(dailyCount || 1).padStart(3, '0')}`;
 
-              const displayDoc = actualDocName.startsWith('Dr.') ? actualDocName : 'Dr. ' + actualDocName;
-              const displaySpec = actualSpecialization ? ` (${actualSpecialization})` : '';
+              const displayDoc = actualDocName.startsWith('Dr.')
+                ? actualDocName
+                : 'Dr. ' + actualDocName;
+              const displaySpec = actualSpecialization
+                ? ` (${actualSpecialization})`
+                : '';
 
               reply = `✅ *APPOINTMENT CONFIRMED!*
 
@@ -1107,7 +1387,9 @@ ${pdfUrl}
 Please arrive 15 minutes before your time slot. Thank you!`;
 
               // Automatically send the PDF slip to the patient via WhatsApp
-              const { engineSendDocument } = require('@/lib/automations/meta-send');
+              const {
+                engineSendDocument,
+              } = require('@/lib/automations/meta-send');
               engineSendDocument({
                 accountId,
                 userId,
@@ -1115,11 +1397,19 @@ Please arrive 15 minutes before your time slot. Thank you!`;
                 contactId,
                 documentUrl: pdfUrl,
                 filename: `appointment-${bookingIdStr}.pdf`,
-                caption: `Digital Appointment Ticket for ${displayDoc}`
-              }).catch((e: any) => console.error('[AI Hospital] Failed to auto-send appointment PDF:', e));
+                caption: `Digital Appointment Ticket for ${displayDoc}`,
+              }).catch((e: any) =>
+                console.error(
+                  '[AI Hospital] Failed to auto-send appointment PDF:',
+                  e
+                )
+              );
             }
           } catch (apptErr) {
-            console.error('[AI Hospital] Error booking appointment via AI:', apptErr);
+            console.error(
+              '[AI Hospital] Error booking appointment via AI:',
+              apptErr
+            );
           }
         }
       }
@@ -1127,16 +1417,42 @@ Please arrive 15 minutes before your time slot. Thank you!`;
       // 4. Lab Report Smart Status Assistant
       if (labReports && labReports.length > 0) {
         const lowercaseMsg = (latestMessage?.content_text || '').toLowerCase();
-        const reportKeywords = ['report', 'test', 'blood', 'result', 'report status', 'রিপোর্ট', 'रिपोर्ट', 'lab', 'x-ray', 'xray', 'mri', 'ct scan', 'cbc', 'ecg', 'usg', 'ultrasound'];
-        const isReportQuery = reportKeywords.some(kw => lowercaseMsg.includes(kw));
+        const reportKeywords = [
+          'report',
+          'test',
+          'blood',
+          'result',
+          'report status',
+          'রিপোর্ট',
+          'रिपोर्ट',
+          'lab',
+          'x-ray',
+          'xray',
+          'mri',
+          'ct scan',
+          'cbc',
+          'ecg',
+          'usg',
+          'ultrasound',
+        ];
+        const isReportQuery = reportKeywords.some((kw) =>
+          lowercaseMsg.includes(kw)
+        );
 
         if (isReportQuery) {
-          const readyReportsWithPdf = labReports.filter((r: any) => r.status === 'ready' && r.report_pdf_url);
-          
+          const readyReportsWithPdf = labReports.filter(
+            (r: any) => r.status === 'ready' && r.report_pdf_url
+          );
+
           if (readyReportsWithPdf.length === 1) {
             const readyReport = readyReportsWithPdf[0];
-            console.log('[AI Hospital] Auto-sending lab report PDF:', readyReport.test_name);
-            const { engineSendDocument } = require('@/lib/automations/meta-send');
+            console.log(
+              '[AI Hospital] Auto-sending lab report PDF:',
+              readyReport.test_name
+            );
+            const {
+              engineSendDocument,
+            } = require('@/lib/automations/meta-send');
             engineSendDocument({
               accountId,
               userId,
@@ -1144,11 +1460,20 @@ Please arrive 15 minutes before your time slot. Thank you!`;
               contactId,
               documentUrl: readyReport.report_pdf_url,
               filename: `${readyReport.test_name.replace(/\s+/g, '_')}_Report.pdf`,
-              caption: `Here is your completed ${readyReport.test_name} report.`
-            }).catch((e: any) => console.error('[AI Hospital] Failed to auto-send lab report PDF:', e));
+              caption: `Here is your completed ${readyReport.test_name} report.`,
+            }).catch((e: any) =>
+              console.error(
+                '[AI Hospital] Failed to auto-send lab report PDF:',
+                e
+              )
+            );
           } else if (readyReportsWithPdf.length > 1) {
-            console.log('[AI Hospital] Multiple ready reports, sending selection buttons');
-            const { engineSendButtons } = require('@/lib/automations/meta-send');
+            console.log(
+              '[AI Hospital] Multiple ready reports, sending selection buttons'
+            );
+            const {
+              engineSendButtons,
+            } = require('@/lib/automations/meta-send');
             const buttons = readyReportsWithPdf.slice(0, 3).map((r: any) => ({
               id: `report_download_${r.id}`,
               title: r.test_name.substring(0, 20),
@@ -1158,9 +1483,12 @@ Please arrive 15 minutes before your time slot. Thank you!`;
               userId,
               conversationId,
               contactId,
-              bodyText: 'I found multiple reports ready for you. Which one would you like to receive?',
+              bodyText:
+                'I found multiple reports ready for you. Which one would you like to receive?',
               buttons,
-            }).catch((e: any) => console.error('[AI Hospital] Failed to send report buttons:', e));
+            }).catch((e: any) =>
+              console.error('[AI Hospital] Failed to send report buttons:', e)
+            );
           }
         }
       }
@@ -1168,26 +1496,28 @@ Please arrive 15 minutes before your time slot. Thank you!`;
 
     // If human handoff is requested, insert system message alert
     if (handoff_required) {
-      const { error: systemMsgError } = await db
-        .from('messages')
-        .insert({
-          conversation_id: conversationId,
-          sender_type: 'bot',
-          content_type: 'text',
-          content_text: '[System Handoff] AI auto-pilot disabled. Human agent takeover requested.',
-          message_id: `system-handoff-${conversationId}-${Date.now()}`,
-          status: 'delivered',
-          created_at: new Date().toISOString(),
-        })
+      const { error: systemMsgError } = await db.from('messages').insert({
+        conversation_id: conversationId,
+        sender_type: 'bot',
+        content_type: 'text',
+        content_text:
+          '[System Handoff] AI auto-pilot disabled. Human agent takeover requested.',
+        message_id: `system-handoff-${conversationId}-${Date.now()}`,
+        status: 'delivered',
+        created_at: new Date().toISOString(),
+      });
 
       if (systemMsgError) {
-        console.error('[AI Assistant] Failed to insert handoff system message:', systemMsgError)
+        console.error(
+          '[AI Assistant] Failed to insert handoff system message:',
+          systemMsgError
+        );
       }
     }
 
     // 6. Send the generated text back to the customer via WhatsApp and insert it into the DB
     if (isHospitalEnabled && intent === 'booking') {
-      const { engineSendButtons } = await import('@/lib/automations/meta-send')
+      const { engineSendButtons } = await import('@/lib/automations/meta-send');
       await engineSendButtons({
         accountId,
         userId,
@@ -1197,9 +1527,9 @@ Please arrive 15 minutes before your time slot. Thank you!`;
         buttons: [
           { id: 'hospital_btn_book', title: '📅 Book Now' },
           { id: 'hospital_btn_docs', title: '👨‍⚕️ View Doctors' },
-          { id: 'hospital_btn_branches', title: '📍 Clinic Sites' }
-        ]
-      })
+          { id: 'hospital_btn_branches', title: '📍 Clinic Sites' },
+        ],
+      });
     } else {
       await engineSendText({
         accountId,
@@ -1207,13 +1537,18 @@ Please arrive 15 minutes before your time slot. Thank you!`;
         conversationId,
         contactId,
         text: reply,
-      })
+      });
     }
-    console.log(`[AI Assistant] Successfully sent AI reply to conversation ${conversationId}`)
+    console.log(
+      `[AI Assistant] Successfully sent AI reply to conversation ${conversationId}`
+    );
 
     // 7. Track successful AI request usage
-    await incrementUsage(accountId, 'ai_requests')
+    await incrementUsage(accountId, 'ai_requests');
   } catch (err) {
-    console.error('[AI Assistant] Error calling OpenRouter completions API:', err)
+    console.error(
+      '[AI Assistant] Error calling OpenRouter completions API:',
+      err
+    );
   }
 }

@@ -1,9 +1,9 @@
-import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
-import Script from "next/script";
-import "./globals.css";
-import { ThemeProvider } from "@/hooks/use-theme";
-import { ThemedToaster } from "@/components/themed-toaster";
+import type { Metadata, Viewport } from 'next';
+import { Inter } from 'next/font/google';
+import Script from 'next/script';
+import './globals.css';
+import { ThemeProvider } from '@/hooks/use-theme';
+import { ThemedToaster } from '@/components/themed-toaster';
 import {
   DEFAULT_MODE,
   DEFAULT_THEME,
@@ -11,57 +11,63 @@ import {
   MODES,
   STORAGE_KEY,
   THEME_IDS,
-} from "@/lib/themes";
+} from '@/lib/themes';
 
 const inter = Inter({
-  variable: "--font-sans",
-  subsets: ["latin"],
-  display: "swap",
+  variable: '--font-sans',
+  subsets: ['latin'],
+  display: 'swap',
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://helpa.studio"),
-  title: "Helpa — WhatsApp AI Receptionist for Clinics, Salons & Coaching Institutes",
-  description: "Answers WhatsApp enquiries in seconds, books appointments, and captures leads 24/7. Built on the official WhatsApp Cloud API for Indian businesses.",
+  metadataBase: new URL('https://helpa.studio'),
+  title:
+    'Helpa — WhatsApp AI Receptionist for Clinics, Salons & Coaching Institutes',
+  description:
+    'Answers WhatsApp enquiries in seconds, books appointments, and captures leads 24/7. Built on the official WhatsApp Cloud API for Indian businesses.',
   keywords: [
-    "WhatsApp AI Receptionist",
-    "WhatsApp CRM India",
-    "Clinic Appointment Booking WhatsApp",
-    "Salon Booking Automation",
-    "Coaching Institute Lead Capture",
-    "WhatsApp Cloud API India",
+    'WhatsApp AI Receptionist',
+    'WhatsApp CRM India',
+    'Clinic Appointment Booking WhatsApp',
+    'Salon Booking Automation',
+    'Coaching Institute Lead Capture',
+    'WhatsApp Cloud API India',
   ],
   alternates: {
-    canonical: "/",
+    canonical: '/',
   },
   openGraph: {
-    title: "Helpa — WhatsApp AI Receptionist for Clinics, Salons & Coaching Institutes",
-    description: "Answers WhatsApp enquiries in seconds, books appointments, and captures leads 24/7. Built on the official WhatsApp Cloud API for Indian businesses.",
-    url: "https://helpa.studio",
-    siteName: "Helpa Studio",
-    locale: "en_IN",
-    type: "website",
+    title:
+      'Helpa — WhatsApp AI Receptionist for Clinics, Salons & Coaching Institutes',
+    description:
+      'Answers WhatsApp enquiries in seconds, books appointments, and captures leads 24/7. Built on the official WhatsApp Cloud API for Indian businesses.',
+    url: 'https://helpa.studio',
+    siteName: 'Helpa Studio',
+    locale: 'en_IN',
+    type: 'website',
     images: [
       {
-        url: "/og-image.jpg",
+        url: '/og-image.jpg',
         width: 1200,
         height: 630,
-        alt: "Helpa WhatsApp AI Receptionist & CRM",
+        alt: 'Helpa WhatsApp AI Receptionist & CRM',
       },
     ],
   },
   twitter: {
-    card: "summary_large_image",
-    title: "Helpa — WhatsApp AI Receptionist for Clinics, Salons & Coaching Institutes",
-    description: "Answers WhatsApp enquiries in seconds, books appointments, and captures leads 24/7. Built on the official WhatsApp Cloud API for Indian businesses.",
-    images: ["/og-image.jpg"],
+    card: 'summary_large_image',
+    title:
+      'Helpa — WhatsApp AI Receptionist for Clinics, Salons & Coaching Institutes',
+    description:
+      'Answers WhatsApp enquiries in seconds, books appointments, and captures leads 24/7. Built on the official WhatsApp Cloud API for Indian businesses.',
+    images: ['/og-image.jpg'],
   },
   robots: {
     index: true,
     follow: true,
   },
   icons: {
-    icon: [{ url: "/icon" }],
+    icon: [{ url: '/icon' }],
   },
   formatDetection: {
     email: false,
@@ -71,8 +77,8 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#020617",
-  colorScheme: "dark light",
+  themeColor: '#020617',
+  colorScheme: 'dark light',
 };
 
 // Inline boot script — runs before React hydrates so the user's
@@ -134,7 +140,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }}
         />
       </head>
-      <body className="min-h-full bg-background text-foreground font-sans">
+      <body className="bg-background text-foreground min-h-full font-sans">
         <ThemeProvider>
           {children}
           <ThemedToaster />

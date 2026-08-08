@@ -25,11 +25,11 @@
 //   }
 // ============================================================
 
-import { NextResponse } from "next/server";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { NextResponse } from 'next/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { createClient } from "@/lib/supabase/server";
-import { hasMinRole, isAccountRole, type AccountRole } from "./roles";
+import { createClient } from '@/lib/supabase/server';
+import { hasMinRole, isAccountRole, type AccountRole } from './roles';
 
 // ------------------------------------------------------------
 // Errors
@@ -40,17 +40,17 @@ import { hasMinRole, isAccountRole, type AccountRole } from "./roles";
 
 export class UnauthorizedError extends Error {
   readonly status = 401 as const;
-  constructor(message = "Unauthorized") {
+  constructor(message = 'Unauthorized') {
     super(message);
-    this.name = "UnauthorizedError";
+    this.name = 'UnauthorizedError';
   }
 }
 
 export class ForbiddenError extends Error {
   readonly status = 403 as const;
-  constructor(message = "Forbidden") {
+  constructor(message = 'Forbidden') {
     super(message);
-    this.name = "ForbiddenError";
+    this.name = 'ForbiddenError';
   }
 }
 
@@ -70,8 +70,8 @@ export function toErrorResponse(err: unknown): NextResponse {
   if (err instanceof UnauthorizedError || err instanceof ForbiddenError) {
     return NextResponse.json({ error: err.message }, { status: err.status });
   }
-  console.error("[toErrorResponse] uncategorized error:", err);
-  return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  console.error('[toErrorResponse] uncategorized error:', err);
+  return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
 }
 
 // ------------------------------------------------------------
@@ -120,20 +120,20 @@ export async function getCurrentAccount(): Promise<AccountContext> {
   // shouldn't exist) yields no row and trips the guard below
   // rather than silently returning a half-populated profile.
   const { data, error } = await supabase
-    .from("profiles")
-    .select("account_id, account_role, account:accounts!inner(id, name)")
-    .eq("user_id", user.id)
+    .from('profiles')
+    .select('account_id, account_role, account:accounts!inner(id, name)')
+    .eq('user_id', user.id)
     .maybeSingle();
 
   if (error) {
-    console.error("[getCurrentAccount] profile fetch error:", error);
-    throw new ForbiddenError("Could not load account context");
+    console.error('[getCurrentAccount] profile fetch error:', error);
+    throw new ForbiddenError('Could not load account context');
   }
   if (!data || !data.account_id || !data.account_role || !data.account) {
     // Pre-migration profile, or a manual insert that skipped the
     // signup trigger. The user is authenticated but the app has
     // no way to scope their queries — treat as forbidden.
-    throw new ForbiddenError("Profile is not linked to an account");
+    throw new ForbiddenError('Profile is not linked to an account');
   }
   if (!isAccountRole(data.account_role)) {
     // The DB enum should make this impossible, but a future
@@ -144,7 +144,9 @@ export async function getCurrentAccount(): Promise<AccountContext> {
 
   // Supabase's typed client returns related rows as an array even
   // for `!inner` single-record joins; normalise to a single object.
-  const accountRow = Array.isArray(data.account) ? data.account[0] : data.account;
+  const accountRow = Array.isArray(data.account)
+    ? data.account[0]
+    : data.account;
 
   return {
     supabase,
@@ -166,7 +168,7 @@ export async function requireRole(min: AccountRole): Promise<AccountContext> {
   const ctx = await getCurrentAccount();
   if (!hasMinRole(ctx.role, min)) {
     throw new ForbiddenError(
-      `This action requires the '${min}' role or higher`,
+      `This action requires the '${min}' role or higher`
     );
   }
   return ctx;

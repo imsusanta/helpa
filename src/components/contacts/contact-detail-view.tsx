@@ -6,7 +6,15 @@ import { useAuth } from '@/hooks/use-auth';
 import { getIndustryModule } from '@/modules/registry';
 import { formatCurrency } from '@/lib/currency';
 import { toast } from 'sonner';
-import type { Contact, Tag, ContactTag, ContactNote, CustomField, ContactCustomValue, Deal } from '@/types';
+import type {
+  Contact,
+  Tag,
+  ContactTag,
+  ContactNote,
+  CustomField,
+  ContactCustomValue,
+  Deal,
+} from '@/types';
 import {
   Sheet,
   SheetContent,
@@ -171,7 +179,9 @@ export function ContactDetailView({
         ...(pData?.blood_group ? { blood_group: pData.blood_group } : {}),
         ...(pData?.gender ? { gender: pData.gender } : {}),
         ...(pData?.date_of_birth ? { dob: pData.date_of_birth } : {}),
-        ...(pData?.emergency_contact ? { emergency_contact: pData.emergency_contact } : {}),
+        ...(pData?.emergency_contact
+          ? { emergency_contact: pData.emergency_contact }
+          : {}),
       };
 
       setEditMetadata(mergedMeta);
@@ -184,7 +194,10 @@ export function ContactDetailView({
 
     const [tagsRes, contactTagsRes] = await Promise.all([
       supabase.from('tags').select('*').order('name'),
-      supabase.from('contact_tags').select('tag_id').eq('contact_id', contactId),
+      supabase
+        .from('contact_tags')
+        .select('tag_id')
+        .eq('contact_id', contactId),
     ]);
 
     if (tagsRes.data) setAllTags(tagsRes.data);
@@ -250,7 +263,15 @@ export function ContactDetailView({
       fetchCustomFields();
       fetchDeals();
     }
-  }, [open, contactId, fetchContact, fetchTags, fetchNotes, fetchCustomFields, fetchDeals]);
+  }, [
+    open,
+    contactId,
+    fetchContact,
+    fetchTags,
+    fetchNotes,
+    fetchCustomFields,
+    fetchDeals,
+  ]);
 
   async function copyPhone() {
     if (!contact) return;
@@ -279,18 +300,16 @@ export function ContactDetailView({
     setSavingDetails(true);
 
     if (patientSeqId && contactId && accountId) {
-      await supabase
-        .from('patients')
-        .upsert({
-          id: contactId,
-          account_id: accountId,
-          patient_seq_id: patientSeqId,
-          blood_group: editMetadata.blood_group || null,
-          gender: editMetadata.gender || null,
-          date_of_birth: editMetadata.dob || null,
-          emergency_contact: editMetadata.emergency_contact || null,
-          updated_at: new Date().toISOString(),
-        });
+      await supabase.from('patients').upsert({
+        id: contactId,
+        account_id: accountId,
+        patient_seq_id: patientSeqId,
+        blood_group: editMetadata.blood_group || null,
+        gender: editMetadata.gender || null,
+        date_of_birth: editMetadata.dob || null,
+        emergency_contact: editMetadata.emergency_contact || null,
+        updated_at: new Date().toISOString(),
+      });
     }
 
     const { error } = await supabase
@@ -440,45 +459,45 @@ export function ContactDetailView({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="bg-popover border-border text-popover-foreground sm:max-w-lg w-full p-0"
+        className="bg-popover border-border text-popover-foreground w-full p-0 sm:max-w-lg"
       >
         {loading || !contact ? (
-          <div className="flex items-center justify-center h-full">
-            <Loader2 className="size-6 animate-spin text-primary" />
+          <div className="flex h-full items-center justify-center">
+            <Loader2 className="text-primary size-6 animate-spin" />
           </div>
         ) : (
-          <div className="flex flex-col h-full">
+          <div className="flex h-full flex-col">
             {/* Header */}
-            <SheetHeader className="p-4 border-b border-border/50">
+            <SheetHeader className="border-border/50 border-b p-4">
               <div className="flex items-center gap-3">
-                <Avatar className="size-12 bg-muted border border-border">
+                <Avatar className="bg-muted border-border size-12 border">
                   <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
                     {getInitials(contact.name)}
                   </AvatarFallback>
                 </Avatar>
-                <div className="flex-1 min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <SheetTitle className="text-popover-foreground truncate">
                       {contact.name || 'Unknown'}
                     </SheetTitle>
                     {patientSeqId && (
-                      <span className="inline-flex items-center font-mono font-bold text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md shrink-0">
+                      <span className="inline-flex shrink-0 items-center rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400">
                         {patientSeqId}
                       </span>
                     )}
                   </div>
-                  <SheetDescription className="text-muted-foreground text-xs mt-0.5">
+                  <SheetDescription className="text-muted-foreground mt-0.5 text-xs">
                     Patient Profile Details
                   </SheetDescription>
-                  <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs text-muted-foreground">
+                  <div className="text-muted-foreground mt-1.5 flex flex-wrap items-center gap-3 text-xs">
                     <button
                       onClick={copyPhone}
-                      className="flex items-center gap-1 hover:text-primary transition-colors cursor-pointer"
+                      className="hover:text-primary flex cursor-pointer items-center gap-1 transition-colors"
                     >
                       <Phone className="size-3" />
                       {contact.phone}
                       {copiedPhone ? (
-                        <Check className="size-3 text-primary" />
+                        <Check className="text-primary size-3" />
                       ) : (
                         <Copy className="size-3" />
                       )}
@@ -498,12 +517,12 @@ export function ContactDetailView({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1.5 shrink-0">
+                <div className="flex shrink-0 items-center gap-1.5">
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => setUploadPdfOpen(true)}
-                    className="border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 font-semibold gap-1 text-xs cursor-pointer"
+                    className="cursor-pointer gap-1 border-emerald-500/40 bg-emerald-500/10 text-xs font-semibold text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400"
                   >
                     <FileUp className="size-3.5" />
                     Upload PDF
@@ -512,7 +531,7 @@ export function ContactDetailView({
                     size="sm"
                     variant="outline"
                     onClick={() => setOutboundOpen(true)}
-                    className="border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 font-semibold gap-1 text-xs cursor-pointer"
+                    className="border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer gap-1 text-xs font-semibold"
                   >
                     <MessageSquare className="size-3.5" />
                     Send WhatsApp
@@ -522,8 +541,11 @@ export function ContactDetailView({
             </SheetHeader>
 
             {/* Tabs */}
-            <Tabs defaultValue="details" className="flex-1 flex flex-col min-h-0">
-              <TabsList className="bg-muted/50 border-b border-border mx-4 mt-3">
+            <Tabs
+              defaultValue="details"
+              className="flex min-h-0 flex-1 flex-col"
+            >
+              <TabsList className="bg-muted/50 border-border mx-4 mt-3 border-b">
                 <TabsTrigger
                   value="details"
                   className="data-active:bg-muted data-active:text-primary text-muted-foreground"
@@ -557,28 +579,42 @@ export function ContactDetailView({
               </TabsList>
 
               {/* Details Tab */}
-              <TabsContent value="details" className="flex-1 overflow-y-auto px-4 py-3">
+              <TabsContent
+                value="details"
+                className="flex-1 overflow-y-auto px-4 py-3"
+              >
                 <div className="space-y-3 pb-4">
                   {/* Permanent Unique Patient ID Field */}
-                  <div className="space-y-1.5 p-2.5 bg-emerald-500/5 border border-emerald-500/20 rounded-lg">
-                    <Label className="text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center justify-between">
+                  <div className="space-y-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-2.5">
+                    <Label className="flex items-center justify-between text-xs font-bold text-emerald-700 dark:text-emerald-300">
                       <span>Unique Patient ID (Permanent)</span>
-                      <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">Auto-Generated & Permanent</span>
+                      <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                        Auto-Generated & Permanent
+                      </span>
                     </Label>
                     <div className="flex items-center gap-2">
                       <Input
-                        value={patientSeqId || (editMetadata as any)?.patient_id || 'PAT-000001'}
+                        value={
+                          patientSeqId ||
+                          (editMetadata as any)?.patient_id ||
+                          'PAT-000001'
+                        }
                         readOnly
-                        className="bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300 font-mono font-bold h-8 text-sm cursor-not-allowed"
+                        className="h-8 cursor-not-allowed border-emerald-500/30 bg-emerald-500/10 font-mono text-sm font-bold text-emerald-700 dark:text-emerald-300"
                       />
-                      <Badge variant="outline" className="bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-mono text-[10px] shrink-0">
+                      <Badge
+                        variant="outline"
+                        className="shrink-0 border-emerald-500/30 bg-emerald-500/10 font-mono text-[10px] text-emerald-600 dark:text-emerald-400"
+                      >
                         Unique
                       </Badge>
                     </div>
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label className="text-muted-foreground text-xs">Full Name</Label>
+                    <Label className="text-muted-foreground text-xs">
+                      Full Name
+                    </Label>
                     <Input
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
@@ -596,7 +632,9 @@ export function ContactDetailView({
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-muted-foreground text-xs">Email</Label>
+                    <Label className="text-muted-foreground text-xs">
+                      Email
+                    </Label>
                     <Input
                       value={editEmail}
                       onChange={(e) => setEditEmail(e.target.value)}
@@ -604,7 +642,9 @@ export function ContactDetailView({
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-muted-foreground text-xs">Company</Label>
+                    <Label className="text-muted-foreground text-xs">
+                      Company
+                    </Label>
                     <Input
                       value={editCompany}
                       onChange={(e) => setEditCompany(e.target.value)}
@@ -612,7 +652,9 @@ export function ContactDetailView({
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-muted-foreground text-xs">Address</Label>
+                    <Label className="text-muted-foreground text-xs">
+                      Address
+                    </Label>
                     <Input
                       value={editAddress}
                       onChange={(e) => setEditAddress(e.target.value)}
@@ -623,31 +665,38 @@ export function ContactDetailView({
                   {/* Industry Dynamic Custom Fields */}
                   {(() => {
                     const industryModule = getIndustryModule(account?.industry);
-                    const contactConfig = industryModule.entityConfigs?.contacts;
+                    const contactConfig =
+                      industryModule.entityConfigs?.contacts;
                     const fields = contactConfig?.fields || [];
                     if (fields.length === 0) return null;
 
                     return (
-                      <div className="pt-2 border-t border-border/50 space-y-3">
-                        <span className="text-[10px] font-bold text-primary uppercase block">
+                      <div className="border-border/50 space-y-3 border-t pt-2">
+                        <span className="text-primary block text-[10px] font-bold uppercase">
                           {contactConfig?.label || 'Contact'} Details
                         </span>
                         {fields.map((field) => {
                           const val = editMetadata[field.key] ?? '';
                           const handleChange = (newVal: any) => {
-                            setEditMetadata((prev) => ({ ...prev, [field.key]: newVal }));
+                            setEditMetadata((prev) => ({
+                              ...prev,
+                              [field.key]: newVal,
+                            }));
                           };
 
                           return (
                             <div key={field.key} className="space-y-1.5">
                               <Label className="text-muted-foreground text-xs">
-                                {field.label} {field.required && <span className="text-red-400">*</span>}
+                                {field.label}{' '}
+                                {field.required && (
+                                  <span className="text-red-400">*</span>
+                                )}
                               </Label>
                               {field.type === 'select' ? (
                                 <select
                                   value={val}
                                   onChange={(e) => handleChange(e.target.value)}
-                                  className="flex h-8 w-full rounded-md border border-border bg-muted px-3 py-1 text-sm text-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                  className="border-border bg-muted text-foreground focus-visible:ring-ring flex h-8 w-full rounded-md border px-3 py-1 text-sm shadow-sm transition-colors focus-visible:ring-1 focus-visible:outline-none"
                                 >
                                   <option value="">Select option...</option>
                                   {field.options?.map((opt) => (
@@ -685,19 +734,21 @@ export function ContactDetailView({
                   })()}
 
                   <div className="space-y-1.5">
-                    <Label className="text-muted-foreground text-xs">Notes</Label>
+                    <Label className="text-muted-foreground text-xs">
+                      Notes
+                    </Label>
                     <Textarea
                       value={editNotes}
                       onChange={(e) => setEditNotes(e.target.value)}
                       placeholder="Enter private notes..."
-                      className="bg-muted border-border text-foreground text-sm min-h-[60px] resize-none"
+                      className="bg-muted border-border text-foreground min-h-[60px] resize-none text-sm"
                     />
                   </div>
 
                   <Button
                     onClick={saveDetails}
                     disabled={savingDetails}
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground w-full mt-2"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground mt-2 w-full"
                     size="sm"
                   >
                     {savingDetails ? (
@@ -711,13 +762,16 @@ export function ContactDetailView({
               </TabsContent>
 
               {/* Tags Tab */}
-              <TabsContent value="tags" className="flex-1 overflow-y-auto px-4 py-3">
+              <TabsContent
+                value="tags"
+                className="flex-1 overflow-y-auto px-4 py-3"
+              >
                 <div className="space-y-3">
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-muted-foreground text-xs">
                     Click a tag to add or remove it from this contact.
                   </p>
                   {allTags.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-muted-foreground text-sm">
                       No tags available. Create tags in Settings.
                     </p>
                   ) : (
@@ -729,9 +783,9 @@ export function ContactDetailView({
                             key={tag.id}
                             onClick={() => toggleTag(tag.id)}
                             disabled={savingTags}
-                            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium transition-all cursor-pointer ${
+                            className={`inline-flex cursor-pointer items-center rounded-full px-3 py-1 text-xs font-medium transition-all ${
                               selected
-                                ? 'ring-2 ring-primary ring-offset-1 ring-offset-border'
+                                ? 'ring-primary ring-offset-border ring-2 ring-offset-1'
                                 : 'opacity-50 hover:opacity-80'
                             }`}
                             style={{
@@ -739,7 +793,7 @@ export function ContactDetailView({
                               color: tag.color,
                             }}
                           >
-                            {selected && <Check className="size-3 mr-1" />}
+                            {selected && <Check className="mr-1 size-3" />}
                             {tag.name}
                           </button>
                         );
@@ -750,13 +804,16 @@ export function ContactDetailView({
               </TabsContent>
 
               {/* Notes Tab */}
-              <TabsContent value="notes" className="flex-1 flex flex-col min-h-0 px-4 py-3">
-                <div className="space-y-2 mb-3">
+              <TabsContent
+                value="notes"
+                className="flex min-h-0 flex-1 flex-col px-4 py-3"
+              >
+                <div className="mb-3 space-y-2">
                   <Textarea
                     value={newNote}
                     onChange={(e) => setNewNote(e.target.value)}
                     placeholder="Write a note..."
-                    className="bg-muted border-border text-foreground placeholder:text-muted-foreground min-h-[60px] text-sm resize-none"
+                    className="bg-muted border-border text-foreground placeholder:text-muted-foreground min-h-[60px] resize-none text-sm"
                   />
                   <Button
                     onClick={addNote}
@@ -773,40 +830,43 @@ export function ContactDetailView({
                   </Button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto space-y-2">
+                <div className="flex-1 space-y-2 overflow-y-auto">
                   {loadingNotes ? (
                     <div className="flex items-center justify-center py-8">
-                      <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                      <Loader2 className="text-muted-foreground size-5 animate-spin" />
                     </div>
                   ) : notes.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-8">
+                    <p className="text-muted-foreground py-8 text-center text-sm">
                       No notes yet.
                     </p>
                   ) : (
                     notes.map((note) => (
                       <div
                         key={note.id}
-                        className="rounded-lg bg-muted/50 border border-border/50 p-3 group"
+                        className="bg-muted/50 border-border/50 group rounded-lg border p-3"
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm text-muted-foreground whitespace-pre-wrap flex-1">
+                          <p className="text-muted-foreground flex-1 text-sm whitespace-pre-wrap">
                             {note.note_text}
                           </p>
                           <button
                             onClick={() => deleteNote(note.id)}
-                            className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-400 transition-all cursor-pointer shrink-0"
+                            className="text-muted-foreground shrink-0 cursor-pointer opacity-0 transition-all group-hover:opacity-100 hover:text-red-400"
                           >
                             <Trash2 className="size-3.5" />
                           </button>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1.5">
-                          {new Date(note.created_at).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
+                        <p className="text-muted-foreground mt-1.5 text-xs">
+                          {new Date(note.created_at).toLocaleDateString(
+                            'en-US',
+                            {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            }
+                          )}
                         </p>
                       </div>
                     ))
@@ -815,13 +875,16 @@ export function ContactDetailView({
               </TabsContent>
 
               {/* Custom Fields Tab */}
-              <TabsContent value="custom" className="flex-1 overflow-y-auto px-4 py-3">
+              <TabsContent
+                value="custom"
+                className="flex-1 overflow-y-auto px-4 py-3"
+              >
                 {loadingCustom ? (
                   <div className="flex items-center justify-center py-8">
-                    <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                    <Loader2 className="text-muted-foreground size-5 animate-spin" />
                   </div>
                 ) : customFields.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-8">
+                  <p className="text-muted-foreground py-8 text-center text-sm">
                     No custom fields defined. Create them in Settings.
                   </p>
                 ) : (
@@ -840,7 +903,7 @@ export function ContactDetailView({
                             }))
                           }
                           placeholder={`Enter ${field.field_name}...`}
-                          className="bg-muted border-border text-foreground h-8 text-sm placeholder:text-muted-foreground"
+                          className="bg-muted border-border text-foreground placeholder:text-muted-foreground h-8 text-sm"
                         />
                       </div>
                     ))}
@@ -862,22 +925,25 @@ export function ContactDetailView({
               </TabsContent>
 
               {/* Deals Tab */}
-              <TabsContent value="deals" className="flex-1 overflow-y-auto px-4 py-3">
+              <TabsContent
+                value="deals"
+                className="flex-1 overflow-y-auto px-4 py-3"
+              >
                 {loadingDeals ? (
                   <div className="flex items-center justify-center py-8">
-                    <Loader2 className="size-5 animate-spin text-primary" />
+                    <Loader2 className="text-primary size-5 animate-spin" />
                   </div>
                 ) : deals.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">No deals yet</p>
+                  <p className="text-muted-foreground text-xs">No deals yet</p>
                 ) : (
                   <div className="space-y-2">
                     {deals.map((deal) => (
                       <div
                         key={deal.id}
-                        className="rounded-lg border border-border bg-muted/50 p-3"
+                        className="border-border bg-muted/50 rounded-lg border p-3"
                       >
                         <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm font-medium text-foreground">
+                          <p className="text-foreground text-sm font-medium">
                             {deal.title}
                           </p>
                           {deal.stage && (
@@ -892,12 +958,12 @@ export function ContactDetailView({
                             </span>
                           )}
                         </div>
-                        <div className="mt-1.5 flex items-center justify-between text-xs text-muted-foreground">
+                        <div className="text-muted-foreground mt-1.5 flex items-center justify-between text-xs">
                           <span className="flex items-center gap-1">
                             <DollarSign className="size-3" />
                             {formatCurrency(
                               deal.value ?? 0,
-                              deal.currency || defaultCurrency,
+                              deal.currency || defaultCurrency
                             )}
                           </span>
                           {deal.status && deal.status !== 'open' && (

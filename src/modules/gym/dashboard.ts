@@ -6,6 +6,6 @@ export const dashboardConfig: DashboardMetricWidget[] = [
     label: 'Gym Members',
     iconName: 'Users',
     queryTable: 'conversations',
-    queryType: 'count'
-  }
+    queryType: 'count',
+  },
 ];

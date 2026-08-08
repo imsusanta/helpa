@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth/account';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
+import { getOrGeneratePatientId } from '@/lib/patients/id-generator';
 
 export async function GET(request: Request) {
   try {
@@ -40,7 +41,9 @@ export async function GET(request: Request) {
     // Fetch patient details (patient_seq_id, gender, date_of_birth, blood_group)
     const { data: patientsData } = await db
       .from('patients')
-      .select('id, patient_seq_id, gender, date_of_birth, blood_group, emergency_contact')
+      .select(
+        'id, patient_seq_id, gender, date_of_birth, blood_group, emergency_contact'
+      )
       .in('id', contactIds);
 
     const patientsMap = new Map<string, any>();
@@ -48,10 +51,11 @@ export async function GET(request: Request) {
 
     const result = contacts.map((c) => {
       const p = patientsMap.get(c.id);
-      const meta = c.metadata && typeof c.metadata === 'object' ? c.metadata : {};
+      const meta =
+        c.metadata && typeof c.metadata === 'object' ? c.metadata : {};
       return {
         id: c.id,
-        patient_seq_id: p?.patient_seq_id || meta.patient_id || 'PAT-000000',
+        patient_seq_id: getOrGeneratePatientId(c, p?.patient_seq_id),
         name: c.name || 'Unnamed Patient',
         phone: c.phone || '',
         email: c.email || '',
@@ -59,7 +63,8 @@ export async function GET(request: Request) {
         gender: p?.gender || meta.gender || 'Not Specified',
         date_of_birth: p?.date_of_birth || meta.dob || null,
         blood_group: p?.blood_group || meta.blood_group || null,
-        emergency_contact: p?.emergency_contact || meta.emergency_contact || null,
+        emergency_contact:
+          p?.emergency_contact || meta.emergency_contact || null,
       };
     });
 

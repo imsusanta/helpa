@@ -8,7 +8,12 @@ export const sidebarConfig: ModuleNavItem[] = [
   { href: '/appointments', label: 'Appointments', iconName: 'Calendar' },
   { href: '/follow-ups', label: 'Follow-ups', iconName: 'Clock' },
   { href: '/lab-reports', label: 'Reports', iconName: 'FileText' },
-  { href: '/broadcasts', label: 'Campaigns', iconName: 'Megaphone', roleMin: 'admin' },
+  {
+    href: '/broadcasts',
+    label: 'Campaigns',
+    iconName: 'Megaphone',
+    roleMin: 'admin',
+  },
   { href: '/knowledge-base', label: 'Knowledge Base', iconName: 'BookOpen' },
   { href: '/dashboard/analytics', label: 'AI Analytics', iconName: 'Brain' },
   { href: '/settings', label: 'Settings', iconName: 'Settings' },

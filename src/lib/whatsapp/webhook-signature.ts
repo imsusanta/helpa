@@ -1,4 +1,4 @@
-import crypto from 'node:crypto'
+import crypto from 'node:crypto';
 
 /**
  * Verify the HMAC-SHA256 signature Meta attaches to webhook POSTs.
@@ -20,48 +20,56 @@ import crypto from 'node:crypto'
  */
 export function verifyMetaWebhookSignature(
   rawBody: string,
-  signatureHeader: string | null,
+  signatureHeader: string | null
 ): boolean {
   if (process.env.SKIP_META_SIGNATURE_VERIFICATION === 'true') {
-    console.warn('[webhook] SKIP_META_SIGNATURE_VERIFICATION is enabled. Bypassing signature check.')
-    return true
+    console.warn(
+      '[webhook] SKIP_META_SIGNATURE_VERIFICATION is enabled. Bypassing signature check.'
+    );
+    return true;
   }
 
-  const secret = process.env.META_APP_SECRET
+  const secret = process.env.META_APP_SECRET;
   if (!secret) {
     console.error(
       '[webhook] META_APP_SECRET is not set — rejecting request. ' +
         'Configure the env var (Meta → App Settings → Basic → App Secret) ' +
-        'to enable signature verification.',
-    )
-    return false
+        'to enable signature verification.'
+    );
+    return false;
   }
 
   if (!signatureHeader) {
-    console.error('[webhook] Missing x-hub-signature-256 header on inbound webhook POST.')
-    return false
+    console.error(
+      '[webhook] Missing x-hub-signature-256 header on inbound webhook POST.'
+    );
+    return false;
   }
 
   if (!signatureHeader.startsWith('sha256=')) {
-    console.error('[webhook] Malformed x-hub-signature-256 header format.')
-    return false
+    console.error('[webhook] Malformed x-hub-signature-256 header format.');
+    return false;
   }
 
   const expected =
     'sha256=' +
-    crypto.createHmac('sha256', secret).update(rawBody).digest('hex')
+    crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
 
-  const a = Buffer.from(signatureHeader)
-  const b = Buffer.from(expected)
+  const a = Buffer.from(signatureHeader);
+  const b = Buffer.from(expected);
   // Bail if lengths differ — timingSafeEqual throws otherwise.
   if (a.length !== b.length) {
-    console.error('[webhook] Signature length mismatch. Ensure META_APP_SECRET matches Meta Developer Console.')
-    return false
+    console.error(
+      '[webhook] Signature length mismatch. Ensure META_APP_SECRET matches Meta Developer Console.'
+    );
+    return false;
   }
 
-  const isValid = crypto.timingSafeEqual(a, b)
+  const isValid = crypto.timingSafeEqual(a, b);
   if (!isValid) {
-    console.error('[webhook] Signature verification failed. Ensure META_APP_SECRET matches Meta Developer Console → App Settings → Basic → App Secret.')
+    console.error(
+      '[webhook] Signature verification failed. Ensure META_APP_SECRET matches Meta Developer Console → App Settings → Basic → App Secret.'
+    );
   }
-  return isValid
+  return isValid;
 }

@@ -1,12 +1,18 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
-import { engineSendText, engineSendDocument } from '@/lib/automations/meta-send';
+import {
+  engineSendText,
+  engineSendDocument,
+} from '@/lib/automations/meta-send';
 
 export async function POST(request: Request) {
   try {
     const { reportId, accountId } = await request.json();
     if (!reportId || !accountId) {
-      return NextResponse.json({ error: 'Missing reportId or accountId' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Missing reportId or accountId' },
+        { status: 400 }
+      );
     }
 
     const db = supabaseAdmin();
@@ -14,7 +20,9 @@ export async function POST(request: Request) {
     // Fetch report with patient contact info and doctor details
     const { data: report, error: reportErr } = await db
       .from('hospital_lab_reports')
-      .select('*, patient:contacts(id, name, phone), doctor:hospital_doctors(id, name)')
+      .select(
+        '*, patient:contacts(id, name, phone), doctor:hospital_doctors(id, name)'
+      )
       .eq('id', reportId)
       .single();
 
@@ -27,7 +35,10 @@ export async function POST(request: Request) {
     const contactId = report.patient?.id;
 
     if (!patientPhone || !contactId) {
-      return NextResponse.json({ error: 'Patient contact not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Patient contact not found' },
+        { status: 404 }
+      );
     }
 
     // Find or create conversation
@@ -41,14 +52,21 @@ export async function POST(request: Request) {
     if (!conv) {
       const { data: newConv } = await db
         .from('conversations')
-        .insert({ account_id: accountId, contact_id: contactId, status: 'open' })
+        .insert({
+          account_id: accountId,
+          contact_id: contactId,
+          status: 'open',
+        })
         .select('id')
         .single();
       conv = newConv;
     }
 
     if (!conv) {
-      return NextResponse.json({ error: 'Failed to find/create conversation' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to find/create conversation' },
+        { status: 500 }
+      );
     }
 
     // Fetch account name
@@ -60,7 +78,9 @@ export async function POST(request: Request) {
 
     const hospitalName = account?.name || 'Hospital';
     const docData = report.doctor as any;
-    const doctorName = (Array.isArray(docData) ? docData[0]?.name : docData?.name)
+    const doctorName = (
+      Array.isArray(docData) ? docData[0]?.name : docData?.name
+    )
       ? `Dr. ${(Array.isArray(docData) ? docData[0]?.name : docData?.name).replace(/^Dr\.\s+/i, '')}`
       : 'your doctor';
     const systemUserId = '00000000-0000-0000-0000-000000000000';

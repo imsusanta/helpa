@@ -11,9 +11,9 @@ export const workflowsConfig: WorkflowSeed[] = [
       {
         step_type: 'send_message',
         step_config: {
-          text: "Welcome! 🏥 How can we assist you today? You can reply BOOK to request an appointment."
-        }
-      }
-    ]
-  }
+          text: 'Welcome! 🏥 How can we assist you today? You can reply BOOK to request an appointment.',
+        },
+      },
+    ],
+  },
 ];

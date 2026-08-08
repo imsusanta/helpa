@@ -1,4 +1,4 @@
-export type CopilotDataSource = "openrouter" | "rules";
+export type CopilotDataSource = 'openrouter' | 'rules';
 
 export interface CopilotDoctor {
   id?: string | null;
@@ -187,47 +187,47 @@ export interface OpenRouterCopilotArgs {
   fallback: ReceptionistCopilotSnapshot;
 }
 
-const NOT_AVAILABLE = "Not available";
-const NOT_REGISTERED = "Not registered";
-const UNKNOWN = "Unknown";
+const NOT_AVAILABLE = 'Not available';
+const NOT_REGISTERED = 'Not registered';
+const UNKNOWN = 'Unknown';
 
 const MEDICAL_ADVICE_KEYWORDS = [
-  "diagnose",
-  "diagnosis",
-  "medicine",
-  "medication",
-  "tablet",
-  "dosage",
-  "dose",
-  "prescribe",
-  "prescription",
-  "treatment",
-  "interpret",
-  "what does my report mean",
-  "report mean",
-  "normal range",
+  'diagnose',
+  'diagnosis',
+  'medicine',
+  'medication',
+  'tablet',
+  'dosage',
+  'dose',
+  'prescribe',
+  'prescription',
+  'treatment',
+  'interpret',
+  'what does my report mean',
+  'report mean',
+  'normal range',
 ];
 
 const EMERGENCY_KEYWORDS = [
-  "emergency",
-  "urgent",
-  "chest pain",
-  "breathing difficulty",
+  'emergency',
+  'urgent',
+  'chest pain',
+  'breathing difficulty',
   "can't breathe",
-  "cannot breathe",
-  "severe bleeding",
-  "unconscious",
-  "stroke",
-  "heart attack",
-  "accident",
+  'cannot breathe',
+  'severe bleeding',
+  'unconscious',
+  'stroke',
+  'heart attack',
+  'accident',
 ];
 
-function compact<T>(items: Array<T | null | undefined | false | "">): T[] {
+function compact<T>(items: Array<T | null | undefined | false | ''>): T[] {
   return items.filter(Boolean) as T[];
 }
 
 function normalizeText(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
+  return typeof value === 'string' ? value.trim() : '';
 }
 
 function valueOr(value: unknown, fallback = NOT_AVAILABLE): string {
@@ -248,14 +248,14 @@ function asStringArray(
   value: unknown,
   fallback: string[],
   maxItems: number,
-  maxLength = 180,
+  maxLength = 180
 ): string[] {
   const arr = asArray(value)
     .map((item) => normalizeText(item))
     .filter(Boolean)
     .slice(0, maxItems)
     .map((item) =>
-      item.length > maxLength ? `${item.slice(0, maxLength - 1)}...` : item,
+      item.length > maxLength ? `${item.slice(0, maxLength - 1)}...` : item
     );
   return arr.length > 0 ? arr : fallback.slice(0, maxItems);
 }
@@ -269,23 +269,23 @@ function safeDate(value: string | null | undefined): Date | null {
 function formatDate(value: string | null | undefined): string {
   const date = safeDate(value);
   if (!date) return NOT_AVAILABLE;
-  return date.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
+  return date.toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
   });
 }
 
 function formatTime(value: string | null | undefined): string {
   if (!value) return NOT_AVAILABLE;
-  const [hours, minutes] = value.split(":");
+  const [hours, minutes] = value.split(':');
   if (!hours || !minutes) return value;
   const date = new Date();
   date.setHours(Number(hours), Number(minutes), 0, 0);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleTimeString("en-IN", {
-    hour: "numeric",
-    minute: "2-digit",
+  return date.toLocaleTimeString('en-IN', {
+    hour: 'numeric',
+    minute: '2-digit',
   });
 }
 
@@ -304,18 +304,20 @@ function todayKey(): number {
 }
 
 function doctorFrom(
-  doctor: CopilotDoctor | CopilotDoctor[] | null | undefined,
+  doctor: CopilotDoctor | CopilotDoctor[] | null | undefined
 ): CopilotDoctor | null {
   if (Array.isArray(doctor)) return doctor[0] ?? null;
   return doctor ?? null;
 }
 
-function doctorName(doctor: CopilotDoctor | CopilotDoctor[] | null | undefined) {
-  return valueOr(doctorFrom(doctor)?.name, "Unassigned");
+function doctorName(
+  doctor: CopilotDoctor | CopilotDoctor[] | null | undefined
+) {
+  return valueOr(doctorFrom(doctor)?.name, 'Unassigned');
 }
 
 function doctorDepartment(
-  doctor: CopilotDoctor | CopilotDoctor[] | null | undefined,
+  doctor: CopilotDoctor | CopilotDoctor[] | null | undefined
 ) {
   return valueOr(doctorFrom(doctor)?.department, NOT_AVAILABLE);
 }
@@ -334,28 +336,28 @@ function calculateAge(dateOfBirth: string | null | undefined): string {
 
 function messageText(messages: CopilotMessage[]): string {
   return messages
-    .map((message) => message.content_text ?? "")
+    .map((message) => message.content_text ?? '')
     .filter(Boolean)
-    .join("\n")
+    .join('\n')
     .trim();
 }
 
 function latestCustomerMessage(messages: CopilotMessage[]): string {
   for (let i = messages.length - 1; i >= 0; i -= 1) {
     const message = messages[i];
-    if (message.sender_type === "customer" && message.content_text) {
+    if (message.sender_type === 'customer' && message.content_text) {
       return message.content_text;
     }
   }
-  return "";
+  return '';
 }
 
 function inferLanguage(text: string): string {
-  if (/[\u0980-\u09ff]/.test(text)) return "Bengali";
-  if (/[\u0900-\u097f]/.test(text)) return "Hindi";
-  if (/[\u0600-\u06ff]/.test(text)) return "Arabic";
-  if (/[¿¡ñáéíóúü]/i.test(text)) return "Spanish";
-  return "English";
+  if (/[\u0980-\u09ff]/.test(text)) return 'Bengali';
+  if (/[\u0900-\u097f]/.test(text)) return 'Hindi';
+  if (/[\u0600-\u06ff]/.test(text)) return 'Arabic';
+  if (/[¿¡ñáéíóúü]/i.test(text)) return 'Spanish';
+  return 'English';
 }
 
 function containsAny(haystack: string, needles: string[]): boolean {
@@ -364,8 +366,8 @@ function containsAny(haystack: string, needles: string[]): boolean {
 
 function titleCase(value: string): string {
   return value
-    .replace(/[_-]+/g, " ")
-    .replace(/\s+/g, " ")
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim()
     .replace(/\w\S*/g, (word) => word[0].toUpperCase() + word.slice(1));
 }
@@ -374,159 +376,175 @@ function inferIntent(text: string): CopilotConfidence[] {
   const lower = text.toLowerCase();
   if (containsAny(lower, EMERGENCY_KEYWORDS)) {
     return [
-      { label: "Emergency Inquiry", score: 97 },
-      { label: "Transfer to Doctor", score: 91 },
+      { label: 'Emergency Inquiry', score: 97 },
+      { label: 'Transfer to Doctor', score: 91 },
     ];
   }
   if (containsAny(lower, MEDICAL_ADVICE_KEYWORDS)) {
     return [
-      { label: "Medical Advice Request", score: 94 },
-      { label: "Transfer to Doctor", score: 90 },
+      { label: 'Medical Advice Request', score: 94 },
+      { label: 'Transfer to Doctor', score: 90 },
     ];
   }
   if (
     containsAny(lower, [
-      "reschedule",
-      "change appointment",
-      "change my appointment",
-      "move appointment",
+      'reschedule',
+      'change appointment',
+      'change my appointment',
+      'move appointment',
     ])
   ) {
     return [
-      { label: "Reschedule Appointment", score: 92 },
-      { label: "Appointment Booking", score: 76 },
+      { label: 'Reschedule Appointment', score: 92 },
+      { label: 'Appointment Booking', score: 76 },
     ];
   }
   if (
     containsAny(lower, [
-      "cancel appointment",
-      "cancel my appointment",
-      "cancel booking",
+      'cancel appointment',
+      'cancel my appointment',
+      'cancel booking',
     ])
   ) {
     return [
-      { label: "Cancel Appointment", score: 91 },
-      { label: "Appointment Booking", score: 68 },
+      { label: 'Cancel Appointment', score: 91 },
+      { label: 'Appointment Booking', score: 68 },
     ];
   }
   if (
     containsAny(lower, [
-      "appointment",
-      "book",
-      "booking",
-      "consult",
-      "consultation",
-      "slot",
-      "tomorrow",
-      "today",
-      "follow up",
-      "follow-up",
+      'appointment',
+      'book',
+      'booking',
+      'consult',
+      'consultation',
+      'slot',
+      'tomorrow',
+      'today',
+      'follow up',
+      'follow-up',
     ])
   ) {
     return [
-      { label: "Appointment Booking", score: 90 },
-      { label: "Follow-up Consultation", score: lower.includes("follow") ? 86 : 65 },
+      { label: 'Appointment Booking', score: 90 },
+      {
+        label: 'Follow-up Consultation',
+        score: lower.includes('follow') ? 86 : 65,
+      },
     ];
   }
   if (
     containsAny(lower, [
-      "report",
-      "result",
-      "lab",
-      "blood test",
-      "cbc",
-      "x-ray",
-      "scan",
+      'report',
+      'result',
+      'lab',
+      'blood test',
+      'cbc',
+      'x-ray',
+      'scan',
     ])
   ) {
     return [
-      { label: "Report Inquiry", score: 90 },
-      { label: "Send Report", score: 75 },
+      { label: 'Report Inquiry', score: 90 },
+      { label: 'Send Report', score: 75 },
     ];
   }
   if (
     containsAny(lower, [
-      "insurance",
-      "cashless",
-      "coverage",
-      "claim",
-      "policy",
-      "provider",
+      'insurance',
+      'cashless',
+      'coverage',
+      'claim',
+      'policy',
+      'provider',
     ])
   ) {
     return [
-      { label: "Insurance Inquiry", score: 89 },
-      { label: "Collect Insurance Details", score: 77 },
+      { label: 'Insurance Inquiry', score: 89 },
+      { label: 'Collect Insurance Details', score: 77 },
     ];
   }
   if (
     containsAny(lower, [
-      "doctor",
-      "dr ",
-      "dr.",
-      "department",
-      "available",
-      "availability",
-      "fee",
-      "cost",
+      'doctor',
+      'dr ',
+      'dr.',
+      'department',
+      'available',
+      'availability',
+      'fee',
+      'cost',
     ])
   ) {
     return [
-      { label: lower.includes("fee") || lower.includes("cost") ? "Consultation Fee" : "Doctor Availability", score: 84 },
-      { label: "Appointment Booking", score: 66 },
+      {
+        label:
+          lower.includes('fee') || lower.includes('cost')
+            ? 'Consultation Fee'
+            : 'Doctor Availability',
+        score: 84,
+      },
+      { label: 'Appointment Booking', score: 66 },
     ];
   }
-  return [{ label: "General Question", score: 72 }];
+  return [{ label: 'General Question', score: 72 }];
 }
 
 function getLatestReport(reports: CopilotReport[]): CopilotReport | null {
-  return [...reports].sort((a, b) => {
-    const aDate = safeDate(a.created_at ?? a.updated_at)?.getTime() ?? 0;
-    const bDate = safeDate(b.created_at ?? b.updated_at)?.getTime() ?? 0;
-    return bDate - aDate;
-  })[0] ?? null;
+  return (
+    [...reports].sort((a, b) => {
+      const aDate = safeDate(a.created_at ?? a.updated_at)?.getTime() ?? 0;
+      const bDate = safeDate(b.created_at ?? b.updated_at)?.getTime() ?? 0;
+      return bDate - aDate;
+    })[0] ?? null
+  );
 }
 
 function getUpcomingAppointment(
-  appointments: CopilotAppointment[],
+  appointments: CopilotAppointment[]
 ): CopilotAppointment | null {
   const today = todayKey();
   return (
     [...appointments]
       .filter((appt) => {
-        const status = (appt.status ?? "").toLowerCase();
+        const status = (appt.status ?? '').toLowerCase();
         return (
           dayKey(appt.appointment_date) >= today &&
-          !["cancelled", "completed", "no_show"].includes(status)
+          !['cancelled', 'completed', 'no_show'].includes(status)
         );
       })
       .sort((a, b) => {
         const byDay = dayKey(a.appointment_date) - dayKey(b.appointment_date);
         if (byDay !== 0) return byDay;
-        return (a.appointment_time ?? "").localeCompare(b.appointment_time ?? "");
+        return (a.appointment_time ?? '').localeCompare(
+          b.appointment_time ?? ''
+        );
       })[0] ?? null
   );
 }
 
-function getLastVisit(appointments: CopilotAppointment[]): CopilotAppointment | null {
+function getLastVisit(
+  appointments: CopilotAppointment[]
+): CopilotAppointment | null {
   const today = todayKey();
   return (
     [...appointments]
       .filter((appt) => {
-        const status = (appt.status ?? "").toLowerCase();
+        const status = (appt.status ?? '').toLowerCase();
         return (
           dayKey(appt.appointment_date) < today ||
-          ["completed", "cancelled", "no_show"].includes(status)
+          ['completed', 'cancelled', 'no_show'].includes(status)
         );
       })
-      .sort((a, b) => dayKey(b.appointment_date) - dayKey(a.appointment_date))[0] ??
-    null
+      .sort(
+        (a, b) => dayKey(b.appointment_date) - dayKey(a.appointment_date)
+      )[0] ?? null
   );
 }
 
 function mentionedProvider(
   sourceText: string,
-  providers: CopilotInsuranceProvider[],
+  providers: CopilotInsuranceProvider[]
 ): CopilotInsuranceProvider | null {
   const lower = sourceText.toLowerCase();
   return (
@@ -539,23 +557,29 @@ function mentionedProvider(
 
 function preferredDoctor(
   patient: CopilotPatient | null | undefined,
-  appointments: CopilotAppointment[],
+  appointments: CopilotAppointment[]
 ): string {
   const assigned = doctorName(patient?.assigned_doctor);
-  if (assigned !== "Unassigned") return assigned;
-  const withDoctor = appointments.find((appt) => doctorName(appt.doctor) !== "Unassigned");
+  if (assigned !== 'Unassigned') return assigned;
+  const withDoctor = appointments.find(
+    (appt) => doctorName(appt.doctor) !== 'Unassigned'
+  );
   return withDoctor ? doctorName(withDoctor.doctor) : NOT_AVAILABLE;
 }
 
 function preferredDepartment(
   patient: CopilotPatient | null | undefined,
-  appointments: CopilotAppointment[],
+  appointments: CopilotAppointment[]
 ): string {
   if (patient?.department) return patient.department;
   const assigned = doctorDepartment(patient?.assigned_doctor);
   if (assigned !== NOT_AVAILABLE) return assigned;
-  const withDept = appointments.find((appt) => appt.department || doctorDepartment(appt.doctor) !== NOT_AVAILABLE);
-  return withDept ? valueOr(withDept.department, doctorDepartment(withDept.doctor)) : NOT_AVAILABLE;
+  const withDept = appointments.find(
+    (appt) => appt.department || doctorDepartment(appt.doctor) !== NOT_AVAILABLE
+  );
+  return withDept
+    ? valueOr(withDept.department, doctorDepartment(withDept.doctor))
+    : NOT_AVAILABLE;
 }
 
 function buildConversationSummary(
@@ -563,47 +587,51 @@ function buildConversationSummary(
   latestText: string,
   upcoming: CopilotAppointment | null,
   latestReport: CopilotReport | null,
-  insurance: CopilotInsuranceInfo,
+  insurance: CopilotInsuranceInfo
 ): string {
   const parts = compact<string>([
-    intent === "General Question"
+    intent === 'General Question'
       ? latestText
-        ? `The patient is asking: "${latestText.slice(0, 120)}${latestText.length > 120 ? "..." : ""}".`
-        : "The conversation is active but has limited recent text."
+        ? `The patient is asking: "${latestText.slice(0, 120)}${latestText.length > 120 ? '...' : ''}".`
+        : 'The conversation is active but has limited recent text.'
       : `The patient appears to need help with ${intent.toLowerCase()}.`,
     upcoming
       ? `There is an upcoming appointment on ${formatDate(upcoming.appointment_date)} at ${formatTime(upcoming.appointment_time)}.`
-      : "No upcoming appointment is currently visible.",
+      : 'No upcoming appointment is currently visible.',
     latestReport
       ? `Latest report is ${valueOr(latestReport.test_name)} with status ${titleCase(valueOr(latestReport.status, UNKNOWN))}.`
-      : "No lab report is currently visible.",
-    insurance.exists ? `Insurance context: ${insurance.status}.` : "",
+      : 'No lab report is currently visible.',
+    insurance.exists ? `Insurance context: ${insurance.status}.` : '',
   ]);
-  return parts.slice(0, 4).join(" ");
+  return parts.slice(0, 4).join(' ');
 }
 
 function buildSuggestedActions(
   primaryIntent: string,
   upcoming: CopilotAppointment | null,
   latestReport: CopilotReport | null,
-  insurance: CopilotInsuranceInfo,
+  insurance: CopilotInsuranceInfo
 ): string[] {
-  const readyReport = latestReport?.status?.toLowerCase() === "ready";
+  const readyReport = latestReport?.status?.toLowerCase() === 'ready';
   const actions = compact<string>([
-    primaryIntent === "Emergency Inquiry" ? "Call Patient" : "",
-    primaryIntent === "Emergency Inquiry" ? "Transfer to Doctor" : "",
-    primaryIntent === "Medical Advice Request" ? "Transfer to Doctor" : "",
-    primaryIntent.includes("Reschedule") ? "Reschedule Appointment" : "",
-    primaryIntent.includes("Cancel") ? "Cancel Appointment" : "",
-    primaryIntent.includes("Appointment") && !upcoming ? "Book Appointment" : "",
-    upcoming ? "Confirm Appointment" : "",
-    upcoming ? "Resend Appointment Slip" : "",
-    primaryIntent === "Report Inquiry" && readyReport ? "Send Report" : "",
-    primaryIntent === "Report Inquiry" && !readyReport ? "Check Report Status" : "",
-    primaryIntent === "Insurance Inquiry" || insurance.exists
-      ? "Collect Insurance Details"
-      : "",
-    "Open Patient Profile",
+    primaryIntent === 'Emergency Inquiry' ? 'Call Patient' : '',
+    primaryIntent === 'Emergency Inquiry' ? 'Transfer to Doctor' : '',
+    primaryIntent === 'Medical Advice Request' ? 'Transfer to Doctor' : '',
+    primaryIntent.includes('Reschedule') ? 'Reschedule Appointment' : '',
+    primaryIntent.includes('Cancel') ? 'Cancel Appointment' : '',
+    primaryIntent.includes('Appointment') && !upcoming
+      ? 'Book Appointment'
+      : '',
+    upcoming ? 'Confirm Appointment' : '',
+    upcoming ? 'Resend Appointment Slip' : '',
+    primaryIntent === 'Report Inquiry' && readyReport ? 'Send Report' : '',
+    primaryIntent === 'Report Inquiry' && !readyReport
+      ? 'Check Report Status'
+      : '',
+    primaryIntent === 'Insurance Inquiry' || insurance.exists
+      ? 'Collect Insurance Details'
+      : '',
+    'Open Patient Profile',
   ]);
   return Array.from(new Set(actions)).slice(0, 7);
 }
@@ -612,31 +640,34 @@ function buildSuggestedReply(
   patientName: string,
   primaryIntent: string,
   upcoming: CopilotAppointment | null,
-  latestReport: CopilotReport | null,
+  latestReport: CopilotReport | null
 ): string {
-  const greetingName = patientName === UNKNOWN ? "" : ` ${patientName}`;
-  if (primaryIntent === "Emergency Inquiry") {
+  const greetingName = patientName === UNKNOWN ? '' : ` ${patientName}`;
+  if (primaryIntent === 'Emergency Inquiry') {
     return `Hello${greetingName}, this may need urgent medical attention. Please call emergency services or visit the nearest emergency department immediately. I will also alert our clinical team so a doctor or staff member can take over.`;
   }
-  if (primaryIntent === "Medical Advice Request") {
+  if (primaryIntent === 'Medical Advice Request') {
     return `Hello${greetingName}, I can help with appointments, reports, and hospital coordination, but a doctor must advise on diagnosis, medicines, treatment, or report interpretation. Would you like me to connect you with the doctor or book a consultation?`;
   }
-  if (primaryIntent.includes("Appointment") || primaryIntent.includes("Consultation")) {
+  if (
+    primaryIntent.includes('Appointment') ||
+    primaryIntent.includes('Consultation')
+  ) {
     if (upcoming) {
-      return `Hello${greetingName}, your appointment is scheduled for ${formatDate(upcoming.appointment_date)} at ${formatTime(upcoming.appointment_time)} with ${doctorName(upcoming.doctor)} in ${valueOr(upcoming.department, doctorDepartment(upcoming.doctor))}. Token number: ${upcoming.token_number ?? "not assigned yet"}. Please confirm if you would like to keep this slot or make a change.`;
+      return `Hello${greetingName}, your appointment is scheduled for ${formatDate(upcoming.appointment_date)} at ${formatTime(upcoming.appointment_time)} with ${doctorName(upcoming.doctor)} in ${valueOr(upcoming.department, doctorDepartment(upcoming.doctor))}. Token number: ${upcoming.token_number ?? 'not assigned yet'}. Please confirm if you would like to keep this slot or make a change.`;
     }
     return `Hello${greetingName}, I can help book your consultation. Please share your preferred date, time, doctor or department, and patient name so we can check the available slots.`;
   }
-  if (primaryIntent === "Report Inquiry") {
-    if (latestReport?.status?.toLowerCase() === "ready") {
-      return `Hello${greetingName}, your ${valueOr(latestReport.test_name, "latest")} report is marked ready. I can verify your details and share the report through the approved hospital process.`;
+  if (primaryIntent === 'Report Inquiry') {
+    if (latestReport?.status?.toLowerCase() === 'ready') {
+      return `Hello${greetingName}, your ${valueOr(latestReport.test_name, 'latest')} report is marked ready. I can verify your details and share the report through the approved hospital process.`;
     }
     if (latestReport) {
-      return `Hello${greetingName}, your ${valueOr(latestReport.test_name, "latest")} report is currently ${titleCase(valueOr(latestReport.status, "in progress"))}. We will update you as soon as it is ready.`;
+      return `Hello${greetingName}, your ${valueOr(latestReport.test_name, 'latest')} report is currently ${titleCase(valueOr(latestReport.status, 'in progress'))}. We will update you as soon as it is ready.`;
     }
     return `Hello${greetingName}, I do not see a report linked here yet. Please share the test name or report booking details so I can check the status.`;
   }
-  if (primaryIntent === "Insurance Inquiry") {
+  if (primaryIntent === 'Insurance Inquiry') {
     return `Hello${greetingName}, please share your insurance provider, policy or card details, and any required documents. We can check cashless availability, but final approval depends on your insurer and policy terms.`;
   }
   return `Hello${greetingName}, thanks for your message. I will check the patient details and help you with the next step. Could you please confirm the appointment, report, or billing detail you need help with?`;
@@ -646,7 +677,7 @@ function buildInternalNotes(
   context: CopilotSourceContext,
   language: string,
   doctor: string,
-  department: string,
+  department: string
 ): string[] {
   const allText = messageText(context.messages).toLowerCase();
   const patientNotes = context.patient?.ai_notes
@@ -658,15 +689,15 @@ function buildInternalNotes(
 
   return compact<string>([
     ...patientNotes.slice(0, 3),
-    language !== "English" ? `Prefers ${language} support.` : "",
-    doctor !== NOT_AVAILABLE ? `Usually consults ${doctor}.` : "",
-    department !== NOT_AVAILABLE ? `Frequently visits ${department}.` : "",
-    allText.includes("evening") ? "Patient prefers evening appointments." : "",
-    allText.includes("wheelchair") ? "Requires wheelchair assistance." : "",
-    allText.includes("bengali") ? "Frequently asks for Bengali support." : "",
-    allText.includes("annual health") || allText.includes("health package")
-      ? "Interested in annual health package."
-      : "",
+    language !== 'English' ? `Prefers ${language} support.` : '',
+    doctor !== NOT_AVAILABLE ? `Usually consults ${doctor}.` : '',
+    department !== NOT_AVAILABLE ? `Frequently visits ${department}.` : '',
+    allText.includes('evening') ? 'Patient prefers evening appointments.' : '',
+    allText.includes('wheelchair') ? 'Requires wheelchair assistance.' : '',
+    allText.includes('bengali') ? 'Frequently asks for Bengali support.' : '',
+    allText.includes('annual health') || allText.includes('health package')
+      ? 'Interested in annual health package.'
+      : '',
   ]).slice(0, 6);
 }
 
@@ -675,21 +706,21 @@ function buildTimeline(context: CopilotSourceContext): CopilotTimelineItem[] {
     context.appointments?.map((appt) => ({
       date: formatDate(appt.appointment_date),
       title:
-        (appt.status?.toLowerCase() === "completed"
-          ? "Visited"
-          : "Appointment") + ` ${doctorName(appt.doctor)}`,
+        (appt.status?.toLowerCase() === 'completed'
+          ? 'Visited'
+          : 'Appointment') + ` ${doctorName(appt.doctor)}`,
       detail: compact([
         valueOr(appt.department, doctorDepartment(appt.doctor)),
-        appt.status ? titleCase(appt.status) : "",
-        appt.token_number ? `Token #${appt.token_number}` : "",
-      ]).join(" - "),
+        appt.status ? titleCase(appt.status) : '',
+        appt.token_number ? `Token #${appt.token_number}` : '',
+      ]).join(' - '),
       rawDate: dayKey(appt.appointment_date),
     })) ?? [];
 
   const reportItems =
     context.reports?.map((report) => ({
       date: formatDate(report.created_at ?? report.updated_at),
-      title: `${valueOr(report.test_name, "Report")} ${report.status?.toLowerCase() === "ready" ? "Ready" : "Updated"}`,
+      title: `${valueOr(report.test_name, 'Report')} ${report.status?.toLowerCase() === 'ready' ? 'Ready' : 'Updated'}`,
       detail: report.status ? titleCase(report.status) : undefined,
       rawDate: safeDate(report.created_at ?? report.updated_at)?.getTime() ?? 0,
     })) ?? [];
@@ -697,20 +728,26 @@ function buildTimeline(context: CopilotSourceContext): CopilotTimelineItem[] {
   const noteItems =
     context.contactNotes?.map((note) => ({
       date: formatDate(note.created_at),
-      title: "Staff note added",
-      detail: clampText(note.note_text, "", 90),
+      title: 'Staff note added',
+      detail: clampText(note.note_text, '', 90),
       rawDate: safeDate(note.created_at)?.getTime() ?? 0,
     })) ?? [];
 
   const conversationItems =
     context.conversationMemory?.map((memory) => ({
       date: formatDate(memory.last_message_at ?? memory.created_at),
-      title: "Conversation activity",
-      detail: clampText(memory.ai_summary || memory.last_message_text, "", 90),
-      rawDate: safeDate(memory.last_message_at ?? memory.created_at)?.getTime() ?? 0,
+      title: 'Conversation activity',
+      detail: clampText(memory.ai_summary || memory.last_message_text, '', 90),
+      rawDate:
+        safeDate(memory.last_message_at ?? memory.created_at)?.getTime() ?? 0,
     })) ?? [];
 
-  return [...appointmentItems, ...reportItems, ...noteItems, ...conversationItems]
+  return [
+    ...appointmentItems,
+    ...reportItems,
+    ...noteItems,
+    ...conversationItems,
+  ]
     .filter((item) => item.date !== NOT_AVAILABLE)
     .sort((a, b) => a.rawDate - b.rawDate)
     .slice(-8)
@@ -723,7 +760,7 @@ function buildTimeline(context: CopilotSourceContext): CopilotTimelineItem[] {
 
 export function buildFallbackCopilotSnapshot(
   context: CopilotSourceContext,
-  warning?: string,
+  warning?: string
 ): ReceptionistCopilotSnapshot {
   const appointments = context.appointments ?? [];
   const reports = context.reports ?? [];
@@ -732,7 +769,7 @@ export function buildFallbackCopilotSnapshot(
   const latestText = latestCustomerMessage(context.messages);
   const language = inferLanguage(latestText || allText);
   const confidence = inferIntent(allText);
-  const intent = confidence[0] ?? { label: "General Question", score: 72 };
+  const intent = confidence[0] ?? { label: 'General Question', score: 72 };
   const upcoming = getUpcomingAppointment(appointments);
   const lastVisit = getLastVisit(appointments);
   const latestReport = getLatestReport(reports);
@@ -745,22 +782,23 @@ export function buildFallbackCopilotSnapshot(
     ? {
         exists: true,
         provider: valueOr(provider.provider_name),
-        cashlessAvailable: provider.cashless_available ? "Yes" : "No",
+        cashlessAvailable: provider.cashless_available ? 'Yes' : 'No',
         status: provider.cashless_available
-          ? "Provider supports cashless workflow"
-          : "Provider listed, cashless not available",
+          ? 'Provider supports cashless workflow'
+          : 'Provider listed, cashless not available',
         coverageNotes:
           provider.required_documents && provider.required_documents.length > 0
-            ? `Required documents: ${provider.required_documents.join(", ")}`
-            : "Verify policy details before confirming coverage.",
+            ? `Required documents: ${provider.required_documents.join(', ')}`
+            : 'Verify policy details before confirming coverage.',
       }
     : {
         exists: false,
         provider: NOT_AVAILABLE,
         cashlessAvailable: UNKNOWN,
-        status: "No insurance information found.",
-        coverageNotes: "Collect insurance provider, policy number, and ID card before checking coverage.",
-        emptyMessage: "No insurance information found.",
+        status: 'No insurance information found.',
+        coverageNotes:
+          'Collect insurance provider, policy number, and ID card before checking coverage.',
+        emptyMessage: 'No insurance information found.',
       };
 
   const patientInfo: CopilotPatientInfo = {
@@ -779,7 +817,10 @@ export function buildFallbackCopilotSnapshot(
         exists: true,
         date: formatDate(lastVisit.appointment_date),
         doctor: doctorName(lastVisit.doctor),
-        department: valueOr(lastVisit.department, doctorDepartment(lastVisit.doctor)),
+        department: valueOr(
+          lastVisit.department,
+          doctorDepartment(lastVisit.doctor)
+        ),
         status: titleCase(valueOr(lastVisit.status, UNKNOWN)),
       }
     : {
@@ -788,7 +829,7 @@ export function buildFallbackCopilotSnapshot(
         doctor: NOT_AVAILABLE,
         department: NOT_AVAILABLE,
         status: NOT_AVAILABLE,
-        emptyMessage: "No previous visit recorded.",
+        emptyMessage: 'No previous visit recorded.',
       };
 
   const upcomingInfo: CopilotAppointmentInfo = upcoming
@@ -797,10 +838,17 @@ export function buildFallbackCopilotSnapshot(
         date: formatDate(upcoming.appointment_date),
         time: formatTime(upcoming.appointment_time),
         doctor: doctorName(upcoming.doctor),
-        department: valueOr(upcoming.department, doctorDepartment(upcoming.doctor)),
+        department: valueOr(
+          upcoming.department,
+          doctorDepartment(upcoming.doctor)
+        ),
         status: titleCase(valueOr(upcoming.status, UNKNOWN)),
-        tokenNumber: upcoming.token_number ? `#${upcoming.token_number}` : NOT_AVAILABLE,
-        queuePosition: upcoming.queue_position ? String(upcoming.queue_position) : NOT_AVAILABLE,
+        tokenNumber: upcoming.token_number
+          ? `#${upcoming.token_number}`
+          : NOT_AVAILABLE,
+        queuePosition: upcoming.queue_position
+          ? String(upcoming.queue_position)
+          : NOT_AVAILABLE,
       }
     : {
         exists: false,
@@ -811,45 +859,53 @@ export function buildFallbackCopilotSnapshot(
         status: NOT_AVAILABLE,
         tokenNumber: NOT_AVAILABLE,
         queuePosition: NOT_AVAILABLE,
-        emptyMessage: "No upcoming appointment found.",
+        emptyMessage: 'No upcoming appointment found.',
       };
 
   const reportInfo: CopilotReportInfo = latestReport
     ? {
         exists: true,
-        name: valueOr(latestReport.test_name, "Latest report"),
+        name: valueOr(latestReport.test_name, 'Latest report'),
         status:
-          latestReport.status?.toLowerCase() === "ready"
-            ? "Report Ready"
+          latestReport.status?.toLowerCase() === 'ready'
+            ? 'Report Ready'
             : titleCase(valueOr(latestReport.status, UNKNOWN)),
         date: formatDate(latestReport.created_at ?? latestReport.updated_at),
-        ready: latestReport.status?.toLowerCase() === "ready",
+        ready: latestReport.status?.toLowerCase() === 'ready',
         pdfUrl: latestReport.report_pdf_url || undefined,
       }
     : {
         exists: false,
         name: NOT_AVAILABLE,
-        status: "No reports available.",
+        status: 'No reports available.',
         date: NOT_AVAILABLE,
         ready: false,
         pdfUrl: undefined,
-        emptyMessage: "No reports available.",
+        emptyMessage: 'No reports available.',
       };
 
   const patientSummary = compact<string>([
-    appointments.length > 0 || context.patient ? "Returning patient" : "New patient",
-    lastVisit ? `Last visit: ${formatDate(lastVisit.appointment_date)} with ${doctorName(lastVisit.doctor)}` : "",
-    intent.label !== "General Question" ? `Current need: ${intent.label}` : "",
-    latestReport ? `${valueOr(latestReport.test_name, "Latest report")}: ${reportInfo.status}` : "",
+    appointments.length > 0 || context.patient
+      ? 'Returning patient'
+      : 'New patient',
+    lastVisit
+      ? `Last visit: ${formatDate(lastVisit.appointment_date)} with ${doctorName(lastVisit.doctor)}`
+      : '',
+    intent.label !== 'General Question' ? `Current need: ${intent.label}` : '',
+    latestReport
+      ? `${valueOr(latestReport.test_name, 'Latest report')}: ${reportInfo.status}`
+      : '',
     upcoming
       ? `Waiting for ${formatDate(upcoming.appointment_date)} appointment`
-      : "No upcoming appointment on file",
-    insuranceInfo.exists ? `Insurance mentioned: ${insuranceInfo.provider}` : "",
+      : 'No upcoming appointment on file',
+    insuranceInfo.exists
+      ? `Insurance mentioned: ${insuranceInfo.provider}`
+      : '',
   ]).slice(0, 6);
 
   return {
     generatedAt: new Date().toISOString(),
-    generatedBy: "rules",
+    generatedBy: 'rules',
     warning,
     patientSummary,
     patientInfo,
@@ -862,21 +918,26 @@ export function buildFallbackCopilotSnapshot(
       latestText,
       upcoming,
       latestReport,
-      insuranceInfo,
+      insuranceInfo
     ),
     suggestedReply: buildSuggestedReply(
       patientName,
       intent.label,
       upcoming,
-      latestReport,
+      latestReport
     ),
     suggestedActions: buildSuggestedActions(
       intent.label,
       upcoming,
       latestReport,
-      insuranceInfo,
+      insuranceInfo
     ),
-    internalNotes: buildInternalNotes(context, language, preferredDoc, preferredDept),
+    internalNotes: buildInternalNotes(
+      context,
+      language,
+      preferredDoc,
+      preferredDept
+    ),
     intent,
     confidence,
     timeline: buildTimeline(context),
@@ -885,33 +946,41 @@ export function buildFallbackCopilotSnapshot(
 
 function snapshotFromUnknown(
   value: unknown,
-  fallback: ReceptionistCopilotSnapshot,
+  fallback: ReceptionistCopilotSnapshot
 ): ReceptionistCopilotSnapshot {
-  const obj = typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
-  const patientInfo = typeof obj.patientInfo === "object" && obj.patientInfo !== null
-    ? (obj.patientInfo as Record<string, unknown>)
-    : {};
-  const lastVisit = typeof obj.lastVisit === "object" && obj.lastVisit !== null
-    ? (obj.lastVisit as Record<string, unknown>)
-    : {};
+  const obj =
+    typeof value === 'object' && value !== null
+      ? (value as Record<string, unknown>)
+      : {};
+  const patientInfo =
+    typeof obj.patientInfo === 'object' && obj.patientInfo !== null
+      ? (obj.patientInfo as Record<string, unknown>)
+      : {};
+  const lastVisit =
+    typeof obj.lastVisit === 'object' && obj.lastVisit !== null
+      ? (obj.lastVisit as Record<string, unknown>)
+      : {};
   const upcomingAppointment =
-    typeof obj.upcomingAppointment === "object" && obj.upcomingAppointment !== null
+    typeof obj.upcomingAppointment === 'object' &&
+    obj.upcomingAppointment !== null
       ? (obj.upcomingAppointment as Record<string, unknown>)
       : {};
-  const reportInfo = typeof obj.reportInfo === "object" && obj.reportInfo !== null
-    ? (obj.reportInfo as Record<string, unknown>)
-    : {};
+  const reportInfo =
+    typeof obj.reportInfo === 'object' && obj.reportInfo !== null
+      ? (obj.reportInfo as Record<string, unknown>)
+      : {};
   const insuranceInfo =
-    typeof obj.insuranceInfo === "object" && obj.insuranceInfo !== null
+    typeof obj.insuranceInfo === 'object' && obj.insuranceInfo !== null
       ? (obj.insuranceInfo as Record<string, unknown>)
       : {};
-  const intent = typeof obj.intent === "object" && obj.intent !== null
-    ? (obj.intent as Record<string, unknown>)
-    : {};
+  const intent =
+    typeof obj.intent === 'object' && obj.intent !== null
+      ? (obj.intent as Record<string, unknown>)
+      : {};
 
   const confidence = asArray(obj.confidence)
     .map((item) => {
-      if (typeof item !== "object" || item === null) return null;
+      if (typeof item !== 'object' || item === null) return null;
       const row = item as Record<string, unknown>;
       const label = normalizeText(row.label);
       const score = Number(row.score);
@@ -922,16 +991,16 @@ function snapshotFromUnknown(
 
   const timeline = asArray(obj.timeline)
     .map((item) => {
-      if (typeof item !== "object" || item === null) return null;
+      if (typeof item !== 'object' || item === null) return null;
       const row = item as Record<string, unknown>;
       const date = normalizeText(row.date);
       const title = normalizeText(row.title);
       if (!date || !title) return null;
       return {
         date: clampText(date, NOT_AVAILABLE, 32),
-        title: clampText(title, "", 90),
+        title: clampText(title, '', 90),
         detail: normalizeText(row.detail)
-          ? clampText(row.detail, "", 140)
+          ? clampText(row.detail, '', 140)
           : undefined,
       };
     })
@@ -941,60 +1010,91 @@ function snapshotFromUnknown(
   return {
     ...fallback,
     generatedAt: new Date().toISOString(),
-    generatedBy: "openrouter",
+    generatedBy: 'openrouter',
     warning: undefined,
-    patientSummary: asStringArray(obj.patientSummary, fallback.patientSummary, 6, 120),
+    patientSummary: asStringArray(
+      obj.patientSummary,
+      fallback.patientSummary,
+      6,
+      120
+    ),
     patientInfo: {
-      patientName: clampText(patientInfo.patientName, fallback.patientInfo.patientName),
-      patientId: clampText(patientInfo.patientId, fallback.patientInfo.patientId),
-      phoneNumber: clampText(patientInfo.phoneNumber, fallback.patientInfo.phoneNumber),
+      patientName: clampText(
+        patientInfo.patientName,
+        fallback.patientInfo.patientName
+      ),
+      patientId: clampText(
+        patientInfo.patientId,
+        fallback.patientInfo.patientId
+      ),
+      phoneNumber: clampText(
+        patientInfo.phoneNumber,
+        fallback.patientInfo.phoneNumber
+      ),
       age: clampText(patientInfo.age, fallback.patientInfo.age, 32),
       gender: clampText(patientInfo.gender, fallback.patientInfo.gender, 32),
       preferredLanguage: clampText(
         patientInfo.preferredLanguage,
         fallback.patientInfo.preferredLanguage,
-        60,
+        60
       ),
       preferredDoctor: clampText(
         patientInfo.preferredDoctor,
-        fallback.patientInfo.preferredDoctor,
+        fallback.patientInfo.preferredDoctor
       ),
       preferredDepartment: clampText(
         patientInfo.preferredDepartment,
-        fallback.patientInfo.preferredDepartment,
+        fallback.patientInfo.preferredDepartment
       ),
     },
     lastVisit: {
       exists:
-        typeof lastVisit.exists === "boolean"
+        typeof lastVisit.exists === 'boolean'
           ? lastVisit.exists
           : fallback.lastVisit.exists,
       date: clampText(lastVisit.date, fallback.lastVisit.date),
       doctor: clampText(lastVisit.doctor, fallback.lastVisit.doctor),
-      department: clampText(lastVisit.department, fallback.lastVisit.department),
+      department: clampText(
+        lastVisit.department,
+        fallback.lastVisit.department
+      ),
       status: clampText(lastVisit.status, fallback.lastVisit.status),
-      emptyMessage: normalizeText(lastVisit.emptyMessage) || fallback.lastVisit.emptyMessage,
+      emptyMessage:
+        normalizeText(lastVisit.emptyMessage) ||
+        fallback.lastVisit.emptyMessage,
     },
     upcomingAppointment: {
       exists:
-        typeof upcomingAppointment.exists === "boolean"
+        typeof upcomingAppointment.exists === 'boolean'
           ? upcomingAppointment.exists
           : fallback.upcomingAppointment.exists,
-      date: clampText(upcomingAppointment.date, fallback.upcomingAppointment.date),
-      time: clampText(upcomingAppointment.time, fallback.upcomingAppointment.time),
-      doctor: clampText(upcomingAppointment.doctor, fallback.upcomingAppointment.doctor),
+      date: clampText(
+        upcomingAppointment.date,
+        fallback.upcomingAppointment.date
+      ),
+      time: clampText(
+        upcomingAppointment.time,
+        fallback.upcomingAppointment.time
+      ),
+      doctor: clampText(
+        upcomingAppointment.doctor,
+        fallback.upcomingAppointment.doctor
+      ),
       department: clampText(
         upcomingAppointment.department,
-        fallback.upcomingAppointment.department,
+        fallback.upcomingAppointment.department
       ),
-      status: clampText(upcomingAppointment.status, fallback.upcomingAppointment.status),
+      status: clampText(
+        upcomingAppointment.status,
+        fallback.upcomingAppointment.status
+      ),
       tokenNumber: clampText(
         upcomingAppointment.tokenNumber,
-        fallback.upcomingAppointment.tokenNumber,
+        fallback.upcomingAppointment.tokenNumber
       ),
       queuePosition: clampText(
         upcomingAppointment.queuePosition,
-        fallback.upcomingAppointment.queuePosition,
+        fallback.upcomingAppointment.queuePosition
       ),
       emptyMessage:
         normalizeText(upcomingAppointment.emptyMessage) ||
@@ -1002,75 +1102,90 @@ function snapshotFromUnknown(
     },
     reportInfo: {
       exists:
-        typeof reportInfo.exists === "boolean"
+        typeof reportInfo.exists === 'boolean'
           ? reportInfo.exists
           : fallback.reportInfo.exists,
       name: clampText(reportInfo.name, fallback.reportInfo.name),
       status: clampText(reportInfo.status, fallback.reportInfo.status),
       date: clampText(reportInfo.date, fallback.reportInfo.date),
       ready:
-        typeof reportInfo.ready === "boolean"
+        typeof reportInfo.ready === 'boolean'
           ? reportInfo.ready
           : fallback.reportInfo.ready,
-      pdfUrl: reportInfo.pdfUrl ? String(reportInfo.pdfUrl) : fallback.reportInfo.pdfUrl,
-      emptyMessage: normalizeText(reportInfo.emptyMessage) || fallback.reportInfo.emptyMessage,
+      pdfUrl: reportInfo.pdfUrl
+        ? String(reportInfo.pdfUrl)
+        : fallback.reportInfo.pdfUrl,
+      emptyMessage:
+        normalizeText(reportInfo.emptyMessage) ||
+        fallback.reportInfo.emptyMessage,
     },
     insuranceInfo: {
       exists:
-        typeof insuranceInfo.exists === "boolean"
+        typeof insuranceInfo.exists === 'boolean'
           ? insuranceInfo.exists
           : fallback.insuranceInfo.exists,
-      provider: clampText(insuranceInfo.provider, fallback.insuranceInfo.provider),
+      provider: clampText(
+        insuranceInfo.provider,
+        fallback.insuranceInfo.provider
+      ),
       cashlessAvailable: clampText(
         insuranceInfo.cashlessAvailable,
-        fallback.insuranceInfo.cashlessAvailable,
+        fallback.insuranceInfo.cashlessAvailable
       ),
       status: clampText(insuranceInfo.status, fallback.insuranceInfo.status),
       coverageNotes: clampText(
         insuranceInfo.coverageNotes,
         fallback.insuranceInfo.coverageNotes,
-        240,
+        240
       ),
       emptyMessage:
-        normalizeText(insuranceInfo.emptyMessage) || fallback.insuranceInfo.emptyMessage,
+        normalizeText(insuranceInfo.emptyMessage) ||
+        fallback.insuranceInfo.emptyMessage,
     },
     conversationSummary: clampText(
       obj.conversationSummary,
       fallback.conversationSummary,
-      500,
+      500
     ),
-    suggestedReply: clampText(obj.suggestedReply, fallback.suggestedReply, 1200),
+    suggestedReply: clampText(
+      obj.suggestedReply,
+      fallback.suggestedReply,
+      1200
+    ),
     suggestedActions: asStringArray(
       obj.suggestedActions,
       fallback.suggestedActions,
       8,
-      80,
+      80
     ),
-    internalNotes: asStringArray(obj.internalNotes, fallback.internalNotes, 6, 120),
+    internalNotes: asStringArray(
+      obj.internalNotes,
+      fallback.internalNotes,
+      6,
+      120
+    ),
     intent: {
       label: clampText(intent.label, fallback.intent.label, 80),
       score: Math.max(
         0,
-        Math.min(
-          100,
-          Math.round(Number(intent.score) || fallback.intent.score),
-        ),
+        Math.min(100, Math.round(Number(intent.score) || fallback.intent.score))
       ),
     },
-    confidence: confidence.length > 0 ? confidence.slice(0, 4) : fallback.confidence,
+    confidence:
+      confidence.length > 0 ? confidence.slice(0, 4) : fallback.confidence,
     timeline: timeline.length > 0 ? timeline : fallback.timeline,
   };
 }
 
 export function parseCopilotSnapshotJson(
   raw: string,
-  fallback: ReceptionistCopilotSnapshot,
+  fallback: ReceptionistCopilotSnapshot
 ): ReceptionistCopilotSnapshot {
   let cleaned = raw
     .trim()
-    .replace(/^```json/i, "")
-    .replace(/^```/i, "")
-    .replace(/```$/i, "")
+    .replace(/^```json/i, '')
+    .replace(/^```/i, '')
+    .replace(/```$/i, '')
     .trim();
 
   // Attempt direct parse first
@@ -1084,9 +1199,18 @@ export function parseCopilotSnapshotJson(
     let inString = false;
     let escaped = false;
     for (const ch of cleaned) {
-      if (escaped) { escaped = false; continue; }
-      if (ch === '\\') { escaped = true; continue; }
-      if (ch === '"') { inString = !inString; continue; }
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (ch === '\\') {
+        escaped = true;
+        continue;
+      }
+      if (ch === '"') {
+        inString = !inString;
+        continue;
+      }
       if (inString) continue;
       if (ch === '{') openBraces++;
       if (ch === '}') openBraces--;
@@ -1095,8 +1219,14 @@ export function parseCopilotSnapshotJson(
     }
     // Close any dangling strings, brackets, braces
     if (inString) cleaned += '"';
-    while (openBrackets > 0) { cleaned += ']'; openBrackets--; }
-    while (openBraces > 0) { cleaned += '}'; openBraces--; }
+    while (openBrackets > 0) {
+      cleaned += ']';
+      openBrackets--;
+    }
+    while (openBraces > 0) {
+      cleaned += '}';
+      openBraces--;
+    }
 
     try {
       return snapshotFromUnknown(JSON.parse(cleaned), fallback);
@@ -1138,53 +1268,66 @@ Use only the provided data. If a field is missing, say it is not available inste
 Keep patientSummary to 5 or 6 short bullets. Keep internalNotes private and operational.
 Return only a raw JSON object that matches the same shape as sourceContext.fallback.`;
 
-  const runCompletion = async (activeModel: string, timeoutMs: number = 5000): Promise<string> => {
+  const runCompletion = async (
+    activeModel: string,
+    timeoutMs: number = 5000
+  ): Promise<string> => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
-      const isGemini = activeModel.includes("gemini");
-      const isClaude = activeModel.includes("claude");
+      const isGemini = activeModel.includes('gemini');
+      const isClaude = activeModel.includes('claude');
       const supportsJson = isGemini || isClaude;
 
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-          "HTTP-Referer": "https://wacrm.tech",
-          "X-Title": "wacrm AI Receptionist Copilot",
-        },
-        signal: controller.signal,
-        body: JSON.stringify({
-          model: activeModel,
-          ...(supportsJson ? { response_format: { type: "json_object" } } : {}),
-          messages: [
-            {
-              role: "system",
-              content: [routeSafety, systemPrompt ? `Tenant AI policy:\n${systemPrompt}` : ""]
-                .filter(Boolean)
-                .join("\n\n"),
-            },
-            {
-              role: "user",
-              content: `Latest patient message: ${latestText || "(none)"}\n\nBuild the copilot snapshot from this context:\n${JSON.stringify(sourceContext)}`,
-            },
-          ],
-        }),
-      });
+      const response = await fetch(
+        'https://openrouter.ai/api/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`,
+            'HTTP-Referer': 'https://wacrm.tech',
+            'X-Title': 'wacrm AI Receptionist Copilot',
+          },
+          signal: controller.signal,
+          body: JSON.stringify({
+            model: activeModel,
+            ...(supportsJson
+              ? { response_format: { type: 'json_object' } }
+              : {}),
+            messages: [
+              {
+                role: 'system',
+                content: [
+                  routeSafety,
+                  systemPrompt ? `Tenant AI policy:\n${systemPrompt}` : '',
+                ]
+                  .filter(Boolean)
+                  .join('\n\n'),
+              },
+              {
+                role: 'user',
+                content: `Latest patient message: ${latestText || '(none)'}\n\nBuild the copilot snapshot from this context:\n${JSON.stringify(sourceContext)}`,
+              },
+            ],
+          }),
+        }
+      );
 
       clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errText = await response.text();
-        throw new Error(`OpenRouter API error (${response.status}): ${errText}`);
+        throw new Error(
+          `OpenRouter API error (${response.status}): ${errText}`
+        );
       }
 
       const payload = await response.json();
       const content = payload?.choices?.[0]?.message?.content;
-      if (typeof content !== "string" || content.trim().length === 0) {
-        throw new Error("OpenRouter returned an empty copilot response");
+      if (typeof content !== 'string' || content.trim().length === 0) {
+        throw new Error('OpenRouter returned an empty copilot response');
       }
       return content;
     } catch (err) {
@@ -1203,10 +1346,12 @@ Return only a raw JSON object that matches the same shape as sourceContext.fallb
       primaryErr instanceof Error ? primaryErr.message : primaryErr
     );
 
-    const fallbackModel = "google/gemini-2.5-flash";
+    const fallbackModel = 'google/gemini-2.5-flash';
     if (model !== fallbackModel) {
       try {
-        console.log(`[Copilot AI] Retrying with fallback model: ${fallbackModel}`);
+        console.log(
+          `[Copilot AI] Retrying with fallback model: ${fallbackModel}`
+        );
         const content = await runCompletion(fallbackModel, 20000);
         return parseCopilotSnapshotJson(content, fallback);
       } catch (fallbackErr) {
@@ -1216,10 +1361,11 @@ Return only a raw JSON object that matches the same shape as sourceContext.fallb
         );
       }
     }
-    
+
     return {
       ...fallback,
-      warning: "AI Copilot generation failed. Displaying local rule-based fallback snapshot.",
+      warning:
+        'AI Copilot generation failed. Displaying local rule-based fallback snapshot.',
     };
   }
 }

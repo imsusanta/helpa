@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
-import { cn } from "@/lib/utils";
-import type { Contact, Deal, ContactNote, Tag, Conversation } from "@/types";
+import { useState, useEffect, useCallback } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/hooks/use-auth';
+import { cn } from '@/lib/utils';
+import type { Contact, Deal, ContactNote, Tag, Conversation } from '@/types';
 import {
   Phone,
   Mail,
@@ -24,17 +24,20 @@ import {
   FileUp,
   Loader2,
   MessageSquare,
-} from "lucide-react";
-import { UploadPatientPdfModal } from "@/components/contacts/upload-patient-pdf-modal";
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { format } from "date-fns";
-import { toast } from "sonner";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
+} from 'lucide-react';
+import { UploadPatientPdfModal } from '@/components/contacts/upload-patient-pdf-modal';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { format } from 'date-fns';
+import { toast } from 'sonner';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 
-import { getIndustryModule } from "@/modules/registry";
-import { getOrGeneratePatientId, resolveBloodGroup } from "@/lib/patients/id-generator";
+import { getIndustryModule } from '@/modules/registry';
+import {
+  getOrGeneratePatientId,
+  resolveBloodGroup,
+} from '@/lib/patients/id-generator';
 
 interface ContactSidebarProps {
   contact: Contact | null;
@@ -48,21 +51,27 @@ export function ContactSidebar({
   isEmbedded = false,
 }: ContactSidebarProps) {
   const { accountId, enabledModules, account } = useAuth();
-  
-  const pipelineTitle = 
-    account?.industry === "hospital_clinic" ? "Patient Care Cycle" :
-    (account?.industry === "coaching" || account?.industry === "solo_teacher") ? "Enrollment Pipeline" :
-    account?.industry === "real_estate" ? "Deals / Pipeline" :
-    account?.industry === "travel" ? "Trip Bookings" :
-    account?.industry === "gym" ? "Membership Stages" :
-    account?.industry === "restaurant" ? "Reservation Pipeline" :
-    "Deals / Pipeline";
+
+  const pipelineTitle =
+    account?.industry === 'hospital_clinic'
+      ? 'Patient Care Cycle'
+      : account?.industry === 'coaching' || account?.industry === 'solo_teacher'
+        ? 'Enrollment Pipeline'
+        : account?.industry === 'real_estate'
+          ? 'Deals / Pipeline'
+          : account?.industry === 'travel'
+            ? 'Trip Bookings'
+            : account?.industry === 'gym'
+              ? 'Membership Stages'
+              : account?.industry === 'restaurant'
+                ? 'Reservation Pipeline'
+                : 'Deals / Pipeline';
 
   const [copied, setCopied] = useState(false);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [notes, setNotes] = useState<ContactNote[]>([]);
   const [tags, setTags] = useState<(Tag & { contact_tag_id: string })[]>([]);
-  const [newNote, setNewNote] = useState("");
+  const [newNote, setNewNote] = useState('');
   const [addingNote, setAddingNote] = useState(false);
 
   // Hospital & Clinic booking states
@@ -73,38 +82,42 @@ export function ContactSidebar({
   const [doctors, setDoctors] = useState<any[]>([]);
   const [branches, setBranches] = useState<any[]>([]);
   const [loadingForm, setLoadingForm] = useState(false);
-  const [upcomingAppointment, setUpcomingAppointment] = useState<any | null>(null);
+  const [upcomingAppointment, setUpcomingAppointment] = useState<any | null>(
+    null
+  );
   const [recentReports, setRecentReports] = useState<any[]>([]);
-  const [notifyingReportId, setNotifyingReportId] = useState<string | null>(null);
+  const [notifyingReportId, setNotifyingReportId] = useState<string | null>(
+    null
+  );
 
-  const [bookingDocId, setBookingDocId] = useState("");
-  const [bookingDate, setBookingDate] = useState("");
-  const [bookingTime, setBookingTime] = useState("");
-  const [bookingNotes, setBookingNotes] = useState("");
+  const [bookingDocId, setBookingDocId] = useState('');
+  const [bookingDate, setBookingDate] = useState('');
+  const [bookingTime, setBookingTime] = useState('');
+  const [bookingNotes, setBookingNotes] = useState('');
 
   const fetchContactData = useCallback(async () => {
     if (!contact) return;
 
     const supabase = createClient();
-    const isHospital = account?.industry === "hospital_clinic";
+    const isHospital = account?.industry === 'hospital_clinic';
 
     try {
       // 1. Fetch core CRM fields (deals, notes, tags)
       const [dealsRes, notesRes, tagsRes] = await Promise.all([
         supabase
-          .from("deals")
-          .select("*, stage:pipeline_stages(*)")
-          .eq("contact_id", contact.id)
-          .order("created_at", { ascending: false }),
+          .from('deals')
+          .select('*, stage:pipeline_stages(*)')
+          .eq('contact_id', contact.id)
+          .order('created_at', { ascending: false }),
         supabase
-          .from("contact_notes")
-          .select("*")
-          .eq("contact_id", contact.id)
-          .order("created_at", { ascending: false }),
+          .from('contact_notes')
+          .select('*')
+          .eq('contact_id', contact.id)
+          .order('created_at', { ascending: false }),
         supabase
-          .from("contact_tags")
-          .select("id, tag_id, tags(*)")
-          .eq("contact_id", contact.id),
+          .from('contact_tags')
+          .select('id, tag_id, tags(*)')
+          .eq('contact_id', contact.id),
       ]);
 
       if (dealsRes.data) setDeals(dealsRes.data);
@@ -123,41 +136,47 @@ export function ContactSidebar({
       if (isHospital) {
         const [patientRes, apptRes, reportRes] = await Promise.all([
           supabase
-            .from("patients")
-            .select("*")
-            .eq("id", contact.id)
+            .from('patients')
+            .select('*')
+            .eq('id', contact.id)
             .maybeSingle(),
           supabase
-            .from("appointments")
-            .select("*, doctor:hospital_doctors(name)")
-            .eq("patient_id", contact.id)
-            .gte("appointment_date", new Date().toISOString().split("T")[0])
-            .order("appointment_date", { ascending: true })
-            .order("appointment_time", { ascending: true })
+            .from('appointments')
+            .select('*, doctor:hospital_doctors(name)')
+            .eq('patient_id', contact.id)
+            .gte('appointment_date', new Date().toISOString().split('T')[0])
+            .order('appointment_date', { ascending: true })
+            .order('appointment_time', { ascending: true })
             .limit(1)
             .maybeSingle(),
           supabase
-            .from("hospital_lab_reports")
-            .select("*")
-            .eq("patient_id", contact.id)
-            .order("created_at", { ascending: false })
+            .from('hospital_lab_reports')
+            .select('*')
+            .eq('patient_id', contact.id)
+            .order('created_at', { ascending: false })
             .limit(5),
         ]);
 
         if (patientRes.data) setPatient(patientRes.data);
         else setPatient(null);
-        
+
         if (apptRes.data) setUpcomingAppointment(apptRes.data);
         else setUpcomingAppointment(null);
-        
-        setRecentReports(Array.isArray(reportRes.data) ? reportRes.data : reportRes.data ? [reportRes.data] : []);
+
+        setRecentReports(
+          Array.isArray(reportRes.data)
+            ? reportRes.data
+            : reportRes.data
+              ? [reportRes.data]
+              : []
+        );
       } else {
         setPatient(null);
         setUpcomingAppointment(null);
         setRecentReports([]);
       }
     } catch (err) {
-      console.error("[ContactSidebar] Error fetching contact details:", err);
+      console.error('[ContactSidebar] Error fetching contact details:', err);
     }
   }, [contact, enabledModules, account?.industry]);
 
@@ -167,8 +186,15 @@ export function ContactSidebar({
       const supabase = createClient();
       async function loadDocs() {
         const [dRes, bRes] = await Promise.all([
-          supabase.from("hospital_doctors").select("*").eq("account_id", accountId).eq("status", "active"),
-          supabase.from("hospital_branches").select("*").eq("account_id", accountId),
+          supabase
+            .from('hospital_doctors')
+            .select('*')
+            .eq('account_id', accountId)
+            .eq('status', 'active'),
+          supabase
+            .from('hospital_branches')
+            .select('*')
+            .eq('account_id', accountId),
         ]);
         setDoctors(dRes.data || []);
         setBranches(bRes.data || []);
@@ -187,11 +213,11 @@ export function ContactSidebar({
       let pat = patient;
       if (!pat) {
         const { data: newPat, error: pErr } = await supabase
-          .from("patients")
+          .from('patients')
           .insert({
             id: contact.id,
             account_id: accountId,
-            status: "active",
+            status: 'active',
           })
           .select()
           .single();
@@ -202,11 +228,11 @@ export function ContactSidebar({
 
       // 2. Resolve department
       const doc = doctors.find((d) => d.id === bookingDocId);
-      const dept = doc ? doc.department : "General Medicine";
+      const dept = doc ? doc.department : 'General Medicine';
 
       // 3. Book appointment
       const { data: appt, error: apptErr } = await supabase
-        .from("appointments")
+        .from('appointments')
         .insert({
           account_id: accountId,
           patient_id: contact.id,
@@ -214,7 +240,7 @@ export function ContactSidebar({
           department: dept,
           appointment_date: bookingDate,
           appointment_time: bookingTime,
-          status: "pending",
+          status: 'pending',
           notes: bookingNotes,
         })
         .select()
@@ -223,27 +249,27 @@ export function ContactSidebar({
       if (apptErr) throw apptErr;
 
       // 4. Send auto-WhatsApp confirmation alert!
-      fetch("/api/whatsapp/broadcast", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      fetch('/api/whatsapp/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: "appointment_confirmation",
+          action: 'appointment_confirmation',
           appointmentId: appt.id,
         }),
-      }).catch((err) => console.error("Auto WhatsApp confirmation fail", err));
+      }).catch((err) => console.error('Auto WhatsApp confirmation fail', err));
 
-      toast.success("Appointment booked & patient notified via WhatsApp!");
+      toast.success('Appointment booked & patient notified via WhatsApp!');
       setShowBookForm(false);
-      setBookingDocId("");
-      setBookingDate("");
-      setBookingTime("");
-      setBookingNotes("");
-      
+      setBookingDocId('');
+      setBookingDate('');
+      setBookingTime('');
+      setBookingNotes('');
+
       // Reload list
       fetchContactData();
     } catch (err: any) {
       console.error(err);
-      toast.error(err.message || "Failed to book appointment");
+      toast.error(err.message || 'Failed to book appointment');
     } finally {
       setLoadingForm(false);
     }
@@ -252,12 +278,12 @@ export function ContactSidebar({
   const handleSidebarInvite = async (docId: string) => {
     if (!contact) return;
     try {
-      toast.info("Sending booking invitation on WhatsApp...");
-      const res = await fetch("/api/whatsapp/broadcast", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      toast.info('Sending booking invitation on WhatsApp...');
+      const res = await fetch('/api/whatsapp/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: "booking_invite",
+          action: 'booking_invite',
           doctorId: docId,
           patientId: contact.id,
         }),
@@ -266,12 +292,12 @@ export function ContactSidebar({
       if (data.error) {
         toast.error(data.error);
       } else {
-        toast.success("Booking invitation dispatched on WhatsApp!");
+        toast.success('Booking invitation dispatched on WhatsApp!');
         setShowInviteForm(false);
       }
     } catch (err) {
       console.error(err);
-      toast.error("Failed to send invitation");
+      toast.error('Failed to send invitation');
     }
   };
 
@@ -279,10 +305,10 @@ export function ContactSidebar({
     if (!accountId) return;
     setNotifyingReportId(reportId);
     try {
-      const res = await fetch("/api/lab-reports/notify", {
-        method: "POST",
+      const res = await fetch('/api/lab-reports/notify', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({ reportId, accountId }),
       });
@@ -291,11 +317,11 @@ export function ContactSidebar({
         throw new Error(await res.text());
       }
 
-      toast.success("Report successfully sent via WhatsApp!");
+      toast.success('Report successfully sent via WhatsApp!');
       fetchContactData();
     } catch (err: any) {
-      console.error("Failed to notify patient via WhatsApp:", err);
-      toast.error("Failed to send WhatsApp message: " + err.message);
+      console.error('Failed to notify patient via WhatsApp:', err);
+      toast.error('Failed to send WhatsApp message: ' + err.message);
     } finally {
       setNotifyingReportId(null);
     }
@@ -330,7 +356,7 @@ export function ContactSidebar({
     const user = session?.user;
 
     const { data, error } = await supabase
-      .from("contact_notes")
+      .from('contact_notes')
       .insert({
         contact_id: contact.id,
         account_id: accountId,
@@ -342,15 +368,15 @@ export function ContactSidebar({
 
     if (!error && data) {
       setNotes((prev) => [data, ...prev]);
-      setNewNote("");
+      setNewNote('');
     }
     setAddingNote(false);
   }, [contact, newNote, accountId]);
 
   if (!contact) {
     return (
-      <div className="flex h-full w-full items-center justify-center bg-card">
-        <p className="text-sm text-muted-foreground">Select a conversation</p>
+      <div className="bg-card flex h-full w-full items-center justify-center">
+        <p className="text-muted-foreground text-sm">Select a conversation</p>
       </div>
     );
   }
@@ -359,64 +385,76 @@ export function ContactSidebar({
   const initials = displayName.charAt(0).toUpperCase();
 
   const content = (
-    <div className="flex-1 overflow-y-auto min-h-0">
+    <div className="min-h-0 flex-1 overflow-y-auto">
       <div className="p-4 pb-20">
-          {/* Profile Card */}
-          <div className="bg-muted/30 border border-border/50 rounded-xl p-4 flex flex-col items-center text-center space-y-3 shadow-sm mb-4">
-            <div className="relative">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-background border-2 border-primary/20 text-lg font-semibold text-foreground overflow-hidden">
-                {contact.avatar_url ? (
-                  <img
-                    src={contact.avatar_url}
-                    alt={displayName}
-                    className="h-16 w-16 rounded-full object-cover"
-                  />
-                ) : (
-                  initials
-                )}
-              </div>
-              <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-background bg-emerald-500" title="Active" />
-            </div>
-
-            <div className="space-y-0.5">
-              <h3 className="text-sm font-bold text-foreground truncate max-w-[200px]">
-                {displayName}
-              </h3>
-              {contact.company && (
-                <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">{contact.company}</p>
+        {/* Profile Card */}
+        <div className="bg-muted/30 border-border/50 mb-4 flex flex-col items-center space-y-3 rounded-xl border p-4 text-center shadow-sm">
+          <div className="relative">
+            <div className="bg-background border-primary/20 text-foreground flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border-2 text-lg font-semibold">
+              {contact.avatar_url ? (
+                <img
+                  src={contact.avatar_url}
+                  alt={displayName}
+                  className="h-16 w-16 rounded-full object-cover"
+                />
+              ) : (
+                initials
               )}
             </div>
-
-            {/* Quick Actions / Contact Info */}
-            <div className="w-full pt-3 border-t border-border/40 space-y-1.5">
-              <button
-                onClick={handleCopyPhone}
-                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground cursor-pointer"
-              >
-                <Phone className="h-3.5 w-3.5 shrink-0" />
-                <span className="flex-1 text-left truncate font-medium">{contact.phone}</span>
-                {copied ? (
-                  <Check className="h-3 w-3 text-emerald-500" />
-                ) : (
-                  <Copy className="h-3 w-3 text-muted-foreground" />
-                )}
-              </button>
-
-              {contact.email && (
-                <div className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-muted-foreground select-text font-medium">
-                  <Mail className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate text-left flex-1">{contact.email}</span>
-                </div>
-              )}
-            </div>
+            <span
+              className="border-background absolute right-0 bottom-0 h-3 w-3 rounded-full border-2 bg-emerald-500"
+              title="Active"
+            />
           </div>
 
-          {/* AI Insights */}
-          {conversation && (conversation.ai_intent || conversation.ai_lead_score || conversation.ai_summary) && (
+          <div className="space-y-0.5">
+            <h3 className="text-foreground max-w-[200px] truncate text-sm font-bold">
+              {displayName}
+            </h3>
+            {contact.company && (
+              <p className="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">
+                {contact.company}
+              </p>
+            )}
+          </div>
+
+          {/* Quick Actions / Contact Info */}
+          <div className="border-border/40 w-full space-y-1.5 border-t pt-3">
+            <button
+              onClick={handleCopyPhone}
+              className="text-muted-foreground hover:bg-muted hover:text-foreground flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs transition-colors"
+            >
+              <Phone className="h-3.5 w-3.5 shrink-0" />
+              <span className="flex-1 truncate text-left font-medium">
+                {contact.phone}
+              </span>
+              {copied ? (
+                <Check className="h-3 w-3 text-emerald-500" />
+              ) : (
+                <Copy className="text-muted-foreground h-3 w-3" />
+              )}
+            </button>
+
+            {contact.email && (
+              <div className="text-muted-foreground flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium select-text">
+                <Mail className="h-3.5 w-3.5 shrink-0" />
+                <span className="flex-1 truncate text-left">
+                  {contact.email}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* AI Insights */}
+        {conversation &&
+          (conversation.ai_intent ||
+            conversation.ai_lead_score ||
+            conversation.ai_summary) && (
             <>
-              <div className="my-4 border-t border-border" />
-              <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-3 text-card-foreground">
-                <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+              <div className="border-border my-4 border-t" />
+              <div className="text-card-foreground rounded-xl border border-emerald-500/25 bg-emerald-500/5 p-3">
+                <div className="flex items-center gap-1.5 text-xs font-semibold tracking-wider text-emerald-600 uppercase dark:text-emerald-400">
                   <Brain className="h-3.5 w-3.5 text-emerald-500" />
                   AI Insights
                 </div>
@@ -427,12 +465,12 @@ export function ContactSidebar({
                     {conversation.ai_lead_score && (
                       <span
                         className={cn(
-                          "inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-semibold border",
-                          conversation.ai_lead_score === "hot"
-                            ? "bg-red-500/10 text-red-300 border-red-500/20 animate-pulse"
-                            : conversation.ai_lead_score === "warm"
-                            ? "bg-amber-500/10 text-amber-300 border-amber-500/20"
-                            : "bg-blue-500/10 text-blue-300 border-blue-500/20"
+                          'inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] font-semibold',
+                          conversation.ai_lead_score === 'hot'
+                            ? 'animate-pulse border-red-500/20 bg-red-500/10 text-red-300'
+                            : conversation.ai_lead_score === 'warm'
+                              ? 'border-amber-500/20 bg-amber-500/10 text-amber-300'
+                              : 'border-blue-500/20 bg-blue-500/10 text-blue-300'
                         )}
                       >
                         {conversation.ai_lead_score.toUpperCase()}
@@ -442,16 +480,16 @@ export function ContactSidebar({
                     {conversation.ai_intent && (
                       <span
                         className={cn(
-                          "inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-semibold border",
-                          conversation.ai_intent === "sales"
-                            ? "bg-green-500/10 text-green-300 border-green-500/20"
-                            : conversation.ai_intent === "support"
-                            ? "bg-sky-500/10 text-sky-300 border-sky-500/20"
-                            : conversation.ai_intent === "booking"
-                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
-                            : conversation.ai_intent === "complaint"
-                            ? "bg-rose-500/10 text-rose-300 border-rose-500/20"
-                            : "bg-gray-500/10 text-gray-300 border-gray-500/20"
+                          'inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] font-semibold',
+                          conversation.ai_intent === 'sales'
+                            ? 'border-green-500/20 bg-green-500/10 text-green-300'
+                            : conversation.ai_intent === 'support'
+                              ? 'border-sky-500/20 bg-sky-500/10 text-sky-300'
+                              : conversation.ai_intent === 'booking'
+                                ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                                : conversation.ai_intent === 'complaint'
+                                  ? 'border-rose-500/20 bg-rose-500/10 text-rose-300'
+                                  : 'border-gray-500/20 bg-gray-500/10 text-gray-300'
                         )}
                       >
                         {conversation.ai_intent.toUpperCase()}
@@ -459,27 +497,32 @@ export function ContactSidebar({
                     )}
 
                     {conversation.ai_sentiment && (
-                      <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-semibold border bg-muted/40 text-muted-foreground border-border">
-                        {conversation.ai_sentiment === "positive"
-                          ? "😊 POSITIVE"
-                          : conversation.ai_sentiment === "negative"
-                          ? "😠 NEGATIVE"
-                          : "😐 NEUTRAL"}
+                      <span className="bg-muted/40 text-muted-foreground border-border inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] font-semibold">
+                        {conversation.ai_sentiment === 'positive'
+                          ? '😊 POSITIVE'
+                          : conversation.ai_sentiment === 'negative'
+                            ? '😠 NEGATIVE'
+                            : '😐 NEUTRAL'}
                       </span>
                     )}
                   </div>
 
                   {/* FAQ Category */}
-                  {conversation.ai_faq_category && conversation.ai_faq_category !== "general" && (
-                    <div className="text-[10px] text-muted-foreground flex items-center gap-1">
-                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">Topic:</span>
-                      <span className="capitalize">{conversation.ai_faq_category}</span>
-                    </div>
-                  )}
+                  {conversation.ai_faq_category &&
+                    conversation.ai_faq_category !== 'general' && (
+                      <div className="text-muted-foreground flex items-center gap-1 text-[10px]">
+                        <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                          Topic:
+                        </span>
+                        <span className="capitalize">
+                          {conversation.ai_faq_category}
+                        </span>
+                      </div>
+                    )}
 
                   {/* Handoff Status */}
                   {conversation.ai_handoff_required && (
-                    <div className="rounded-lg border border-red-500/20 bg-red-950/30 p-2 text-[10px] text-red-200 font-semibold flex items-center gap-1.5 animate-pulse">
+                    <div className="flex animate-pulse items-center gap-1.5 rounded-lg border border-red-500/20 bg-red-950/30 p-2 text-[10px] font-semibold text-red-200">
                       <span>⚠️</span> Human Handoff Requested
                     </div>
                   )}
@@ -487,10 +530,10 @@ export function ContactSidebar({
                   {/* Summary */}
                   {conversation.ai_summary && (
                     <div className="space-y-1">
-                      <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground block">
+                      <span className="text-muted-foreground block text-[9px] font-semibold tracking-wider uppercase">
                         Conversation Summary
                       </span>
-                      <p className="text-xs text-foreground bg-muted/45 p-2 rounded-lg leading-relaxed whitespace-pre-wrap">
+                      <p className="text-foreground bg-muted/45 rounded-lg p-2 text-xs leading-relaxed whitespace-pre-wrap">
                         {conversation.ai_summary}
                       </p>
                     </div>
@@ -500,372 +543,459 @@ export function ContactSidebar({
             </>
           )}
 
-          {/* Hospital & Clinic Operations Module Widget */}
-          {account?.industry === "hospital_clinic" && (
-            <>
-              <div className="my-4 border-t border-border" />
-              <div className="rounded-xl border border-primary/20 bg-muted/20 p-3 space-y-3">
-                <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-primary">
-                  <Hospital className="h-3.5 w-3.5" />
-                  Clinical Actions
+        {/* Hospital & Clinic Operations Module Widget */}
+        {account?.industry === 'hospital_clinic' && (
+          <>
+            <div className="border-border my-4 border-t" />
+            <div className="border-primary/20 bg-muted/20 space-y-3 rounded-xl border p-3">
+              <div className="text-primary flex items-center gap-1.5 text-xs font-semibold tracking-wider uppercase">
+                <Hospital className="h-3.5 w-3.5" />
+                Clinical Actions
+              </div>
+
+              <div className="space-y-2.5">
+                <div className="text-muted-foreground bg-background/50 border-border/40 grid grid-cols-2 gap-2 rounded-lg border p-2 text-[10px]">
+                  <div>
+                    <span className="text-muted-foreground block text-[8px] font-bold uppercase">
+                      Patient ID
+                    </span>
+                    <span className="text-foreground font-mono text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                      {getOrGeneratePatientId(contact, patient?.patient_seq_id)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground block text-[8px] font-bold uppercase">
+                      Blood Group
+                    </span>
+                    {(() => {
+                      const { bg, source } = resolveBloodGroup(
+                        patient?.blood_group,
+                        contact?.metadata?.blood_group,
+                        recentReports
+                      );
+                      if (!bg)
+                        return (
+                          <span className="text-muted-foreground text-[10px] italic">
+                            Not specified
+                          </span>
+                        );
+                      return (
+                        <div className="flex items-center gap-1">
+                          <span className="text-foreground text-[11px] font-bold text-rose-600 dark:text-rose-400">
+                            {bg}
+                          </span>
+                          {source === 'report' && (
+                            <span
+                              className="py-0.2 rounded bg-sky-500/10 px-1 text-[8px] font-semibold text-sky-600 dark:text-sky-400"
+                              title="Extracted automatically from Patient Lab Report"
+                            >
+                              Lab
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </div>
 
-                <div className="space-y-2.5">
-                  <div className="grid grid-cols-2 gap-2 text-[10px] text-muted-foreground bg-background/50 p-2 rounded-lg border border-border/40">
-                    <div>
-                      <span className="block text-[8px] uppercase font-bold text-muted-foreground">Patient ID</span>
-                      <span className="text-foreground font-bold font-mono text-[11px] text-emerald-600 dark:text-emerald-400">
-                        {getOrGeneratePatientId(contact, patient?.patient_seq_id)}
+                {/* Upcoming Appointment Info */}
+                {upcomingAppointment ? (
+                  <div className="bg-primary/5 border-primary/10 space-y-1 rounded-lg border p-2 text-[10px]">
+                    <span className="text-primary block text-[8px] font-bold uppercase">
+                      Upcoming Appointment
+                    </span>
+                    <p className="text-foreground font-semibold">
+                      {upcomingAppointment.doctor?.name || 'General Consult'} (
+                      {upcomingAppointment.department})
+                    </p>
+                    <p className="text-muted-foreground">
+                      {format(
+                        new Date(upcomingAppointment.appointment_date),
+                        'MMM d, yyyy'
+                      )}{' '}
+                      at {upcomingAppointment.appointment_time}
+                    </p>
+                    <div className="mt-1 flex items-center justify-between">
+                      <span className="bg-primary/10 text-primary rounded px-1.5 py-0.5 text-[9px] font-bold uppercase">
+                        {upcomingAppointment.status}
+                      </span>
+                      <span className="text-foreground text-[9px] font-semibold">
+                        Token: #{upcomingAppointment.token_number}
                       </span>
                     </div>
-                    <div>
-                      <span className="block text-[8px] uppercase font-bold text-muted-foreground">Blood Group</span>
-                      {(() => {
-                        const { bg, source } = resolveBloodGroup(patient?.blood_group, contact?.metadata?.blood_group, recentReports);
-                        if (!bg) return <span className="text-muted-foreground italic text-[10px]">Not specified</span>;
-                        return (
-                          <div className="flex items-center gap-1">
-                            <span className="text-foreground font-bold text-[11px] text-rose-600 dark:text-rose-400">
-                              {bg}
-                            </span>
-                            {source === 'report' && (
-                              <span className="text-[8px] font-semibold text-sky-600 dark:text-sky-400 bg-sky-500/10 px-1 py-0.2 rounded" title="Extracted automatically from Patient Lab Report">
-                                Lab
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })()}
-                    </div>
                   </div>
-
-                    {/* Upcoming Appointment Info */}
-                    {upcomingAppointment ? (
-                      <div className="bg-primary/5 border border-primary/10 rounded-lg p-2 text-[10px] space-y-1">
-                        <span className="block text-[8px] uppercase font-bold text-primary">Upcoming Appointment</span>
-                        <p className="font-semibold text-foreground">
-                          {upcomingAppointment.doctor?.name || "General Consult"} ({upcomingAppointment.department})
-                        </p>
-                        <p className="text-muted-foreground">
-                          {format(new Date(upcomingAppointment.appointment_date), "MMM d, yyyy")} at {upcomingAppointment.appointment_time}
-                        </p>
-                        <div className="flex justify-between items-center mt-1">
-                          <span className="text-[9px] font-bold uppercase bg-primary/10 text-primary px-1.5 py-0.5 rounded">
-                            {upcomingAppointment.status}
-                          </span>
-                          <span className="font-semibold text-foreground text-[9px]">
-                            Token: #{upcomingAppointment.token_number}
-                          </span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="bg-muted/40 border border-border/30 rounded-lg p-2 text-[10px] text-muted-foreground text-center">
-                        No upcoming appointments scheduled.
-                      </div>
-                    )}
-
-                    {/* Lab Reports List */}
-                    {recentReports.length > 0 ? (
-                      <div className="space-y-1.5 w-full">
-                        <span className="block text-[8px] uppercase font-bold text-emerald-600 dark:text-emerald-400">Lab Reports ({recentReports.length})</span>
-                        <div className="space-y-1">
-                          {recentReports.map((rep: any) => (
-                            <div key={rep.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/40 border border-border/30 text-[10px] gap-2">
-                              <div className="min-w-0 flex-1">
-                                <p className="font-semibold text-foreground truncate">{rep.test_name}</p>
-                                <div className="flex items-center gap-1.5 mt-0.5 text-[8.5px]">
-                                  <span className={cn(
-                                    "font-bold uppercase px-1 rounded-[3px]",
-                                    rep.status === 'ready'
-                                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                                      : rep.status === 'processing'
-                                      ? "bg-sky-500/10 text-sky-600 dark:text-sky-400"
-                                      : rep.status === 'delivered'
-                                      ? "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400"
-                                      : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                                  )}>
-                                    {rep.status}
-                                  </span>
-                                  <span className="text-muted-foreground">
-                                    {new Date(rep.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                                  </span>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                {rep.report_pdf_url && (
-                                  <a
-                                    href={rep.report_pdf_url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 cursor-pointer"
-                                    title="Download Report PDF"
-                                  >
-                                    <FileDown className="h-3.5 w-3.5" />
-                                  </a>
-                                )}
-                                <button
-                                  onClick={() => handleSendToWhatsApp(rep.id)}
-                                  disabled={notifyingReportId === rep.id}
-                                  className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 cursor-pointer disabled:opacity-50"
-                                  title={rep.notified_patient ? "Resend Report via WhatsApp" : "Send Report via WhatsApp"}
-                                >
-                                  {notifyingReportId === rep.id ? (
-                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                  ) : (
-                                    <MessageSquare className="h-3.5 w-3.5" />
-                                  )}
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="bg-muted/40 border border-border/30 rounded-lg p-2 text-[10px] text-muted-foreground text-center">
-                        No lab reports generated yet.
-                      </div>
-                    )}
+                ) : (
+                  <div className="bg-muted/40 border-border/30 text-muted-foreground rounded-lg border p-2 text-center text-[10px]">
+                    No upcoming appointments scheduled.
                   </div>
-
-                <div className="space-y-1.5">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full text-xs font-semibold border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 justify-center gap-1.5 h-8 cursor-pointer"
-                    onClick={() => { setShowBookForm(!showBookForm); setShowInviteForm(false); }}
-                  >
-                    <Calendar className="h-3.5 w-3.5" />
-                    Book Appointment
-                  </Button>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    <Button
-                      size="xs"
-                      variant="outline"
-                      className="text-[11px] font-semibold border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 justify-center gap-1.5 h-7 cursor-pointer"
-                      onClick={() => setUploadPdfOpen(true)}
-                    >
-                      <FileUp className="h-3.5 w-3.5" />
-                      Upload PDF
-                    </Button>
-                    <Button
-                      size="xs"
-                      variant="outline"
-                      className="text-[11px] text-muted-foreground hover:text-foreground justify-center gap-1.5 h-7 cursor-pointer"
-                      onClick={() => { setShowInviteForm(!showInviteForm); setShowBookForm(false); }}
-                    >
-                      <MessageSquare className="h-3.5 w-3.5" />
-                      Send Invite
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Inline Book Appointment Form */}
-                {showBookForm && (
-                  <form onSubmit={handleSidebarBook} className="space-y-2 border-t border-border/50 pt-2 animate-in fade-in duration-200">
-                    <div className="space-y-0.5">
-                      <Label htmlFor="side-doc" className="text-[10px]">Select Doctor</Label>
-                      <select
-                        id="side-doc"
-                        className="w-full text-xs h-7 border border-input rounded-md px-1.5 bg-background"
-                        required
-                        value={bookingDocId}
-                        onChange={(e) => setBookingDocId(e.target.value)}
-                      >
-                        <option value="">-- Choose Doctor --</option>
-                        {doctors.map(d => (
-                          <option key={d.id} value={d.id}>{d.name} ({d.department})</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="side-date" className="text-[10px]">Date</Label>
-                        <Input id="side-date" type="date" required value={bookingDate} onChange={(e) => setBookingDate(e.target.value)} className="h-7 text-xs px-1.5" />
-                      </div>
-                      <div className="space-y-0.5">
-                        <Label htmlFor="side-time" className="text-[10px]">Time</Label>
-                        <Input id="side-time" type="time" required value={bookingTime} onChange={(e) => setBookingTime(e.target.value)} className="h-7 text-xs px-1.5" />
-                      </div>
-                    </div>
-                    <div className="space-y-0.5">
-                      <Label htmlFor="side-notes" className="text-[10px]">Consultation Notes</Label>
-                      <Input id="side-notes" value={bookingNotes} onChange={(e) => setBookingNotes(e.target.value)} placeholder="Reason for booking..." className="h-7 text-xs px-1.5" />
-                    </div>
-                    <Button
-                      type="submit"
-                      disabled={loadingForm}
-                      className="w-full text-[11px] h-8 mt-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-md shadow-sm transition-all duration-150 flex items-center justify-center gap-1.5 cursor-pointer border-0"
-                    >
-                      {loadingForm ? (
-                        <>
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          Booking...
-                        </>
-                      ) : (
-                        <>
-                          <Calendar className="h-3.5 w-3.5" />
-                          Confirm & Notify WA
-                        </>
-                      )}
-                    </Button>
-                  </form>
                 )}
 
-                {/* Inline Invite Campaign Form */}
-                {showInviteForm && (
-                  <div className="space-y-2 border-t border-border/50 pt-2 animate-in fade-in duration-200">
-                    <p className="text-[10px] text-muted-foreground">Select a doctor to send a WhatsApp booking invitation directly to this customer:</p>
-                    <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
-                      {doctors.length === 0 ? (
-                        <p className="text-[10px] text-muted-foreground text-center py-2">No active doctors available</p>
-                      ) : (
-                        doctors.map(d => (
-                          <button
-                            key={d.id}
-                            type="button"
-                            onClick={() => handleSidebarInvite(d.id)}
-                            className="w-full text-left text-[11px] p-1.5 rounded bg-background border border-border hover:border-primary hover:text-primary transition-colors flex justify-between items-center"
-                          >
-                            <span>{d.name} ({d.department})</span>
-                            <span className="text-[9px] uppercase font-bold bg-primary/10 px-1 rounded">Send</span>
-                          </button>
-                        ))
-                      )}
+                {/* Lab Reports List */}
+                {recentReports.length > 0 ? (
+                  <div className="w-full space-y-1.5">
+                    <span className="block text-[8px] font-bold text-emerald-600 uppercase dark:text-emerald-400">
+                      Lab Reports ({recentReports.length})
+                    </span>
+                    <div className="space-y-1">
+                      {recentReports.map((rep: any) => (
+                        <div
+                          key={rep.id}
+                          className="bg-muted/40 border-border/30 flex items-center justify-between gap-2 rounded-lg border p-2 text-[10px]"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="text-foreground truncate font-semibold">
+                              {rep.test_name}
+                            </p>
+                            <div className="mt-0.5 flex items-center gap-1.5 text-[8.5px]">
+                              <span
+                                className={cn(
+                                  'rounded-[3px] px-1 font-bold uppercase',
+                                  rep.status === 'ready'
+                                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                                    : rep.status === 'processing'
+                                      ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400'
+                                      : rep.status === 'delivered'
+                                        ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
+                                        : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                                )}
+                              >
+                                {rep.status}
+                              </span>
+                              <span className="text-muted-foreground">
+                                {new Date(rep.created_at).toLocaleDateString(
+                                  undefined,
+                                  { month: 'short', day: 'numeric' }
+                                )}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-1.5">
+                            {rep.report_pdf_url && (
+                              <a
+                                href={rep.report_pdf_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="cursor-pointer text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
+                                title="Download Report PDF"
+                              >
+                                <FileDown className="h-3.5 w-3.5" />
+                              </a>
+                            )}
+                            <button
+                              onClick={() => handleSendToWhatsApp(rep.id)}
+                              disabled={notifyingReportId === rep.id}
+                              className="cursor-pointer text-emerald-600 hover:text-emerald-700 disabled:opacity-50 dark:text-emerald-400 dark:hover:text-emerald-300"
+                              title={
+                                rep.notified_patient
+                                  ? 'Resend Report via WhatsApp'
+                                  : 'Send Report via WhatsApp'
+                              }
+                            >
+                              {notifyingReportId === rep.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <MessageSquare className="h-3.5 w-3.5" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
+                  </div>
+                ) : (
+                  <div className="bg-muted/40 border-border/30 text-muted-foreground rounded-lg border p-2 text-center text-[10px]">
+                    No lab reports generated yet.
                   </div>
                 )}
               </div>
-            </>
-          )}
 
-          {/* Divider */}
-          <div className="my-4 border-t border-border" />
-
-          {/* Tags */}
-          <div>
-            <div className="flex items-center gap-2 px-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              <TagIcon className="h-3 w-3" />
-              Tags
-            </div>
-            <div className="mt-2 flex flex-wrap gap-1">
-              {tags.length === 0 ? (
-                <p className="px-1 text-xs text-muted-foreground">No tags</p>
-              ) : (
-                tags.map((tag) => (
-                  <span
-                    key={tag.contact_tag_id}
-                    className="rounded-full px-2 py-0.5 text-[10px] font-medium"
-                    style={{
-                      backgroundColor: `${tag.color}20`,
-                      color: tag.color,
-                    }}
-                  >
-                    {tag.name}
-                  </span>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Divider */}
-          <div className="my-4 border-t border-border" />
-
-          {/* Active Care Pipeline */}
-          <div>
-            <div className="flex items-center gap-2 px-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              <Activity className="h-3 w-3" />
-              {pipelineTitle}
-            </div>
-            <div className="mt-2 space-y-2">
-              {deals.length === 0 ? (
-                <p className="px-1 text-xs text-muted-foreground">No active items</p>
-              ) : (
-                deals.map((deal) => (
-                  <div
-                    key={deal.id}
-                    className="rounded-lg bg-muted px-3 py-2"
-                  >
-                    <p className="text-sm font-medium text-foreground">
-                      {deal.title}
-                    </p>
-                    <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
-                      <span>
-                        {deal.currency ?? "$"}
-                        {deal.value.toLocaleString()}
-                      </span>
-                      {deal.stage && (
-                        <span
-                          className="rounded-full px-1.5 py-0.5 text-[10px]"
-                          style={{
-                            backgroundColor: `${deal.stage.color}20`,
-                            color: deal.stage.color,
-                          }}
-                        >
-                          {deal.stage.name}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Divider */}
-          <div className="my-4 border-t border-border" />
-
-          {/* Notes */}
-          <div>
-            <div className="flex items-center gap-2 px-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              <StickyNote className="h-3 w-3" />
-              Notes
-            </div>
-            <div className="mt-2">
-              <div className="flex gap-2">
-                <textarea
-                  value={newNote}
-                  onChange={(e) => setNewNote(e.target.value)}
-                  placeholder="Add a note..."
-                  rows={2}
-                  className="flex-1 resize-none rounded-lg border border-border bg-muted px-3 py-2 text-xs text-foreground placeholder-muted-foreground outline-none focus:border-primary/50"
-                />
+              <div className="space-y-1.5">
                 <Button
                   size="sm"
-                  className="h-auto bg-primary px-2 hover:bg-primary/90"
-                  onClick={handleAddNote}
-                  disabled={!newNote.trim() || addingNote}
+                  variant="outline"
+                  className="border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 h-8 w-full cursor-pointer justify-center gap-1.5 text-xs font-semibold"
+                  onClick={() => {
+                    setShowBookForm(!showBookForm);
+                    setShowInviteForm(false);
+                  }}
                 >
-                  <Plus className="h-3 w-3" />
+                  <Calendar className="h-3.5 w-3.5" />
+                  Book Appointment
                 </Button>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    className="h-7 cursor-pointer justify-center gap-1.5 border-emerald-500/40 bg-emerald-500/10 text-[11px] font-semibold text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400"
+                    onClick={() => setUploadPdfOpen(true)}
+                  >
+                    <FileUp className="h-3.5 w-3.5" />
+                    Upload PDF
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    className="text-muted-foreground hover:text-foreground h-7 cursor-pointer justify-center gap-1.5 text-[11px]"
+                    onClick={() => {
+                      setShowInviteForm(!showInviteForm);
+                      setShowBookForm(false);
+                    }}
+                  >
+                    <MessageSquare className="h-3.5 w-3.5" />
+                    Send Invite
+                  </Button>
+                </div>
               </div>
 
-              <div className="mt-2 space-y-2">
-                {notes.map((note) => (
-                  <div
-                    key={note.id}
-                    className="rounded-lg bg-muted px-3 py-2"
-                  >
-                    <p className="whitespace-pre-wrap text-xs text-muted-foreground">
-                      {note.note_text}
-                    </p>
-                    <p className="mt-1 text-[10px] text-muted-foreground">
-                      {format(new Date(note.created_at), "MMM d, yyyy HH:mm")}
-                    </p>
+              {/* Inline Book Appointment Form */}
+              {showBookForm && (
+                <form
+                  onSubmit={handleSidebarBook}
+                  className="border-border/50 animate-in fade-in space-y-2 border-t pt-2 duration-200"
+                >
+                  <div className="space-y-0.5">
+                    <Label htmlFor="side-doc" className="text-[10px]">
+                      Select Doctor
+                    </Label>
+                    <select
+                      id="side-doc"
+                      className="border-input bg-background h-7 w-full rounded-md border px-1.5 text-xs"
+                      required
+                      value={bookingDocId}
+                      onChange={(e) => setBookingDocId(e.target.value)}
+                    >
+                      <option value="">-- Choose Doctor --</option>
+                      {doctors.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name} ({d.department})
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                ))}
-              </div>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="side-date" className="text-[10px]">
+                        Date
+                      </Label>
+                      <Input
+                        id="side-date"
+                        type="date"
+                        required
+                        value={bookingDate}
+                        onChange={(e) => setBookingDate(e.target.value)}
+                        className="h-7 px-1.5 text-xs"
+                      />
+                    </div>
+                    <div className="space-y-0.5">
+                      <Label htmlFor="side-time" className="text-[10px]">
+                        Time
+                      </Label>
+                      <Input
+                        id="side-time"
+                        type="time"
+                        required
+                        value={bookingTime}
+                        onChange={(e) => setBookingTime(e.target.value)}
+                        className="h-7 px-1.5 text-xs"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-0.5">
+                    <Label htmlFor="side-notes" className="text-[10px]">
+                      Consultation Notes
+                    </Label>
+                    <Input
+                      id="side-notes"
+                      value={bookingNotes}
+                      onChange={(e) => setBookingNotes(e.target.value)}
+                      placeholder="Reason for booking..."
+                      className="h-7 px-1.5 text-xs"
+                    />
+                  </div>
+                  <Button
+                    type="submit"
+                    disabled={loadingForm}
+                    className="mt-2 flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-md border-0 bg-emerald-600 text-[11px] font-semibold text-white shadow-sm transition-all duration-150 hover:bg-emerald-700"
+                  >
+                    {loadingForm ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Booking...
+                      </>
+                    ) : (
+                      <>
+                        <Calendar className="h-3.5 w-3.5" />
+                        Confirm & Notify WA
+                      </>
+                    )}
+                  </Button>
+                </form>
+              )}
+
+              {/* Inline Invite Campaign Form */}
+              {showInviteForm && (
+                <div className="border-border/50 animate-in fade-in space-y-2 border-t pt-2 duration-200">
+                  <p className="text-muted-foreground text-[10px]">
+                    Select a doctor to send a WhatsApp booking invitation
+                    directly to this customer:
+                  </p>
+                  <div className="max-h-32 space-y-1.5 overflow-y-auto pr-1">
+                    {doctors.length === 0 ? (
+                      <p className="text-muted-foreground py-2 text-center text-[10px]">
+                        No active doctors available
+                      </p>
+                    ) : (
+                      doctors.map((d) => (
+                        <button
+                          key={d.id}
+                          type="button"
+                          onClick={() => handleSidebarInvite(d.id)}
+                          className="bg-background border-border hover:border-primary hover:text-primary flex w-full items-center justify-between rounded border p-1.5 text-left text-[11px] transition-colors"
+                        >
+                          <span>
+                            {d.name} ({d.department})
+                          </span>
+                          <span className="bg-primary/10 rounded px-1 text-[9px] font-bold uppercase">
+                            Send
+                          </span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* Divider */}
+        <div className="border-border my-4 border-t" />
+
+        {/* Tags */}
+        <div>
+          <div className="text-muted-foreground flex items-center gap-2 px-1 text-xs font-medium tracking-wider uppercase">
+            <TagIcon className="h-3 w-3" />
+            Tags
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1">
+            {tags.length === 0 ? (
+              <p className="text-muted-foreground px-1 text-xs">No tags</p>
+            ) : (
+              tags.map((tag) => (
+                <span
+                  key={tag.contact_tag_id}
+                  className="rounded-full px-2 py-0.5 text-[10px] font-medium"
+                  style={{
+                    backgroundColor: `${tag.color}20`,
+                    color: tag.color,
+                  }}
+                >
+                  {tag.name}
+                </span>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div className="border-border my-4 border-t" />
+
+        {/* Active Care Pipeline */}
+        <div>
+          <div className="text-muted-foreground flex items-center gap-2 px-1 text-xs font-medium tracking-wider uppercase">
+            <Activity className="h-3 w-3" />
+            {pipelineTitle}
+          </div>
+          <div className="mt-2 space-y-2">
+            {deals.length === 0 ? (
+              <p className="text-muted-foreground px-1 text-xs">
+                No active items
+              </p>
+            ) : (
+              deals.map((deal) => (
+                <div key={deal.id} className="bg-muted rounded-lg px-3 py-2">
+                  <p className="text-foreground text-sm font-medium">
+                    {deal.title}
+                  </p>
+                  <div className="text-muted-foreground mt-1 flex items-center justify-between text-xs">
+                    <span>
+                      {deal.currency ?? '$'}
+                      {deal.value.toLocaleString()}
+                    </span>
+                    {deal.stage && (
+                      <span
+                        className="rounded-full px-1.5 py-0.5 text-[10px]"
+                        style={{
+                          backgroundColor: `${deal.stage.color}20`,
+                          color: deal.stage.color,
+                        }}
+                      >
+                        {deal.stage.name}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div className="border-border my-4 border-t" />
+
+        {/* Notes */}
+        <div>
+          <div className="text-muted-foreground flex items-center gap-2 px-1 text-xs font-medium tracking-wider uppercase">
+            <StickyNote className="h-3 w-3" />
+            Notes
+          </div>
+          <div className="mt-2">
+            <div className="flex gap-2">
+              <textarea
+                value={newNote}
+                onChange={(e) => setNewNote(e.target.value)}
+                placeholder="Add a note..."
+                rows={2}
+                className="border-border bg-muted text-foreground placeholder-muted-foreground focus:border-primary/50 flex-1 resize-none rounded-lg border px-3 py-2 text-xs outline-none"
+              />
+              <Button
+                size="sm"
+                className="bg-primary hover:bg-primary/90 h-auto px-2"
+                onClick={handleAddNote}
+                disabled={!newNote.trim() || addingNote}
+              >
+                <Plus className="h-3 w-3" />
+              </Button>
+            </div>
+
+            <div className="mt-2 space-y-2">
+              {notes.map((note) => (
+                <div key={note.id} className="bg-muted rounded-lg px-3 py-2">
+                  <p className="text-muted-foreground text-xs whitespace-pre-wrap">
+                    {note.note_text}
+                  </p>
+                  <p className="text-muted-foreground mt-1 text-[10px]">
+                    {format(new Date(note.created_at), 'MMM d, yyyy HH:mm')}
+                  </p>
+                </div>
+              ))}
             </div>
           </div>
         </div>
+      </div>
     </div>
   );
 
   if (isEmbedded) {
-    return <div className="flex flex-1 flex-col min-h-0 overflow-hidden">{content}</div>;
+    return (
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        {content}
+      </div>
+    );
   }
 
   return (
-    <div className="flex h-full w-70 flex-col border-l border-border bg-card min-h-0 overflow-hidden">
+    <div className="border-border bg-card flex h-full min-h-0 w-70 flex-col overflow-hidden border-l">
       {content}
 
       {contact && (

@@ -11,9 +11,9 @@ export const workflowsConfig: WorkflowSeed[] = [
       {
         step_type: 'send_message',
         step_config: {
-          text: "Welcome to our Travel Agency! ✈ How can we help you plan your next trip?"
-        }
-      }
-    ]
-  }
+          text: 'Welcome to our Travel Agency! ✈ How can we help you plan your next trip?',
+        },
+      },
+    ],
+  },
 ];

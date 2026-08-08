@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { KbPanel } from "@/components/settings/kb-panel";
+import { KbPanel } from '@/components/settings/kb-panel';
 
 export default function KnowledgeBasePage() {
   return (
-    <div className="space-y-6 animate-in fade-in-50 duration-200">
+    <div className="animate-in fade-in-50 space-y-6 duration-200">
       <KbPanel />
     </div>
   );

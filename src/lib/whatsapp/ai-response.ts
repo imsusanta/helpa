@@ -6,23 +6,23 @@ export interface ParsedAiResponse {
 
 function stripCodeFence(value: string): string {
   const trimmed = value.trim();
-  if (!trimmed.startsWith("```")) return trimmed;
+  if (!trimmed.startsWith('```')) return trimmed;
 
   return trimmed
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/\s*```$/, "")
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/, '')
     .trim();
 }
 
 function repairUnicodeEscapes(value: string): string {
   // Some models occasionally produce `\\uud83d` instead of the valid `\\ud83d`.
-  return value.replace(/\\u{2,}([0-9a-fA-F]{4})/g, "\\u$1");
+  return value.replace(/\\u{2,}([0-9a-fA-F]{4})/g, '\\u$1');
 }
 
 function parseObject(value: string): Record<string, unknown> | null {
   try {
     const parsed: unknown = JSON.parse(value);
-    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
       return parsed as Record<string, unknown>;
     }
   } catch {
@@ -32,7 +32,7 @@ function parseObject(value: string): Record<string, unknown> | null {
 }
 
 function readReply(value: unknown): string | null {
-  if (typeof value !== "string") return null;
+  if (typeof value !== 'string') return null;
   const reply = value.trim();
   return reply.length > 0 ? reply : null;
 }
@@ -92,10 +92,15 @@ export function parseAiResponse(rawResponse: string): ParsedAiResponse {
     }
   }
 
-  const isStructured = normalized.startsWith("{") || normalized.startsWith("[") || (jsonBlock !== null);
+  const isStructured =
+    normalized.startsWith('{') ||
+    normalized.startsWith('[') ||
+    jsonBlock !== null;
   return {
     payload: null,
-    reply: isStructured ? (extractReply(normalized) || extractReply(jsonBlock || "")) : readReply(normalized),
+    reply: isStructured
+      ? extractReply(normalized) || extractReply(jsonBlock || '')
+      : readReply(normalized),
     isStructured,
   };
 }

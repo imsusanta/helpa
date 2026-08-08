@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
-import { engineSendText, engineSendDocument } from '@/lib/automations/meta-send';
+import {
+  engineSendText,
+  engineSendDocument,
+} from '@/lib/automations/meta-send';
 
 // Helper to calculate next recurring date
-function getNextRecurringDate(currentDateStr: string, recurrence: 'weekly' | 'monthly' | 'yearly'): Date {
+function getNextRecurringDate(
+  currentDateStr: string,
+  recurrence: 'weekly' | 'monthly' | 'yearly'
+): Date {
   const d = new Date(currentDateStr);
   if (recurrence === 'weekly') {
     d.setDate(d.getDate() + 7);
@@ -37,12 +43,17 @@ export async function GET(request: Request) {
       .lte('scheduled_at', new Date().toISOString());
 
     if (scheduledCampaigns && scheduledCampaigns.length > 0) {
-      console.log(`[Cron Campaigns] Found ${scheduledCampaigns.length} scheduled campaigns to send.`);
-      
+      console.log(
+        `[Cron Campaigns] Found ${scheduledCampaigns.length} scheduled campaigns to send.`
+      );
+
       for (const campaign of scheduledCampaigns) {
         try {
           // Set to sending
-          await db.from('broadcasts').update({ status: 'sending' }).eq('id', campaign.id);
+          await db
+            .from('broadcasts')
+            .update({ status: 'sending' })
+            .eq('id', campaign.id);
 
           // Get the audience filter settings
           const filter = campaign.audience_filter as any;
@@ -51,69 +62,107 @@ export async function GET(request: Request) {
           // Server-side audience resolution
           if (filter.type === 'all') {
             const { data } = await db.from('contacts').select('id');
-            patientIds = (data || []).map(c => c.id);
+            patientIds = (data || []).map((c) => c.id);
           } else if (filter.type === 'new_patients') {
             const thirtyDaysAgo = new Date();
             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-            const { data } = await db.from('contacts').select('id').gte('created_at', thirtyDaysAgo.toISOString());
-            patientIds = (data || []).map(c => c.id);
+            const { data } = await db
+              .from('contacts')
+              .select('id')
+              .gte('created_at', thirtyDaysAgo.toISOString());
+            patientIds = (data || []).map((c) => c.id);
           } else if (filter.type === 'returning_patients') {
-            const { data: appts } = await db.from('appointments').select('patient_id');
+            const { data: appts } = await db
+              .from('appointments')
+              .select('patient_id');
             const counts: Record<string, number> = {};
-            appts?.forEach(r => { counts[r.patient_id] = (counts[r.patient_id] || 0) + 1; });
-            patientIds = Object.keys(counts).filter(id => counts[id] >= 2);
+            appts?.forEach((r) => {
+              counts[r.patient_id] = (counts[r.patient_id] || 0) + 1;
+            });
+            patientIds = Object.keys(counts).filter((id) => counts[id] >= 2);
           } else if (filter.type === 'upcoming_appointments') {
             const todayStr = new Date().toISOString().split('T')[0];
-            const { data: appts } = await db.from('appointments').select('patient_id').gte('appointment_date', todayStr);
-            patientIds = [...new Set((appts || []).map(a => a.patient_id))];
+            const { data: appts } = await db
+              .from('appointments')
+              .select('patient_id')
+              .gte('appointment_date', todayStr);
+            patientIds = [...new Set((appts || []).map((a) => a.patient_id))];
           } else if (filter.type === 'missed_appointments') {
             const todayStr = new Date().toISOString().split('T')[0];
-            const { data: appts } = await db.from('appointments').select('patient_id')
-              .or(`status.eq.no_show,status.eq.Cancelled,and(status.eq.pending,appointment_date.lt.${todayStr})`);
-            patientIds = [...new Set((appts || []).map(a => a.patient_id))];
+            const { data: appts } = await db
+              .from('appointments')
+              .select('patient_id')
+              .or(
+                `status.eq.no_show,status.eq.Cancelled,and(status.eq.pending,appointment_date.lt.${todayStr})`
+              );
+            patientIds = [...new Set((appts || []).map((a) => a.patient_id))];
           } else if (filter.type === 'due_followup') {
             const { data: pats } = await db.from('patients').select('id');
-            patientIds = (pats || []).map(p => p.id);
+            patientIds = (pats || []).map((p) => p.id);
           } else if (filter.type === 'by_department' && filter.department) {
-            const { data: pats } = await db.from('patients').select('id').eq('department', filter.department);
-            patientIds = (pats || []).map(p => p.id);
+            const { data: pats } = await db
+              .from('patients')
+              .select('id')
+              .eq('department', filter.department);
+            patientIds = (pats || []).map((p) => p.id);
           } else if (filter.type === 'by_doctor' && filter.doctorId) {
-            const { data: pats } = await db.from('patients').select('id').eq('assigned_doctor_id', filter.doctorId);
-            patientIds = (pats || []).map(p => p.id);
+            const { data: pats } = await db
+              .from('patients')
+              .select('id')
+              .eq('assigned_doctor_id', filter.doctorId);
+            patientIds = (pats || []).map((p) => p.id);
           } else if (filter.type === 'by_gender' && filter.gender) {
-            const { data: pats } = await db.from('patients').select('id').eq('gender', filter.gender);
-            patientIds = (pats || []).map(p => p.id);
+            const { data: pats } = await db
+              .from('patients')
+              .select('id')
+              .eq('gender', filter.gender);
+            patientIds = (pats || []).map((p) => p.id);
           } else if (filter.type === 'by_age') {
             const nowYear = new Date().getFullYear();
             let query = db.from('patients').select('id');
             if (filter.ageMin !== undefined) {
               const maxDob = new Date();
               maxDob.setFullYear(nowYear - filter.ageMin);
-              query = query.lte('date_of_birth', maxDob.toISOString().split('T')[0]);
+              query = query.lte(
+                'date_of_birth',
+                maxDob.toISOString().split('T')[0]
+              );
             }
             if (filter.ageMax !== undefined) {
               const minDob = new Date();
               minDob.setFullYear(nowYear - filter.ageMax);
-              query = query.gte('date_of_birth', minDob.toISOString().split('T')[0]);
+              query = query.gte(
+                'date_of_birth',
+                minDob.toISOString().split('T')[0]
+              );
             }
             const { data: pats } = await query;
-            patientIds = (pats || []).map(p => p.id);
+            patientIds = (pats || []).map((p) => p.id);
           }
 
           if (patientIds.length === 0) {
-            await db.from('broadcasts').update({ status: 'failed', failed_count: 1 }).eq('id', campaign.id);
+            await db
+              .from('broadcasts')
+              .update({ status: 'failed', failed_count: 1 })
+              .eq('id', campaign.id);
             continue;
           }
 
           // Fetch recipient contacts
-          const { data: contacts } = await db.from('contacts').select('*').in('id', patientIds);
+          const { data: contacts } = await db
+            .from('contacts')
+            .select('*')
+            .in('id', patientIds);
           if (!contacts || contacts.length === 0) {
-            await db.from('broadcasts').update({ status: 'failed', failed_count: 1 }).eq('id', campaign.id);
+            await db
+              .from('broadcasts')
+              .update({ status: 'failed', failed_count: 1 })
+              .eq('id', campaign.id);
             continue;
           }
 
           // Insert broadcast_recipients rows
-          const recRows = contacts.map(c => ({
+          const recRows = contacts.map((c) => ({
             broadcast_id: campaign.id,
             contact_id: c.id,
             status: 'pending' as const,
@@ -121,7 +170,11 @@ export async function GET(request: Request) {
           await db.from('broadcast_recipients').insert(recRows);
 
           // Retrieve account's WhatsApp API configurations
-          const { data: account } = await db.from('accounts').select('name').eq('id', campaign.account_id).single();
+          const { data: account } = await db
+            .from('accounts')
+            .select('name')
+            .eq('id', campaign.account_id)
+            .single();
 
           // Dispatch loop
           let sentCount = 0;
@@ -129,13 +182,21 @@ export async function GET(request: Request) {
           for (const contact of contacts) {
             try {
               // Find or create conversation
-              let { data: conv } = await db.from('conversations').select('id').eq('contact_id', contact.id).single();
+              let { data: conv } = await db
+                .from('conversations')
+                .select('id')
+                .eq('contact_id', contact.id)
+                .single();
               if (!conv) {
-                const { data: newConv } = await db.from('conversations').insert({
-                  account_id: campaign.account_id,
-                  contact_id: contact.id,
-                  status: 'open',
-                }).select('id').single();
+                const { data: newConv } = await db
+                  .from('conversations')
+                  .insert({
+                    account_id: campaign.account_id,
+                    contact_id: contact.id,
+                    status: 'open',
+                  })
+                  .select('id')
+                  .single();
                 conv = newConv;
               }
 
@@ -143,8 +204,14 @@ export async function GET(request: Request) {
 
               // Compose message body
               let textBody = campaign.message_body || '';
-              textBody = textBody.replace(/\{\{PatientName\}\}/g, contact.name || 'Patient');
-              textBody = textBody.replace(/\{\{HospitalName\}\}/g, account?.name || 'Hospital');
+              textBody = textBody.replace(
+                /\{\{PatientName\}\}/g,
+                contact.name || 'Patient'
+              );
+              textBody = textBody.replace(
+                /\{\{HospitalName\}\}/g,
+                account?.name || 'Hospital'
+              );
 
               if (campaign.cta_type === 'appointment') {
                 textBody += '\n\nReply *BOOK* to book an appointment.';
@@ -176,27 +243,40 @@ export async function GET(request: Request) {
               }
 
               // Update recipient log
-              await db.from('broadcast_recipients').update({ status: 'sent' }).eq('broadcast_id', campaign.id).eq('contact_id', contact.id);
+              await db
+                .from('broadcast_recipients')
+                .update({ status: 'sent' })
+                .eq('broadcast_id', campaign.id)
+                .eq('contact_id', contact.id);
               sentCount++;
             } catch (sendErr) {
-              console.error(`[Cron Campaigns] Failed sending to contact ${contact.id}:`, sendErr);
+              console.error(
+                `[Cron Campaigns] Failed sending to contact ${contact.id}:`,
+                sendErr
+              );
               failedCount++;
             }
           }
 
           // Complete Campaign status
-          await db.from('broadcasts').update({
-            status: 'sent',
-            total_recipients: contacts.length,
-            sent_count: sentCount,
-            failed_count: failedCount,
-          }).eq('id', campaign.id);
+          await db
+            .from('broadcasts')
+            .update({
+              status: 'sent',
+              total_recipients: contacts.length,
+              sent_count: sentCount,
+              failed_count: failedCount,
+            })
+            .eq('id', campaign.id);
 
           totalDispatched++;
 
           // Handle Recurrence Clones
           if (campaign.recurrence && campaign.recurrence !== 'none') {
-            const nextScheduled = getNextRecurringDate(campaign.scheduled_at, campaign.recurrence);
+            const nextScheduled = getNextRecurringDate(
+              campaign.scheduled_at,
+              campaign.recurrence
+            );
             const cloneCampaign = {
               account_id: campaign.account_id,
               user_id: campaign.user_id,
@@ -225,13 +305,20 @@ export async function GET(request: Request) {
             };
 
             await db.from('broadcasts').insert(cloneCampaign);
-            console.log(`[Cron Campaigns] Cloned and rescheduled campaign "${campaign.name}" for ${nextScheduled.toISOString()}`);
+            console.log(
+              `[Cron Campaigns] Cloned and rescheduled campaign "${campaign.name}" for ${nextScheduled.toISOString()}`
+            );
           }
-
         } catch (campErr: any) {
-          console.error(`[Cron Campaigns] Failed executing campaign ${campaign.id}:`, campErr);
+          console.error(
+            `[Cron Campaigns] Failed executing campaign ${campaign.id}:`,
+            campErr
+          );
           errors.push(`Campaign ${campaign.id}: ${campErr.message || campErr}`);
-          await db.from('broadcasts').update({ status: 'failed' }).eq('id', campaign.id);
+          await db
+            .from('broadcasts')
+            .update({ status: 'failed' })
+            .eq('id', campaign.id);
         }
       }
     }
@@ -245,32 +332,54 @@ export async function GET(request: Request) {
 
     const { data: yesterdayAppts } = await db
       .from('appointments')
-      .select('id, patient_id, doctor_id, appointment_date, account_id, doctor:hospital_doctors(name)')
+      .select(
+        'id, patient_id, doctor_id, appointment_date, account_id, doctor:hospital_doctors(name)'
+      )
       .eq('appointment_date', yesterdayStr)
       .eq('status', 'Completed')
       .eq('review_request_sent', false);
 
     if (yesterdayAppts && yesterdayAppts.length > 0) {
-      console.log(`[Cron Campaigns] Sending review requests for ${yesterdayAppts.length} completed appointments.`);
+      console.log(
+        `[Cron Campaigns] Sending review requests for ${yesterdayAppts.length} completed appointments.`
+      );
       for (const appt of yesterdayAppts) {
         try {
-          const { data: contact } = await db.from('contacts').select('*').eq('id', appt.patient_id).single();
-          const { data: account } = await db.from('accounts').select('name, review_link').eq('id', appt.account_id).single();
+          const { data: contact } = await db
+            .from('contacts')
+            .select('*')
+            .eq('id', appt.patient_id)
+            .single();
+          const { data: account } = await db
+            .from('accounts')
+            .select('name, review_link')
+            .eq('id', appt.account_id)
+            .single();
 
           if (contact && contact.phone) {
-            let { data: conv } = await db.from('conversations').select('id').eq('contact_id', contact.id).single();
+            let { data: conv } = await db
+              .from('conversations')
+              .select('id')
+              .eq('contact_id', contact.id)
+              .single();
             if (!conv) {
-              const { data: newConv } = await db.from('conversations').insert({
-                account_id: appt.account_id,
-                contact_id: contact.id,
-                status: 'open',
-              }).select('id').single();
+              const { data: newConv } = await db
+                .from('conversations')
+                .insert({
+                  account_id: appt.account_id,
+                  contact_id: contact.id,
+                  status: 'open',
+                })
+                .select('id')
+                .single();
               conv = newConv;
             }
 
             if (conv) {
               const docData = appt.doctor as any;
-              const docName = (Array.isArray(docData) ? docData[0]?.name : docData?.name) || 'your doctor';
+              const docName =
+                (Array.isArray(docData) ? docData[0]?.name : docData?.name) ||
+                'your doctor';
               const reviewLink = account?.review_link || 'https://google.com';
 
               const feedbackMsg = `Hi ${contact.name || 'there'}, thank you for visiting Dr. ${docName} at ${account?.name || 'our hospital'} yesterday.
@@ -301,9 +410,15 @@ Your support helps us serve you better!`;
           }
 
           // Mark review request sent
-          await db.from('appointments').update({ review_request_sent: true }).eq('id', appt.id);
+          await db
+            .from('appointments')
+            .update({ review_request_sent: true })
+            .eq('id', appt.id);
         } catch (apptErr) {
-          console.error(`[Cron Campaigns] Review campaign error on appt ${appt.id}:`, apptErr);
+          console.error(
+            `[Cron Campaigns] Review campaign error on appt ${appt.id}:`,
+            apptErr
+          );
         }
       }
     }
@@ -321,10 +436,14 @@ Your support helps us serve you better!`;
       .from('patients')
       .select('id, account_id, last_followup_sent_at, contact:contacts(*)')
       .lt('created_at', sixMonthsAgo.toISOString())
-      .or(`last_followup_sent_at.is.null,last_followup_sent_at.lt.${sixMonthsAgo.toISOString()}`);
+      .or(
+        `last_followup_sent_at.is.null,last_followup_sent_at.lt.${sixMonthsAgo.toISOString()}`
+      );
 
     if (inactivePatients && inactivePatients.length > 0) {
-      console.log(`[Cron Campaigns] Reviewing ${inactivePatients.length} inactive patients for follow-ups.`);
+      console.log(
+        `[Cron Campaigns] Reviewing ${inactivePatients.length} inactive patients for follow-ups.`
+      );
       for (const patient of inactivePatients) {
         try {
           const contact = patient.contact as any;
@@ -338,18 +457,30 @@ Your support helps us serve you better!`;
 
             if (count === 0) {
               // Trigger follow-up text invitation
-              let { data: conv } = await db.from('conversations').select('id').eq('contact_id', contact.id).single();
+              let { data: conv } = await db
+                .from('conversations')
+                .select('id')
+                .eq('contact_id', contact.id)
+                .single();
               if (!conv) {
-                const { data: newConv } = await db.from('conversations').insert({
-                  account_id: patient.account_id,
-                  contact_id: contact.id,
-                  status: 'open',
-                }).select('id').single();
+                const { data: newConv } = await db
+                  .from('conversations')
+                  .insert({
+                    account_id: patient.account_id,
+                    contact_id: contact.id,
+                    status: 'open',
+                  })
+                  .select('id')
+                  .single();
                 conv = newConv;
               }
 
               if (conv) {
-                const { data: account } = await db.from('accounts').select('name').eq('id', patient.account_id).single();
+                const { data: account } = await db
+                  .from('accounts')
+                  .select('name')
+                  .eq('id', patient.account_id)
+                  .single();
                 const inviteMsg = `Hi ${contact.name || 'there'}, it has been 6 months since your last consultation at ${account?.name || 'our clinic'}.
 
 Keeping up with routine check-ups is essential for preventive wellness and long-term health. 
@@ -377,11 +508,17 @@ Would you like to schedule a follow-up consultation?
               }
 
               // Update last followup timestamp
-              await db.from('patients').update({ last_followup_sent_at: new Date().toISOString() }).eq('id', patient.id);
+              await db
+                .from('patients')
+                .update({ last_followup_sent_at: new Date().toISOString() })
+                .eq('id', patient.id);
             }
           }
         } catch (patErr) {
-          console.error(`[Cron Campaigns] Followup campaign error on patient ${patient.id}:`, patErr);
+          console.error(
+            `[Cron Campaigns] Followup campaign error on patient ${patient.id}:`,
+            patErr
+          );
         }
       }
     }

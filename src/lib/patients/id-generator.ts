@@ -1,6 +1,8 @@
 import { supabaseAdmin } from '@/lib/automations/admin-client';
 
-export async function generateNextPatientSeqId(accountId: string): Promise<string> {
+export async function generateNextPatientSeqId(
+  accountId: string
+): Promise<string> {
   try {
     const db = supabaseAdmin();
     const { data: maxPatient } = await db
@@ -27,16 +29,32 @@ export async function generateNextPatientSeqId(accountId: string): Promise<strin
 }
 
 export function getOrGeneratePatientId(
-  contact?: { id: string; metadata?: any } | null,
+  contact?: { id?: string; metadata?: any } | null,
   patientSeqId?: string | null
 ): string {
-  if (patientSeqId) return patientSeqId;
-  if (contact?.metadata?.patient_id) return contact.metadata.patient_id;
-  if (contact?.metadata?.patient_seq_id) return contact.metadata.patient_seq_id;
+  if (
+    patientSeqId &&
+    patientSeqId.trim() !== '' &&
+    patientSeqId !== '—' &&
+    patientSeqId !== 'PAT-000000'
+  ) {
+    return patientSeqId;
+  }
+  const metaId =
+    contact?.metadata?.patient_id || contact?.metadata?.patient_seq_id;
+  if (
+    typeof metaId === 'string' &&
+    metaId.trim() !== '' &&
+    metaId !== '—' &&
+    metaId !== 'PAT-000000'
+  ) {
+    return metaId;
+  }
 
   if (contact?.id) {
     const digits = contact.id.replace(/\D/g, '');
-    const numeric = digits.length >= 6 ? digits.slice(0, 6) : digits.padEnd(6, '1');
+    const numeric =
+      digits.length >= 6 ? digits.slice(0, 6) : digits.padEnd(6, '1');
     return `PAT-${numeric.padStart(6, '0')}`;
   }
 
@@ -46,7 +64,11 @@ export function getOrGeneratePatientId(
 export function resolveBloodGroup(
   patientBg?: string | null,
   metaBg?: string | null,
-  reports?: Array<{ test_name?: string; notes?: string; internal_notes?: string }> | null
+  reports?: Array<{
+    test_name?: string;
+    notes?: string;
+    internal_notes?: string;
+  }> | null
 ): { bg: string | null; source: 'patient' | 'report' | null } {
   // 1. Direct patient setting
   if (patientBg && patientBg.trim() && patientBg !== '—') {
@@ -63,7 +85,7 @@ export function resolveBloodGroup(
 
     for (const rep of reports) {
       const text = `${rep.test_name || ''} ${rep.notes || ''} ${rep.internal_notes || ''}`;
-      
+
       const shortMatch = text.match(bgShortRegex);
       if (shortMatch) {
         return { bg: shortMatch[0].toUpperCase(), source: 'report' };
@@ -80,5 +102,3 @@ export function resolveBloodGroup(
 
   return { bg: null, source: null };
 }
-
-

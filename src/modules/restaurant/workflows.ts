@@ -11,9 +11,9 @@ export const workflowsConfig: WorkflowSeed[] = [
       {
         step_type: 'send_message',
         step_config: {
-          text: "Welcome to our Restaurant! 🍽 Tell us your group size and preferred timing to reserve a table."
-        }
-      }
-    ]
-  }
+          text: 'Welcome to our Restaurant! 🍽 Tell us your group size and preferred timing to reserve a table.',
+        },
+      },
+    ],
+  },
 ];

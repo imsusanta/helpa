@@ -1,5 +1,5 @@
-import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
+import { createClient } from '@/lib/supabase/server';
+import { redirect } from 'next/navigation';
 
 /**
  * Server Component / Server Action guard that checks if the current user
@@ -13,17 +13,17 @@ export async function requireSuperAdmin() {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/login");
+    redirect('/login');
   }
 
   const { data: profile } = await supabase
-    .from("profiles")
-    .select("is_super_admin")
-    .eq("user_id", user.id)
+    .from('profiles')
+    .select('is_super_admin')
+    .eq('user_id', user.id)
     .single();
 
   if (!profile || !profile.is_super_admin) {
-    redirect("/dashboard");
+    redirect('/dashboard');
   }
 
   return user;
@@ -43,14 +43,14 @@ export async function checkSuperAdmin(): Promise<boolean> {
     if (!user) return false;
 
     const { data: profile } = await supabase
-      .from("profiles")
-      .select("is_super_admin")
-      .eq("user_id", user.id)
+      .from('profiles')
+      .select('is_super_admin')
+      .eq('user_id', user.id)
       .single();
 
     return !!profile?.is_super_admin;
   } catch (err) {
-    console.error("[checkSuperAdmin] error:", err);
+    console.error('[checkSuperAdmin] error:', err);
     return false;
   }
 }

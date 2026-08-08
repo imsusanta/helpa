@@ -90,7 +90,8 @@ export default function ContactsPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [customFieldsOpen, setCustomFieldsOpen] = useState(false);
   const [outboundModalOpen, setOutboundModalOpen] = useState(false);
-  const [selectedOutboundContact, setSelectedOutboundContact] = useState<Contact | null>(null);
+  const [selectedOutboundContact, setSelectedOutboundContact] =
+    useState<Contact | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Contact | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -129,7 +130,9 @@ export default function ContactsPage() {
 
     if (search.trim()) {
       const term = `%${search.trim()}%`;
-      query = query.or(`name.ilike.${term},phone.ilike.${term},email.ilike.${term}`);
+      query = query.or(
+        `name.ilike.${term},phone.ilike.${term},email.ilike.${term}`
+      );
     }
 
     const { data, count, error } = await query;
@@ -160,13 +163,41 @@ export default function ContactsPage() {
       .select('id, patient_seq_id, blood_group')
       .in('id', contactIds);
 
-    const patientsMap: Record<string, { patient_seq_id?: string; blood_group?: string }> = {};
+    const patientsMap: Record<
+      string,
+      { patient_seq_id?: string; blood_group?: string }
+    > = {};
     patientsList?.forEach((p) => {
       patientsMap[p.id] = {
         patient_seq_id: p.patient_seq_id || undefined,
         blood_group: p.blood_group || undefined,
       };
     });
+
+    // Auto-create missing patients table records for contacts without one
+    const missingPatientContactIds = contactIds.filter(
+      (id) => !patientsMap[id]?.patient_seq_id
+    );
+    if (missingPatientContactIds.length > 0 && accountId) {
+      const { data: newPatients } = await supabase
+        .from('patients')
+        .upsert(
+          missingPatientContactIds.map((id) => ({
+            id,
+            account_id: accountId,
+            status: 'active',
+          })),
+          { onConflict: 'id', ignoreDuplicates: true }
+        )
+        .select('id, patient_seq_id, blood_group');
+
+      newPatients?.forEach((p) => {
+        patientsMap[p.id] = {
+          patient_seq_id: p.patient_seq_id || undefined,
+          blood_group: p.blood_group || undefined,
+        };
+      });
+    }
 
     const tagsByContact: Record<string, string[]> = {};
     contactTags?.forEach((ct) => {
@@ -175,10 +206,15 @@ export default function ContactsPage() {
     });
 
     const enriched: ContactWithTags[] = data.map((c) => {
-      const meta = c.metadata && typeof c.metadata === 'object' ? c.metadata : {};
+      const meta =
+        c.metadata && typeof c.metadata === 'object' ? c.metadata : {};
       const pData = patientsMap[c.id];
-      const patientIdVal = pData?.patient_seq_id || (meta as any).patient_id || (meta as any).patient_seq_id || '—';
-      const bloodGroupVal = pData?.blood_group || (meta as any).blood_group || (meta as any)['Blood Group'] || '—';
+      const patientIdVal = getOrGeneratePatientId(c, pData?.patient_seq_id);
+      const bloodGroupVal =
+        pData?.blood_group ||
+        (meta as any).blood_group ||
+        (meta as any)['Blood Group'] ||
+        '—';
 
       return {
         ...c,
@@ -195,7 +231,7 @@ export default function ContactsPage() {
 
     setContacts(enriched);
     setLoading(false);
-  }, [supabase, page, search, tagsMap]);
+  }, [supabase, page, search, tagsMap, accountId]);
 
   // Load-once-on-mount-ish data fetches. Each setter inside runs
   // inside an async promise completion (Supabase await), not
@@ -247,7 +283,7 @@ export default function ContactsPage() {
         .from('conversations')
         .select('id')
         .eq('contact_id', deleteTarget.id);
-      
+
       const convIds = (conversations || []).map((c: any) => c.id);
 
       // 2. Delete related deals
@@ -256,11 +292,23 @@ export default function ContactsPage() {
       }
 
       // 3. Delete related appointments, reports, notes, patients, conversations
-      await supabase.from('appointments').delete().eq('patient_id', deleteTarget.id);
-      await supabase.from('hospital_lab_reports').delete().eq('patient_id', deleteTarget.id);
-      await supabase.from('contact_notes').delete().eq('contact_id', deleteTarget.id);
+      await supabase
+        .from('appointments')
+        .delete()
+        .eq('patient_id', deleteTarget.id);
+      await supabase
+        .from('hospital_lab_reports')
+        .delete()
+        .eq('patient_id', deleteTarget.id);
+      await supabase
+        .from('contact_notes')
+        .delete()
+        .eq('contact_id', deleteTarget.id);
       await supabase.from('patients').delete().eq('id', deleteTarget.id);
-      await supabase.from('conversations').delete().eq('contact_id', deleteTarget.id);
+      await supabase
+        .from('conversations')
+        .delete()
+        .eq('contact_id', deleteTarget.id);
 
       // 4. Finally, delete the contact itself
       const { error } = await supabase
@@ -320,7 +368,7 @@ export default function ContactsPage() {
         .from('conversations')
         .select('id')
         .in('contact_id', ids);
-      
+
       const convIds = (conversations || []).map((c: any) => c.id);
 
       // 2. Delete related deals
@@ -330,7 +378,10 @@ export default function ContactsPage() {
 
       // 3. Delete related appointments, reports, notes, patients, conversations
       await supabase.from('appointments').delete().in('patient_id', ids);
-      await supabase.from('hospital_lab_reports').delete().in('patient_id', ids);
+      await supabase
+        .from('hospital_lab_reports')
+        .delete()
+        .in('patient_id', ids);
       await supabase.from('contact_notes').delete().in('contact_id', ids);
       await supabase.from('patients').delete().in('id', ids);
       await supabase.from('conversations').delete().in('contact_id', ids);
@@ -361,11 +412,15 @@ export default function ContactsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">{entityLabelPlural}</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Manage your {entityLabelPlural.toLowerCase()} list. {totalCount > 0 && `${totalCount} total ${entityLabelPlural.toLowerCase()}.`}
+          <h1 className="text-foreground text-2xl font-bold">
+            {entityLabelPlural}
+          </h1>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Manage your {entityLabelPlural.toLowerCase()} list.{' '}
+            {totalCount > 0 &&
+              `${totalCount} total ${entityLabelPlural.toLowerCase()}.`}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -395,7 +450,7 @@ export default function ContactsPage() {
               setSelectedOutboundContact(null);
               setOutboundModalOpen(true);
             }}
-            className="border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 font-semibold gap-1.5 cursor-pointer"
+            className="cursor-pointer gap-1.5 border-emerald-500/40 bg-emerald-500/10 font-semibold text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400"
           >
             <MessageSquare className="size-4" />
             Outbound Message
@@ -415,7 +470,7 @@ export default function ContactsPage() {
 
       {/* Search */}
       <div className="relative max-w-sm">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+        <Search className="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
         <Input
           value={search}
           onChange={(e) => {
@@ -425,14 +480,14 @@ export default function ContactsPage() {
             setPage(0);
           }}
           placeholder={`Search by name, phone, or email...`}
-          className="pl-8 bg-card border-border text-foreground placeholder:text-muted-foreground"
+          className="bg-card border-border text-foreground placeholder:text-muted-foreground pl-8"
         />
       </div>
 
       {/* Bulk action bar */}
       {selected.size > 0 && (
-        <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/40 px-4 py-2">
-          <p className="text-sm text-foreground">
+        <div className="border-border bg-muted/40 flex items-center justify-between gap-4 rounded-lg border px-4 py-2">
+          <p className="text-foreground text-sm">
             <span className="font-medium">{selected.size}</span>{' '}
             {selected.size === 1 ? 'contact' : 'contacts'} selected
           </p>
@@ -460,7 +515,7 @@ export default function ContactsPage() {
       )}
 
       {/* Table */}
-      <div className="rounded-lg border border-border overflow-hidden">
+      <div className="border-border overflow-hidden rounded-lg border">
         <Table>
           <TableHeader>
             <TableRow className="border-border hover:bg-transparent">
@@ -476,40 +531,59 @@ export default function ContactsPage() {
               <TableHead className="text-muted-foreground">Name</TableHead>
               <TableHead className="text-muted-foreground">Phone</TableHead>
               {customFields.slice(0, 2).map((field) => (
-                <TableHead key={field.key} className="text-muted-foreground hidden md:table-cell">
+                <TableHead
+                  key={field.key}
+                  className="text-muted-foreground hidden md:table-cell"
+                >
                   {field.label}
                 </TableHead>
               ))}
-              <TableHead className="text-muted-foreground hidden lg:table-cell">Address</TableHead>
-              <TableHead className="text-muted-foreground hidden md:table-cell">Tags</TableHead>
-              <TableHead className="text-muted-foreground hidden lg:table-cell">Created</TableHead>
+              <TableHead className="text-muted-foreground hidden lg:table-cell">
+                Address
+              </TableHead>
+              <TableHead className="text-muted-foreground hidden md:table-cell">
+                Tags
+              </TableHead>
+              <TableHead className="text-muted-foreground hidden lg:table-cell">
+                Created
+              </TableHead>
               <TableHead className="text-muted-foreground w-12" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow className="border-border">
-                <TableCell colSpan={8 + Math.min(2, customFields.length)} className="text-center py-12">
+                <TableCell
+                  colSpan={8 + Math.min(2, customFields.length)}
+                  className="py-12 text-center"
+                >
                   <div className="flex flex-col items-center gap-2">
-                    <Loader2 className="size-6 animate-spin text-primary" />
-                    <p className="text-sm text-muted-foreground">Loading {entityLabelPlural.toLowerCase()}...</p>
+                    <Loader2 className="text-primary size-6 animate-spin" />
+                    <p className="text-muted-foreground text-sm">
+                      Loading {entityLabelPlural.toLowerCase()}...
+                    </p>
                   </div>
                 </TableCell>
               </TableRow>
             ) : contacts.length === 0 ? (
               <TableRow className="border-border">
-                <TableCell colSpan={8 + Math.min(2, customFields.length)} className="text-center py-12">
+                <TableCell
+                  colSpan={8 + Math.min(2, customFields.length)}
+                  className="py-12 text-center"
+                >
                   <div className="flex flex-col items-center gap-2">
-                    <Users className="size-8 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">
-                      {search ? `No ${entityLabelPlural.toLowerCase()} match your search.` : `No ${entityLabelPlural.toLowerCase()} yet.`}
+                    <Users className="text-muted-foreground size-8" />
+                    <p className="text-muted-foreground text-sm">
+                      {search
+                        ? `No ${entityLabelPlural.toLowerCase()} match your search.`
+                        : `No ${entityLabelPlural.toLowerCase()} yet.`}
                     </p>
                     {!search && (
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={openAddForm}
-                        className="mt-2 border-border text-muted-foreground hover:bg-muted"
+                        className="border-border text-muted-foreground hover:bg-muted mt-2"
                       >
                         <Plus className="size-3.5" />
                         Add your first {entityLabel.toLowerCase()}
@@ -533,7 +607,11 @@ export default function ContactsPage() {
                     />
                   </TableCell>
                   <TableCell className="text-foreground font-medium">
-                    {contact.name || <span className="text-muted-foreground italic">Unnamed</span>}
+                    {contact.name || (
+                      <span className="text-muted-foreground italic">
+                        Unnamed
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell className="text-muted-foreground font-mono text-xs">
                     {contact.phone}
@@ -544,8 +622,11 @@ export default function ContactsPage() {
                     if (field.key === 'patient_id') {
                       const displayId = getOrGeneratePatientId(contact);
                       return (
-                        <TableCell key={field.key} className="hidden md:table-cell text-sm">
-                          <span className="inline-flex items-center font-mono font-bold text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">
+                        <TableCell
+                          key={field.key}
+                          className="hidden text-sm md:table-cell"
+                        >
+                          <span className="inline-flex items-center rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400">
                             {displayId}
                           </span>
                         </TableCell>
@@ -554,8 +635,11 @@ export default function ContactsPage() {
 
                     if (field.key === 'blood_group' && rawVal !== '—') {
                       return (
-                        <TableCell key={field.key} className="hidden md:table-cell text-sm">
-                          <span className="inline-flex items-center font-semibold text-xs text-rose-600 dark:text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-md">
+                        <TableCell
+                          key={field.key}
+                          className="hidden text-sm md:table-cell"
+                        >
+                          <span className="inline-flex items-center rounded-md border border-rose-500/20 bg-rose-500/10 px-2 py-0.5 text-xs font-semibold text-rose-600 dark:text-rose-400">
                             {rawVal}
                           </span>
                         </TableCell>
@@ -563,13 +647,18 @@ export default function ContactsPage() {
                     }
 
                     return (
-                      <TableCell key={field.key} className="text-muted-foreground hidden md:table-cell text-sm">
+                      <TableCell
+                        key={field.key}
+                        className="text-muted-foreground hidden text-sm md:table-cell"
+                      >
                         {rawVal}
                       </TableCell>
                     );
                   })}
-                  <TableCell className="text-muted-foreground hidden lg:table-cell text-sm">
-                    {contact.address || <span className="text-muted-foreground">-</span>}
+                  <TableCell className="text-muted-foreground hidden text-sm lg:table-cell">
+                    {contact.address || (
+                      <span className="text-muted-foreground">-</span>
+                    )}
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
                     <div className="flex flex-wrap gap-1">
@@ -590,13 +679,13 @@ export default function ContactsPage() {
                         <span className="text-muted-foreground text-xs">-</span>
                       )}
                       {contact.tags && contact.tags.length > 3 && (
-                        <span className="text-[10px] text-muted-foreground">
+                        <span className="text-muted-foreground text-[10px]">
                           +{contact.tags.length - 3}
                         </span>
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground text-xs hidden lg:table-cell">
+                  <TableCell className="text-muted-foreground hidden text-xs lg:table-cell">
                     {new Date(contact.created_at).toLocaleDateString('en-US', {
                       month: 'short',
                       day: 'numeric',
@@ -627,7 +716,7 @@ export default function ContactsPage() {
                             setSelectedOutboundContact(contact);
                             setOutboundModalOpen(true);
                           }}
-                          className="text-emerald-600 dark:text-emerald-400 focus:bg-muted focus:text-emerald-500 font-medium"
+                          className="focus:bg-muted font-medium text-emerald-600 focus:text-emerald-500 dark:text-emerald-400"
                         >
                           <MessageSquare className="size-4" />
                           Send Outbound WhatsApp
@@ -666,9 +755,9 @@ export default function ContactsPage() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
-          <p className="text-xs text-muted-foreground">
-            Showing {page * PAGE_SIZE + 1}-{Math.min((page + 1) * PAGE_SIZE, totalCount)} of{' '}
-            {totalCount}
+          <p className="text-muted-foreground text-xs">
+            Showing {page * PAGE_SIZE + 1}-
+            {Math.min((page + 1) * PAGE_SIZE, totalCount)} of {totalCount}
           </p>
           <div className="flex items-center gap-1">
             <Button
@@ -680,7 +769,7 @@ export default function ContactsPage() {
             >
               <ChevronLeft className="size-4" />
             </Button>
-            <span className="text-xs text-muted-foreground px-2">
+            <span className="text-muted-foreground px-2 text-xs">
               Page {page + 1} of {totalPages}
             </span>
             <Button
@@ -747,7 +836,9 @@ export default function ContactsPage() {
       <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
         <DialogContent className="bg-popover border-border text-popover-foreground sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-popover-foreground">Delete Contact</DialogTitle>
+            <DialogTitle className="text-popover-foreground">
+              Delete Contact
+            </DialogTitle>
             <DialogDescription className="text-muted-foreground">
               Are you sure you want to delete{' '}
               <span className="text-popover-foreground font-medium">
@@ -781,7 +872,8 @@ export default function ContactsPage() {
         <DialogContent className="bg-popover border-border text-popover-foreground sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-popover-foreground">
-              Delete {selected.size} {selected.size === 1 ? 'Contact' : 'Contacts'}
+              Delete {selected.size}{' '}
+              {selected.size === 1 ? 'Contact' : 'Contacts'}
             </DialogTitle>
             <DialogDescription className="text-muted-foreground">
               Are you sure you want to delete{' '}

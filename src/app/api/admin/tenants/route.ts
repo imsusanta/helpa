@@ -1,51 +1,54 @@
-import { NextResponse } from "next/server";
-import { checkSuperAdmin } from "@/lib/auth/admin";
-import { supabaseAdmin } from "@/lib/automations/admin-client";
+import { NextResponse } from 'next/server';
+import { checkSuperAdmin } from '@/lib/auth/admin';
+import { supabaseAdmin } from '@/lib/automations/admin-client';
 
 export async function GET() {
   try {
     const isSuper = await checkSuperAdmin();
     if (!isSuper) {
-      return NextResponse.json({ error: "Forbidden: Super Admin access required" }, { status: 403 });
+      return NextResponse.json(
+        { error: 'Forbidden: Super Admin access required' },
+        { status: 403 }
+      );
     }
 
     const db = supabaseAdmin();
-    const currentMonth = new Date().toISOString().substring(0, 7) + "-01";
+    const currentMonth = new Date().toISOString().substring(0, 7) + '-01';
 
     // 1. Fetch all accounts
     const { data: accounts, error: accError } = await db
-      .from("accounts")
-      .select("id, name, created_at, owner_user_id")
-      .order("created_at", { ascending: false });
+      .from('accounts')
+      .select('id, name, created_at, owner_user_id')
+      .order('created_at', { ascending: false });
 
     if (accError) throw accError;
 
     // 2. Fetch all profiles to find owners and member counts
     const { data: profiles, error: profError } = await db
-      .from("profiles")
-      .select("account_id, email, full_name, user_id");
+      .from('profiles')
+      .select('account_id, email, full_name, user_id');
 
     if (profError) throw profError;
 
     // 3. Fetch all subscriptions and plans
     const { data: subs, error: subError } = await db
-      .from("subscriptions")
-      .select("account_id, status, end_date, plan:plans(*)");
+      .from('subscriptions')
+      .select('account_id, status, end_date, plan:plans(*)');
 
     if (subError) throw subError;
 
     // 4. Fetch usage tracking for current month
     const { data: usage, error: usageError } = await db
-      .from("usage_tracking")
-      .select("account_id, ai_requests, whatsapp_messages")
-      .eq("month", currentMonth);
+      .from('usage_tracking')
+      .select('account_id, ai_requests, whatsapp_messages')
+      .eq('month', currentMonth);
 
     if (usageError) throw usageError;
 
     // 5. Fetch contacts counts grouped by account_id
     const { data: contacts, error: conError } = await db
-      .from("contacts")
-      .select("account_id");
+      .from('contacts')
+      .select('account_id');
 
     if (conError) throw conError;
 
@@ -60,22 +63,26 @@ export async function GET() {
 
     const contactsCountByAccount: Record<string, number> = {};
     contacts?.forEach((c) => {
-      contactsCountByAccount[c.account_id!] = (contactsCountByAccount[c.account_id!] || 0) + 1;
+      contactsCountByAccount[c.account_id!] =
+        (contactsCountByAccount[c.account_id!] || 0) + 1;
     });
 
-    const subByAccount: Record<string, typeof subs[0]> = {};
+    const subByAccount: Record<string, (typeof subs)[0]> = {};
     subs?.forEach((s) => {
       subByAccount[s.account_id] = s;
     });
 
-    const usageByAccount: Record<string, typeof usage[0]> = {};
+    const usageByAccount: Record<string, (typeof usage)[0]> = {};
     usage?.forEach((u) => {
       usageByAccount[u.account_id] = u;
     });
 
     const tenantList = accounts.map((acc) => {
       const accProfiles = profilesByAccount[acc.id] || [];
-      const ownerProfile = accProfiles.find((p) => p.user_id === acc.owner_user_id) || accProfiles[0] || null;
+      const ownerProfile =
+        accProfiles.find((p) => p.user_id === acc.owner_user_id) ||
+        accProfiles[0] ||
+        null;
       const subInfo = subByAccount[acc.id] || null;
       const usageInfo = usageByAccount[acc.id] || null;
 
@@ -107,8 +114,8 @@ export async function GET() {
 
     return NextResponse.json(tenantList);
   } catch (err: unknown) {
-    console.error("[GET /api/admin/tenants] error:", err);
-    const msg = err instanceof Error ? err.message : "Internal Server Error";
+    console.error('[GET /api/admin/tenants] error:', err);
+    const msg = err instanceof Error ? err.message : 'Internal Server Error';
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
@@ -117,7 +124,10 @@ export async function PATCH(request: Request) {
   try {
     const isSuper = await checkSuperAdmin();
     if (!isSuper) {
-      return NextResponse.json({ error: "Forbidden: Super Admin access required" }, { status: 403 });
+      return NextResponse.json(
+        { error: 'Forbidden: Super Admin access required' },
+        { status: 403 }
+      );
     }
 
     const db = supabaseAdmin();
@@ -128,7 +138,10 @@ export async function PATCH(request: Request) {
     const endDate = body?.endDate;
 
     if (!accountId) {
-      return NextResponse.json({ error: "accountId is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: 'accountId is required' },
+        { status: 400 }
+      );
     }
 
     const updates: Record<string, unknown> = {
@@ -141,33 +154,36 @@ export async function PATCH(request: Request) {
 
     // Check if subscription exists for the tenant, if not insert one
     const { data: existingSub } = await db
-      .from("subscriptions")
-      .select("id")
-      .eq("account_id", accountId)
+      .from('subscriptions')
+      .select('id')
+      .eq('account_id', accountId)
       .maybeSingle();
 
     let result;
     if (existingSub) {
       const { data, error } = await db
-        .from("subscriptions")
+        .from('subscriptions')
         .update(updates)
-        .eq("account_id", accountId)
+        .eq('account_id', accountId)
         .select()
         .single();
-      
+
       if (error) throw error;
       result = data;
     } else {
       // Must supply planId and endDate to provision new subscription
       if (!planId || !endDate) {
-        return NextResponse.json({ error: "New subscriptions require planId and endDate" }, { status: 400 });
+        return NextResponse.json(
+          { error: 'New subscriptions require planId and endDate' },
+          { status: 400 }
+        );
       }
       const { data, error } = await db
-        .from("subscriptions")
+        .from('subscriptions')
         .insert({
           account_id: accountId,
           plan_id: planId,
-          status: status || "trial",
+          status: status || 'trial',
           end_date: endDate,
         })
         .select()
@@ -179,8 +195,8 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json(result);
   } catch (err: unknown) {
-    console.error("[PATCH /api/admin/tenants] error:", err);
-    const msg = err instanceof Error ? err.message : "Internal Server Error";
+    console.error('[PATCH /api/admin/tenants] error:', err);
+    const msg = err instanceof Error ? err.message : 'Internal Server Error';
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

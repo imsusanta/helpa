@@ -10,7 +10,7 @@ import { SettingsPanelHead } from './settings-panel-head';
  */
 export function SecurityPanel() {
   return (
-    <section className="max-w-2xl animate-in fade-in-50 duration-200">
+    <section className="animate-in fade-in-50 max-w-2xl duration-200">
       <SettingsPanelHead
         title="Login & security"
         description="Change your password and sign out of your devices. These keep your account safe."

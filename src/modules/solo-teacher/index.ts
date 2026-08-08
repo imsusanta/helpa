@@ -38,10 +38,10 @@ export const soloTeacherModule: IndustryModule = {
         { key: 'school_college', label: 'School / College', type: 'text' },
         { key: 'class_grade', label: 'Class / Grade', type: 'text' },
         { key: 'course', label: 'Course', type: 'text' },
-        { key: 'batch', label: 'Batch', type: 'text' }
-      ]
-    }
-  }
+        { key: 'batch', label: 'Batch', type: 'text' },
+      ],
+    },
+  },
 };
 export * from './sidebar';
 export * from './dashboard';

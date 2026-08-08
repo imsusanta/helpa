@@ -12,30 +12,44 @@ export async function POST(request: Request) {
 
     const { followupId } = await request.json();
     if (!followupId) {
-      return NextResponse.json({ error: 'followupId is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'followupId is required' },
+        { status: 400 }
+      );
     }
 
     const db = supabaseAdmin();
 
     // Fetch account details for business name
-    const { data: acc } = await db.from('accounts').select('name').eq('id', accountId).single();
+    const { data: acc } = await db
+      .from('accounts')
+      .select('name')
+      .eq('id', accountId)
+      .single();
     const clinicName = acc?.name || 'Helpa Health Clinic';
 
     // Fetch follow-up record
     const { data: followup, error: fetchErr } = await db
       .from('hospital_followups')
-      .select('*, patient:contacts(id, name, phone), doctor:hospital_doctors(id, name)')
+      .select(
+        '*, patient:contacts(id, name, phone), doctor:hospital_doctors(id, name)'
+      )
       .eq('id', followupId)
       .single();
 
     if (fetchErr || !followup || !followup.patient) {
-      return NextResponse.json({ error: 'Follow-up or patient record not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Follow-up or patient record not found' },
+        { status: 404 }
+      );
     }
 
     const patientName = followup.patient.name || 'Patient';
     const patientPhone = followup.patient.phone;
     const docData = followup.doctor as any;
-    const docName = (Array.isArray(docData) ? docData[0]?.name : docData?.name) || 'your doctor';
+    const docName =
+      (Array.isArray(docData) ? docData[0]?.name : docData?.name) ||
+      'your doctor';
 
     // Find or create conversation
     let { data: conv } = await db
@@ -62,7 +76,10 @@ export async function POST(request: Request) {
     }
 
     if (!conv) {
-      return NextResponse.json({ error: 'Failed to resolve conversation' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to resolve conversation' },
+        { status: 500 }
+      );
     }
 
     // Build personalized WhatsApp reminder message
@@ -95,9 +112,15 @@ export async function POST(request: Request) {
       content: `📅 WhatsApp Follow-up Reminder sent for ${followup.followup_type} (Due: ${followup.due_date})`,
     });
 
-    return NextResponse.json({ success: true, message: 'Follow-up reminder dispatched successfully' });
+    return NextResponse.json({
+      success: true,
+      message: 'Follow-up reminder dispatched successfully',
+    });
   } catch (err: any) {
     console.error('[Followups Remind POST] Exception:', err);
-    return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json(
+      { error: err.message || 'Internal Server Error' },
+      { status: 500 }
+    );
   }
 }

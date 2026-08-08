@@ -1,4 +1,4 @@
-import { ThemeToggle } from "@/components/ui/theme-toggle"
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 function DefaultToggle() {
   return (
@@ -7,7 +7,7 @@ function DefaultToggle() {
         <ThemeToggle />
       </div>
     </div>
-  )
+  );
 }
 
-export { DefaultToggle }
+export { DefaultToggle };

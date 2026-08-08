@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/hooks/use-auth';
 import {
   Building,
   Heart,
@@ -12,7 +12,7 @@ import {
   Loader2,
   Users,
   Calendar,
-} from "lucide-react";
+} from 'lucide-react';
 
 interface DepartmentData {
   name: string;
@@ -23,11 +23,36 @@ interface DepartmentData {
 }
 
 const DEPT_TEMPLATES = [
-  { name: "Cardiology", description: "Specialized diagnostics and surgeries for heart disorders, stroke risks, and high blood pressure.", icon: Heart },
-  { name: "Pediatrics", description: "Comprehensive healthcare and routine developmental wellness checks for infants, children, and teens.", icon: Baby },
-  { name: "General Medicine", description: "Primary healthcare, internal diagnostics, wellness exams, and chronic care management.", icon: Building },
-  { name: "Dermatology", description: "Diagnostics and clinical therapies for complex skin, hair, nail conditions, and allergies.", icon: Smile },
-  { name: "Orthopedics", description: "Clinical joint care, bone fracture therapies, musculoskeletal surgeries, and physio checks.", icon: Shield },
+  {
+    name: 'Cardiology',
+    description:
+      'Specialized diagnostics and surgeries for heart disorders, stroke risks, and high blood pressure.',
+    icon: Heart,
+  },
+  {
+    name: 'Pediatrics',
+    description:
+      'Comprehensive healthcare and routine developmental wellness checks for infants, children, and teens.',
+    icon: Baby,
+  },
+  {
+    name: 'General Medicine',
+    description:
+      'Primary healthcare, internal diagnostics, wellness exams, and chronic care management.',
+    icon: Building,
+  },
+  {
+    name: 'Dermatology',
+    description:
+      'Diagnostics and clinical therapies for complex skin, hair, nail conditions, and allergies.',
+    icon: Smile,
+  },
+  {
+    name: 'Orthopedics',
+    description:
+      'Clinical joint care, bone fracture therapies, musculoskeletal surgeries, and physio checks.',
+    icon: Shield,
+  },
 ];
 
 export default function DepartmentsPage() {
@@ -43,16 +68,26 @@ export default function DepartmentsPage() {
       try {
         // Fetch doctor counts and appointment counts
         const [docsRes, apptsRes] = await Promise.all([
-          db.from("hospital_doctors").select("id, department").eq("account_id", accountId),
-          db.from("appointments").select("id, department").eq("account_id", accountId),
+          db
+            .from('hospital_doctors')
+            .select('id, department')
+            .eq('account_id', accountId),
+          db
+            .from('appointments')
+            .select('id, department')
+            .eq('account_id', accountId),
         ]);
 
         const doctors = docsRes.data || [];
         const appointments = apptsRes.data || [];
 
         const mapped: DepartmentData[] = DEPT_TEMPLATES.map((tmpl) => {
-          const docCount = doctors.filter((d: any) => d.department?.toLowerCase() === tmpl.name.toLowerCase()).length;
-          const apptCount = appointments.filter((a: any) => a.department?.toLowerCase() === tmpl.name.toLowerCase()).length;
+          const docCount = doctors.filter(
+            (d: any) => d.department?.toLowerCase() === tmpl.name.toLowerCase()
+          ).length;
+          const apptCount = appointments.filter(
+            (a: any) => a.department?.toLowerCase() === tmpl.name.toLowerCase()
+          ).length;
 
           return {
             ...tmpl,
@@ -63,7 +98,7 @@ export default function DepartmentsPage() {
 
         setDepartments(mapped);
       } catch (err) {
-        console.error("Error loading department statistics:", err);
+        console.error('Error loading department statistics:', err);
       } finally {
         setLoading(false);
       }
@@ -75,7 +110,7 @@ export default function DepartmentsPage() {
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Loader2 className="text-primary h-8 w-8 animate-spin" />
       </div>
     );
   }
@@ -83,31 +118,40 @@ export default function DepartmentsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Clinical Departments</h1>
-        <p className="text-sm text-muted-foreground font-medium">Overview of active medical divisions and staffing levels.</p>
+        <h1 className="text-foreground text-2xl font-bold">
+          Clinical Departments
+        </h1>
+        <p className="text-muted-foreground text-sm font-medium">
+          Overview of active medical divisions and staffing levels.
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         {departments.map((dept) => {
           const Icon = dept.icon;
           return (
-            <div key={dept.name} className="bg-card border border-border rounded-xl p-5 hover:shadow-md transition-shadow flex flex-col gap-4">
+            <div
+              key={dept.name}
+              className="bg-card border-border flex flex-col gap-4 rounded-xl border p-5 transition-shadow hover:shadow-md"
+            >
               <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-lg bg-primary/10 text-primary shrink-0">
+                <div className="bg-primary/10 text-primary shrink-0 rounded-lg p-2.5">
                   <Icon className="h-6 w-6" />
                 </div>
-                <h3 className="font-extrabold text-foreground text-lg">{dept.name}</h3>
+                <h3 className="text-foreground text-lg font-extrabold">
+                  {dept.name}
+                </h3>
               </div>
-              <p className="text-xs text-muted-foreground leading-relaxed flex-1">
+              <p className="text-muted-foreground flex-1 text-xs leading-relaxed">
                 {dept.description}
               </p>
-              <div className="border-t border-border pt-4 grid grid-cols-2 gap-4 text-xs font-semibold text-muted-foreground">
+              <div className="border-border text-muted-foreground grid grid-cols-2 gap-4 border-t pt-4 text-xs font-semibold">
                 <div className="flex items-center gap-1.5">
-                  <Users className="h-4.5 w-4.5 text-muted-foreground/60 shrink-0" />
+                  <Users className="text-muted-foreground/60 h-4.5 w-4.5 shrink-0" />
                   <span>{dept.doctorCount} Doctors</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <Calendar className="h-4.5 w-4.5 text-muted-foreground/60 shrink-0" />
+                  <Calendar className="text-muted-foreground/60 h-4.5 w-4.5 shrink-0" />
                   <span>{dept.appointmentCount} Bookings</span>
                 </div>
               </div>

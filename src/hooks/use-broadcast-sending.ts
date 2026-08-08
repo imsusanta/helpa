@@ -14,10 +14,10 @@ export interface CustomFieldFilter {
 }
 
 export interface AudienceConfig {
-  type: 
-    | 'all' 
-    | 'tags' 
-    | 'custom_field' 
+  type:
+    | 'all'
+    | 'tags'
+    | 'custom_field'
     | 'csv'
     | 'new_patients'
     | 'returning_patients'
@@ -106,7 +106,7 @@ type CustomValueIndex = Map<string, Map<string, string>>;
 export function resolveVariables(
   variables: Record<string, VariableMapping>,
   contact: Contact,
-  customValues?: Map<string, string>,
+  customValues?: Map<string, string>
 ): string[] {
   // Keys are typically "1","2",... — numeric-aware sort keeps
   // {{1}} before {{10}}.
@@ -142,7 +142,7 @@ export function resolveVariables(
  */
 async function fetchCustomValueIndex(
   supabase: ReturnType<typeof createClient>,
-  contactIds: string[],
+  contactIds: string[]
 ): Promise<CustomValueIndex> {
   const index: CustomValueIndex = new Map();
   if (contactIds.length === 0) return index;
@@ -201,84 +201,134 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
           .from('contacts')
           .select('*')
           .in('id', uniqueContactIds);
-        if (error) throw new Error(`Failed to fetch contacts: ${error.message}`);
+        if (error)
+          throw new Error(`Failed to fetch contacts: ${error.message}`);
         contacts = data ?? [];
       }
     } else if (audience.type === 'custom_field' && audience.customField) {
-      contacts = await resolveCustomFieldAudience(supabase, audience.customField);
+      contacts = await resolveCustomFieldAudience(
+        supabase,
+        audience.customField
+      );
     } else if (audience.type === 'csv' && audience.csvContacts) {
       contacts = await upsertCsvContacts(supabase, audience.csvContacts);
     } else if (audience.type === 'new_patients') {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const { data, error } = await supabase.from('contacts').select('*').gte('created_at', thirtyDaysAgo.toISOString());
+      const { data, error } = await supabase
+        .from('contacts')
+        .select('*')
+        .gte('created_at', thirtyDaysAgo.toISOString());
       if (error) throw error;
       contacts = data ?? [];
     } else if (audience.type === 'returning_patients') {
-      const { data: appts, error } = await supabase.from('appointments').select('patient_id');
+      const { data: appts, error } = await supabase
+        .from('appointments')
+        .select('patient_id');
       if (error) throw error;
       const counts: Record<string, number> = {};
-      appts?.forEach(r => { counts[r.patient_id] = (counts[r.patient_id] || 0) + 1; });
-      const returningIds = Object.keys(counts).filter(id => counts[id] >= 2);
+      appts?.forEach((r) => {
+        counts[r.patient_id] = (counts[r.patient_id] || 0) + 1;
+      });
+      const returningIds = Object.keys(counts).filter((id) => counts[id] >= 2);
       if (returningIds.length > 0) {
-        const { data, error: fetchErr } = await supabase.from('contacts').select('*').in('id', returningIds);
+        const { data, error: fetchErr } = await supabase
+          .from('contacts')
+          .select('*')
+          .in('id', returningIds);
         if (fetchErr) throw fetchErr;
         contacts = data ?? [];
       }
     } else if (audience.type === 'upcoming_appointments') {
       const todayStr = new Date().toISOString().split('T')[0];
-      const { data: appts, error } = await supabase.from('appointments').select('patient_id').gte('appointment_date', todayStr);
+      const { data: appts, error } = await supabase
+        .from('appointments')
+        .select('patient_id')
+        .gte('appointment_date', todayStr);
       if (error) throw error;
-      const ids = [...new Set((appts || []).map(a => a.patient_id))];
+      const ids = [...new Set((appts || []).map((a) => a.patient_id))];
       if (ids.length > 0) {
-        const { data, error: fetchErr } = await supabase.from('contacts').select('*').in('id', ids);
+        const { data, error: fetchErr } = await supabase
+          .from('contacts')
+          .select('*')
+          .in('id', ids);
         if (fetchErr) throw fetchErr;
         contacts = data ?? [];
       }
     } else if (audience.type === 'missed_appointments') {
       const todayStr = new Date().toISOString().split('T')[0];
-      const { data: appts, error } = await supabase.from('appointments').select('patient_id')
-        .or(`status.eq.no_show,status.eq.Cancelled,and(status.eq.pending,appointment_date.lt.${todayStr})`);
+      const { data: appts, error } = await supabase
+        .from('appointments')
+        .select('patient_id')
+        .or(
+          `status.eq.no_show,status.eq.Cancelled,and(status.eq.pending,appointment_date.lt.${todayStr})`
+        );
       if (error) throw error;
-      const ids = [...new Set((appts || []).map(a => a.patient_id))];
+      const ids = [...new Set((appts || []).map((a) => a.patient_id))];
       if (ids.length > 0) {
-        const { data, error: fetchErr } = await supabase.from('contacts').select('*').in('id', ids);
+        const { data, error: fetchErr } = await supabase
+          .from('contacts')
+          .select('*')
+          .in('id', ids);
         if (fetchErr) throw fetchErr;
         contacts = data ?? [];
       }
     } else if (audience.type === 'due_followup') {
-      const { data: pats, error } = await supabase.from('patients').select('id');
+      const { data: pats, error } = await supabase
+        .from('patients')
+        .select('id');
       if (error) throw error;
-      const ids = (pats || []).map(p => p.id);
+      const ids = (pats || []).map((p) => p.id);
       if (ids.length > 0) {
-        const { data, error: fetchErr } = await supabase.from('contacts').select('*').in('id', ids);
+        const { data, error: fetchErr } = await supabase
+          .from('contacts')
+          .select('*')
+          .in('id', ids);
         if (fetchErr) throw fetchErr;
         contacts = data ?? [];
       }
     } else if (audience.type === 'by_department' && audience.department) {
-      const { data: pats, error } = await supabase.from('patients').select('id').eq('department', audience.department);
+      const { data: pats, error } = await supabase
+        .from('patients')
+        .select('id')
+        .eq('department', audience.department);
       if (error) throw error;
-      const ids = (pats || []).map(p => p.id);
+      const ids = (pats || []).map((p) => p.id);
       if (ids.length > 0) {
-        const { data, error: fetchErr } = await supabase.from('contacts').select('*').in('id', ids);
+        const { data, error: fetchErr } = await supabase
+          .from('contacts')
+          .select('*')
+          .in('id', ids);
         if (fetchErr) throw fetchErr;
         contacts = data ?? [];
       }
     } else if (audience.type === 'by_doctor' && audience.doctorId) {
-      const { data: pats, error } = await supabase.from('patients').select('id').eq('assigned_doctor_id', audience.doctorId);
+      const { data: pats, error } = await supabase
+        .from('patients')
+        .select('id')
+        .eq('assigned_doctor_id', audience.doctorId);
       if (error) throw error;
-      const ids = (pats || []).map(p => p.id);
+      const ids = (pats || []).map((p) => p.id);
       if (ids.length > 0) {
-        const { data, error: fetchErr } = await supabase.from('contacts').select('*').in('id', ids);
+        const { data, error: fetchErr } = await supabase
+          .from('contacts')
+          .select('*')
+          .in('id', ids);
         if (fetchErr) throw fetchErr;
         contacts = data ?? [];
       }
     } else if (audience.type === 'by_gender' && audience.gender) {
-      const { data: pats, error } = await supabase.from('patients').select('id').eq('gender', audience.gender);
+      const { data: pats, error } = await supabase
+        .from('patients')
+        .select('id')
+        .eq('gender', audience.gender);
       if (error) throw error;
-      const ids = (pats || []).map(p => p.id);
+      const ids = (pats || []).map((p) => p.id);
       if (ids.length > 0) {
-        const { data, error: fetchErr } = await supabase.from('contacts').select('*').in('id', ids);
+        const { data, error: fetchErr } = await supabase
+          .from('contacts')
+          .select('*')
+          .in('id', ids);
         if (fetchErr) throw fetchErr;
         contacts = data ?? [];
       }
@@ -297,9 +347,12 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
       }
       const { data: pats, error } = await query;
       if (error) throw error;
-      const ids = (pats || []).map(p => p.id);
+      const ids = (pats || []).map((p) => p.id);
       if (ids.length > 0) {
-        const { data, error: fetchErr } = await supabase.from('contacts').select('*').in('id', ids);
+        const { data, error: fetchErr } = await supabase
+          .from('contacts')
+          .select('*')
+          .in('id', ids);
         if (fetchErr) throw fetchErr;
         contacts = data ?? [];
       }
@@ -332,7 +385,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
    */
   async function upsertCsvContacts(
     supabase: ReturnType<typeof createClient>,
-    csvRows: { phone: string; name?: string }[],
+    csvRows: { phone: string; name?: string }[]
   ): Promise<Contact[]> {
     if (csvRows.length === 0) return [];
 
@@ -403,7 +456,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
 
   async function resolveCustomFieldAudience(
     supabase: ReturnType<typeof createClient>,
-    filter: CustomFieldFilter,
+    filter: CustomFieldFilter
   ): Promise<Contact[]> {
     const { fieldId, operator, value } = filter;
 
@@ -417,7 +470,8 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
 
     if (operator === 'is') query = query.eq('value', value);
     else if (operator === 'is_not') query = query.neq('value', value);
-    else if (operator === 'contains') query = query.ilike('value', `%${value}%`);
+    else if (operator === 'contains')
+      query = query.ilike('value', `%${value}%`);
 
     const { data: matches, error: matchErr } = await query;
     if (matchErr)
@@ -434,7 +488,9 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
     return data ?? [];
   }
 
-  async function createAndSendBroadcast(payload: BroadcastPayload): Promise<string> {
+  async function createAndSendBroadcast(
+    payload: BroadcastPayload
+  ): Promise<string> {
     setIsProcessing(true);
     setProgress(0);
 
@@ -509,7 +565,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
 
       if (broadcastError || !broadcast) {
         throw new Error(
-          `Failed to create broadcast: ${broadcastError?.message ?? 'unknown error'}`,
+          `Failed to create broadcast: ${broadcastError?.message ?? 'unknown error'}`
         );
       }
 
@@ -540,7 +596,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
             })
             .eq('id', broadcast.id);
           throw new Error(
-            `Failed to insert recipient batch ${i / INSERT_BATCH_SIZE + 1}: ${recipientError.message}`,
+            `Failed to insert recipient batch ${i / INSERT_BATCH_SIZE + 1}: ${recipientError.message}`
           );
         }
       }
@@ -563,7 +619,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
         .filter((id): id is string => Boolean(id));
       const customValueIndex = await fetchCustomValueIndex(
         supabase,
-        contactIds,
+        contactIds
       );
 
       let failedCount = 0;
@@ -580,7 +636,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
               ? resolveVariables(
                   payload.variables,
                   r.contact,
-                  customValueIndex.get(r.contact.id),
+                  customValueIndex.get(r.contact.id)
                 )
               : [],
           }));
@@ -653,7 +709,8 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
               .from('broadcast_recipients')
               .update({
                 status: 'failed',
-                error_message: err instanceof Error ? err.message : 'Unknown error',
+                error_message:
+                  err instanceof Error ? err.message : 'Unknown error',
               })
               .eq('id', recipient.id);
           }

@@ -1,4 +1,7 @@
-export const DEFAULT_BOOKING_FORM_CONFIG: Record<string, { show: boolean; required: boolean }> = {
+export const DEFAULT_BOOKING_FORM_CONFIG: Record<
+  string,
+  { show: boolean; required: boolean }
+> = {
   name: { show: true, required: true },
   phone: { show: true, required: true },
   age: { show: true, required: false },

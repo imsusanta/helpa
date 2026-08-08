@@ -11,9 +11,9 @@ export const workflowsConfig: WorkflowSeed[] = [
       {
         step_type: 'send_message',
         step_config: {
-          text: "Welcome to our Real Estate Agency! 🏠 Tell us about your budget or preferred location so we can suggest matching properties."
-        }
-      }
-    ]
-  }
+          text: 'Welcome to our Real Estate Agency! 🏠 Tell us about your budget or preferred location so we can suggest matching properties.',
+        },
+      },
+    ],
+  },
 ];

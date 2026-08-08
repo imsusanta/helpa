@@ -1,1327 +1,139 @@
-import { NextResponse, after } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import { decrypt, encrypt, isLegacyFormat } from '@/lib/whatsapp/encryption'
-import { getMediaUrl, downloadMedia } from '@/lib/whatsapp/meta-api'
-import { normalizePhone } from '@/lib/whatsapp/phone-utils'
-import { findExistingContact, isUniqueViolation } from '@/lib/contacts/dedupe'
-import { verifyMetaWebhookSignature } from '@/lib/whatsapp/webhook-signature'
-import { runAutomationsForTrigger } from '@/lib/automations/engine'
-import { dispatchInboundToFlows } from '@/lib/flows/engine'
-import { triggerAiResponse } from '@/lib/whatsapp/ai'
+import { NextResponse, after } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+import { decrypt } from '@/lib/whatsapp/encryption';
+import { verifyMetaWebhookSignature } from '@/lib/whatsapp/webhook-signature';
 import {
   handleTemplateWebhookChange,
   isTemplateWebhookField,
-} from '@/lib/whatsapp/template-webhook'
+} from '@/lib/whatsapp/template-webhook';
+import { handleWebhookGet } from './verify-request';
+import { handleStatusUpdate } from './process-status';
+import { processMessage } from './process-message';
+import type { WhatsAppWebhookEntry } from './types';
 
-// Lazy-initialized to avoid build-time crash when env vars are missing
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-let _adminClient: any = null
+let _adminClient: any = null;
 function supabaseAdmin() {
   if (!_adminClient) {
     _adminClient = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
+    );
   }
-  return _adminClient
+  return _adminClient;
 }
 
-interface WhatsAppMessage {
-  id: string
-  from: string
-  timestamp: string
-  type: string
-  text?: { body: string }
-  image?: { id: string; mime_type: string; caption?: string }
-  video?: { id: string; mime_type: string; caption?: string }
-  document?: { id: string; mime_type: string; filename?: string; caption?: string }
-  audio?: { id: string; mime_type: string }
-  sticker?: { id: string; mime_type: string }
-  location?: { latitude: number; longitude: number; name?: string; address?: string }
-  reaction?: { message_id: string; emoji: string }
-  /**
-   * Set when the customer taps a button or list row on an interactive
-   * message we sent. `button_reply.id` / `list_reply.id` is whatever id
-   * we put on the button/row when sending — the Flows engine uses this
-   * to advance the per-contact run.
-   */
-  interactive?: {
-    type: 'button_reply' | 'list_reply'
-    button_reply?: { id: string; title: string }
-    list_reply?: { id: string; title: string; description?: string }
-  }
-  /** Present when the customer swipe-replies to one of our messages. */
-  context?: { id: string }
-}
-
-interface WhatsAppWebhookEntry {
-  id: string
-  changes: Array<{
-    value: {
-      messaging_product: string
-      metadata: {
-        display_phone_number: string
-        phone_number_id: string
-      }
-      contacts?: Array<{
-        profile: { name: string }
-        wa_id: string
-      }>
-      messages?: WhatsAppMessage[]
-      statuses?: Array<{
-        id: string
-        status: string
-        timestamp: string
-        recipient_id: string
-      }>
-    }
-    field: string
-  }>
-}
-
-// GET - Webhook verification
+// GET - Meta challenge verification
 export async function GET(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url)
-    const mode = searchParams.get('hub.mode')
-    const challenge = searchParams.get('hub.challenge')
-    const verifyToken = searchParams.get('hub.verify_token')
-
-    if (mode !== 'subscribe' || !challenge || !verifyToken) {
-      return NextResponse.json(
-        { error: 'Missing verification parameters' },
-        { status: 400 }
-      )
-    }
-
-    // Fetch all whatsapp configs to check verify tokens
-    const { data: configs, error: configError } = await supabaseAdmin()
-      .from('whatsapp_config')
-      .select('id, verify_token')
-
-    if (configError || !configs) {
-      console.error('Error fetching configs for verification:', configError)
-      return NextResponse.json(
-        { error: 'Verification failed' },
-        { status: 403 }
-      )
-    }
-
-    // Check if any config's verify_token matches. Also collect the
-    // matching row so we can opportunistically upgrade its token to
-    // GCM if it was still in the legacy CBC format.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let matchedConfig: any = null
-    for (const config of configs) {
-      if (!config.verify_token) continue
-      try {
-        if (decrypt(config.verify_token) === verifyToken) {
-          matchedConfig = config
-          break
-        }
-      } catch {
-        // Malformed / wrong-key token row — skip it and keep checking.
-      }
-    }
-
-    if (matchedConfig) {
-      // Fire-and-forget GCM upgrade. Safe to run on every subscribe
-      // since it's a no-op once the column is already GCM.
-      if (isLegacyFormat(matchedConfig.verify_token)) {
-        void supabaseAdmin()
-          .from('whatsapp_config')
-          .update({ verify_token: encrypt(verifyToken) })
-          .eq('id', matchedConfig.id)
-          .then(({ error }: { error: unknown }) => {
-            if (error) {
-              console.warn(
-                '[webhook] verify_token GCM upgrade failed:',
-                (error as { message?: string })?.message ?? error,
-              )
-            }
-          })
-      }
-      // Return challenge as plain text
-      return new Response(challenge, {
-        status: 200,
-        headers: { 'Content-Type': 'text/plain' },
-      })
-    }
-
-    return NextResponse.json(
-      { error: 'Verification token mismatch' },
-      { status: 403 }
-    )
-  } catch (error) {
-    console.error('Error in webhook GET verification:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
-  }
+  return handleWebhookGet(request);
 }
 
-// POST - Receive messages
+// POST - Receive webhook events with strict fail-closed signature verification
 export async function POST(request: Request) {
-  // Read raw body first so we can HMAC-verify the exact bytes Meta
-  // signed. request.json() would re-encode and break the signature.
-  const rawBody = await request.text()
-  const signature = request.headers.get('x-hub-signature-256')
+  const rawBody = await request.text();
+  const signature = request.headers.get('x-hub-signature-256');
 
   if (!verifyMetaWebhookSignature(rawBody, signature)) {
-    console.warn(
-      '[webhook] Signature verification failed or missing. ' +
-        'Ensure META_APP_SECRET in Vercel environment variables matches Meta Developer Console → App Settings → Basic → App Secret.'
-    )
+    return NextResponse.json(
+      { error: 'Invalid webhook signature' },
+      { status: 401 }
+    );
   }
 
-  let body: { entry?: WhatsAppWebhookEntry[] }
+  let body: { entry?: WhatsAppWebhookEntry[] };
   try {
-    body = JSON.parse(rawBody)
+    body = JSON.parse(rawBody);
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
-  // Process asynchronously after returning 200 OK so Vercel doesn't freeze the container
-  after(async () => {
-    try {
-      await processWebhook(body)
-    } catch (error) {
-      console.error('Error processing webhook:', error)
-    }
-  })
+  try {
+    after(async () => {
+      try {
+        await processWebhook(body);
+      } catch (error) {
+        console.error('Error processing webhook:', error);
+      }
+    });
+  } catch {
+    // When invoked outside Next.js request lifecycle (e.g. in unit tests), execute directly
+    void processWebhook(body).catch((error) => {
+      console.error('Error processing webhook:', error);
+    });
+  }
 
-  return NextResponse.json({ status: 'received' }, { status: 200 })
+  return NextResponse.json({ status: 'received' }, { status: 200 });
 }
 
 async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
-  if (!body.entry) return
+  if (!body.entry) return;
 
   for (const entry of body.entry) {
     for (const change of entry.changes) {
-      // Template-lifecycle events (status / quality / components
-      // updates from Meta) come in on a different change.field and
-      // have a different value shape — route them through the
-      // dedicated handler. Skip the messaging branches below so we
-      // don't try to read message-shaped fields off a template event.
       if (isTemplateWebhookField(change.field)) {
         await handleTemplateWebhookChange(
           { field: change.field, value: change.value as unknown },
-          supabaseAdmin(),
-        )
-        continue
+          supabaseAdmin()
+        );
+        continue;
       }
 
-      const value = change.value
+      const value = change.value;
 
-      // Handle status updates
       if (value.statuses) {
         for (const status of value.statuses) {
-          await handleStatusUpdate(status)
+          await handleStatusUpdate(status);
         }
       }
 
-      // Handle incoming messages
-      if (!value.messages || !value.contacts) continue
+      if (!value.messages || !value.contacts) continue;
 
-      const phoneNumberId = value.metadata.phone_number_id
+      const phoneNumberId = value.metadata.phone_number_id;
 
-      // Find user's config by phone_number_id. `.single()` returns
-      // PGRST116 for both 0 rows AND ≥2 rows — distinguish them so
-      // operators see the real cause in logs. ≥2 rows shouldn't happen
-      // post-migration 013 (UNIQUE constraint), but a row created
-      // before the constraint, or a race, would still surface here.
       const { data: configRows, error: configError } = await supabaseAdmin()
         .from('whatsapp_config')
         .select('*')
-        .eq('phone_number_id', phoneNumberId)
+        .eq('phone_number_id', phoneNumberId);
 
       if (configError) {
         console.error(
-          'Error fetching whatsapp_config for phone_number_id:',
-          phoneNumberId,
+          `Error fetching whatsapp_config for phone_number_id ${phoneNumberId}:`,
           configError
-        )
-        continue
+        );
+        continue;
       }
 
       if (!configRows || configRows.length === 0) {
-        console.error('No config found for phone_number_id:', phoneNumberId)
-        continue
+        console.warn(
+          `[webhook] Received message for unregistered phone_number_id: ${phoneNumberId}`
+        );
+        continue;
       }
 
-      if (configRows.length > 1) {
-        console.error(
-          `Multiple configs (${configRows.length}) found for phone_number_id:`,
-          phoneNumberId,
-          '— inbound message dropped. Resolve duplicates so each number maps to a single account.',
-          'Account owners:',
-          configRows.map((r: { account_id: string; user_id: string }) => `${r.account_id} (admin ${r.user_id})`)
-        )
-        continue
-      }
+      const config = configRows[0];
 
-      const config = configRows[0]
-
-      let decryptedAccessToken = ''
+      let decryptedAccessToken = '';
       try {
-        decryptedAccessToken = decrypt(config.access_token)
+        decryptedAccessToken = decrypt(config.access_token);
       } catch (err: any) {
         console.warn(
           `[webhook] Access token decryption failed for phone_number_id ${phoneNumberId}: ${err?.message || err}. ` +
-          `Please re-save your WhatsApp configuration in CRM Settings → WhatsApp Integration.`
-        )
+            `Please re-save your WhatsApp configuration in CRM Settings → WhatsApp Integration.`
+        );
       }
 
       for (let i = 0; i < value.messages.length; i++) {
-        const message = value.messages[i]
-        const contact = value.contacts[i] || value.contacts[0]
+        const message = value.messages[i];
+        const contact = value.contacts[i] || value.contacts[0];
 
         await processMessage(
           message,
           contact,
-          // Tenancy — drives every contact / conversation lookup
-          // and the engines' active-row dispatch.
           config.account_id,
-          // Audit / sender-of-record — used as the user_id on row
-          // inserts that need it for NOT NULL FK compliance. Always
-          // the admin who saved the WhatsApp config.
           config.user_id,
           decryptedAccessToken
-        )
+        );
       }
     }
   }
-}
-
-// The happy-path status ladder — pending → sent → delivered → read →
-// replied. Webhook replays must never regress a recipient back down
-// this ladder.
-//
-// `failed` is NOT on this ladder. It's a terminal side branch that is
-// only valid from the early states (pending / sent) — once Meta has
-// delivered or the user has read or replied, a later "failed" status
-// event is a bug in Meta's pipeline or a spoof attempt and must be
-// ignored.
-const RECIPIENT_STATUS_LADDER = [
-  'pending',
-  'sent',
-  'delivered',
-  'read',
-  'replied',
-] as const
-
-function ladderLevel(s: string): number {
-  const idx = (RECIPIENT_STATUS_LADDER as readonly string[]).indexOf(s)
-  return idx < 0 ? -1 : idx
-}
-
-/**
- * Can a recipient transition from `current` to `incoming`?
- *   - Along the ladder, only forward moves are allowed.
- *   - `failed` is accepted only from `pending` or `sent`; it's refused
- *     once the recipient has reached any of the success states.
- */
-function isValidStatusTransition(current: string, incoming: string): boolean {
-  if (incoming === 'failed') {
-    return current === 'pending' || current === 'sent'
-  }
-  if (current === 'failed') {
-    return false // failed is terminal
-  }
-  const ci = ladderLevel(current)
-  const ii = ladderLevel(incoming)
-  if (ii < 0) return false // unknown incoming status
-  if (ci < 0) return true // unknown current — accept anything on the ladder
-  return ii > ci
-}
-
-async function handleStatusUpdate(status: {
-  id: string
-  status: string
-  timestamp: string
-  recipient_id: string
-}) {
-  // 1) Mirror onto messages (legacy behavior) — Meta's status values
-  //    already match the CHECK constraint on messages.status.
-  const { error: msgErr } = await supabaseAdmin()
-    .from('messages')
-    .update({ status: status.status })
-    .eq('message_id', status.id)
-
-  if (msgErr) {
-    console.error('Error updating message status:', msgErr)
-  }
-
-  // 2) Mirror onto broadcast_recipients via whatsapp_message_id
-  //    (added in migration 003). The aggregate trigger on
-  //    broadcast_recipients re-derives the parent broadcast's
-  //    sent/delivered/read/failed counts automatically.
-  const tsIso = new Date(parseInt(status.timestamp) * 1000).toISOString()
-
-  const { data: recipient, error: recFetchErr } = await supabaseAdmin()
-    .from('broadcast_recipients')
-    .select('id, status')
-    .eq('whatsapp_message_id', status.id)
-    .maybeSingle()
-
-  if (recFetchErr) {
-    console.error('Error fetching broadcast recipient:', recFetchErr)
-    return
-  }
-  if (!recipient) return // message wasn't part of a broadcast — fine
-
-  // Guard transitions — forward-only on the success ladder, and
-  // `failed` only from pre-delivered states.
-  if (!isValidStatusTransition(recipient.status, status.status)) return
-
-  const update: Record<string, unknown> = { status: status.status }
-  if (status.status === 'sent' && !('sent_at' in update)) update.sent_at = tsIso
-  if (status.status === 'delivered') update.delivered_at = tsIso
-  if (status.status === 'read') update.read_at = tsIso
-
-  const { error: recUpdateErr } = await supabaseAdmin()
-    .from('broadcast_recipients')
-    .update(update)
-    .eq('id', recipient.id)
-
-  if (recUpdateErr) {
-    console.error('Error updating broadcast recipient status:', recUpdateErr)
-  }
-}
-
-/**
- * If an inbound message's sender is on a still-unreplied
- * broadcast_recipients row, flip it to `replied` so the reply count
- * advances on the parent broadcast.
- *
- * Runs on a best-effort basis — failures here must not break the
- * main inbound-message flow, so errors are swallowed with a log.
- */
-async function flagBroadcastReplyIfAny(accountId: string, contactId: string) {
-  try {
-    // Most recent outbound broadcast in this account that hasn't
-    // been replied to yet. Account-scoped so a shared inbox reply
-    // marks the broadcast as replied regardless of which teammate
-    // sent it.
-    const { data: recs, error } = await supabaseAdmin()
-      .from('broadcast_recipients')
-      .select('id, status, broadcast_id, broadcasts!inner(account_id)')
-      .eq('contact_id', contactId)
-      .eq('broadcasts.account_id', accountId)
-      .in('status', ['sent', 'delivered', 'read'])
-      .order('created_at', { ascending: false })
-      .limit(1)
-
-    if (error || !recs || recs.length === 0) return
-
-    const row = recs[0]
-    const { error: updErr } = await supabaseAdmin()
-      .from('broadcast_recipients')
-      .update({ status: 'replied', replied_at: new Date().toISOString() })
-      .eq('id', row.id)
-
-    if (updErr) {
-      console.error('Error marking broadcast recipient replied:', updErr)
-    }
-  } catch (err) {
-    console.error('flagBroadcastReplyIfAny failed:', err)
-  }
-}
-
-/**
- * Resolve a Meta-side message_id into the matching internal UUID, scoped
- * to one conversation. Returns null when we never received the parent
- * (e.g. a swipe-reply to a message older than this CRM install).
- */
-async function lookupInternalIdByMetaId(
-  metaId: string,
-  conversationId: string
-): Promise<string | null> {
-  const { data, error } = await supabaseAdmin()
-    .from('messages')
-    .select('id')
-    .eq('message_id', metaId)
-    .eq('conversation_id', conversationId)
-    .maybeSingle()
-  if (error) {
-    console.error('[webhook] lookupInternalIdByMetaId failed:', error.message)
-    return null
-  }
-  return data?.id ?? null
-}
-
-/**
- * Persist an inbound reaction. WhatsApp reactions are not new messages —
- * they're per-(target, actor) state. We upsert / delete on
- * `message_reactions`, never write a row into `messages`.
- *
- * Best-effort: a missing parent (we never received it) is logged and
- * skipped so the webhook still acks 200 to Meta.
- */
-async function handleReaction(
-  message: WhatsAppMessage,
-  conversationId: string,
-  contactId: string
-) {
-  const reaction = message.reaction
-  if (!reaction?.message_id) return
-
-  const targetInternalId = await lookupInternalIdByMetaId(
-    reaction.message_id,
-    conversationId
-  )
-  if (!targetInternalId) {
-    console.warn(
-      '[webhook] reaction target message not found; skipping',
-      reaction.message_id
-    )
-    return
-  }
-
-  // Empty emoji = removal (per Meta's Cloud API spec).
-  if (!reaction.emoji) {
-    const { error: delError } = await supabaseAdmin()
-      .from('message_reactions')
-      .delete()
-      .eq('message_id', targetInternalId)
-      .eq('actor_type', 'customer')
-      .eq('actor_id', contactId)
-    if (delError) {
-      console.error('[webhook] reaction delete failed:', delError.message)
-    }
-    return
-  }
-
-  const { error: upsertError } = await supabaseAdmin()
-    .from('message_reactions')
-    .upsert(
-      {
-        message_id: targetInternalId,
-        conversation_id: conversationId,
-        actor_type: 'customer',
-        actor_id: contactId,
-        emoji: reaction.emoji,
-      },
-      { onConflict: 'message_id,actor_type,actor_id' }
-    )
-  if (upsertError) {
-    console.error('[webhook] reaction upsert failed:', upsertError.message)
-  }
-}
-
-async function processMessage(
-  message: WhatsAppMessage,
-  contact: { profile: { name: string }; wa_id: string },
-  // Tenancy. Resolved from the matched whatsapp_config row; every
-  // contact / conversation / message row created downstream is
-  // stamped with this so any member of the account can see it.
-  accountId: string,
-  // Sender-of-record for inserts that need a NOT NULL user_id FK
-  // (contacts, conversations). Always the admin who saved the
-  // WhatsApp config; the choice is arbitrary post-017 but stable.
-  configOwnerUserId: string,
-  accessToken: string
-) {
-  const senderPhone = normalizePhone(message.from)
-  const contactName = contact.profile.name
-
-  // Find or create contact
-  const contactOutcome = await findOrCreateContact(
-    accountId,
-    configOwnerUserId,
-    senderPhone,
-    contactName
-  )
-  if (!contactOutcome) return
-  const contactRecord = contactOutcome.contact
-
-  // Find or create conversation
-  const conversation = await findOrCreateConversation(
-    accountId,
-    configOwnerUserId,
-    contactRecord.id
-  )
-  if (!conversation) return
-
-  // Reactions short-circuit here — they aren't messages. We never insert
-  // into `messages`, never bump unread_count, never update last_message_text.
-  // Done before parseMessageContent so the media-URL fetch is skipped.
-  if (message.type === 'reaction') {
-    await handleReaction(message, conversation.id, contactRecord.id)
-    return
-  }
-
-  // Parse message content based on type
-  const { contentText, mediaUrl, mediaType, interactiveReplyId } =
-    await parseMessageContent(message, accessToken)
-
-  // Resolve swipe-reply context if present. A missing parent is fine —
-  // we just store NULL and the UI renders the message without a quote.
-  let replyToInternalId: string | null = null
-  if (message.context?.id) {
-    replyToInternalId = await lookupInternalIdByMetaId(
-      message.context.id,
-      conversation.id
-    )
-    if (!replyToInternalId) {
-      console.warn(
-        '[webhook] reply context parent not found:',
-        message.context.id
-      )
-    }
-  }
-
-  // Insert message — field names MUST match the messages table schema
-  // (see supabase/migrations/001_initial_schema.sql):
-  //   conversation_id, sender_type, content_type, content_text,
-  //   media_url, template_name, message_id, status, created_at
-  // `mediaType` is intentionally unused — the schema has no media_type
-  // column; the MIME type is only used to construct the proxy URL during
-  // parseMessageContent. Silence the unused-var warning:
-  void mediaType
-
-  // The messages.content_type CHECK constraint (widened in migration 010
-  // to add 'interactive' for button/list taps) allows:
-  //   text, image, document, audio, video, location, template, interactive
-  // Map incoming WhatsApp types that aren't in that list to the closest
-  // allowed value so the INSERT doesn't fail with a constraint error.
-  const ALLOWED_CONTENT_TYPES = new Set([
-    'text', 'image', 'document', 'audio', 'video',
-    'location', 'template', 'interactive',
-  ])
-  const contentType = ALLOWED_CONTENT_TYPES.has(message.type)
-    ? message.type
-    : message.type === 'sticker'
-      ? 'image'   // stickers are images
-      : 'text'    // reaction, unknown → text fallback
-
-  // Determine whether this is the contact's very first inbound message
-  // BEFORE we insert, so the count is accurate. Covers the case where
-  // the contact row already exists (manual add / CSV import) but they've
-  // never messaged us before — which new_contact_created wouldn't catch.
-  const { count: priorCustomerMsgCount } = await supabaseAdmin()
-    .from('messages')
-    .select('id', { count: 'exact', head: true })
-    .eq('conversation_id', conversation.id)
-    .eq('sender_type', 'customer')
-  const isFirstInboundMessage = (priorCustomerMsgCount ?? 0) === 0
-
-  const { error: msgError } = await supabaseAdmin().from('messages').insert({
-    conversation_id: conversation.id,
-    sender_type: 'customer',
-    content_type: contentType,
-    content_text: contentText,
-    media_url: mediaUrl,
-    message_id: message.id,
-    status: 'delivered',
-    created_at: new Date(parseInt(message.timestamp) * 1000).toISOString(),
-    reply_to_message_id: replyToInternalId,
-    // Only populated for content_type='interactive'. Migration 010 added
-    // the column; null for every other content_type so existing inserts
-    // behave identically.
-    interactive_reply_id: interactiveReplyId,
-  })
-
-  if (msgError) {
-    console.error('Error inserting message:', msgError)
-    return
-  }
-
-  // Update conversation — only update preview if message is chronologically newer
-  const messageDate = new Date(parseInt(message.timestamp) * 1000)
-  const existingLastMessageAt = conversation.last_message_at ? new Date(conversation.last_message_at) : null
-  const shouldUpdatePreview = !existingLastMessageAt || messageDate >= existingLastMessageAt
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const convUpdatePayload: any = {
-    unread_count: (conversation.unread_count || 0) + 1,
-    updated_at: new Date().toISOString(),
-  }
-
-  if (shouldUpdatePreview) {
-    convUpdatePayload.last_message_text = contentText || `[${message.type}]`
-    convUpdatePayload.last_message_at = messageDate.toISOString()
-  }
-
-  const { error: convError } = await supabaseAdmin()
-    .from('conversations')
-    .update(convUpdatePayload)
-    .eq('id', conversation.id)
-
-  if (convError) {
-    console.error('Error updating conversation:', convError)
-  }
-
-  // If this contact was a recent broadcast recipient, flag the reply
-  // so the broadcast's `replied_count` advances (via the aggregate
-  // trigger installed in migration 003).
-  await flagBroadcastReplyIfAny(accountId, contactRecord.id)
-
-  // ============================================================
-  // Smart Interceptions (Reminders & Reports)
-  // ============================================================
-  try {
-    // Smart Appointment Reminder replies interception
-    let reminderHandled = false;
-
-    if (interactiveReplyId && (
-      interactiveReplyId.startsWith('rem_confirm_') ||
-      interactiveReplyId.startsWith('rem_resched_') ||
-      interactiveReplyId.startsWith('rem_cancel_')
-    )) {
-      const parts = interactiveReplyId.split('_');
-      const action = parts[1]; // confirm, resched, cancel
-      const apptId = parts[2];
-
-      reminderHandled = await handleReminderReplyAction(
-        accountId,
-        apptId,
-        action,
-        conversation.id,
-        contactRecord.id,
-        configOwnerUserId
-      );
-    } else {
-      const cleanedText = (contentText || '').trim().toLowerCase();
-      
-      // Check if there is an active appointment with status 'Reminder Sent'
-      const { data: reminderAppt } = await supabaseAdmin()
-        .from('appointments')
-        .select('id, status')
-        .eq('account_id', accountId)
-        .eq('patient_id', contactRecord.id)
-        .eq('status', 'Reminder Sent')
-        .order('appointment_date', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (reminderAppt) {
-        let matchedAction: 'confirm' | 'resched' | 'cancel' | null = null;
-        
-        const isConfirm = ['1', 'confirm', 'yes', 'coming', 'i\'ll be there', 'ill be there'].includes(cleanedText);
-        const isResched = ['2', 'reschedule', 'change time', 'another date', 'change date', 'resched'].includes(cleanedText);
-        const isCancel = ['3', 'cancel', 'i can\'t come', 'cant come', 'cannot come'].includes(cleanedText);
-        
-        if (isConfirm) matchedAction = 'confirm';
-        else if (isResched) matchedAction = 'resched';
-        else if (isCancel) matchedAction = 'cancel';
-
-        if (matchedAction) {
-          reminderHandled = await handleReminderReplyAction(
-            accountId,
-            reminderAppt.id,
-            matchedAction,
-            conversation.id,
-            contactRecord.id,
-            configOwnerUserId
-          );
-        }
-      }
-    }
-
-    if (reminderHandled) {
-      return;
-    }
-
-    // Report Status button replies interception
-    let reportHandled = false;
-
-    if (interactiveReplyId && (
-      interactiveReplyId.startsWith('report_download_') ||
-      interactiveReplyId.startsWith('report_status_')
-    )) {
-      const reportId = interactiveReplyId.replace(/^report_(download|status)_/, '');
-      reportHandled = await handleReportButtonReply(
-        accountId,
-        reportId,
-        interactiveReplyId.startsWith('report_download_') ? 'download' : 'status',
-        conversation.id,
-        contactRecord.id,
-        configOwnerUserId
-      );
-    }
-
-    if (reportHandled) {
-      return;
-    }
-  } catch (err) {
-    console.error('[Webhook Interception] Failed to process action safely:', err);
-  }
-
-  // ============================================================
-  // Run flows, automations, and AI replies in the background context
-  // ============================================================
-  try {
-    // Flow runner dispatch
-    const flowResult = await dispatchInboundToFlows({
-      accountId,
-      userId: configOwnerUserId,
-      contactId: contactRecord.id,
-      conversationId: conversation.id,
-      message:
-        interactiveReplyId
-          ? {
-              kind: 'interactive_reply',
-              reply_id: interactiveReplyId,
-              reply_title: contentText ?? '',
-              meta_message_id: message.id,
-            }
-          : {
-              kind: 'text',
-              text: contentText ?? message.text?.body ?? '',
-              meta_message_id: message.id,
-            },
-      isFirstInboundMessage,
-    });
-    const flowConsumed = flowResult.consumed;
-
-    // Fire any automations that react to this webhook event
-    const inboundText = contentText ?? message.text?.body ?? '';
-    const automationTriggers: (
-      | 'new_contact_created'
-      | 'first_inbound_message'
-      | 'new_message_received'
-      | 'keyword_match'
-    )[] = [];
-
-    if (!flowConsumed) {
-      automationTriggers.push('new_message_received', 'keyword_match');
-    }
-    if (contactOutcome.wasCreated) automationTriggers.unshift('new_contact_created');
-    if (isFirstInboundMessage) automationTriggers.unshift('first_inbound_message');
-
-    const automationPromise = (async () => {
-      for (const triggerType of automationTriggers) {
-        try {
-          await runAutomationsForTrigger({
-            accountId,
-            triggerType,
-            contactId: contactRecord.id,
-            context: {
-              message_text: inboundText,
-              conversation_id: conversation.id,
-            },
-          });
-        } catch (err) {
-          console.error('[automations] dispatch failed:', err);
-        }
-      }
-    })();
-
-    // Trigger AI Assistant response concurrently (sub-second dispatch for 3-5 sec reply)
-    const aiPromise = (async () => {
-      if (conversation.ai_chat_enabled !== false && !flowConsumed) {
-        try {
-          await triggerAiResponse({
-            accountId,
-            userId: configOwnerUserId,
-            conversationId: conversation.id,
-            contactId: contactRecord.id,
-          });
-        } catch (err) {
-          console.error('[AI Assistant] trigger error:', err);
-        }
-      }
-    })();
-
-    await Promise.all([automationPromise, aiPromise]);
-  } catch (backgroundErr) {
-    console.error('[Webhook Background execution] error:', backgroundErr);
-  }
-}
-
-async function parseMessageContent(
-  message: WhatsAppMessage,
-  accessToken: string
-): Promise<{
-  contentText: string | null
-  mediaUrl: string | null
-  mediaType: string | null
-  /**
-   * For interactive button / list replies: the stable id of the tapped
-   * option (whatever we put on the button when sending). Used by the
-   * Flows engine to advance the per-contact run; persisted to
-   * `messages.interactive_reply_id` so the inbox bubble can render the
-   * tap with the right affordance. Null for everything else.
-   */
-  interactiveReplyId: string | null
-}> {
-  // getMediaUrl signature is (mediaId, accessToken) — earlier code had
-  // the args swapped, so every verification hit an invalid Meta URL and
-  // fell through to the catch block, leaving mediaUrl as null. That's
-  // why images showed up as empty bubbles in the inbox.
-  const verifyAndBuildUrl = async (
-    mediaId: string
-  ): Promise<string | null> => {
-    try {
-      await getMediaUrl({ mediaId, accessToken })
-      return `/api/whatsapp/media/${mediaId}`
-    } catch (error) {
-      console.error(
-        `Failed to verify media ${mediaId} with Meta:`,
-        error instanceof Error ? error.message : error
-      )
-      return null
-    }
-  }
-
-  // Default shape — each case overrides only the fields it cares about.
-  // Keeps the new `interactiveReplyId` field DRY across every return site.
-  const empty = {
-    contentText: null,
-    mediaUrl: null,
-    mediaType: null,
-    interactiveReplyId: null,
-  }
-
-  switch (message.type) {
-    case 'text':
-      return { ...empty, contentText: message.text?.body || null }
-
-    case 'image':
-      if (message.image?.id) {
-        return {
-          ...empty,
-          contentText: message.image.caption || null,
-          mediaUrl: await verifyAndBuildUrl(message.image.id),
-          mediaType: message.image.mime_type,
-        }
-      }
-      return empty
-
-    case 'video':
-      if (message.video?.id) {
-        return {
-          ...empty,
-          contentText: message.video.caption || null,
-          mediaUrl: await verifyAndBuildUrl(message.video.id),
-          mediaType: message.video.mime_type,
-        }
-      }
-      return empty
-
-    case 'document':
-      if (message.document?.id) {
-        return {
-          ...empty,
-          contentText:
-            message.document.caption || message.document.filename || null,
-          mediaUrl: await verifyAndBuildUrl(message.document.id),
-          mediaType: message.document.mime_type,
-        }
-      }
-      return empty
-
-    case 'audio':
-      if (message.audio?.id) {
-        return {
-          ...empty,
-          mediaUrl: await verifyAndBuildUrl(message.audio.id),
-          mediaType: message.audio.mime_type,
-        }
-      }
-      return empty
-
-    case 'sticker':
-      // Stickers are images under the hood. Treat them as such so the
-      // MessageBubble renders the <img>. The caller maps the DB
-      // content_type to 'image' for the CHECK constraint.
-      if (message.sticker?.id) {
-        return {
-          ...empty,
-          mediaUrl: await verifyAndBuildUrl(message.sticker.id),
-          mediaType: message.sticker.mime_type,
-        }
-      }
-      return empty
-
-    case 'location':
-      if (message.location) {
-        const loc = message.location
-        const locationText = [loc.name, loc.address, `${loc.latitude},${loc.longitude}`]
-          .filter(Boolean)
-          .join(' - ')
-        return { ...empty, contentText: locationText }
-      }
-      return empty
-
-    case 'reaction':
-      return { ...empty, contentText: message.reaction?.emoji || null }
-
-    case 'interactive': {
-      // The customer tapped a reply button or a list row on a message
-      // we previously sent. Meta delivers `interactive.button_reply` for
-      // 3-button messages and `interactive.list_reply` for list messages.
-      // Use the human-readable title as contentText so the inbox bubble
-      // renders the tap legibly ("Existing customer"), and stash the
-      // stable id separately so the Flows engine can route on it.
-      const reply =
-        message.interactive?.button_reply ?? message.interactive?.list_reply
-      if (reply?.id) {
-        return {
-          ...empty,
-          contentText: reply.title || reply.id,
-          interactiveReplyId: reply.id,
-        }
-      }
-      return { ...empty, contentText: '[Interactive reply]' }
-    }
-
-    default:
-      return {
-        ...empty,
-        contentText: `[Unsupported message type: ${message.type}]`,
-      }
-  }
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type ContactRow = any
-
-interface ContactOutcome {
-  contact: ContactRow
-  /** True when this call created the row; drives new_contact_created
-   *  automation dispatch in processMessage. */
-  wasCreated: boolean
-}
-
-async function findOrCreateContact(
-  accountId: string,
-  configOwnerUserId: string,
-  phone: string,
-  name: string
-): Promise<ContactOutcome | null> {
-  // Find an existing contact for this account by phone. The shared
-  // helper pre-filters in SQL by the last-8-digit suffix (so we don't
-  // pull every contact on every inbound message) then applies the
-  // strict `phonesMatch` in JS on the small candidate set. The same
-  // helper backs the manual contact form and CSV import, so all three
-  // paths agree on what "same number" means (issue #212).
-  const existingContact = await findExistingContact(
-    supabaseAdmin(),
-    accountId,
-    phone,
-  )
-
-  if (existingContact) {
-    // Update name if it changed, but ONLY if the current contact name is empty/placeholder
-    const isPlaceholderName = !existingContact.name || 
-      existingContact.name === phone || 
-      existingContact.name.startsWith('+') || 
-      /^\d+$/.test(existingContact.name.replace(/[\s\-\+]/g, ''));
-      
-    if (name && isPlaceholderName && name !== existingContact.name) {
-      await supabaseAdmin()
-        .from('contacts')
-        .update({ name, updated_at: new Date().toISOString() })
-        .eq('id', existingContact.id)
-    }
-    return { contact: existingContact, wasCreated: false }
-  }
-
-  // Create new contact. account_id is the tenancy column;
-  // user_id is the NOT NULL FK audit column (no inbound message
-  // has a single "user who created" it — we attribute to the
-  // WhatsApp config owner as a stable default).
-  const { data: newContact, error: createError } = await supabaseAdmin()
-    .from('contacts')
-    .insert({
-      account_id: accountId,
-      user_id: configOwnerUserId,
-      phone,
-      name: name || phone,
-    })
-    .select()
-    .single()
-
-  if (createError) {
-    // Lost a race: a concurrent inbound delivery (or another path)
-    // created this contact between our lookup and insert, and the
-    // unique index (migration 022) rejected the duplicate. Re-resolve
-    // the existing row instead of dropping the message.
-    if (isUniqueViolation(createError)) {
-      const raced = await findExistingContact(supabaseAdmin(), accountId, phone)
-      if (raced) return { contact: raced, wasCreated: false }
-    }
-    console.error('Error creating contact:', createError)
-    return null
-  }
-
-  if (newContact) {
-    const db = supabaseAdmin();
-    const { data: maxPatient } = await db
-      .from('patients')
-      .select('patient_seq_id')
-      .eq('account_id', accountId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    let nextNum = 1;
-    if (maxPatient?.patient_seq_id) {
-      const numMatch = maxPatient.patient_seq_id.match(/\d+/);
-      if (numMatch) {
-        nextNum = parseInt(numMatch[0], 10) + 1;
-      }
-    }
-
-    const seqId = `PAT-${String(nextNum).padStart(6, '0')}`;
-
-    await db.from('patients').insert({
-      id: newContact.id,
-      account_id: accountId,
-      patient_seq_id: seqId,
-      status: 'active',
-    }).catch(() => {});
-
-    await db.from('contacts').update({
-      metadata: {
-        ...(newContact.metadata || {}),
-        patient_id: seqId,
-      },
-    }).eq('id', newContact.id).catch(() => {});
-  }
-
-  return { contact: newContact, wasCreated: true }
-}
-
-async function findOrCreateConversation(
-  accountId: string,
-  configOwnerUserId: string,
-  contactId: string,
-) {
-  // Look for existing conversation in this account
-  const { data: existing, error: findError } = await supabaseAdmin()
-    .from('conversations')
-    .select('*')
-    .eq('account_id', accountId)
-    .eq('contact_id', contactId)
-    .single()
-
-  if (!findError && existing) {
-    return existing
-  }
-
-  // Create new conversation. Same tenancy + audit split as
-  // findOrCreateContact above.
-  const { data: newConv, error: createError } = await supabaseAdmin()
-    .from('conversations')
-    .insert({
-      account_id: accountId,
-      user_id: configOwnerUserId,
-      contact_id: contactId,
-      ai_chat_enabled: true,
-    })
-    .select()
-    .single()
-
-  if (createError) {
-    console.error('Error creating conversation:', createError)
-    return null
-  }
-
-  return newConv
-}
-
-async function handleReminderReplyAction(
-  accountId: string,
-  apptId: string,
-  action: string,
-  conversationId: string,
-  contactId: string,
-  userId: string
-): Promise<boolean> {
-  const db = supabaseAdmin();
-  
-  // 1. Fetch appointment details
-  const { data: appt, error: apptErr } = await db
-    .from('appointments')
-    .select('id, appointment_date, appointment_time, doctor:hospital_doctors(id, name, department)')
-    .eq('id', apptId)
-    .single();
-    
-  if (apptErr || !appt) {
-    console.error('[Reminder Interceptor] Appointment not found:', apptErr);
-    return false;
-  }
-  
-  const docData = appt.doctor as any;
-  const docName = (Array.isArray(docData) ? docData[0]?.name : docData?.name) || 'Doctor';
-  const apptDate = appt.appointment_date || 'N/A';
-  const apptTime = appt.appointment_time ? appt.appointment_time.substring(0, 5) : 'N/A';
-
-  const { engineSendText } = await import('@/lib/automations/meta-send');
-
-  if (action === 'confirm') {
-    // Update appointment status to Confirmed
-    await db.from('appointments')
-      .update({ status: 'Confirmed' })
-      .eq('id', apptId);
-      
-    // Record timeline entry (contact_notes)
-    await db.from('contact_notes').insert({
-      account_id: accountId,
-      contact_id: contactId,
-      note_text: `[Timeline] Patient Confirmed Appointment via WhatsApp for Dr. ${docName} on ${apptDate} at ${apptTime}.`,
-    });
-    
-    // Send confirmation message
-    await engineSendText({
-      accountId,
-      userId,
-      conversationId,
-      contactId,
-      text: `Thank you! Your appointment with Dr. ${docName} on ${apptDate} at ${apptTime} has been successfully confirmed. We look forward to seeing you.`,
-    });
-    
-    // Notify receptionist in inbox (system alert message)
-    await db.from('messages').insert({
-      conversation_id: conversationId,
-      sender_type: 'bot',
-      content_type: 'text',
-      content_text: `[System Alert] Patient confirmed their appointment with Dr. ${docName} on ${apptDate} at ${apptTime}.`,
-      status: 'sent',
-    });
-    
-    return true;
-  }
-  
-  if (action === 'resched') {
-    // Update status to Reschedule Requested
-    await db.from('appointments')
-      .update({ status: 'Reschedule Requested' })
-      .eq('id', apptId);
-      
-    // Record timeline note
-    await db.from('contact_notes').insert({
-      account_id: accountId,
-      contact_id: contactId,
-      note_text: `[Timeline] Patient Requested Reschedule via WhatsApp for appointment with Dr. ${docName} on ${apptDate} at ${apptTime}.`,
-    });
-    
-    // Send prompt to start rescheduling
-    await engineSendText({
-      accountId,
-      userId,
-      conversationId,
-      contactId,
-      text: `Certainly! I will help you reschedule your appointment with Dr. ${docName}. Please reply with your preferred new date and time, and I will check availability for you.`,
-    });
-    
-    // Notify receptionist
-    await db.from('messages').insert({
-      conversation_id: conversationId,
-      sender_type: 'bot',
-      content_type: 'text',
-      content_text: `[System Alert] Patient requested a reschedule for their appointment with Dr. ${docName} on ${apptDate} at ${apptTime}.`,
-      status: 'sent',
-    });
-    
-    return true;
-  }
-  
-  if (action === 'cancel') {
-    // Update status to Cancelled
-    await db.from('appointments')
-      .update({ status: 'Cancelled' })
-      .eq('id', apptId);
-      
-    // Record timeline note
-    await db.from('contact_notes').insert({
-      account_id: accountId,
-      contact_id: contactId,
-      note_text: `[Timeline] Patient Cancelled Appointment via WhatsApp for Dr. ${docName} on ${apptDate} at ${apptTime}.`,
-    });
-    
-    // Send cancellation response
-    await engineSendText({
-      accountId,
-      userId,
-      conversationId,
-      contactId,
-      text: `Your appointment with Dr. ${docName} on ${apptDate} at ${apptTime} has been cancelled as requested. If you wish to schedule a new visit in the future, please let us know.`,
-    });
-    
-    // Notify receptionist
-    await db.from('messages').insert({
-      conversation_id: conversationId,
-      sender_type: 'bot',
-      content_type: 'text',
-      content_text: `[System Alert] Patient cancelled their appointment with Dr. ${docName} on ${apptDate} at ${apptTime}.`,
-      status: 'sent',
-    });
-    
-    return true;
-  }
-  
-  return false;
-}
-
-async function handleReportButtonReply(
-  accountId: string,
-  reportId: string,
-  action: 'download' | 'status',
-  conversationId: string,
-  contactId: string,
-  userId: string
-): Promise<boolean> {
-  const db = supabaseAdmin();
-  
-  const { data: report, error } = await db
-    .from('hospital_lab_reports')
-    .select('id, test_name, status, expected_delivery_date, report_pdf_url, department, doctor:hospital_doctors(name)')
-    .eq('id', reportId)
-    .single();
-    
-  if (error || !report) {
-    console.error('[Report Button] Report not found:', error);
-    return false;
-  }
-
-  const { engineSendText, engineSendDocument } = await import('@/lib/automations/meta-send');
-  const docData = report.doctor as any;
-  const docName = (Array.isArray(docData) ? docData[0]?.name : docData?.name) || 'Doctor';
-
-  if (action === 'download' && report.report_pdf_url) {
-    await engineSendDocument({
-      accountId,
-      userId,
-      conversationId,
-      contactId,
-      documentUrl: report.report_pdf_url,
-      filename: `${report.test_name.replace(/\s+/g, '_')}_Report.pdf`,
-      caption: `Here is your ${report.test_name} report from Dr. ${docName}.`,
-    });
-    return true;
-  }
-
-  let statusMsg = '';
-  switch (report.status) {
-    case 'pending':
-      statusMsg = `Your *${report.test_name}* report request has been received.\n\n📋 Status: *Pending*\n📅 Expected Delivery: ${report.expected_delivery_date || 'To be determined'}\n\nWe will notify you as soon as it becomes available.`;
-      break;
-    case 'processing':
-      statusMsg = `Your *${report.test_name}* report is currently being processed.\n\n📋 Status: *Processing*\n📅 Expected Completion: ${report.expected_delivery_date || 'To be determined'}\n\nThank you for your patience.`;
-      break;
-    case 'ready':
-      statusMsg = `Great news! Your *${report.test_name}* report is now *Ready*!\n\n🏥 Department: ${report.department || 'General'}\n👨‍⚕️ Doctor: Dr. ${docName}\n\n${report.report_pdf_url ? 'Your report PDF is being sent now.' : 'Please visit the hospital reception to collect your report.'}`;
-      if (report.report_pdf_url) {
-        engineSendDocument({
-          accountId, userId, conversationId, contactId,
-          documentUrl: report.report_pdf_url,
-          filename: `${report.test_name.replace(/\s+/g, '_')}_Report.pdf`,
-          caption: `${report.test_name} Report`,
-        }).catch(e => console.error('[Report Button] PDF send error:', e));
-      }
-      break;
-    case 'delivered':
-      statusMsg = `Your *${report.test_name}* report has already been delivered.\n\nIf you need another copy, please contact the hospital reception.`;
-      break;
-    default:
-      statusMsg = `Your *${report.test_name}* report status is: ${report.status}.`;
-  }
-
-  await engineSendText({ accountId, userId, conversationId, contactId, text: statusMsg });
-  return true;
 }

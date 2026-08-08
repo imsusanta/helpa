@@ -1,0 +1,555 @@
+import { createClient } from '@supabase/supabase-js';
+import { normalizePhone } from '@/lib/whatsapp/phone-utils';
+import { runAutomationsForTrigger } from '@/lib/automations/engine';
+import { dispatchInboundToFlows } from '@/lib/flows/engine';
+import { triggerAiResponse } from '@/lib/whatsapp/ai';
+import { parseMessageContent } from './parse-event';
+import { findOrCreateContact } from './contact-service';
+import {
+  findOrCreateConversation,
+  lookupInternalIdByMetaId,
+  flagBroadcastReplyIfAny,
+} from './conversation-service';
+import { handleReaction } from './process-reaction';
+import type { WhatsAppMessage } from './types';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _adminClient: any = null;
+function supabaseAdmin() {
+  if (!_adminClient) {
+    _adminClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+  }
+  return _adminClient;
+}
+
+export async function handleReminderReplyAction(
+  accountId: string,
+  apptId: string,
+  action: string,
+  conversationId: string,
+  contactId: string,
+  userId: string
+): Promise<boolean> {
+  const db = supabaseAdmin();
+
+  // 1. Fetch appointment details
+  const { data: appt, error: apptErr } = await db
+    .from('appointments')
+    .select(
+      'id, appointment_date, appointment_time, doctor:hospital_doctors(id, name, department)'
+    )
+    .eq('id', apptId)
+    .single();
+
+  if (apptErr || !appt) {
+    console.error('[Reminder Interceptor] Appointment not found:', apptErr);
+    return false;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const docData = appt.doctor as any;
+  const docName =
+    (Array.isArray(docData) ? docData[0]?.name : docData?.name) || 'Doctor';
+  const apptDate = appt.appointment_date || 'N/A';
+  const apptTime = appt.appointment_time
+    ? appt.appointment_time.substring(0, 5)
+    : 'N/A';
+
+  const { engineSendText } = await import('@/lib/automations/meta-send');
+
+  if (action === 'confirm') {
+    await db
+      .from('appointments')
+      .update({ status: 'Confirmed' })
+      .eq('id', apptId);
+
+    await db.from('contact_notes').insert({
+      account_id: accountId,
+      contact_id: contactId,
+      note_text: `[Timeline] Patient Confirmed Appointment via WhatsApp for Dr. ${docName} on ${apptDate} at ${apptTime}.`,
+    });
+
+    await engineSendText({
+      accountId,
+      userId,
+      conversationId,
+      contactId,
+      text: `Thank you! Your appointment with Dr. ${docName} on ${apptDate} at ${apptTime} has been successfully confirmed. We look forward to seeing you.`,
+    });
+
+    await db.from('messages').insert({
+      conversation_id: conversationId,
+      sender_type: 'bot',
+      content_type: 'text',
+      content_text: `[System Alert] Patient confirmed their appointment with Dr. ${docName} on ${apptDate} at ${apptTime}.`,
+      status: 'sent',
+    });
+
+    return true;
+  }
+
+  if (action === 'resched') {
+    await db
+      .from('appointments')
+      .update({ status: 'Reschedule Requested' })
+      .eq('id', apptId);
+
+    await db.from('contact_notes').insert({
+      account_id: accountId,
+      contact_id: contactId,
+      note_text: `[Timeline] Patient Requested Reschedule via WhatsApp for appointment with Dr. ${docName} on ${apptDate} at ${apptTime}.`,
+    });
+
+    await engineSendText({
+      accountId,
+      userId,
+      conversationId,
+      contactId,
+      text: `Certainly! I will help you reschedule your appointment with Dr. ${docName}. Please reply with your preferred new date and time, and I will check availability for you.`,
+    });
+
+    await db.from('messages').insert({
+      conversation_id: conversationId,
+      sender_type: 'bot',
+      content_type: 'text',
+      content_text: `[System Alert] Patient requested a reschedule for their appointment with Dr. ${docName} on ${apptDate} at ${apptTime}.`,
+      status: 'sent',
+    });
+
+    return true;
+  }
+
+  if (action === 'cancel') {
+    await db
+      .from('appointments')
+      .update({ status: 'Cancelled' })
+      .eq('id', apptId);
+
+    await db.from('contact_notes').insert({
+      account_id: accountId,
+      contact_id: contactId,
+      note_text: `[Timeline] Patient Cancelled Appointment via WhatsApp for Dr. ${docName} on ${apptDate} at ${apptTime}.`,
+    });
+
+    await engineSendText({
+      accountId,
+      userId,
+      conversationId,
+      contactId,
+      text: `Your appointment with Dr. ${docName} on ${apptDate} at ${apptTime} has been cancelled as requested. If you wish to schedule a new visit in the future, please let us know.`,
+    });
+
+    await db.from('messages').insert({
+      conversation_id: conversationId,
+      sender_type: 'bot',
+      content_type: 'text',
+      content_text: `[System Alert] Patient cancelled their appointment with Dr. ${docName} on ${apptDate} at ${apptTime}.`,
+      status: 'sent',
+    });
+
+    return true;
+  }
+
+  return false;
+}
+
+export async function handleReportButtonReply(
+  accountId: string,
+  reportId: string,
+  action: 'download' | 'status',
+  conversationId: string,
+  contactId: string,
+  userId: string
+): Promise<boolean> {
+  const db = supabaseAdmin();
+
+  const { data: report, error } = await db
+    .from('hospital_lab_reports')
+    .select(
+      'id, test_name, status, expected_delivery_date, report_pdf_url, department, doctor:hospital_doctors(name)'
+    )
+    .eq('id', reportId)
+    .single();
+
+  if (error || !report) {
+    console.error('[Report Button] Report not found:', error);
+    return false;
+  }
+
+  const { engineSendText, engineSendDocument } =
+    await import('@/lib/automations/meta-send');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const docData = report.doctor as any;
+  const docName =
+    (Array.isArray(docData) ? docData[0]?.name : docData?.name) || 'Doctor';
+
+  if (action === 'download' && report.report_pdf_url) {
+    await engineSendDocument({
+      accountId,
+      userId,
+      conversationId,
+      contactId,
+      documentUrl: report.report_pdf_url,
+      filename: `${report.test_name.replace(/\s+/g, '_')}_Report.pdf`,
+      caption: `Here is your ${report.test_name} report from Dr. ${docName}.`,
+    });
+    return true;
+  }
+
+  let statusMsg = '';
+  switch (report.status) {
+    case 'pending':
+      statusMsg = `Your *${report.test_name}* report request has been received.\n\n📋 Status: *Pending*\n📅 Expected Delivery: ${report.expected_delivery_date || 'To be determined'}\n\nWe will notify you as soon as it becomes available.`;
+      break;
+    case 'processing':
+      statusMsg = `Your *${report.test_name}* report is currently being processed.\n\n📋 Status: *Processing*\n📅 Expected Completion: ${report.expected_delivery_date || 'To be determined'}\n\nThank you for your patience.`;
+      break;
+    case 'ready':
+      statusMsg = `Great news! Your *${report.test_name}* report is now *Ready*!\n\n🏥 Department: ${report.department || 'General'}\n👨‍⚕️ Doctor: Dr. ${docName}\n\n${report.report_pdf_url ? 'Your report PDF is being sent now.' : 'Please visit the hospital reception to collect your report.'}`;
+      if (report.report_pdf_url) {
+        engineSendDocument({
+          accountId,
+          userId,
+          conversationId,
+          contactId,
+          documentUrl: report.report_pdf_url,
+          filename: `${report.test_name.replace(/\s+/g, '_')}_Report.pdf`,
+          caption: `${report.test_name} Report`,
+        }).catch((e) => console.error('[Report Button] PDF send error:', e));
+      }
+      break;
+    case 'delivered':
+      statusMsg = `Your *${report.test_name}* report has already been delivered.\n\nIf you need another copy, please contact the hospital reception.`;
+      break;
+    default:
+      statusMsg = `Your *${report.test_name}* report status is: ${report.status}.`;
+  }
+
+  await engineSendText({
+    accountId,
+    userId,
+    conversationId,
+    contactId,
+    text: statusMsg,
+  });
+  return true;
+}
+
+export async function processMessage(
+  message: WhatsAppMessage,
+  contact: { profile: { name: string }; wa_id: string },
+  accountId: string,
+  configOwnerUserId: string,
+  accessToken: string
+) {
+  const senderPhone = normalizePhone(message.from);
+  const contactName = contact.profile.name;
+
+  // Find or create contact
+  const contactOutcome = await findOrCreateContact(
+    accountId,
+    configOwnerUserId,
+    senderPhone,
+    contactName
+  );
+  if (!contactOutcome) return;
+  const contactRecord = contactOutcome.contact;
+
+  // Find or create conversation
+  const conversation = await findOrCreateConversation(
+    accountId,
+    configOwnerUserId,
+    contactRecord.id
+  );
+  if (!conversation) return;
+
+  // Reactions short-circuit
+  if (message.type === 'reaction') {
+    await handleReaction(message, conversation.id, contactRecord.id);
+    return;
+  }
+
+  // Parse message content
+  const { contentText, mediaUrl, mediaType, interactiveReplyId } =
+    await parseMessageContent(message, accessToken);
+  void mediaType;
+
+  // Resolve reply context if present
+  let replyToInternalId: string | null = null;
+  if (message.context?.id) {
+    replyToInternalId = await lookupInternalIdByMetaId(
+      message.context.id,
+      conversation.id
+    );
+    if (!replyToInternalId) {
+      console.warn(
+        '[webhook] reply context parent not found:',
+        message.context.id
+      );
+    }
+  }
+
+  const ALLOWED_CONTENT_TYPES = new Set([
+    'text',
+    'image',
+    'document',
+    'audio',
+    'video',
+    'location',
+    'template',
+    'interactive',
+  ]);
+  const contentType = ALLOWED_CONTENT_TYPES.has(message.type)
+    ? message.type
+    : message.type === 'sticker'
+      ? 'image'
+      : 'text';
+
+  const { count: priorCustomerMsgCount } = await supabaseAdmin()
+    .from('messages')
+    .select('id', { count: 'exact', head: true })
+    .eq('conversation_id', conversation.id)
+    .eq('sender_type', 'customer');
+  const isFirstInboundMessage = (priorCustomerMsgCount ?? 0) === 0;
+
+  const { error: msgError } = await supabaseAdmin()
+    .from('messages')
+    .insert({
+      conversation_id: conversation.id,
+      sender_type: 'customer',
+      content_type: contentType,
+      content_text: contentText,
+      media_url: mediaUrl,
+      message_id: message.id,
+      status: 'delivered',
+      created_at: new Date(parseInt(message.timestamp) * 1000).toISOString(),
+      reply_to_message_id: replyToInternalId,
+      interactive_reply_id: interactiveReplyId,
+    });
+
+  if (msgError) {
+    console.error('Error inserting message:', msgError);
+    return;
+  }
+
+  // Update conversation
+  const messageDate = new Date(parseInt(message.timestamp) * 1000);
+  const existingLastMessageAt = conversation.last_message_at
+    ? new Date(conversation.last_message_at)
+    : null;
+  const shouldUpdatePreview =
+    !existingLastMessageAt || messageDate >= existingLastMessageAt;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const convUpdatePayload: any = {
+    unread_count: (conversation.unread_count || 0) + 1,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (shouldUpdatePreview) {
+    convUpdatePayload.last_message_text = contentText || `[${message.type}]`;
+    convUpdatePayload.last_message_at = messageDate.toISOString();
+  }
+
+  const { error: convError } = await supabaseAdmin()
+    .from('conversations')
+    .update(convUpdatePayload)
+    .eq('id', conversation.id);
+
+  if (convError) {
+    console.error('Error updating conversation:', convError);
+  }
+
+  await flagBroadcastReplyIfAny(accountId, contactRecord.id);
+
+  // Smart Interceptions (Reminders & Reports)
+  try {
+    let reminderHandled = false;
+
+    if (
+      interactiveReplyId &&
+      (interactiveReplyId.startsWith('rem_confirm_') ||
+        interactiveReplyId.startsWith('rem_resched_') ||
+        interactiveReplyId.startsWith('rem_cancel_'))
+    ) {
+      const parts = interactiveReplyId.split('_');
+      const action = parts[1];
+      const apptId = parts[2];
+
+      reminderHandled = await handleReminderReplyAction(
+        accountId,
+        apptId,
+        action,
+        conversation.id,
+        contactRecord.id,
+        configOwnerUserId
+      );
+    } else {
+      const cleanedText = (contentText || '').trim().toLowerCase();
+
+      const { data: reminderAppt } = await supabaseAdmin()
+        .from('appointments')
+        .select('id, status')
+        .eq('account_id', accountId)
+        .eq('patient_id', contactRecord.id)
+        .eq('status', 'Reminder Sent')
+        .order('appointment_date', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (reminderAppt) {
+        let matchedAction: 'confirm' | 'resched' | 'cancel' | null = null;
+        const isConfirm = [
+          '1',
+          'confirm',
+          'yes',
+          'coming',
+          "i'll be there",
+          'ill be there',
+        ].includes(cleanedText);
+        const isResched = [
+          '2',
+          'reschedule',
+          'change time',
+          'another date',
+          'change date',
+          'resched',
+        ].includes(cleanedText);
+        const isCancel = [
+          '3',
+          'cancel',
+          "i can't come",
+          'cant come',
+          'cannot come',
+        ].includes(cleanedText);
+
+        if (isConfirm) matchedAction = 'confirm';
+        else if (isResched) matchedAction = 'resched';
+        else if (isCancel) matchedAction = 'cancel';
+
+        if (matchedAction) {
+          reminderHandled = await handleReminderReplyAction(
+            accountId,
+            reminderAppt.id,
+            matchedAction,
+            conversation.id,
+            contactRecord.id,
+            configOwnerUserId
+          );
+        }
+      }
+    }
+
+    if (reminderHandled) return;
+
+    // Report Status button replies
+    let reportHandled = false;
+    if (
+      interactiveReplyId &&
+      (interactiveReplyId.startsWith('report_download_') ||
+        interactiveReplyId.startsWith('report_status_'))
+    ) {
+      const reportId = interactiveReplyId.replace(
+        /^report_(download|status)_/,
+        ''
+      );
+      reportHandled = await handleReportButtonReply(
+        accountId,
+        reportId,
+        interactiveReplyId.startsWith('report_download_')
+          ? 'download'
+          : 'status',
+        conversation.id,
+        contactRecord.id,
+        configOwnerUserId
+      );
+    }
+
+    if (reportHandled) return;
+  } catch (err) {
+    console.error(
+      '[Webhook Interception] Failed to process action safely:',
+      err
+    );
+  }
+
+  // Flow runner, Automations, AI
+  try {
+    const flowResult = await dispatchInboundToFlows({
+      accountId,
+      userId: configOwnerUserId,
+      contactId: contactRecord.id,
+      conversationId: conversation.id,
+      message: interactiveReplyId
+        ? {
+            kind: 'interactive_reply',
+            reply_id: interactiveReplyId,
+            reply_title: contentText ?? '',
+            meta_message_id: message.id,
+          }
+        : {
+            kind: 'text',
+            text: contentText ?? message.text?.body ?? '',
+            meta_message_id: message.id,
+          },
+      isFirstInboundMessage,
+    });
+    const flowConsumed = flowResult.consumed;
+
+    const inboundText = contentText ?? message.text?.body ?? '';
+    const automationTriggers: (
+      | 'new_contact_created'
+      | 'first_inbound_message'
+      | 'new_message_received'
+      | 'keyword_match'
+    )[] = [];
+
+    if (!flowConsumed) {
+      automationTriggers.push('new_message_received', 'keyword_match');
+    }
+    if (contactOutcome.wasCreated)
+      automationTriggers.unshift('new_contact_created');
+    if (isFirstInboundMessage)
+      automationTriggers.unshift('first_inbound_message');
+
+    const automationPromise = (async () => {
+      for (const triggerType of automationTriggers) {
+        try {
+          await runAutomationsForTrigger({
+            accountId,
+            triggerType,
+            contactId: contactRecord.id,
+            context: {
+              message_text: inboundText,
+              conversation_id: conversation.id,
+            },
+          });
+        } catch (err) {
+          console.error('[automations] dispatch failed:', err);
+        }
+      }
+    })();
+
+    const aiPromise = (async () => {
+      if (conversation.ai_chat_enabled !== false && !flowConsumed) {
+        try {
+          await triggerAiResponse({
+            accountId,
+            userId: configOwnerUserId,
+            conversationId: conversation.id,
+            contactId: contactRecord.id,
+          });
+        } catch (err) {
+          console.error('[AI Assistant] trigger error:', err);
+        }
+      }
+    })();
+
+    await Promise.all([automationPromise, aiPromise]);
+  } catch (backgroundErr) {
+    console.error('[Webhook Background execution] error:', backgroundErr);
+  }
+}

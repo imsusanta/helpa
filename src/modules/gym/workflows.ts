@@ -11,9 +11,9 @@ export const workflowsConfig: WorkflowSeed[] = [
       {
         step_type: 'send_message',
         step_config: {
-          text: "Welcome to our Gym & Fitness center! 🏋 Contact us to book a free trial class."
-        }
-      }
-    ]
-  }
+          text: 'Welcome to our Gym & Fitness center! 🏋 Contact us to book a free trial class.',
+        },
+      },
+    ],
+  },
 ];

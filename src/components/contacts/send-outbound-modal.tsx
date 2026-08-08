@@ -16,7 +16,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { MessageSquare, Send, Loader2, User, Phone, CheckCircle2 } from 'lucide-react';
+import {
+  MessageSquare,
+  Send,
+  Loader2,
+  User,
+  Phone,
+  CheckCircle2,
+} from 'lucide-react';
 import type { Contact } from '@/types';
 
 interface SendOutboundModalProps {
@@ -81,11 +88,17 @@ export function SendOutboundModal({
   function setQuickTemplate(type: 'welcome' | 'appointment' | 'report') {
     const patientName = customName || 'Patient';
     if (type === 'welcome') {
-      setMessage(`Hello ${patientName}, welcome to *${businessName}*! 🏥 How can we assist you with your healthcare and consultation needs today?`);
+      setMessage(
+        `Hello ${patientName}, welcome to *${businessName}*! 🏥 How can we assist you with your healthcare and consultation needs today?`
+      );
     } else if (type === 'appointment') {
-      setMessage(`Hello ${patientName}, this is a reminder from *${businessName}* regarding your upcoming doctor consultation appointment. Please let us know if you need to confirm or reschedule.`);
+      setMessage(
+        `Hello ${patientName}, this is a reminder from *${businessName}* regarding your upcoming doctor consultation appointment. Please let us know if you need to confirm or reschedule.`
+      );
     } else if (type === 'report') {
-      setMessage(`Hello ${patientName}, your diagnostic lab test report from *${businessName}* is ready. You can reply 'REPORT' to get your report PDF directly on WhatsApp.`);
+      setMessage(
+        `Hello ${patientName}, your diagnostic lab test report from *${businessName}* is ready. You can reply 'REPORT' to get your report PDF directly on WhatsApp.`
+      );
     }
   }
 
@@ -121,13 +134,17 @@ export function SendOutboundModal({
         throw new Error(data.error || 'Failed to send outbound message');
       }
 
-      toast.success(`Outbound WhatsApp message sent to ${customName || targetPhone}!`);
+      toast.success(
+        `Outbound WhatsApp message sent to ${customName || targetPhone}!`
+      );
       setMessage('');
       onOpenChange(false);
       if (onSuccess) onSuccess();
     } catch (err: any) {
       console.error('Outbound message failed:', err);
-      toast.error('Failed to send outbound message: ' + (err.message || 'Unknown error'));
+      toast.error(
+        'Failed to send outbound message: ' + (err.message || 'Unknown error')
+      );
     } finally {
       setSending(false);
     }
@@ -142,7 +159,9 @@ export function SendOutboundModal({
               <MessageSquare className="size-5" />
             </div>
             <div>
-              <DialogTitle className="text-popover-foreground">Send Outbound WhatsApp Message</DialogTitle>
+              <DialogTitle className="text-popover-foreground">
+                Send Outbound WhatsApp Message
+              </DialogTitle>
               <DialogDescription className="text-muted-foreground text-xs">
                 Directly contact patients or leads on WhatsApp
               </DialogDescription>
@@ -153,12 +172,14 @@ export function SendOutboundModal({
         <div className="space-y-4 py-2">
           {!defaultContact && (
             <div className="space-y-1.5">
-              <Label className="text-muted-foreground text-xs">Select Existing Patient / Contact</Label>
+              <Label className="text-muted-foreground text-xs">
+                Select Existing Patient / Contact
+              </Label>
               <select
                 value={selectedContactId}
                 onChange={(e) => handleSelectContact(e.target.value)}
                 disabled={loadingContacts}
-                className="flex h-9 w-full rounded-md border border-border bg-muted px-3 py-1 text-sm text-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="border-border bg-muted text-foreground focus-visible:ring-ring flex h-9 w-full rounded-md border px-3 py-1 text-sm shadow-sm transition-colors focus-visible:ring-1 focus-visible:outline-none"
               >
                 <option value="">-- Or enter new phone below --</option>
                 {contacts.map((c) => (
@@ -172,7 +193,9 @@ export function SendOutboundModal({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-muted-foreground text-xs">Patient / Contact Name</Label>
+              <Label className="text-muted-foreground text-xs">
+                Patient / Contact Name
+              </Label>
               <Input
                 value={customName}
                 onChange={(e) => setCustomName(e.target.value)}
@@ -188,15 +211,19 @@ export function SendOutboundModal({
                 value={customPhone}
                 onChange={(e) => setCustomPhone(e.target.value)}
                 placeholder="+919876543210"
-                className="bg-muted border-border text-foreground h-9 text-sm font-mono"
+                className="bg-muted border-border text-foreground h-9 font-mono text-sm"
               />
             </div>
           </div>
 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <Label className="text-muted-foreground text-xs">Quick Templates</Label>
-              <span className="text-[10px] text-muted-foreground">Click to insert</span>
+              <Label className="text-muted-foreground text-xs">
+                Quick Templates
+              </Label>
+              <span className="text-muted-foreground text-[10px]">
+                Click to insert
+              </span>
             </div>
             <div className="flex flex-wrap gap-1.5">
               <Button
@@ -204,7 +231,7 @@ export function SendOutboundModal({
                 variant="outline"
                 size="sm"
                 onClick={() => setQuickTemplate('welcome')}
-                className="text-[11px] h-7 bg-muted/60 hover:bg-muted border-border"
+                className="bg-muted/60 hover:bg-muted border-border h-7 text-[11px]"
               >
                 👋 Welcome
               </Button>
@@ -213,7 +240,7 @@ export function SendOutboundModal({
                 variant="outline"
                 size="sm"
                 onClick={() => setQuickTemplate('appointment')}
-                className="text-[11px] h-7 bg-muted/60 hover:bg-muted border-border"
+                className="bg-muted/60 hover:bg-muted border-border h-7 text-[11px]"
               >
                 📅 Doctor Appointment
               </Button>
@@ -222,7 +249,7 @@ export function SendOutboundModal({
                 variant="outline"
                 size="sm"
                 onClick={() => setQuickTemplate('report')}
-                className="text-[11px] h-7 bg-muted/60 hover:bg-muted border-border"
+                className="bg-muted/60 hover:bg-muted border-border h-7 text-[11px]"
               >
                 📋 Lab Report
               </Button>
@@ -237,7 +264,7 @@ export function SendOutboundModal({
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Type your WhatsApp message to the patient here..."
-              className="bg-muted border-border text-foreground text-sm min-h-[100px] resize-none"
+              className="bg-muted border-border text-foreground min-h-[100px] resize-none text-sm"
             />
           </div>
         </div>
@@ -253,9 +280,13 @@ export function SendOutboundModal({
           <Button
             onClick={handleSend}
             disabled={sending || !customPhone.trim() || !message.trim()}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium gap-1.5"
+            className="gap-1.5 bg-emerald-600 font-medium text-white hover:bg-emerald-700"
           >
-            {sending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+            {sending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Send className="size-4" />
+            )}
             Send Outbound WhatsApp
           </Button>
         </DialogFooter>

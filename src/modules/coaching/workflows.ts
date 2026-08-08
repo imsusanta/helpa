@@ -11,9 +11,9 @@ export const workflowsConfig: WorkflowSeed[] = [
       {
         step_type: 'send_message',
         step_config: {
-          text: "Welcome to our Coaching Institute! 🏫 How can we help you with your studies or exam preparation today?"
-        }
-      }
-    ]
-  }
+          text: 'Welcome to our Coaching Institute! 🏫 How can we help you with your studies or exam preparation today?',
+        },
+      },
+    ],
+  },
 ];

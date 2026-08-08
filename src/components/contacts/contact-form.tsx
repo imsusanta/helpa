@@ -62,9 +62,10 @@ export function ContactForm({
   const [saving, setSaving] = useState(false);
 
   // Duplicate-phone detection for NEW contacts.
-  const [dupMatch, setDupMatch] = useState<
-    { contact: ExistingContact; exact: boolean } | null
-  >(null);
+  const [dupMatch, setDupMatch] = useState<{
+    contact: ExistingContact;
+    exact: boolean;
+  } | null>(null);
   const [checkingDup, setCheckingDup] = useState(false);
 
   const [tags, setTags] = useState<Tag[]>([]);
@@ -98,7 +99,7 @@ export function ContactForm({
       setDupMatch(
         existing
           ? { contact: existing, exact: isExactMatch(existing, value) }
-          : null,
+          : null
       );
     } finally {
       setCheckingDup(false);
@@ -107,10 +108,7 @@ export function ContactForm({
 
   async function fetchTags() {
     setLoadingTags(true);
-    const { data } = await supabase
-      .from('tags')
-      .select('*')
-      .order('name');
+    const { data } = await supabase.from('tags').select('*').order('name');
     if (data) setTags(data);
     setLoadingTags(false);
   }
@@ -132,7 +130,9 @@ export function ContactForm({
     }
 
     if (!isEdit && !isHospitalWorkspace && dupMatch?.exact) {
-      toast.error(`A ${entityLabel.toLowerCase()} with this phone number already exists`);
+      toast.error(
+        `A ${entityLabel.toLowerCase()} with this phone number already exists`
+      );
       return;
     }
 
@@ -152,7 +152,8 @@ export function ContactForm({
       } = await supabase.auth.getSession();
       const user = session?.user;
       if (!user) throw new Error('Not authenticated');
-      if (!accountId) throw new Error('Your profile is not linked to an account.');
+      if (!accountId)
+        throw new Error('Your profile is not linked to an account.');
 
       let contactId = contact?.id;
       const contactMetadata = { ...metadata };
@@ -205,7 +206,10 @@ export function ContactForm({
           .maybeSingle();
 
         let seqId = existingPatient?.patient_seq_id;
-        const inputBloodGroup = (contactMetadata as any).blood_group || (contactMetadata as any)['Blood Group'] || null;
+        const inputBloodGroup =
+          (contactMetadata as any).blood_group ||
+          (contactMetadata as any)['Blood Group'] ||
+          null;
 
         if (!existingPatient) {
           const { data: maxPatient } = await supabase
@@ -233,7 +237,10 @@ export function ContactForm({
             blood_group: inputBloodGroup,
             status: 'active',
           });
-        } else if (inputBloodGroup && inputBloodGroup !== existingPatient.blood_group) {
+        } else if (
+          inputBloodGroup &&
+          inputBloodGroup !== existingPatient.blood_group
+        ) {
           await supabase
             .from('patients')
             .update({ blood_group: inputBloodGroup })
@@ -274,27 +281,34 @@ export function ContactForm({
         }
       }
 
-      toast.success(isEdit ? `${entityLabel} updated` : `${entityLabel} created`);
+      toast.success(
+        isEdit ? `${entityLabel} updated` : `${entityLabel} created`
+      );
       onOpenChange(false);
       onSaved();
     } catch (err: unknown) {
       if (isUniqueViolation(err)) {
         if (isHospitalWorkspace) {
-          toast.error('Could not assign a unique Patient ID. Please try again.');
+          toast.error(
+            'Could not assign a unique Patient ID. Please try again.'
+          );
           return;
         }
-        toast.error(`A ${entityLabel.toLowerCase()} with this phone number already exists`);
+        toast.error(
+          `A ${entityLabel.toLowerCase()} with this phone number already exists`
+        );
         if (!isEdit && accountId) {
           const existing = await findExistingContact(
             supabase,
             accountId,
-            phone.trim(),
+            phone.trim()
           );
           if (existing) setDupMatch({ contact: existing, exact: true });
         }
         return;
       }
-      const message = err instanceof Error ? err.message : 'Failed to save contact';
+      const message =
+        err instanceof Error ? err.message : 'Failed to save contact';
       toast.error(message);
     } finally {
       setSaving(false);
@@ -303,7 +317,7 @@ export function ContactForm({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-popover border-border text-popover-foreground sm:max-w-md max-h-[85vh] overflow-y-auto">
+      <DialogContent className="bg-popover border-border text-popover-foreground max-h-[85vh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-popover-foreground">
             {isEdit ? `Edit ${entityLabel}` : `Add ${entityLabel}`}
@@ -360,8 +374,8 @@ export function ContactForm({
                     {dupMatch.exact && isHospitalWorkspace
                       ? 'This mobile number is already used by another patient. You can add this patient with a new Patient ID.'
                       : dupMatch.exact
-                      ? `A ${entityLabel.toLowerCase()} with this phone number already exists.`
-                      : `A ${entityLabel.toLowerCase()} with a very similar number already exists.`}
+                        ? `A ${entityLabel.toLowerCase()} with this phone number already exists.`
+                        : `A ${entityLabel.toLowerCase()} with a very similar number already exists.`}
                   </p>
                   {onViewExisting && (
                     <button
@@ -375,7 +389,7 @@ export function ContactForm({
                 </div>
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-muted-foreground text-xs">
                 Include country code, e.g. +1 for US
               </p>
             )}
@@ -410,21 +424,30 @@ export function ContactForm({
 
           {/* Industry Custom Fields */}
           {customFields.length > 0 && (
-            <div className="pt-2 border-t border-border/50 space-y-4">
-              <span className="text-xs font-semibold text-primary uppercase block">
+            <div className="border-border/50 space-y-4 border-t pt-2">
+              <span className="text-primary block text-xs font-semibold uppercase">
                 {entityLabel} Information
               </span>
               {customFields.map((field) => {
                 const value = metadata[field.key] ?? '';
-                const isGeneratedPatientId = isHospitalWorkspace && field.key === 'patient_id';
+                const isGeneratedPatientId =
+                  isHospitalWorkspace && field.key === 'patient_id';
                 const handleChange = (val: any) => {
                   setMetadata((prev) => ({ ...prev, [field.key]: val }));
                 };
 
                 return (
                   <div key={field.key} className="space-y-2">
-                    <Label htmlFor={`cf-${field.key}`} className="text-muted-foreground">
-                      {field.label} {isGeneratedPatientId ? '(assigned automatically)' : field.required && <span className="text-red-400">*</span>}
+                    <Label
+                      htmlFor={`cf-${field.key}`}
+                      className="text-muted-foreground"
+                    >
+                      {field.label}{' '}
+                      {isGeneratedPatientId
+                        ? '(assigned automatically)'
+                        : field.required && (
+                            <span className="text-red-400">*</span>
+                          )}
                     </Label>
                     {isGeneratedPatientId ? (
                       <Input
@@ -438,7 +461,7 @@ export function ContactForm({
                         id={`cf-${field.key}`}
                         value={value}
                         onChange={(e) => handleChange(e.target.value)}
-                        className="flex h-9 w-full rounded-md border border-border bg-muted px-3 py-1 text-sm text-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        className="border-border bg-muted text-foreground focus-visible:ring-ring flex h-9 w-full rounded-md border px-3 py-1 text-sm shadow-sm transition-colors focus-visible:ring-1 focus-visible:outline-none"
                       >
                         <option value="">Select option...</option>
                         {field.options?.map((opt) => (
@@ -495,12 +518,12 @@ export function ContactForm({
           <div className="space-y-2">
             <Label className="text-muted-foreground">Tags</Label>
             {loadingTags ? (
-              <div className="flex items-center gap-2 text-muted-foreground text-sm">
+              <div className="text-muted-foreground flex items-center gap-2 text-sm">
                 <Loader2 className="size-3 animate-spin" />
                 Loading tags...
               </div>
             ) : tags.length === 0 ? (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-muted-foreground text-xs">
                 No tags available. Create tags in Settings.
               </p>
             ) : (
@@ -512,9 +535,9 @@ export function ContactForm({
                       key={tag.id}
                       type="button"
                       onClick={() => toggleTag(tag.id)}
-                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors cursor-pointer ${
+                      className={`inline-flex cursor-pointer items-center rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors ${
                         selected
-                          ? 'ring-2 ring-primary ring-offset-1 ring-offset-border'
+                          ? 'ring-primary ring-offset-border ring-2 ring-offset-1'
                           : 'opacity-60 hover:opacity-100'
                       }`}
                       style={{
@@ -531,7 +554,7 @@ export function ContactForm({
             )}
           </div>
 
-          <DialogFooter className="bg-popover border-border pt-2 border-t border-border/50">
+          <DialogFooter className="bg-popover border-border border-border/50 border-t pt-2">
             <Button
               type="button"
               variant="outline"

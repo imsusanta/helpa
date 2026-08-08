@@ -7,7 +7,7 @@ export const dashboardConfig: DashboardMetricWidget[] = [
     iconName: 'MessageSquare',
     queryTable: 'conversations',
     queryType: 'count',
-    queryFilters: [{ field: 'created_at', operator: 'gte', value: 'today' }]
+    queryFilters: [{ field: 'created_at', operator: 'gte', value: 'today' }],
   },
   {
     key: 'new_enquiries',
@@ -15,7 +15,7 @@ export const dashboardConfig: DashboardMetricWidget[] = [
     iconName: 'Users',
     queryTable: 'contacts',
     queryType: 'count',
-    queryFilters: [{ field: 'created_at', operator: 'gte', value: 'today' }]
+    queryFilters: [{ field: 'created_at', operator: 'gte', value: 'today' }],
   },
   {
     key: 'active_students',
@@ -30,6 +30,6 @@ export const dashboardConfig: DashboardMetricWidget[] = [
     iconName: 'Calendar',
     queryTable: 'deals',
     queryType: 'count',
-    queryFilters: [{ field: 'status', operator: 'eq', value: 'open' }]
+    queryFilters: [{ field: 'status', operator: 'eq', value: 'open' }],
   },
 ];

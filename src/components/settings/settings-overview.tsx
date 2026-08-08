@@ -14,7 +14,7 @@ import {
   Utensils,
   Dumbbell,
   HelpCircle,
-  BookOpenCheck
+  BookOpenCheck,
 } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
@@ -60,7 +60,12 @@ const INDUSTRIES: IndustryItem[] = [
     id: 'hospital_clinic',
     name: 'Hospital & Clinic',
     description: 'AI Hospital Receptionist',
-    features: ['Patient Communication', 'Appointment Booking', 'Doctor Directory', 'AI Receptionist'],
+    features: [
+      'Patient Communication',
+      'Appointment Booking',
+      'Doctor Directory',
+      'AI Receptionist',
+    ],
     icon: Stethoscope,
     color: 'text-emerald-500',
     bg: 'bg-emerald-500/5 hover:bg-emerald-500/10',
@@ -70,7 +75,12 @@ const INDUSTRIES: IndustryItem[] = [
     id: 'coaching',
     name: 'Coaching Institute',
     description: 'AI Admission Assistant',
-    features: ['Student Communication', 'Course Enquiries', 'Admission Management', 'AI Counselor'],
+    features: [
+      'Student Communication',
+      'Course Enquiries',
+      'Admission Management',
+      'AI Counselor',
+    ],
     icon: GraduationCap,
     color: 'text-indigo-500',
     bg: 'bg-indigo-500/5 hover:bg-indigo-500/10',
@@ -80,7 +90,12 @@ const INDUSTRIES: IndustryItem[] = [
     id: 'real_estate',
     name: 'Real Estate',
     description: 'AI Property Consultant',
-    features: ['Lead Management', 'Property Enquiries', 'Site Visits', 'AI Sales Assistant'],
+    features: [
+      'Lead Management',
+      'Property Enquiries',
+      'Site Visits',
+      'AI Sales Assistant',
+    ],
     icon: Building2,
     color: 'text-blue-500',
     bg: 'bg-blue-500/5 hover:bg-blue-500/10',
@@ -120,7 +135,12 @@ const INDUSTRIES: IndustryItem[] = [
     id: 'solo_teacher',
     name: 'Solo Teacher',
     description: 'AI Teaching Assistant',
-    features: ['Student Communication', 'Course Management', 'Enrollment Tracking', 'AI Tutor'],
+    features: [
+      'Student Communication',
+      'Course Management',
+      'Enrollment Tracking',
+      'AI Tutor',
+    ],
     icon: BookOpenCheck,
     color: 'text-violet-500',
     bg: 'bg-violet-500/5 hover:bg-violet-500/10',
@@ -153,8 +173,17 @@ export function SettingsOverview({
 }: {
   onSelect: (section: SettingsSection) => void;
 }) {
-  const { user, profile, account, accountId, accountRole, defaultCurrency, canManageMembers, refreshProfile, refreshModules } =
-    useAuth();
+  const {
+    user,
+    profile,
+    account,
+    accountId,
+    accountRole,
+    defaultCurrency,
+    canManageMembers,
+    refreshProfile,
+    refreshModules,
+  } = useAuth();
   const { mode, theme } = useTheme();
 
   const [counts, setCounts] = useState<OverviewCounts | null>(null);
@@ -165,18 +194,25 @@ export function SettingsOverview({
   const [whatsappLoading, setWhatsappLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedIndustry, setSelectedIndustry] = useState<string | null>(null);
-  const [installationStep, setInstallationStep] = useState<'idle' | 'installing' | 'done'>('idle');
+  const [installationStep, setInstallationStep] = useState<
+    'idle' | 'installing' | 'done'
+  >('idle');
   const [checklist, setChecklist] = useState<ChecklistItem[]>([
     { label: 'Installing modules', status: 'idle' },
     { label: 'Creating dashboard', status: 'idle' },
     { label: 'Configuring AI', status: 'idle' },
     { label: 'Preparing Knowledge Base', status: 'idle' },
     { label: 'Preparing Campaign Templates', status: 'idle' },
-    { label: 'Almost Ready...', status: 'idle' }
+    { label: 'Almost Ready...', status: 'idle' },
   ]);
 
-  const updateChecklistItem = (index: number, status: 'idle' | 'loading' | 'done') => {
-    setChecklist(prev => prev.map((item, i) => i === index ? { ...item, status } : item));
+  const updateChecklistItem = (
+    index: number,
+    status: 'idle' | 'loading' | 'done'
+  ) => {
+    setChecklist((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, status } : item))
+    );
   };
 
   const handleOpenModal = () => {
@@ -188,7 +224,7 @@ export function SettingsOverview({
       { label: 'Configuring AI', status: 'idle' },
       { label: 'Preparing Knowledge Base', status: 'idle' },
       { label: 'Preparing Campaign Templates', status: 'idle' },
-      { label: 'Almost Ready...', status: 'idle' }
+      { label: 'Almost Ready...', status: 'idle' },
     ]);
     setModalOpen(true);
   };
@@ -203,19 +239,19 @@ export function SettingsOverview({
 
     try {
       updateChecklistItem(0, 'loading');
-      await new Promise(r => setTimeout(r, 800));
+      await new Promise((r) => setTimeout(r, 800));
       updateChecklistItem(0, 'done');
 
       updateChecklistItem(1, 'loading');
-      await new Promise(r => setTimeout(r, 800));
+      await new Promise((r) => setTimeout(r, 800));
       updateChecklistItem(1, 'done');
 
       updateChecklistItem(2, 'loading');
-      await new Promise(r => setTimeout(r, 850));
+      await new Promise((r) => setTimeout(r, 850));
       updateChecklistItem(2, 'done');
 
       updateChecklistItem(3, 'loading');
-      await new Promise(r => setTimeout(r, 800));
+      await new Promise((r) => setTimeout(r, 800));
       updateChecklistItem(3, 'done');
 
       updateChecklistItem(4, 'loading');
@@ -224,23 +260,24 @@ export function SettingsOverview({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          industry: selectedIndustry
+          industry: selectedIndustry,
         }),
       });
 
       const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'Failed to apply workspace template');
+      if (!response.ok)
+        throw new Error(result.error || 'Failed to apply workspace template');
 
       updateChecklistItem(4, 'done');
 
       updateChecklistItem(5, 'loading');
-      await new Promise(r => setTimeout(r, 800));
+      await new Promise((r) => setTimeout(r, 800));
       updateChecklistItem(5, 'done');
 
       toast.success('Workspace updated successfully!');
       setModalOpen(false);
       setInstallationStep('idle');
-      
+
       // Reload page to force recalculating sidebar items and clean context layouts
       window.location.reload();
     } catch (err: any) {
@@ -265,10 +302,10 @@ export function SettingsOverview({
         .update({ name: businessName.trim() })
         .eq('id', accountId);
       if (error) throw error;
-      toast.success("Business name updated successfully!");
+      toast.success('Business name updated successfully!');
       window.location.reload();
     } catch (err: any) {
-      toast.error("Failed to update business name: " + err.message);
+      toast.error('Failed to update business name: ' + err.message);
     } finally {
       setUpdatingName(false);
     }
@@ -284,34 +321,45 @@ export function SettingsOverview({
     // Cheap counts — resolve fast, render immediately.
     (async () => {
       setCountsLoading(true);
-      const [membersRes, invitesRes, templatesTotal, templatesPending, tagsRes, fieldsRes] =
-        await Promise.allSettled([
-          fetch('/api/account/members', { cache: 'no-store' }).then((r) => r.json()),
-          canManageMembers
-            ? fetch('/api/account/invitations', { cache: 'no-store' }).then((r) =>
-                r.json(),
-              )
-            : Promise.resolve(null),
-          supabase
-            .from('message_templates')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', userId),
-          supabase
-            .from('message_templates')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', userId)
-            .eq('status', 'PENDING'),
-          supabase
-            .from('tags')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', userId),
-          supabase.from('custom_fields').select('id', { count: 'exact', head: true }),
-        ]);
+      const [
+        membersRes,
+        invitesRes,
+        templatesTotal,
+        templatesPending,
+        tagsRes,
+        fieldsRes,
+      ] = await Promise.allSettled([
+        fetch('/api/account/members', { cache: 'no-store' }).then((r) =>
+          r.json()
+        ),
+        canManageMembers
+          ? fetch('/api/account/invitations', { cache: 'no-store' }).then((r) =>
+              r.json()
+            )
+          : Promise.resolve(null),
+        supabase
+          .from('message_templates')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', userId),
+        supabase
+          .from('message_templates')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', userId)
+          .eq('status', 'PENDING'),
+        supabase
+          .from('tags')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', userId),
+        supabase
+          .from('custom_fields')
+          .select('id', { count: 'exact', head: true }),
+      ]);
 
       if (cancelled) return;
 
       const members =
-        membersRes.status === 'fulfilled' && Array.isArray(membersRes.value?.members)
+        membersRes.status === 'fulfilled' &&
+        Array.isArray(membersRes.value?.members)
           ? membersRes.value.members.length
           : null;
       const pendingInvites =
@@ -326,15 +374,18 @@ export function SettingsOverview({
         pendingInvites,
         templates:
           templatesTotal.status === 'fulfilled'
-            ? templatesTotal.value.count ?? null
+            ? (templatesTotal.value.count ?? null)
             : null,
         templatesPending:
           templatesPending.status === 'fulfilled'
-            ? templatesPending.value.count ?? null
+            ? (templatesPending.value.count ?? null)
             : null,
-        tags: tagsRes.status === 'fulfilled' ? tagsRes.value.count ?? null : null,
+        tags:
+          tagsRes.status === 'fulfilled' ? (tagsRes.value.count ?? null) : null,
         customFields:
-          fieldsRes.status === 'fulfilled' ? fieldsRes.value.count ?? null : null,
+          fieldsRes.status === 'fulfilled'
+            ? (fieldsRes.value.count ?? null)
+            : null,
       });
       setCountsLoading(false);
     })();
@@ -348,11 +399,14 @@ export function SettingsOverview({
           .select('phone_number_id')
           .eq('account_id', acctId)
           .maybeSingle(),
-        fetch('/api/whatsapp/config', { cache: 'no-store' }).then((r) => r.json()),
+        fetch('/api/whatsapp/config', { cache: 'no-store' }).then((r) =>
+          r.json()
+        ),
       ]);
       if (cancelled) return;
       setWhatsapp({
-        configured: row.status === 'fulfilled' && !!row.value.data?.phone_number_id,
+        configured:
+          row.status === 'fulfilled' && !!row.value.data?.phone_number_id,
         connected: health.status === 'fulfilled' && !!health.value?.connected,
       });
       setWhatsappLoading(false);
@@ -364,12 +418,15 @@ export function SettingsOverview({
   }, [user, accountId, canManageMembers]);
 
   const displayName = profile?.full_name || profile?.email || 'Your account';
-  const initial = (profile?.full_name || profile?.email || 'U').charAt(0).toUpperCase();
+  const initial = (profile?.full_name || profile?.email || 'U')
+    .charAt(0)
+    .toUpperCase();
   const roleMeta = accountRole ? ROLE_META[accountRole] : null;
   const RoleIcon = roleMeta?.icon;
 
   const currencyLabel =
-    CURRENCIES.find((c) => c.code === defaultCurrency)?.label ?? defaultCurrency;
+    CURRENCIES.find((c) => c.code === defaultCurrency)?.label ??
+    defaultCurrency;
   const themeName = THEMES.find((t) => t.id === theme)?.name ?? theme;
   const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -456,16 +513,16 @@ export function SettingsOverview({
           {profile?.avatar_url ? (
             <AvatarImage src={profile.avatar_url} alt={displayName} />
           ) : null}
-          <AvatarFallback className="bg-primary/10 text-xl text-primary">
+          <AvatarFallback className="bg-primary/10 text-primary text-xl">
             {initial}
           </AvatarFallback>
         </Avatar>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-base font-semibold text-foreground">
+          <div className="text-foreground truncate text-base font-semibold">
             {displayName}
           </div>
           {profile?.email ? (
-            <div className="truncate text-sm text-muted-foreground">
+            <div className="text-muted-foreground truncate text-sm">
               {profile.email}
             </div>
           ) : null}
@@ -479,16 +536,24 @@ export function SettingsOverview({
       </Card>
 
       {/* Business Details Editor */}
-      <Card className="mt-4 p-5 bg-card border border-border rounded-xl shadow-sm space-y-4">
+      <Card className="bg-card border-border mt-4 space-y-4 rounded-xl border p-5 shadow-sm">
         <div>
-          <h4 className="text-sm font-semibold text-foreground">Business Details</h4>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            This name appears in your automated PDF slips, WhatsApp bookings, and team invitations.
+          <h4 className="text-foreground text-sm font-semibold">
+            Business Details
+          </h4>
+          <p className="text-muted-foreground mt-0.5 text-xs">
+            This name appears in your automated PDF slips, WhatsApp bookings,
+            and team invitations.
           </p>
         </div>
-        <div className="flex gap-3 max-w-md items-end">
+        <div className="flex max-w-md items-end gap-3">
           <div className="flex-1 space-y-1.5">
-            <Label htmlFor="workspace-name" className="text-xs font-semibold text-muted-foreground">Business / Workspace Name</Label>
+            <Label
+              htmlFor="workspace-name"
+              className="text-muted-foreground text-xs font-semibold"
+            >
+              Business / Workspace Name
+            </Label>
             <Input
               id="workspace-name"
               value={businessName}
@@ -499,27 +564,34 @@ export function SettingsOverview({
           <Button
             size="sm"
             onClick={handleUpdateBusinessName}
-            disabled={updatingName || businessName.trim() === (account?.name || '')}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg px-4 font-semibold cursor-pointer disabled:opacity-50"
+            disabled={
+              updatingName || businessName.trim() === (account?.name || '')
+            }
+            className="cursor-pointer rounded-lg bg-indigo-600 px-4 font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
           >
-            {updatingName ? "Saving..." : "Save Name"}
+            {updatingName ? 'Saving...' : 'Save Name'}
           </Button>
         </div>
       </Card>
 
       {/* Workspace Switcher / Reset Template */}
-      <Card className="mt-4 flex flex-row items-center justify-between px-5 py-4 bg-card border border-border rounded-xl shadow-sm">
+      <Card className="bg-card border-border mt-4 flex flex-row items-center justify-between rounded-xl border px-5 py-4 shadow-sm">
         <div>
-          <h4 className="text-sm font-semibold text-foreground">Workspace Business Template</h4>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Active industry configuration: <span className="font-bold text-indigo-600 dark:text-indigo-400 capitalize">{account?.industry?.replace('_', ' ') || 'General'}</span>
+          <h4 className="text-foreground text-sm font-semibold">
+            Workspace Business Template
+          </h4>
+          <p className="text-muted-foreground mt-0.5 text-xs">
+            Active industry configuration:{' '}
+            <span className="font-bold text-indigo-600 capitalize dark:text-indigo-400">
+              {account?.industry?.replace('_', ' ') || 'General'}
+            </span>
           </p>
         </div>
         <Button
           variant="outline"
           size="sm"
           onClick={handleOpenModal}
-          className="cursor-pointer text-xs flex items-center gap-1 border-red-200 hover:bg-red-50 hover:text-red-600 dark:border-red-900/30 dark:hover:bg-red-900/10 text-red-500 font-semibold"
+          className="flex cursor-pointer items-center gap-1 border-red-200 text-xs font-semibold text-red-500 hover:bg-red-50 hover:text-red-600 dark:border-red-900/30 dark:hover:bg-red-900/10"
         >
           Change Workspace Template
         </Button>
@@ -536,18 +608,18 @@ export function SettingsOverview({
               type="button"
               onClick={() => onSelect(section)}
               className={cn(
-                'group flex items-start gap-3.5 rounded-xl border border-border bg-card p-4 text-left transition-colors',
-                'hover:border-primary-soft-2 hover:bg-card-2',
+                'group border-border bg-card flex items-start gap-3.5 rounded-xl border p-4 text-left transition-colors',
+                'hover:border-primary-soft-2 hover:bg-card-2'
               )}
             >
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary">
+              <span className="bg-primary-soft text-primary flex size-9 shrink-0 items-center justify-center rounded-lg">
                 <Icon className="size-4" />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold text-foreground">
+                <span className="text-foreground block text-sm font-semibold">
                   {meta.label}
                 </span>
-                <span className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="text-muted-foreground mt-0.5 flex items-center gap-1.5 text-xs">
                   {loading ? (
                     <>
                       <Loader2 className="size-3 animate-spin" /> Loading…
@@ -557,7 +629,7 @@ export function SettingsOverview({
                   )}
                 </span>
               </span>
-              <ChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+              <ChevronRight className="text-muted-foreground size-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
             </button>
           );
         })}
@@ -565,20 +637,23 @@ export function SettingsOverview({
 
       {/* Customize Dialog Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="w-full max-w-4xl bg-card border border-border rounded-2xl shadow-2xl p-6 flex flex-col gap-5 text-left animate-in fade-in zoom-in duration-150">
+        <div className="bg-background/80 fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4 backdrop-blur-sm">
+          <div className="bg-card border-border animate-in fade-in zoom-in flex w-full max-w-4xl flex-col gap-5 rounded-2xl border p-6 text-left shadow-2xl duration-150">
             {/* Modal Header */}
-            <div className="flex items-start justify-between border-b border-border pb-3">
+            <div className="border-border flex items-start justify-between border-b pb-3">
               <div>
-                <h3 className="text-lg font-bold text-foreground">Change Workspace Business Template</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Select a business type to automatically re-configure your workspace layout, AI assistant, and pipeline stages.
+                <h3 className="text-foreground text-lg font-bold">
+                  Change Workspace Business Template
+                </h3>
+                <p className="text-muted-foreground mt-0.5 text-xs">
+                  Select a business type to automatically re-configure your
+                  workspace layout, AI assistant, and pipeline stages.
                 </p>
               </div>
               {installationStep === 'idle' && (
                 <button
                   onClick={() => setModalOpen(false)}
-                  className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition cursor-pointer"
+                  className="hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer rounded-lg p-1.5 transition"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -588,7 +663,7 @@ export function SettingsOverview({
             {/* Modal Body */}
             {installationStep === 'idle' ? (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[350px] overflow-y-auto pr-1">
+                <div className="grid max-h-[350px] grid-cols-1 gap-4 overflow-y-auto pr-1 md:grid-cols-2 lg:grid-cols-3">
                   {INDUSTRIES.map((ind) => {
                     const Icon = ind.icon;
                     const isSelected = selectedIndustry === ind.id;
@@ -597,33 +672,44 @@ export function SettingsOverview({
                         key={ind.id}
                         onClick={() => setSelectedIndustry(ind.id)}
                         className={cn(
-                          "text-left p-3.5 rounded-xl border flex flex-col gap-2 transition cursor-pointer relative group outline-none",
-                          ind.bg, ind.border,
-                          isSelected ? "ring-2 ring-primary border-primary shadow-sm scale-[1.01]" : "hover:scale-[1.01]"
+                          'group relative flex cursor-pointer flex-col gap-2 rounded-xl border p-3.5 text-left transition outline-none',
+                          ind.bg,
+                          ind.border,
+                          isSelected
+                            ? 'ring-primary border-primary scale-[1.01] shadow-sm ring-2'
+                            : 'hover:scale-[1.01]'
                         )}
                       >
                         <div className="flex items-center justify-between">
-                          <div className={cn("p-1.5 rounded-lg bg-background border border-border/50", ind.color)}>
+                          <div
+                            className={cn(
+                              'bg-background border-border/50 rounded-lg border p-1.5',
+                              ind.color
+                            )}
+                          >
                             <Icon className="h-4 w-4" />
                           </div>
                           {isSelected && (
-                            <div className="h-3.5 w-3.5 rounded-full bg-primary flex items-center justify-center text-[9px] text-primary-foreground font-bold">
+                            <div className="bg-primary text-primary-foreground flex h-3.5 w-3.5 items-center justify-center rounded-full text-[9px] font-bold">
                               ✓
                             </div>
                           )}
                         </div>
                         <div>
-                          <h4 className="font-bold text-foreground group-hover:text-primary transition-colors text-xs">
+                          <h4 className="text-foreground group-hover:text-primary text-xs font-bold transition-colors">
                             {ind.name}
                           </h4>
-                          <p className="text-muted-foreground text-[10px] leading-relaxed mt-0.5">
+                          <p className="text-muted-foreground mt-0.5 text-[10px] leading-relaxed">
                             {ind.description}
                           </p>
                         </div>
-                        <div className="space-y-1 border-t border-border/40 pt-1.5 mt-1">
+                        <div className="border-border/40 mt-1 space-y-1 border-t pt-1.5">
                           <div className="flex flex-wrap gap-1">
                             {ind.features.slice(0, 3).map((feat) => (
-                              <span key={feat} className="text-[8px] bg-background border border-border/50 text-muted-foreground px-1 py-0.2 rounded font-semibold">
+                              <span
+                                key={feat}
+                                className="bg-background border-border/50 text-muted-foreground py-0.2 rounded border px-1 text-[8px] font-semibold"
+                              >
                                 {feat}
                               </span>
                             ))}
@@ -634,9 +720,10 @@ export function SettingsOverview({
                   })}
                 </div>
 
-                <div className="flex items-center justify-between border-t border-border pt-4">
-                  <p className="text-[10px] text-muted-foreground italic">
-                    * Changing templates resets existing default workflow automations.
+                <div className="border-border flex items-center justify-between border-t pt-4">
+                  <p className="text-muted-foreground text-[10px] italic">
+                    * Changing templates resets existing default workflow
+                    automations.
                   </p>
                   <div className="flex items-center gap-3">
                     <Button
@@ -651,7 +738,7 @@ export function SettingsOverview({
                       size="sm"
                       disabled={!selectedIndustry}
                       onClick={handleApplyTemplate}
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg px-4 font-semibold cursor-pointer disabled:opacity-50"
+                      className="cursor-pointer rounded-lg bg-indigo-600 px-4 font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
                     >
                       Apply Template Configuration
                     </Button>
@@ -659,18 +746,32 @@ export function SettingsOverview({
                 </div>
               </>
             ) : (
-              <div className="max-w-md mx-auto w-full py-6 space-y-5 text-center">
+              <div className="mx-auto w-full max-w-md space-y-5 py-6 text-center">
                 <div className="space-y-1.5">
-                  <h4 className="text-base font-bold text-foreground">Setting up your new workspace...</h4>
-                  <p className="text-xs text-muted-foreground">Please wait while we install the selected dynamic module templates.</p>
+                  <h4 className="text-foreground text-base font-bold">
+                    Setting up your new workspace...
+                  </h4>
+                  <p className="text-muted-foreground text-xs">
+                    Please wait while we install the selected dynamic module
+                    templates.
+                  </p>
                 </div>
-                <div className="bg-muted/30 border border-border/50 rounded-xl p-5 text-left space-y-3">
+                <div className="bg-muted/30 border-border/50 space-y-3 rounded-xl border p-5 text-left">
                   {checklist.map((item, idx) => (
-                    <div key={idx} className="flex items-center justify-between text-xs">
-                      <span className={cn(
-                        "font-semibold",
-                        item.status === 'done' ? 'text-foreground' : item.status === 'loading' ? 'text-indigo-600 dark:text-indigo-400 font-bold animate-pulse' : 'text-muted-foreground'
-                      )}>
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between text-xs"
+                    >
+                      <span
+                        className={cn(
+                          'font-semibold',
+                          item.status === 'done'
+                            ? 'text-foreground'
+                            : item.status === 'loading'
+                              ? 'animate-pulse font-bold text-indigo-600 dark:text-indigo-400'
+                              : 'text-muted-foreground'
+                        )}
+                      >
                         {item.label}
                       </span>
                       <div>
@@ -679,7 +780,7 @@ export function SettingsOverview({
                         ) : item.status === 'loading' ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-600" />
                         ) : (
-                          <Circle className="h-4 w-4 text-muted-foreground/30" />
+                          <Circle className="text-muted-foreground/30 h-4 w-4" />
                         )}
                       </div>
                     </div>

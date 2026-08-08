@@ -55,8 +55,7 @@ const EXPIRY_OPTIONS: { value: string; label: string }[] = [
 ];
 
 const ROLE_DESCRIPTIONS: Record<InviteRole, string> = {
-  admin:
-    'Can invite teammates, manage settings, send messages, and edit data.',
+  admin: 'Can invite teammates, manage settings, send messages, and edit data.',
   agent:
     'Can use the inbox, contacts, broadcasts, automations, and flows. No settings or member access.',
   viewer: 'Read-only access across every page. Cannot send or edit anything.',
@@ -189,17 +188,20 @@ export function InviteMemberDialog({
         {result ? (
           <>
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-popover-foreground">
-                <Sparkles className="size-4 text-primary" />
+              <DialogTitle className="text-popover-foreground flex items-center gap-2">
+                <Sparkles className="text-primary size-4" />
                 Invite created
               </DialogTitle>
               <DialogDescription className="text-muted-foreground">
-                Share this link with your new teammate. They&apos;ll be able
-                to sign up (or sign in) and join the account as{' '}
-                <span className="font-medium text-muted-foreground">{result.role}</span>
+                Share this link with your new teammate. They&apos;ll be able to
+                sign up (or sign in) and join the account as{' '}
+                <span className="text-muted-foreground font-medium">
+                  {result.role}
+                </span>
                 . The link is valid for{' '}
-                <span className="font-medium text-muted-foreground">
-                  {result.expiresInDays} day{result.expiresInDays === 1 ? '' : 's'}
+                <span className="text-muted-foreground font-medium">
+                  {result.expiresInDays} day
+                  {result.expiresInDays === 1 ? '' : 's'}
                 </span>
                 .
               </DialogDescription>
@@ -233,9 +235,9 @@ export function InviteMemberDialog({
                 <strong className="font-semibold text-amber-100">
                   Save this link now.
                 </strong>{' '}
-                We never store the plaintext — once you close this dialog
-                the URL is gone. To re-share, revoke this invite and create
-                a new one.
+                We never store the plaintext — once you close this dialog the
+                URL is gone. To re-share, revoke this invite and create a new
+                one.
               </div>
 
               {/* Anchor styled with `buttonVariants` rather than wrapping
@@ -250,7 +252,7 @@ export function InviteMemberDialog({
                 className={buttonVariants({
                   variant: 'outline',
                   className:
-                    'w-full border-border text-muted-foreground hover:bg-muted',
+                    'border-border text-muted-foreground hover:bg-muted w-full',
                 })}
               >
                 <MessageCircle className="size-4" />
@@ -270,10 +272,12 @@ export function InviteMemberDialog({
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle className="text-popover-foreground">Invite a teammate</DialogTitle>
+              <DialogTitle className="text-popover-foreground">
+                Invite a teammate
+              </DialogTitle>
               <DialogDescription className="text-muted-foreground">
-                Generate a one-time invite link. Share it via WhatsApp,
-                Slack, or any channel you like — no email service required.
+                Generate a one-time invite link. Share it via WhatsApp, Slack,
+                or any channel you like — no email service required.
               </DialogDescription>
             </DialogHeader>
 
@@ -284,7 +288,7 @@ export function InviteMemberDialog({
                   value={role}
                   onValueChange={(v) => v && setRole(v as InviteRole)}
                 >
-                  <SelectTrigger className="w-full bg-muted border-border text-foreground">
+                  <SelectTrigger className="bg-muted border-border text-foreground w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -293,18 +297,15 @@ export function InviteMemberDialog({
                     <SelectItem value="viewer">Viewer</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-muted-foreground text-xs">
                   {ROLE_DESCRIPTIONS[role]}
                 </p>
               </div>
 
               <div className="space-y-2">
                 <Label className="text-muted-foreground">Link valid for</Label>
-                <Select
-                  value={expiry}
-                  onValueChange={(v) => v && setExpiry(v)}
-                >
-                  <SelectTrigger className="w-full bg-muted border-border text-foreground">
+                <Select value={expiry} onValueChange={(v) => v && setExpiry(v)}>
+                  <SelectTrigger className="bg-muted border-border text-foreground w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -320,7 +321,9 @@ export function InviteMemberDialog({
               <div className="space-y-2">
                 <Label className="text-muted-foreground">
                   Label{' '}
-                  <span className="text-xs text-muted-foreground">(optional)</span>
+                  <span className="text-muted-foreground text-xs">
+                    (optional)
+                  </span>
                 </Label>
                 <Input
                   placeholder="e.g. Sara — support team"
@@ -329,7 +332,7 @@ export function InviteMemberDialog({
                   maxLength={MAX_LABEL_LEN}
                   className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
                 />
-                <p className="text-xs text-muted-foreground">
+                <p className="text-muted-foreground text-xs">
                   Helps you remember who you sent the link to in the pending
                   list below.
                 </p>

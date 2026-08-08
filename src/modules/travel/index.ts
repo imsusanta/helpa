@@ -21,7 +21,7 @@ export const travelModule: IndustryModule = {
   pipelineStages: [
     { name: 'Travel Lead Inbound', position: 1, color: '#3b82f6' },
     { name: 'Itinerary Custom Scoped', position: 2, color: '#f59e0b' },
-    { name: 'Trip Scheduled', position: 3, color: '#10b981' }
+    { name: 'Trip Scheduled', position: 3, color: '#10b981' },
   ],
   entityConfigs: {
     contacts: {
@@ -31,11 +31,15 @@ export const travelModule: IndustryModule = {
       fields: [
         { key: 'passport_number', label: 'Passport Number', type: 'text' },
         { key: 'nationality', label: 'Nationality', type: 'text' },
-        { key: 'preferred_destination', label: 'Preferred Destination', type: 'text' },
-        { key: 'travel_date', label: 'Travel Date', type: 'date' }
-      ]
-    }
-  }
+        {
+          key: 'preferred_destination',
+          label: 'Preferred Destination',
+          type: 'text',
+        },
+        { key: 'travel_date', label: 'Travel Date', type: 'date' },
+      ],
+    },
+  },
 };
 export * from './sidebar';
 export * from './dashboard';

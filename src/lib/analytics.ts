@@ -11,7 +11,10 @@ export type AnalyticsEvent =
   | 'faq_open'
   | 'signup_start';
 
-export function trackEvent(event: AnalyticsEvent, props?: Record<string, any>): void {
+export function trackEvent(
+  event: AnalyticsEvent,
+  props?: Record<string, any>
+): void {
   try {
     if (typeof window === 'undefined') return;
 

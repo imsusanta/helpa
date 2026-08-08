@@ -2,7 +2,10 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
 import { engineSendButtons } from '@/lib/automations/meta-send';
 
-function fillTemplate(templateStr: string, variables: Record<string, string>): string {
+function fillTemplate(
+  templateStr: string,
+  variables: Record<string, string>
+): string {
   let result = templateStr;
   for (const [key, val] of Object.entries(variables)) {
     result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), val);
@@ -25,7 +28,9 @@ export async function GET(request: Request) {
     // 1. Fetch accounts with reminders enabled
     const { data: accounts, error: accountsErr } = await db
       .from('accounts')
-      .select('id, name, reminder_enabled, reminder_24h_enabled, reminder_2h_enabled, reminder_custom_time, reminder_template, reminder_business_hours');
+      .select(
+        'id, name, reminder_enabled, reminder_24h_enabled, reminder_2h_enabled, reminder_custom_time, reminder_template, reminder_business_hours'
+      );
 
     if (accountsErr) {
       throw new Error(`Failed to load accounts: ${accountsErr.message}`);
@@ -35,7 +40,7 @@ export async function GET(request: Request) {
     let totalSent2h = 0;
     const errors: string[] = [];
 
-    const activeAccounts = accounts.filter(acc => acc.reminder_enabled);
+    const activeAccounts = accounts.filter((acc) => acc.reminder_enabled);
 
     for (const account of activeAccounts) {
       // Check business hours if configured
@@ -46,10 +51,12 @@ export async function GET(request: Request) {
           hour12: false,
           hour: '2-digit',
           minute: '2-digit',
-          timeZone: 'Asia/Kolkata' // standard local time zone for user
+          timeZone: 'Asia/Kolkata', // standard local time zone for user
         });
         if (currentLocalTime < bh.start || currentLocalTime > bh.end) {
-          console.log(`[Cron Reminders] Skipping account ${account.name} - current time ${currentLocalTime} is outside business hours ${bh.start}-${bh.end}`);
+          console.log(
+            `[Cron Reminders] Skipping account ${account.name} - current time ${currentLocalTime} is outside business hours ${bh.start}-${bh.end}`
+          );
           continue;
         }
       }
@@ -62,7 +69,8 @@ export async function GET(request: Request) {
 
       const { data: appts, error: apptsErr } = await db
         .from('appointments')
-        .select(`
+        .select(
+          `
           id,
           account_id,
           patient_id,
@@ -75,14 +83,23 @@ export async function GET(request: Request) {
           reminder_24h_sent,
           reminder_2h_sent,
           doctor:hospital_doctors(id, name, department)
-        `)
+        `
+        )
         .eq('account_id', account.id)
-        .in('status', ['pending', 'Scheduled', 'Reminder Sent', 'pending-confirmation']) // cover initial states
+        .in('status', [
+          'pending',
+          'Scheduled',
+          'Reminder Sent',
+          'pending-confirmation',
+        ]) // cover initial states
         .gte('appointment_date', todayStr)
         .lte('appointment_date', maxDateStr);
 
       if (apptsErr) {
-        console.error(`[Cron Reminders] Error loading appointments for account ${account.id}:`, apptsErr);
+        console.error(
+          `[Cron Reminders] Error loading appointments for account ${account.id}:`,
+          apptsErr
+        );
         continue;
       }
 
@@ -149,7 +166,10 @@ export async function GET(request: Request) {
                 .single();
 
               if (newConvErr || !newConv) {
-                console.error(`[Cron Reminders] Failed to create conversation for contact ${appt.patient_id}:`, newConvErr);
+                console.error(
+                  `[Cron Reminders] Failed to create conversation for contact ${appt.patient_id}:`,
+                  newConvErr
+                );
                 continue;
               }
               conv = newConv;
@@ -157,9 +177,16 @@ export async function GET(request: Request) {
 
             // Fill template variables
             const docData = appt.doctor as any;
-            const docName = (Array.isArray(docData) ? docData[0]?.name : docData?.name) || 'Assigned Doctor';
-            const dept = appt.department || (Array.isArray(docData) ? docData[0]?.department : docData?.department) || 'General';
-            
+            const docName =
+              (Array.isArray(docData) ? docData[0]?.name : docData?.name) ||
+              'Assigned Doctor';
+            const dept =
+              appt.department ||
+              (Array.isArray(docData)
+                ? docData[0]?.department
+                : docData?.department) ||
+              'General';
+
             const bodyText = fillTemplate(account.reminder_template, {
               PatientName: contact.name || contact.phone,
               HospitalName: account.name || 'Hospital Receptionist',
@@ -194,7 +221,7 @@ export async function GET(request: Request) {
 
             // Update reminder sent status in database
             const updates: Record<string, any> = {
-              status: 'Reminder Sent'
+              status: 'Reminder Sent',
             };
             if (is24h) {
               updates.reminder_24h_sent = true;
@@ -205,9 +232,14 @@ export async function GET(request: Request) {
             }
 
             await db.from('appointments').update(updates).eq('id', appt.id);
-            console.log(`[Cron Reminders] Successfully dispatched ${reminderLabel} reminder for appt ${appt.id}`);
+            console.log(
+              `[Cron Reminders] Successfully dispatched ${reminderLabel} reminder for appt ${appt.id}`
+            );
           } catch (err: any) {
-            console.error(`[Cron Reminders] Failed to dispatch reminder for appt ${appt.id}:`, err);
+            console.error(
+              `[Cron Reminders] Failed to dispatch reminder for appt ${appt.id}:`,
+              err
+            );
             errors.push(`Appt ${appt.id}: ${err.message || err}`);
           }
         }

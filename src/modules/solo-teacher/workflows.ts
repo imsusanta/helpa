@@ -7,7 +7,14 @@ export const workflowsConfig: WorkflowSeed[] = [
     trigger_type: 'first_inbound_message',
     trigger_config: {},
     is_active: true,
-    steps: [{ type: 'send_message', config: { body: 'Hello! 👋 Welcome! I am the AI Teaching Assistant. How can I help you today? Are you looking for course information, batch timings, or fees?' } }]
+    steps: [
+      {
+        type: 'send_message',
+        config: {
+          body: 'Hello! 👋 Welcome! I am the AI Teaching Assistant. How can I help you today? Are you looking for course information, batch timings, or fees?',
+        },
+      },
+    ],
   },
   {
     name: 'Enrollment Follow-up',
@@ -15,6 +22,13 @@ export const workflowsConfig: WorkflowSeed[] = [
     trigger_type: 'tag_added',
     trigger_config: { tag: 'interested' },
     is_active: true,
-    steps: [{ type: 'send_message', config: { body: 'Hi {{name}}! Just checking in — would you like to proceed with enrollment? I can help you with the next steps. 📚' } }]
+    steps: [
+      {
+        type: 'send_message',
+        config: {
+          body: 'Hi {{name}}! Just checking in — would you like to proceed with enrollment? I can help you with the next steps. 📚',
+        },
+      },
+    ],
   },
 ];

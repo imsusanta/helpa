@@ -26,12 +26,17 @@ export const generalModule: IndustryModule = {
   id: 'general',
   name: 'General CRM',
   description: 'AI General Assistant',
-  
+
   sidebar: [
     { href: '/dashboard', label: 'Dashboard', iconName: 'LayoutDashboard' },
     { href: '/inbox', label: 'WhatsApp Chats', iconName: 'MessageSquare' },
     { href: '/contacts', label: 'Contacts', iconName: 'Users' },
-    { href: '/broadcasts', label: 'Campaigns', iconName: 'Megaphone', roleMin: 'admin' },
+    {
+      href: '/broadcasts',
+      label: 'Campaigns',
+      iconName: 'Megaphone',
+      roleMin: 'admin',
+    },
     { href: '/knowledge-base', label: 'Knowledge', iconName: 'FileText' },
     { href: '/settings', label: 'Settings', iconName: 'Settings' },
   ],
@@ -39,41 +44,43 @@ export const generalModule: IndustryModule = {
   dashboardMetrics: [
     {
       key: 'conversations_active',
-      label: "Active Chats",
+      label: 'Active Chats',
       iconName: 'MessageSquare',
       queryTable: 'conversations',
-      queryType: 'count'
-    }
+      queryType: 'count',
+    },
   ],
 
-  systemPrompt: 'You are acting as a helpful and polite AI Assistant. Assist the client with generic details and hand off to human agents when requested.',
-  
+  systemPrompt:
+    'You are acting as a helpful and polite AI Assistant. Assist the client with generic details and hand off to human agents when requested.',
+
   kbTemplates: [
     {
       category: 'faq',
       questionTitle: 'Company Hours',
-      answerContent: 'We are open Monday to Friday from 9:00 AM to 6:00 PM.'
-    }
+      answerContent: 'We are open Monday to Friday from 9:00 AM to 6:00 PM.',
+    },
   ],
 
   campaignTemplates: [
     {
       name: 'General Offer Newsletter',
       category: 'General Announcement',
-      messageBody: 'Hello {{Name}}, thank you for being a valued customer. Check out our website for updates!',
-      ctaType: 'none'
-    }
+      messageBody:
+        'Hello {{Name}}, thank you for being a valued customer. Check out our website for updates!',
+      ctaType: 'none',
+    },
   ],
 
   copilotConfig: {
     summaryFields: ['status'],
-    quickActions: []
+    quickActions: [],
   },
 
   pipelineStages: [
     { name: 'New Lead', position: 1, color: '#3b82f6' },
     { name: 'Won', position: 2, color: '#10b981' },
-    { name: 'Lost', position: 3, color: '#ef4444' }
+    { name: 'Lost', position: 3, color: '#ef4444' },
   ],
   workflows: [],
   entityConfigs: {
@@ -81,12 +88,14 @@ export const generalModule: IndustryModule = {
       tableName: 'contacts',
       label: 'Contact',
       pluralLabel: 'Contacts',
-      fields: []
-    }
-  }
+      fields: [],
+    },
+  },
 };
 
-export function getIndustryModule(industry: string | null | undefined): IndustryModule {
+export function getIndustryModule(
+  industry: string | null | undefined
+): IndustryModule {
   if (!industry) return generalModule;
   const industryKey = INDUSTRY_ALIASES[industry] || industry;
   return INDUSTRY_REGISTRY[industryKey] || generalModule;
@@ -98,7 +107,7 @@ export function getIndustryModule(industry: string | null | undefined): Industry
  */
 export function resolveSystemPrompt(
   industry: string | null | undefined,
-  customPrompt: string | null | undefined,
+  customPrompt: string | null | undefined
 ): string {
   const prompt = customPrompt?.trim();
   return prompt || getIndustryModule(industry).systemPrompt;

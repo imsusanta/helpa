@@ -9,11 +9,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
 import { SettingsPanelHead } from './settings-panel-head';
 
@@ -58,7 +54,7 @@ export function ProfileForm() {
   }, [previewUrl]);
 
   const currentAvatar =
-    previewUrl ?? (!removeAvatar ? profile?.avatar_url ?? null : null);
+    previewUrl ?? (!removeAvatar ? (profile?.avatar_url ?? null) : null);
 
   const initial = (fullName || profile?.full_name || profile?.email || 'U')
     .charAt(0)
@@ -116,8 +112,7 @@ export function ProfileForm() {
 
       // Upload a newly-staged image, if any.
       if (pendingAvatar) {
-        const ext =
-          pendingAvatar.name.split('.').pop()?.toLowerCase() || 'png';
+        const ext = pendingAvatar.name.split('.').pop()?.toLowerCase() || 'png';
         const path = `${user.id}/avatar-${Date.now()}.${ext}`;
         const { error: uploadError } = await supabase.storage
           .from('avatars')
@@ -179,7 +174,7 @@ export function ProfileForm() {
       toast.success(
         emailSent
           ? 'Profile saved — check your email to confirm the address change'
-          : 'Profile saved',
+          : 'Profile saved'
       );
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
@@ -205,7 +200,7 @@ export function ProfileForm() {
     : '—';
 
   return (
-    <section className="max-w-2xl animate-in fade-in-50 duration-200">
+    <section className="animate-in fade-in-50 max-w-2xl duration-200">
       <SettingsPanelHead
         title="Your profile"
         description="How you show up across the app. Your avatar and name appear in the header, sidebar, and anywhere your teammates see you."
@@ -213,126 +208,125 @@ export function ProfileForm() {
       <form onSubmit={onSubmit} className="space-y-4">
         <Card>
           <CardContent className="space-y-6">
-          {/* Avatar row */}
-          <div className="flex flex-wrap items-center gap-5">
-            <Avatar size="lg" className="size-16">
-              {currentAvatar ? (
-                <AvatarImage src={currentAvatar} alt={fullName || 'Avatar'} />
-              ) : null}
-              <AvatarFallback className="bg-primary/10 text-base text-primary">
-                {initial}
-              </AvatarFallback>
-            </Avatar>
+            {/* Avatar row */}
+            <div className="flex flex-wrap items-center gap-5">
+              <Avatar size="lg" className="size-16">
+                {currentAvatar ? (
+                  <AvatarImage src={currentAvatar} alt={fullName || 'Avatar'} />
+                ) : null}
+                <AvatarFallback className="bg-primary/10 text-primary text-base">
+                  {initial}
+                </AvatarFallback>
+              </Avatar>
 
-            <div className="flex flex-wrap gap-2">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
-                className="hidden"
-                onChange={onPickFile}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={saving}
-              >
-                <Upload className="size-4" />
-                {currentAvatar ? 'Change photo' : 'Upload photo'}
-              </Button>
-              {currentAvatar && (
+              <div className="flex flex-wrap gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  className="hidden"
+                  onChange={onPickFile}
+                />
                 <Button
                   type="button"
-                  variant="ghost"
-                  onClick={onRemoveAvatar}
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
                   disabled={saving}
-                  className="text-muted-foreground hover:text-foreground"
                 >
-                  <Trash2 className="size-4" />
-                  Remove
+                  <Upload className="size-4" />
+                  {currentAvatar ? 'Change photo' : 'Upload photo'}
                 </Button>
-              )}
-              <p className="w-full text-xs text-muted-foreground">
-                PNG, JPG, WebP, or GIF. Up to 2 MB.
-              </p>
+                {currentAvatar && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={onRemoveAvatar}
+                    disabled={saving}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <Trash2 className="size-4" />
+                    Remove
+                  </Button>
+                )}
+                <p className="text-muted-foreground w-full text-xs">
+                  PNG, JPG, WebP, or GIF. Up to 2 MB.
+                </p>
+              </div>
             </div>
-          </div>
 
-          {/* Name */}
-          <div className="space-y-2">
-            <Label htmlFor="profile-full-name" className="text-foreground">
-              Display name
-            </Label>
-            <Input
-              id="profile-full-name"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              placeholder="Ada Lovelace"
-              maxLength={120}
-              disabled={saving}
-              required
-            />
-          </div>
+            {/* Name */}
+            <div className="space-y-2">
+              <Label htmlFor="profile-full-name" className="text-foreground">
+                Display name
+              </Label>
+              <Input
+                id="profile-full-name"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="Ada Lovelace"
+                maxLength={120}
+                disabled={saving}
+                required
+              />
+            </div>
 
-          {/* Email */}
-          <div className="space-y-2">
-            <Label htmlFor="profile-email" className="text-foreground">
-              Email
-            </Label>
-            <Input
-              id="profile-email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={saving}
-              required
-            />
-            {emailChangePending && (
-              <p className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
-                <Mail className="mt-0.5 size-3.5 shrink-0" />
-                <span>
-                  Check the inbox for <strong>{profile?.email}</strong> and{' '}
-                  <strong>{email}</strong> — both need to confirm before the
-                  change takes effect.
-                </span>
+            {/* Email */}
+            <div className="space-y-2">
+              <Label htmlFor="profile-email" className="text-foreground">
+                Email
+              </Label>
+              <Input
+                id="profile-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={saving}
+                required
+              />
+              {emailChangePending && (
+                <p className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+                  <Mail className="mt-0.5 size-3.5 shrink-0" />
+                  <span>
+                    Check the inbox for <strong>{profile?.email}</strong> and{' '}
+                    <strong>{email}</strong> — both need to confirm before the
+                    change takes effect.
+                  </span>
+                </p>
+              )}
+            </div>
+
+            {/* Read-only block */}
+            <div className="border-border bg-muted rounded-lg border p-4">
+              <p className="text-muted-foreground mb-3 text-xs font-semibold tracking-wider uppercase">
+                Account details
+              </p>
+              <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+                <div>
+                  <dt className="text-muted-foreground">Role</dt>
+                  <dd className="text-foreground mt-0.5 font-mono">
+                    {profile?.role ?? 'user'}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Joined</dt>
+                  <dd className="text-foreground mt-0.5">{joined}</dd>
+                </div>
+                <div className="sm:col-span-2">
+                  <dt className="text-muted-foreground">User ID</dt>
+                  <dd className="text-muted-foreground mt-0.5 font-mono text-xs break-all">
+                    {user?.id ?? '—'}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+
+            {!profile && (
+              <p className="text-muted-foreground flex items-center gap-2 text-sm">
+                <CircleAlert className="size-4" />
+                Loading your profile…
               </p>
             )}
-          </div>
-
-          {/* Read-only block */}
-          <div className="rounded-lg border border-border bg-muted p-4">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Account details
-            </p>
-            <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-              <div>
-                <dt className="text-muted-foreground">Role</dt>
-                <dd className="mt-0.5 font-mono text-foreground">
-                  {profile?.role ?? 'user'}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Joined</dt>
-                <dd className="mt-0.5 text-foreground">{joined}</dd>
-              </div>
-              <div className="sm:col-span-2">
-                <dt className="text-muted-foreground">User ID</dt>
-                <dd className="mt-0.5 break-all font-mono text-xs text-muted-foreground">
-                  {user?.id ?? '—'}
-                </dd>
-              </div>
-            </dl>
-          </div>
-
-          {!profile && (
-            <p className="flex items-center gap-2 text-sm text-muted-foreground">
-              <CircleAlert className="size-4" />
-              Loading your profile…
-            </p>
-          )}
-
-        </CardContent>
+          </CardContent>
         </Card>
 
         <div className="flex justify-end">

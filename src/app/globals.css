@@ -1,6 +1,6 @@
-@import "tailwindcss";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -87,7 +87,7 @@
 /* ---- MODE: neutral surfaces ---- */
 
 :root,
-html[data-mode="dark"] {
+html[data-mode='dark'] {
   --background: oklch(0.13 0.01 260);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.18 0.01 260);
@@ -116,7 +116,7 @@ html[data-mode="dark"] {
   --sidebar-border: oklch(0.28 0.01 260);
 }
 
-html[data-mode="light"] {
+html[data-mode='light'] {
   --background: oklch(0.99 0.002 260);
   --foreground: oklch(0.21 0.01 260);
   --card: oklch(1 0 0);
@@ -148,7 +148,7 @@ html[data-mode="light"] {
 /* ---- ACCENT: primary color ---- */
 
 :root,
-html[data-theme="violet"] {
+html[data-theme='violet'] {
   --primary: oklch(0.526 0.247 293);
   --primary-foreground: oklch(0.985 0 0);
   --primary-hover: oklch(0.6 0.22 293);
@@ -161,7 +161,7 @@ html[data-theme="violet"] {
   --sidebar-ring: oklch(0.526 0.247 293);
 }
 
-html[data-theme="emerald"] {
+html[data-theme='emerald'] {
   --primary: oklch(0.62 0.16 162);
   --primary-foreground: oklch(0.16 0.02 162);
   --primary-hover: oklch(0.68 0.15 162);
@@ -175,7 +175,7 @@ html[data-theme="emerald"] {
   --sidebar-ring: oklch(0.62 0.16 162);
 }
 
-html[data-theme="cobalt"] {
+html[data-theme='cobalt'] {
   --primary: oklch(0.585 0.2 254);
   --primary-foreground: oklch(0.985 0 0);
   --primary-hover: oklch(0.66 0.18 254);
@@ -189,7 +189,7 @@ html[data-theme="cobalt"] {
   --sidebar-ring: oklch(0.585 0.2 254);
 }
 
-html[data-theme="amber"] {
+html[data-theme='amber'] {
   --primary: oklch(0.745 0.16 65);
   --primary-foreground: oklch(0.18 0.03 65);
   --primary-hover: oklch(0.8 0.15 65);
@@ -203,7 +203,7 @@ html[data-theme="amber"] {
   --sidebar-ring: oklch(0.745 0.16 65);
 }
 
-html[data-theme="rose"] {
+html[data-theme='rose'] {
   --primary: oklch(0.645 0.22 16);
   --primary-foreground: oklch(0.985 0 0);
   --primary-hover: oklch(0.71 0.2 16);
@@ -231,23 +231,43 @@ html[data-theme="rose"] {
 
 /* Custom Keyframe Animations & Utilities for 10/10 Landing Page */
 @keyframes marquee {
-  0% { transform: translateX(0%); }
-  100% { transform: translateX(-50%); }
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
 }
 
 @keyframes float-slow {
-  0%, 100% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(-12px) rotate(1deg); }
+  0%,
+  100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-12px) rotate(1deg);
+  }
 }
 
 @keyframes pulse-glow {
-  0%, 100% { opacity: 0.35; transform: scale(1); }
-  50% { opacity: 0.7; transform: scale(1.06); }
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.06);
+  }
 }
 
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 .animate-marquee {
@@ -269,7 +289,12 @@ html[data-theme="rose"] {
 }
 
 .animate-shimmer {
-  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.15) 50%, rgba(255,255,255,0) 100%);
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.15) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
   background-size: 200% 100%;
   animation: shimmer 3s infinite;
 }
@@ -296,14 +321,25 @@ html[data-theme="rose"] {
 
 /* Extra Mobile & Micro-Animation Polish */
 @keyframes float-reverse {
-  0%, 100% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(10px) rotate(-1deg); }
+  0%,
+  100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(10px) rotate(-1deg);
+  }
 }
 
 @keyframes text-gradient {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
 .animate-float-reverse {
@@ -316,7 +352,7 @@ html[data-theme="rose"] {
 }
 
 /* Touch-optimized Range Sliders for Mobile */
-input[type="range"]::-webkit-slider-thumb {
+input[type='range']::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 22px;
@@ -325,27 +361,40 @@ input[type="range"]::-webkit-slider-thumb {
   background: #4f46e5;
   box-shadow: 0 0 10px rgba(79, 70, 229, 0.5);
   cursor: pointer;
-  transition: transform 0.15s ease, background-color 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    background-color 0.15s ease;
 }
 
-input[type="range"]::-webkit-slider-thumb:hover,
-input[type="range"]::-webkit-slider-thumb:active {
+input[type='range']::-webkit-slider-thumb:hover,
+input[type='range']::-webkit-slider-thumb:active {
   transform: scale(1.25);
   background: #6366f1;
 }
 
 /* $100 Billion Startup Tech Aesthetic Utilities */
 .bg-spotlight {
-  background: radial-gradient(circle at 50% -10%, rgba(99, 102, 241, 0.12) 0%, rgba(168, 85, 247, 0.06) 45%, rgba(0, 0, 0, 0) 80%);
+  background: radial-gradient(
+    circle at 50% -10%,
+    rgba(99, 102, 241, 0.12) 0%,
+    rgba(168, 85, 247, 0.06) 45%,
+    rgba(0, 0, 0, 0) 80%
+  );
 }
 
 .bg-grid-pattern {
-  background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-image: radial-gradient(
+    rgba(255, 255, 255, 0.08) 1px,
+    transparent 1px
+  );
   background-size: 24px 24px;
 }
 
 .dark .bg-grid-pattern {
-  background-image: radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+  background-image: radial-gradient(
+    rgba(255, 255, 255, 0.06) 1px,
+    transparent 1px
+  );
   background-size: 24px 24px;
 }
 
@@ -369,7 +418,8 @@ input[type="range"]::-webkit-slider-thumb:active {
     transform: rotate(0deg) translateY(calc(var(--radius) * 1px)) rotate(0deg);
   }
   100% {
-    transform: rotate(360deg) translateY(calc(var(--radius) * 1px)) rotate(-360deg);
+    transform: rotate(360deg) translateY(calc(var(--radius) * 1px))
+      rotate(-360deg);
   }
 }
 

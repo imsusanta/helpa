@@ -20,7 +20,7 @@ export const gymModule: IndustryModule = {
   workflows: workflowsConfig,
   pipelineStages: [
     { name: 'Trial Lead Inbound', position: 1, color: '#3b82f6' },
-    { name: 'Active Membership', position: 2, color: '#10b981' }
+    { name: 'Active Membership', position: 2, color: '#10b981' },
   ],
   entityConfigs: {
     contacts: {
@@ -29,11 +29,16 @@ export const gymModule: IndustryModule = {
       pluralLabel: 'Members',
       fields: [
         { key: 'member_id', label: 'Member ID', type: 'text' },
-        { key: 'membership_plan', label: 'Membership Plan', type: 'select', options: ['Monthly', 'Quarterly', 'Half-Yearly', 'Yearly'] },
-        { key: 'trainer_name', label: 'Trainer Name', type: 'text' }
-      ]
-    }
-  }
+        {
+          key: 'membership_plan',
+          label: 'Membership Plan',
+          type: 'select',
+          options: ['Monthly', 'Quarterly', 'Half-Yearly', 'Yearly'],
+        },
+        { key: 'trainer_name', label: 'Trainer Name', type: 'text' },
+      ],
+    },
+  },
 };
 export * from './sidebar';
 export * from './dashboard';

@@ -8,3 +8,7 @@ package-lock.json
 # Generated / vendored
 supabase/migrations
 public/opus
+scratch
+.temp
+walkthrough.md
+analysis_results.md

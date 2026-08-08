@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { X } from "lucide-react";
-import { cn } from "@/lib/utils";
-import type { Message } from "@/types";
+import { X } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import type { Message } from '@/types';
 
 interface ReplyQuoteProps {
   /** Sender label of the quoted message: "You" for our own messages,
@@ -30,20 +30,20 @@ export function ReplyQuote({
   return (
     <div
       className={cn(
-        "flex items-start gap-2 border-l-2 px-2 py-1",
-        onPrimary ? "border-primary-foreground/50" : "border-primary",
+        'flex items-start gap-2 border-l-2 px-2 py-1',
+        onPrimary ? 'border-primary-foreground/50' : 'border-primary',
         isChip
-          ? "rounded-md bg-muted/80"
+          ? 'bg-muted/80 rounded-md'
           : onPrimary
-            ? "mb-1.5 rounded-md bg-primary-foreground/15"
-            : "mb-1.5 rounded-md bg-background/20",
+            ? 'bg-primary-foreground/15 mb-1.5 rounded-md'
+            : 'bg-background/20 mb-1.5 rounded-md'
       )}
     >
       <div className="min-w-0 flex-1 overflow-hidden">
         <div
           className={cn(
-            "truncate text-[11px] font-medium",
-            onPrimary ? "text-primary-foreground" : "text-primary",
+            'truncate text-[11px] font-medium',
+            onPrimary ? 'text-primary-foreground' : 'text-primary'
           )}
         >
           {authorLabel}
@@ -55,7 +55,7 @@ export function ReplyQuote({
          *  layout wider, shoving the contact sidebar off-screen.
          *  `break-words` also wraps long URLs that have no whitespace
          *  to break on. Issue #165. */}
-        <div className="whitespace-pre-wrap break-words text-xs text-foreground/80">
+        <div className="text-foreground/80 text-xs break-words whitespace-pre-wrap">
           {preview}
         </div>
       </div>
@@ -64,7 +64,7 @@ export function ReplyQuote({
           type="button"
           onClick={onDismiss}
           aria-label="Cancel reply"
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-6 w-6 shrink-0 items-center justify-center rounded"
         >
           <X className="h-3.5 w-3.5" />
         </button>
@@ -77,19 +77,19 @@ export function ReplyQuote({
 export function buildReplyPreview(message: Message): string {
   if (message.content_text) return message.content_text;
   switch (message.content_type) {
-    case "image":
-      return "[Image]";
-    case "video":
-      return "[Video]";
-    case "audio":
-      return "[Audio]";
-    case "document":
-      return "[Document]";
-    case "location":
-      return "[Location]";
-    case "template":
-      return "[Template]";
+    case 'image':
+      return '[Image]';
+    case 'video':
+      return '[Video]';
+    case 'audio':
+      return '[Audio]';
+    case 'document':
+      return '[Document]';
+    case 'location':
+      return '[Location]';
+    case 'template':
+      return '[Template]';
     default:
-      return "[Message]";
+      return '[Message]';
   }
 }

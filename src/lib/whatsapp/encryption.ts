@@ -1,4 +1,4 @@
-import crypto from 'crypto'
+import crypto from 'crypto';
 
 /**
  * WhatsApp token encryption.
@@ -27,93 +27,97 @@ import crypto from 'crypto'
  */
 
 function getEncryptionKeyBuffer(): Buffer {
-  const rawKey = process.env.ENCRYPTION_KEY || (process.env.NODE_ENV === 'test' || process.env.CI ? '0000000000000000000000000000000000000000000000000000000000000000' : '')
+  const rawKey =
+    process.env.ENCRYPTION_KEY ||
+    (process.env.NODE_ENV === 'test' || process.env.CI
+      ? '0000000000000000000000000000000000000000000000000000000000000000'
+      : '');
   if (rawKey && /^[0-9a-fA-F]{64}$/.test(rawKey)) {
-    return Buffer.from(rawKey, 'hex')
+    return Buffer.from(rawKey, 'hex');
   }
   throw new Error(
     '[encryption] ENCRYPTION_KEY must be configured as a 64-character hex string (32 bytes). Generate with: node -e "console.log(crypto.randomBytes(32).toString(\'hex\'))"'
-  )
+  );
 }
 
 // 12 bytes is the NIST-recommended IV length for GCM — keeps the
 // counter block well below 2^32 and matches the default web-crypto
 // behaviour, so any future port is straightforward.
-const GCM_IV_LENGTH = 12
-const CBC_IV_LENGTH = 16
-const AUTH_TAG_LENGTH = 16
+const GCM_IV_LENGTH = 12;
+const CBC_IV_LENGTH = 16;
+const AUTH_TAG_LENGTH = 16;
 
 export function encrypt(text: string): string {
-  const iv = crypto.randomBytes(GCM_IV_LENGTH)
+  const iv = crypto.randomBytes(GCM_IV_LENGTH);
   const cipher = crypto.createCipheriv(
     'aes-256-gcm',
     getEncryptionKeyBuffer(),
-    iv,
-  )
-  let encrypted = cipher.update(text, 'utf8', 'hex')
-  encrypted += cipher.final('hex')
-  const authTag = cipher.getAuthTag()
-  return `${iv.toString('hex')}:${encrypted}:${authTag.toString('hex')}`
+    iv
+  );
+  let encrypted = cipher.update(text, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  const authTag = cipher.getAuthTag();
+  return `${iv.toString('hex')}:${encrypted}:${authTag.toString('hex')}`;
 }
 
 export function decrypt(encryptedText: string): string {
-  if (!encryptedText) return ''
+  if (!encryptedText) return '';
   // Allow unencrypted OpenRouter API keys starting with `sk-` for backwards compatibility
   if (encryptedText.startsWith('sk-')) {
-    return encryptedText
+    return encryptedText;
   }
   if (!encryptedText.includes(':')) {
-    throw new Error('Encrypted token has unrecognised format')
+    throw new Error('Encrypted token has unrecognised format');
   }
 
-  const parts = encryptedText.split(':')
+  const parts = encryptedText.split(':');
 
   if (parts.length === 3) {
     // GCM — current format.
-    const [ivHex, ctHex, tagHex] = parts
-    const iv = Buffer.from(ivHex, 'hex')
+    const [ivHex, ctHex, tagHex] = parts;
+    const iv = Buffer.from(ivHex, 'hex');
     if (iv.length !== GCM_IV_LENGTH) {
       throw new Error(
-        `Encrypted token has unexpected GCM IV length ${iv.length}`,
-      )
+        `Encrypted token has unexpected GCM IV length ${iv.length}`
+      );
     }
-    const authTag = Buffer.from(tagHex, 'hex')
+    const authTag = Buffer.from(tagHex, 'hex');
     if (authTag.length !== AUTH_TAG_LENGTH) {
       throw new Error(
-        `Encrypted token has unexpected GCM auth-tag length ${authTag.length}`,
-      )
+        `Encrypted token has unexpected GCM auth-tag length ${authTag.length}`
+      );
     }
     const decipher = crypto.createDecipheriv(
       'aes-256-gcm',
       getEncryptionKeyBuffer(),
-      iv,
-    )
-    decipher.setAuthTag(authTag)
-    let decrypted = decipher.update(ctHex, 'hex', 'utf8')
-    decrypted += decipher.final('utf8')
-    return decrypted
+      iv
+    );
+    decipher.setAuthTag(authTag);
+    let decrypted = decipher.update(ctHex, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
   }
 
   if (parts.length === 2) {
     // CBC — legacy. Read-only; `encrypt()` never produces this shape.
-    const [ivHex, ctHex] = parts
-    const iv = Buffer.from(ivHex, 'hex')
+    const [ivHex, ctHex] = parts;
+    const iv = Buffer.from(ivHex, 'hex');
     if (iv.length !== CBC_IV_LENGTH) {
       throw new Error(
-        `Encrypted token has unexpected CBC IV length ${iv.length}`,
-      )
+        `Encrypted token has unexpected CBC IV length ${iv.length}`
+      );
     }
     const decipher = crypto.createDecipheriv(
       'aes-256-cbc',
       getEncryptionKeyBuffer(),
-      iv,
-    )
-    let decrypted = decipher.update(ctHex, 'hex', 'utf8')
-    decrypted += decipher.final('utf8')
-    return decrypted
+      iv
+    );
+    let decrypted = decipher.update(ctHex, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
   }
 
-  throw new Error('Encrypted token has unrecognised format')
+  throw new Error('Encrypted token has unrecognised format');
 }
 
 /**
@@ -123,5 +127,5 @@ export function decrypt(encryptedText: string): string {
  * structural check.
  */
 export function isLegacyFormat(encryptedText: string): boolean {
-  return encryptedText.split(':').length === 2
+  return encryptedText.split(':').length === 2;
 }

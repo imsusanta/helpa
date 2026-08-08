@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -15,18 +15,18 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { 
-  Megaphone, 
-  Plus, 
-  Loader2, 
-  Percent, 
-  CheckCheck, 
-  MessageSquare, 
-  TrendingUp, 
+import {
+  Megaphone,
+  Plus,
+  Loader2,
+  Percent,
+  CheckCheck,
+  MessageSquare,
+  TrendingUp,
   Sparkles,
   ArrowRight,
   ShieldAlert,
-  Trash2
+  Trash2,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { hasMinRole } from '@/lib/auth/roles';
@@ -52,10 +52,10 @@ function RateCell({
   const pct = percent(value, total);
   return (
     <div className="flex items-center gap-2">
-      <span className="w-10 text-right text-xs tabular-nums text-muted-foreground font-semibold">
+      <span className="text-muted-foreground w-10 text-right text-xs font-semibold tabular-nums">
         {pct}%
       </span>
-      <div className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
+      <div className="bg-muted h-1.5 w-16 overflow-hidden rounded-full">
         <div
           className={`h-1.5 rounded-full ${color}`}
           style={{ width: `${pct}%` }}
@@ -68,14 +68,16 @@ function RateCell({
 export default function CampaignsPage() {
   const router = useRouter();
   const { accountId, accountRole } = useAuth();
-  
+
   const isAdmin = accountRole && hasMinRole(accountRole, 'admin');
 
   const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
   const [bookingsCount, setBookingsCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [campaignIdToDelete, setCampaignIdToDelete] = useState<string | null>(null);
+  const [campaignIdToDelete, setCampaignIdToDelete] = useState<string | null>(
+    null
+  );
   const [deletingCampaign, setDeletingCampaign] = useState(false);
 
   // AI Opportunities state
@@ -83,7 +85,7 @@ export default function CampaignsPage() {
     inactive: 0,
     missed: 0,
     followup: 0,
-    pediatric: 0
+    pediatric: 0,
   });
 
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -92,7 +94,7 @@ export default function CampaignsPage() {
     if (!accountId) return;
     try {
       const supabase = createClient();
-      
+
       // 1. Fetch campaigns
       const { data: campaignRows, error: fetchError } = await supabase
         .from('broadcasts')
@@ -107,7 +109,7 @@ export default function CampaignsPage() {
         .from('appointments')
         .select('id', { count: 'exact', head: true })
         .not('campaign_id', 'is', null);
-      
+
       if (!bookingsErr && bookings !== null) {
         setBookingsCount(bookings);
       }
@@ -117,19 +119,30 @@ export default function CampaignsPage() {
       sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
       const [inactiveRes, missedRes, followupRes, pedRes] = await Promise.all([
-        supabase.from('patients').select('id', { count: 'exact', head: true }).lt('created_at', sixMonthsAgo.toISOString()),
-        supabase.from('appointments').select('id', { count: 'exact', head: true }).in('status', ['no_show', 'No Show', 'Cancelled']),
-        supabase.from('patients').select('id', { count: 'exact', head: true }).is('last_followup_sent_at', null),
-        supabase.from('patients').select('id', { count: 'exact', head: true }).eq('department', 'Pediatrics')
+        supabase
+          .from('patients')
+          .select('id', { count: 'exact', head: true })
+          .lt('created_at', sixMonthsAgo.toISOString()),
+        supabase
+          .from('appointments')
+          .select('id', { count: 'exact', head: true })
+          .in('status', ['no_show', 'No Show', 'Cancelled']),
+        supabase
+          .from('patients')
+          .select('id', { count: 'exact', head: true })
+          .is('last_followup_sent_at', null),
+        supabase
+          .from('patients')
+          .select('id', { count: 'exact', head: true })
+          .eq('department', 'Pediatrics'),
       ]);
 
       setOppStats({
         inactive: inactiveRes.count || 0,
         missed: missedRes.count || 0,
         followup: followupRes.count || 0,
-        pediatric: pedRes.count || 0
+        pediatric: pedRes.count || 0,
       });
-
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load campaigns');
     } finally {
@@ -143,7 +156,7 @@ export default function CampaignsPage() {
 
   const anySending = useMemo(
     () => broadcasts.some((b) => b.status === 'sending'),
-    [broadcasts],
+    [broadcasts]
   );
 
   useEffect(() => {
@@ -182,19 +195,21 @@ export default function CampaignsPage() {
 
   // Aggregate metrics
   const totalCampaigns = broadcasts.length;
-  
+
   const todayStart = new Date();
-  todayStart.setHours(0,0,0,0);
+  todayStart.setHours(0, 0, 0, 0);
   const campaignsSentToday = broadcasts.filter(
     (b) => new Date(b.created_at) >= todayStart && b.status !== 'draft'
   ).length;
 
   const totalRecipients = useMemo(
-    () => broadcasts.reduce((acc, curr) => acc + (curr.total_recipients || 0), 0),
+    () =>
+      broadcasts.reduce((acc, curr) => acc + (curr.total_recipients || 0), 0),
     [broadcasts]
   );
   const totalDelivered = useMemo(
-    () => broadcasts.reduce((acc, curr) => acc + (curr.delivered_count || 0), 0),
+    () =>
+      broadcasts.reduce((acc, curr) => acc + (curr.delivered_count || 0), 0),
     [broadcasts]
   );
   const totalRead = useMemo(
@@ -206,7 +221,10 @@ export default function CampaignsPage() {
     [broadcasts]
   );
 
-  const avgConversionRate = totalRecipients > 0 ? ((bookingsCount / totalRecipients) * 100).toFixed(1) : '0.0';
+  const avgConversionRate =
+    totalRecipients > 0
+      ? ((bookingsCount / totalRecipients) * 100).toFixed(1)
+      : '0.0';
 
   async function handleDeleteCampaign(id: string, e: React.MouseEvent) {
     e.stopPropagation();
@@ -218,7 +236,10 @@ export default function CampaignsPage() {
     setDeletingCampaign(true);
     try {
       const supabase = createClient();
-      const { error } = await supabase.from('broadcasts').delete().eq('id', campaignIdToDelete);
+      const { error } = await supabase
+        .from('broadcasts')
+        .delete()
+        .eq('id', campaignIdToDelete);
       if (error) throw error;
       toast.success('Campaign deleted successfully');
       setCampaignIdToDelete(null);
@@ -233,7 +254,7 @@ export default function CampaignsPage() {
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        <Loader2 className="text-primary h-6 w-6 animate-spin" />
       </div>
     );
   }
@@ -253,40 +274,57 @@ export default function CampaignsPage() {
   if (!isAdmin) {
     return (
       <div className="space-y-6">
-        <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 flex items-start gap-3">
-          <ShieldAlert className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+        <div className="flex items-start gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4">
+          <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
           <div>
-            <h4 className="font-bold text-amber-500 text-sm">Read-Only Access</h4>
-            <p className="text-xs text-muted-foreground mt-1">
-              You are signed in as a Receptionist. Only Administrators and Marketing users can create, edit, schedule campaigns, or access advanced marketing analytics. You can still view active campaign statistics below for scheduling context.
+            <h4 className="text-sm font-bold text-amber-500">
+              Read-Only Access
+            </h4>
+            <p className="text-muted-foreground mt-1 text-xs">
+              You are signed in as a Receptionist. Only Administrators and
+              Marketing users can create, edit, schedule campaigns, or access
+              advanced marketing analytics. You can still view active campaign
+              statistics below for scheduling context.
             </p>
           </div>
         </div>
 
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Campaigns List</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <h1 className="text-foreground text-2xl font-bold">
+              Campaigns List
+            </h1>
+            <p className="text-muted-foreground mt-1 text-sm">
               Review outbound campaign deliveries and schedules.
             </p>
           </div>
         </div>
 
         {broadcasts.length === 0 ? (
-          <div className="flex h-64 flex-col items-center justify-center rounded-xl border border-border bg-card">
-            <Megaphone className="mb-3 h-10 w-10 text-muted-foreground" />
-            <p className="text-sm font-medium text-foreground">No active campaigns</p>
+          <div className="border-border bg-card flex h-64 flex-col items-center justify-center rounded-xl border">
+            <Megaphone className="text-muted-foreground mb-3 h-10 w-10" />
+            <p className="text-foreground text-sm font-medium">
+              No active campaigns
+            </p>
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-border bg-card">
+          <div className="border-border bg-card overflow-x-auto rounded-xl border">
             <Table>
               <TableHeader>
                 <TableRow className="border-border hover:bg-transparent">
                   <TableHead className="text-muted-foreground">Name</TableHead>
-                  <TableHead className="text-muted-foreground">Category</TableHead>
-                  <TableHead className="text-right text-muted-foreground">Recipients</TableHead>
-                  <TableHead className="text-muted-foreground">Status</TableHead>
-                  <TableHead className="text-muted-foreground">Sent Date</TableHead>
+                  <TableHead className="text-muted-foreground">
+                    Category
+                  </TableHead>
+                  <TableHead className="text-muted-foreground text-right">
+                    Recipients
+                  </TableHead>
+                  <TableHead className="text-muted-foreground">
+                    Status
+                  </TableHead>
+                  <TableHead className="text-muted-foreground">
+                    Sent Date
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -295,18 +333,28 @@ export default function CampaignsPage() {
                   return (
                     <TableRow
                       key={b.id}
-                      className="cursor-pointer border-border hover:bg-muted/30"
+                      className="border-border hover:bg-muted/30 cursor-pointer"
                       onClick={() => router.push(`/broadcasts/${b.id}`)}
                     >
-                      <TableCell className="font-semibold text-foreground">{b.name}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground font-medium">{b.category || 'General Announcement'}</TableCell>
-                      <TableCell className="text-right text-muted-foreground font-semibold tabular-nums">{b.total_recipients}</TableCell>
+                      <TableCell className="text-foreground font-semibold">
+                        {b.name}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-xs font-medium">
+                        {b.category || 'General Announcement'}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-right font-semibold tabular-nums">
+                        {b.total_recipients}
+                      </TableCell>
                       <TableCell>
-                        <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${status.classes}`}>
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold ${status.classes}`}
+                        >
                           {status.label}
                         </span>
                       </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{new Date(b.created_at).toLocaleDateString()}</TableCell>
+                      <TableCell className="text-muted-foreground text-xs">
+                        {new Date(b.created_at).toLocaleDateString()}
+                      </TableCell>
                     </TableRow>
                   );
                 })}
@@ -324,23 +372,24 @@ export default function CampaignsPage() {
         <div
           role="progressbar"
           aria-label="Campaign dispatch in progress"
-          className="fixed inset-x-0 top-0 z-50 h-0.5 overflow-hidden bg-muted"
+          className="bg-muted fixed inset-x-0 top-0 z-50 h-0.5 overflow-hidden"
         >
-          <div className="h-0.5 bg-indigo-600 animate-pulse w-1/3" />
+          <div className="h-0.5 w-1/3 animate-pulse bg-indigo-600" />
         </div>
       )}
 
       {/* Title Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Campaigns</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Manage patient marketing, health camp broadcasts, and automated check-up reminders.
+          <h1 className="text-foreground text-2xl font-bold">Campaigns</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Manage patient marketing, health camp broadcasts, and automated
+            check-up reminders.
           </p>
         </div>
         <Button
           onClick={() => router.push('/broadcasts/new')}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-full px-5 py-2.5 text-sm font-semibold flex items-center gap-1.5"
+          className="flex items-center gap-1.5 rounded-full bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
         >
           <Plus className="h-4 w-4" /> New Campaign
         </Button>
@@ -348,52 +397,83 @@ export default function CampaignsPage() {
 
       {/* ═══════ CAMPAIGN METRICS DASHBOARD ═══════ */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-        <div className="bg-card border border-border/80 rounded-2xl p-4 shadow-sm hover:shadow-md transition">
-          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Total Campaigns</p>
-          <p className="text-2xl font-black text-foreground mt-2 tabular-nums">{totalCampaigns}</p>
+        <div className="bg-card border-border/80 rounded-2xl border p-4 shadow-sm transition hover:shadow-md">
+          <p className="text-muted-foreground text-[10px] font-bold tracking-wider uppercase">
+            Total Campaigns
+          </p>
+          <p className="text-foreground mt-2 text-2xl font-black tabular-nums">
+            {totalCampaigns}
+          </p>
         </div>
-        <div className="bg-card border border-border/80 rounded-2xl p-4 shadow-sm hover:shadow-md transition">
-          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Sent Today</p>
-          <p className="text-2xl font-black text-foreground mt-2 tabular-nums">{campaignsSentToday}</p>
+        <div className="bg-card border-border/80 rounded-2xl border p-4 shadow-sm transition hover:shadow-md">
+          <p className="text-muted-foreground text-[10px] font-bold tracking-wider uppercase">
+            Sent Today
+          </p>
+          <p className="text-foreground mt-2 text-2xl font-black tabular-nums">
+            {campaignsSentToday}
+          </p>
         </div>
-        <div className="bg-card border border-border/80 rounded-2xl p-4 shadow-sm hover:shadow-md transition">
-          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Delivered Rate</p>
-          <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-2 tabular-nums">{percent(totalDelivered, totalRecipients)}%</p>
+        <div className="bg-card border-border/80 rounded-2xl border p-4 shadow-sm transition hover:shadow-md">
+          <p className="text-muted-foreground text-[10px] font-bold tracking-wider uppercase">
+            Delivered Rate
+          </p>
+          <p className="mt-2 text-2xl font-black text-emerald-600 tabular-nums dark:text-emerald-400">
+            {percent(totalDelivered, totalRecipients)}%
+          </p>
         </div>
-        <div className="bg-card border border-border/80 rounded-2xl p-4 shadow-sm hover:shadow-md transition">
-          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Read Rate</p>
-          <p className="text-2xl font-black text-blue-500 mt-2 tabular-nums">{percent(totalRead, totalRecipients)}%</p>
+        <div className="bg-card border-border/80 rounded-2xl border p-4 shadow-sm transition hover:shadow-md">
+          <p className="text-muted-foreground text-[10px] font-bold tracking-wider uppercase">
+            Read Rate
+          </p>
+          <p className="mt-2 text-2xl font-black text-blue-500 tabular-nums">
+            {percent(totalRead, totalRecipients)}%
+          </p>
         </div>
-        <div className="bg-card border border-border/80 rounded-2xl p-4 shadow-sm hover:shadow-md transition">
-          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Replies</p>
-          <p className="text-2xl font-black text-purple-500 mt-2 tabular-nums">{totalReplied}</p>
+        <div className="bg-card border-border/80 rounded-2xl border p-4 shadow-sm transition hover:shadow-md">
+          <p className="text-muted-foreground text-[10px] font-bold tracking-wider uppercase">
+            Replies
+          </p>
+          <p className="mt-2 text-2xl font-black text-purple-500 tabular-nums">
+            {totalReplied}
+          </p>
         </div>
-        <div className="bg-card border border-border/80 rounded-2xl p-4 shadow-sm hover:shadow-md transition">
-          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Bookings (Conv. %)</p>
-          <p className="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-2 tabular-nums">
-            {bookingsCount} <span className="text-xs font-semibold text-muted-foreground">({avgConversionRate}%)</span>
+        <div className="bg-card border-border/80 rounded-2xl border p-4 shadow-sm transition hover:shadow-md">
+          <p className="text-muted-foreground text-[10px] font-bold tracking-wider uppercase">
+            Bookings (Conv. %)
+          </p>
+          <p className="mt-2 text-2xl font-black text-indigo-600 tabular-nums dark:text-indigo-400">
+            {bookingsCount}{' '}
+            <span className="text-muted-foreground text-xs font-semibold">
+              ({avgConversionRate}%)
+            </span>
           </p>
         </div>
       </div>
 
       {/* ═══════ AI RECOMMENDATIONS / OPPORTUNITIES ═══════ */}
-      <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
-        <h3 className="font-extrabold text-foreground text-sm flex items-center gap-1.5">
-          <Sparkles className="h-4 w-4 text-indigo-600 animate-pulse" /> AI Campaign Opportunities
+      <div className="bg-card border-border space-y-4 rounded-2xl border p-5">
+        <h3 className="text-foreground flex items-center gap-1.5 text-sm font-extrabold">
+          <Sparkles className="h-4 w-4 animate-pulse text-indigo-600" /> AI
+          Campaign Opportunities
         </h3>
         <div className="grid gap-4 md:grid-cols-3">
           {oppStats.inactive > 0 && (
-            <div className="border border-border/70 rounded-xl p-4 bg-muted/20 flex flex-col justify-between">
+            <div className="border-border/70 bg-muted/20 flex flex-col justify-between rounded-xl border p-4">
               <div>
-                <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">Inactive Patients</p>
-                <p className="text-sm font-semibold text-foreground mt-2">
-                  {oppStats.inactive} patients have not visited the clinic in the last 6 months.
+                <p className="text-xs font-bold tracking-wide text-indigo-600 uppercase dark:text-indigo-400">
+                  Inactive Patients
+                </p>
+                <p className="text-foreground mt-2 text-sm font-semibold">
+                  {oppStats.inactive} patients have not visited the clinic in
+                  the last 6 months.
                 </p>
               </div>
               <Button
-                onClick={() => router.push('/broadcasts/new?suggestion=inactive')}
+                onClick={() =>
+                  router.push('/broadcasts/new?suggestion=inactive')
+                }
                 variant="outline"
-                className="mt-4 border-indigo-500/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-600/5 rounded-xl text-xs py-1.5 w-full flex items-center justify-center gap-1"
+                className="mt-4 flex w-full items-center justify-center gap-1 rounded-xl border-indigo-500/30 py-1.5 text-xs text-indigo-600 hover:bg-indigo-600/5 dark:text-indigo-400"
               >
                 Promote Health Checkup <ArrowRight className="h-3 w-3" />
               </Button>
@@ -401,17 +481,20 @@ export default function CampaignsPage() {
           )}
 
           {oppStats.missed > 0 && (
-            <div className="border border-border/70 rounded-xl p-4 bg-muted/20 flex flex-col justify-between">
+            <div className="border-border/70 bg-muted/20 flex flex-col justify-between rounded-xl border p-4">
               <div>
-                <p className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wide">Missed Appointments</p>
-                <p className="text-sm font-semibold text-foreground mt-2">
-                  {oppStats.missed} patients missed or cancelled appointments this month.
+                <p className="text-xs font-bold tracking-wide text-amber-600 uppercase dark:text-amber-400">
+                  Missed Appointments
+                </p>
+                <p className="text-foreground mt-2 text-sm font-semibold">
+                  {oppStats.missed} patients missed or cancelled appointments
+                  this month.
                 </p>
               </div>
               <Button
                 onClick={() => router.push('/broadcasts/new?suggestion=missed')}
                 variant="outline"
-                className="mt-4 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-600/5 rounded-xl text-xs py-1.5 w-full flex items-center justify-center gap-1"
+                className="mt-4 flex w-full items-center justify-center gap-1 rounded-xl border-amber-500/30 py-1.5 text-xs text-amber-600 hover:bg-amber-600/5 dark:text-amber-400"
               >
                 Send Re-booking Campaign <ArrowRight className="h-3 w-3" />
               </Button>
@@ -419,17 +502,22 @@ export default function CampaignsPage() {
           )}
 
           {oppStats.followup > 0 && (
-            <div className="border border-border/70 rounded-xl p-4 bg-muted/20 flex flex-col justify-between">
+            <div className="border-border/70 bg-muted/20 flex flex-col justify-between rounded-xl border p-4">
               <div>
-                <p className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wide">Follow-ups Due</p>
-                <p className="text-sm font-semibold text-foreground mt-2">
-                  {oppStats.followup} patients are due for routine follow-up consultations.
+                <p className="text-xs font-bold tracking-wide text-purple-600 uppercase dark:text-purple-400">
+                  Follow-ups Due
+                </p>
+                <p className="text-foreground mt-2 text-sm font-semibold">
+                  {oppStats.followup} patients are due for routine follow-up
+                  consultations.
                 </p>
               </div>
               <Button
-                onClick={() => router.push('/broadcasts/new?suggestion=followup')}
+                onClick={() =>
+                  router.push('/broadcasts/new?suggestion=followup')
+                }
                 variant="outline"
-                className="mt-4 border-purple-500/30 text-purple-600 dark:text-purple-400 hover:bg-purple-600/5 rounded-xl text-xs py-1.5 w-full flex items-center justify-center gap-1"
+                className="mt-4 flex w-full items-center justify-center gap-1 rounded-xl border-purple-500/30 py-1.5 text-xs text-purple-600 hover:bg-purple-600/5 dark:text-purple-400"
               >
                 Create Follow-up Reminder <ArrowRight className="h-3 w-3" />
               </Button>
@@ -440,27 +528,39 @@ export default function CampaignsPage() {
 
       {/* ═══════ CAMPAIGNS TABLE ═══════ */}
       {broadcasts.length === 0 ? (
-        <div className="flex h-64 flex-col items-center justify-center rounded-xl border border-border bg-card">
-          <Megaphone className="mb-3 h-10 w-10 text-muted-foreground" />
-          <p className="text-sm font-medium text-foreground">No campaigns yet</p>
-          <p className="mt-1 text-xs text-muted-foreground">
+        <div className="border-border bg-card flex h-64 flex-col items-center justify-center rounded-xl border">
+          <Megaphone className="text-muted-foreground mb-3 h-10 w-10" />
+          <p className="text-foreground text-sm font-medium">
+            No campaigns yet
+          </p>
+          <p className="text-muted-foreground mt-1 text-xs">
             Create your first healthcare campaign to engage your patients.
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border bg-card">
+        <div className="border-border bg-card overflow-x-auto rounded-xl border">
           <Table>
             <TableHeader>
               <TableRow className="border-border hover:bg-transparent">
                 <TableHead className="text-muted-foreground">Name</TableHead>
-                <TableHead className="text-muted-foreground">Category</TableHead>
-                <TableHead className="text-right text-muted-foreground">Recipients</TableHead>
-                <TableHead className="text-muted-foreground">Delivery</TableHead>
+                <TableHead className="text-muted-foreground">
+                  Category
+                </TableHead>
+                <TableHead className="text-muted-foreground text-right">
+                  Recipients
+                </TableHead>
+                <TableHead className="text-muted-foreground">
+                  Delivery
+                </TableHead>
                 <TableHead className="text-muted-foreground">Read</TableHead>
                 <TableHead className="text-muted-foreground">Replies</TableHead>
-                <TableHead className="text-muted-foreground font-semibold">Status</TableHead>
+                <TableHead className="text-muted-foreground font-semibold">
+                  Status
+                </TableHead>
                 <TableHead className="text-muted-foreground">Date</TableHead>
-                <TableHead className="text-right text-muted-foreground">Actions</TableHead>
+                <TableHead className="text-muted-foreground text-right">
+                  Actions
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -469,16 +569,16 @@ export default function CampaignsPage() {
                 return (
                   <TableRow
                     key={b.id}
-                    className="cursor-pointer border-border hover:bg-muted/20"
+                    className="border-border hover:bg-muted/20 cursor-pointer"
                     onClick={() => router.push(`/broadcasts/${b.id}`)}
                   >
-                    <TableCell className="font-semibold text-foreground text-sm">
+                    <TableCell className="text-foreground text-sm font-semibold">
                       {b.name}
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground font-semibold">
+                    <TableCell className="text-muted-foreground text-xs font-semibold">
                       {b.category || 'General Announcement'}
                     </TableCell>
-                    <TableCell className="text-right text-muted-foreground font-bold tabular-nums">
+                    <TableCell className="text-muted-foreground text-right font-bold tabular-nums">
                       {b.total_recipients}
                     </TableCell>
                     <TableCell>
@@ -495,7 +595,7 @@ export default function CampaignsPage() {
                         color="bg-blue-500"
                       />
                     </TableCell>
-                    <TableCell className="text-xs font-semibold tabular-nums text-purple-600 dark:text-purple-400">
+                    <TableCell className="text-xs font-semibold text-purple-600 tabular-nums dark:text-purple-400">
                       {b.replied_count || 0}
                     </TableCell>
                     <TableCell>
@@ -511,7 +611,7 @@ export default function CampaignsPage() {
                         {status.label}
                       </span>
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground font-medium">
+                    <TableCell className="text-muted-foreground text-xs font-medium">
                       {new Date(b.created_at).toLocaleDateString()}
                     </TableCell>
                     <TableCell className="text-right">
@@ -519,7 +619,7 @@ export default function CampaignsPage() {
                         onClick={(e) => handleDeleteCampaign(b.id, e)}
                         variant="ghost"
                         size="icon"
-                        className="text-red-500 hover:text-red-700 hover:bg-red-500/10 cursor-pointer"
+                        className="cursor-pointer text-red-500 hover:bg-red-500/10 hover:text-red-700"
                         title="Delete Campaign"
                       >
                         <Trash2 className="h-4 w-4" />

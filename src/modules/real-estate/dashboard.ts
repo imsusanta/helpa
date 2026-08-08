@@ -6,7 +6,7 @@ export const dashboardConfig: DashboardMetricWidget[] = [
     label: 'New Leads',
     iconName: 'Users',
     queryTable: 'realestate_leads',
-    queryType: 'count'
+    queryType: 'count',
   },
   {
     key: 'visits_scheduled',
@@ -14,9 +14,7 @@ export const dashboardConfig: DashboardMetricWidget[] = [
     iconName: 'Calendar',
     queryTable: 'realestate_visits',
     queryType: 'count',
-    queryFilters: [
-      { field: 'status', operator: 'eq', value: 'scheduled' }
-    ]
+    queryFilters: [{ field: 'status', operator: 'eq', value: 'scheduled' }],
   },
   {
     key: 'deals_open',
@@ -24,8 +22,6 @@ export const dashboardConfig: DashboardMetricWidget[] = [
     iconName: 'FileText',
     queryTable: 'deals',
     queryType: 'count',
-    queryFilters: [
-      { field: 'status', operator: 'eq', value: 'open' }
-    ]
-  }
+    queryFilters: [{ field: 'status', operator: 'eq', value: 'open' }],
+  },
 ];

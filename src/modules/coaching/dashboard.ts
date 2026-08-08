@@ -7,9 +7,7 @@ export const dashboardConfig: DashboardMetricWidget[] = [
     iconName: 'Calendar',
     queryTable: 'coaching_admissions',
     queryType: 'count',
-    queryFilters: [
-      { field: 'status', operator: 'eq', value: 'active' }
-    ]
+    queryFilters: [{ field: 'status', operator: 'eq', value: 'active' }],
   },
   {
     key: 'student_leads',
@@ -17,15 +15,13 @@ export const dashboardConfig: DashboardMetricWidget[] = [
     iconName: 'MessageSquare',
     queryTable: 'coaching_students',
     queryType: 'count',
-    queryFilters: [
-      { field: 'status', operator: 'eq', value: 'active' }
-    ]
+    queryFilters: [{ field: 'status', operator: 'eq', value: 'active' }],
   },
   {
     key: 'courses_active',
     label: 'Course Enquiries',
     iconName: 'FileText',
     queryTable: 'coaching_courses',
-    queryType: 'count'
-  }
+    queryType: 'count',
+  },
 ];

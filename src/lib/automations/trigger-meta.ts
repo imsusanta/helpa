@@ -1,9 +1,9 @@
-import type { AutomationTriggerType } from '@/types'
+import type { AutomationTriggerType } from '@/types';
 
 export interface TriggerMeta {
-  label: string
+  label: string;
   /** Tailwind classes for the Badge pill on the list row. */
-  pillClass: string
+  pillClass: string;
 }
 
 export const TRIGGER_META: Record<AutomationTriggerType, TriggerMeta> = {
@@ -35,7 +35,7 @@ export const TRIGGER_META: Record<AutomationTriggerType, TriggerMeta> = {
     label: 'Time-Based',
     pillClass: 'border-slate-500/30 bg-slate-500/10 text-muted-foreground',
   },
-}
+};
 
 export function triggerMeta(t: AutomationTriggerType | string): TriggerMeta {
   return (
@@ -43,17 +43,17 @@ export function triggerMeta(t: AutomationTriggerType | string): TriggerMeta {
       label: t,
       pillClass: 'border-slate-500/30 bg-slate-500/10 text-muted-foreground',
     }
-  )
+  );
 }
 
 export function formatRelative(iso: string | null | undefined): string {
-  if (!iso) return 'never'
-  const then = new Date(iso).getTime()
-  if (Number.isNaN(then)) return 'never'
-  const diffSec = Math.round((Date.now() - then) / 1000)
-  if (diffSec < 60) return 'just now'
-  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`
-  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`
-  if (diffSec < 2_592_000) return `${Math.floor(diffSec / 86400)}d ago`
-  return new Date(iso).toLocaleDateString()
+  if (!iso) return 'never';
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return 'never';
+  const diffSec = Math.round((Date.now() - then) / 1000);
+  if (diffSec < 60) return 'just now';
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+  if (diffSec < 2_592_000) return `${Math.floor(diffSec / 86400)}d ago`;
+  return new Date(iso).toLocaleDateString();
 }

@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextResponse } from 'next/server';
 
-import { supabaseAdmin } from "@/lib/automations/admin-client";
+import { supabaseAdmin } from '@/lib/automations/admin-client';
 
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 
 /**
  * The public landing page only needs plan information that an admin has
@@ -12,9 +12,11 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     const { data, error } = await supabaseAdmin()
-      .from("plans")
-      .select("id, name, monthly_price, yearly_price, max_users, max_contacts, max_whatsapp_numbers, max_ai_requests, features")
-      .order("monthly_price", { ascending: true });
+      .from('plans')
+      .select(
+        'id, name, monthly_price, yearly_price, max_users, max_contacts, max_whatsapp_numbers, max_ai_requests, features'
+      )
+      .order('monthly_price', { ascending: true });
 
     if (error) {
       throw error;
@@ -22,14 +24,14 @@ export async function GET() {
 
     return NextResponse.json(data ?? [], {
       headers: {
-        "Cache-Control": "no-store, max-age=0",
+        'Cache-Control': 'no-store, max-age=0',
       },
     });
   } catch (error) {
-    console.error("[GET /api/plans] error:", error);
+    console.error('[GET /api/plans] error:', error);
     return NextResponse.json(
-      { error: "Unable to load plans right now." },
-      { status: 500 },
+      { error: 'Unable to load plans right now.' },
+      { status: 500 }
     );
   }
 }

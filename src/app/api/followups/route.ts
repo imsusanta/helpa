@@ -15,7 +15,9 @@ export async function GET(request: Request) {
     const db = supabaseAdmin();
     let query = db
       .from('hospital_followups')
-      .select('*, patient:contacts(id, name, phone, metadata), doctor:hospital_doctors(id, name, department)')
+      .select(
+        '*, patient:contacts(id, name, phone, metadata), doctor:hospital_doctors(id, name, department)'
+      )
       .eq('account_id', accountId)
       .order('due_date', { ascending: true });
 
@@ -37,14 +39,20 @@ export async function GET(request: Request) {
     const { data: followups, error } = await query;
 
     if (error) {
-      console.warn('[Followups GET] Query error or missing table:', error.message);
+      console.warn(
+        '[Followups GET] Query error or missing table:',
+        error.message
+      );
       return NextResponse.json({ followups: [] });
     }
 
     return NextResponse.json({ followups: followups || [] });
   } catch (err: any) {
     console.error('[Followups GET] Exception:', err);
-    return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json(
+      { error: err.message || 'Internal Server Error' },
+      { status: 500 }
+    );
   }
 }
 
@@ -59,7 +67,10 @@ export async function POST(request: Request) {
     const { patient_id, doctor_id, followup_type, due_date, notes } = body;
 
     if (!patient_id || !followup_type || !due_date) {
-      return NextResponse.json({ error: 'patient_id, followup_type, and due_date are required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'patient_id, followup_type, and due_date are required' },
+        { status: 400 }
+      );
     }
 
     const db = supabaseAdmin();
@@ -74,7 +85,9 @@ export async function POST(request: Request) {
         notes: notes || null,
         status: 'scheduled',
       })
-      .select('*, patient:contacts(id, name, phone), doctor:hospital_doctors(id, name)')
+      .select(
+        '*, patient:contacts(id, name, phone), doctor:hospital_doctors(id, name)'
+      )
       .single();
 
     if (error) {
@@ -85,6 +98,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ followup: created });
   } catch (err: any) {
     console.error('[Followups POST] Exception:', err);
-    return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json(
+      { error: err.message || 'Internal Server Error' },
+      { status: 500 }
+    );
   }
 }

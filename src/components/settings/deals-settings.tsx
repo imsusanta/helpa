@@ -1,22 +1,22 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
-import { Coins, Loader2 } from "lucide-react";
+import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
+import { Coins, Loader2 } from 'lucide-react';
 
-import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
-import { CURRENCIES } from "@/lib/currency";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
+import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/hooks/use-auth';
+import { CURRENCIES } from '@/lib/currency';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
   CardDescription,
-} from "@/components/ui/card";
-import { SettingsPanelHead } from "./settings-panel-head";
+} from '@/components/ui/card';
+import { SettingsPanelHead } from './settings-panel-head';
 
 /**
  * Deals settings — account-wide default currency.
@@ -52,11 +52,11 @@ export function DealsSettings() {
     if (!accountId || !dirty) return;
     setSaving(true);
     const { error } = await supabase
-      .from("accounts")
+      .from('accounts')
       .update({ default_currency: selected })
-      .eq("id", accountId);
+      .eq('id', accountId);
     if (error) {
-      toast.error("Failed to save default currency");
+      toast.error('Failed to save default currency');
       setSaving(false);
       return;
     }
@@ -64,19 +64,19 @@ export function DealsSettings() {
     // and every total pick it up without a full reload.
     await refreshProfile();
     setSaving(false);
-    toast.success("Default currency updated");
+    toast.success('Default currency updated');
   }
 
   return (
-    <section className="max-w-2xl animate-in fade-in-50 duration-200">
+    <section className="animate-in fade-in-50 max-w-2xl duration-200">
       <SettingsPanelHead
         title="Appointment Settings & Currency"
         description="The currency used for clinical billing, consultation fees, and dashboard totals."
       />
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-foreground">
-            <Coins className="size-4 text-primary" />
+          <CardTitle className="text-foreground flex items-center gap-2">
+            <Coins className="text-primary size-4" />
             Default Currency
           </CardTitle>
           <CardDescription className="text-muted-foreground">
@@ -91,7 +91,7 @@ export function DealsSettings() {
               value={selected}
               onChange={(e) => setSelected(e.target.value)}
               disabled={!canEditSettings || profileLoading}
-              className="h-9 w-full rounded-lg border border-border bg-muted px-2.5 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-60"
+              className="border-border bg-muted text-foreground focus:border-primary focus:ring-primary h-9 w-full rounded-lg border px-2.5 text-sm outline-none focus:ring-1 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {CURRENCIES.map((c) => (
                 <option key={c.code} value={c.code}>
@@ -100,7 +100,7 @@ export function DealsSettings() {
               ))}
             </select>
             {!canEditSettings && (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-muted-foreground text-xs">
                 Only account admins can change the default currency.
               </p>
             )}
@@ -118,7 +118,7 @@ export function DealsSettings() {
                   Saving...
                 </>
               ) : (
-                "Save"
+                'Save'
               )}
             </Button>
           )}

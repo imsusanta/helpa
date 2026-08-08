@@ -22,7 +22,7 @@ export const realEstateModule: IndustryModule = {
     { name: 'Inbound Property Lead', position: 1, color: '#3b82f6' },
     { name: 'Site Visit Scheduled', position: 2, color: '#f59e0b' },
     { name: 'Offer / Token Submitted', position: 3, color: '#ec4899' },
-    { name: 'Closed Won / Handed Over', position: 4, color: '#10b981' }
+    { name: 'Closed Won / Handed Over', position: 4, color: '#10b981' },
   ],
   entityConfigs: {
     contacts: {
@@ -31,12 +31,25 @@ export const realEstateModule: IndustryModule = {
       pluralLabel: 'Leads',
       fields: [
         { key: 'budget', label: 'Budget', type: 'number' },
-        { key: 'interested_property', label: 'Interested Property', type: 'text' },
-        { key: 'preferred_location', label: 'Preferred Location', type: 'text' },
-        { key: 'property_type', label: 'Property Type', type: 'select', options: ['Apartment', 'Villa', 'Plot', 'Commercial', 'Other'] }
-      ]
-    }
-  }
+        {
+          key: 'interested_property',
+          label: 'Interested Property',
+          type: 'text',
+        },
+        {
+          key: 'preferred_location',
+          label: 'Preferred Location',
+          type: 'text',
+        },
+        {
+          key: 'property_type',
+          label: 'Property Type',
+          type: 'select',
+          options: ['Apartment', 'Villa', 'Plot', 'Commercial', 'Other'],
+        },
+      ],
+    },
+  },
 };
 export * from './sidebar';
 export * from './dashboard';

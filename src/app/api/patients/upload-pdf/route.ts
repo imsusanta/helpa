@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth/account';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
-import { engineSendDocument, engineSendText } from '@/lib/automations/meta-send';
+import {
+  engineSendDocument,
+  engineSendText,
+} from '@/lib/automations/meta-send';
 
 export async function POST(request: Request) {
   try {
@@ -39,14 +42,21 @@ export async function POST(request: Request) {
       .single();
 
     if (contactErr || !contact) {
-      return NextResponse.json({ error: 'Patient contact record not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Patient contact record not found' },
+        { status: 404 }
+      );
     }
 
     const patientName = contact.name || 'Patient';
     const patientSeqId = contact.metadata?.patient_id || 'PAT-000000';
 
     // Fetch account details for business name
-    const { data: acc } = await db.from('accounts').select('name').eq('id', accountId).single();
+    const { data: acc } = await db
+      .from('accounts')
+      .select('name')
+      .eq('id', accountId)
+      .single();
     const clinicName = acc?.name || 'Helpa Health Clinic';
 
     // Insert record into hospital_lab_reports
@@ -71,15 +81,25 @@ export async function POST(request: Request) {
 
     // Auto-detect & save Blood Group from report text if present
     const combinedText = `${test_name} ${notes || ''}`;
-    const bgMatch = combinedText.match(/\b(A\+|A\-|B\+|B\-|AB\+|AB\-|O\+|O\-)\b/i) ||
-                    combinedText.match(/\b(A|B|AB|O)\s+(positive|negative|pos|neg)\b/i);
+    const bgMatch =
+      combinedText.match(/\b(A\+|A\-|B\+|B\-|AB\+|AB\-|O\+|O\-)\b/i) ||
+      combinedText.match(/\b(A|B|AB|O)\s+(positive|negative|pos|neg)\b/i);
 
     if (bgMatch) {
-      let detectedBg = bgMatch[0].toUpperCase().replace(/\s+POS(ITIVE)?/i, '+').replace(/\s+NEG(ATIVE)?/i, '-');
+      let detectedBg = bgMatch[0]
+        .toUpperCase()
+        .replace(/\s+POS(ITIVE)?/i, '+')
+        .replace(/\s+NEG(ATIVE)?/i, '-');
       if (detectedBg) {
-        await db.from('patients').update({ blood_group: detectedBg }).eq('id', contact_id);
+        await db
+          .from('patients')
+          .update({ blood_group: detectedBg })
+          .eq('id', contact_id);
         const meta = contact.metadata || {};
-        await db.from('contacts').update({ metadata: { ...meta, blood_group: detectedBg } }).eq('id', contact_id);
+        await db
+          .from('contacts')
+          .update({ metadata: { ...meta, blood_group: detectedBg } })
+          .eq('id', contact_id);
       }
     }
 
@@ -122,7 +142,9 @@ export async function POST(request: Request) {
           documentUrl: report_pdf_url,
           filename: `${test_name.replace(/\s+/g, '_')}_${patientSeqId}.pdf`,
           caption: captionMsg,
-        }).catch((err) => console.error('[Upload Patient PDF] engineSendDocument error:', err));
+        }).catch((err) =>
+          console.error('[Upload Patient PDF] engineSendDocument error:', err)
+        );
       }
     }
 
@@ -141,6 +163,9 @@ export async function POST(request: Request) {
     });
   } catch (err: any) {
     console.error('[Upload Patient PDF] Exception:', err);
-    return NextResponse.json({ error: err.message || 'Internal Server Error' }, { status: 500 });
+    return NextResponse.json(
+      { error: err.message || 'Internal Server Error' },
+      { status: 500 }
+    );
   }
 }

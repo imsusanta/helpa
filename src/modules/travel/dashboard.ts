@@ -6,6 +6,6 @@ export const dashboardConfig: DashboardMetricWidget[] = [
     label: 'Trip Bookings',
     iconName: 'Calendar',
     queryTable: 'conversations',
-    queryType: 'count'
-  }
+    queryType: 'count',
+  },
 ];
