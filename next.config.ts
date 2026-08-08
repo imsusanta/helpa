@@ -57,11 +57,6 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/api/:path*',
-        headers: [{ key: 'Cache-Control', value: 'no-store, private' }],
-      },
-      {
-        source:
-          '/(dashboard|inbox|contacts|patients|appointments|bookings|doctors|departments|lab-reports|settings|admin|pipeline|broadcasts|automations)/:path*',
         headers: [
           {
             key: 'Cache-Control',
@@ -71,12 +66,21 @@ const nextConfig: NextConfig = {
       },
       {
         source:
-          '/:path((?!_next/static|_next/image|api|dashboard|inbox|contacts|patients|appointments|doctors|departments|lab-reports|settings|admin).*)',
+          '/:path(dashboard|inbox|contacts|patients|appointments|bookings|doctors|departments|lab-reports|settings|admin|pipelines|broadcasts|automations)',
         headers: [
           {
             key: 'Cache-Control',
-            value:
-              'public, max-age=0, s-maxage=300, stale-while-revalidate=86400',
+            value: 'private, no-store, no-cache, must-revalidate',
+          },
+        ],
+      },
+      {
+        source:
+          '/:path(dashboard|inbox|contacts|patients|appointments|bookings|doctors|departments|lab-reports|settings|admin|pipelines|broadcasts|automations)/:rest*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'private, no-store, no-cache, must-revalidate',
           },
         ],
       },
