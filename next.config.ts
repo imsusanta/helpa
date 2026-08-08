@@ -56,37 +56,32 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        source: '/api/:path*',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'private, no-store, no-cache, must-revalidate',
-          },
-        ],
-      },
-      {
-        source:
-          '/:path(dashboard|inbox|contacts|patients|appointments|bookings|doctors|departments|lab-reports|settings|admin|pipelines|broadcasts|automations)',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'private, no-store, no-cache, must-revalidate',
-          },
-        ],
-      },
-      {
-        source:
-          '/:path(dashboard|inbox|contacts|patients|appointments|bookings|doctors|departments|lab-reports|settings|admin|pipelines|broadcasts|automations)/:rest*',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'private, no-store, no-cache, must-revalidate',
-          },
-        ],
-      },
-      {
         source: '/:path*',
-        headers: [...SECURITY_HEADERS],
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'private, no-store, no-cache, must-revalidate',
+          },
+          ...SECURITY_HEADERS,
+        ],
+      },
+      {
+        source: '/_next/static/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      {
+        source: '/_next/image/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=86400, stale-while-revalidate=604800',
+          },
+        ],
       },
     ];
   },

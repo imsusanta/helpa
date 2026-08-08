@@ -11,6 +11,26 @@ test.describe('E2E Server-Level Security & Cache-Control Headers', () => {
     '/broadcasts',
     '/pipelines',
     '/settings',
+    '/admissions',
+    '/agents',
+    '/billing',
+    '/classes',
+    '/courses',
+    '/customers',
+    '/follow-ups',
+    '/knowledge-base',
+    '/leads',
+    '/members',
+    '/memberships',
+    '/orders',
+    '/packages',
+    '/properties',
+    '/reservations',
+    '/site-visits',
+    '/students',
+    '/tables',
+    '/teachers',
+    '/trainers',
   ];
 
   test('verifies public health status endpoint returns 200 with private no-store cache headers', async ({
@@ -21,8 +41,8 @@ test.describe('E2E Server-Level Security & Cache-Control Headers', () => {
 
     const cacheControl = response.headers()['cache-control'];
     expect(cacheControl).toBeDefined();
-    expect(cacheControl).toContain('no-store');
     expect(cacheControl).toContain('private');
+    expect(cacheControl).toContain('no-store');
   });
 
   test('verifies unauthenticated access to private routes redirects safely without leaking patient content', async ({
@@ -38,9 +58,9 @@ test.describe('E2E Server-Level Security & Cache-Control Headers', () => {
       expect(location).toContain('/login');
 
       const cacheControl = response.headers()['cache-control'];
-      if (cacheControl) {
-        expect(cacheControl).toContain('no-store');
-      }
+      expect(cacheControl).toBeDefined();
+      expect(cacheControl).toContain('private');
+      expect(cacheControl).toContain('no-store');
     }
   });
 
@@ -54,6 +74,7 @@ test.describe('E2E Server-Level Security & Cache-Control Headers', () => {
 
     const cacheControl = response.headers()['cache-control'];
     expect(cacheControl).toBeDefined();
+    expect(cacheControl).toContain('private');
     expect(cacheControl).toContain('no-store');
   });
 
@@ -67,6 +88,7 @@ test.describe('E2E Server-Level Security & Cache-Control Headers', () => {
     expect(response.status()).toBe(401);
     const cacheControl = response.headers()['cache-control'];
     expect(cacheControl).toBeDefined();
+    expect(cacheControl).toContain('private');
     expect(cacheControl).toContain('no-store');
   });
 });

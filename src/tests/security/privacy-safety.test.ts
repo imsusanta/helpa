@@ -1,22 +1,24 @@
 import { describe, it, expect } from 'vitest';
+import {
+  withdrawPatientConsent,
+  exportPatientData,
+  scrubSensitiveFields,
+  type PatientConsentRecord,
+} from '@/lib/privacy/consent-service';
 
-describe('Privacy, Data Protection & Retention Controls', () => {
-  describe('1. Patient Consent & Withdrawal Lifecycle', () => {
+describe('Production Privacy, Data Protection & Retention Controls', () => {
+  describe('1. Patient Consent & Withdrawal Lifecycle (Production Module)', () => {
     it('records consent state and validates opt-out withdrawal requests', () => {
-      const patientRecord = {
+      const patientRecord: PatientConsentRecord = {
         id: 'patient-001',
         account_id: '00000000-0000-0000-0000-00000000000a',
+        phone: '+919876543210',
+        name: 'Jane Doe',
         consent_status: 'opted_in',
         consent_updated_at: '2020-01-01T00:00:00Z',
       };
 
-      const handleOptOut = (record: typeof patientRecord) => ({
-        ...record,
-        consent_status: 'opted_out',
-        consent_updated_at: new Date().toISOString(),
-      });
-
-      const updated = handleOptOut(patientRecord);
+      const updated = withdrawPatientConsent(patientRecord);
       expect(updated.consent_status).toBe('opted_out');
       expect(new Date(updated.consent_updated_at).getTime()).toBeGreaterThan(
         new Date(patientRecord.consent_updated_at).getTime()
@@ -32,15 +34,25 @@ describe('Privacy, Data Protection & Retention Controls', () => {
         db_connection_secret: 'INTERNAL_SECRET_MUST_BE_REDACTED',
       };
 
-      const generateDataExport = (data: typeof patientProfile) => {
-        const { db_connection_secret: _, ...exportPayload } = data;
-        return exportPayload;
-      };
-
-      const exported = generateDataExport(patientProfile);
-      expect(exported.name).toBe('Jane Doe');
+      const scrubbed = scrubSensitiveFields(patientProfile);
+      expect(scrubbed.name).toBe('Jane Doe');
       expect(
-        (exported as Record<string, unknown>).db_connection_secret
+        (scrubbed as Record<string, unknown>).db_connection_secret
+      ).toBeUndefined();
+
+      const exported = exportPatientData({
+        id: 'patient-001',
+        account_id: '00000000-0000-0000-0000-00000000000a',
+        phone: '+919876543210',
+        name: 'Jane Doe',
+        consent_status: 'opted_in',
+        consent_updated_at: '2020-01-01T00:00:00Z',
+        db_connection_secret: 'SECRET',
+      });
+
+      expect(exported.exported_at).toBeDefined();
+      expect(
+        (exported.patient_data as Record<string, unknown>).db_connection_secret
       ).toBeUndefined();
     });
   });
