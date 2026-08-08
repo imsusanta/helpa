@@ -86,7 +86,7 @@ export async function POST(request: Request) {
       combinedText.match(/\b(A|B|AB|O)\s+(positive|negative|pos|neg)\b/i);
 
     if (bgMatch) {
-      let detectedBg = bgMatch[0]
+      const detectedBg = bgMatch[0]
         .toUpperCase()
         .replace(/\s+POS(ITIVE)?/i, '+')
         .replace(/\s+NEG(ATIVE)?/i, '-');

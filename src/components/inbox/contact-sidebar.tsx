@@ -330,7 +330,7 @@ export function ContactSidebar({
   // Load on contact change. setContactData/setTags run inside async
   // Supabase callbacks, not synchronously in the effect body.
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+     
     fetchContactData();
   }, [fetchContactData]);
 
