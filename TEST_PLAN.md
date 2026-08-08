@@ -1,7 +1,7 @@
 # Helpa Comprehensive Test Plan
 
 **Document Version:** 1.0.0  
-**Test Runners:** Vitest (Unit & Integration) + Playwright (End-to-End Browser Automation)  
+**Test Runners:** Vitest (Unit & Integration) + Playwright (End-to-End Browser Automation)
 
 ---
 
@@ -31,14 +31,14 @@ e2e/
 
 ## 2. Unit & Integration Test Suites (448 Tests Passed)
 
-| Test Suite | File Path | Focus & Assertions |
-|---|---|---|
-| **Webhook Signature Verification** | `src/lib/whatsapp/webhook-signature.test.ts` | Missing secret rejection (fail-closed), tampered body rejection, invalid signature rejection. |
-| **Multi-Tenant Boundary Isolation** | `src/tests/security/tenant-isolation.test.ts` | Account A cannot read/mutate Account B records; Viewer cannot perform write operations. |
-| **Signed OPD PDF Tokens** | `src/tests/security/signed-urls.test.ts` | Valid signature accepted, expired token rejected, tampered resource ID rejected. |
-| **Role-Based Access Control** | `src/lib/auth/roles.test.ts` | `hasMinRole` hierarchy enforcement across `viewer`, `agent`, `admin`, `owner`. |
-| **Token Cryptography** | `src/lib/whatsapp/encryption.test.ts` | AES-256-GCM encryption, corrupted ciphertext rejection, IV uniqueness. |
-| **Phone Number Normalization** | `src/lib/whatsapp/phone-utils.test.ts` | E.164 normalization, Indian standard formatting (`+91`), local prefixes. |
+| Test Suite                          | File Path                                     | Focus & Assertions                                                                            |
+| ----------------------------------- | --------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| **Webhook Signature Verification**  | `src/lib/whatsapp/webhook-signature.test.ts`  | Missing secret rejection (fail-closed), tampered body rejection, invalid signature rejection. |
+| **Multi-Tenant Boundary Isolation** | `src/tests/security/tenant-isolation.test.ts` | Account A cannot read/mutate Account B records; Viewer cannot perform write operations.       |
+| **Signed OPD PDF Tokens**           | `src/tests/security/signed-urls.test.ts`      | Valid signature accepted, expired token rejected, tampered resource ID rejected.              |
+| **Role-Based Access Control**       | `src/lib/auth/roles.test.ts`                  | `hasMinRole` hierarchy enforcement across `viewer`, `agent`, `admin`, `owner`.                |
+| **Token Cryptography**              | `src/lib/whatsapp/encryption.test.ts`         | AES-256-GCM encryption, corrupted ciphertext rejection, IV uniqueness.                        |
+| **Phone Number Normalization**      | `src/lib/whatsapp/phone-utils.test.ts`        | E.164 normalization, Indian standard formatting (`+91`), local prefixes.                      |
 
 ---
 
