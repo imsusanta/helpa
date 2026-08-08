@@ -7,7 +7,7 @@
 </p>
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](./LICENSE)
-[![Release](https://img.shields.io/badge/Release-v0.3.0--beta.1-blue.svg)](https://github.com/imsusanta/wacrm_susanta/releases/tag/v0.3.0-beta.1)
+[![Release](https://img.shields.io/badge/Release-v0.3.0--beta.1-blue.svg)](https://github.com/imsusanta/wacrm_susanta/tree/v0.3.0-beta.1)
 [![CI](https://github.com/imsusanta/wacrm_susanta/actions/workflows/ci.yml/badge.svg)](https://github.com/imsusanta/wacrm_susanta/actions/workflows/ci.yml)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16.3-black?logo=nextdotjs)](https://nextjs.org)
 [![Supabase](https://img.shields.io/badge/Supabase-Postgres%2015%20%2B%20RLS-3ecf8e?logo=supabase)](https://supabase.com)

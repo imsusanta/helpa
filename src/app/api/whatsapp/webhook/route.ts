@@ -24,7 +24,12 @@ export async function POST(request: Request) {
   if (!verifyMetaWebhookSignature(rawBody, signature)) {
     return NextResponse.json(
       { error: 'Invalid webhook signature' },
-      { status: 401 }
+      {
+        status: 401,
+        headers: {
+          'Cache-Control': 'private, no-store, no-cache, must-revalidate',
+        },
+      }
     );
   }
 
