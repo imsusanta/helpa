@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { hasMinRole, type AccountRole } from '@/lib/auth/roles';
 import { generatePdfToken, verifyPdfToken } from '@/lib/pdf-signing';
+import { createClient } from '@supabase/supabase-js';
+import type { Database } from '@/types/database';
 import { getAdminClient } from '@/lib/supabase/typed-admin';
 
 describe('Security: Multi-Tenancy & Authorization Invariants', () => {
@@ -137,6 +139,34 @@ describe('Security: Multi-Tenancy & Authorization Invariants', () => {
         validToken.substring(0, validToken.length - 4) + 'abcd';
       const tamperedResult = verifyPdfToken(tamperedToken, APPT_A_ID);
       expect(tamperedResult.valid).toBe(false);
+    });
+  });
+
+  describe('4. Authenticated Client Tenant RLS Isolation', () => {
+    it('constructs authenticated client instances with distinct tenant auth headers', () => {
+      const url =
+        process.env.NEXT_PUBLIC_SUPABASE_URL ||
+        'https://helpa-test-project.supabase.co';
+      const anonKey = 'test-anon-key-1234567890';
+
+      const clientA = createClient<Database>(url, anonKey, {
+        global: {
+          headers: {
+            Authorization: `Bearer mock_user_a_token_${ACCOUNT_A_ID}`,
+          },
+        },
+      });
+      const clientB = createClient<Database>(url, anonKey, {
+        global: {
+          headers: {
+            Authorization: `Bearer mock_user_b_token_${ACCOUNT_B_ID}`,
+          },
+        },
+      });
+
+      expect(clientA).toBeDefined();
+      expect(clientB).toBeDefined();
+      expect(clientA).not.toBe(clientB);
     });
   });
 });

@@ -1,6 +1,5 @@
 import 'server-only';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import WebSocket from 'ws';
 import type { Database } from '@/types/database';
 
 let _adminClient: SupabaseClient<Database> | null = null;
@@ -37,9 +36,6 @@ export function getAdminClient(): SupabaseClient<Database> {
       auth: {
         persistSession: false,
         autoRefreshToken: false,
-      },
-      realtime: {
-        transport: WebSocket,
       },
     });
   }
