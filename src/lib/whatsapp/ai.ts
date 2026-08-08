@@ -1337,14 +1337,16 @@ Note:
 
           if (deptDoctors && deptDoctors.length > 0) {
             let doctorList = `Here are the available doctors in *${department}*:\n\n`;
-            deptDoctors.forEach((doc: any, idx: number) => {
+            deptDoctors.forEach((doc: Record<string, unknown>, idx: number) => {
               const days = Array.isArray(doc.available_days)
                 ? doc.available_days.join(', ')
                 : 'All days';
-              const start = doc.working_hours?.start || '09:00';
-              const end = doc.working_hours?.end || '17:00';
+              const workingHours = doc.working_hours as { start?: string; end?: string } | null | undefined;
+              const start = workingHours?.start || '09:00';
+              const end = workingHours?.end || '17:00';
               const fee = doc.consultation_fee || 0;
-              doctorList += `${idx + 1}️⃣ *Dr. ${doc.name.replace(/^Dr\.\s+/i, '')}* — Fee: ₹${fee} — ${days} (${start}–${end})\n`;
+              const nameStr = typeof doc.name === 'string' ? doc.name : 'Doctor';
+              doctorList += `${idx + 1}️⃣ *Dr. ${nameStr.replace(/^Dr\.\s+/i, '')}* — Fee: ₹${fee} — ${days} (${start}–${end})\n`;
             });
             doctorList += `\nPlease reply with the doctor's name to proceed with your appointment booking.`;
             reply = doctorList;
