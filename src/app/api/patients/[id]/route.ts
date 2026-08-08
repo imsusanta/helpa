@@ -38,55 +38,21 @@ export async function DELETE(
 
     const db = supabaseAdmin();
 
-    // 2. Verify patient exists and belongs to the authenticated tenant
-    const { data: patient, error: fetchErr } = await db
-      .from('patients')
-      .select('id')
-      .eq('id', patientId)
-      .eq('account_id', accountId)
-      .maybeSingle();
-
-    if (fetchErr || !patient) {
-      return NextResponse.json(
-        { error: 'Not found' },
-        { status: 404, headers: CACHE_HEADERS }
-      );
-    }
-
-    // 3. Record audit BEFORE deletion (since patient row will be gone after)
-    const { error: auditErr } = await db.from('audit_logs').insert({
-      account_id: accountId,
-      actor_id: actorId,
-      action: 'patient.data_deleted',
-      resource_type: 'patients',
-      resource_id: patientId,
-      metadata: {
-        deleted_at: new Date().toISOString(),
-      },
+    // 2. Atomic deletion + audit event within a single PostgreSQL transaction via RPC
+    const { error: rpcErr } = await db.rpc('delete_patient_atomic', {
+      p_patient_id: patientId,
+      p_account_id: accountId,
+      p_actor_id: actorId,
     });
 
-    if (auditErr) {
-      logger.error('Failed to record deletion audit event', {
-        component: 'delete-api',
-        accountId,
-        correlationId: patientId,
-      });
-      // Fail — unaudited deletions are not acceptable
-      return NextResponse.json(
-        { error: 'Deletion audit recording failed' },
-        { status: 500, headers: CACHE_HEADERS }
-      );
-    }
-
-    // 4. Execute deletion scoped by account_id
-    const { error: deleteErr } = await db
-      .from('patients')
-      .delete()
-      .eq('id', patientId)
-      .eq('account_id', accountId);
-
-    if (deleteErr) {
-      logger.error('Patient deletion failed', {
+    if (rpcErr) {
+      if (rpcErr.message?.includes('not found')) {
+        return NextResponse.json(
+          { error: 'Not found' },
+          { status: 404, headers: CACHE_HEADERS }
+        );
+      }
+      logger.error('Patient deletion RPC failed', {
         component: 'delete-api',
         accountId,
         correlationId: patientId,
@@ -97,7 +63,7 @@ export async function DELETE(
       );
     }
 
-    logger.info('Patient data deleted', {
+    logger.info('Patient data deleted atomically', {
       component: 'delete-api',
       accountId,
       correlationId: patientId,

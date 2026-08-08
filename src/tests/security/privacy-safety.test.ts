@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   withdrawPatientConsent,
   exportPatientData,
@@ -119,7 +120,7 @@ describe('Production Privacy, Data Protection & Retention Controls', () => {
 
     it('verifies consent POST route rejects invalid consent_status with 400 when authenticated', async () => {
       vi.mocked(requireRole).mockResolvedValue({
-        supabase: {} as any,
+        supabase: {} as unknown as SupabaseClient,
         userId: 'user-1',
         accountId: 'acc-1',
         role: 'admin',

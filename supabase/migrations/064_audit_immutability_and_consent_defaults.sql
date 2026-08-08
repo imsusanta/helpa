@@ -5,6 +5,7 @@
 --      and installs a trigger preventing UPDATE/DELETE on audit rows.
 --   2. Changes patient consent default from 'opted_in' to 'pending'.
 --   3. Adds atomic consent-update RPC with fixed search_path.
+--   4. Adds atomic patient-deletion RPC with fixed search_path.
 --
 -- This is a corrective forward-only migration; 049 is not modified.
 
@@ -138,6 +139,62 @@ BEGIN
 END;
 $$;
 
--- Grant execute only to service_role and authenticated (for RPC calls via supabase client)
 REVOKE ALL ON FUNCTION public.update_patient_consent_atomic FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.update_patient_consent_atomic TO service_role;
+
+-- ============================================================
+-- 4. ATOMIC PATIENT DELETION RPC
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION public.delete_patient_atomic(
+  p_patient_id UUID,
+  p_account_id UUID,
+  p_actor_id UUID
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_now TIMESTAMPTZ := NOW();
+  v_patient_exists BOOLEAN;
+BEGIN
+  -- Verify patient exists AND belongs to the specified account
+  SELECT EXISTS(
+    SELECT 1 FROM public.patients
+     WHERE id = p_patient_id
+       AND account_id = p_account_id
+     FOR UPDATE
+  ) INTO v_patient_exists;
+
+  IF NOT v_patient_exists THEN
+    RAISE EXCEPTION 'Patient not found in tenant';
+  END IF;
+
+  -- Insert audit event BEFORE deletion within the SAME atomic transaction
+  INSERT INTO public.audit_logs (
+    account_id, actor_id, action, resource_type, resource_id, metadata
+  ) VALUES (
+    p_account_id,
+    p_actor_id,
+    'patient.data_deleted',
+    'patients',
+    p_patient_id::text,
+    jsonb_build_object(
+      'deleted_at', v_now,
+      'deleted_patient_id', p_patient_id::text
+    )
+  );
+
+  -- Delete patient record (CASCADE will purge related records)
+  DELETE FROM public.patients
+   WHERE id = p_patient_id
+     AND account_id = p_account_id;
+
+  RETURN jsonb_build_object('deleted_at', v_now);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.delete_patient_atomic FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.delete_patient_atomic TO service_role;
