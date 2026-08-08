@@ -6,7 +6,9 @@ import {
   type PatientConsentRecord,
 } from '@/lib/privacy/consent-service';
 import { POST as postConsent } from '@/app/api/patients/[id]/consent/route';
+import { POST as postWithdraw } from '@/app/api/patients/[id]/withdraw/route';
 import { GET as getExport } from '@/app/api/patients/[id]/export/route';
+import { DELETE as deletePatient } from '@/app/api/patients/[id]/route';
 
 describe('Production Privacy, Data Protection & Retention Controls', () => {
   describe('1. Patient Consent & Withdrawal Lifecycle (Production Service)', () => {
@@ -83,6 +85,37 @@ describe('Production Privacy, Data Protection & Retention Controls', () => {
       );
       const params = Promise.resolve({ id: 'patient-001' });
       const res = await getExport(req, { params });
+      expect(res.status).toBe(400);
+
+      const cacheControl = res.headers.get('cache-control');
+      expect(cacheControl).toContain('no-store');
+    });
+
+    it('verifies withdrawal POST route rejects requests missing account_id with 400', async () => {
+      const req = new Request(
+        'http://localhost:3000/api/patients/patient-001/withdraw',
+        {
+          method: 'POST',
+          body: JSON.stringify({}),
+        }
+      );
+      const params = Promise.resolve({ id: 'patient-001' });
+      const res = await postWithdraw(req, { params });
+      expect(res.status).toBe(400);
+
+      const cacheControl = res.headers.get('cache-control');
+      expect(cacheControl).toContain('no-store');
+    });
+
+    it('verifies deletion DELETE route rejects requests missing account_id with 400', async () => {
+      const req = new Request(
+        'http://localhost:3000/api/patients/patient-001',
+        {
+          method: 'DELETE',
+        }
+      );
+      const params = Promise.resolve({ id: 'patient-001' });
+      const res = await deletePatient(req, { params });
       expect(res.status).toBe(400);
 
       const cacheControl = res.headers.get('cache-control');

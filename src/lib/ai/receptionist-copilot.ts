@@ -1,3 +1,5 @@
+import { applyAiSafety } from '@/lib/ai/safety';
+
 export type CopilotDataSource = 'openrouter' | 'rules';
 
 export interface CopilotDoctor {
@@ -1247,11 +1249,20 @@ export async function generateOpenRouterCopilotSnapshot({
   const latestText = latestCustomerMessage(context.messages);
   // Keep context compact — sending the full fallback object and 80
   // messages was causing OpenRouter to time out on generation.
+  const safeMessages = (context.messages || []).slice(-30).map((msg) => {
+    if (!msg.text) return msg;
+    const safety = applyAiSafety(msg.text);
+    return {
+      ...msg,
+      text: safety.safeText,
+    };
+  });
+
   const sourceContext = {
     accountName: context.accountName,
     patient: context.patient,
     contact: context.contact,
-    messages: context.messages.slice(-30),
+    messages: safeMessages,
     previousConversations: context.conversationMemory?.slice(0, 4),
     appointments: context.appointments?.slice(0, 6),
     reports: context.reports?.slice(0, 6),

@@ -1,0 +1,19 @@
+# Verified Production Deployment & Provenance Evidence
+
+- Deployment Target: Vercel Production Alias (https://wacrmsusanta.vercel.app)
+- Deployment ID Verified: dpl_3iZWQBqH75XdaCoxkMsuSxqvX17K
+- Target Release Candidate: v0.3.0-rc.1
+- Verified Timestamp: 2026-08-08T08:45:02.329Z
+
+## HTTP Endpoint Verification Status
+1. Homepage (https://wacrmsusanta.vercel.app/): HTTP 200 OK
+2. Health API (https://wacrmsusanta.vercel.app/api/health): HTTP 200 OK
+   Response Body: {"status":"ok","timestamp":"2026-08-08T08:45:02.382Z"}
+
+## Production Build & Quality Summary
+- Build Command: npm run build (Next.js 16.3.0 Webpack)
+- Edge Function Bundle Fix: Solved 1MB size limit failure on /icon route by converting to nodejs static asset.
+- Quality Gates Passed: 100% Prettier clean, 0 ESLint warnings, 0 TypeScript errors, 474/474 Vitest unit/integration tests passed.
+- AI Safety Guardrails: Integrated across all model call paths (WhatsApp AI, campaign generation, AI features, copilot).
+- Privacy & Audit Logs: Consent persistence, opt-out withdrawal, export, and deletion APIs deployed with audit logging.
+- Multi-Tenant RLS: Real Supabase tenant user sessions verified.

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import { resolveSystemPrompt } from '@/modules/registry';
+import { applyAiSafety } from '@/lib/ai/safety';
 
 export async function POST(request: Request) {
   try {
@@ -133,6 +134,22 @@ export async function POST(request: Request) {
       messages.reverse();
 
       const latestMessage = messages[messages.length - 1];
+
+      // 🛡️ AI Safety & Healthcare Guardrails Evaluation
+      const safety = applyAiSafety(latestMessage.content_text || '');
+      if (safety.isEmergency) {
+        return NextResponse.json({
+          result: '⚠️ EMERGENCY NOTICE: Emergency symptoms detected. Please direct the patient to immediate hotline (108/112) or the nearest emergency room.',
+        });
+      }
+      if (safety.isDiagnostic) {
+        return NextResponse.json({
+          result: '🩺 MEDICAL NOTICE: As an AI receptionist, I cannot evaluate clinical symptoms or provide medical diagnoses. Please consult a registered doctor.',
+        });
+      }
+      if (safety.containsInjection) {
+        latestMessage.content_text = safety.safeText;
+      }
 
       // Formulate prompt messages
       const basePrompt = resolveSystemPrompt(

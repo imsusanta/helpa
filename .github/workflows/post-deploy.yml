@@ -1,0 +1,32 @@
+name: Post-Deployment Production Alias Verification
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  verify-production:
+    name: Verify Live Production Alias
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Verify Production Homepage (HTTP 200)
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://wacrmsusanta.vercel.app/)
+          echo "Homepage HTTP status: $STATUS"
+          if [ "$STATUS" -ne 200 ]; then
+            echo "Error: Homepage returned $STATUS instead of 200"
+            exit 1
+          fi
+
+      - name: Verify Production /api/health (HTTP 200)
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://wacrmsusanta.vercel.app/api/health)
+          echo "Health API HTTP status: $STATUS"
+          if [ "$STATUS" -ne 200 ]; then
+            echo "Error: /api/health returned $STATUS instead of 200"
+            exit 1
+          fi

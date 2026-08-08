@@ -76,3 +76,36 @@ export function sanitizeAiInput(input: string): string {
   }
   return sanitized.trim();
 }
+
+export interface AiSafetyResult {
+  safeText: string;
+  isEmergency: boolean;
+  isDiagnostic: boolean;
+  containsInjection: boolean;
+}
+
+/**
+ * Unified AI Safety evaluator for pre-model-call guardrail enforcement.
+ */
+export function applyAiSafety(input: string): AiSafetyResult {
+  if (!input) {
+    return {
+      safeText: '',
+      isEmergency: false,
+      isDiagnostic: false,
+      containsInjection: false,
+    };
+  }
+  const isEmergency = isEmergencyQuery(input);
+  const isDiagnostic = isDiagnosticRequest(input);
+  const containsInjection = containsPromptInjection(input);
+  const safeText = containsInjection ? sanitizeAiInput(input) : input;
+
+  return {
+    safeText,
+    isEmergency,
+    isDiagnostic,
+    containsInjection,
+  };
+}
+
