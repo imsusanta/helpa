@@ -33,15 +33,19 @@ export function getAdminClient(): SupabaseClient<Database> {
       );
     }
 
-    _adminClient = createClient<Database>(url, key, {
+    const client = createClient<Database>(url, key, {
       auth: {
         persistSession: false,
         autoRefreshToken: false,
       },
       realtime: {
-        transport: WebSocket,
+        // `ws` implements the runtime transport contract expected by Supabase,
+        // but its DOM-compatible constructor type differs structurally.
+        transport: WebSocket as never,
       },
     });
+
+    _adminClient = client as unknown as SupabaseClient<Database>;
   }
 
   return _adminClient;
