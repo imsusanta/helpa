@@ -5,7 +5,7 @@ import { NextResponse, type NextRequest } from 'next/server';
  * Default-Deny Route Protection Middleware
  *
  * All application routes and API endpoints require authentication by default,
- * except explicitly listed public routes (auth, landing, legal, webhooks, static assets).
+ * except explicitly listed public routes (auth, landing, legal, webhooks, health, static assets).
  */
 
 const PUBLIC_EXACT_PATHS = new Set([
@@ -20,6 +20,7 @@ const PUBLIC_EXACT_PATHS = new Set([
   '/robots.txt',
   '/sitemap.xml',
   '/icon',
+  '/api/health',
   '/api/whatsapp/webhook',
   '/api/plans',
 ]);

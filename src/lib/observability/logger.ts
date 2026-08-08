@@ -1,59 +1,147 @@
 /**
- * Structured Logger with Automatic PII / PHI and Secret Sanitization.
- * Emits JSON logs compatible with Datadog, CloudWatch, and Axiom.
+ * Helpa Enterprise Structured Logger
+ *
+ * Implements recursive PII, PHI, authorization header, and secret redaction.
+ * Emits JSON logs compatible with Datadog, CloudWatch, Axiom, and Vercel.
+ * Prevents circular reference crashes, log-injection DoS, and patient data leakage.
  */
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
-interface LogContext {
+export interface LogContext {
   correlationId?: string;
   accountId?: string;
   component?: string;
   [key: string]: unknown;
 }
 
-const SENSITIVE_PATTERNS = [
-  /bearer\s+[a-zA-Z0-9_\-\.]+/gi,
-  /key=[a-zA-Z0-9_\-]+/gi,
-  /secret=[a-zA-Z0-9_\-]+/gi,
-  /token=[a-zA-Z0-9_\-]+/gi,
-  /password=[a-zA-Z0-9_\-]+/gi,
+const SENSITIVE_KEY_SUBSTRINGS = [
+  'secret',
+  'token',
+  'password',
+  'pass',
+  'auth',
+  'cookie',
+  'session',
+  'key',
+  'credential',
+  'jwt',
+  'bearer',
+  'signature',
+  'medical',
+  'diagnosis',
+  'prescription',
+  'patient_name',
+  'patientname',
+  'notes',
+  'report_pdf',
+  'report_url',
+  'payload',
 ];
 
-function sanitizeString(input: string): string {
+const SECRET_PATTERNS = [
+  /bearer\s+[a-zA-Z0-9_\-\.]+/gi,
+  /basic\s+[a-zA-Z0-9_\-\.\=]+/gi,
+  /key=[a-zA-Z0-9_\-]+/gi,
+  /secret=[a-zA-Z0-9_\-]+/gi,
+  /token=[a-zA-Z0-9_\-\.]+/gi,
+  /password=[^\s&]+/gi,
+  /sig=[a-zA-Z0-9_\-]+/gi,
+  /signature=[a-zA-Z0-9_\-]+/gi,
+];
+
+const PHONE_REGEX = /(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g;
+const EMAIL_REGEX = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+
+export function sanitizeString(input: string): string {
+  if (!input || typeof input !== 'string') return '';
   let sanitized = input;
-  for (const pattern of SENSITIVE_PATTERNS) {
+
+  // Redact secrets and authorization tokens
+  for (const pattern of SECRET_PATTERNS) {
     sanitized = sanitized.replace(pattern, '[REDACTED_SECRET]');
   }
+
+  // Redact email addresses
+  sanitized = sanitized.replace(EMAIL_REGEX, '[REDACTED_EMAIL]');
+
+  // Redact phone numbers (preserve last 4 digits if >= 10 chars, else mask completely)
+  sanitized = sanitized.replace(PHONE_REGEX, (match) => {
+    const cleanDigits = match.replace(/\D/g, '');
+    if (cleanDigits.length >= 10) {
+      return `+**-***-***-${cleanDigits.slice(-4)}`;
+    }
+    return '[REDACTED_PHONE]';
+  });
+
+  // Limit max string size to prevent log flooding
+  if (sanitized.length > 2000) {
+    return sanitized.slice(0, 2000) + '... [TRUNCATED_OVERSIZE]';
+  }
+
   return sanitized;
 }
 
-function sanitizeObject(obj: unknown): unknown {
-  if (!obj || typeof obj !== 'object') {
-    return typeof obj === 'string' ? sanitizeString(obj) : obj;
+export function sanitizeObject(obj: unknown, seen = new WeakSet()): unknown {
+  if (obj === null || obj === undefined) {
+    return obj;
   }
 
+  if (typeof obj === 'string') {
+    return sanitizeString(obj);
+  }
+
+  if (typeof obj !== 'object') {
+    return obj;
+  }
+
+  // Handle Error instances safely
+  if (obj instanceof Error) {
+    return {
+      name: obj.name,
+      message: sanitizeString(obj.message),
+      stack: obj.stack
+        ? sanitizeString(obj.stack.split('\n').slice(0, 4).join('\n'))
+        : undefined,
+    };
+  }
+
+  // Prevent circular reference infinite loops
+  if (seen.has(obj)) {
+    return '[CIRCULAR_REFERENCE]';
+  }
+  seen.add(obj);
+
   if (Array.isArray(obj)) {
-    return obj.map(sanitizeObject);
+    return obj.slice(0, 50).map((item) => sanitizeObject(item, seen));
   }
 
   const result: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+  const entries = Object.entries(obj as Record<string, unknown>).slice(0, 50);
+
+  for (const [k, v] of entries) {
     const lowerKey = k.toLowerCase();
-    if (
-      lowerKey.includes('secret') ||
-      lowerKey.includes('token') ||
-      lowerKey.includes('password') ||
-      lowerKey.includes('auth') ||
-      lowerKey.includes('key')
-    ) {
-      result[k] = '[REDACTED_AUTH]';
-    } else if (lowerKey.includes('phone') && typeof v === 'string') {
-      result[k] = v.length > 4 ? `+***...${v.slice(-4)}` : '***';
+
+    // Check if key corresponds to sensitive authorization, secret, or PHI field
+    const isSensitiveKey = SENSITIVE_KEY_SUBSTRINGS.some((sub) =>
+      lowerKey.includes(sub)
+    );
+
+    if (isSensitiveKey) {
+      if (lowerKey.includes('phone') && typeof v === 'string') {
+        const clean = v.replace(/\D/g, '');
+        result[k] =
+          clean.length >= 4 ? `+***...${clean.slice(-4)}` : '[REDACTED_PHONE]';
+      } else if (typeof v === 'object' && v !== null) {
+        result[k] = sanitizeObject(v, seen);
+      } else {
+        result[k] = '[REDACTED_SENSITIVE_DATA]';
+      }
     } else {
-      result[k] = sanitizeObject(v);
+      result[k] = sanitizeObject(v, seen);
     }
   }
+
   return result;
 }
 
@@ -74,8 +162,10 @@ export function log(
     console.error(jsonOutput);
   } else if (level === 'warn') {
     console.warn(jsonOutput);
+  } else if (level === 'info') {
+    console.info(jsonOutput);
   } else {
-    console.log(jsonOutput);
+    console.debug(jsonOutput);
   }
 }
 

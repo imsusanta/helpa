@@ -1,5 +1,8 @@
 import { getAdminClient } from '@/lib/supabase/typed-admin';
+import type { Database } from '@/types/database';
 import type { WhatsAppStatusUpdate } from './types';
+
+type MessageStatus = Database['public']['Tables']['messages']['Row']['status'];
 
 const RECIPIENT_STATUS_LADDER = [
   'pending',
@@ -35,7 +38,7 @@ export async function handleStatusUpdate(status: WhatsAppStatusUpdate) {
   // 1) Mirror onto messages
   const { error: msgErr } = await getAdminClient()
     .from('messages')
-    .update({ status: status.status })
+    .update({ status: status.status as MessageStatus })
     .eq('message_id', status.id);
 
   if (msgErr) {
@@ -59,7 +62,8 @@ export async function handleStatusUpdate(status: WhatsAppStatusUpdate) {
 
   if (!isValidStatusTransition(recipient.status, status.status)) return;
 
-  const update: Record<string, unknown> = { status: status.status };
+  const update: Database['public']['Tables']['broadcast_recipients']['Update'] =
+    { status: status.status };
   if (status.status === 'sent' && !('sent_at' in update))
     update.sent_at = tsIso;
   if (status.status === 'delivered') update.delivered_at = tsIso;
