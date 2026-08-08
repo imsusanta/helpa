@@ -12,18 +12,19 @@ import {
   User,
   Plus,
   Loader2,
-  Check,
   X,
   UserCheck,
-  Building,
   Users,
   Search,
-  ShieldCheck,
   CheckCircle2,
   Sparkles,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { DEFAULT_BOOKING_FORM_CONFIG } from '@/lib/booking-form/config';
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'Unknown error';
+}
 
 interface Appointment {
   id: string;
@@ -73,8 +74,6 @@ export default function AppointmentsPage() {
 
   // Booking Form Modal State
   const [showAddForm, setShowAddForm] = useState(false);
-  const [showEditForm, setShowEditForm] = useState(false);
-  const [editingApptId, setEditingApptId] = useState<string | null>(null);
 
   // Real-time Patient Lookup & Family Sharing State
   const [mobileQuery, setMobileQuery] = useState('');
@@ -100,8 +99,6 @@ export default function AppointmentsPage() {
   const [email, setEmail] = useState('');
   const [doctorId, setDoctorId] = useState('');
   const [department, setDepartment] = useState('');
-  const [appointmentType, setAppointmentType] = useState('');
-  const [reasonForVisit, setReasonForVisit] = useState('');
   const [insuranceProvider, setInsuranceProvider] = useState('');
   const [insuranceNumber, setInsuranceNumber] = useState('');
   const [referredBy, setReferredBy] = useState('');
@@ -138,7 +135,7 @@ export default function AppointmentsPage() {
         .order('appointment_date', { ascending: true })
         .order('appointment_time', { ascending: true });
 
-      setAppointments((appts as any) || []);
+      setAppointments((appts ?? []) as unknown as Appointment[]);
 
       // 3. Fetch doctors dropdown
       const { data: docs } = await db
@@ -204,8 +201,6 @@ export default function AppointmentsPage() {
     setEmail('');
     setDoctorId('');
     setDepartment('');
-    setAppointmentType('');
-    setReasonForVisit('');
     setInsuranceProvider('');
     setInsuranceNumber('');
     setReferredBy('');
@@ -375,8 +370,8 @@ export default function AppointmentsPage() {
       resetForm();
       setShowAddForm(false);
       loadAllData();
-    } catch (err: any) {
-      toast.error('Failed to book appointment: ' + err.message);
+    } catch (err: unknown) {
+      toast.error('Failed to book appointment: ' + getErrorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -393,8 +388,8 @@ export default function AppointmentsPage() {
       if (error) throw error;
       toast.success(`Appointment status updated to ${newStatus}.`);
       loadAllData();
-    } catch (err: any) {
-      toast.error('Status update failed: ' + err.message);
+    } catch (err: unknown) {
+      toast.error('Status update failed: ' + getErrorMessage(err));
     }
   };
 
@@ -460,7 +455,6 @@ export default function AppointmentsPage() {
           onClick={() => {
             if (!showAddForm) resetForm();
             setShowAddForm(!showAddForm);
-            setShowEditForm(false);
           }}
           className="cursor-pointer self-start bg-emerald-700 font-bold text-white shadow-md shadow-emerald-600/10 transition-all hover:bg-emerald-600 sm:self-auto dark:bg-emerald-600 dark:hover:bg-emerald-500"
         >
@@ -1019,9 +1013,10 @@ export default function AppointmentsPage() {
                                 data.error || 'Failed to send ticket PDF'
                               );
                             }
-                          } catch (e: any) {
+                          } catch (error: unknown) {
                             toast.error(
-                              'Error sending ticket PDF: ' + e.message
+                              'Error sending ticket PDF: ' +
+                                getErrorMessage(error)
                             );
                           }
                         }}
