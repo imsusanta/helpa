@@ -1,0 +1,47 @@
+name: One-time CI autofix
+
+on:
+  push:
+    branches:
+      - fix/ci-errors-post-merge
+
+permissions:
+  contents: write
+
+jobs:
+  format-and-lint:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: fix/ci-errors-post-merge
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply safe lint and formatting fixes
+        run: |
+          npm run lint -- --fix
+          npm run format
+          npm run format:check
+
+      - name: Commit fixes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No auto-fix changes were needed."
+          else
+            git commit -m "style: format latest main changes"
+            git push origin HEAD:fix/ci-errors-post-merge
+          fi
