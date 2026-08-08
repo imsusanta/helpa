@@ -27,5 +27,6 @@ export default defineConfig({
         'test-service-role-key-secret-1234567890-abcdef',
     },
     clearMocks: true,
+    setupFiles: ['./src/tests/setup.ts'],
   },
 });
