@@ -1,101 +1,96 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
+import { requireRole, toErrorResponse } from '@/lib/auth/account';
+import { logger } from '@/lib/observability/logger';
+
+const CACHE_HEADERS = {
+  'Cache-Control': 'private, no-store, no-cache, must-revalidate',
+} as const;
 
 export async function DELETE(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
-    const { searchParams } = new URL(request.url);
-    const account_id = searchParams.get('account_id');
-    const actor_id = searchParams.get('actor_id');
+    // 1. Authenticate and authorize — only owner can permanently delete patient data
+    const ctx = await requireRole('owner');
+    const accountId = ctx.accountId;
+    const actorId = ctx.userId;
 
-    if (!account_id) {
-      return NextResponse.json(
-        { error: 'Missing required parameter: account_id' },
-        {
-          status: 400,
-          headers: {
-            'Cache-Control': 'private, no-store, no-cache, must-revalidate',
-          },
-        }
-      );
-    }
+    const { id: patientId } = await params;
 
     const db = supabaseAdmin();
 
-    // 1. Verify patient ownership and tenant boundary before deletion
+    // 2. Verify patient exists and belongs to the authenticated tenant
     const { data: patient, error: fetchErr } = await db
       .from('patients')
-      .select('id, account_id, name, phone')
-      .eq('id', id)
-      .eq('account_id', account_id)
+      .select('id')
+      .eq('id', patientId)
+      .eq('account_id', accountId)
       .maybeSingle();
 
     if (fetchErr || !patient) {
       return NextResponse.json(
-        { error: 'Patient not found or cross-tenant deletion denied' },
-        {
-          status: 404,
-          headers: {
-            'Cache-Control': 'private, no-store, no-cache, must-revalidate',
-          },
-        }
+        { error: 'Not found' },
+        { status: 404, headers: CACHE_HEADERS }
       );
     }
 
-    // 2. Execute deletion securely scoped by account_id and patient id
-    const { error: deleteErr } = await db
-      .from('patients')
-      .delete()
-      .eq('id', id)
-      .eq('account_id', account_id);
-
-    if (deleteErr) {
-      console.error('[Patient Delete API] Failed to delete patient:', deleteErr);
-      return NextResponse.json(
-        { error: 'Failed to delete patient record' },
-        {
-          status: 500,
-          headers: {
-            'Cache-Control': 'private, no-store, no-cache, must-revalidate',
-          },
-        }
-      );
-    }
-
-    // 3. Create immutable audit log event
-    await db.from('audit_logs').insert({
-      account_id,
-      actor_id: actor_id || null,
+    // 3. Record audit BEFORE deletion (since patient row will be gone after)
+    const { error: auditErr } = await db.from('audit_logs').insert({
+      account_id: accountId,
+      actor_id: actorId,
       action: 'patient.data_deleted',
       resource_type: 'patients',
-      resource_id: id,
+      resource_id: patientId,
       metadata: {
-        deleted_patient_id: id,
         deleted_at: new Date().toISOString(),
       },
     });
 
+    if (auditErr) {
+      logger.error('Failed to record deletion audit event', {
+        component: 'delete-api',
+        accountId,
+        correlationId: patientId,
+      });
+      // Fail — unaudited deletions are not acceptable
+      return NextResponse.json(
+        { error: 'Deletion audit recording failed' },
+        { status: 500, headers: CACHE_HEADERS }
+      );
+    }
+
+    // 4. Execute deletion scoped by account_id
+    const { error: deleteErr } = await db
+      .from('patients')
+      .delete()
+      .eq('id', patientId)
+      .eq('account_id', accountId);
+
+    if (deleteErr) {
+      logger.error('Patient deletion failed', {
+        component: 'delete-api',
+        accountId,
+        correlationId: patientId,
+      });
+      return NextResponse.json(
+        { error: 'Failed to delete patient record' },
+        { status: 500, headers: CACHE_HEADERS }
+      );
+    }
+
+    logger.info('Patient data deleted', {
+      component: 'delete-api',
+      accountId,
+      correlationId: patientId,
+    });
+
     return NextResponse.json(
-      { success: true, message: 'Patient data deleted successfully' },
-      {
-        headers: {
-          'Cache-Control': 'private, no-store, no-cache, must-revalidate',
-        },
-      }
+      { success: true },
+      { headers: CACHE_HEADERS }
     );
   } catch (err: unknown) {
-    console.error('[Patient Delete API] Error:', err);
-    return NextResponse.json(
-      { error: 'Internal Server Error' },
-      {
-        status: 500,
-        headers: {
-          'Cache-Control': 'private, no-store, no-cache, must-revalidate',
-        },
-      }
-    );
+    return toErrorResponse(err);
   }
 }

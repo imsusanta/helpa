@@ -1,93 +1,127 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
-import {
-  exportPatientData,
-  PatientConsentRecord,
-} from '@/lib/privacy/consent-service';
+import { requireRole, toErrorResponse } from '@/lib/auth/account';
+import { logger } from '@/lib/observability/logger';
+import { scrubSensitiveFields } from '@/lib/privacy/consent-service';
+
+const CACHE_HEADERS = {
+  'Cache-Control': 'private, no-store, no-cache, must-revalidate',
+} as const;
+
+/**
+ * Defines which patient fields are safe to include in a data export.
+ * Never include service keys, internal tokens, or unrelated tenant data.
+ */
+const EXPORT_SELECT_FIELDS = [
+  'id',
+  'account_id',
+  'name',
+  'phone',
+  'email',
+  'gender',
+  'date_of_birth',
+  'blood_group',
+  'emergency_contact',
+  'consent_status',
+  'consent_source',
+  'consent_updated_at',
+  'policy_version',
+  'patient_seq_id',
+  'created_at',
+  'updated_at',
+] as const;
 
 export async function GET(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
-    const { searchParams } = new URL(request.url);
-    const account_id = searchParams.get('account_id');
-    const actor_id = searchParams.get('actor_id');
+    // 1. Authenticate and authorize — derive identity from server session
+    const ctx = await requireRole('admin');
+    const accountId = ctx.accountId;
+    const actorId = ctx.userId;
 
-    if (!account_id) {
-      return NextResponse.json(
-        { error: 'Missing account_id parameter' },
-        {
-          status: 400,
-          headers: {
-            'Cache-Control': 'private, no-store, no-cache, must-revalidate',
-          },
-        }
-      );
-    }
+    const { id: patientId } = await params;
 
     const db = supabaseAdmin();
 
-    // 1. Fetch patient record securely scoped by account_id
+    // 2. Fetch patient — scoped by server-derived accountId
     const { data: patient, error: fetchErr } = await db
       .from('patients')
-      .select('*')
-      .eq('id', id)
-      .eq('account_id', account_id)
+      .select(EXPORT_SELECT_FIELDS.join(', '))
+      .eq('id', patientId)
+      .eq('account_id', accountId)
       .maybeSingle();
 
     if (fetchErr || !patient) {
       return NextResponse.json(
-        { error: 'Patient record not found or cross-tenant access denied' },
-        {
-          status: 404,
-          headers: {
-            'Cache-Control': 'private, no-store, no-cache, must-revalidate',
-          },
-        }
+        { error: 'Not found' },
+        { status: 404, headers: CACHE_HEADERS }
       );
     }
 
-    const consentRecord: PatientConsentRecord = {
-      id: patient.id,
-      account_id: patient.account_id,
-      phone: patient.phone,
-      name: patient.name,
-      email: patient.email,
-      consent_status:
-        (patient.consent_status as 'opted_in' | 'opted_out') || 'opted_in',
-      consent_updated_at:
-        patient.consent_updated_at || new Date().toISOString(),
-    };
+    // 3. Fetch related records for the export
+    const [appointmentsRes, consentHistoryRes] = await Promise.all([
+      db
+        .from('appointments')
+        .select('id, appointment_date, appointment_time, status, department, created_at')
+        .eq('patient_id', patientId)
+        .order('created_at', { ascending: false })
+        .limit(50),
+      db
+        .from('audit_logs')
+        .select('action, metadata, created_at')
+        .eq('account_id', accountId)
+        .eq('resource_type', 'patients')
+        .eq('resource_id', patientId)
+        .in('action', ['patient.consent_updated', 'patient.consent_withdrawn'])
+        .order('created_at', { ascending: false })
+        .limit(50),
+    ]);
 
-    const exportedData = exportPatientData(consentRecord);
+    // 4. Scrub any internal fields that may have leaked through
+    const scrubbedPatient = scrubSensitiveFields(
+      patient as unknown as Record<string, unknown>
+    );
 
-    // 2. Create append-only audit event for sensitive patient data export
-    await db.from('audit_logs').insert({
-      account_id,
-      actor_id: actor_id || null,
+    // 5. Record audit event for the export
+    const { error: auditErr } = await db.from('audit_logs').insert({
+      account_id: accountId,
+      actor_id: actorId,
       action: 'patient.data_exported',
       resource_type: 'patients',
-      resource_id: id,
-      metadata: { exported_at: exportedData.exported_at },
+      resource_id: patientId,
+      metadata: { exported_at: new Date().toISOString() },
     });
 
-    return NextResponse.json(exportedData, {
+    if (auditErr) {
+      logger.error('Failed to record export audit event', {
+        component: 'export-api',
+        accountId,
+        correlationId: patientId,
+      });
+      // Fail the export — unaudited exports are not acceptable
+      return NextResponse.json(
+        { error: 'Export audit recording failed' },
+        { status: 500, headers: CACHE_HEADERS }
+      );
+    }
+
+    const exportPayload = {
+      exported_at: new Date().toISOString(),
+      patient: scrubbedPatient,
+      appointments: appointmentsRes.data || [],
+      consent_history: consentHistoryRes.data || [],
+    };
+
+    return NextResponse.json(exportPayload, {
       headers: {
-        'Cache-Control': 'private, no-store, no-cache, must-revalidate',
+        ...CACHE_HEADERS,
+        'Content-Disposition': `attachment; filename="patient-export-${patientId}.json"`,
+        'Content-Type': 'application/json',
       },
     });
   } catch (err: unknown) {
-    console.error('[Patient Export API] Error:', err);
-    return NextResponse.json(
-      { error: 'Internal Server Error' },
-      {
-        status: 500,
-        headers: {
-          'Cache-Control': 'private, no-store, no-cache, must-revalidate',
-        },
-      }
-    );
+    return toErrorResponse(err);
   }
 }

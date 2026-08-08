@@ -1,145 +1,89 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
-import {
-  recordPatientConsent,
-  PatientConsentRecord,
-} from '@/lib/privacy/consent-service';
+import { requireRole, toErrorResponse } from '@/lib/auth/account';
+import { logger } from '@/lib/observability/logger';
+
+const CACHE_HEADERS = {
+  'Cache-Control': 'private, no-store, no-cache, must-revalidate',
+} as const;
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
+    // 1. Authenticate and authorize — derive identity from server session
+    const ctx = await requireRole('admin');
+    const accountId = ctx.accountId;
+    const actorId = ctx.userId;
+
+    const { id: patientId } = await params;
     const body = (await request.json().catch(() => ({}))) as {
-      account_id?: string;
-      consent_status?: 'opted_in' | 'opted_out';
+      consent_status?: string;
       consent_source?: string;
-      actor_id?: string;
+      policy_version?: string;
     };
 
-    const {
-      account_id,
-      consent_status,
-      consent_source = 'web_dashboard',
-      actor_id,
-    } = body;
+    const { consent_status, consent_source = 'web_dashboard', policy_version = 'v1.0' } = body;
 
     if (
-      !account_id ||
       !consent_status ||
-      !['opted_in', 'opted_out'].includes(consent_status)
+      !['opted_in', 'opted_out', 'pending'].includes(consent_status)
     ) {
       return NextResponse.json(
-        {
-          error:
-            'Missing required parameters: account_id and valid consent_status',
-        },
-        {
-          status: 400,
-          headers: {
-            'Cache-Control': 'private, no-store, no-cache, must-revalidate',
-          },
-        }
+        { error: 'Missing or invalid consent_status. Must be one of: pending, opted_in, opted_out' },
+        { status: 400, headers: CACHE_HEADERS }
       );
     }
 
     const db = supabaseAdmin();
 
-    // 1. Fetch current patient record
-    const { data: patient, error: fetchErr } = await db
-      .from('patients')
-      .select('*')
-      .eq('id', id)
-      .eq('account_id', account_id)
-      .maybeSingle();
+    // 2. Atomic consent update + audit via RPC (scoped by server-derived accountId)
+    const { data: rpcResult, error: rpcErr } = await db.rpc(
+      'update_patient_consent_atomic',
+      {
+        p_patient_id: patientId,
+        p_account_id: accountId,
+        p_actor_id: actorId,
+        p_consent_status: consent_status,
+        p_consent_source: consent_source,
+        p_policy_version: policy_version,
+      }
+    );
 
-    if (fetchErr || !patient) {
-      return NextResponse.json(
-        { error: 'Patient not found or cross-tenant access denied' },
-        {
-          status: 404,
-          headers: {
-            'Cache-Control': 'private, no-store, no-cache, must-revalidate',
-          },
-        }
-      );
-    }
-
-    const consentRecord: PatientConsentRecord = {
-      id: patient.id,
-      account_id: patient.account_id,
-      phone: patient.phone,
-      name: patient.name,
-      email: patient.email,
-      consent_status:
-        (patient.consent_status as 'opted_in' | 'opted_out') || 'opted_in',
-      consent_updated_at:
-        patient.consent_updated_at || new Date().toISOString(),
-    };
-
-    const updatedConsent = recordPatientConsent(consentRecord, consent_status);
-
-    // 2. Update database record
-    const { error: updateErr } = await db
-      .from('patients')
-      .update({
-        consent_status: updatedConsent.consent_status,
-        consent_source,
-        consent_updated_at: updatedConsent.consent_updated_at,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-      .eq('account_id', account_id);
-
-    if (updateErr) {
-      console.error(
-        '[Consent API] Failed to update patient consent:',
-        updateErr
-      );
+    if (rpcErr) {
+      // Check for specific error messages from the RPC
+      if (rpcErr.message?.includes('not found')) {
+        return NextResponse.json(
+          { error: 'Not found' },
+          { status: 404, headers: CACHE_HEADERS }
+        );
+      }
+      logger.error('Consent update RPC failed', {
+        component: 'consent-api',
+        accountId,
+        correlationId: patientId,
+      });
       return NextResponse.json(
         { error: 'Failed to update consent record' },
-        {
-          status: 500,
-          headers: {
-            'Cache-Control': 'private, no-store, no-cache, must-revalidate',
-          },
-        }
+        { status: 500, headers: CACHE_HEADERS }
       );
     }
 
-    // 3. Create immutable audit log event
-    await db.from('audit_logs').insert({
-      account_id,
-      actor_id: actor_id || null,
-      action: 'patient.consent_updated',
-      resource_type: 'patients',
-      resource_id: id,
-      metadata: {
-        previous_status: patient.consent_status,
-        new_status: updatedConsent.consent_status,
-        source: consent_source,
-      },
-    });
-
     return NextResponse.json(
-      { success: true, consent: updatedConsent },
       {
-        headers: {
-          'Cache-Control': 'private, no-store, no-cache, must-revalidate',
+        success: true,
+        consent: {
+          patient_id: patientId,
+          consent_status,
+          consent_source,
+          policy_version,
+          updated_at: rpcResult?.updated_at || new Date().toISOString(),
         },
-      }
+      },
+      { headers: CACHE_HEADERS }
     );
   } catch (err: unknown) {
-    console.error('[Consent API] Internal error:', err);
-    return NextResponse.json(
-      { error: 'Internal Server Error' },
-      {
-        status: 500,
-        headers: {
-          'Cache-Control': 'private, no-store, no-cache, must-revalidate',
-        },
-      }
-    );
+    return toErrorResponse(err);
   }
 }
