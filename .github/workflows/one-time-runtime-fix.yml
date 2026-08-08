@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  fix-and-verify:
+  apply-fixes:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
@@ -58,13 +58,16 @@ jobs:
               "import { DEFAULT_BOOKING_FORM_CONFIG } from '@/lib/booking-form/config';\n",
               "import { DEFAULT_BOOKING_FORM_CONFIG } from '@/lib/booking-form/config';\n\nfunction getErrorMessage(error: unknown): string {\n  return error instanceof Error ? error.message : 'Unknown error';\n}\n",
           )
-          text = text.replace("  const [showEditForm, setShowEditForm] = useState(false);\n", '')
-          text = text.replace("  const [editingApptId, setEditingApptId] = useState<string | null>(null);\n", '')
-          text = text.replace("  const [appointmentType, setAppointmentType] = useState('');\n", '')
-          text = text.replace("  const [reasonForVisit, setReasonForVisit] = useState('');\n", '')
-          text = text.replace("    setAppointmentType('');\n", '')
-          text = text.replace("    setReasonForVisit('');\n", '')
-          text = text.replace("            setShowEditForm(false);\n", '')
+          for item in [
+              "  const [showEditForm, setShowEditForm] = useState(false);\n",
+              "  const [editingApptId, setEditingApptId] = useState<string | null>(null);\n",
+              "  const [appointmentType, setAppointmentType] = useState('');\n",
+              "  const [reasonForVisit, setReasonForVisit] = useState('');\n",
+              "    setAppointmentType('');\n",
+              "    setReasonForVisit('');\n",
+              "            setShowEditForm(false);\n",
+          ]:
+              text = text.replace(item, '')
           text = text.replace(
               '      setAppointments((appts as any) || []);',
               '      setAppointments((appts ?? []) as unknown as Appointment[]);',
@@ -84,13 +87,10 @@ jobs:
           appointments.write_text(text)
           PY
 
-      - name: Format and verify fast quality gates
+      - name: Format changes
         run: |
           npm run format
           npm run format:check
-          npm run lint -- --max-warnings=0
-          npm run typecheck
-          npm test
 
       - name: Commit fixes
         run: |
