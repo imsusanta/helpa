@@ -238,12 +238,10 @@ export default function ContactsPage() {
   // synchronously in the effect body, so the cascade the lint rule
   // warns about doesn't apply here.
   useEffect(() => {
-     
     fetchTags();
   }, [fetchTags]);
 
   useEffect(() => {
-     
     fetchContacts();
   }, [fetchContacts]);
 

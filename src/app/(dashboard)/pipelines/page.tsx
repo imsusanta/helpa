@@ -183,7 +183,7 @@ export default function PipelinesPage() {
     if (!selectedPipelineId) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setStages([]);
-       
+
       setDeals([]);
       return;
     }
