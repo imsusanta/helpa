@@ -18,6 +18,15 @@ export async function POST(
     const actorId = ctx.userId;
 
     const { id: patientId } = await params;
+    const UUID_REGEX =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!patientId || !UUID_REGEX.test(patientId)) {
+      return NextResponse.json(
+        { error: 'Invalid patient ID format' },
+        { status: 400, headers: CACHE_HEADERS }
+      );
+    }
+
     const body = (await request.json().catch(() => ({}))) as {
       reason?: string;
     };

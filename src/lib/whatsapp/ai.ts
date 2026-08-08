@@ -167,7 +167,19 @@ export async function triggerAiResponse(
       userId,
       conversationId,
       contactId,
-      text: '⚠️ *EMERGENCY ALERT*: If you or the patient are experiencing a life-threatening medical emergency (e.g., chest pain, severe bleeding, difficulty breathing), please call your local emergency services immediately or proceed to the nearest hospital emergency room.\n\nAI responses have been paused for this conversation. Please contact the clinic directly for further assistance.',
+      text: '⚠️ *EMERGENCY ALERT*: If you or the patient are experiencing a life-threatening medical emergency (e.g., chest pain, severe bleeding, difficulty breathing), please call your local emergency service or proceed immediately to the nearest hospital emergency room.\n\nA human receptionist may review this conversation. For immediate help, call your local emergency service or go to the nearest emergency department.',
+    });
+    await db.from('audit_logs').insert({
+      account_id: accountId,
+      actor_id: userId,
+      action: 'emergency.escalation_created',
+      resource_type: 'conversations',
+      resource_id: conversationId,
+      metadata: {
+        severity: 'high',
+        safety_classification: 'emergency',
+        created_at: new Date().toISOString(),
+      },
     });
     await db
       .from('conversations')
@@ -177,12 +189,10 @@ export async function triggerAiResponse(
   }
 
   if (isDiagnosticRequest(rawUserText)) {
-    logger.info('Non-diagnostic boundary triggered', {
-      component: 'ai-safety',
-      accountId,
-      correlationId: conversationId,
-      classification: 'diagnostic_request',
-    });
+    console.info(
+      `[AI Safety] Non-diagnostic boundary triggered for contact ${contactId}:`,
+      rawUserText
+    );
     await engineSendText({
       accountId,
       userId,
@@ -194,12 +204,9 @@ export async function triggerAiResponse(
   }
 
   if (containsPromptInjection(rawUserText)) {
-    logger.warn('Prompt injection attempt sanitized', {
-      component: 'ai-safety',
-      accountId,
-      correlationId: conversationId,
-      classification: 'prompt_injection',
-    });
+    console.warn(
+      `[AI Safety] Prompt injection attempt sanitized for contact ${contactId}`
+    );
     latestMessage.content_text = sanitizeAiInput(rawUserText);
   }
 
@@ -848,7 +855,19 @@ Note:
       // 1. Emergency Interception
       if (emergency_detected) {
         handoff_required = true;
-        reply = `🚨 *EMERGENCY DETECTED:* Please call our emergency clinic staff immediately or go to the nearest ER. We have disabled the AI autopilot for this chat so our agents can step in.`;
+        reply = `🚨 *EMERGENCY DETECTED:* A human receptionist may review this conversation. For immediate help, call your local emergency service or go to the nearest emergency department. AI autopilot has been paused for this chat.`;
+        await db.from('audit_logs').insert({
+          account_id: accountId,
+          actor_id: userId,
+          action: 'emergency.escalation_created',
+          resource_type: 'conversations',
+          resource_id: conversationId,
+          metadata: {
+            severity: 'high',
+            safety_classification: 'emergency',
+            created_at: new Date().toISOString(),
+          },
+        });
       }
 
       // Resolve the patient by name and number. Family members can share a

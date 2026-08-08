@@ -7,7 +7,6 @@ import { DELETE as deletePatient } from '@/app/api/patients/[id]/route';
 import {
   isEmergencyQuery,
   isDiagnosticRequest,
-  containsPromptInjection,
   applyAiSafety,
 } from '@/lib/ai/safety';
 
@@ -58,9 +57,9 @@ import {
 describe('P0 / P1 Security, Authorization & Privacy Hardening Test Suite', () => {
   const TENANT_A_ID = '11111111-1111-1111-1111-111111111111';
   const TENANT_B_ID = '22222222-2222-2222-2222-222222222222';
-  const USER_A_ID = 'aaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-  const PATIENT_A_ID = 'p0000000-0000-0000-0000-000000000001';
-  const PATIENT_B_ID = 'p0000000-0000-0000-0000-000000000002';
+  const USER_A_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+  const PATIENT_A_ID = 'a0000000-0000-0000-0000-000000000001';
+  const PATIENT_B_ID = 'b0000000-0000-0000-0000-000000000002';
 
   beforeEach(() => {
     vi.restoreAllMocks();
