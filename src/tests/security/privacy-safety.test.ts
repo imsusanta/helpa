@@ -5,9 +5,11 @@ import {
   scrubSensitiveFields,
   type PatientConsentRecord,
 } from '@/lib/privacy/consent-service';
+import { POST as postConsent } from '@/app/api/patients/[id]/consent/route';
+import { GET as getExport } from '@/app/api/patients/[id]/export/route';
 
 describe('Production Privacy, Data Protection & Retention Controls', () => {
-  describe('1. Patient Consent & Withdrawal Lifecycle (Production Module)', () => {
+  describe('1. Patient Consent & Withdrawal Lifecycle (Production Service)', () => {
     it('records consent state and validates opt-out withdrawal requests', () => {
       const patientRecord: PatientConsentRecord = {
         id: 'patient-001',
@@ -57,7 +59,38 @@ describe('Production Privacy, Data Protection & Retention Controls', () => {
     });
   });
 
-  describe('2. Automated Retention & Purge Calculations', () => {
+  describe('2. Patient Privacy API Endpoints (Consent & Export Routes)', () => {
+    it('verifies consent POST route rejects requests missing required params with 400', async () => {
+      const req = new Request(
+        'http://localhost:3000/api/patients/patient-001/consent',
+        {
+          method: 'POST',
+          body: JSON.stringify({}),
+        }
+      );
+
+      const params = Promise.resolve({ id: 'patient-001' });
+      const res = await postConsent(req, { params });
+      expect(res.status).toBe(400);
+
+      const cacheControl = res.headers.get('cache-control');
+      expect(cacheControl).toContain('no-store');
+    });
+
+    it('verifies export GET route rejects requests missing account_id with 400', async () => {
+      const req = new Request(
+        'http://localhost:3000/api/patients/patient-001/export'
+      );
+      const params = Promise.resolve({ id: 'patient-001' });
+      const res = await getExport(req, { params });
+      expect(res.status).toBe(400);
+
+      const cacheControl = res.headers.get('cache-control');
+      expect(cacheControl).toContain('no-store');
+    });
+  });
+
+  describe('3. Automated Retention & Purge Calculations', () => {
     it('calculates 7-day raw webhook payload retention threshold accurately', () => {
       const now = new Date('2026-08-08T12:00:00Z');
       const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);

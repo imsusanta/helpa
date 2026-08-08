@@ -56,32 +56,47 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        source: '/:path*',
+        source: '/api/:path*',
         headers: [
           {
             key: 'Cache-Control',
             value: 'private, no-store, no-cache, must-revalidate',
           },
-          ...SECURITY_HEADERS,
         ],
       },
       {
-        source: '/_next/static/:path*',
+        source:
+          '/:path(dashboard|inbox|contacts|patients|appointments|bookings|doctors|departments|lab-reports|settings|admin|pipelines|broadcasts|automations|admissions|agents|billing|classes|courses|customers|follow-ups|knowledge-base|leads|members|memberships|orders|packages|properties|reservations|site-visits|students|tables|teachers|trainers)',
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
+            value: 'private, no-store, no-cache, must-revalidate',
           },
         ],
       },
       {
-        source: '/_next/image/:path*',
+        source:
+          '/:path(dashboard|inbox|contacts|patients|appointments|bookings|doctors|departments|lab-reports|settings|admin|pipelines|broadcasts|automations|admissions|agents|billing|classes|courses|customers|follow-ups|knowledge-base|leads|members|memberships|orders|packages|properties|reservations|site-visits|students|tables|teachers|trainers)/:rest*',
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=86400, stale-while-revalidate=604800',
+            value: 'private, no-store, no-cache, must-revalidate',
           },
         ],
+      },
+      {
+        source: '/:path(privacy|terms|refund|contact|login|signup)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value:
+              'public, max-age=0, s-maxage=300, stale-while-revalidate=86400',
+          },
+        ],
+      },
+      {
+        source: '/:path*',
+        headers: [...SECURITY_HEADERS],
       },
     ];
   },

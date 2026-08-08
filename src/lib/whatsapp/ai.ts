@@ -1,4 +1,10 @@
 import { decrypt } from '@/lib/whatsapp/encryption';
+import {
+  isEmergencyQuery,
+  isDiagnosticRequest,
+  containsPromptInjection,
+  sanitizeAiInput,
+} from '@/lib/ai/safety';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
 import {
   engineSendText,
@@ -143,6 +149,50 @@ export async function triggerAiResponse(
       latestMessage.sender_type
     );
     return;
+  }
+
+  const rawUserText = latestMessage.content_text || '';
+
+  // 🛡️ AI SAFETY & HEALTHCARE GUARDRAILS (Production Module: src/lib/ai/safety.ts)
+  if (isEmergencyQuery(rawUserText)) {
+    console.warn(
+      `[AI Safety] Emergency intent detected for contact ${contactId}:`,
+      rawUserText
+    );
+    await engineSendText({
+      accountId,
+      userId,
+      conversationId,
+      contactId,
+      text: '⚠️ *EMERGENCY ALERT*: If you or the patient are experiencing a life-threatening medical emergency (e.g., chest pain, severe bleeding, difficulty breathing), please call emergency services (108/112) or proceed immediately to the nearest hospital emergency room.\n\nA human clinic receptionist has been notified.',
+    });
+    await db
+      .from('conversations')
+      .update({ is_ai_enabled: false })
+      .eq('id', conversationId);
+    return;
+  }
+
+  if (isDiagnosticRequest(rawUserText)) {
+    console.info(
+      `[AI Safety] Non-diagnostic boundary triggered for contact ${contactId}:`,
+      rawUserText
+    );
+    await engineSendText({
+      accountId,
+      userId,
+      conversationId,
+      contactId,
+      text: '🩺 *Medical Notice*: As an automated clinic receptionist, I cannot provide medical diagnoses, evaluate clinical symptoms, or prescribe medications.\n\nPlease consult directly with one of our qualified doctors. Would you like me to show available OPD consultation slots for booking?',
+    });
+    return;
+  }
+
+  if (containsPromptInjection(rawUserText)) {
+    console.warn(
+      `[AI Safety] Prompt injection attempt sanitized for contact ${contactId}`
+    );
+    latestMessage.content_text = sanitizeAiInput(rawUserText);
   }
 
   // Reverse messages to restore chronological order (ascending) for the LLM

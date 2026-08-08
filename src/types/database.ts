@@ -934,6 +934,10 @@ export interface Database {
           date_of_birth: string | null;
           blood_group: string | null;
           address: string | null;
+          consent_status: string;
+          consent_source: string | null;
+          consent_updated_at: string;
+          policy_version: string | null;
           metadata: Json | null;
           created_at: string;
           updated_at: string;
@@ -950,6 +954,10 @@ export interface Database {
           date_of_birth?: string | null;
           blood_group?: string | null;
           address?: string | null;
+          consent_status?: string;
+          consent_source?: string | null;
+          consent_updated_at?: string;
+          policy_version?: string | null;
           metadata?: Json | null;
           created_at?: string;
           updated_at?: string;
@@ -966,6 +974,10 @@ export interface Database {
           date_of_birth?: string | null;
           blood_group?: string | null;
           address?: string | null;
+          consent_status?: string;
+          consent_source?: string | null;
+          consent_updated_at?: string;
+          policy_version?: string | null;
           metadata?: Json | null;
           created_at?: string;
           updated_at?: string;
@@ -973,6 +985,47 @@ export interface Database {
         Relationships: [
           {
             foreignKeyName: 'patients_account_id_fkey';
+            columns: ['account_id'];
+            isOneToOne: false;
+            referencedRelation: 'accounts';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      audit_logs: {
+        Row: {
+          id: string;
+          account_id: string;
+          actor_id: string | null;
+          action: string;
+          resource_type: string;
+          resource_id: string;
+          metadata: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          account_id: string;
+          actor_id?: string | null;
+          action: string;
+          resource_type: string;
+          resource_id: string;
+          metadata?: Json | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          actor_id?: string | null;
+          action?: string;
+          resource_type?: string;
+          resource_id?: string;
+          metadata?: Json | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'audit_logs_account_id_fkey';
             columns: ['account_id'];
             isOneToOne: false;
             referencedRelation: 'accounts';
