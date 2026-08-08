@@ -5,6 +5,7 @@ import {
   containsPromptInjection,
   sanitizeAiInput,
 } from '@/lib/ai/safety';
+import { logger } from '@/lib/observability/logger';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
 import {
   engineSendText,
@@ -155,16 +156,18 @@ export async function triggerAiResponse(
 
   // 🛡️ AI SAFETY & HEALTHCARE GUARDRAILS (Production Module: src/lib/ai/safety.ts)
   if (isEmergencyQuery(rawUserText)) {
-    console.warn(
-      `[AI Safety] Emergency intent detected for contact ${contactId}:`,
-      rawUserText
-    );
+    logger.warn('Emergency intent detected', {
+      component: 'ai-safety',
+      accountId,
+      correlationId: conversationId,
+      classification: 'emergency',
+    });
     await engineSendText({
       accountId,
       userId,
       conversationId,
       contactId,
-      text: '⚠️ *EMERGENCY ALERT*: If you or the patient are experiencing a life-threatening medical emergency (e.g., chest pain, severe bleeding, difficulty breathing), please call emergency services (108/112) or proceed immediately to the nearest hospital emergency room.\n\nA human clinic receptionist has been notified.',
+      text: '⚠️ *EMERGENCY ALERT*: If you or the patient are experiencing a life-threatening medical emergency (e.g., chest pain, severe bleeding, difficulty breathing), please call your local emergency services immediately or proceed to the nearest hospital emergency room.\n\nAI responses have been paused for this conversation. Please contact the clinic directly for further assistance.',
     });
     await db
       .from('conversations')
@@ -174,10 +177,12 @@ export async function triggerAiResponse(
   }
 
   if (isDiagnosticRequest(rawUserText)) {
-    console.info(
-      `[AI Safety] Non-diagnostic boundary triggered for contact ${contactId}:`,
-      rawUserText
-    );
+    logger.info('Non-diagnostic boundary triggered', {
+      component: 'ai-safety',
+      accountId,
+      correlationId: conversationId,
+      classification: 'diagnostic_request',
+    });
     await engineSendText({
       accountId,
       userId,
@@ -189,9 +194,12 @@ export async function triggerAiResponse(
   }
 
   if (containsPromptInjection(rawUserText)) {
-    console.warn(
-      `[AI Safety] Prompt injection attempt sanitized for contact ${contactId}`
-    );
+    logger.warn('Prompt injection attempt sanitized', {
+      component: 'ai-safety',
+      accountId,
+      correlationId: conversationId,
+      classification: 'prompt_injection',
+    });
     latestMessage.content_text = sanitizeAiInput(rawUserText);
   }
 
