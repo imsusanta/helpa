@@ -1,14 +1,27 @@
+import 'server-only';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '@/types/database';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let _adminClient: SupabaseClient<any> | null = null;
+let _adminClient: SupabaseClient<Database> | null = null;
 
 /**
- * Returns a typed Supabase client authenticated with the service role key.
- * Always verify tenant account_id scoping when calling queries using this client.
+ * Returns a strongly-typed Supabase client authenticated with the service role key.
+ *
+ * SECURITY INVARIANTS:
+ * 1. Server-Only Boundary: Protected via 'server-only' import and runtime window check.
+ *    Service-role credentials must NEVER be bundled into client-side code.
+ * 2. RLS Bypass Awareness: Service-role operations bypass PostgreSQL Row Level Security.
+ *    Every database operation on tenant-owned resources MUST explicitly include
+ *    `.eq('account_id', accountId)` to maintain multi-tenant boundary isolation.
+ * 3. Session Isolation: Session persistence and automatic token refresh are disabled.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function getAdminClient(): SupabaseClient<any> {
+export function getAdminClient(): SupabaseClient<Database> {
+  if (typeof window !== 'undefined') {
+    throw new Error(
+      'Security Violation: getAdminClient must only be executed in a server environment.'
+    );
+  }
+
   if (!_adminClient) {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -19,7 +32,7 @@ export function getAdminClient(): SupabaseClient<any> {
       );
     }
 
-    _adminClient = createClient(url, key, {
+    _adminClient = createClient<Database>(url, key, {
       auth: {
         persistSession: false,
         autoRefreshToken: false,

@@ -10,5 +10,8 @@ supabase/migrations
 public/opus
 scratch
 .temp
+playwright-report
+test-results
+.playwright
 walkthrough.md
 analysis_results.md

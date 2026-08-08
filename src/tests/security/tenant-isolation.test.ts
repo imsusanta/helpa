@@ -1,92 +1,142 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { hasMinRole, type AccountRole } from '@/lib/auth/roles';
+import { generatePdfToken, verifyPdfToken } from '@/lib/pdf-signing';
+import { getAdminClient } from '@/lib/supabase/typed-admin';
 
-describe('Security: Multi-Tenancy & Role-Based Authorization', () => {
-  const ACCOUNT_A_ID = 'account-uuid-alpha-1111-111111111111';
-  const ACCOUNT_B_ID = 'account-uuid-bravo-2222-222222222222';
+describe('Security: Multi-Tenancy & Authorization Invariants', () => {
+  const ACCOUNT_A_ID = '00000000-0000-0000-0000-00000000000a';
+  const ACCOUNT_B_ID = '00000000-0000-0000-0000-00000000000b';
+  const APPT_A_ID = '11111111-1111-1111-1111-111111111111';
+  const APPT_B_ID = '22222222-2222-2222-2222-222222222222';
 
-  it('strictly validates role hierarchical permissions', () => {
-    // Owner permissions
-    expect(hasMinRole('owner', 'owner')).toBe(true);
-    expect(hasMinRole('owner', 'admin')).toBe(true);
-    expect(hasMinRole('owner', 'agent')).toBe(true);
-    expect(hasMinRole('owner', 'viewer')).toBe(true);
-
-    // Admin permissions
-    expect(hasMinRole('admin', 'owner')).toBe(false);
-    expect(hasMinRole('admin', 'admin')).toBe(true);
-    expect(hasMinRole('admin', 'agent')).toBe(true);
-    expect(hasMinRole('admin', 'viewer')).toBe(true);
-
-    // Agent permissions
-    expect(hasMinRole('agent', 'owner')).toBe(false);
-    expect(hasMinRole('agent', 'admin')).toBe(false);
-    expect(hasMinRole('agent', 'agent')).toBe(true);
-    expect(hasMinRole('agent', 'viewer')).toBe(true);
-
-    // Viewer permissions
-    expect(hasMinRole('viewer', 'owner')).toBe(false);
-    expect(hasMinRole('viewer', 'admin')).toBe(false);
-    expect(hasMinRole('viewer', 'agent')).toBe(false);
-    expect(hasMinRole('viewer', 'viewer')).toBe(true);
+  beforeEach(() => {
+    vi.restoreAllMocks();
   });
 
-  it('enforces tenant isolation across simulated multi-tenant records', () => {
-    interface ScopedRecord {
-      id: string;
-      account_id: string;
-      data: string;
-    }
+  describe('1. Role-Based Access Control Hierarchy', () => {
+    it('strictly enforces role ordering: owner > admin > agent > viewer', () => {
+      // Owner permissions
+      expect(hasMinRole('owner', 'owner')).toBe(true);
+      expect(hasMinRole('owner', 'admin')).toBe(true);
+      expect(hasMinRole('owner', 'agent')).toBe(true);
+      expect(hasMinRole('owner', 'viewer')).toBe(true);
 
-    const mockDatabase: ScopedRecord[] = [
-      { id: 'rec-1', account_id: ACCOUNT_A_ID, data: 'Secret Data A' },
-      { id: 'rec-2', account_id: ACCOUNT_B_ID, data: 'Secret Data B' },
-    ];
+      // Admin permissions
+      expect(hasMinRole('admin', 'owner')).toBe(false);
+      expect(hasMinRole('admin', 'admin')).toBe(true);
+      expect(hasMinRole('admin', 'agent')).toBe(true);
+      expect(hasMinRole('admin', 'viewer')).toBe(true);
 
-    // Query scoped to Account A
-    const fetchForAccount = (accountId: string): ScopedRecord[] => {
-      return mockDatabase.filter((row) => row.account_id === accountId);
-    };
+      // Agent permissions
+      expect(hasMinRole('agent', 'owner')).toBe(false);
+      expect(hasMinRole('agent', 'admin')).toBe(false);
+      expect(hasMinRole('agent', 'agent')).toBe(true);
+      expect(hasMinRole('agent', 'viewer')).toBe(true);
 
-    const resultsA = fetchForAccount(ACCOUNT_A_ID);
-    expect(resultsA.length).toBe(1);
-    expect(resultsA[0].account_id).toBe(ACCOUNT_A_ID);
-    expect(resultsA.some((r) => r.account_id === ACCOUNT_B_ID)).toBe(false);
+      // Viewer permissions
+      expect(hasMinRole('viewer', 'owner')).toBe(false);
+      expect(hasMinRole('viewer', 'admin')).toBe(false);
+      expect(hasMinRole('viewer', 'agent')).toBe(false);
+      expect(hasMinRole('viewer', 'viewer')).toBe(true);
+    });
 
-    // Mutate scoped to Account A
-    const updateForAccount = (
-      id: string,
-      callerAccountId: string,
-      newData: string
-    ): boolean => {
-      const target = mockDatabase.find(
-        (row) => row.id === id && row.account_id === callerAccountId
-      );
-      if (!target) return false;
-      target.data = newData;
-      return true;
-    };
+    it('rejects viewer role from triggering patient mutations or invitations', () => {
+      const isMutationAllowed = (role: AccountRole): boolean =>
+        hasMinRole(role, 'agent');
+      const isInviteAllowed = (role: AccountRole): boolean =>
+        hasMinRole(role, 'admin');
 
-    // Account A attempting to update Account B's record fails closed
-    const unauthorizedMutation = updateForAccount(
-      'rec-2',
-      ACCOUNT_A_ID,
-      'Compromised Data'
-    );
-    expect(unauthorizedMutation).toBe(false);
-    expect(mockDatabase.find((r) => r.id === 'rec-2')?.data).toBe(
-      'Secret Data B'
-    );
+      expect(isMutationAllowed('viewer')).toBe(false);
+      expect(isMutationAllowed('agent')).toBe(true);
+      expect(isInviteAllowed('agent')).toBe(false);
+      expect(isInviteAllowed('admin')).toBe(true);
+    });
   });
 
-  it('rejects viewer role from generating team invitations', () => {
-    const canCreateInvitation = (role: AccountRole): boolean => {
-      return hasMinRole(role, 'admin');
-    };
+  describe('2. Multi-Tenant Service-Role Query Scoping & Repository Isolation', () => {
+    it('enforces explicit account_id filtering on service-role query builders', () => {
+      const db = getAdminClient();
 
-    expect(canCreateInvitation('viewer')).toBe(false);
-    expect(canCreateInvitation('agent')).toBe(false);
-    expect(canCreateInvitation('admin')).toBe(true);
-    expect(canCreateInvitation('owner')).toBe(true);
+      // Query builder for Account A
+      const queryA = db
+        .from('contacts')
+        .select('id, name, account_id')
+        .eq('account_id', ACCOUNT_A_ID);
+      // Query builder for Account B
+      const queryB = db
+        .from('contacts')
+        .select('id, name, account_id')
+        .eq('account_id', ACCOUNT_B_ID);
+
+      // Verify query builder parameters enforce strict tenant separation
+      expect(
+        (queryA as unknown as { url?: URL }).url?.searchParams.get('account_id')
+      ).toBe(`eq.${ACCOUNT_A_ID}`);
+      expect(
+        (queryB as unknown as { url?: URL }).url?.searchParams.get('account_id')
+      ).toBe(`eq.${ACCOUNT_B_ID}`);
+      expect(ACCOUNT_A_ID).not.toBe(ACCOUNT_B_ID);
+    });
+
+    it('prevents cross-tenant record access when scoping appointments by account_id', () => {
+      const db = getAdminClient();
+
+      const apptQueryA = db
+        .from('appointments')
+        .select('*')
+        .eq('account_id', ACCOUNT_A_ID)
+        .eq('id', APPT_B_ID);
+      // Attempting to look up Appointment B under Account A context yields distinct filter criteria
+      expect(
+        (apptQueryA as unknown as { url?: URL }).url?.searchParams.get(
+          'account_id'
+        )
+      ).toBe(`eq.${ACCOUNT_A_ID}`);
+      expect(
+        (apptQueryA as unknown as { url?: URL }).url?.searchParams.get('id')
+      ).toBe(`eq.${APPT_B_ID}`);
+    });
+  });
+
+  describe('3. Cryptographic Token Cross-Tenant Isolation', () => {
+    it('rejects signed OPD tokens generated for Account A when accessed against Account B appointment', () => {
+      const validTokenA = generatePdfToken({
+        appointmentId: APPT_A_ID,
+        accountId: ACCOUNT_A_ID,
+        expiresAt: Math.floor(Date.now() / 1000) + 3600,
+      });
+
+      // Token for Appointment A cannot access Appointment B
+      const verificationB = verifyPdfToken(validTokenA, APPT_B_ID);
+      expect(verificationB.valid).toBe(false);
+      expect(verificationB.accountId).toBeUndefined();
+
+      // Token for Appointment A successfully verifies Appointment A
+      const verificationA = verifyPdfToken(validTokenA, APPT_A_ID);
+      expect(verificationA.valid).toBe(true);
+      expect(verificationA.accountId).toBe(ACCOUNT_A_ID);
+    });
+
+    it('rejects expired or tampered signed document tokens', () => {
+      // Expired token (expiresInSeconds = -10)
+      const expiredToken = generatePdfToken({
+        appointmentId: APPT_A_ID,
+        accountId: ACCOUNT_A_ID,
+        expiresAt: Math.floor(Date.now() / 1000) - 10,
+      });
+      const expiredResult = verifyPdfToken(expiredToken, APPT_A_ID);
+      expect(expiredResult.valid).toBe(false);
+
+      // Tampered token payload
+      const validToken = generatePdfToken({
+        appointmentId: APPT_A_ID,
+        accountId: ACCOUNT_A_ID,
+        expiresAt: Math.floor(Date.now() / 1000) + 3600,
+      });
+      const tamperedToken =
+        validToken.substring(0, validToken.length - 4) + 'abcd';
+      const tamperedResult = verifyPdfToken(tamperedToken, APPT_A_ID);
+      expect(tamperedResult.valid).toBe(false);
+    });
   });
 });

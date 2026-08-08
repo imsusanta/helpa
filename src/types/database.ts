@@ -54,6 +54,7 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       profiles: {
         Row: {
@@ -92,6 +93,15 @@ export interface Database {
           beta_features?: string[] | null;
           created_at?: string;
         };
+        Relationships: [
+          {
+            foreignKeyName: 'profiles_account_id_fkey';
+            columns: ['account_id'];
+            isOneToOne: false;
+            referencedRelation: 'accounts';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       contacts: {
         Row: {
@@ -103,6 +113,7 @@ export interface Database {
           email: string | null;
           tags: string[] | null;
           metadata: Json | null;
+          patient_seq_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -115,6 +126,7 @@ export interface Database {
           email?: string | null;
           tags?: string[] | null;
           metadata?: Json | null;
+          patient_seq_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -127,9 +139,19 @@ export interface Database {
           email?: string | null;
           tags?: string[] | null;
           metadata?: Json | null;
+          patient_seq_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [
+          {
+            foreignKeyName: 'contacts_account_id_fkey';
+            columns: ['account_id'];
+            isOneToOne: false;
+            referencedRelation: 'accounts';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       conversations: {
         Row: {
@@ -137,6 +159,8 @@ export interface Database {
           account_id: string;
           user_id: string;
           contact_id: string;
+          status: string | null;
+          replied_at: string | null;
           last_message_text: string | null;
           last_message_at: string | null;
           unread_count: number;
@@ -150,6 +174,8 @@ export interface Database {
           account_id: string;
           user_id: string;
           contact_id: string;
+          status?: string | null;
+          replied_at?: string | null;
           last_message_text?: string | null;
           last_message_at?: string | null;
           unread_count?: number;
@@ -163,6 +189,8 @@ export interface Database {
           account_id?: string;
           user_id?: string;
           contact_id?: string;
+          status?: string | null;
+          replied_at?: string | null;
           last_message_text?: string | null;
           last_message_at?: string | null;
           unread_count?: number;
@@ -171,6 +199,22 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [
+          {
+            foreignKeyName: 'conversations_account_id_fkey';
+            columns: ['account_id'];
+            isOneToOne: false;
+            referencedRelation: 'accounts';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'conversations_contact_id_fkey';
+            columns: ['contact_id'];
+            isOneToOne: false;
+            referencedRelation: 'contacts';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       messages: {
         Row: {
@@ -239,6 +283,15 @@ export interface Database {
           interactive_reply_id?: string | null;
           created_at?: string;
         };
+        Relationships: [
+          {
+            foreignKeyName: 'messages_conversation_id_fkey';
+            columns: ['conversation_id'];
+            isOneToOne: false;
+            referencedRelation: 'conversations';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       whatsapp_config: {
         Row: {
@@ -286,6 +339,15 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [
+          {
+            foreignKeyName: 'whatsapp_config_account_id_fkey';
+            columns: ['account_id'];
+            isOneToOne: false;
+            referencedRelation: 'accounts';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       hospital_doctors: {
         Row: {
@@ -294,6 +356,7 @@ export interface Database {
           name: string;
           department: string;
           specialty: string | null;
+          specialization: string | null;
           available_days: string[] | null;
           available_time_slots: string[] | null;
           is_available: boolean;
@@ -305,6 +368,7 @@ export interface Database {
           name: string;
           department: string;
           specialty?: string | null;
+          specialization?: string | null;
           available_days?: string[] | null;
           available_time_slots?: string[] | null;
           is_available?: boolean;
@@ -316,11 +380,21 @@ export interface Database {
           name?: string;
           department?: string;
           specialty?: string | null;
+          specialization?: string | null;
           available_days?: string[] | null;
           available_time_slots?: string[] | null;
           is_available?: boolean;
           created_at?: string;
         };
+        Relationships: [
+          {
+            foreignKeyName: 'hospital_doctors_account_id_fkey';
+            columns: ['account_id'];
+            isOneToOne: false;
+            referencedRelation: 'accounts';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       hospital_departments: {
         Row: {
@@ -347,6 +421,15 @@ export interface Database {
           head_doctor_name?: string | null;
           created_at?: string;
         };
+        Relationships: [
+          {
+            foreignKeyName: 'hospital_departments_account_id_fkey';
+            columns: ['account_id'];
+            isOneToOne: false;
+            referencedRelation: 'accounts';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       appointments: {
         Row: {
@@ -356,6 +439,10 @@ export interface Database {
           doctor_id: string | null;
           appointment_date: string;
           appointment_time: string | null;
+          token_number: string | null;
+          queue_position: number | null;
+          booking_id: string | null;
+          department: string | null;
           status:
             | 'Scheduled'
             | 'Reminder Sent'
@@ -377,6 +464,10 @@ export interface Database {
           doctor_id?: string | null;
           appointment_date: string;
           appointment_time?: string | null;
+          token_number?: string | null;
+          queue_position?: number | null;
+          booking_id?: string | null;
+          department?: string | null;
           status?:
             | 'Scheduled'
             | 'Reminder Sent'
@@ -398,6 +489,10 @@ export interface Database {
           doctor_id?: string | null;
           appointment_date?: string;
           appointment_time?: string | null;
+          token_number?: string | null;
+          queue_position?: number | null;
+          booking_id?: string | null;
+          department?: string | null;
           status?:
             | 'Scheduled'
             | 'Reminder Sent'
@@ -412,6 +507,29 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [
+          {
+            foreignKeyName: 'appointments_account_id_fkey';
+            columns: ['account_id'];
+            isOneToOne: false;
+            referencedRelation: 'accounts';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'appointments_doctor_id_fkey';
+            columns: ['doctor_id'];
+            isOneToOne: false;
+            referencedRelation: 'hospital_doctors';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'appointments_patient_id_fkey';
+            columns: ['patient_id'];
+            isOneToOne: false;
+            referencedRelation: 'contacts';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       hospital_lab_reports: {
         Row: {
@@ -453,6 +571,22 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Relationships: [
+          {
+            foreignKeyName: 'hospital_lab_reports_account_id_fkey';
+            columns: ['account_id'];
+            isOneToOne: false;
+            referencedRelation: 'accounts';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'hospital_lab_reports_doctor_id_fkey';
+            columns: ['doctor_id'];
+            isOneToOne: false;
+            referencedRelation: 'hospital_doctors';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       contact_notes: {
         Row: {
@@ -476,6 +610,22 @@ export interface Database {
           note_text?: string;
           created_at?: string;
         };
+        Relationships: [
+          {
+            foreignKeyName: 'contact_notes_account_id_fkey';
+            columns: ['account_id'];
+            isOneToOne: false;
+            referencedRelation: 'accounts';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'contact_notes_contact_id_fkey';
+            columns: ['contact_id'];
+            isOneToOne: false;
+            referencedRelation: 'contacts';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       message_reactions: {
         Row: {
@@ -505,6 +655,15 @@ export interface Database {
           emoji?: string;
           created_at?: string;
         };
+        Relationships: [
+          {
+            foreignKeyName: 'message_reactions_conversation_id_fkey';
+            columns: ['conversation_id'];
+            isOneToOne: false;
+            referencedRelation: 'conversations';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       account_invitations: {
         Row: {
@@ -543,6 +702,15 @@ export interface Database {
           accepted_at?: string | null;
           accepted_by_user_id?: string | null;
         };
+        Relationships: [
+          {
+            foreignKeyName: 'account_invitations_account_id_fkey';
+            columns: ['account_id'];
+            isOneToOne: false;
+            referencedRelation: 'accounts';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       webhook_events: {
         Row: {
@@ -596,6 +764,126 @@ export interface Database {
           created_at?: string;
           processed_at?: string | null;
         };
+        Relationships: [];
+      };
+      inbound_webhook_events: {
+        Row: {
+          id: string;
+          event_id: string;
+          account_id: string | null;
+          entry_id: string | null;
+          field: string;
+          payload: Json;
+          status:
+            | 'received'
+            | 'processing'
+            | 'completed'
+            | 'failed'
+            | 'dead_letter';
+          retry_count: number;
+          error_log: string | null;
+          processed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          account_id?: string | null;
+          entry_id?: string | null;
+          field?: string;
+          payload: Json;
+          status?:
+            | 'received'
+            | 'processing'
+            | 'completed'
+            | 'failed'
+            | 'dead_letter';
+          retry_count?: number;
+          error_log?: string | null;
+          processed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          account_id?: string | null;
+          entry_id?: string | null;
+          field?: string;
+          payload?: Json;
+          status?:
+            | 'received'
+            | 'processing'
+            | 'completed'
+            | 'failed'
+            | 'dead_letter';
+          retry_count?: number;
+          error_log?: string | null;
+          processed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      outbound_outbox: {
+        Row: {
+          id: string;
+          account_id: string;
+          idempotency_key: string;
+          conversation_id: string | null;
+          contact_id: string | null;
+          message_type: string;
+          payload: Json;
+          meta_message_id: string | null;
+          status: 'pending' | 'processing' | 'sent' | 'failed';
+          error_code: string | null;
+          error_message: string | null;
+          retry_count: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          account_id: string;
+          idempotency_key: string;
+          conversation_id?: string | null;
+          contact_id?: string | null;
+          message_type?: string;
+          payload?: Json;
+          meta_message_id?: string | null;
+          status?: 'pending' | 'processing' | 'sent' | 'failed';
+          error_code?: string | null;
+          error_message?: string | null;
+          retry_count?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          idempotency_key?: string;
+          conversation_id?: string | null;
+          contact_id?: string | null;
+          message_type?: string;
+          payload?: Json;
+          meta_message_id?: string | null;
+          status?: 'pending' | 'processing' | 'sent' | 'failed';
+          error_code?: string | null;
+          error_message?: string | null;
+          retry_count?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'outbound_outbox_account_id_fkey';
+            columns: ['account_id'];
+            isOneToOne: false;
+            referencedRelation: 'accounts';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       webhook_dead_letter: {
         Row: {
@@ -631,6 +919,173 @@ export interface Database {
           resolved?: boolean;
           resolved_at?: string | null;
         };
+        Relationships: [];
+      };
+      patients: {
+        Row: {
+          id: string;
+          account_id: string;
+          patient_seq_id: string | null;
+          status: string;
+          phone: string | null;
+          name: string | null;
+          email: string | null;
+          gender: string | null;
+          date_of_birth: string | null;
+          blood_group: string | null;
+          address: string | null;
+          metadata: Json | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          account_id: string;
+          patient_seq_id?: string | null;
+          status?: string;
+          phone?: string | null;
+          name?: string | null;
+          email?: string | null;
+          gender?: string | null;
+          date_of_birth?: string | null;
+          blood_group?: string | null;
+          address?: string | null;
+          metadata?: Json | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          patient_seq_id?: string | null;
+          status?: string;
+          phone?: string | null;
+          name?: string | null;
+          email?: string | null;
+          gender?: string | null;
+          date_of_birth?: string | null;
+          blood_group?: string | null;
+          address?: string | null;
+          metadata?: Json | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'patients_account_id_fkey';
+            columns: ['account_id'];
+            isOneToOne: false;
+            referencedRelation: 'accounts';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      broadcast_recipients: {
+        Row: {
+          id: string;
+          broadcast_id: string;
+          account_id: string;
+          contact_id: string;
+          whatsapp_message_id: string | null;
+          status: string;
+          sent_at: string | null;
+          delivered_at: string | null;
+          read_at: string | null;
+          replied_at: string | null;
+          error_message: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          broadcast_id: string;
+          account_id: string;
+          contact_id: string;
+          whatsapp_message_id?: string | null;
+          status?: string;
+          sent_at?: string | null;
+          delivered_at?: string | null;
+          read_at?: string | null;
+          replied_at?: string | null;
+          error_message?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          broadcast_id?: string;
+          account_id?: string;
+          contact_id?: string;
+          whatsapp_message_id?: string | null;
+          status?: string;
+          sent_at?: string | null;
+          delivered_at?: string | null;
+          read_at?: string | null;
+          replied_at?: string | null;
+          error_message?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'broadcast_recipients_account_id_fkey';
+            columns: ['account_id'];
+            isOneToOne: false;
+            referencedRelation: 'accounts';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'broadcast_recipients_broadcast_id_fkey';
+            columns: ['broadcast_id'];
+            isOneToOne: false;
+            referencedRelation: 'broadcasts';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      broadcasts: {
+        Row: {
+          id: string;
+          account_id: string;
+          name: string;
+          status: string;
+          template_name: string | null;
+          scheduled_at: string | null;
+          sent_at: string | null;
+          total_recipients: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          account_id: string;
+          name: string;
+          status?: string;
+          template_name?: string | null;
+          scheduled_at?: string | null;
+          sent_at?: string | null;
+          total_recipients?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          name?: string;
+          status?: string;
+          template_name?: string | null;
+          scheduled_at?: string | null;
+          sent_at?: string | null;
+          total_recipients?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'broadcasts_account_id_fkey';
+            columns: ['account_id'];
+            isOneToOne: false;
+            referencedRelation: 'accounts';
+            referencedColumns: ['id'];
+          },
+        ];
       };
     };
     Views: Record<string, never>;
