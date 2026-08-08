@@ -18,20 +18,35 @@ export async function POST(
     const actorId = ctx.userId;
 
     const { id: patientId } = await params;
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!patientId || !UUID_REGEX.test(patientId)) {
+      return NextResponse.json(
+        { error: 'Invalid patient ID format' },
+        { status: 400, headers: CACHE_HEADERS }
+      );
+    }
+
     const body = (await request.json().catch(() => ({}))) as {
       consent_status?: string;
       consent_source?: string;
       policy_version?: string;
     };
 
-    const { consent_status, consent_source = 'web_dashboard', policy_version = 'v1.0' } = body;
+    const {
+      consent_status,
+      consent_source = 'web_dashboard',
+      policy_version = 'v1.0',
+    } = body;
 
     if (
       !consent_status ||
       !['opted_in', 'opted_out', 'pending'].includes(consent_status)
     ) {
       return NextResponse.json(
-        { error: 'Missing or invalid consent_status. Must be one of: pending, opted_in, opted_out' },
+        {
+          error:
+            'Missing or invalid consent_status. Must be one of: pending, opted_in, opted_out',
+        },
         { status: 400, headers: CACHE_HEADERS }
       );
     }

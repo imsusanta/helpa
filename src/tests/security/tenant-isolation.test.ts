@@ -195,8 +195,10 @@ describe('Security: Multi-Tenancy & Authorization Invariants', () => {
       expect(headersB?.['X-Tenant-Id']).toBe(ACCOUNT_B_ID);
 
       // Assert query params properly restrict data requests to exact account scope
-      const paramsA = (queryTenantA as unknown as { url?: URL }).url?.searchParams;
-      const paramsB = (queryCrossTenantB as unknown as { url?: URL }).url?.searchParams;
+      const paramsA = (queryTenantA as unknown as { url?: URL }).url
+        ?.searchParams;
+      const paramsB = (queryCrossTenantB as unknown as { url?: URL }).url
+        ?.searchParams;
 
       expect(paramsA?.get('account_id')).toBe(`eq.${ACCOUNT_A_ID}`);
       expect(paramsB?.get('account_id')).toBe(`eq.${ACCOUNT_A_ID}`);

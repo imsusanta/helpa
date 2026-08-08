@@ -16,6 +16,10 @@ export const EMERGENCY_KEYWORDS = [
   'anaphylaxis',
   'poisoning',
   'head injury',
+  'breathlessness',
+  'cardiac arrest',
+  'heavy bleeding',
+  'choking',
 ] as const;
 
 export const DIAGNOSTIC_KEYWORDS = [
@@ -25,25 +29,58 @@ export const DIAGNOSTIC_KEYWORDS = [
   'what illness do i have',
   'which medicine should i take',
   'dosage for',
+  'what medication should i',
+  'cure for my',
+  'treatment for my condition',
 ] as const;
 
 export const PROMPT_INJECTION_PATTERNS = [
   'system overide',
   'system override',
   'ignore previous',
+  'ignore all previous',
   'output system',
   'print api key',
   'disregard system prompt',
   'you are now DAN',
+  'bypass safety',
+  'developer mode',
+  'system prompt',
+  'forget instructions',
 ] as const;
+
+/**
+ * Normalizes input text by applying Unicode NFKC normalization,
+ * removing zero-width/control characters, stripping non-alphanumeric separators,
+ * and collapsing whitespace.
+ */
+export function normalizeInput(input: string): string {
+  if (!input || typeof input !== 'string') return '';
+  return (
+    input
+      .normalize('NFKC')
+      // Remove zero-width spaces and control characters
+      .replace(/[\u200B-\u200D\uFEFF\u0000-\u001F]/g, '')
+      .toLowerCase()
+      // Replace non-alphanumeric punctuation with spaces for keyword matching
+      .replace(/[-_.,/\\()[\]{}:;!?"']/g, ' ')
+      // Collapse multiple spaces into one
+      .replace(/\s+/g, ' ')
+      .trim()
+  );
+}
 
 /**
  * Checks if patient message contains emergency medical symptoms requiring immediate hotline intervention.
  */
 export function isEmergencyQuery(input: string): boolean {
   if (!input) return false;
-  const lower = input.toLowerCase();
-  return EMERGENCY_KEYWORDS.some((kw) => lower.includes(kw));
+  const normalized = normalizeInput(input);
+  if (!normalized) return false;
+  return EMERGENCY_KEYWORDS.some((kw) => {
+    const normKw = normalizeInput(kw);
+    return normalized.includes(normKw);
+  });
 }
 
 /**
@@ -51,8 +88,12 @@ export function isEmergencyQuery(input: string): boolean {
  */
 export function isDiagnosticRequest(input: string): boolean {
   if (!input) return false;
-  const lower = input.toLowerCase();
-  return DIAGNOSTIC_KEYWORDS.some((kw) => lower.includes(kw));
+  const normalized = normalizeInput(input);
+  if (!normalized) return false;
+  return DIAGNOSTIC_KEYWORDS.some((kw) => {
+    const normKw = normalizeInput(kw);
+    return normalized.includes(normKw);
+  });
 }
 
 /**
@@ -60,8 +101,12 @@ export function isDiagnosticRequest(input: string): boolean {
  */
 export function containsPromptInjection(input: string): boolean {
   if (!input) return false;
-  const lower = input.toLowerCase();
-  return PROMPT_INJECTION_PATTERNS.some((pattern) => lower.includes(pattern));
+  const normalized = normalizeInput(input);
+  if (!normalized) return false;
+  return PROMPT_INJECTION_PATTERNS.some((pattern) => {
+    const normPattern = normalizeInput(pattern);
+    return normalized.includes(normPattern);
+  });
 }
 
 /**
@@ -71,7 +116,7 @@ export function sanitizeAiInput(input: string): string {
   if (!input) return '';
   let sanitized = input;
   for (const pattern of PROMPT_INJECTION_PATTERNS) {
-    const regex = new RegExp(pattern, 'gi');
+    const regex = new RegExp(pattern.replace(/\s+/g, '\\s+'), 'gi');
     sanitized = sanitized.replace(regex, '[REDACTED_PROMPT_INJECTION]');
   }
   return sanitized.trim();
@@ -108,4 +153,3 @@ export function applyAiSafety(input: string): AiSafetyResult {
     containsInjection,
   };
 }
-

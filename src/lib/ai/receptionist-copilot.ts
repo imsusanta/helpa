@@ -1250,11 +1250,11 @@ export async function generateOpenRouterCopilotSnapshot({
   // Keep context compact — sending the full fallback object and 80
   // messages was causing OpenRouter to time out on generation.
   const safeMessages = (context.messages || []).slice(-30).map((msg) => {
-    if (!msg.text) return msg;
-    const safety = applyAiSafety(msg.text);
+    if (!msg.content_text) return msg;
+    const safety = applyAiSafety(msg.content_text);
     return {
       ...msg,
-      text: safety.safeText,
+      content_text: safety.safeText,
     };
   });
 

@@ -64,7 +64,9 @@ export async function GET(
     const [appointmentsRes, consentHistoryRes] = await Promise.all([
       db
         .from('appointments')
-        .select('id, appointment_date, appointment_time, status, department, created_at')
+        .select(
+          'id, appointment_date, appointment_time, status, department, created_at'
+        )
         .eq('patient_id', patientId)
         .order('created_at', { ascending: false })
         .limit(50),

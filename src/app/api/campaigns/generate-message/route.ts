@@ -33,13 +33,19 @@ export async function POST(request: Request) {
     const safety = applyAiSafety(prompt);
     if (safety.isEmergency) {
       return NextResponse.json(
-        { error: 'Campaign generation halted: prompt contains emergency medical references.' },
+        {
+          error:
+            'Campaign generation halted: prompt contains emergency medical references.',
+        },
         { status: 400 }
       );
     }
     if (safety.isDiagnostic) {
       return NextResponse.json(
-        { error: 'Campaign generation halted: diagnostic or prescription advice requests are restricted.' },
+        {
+          error:
+            'Campaign generation halted: diagnostic or prescription advice requests are restricted.',
+        },
         { status: 400 }
       );
     }

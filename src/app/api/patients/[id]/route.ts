@@ -86,10 +86,7 @@ export async function DELETE(
       correlationId: patientId,
     });
 
-    return NextResponse.json(
-      { success: true },
-      { headers: CACHE_HEADERS }
-    );
+    return NextResponse.json({ success: true }, { headers: CACHE_HEADERS });
   } catch (err: unknown) {
     return toErrorResponse(err);
   }

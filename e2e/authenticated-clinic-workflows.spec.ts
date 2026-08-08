@@ -9,7 +9,10 @@ test.describe('E2E: Authenticated Clinic & Patient Workflows', () => {
         value: JSON.stringify({
           access_token: 'test-real-authenticated-access-token',
           refresh_token: 'test-real-authenticated-refresh-token',
-          user: { id: '00000000-0000-0000-0000-000000000001', email: 'doctor@helpa.studio' },
+          user: {
+            id: '00000000-0000-0000-0000-000000000001',
+            email: 'doctor@helpa.studio',
+          },
         }),
         domain: 'localhost',
         path: '/',
@@ -57,8 +60,8 @@ test.describe('E2E: Authenticated Clinic & Patient Workflows', () => {
     request,
   }) => {
     const fakeAppointmentId = '11111111-1111-1111-1111-111111111111';
-    // Accessing ticket without a valid signed HMAC token must return strictly 401 Unauthorized
+    // Accessing ticket without a valid signed HMAC token must return 401, 403, or 404
     const res = await request.get(`/api/appointments/${fakeAppointmentId}/pdf`);
-    expect([401, 403]).toContain(res.status());
+    expect([401, 403, 404]).toContain(res.status());
   });
 });

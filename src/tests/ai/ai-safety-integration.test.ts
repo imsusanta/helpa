@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { applyAiSafety, isEmergencyQuery, isDiagnosticRequest } from '@/lib/ai/safety';
+import {
+  applyAiSafety,
+  isEmergencyQuery,
+  isDiagnosticRequest,
+} from '@/lib/ai/safety';
 
 describe('Integration: Emergency Escalation & Diagnostic Refusal Pipeline', () => {
   beforeEach(() => {

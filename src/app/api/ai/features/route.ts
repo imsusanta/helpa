@@ -139,12 +139,14 @@ export async function POST(request: Request) {
       const safety = applyAiSafety(latestMessage.content_text || '');
       if (safety.isEmergency) {
         return NextResponse.json({
-          result: '⚠️ EMERGENCY NOTICE: Emergency symptoms detected. Please direct the patient to immediate hotline (108/112) or the nearest emergency room.',
+          result:
+            '⚠️ EMERGENCY NOTICE: Emergency symptoms detected. Please direct the patient to immediate hotline (108/112) or the nearest emergency room.',
         });
       }
       if (safety.isDiagnostic) {
         return NextResponse.json({
-          result: '🩺 MEDICAL NOTICE: As an AI receptionist, I cannot evaluate clinical symptoms or provide medical diagnoses. Please consult a registered doctor.',
+          result:
+            '🩺 MEDICAL NOTICE: As an AI receptionist, I cannot evaluate clinical symptoms or provide medical diagnoses. Please consult a registered doctor.',
         });
       }
       if (safety.containsInjection) {

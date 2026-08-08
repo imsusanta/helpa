@@ -1,143 +1,112 @@
-# Helpa Production Readiness Report
+# Helpa Production Readiness & Security Report
 
-**Branch:** `hardening/production-readiness-10`  
-**Target Release:** `v0.3.0-rc.1` (Prerelease Candidate)  
+**Branch:** `fix/privacy-authorization-hardening`  
+**Target Release:** `v0.3.0-rc.2` (Hardened Security Release Candidate)  
 **Date:** 2026-08-08
 
 ---
 
-## 1. Implemented & Fully Integrated Production Workflows
+## 1. Implemented & Automatically Verified Controls
 
-### 1.1 AI Safety & Healthcare Guardrails (All Model Call Paths)
+### 1.1 Server-Derived Cross-Tenant Authorization & Identity Enforcement
 
-The centralized safety module [`safety.ts`](file:///Users/susantalohar/Documents/wacrm/src/lib/ai/safety.ts) is wired into **every** AI model call path:
+- **Routes:** `POST /api/patients/[id]/consent`, `GET /api/patients/[id]/export`, `POST /api/patients/[id]/withdraw`, `DELETE /api/patients/[id]`
+- **Implementation:** Every patient API route authenticates the caller via `requireRole('admin' | 'owner')` using server-side session context (`src/lib/auth/account.ts`).
+- **Invariants Enforced:**
+  - Client-supplied `account_id` and `actor_id` values in request body, query params, or custom headers are completely ignored.
+  - User ID, tenant ID, and role are derived strictly from the authenticated session.
+  - Cross-tenant requests return `404 Not Found` without revealing resource existence.
+  - Unauthenticated requests return `401 Unauthorized`.
+  - Insufficient role requests return `403 Forbidden`.
+- **Verified by:** `src/tests/security/tenant-authorization-privacy.test.ts` (10 tests) and `src/tests/security/tenant-isolation.test.ts` (8 tests).
 
-| Call Path | File | Safety Check |
-|-----------|------|--------------|
-| Inbound WhatsApp AI | [`ai.ts`](file:///Users/susantalohar/Documents/wacrm/src/lib/whatsapp/ai.ts) | Emergency detection, diagnostic refusal, prompt sanitization |
-| Campaign Message Generation | [`generate-message/route.ts`](file:///Users/susantalohar/Documents/wacrm/src/app/api/campaigns/generate-message/route.ts) | `applyAiSafety()` before prompt construction |
-| AI Features (Summarize/Reply) | [`features/route.ts`](file:///Users/susantalohar/Documents/wacrm/src/app/api/ai/features/route.ts) | `applyAiSafety()` before text completion |
-| Receptionist Copilot | [`receptionist-copilot.ts`](file:///Users/susantalohar/Documents/wacrm/src/lib/ai/receptionist-copilot.ts) | `sanitizeAiInput()` before every model call |
+### 1.2 Append-Only Audit Logs & Immutability Triggers
 
-**Guardrails enforced:**
-- 🚨 Emergency intent detection (`isEmergencyQuery`) — returns 108/112 referral immediately
-- 🚫 Diagnostic request refusal (`isDiagnosticRequest`) — redirects to licensed physician
-- 🧹 Prompt injection sanitization (`sanitizeAiInput`) — strips role overrides, jailbreak patterns
+- **Database Migration:** `supabase/migrations/064_audit_immutability_and_consent_defaults.sql`
+- **Implementation:**
+  - Replaced broad `FOR ALL` policy on `audit_logs` with explicit `SELECT` policy for tenant members and `INSERT` policy restricted to service role.
+  - Installed `BEFORE UPDATE` and `BEFORE DELETE` triggers (`audit_logs_immutable_guard`) that raise exceptions on any modification attempt.
+- **Atomic Operations:** Created `update_patient_consent_atomic()` PostgreSQL RPC executing patient consent status updates and audit log insertions within a single ACID transaction with fixed `search_path = public`.
 
-**Verified by:** [`ai-safety-integration.test.ts`](file:///Users/susantalohar/Documents/wacrm/src/tests/ai/ai-safety-integration.test.ts) (4 tests) and [`ai-safety-eval.test.ts`](file:///Users/susantalohar/Documents/wacrm/src/tests/ai/ai-safety-eval.test.ts) (4 tests)
+### 1.3 Privacy-Safe Consent Defaults & State Transitions
 
-### 1.2 Patient Privacy, Consent Lifecycle & Audit Trail
+- **Migration:** `064_audit_immutability_and_consent_defaults.sql`
+- **Implementation:** Changed default patient consent state from `opted_in` to `pending`.
+- **Supported States:** `pending`, `opted_in`, `opted_out`.
+- **Consent Metadata:** Stores consent source (`web_dashboard`, `optout_request`, `whatsapp_optin`), policy version (`v1.0`), and timestamp.
 
-Full data lifecycle pipeline with Supabase persistence and tenant authorization:
+### 1.4 Hardened AI Safety & Healthcare Guardrails (All Model Paths)
 
-| Endpoint | Method | Authorization | Audit Event |
-|----------|--------|---------------|-------------|
-| `/api/patients/[id]/consent` | `POST` | `requireRole` + tenant check | `patient.consent_updated` |
-| `/api/patients/[id]/withdraw` | `POST` | `requireRole` + tenant check | `patient.consent_withdrawn` |
-| `/api/patients/[id]/export` | `GET` | `requireRole('admin')` + tenant check | `patient.data_exported` |
-| `/api/patients/[id]` | `DELETE` | `requireRole('admin')` + tenant check | `patient.data_deleted` |
+- **Module:** `src/lib/ai/safety.ts`
+- **Call Paths Covered:**
+  - Inbound WhatsApp AI (`src/lib/whatsapp/ai.ts`)
+  - Campaign Message Generation (`src/app/api/campaigns/generate-message/route.ts`)
+  - AI Features & Summaries (`src/app/api/ai/features/route.ts`)
+  - Receptionist Copilot (`src/lib/ai/receptionist-copilot.ts`)
+- **Hardening Enhancements:**
+  - Applied Unicode NFKC normalization and zero-width character stripping before pattern matching.
+  - Whitespace and punctuation resilience (`chest  pain`, `chest-pain`, `difficulty----breathing`).
+  - Emergency responses pause AI and direct users to local emergency services without falsely claiming human receptionist notification.
+- **Verified by:** `src/tests/ai/ai-safety-integration.test.ts` (4 tests) and `src/tests/ai/ai-safety-eval.test.ts` (4 tests).
 
-**Implementation:**
-- Consent service: [`consent-service.ts`](file:///Users/susantalohar/Documents/wacrm/src/lib/privacy/consent-service.ts) with immutable `audit_logs` table entries
-- Database migration: `049_patient_consent_and_audit.sql`
-- Hard deletion performs CASCADE purge of all related patient records
+### 1.5 PHI Log Redaction & Observability
 
-**Verified by:** [`privacy-safety.test.ts`](file:///Users/susantalohar/Documents/wacrm/src/tests/security/privacy-safety.test.ts) (8 tests)
+- **Module:** `src/lib/observability/logger.ts`
+- **Implementation:** Replaced raw `console.error`/`console.warn` in security-sensitive paths with structured redacting logger.
+- **Redaction Rules:** Redacts email addresses, phone numbers, bearer tokens, API key fragments, diagnosis details, patient names, and medical notes.
 
-### 1.3 Fail-Closed Webhook Security
+### 1.6 Webhook Signature Verification & Cache Controls
 
-HMAC-SHA256 constant-time signature verification via `META_APP_SECRET` on `POST /api/whatsapp/webhook`. Rejects missing, malformed, or tampered signatures with 401 Unauthorized. Fails closed when secret is unset.
-
-**Verified by:** [`webhook-signature.test.ts`](file:///Users/susantalohar/Documents/wacrm/src/lib/whatsapp/webhook-signature.test.ts) (7 tests) and [`webhook-security.test.ts`](file:///Users/susantalohar/Documents/wacrm/src/tests/security/webhook-security.test.ts) (5 tests)
-
-### 1.4 Cache-Control & Private Data Headers
-
-`Cache-Control: private, no-store, no-cache, must-revalidate` enforced on all `/api/*` routes and 29 authenticated dashboard sub-routes. Public marketing pages retain performance caching.
-
-**Verified by:** [`cache-control-headers.test.ts`](file:///Users/susantalohar/Documents/wacrm/src/tests/security/cache-control-headers.test.ts) (3 tests) and E2E [`security-headers-server.spec.ts`](file:///Users/susantalohar/Documents/wacrm/e2e/security-headers-server.spec.ts)
-
-### 1.5 Multi-Tenant RLS & Service-Role Isolation
-
-Explicit `account_id` query scoping ensures cross-tenant query boundary isolation. Tests use real tenant user auth contexts to verify that Tenant A cannot read Tenant B data.
-
-**Verified by:** [`tenant-isolation.test.ts`](file:///Users/susantalohar/Documents/wacrm/src/tests/security/tenant-isolation.test.ts) (8 tests)
-
-### 1.6 Signed Digital OPD Tickets
-
-Short-lived HMAC-SHA256 signed document URLs preventing unauthorized PDF access or enumeration.
-
-**Verified by:** [`signed-urls.test.ts`](file:///Users/susantalohar/Documents/wacrm/src/tests/security/signed-urls.test.ts) (4 tests)
-
-### 1.7 Vercel Deployment Fix
-
-`src/app/icon.tsx` runtime switched from `edge` to `nodejs` to avoid exceeding Vercel's 1MB Edge Function size limit (was 1.07MB). Build now completes successfully.
-
-### 1.8 Post-Deployment Verification Workflow
-
-[`.github/workflows/post-deploy.yml`](file:///Users/susantalohar/Documents/wacrm/.github/workflows/post-deploy.yml) triggers on `main` push and release events, curling the production alias (`https://wacrmsusanta.vercel.app/` and `/api/health`) and asserting HTTP 200 responses.
+- **Webhook Security:** HMAC-SHA256 constant-time verification (`META_APP_SECRET`) on `POST /api/whatsapp/webhook`. Fails closed (401) when secret is missing or signature is invalid.
+- **Cache Controls:** Global `Cache-Control: private, no-store, no-cache, must-revalidate` enforced on all `/api/*` routes and error responses.
 
 ---
 
-## 2. E2E Test Hardening
+## 2. Awaiting Deployment Verification
 
-- **Authenticated Sessions:** Playwright E2E tests use saved real authenticated session state fixtures instead of mock tokens.
-- **Status Assertions:** Endpoint tests enforce exact `401`/`403` responses for unauthorized/forbidden access — no longer accept `404`/`405` as passing.
-
----
-
-## 3. Active Scheduled Cron Jobs
-
-- **Automated Webhook Retention Purging:** 7-day raw payload scrubbing and 30-day dead-letter event purging (`POST /api/cron/cleanup-webhooks`). Active in codebase and scheduled via cron runner.
+- **Vercel Post-Deployment Hook:** `.github/workflows/post-deploy.yml` checks `https://wacrmsusanta.vercel.app/` and `/api/health` upon main branch deployment.
+- **Production Alias Verification:** Needs live deployment run to confirm HTTP 200 response.
 
 ---
 
-## 4. GitHub Repository Governance
+## 3. Awaiting Infrastructure Configuration
 
-| Action | Status |
-|--------|--------|
-| PR #7 (dependabot) | ✅ Resolved |
-| PR #8 (superseded) | ✅ Closed |
-| PR #12 (superseded) | ✅ Closed |
-| Branch protection on `main` | ✅ Enabled (CI checks, reviews, signed commits, no direct push) |
+- **Supabase PITR:** Point-In-Time-Recovery (30-day retention) must be enabled in the Supabase Cloud Console project settings.
+- **Cron Scheduler:** Retention purge route `/api/cron/cleanup-webhooks` is implemented; automated execution requires configuring Vercel Cron (`vercel.json`) or an external runner.
 
 ---
 
-## 5. Release Artifacts (v0.3.0-rc.1)
+## 4. Awaiting External Security Review
 
-| Artifact | Description |
-|----------|-------------|
-| [`sbom.json`](file:///Users/susantalohar/Documents/wacrm/sbom.json) | CycloneDX Software Bill of Materials |
-| [`SHA256SUMS.txt`](file:///Users/susantalohar/Documents/wacrm/SHA256SUMS.txt) | SHA256 checksums for all release artifacts |
-| [`deployment_evidence.txt`](file:///Users/susantalohar/Documents/wacrm/deployment_evidence.txt) | Verified deployment evidence (Vercel curl responses) |
+- **Third-Party Pen Test:** Formal external penetration testing and HIPAA/DPDP compliance audits should be conducted prior to storing live production PHI.
 
 ---
 
-## 6. Manual Infrastructure & External Verification Checklist
+## 5. Remaining Risks & Mitigation
 
-- **Supabase PITR & Automated Backups:** Requires checking Supabase Dashboard settings (PITR 30-day retention).
-- **External Security Review:** Independent third-party penetration testing recommended prior to storing live production medical records.
-- **Clinic Receptionist Usability Testing:** Real-world onboarding and OPD ticket generation walkthroughs with 3–5 clinic front-desk staff.
-
----
-
-## 7. Quality Gate Verification Summary
-
-| Gate                   | Execution Command              | Result                                 |
-| ---------------------- | ------------------------------ | -------------------------------------- |
-| **Prettier Format**    | `npm run format:check`         | ✅ **100% Clean**                      |
-| **Strict Linting**     | `npm run lint`                 | ✅ **0 Errors**                        |
-| **Type Check**         | `npm run typecheck`            | ✅ **0 Errors**                        |
-| **Unit & Integration** | `npm test`                     | ✅ **480/480 Passed** (44 test files)  |
-| **Production Build**   | `npm run build`                | ✅ **0 Errors** (76 routes compiled)   |
-| **Security Audit**     | `npm audit --audit-level=high` | ✅ **0 High/Critical**                 |
-| **Playwright E2E**     | `npm run test:e2e`             | ✅ **16/16 E2E Passed**                |
+| Risk Area                  | Mitigation Strategy                                                   |
+| -------------------------- | --------------------------------------------------------------------- |
+| Database Quota             | Supabase DB quota spend cap monitoring required in production console |
+| OpenRouter Model Failovers | Built-in fallback to `google/gemini-2.0-flash` on API timeout         |
 
 ---
 
-## 8. CI/CD Build Configuration
+## 6. Quality Gate Verification Summary
+
+| Quality Gate           | Execution Command              | Result                                |
+| ---------------------- | ------------------------------ | ------------------------------------- |
+| **Prettier Format**    | `npm run format:check`         | ✅ **100% Clean**                     |
+| **Strict Linting**     | `npm run lint`                 | ✅ **0 Errors** (301 warnings)        |
+| **Type Check**         | `npm run typecheck`            | ✅ **0 Errors**                       |
+| **Unit & Integration** | `npm test`                     | ✅ **491/491 Passed** (45 test files) |
+| **Production Build**   | `npm run build`                | ✅ **0 Errors** (77 routes compiled)  |
+| **Playwright E2E**     | `npm run test:e2e`             | ✅ **16/16 Passed**                   |
+| **Security Audit**     | `npm audit --audit-level=high` | ✅ **0 High/Critical**                |
+
+---
+
+## 7. CI/CD Build & Environment Spec
 
 - **Node Runtime:** Node 22
-- **Build Command:** `next build --webpack`
-- **Test Framework:** Vitest 4.1.9 (unit/integration), Playwright (E2E)
-- **Global Polyfills:** WebSocket polyfill in `src/tests/setup.ts`
-- **CI Pipeline:** 7 sequential quality gates (format → lint → typecheck → test → build → audit → e2e)
+- **Build Tooling:** Next.js 16.3.0 (`next build --webpack`)
+- **Testing:** Vitest 4.1.9, Playwright E2E
