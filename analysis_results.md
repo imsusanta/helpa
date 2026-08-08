@@ -27,12 +27,12 @@ The repository is structured logically by domain and layer:
 *   **`supabase/migrations/`**: Defines the SQL schema, security policies, triggers, and RPCs chronologically.
 *   **`src/app/`**: Next.js pages and API route handlers.
     *   `src/app/(auth)/`: Handles sign-in, sign-up, and password recovery.
-    *   `src/app/(dashboard)/`: Authenticated dashboard dashboard views (Inbox, Contacts, Pipelines, Broadcasts, Automations, Flows, Settings).
-    *   `src/app/api/`: Back-end API endpoints. Webhook listener sits at [api/whatsapp/webhook/route.ts](file:///Users/susantalohar/Documents/wacrm/src/app/api/whatsapp/webhook/route.ts).
-*   **`src/components/`**: Reusable component packages grouped by domain page (e.g., [inbox/](file:///Users/susantalohar/Documents/wacrm/src/components/inbox), [automations/](file:///Users/susantalohar/Documents/wacrm/src/components/automations), [flows/](file:///Users/susantalohar/Documents/wacrm/src/components/flows)).
-*   **`src/lib/`**: Business logic, utility helper files, database clients, encryption keys, and third-party integrations (e.g., [whatsapp/](file:///Users/susantalohar/Documents/wacrm/src/lib/whatsapp), [automations/](file:///Users/susantalohar/Documents/wacrm/src/lib/automations)).
-*   **`src/hooks/`**: React hooks for features like authentication ([use-auth.tsx](file:///Users/susantalohar/Documents/wacrm/src/hooks/use-auth.tsx)), broadcasts ([use-broadcast-sending.ts](file:///Users/susantalohar/Documents/wacrm/src/hooks/use-broadcast-sending.ts)), and real-time syncing ([use-realtime.ts](file:///Users/susantalohar/Documents/wacrm/src/hooks/use-realtime.ts)).
-*   **`src/types/`**: Application type definitions. Main domain interfaces reside in [index.ts](file:///Users/susantalohar/Documents/wacrm/src/types/index.ts).
+    *   `src/app/(dashboard)/`: Authenticated dashboard views (Inbox, Contacts, Pipelines, Broadcasts, Automations, Flows, Settings).
+    *   `src/app/api/`: Back-end API endpoints. Webhook listener sits at `src/app/api/whatsapp/webhook/route.ts`.
+*   **`src/components/`**: Reusable component packages grouped by domain page (`src/components/inbox/`, `src/components/automations/`, `src/components/flows/`).
+*   **`src/lib/`**: Business logic, utility helper files, database clients, encryption keys, and third-party integrations (`src/lib/whatsapp/`, `src/lib/automations/`).
+*   **`src/hooks/`**: React hooks for features like authentication (`use-auth.tsx`), broadcasts (`use-broadcast-sending.ts`), and real-time syncing (`use-realtime.ts`).
+*   **`src/types/`**: Application type definitions. Main domain interfaces reside in `src/types/index.ts` and `src/types/database.ts`.
 
 ---
 

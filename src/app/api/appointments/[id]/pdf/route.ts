@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
 import { createClient as createServerClient } from '@/lib/supabase/server';
+import { getAdminClient } from '@/lib/supabase/typed-admin';
 import { verifyPdfToken } from '@/lib/pdf-signing';
 
 export async function GET(
@@ -10,12 +11,7 @@ export async function GET(
 ) {
   const { id } = await params;
 
-  // Create supabase admin/service client to bypass RLS for PDF generation
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-  const { createClient: createSupabase } = require('@supabase/supabase-js');
-  const db = createSupabase(supabaseUrl, supabaseKey);
+  const db = getAdminClient();
 
   try {
     const { data: appt, error } = await db
@@ -93,18 +89,36 @@ export async function GET(
       );
     }
 
+    // Extract joined relations safely
+    const patientRaw = Array.isArray(appt.patient)
+      ? appt.patient[0]
+      : appt.patient;
+    const doctorRaw = Array.isArray(appt.doctor) ? appt.doctor[0] : appt.doctor;
+    const patient = (patientRaw || {}) as {
+      id?: string;
+      name?: string;
+      phone?: string;
+      email?: string;
+      metadata?: Record<string, unknown>;
+    };
+    const doctor = (doctorRaw || {}) as {
+      id?: string;
+      name?: string;
+      specialization?: string;
+    };
+
     // Fetch registered patient ID from patients table if available
     let patientSeqId = 'PAT-000000';
-    if (appt.patient?.id) {
+    if (patient.id) {
       const { data: patRow } = await db
         .from('patients')
         .select('patient_seq_id')
-        .eq('id', appt.patient.id)
+        .eq('id', patient.id)
         .maybeSingle();
       if (patRow?.patient_seq_id) {
         patientSeqId = patRow.patient_seq_id;
-      } else if ((appt.patient as any)?.metadata?.patient_id) {
-        patientSeqId = (appt.patient as any).metadata.patient_id;
+      } else if (patient.metadata?.patient_id) {
+        patientSeqId = String(patient.metadata.patient_id);
       }
     }
 
@@ -121,12 +135,12 @@ export async function GET(
       }
     }
 
-    const patient = appt.patient as any;
-    const doctor = appt.doctor as any;
     const bookingId =
       appt.booking_id || `APT-2026-${id.slice(0, 5).toUpperCase()}`;
     const tokenNum = appt.token_number || 1;
     const queuePos = appt.queue_position || 1;
+    const apptCreatedAt =
+      (appt as { created_at?: string }).created_at || new Date().toISOString();
 
     // Generate Ticket Serial Number (daily count for this account on appointment date)
     const { count: dailyCount } = await db
@@ -134,7 +148,7 @@ export async function GET(
       .select('id', { count: 'exact', head: true })
       .eq('account_id', appt.account_id)
       .eq('appointment_date', appt.appointment_date)
-      .lte('created_at', appt.created_at || new Date().toISOString());
+      .lte('created_at', apptCreatedAt);
     const ticketSerial = `TKT-${String(dailyCount || 1).padStart(3, '0')}`;
 
     // Initialize PDF (A4 Portrait)

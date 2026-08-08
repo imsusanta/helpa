@@ -570,7 +570,9 @@ export function ContactSidebar({
                     {(() => {
                       const { bg, source } = resolveBloodGroup(
                         patient?.blood_group,
-                        contact?.metadata?.blood_group,
+                        typeof contact?.metadata?.blood_group === 'string'
+                          ? contact.metadata.blood_group
+                          : null,
                         recentReports
                       );
                       if (!bg)

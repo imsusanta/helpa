@@ -11,28 +11,40 @@ export type AnalyticsEvent =
   | 'faq_open'
   | 'signup_start';
 
+declare global {
+  interface Window {
+    gtag?: (
+      command: string,
+      action: string,
+      params?: Record<string, unknown>
+    ) => void;
+    plausible?: (
+      event: string,
+      options?: { props?: Record<string, unknown> }
+    ) => void;
+  }
+}
+
 export function trackEvent(
   event: AnalyticsEvent,
-  props?: Record<string, any>
+  props?: Record<string, unknown>
 ): void {
   try {
     if (typeof window === 'undefined') return;
 
-    // Log in development mode
     if (process.env.NODE_ENV === 'development') {
       console.log(`[Analytics Track]: ${event}`, props || {});
     }
 
-    // Google Analytics (gtag)
-    if (typeof (window as any).gtag === 'function') {
-      (window as any).gtag('event', event, props);
+    if (typeof window.gtag === 'function') {
+      window.gtag('event', event, props);
     }
 
-    // Plausible Analytics
-    if (typeof (window as any).plausible === 'function') {
-      (window as any).plausible(event, { props });
+    if (typeof window.plausible === 'function') {
+      window.plausible(event, { props });
     }
-  } catch (err) {
-    console.warn('[Analytics Error]:', err);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn('[Analytics Error]:', message);
   }
 }

@@ -617,7 +617,11 @@ export default function ContactsPage() {
                     {contact.phone}
                   </TableCell>
                   {customFields.slice(0, 2).map((field) => {
-                    const rawVal = contact.metadata?.[field.key] || '—';
+                    const rawVal =
+                      contact.metadata?.[field.key] !== undefined &&
+                      contact.metadata?.[field.key] !== null
+                        ? String(contact.metadata[field.key])
+                        : '—';
 
                     if (field.key === 'patient_id') {
                       const displayId = getOrGeneratePatientId(contact);

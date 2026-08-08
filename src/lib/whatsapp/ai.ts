@@ -1,6 +1,10 @@
 import { decrypt } from '@/lib/whatsapp/encryption';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
-import { engineSendText } from '@/lib/automations/meta-send';
+import {
+  engineSendText,
+  engineSendDocument,
+  engineSendButtons,
+} from '@/lib/automations/meta-send';
 import { checkPlanLimits, incrementUsage } from '@/lib/saas/subscription';
 import { getIndustryModule, resolveSystemPrompt } from '@/modules/registry';
 import { parseAiResponse } from '@/lib/whatsapp/ai-response';
@@ -50,10 +54,19 @@ export async function triggerAiResponse(
       .eq('account_id', accountId),
   ]);
 
+  interface AccountSettings {
+    openrouter_api_key?: string | null;
+    openrouter_model?: string | null;
+    ai_system_prompt?: string | null;
+    welcome_message?: string | null;
+    industry?: string | null;
+    name?: string | null;
+  }
+
   const contact = contactRes.data;
-  let account: any = null;
-  let accError = accRes.error;
-  let accData = accRes.data;
+  let account: AccountSettings | null = null;
+  const accError = accRes.error;
+  let accData = accRes.data as AccountSettings | null;
 
   if (
     accError &&
@@ -67,13 +80,12 @@ export async function triggerAiResponse(
       )
       .eq('id', accountId)
       .single();
-    accData = fallback.data as any;
-    accError = fallback.error;
+    accData = fallback.data as AccountSettings | null;
   }
 
   account = accData;
 
-  if (accError || !account?.openrouter_api_key) {
+  if (!account?.openrouter_api_key) {
     if (process.env.OPENROUTER_API_KEY) {
       account = account || {};
       account.openrouter_api_key = process.env.OPENROUTER_API_KEY;
@@ -91,17 +103,18 @@ export async function triggerAiResponse(
   let apiKey: string;
   try {
     apiKey = decrypt(account.openrouter_api_key);
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
     if (process.env.OPENROUTER_API_KEY) {
       console.warn(
         '[AI Assistant] Saved OpenRouter key decryption failed, falling back to process.env.OPENROUTER_API_KEY:',
-        err?.message
+        message
       );
       apiKey = process.env.OPENROUTER_API_KEY;
     } else {
       console.error(
         `[AI Assistant] Failed to decrypt saved OpenRouter API Key for account ${accountId}:`,
-        err?.message || err,
+        message,
         'Please re-save OpenRouter API key under Settings → AI Configuration.'
       );
       return;
@@ -163,13 +176,22 @@ export async function triggerAiResponse(
   const isSoloTeacherEnabled = industryModuleForContext.id === 'solo_teacher';
   let hospitalContext = '';
   let coachingContext = '';
-  let labReports: any[] | null = null;
+  interface LabReportRow {
+    id: string;
+    test_name: string;
+    status: string;
+    report_pdf_url?: string | null;
+    department?: string | null;
+    expected_delivery_date?: string | null;
+    notes?: string | null;
+    internal_notes?: string | null;
+  }
+  let labReports: LabReportRow[] | null = null;
 
   // Build Contact profile context dynamically using active industry entity config
   const contactConfigForContext =
     industryModuleForContext.entityConfigs?.contacts;
   const entityLabelForContext = contactConfigForContext?.label || 'Contact';
-  const customFieldsForContext = contactConfigForContext?.fields || [];
 
   if (isCoachingEnabled || isSoloTeacherEnabled) {
     const { data: coachingStudents } = await db
@@ -237,13 +259,16 @@ export async function triggerAiResponse(
         .maybeSingle(),
     ]);
 
-    labReports = labReportsData;
+    labReports = labReportsData as LabReportRow[] | null;
 
     if (registeredPatients && registeredPatients.length > 0) {
       hospitalContext +=
         'Registered Patients under this WhatsApp/Phone Number:\n';
-      registeredPatients.forEach((p: any) => {
-        const contactData = p.contact as any;
+      registeredPatients.forEach((p) => {
+        const contactData = p.contact as
+          | { name?: string; phone?: string }
+          | Array<{ name?: string; phone?: string }>
+          | null;
         const name =
           (Array.isArray(contactData)
             ? contactData[0]?.name
@@ -258,7 +283,13 @@ export async function triggerAiResponse(
     }
 
     if (lastCampaignRec && lastCampaignRec.broadcasts) {
-      const camp = lastCampaignRec.broadcasts as any;
+      const camp = lastCampaignRec.broadcasts as unknown as {
+        id: string;
+        name: string;
+        category?: string;
+        message_body?: string;
+        cta_type?: string;
+      };
       hospitalContext += `Last Sent Campaign to Patient (within last 7 days):\n`;
       hospitalContext += `- Campaign ID: ${camp.id}\n`;
       hospitalContext += `- Name: ${camp.name}\n`;
@@ -269,18 +300,22 @@ export async function triggerAiResponse(
 
     if (doctors && doctors.length > 0) {
       hospitalContext += 'Available Doctors & Clinic Schedules:\n';
-      doctors.forEach((d: any) => {
+      doctors.forEach((d) => {
         const days = Array.isArray(d.available_days)
           ? d.available_days.join(', ')
           : '';
-        const start = d.working_hours?.start || '09:00';
-        const end = d.working_hours?.end || '17:00';
-        hospitalContext += `- Dr. ${d.name.replace(/^Dr\.\s+/i, '')} (${d.department} - ${d.specialization || 'General'}): Fee: ₹${d.consultation_fee}, Working Days: ${days}, Working Hours: ${start} to ${end}\n`;
+        const workingHours = d.working_hours as
+          | { start?: string; end?: string }
+          | null
+          | undefined;
+        const start = workingHours?.start || '09:00';
+        const end = workingHours?.end || '17:00';
+        hospitalContext += `- Dr. ${d.name.replace(/^Dr\.\s+/i, '')} (${d.department} - ${d.specialization || 'General'}): Fee: ₹${d.consultation_fee || '0'}, Working Days: ${days}, Working Hours: ${start} to ${end}\n`;
       });
     }
     if (branches && branches.length > 0) {
       hospitalContext += '\nClinic Branches Locations:\n';
-      branches.forEach((b: any) => {
+      branches.forEach((b) => {
         hospitalContext += `- ${b.name}: ${b.address || ''} (Phone: ${b.phone || ''})\n`;
       });
     }
@@ -1387,9 +1422,6 @@ ${pdfUrl}
 Please arrive 15 minutes before your time slot. Thank you!`;
 
               // Automatically send the PDF slip to the patient via WhatsApp
-              const {
-                engineSendDocument,
-              } = require('@/lib/automations/meta-send');
               engineSendDocument({
                 accountId,
                 userId,
@@ -1398,10 +1430,10 @@ Please arrive 15 minutes before your time slot. Thank you!`;
                 documentUrl: pdfUrl,
                 filename: `appointment-${bookingIdStr}.pdf`,
                 caption: `Digital Appointment Ticket for ${displayDoc}`,
-              }).catch((e: any) =>
+              }).catch((e: unknown) =>
                 console.error(
                   '[AI Hospital] Failed to auto-send appointment PDF:',
-                  e
+                  e instanceof Error ? e.message : String(e)
                 )
               );
             }
@@ -1441,7 +1473,7 @@ Please arrive 15 minutes before your time slot. Thank you!`;
 
         if (isReportQuery) {
           const readyReportsWithPdf = labReports.filter(
-            (r: any) => r.status === 'ready' && r.report_pdf_url
+            (r) => r.status === 'ready' && r.report_pdf_url
           );
 
           if (readyReportsWithPdf.length === 1) {
@@ -1450,31 +1482,25 @@ Please arrive 15 minutes before your time slot. Thank you!`;
               '[AI Hospital] Auto-sending lab report PDF:',
               readyReport.test_name
             );
-            const {
-              engineSendDocument,
-            } = require('@/lib/automations/meta-send');
             engineSendDocument({
               accountId,
               userId,
               conversationId,
               contactId,
-              documentUrl: readyReport.report_pdf_url,
+              documentUrl: readyReport.report_pdf_url!,
               filename: `${readyReport.test_name.replace(/\s+/g, '_')}_Report.pdf`,
               caption: `Here is your completed ${readyReport.test_name} report.`,
-            }).catch((e: any) =>
+            }).catch((e: unknown) =>
               console.error(
                 '[AI Hospital] Failed to auto-send lab report PDF:',
-                e
+                e instanceof Error ? e.message : String(e)
               )
             );
           } else if (readyReportsWithPdf.length > 1) {
             console.log(
               '[AI Hospital] Multiple ready reports, sending selection buttons'
             );
-            const {
-              engineSendButtons,
-            } = require('@/lib/automations/meta-send');
-            const buttons = readyReportsWithPdf.slice(0, 3).map((r: any) => ({
+            const buttons = readyReportsWithPdf.slice(0, 3).map((r) => ({
               id: `report_download_${r.id}`,
               title: r.test_name.substring(0, 20),
             }));
@@ -1486,8 +1512,11 @@ Please arrive 15 minutes before your time slot. Thank you!`;
               bodyText:
                 'I found multiple reports ready for you. Which one would you like to receive?',
               buttons,
-            }).catch((e: any) =>
-              console.error('[AI Hospital] Failed to send report buttons:', e)
+            }).catch((e: unknown) =>
+              console.error(
+                '[AI Hospital] Failed to send report buttons:',
+                e instanceof Error ? e.message : String(e)
+              )
             );
           }
         }

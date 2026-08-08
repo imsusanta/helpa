@@ -1,20 +1,8 @@
-import { createClient } from '@supabase/supabase-js';
+import { getAdminClient } from '@/lib/supabase/typed-admin';
 import { findExistingContact, isUniqueViolation } from '@/lib/contacts/dedupe';
+import type { Contact } from '@/types';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let _adminClient: any = null;
-function supabaseAdmin() {
-  if (!_adminClient) {
-    _adminClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-  }
-  return _adminClient;
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type ContactRow = any;
+export type ContactRow = Contact;
 
 export interface ContactOutcome {
   contact: ContactRow;
@@ -32,11 +20,12 @@ export async function findOrCreateContact(
   phone: string,
   name: string
 ): Promise<ContactOutcome | null> {
-  const existingContact = await findExistingContact(
-    supabaseAdmin(),
+  const db = getAdminClient();
+  const existingContact = (await findExistingContact(
+    db,
     accountId,
     phone
-  );
+  )) as ContactRow | null;
 
   if (existingContact) {
     // Update name if it changed, but ONLY if current contact name is placeholder
@@ -47,7 +36,7 @@ export async function findOrCreateContact(
       /^\d+$/.test(existingContact.name.replace(/[\s\-\+]/g, ''));
 
     if (name && isPlaceholderName && name !== existingContact.name) {
-      await supabaseAdmin()
+      await db
         .from('contacts')
         .update({ name, updated_at: new Date().toISOString() })
         .eq('id', existingContact.id);
@@ -56,7 +45,7 @@ export async function findOrCreateContact(
   }
 
   // Create new contact
-  const { data: newContact, error: createError } = await supabaseAdmin()
+  const { data: newContact, error: createError } = await db
     .from('contacts')
     .insert({
       account_id: accountId,
@@ -69,11 +58,11 @@ export async function findOrCreateContact(
 
   if (createError) {
     if (isUniqueViolation(createError)) {
-      const raced = await findExistingContact(
-        supabaseAdmin(),
+      const raced = (await findExistingContact(
+        db,
         accountId,
         phone
-      );
+      )) as ContactRow | null;
       if (raced) return { contact: raced, wasCreated: false };
     }
     console.error('Error creating contact:', createError);
@@ -81,7 +70,6 @@ export async function findOrCreateContact(
   }
 
   if (newContact) {
-    const db = supabaseAdmin();
     const { data: maxPatient } = await db
       .from('patients')
       .select('patient_seq_id')
@@ -100,27 +88,31 @@ export async function findOrCreateContact(
 
     const seqId = `PAT-${String(nextNum).padStart(6, '0')}`;
 
-    await db
-      .from('patients')
-      .insert({
+    try {
+      await db.from('patients').insert({
         id: newContact.id,
         account_id: accountId,
         patient_seq_id: seqId,
         status: 'active',
-      })
-      .catch(() => {});
+      });
+    } catch {
+      // Ignore if concurrent insert occurred
+    }
 
-    await db
-      .from('contacts')
-      .update({
-        metadata: {
-          ...(newContact.metadata || {}),
-          patient_id: seqId,
-        },
-      })
-      .eq('id', newContact.id)
-      .catch(() => {});
+    try {
+      await db
+        .from('contacts')
+        .update({
+          metadata: {
+            ...((newContact.metadata as Record<string, unknown>) || {}),
+            patient_id: seqId,
+          },
+        })
+        .eq('id', newContact.id);
+    } catch {
+      // Ignore update errors
+    }
   }
 
-  return { contact: newContact, wasCreated: true };
+  return { contact: newContact as ContactRow, wasCreated: true };
 }

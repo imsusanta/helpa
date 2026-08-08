@@ -1,18 +1,6 @@
-import { createClient } from '@supabase/supabase-js';
+import { getAdminClient } from '@/lib/supabase/typed-admin';
 import { lookupInternalIdByMetaId } from './conversation-service';
 import type { WhatsAppMessage } from './types';
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let _adminClient: any = null;
-function supabaseAdmin() {
-  if (!_adminClient) {
-    _adminClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-  }
-  return _adminClient;
-}
 
 /**
  * Persist an inbound reaction. WhatsApp reactions are not new messages —
@@ -40,7 +28,7 @@ export async function handleReaction(
 
   // Empty emoji = removal
   if (!reaction.emoji) {
-    const { error: delError } = await supabaseAdmin()
+    const { error: delError } = await getAdminClient()
       .from('message_reactions')
       .delete()
       .eq('message_id', targetInternalId)
@@ -52,7 +40,7 @@ export async function handleReaction(
     return;
   }
 
-  const { error: upsertError } = await supabaseAdmin()
+  const { error: upsertError } = await getAdminClient()
     .from('message_reactions')
     .upsert(
       {

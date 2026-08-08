@@ -29,7 +29,7 @@ export async function generateNextPatientSeqId(
 }
 
 export function getOrGeneratePatientId(
-  contact?: { id?: string; metadata?: any } | null,
+  contact?: { id?: string; metadata?: Record<string, unknown> | null } | null,
   patientSeqId?: string | null
 ): string {
   if (

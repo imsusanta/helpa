@@ -1,18 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getAdminClient } from '@/lib/supabase/typed-admin';
 import { decrypt, encrypt, isLegacyFormat } from '@/lib/whatsapp/encryption';
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let _adminClient: any = null;
-function supabaseAdmin() {
-  if (!_adminClient) {
-    _adminClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-  }
-  return _adminClient;
-}
 
 /**
  * Handles the Meta Webhook Verification challenge GET request.
@@ -32,7 +20,7 @@ export async function handleWebhookGet(request: Request): Promise<Response> {
     }
 
     // Fetch all whatsapp configs to check verify tokens
-    const { data: configs, error: configError } = await supabaseAdmin()
+    const { data: configs, error: configError } = await getAdminClient()
       .from('whatsapp_config')
       .select('id, verify_token');
 
@@ -45,8 +33,7 @@ export async function handleWebhookGet(request: Request): Promise<Response> {
     }
 
     // Check if any config's verify_token matches
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let matchedConfig: any = null;
+    let matchedConfig: { id: string; verify_token: string } | null = null;
     for (const config of configs) {
       if (!config.verify_token) continue;
       try {
@@ -62,7 +49,7 @@ export async function handleWebhookGet(request: Request): Promise<Response> {
     if (matchedConfig) {
       // Fire-and-forget GCM upgrade for legacy CBC tokens
       if (isLegacyFormat(matchedConfig.verify_token)) {
-        void supabaseAdmin()
+        void getAdminClient()
           .from('whatsapp_config')
           .update({ verify_token: encrypt(verifyToken) })
           .eq('id', matchedConfig.id)

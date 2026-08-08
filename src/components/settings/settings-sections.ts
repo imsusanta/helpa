@@ -9,12 +9,10 @@ import {
   User,
   UsersRound,
   Brain,
-  Database,
   CreditCard,
-  Boxes,
   BellRing,
   MessageSquare,
-  Cpu,
+  Database,
   type LucideIcon,
 } from 'lucide-react';
 

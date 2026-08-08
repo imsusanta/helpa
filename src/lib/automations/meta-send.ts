@@ -132,9 +132,10 @@ async function sendViaMeta(
   let accessToken: string;
   try {
     accessToken = decrypt(config.access_token);
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
     throw new Error(
-      `Failed to decrypt WhatsApp Access Token for account ${input.accountId}: ${err?.message || err}. ` +
+      `Failed to decrypt WhatsApp Access Token for account ${input.accountId}: ${message}. ` +
         `The ENCRYPTION_KEY may have been updated. Please re-save your Meta WhatsApp Access Token in CRM Settings → WhatsApp Integration.`
     );
   }

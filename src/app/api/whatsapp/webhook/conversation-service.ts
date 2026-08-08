@@ -1,16 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let _adminClient: any = null;
-function supabaseAdmin() {
-  if (!_adminClient) {
-    _adminClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-  }
-  return _adminClient;
-}
+import { getAdminClient } from '@/lib/supabase/typed-admin';
 
 /**
  * Finds an existing conversation or creates one for the account and contact.
@@ -20,7 +8,7 @@ export async function findOrCreateConversation(
   configOwnerUserId: string,
   contactId: string
 ) {
-  const { data: existing, error: findError } = await supabaseAdmin()
+  const { data: existing, error: findError } = await getAdminClient()
     .from('conversations')
     .select('*')
     .eq('account_id', accountId)
@@ -31,7 +19,7 @@ export async function findOrCreateConversation(
     return existing;
   }
 
-  const { data: newConv, error: createError } = await supabaseAdmin()
+  const { data: newConv, error: createError } = await getAdminClient()
     .from('conversations')
     .insert({
       account_id: accountId,
@@ -57,7 +45,7 @@ export async function lookupInternalIdByMetaId(
   metaId: string,
   conversationId: string
 ): Promise<string | null> {
-  const { data, error } = await supabaseAdmin()
+  const { data, error } = await getAdminClient()
     .from('messages')
     .select('id')
     .eq('message_id', metaId)
@@ -80,7 +68,7 @@ export async function flagBroadcastReplyIfAny(
   contactId: string
 ) {
   try {
-    const { data: recs, error } = await supabaseAdmin()
+    const { data: recs, error } = await getAdminClient()
       .from('broadcast_recipients')
       .select('id, status, broadcast_id, broadcasts!inner(account_id)')
       .eq('contact_id', contactId)
@@ -92,7 +80,7 @@ export async function flagBroadcastReplyIfAny(
     if (error || !recs || recs.length === 0) return;
 
     const row = recs[0];
-    const { error: updErr } = await supabaseAdmin()
+    const { error: updErr } = await getAdminClient()
       .from('broadcast_recipients')
       .update({ status: 'replied', replied_at: new Date().toISOString() })
       .eq('id', row.id);

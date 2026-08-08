@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { getAdminClient } from '@/lib/supabase/typed-admin';
 import { normalizePhone } from '@/lib/whatsapp/phone-utils';
 import { runAutomationsForTrigger } from '@/lib/automations/engine';
 import { dispatchInboundToFlows } from '@/lib/flows/engine';
@@ -13,18 +13,6 @@ import {
 import { handleReaction } from './process-reaction';
 import type { WhatsAppMessage } from './types';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let _adminClient: any = null;
-function supabaseAdmin() {
-  if (!_adminClient) {
-    _adminClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-  }
-  return _adminClient;
-}
-
 export async function handleReminderReplyAction(
   accountId: string,
   apptId: string,
@@ -33,7 +21,7 @@ export async function handleReminderReplyAction(
   contactId: string,
   userId: string
 ): Promise<boolean> {
-  const db = supabaseAdmin();
+  const db = getAdminClient();
 
   // 1. Fetch appointment details
   const { data: appt, error: apptErr } = await db
@@ -49,8 +37,10 @@ export async function handleReminderReplyAction(
     return false;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const docData = appt.doctor as any;
+  const docData = appt.doctor as
+    | { name: string; id?: string; department?: string }
+    | Array<{ name: string; id?: string; department?: string }>
+    | null;
   const docName =
     (Array.isArray(docData) ? docData[0]?.name : docData?.name) || 'Doctor';
   const apptDate = appt.appointment_date || 'N/A';
@@ -164,7 +154,7 @@ export async function handleReportButtonReply(
   contactId: string,
   userId: string
 ): Promise<boolean> {
-  const db = supabaseAdmin();
+  const db = getAdminClient();
 
   const { data: report, error } = await db
     .from('hospital_lab_reports')
@@ -181,8 +171,10 @@ export async function handleReportButtonReply(
 
   const { engineSendText, engineSendDocument } =
     await import('@/lib/automations/meta-send');
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const docData = report.doctor as any;
+  const docData = report.doctor as
+    | { name: string }
+    | Array<{ name: string }>
+    | null;
   const docName =
     (Array.isArray(docData) ? docData[0]?.name : docData?.name) || 'Doctor';
 
@@ -308,14 +300,14 @@ export async function processMessage(
       ? 'image'
       : 'text';
 
-  const { count: priorCustomerMsgCount } = await supabaseAdmin()
+  const { count: priorCustomerMsgCount } = await getAdminClient()
     .from('messages')
     .select('id', { count: 'exact', head: true })
     .eq('conversation_id', conversation.id)
     .eq('sender_type', 'customer');
   const isFirstInboundMessage = (priorCustomerMsgCount ?? 0) === 0;
 
-  const { error: msgError } = await supabaseAdmin()
+  const { error: msgError } = await getAdminClient()
     .from('messages')
     .insert({
       conversation_id: conversation.id,
@@ -354,7 +346,7 @@ export async function processMessage(
     convUpdatePayload.last_message_at = messageDate.toISOString();
   }
 
-  const { error: convError } = await supabaseAdmin()
+  const { error: convError } = await getAdminClient()
     .from('conversations')
     .update(convUpdatePayload)
     .eq('id', conversation.id);
@@ -390,7 +382,7 @@ export async function processMessage(
     } else {
       const cleanedText = (contentText || '').trim().toLowerCase();
 
-      const { data: reminderAppt } = await supabaseAdmin()
+      const { data: reminderAppt } = await getAdminClient()
         .from('appointments')
         .select('id, status')
         .eq('account_id', accountId)

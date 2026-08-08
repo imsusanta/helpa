@@ -157,93 +157,97 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Shared across init, auth-state-change listener, and the exposed
   // refreshProfile() callback. Reads the current session's user id and
   // pulls the matching profile row along with its account summary.
-  const fetchProfile = useCallback(async (userId: string) => {
-    const supabase = createClient();
-    setProfileLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select(
-          // `account:accounts!inner(id, name)` — explicit join on the
-          // FK profiles.account_id → accounts.id. `!inner` so a
-          // missing account collapses to null rather than a half-
-          // populated row (shouldn't happen post-017 NOT NULL, but
-          // belt-and-braces against forks running older schemas).
-          'id, full_name, email, avatar_url, role, beta_features, account_id, account_role, is_super_admin, account:accounts!inner(id, name, default_currency, industry, logo, status)'
-        )
-        .eq('user_id', userId)
-        .maybeSingle();
+  const fetchProfile = useCallback(
+    async (userId: string) => {
+      const supabase = createClient();
+      setProfileLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select(
+            // `account:accounts!inner(id, name)` — explicit join on the
+            // FK profiles.account_id → accounts.id. `!inner` so a
+            // missing account collapses to null rather than a half-
+            // populated row (shouldn't happen post-017 NOT NULL, but
+            // belt-and-braces against forks running older schemas).
+            'id, full_name, email, avatar_url, role, beta_features, account_id, account_role, is_super_admin, account:accounts!inner(id, name, default_currency, industry, logo, status)'
+          )
+          .eq('user_id', userId)
+          .maybeSingle();
 
-      if (error) {
-        console.error('[AuthProvider] fetchProfile error:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-        });
-        return;
-      }
-
-      if (data) {
-        // Supabase's typed client surfaces an embedded `!inner` row
-        // as either an object or a single-element array depending on
-        // the schema's inferred cardinality — normalise to the object
-        // form before reading.
-        const accountRaw = Array.isArray(data.account)
-          ? (data.account[0] ?? null)
-          : (data.account as {
-              id: string;
-              name: string;
-              default_currency: string | null;
-              industry: string | null;
-            } | null);
-        // Narrow default_currency defensively: forks running pre-021
-        // schemas won't have the column, so a missing/null value reads
-        // as the safe USD fallback rather than crashing the picker.
-        const accountRow: AccountSummary | null = accountRaw
-          ? {
-              id: accountRaw.id,
-              name: accountRaw.name,
-              default_currency: accountRaw.default_currency ?? DEFAULT_CURRENCY,
-              industry: accountRaw.industry ?? null,
-            }
-          : null;
-
-        // Narrow the DB enum into our AccountRole union. The DB
-        // constraint should make this unconditional, but a future
-        // migration that broadens the enum without updating TS would
-        // otherwise crash here — fall back to null and let UI gates
-        // treat the caller as least-privileged.
-        const accountRole = isAccountRole(data.account_role)
-          ? data.account_role
-          : null;
-
-        setProfile({
-          id: data.id,
-          full_name: data.full_name,
-          email: data.email,
-          avatar_url: data.avatar_url,
-          role: data.role,
-          // `beta_features` is `NOT NULL DEFAULT ARRAY[]` in the DB, but
-          // narrow defensively in case the column hasn't been migrated yet
-          // (older deployments running 011 lazily) — `null` reads as no
-          // opt-ins, which is the safe default for any future beta gate.
-          beta_features: data.beta_features ?? [],
-          account_id: data.account_id ?? null,
-          account_role: accountRole,
-          is_super_admin: !!data.is_super_admin,
-        });
-        setAccount(accountRow);
-        if (data.account_id) {
-          fetchModules(data.account_id);
+        if (error) {
+          console.error('[AuthProvider] fetchProfile error:', {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code,
+          });
+          return;
         }
+
+        if (data) {
+          // Supabase's typed client surfaces an embedded `!inner` row
+          // as either an object or a single-element array depending on
+          // the schema's inferred cardinality — normalise to the object
+          // form before reading.
+          const accountRaw = Array.isArray(data.account)
+            ? (data.account[0] ?? null)
+            : (data.account as {
+                id: string;
+                name: string;
+                default_currency: string | null;
+                industry: string | null;
+              } | null);
+          // Narrow default_currency defensively: forks running pre-021
+          // schemas won't have the column, so a missing/null value reads
+          // as the safe USD fallback rather than crashing the picker.
+          const accountRow: AccountSummary | null = accountRaw
+            ? {
+                id: accountRaw.id,
+                name: accountRaw.name,
+                default_currency:
+                  accountRaw.default_currency ?? DEFAULT_CURRENCY,
+                industry: accountRaw.industry ?? null,
+              }
+            : null;
+
+          // Narrow the DB enum into our AccountRole union. The DB
+          // constraint should make this unconditional, but a future
+          // migration that broadens the enum without updating TS would
+          // otherwise crash here — fall back to null and let UI gates
+          // treat the caller as least-privileged.
+          const accountRole = isAccountRole(data.account_role)
+            ? data.account_role
+            : null;
+
+          setProfile({
+            id: data.id,
+            full_name: data.full_name,
+            email: data.email,
+            avatar_url: data.avatar_url,
+            role: data.role,
+            // `beta_features` is `NOT NULL DEFAULT ARRAY[]` in the DB, but
+            // narrow defensively in case the column hasn't been migrated yet
+            // (older deployments running 011 lazily) — `null` reads as no
+            // opt-ins, which is the safe default for any future beta gate.
+            beta_features: data.beta_features ?? [],
+            account_id: data.account_id ?? null,
+            account_role: accountRole,
+            is_super_admin: !!data.is_super_admin,
+          });
+          setAccount(accountRow);
+          if (data.account_id) {
+            fetchModules(data.account_id);
+          }
+        }
+      } catch (err) {
+        console.error('[AuthProvider] fetchProfile threw:', err);
+      } finally {
+        setProfileLoading(false);
       }
-    } catch (err) {
-      console.error('[AuthProvider] fetchProfile threw:', err);
-    } finally {
-      setProfileLoading(false);
-    }
-  }, []);
+    },
+    [fetchModules]
+  );
 
   useEffect(() => {
     const supabase = createClient();

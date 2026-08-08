@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { getIndustryModule } from '@/modules/registry';
+import { insertSteps } from '@/lib/automations/steps-tree';
 
 export async function POST(request: Request) {
   try {
@@ -223,7 +224,6 @@ export async function POST(request: Request) {
       .eq('account_id', ctx.accountId);
 
     if (config.workflows && config.workflows.length > 0) {
-      const { insertSteps } = require('@/lib/automations/steps-tree');
       for (const w of config.workflows) {
         const { data: autoRecord, error: autoErr } = await ctx.supabase
           .from('automations')
@@ -245,7 +245,10 @@ export async function POST(request: Request) {
         }
 
         if (w.steps && w.steps.length > 0) {
-          await insertSteps(autoRecord.id, w.steps);
+          await insertSteps(
+            autoRecord.id,
+            w.steps as unknown as Parameters<typeof insertSteps>[1]
+          );
         }
       }
     }

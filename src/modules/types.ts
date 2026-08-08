@@ -15,7 +15,7 @@ export interface DashboardMetricWidget {
   queryFilters?: Array<{
     field: string;
     operator: 'eq' | 'neq' | 'gt' | 'lt' | 'gte' | 'lte' | 'in' | 'is';
-    value: any;
+    value: string | number | boolean | string[] | null;
   }>;
 }
 
@@ -76,9 +76,9 @@ export interface WorkflowSeed {
   name: string;
   description: string;
   trigger_type: string;
-  trigger_config: any;
+  trigger_config: Record<string, unknown>;
   is_active: boolean;
-  steps: any[];
+  steps: Array<Record<string, unknown>>;
 }
 
 export interface IndustryModule {

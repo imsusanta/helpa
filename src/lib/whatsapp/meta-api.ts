@@ -475,11 +475,12 @@ export async function sendTemplateMessage(
       if (!/132001|translation|does not exist/i.test(errMsg)) {
         throw lastError;
       }
-    } catch (e: any) {
-      if (!/132001|translation|does not exist/i.test(e.message)) {
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (!/132001|translation|does not exist/i.test(msg)) {
         throw e;
       }
-      lastError = e;
+      lastError = e instanceof Error ? e : new Error(msg);
     }
   }
 

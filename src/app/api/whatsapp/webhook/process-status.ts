@@ -1,17 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
+import { getAdminClient } from '@/lib/supabase/typed-admin';
 import type { WhatsAppStatusUpdate } from './types';
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let _adminClient: any = null;
-function supabaseAdmin() {
-  if (!_adminClient) {
-    _adminClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-  }
-  return _adminClient;
-}
 
 const RECIPIENT_STATUS_LADDER = [
   'pending',
@@ -45,7 +33,7 @@ export function isValidStatusTransition(
 
 export async function handleStatusUpdate(status: WhatsAppStatusUpdate) {
   // 1) Mirror onto messages
-  const { error: msgErr } = await supabaseAdmin()
+  const { error: msgErr } = await getAdminClient()
     .from('messages')
     .update({ status: status.status })
     .eq('message_id', status.id);
@@ -57,7 +45,7 @@ export async function handleStatusUpdate(status: WhatsAppStatusUpdate) {
   // 2) Mirror onto broadcast_recipients via whatsapp_message_id
   const tsIso = new Date(parseInt(status.timestamp) * 1000).toISOString();
 
-  const { data: recipient, error: recFetchErr } = await supabaseAdmin()
+  const { data: recipient, error: recFetchErr } = await getAdminClient()
     .from('broadcast_recipients')
     .select('id, status')
     .eq('whatsapp_message_id', status.id)
@@ -77,7 +65,7 @@ export async function handleStatusUpdate(status: WhatsAppStatusUpdate) {
   if (status.status === 'delivered') update.delivered_at = tsIso;
   if (status.status === 'read') update.read_at = tsIso;
 
-  const { error: recUpdateErr } = await supabaseAdmin()
+  const { error: recUpdateErr } = await getAdminClient()
     .from('broadcast_recipients')
     .update(update)
     .eq('id', recipient.id);
