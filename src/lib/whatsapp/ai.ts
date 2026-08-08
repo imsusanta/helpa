@@ -1341,11 +1341,15 @@ Note:
               const days = Array.isArray(doc.available_days)
                 ? doc.available_days.join(', ')
                 : 'All days';
-              const workingHours = doc.working_hours as { start?: string; end?: string } | null | undefined;
+              const workingHours = doc.working_hours as
+                | { start?: string; end?: string }
+                | null
+                | undefined;
               const start = workingHours?.start || '09:00';
               const end = workingHours?.end || '17:00';
               const fee = doc.consultation_fee || 0;
-              const nameStr = typeof doc.name === 'string' ? doc.name : 'Doctor';
+              const nameStr =
+                typeof doc.name === 'string' ? doc.name : 'Doctor';
               doctorList += `${idx + 1}️⃣ *Dr. ${nameStr.replace(/^Dr\.\s+/i, '')}* — Fee: ₹${fee} — ${days} (${start}–${end})\n`;
             });
             doctorList += `\nPlease reply with the doctor's name to proceed with your appointment booking.`;
