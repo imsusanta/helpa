@@ -14,7 +14,8 @@ import { getAdminClient } from '@/lib/supabase/typed-admin';
  * Fails closed if no secret is configured.
  */
 export async function POST(request: Request) {
-  const expected = process.env.AUTOMATION_CRON_SECRET || process.env.CRON_SECRET;
+  const expected =
+    process.env.AUTOMATION_CRON_SECRET || process.env.CRON_SECRET;
   if (!expected) {
     return NextResponse.json(
       { error: 'Cron secret not configured' },
@@ -40,11 +41,16 @@ export async function POST(request: Request) {
   const now = new Date();
 
   // 1. Sanitize completed webhook payloads older than 7 days
-  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const sevenDaysAgo = new Date(
+    now.getTime() - 7 * 24 * 60 * 60 * 1000
+  ).toISOString();
   const { data: sanitizedEvents, error: sanitizeErr } = await db
     .from('inbound_webhook_events')
     .update({
-      payload: { sanitized: true, reason: 'Retention policy: older than 7 days' },
+      payload: {
+        sanitized: true,
+        reason: 'Retention policy: older than 7 days',
+      },
       updated_at: now.toISOString(),
     })
     .eq('status', 'completed')
@@ -52,11 +58,16 @@ export async function POST(request: Request) {
     .select('id');
 
   if (sanitizeErr) {
-    console.error('[Retention Cleanup] Failed to sanitize completed webhook events:', sanitizeErr.message);
+    console.error(
+      '[Retention Cleanup] Failed to sanitize completed webhook events:',
+      sanitizeErr.message
+    );
   }
 
   // 2. Purge dead-letter and failed events older than 30 days
-  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const thirtyDaysAgo = new Date(
+    now.getTime() - 30 * 24 * 60 * 60 * 1000
+  ).toISOString();
   const { data: purgedEvents, error: purgeErr } = await db
     .from('inbound_webhook_events')
     .delete()
@@ -65,11 +76,16 @@ export async function POST(request: Request) {
     .select('id');
 
   if (purgeErr) {
-    console.error('[Retention Cleanup] Failed to purge aged dead-letter events:', purgeErr.message);
+    console.error(
+      '[Retention Cleanup] Failed to purge aged dead-letter events:',
+      purgeErr.message
+    );
   }
 
   // 3. Purge sent outbox records older than 14 days
-  const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000).toISOString();
+  const fourteenDaysAgo = new Date(
+    now.getTime() - 14 * 24 * 60 * 60 * 1000
+  ).toISOString();
   const { data: purgedOutbox, error: outboxErr } = await db
     .from('outbound_outbox')
     .delete()
@@ -78,7 +94,10 @@ export async function POST(request: Request) {
     .select('id');
 
   if (outboxErr) {
-    console.error('[Retention Cleanup] Failed to purge sent outbox records:', outboxErr.message);
+    console.error(
+      '[Retention Cleanup] Failed to purge sent outbox records:',
+      outboxErr.message
+    );
   }
 
   return NextResponse.json(

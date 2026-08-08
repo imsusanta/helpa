@@ -2,22 +2,22 @@
 
 **Document Version:** 1.0.0  
 **Migration Path:** Forward-Only (001_initial_schema.sql → 063_secure_webhook_and_outbox_tables.sql)  
-**Database:** PostgreSQL 15+ (Supabase / Postgres)  
+**Database:** PostgreSQL 15+ (Supabase / Postgres)
 
 ---
 
 ## 1. Migration Inventory & Ordering Analysis
 
-| Migration Number | File Name | Status | Purpose | RLS Status |
-|---|---|---|---|---|
-| `001` | `001_initial_schema.sql` | Applied | Core accounts, profiles, contacts, messages, conversations | ✅ Enforced |
-| `002`–`024` | Feature extensions | Applied | Flows, chat media, avatars, message reactions | ✅ Enforced |
-| `028`–`030` | Multi-tenant SaaS | Applied | Account subscriptions, plans, usage counters | ✅ Enforced |
-| `032`–`040` | Hospital & Clinic | Applied | `hospital_doctors`, `hospital_departments`, `hospital_lab_reports`, `appointments` | ✅ Enforced |
-| `041`–`061` | Settings & Followups | Applied | Booking form settings, AI prompt sync, clinic follow-ups | ✅ Enforced |
-| `062` | `062_security_and_reliability_hardening.sql` | Applied / Staged | Creates `outbound_outbox` and `inbound_webhook_events` | ⚠️ Missing RLS / Revoke |
-| `062_rollback` | `062_security_and_reliability_hardening_rollback.sql` | **REMOVED** | Dropped tables destructively from migration sequence | ❌ Moved to `docs/rollbacks/` |
-| `063` | `063_secure_webhook_and_outbox_tables.sql` | **NEW (Forward)** | Enables RLS, revokes client access, adds `account_id` & retention indexes | ✅ Strictly Enforced |
+| Migration Number | File Name                                             | Status            | Purpose                                                                            | RLS Status                    |
+| ---------------- | ----------------------------------------------------- | ----------------- | ---------------------------------------------------------------------------------- | ----------------------------- |
+| `001`            | `001_initial_schema.sql`                              | Applied           | Core accounts, profiles, contacts, messages, conversations                         | ✅ Enforced                   |
+| `002`–`024`      | Feature extensions                                    | Applied           | Flows, chat media, avatars, message reactions                                      | ✅ Enforced                   |
+| `028`–`030`      | Multi-tenant SaaS                                     | Applied           | Account subscriptions, plans, usage counters                                       | ✅ Enforced                   |
+| `032`–`040`      | Hospital & Clinic                                     | Applied           | `hospital_doctors`, `hospital_departments`, `hospital_lab_reports`, `appointments` | ✅ Enforced                   |
+| `041`–`061`      | Settings & Followups                                  | Applied           | Booking form settings, AI prompt sync, clinic follow-ups                           | ✅ Enforced                   |
+| `062`            | `062_security_and_reliability_hardening.sql`          | Applied / Staged  | Creates `outbound_outbox` and `inbound_webhook_events`                             | ⚠️ Missing RLS / Revoke       |
+| `062_rollback`   | `062_security_and_reliability_hardening_rollback.sql` | **REMOVED**       | Dropped tables destructively from migration sequence                               | ❌ Moved to `docs/rollbacks/` |
+| `063`            | `063_secure_webhook_and_outbox_tables.sql`            | **NEW (Forward)** | Enables RLS, revokes client access, adds `account_id` & retention indexes          | ✅ Strictly Enforced          |
 
 ---
 
@@ -30,6 +30,7 @@
 2. **Missing Row Level Security on Queue Tables**:
    `outbound_outbox` and `inbound_webhook_events` were created without `ALTER TABLE ... ENABLE ROW LEVEL SECURITY;`. In Supabase, tables without RLS are exposed to anonymous and authenticated PostgREST clients by default.
    **Remediation:** In Migration 063:
+
    ```sql
    ALTER TABLE outbound_outbox ENABLE ROW LEVEL SECURITY;
    ALTER TABLE inbound_webhook_events ENABLE ROW LEVEL SECURITY;
@@ -46,6 +47,7 @@
 ## 3. Webhook Raw Payload Retention & Sanitization Policy
 
 ### Retention Lifecycle:
+
 1. **Receipt**: Raw JSON payload is stored with status `'received'` in `inbound_webhook_events`.
 2. **Processing**: Normalization extracts contact information, message text, and attachments into `contacts` and `messages`. Status advances to `'completed'`.
 3. **Retention Cap**:
@@ -61,6 +63,7 @@
 > Rolling back migration 062 / 063 drops the idempotency event registry and outbound outbox. Any queued messages or in-flight webhooks will be lost. Ensure a full database snapshot exists before proceeding.
 
 To manually roll back on a test environment:
+
 ```bash
 # 1. Take a physical database backup
 supabase db dump -f backup_pre_rollback.sql

@@ -39,6 +39,7 @@
 ## 🚀 Quick Start & Development
 
 ### 1. Clone & Install
+
 ```bash
 git clone https://github.com/imsusanta/wacrm_susanta.git
 cd wacrm_susanta
@@ -46,12 +47,15 @@ npm ci
 ```
 
 ### 2. Configure Environment
+
 Copy `.env.local.example` to `.env.local` and populate the required keys:
+
 ```bash
 cp .env.local.example .env.local
 ```
 
 ### 3. Run Quality Gates
+
 ```bash
 npm run format:check
 npm run lint

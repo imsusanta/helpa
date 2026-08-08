@@ -24,12 +24,18 @@ describe('Security: Webhook & Outbox Queue Hardening', () => {
   });
 
   it('fails closed when cron secret is unset in environment', () => {
-    const evaluateAccess = (configuredSecret?: string, providedHeader?: string): number => {
+    const evaluateAccess = (
+      configuredSecret?: string,
+      providedHeader?: string
+    ): number => {
       if (!configuredSecret) return 503;
       if (!providedHeader) return 401;
       const expectedBuf = Buffer.from(configuredSecret, 'utf8');
       const suppliedBuf = Buffer.from(providedHeader, 'utf8');
-      if (expectedBuf.length !== suppliedBuf.length || !crypto.timingSafeEqual(expectedBuf, suppliedBuf)) {
+      if (
+        expectedBuf.length !== suppliedBuf.length ||
+        !crypto.timingSafeEqual(expectedBuf, suppliedBuf)
+      ) {
         return 401;
       }
       return 200;
@@ -43,18 +49,28 @@ describe('Security: Webhook & Outbox Queue Hardening', () => {
 
   it('enforces that raw webhook payloads are bounded by retention threshold', () => {
     const now = new Date('2026-08-08T10:00:00.000Z');
-    const isDueForSanitization = (createdAtStr: string, status: string): boolean => {
+    const isDueForSanitization = (
+      createdAtStr: string,
+      status: string
+    ): boolean => {
       if (status !== 'completed') return false;
       const created = new Date(createdAtStr);
-      const diffDays = (now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24);
+      const diffDays =
+        (now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24);
       return diffDays >= 7;
     };
 
     // 2 days old completed event -> not sanitized yet
-    expect(isDueForSanitization('2026-08-06T10:00:00.000Z', 'completed')).toBe(false);
+    expect(isDueForSanitization('2026-08-06T10:00:00.000Z', 'completed')).toBe(
+      false
+    );
     // 8 days old completed event -> sanitized
-    expect(isDueForSanitization('2026-07-31T10:00:00.000Z', 'completed')).toBe(true);
+    expect(isDueForSanitization('2026-07-31T10:00:00.000Z', 'completed')).toBe(
+      true
+    );
     // 8 days old failed event -> kept for 30 days
-    expect(isDueForSanitization('2026-07-31T10:00:00.000Z', 'failed')).toBe(false);
+    expect(isDueForSanitization('2026-07-31T10:00:00.000Z', 'failed')).toBe(
+      false
+    );
   });
 });

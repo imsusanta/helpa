@@ -1,8 +1,12 @@
 import { defineConfig } from 'vitest/config';
+import path from 'path';
 
 export default defineConfig({
   resolve: {
     tsconfigPaths: true,
+    alias: {
+      'server-only': path.resolve(__dirname, './src/tests/mocks/server-only.ts'),
+    },
   },
   test: {
     environment: 'node',

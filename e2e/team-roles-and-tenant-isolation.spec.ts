@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('E2E: Team Permissions & Multi-Tenant Boundary Isolation', () => {
-  test('unauthenticated API requests return 401 Unauthorized without data leakage', async ({ request }) => {
+  test('unauthenticated API requests return 401 Unauthorized without data leakage', async ({
+    request,
+  }) => {
     const protectedEndpoints = [
       '/api/account',
       '/api/account/members',
@@ -22,9 +24,12 @@ test.describe('E2E: Team Permissions & Multi-Tenant Boundary Isolation', () => {
 
   test('cross-account resource mutation fails closed', async ({ request }) => {
     const fakeCrossAccountId = '99999999-9999-9999-9999-999999999999';
-    const res = await request.post(`/api/appointments/${fakeCrossAccountId}/confirm`, {
-      data: { status: 'Confirmed' },
-    });
+    const res = await request.post(
+      `/api/appointments/${fakeCrossAccountId}/confirm`,
+      {
+        data: { status: 'Confirmed' },
+      }
+    );
     // Must be rejected with 401 or 403, never 200
     expect([401, 403, 404]).toContain(res.status());
   });

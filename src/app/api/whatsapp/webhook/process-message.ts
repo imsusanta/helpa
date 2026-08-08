@@ -1,4 +1,5 @@
 import { getAdminClient } from '@/lib/supabase/typed-admin';
+import type { Database } from '@/types/database';
 import { normalizePhone } from '@/lib/whatsapp/phone-utils';
 import { runAutomationsForTrigger } from '@/lib/automations/engine';
 import { dispatchInboundToFlows } from '@/lib/flows/engine';
@@ -294,8 +295,12 @@ export async function processMessage(
     'template',
     'interactive',
   ]);
-  const contentType = ALLOWED_CONTENT_TYPES.has(message.type)
-    ? message.type
+  type MessageContentType =
+    Database['public']['Tables']['messages']['Row']['content_type'];
+  const contentType: MessageContentType = ALLOWED_CONTENT_TYPES.has(
+    message.type
+  )
+    ? (message.type as MessageContentType)
     : message.type === 'sticker'
       ? 'image'
       : 'text';

@@ -7,7 +7,8 @@ describe('Observability: Structured Logger & Sensitive Redaction', () => {
   });
 
   it('redacts bearer tokens, secrets, and query parameters in message strings', () => {
-    const rawMessage = 'Inbound webhook received with Bearer eyJhbGciOiJIUzI1Ni... and key=sk_live_12345';
+    const rawMessage =
+      'Inbound webhook received with Bearer eyJhbGciOiJIUzI1Ni... and key=sk_live_12345';
     const sanitized = sanitizeString(rawMessage);
 
     expect(sanitized).not.toContain('eyJhbGciOiJIUzI1Ni');
@@ -41,28 +42,35 @@ describe('Observability: Structured Logger & Sensitive Redaction', () => {
       tags: ['opd', 'followup'],
     };
 
-    const sanitized = sanitizeObject(context) as any;
+    const sanitized = sanitizeObject(context) as Record<string, unknown>;
+    const patientData = sanitized.patientData as Record<string, unknown>;
+    const authData = sanitized.auth as Record<string, unknown>;
 
     expect(sanitized.accountId).toBe('acc-123');
     expect(sanitized.tags).toEqual(['opd', 'followup']);
-    expect(sanitized.patientData.patient_name).toBe('[REDACTED_SENSITIVE_DATA]');
-    expect(sanitized.patientData.medical_notes).toBe('[REDACTED_SENSITIVE_DATA]');
-    expect(sanitized.patientData.notes).toBe('[REDACTED_SENSITIVE_DATA]');
-    expect(sanitized.auth.access_token).toBe('[REDACTED_SENSITIVE_DATA]');
-    expect(sanitized.auth.password).toBe('[REDACTED_SENSITIVE_DATA]');
+    expect(patientData.patient_name).toBe('[REDACTED_SENSITIVE_DATA]');
+    expect(patientData.medical_notes).toBe('[REDACTED_SENSITIVE_DATA]');
+    expect(patientData.notes).toBe('[REDACTED_SENSITIVE_DATA]');
+    expect(authData.access_token).toBe('[REDACTED_SENSITIVE_DATA]');
+    expect(authData.password).toBe('[REDACTED_SENSITIVE_DATA]');
   });
 
   it('handles Error objects and circular references safely without crashing', () => {
-    const error = new Error('Database connection failed with key=secret_key_123');
-    const circularObj: any = { name: 'Test' };
+    const error = new Error(
+      'Database connection failed with key=secret_key_123'
+    );
+    const circularObj: Record<string, unknown> = { name: 'Test' };
     circularObj.self = circularObj;
 
-    const sanitizedError = sanitizeObject(error) as any;
+    const sanitizedError = sanitizeObject(error) as Record<string, unknown>;
     expect(sanitizedError.name).toBe('Error');
-    expect(sanitizedError.message).not.toContain('secret_key_123');
-    expect(sanitizedError.message).toContain('[REDACTED_SECRET]');
+    expect(String(sanitizedError.message)).not.toContain('secret_key_123');
+    expect(String(sanitizedError.message)).toContain('[REDACTED_SECRET]');
 
-    const sanitizedCircular = sanitizeObject(circularObj) as any;
+    const sanitizedCircular = sanitizeObject(circularObj) as Record<
+      string,
+      unknown
+    >;
     expect(sanitizedCircular.name).toBe('Test');
     expect(sanitizedCircular.self).toBe('[CIRCULAR_REFERENCE]');
   });

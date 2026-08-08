@@ -40,8 +40,10 @@ describe('Security: Multi-Tenancy & Authorization Invariants', () => {
     });
 
     it('rejects viewer role from triggering patient mutations or invitations', () => {
-      const isMutationAllowed = (role: AccountRole): boolean => hasMinRole(role, 'agent');
-      const isInviteAllowed = (role: AccountRole): boolean => hasMinRole(role, 'admin');
+      const isMutationAllowed = (role: AccountRole): boolean =>
+        hasMinRole(role, 'agent');
+      const isInviteAllowed = (role: AccountRole): boolean =>
+        hasMinRole(role, 'admin');
 
       expect(isMutationAllowed('viewer')).toBe(false);
       expect(isMutationAllowed('agent')).toBe(true);
@@ -59,30 +61,50 @@ describe('Security: Multi-Tenancy & Authorization Invariants', () => {
 
       const executeScopedQuery = (filter: QueryFilter) => {
         if (!filter.accountId) {
-          throw new Error(`Security Violation: Unbounded service-role query on ${filter.table} without account_id`);
+          throw new Error(
+            `Security Violation: Unbounded service-role query on ${filter.table} without account_id`
+          );
         }
         return { scoped: true, accountId: filter.accountId };
       };
 
       // Unbounded query throws security violation
-      expect(() => executeScopedQuery({ table: 'contacts' })).toThrow(/Security Violation/);
-      expect(() => executeScopedQuery({ table: 'appointments' })).toThrow(/Security Violation/);
+      expect(() => executeScopedQuery({ table: 'contacts' })).toThrow(
+        /Security Violation/
+      );
+      expect(() => executeScopedQuery({ table: 'appointments' })).toThrow(
+        /Security Violation/
+      );
 
       // Explicitly scoped query succeeds
-      const result = executeScopedQuery({ table: 'contacts', accountId: ACCOUNT_A_ID });
-      expect(result.scoped).toBe(true);
-      expect(result.accountId).toBe(ACCOUNT_A_ID);
+      const resultA = executeScopedQuery({
+        table: 'contacts',
+        accountId: ACCOUNT_A_ID,
+      });
+      expect(resultA.scoped).toBe(true);
+      expect(resultA.accountId).toBe(ACCOUNT_A_ID);
+
+      const resultB = executeScopedQuery({
+        table: 'contacts',
+        accountId: ACCOUNT_B_ID,
+      });
+      expect(resultB.accountId).toBe(ACCOUNT_B_ID);
+      expect(resultA.accountId).not.toBe(resultB.accountId);
     });
   });
 
   describe('3. Cryptographic Token Cross-Tenant Isolation', () => {
     it('rejects signed OPD tokens generated for Account A when accessed against Account B appointment', () => {
-      const validTokenA = generatePdfToken(APPT_A_ID, ACCOUNT_A_ID, 3600);
+      const validTokenA = generatePdfToken({
+        appointmentId: APPT_A_ID,
+        accountId: ACCOUNT_A_ID,
+        expiresAt: Math.floor(Date.now() / 1000) + 3600,
+      });
 
       // Token for Appointment A cannot access Appointment B
       const verificationB = verifyPdfToken(validTokenA, APPT_B_ID);
       expect(verificationB.valid).toBe(false);
-      expect(verificationB.accountId).toBeNull();
+      expect(verificationB.accountId).toBeUndefined();
 
       // Token for Appointment A successfully verifies Appointment A
       const verificationA = verifyPdfToken(validTokenA, APPT_A_ID);
@@ -92,13 +114,22 @@ describe('Security: Multi-Tenancy & Authorization Invariants', () => {
 
     it('rejects expired or tampered signed document tokens', () => {
       // Expired token (expiresInSeconds = -10)
-      const expiredToken = generatePdfToken(APPT_A_ID, ACCOUNT_A_ID, -10);
+      const expiredToken = generatePdfToken({
+        appointmentId: APPT_A_ID,
+        accountId: ACCOUNT_A_ID,
+        expiresAt: Math.floor(Date.now() / 1000) - 10,
+      });
       const expiredResult = verifyPdfToken(expiredToken, APPT_A_ID);
       expect(expiredResult.valid).toBe(false);
 
       // Tampered token payload
-      const validToken = generatePdfToken(APPT_A_ID, ACCOUNT_A_ID, 3600);
-      const tamperedToken = validToken.substring(0, validToken.length - 4) + 'abcd';
+      const validToken = generatePdfToken({
+        appointmentId: APPT_A_ID,
+        accountId: ACCOUNT_A_ID,
+        expiresAt: Math.floor(Date.now() / 1000) + 3600,
+      });
+      const tamperedToken =
+        validToken.substring(0, validToken.length - 4) + 'abcd';
       const tamperedResult = verifyPdfToken(tamperedToken, APPT_A_ID);
       expect(tamperedResult.valid).toBe(false);
     });

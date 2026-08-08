@@ -100,7 +100,9 @@ export function sanitizeObject(obj: unknown, seen = new WeakSet()): unknown {
     return {
       name: obj.name,
       message: sanitizeString(obj.message),
-      stack: obj.stack ? sanitizeString(obj.stack.split('\n').slice(0, 4).join('\n')) : undefined,
+      stack: obj.stack
+        ? sanitizeString(obj.stack.split('\n').slice(0, 4).join('\n'))
+        : undefined,
     };
   }
 
@@ -121,12 +123,17 @@ export function sanitizeObject(obj: unknown, seen = new WeakSet()): unknown {
     const lowerKey = k.toLowerCase();
 
     // Check if key corresponds to sensitive authorization, secret, or PHI field
-    const isSensitiveKey = SENSITIVE_KEY_SUBSTRINGS.some((sub) => lowerKey.includes(sub));
+    const isSensitiveKey = SENSITIVE_KEY_SUBSTRINGS.some((sub) =>
+      lowerKey.includes(sub)
+    );
 
     if (isSensitiveKey) {
       if (lowerKey.includes('phone') && typeof v === 'string') {
         const clean = v.replace(/\D/g, '');
-        result[k] = clean.length >= 4 ? `+***...${clean.slice(-4)}` : '[REDACTED_PHONE]';
+        result[k] =
+          clean.length >= 4 ? `+***...${clean.slice(-4)}` : '[REDACTED_PHONE]';
+      } else if (typeof v === 'object' && v !== null) {
+        result[k] = sanitizeObject(v, seen);
       } else {
         result[k] = '[REDACTED_SENSITIVE_DATA]';
       }
@@ -155,8 +162,10 @@ export function log(
     console.error(jsonOutput);
   } else if (level === 'warn') {
     console.warn(jsonOutput);
+  } else if (level === 'info') {
+    console.info(jsonOutput);
   } else {
-    console.log(jsonOutput);
+    console.debug(jsonOutput);
   }
 }
 

@@ -60,15 +60,23 @@ const nextConfig: NextConfig = {
         headers: [{ key: 'Cache-Control', value: 'no-store, private' }],
       },
       {
-        source: '/(dashboard|inbox|contacts|patients|appointments|bookings|doctors|departments|lab-reports|settings|admin|pipeline|broadcasts|automations)/:path*',
-        headers: [{ key: 'Cache-Control', value: 'private, no-store, no-cache, must-revalidate' }],
-      },
-      {
-        source: '/:path((?!_next/static|_next/image|api|dashboard|inbox|contacts|patients|appointments|doctors|departments|lab-reports|settings|admin).*)',
+        source:
+          '/(dashboard|inbox|contacts|patients|appointments|bookings|doctors|departments|lab-reports|settings|admin|pipeline|broadcasts|automations)/:path*',
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=0, s-maxage=300, stale-while-revalidate=86400',
+            value: 'private, no-store, no-cache, must-revalidate',
+          },
+        ],
+      },
+      {
+        source:
+          '/:path((?!_next/static|_next/image|api|dashboard|inbox|contacts|patients|appointments|doctors|departments|lab-reports|settings|admin).*)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value:
+              'public, max-age=0, s-maxage=300, stale-while-revalidate=86400',
           },
         ],
       },
