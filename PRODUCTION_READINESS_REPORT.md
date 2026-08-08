@@ -1,7 +1,8 @@
 # Helpa Production Readiness & Security Report
 
-**Branch:** `fix/privacy-authorization-hardening`  
-**Target Release:** `v0.3.0-rc.2` (Hardened Security Release Candidate)  
+**Branch:** `fix/privacy-authorization-hardening` / `main`  
+**Target Release:** `v0.3.0-rc.2` (Hardened Security Release Candidate — Supersedes `v0.3.0-rc.1`)  
+**Commit SHA:** `26022aa270d47164583cf0dd1946f1a54778ff81`  
 **Date:** 2026-08-08
 
 ---
@@ -20,13 +21,16 @@
   - Insufficient role requests return `403 Forbidden`.
 - **Verified by:** `src/tests/security/tenant-authorization-privacy.test.ts` (10 tests) and `src/tests/security/tenant-isolation.test.ts` (8 tests).
 
-### 1.2 Append-Only Audit Logs & Immutability Triggers
+### 1.2 Append-Only Audit Logs & Transactional Deletion RPC
 
 - **Database Migration:** `supabase/migrations/064_audit_immutability_and_consent_defaults.sql`
 - **Implementation:**
   - Replaced broad `FOR ALL` policy on `audit_logs` with explicit `SELECT` policy for tenant members and `INSERT` policy restricted to service role.
   - Installed `BEFORE UPDATE` and `BEFORE DELETE` triggers (`audit_logs_immutable_guard`) that raise exceptions on any modification attempt.
-- **Atomic Operations:** Created `update_patient_consent_atomic()` PostgreSQL RPC executing patient consent status updates and audit log insertions within a single ACID transaction with fixed `search_path = public`.
+- **Atomic Operations:**
+  - `update_patient_consent_atomic()` PostgreSQL RPC executes patient consent status updates and audit log insertions within a single ACID transaction.
+  - `delete_patient_atomic()` PostgreSQL RPC executes patient record deletion and `patient.data_deleted` audit log insertion transactionally with `SET search_path = public, pg_temp` and `SECURITY DEFINER`.
+  - Execute privileges granted strictly to `service_role`.
 
 ### 1.3 Privacy-Safe Consent Defaults & State Transitions
 
