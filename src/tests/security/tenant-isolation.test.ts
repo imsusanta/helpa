@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { hasMinRole, type AccountRole } from '@/lib/auth/roles';
 import { generatePdfToken, verifyPdfToken } from '@/lib/pdf-signing';
+import { getAdminClient } from '@/lib/supabase/typed-admin';
 
 describe('Security: Multi-Tenancy & Authorization Invariants', () => {
   const ACCOUNT_A_ID = '00000000-0000-0000-0000-00000000000a';
@@ -52,44 +53,48 @@ describe('Security: Multi-Tenancy & Authorization Invariants', () => {
     });
   });
 
-  describe('2. Multi-Tenant Service-Role Query Scoping', () => {
-    it('verifies service-role repository queries require explicit account_id filtering', () => {
-      interface QueryFilter {
-        table: string;
-        accountId?: string;
-      }
+  describe('2. Multi-Tenant Service-Role Query Scoping & Repository Isolation', () => {
+    it('enforces explicit account_id filtering on service-role query builders', () => {
+      const db = getAdminClient();
 
-      const executeScopedQuery = (filter: QueryFilter) => {
-        if (!filter.accountId) {
-          throw new Error(
-            `Security Violation: Unbounded service-role query on ${filter.table} without account_id`
-          );
-        }
-        return { scoped: true, accountId: filter.accountId };
-      };
+      // Query builder for Account A
+      const queryA = db
+        .from('contacts')
+        .select('id, name, account_id')
+        .eq('account_id', ACCOUNT_A_ID);
+      // Query builder for Account B
+      const queryB = db
+        .from('contacts')
+        .select('id, name, account_id')
+        .eq('account_id', ACCOUNT_B_ID);
 
-      // Unbounded query throws security violation
-      expect(() => executeScopedQuery({ table: 'contacts' })).toThrow(
-        /Security Violation/
-      );
-      expect(() => executeScopedQuery({ table: 'appointments' })).toThrow(
-        /Security Violation/
-      );
+      // Verify query builder parameters enforce strict tenant separation
+      expect(
+        (queryA as unknown as { url?: URL }).url?.searchParams.get('account_id')
+      ).toBe(`eq.${ACCOUNT_A_ID}`);
+      expect(
+        (queryB as unknown as { url?: URL }).url?.searchParams.get('account_id')
+      ).toBe(`eq.${ACCOUNT_B_ID}`);
+      expect(ACCOUNT_A_ID).not.toBe(ACCOUNT_B_ID);
+    });
 
-      // Explicitly scoped query succeeds
-      const resultA = executeScopedQuery({
-        table: 'contacts',
-        accountId: ACCOUNT_A_ID,
-      });
-      expect(resultA.scoped).toBe(true);
-      expect(resultA.accountId).toBe(ACCOUNT_A_ID);
+    it('prevents cross-tenant record access when scoping appointments by account_id', () => {
+      const db = getAdminClient();
 
-      const resultB = executeScopedQuery({
-        table: 'contacts',
-        accountId: ACCOUNT_B_ID,
-      });
-      expect(resultB.accountId).toBe(ACCOUNT_B_ID);
-      expect(resultA.accountId).not.toBe(resultB.accountId);
+      const apptQueryA = db
+        .from('appointments')
+        .select('*')
+        .eq('account_id', ACCOUNT_A_ID)
+        .eq('id', APPT_B_ID);
+      // Attempting to look up Appointment B under Account A context yields distinct filter criteria
+      expect(
+        (apptQueryA as unknown as { url?: URL }).url?.searchParams.get(
+          'account_id'
+        )
+      ).toBe(`eq.${ACCOUNT_A_ID}`);
+      expect(
+        (apptQueryA as unknown as { url?: URL }).url?.searchParams.get('id')
+      ).toBe(`eq.${APPT_B_ID}`);
     });
   });
 

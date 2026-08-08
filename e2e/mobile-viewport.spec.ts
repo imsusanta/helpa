@@ -23,9 +23,7 @@ test.describe('E2E: Mobile Viewport & Responsive Accessibility', () => {
 
   test('login page adapts cleanly to mobile viewport', async ({ page }) => {
     await page.goto('/login');
-    const emailField = page
-      .getByPlaceholder(/name@hospital\.com|email/i)
-      .first();
+    const emailField = page.locator('input[type="email"]').first();
     const submitBtn = page
       .getByRole('button', { name: /sign in|log in/i })
       .first();

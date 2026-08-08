@@ -74,4 +74,4 @@ If a deployment needs to be rolled back on Vercel:
 
 1. Navigate to **Deployments** in Vercel Dashboard.
 2. Select the previous stable deployment and click **Promote to Production**.
-3. If database changes must be reverted, consult [`docs/rollbacks/062_security_and_reliability_hardening.rollback.sql`](file:///Users/susantalohar/Documents/wacrm/docs/rollbacks/062_security_and_reliability_hardening.rollback.sql) with a verified physical database backup.
+3. If database changes must be reverted, consult [`docs/rollbacks/062_security_and_reliability_hardening.rollback.sql`](./rollbacks/062_security_and_reliability_hardening.rollback.sql) with a verified physical database backup.

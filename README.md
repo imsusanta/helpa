@@ -1,9 +1,9 @@
 # Helpa — WhatsApp AI Receptionist & Patient CRM for Clinics
 
-> **Helpa** is an enterprise, multi-tenant WhatsApp AI receptionist and CRM built specifically for clinics, doctors, and healthcare service businesses. Automate 24/7 patient appointment bookings, generate cryptographically signed digital OPD slips, dispatch pathology lab reports, and manage multi-doctor consultation schedules.
+> **Helpa** is a production-grade, multi-tenant WhatsApp AI receptionist and CRM built specifically for clinics, doctors, and healthcare service businesses. Automate 24/7 patient appointment bookings, generate cryptographically signed digital OPD slips, dispatch pathology lab reports, and manage multi-doctor consultation schedules.
 
 <p align="center">
-  <img src="./public/assets/helpa-hero.png" alt="Helpa — Clinic WhatsApp AI Receptionist" width="850" onerror="this.style.display='none'">
+  <img src="./public/assets/helpa-hero.svg" alt="Helpa — Clinic WhatsApp AI Receptionist" width="850">
 </p>
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](./LICENSE)
