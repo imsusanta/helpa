@@ -17,3 +17,9 @@ walkthrough.md
 analysis_results.md
 # Added on main before Phase 0; reformat separately to keep this PR scoped.
 src/components/kanban/lead-kanban-board.tsx
+src/core/actions/action-executor.ts
+src/core/providers/calendly/calendly-provider.interface.ts
+src/core/providers/sms/sms-provider.interface.ts
+src/core/providers/voice/voice-provider.interface.ts
+src/core/providers/whatsapp/whatsapp-provider.interface.ts
+src/core/types.ts
