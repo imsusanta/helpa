@@ -45,8 +45,11 @@ export async function POST(request: Request) {
     }
 
     const patientName = followup.patient.name || 'Patient';
-    const patientPhone = followup.patient.phone;
-    const docData = followup.doctor as any;
+    const _patientPhone = followup.patient.phone;
+    const docData = followup.doctor as
+      | { name?: string }
+      | { name?: string }[]
+      | null;
     const docName =
       (Array.isArray(docData) ? docData[0]?.name : docData?.name) ||
       'your doctor';
@@ -116,10 +119,10 @@ export async function POST(request: Request) {
       success: true,
       message: 'Follow-up reminder dispatched successfully',
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[Followups Remind POST] Exception:', err);
     return NextResponse.json(
-      { error: err.message || 'Internal Server Error' },
+      { error: (err as Error).message || 'Internal Server Error' },
       { status: 500 }
     );
   }

@@ -126,7 +126,7 @@ export async function GET(request: Request) {
         let is24h = false;
 
         // Custom time check (if configured on account)
-        const customMinutes = account.reminder_custom_time;
+        const _customMinutes = account.reminder_custom_time;
 
         if (diffHours > 0 && diffHours <= 2) {
           // Send 2h reminder
@@ -176,7 +176,10 @@ export async function GET(request: Request) {
             }
 
             // Fill template variables
-            const docData = appt.doctor as any;
+            const docData = appt.doctor as
+              | { name?: string; department?: string }
+              | { name?: string; department?: string }[]
+              | null;
             const docName =
               (Array.isArray(docData) ? docData[0]?.name : docData?.name) ||
               'Assigned Doctor';
@@ -220,7 +223,7 @@ export async function GET(request: Request) {
             });
 
             // Update reminder sent status in database
-            const updates: Record<string, any> = {
+            const updates: Record<string, unknown> = {
               status: 'Reminder Sent',
             };
             if (is24h) {
@@ -235,12 +238,14 @@ export async function GET(request: Request) {
             console.log(
               `[Cron Reminders] Successfully dispatched ${reminderLabel} reminder for appt ${appt.id}`
             );
-          } catch (err: any) {
+          } catch (err: unknown) {
             console.error(
               `[Cron Reminders] Failed to dispatch reminder for appt ${appt.id}:`,
               err
             );
-            errors.push(`Appt ${appt.id}: ${err.message || err}`);
+            errors.push(
+              `Appt ${appt.id}: ${(err as Error).message || String(err)}`
+            );
           }
         }
       }
@@ -252,8 +257,11 @@ export async function GET(request: Request) {
       sent_2h: totalSent2h,
       errors: errors.length > 0 ? errors : undefined,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[Cron Reminders] Fatal handler crash:', err);
-    return NextResponse.json({ error: err.message || err }, { status: 500 });
+    return NextResponse.json(
+      { error: (err as Error).message || String(err) },
+      { status: 500 }
+    );
   }
 }

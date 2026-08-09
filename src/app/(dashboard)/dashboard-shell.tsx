@@ -11,10 +11,11 @@ import { Header } from '@/components/layout/header';
 // itself can stay a server component and export metadata (noindex) —
 // client components can't export Next's metadata object.
 
-import { OnboardingOverlay } from '@/components/dashboard/onboarding-overlay';
+import {} from '@/components/dashboard/onboarding-overlay';
 
 function DashboardShellInner({ children }: { children: React.ReactNode }) {
   const { user, loading, account } = useAuth();
+  void account;
   const router = useRouter();
 
   // Sidebar drawer state — only used on mobile. On lg+ the sidebar is

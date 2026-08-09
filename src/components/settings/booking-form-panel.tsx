@@ -277,8 +277,10 @@ export function BookingFormPanel() {
       }
 
       toast.success('Appointment booking form configuration saved!');
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to save booking form settings');
+    } catch (err: unknown) {
+      toast.error(
+        (err as Error).message || 'Failed to save booking form settings'
+      );
       console.error(err);
     } finally {
       setSaving(false);

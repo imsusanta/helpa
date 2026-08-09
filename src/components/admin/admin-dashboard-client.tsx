@@ -14,9 +14,6 @@ import {
   Loader2,
   RefreshCw,
   TrendingUp,
-  MessageSquare,
-  Check,
-  CheckCheck,
 } from 'lucide-react';
 import {
   Card,

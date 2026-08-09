@@ -852,6 +852,7 @@ export function MessageThread({
           )}
           <div className="bg-muted text-foreground flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-medium">
             {contact.avatar_url ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
               <img
                 src={contact.avatar_url}
                 alt={displayName}

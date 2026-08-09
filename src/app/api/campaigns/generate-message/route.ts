@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth/account';
 import { decrypt } from '@/lib/whatsapp/encryption';
+import { applyAiSafety } from '@/lib/ai/safety';
 import {
   checkRateLimit,
   rateLimitResponse,
@@ -28,6 +29,28 @@ export async function POST(request: Request) {
       );
     }
 
+    // 🛡️ AI Safety & Healthcare Guardrail Evaluation
+    const safety = applyAiSafety(prompt);
+    if (safety.isEmergency) {
+      return NextResponse.json(
+        {
+          error:
+            'Campaign generation halted: prompt contains emergency medical references.',
+        },
+        { status: 400 }
+      );
+    }
+    if (safety.isDiagnostic) {
+      return NextResponse.json(
+        {
+          error:
+            'Campaign generation halted: diagnostic or prescription advice requests are restricted.',
+        },
+        { status: 400 }
+      );
+    }
+    const safePrompt = safety.safeText;
+
     // 2. Fetch API Key and Model Config
     const { data: account, error } = await ctx.supabase
       .from('accounts')
@@ -48,7 +71,7 @@ export async function POST(request: Request) {
     let api_key = '';
     try {
       api_key = decrypt(account.openrouter_api_key);
-    } catch (err) {
+    } catch {
       return NextResponse.json(
         { error: 'Failed to decrypt OpenRouter API Key.' },
         { status: 500 }
@@ -71,7 +94,7 @@ Guidelines:
 Write a WhatsApp message for this campaign:`;
 
     const userMessage = `Campaign Category: ${category}
-User Custom Request: ${prompt}
+User Custom Request: ${safePrompt}
 ${doctorName ? `Doctor Name: Dr. ${doctorName}` : ''}
 ${department ? `Department: ${department}` : ''}`;
 
@@ -114,10 +137,10 @@ ${department ? `Department: ${department}` : ''}`;
     const generatedMessage = resJson.choices?.[0]?.message?.content?.trim();
 
     return NextResponse.json({ message: generatedMessage });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Error generating campaign message:', err);
     return NextResponse.json(
-      { error: err.message || 'Internal Server Error' },
+      { error: (err as Error).message || 'Internal Server Error' },
       { status: 500 }
     );
   }

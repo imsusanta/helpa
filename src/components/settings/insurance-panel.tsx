@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Shield, Plus, Loader2, Trash, Check, X, FileText } from 'lucide-react';
+import { Shield, Plus, Loader2, Trash } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface InsuranceProvider {
@@ -78,8 +78,8 @@ export function InsurancePanel() {
         'National Health ID Card, Government ID, Insurance Policy PDF'
       );
       loadProviders();
-    } catch (err: any) {
-      toast.error('Failed to add: ' + err.message);
+    } catch (err: unknown) {
+      toast.error('Failed to add: ' + (err as Error).message);
     } finally {
       setSaving(false);
     }
@@ -95,8 +95,8 @@ export function InsurancePanel() {
       if (error) throw error;
       toast.success('Insurance provider removed.');
       loadProviders();
-    } catch (err: any) {
-      toast.error('Failed to delete: ' + err.message);
+    } catch (err: unknown) {
+      toast.error('Failed to delete: ' + (err as Error).message);
     }
   };
 

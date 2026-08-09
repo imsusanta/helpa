@@ -22,7 +22,7 @@ function getNextRecurringDate(
 }
 
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization');
+  const _authHeader = request.headers.get('authorization');
   // Simple check for cron secret or allow standard trigger
   console.log('[Cron Campaigns] Executing cron automation triggers...');
 
@@ -56,7 +56,10 @@ export async function GET(request: Request) {
             .eq('id', campaign.id);
 
           // Get the audience filter settings
-          const filter = campaign.audience_filter as any;
+          const filter = (campaign.audience_filter || {}) as Record<
+            string,
+            unknown
+          >;
           let patientIds: string[] = [];
 
           // Server-side audience resolution
@@ -122,7 +125,7 @@ export async function GET(request: Request) {
             let query = db.from('patients').select('id');
             if (filter.ageMin !== undefined) {
               const maxDob = new Date();
-              maxDob.setFullYear(nowYear - filter.ageMin);
+              maxDob.setFullYear(nowYear - Number(filter.ageMin));
               query = query.lte(
                 'date_of_birth',
                 maxDob.toISOString().split('T')[0]
@@ -130,7 +133,7 @@ export async function GET(request: Request) {
             }
             if (filter.ageMax !== undefined) {
               const minDob = new Date();
-              minDob.setFullYear(nowYear - filter.ageMax);
+              minDob.setFullYear(nowYear - Number(filter.ageMax));
               query = query.gte(
                 'date_of_birth',
                 minDob.toISOString().split('T')[0]
@@ -309,12 +312,14 @@ export async function GET(request: Request) {
               `[Cron Campaigns] Cloned and rescheduled campaign "${campaign.name}" for ${nextScheduled.toISOString()}`
             );
           }
-        } catch (campErr: any) {
+        } catch (campErr: unknown) {
           console.error(
             `[Cron Campaigns] Failed executing campaign ${campaign.id}:`,
             campErr
           );
-          errors.push(`Campaign ${campaign.id}: ${campErr.message || campErr}`);
+          errors.push(
+            `Campaign ${campaign.id}: ${(campErr as Error).message || String(campErr)}`
+          );
           await db
             .from('broadcasts')
             .update({ status: 'failed' })
@@ -376,7 +381,10 @@ export async function GET(request: Request) {
             }
 
             if (conv) {
-              const docData = appt.doctor as any;
+              const docData = appt.doctor as
+                | { name?: string }
+                | { name?: string }[]
+                | null;
               const docName =
                 (Array.isArray(docData) ? docData[0]?.name : docData?.name) ||
                 'your doctor';
@@ -446,7 +454,11 @@ Your support helps us serve you better!`;
       );
       for (const patient of inactivePatients) {
         try {
-          const contact = patient.contact as any;
+          const contact = (
+            Array.isArray(patient.contact)
+              ? patient.contact[0]
+              : patient.contact
+          ) as { id: string; name?: string; phone?: string } | null;
           if (contact && contact.phone) {
             // Confirm they don't have any appointments in the last 6 months
             const { count } = await db
@@ -530,8 +542,11 @@ Would you like to schedule a follow-up consultation?
       automated_followups_sent: totalAutomatedFollowups,
       errors: errors.length > 0 ? errors : undefined,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[Cron Campaigns] Fatal cron error:', err);
-    return NextResponse.json({ error: err.message || err }, { status: 500 });
+    return NextResponse.json(
+      { error: (err as Error).message || String(err) },
+      { status: 500 }
+    );
   }
 }

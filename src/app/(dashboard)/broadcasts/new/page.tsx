@@ -14,15 +14,10 @@ import {
   Send,
   FileText,
   Image as ImageIcon,
-  Link as LinkIcon,
   Calendar,
   Users,
-  Clock,
-  Check,
-  Bot,
   Loader2,
   MessageSquare,
-  Globe,
   Settings,
   Upload,
 } from 'lucide-react';
@@ -223,8 +218,8 @@ export default function NewCampaignPage() {
 
       setCustomMessage(data.message || '');
       toast.success('AI Campaign Message generated successfully!');
-    } catch (err: any) {
-      toast.error(err.message || 'AI writer failed');
+    } catch (err: unknown) {
+      toast.error((err as Error).message || 'AI writer failed');
     } finally {
       setWritingMessage(false);
     }
@@ -282,8 +277,8 @@ export default function NewCampaignPage() {
 
       toast.success('Campaign draft saved successfully');
       router.push('/broadcasts');
-    } catch (err: any) {
-      toast.error(`Draft Save Error: ${err.message}`);
+    } catch (err: unknown) {
+      toast.error(`Draft Save Error: ${(err as Error).message}`);
     }
   }
 
@@ -303,7 +298,7 @@ export default function NewCampaignPage() {
     }
 
     try {
-      let finalAudienceType: any = audienceType;
+      let finalAudienceType: string = audienceType;
       let finalTagIds: string[] | undefined = undefined;
 
       if (audienceType === 'contact_list') {
@@ -410,7 +405,7 @@ export default function NewCampaignPage() {
 
       // Mocking template structure for custom campaigns so useBroadcastSending executes natively
       let finalTemplate: MessageTemplate;
-      let finalVariables: any = {};
+      let finalVariables: Record<string, unknown> = {};
 
       if (contentMode === 'custom') {
         // Construct a synthetic template row
@@ -420,13 +415,13 @@ export default function NewCampaignPage() {
           body_text: customMessage,
           category: 'Marketing',
           created_at: new Date().toISOString(),
-        } as any;
+        } as unknown as MessageTemplate;
       } else {
         finalTemplate = selectedTemplate!;
         finalVariables = templateVariables;
       }
 
-      const scheduledAt =
+      const _scheduledAt =
         scheduleMode === 'scheduled'
           ? new Date(`${scheduledDate}T${scheduledTime}`).toISOString()
           : undefined;
@@ -454,7 +449,7 @@ export default function NewCampaignPage() {
         cta_url: ctaUrl || undefined,
         recurrence,
         ai_suggested: !!searchParams.get('suggestion'),
-      } as any);
+      } as unknown as Parameters<typeof createAndSendBroadcast>[0]);
 
       toast.success(
         scheduleMode === 'scheduled'
@@ -462,8 +457,8 @@ export default function NewCampaignPage() {
           : 'Campaign dispatched successfully!'
       );
       router.push(`/broadcasts/${broadcastId}`);
-    } catch (err: any) {
-      toast.error(err.message || 'Campaign execution failed.');
+    } catch (err: unknown) {
+      toast.error((err as Error).message || 'Campaign execution failed.');
     }
   }
 
@@ -604,7 +599,9 @@ export default function NewCampaignPage() {
                 </label>
                 <select
                   value={audienceType}
-                  onChange={(e) => setAudienceType(e.target.value as any)}
+                  onChange={(e) =>
+                    setAudienceType(e.target.value as unknown as never)
+                  }
                   className="border-border bg-background text-foreground h-10 w-full rounded-lg border px-3 text-sm focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                 >
                   {account?.industry === 'hospital' ? (
@@ -764,7 +761,8 @@ export default function NewCampaignPage() {
                             Click to upload CSV file
                           </p>
                           <p className="text-muted-foreground mt-0.5 text-xs">
-                            Required header: "phone". Optional: "name"
+                            Required header: &quot;phone&quot;. Optional:
+                            &quot;name&quot;
                           </p>
                         </div>
                       )}
@@ -795,8 +793,10 @@ export default function NewCampaignPage() {
                           toast.success(
                             `${formatted.length} contacts loaded successfully!`
                           );
-                        } catch (err: any) {
-                          toast.error('Failed to parse file: ' + err.message);
+                        } catch (err: unknown) {
+                          toast.error(
+                            'Failed to parse file: ' + (err as Error).message
+                          );
                         }
                       }}
                     />
@@ -1003,8 +1003,10 @@ export default function NewCampaignPage() {
                           }));
                           setTempContacts([...tempContacts, ...formatted]);
                           toast.success(`${formatted.length} contacts loaded.`);
-                        } catch (err: any) {
-                          toast.error('Failed to parse file: ' + err.message);
+                        } catch (err: unknown) {
+                          toast.error(
+                            'Failed to parse file: ' + (err as Error).message
+                          );
                         }
                       }}
                     />
@@ -1165,7 +1167,7 @@ export default function NewCampaignPage() {
                       <select
                         value={attachmentType}
                         onChange={(e) =>
-                          setAttachmentType(e.target.value as any)
+                          setAttachmentType(e.target.value as unknown as never)
                         }
                         className="border-border bg-background h-10 w-full rounded-lg border px-3 text-xs"
                       >
@@ -1185,7 +1187,9 @@ export default function NewCampaignPage() {
                       </label>
                       <select
                         value={ctaType}
-                        onChange={(e) => setCtaType(e.target.value as any)}
+                        onChange={(e) =>
+                          setCtaType(e.target.value as unknown as never)
+                        }
                         className="border-border bg-background h-10 w-full rounded-lg border px-3 text-xs"
                       >
                         <option value="none">No Action Button</option>
@@ -1283,7 +1287,8 @@ export default function NewCampaignPage() {
                                     setTemplateVariables({
                                       ...templateVariables,
                                       [num]: {
-                                        type: e.target.value as any,
+                                        type: e.target
+                                          .value as unknown as never,
                                         value: '',
                                       },
                                     });
@@ -1418,7 +1423,9 @@ export default function NewCampaignPage() {
                     </label>
                     <select
                       value={recurrence}
-                      onChange={(e) => setRecurrence(e.target.value as any)}
+                      onChange={(e) =>
+                        setRecurrence(e.target.value as unknown as never)
+                      }
                       className="border-border bg-background text-foreground h-10 w-full rounded-lg border px-3 text-sm"
                     >
                       <option value="none">One-time Broadcast</option>
@@ -1529,7 +1536,8 @@ export default function NewCampaignPage() {
                   <p className="mt-0.5 font-semibold text-white">BOOK</p>
                   <p className="mt-1.5 font-bold text-indigo-400">Helpa AI:</p>
                   <p className="mt-0.5 text-zinc-400 italic">
-                    "Starting booking... Please provide doctor name & time."
+                    &quot;Starting booking... Please provide doctor name &amp;
+                    time.&quot;
                   </p>
                 </div>
               )}

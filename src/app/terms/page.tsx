@@ -4,10 +4,9 @@ import Link from 'next/link';
 import {
   MessageSquare,
   ArrowLeft,
-  ShieldAlert,
-  Award,
-  FileText,
-  Activity,
+  Shield,
+  FileCheck,
+  Scale,
 } from 'lucide-react';
 import { useTheme } from '@/hooks/use-theme';
 import { Sun, Moon } from 'lucide-react';
@@ -60,7 +59,7 @@ export default function TermsOfServicePage() {
         {/* Title Block */}
         <div className="mb-16 space-y-4 text-center md:text-left">
           <div className="mb-2 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400">
-            <ShieldAlert className="h-6 w-6" />
+            <Shield className="h-6 w-6" />
           </div>
           <h1 className="text-foreground text-4xl font-extrabold tracking-tight sm:text-5xl">
             Terms of Service
@@ -69,80 +68,77 @@ export default function TermsOfServicePage() {
             Last updated: July 10, 2026
           </p>
           <p className="text-muted-foreground max-w-2xl text-base leading-relaxed">
-            Please read these Terms of Service ("Terms") carefully before using
-            the Helpa Studio website, CRM application, and AI receptionist
-            features (collectively, the "Services").
+            Please read these Terms of Service (&quot;Terms&quot;) carefully
+            before using the Helpa Studio website, CRM application, and AI
+            receptionist features (collectively, the &quot;Services&quot;).
           </p>
         </div>
 
         {/* Highlight Cards */}
         <div className="mb-16 grid gap-4 sm:grid-cols-3">
           <div className="border-border bg-card/50 space-y-3 rounded-2xl border p-5 backdrop-blur-sm">
-            <Award className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400">
+              <FileCheck className="h-5 w-5" />
+            </div>
             <h3 className="text-foreground text-sm font-bold">
-              Usage Authorization
+              Clear Agreement
             </h3>
-            <p className="text-muted-foreground text-xs">
-              You must connect only business-owned numbers that you are legally
-              authorized to configure.
+            <p className="text-muted-foreground text-xs leading-relaxed">
+              Straightforward terms covering subscription rights, service level
+              expectations, and usage guidelines.
             </p>
           </div>
+
           <div className="border-border bg-card/50 space-y-3 rounded-2xl border p-5 backdrop-blur-sm">
-            <FileText className="h-5 w-5 text-emerald-500" />
-            <h3 className="text-foreground text-sm font-bold">
-              Fair Usage Policy
-            </h3>
-            <p className="text-muted-foreground text-xs">
-              Broadcast messages must strictly comply with local anti-spam
-              guidelines and Meta Business Rules.
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400">
+              <Shield className="h-5 w-5" />
+            </div>
+            <h3 className="text-foreground text-sm font-bold">Data Privacy</h3>
+            <p className="text-muted-foreground text-xs leading-relaxed">
+              Your patient/customer data remains yours. We never sell your
+              records or contact lists.
             </p>
           </div>
+
           <div className="border-border bg-card/50 space-y-3 rounded-2xl border p-5 backdrop-blur-sm">
-            <Activity className="h-5 w-5 text-blue-500" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400">
+              <Scale className="h-5 w-5" />
+            </div>
             <h3 className="text-foreground text-sm font-bold">
-              Uptime & Support
+              Fair Compliance
             </h3>
-            <p className="text-muted-foreground text-xs">
-              We provide cloud CRM database availability backed by industry
-              standard hosting providers.
+            <p className="text-muted-foreground text-xs leading-relaxed">
+              Designed to align with Meta Business Messaging APIs and privacy
+              regulations.
             </p>
           </div>
         </div>
 
-        {/* Terms Body */}
-        <div className="prose prose-zinc dark:prose-invert max-w-none space-y-10 text-left">
+        {/* Detailed Terms Content */}
+        <div className="border-border bg-card/30 space-y-10 rounded-3xl border p-8 backdrop-blur-sm md:p-12">
           <section className="space-y-4">
             <h2 className="text-foreground flex items-center gap-2 text-xl font-bold">
-              <span className="text-indigo-600">1.</span> Acceptance of Terms
+              <span className="text-indigo-600">1.</span> Service Scope
             </h2>
             <p className="text-muted-foreground text-sm leading-relaxed">
-              By registering an account on Helpa Studio or accessing our online
-              dashboard, you agree to comply with and be bound by these Terms
-              and our Privacy Policy. If you disagree with any part of these
-              terms, you must not use our Services.
+              Helpa Studio provides a multi-tenant WhatsApp CRM platform, AI
+              copilot agents, automated appointment scheduling, broadcast tools,
+              and team inbox capabilities. We reserve the right to enhance,
+              modify, or update features to improve service quality.
             </p>
           </section>
 
           <section className="space-y-4">
             <h2 className="text-foreground flex items-center gap-2 text-xl font-bold">
-              <span className="text-indigo-600">2.</span> Account & Channel
-              Connection
+              <span className="text-indigo-600">2.</span> Account Registration &
+              Security
             </h2>
             <p className="text-muted-foreground text-sm leading-relaxed">
-              When creating an account and connecting your communication
-              channels, you agree to:
+              You must provide accurate account information upon registration.
+              You are responsible for maintaining the confidentiality of your
+              login credentials and for all activities that occur under your
+              account.
             </p>
-            <ul className="text-muted-foreground list-disc space-y-2.5 pl-5 text-sm">
-              <li>Provide accurate, complete, and current information.</li>
-              <li>
-                Maintain the security and confidentiality of your credentials.
-              </li>
-              <li>
-                Assume full responsibility for all activities, messages, and
-                automated AI responses sent through your linked Meta WhatsApp
-                numbers.
-              </li>
-            </ul>
           </section>
 
           <section className="space-y-4">
@@ -152,11 +148,11 @@ export default function TermsOfServicePage() {
             </h2>
             <p className="text-muted-foreground text-sm leading-relaxed">
               Helpa Studio connects to WhatsApp via Meta Business API channels.
-              You agree to strictly follow Meta's Developer Terms. You must not
-              use Helpa to broadcast unsolicited spam, fraudulent promotions, or
-              offensive messages. Violating Meta terms may result in your
-              WhatsApp number being suspended by Meta, for which Helpa Studio
-              holds no liability.
+              You agree to strictly follow Meta&apos;s Developer Terms. You must
+              not use Helpa to broadcast unsolicited spam, fraudulent
+              promotions, or offensive messages. Violating Meta terms may result
+              in your WhatsApp number being suspended by Meta, for which Helpa
+              Studio holds no liability.
             </p>
           </section>
 
@@ -179,12 +175,12 @@ export default function TermsOfServicePage() {
               Limitation of Liability
             </h2>
             <p className="text-muted-foreground text-sm leading-relaxed">
-              Our Services are provided "as is" without warranties of any kind.
-              Helpa Studio does not guarantee uninterrupted service in the event
-              of third-party API disruptions (such as Meta platform downtime).
-              In no event shall Helpa Studio be liable for any loss of profits,
-              data, or business opportunities resulting from your use of the
-              Services.
+              Our Services are provided &quot;as is&quot; without warranties of
+              any kind. Helpa Studio does not guarantee uninterrupted service in
+              the event of third-party API disruptions (such as Meta platform
+              downtime). In no event shall Helpa Studio be liable for any loss
+              of profits, data, or business opportunities resulting from your
+              use of the Services.
             </p>
           </section>
 

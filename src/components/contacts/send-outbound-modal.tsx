@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
@@ -16,14 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  MessageSquare,
-  Send,
-  Loader2,
-  User,
-  Phone,
-  CheckCircle2,
-} from 'lucide-react';
+import { MessageSquare, Send, Loader2 } from 'lucide-react';
 import type { Contact } from '@/types';
 
 interface SendOutboundModalProps {
@@ -41,6 +34,7 @@ export function SendOutboundModal({
 }: SendOutboundModalProps) {
   const supabase = createClient();
   const { accountId, account } = useAuth();
+  void accountId;
   const businessName = account?.name || 'our Clinic';
 
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -50,6 +44,19 @@ export function SendOutboundModal({
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [loadingContacts, setLoadingContacts] = useState(false);
+
+  const fetchContacts = useCallback(async () => {
+    setLoadingContacts(true);
+    const { data } = await supabase
+      .from('contacts')
+      .select('*')
+      .order('name', { ascending: true })
+      .limit(50);
+    if (data) {
+      setContacts(data);
+    }
+    setLoadingContacts(false);
+  }, [supabase]);
 
   useEffect(() => {
     if (open) {
@@ -61,20 +68,7 @@ export function SendOutboundModal({
         fetchContacts();
       }
     }
-  }, [open, defaultContact]);
-
-  async function fetchContacts() {
-    setLoadingContacts(true);
-    const { data } = await supabase
-      .from('contacts')
-      .select('*')
-      .order('name', { ascending: true })
-      .limit(50);
-    if (data) {
-      setContacts(data);
-    }
-    setLoadingContacts(false);
-  }
+  }, [open, defaultContact, fetchContacts]);
 
   function handleSelectContact(id: string) {
     setSelectedContactId(id);
@@ -140,10 +134,11 @@ export function SendOutboundModal({
       setMessage('');
       onOpenChange(false);
       if (onSuccess) onSuccess();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Outbound message failed:', err);
       toast.error(
-        'Failed to send outbound message: ' + (err.message || 'Unknown error')
+        'Failed to send outbound message: ' +
+          ((err as Error).message || 'Unknown error')
       );
     } finally {
       setSending(false);

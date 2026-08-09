@@ -13,7 +13,7 @@ test.describe('E2E: Team Permissions & Multi-Tenant Boundary Isolation', () => {
 
     for (const endpoint of protectedEndpoints) {
       const res = await request.get(endpoint);
-      expect([401, 403, 404, 405]).toContain(res.status());
+      expect([401, 403]).toContain(res.status());
       // Ensure response does not contain stack traces or schema structures
       const text = await res.text();
       expect(text).not.toContain('PostgREST');
@@ -30,7 +30,7 @@ test.describe('E2E: Team Permissions & Multi-Tenant Boundary Isolation', () => {
         data: { status: 'Confirmed' },
       }
     );
-    // Must be rejected with 401 or 403, never 200
-    expect([401, 403, 404]).toContain(res.status());
+    // Must be rejected strictly with 401 or 403, never 200/404/405
+    expect([401, 403]).toContain(res.status());
   });
 });

@@ -29,7 +29,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { useRouter } from 'next/navigation';
+import {} from 'next/navigation';
 
 import { SECTION_META, type SettingsSection } from './settings-sections';
 import { SettingsChip, StatusDot } from './settings-chip';
@@ -49,7 +49,7 @@ interface IndustryItem {
   name: string;
   description: string;
   features: string[];
-  icon: React.ComponentType<any>;
+  icon: React.ComponentType<{ className?: string }>;
   color: string;
   bg: string;
   border: string;
@@ -181,8 +181,6 @@ export function SettingsOverview({
     accountRole,
     defaultCurrency,
     canManageMembers,
-    refreshProfile,
-    refreshModules,
   } = useAuth();
   const { mode, theme } = useTheme();
 
@@ -280,8 +278,8 @@ export function SettingsOverview({
 
       // Reload page to force recalculating sidebar items and clean context layouts
       window.location.reload();
-    } catch (err: any) {
-      toast.error(err.message || 'Template application failed.');
+    } catch (err: unknown) {
+      toast.error((err as Error).message || 'Template application failed.');
       setInstallationStep('idle');
     }
   };
@@ -304,8 +302,8 @@ export function SettingsOverview({
       if (error) throw error;
       toast.success('Business name updated successfully!');
       window.location.reload();
-    } catch (err: any) {
-      toast.error('Failed to update business name: ' + err.message);
+    } catch (err: unknown) {
+      toast.error('Failed to update business name: ' + (err as Error).message);
     } finally {
       setUpdatingName(false);
     }

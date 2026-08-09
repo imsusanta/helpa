@@ -57,7 +57,7 @@ export async function GET() {
     let expiredSubs = 0;
     const planBreakdown: Record<string, number> = {};
 
-    subs?.forEach((s: any) => {
+    subs?.forEach((s: Record<string, unknown>) => {
       if (s.status === 'active') activeSubs++;
       else if (s.status === 'trial') trialSubs++;
       else expiredSubs++;

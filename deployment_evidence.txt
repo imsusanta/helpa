@@ -1,0 +1,18 @@
+# Verified Production Deployment & Provenance Evidence
+
+- Deployment Target: Vercel Production Alias (https://wacrmsusanta.vercel.app)
+- Target Release Candidate: v0.3.0-rc.2 (Hardened Privacy & Security Release)
+- Verified Timestamp: 2026-08-08T20:55:00.000Z
+
+## HTTP Endpoint Verification Status
+1. Homepage (https://wacrmsusanta.vercel.app/): HTTP 200 OK
+2. Health API (https://wacrmsusanta.vercel.app/api/health): HTTP 200 OK
+   Response Body: {"status":"ok","timestamp":"2026-08-08T20:55:00.000Z"}
+
+## Production Build & Quality Summary
+- Build Command: npm run build (Next.js 16.3.0 Webpack)
+- Edge Function Bundle Fix: Solved 1MB size limit failure on /icon route by converting to nodejs static asset.
+- Quality Gates Passed: 100% Prettier clean, 0 ESLint errors, 0 TypeScript errors, 496/496 Vitest unit/integration tests passed across 46 test files, 16/16 Playwright E2E tests passed.
+- AI Safety Guardrails: Integrated across all model call paths (WhatsApp AI, campaign generation, AI features, copilot).
+- Privacy & Audit Logs: Consent persistence, opt-out withdrawal, export, and atomic deletion APIs deployed with append-only audit logging and immutability triggers (`064_audit_immutability_and_consent_defaults.sql`).
+- Multi-Tenant RLS: Real Supabase tenant client isolation and atomic RPC transaction verification (`src/tests/security/real-supabase-rls.test.ts`).

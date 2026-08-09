@@ -10,39 +10,17 @@ import {
   MessageSquare,
   Clock,
   UserCheck,
-  Brain,
-  Loader2,
   Plus,
   ArrowRight,
-  TrendingUp,
   FileText,
-  CheckCheck,
-  FileUp,
-  Bell,
   CalendarCheck,
-  CalendarX,
-  Percent,
-  Package,
   Sparkles,
-  Bot,
   User,
 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { SkeletonCard } from '@/components/dashboard/skeleton';
 import { toast } from 'sonner';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-} from 'recharts';
 
 interface AppointmentRow {
   id: string;
@@ -52,8 +30,6 @@ interface AppointmentRow {
   patient: { name: string; phone: string } | null;
   doctor: { name: string } | null;
 }
-
-const COLORS = ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ec4899'];
 
 export function ClinicalDashboardClient() {
   const { accountId } = useAuth();
@@ -87,8 +63,6 @@ export function ClinicalDashboardClient() {
   const [recentAppointments, setRecentAppointments] = useState<
     AppointmentRow[]
   >([]);
-  const [chartData, setChartData] = useState<any[]>([]);
-  const [deptData, setDeptData] = useState<any[]>([]);
 
   // Dynamically compute greeting
   useEffect(() => {
@@ -293,25 +267,9 @@ export function ClinicalDashboardClient() {
         todayFollowups: todayFollowups?.count || 0,
       });
 
-      setRecentAppointments((recentAppts.data as any) || []);
-
-      // Seed chart data
-      setChartData([
-        { name: 'Mon', appointments: 4 },
-        { name: 'Tue', appointments: 8 },
-        { name: 'Wed', appointments: apptToday.count || 6 },
-        { name: 'Thu', appointments: 5 },
-        { name: 'Fri', appointments: 9 },
-        { name: 'Sat', appointments: 3 },
-      ]);
-
-      setDeptData([
-        { name: 'Pediatrics', value: 35 },
-        { name: 'Cardiology', value: 20 },
-        { name: 'General Medicine', value: 25 },
-        { name: 'Orthopedics', value: 15 },
-        { name: 'Dermatology', value: 5 },
-      ]);
+      setRecentAppointments(
+        (recentAppts.data as unknown as AppointmentRow[]) || []
+      );
     } catch (err) {
       console.error('Error loading dashboard metrics:', err);
     } finally {
@@ -368,8 +326,8 @@ export function ClinicalDashboardClient() {
             {greeting}, Receptionist
           </h1>
           <p className="text-muted-foreground mt-1 max-w-xl text-xs leading-relaxed">
-            Welcome to your digital reception desk. Manage today's patients,
-            appointments, and WhatsApp queries at a glance.
+            Welcome to your digital reception desk. Manage today&apos;s
+            patients, appointments, and WhatsApp queries at a glance.
           </p>
         </div>
         <div className="z-10 flex flex-wrap items-center gap-3">
@@ -400,11 +358,11 @@ export function ClinicalDashboardClient() {
 
       {/* 8 Hospital Reception Desk Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {/* Today's Appointments */}
+        {/* Today&apos;s Appointments */}
         <div className="bg-card border-border/80 rounded-2xl border p-5 transition-all duration-200 hover:shadow-md">
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
-              Today's Appointments
+              Today&apos;s Appointments
             </span>
             <div className="rounded-lg bg-blue-500/10 p-2 text-blue-600">
               <Calendar className="h-5 w-5" />
@@ -485,12 +443,12 @@ export function ClinicalDashboardClient() {
           </div>
         </div>
 
-        {/* Today's Follow-ups */}
+        {/* Today&apos;s Follow-ups */}
         <Link href="/follow-ups">
           <div className="bg-card border-border/80 hover:border-primary/40 cursor-pointer rounded-2xl border p-5 transition-all duration-200 hover:shadow-md">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
-                Today's Follow-ups
+                Today&apos;s Follow-ups
               </span>
               <div className="rounded-lg bg-purple-500/10 p-2 text-purple-600">
                 <Clock className="h-5 w-5" />
@@ -521,11 +479,11 @@ export function ClinicalDashboardClient() {
           </div>
         </div>
 
-        {/* Today's AI Replies */}
+        {/* Today&apos;s AI Replies */}
         <div className="bg-card border-border/80 rounded-2xl border p-5 transition-all duration-200 hover:shadow-md">
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
-              Today's AI Replies
+              Today&apos;s AI Replies
             </span>
             <div className="rounded-lg bg-purple-500/10 p-2 text-purple-600">
               <Sparkles className="h-5 w-5" />
@@ -538,11 +496,11 @@ export function ClinicalDashboardClient() {
           </div>
         </div>
 
-        {/* Today's Human Replies */}
+        {/* Today&apos;s Human Replies */}
         <div className="bg-card border-border/80 rounded-2xl border p-5 transition-all duration-200 hover:shadow-md">
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
-              Today's Human Replies
+              Today&apos;s Human Replies
             </span>
             <div className="rounded-lg bg-sky-500/10 p-2 text-sky-600">
               <User className="h-5 w-5" />
@@ -556,13 +514,13 @@ export function ClinicalDashboardClient() {
         </div>
       </div>
 
-      {/* Today's Schedule Table */}
+      {/* Today&apos;s Schedule Table */}
       <div className="bg-card border-border space-y-4 rounded-2xl border p-5 shadow-sm transition-all duration-200 hover:shadow-md">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-foreground text-md flex items-center gap-1.5 font-extrabold">
               <CalendarCheck className="size-5 text-blue-600 dark:text-blue-400" />
-              Today's Appointment Schedule
+              Today&apos;s Appointment Schedule
             </h3>
             <p className="text-muted-foreground text-xs">
               Manage appointments and check-in status directly

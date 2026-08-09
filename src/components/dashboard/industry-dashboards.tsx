@@ -14,15 +14,12 @@ import {
   DollarSign,
   Brain,
   Home,
-  MapPin,
   Compass,
   GraduationCap,
   Utensils,
   Dumbbell,
   ShoppingBag,
-  Plus,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 
 interface IndustryDashboardProps {
   currency: string;

@@ -303,7 +303,7 @@ export async function POST(request: Request) {
     let accessToken: string;
     try {
       accessToken = decrypt(config.access_token);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[send/route.ts] Access token decryption failed:', err);
       return NextResponse.json(
         {

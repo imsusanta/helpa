@@ -66,12 +66,22 @@ export class ForbiddenError extends Error {
  * never leak `err.message` for non-classified errors to keep
  * server internals out of the wire.
  */
+const CACHE_HEADERS = {
+  'Cache-Control': 'private, no-store, no-cache, must-revalidate',
+} as const;
+
 export function toErrorResponse(err: unknown): NextResponse {
   if (err instanceof UnauthorizedError || err instanceof ForbiddenError) {
-    return NextResponse.json({ error: err.message }, { status: err.status });
+    return NextResponse.json(
+      { error: err.message },
+      { status: err.status, headers: CACHE_HEADERS }
+    );
   }
   console.error('[toErrorResponse] uncategorized error:', err);
-  return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  return NextResponse.json(
+    { error: 'Internal server error' },
+    { status: 500, headers: CACHE_HEADERS }
+  );
 }
 
 // ------------------------------------------------------------

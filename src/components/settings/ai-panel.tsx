@@ -10,8 +10,6 @@ import {
   Cpu,
   AlertCircle,
   CheckCircle2,
-  ChevronRight,
-  Zap,
   MessageSquare,
   MessageCircle,
   RotateCcw,
@@ -143,8 +141,8 @@ export function AiPanel() {
       setHasApiKey(data.has_api_key);
       setApiKey(''); // clear password field after saving
       toast.success('AI Assistant configuration saved');
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to save AI configuration');
+    } catch (err: unknown) {
+      toast.error((err as Error).message || 'Failed to save AI configuration');
       console.error(err);
     } finally {
       setSaving(false);

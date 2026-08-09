@@ -20,9 +20,11 @@ export async function GET() {
     if (error) throw error;
 
     // Convert list to key-value object
-    const settings: Record<string, any> = {};
-    data?.forEach((row: any) => {
-      settings[row.key] = row.value;
+    const settings: Record<string, unknown> = {};
+    data?.forEach((row: Record<string, unknown>) => {
+      if (typeof row.key === 'string') {
+        settings[row.key] = row.value;
+      }
     });
 
     return NextResponse.json(settings);

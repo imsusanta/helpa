@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { getOrGeneratePatientId } from '@/lib/patients/id-generator';
 import {
   Clock,
@@ -10,12 +10,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Bell,
-  UserCheck,
-  Users,
-  Filter,
   RefreshCw,
   Send,
-  FileText,
   Stethoscope,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -45,7 +41,7 @@ interface PatientRef {
   id: string;
   name: string;
   phone: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
 }
 
 interface DoctorRef {
@@ -91,7 +87,7 @@ export default function FollowupsPage() {
 
   // Quick WhatsApp message modal state
   const [outboundOpen, setOutboundOpen] = useState(false);
-  const [outboundTarget, setOutboundTarget] = useState<Contact | null>(null);
+  const [outboundTarget, _setOutboundTarget] = useState<Contact | null>(null);
 
   const PRESET_TYPES = [
     'Diabetes Review',
@@ -105,25 +101,20 @@ export default function FollowupsPage() {
     'General Health Follow-up',
   ];
 
-  useEffect(() => {
-    fetchFollowups();
-    fetchPatientsAndDoctors();
-  }, [filter]);
-
-  async function fetchFollowups() {
+  const fetchFollowups = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(`/api/followups?status=${filter}`);
       const data = await res.json();
       setFollowups(data.followups || []);
-    } catch (err) {
+    } catch {
       toast.error('Failed to load follow-ups');
     } finally {
       setLoading(false);
     }
-  }
+  }, [filter]);
 
-  async function fetchPatientsAndDoctors() {
+  const fetchPatientsAndDoctors = useCallback(async () => {
     try {
       const [pRes, dRes] = await Promise.all([
         fetch('/api/contacts?limit=100'),
@@ -133,10 +124,15 @@ export default function FollowupsPage() {
       const dData = await dRes.json();
       setPatients(pData.contacts || pData.data || []);
       setDoctors(dData.doctors || dData.data || []);
-    } catch (e) {
+    } catch {
       // Ignore background fetch errors
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    fetchFollowups();
+    fetchPatientsAndDoctors();
+  }, [fetchFollowups, fetchPatientsAndDoctors]);
 
   async function handleSendReminder(id: string) {
     setRemindingId(id);
@@ -150,8 +146,8 @@ export default function FollowupsPage() {
       if (!res.ok) throw new Error(data.error || 'Failed to send reminder');
       toast.success('WhatsApp follow-up reminder sent!');
       fetchFollowups();
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to send reminder');
+    } catch (err: unknown) {
+      toast.error((err as Error).message || 'Failed to send reminder');
     } finally {
       setRemindingId(null);
     }
@@ -184,8 +180,8 @@ export default function FollowupsPage() {
       setSelectedDoctorId('');
       setNotes('');
       fetchFollowups();
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to schedule follow-up');
+    } catch (err: unknown) {
+      toast.error((err as Error).message || 'Failed to schedule follow-up');
     } finally {
       setSubmitting(false);
     }
@@ -200,7 +196,8 @@ export default function FollowupsPage() {
     const pPhone = item.patient?.phone || '';
     const fType = item.followup_type.toLowerCase();
     const dName = item.doctor?.name?.toLowerCase() || '';
-    const pSeq = item.patient?.metadata?.patient_id?.toLowerCase() || '';
+    const pSeq =
+      (item.patient?.metadata?.patient_id as string)?.toLowerCase() || '';
     return (
       pName.includes(q) ||
       pPhone.includes(q) ||

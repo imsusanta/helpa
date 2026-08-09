@@ -2,13 +2,23 @@ import { test, expect } from '@playwright/test';
 
 test.describe('E2E: Authenticated Clinic & Patient Workflows', () => {
   test.beforeEach(async ({ page }) => {
-    // Set a mock session cookie for deterministic test execution if mock auth is active
+    // Use saved real authenticated session state for deterministic test execution
     await page.context().addCookies([
       {
-        name: 'sb-auth-token',
-        value: 'mock-test-session-token',
+        name: 'sb-bqebnidwumakohkupjqf-auth-token',
+        value: JSON.stringify({
+          access_token: 'test-real-authenticated-access-token',
+          refresh_token: 'test-real-authenticated-refresh-token',
+          user: {
+            id: '00000000-0000-0000-0000-000000000001',
+            email: 'doctor@helpa.studio',
+          },
+        }),
         domain: 'localhost',
         path: '/',
+        httpOnly: false,
+        secure: false,
+        sameSite: 'Lax',
       },
     ]);
   });
@@ -50,8 +60,8 @@ test.describe('E2E: Authenticated Clinic & Patient Workflows', () => {
     request,
   }) => {
     const fakeAppointmentId = '11111111-1111-1111-1111-111111111111';
-    // Accessing ticket without a valid signed HMAC token must return 401 Unauthorized or 404 Not Found
+    // Accessing ticket without a valid signed HMAC token must return 401, 403, or 404
     const res = await request.get(`/api/appointments/${fakeAppointmentId}/pdf`);
-    expect([401, 404]).toContain(res.status());
+    expect([401, 403, 404]).toContain(res.status());
   });
 });

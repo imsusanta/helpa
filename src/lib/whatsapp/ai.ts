@@ -5,6 +5,7 @@ import {
   containsPromptInjection,
   sanitizeAiInput,
 } from '@/lib/ai/safety';
+import { logger } from '@/lib/observability/logger';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
 import {
   engineSendText,
@@ -155,16 +156,30 @@ export async function triggerAiResponse(
 
   // 🛡️ AI SAFETY & HEALTHCARE GUARDRAILS (Production Module: src/lib/ai/safety.ts)
   if (isEmergencyQuery(rawUserText)) {
-    console.warn(
-      `[AI Safety] Emergency intent detected for contact ${contactId}:`,
-      rawUserText
-    );
+    logger.warn('Emergency intent detected', {
+      component: 'ai-safety',
+      accountId,
+      correlationId: conversationId,
+      classification: 'emergency',
+    });
     await engineSendText({
       accountId,
       userId,
       conversationId,
       contactId,
-      text: '⚠️ *EMERGENCY ALERT*: If you or the patient are experiencing a life-threatening medical emergency (e.g., chest pain, severe bleeding, difficulty breathing), please call emergency services (108/112) or proceed immediately to the nearest hospital emergency room.\n\nA human clinic receptionist has been notified.',
+      text: '⚠️ *EMERGENCY ALERT*: If you or the patient are experiencing a life-threatening medical emergency (e.g., chest pain, severe bleeding, difficulty breathing), please call your local emergency service or proceed immediately to the nearest hospital emergency room.\n\nA human receptionist may review this conversation. For immediate help, call your local emergency service or go to the nearest emergency department.',
+    });
+    await db.from('audit_logs').insert({
+      account_id: accountId,
+      actor_id: userId,
+      action: 'emergency.escalation_created',
+      resource_type: 'conversations',
+      resource_id: conversationId,
+      metadata: {
+        severity: 'high',
+        safety_classification: 'emergency',
+        created_at: new Date().toISOString(),
+      },
     });
     await db
       .from('conversations')
@@ -251,9 +266,11 @@ export async function triggerAiResponse(
 
     if (coachingStudents && coachingStudents.length > 0) {
       coachingContext += `Registered ${entityLabelForContext}s under this WhatsApp/Phone Number:\n`;
-      coachingStudents.forEach((s: any) => {
+      coachingStudents.forEach((s) => {
         const meta =
-          s.metadata && typeof s.metadata === 'object' ? s.metadata : {};
+          s.metadata && typeof s.metadata === 'object'
+            ? (s.metadata as Record<string, string>)
+            : {};
         coachingContext += `- Name: ${s.name}, Student ID: ${meta.student_id || 'N/A'}, Exam Preparation (Target Exam): ${meta.parent_name || 'Not set'}\n`;
       });
       coachingContext += '\n';
@@ -371,23 +388,35 @@ export async function triggerAiResponse(
     }
     if (appts && appts.length > 0) {
       hospitalContext += "\nPatient's Recent/Upcoming Appointments:\n";
-      appts.forEach((a: any) => {
-        const patientData = a.patient as any;
+      appts.forEach((a) => {
+        const patientData = a.patient as
+          | { name?: string }
+          | { name?: string }[]
+          | null;
         const pName =
           (Array.isArray(patientData)
             ? patientData[0]?.name
             : patientData?.name) || 'Unknown';
-        hospitalContext += `- Patient: ${pName}, Date: ${a.appointment_date}, Time: ${a.appointment_time}, Doctor: ${a.doctor?.name || 'Unassigned'}, Status: ${a.status}, Token: #${a.token_number || 'N/A'}, Queue Pos: ${a.queue_position || 'N/A'}\n`;
+        const docName =
+          (a.doctor as { name?: string } | null)?.name || 'Unassigned';
+        hospitalContext += `- Patient: ${pName}, Date: ${a.appointment_date}, Time: ${a.appointment_time}, Doctor: ${docName}, Status: ${a.status}, Token: #${a.token_number || 'N/A'}, Queue Pos: ${a.queue_position || 'N/A'}\n`;
       });
     }
     if (labReports && labReports.length > 0) {
       hospitalContext += "\nPatient's Lab/Diagnostic Reports:\n";
-      labReports.forEach((r: any) => {
-        const docData = r.doctor as any;
+      labReports.forEach((rItem) => {
+        const r = rItem as unknown as Record<string, unknown>;
+        const docData = r.doctor as
+          | { name?: string }
+          | { name?: string }[]
+          | null;
         const docName =
           (Array.isArray(docData) ? docData[0]?.name : docData?.name) ||
           'Doctor';
-        const patientData = r.patient as any;
+        const patientData = r.patient as
+          | { name?: string }
+          | { name?: string }[]
+          | null;
         const pName =
           (Array.isArray(patientData)
             ? patientData[0]?.name
@@ -674,33 +703,40 @@ Note:
     let timeline: string | null = null;
     let next_action: string | null = null;
 
-    let hospital_patient_info: any = null;
-    let hospital_booking: any = null;
-    let hospital_profile_update: any = null;
-    let coaching_student_update: any = null;
+    let hospital_patient_info: Record<string, unknown> | null = null;
+    let hospital_booking: Record<string, unknown> | null = null;
+    let hospital_profile_update: Record<string, unknown> | null = null;
+    let coaching_student_update: Record<string, unknown> | null = null;
     let emergency_detected = false;
 
     if (parsedResponse.payload) {
-      const parsed = parsedResponse.payload as Record<string, any>;
-      intent = parsed.intent || 'other';
-      lead_score = parsed.lead_score || 'cold';
-      sentiment = parsed.sentiment || 'neutral';
+      const parsed = parsedResponse.payload as Record<string, unknown>;
+      intent = (parsed.intent as string) || 'other';
+      lead_score = (parsed.lead_score as string) || 'cold';
+      sentiment = (parsed.sentiment as string) || 'neutral';
       handoff_required = !!parsed.handoff_required;
       resolved = !!parsed.resolved;
-      summary = parsed.summary || null;
-      faq_category = parsed.faq_category || 'general';
+      summary = (parsed.summary as string) || null;
+      faq_category = (parsed.faq_category as string) || 'general';
       sales_signal = !!parsed.sales_signal;
 
-      const extracted = parsed.extracted_lead_info || {};
-      interested_service = extracted.interested_service || null;
-      budget = extracted.budget || null;
-      timeline = extracted.timeline || null;
-      next_action = extracted.next_action || null;
+      const extracted = (parsed.extracted_lead_info || {}) as Record<
+        string,
+        unknown
+      >;
+      interested_service = (extracted.interested_service as string) || null;
+      budget = (extracted.budget as string) || null;
+      timeline = (extracted.timeline as string) || null;
+      next_action = (extracted.next_action as string) || null;
 
-      hospital_patient_info = parsed.hospital_patient_info || null;
-      hospital_booking = parsed.hospital_booking || null;
-      hospital_profile_update = parsed.hospital_profile_update || null;
-      coaching_student_update = parsed.coaching_student_update || null;
+      hospital_patient_info =
+        (parsed.hospital_patient_info as Record<string, unknown>) || null;
+      hospital_booking =
+        (parsed.hospital_booking as Record<string, unknown>) || null;
+      hospital_profile_update =
+        (parsed.hospital_profile_update as Record<string, unknown>) || null;
+      coaching_student_update =
+        (parsed.coaching_student_update as Record<string, unknown>) || null;
       emergency_detected = !!parsed.emergency_detected;
     } else if (parsedResponse.isStructured) {
       console.warn(
@@ -840,18 +876,30 @@ Note:
       // 1. Emergency Interception
       if (emergency_detected) {
         handoff_required = true;
-        reply = `🚨 *EMERGENCY DETECTED:* Please call our emergency clinic staff immediately or go to the nearest ER. We have disabled the AI autopilot for this chat so our agents can step in.`;
+        reply = `🚨 *EMERGENCY DETECTED:* A human receptionist may review this conversation. For immediate help, call your local emergency service or go to the nearest emergency department. AI autopilot has been paused for this chat.`;
+        await db.from('audit_logs').insert({
+          account_id: accountId,
+          actor_id: userId,
+          action: 'emergency.escalation_created',
+          resource_type: 'conversations',
+          resource_id: conversationId,
+          metadata: {
+            severity: 'high',
+            safety_classification: 'emergency',
+            created_at: new Date().toISOString(),
+          },
+        });
       }
 
       // Resolve the patient by name and number. Family members can share a
       // WhatsApp number, so a different name receives a separate contact.
       let targetContactId = contactId;
-      const patientNameProvided =
-        hospital_patient_info?.name || hospital_booking?.patient_name;
-      const patientPhoneProvided =
-        hospital_patient_info?.phone || contact?.phone;
+      const patientNameProvided = (hospital_patient_info?.name ||
+        hospital_booking?.patient_name) as string | undefined;
+      const patientPhoneProvided = (hospital_patient_info?.phone ||
+        contact?.phone) as string | undefined;
 
-      if (patientNameProvided) {
+      if (patientNameProvided && patientPhoneProvided) {
         try {
           // Find a matching patient identity for this phone number.
           const basePhone = patientPhoneProvided.trim();
@@ -1043,7 +1091,9 @@ Note:
       // 5. Patient Profile self-update via WhatsApp
       if (hospital_profile_update && hospital_profile_update.patient_id) {
         try {
-          const pId = hospital_profile_update.patient_id.trim().toUpperCase();
+          const pId = String(hospital_profile_update.patient_id)
+            .trim()
+            .toUpperCase();
           console.log('[AI Hospital] Patient self-edit requested for ID:', pId);
 
           // 1. Try finding the patient in the patients table
@@ -1077,37 +1127,47 @@ Note:
             targetContactId = extContact?.id;
           }
 
-          if (targetContactId && targetContact) {
-            const existingMetadata =
+          if (targetContactId && targetContact && hospital_profile_update) {
+            const existingMetadata = (
               targetContact.metadata &&
               typeof targetContact.metadata === 'object'
                 ? targetContact.metadata
-                : {};
-            const contactUpdates: any = {
-              metadata: {
-                ...existingMetadata,
-                patient_id: pId,
-              },
+                : {}
+            ) as Record<string, unknown>;
+            const newMeta: Record<string, unknown> = {
+              ...existingMetadata,
+              patient_id: pId,
+            };
+            const contactUpdates: Record<string, unknown> = {
+              metadata: newMeta,
             };
             if (hospital_profile_update.name)
-              contactUpdates.name = hospital_profile_update.name.trim();
+              contactUpdates.name = String(hospital_profile_update.name).trim();
             if (hospital_profile_update.email)
-              contactUpdates.email = hospital_profile_update.email.trim();
+              contactUpdates.email = String(
+                hospital_profile_update.email
+              ).trim();
             if (hospital_profile_update.phone)
-              contactUpdates.phone = hospital_profile_update.phone.trim();
+              contactUpdates.phone = String(
+                hospital_profile_update.phone
+              ).trim();
             if (hospital_profile_update.address)
-              contactUpdates.address = hospital_profile_update.address.trim();
+              contactUpdates.address = String(
+                hospital_profile_update.address
+              ).trim();
 
             if (hospital_profile_update.gender)
-              contactUpdates.metadata.gender = hospital_profile_update.gender;
+              newMeta.gender = hospital_profile_update.gender;
             if (hospital_profile_update.dob)
-              contactUpdates.metadata.dob = hospital_profile_update.dob;
+              newMeta.dob = hospital_profile_update.dob;
             if (hospital_profile_update.blood_group)
-              contactUpdates.metadata.blood_group =
-                hospital_profile_update.blood_group.trim();
+              newMeta.blood_group = String(
+                hospital_profile_update.blood_group
+              ).trim();
             if (hospital_profile_update.emergency_contact)
-              contactUpdates.metadata.emergency_contact =
-                hospital_profile_update.emergency_contact.trim();
+              newMeta.emergency_contact = String(
+                hospital_profile_update.emergency_contact
+              ).trim();
 
             // 1. Update contacts
             await db
@@ -1137,12 +1197,12 @@ Note:
                 existingMetadata.dob ||
                 null,
               blood_group:
-                hospital_profile_update.blood_group?.trim() ||
+                (hospital_profile_update.blood_group as string)?.trim() ||
                 extPatient?.blood_group ||
                 existingMetadata.blood_group ||
                 null,
               emergency_contact:
-                hospital_profile_update.emergency_contact?.trim() ||
+                (hospital_profile_update.emergency_contact as string)?.trim() ||
                 extPatient?.emergency_contact ||
                 existingMetadata.emergency_contact ||
                 null,
@@ -1175,10 +1235,10 @@ Note:
       if (coaching_student_update) {
         try {
           const sId = coaching_student_update.student_id
-            ? coaching_student_update.student_id.trim().toUpperCase()
+            ? String(coaching_student_update.student_id).trim().toUpperCase()
             : null;
           const targetExam = coaching_student_update.target_exam
-            ? coaching_student_update.target_exam.trim()
+            ? String(coaching_student_update.target_exam).trim()
             : null;
 
           if (targetExam) {
@@ -1310,14 +1370,20 @@ Note:
 
           if (deptDoctors && deptDoctors.length > 0) {
             let doctorList = `Here are the available doctors in *${department}*:\n\n`;
-            deptDoctors.forEach((doc: any, idx: number) => {
+            deptDoctors.forEach((doc: Record<string, unknown>, idx: number) => {
               const days = Array.isArray(doc.available_days)
                 ? doc.available_days.join(', ')
                 : 'All days';
-              const start = doc.working_hours?.start || '09:00';
-              const end = doc.working_hours?.end || '17:00';
+              const workingHours = doc.working_hours as
+                | { start?: string; end?: string }
+                | null
+                | undefined;
+              const start = workingHours?.start || '09:00';
+              const end = workingHours?.end || '17:00';
               const fee = doc.consultation_fee || 0;
-              doctorList += `${idx + 1}️⃣ *Dr. ${doc.name.replace(/^Dr\.\s+/i, '')}* — Fee: ₹${fee} — ${days} (${start}–${end})\n`;
+              const nameStr =
+                typeof doc.name === 'string' ? doc.name : 'Doctor';
+              doctorList += `${idx + 1}️⃣ *Dr. ${nameStr.replace(/^Dr\.\s+/i, '')}* — Fee: ₹${fee} — ${days} (${start}–${end})\n`;
             });
             doctorList += `\nPlease reply with the doctor's name to proceed with your appointment booking.`;
             reply = doctorList;
@@ -1335,7 +1401,10 @@ Note:
                 .from('hospital_doctors')
                 .select('id, name, specialization')
                 .eq('account_id', accountId)
-                .ilike('name', `%${doctor_name.replace('Dr.', '').trim()}%`)
+                .ilike(
+                  'name',
+                  `%${String(doctor_name).replace('Dr.', '').trim()}%`
+                )
                 .maybeSingle();
               if (doc) {
                 doctorId = doc.id;
@@ -1449,9 +1518,9 @@ Note:
                 .eq('appointment_date', date);
               const ticketSerial = `TKT-${String(dailyCount || 1).padStart(3, '0')}`;
 
-              const displayDoc = actualDocName.startsWith('Dr.')
-                ? actualDocName
-                : 'Dr. ' + actualDocName;
+              const displayDoc = String(actualDocName).startsWith('Dr.')
+                ? String(actualDocName)
+                : 'Dr. ' + String(actualDocName);
               const displaySpec = actualSpecialization
                 ? ` (${actualSpecialization})`
                 : '';

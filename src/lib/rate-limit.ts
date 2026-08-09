@@ -149,6 +149,10 @@ export const RATE_LIMITS = {
    *  while still bounding accidental abuse from a script run in a
    *  loop or a compromised admin session spamming role flips. */
   adminAction: { limit: 30, windowMs: 60_000 },
+  /** Patient data export limit. 10/min per user prevents bulk export abuse. */
+  patientExport: { limit: 10, windowMs: 60_000 },
+  /** Hard deletion limit. 5/min per user prevents mass deletion abuse. */
+  patientDelete: { limit: 5, windowMs: 60_000 },
 } as const;
 
 /** Test-only helper. Clears the in-memory state so unit tests don't

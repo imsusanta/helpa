@@ -1,0 +1,206 @@
+{
+  "spdxVersion": "SPDX-2.3",
+  "dataLicense": "CC0-1.0",
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "name": "helpa",
+  "documentNamespace": "https://github.com/imsusanta/wacrm_susanta/sbom/helpa-0.3.0",
+  "creationInfo": {
+    "creators": [
+      "Tool: Helpa-SBOM-Generator-1.0",
+      "Organization: Helpa Health Studio"
+    ],
+    "created": "2026-08-08T08:44:42.664Z"
+  },
+  "packages": [
+    {
+      "name": "helpa",
+      "SPDXID": "SPDXRef-Package-Root",
+      "versionInfo": "0.3.0",
+      "downloadLocation": "git+https://github.com/imsusanta/wacrm_susanta.git",
+      "licenseConcluded": "MIT",
+      "supplier": "Organization: Helpa Studio"
+    },
+    {
+      "name": "@base-ui/react",
+      "SPDXID": "SPDXRef-Package-Dep-0",
+      "versionInfo": "1.5.0",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION"
+    },
+    {
+      "name": "@dagrejs/dagre",
+      "SPDXID": "SPDXRef-Package-Dep-1",
+      "versionInfo": "3.0.0",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION"
+    },
+    {
+      "name": "@dnd-kit/core",
+      "SPDXID": "SPDXRef-Package-Dep-2",
+      "versionInfo": "6.3.1",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION"
+    },
+    {
+      "name": "@dnd-kit/sortable",
+      "SPDXID": "SPDXRef-Package-Dep-3",
+      "versionInfo": "10.0.0",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION"
+    },
+    {
+      "name": "@dnd-kit/utilities",
+      "SPDXID": "SPDXRef-Package-Dep-4",
+      "versionInfo": "3.2.2",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION"
+    },
+    {
+      "name": "@supabase/ssr",
+      "SPDXID": "SPDXRef-Package-Dep-5",
+      "versionInfo": "0.10.3",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION"
+    },
+    {
+      "name": "@supabase/supabase-js",
+      "SPDXID": "SPDXRef-Package-Dep-6",
+      "versionInfo": "2.107.0",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION"
+    },
+    {
+      "name": "@types/qrcode",
+      "SPDXID": "SPDXRef-Package-Dep-7",
+      "versionInfo": "1.5.6",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION"
+    },
+    {
+      "name": "@xyflow/react",
+      "SPDXID": "SPDXRef-Package-Dep-8",
+      "versionInfo": "12.11.0",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION"
+    },
+    {
+      "name": "class-variance-authority",
+      "SPDXID": "SPDXRef-Package-Dep-9",
+      "versionInfo": "0.7.1",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION"
+    },
+    {
+      "name": "clsx",
+      "SPDXID": "SPDXRef-Package-Dep-10",
+      "versionInfo": "2.1.1",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION"
+    },
+    {
+      "name": "date-fns",
+      "SPDXID": "SPDXRef-Package-Dep-11",
+      "versionInfo": "4.4.0",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION"
+    },
+    {
+      "name": "framer-motion",
+      "SPDXID": "SPDXRef-Package-Dep-12",
+      "versionInfo": "12.42.2",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION"
+    },
+    {
+      "name": "jspdf",
+      "SPDXID": "SPDXRef-Package-Dep-13",
+      "versionInfo": "4.2.1",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION"
+    },
+    {
+      "name": "lucide-react",
+      "SPDXID": "SPDXRef-Package-Dep-14",
+      "versionInfo": "1.18.0",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION"
+    },
+    {
+      "name": "next",
+      "SPDXID": "SPDXRef-Package-Dep-15",
+      "versionInfo": "16.3.0",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION"
+    },
+    {
+      "name": "opus-recorder",
+      "SPDXID": "SPDXRef-Package-Dep-16",
+      "versionInfo": "8.0.5",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION"
+    },
+    {
+      "name": "qrcode",
+      "SPDXID": "SPDXRef-Package-Dep-17",
+      "versionInfo": "1.5.4",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION"
+    },
+    {
+      "name": "react",
+      "SPDXID": "SPDXRef-Package-Dep-18",
+      "versionInfo": "19.2.4",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION"
+    },
+    {
+      "name": "react-dom",
+      "SPDXID": "SPDXRef-Package-Dep-19",
+      "versionInfo": "19.2.4",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION"
+    },
+    {
+      "name": "recharts",
+      "SPDXID": "SPDXRef-Package-Dep-20",
+      "versionInfo": "3.8.1",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION"
+    },
+    {
+      "name": "shadcn",
+      "SPDXID": "SPDXRef-Package-Dep-21",
+      "versionInfo": "4.11.0",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION"
+    },
+    {
+      "name": "sonner",
+      "SPDXID": "SPDXRef-Package-Dep-22",
+      "versionInfo": "2.0.7",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION"
+    },
+    {
+      "name": "tailwind-merge",
+      "SPDXID": "SPDXRef-Package-Dep-23",
+      "versionInfo": "3.6.0",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION"
+    },
+    {
+      "name": "tw-animate-css",
+      "SPDXID": "SPDXRef-Package-Dep-24",
+      "versionInfo": "1.4.0",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION"
+    },
+    {
+      "name": "ws",
+      "SPDXID": "SPDXRef-Package-Dep-25",
+      "versionInfo": "8.21.3",
+      "downloadLocation": "NOASSERTION",
+      "licenseConcluded": "NOASSERTION"
+    }
+  ]
+}

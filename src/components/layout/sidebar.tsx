@@ -25,7 +25,6 @@ import {
   Workflow,
   X,
   Zap,
-  Cpu,
   Brain,
   Hospital,
   Calendar,
@@ -162,6 +161,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
     isSuperAdmin,
     enabledModules,
   } = useAuth();
+  void enabledModules;
   const totalUnread = useTotalUnread();
 
   const activeModule = getIndustryModule(account?.industry);

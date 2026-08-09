@@ -107,6 +107,7 @@ function MediaImage({ url, alt }: { url: string; alt: string }) {
   }
 
   return (
+    /* eslint-disable-next-line @next/next/no-img-element */
     <img
       src={src ?? ''}
       alt={alt}

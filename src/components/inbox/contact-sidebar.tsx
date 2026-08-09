@@ -10,16 +10,13 @@ import {
   Mail,
   Copy,
   Check,
-  User,
   Tag as TagIcon,
-  DollarSign,
   StickyNote,
   Plus,
   Brain,
   Hospital,
   Activity,
   Calendar,
-  Clock,
   FileDown,
   FileUp,
   Loader2,
@@ -27,13 +24,10 @@ import {
 } from 'lucide-react';
 import { UploadPatientPdfModal } from '@/components/contacts/upload-patient-pdf-modal';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-
-import { getIndustryModule } from '@/modules/registry';
 import {
   getOrGeneratePatientId,
   resolveBloodGroup,
@@ -45,12 +39,28 @@ interface ContactSidebarProps {
   isEmbedded?: boolean;
 }
 
+interface DoctorItem {
+  id: string;
+  name: string;
+  department?: string;
+}
+
+interface PatientRecord {
+  id?: string;
+  patient_seq_id?: string;
+  gender?: string;
+  date_of_birth?: string;
+  blood_group?: string;
+  emergency_contact?: string;
+}
+
 export function ContactSidebar({
   contact,
   conversation,
   isEmbedded = false,
 }: ContactSidebarProps) {
   const { accountId, enabledModules, account } = useAuth();
+  void enabledModules;
 
   const pipelineTitle =
     account?.industry === 'hospital_clinic'
@@ -64,8 +74,8 @@ export function ContactSidebar({
             : account?.industry === 'gym'
               ? 'Membership Stages'
               : account?.industry === 'restaurant'
-                ? 'Reservation Pipeline'
-                : 'Deals / Pipeline';
+                ? 'Table & Reservation Pipeline'
+                : 'Pipeline & Sales Stage';
 
   const [copied, setCopied] = useState(false);
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -75,17 +85,35 @@ export function ContactSidebar({
   const [addingNote, setAddingNote] = useState(false);
 
   // Hospital & Clinic booking states
-  const [patient, setPatient] = useState<any | null>(null);
+  const [patient, setPatient] = useState<PatientRecord | null>(null);
   const [showBookForm, setShowBookForm] = useState(false);
   const [showInviteForm, setShowInviteForm] = useState(false);
   const [uploadPdfOpen, setUploadPdfOpen] = useState(false);
-  const [doctors, setDoctors] = useState<any[]>([]);
-  const [branches, setBranches] = useState<any[]>([]);
+  const [doctors, setDoctors] = useState<DoctorItem[]>([]);
+  const [_branches, setBranches] = useState<Record<string, unknown>[]>([]);
   const [loadingForm, setLoadingForm] = useState(false);
-  const [upcomingAppointment, setUpcomingAppointment] = useState<any | null>(
-    null
-  );
-  const [recentReports, setRecentReports] = useState<any[]>([]);
+  interface AppointmentInfo {
+    id: string;
+    department: string;
+    appointment_date: string;
+    appointment_time: string;
+    status: string;
+    token_number: number;
+    doctor?: { name: string } | null;
+  }
+
+  interface LabReportInfo {
+    id: string;
+    test_name: string;
+    status: string;
+    report_pdf_url?: string;
+    notified_patient?: boolean;
+    created_at: string;
+  }
+
+  const [upcomingAppointment, setUpcomingAppointment] =
+    useState<AppointmentInfo | null>(null);
+  const [recentReports, setRecentReports] = useState<LabReportInfo[]>([]);
   const [notifyingReportId, setNotifyingReportId] = useState<string | null>(
     null
   );
@@ -160,14 +188,15 @@ export function ContactSidebar({
         if (patientRes.data) setPatient(patientRes.data);
         else setPatient(null);
 
-        if (apptRes.data) setUpcomingAppointment(apptRes.data);
+        if (apptRes.data)
+          setUpcomingAppointment(apptRes.data as unknown as AppointmentInfo);
         else setUpcomingAppointment(null);
 
         setRecentReports(
           Array.isArray(reportRes.data)
-            ? reportRes.data
+            ? (reportRes.data as unknown as LabReportInfo[])
             : reportRes.data
-              ? [reportRes.data]
+              ? [reportRes.data as unknown as LabReportInfo]
               : []
         );
       } else {
@@ -178,7 +207,7 @@ export function ContactSidebar({
     } catch (err) {
       console.error('[ContactSidebar] Error fetching contact details:', err);
     }
-  }, [contact, enabledModules, account?.industry]);
+  }, [contact, account?.industry]);
 
   // Lazy-load doctors & branches for hospital booking widget
   useEffect(() => {
@@ -267,9 +296,9 @@ export function ContactSidebar({
 
       // Reload list
       fetchContactData();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      toast.error(err.message || 'Failed to book appointment');
+      toast.error((err as Error).message || 'Failed to book appointment');
     } finally {
       setLoadingForm(false);
     }
@@ -319,9 +348,9 @@ export function ContactSidebar({
 
       toast.success('Report successfully sent via WhatsApp!');
       fetchContactData();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to notify patient via WhatsApp:', err);
-      toast.error('Failed to send WhatsApp message: ' + err.message);
+      toast.error('Failed to send WhatsApp message: ' + (err as Error).message);
     } finally {
       setNotifyingReportId(null);
     }
@@ -391,6 +420,7 @@ export function ContactSidebar({
           <div className="relative">
             <div className="bg-background border-primary/20 text-foreground flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border-2 text-lg font-semibold">
               {contact.avatar_url ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
                 <img
                   src={contact.avatar_url}
                   alt={displayName}
@@ -638,9 +668,9 @@ export function ContactSidebar({
                       Lab Reports ({recentReports.length})
                     </span>
                     <div className="space-y-1">
-                      {recentReports.map((rep: any) => (
+                      {recentReports.map((rep) => (
                         <div
-                          key={rep.id}
+                          key={(rep as { id: string }).id}
                           className="bg-muted/40 border-border/30 flex items-center justify-between gap-2 rounded-lg border p-2 text-[10px]"
                         >
                           <div className="min-w-0 flex-1">

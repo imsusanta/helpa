@@ -15,7 +15,6 @@ import {
   PieChart as PieIcon,
   HelpCircle,
   Activity,
-  ArrowRight,
 } from 'lucide-react';
 import {
   ResponsiveContainer,

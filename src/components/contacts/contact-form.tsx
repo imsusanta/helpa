@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
@@ -58,7 +58,7 @@ export function ContactForm({
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
   const [notes, setNotes] = useState('');
-  const [metadata, setMetadata] = useState<Record<string, any>>({});
+  const [metadata, setMetadata] = useState<Record<string, unknown>>({});
   const [saving, setSaving] = useState(false);
 
   // Duplicate-phone detection for NEW contacts.
@@ -72,6 +72,13 @@ export function ContactForm({
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [loadingTags, setLoadingTags] = useState(false);
 
+  const fetchTags = useCallback(async () => {
+    setLoadingTags(true);
+    const { data } = await supabase.from('tags').select('*').order('name');
+    if (data) setTags(data);
+    setLoadingTags(false);
+  }, [supabase]);
+
   useEffect(() => {
     if (open) {
       setName(contact?.name ?? '');
@@ -79,12 +86,12 @@ export function ContactForm({
       setEmail(contact?.email ?? '');
       setAddress(contact?.address ?? '');
       setNotes(contact?.notes ?? '');
-      setMetadata(contact?.metadata ?? {});
+      setMetadata((contact?.metadata as Record<string, unknown>) ?? {});
       setSelectedTagIds(contactTags.map((ct) => ct.tag_id));
       setDupMatch(null);
       fetchTags();
     }
-  }, [open, contact]);
+  }, [open, contact, contactTags, fetchTags]);
 
   async function checkDuplicate() {
     if (isEdit || !accountId) return;
@@ -104,13 +111,6 @@ export function ContactForm({
     } finally {
       setCheckingDup(false);
     }
-  }
-
-  async function fetchTags() {
-    setLoadingTags(true);
-    const { data } = await supabase.from('tags').select('*').order('name');
-    if (data) setTags(data);
-    setLoadingTags(false);
   }
 
   function toggleTag(tagId: string) {
@@ -206,9 +206,10 @@ export function ContactForm({
           .maybeSingle();
 
         let seqId = existingPatient?.patient_seq_id;
+        const meta = contactMetadata as Record<string, unknown>;
         const inputBloodGroup =
-          (contactMetadata as any).blood_group ||
-          (contactMetadata as any)['Blood Group'] ||
+          (meta.blood_group as string) ||
+          (meta['Blood Group'] as string) ||
           null;
 
         if (!existingPatient) {
@@ -429,10 +430,10 @@ export function ContactForm({
                 {entityLabel} Information
               </span>
               {customFields.map((field) => {
-                const value = metadata[field.key] ?? '';
+                const value = (metadata[field.key] as string | number) ?? '';
                 const isGeneratedPatientId =
                   isHospitalWorkspace && field.key === 'patient_id';
-                const handleChange = (val: any) => {
+                const handleChange = (val: unknown) => {
                   setMetadata((prev) => ({ ...prev, [field.key]: val }));
                 };
 

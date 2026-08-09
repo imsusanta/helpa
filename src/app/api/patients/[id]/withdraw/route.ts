@@ -28,72 +28,57 @@ export async function POST(
     }
 
     const body = (await request.json().catch(() => ({}))) as {
-      consent_status?: string;
-      consent_source?: string;
-      policy_version?: string;
+      reason?: string;
     };
 
-    const {
-      consent_status,
-      consent_source = 'web_dashboard',
-      policy_version = 'v1.0',
-    } = body;
-
-    if (
-      !consent_status ||
-      !['opted_in', 'opted_out', 'pending'].includes(consent_status)
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            'Missing or invalid consent_status. Must be one of: pending, opted_in, opted_out',
-        },
-        { status: 400, headers: CACHE_HEADERS }
-      );
-    }
+    const { reason = 'patient_opted_out' } = body;
 
     const db = supabaseAdmin();
 
-    // 2. Atomic consent update + audit via RPC (scoped by server-derived accountId)
+    // 2. Atomic withdrawal via RPC (scoped by server-derived accountId)
     const { data: rpcResult, error: rpcErr } = await db.rpc(
       'update_patient_consent_atomic',
       {
         p_patient_id: patientId,
         p_account_id: accountId,
         p_actor_id: actorId,
-        p_consent_status: consent_status,
-        p_consent_source: consent_source,
-        p_policy_version: policy_version,
+        p_consent_status: 'opted_out',
+        p_consent_source: 'optout_request',
+        p_policy_version: 'v1.0',
       }
     );
 
     if (rpcErr) {
-      // Check for specific error messages from the RPC
       if (rpcErr.message?.includes('not found')) {
         return NextResponse.json(
           { error: 'Not found' },
           { status: 404, headers: CACHE_HEADERS }
         );
       }
-      logger.error('Consent update RPC failed', {
-        component: 'consent-api',
+      logger.error('Consent withdrawal RPC failed', {
+        component: 'withdrawal-api',
         accountId,
         correlationId: patientId,
       });
       return NextResponse.json(
-        { error: 'Failed to update consent record' },
+        { error: 'Failed to record consent withdrawal' },
         { status: 500, headers: CACHE_HEADERS }
       );
     }
+
+    logger.info('Patient consent withdrawn', {
+      component: 'withdrawal-api',
+      accountId,
+      correlationId: patientId,
+    });
 
     return NextResponse.json(
       {
         success: true,
         consent: {
           patient_id: patientId,
-          consent_status,
-          consent_source,
-          policy_version,
+          consent_status: 'opted_out',
+          reason,
           updated_at: rpcResult?.updated_at || new Date().toISOString(),
         },
       },
