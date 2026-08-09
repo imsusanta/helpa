@@ -88,7 +88,7 @@ export async function processFollowupJob(
     throw new UnrecoverableError('Patient contact is unavailable');
   }
 
-  let { data: conversation, error: conversationError } = await db
+  const { data: existingConversation, error: conversationError } = await db
     .from('conversations')
     .select('id')
     .eq('contact_id', appointment.patient_id)
@@ -96,6 +96,7 @@ export async function processFollowupJob(
     .maybeSingle();
 
   if (conversationError) throw new Error('Unable to load conversation');
+  let conversation = existingConversation;
   if (!conversation) {
     const { data: createdConversation, error: createError } = await db
       .from('conversations')
