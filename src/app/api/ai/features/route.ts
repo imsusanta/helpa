@@ -306,10 +306,10 @@ Text to translate:
         { status: 400 }
       );
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[AI API] Server Error:', err);
     return NextResponse.json(
-      { error: err.message || 'Server error' },
+      { error: (err as Error).message || 'Server error' },
       { status: 500 }
     );
   }

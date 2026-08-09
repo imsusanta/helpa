@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const patientName = appt.patient?.name || 'Patient';
+    const _patientName = appt.patient?.name || 'Patient';
     const patientPhone = appt.patient?.phone;
     const contactId = appt.patient?.id;
 
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch account name for hospital branding
-    const { data: account } = await db
+    const { data: _account } = await db
       .from('accounts')
       .select('name')
       .eq('id', accountId)

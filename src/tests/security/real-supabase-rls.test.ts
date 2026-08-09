@@ -194,7 +194,7 @@ describe('Real Supabase RLS & Atomic Security Controls', () => {
         status: 200,
         statusText: 'OK',
       });
-    }) as any);
+    }) as never);
 
     // Call RPC attempting to delete Tenant A patient with Tenant B account_id
     const { error: crossTenantError } = await serviceClient.rpc(
@@ -267,7 +267,7 @@ describe('Real Supabase RLS & Atomic Security Controls', () => {
         status: 200,
         statusText: 'OK',
       });
-    }) as any);
+    }) as never);
 
     const { error: invalidStatusErr } = await serviceClient.rpc(
       'update_patient_consent_atomic',

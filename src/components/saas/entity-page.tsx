@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 
 import { getIndustryModule } from '@/modules/registry';
 import { parseContactCsv } from '@/lib/contacts/parse-contact-csv';
-import type { FieldConfig, EntityConfig } from '@/modules/types';
+import type { EntityConfig } from '@/modules/types';
 
 const ENTITY_CONFIGS: Record<string, EntityConfig> = {
   students: {
@@ -357,7 +357,7 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
     ...(activeModule?.entityConfigs || {}),
   };
   const config = mergedConfigs[entityKey];
-  const [records, setRecords] = useState<any[]>([]);
+  const [records, setRecords] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
@@ -366,11 +366,11 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
   // Bulk Import State
   const [importOpen, setImportOpen] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [parsedRows, setParsedRows] = useState<any[]>([]);
+  const [parsedRows, setParsedRows] = useState<Record<string, unknown>[]>([]);
   const [fileName, setFileName] = useState('');
 
   // Form State
-  const [formData, setFormData] = useState<Record<string, any>>({});
+  const [formData, setFormData] = useState<Record<string, unknown>>({});
 
   const handleBulkImport = async () => {
     if (!accountId || parsedRows.length === 0) return;
@@ -387,7 +387,7 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
       if (!user) throw new Error('Not authenticated');
 
       for (const row of parsedRows) {
-        const rawPhone = row.phone?.trim();
+        const rawPhone = (row.phone as string)?.trim();
         if (!rawPhone) {
           skipCount++;
           continue;
@@ -471,8 +471,8 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
       setFileName('');
       setParsedRows([]);
       loadRecords();
-    } catch (err: any) {
-      toast.error('Import failed: ' + err.message);
+    } catch (err: unknown) {
+      toast.error('Import failed: ' + (err as Error).message);
     } finally {
       setImporting(false);
     }
@@ -481,7 +481,7 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
   useEffect(() => {
     if (!config) return;
     // Prefill default select values
-    const defaults: Record<string, any> = {};
+    const defaults: Record<string, unknown> = {};
     config.fields.forEach((f) => {
       if (f.type === 'select' && f.options) {
         defaults[f.key] = f.options[0];
@@ -492,7 +492,7 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
       }
     });
     setFormData(defaults);
-  }, [entityKey]);
+  }, [entityKey, config]);
 
   const loadRecords = async () => {
     if (!accountId || !config) return;
@@ -511,8 +511,8 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
 
       if (error) throw error;
       setRecords(data || []);
-    } catch (err: any) {
-      toast.error(`Failed to fetch records: ${err.message}`);
+    } catch (err: unknown) {
+      toast.error(`Failed to fetch records: ${(err as Error).message}`);
     } finally {
       setLoading(false);
     }
@@ -520,7 +520,8 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
 
   useEffect(() => {
     loadRecords();
-  }, [accountId, entityKey]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountId, entityKey, config]);
 
   if (!config) {
     return <div className="p-6 font-bold text-red-500">Invalid Entity Key</div>;
@@ -538,7 +539,7 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
       const user = session?.user;
       if (!user) throw new Error('Not authenticated');
 
-      const dataToInsert: any = {
+      const dataToInsert: Record<string, unknown> = {
         ...formData,
         account_id: accountId,
         created_at: new Date().toISOString(),
@@ -679,15 +680,15 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
       setIsOpen(false);
 
       // Reset form
-      const defaults: Record<string, any> = {};
+      const defaults: Record<string, unknown> = {};
       config.fields.forEach((f) => {
         defaults[f.key] = f.type === 'select' && f.options ? f.options[0] : '';
       });
       setFormData(defaults);
 
       loadRecords();
-    } catch (err: any) {
-      toast.error(`Save error: ${err.message}`);
+    } catch (err: unknown) {
+      toast.error(`Save error: ${(err as Error).message}`);
     } finally {
       setSaving(false);
     }
@@ -701,8 +702,8 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
       if (error) throw error;
       toast.success('Record deleted.');
       loadRecords();
-    } catch (err: any) {
-      toast.error(`Delete failed: ${err.message}`);
+    } catch (err: unknown) {
+      toast.error(`Delete failed: ${(err as Error).message}`);
     }
   };
 
@@ -784,7 +785,8 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
                     Click to upload Student CSV / Excel file
                   </p>
                   <p className="text-muted-foreground mt-0.5 text-xs">
-                    Headers required: "name", "phone" (Name first, then Phone)
+                    Headers required: &quot;name&quot;, &quot;phone&quot; (Name
+                    first, then Phone)
                   </p>
                 </div>
               )}
@@ -807,10 +809,10 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
                     );
                     return;
                   }
-                  setParsedRows(rows);
+                  setParsedRows(rows as unknown as Record<string, unknown>[]);
                   toast.success(`${rows.length} students parsed successfully.`);
-                } catch (err: any) {
-                  toast.error('Failed to parse CSV: ' + err.message);
+                } catch (err: unknown) {
+                  toast.error('Failed to parse CSV: ' + (err as Error).message);
                 }
               }}
             />
@@ -868,7 +870,7 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
                 {field.type === 'select' ? (
                   <select
                     id={field.key}
-                    value={formData[field.key] || ''}
+                    value={(formData[field.key] as string) || ''}
                     onChange={(e) =>
                       setFormData({ ...formData, [field.key]: e.target.value })
                     }
@@ -884,7 +886,7 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
                   <Input
                     id={field.key}
                     type={field.type}
-                    value={formData[field.key] || ''}
+                    value={(formData[field.key] as string | number) || ''}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
@@ -952,41 +954,47 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
               </tr>
             </thead>
             <tbody>
-              {filteredRecords.map((rec) => (
-                <tr
-                  key={rec.id}
-                  className="border-border/50 hover:bg-muted/10 border-b transition-colors"
-                >
-                  {tableFields.map((col) => {
-                    let val =
-                      col.type === 'number' && col.key.includes('fee')
-                        ? `₹${rec[col.key] || 0}`
-                        : rec[col.key]?.toString() || '—';
-                    if (col.key === 'name' && rec.contact) {
-                      val = rec.contact.name || '—';
-                    } else if (col.key === 'phone' && rec.contact) {
-                      val = rec.contact.phone || '—';
-                    }
-                    return (
-                      <td
-                        key={col.key}
-                        className="text-foreground p-4 font-medium"
+              {filteredRecords.map((rec) => {
+                const contactObj = rec.contact as {
+                  name?: string;
+                  phone?: string;
+                } | null;
+                return (
+                  <tr
+                    key={rec.id as string}
+                    className="border-border/50 hover:bg-muted/10 border-b transition-colors"
+                  >
+                    {tableFields.map((col) => {
+                      let val =
+                        col.type === 'number' && col.key.includes('fee')
+                          ? `₹${(rec[col.key] as number) || 0}`
+                          : (rec[col.key] as string)?.toString() || '—';
+                      if (col.key === 'name' && contactObj) {
+                        val = contactObj.name || '—';
+                      } else if (col.key === 'phone' && contactObj) {
+                        val = contactObj.phone || '—';
+                      }
+                      return (
+                        <td
+                          key={col.key}
+                          className="text-foreground p-4 font-medium"
+                        >
+                          {val}
+                        </td>
+                      );
+                    })}
+                    <td className="p-4 text-right">
+                      <button
+                        onClick={() => handleDelete(rec.id as string)}
+                        className="rounded-lg p-1.5 text-red-500 transition hover:bg-red-500/10 hover:text-red-700"
+                        title="Delete Record"
                       >
-                        {val}
-                      </td>
-                    );
-                  })}
-                  <td className="p-4 text-right">
-                    <button
-                      onClick={() => handleDelete(rec.id)}
-                      className="rounded-lg p-1.5 text-red-500 transition hover:bg-red-500/10 hover:text-red-700"
-                      title="Delete Record"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

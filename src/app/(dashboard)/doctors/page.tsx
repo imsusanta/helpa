@@ -5,12 +5,10 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
-import { formatCurrency } from '@/lib/currency';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  UserCheck,
   Stethoscope,
   Plus,
   Loader2,
@@ -45,6 +43,7 @@ const ALL_DAYS = [
 
 export default function DoctorsPage() {
   const { accountId, defaultCurrency } = useAuth();
+  void defaultCurrency;
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -150,8 +149,8 @@ export default function DoctorsPage() {
       setEditingDocId(null);
       setShowAddForm(false);
       loadDoctors();
-    } catch (err: any) {
-      toast.error('Failed to save doctor: ' + err.message);
+    } catch (err: unknown) {
+      toast.error('Failed to save doctor: ' + (err as Error).message);
     } finally {
       setSaving(false);
     }
@@ -189,8 +188,8 @@ export default function DoctorsPage() {
       toast.success('Doctor deleted successfully!');
       setDocIdToDelete(null);
       loadDoctors();
-    } catch (err: any) {
-      toast.error('Failed to delete doctor: ' + err.message);
+    } catch (err: unknown) {
+      toast.error('Failed to delete doctor: ' + (err as Error).message);
     } finally {
       setDeletingDoc(false);
     }

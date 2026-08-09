@@ -365,10 +365,10 @@ export async function GET(
         'Content-Disposition': `inline; filename="opd-ticket-${bookingId}.pdf"`,
       },
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('PDF ticket generation failed:', err);
     return NextResponse.json(
-      { error: 'Failed to generate PDF ticket: ' + err.message },
+      { error: 'Failed to generate PDF ticket: ' + (err as Error).message },
       { status: 500 }
     );
   }

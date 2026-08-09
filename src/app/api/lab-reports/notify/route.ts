@@ -77,11 +77,14 @@ export async function POST(request: Request) {
       .single();
 
     const hospitalName = account?.name || 'Hospital';
-    const docData = report.doctor as any;
+    const docData = report.doctor as
+      | { name?: string }
+      | { name?: string }[]
+      | null;
     const doctorName = (
       Array.isArray(docData) ? docData[0]?.name : docData?.name
     )
-      ? `Dr. ${(Array.isArray(docData) ? docData[0]?.name : docData?.name).replace(/^Dr\.\s+/i, '')}`
+      ? `Dr. ${(Array.isArray(docData) ? docData[0]?.name : docData?.name)?.replace(/^Dr\.\s+/i, '')}`
       : 'your doctor';
     const systemUserId = '00000000-0000-0000-0000-000000000000';
 
@@ -133,8 +136,11 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ success: true });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[Report Notify API] Crash:', err);
-    return NextResponse.json({ error: err.message || err }, { status: 500 });
+    return NextResponse.json(
+      { error: (err as Error).message || String(err) },
+      { status: 500 }
+    );
   }
 }

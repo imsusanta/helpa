@@ -14,7 +14,7 @@ export async function GET() {
     const ctx = await requireRole('admin');
     const db = supabaseAdmin();
 
-    let account: any = null;
+    let account: Record<string, unknown> | null = null;
     let { data, error } = await db
       .from('accounts')
       .select(
@@ -32,7 +32,7 @@ export async function GET() {
         )
         .eq('id', ctx.accountId)
         .single();
-      data = fallback.data as any;
+      data = fallback.data as unknown as typeof data;
       error = fallback.error;
     }
 
@@ -44,23 +44,24 @@ export async function GET() {
       );
     }
 
-    account = data;
+    account = data as Record<string, unknown>;
 
     return NextResponse.json({
-      account_name: account?.name || '',
-      openrouter_model: account?.openrouter_model || '',
+      account_name: (account?.name as string) || '',
+      openrouter_model: (account?.openrouter_model as string) || '',
       has_api_key: !!account?.openrouter_api_key,
       ai_system_prompt: resolveSystemPrompt(
-        account?.industry,
-        account?.ai_system_prompt
+        account?.industry as string,
+        account?.ai_system_prompt as string
       ),
-      welcome_message: account?.welcome_message || '',
+      welcome_message: (account?.welcome_message as string) || '',
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[GET /api/account/ai] exception:', err);
+    const errorObj = err as Record<string, unknown>;
     return NextResponse.json(
-      { error: err?.message || 'Failed to fetch AI configuration' },
-      { status: err?.status || 500 }
+      { error: (err as Error)?.message || 'Failed to fetch AI configuration' },
+      { status: (errorObj?.status as number) || 500 }
     );
   }
 }
@@ -137,7 +138,7 @@ export async function PATCH(request: Request) {
             'name, openrouter_model, openrouter_api_key, ai_system_prompt, industry'
           )
           .single();
-        data = retry.data as any;
+        data = retry.data as unknown as typeof data;
         error = retry.error;
       } else {
         error = null;
@@ -152,21 +153,23 @@ export async function PATCH(request: Request) {
       );
     }
 
+    const resData = data as Record<string, unknown>;
     return NextResponse.json({
-      account_name: data?.name || '',
-      openrouter_model: data?.openrouter_model || '',
-      has_api_key: !!data?.openrouter_api_key,
+      account_name: (resData?.name as string) || '',
+      openrouter_model: (resData?.openrouter_model as string) || '',
+      has_api_key: !!resData?.openrouter_api_key,
       ai_system_prompt: resolveSystemPrompt(
-        data?.industry,
-        data?.ai_system_prompt
+        resData?.industry as string,
+        resData?.ai_system_prompt as string
       ),
-      welcome_message: data?.welcome_message || '',
+      welcome_message: (resData?.welcome_message as string) || '',
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[PATCH /api/account/ai] exception:', err);
+    const errorObj = err as Record<string, unknown>;
     return NextResponse.json(
-      { error: err?.message || 'Failed to update AI configuration' },
-      { status: err?.status || 500 }
+      { error: (err as Error)?.message || 'Failed to update AI configuration' },
+      { status: (errorObj?.status as number) || 500 }
     );
   }
 }

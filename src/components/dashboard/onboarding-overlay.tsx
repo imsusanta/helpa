@@ -27,7 +27,7 @@ interface IndustryItem {
   name: string;
   description: string;
   features: string[];
-  icon: React.ComponentType<any>;
+  icon: React.ComponentType<{ className?: string }>;
   color: string;
   bg: string;
   border: string;
@@ -242,8 +242,8 @@ export function OnboardingOverlay() {
       // Force instant hot-reload of profile Context
       await refreshProfile();
       await refreshModules();
-    } catch (err: any) {
-      toast.error(err.message || 'Onboarding failed.');
+    } catch (err: unknown) {
+      toast.error((err as Error).message || 'Onboarding failed.');
       setStep(2); // Fallback to card selection on error
     }
   };
@@ -293,8 +293,9 @@ export function OnboardingOverlay() {
                 Welcome to ReplyDesk
               </h2>
               <p className="text-muted-foreground mx-auto max-w-md text-sm leading-relaxed">
-                Your intelligent multi-industry AI assistant dashboard. Let's
-                seed your workspace parameters and templates in seconds.
+                Your intelligent multi-industry AI assistant dashboard.
+                Let&apos;s seed your workspace parameters and templates in
+                seconds.
               </p>
             </div>
             <Button

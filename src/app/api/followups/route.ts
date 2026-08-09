@@ -47,10 +47,10 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({ followups: followups || [] });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[Followups GET] Exception:', err);
     return NextResponse.json(
-      { error: err.message || 'Internal Server Error' },
+      { error: (err as Error).message || 'Internal Server Error' },
       { status: 500 }
     );
   }
@@ -58,7 +58,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { accountId, userId } = await requireRole('agent');
+    const { accountId, userId: _userId } = await requireRole('agent');
     if (!accountId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -96,10 +96,10 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ followup: created });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[Followups POST] Exception:', err);
     return NextResponse.json(
-      { error: err.message || 'Internal Server Error' },
+      { error: (err as Error).message || 'Internal Server Error' },
       { status: 500 }
     );
   }

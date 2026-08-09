@@ -46,30 +46,39 @@ export async function GET(request: Request) {
       )
       .in('id', contactIds);
 
-    const patientsMap = new Map<string, any>();
-    patientsData?.forEach((p) => patientsMap.set(p.id, p));
+    const patientsMap = new Map<string, Record<string, unknown>>();
+    patientsData?.forEach((p) =>
+      patientsMap.set(p.id, p as Record<string, unknown>)
+    );
 
     const result = contacts.map((c) => {
       const p = patientsMap.get(c.id);
       const meta =
-        c.metadata && typeof c.metadata === 'object' ? c.metadata : {};
+        c.metadata && typeof c.metadata === 'object'
+          ? (c.metadata as Record<string, unknown>)
+          : {};
       return {
         id: c.id,
-        patient_seq_id: getOrGeneratePatientId(c, p?.patient_seq_id),
+        patient_seq_id: getOrGeneratePatientId(c, p?.patient_seq_id as string),
         name: c.name || 'Unnamed Patient',
         phone: c.phone || '',
         email: c.email || '',
         address: c.address || '',
-        gender: p?.gender || meta.gender || 'Not Specified',
-        date_of_birth: p?.date_of_birth || meta.dob || null,
-        blood_group: p?.blood_group || meta.blood_group || null,
+        gender:
+          (p?.gender as string) || (meta.gender as string) || 'Not Specified',
+        date_of_birth:
+          (p?.date_of_birth as string) || (meta.dob as string) || null,
+        blood_group:
+          (p?.blood_group as string) || (meta.blood_group as string) || null,
         emergency_contact:
-          p?.emergency_contact || meta.emergency_contact || null,
+          (p?.emergency_contact as string) ||
+          (meta.emergency_contact as string) ||
+          null,
       };
     });
 
     return NextResponse.json({ patients: result });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[GET /api/patients/search] exception:', err);
     return NextResponse.json({ patients: [] }, { status: 200 });
   }

@@ -29,7 +29,7 @@ export async function GET() {
         >),
       },
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[GET /api/account/booking-form] exception:', err);
     return NextResponse.json(
       { config: DEFAULT_BOOKING_FORM_CONFIG },
@@ -79,11 +79,15 @@ export async function PATCH(request: Request) {
     return NextResponse.json({
       config: data?.appointment_form_config || sanitizedConfig,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[PATCH /api/account/booking-form] exception:', err);
+    const errorObj = err as Record<string, unknown>;
     return NextResponse.json(
-      { error: err?.message || 'Failed to update booking form settings' },
-      { status: err?.status || 500 }
+      {
+        error:
+          (err as Error)?.message || 'Failed to update booking form settings',
+      },
+      { status: (errorObj?.status as number) || 500 }
     );
   }
 }

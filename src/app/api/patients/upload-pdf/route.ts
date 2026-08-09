@@ -3,7 +3,7 @@ import { requireRole } from '@/lib/auth/account';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
 import {
   engineSendDocument,
-  engineSendText,
+  engineSendText as _engineSendText,
 } from '@/lib/automations/meta-send';
 
 export async function POST(request: Request) {
@@ -161,10 +161,10 @@ export async function POST(request: Request) {
       report,
       message: 'PDF uploaded and recorded successfully',
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[Upload Patient PDF] Exception:', err);
     return NextResponse.json(
-      { error: err.message || 'Internal Server Error' },
+      { error: (err as Error).message || 'Internal Server Error' },
       { status: 500 }
     );
   }

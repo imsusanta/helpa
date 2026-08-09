@@ -15,15 +15,15 @@ import {
   Sparkles,
   ArrowRight,
   TrendingUp,
-  Loader2,
-  Plus,
 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { SkeletonCard } from '@/components/dashboard/skeleton';
-import { toast } from 'sonner';
 
-const ICON_COMPONENTS: Record<string, any> = {
+const ICON_COMPONENTS: Record<
+  string,
+  React.ComponentType<{ className?: string }>
+> = {
   LayoutDashboard: Calendar,
   Calendar,
   Users,

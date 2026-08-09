@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import crypto from 'node:crypto';
 import { POST, GET } from './route';
 

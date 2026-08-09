@@ -6,7 +6,6 @@ import {
   FileText,
   Send,
   Loader2,
-  CheckCircle2,
   Stethoscope,
   UploadCloud,
 } from 'lucide-react';
@@ -74,7 +73,7 @@ export function UploadPatientPdfModal({
       const fileName = `${contactId}_${Date.now()}.${fileExt}`;
       const filePath = `patient-docs/${fileName}`;
 
-      const { data: uploadData, error: uploadErr } = await supabase.storage
+      const { data: _uploadData, error: uploadErr } = await supabase.storage
         .from('chat-media')
         .upload(filePath, file, { upsert: true });
 
@@ -119,9 +118,9 @@ export function UploadPatientPdfModal({
       setTestName('');
       setNotes('');
       if (onSuccess) onSuccess();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[Upload PDF] Exception:', err);
-      toast.error(err.message || 'Failed to upload patient PDF');
+      toast.error((err as Error).message || 'Failed to upload patient PDF');
     } finally {
       setUploading(false);
     }
@@ -173,7 +172,7 @@ export function UploadPatientPdfModal({
                     key={t.id}
                     type="button"
                     onClick={() => {
-                      setDocType(t.id as any);
+                      setDocType(t.id as unknown as never);
                       if (t.id === 'prescription' && !testName)
                         setTestName('Doctor Prescription Slip');
                       if (t.id === 'lab_report' && !testName)
@@ -273,7 +272,7 @@ export function UploadPatientPdfModal({
               className="text-foreground flex cursor-pointer items-center gap-1.5 text-xs font-semibold"
             >
               <Send className="size-3 text-emerald-500" />
-              Auto-send PDF to patient's WhatsApp instantly
+              Auto-send PDF to patient&apos;s WhatsApp instantly
             </label>
           </div>
 

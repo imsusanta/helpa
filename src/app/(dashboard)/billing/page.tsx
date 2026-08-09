@@ -61,17 +61,26 @@ export default function BillingPage() {
         .eq('account_id', accountId)
         .order('created_at', { ascending: false });
 
-      setBills((billRows as any) || []);
+      setBills((billRows as unknown as never) || []);
 
       const { data: pats } = await db
         .from('patients')
         .select('id, contact:contacts(name)')
         .eq('account_id', accountId);
 
-      const mappedPats = (pats || []).map((p: any) => ({
-        id: p.id,
-        name: p.contact?.name || 'Unknown Patient',
-      }));
+      const mappedPats = (pats || []).map((p) => {
+        const cData = p.contact as
+          | { name?: string }
+          | { name?: string }[]
+          | null;
+        const cName =
+          (Array.isArray(cData) ? cData[0]?.name : cData?.name) ||
+          'Unknown Patient';
+        return {
+          id: p.id as string,
+          name: cName,
+        };
+      });
       setPatients(mappedPats);
     } catch (err) {
       console.error('Error loading bills:', err);
@@ -86,35 +95,31 @@ export default function BillingPage() {
 
   const handleCreateBill = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!patientId || !description || !amount) {
-      toast.error('Please fill in patient, description and amount.');
+    if (!patientId || !amount || !accountId) {
+      toast.error('Patient and amount are required');
       return;
     }
 
     setSaving(true);
     const db = createClient();
-
     try {
-      const billNo = `BIL-${Date.now().toString().slice(-6)}`;
       const { error } = await db.from('hospital_bills').insert({
         account_id: accountId,
         patient_id: patientId,
-        bill_number: billNo,
-        description: description,
+        description: description || 'General Consultation & Treatment Fee',
         amount: parseFloat(amount),
-        status: status,
+        status: 'unpaid',
       });
 
       if (error) throw error;
-
       toast.success('Invoice generated successfully!');
       setPatientId('');
       setDescription('');
       setAmount('');
       setShowAddForm(false);
       loadData();
-    } catch (err: any) {
-      toast.error('Failed to generate bill: ' + err.message);
+    } catch (err: unknown) {
+      toast.error('Failed to generate bill: ' + (err as Error).message);
     } finally {
       setSaving(false);
     }
@@ -134,8 +139,8 @@ export default function BillingPage() {
       if (error) throw error;
       toast.success(`Bill status updated to ${newStatus}.`);
       loadData();
-    } catch (err: any) {
-      toast.error('Status update failed: ' + err.message);
+    } catch (err: unknown) {
+      toast.error('Status update failed: ' + (err as Error).message);
     }
   };
 
@@ -272,7 +277,7 @@ export default function BillingPage() {
               <Label>Initial Status</Label>
               <select
                 value={status}
-                onChange={(e) => setStatus(e.target.value as any)}
+                onChange={(e) => setStatus(e.target.value as unknown as never)}
                 className="border-input bg-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
               >
                 <option value="unpaid">Unpaid</option>

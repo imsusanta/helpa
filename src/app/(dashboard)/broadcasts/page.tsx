@@ -2,7 +2,7 @@
 
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Broadcast } from '@/types';
@@ -19,10 +19,6 @@ import {
   Megaphone,
   Plus,
   Loader2,
-  Percent,
-  CheckCheck,
-  MessageSquare,
-  TrendingUp,
   Sparkles,
   ArrowRight,
   ShieldAlert,
@@ -90,7 +86,7 @@ export default function CampaignsPage() {
 
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  async function fetchCampaignsAndStats() {
+  const fetchCampaignsAndStats = useCallback(async () => {
     if (!accountId) return;
     try {
       const supabase = createClient();
@@ -148,11 +144,11 @@ export default function CampaignsPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [accountId]);
 
   useEffect(() => {
     fetchCampaignsAndStats();
-  }, [accountId]);
+  }, [fetchCampaignsAndStats]);
 
   const anySending = useMemo(
     () => broadcasts.some((b) => b.status === 'sending'),
@@ -191,7 +187,7 @@ export default function CampaignsPage() {
       stopPolling();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [anySending]);
+  }, [anySending, fetchCampaignsAndStats]);
 
   // Aggregate metrics
   const totalCampaigns = broadcasts.length;
@@ -244,7 +240,7 @@ export default function CampaignsPage() {
       toast.success('Campaign deleted successfully');
       setCampaignIdToDelete(null);
       fetchCampaignsAndStats();
-    } catch (err) {
+    } catch {
       toast.error('Failed to delete campaign');
     } finally {
       setDeletingCampaign(false);

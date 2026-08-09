@@ -9,7 +9,7 @@ export async function POST(request: Request) {
     const { industry } = body || {};
 
     const activeModule = getIndustryModule(
-      industry || (ctx.account as any)?.industry
+      industry || (ctx.account as { industry?: string })?.industry
     );
     const metricsResult: Record<string, number> = {};
 

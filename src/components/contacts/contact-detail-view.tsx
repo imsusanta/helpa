@@ -6,15 +6,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { getIndustryModule } from '@/modules/registry';
 import { formatCurrency } from '@/lib/currency';
 import { toast } from 'sonner';
-import type {
-  Contact,
-  Tag,
-  ContactTag,
-  ContactNote,
-  CustomField,
-  ContactCustomValue,
-  Deal,
-} from '@/types';
+import type { Contact, Tag, ContactNote, CustomField, Deal } from '@/types';
 import {
   Sheet,
   SheetContent,
@@ -29,7 +21,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Phone,
   Mail,
@@ -40,7 +31,6 @@ import {
   Plus,
   Trash2,
   Save,
-  X,
   DollarSign,
   MessageSquare,
   FileUp,
@@ -79,7 +69,7 @@ export function ContactDetailView({
   const [editCompany, setEditCompany] = useState('');
   const [editAddress, setEditAddress] = useState('');
   const [editNotes, setEditNotes] = useState('');
-  const [editMetadata, setEditMetadata] = useState<Record<string, any>>({});
+  const [editMetadata, setEditMetadata] = useState<Record<string, unknown>>({});
   const [savingDetails, setSavingDetails] = useState(false);
 
   // Tags tab
@@ -596,7 +586,7 @@ export function ContactDetailView({
                       <Input
                         value={
                           patientSeqId ||
-                          (editMetadata as any)?.patient_id ||
+                          (editMetadata.patient_id as string) ||
                           'PAT-000001'
                         }
                         readOnly
@@ -676,8 +666,9 @@ export function ContactDetailView({
                           {contactConfig?.label || 'Contact'} Details
                         </span>
                         {fields.map((field) => {
-                          const val = editMetadata[field.key] ?? '';
-                          const handleChange = (newVal: any) => {
+                          const val =
+                            (editMetadata[field.key] as string | number) ?? '';
+                          const handleChange = (newVal: unknown) => {
                             setEditMetadata((prev) => ({
                               ...prev,
                               [field.key]: newVal,

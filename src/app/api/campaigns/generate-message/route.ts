@@ -71,7 +71,7 @@ export async function POST(request: Request) {
     let api_key = '';
     try {
       api_key = decrypt(account.openrouter_api_key);
-    } catch (err) {
+    } catch {
       return NextResponse.json(
         { error: 'Failed to decrypt OpenRouter API Key.' },
         { status: 500 }
@@ -137,10 +137,10 @@ ${department ? `Department: ${department}` : ''}`;
     const generatedMessage = resJson.choices?.[0]?.message?.content?.trim();
 
     return NextResponse.json({ message: generatedMessage });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Error generating campaign message:', err);
     return NextResponse.json(
-      { error: err.message || 'Internal Server Error' },
+      { error: (err as Error).message || 'Internal Server Error' },
       { status: 500 }
     );
   }

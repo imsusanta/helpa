@@ -43,7 +43,6 @@ import {
   ChevronLeft,
   ChevronRight,
   SlidersHorizontal,
-  UserCheck,
   MessageSquare,
 } from 'lucide-react';
 import { SendOutboundModal } from '@/components/contacts/send-outbound-modal';
@@ -210,10 +209,11 @@ export default function ContactsPage() {
         c.metadata && typeof c.metadata === 'object' ? c.metadata : {};
       const pData = patientsMap[c.id];
       const patientIdVal = getOrGeneratePatientId(c, pData?.patient_seq_id);
+      const metaObj = meta as Record<string, unknown>;
       const bloodGroupVal =
         pData?.blood_group ||
-        (meta as any).blood_group ||
-        (meta as any)['Blood Group'] ||
+        (metaObj.blood_group as string) ||
+        (metaObj['Blood Group'] as string) ||
         '—';
 
       return {
@@ -282,7 +282,9 @@ export default function ContactsPage() {
         .select('id')
         .eq('contact_id', deleteTarget.id);
 
-      const convIds = (conversations || []).map((c: any) => c.id);
+      const convIds = (conversations || []).map(
+        (c) => (c as { id: string }).id
+      );
 
       // 2. Delete related deals
       if (convIds.length > 0) {
@@ -308,7 +310,7 @@ export default function ContactsPage() {
         .delete()
         .eq('contact_id', deleteTarget.id);
 
-      // 4. Finally, delete the contact itself
+      // 4. Finally, delete the contact record
       const { error } = await supabase
         .from('contacts')
         .delete()
@@ -317,12 +319,14 @@ export default function ContactsPage() {
       if (error) {
         throw error;
       } else {
-        toast.success('Patient profile and records deleted');
+        toast.success('Patient profile deleted successfully');
         fetchContacts();
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[Delete Patient] Error:', err);
-      toast.error('Failed to delete patient profile: ' + err.message);
+      toast.error(
+        'Failed to delete patient profile: ' + (err as Error).message
+      );
     } finally {
       setDeleting(false);
       setDeleteConfirmOpen(false);
@@ -367,7 +371,9 @@ export default function ContactsPage() {
         .select('id')
         .in('contact_id', ids);
 
-      const convIds = (conversations || []).map((c: any) => c.id);
+      const convIds = (conversations || []).map(
+        (c) => (c as { id: string }).id
+      );
 
       // 2. Delete related deals
       if (convIds.length > 0) {
@@ -394,9 +400,11 @@ export default function ContactsPage() {
         setSelected(new Set());
         fetchContacts();
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[Bulk Delete Patients] Error:', err);
-      toast.error('Failed to delete patient profiles: ' + err.message);
+      toast.error(
+        'Failed to delete patient profiles: ' + (err as Error).message
+      );
     } finally {
       setDeleting(false);
       setBulkDeleteOpen(false);

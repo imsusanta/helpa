@@ -19,7 +19,7 @@ interface DepartmentData {
   doctorCount: number;
   appointmentCount: number;
   description: string;
-  icon: any;
+  icon: React.ComponentType<{ className?: string }>;
 }
 
 const DEPT_TEMPLATES = [
@@ -32,25 +32,25 @@ const DEPT_TEMPLATES = [
   {
     name: 'Pediatrics',
     description:
-      'Comprehensive healthcare and routine developmental wellness checks for infants, children, and teens.',
+      'Childcare, newborn screenings, vaccination trackers, and pediatric wellness plans.',
     icon: Baby,
+  },
+  {
+    name: 'Dentistry',
+    description:
+      'Root canals, dental implants, aligners, and periodic teeth cleaning appointments.',
+    icon: Smile,
   },
   {
     name: 'General Medicine',
     description:
-      'Primary healthcare, internal diagnostics, wellness exams, and chronic care management.',
+      'Daily OPD, viral fever treatments, health checkups, and routine lab referrals.',
     icon: Building,
   },
   {
-    name: 'Dermatology',
+    name: 'Dermatology & Cosmetology',
     description:
-      'Diagnostics and clinical therapies for complex skin, hair, nail conditions, and allergies.',
-    icon: Smile,
-  },
-  {
-    name: 'Orthopedics',
-    description:
-      'Clinical joint care, bone fracture therapies, musculoskeletal surgeries, and physio checks.',
+      'Skin consultations, laser therapy, acne treatments, and hair restoration care.',
     icon: Shield,
   },
 ];
@@ -63,18 +63,13 @@ export default function DepartmentsPage() {
   useEffect(() => {
     async function loadStats() {
       if (!accountId) return;
-      const db = createClient();
-
       try {
-        // Fetch doctor counts and appointment counts
+        const db = createClient();
         const [docsRes, apptsRes] = await Promise.all([
-          db
-            .from('hospital_doctors')
-            .select('id, department')
-            .eq('account_id', accountId),
+          db.from('doctors').select('department').eq('account_id', accountId),
           db
             .from('appointments')
-            .select('id, department')
+            .select('department')
             .eq('account_id', accountId),
         ]);
 
@@ -83,10 +78,14 @@ export default function DepartmentsPage() {
 
         const mapped: DepartmentData[] = DEPT_TEMPLATES.map((tmpl) => {
           const docCount = doctors.filter(
-            (d: any) => d.department?.toLowerCase() === tmpl.name.toLowerCase()
+            (d) =>
+              (d as { department?: string }).department?.toLowerCase() ===
+              tmpl.name.toLowerCase()
           ).length;
           const apptCount = appointments.filter(
-            (a: any) => a.department?.toLowerCase() === tmpl.name.toLowerCase()
+            (a) =>
+              (a as { department?: string }).department?.toLowerCase() ===
+              tmpl.name.toLowerCase()
           ).length;
 
           return {

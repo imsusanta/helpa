@@ -7,16 +7,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  FileText,
   Plus,
   Loader2,
   Check,
-  Search,
   Activity,
   FileDown,
   FileUp,
   Bell,
-  Package,
   MessageSquare,
   Edit,
 } from 'lucide-react';
@@ -65,9 +62,9 @@ export default function LabReportsPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [patientId, setPatientId] = useState('');
   const [testName, setTestName] = useState('');
-  const [status, setStatus] = useState<'pending' | 'processing' | 'ready'>(
-    'pending'
-  );
+  const [status, setStatus] = useState<
+    'pending' | 'processing' | 'ready' | 'delivered'
+  >('pending');
   const [department, setDepartment] = useState('');
   const [doctorId, setDoctorId] = useState('');
   const [expectedDate, setExpectedDate] = useState('');
@@ -99,31 +96,53 @@ export default function LabReportsPage() {
     if (!accountId) return;
     const db = createClient();
     try {
-      const { data: reportRows } = await db
+      const { data: repData, error } = await db
         .from('hospital_lab_reports')
         .select(
-          `
-          id,
-          test_name,
-          status,
-          result_url,
-          report_pdf_url,
-          notes,
-          department,
-          doctor_id,
-          internal_notes,
-          expected_delivery_date,
-          notified_patient,
-          created_at,
-          updated_at,
-          patient:contacts(id, name, phone),
-          doctor:hospital_doctors(id, name)
-        `
+          '*, patient:patients(id, contact:contacts(name, phone)), doctor:hospital_doctors(id, name)'
         )
         .eq('account_id', accountId)
         .order('created_at', { ascending: false });
 
-      setReports((reportRows as any) || []);
+      if (error) throw error;
+
+      const formattedReports: LabReport[] = (repData || []).map((r) => {
+        const item = r as Record<string, unknown>;
+        const pData = item.patient as {
+          id: string;
+          contact: { name: string; phone: string } | null;
+        } | null;
+        const docObj = item.doctor as { id: string; name: string } | null;
+        return {
+          id: item.id as string,
+          account_id: item.account_id as string,
+          patient_id: item.patient_id as string,
+          doctor_id: item.doctor_id as string,
+          test_name: item.test_name as string,
+          department: item.department as string,
+          status: item.status as LabReport['status'],
+          report_pdf_url: item.report_pdf_url as string,
+          expected_delivery_date: item.expected_delivery_date as string,
+          notes: item.notes as string,
+          created_at: item.created_at as string,
+          updated_at: item.updated_at as string,
+          patient: pData
+            ? {
+                id: pData.id,
+                name: pData.contact?.name || 'Unknown Patient',
+                phone: pData.contact?.phone || '—',
+              }
+            : null,
+          doctor: docObj
+            ? {
+                id: docObj.id,
+                name: docObj.name,
+              }
+            : null,
+        };
+      });
+
+      setReports(formattedReports);
 
       // Fetch patients
       const { data: pats } = await db
@@ -131,10 +150,20 @@ export default function LabReportsPage() {
         .select('id, contact:contacts(name)')
         .eq('account_id', accountId);
 
-      const mappedPats = (pats || []).map((p: any) => ({
-        id: p.id,
-        name: p.contact?.name || 'Unknown Patient',
-      }));
+      const mappedPats = (pats || []).map((p) => {
+        const item = p as Record<string, unknown>;
+        const cData = item.contact as
+          | { name?: string }
+          | { name?: string }[]
+          | null;
+        const cName =
+          (Array.isArray(cData) ? cData[0]?.name : cData?.name) ||
+          'Unknown Patient';
+        return {
+          id: item.id as string,
+          name: cName,
+        };
+      });
       setPatients(mappedPats);
 
       // Fetch doctors
@@ -144,7 +173,7 @@ export default function LabReportsPage() {
         .eq('account_id', accountId)
         .eq('status', 'active');
 
-      setDoctors((docsData as any) || []);
+      setDoctors((docsData as unknown as Doctor[]) || []);
     } catch (err) {
       console.error('Error loading lab reports:', err);
     } finally {
@@ -176,8 +205,8 @@ export default function LabReportsPage() {
       const result = await uploadAccountMedia('chat-media', file);
       setPdfUrl(result.publicUrl);
       toast.success('PDF uploaded successfully!');
-    } catch (err: any) {
-      toast.error('Upload failed: ' + err.message);
+    } catch (err: unknown) {
+      toast.error('Upload failed: ' + (err as Error).message);
     } finally {
       setUploadingPdf(false);
     }
@@ -205,8 +234,8 @@ export default function LabReportsPage() {
       const result = await uploadAccountMedia('chat-media', file);
       setEditPdfUrl(result.publicUrl);
       toast.success('PDF uploaded successfully!');
-    } catch (err: any) {
-      toast.error('Upload failed: ' + err.message);
+    } catch (err: unknown) {
+      toast.error('Upload failed: ' + (err as Error).message);
     } finally {
       setUploadingEditPdf(false);
     }
@@ -252,8 +281,8 @@ export default function LabReportsPage() {
       toast.success('Diagnostic report updated successfully!');
       setEditingReportId(null);
       loadData();
-    } catch (err: any) {
-      toast.error('Failed to update report: ' + err.message);
+    } catch (err: unknown) {
+      toast.error('Failed to update report: ' + (err as Error).message);
     } finally {
       setUpdating(false);
     }
@@ -294,8 +323,8 @@ export default function LabReportsPage() {
 
       toast.success('PDF uploaded and linked to report!', { id: toastId });
       loadData();
-    } catch (err: any) {
-      toast.error('Upload failed: ' + err.message, { id: toastId });
+    } catch (err: unknown) {
+      toast.error('Upload failed: ' + (err as Error).message, { id: toastId });
     }
   };
 
@@ -338,8 +367,8 @@ export default function LabReportsPage() {
       setInternalNotes('');
       setShowAddForm(false);
       loadData();
-    } catch (err: any) {
-      toast.error('Failed to record lab test: ' + err.message);
+    } catch (err: unknown) {
+      toast.error('Failed to record lab test: ' + (err as Error).message);
     } finally {
       setSaving(false);
     }
@@ -372,7 +401,7 @@ export default function LabReportsPage() {
           } else {
             toast.error('Failed to notify patient on WhatsApp.');
           }
-        } catch (e) {
+        } catch {
           toast.error('Notification request failed.');
         } finally {
           setNotifying('');
@@ -380,8 +409,8 @@ export default function LabReportsPage() {
       }
 
       loadData();
-    } catch (err: any) {
-      toast.error('Status update failed: ' + err.message);
+    } catch (err: unknown) {
+      toast.error('Status update failed: ' + (err as Error).message);
     }
   };
 
@@ -399,7 +428,7 @@ export default function LabReportsPage() {
       } else {
         toast.error('Failed to notify patient on WhatsApp.');
       }
-    } catch (e) {
+    } catch {
       toast.error('Notification request failed.');
     } finally {
       setNotifying('');
@@ -511,7 +540,15 @@ export default function LabReportsPage() {
               <Label>Initial Status</Label>
               <select
                 value={status}
-                onChange={(e) => setStatus(e.target.value as any)}
+                onChange={(e) =>
+                  setStatus(
+                    e.target.value as
+                      | 'pending'
+                      | 'processing'
+                      | 'ready'
+                      | 'delivered'
+                  )
+                }
                 className="border-input bg-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
               >
                 <option value="pending">
@@ -667,7 +704,15 @@ export default function LabReportsPage() {
               <Label>Status</Label>
               <select
                 value={editStatus}
-                onChange={(e) => setEditStatus(e.target.value as any)}
+                onChange={(e) =>
+                  setEditStatus(
+                    e.target.value as
+                      | 'pending'
+                      | 'processing'
+                      | 'ready'
+                      | 'delivered'
+                  )
+                }
                 className="border-input bg-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
               >
                 <option value="pending">
@@ -810,7 +855,10 @@ export default function LabReportsPage() {
               </thead>
               <tbody className="divide-border text-foreground divide-y">
                 {filteredReports.map((rep) => {
-                  const docData = rep.doctor as any;
+                  const docData = rep.doctor as
+                    | { name?: string }
+                    | { name?: string }[]
+                    | null;
                   const docName =
                     (Array.isArray(docData)
                       ? docData[0]?.name

@@ -52,8 +52,11 @@ export function scrubSensitiveFields<T extends Record<string, unknown>>(
 > {
   const {
     db_connection_secret: _,
+
     internal_token: __,
+
     api_key: ___,
+
     service_role_key: ____,
     ...scrubbed
   } = record;

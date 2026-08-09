@@ -19,6 +19,7 @@ interface NavBarProps {
 
 export function NavBar({ items, className }: NavBarProps) {
   const [activeTab, setActiveTab] = useState(items[0].name);
+
   const [_isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {

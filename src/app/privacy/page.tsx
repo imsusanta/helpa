@@ -8,7 +8,6 @@ import {
   Lock,
   Eye,
   FileText,
-  CheckCircle2,
 } from 'lucide-react';
 import { useTheme } from '@/hooks/use-theme';
 import { Sun, Moon } from 'lucide-react';
@@ -70,10 +69,10 @@ export default function PrivacyPolicyPage() {
             Last updated: July 10, 2026
           </p>
           <p className="text-muted-foreground max-w-2xl text-base leading-relaxed">
-            At Helpa Studio ("Helpa", "we", "us", or "our"), we protect your
-            privacy. This Privacy Policy explains how we collect, use, and share
-            information when you use our WhatsApp CRM services, website, and
-            software products.
+            At Helpa Studio (&quot;Helpa&quot;, &quot;we&quot;, &quot;us&quot;,
+            or &quot;our&quot;), we protect your privacy. This Privacy Policy
+            explains how we collect, use, and share information when you use our
+            WhatsApp CRM services, website, and software products.
           </p>
         </div>
 

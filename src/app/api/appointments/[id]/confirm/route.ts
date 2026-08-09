@@ -8,15 +8,16 @@ import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
 
 async function generatePdfBuffer(
-  appt: any,
+  appt: Record<string, unknown>,
   hospitalName: string,
   patientSeqId: string,
   ticketSerial: string
 ): Promise<Buffer> {
-  const patient = appt.patient as any;
-  const doctor = appt.doctor as any;
+  const patient = appt.patient as Record<string, unknown>;
+  const doctor = appt.doctor as Record<string, unknown>;
   const bookingId =
-    appt.booking_id || `APT-2026-${appt.id.slice(0, 5).toUpperCase()}`;
+    appt.booking_id ||
+    `APT-2026-${(appt.id as string).slice(0, 5).toUpperCase()}`;
   const tokenNum = appt.token_number || 1;
   const queuePos = appt.queue_position || 1;
 
@@ -138,10 +139,11 @@ async function generatePdfBuffer(
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9.5);
   doc.setTextColor(51, 65, 85);
-  const doctorName = doctor?.name
-    ? doctor.name.startsWith('Dr.')
-      ? doctor.name
-      : `Dr. ${doctor.name}`
+  const dName = doctor?.name as string | undefined;
+  const doctorName = dName
+    ? dName.startsWith('Dr.')
+      ? dName
+      : `Dr. ${dName}`
     : 'On-Duty Consultant';
   doc.text(`Doctor: ${doctorName}`, 116, 156);
   doc.text(`Department: ${appt.department || 'General OPD'}`, 116, 163);
@@ -294,7 +296,7 @@ export async function POST(
       .maybeSingle();
 
     const hospitalName = account?.name || 'Siliguri Nursing Home';
-    const docObj = appt.doctor as any;
+    const docObj = appt.doctor as { name?: string } | null;
     const doctorName = docObj?.name
       ? docObj.name.startsWith('Dr.')
         ? docObj.name
@@ -308,10 +310,13 @@ export async function POST(
         .select('patient_seq_id')
         .eq('id', contactId)
         .maybeSingle();
+      const patObj = appt.patient as {
+        metadata?: { patient_id?: string };
+      } | null;
       if (patRow?.patient_seq_id) {
         patientSeqId = patRow.patient_seq_id;
-      } else if ((appt.patient as any)?.metadata?.patient_id) {
-        patientSeqId = (appt.patient as any).metadata.patient_id;
+      } else if (patObj?.metadata?.patient_id) {
+        patientSeqId = patObj.metadata.patient_id;
       } else {
         // Create patient record if it doesn't exist to trigger sequence assignment
         const { data: newPat } = await db
@@ -416,10 +421,10 @@ Welcome to *${hospitalName}*! Your consultation ticket and token number have bee
     });
 
     return NextResponse.json({ success: true, pdfUrl: publicPdfUrl });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Failed to send appointment PDF ticket:', err);
     return NextResponse.json(
-      { error: err.message || 'Failed to send ticket PDF' },
+      { error: (err as Error).message || 'Failed to send ticket PDF' },
       { status: 500 }
     );
   }

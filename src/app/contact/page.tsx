@@ -31,8 +31,8 @@ export default function ContactPage() {
           <h1 className="text-3xl font-extrabold tracking-tight">Contact Us</h1>
         </div>
         <p className="text-muted-foreground text-sm">
-          We're here to help your clinic, salon, or institute automate customer
-          enquiries 24/7.
+          We&apos;re here to help your clinic, salon, or institute automate
+          customer enquiries 24/7.
         </p>
 
         <div className="grid gap-6 pt-4 sm:grid-cols-2">

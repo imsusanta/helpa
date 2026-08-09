@@ -12,8 +12,8 @@ export async function POST(request: Request) {
       reset,
       name: workspaceName,
       logo,
-      timezone,
-      country,
+      timezone: _timezone,
+      country: _country,
     } = body || {};
 
     if (reset) {
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     const config = getIndustryModule(industryKey);
 
     // 1. Update Accounts table columns (industry, name, logo, ai_system_prompt)
-    const updates: Record<string, any> = {
+    const updates: Record<string, unknown> = {
       industry: industryKey,
       ai_system_prompt: config.systemPrompt,
       updated_at: new Date().toISOString(),
