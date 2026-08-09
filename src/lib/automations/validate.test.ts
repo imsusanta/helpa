@@ -9,9 +9,13 @@ describe('validateStepsForActivation', () => {
     expect(validateStepsForActivation([])).toEqual([
       { path: 'steps', message: 'active automations need at least one step' },
     ]);
-    expect(validateStepsForActivation(undefined as unknown as never[])).toEqual(
-      [{ path: 'steps', message: 'active automations need at least one step' }]
-    );
+    expect(
+      validateStepsForActivation(
+        undefined as unknown as Parameters<typeof validateStepsForActivation>[0]
+      )
+    ).toEqual([
+      { path: 'steps', message: 'active automations need at least one step' },
+    ]);
   });
 
   it('passes a fully-populated step set', () => {

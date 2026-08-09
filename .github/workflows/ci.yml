@@ -48,6 +48,19 @@ jobs:
       - name: Next.js Production Build
         run: npm run build
 
+      - name: Setup Supabase CLI & Disposable Integration Environment
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start Disposable Supabase & Seed Database
+        run: |
+          supabase start
+          supabase db reset
+
+      - name: Real Supabase RLS Integration Tests
+        run: npm run test:integration
+
       - name: Security Dependency Audit
         run: npm audit --audit-level=high
 

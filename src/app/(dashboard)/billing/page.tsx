@@ -61,7 +61,7 @@ export default function BillingPage() {
         .eq('account_id', accountId)
         .order('created_at', { ascending: false });
 
-      setBills((billRows as unknown as never) || []);
+      setBills((billRows as unknown as Bill[]) || []);
 
       const { data: pats } = await db
         .from('patients')
@@ -277,7 +277,7 @@ export default function BillingPage() {
               <Label>Initial Status</Label>
               <select
                 value={status}
-                onChange={(e) => setStatus(e.target.value as unknown as never)}
+                onChange={(e) => setStatus(e.target.value as 'unpaid' | 'paid')}
                 className="border-input bg-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
               >
                 <option value="unpaid">Unpaid</option>

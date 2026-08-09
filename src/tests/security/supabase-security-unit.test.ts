@@ -37,7 +37,7 @@ function createServiceRoleClient() {
   });
 }
 
-describe('Real Supabase RLS & Atomic Security Controls', () => {
+describe('Mocked Supabase security unit tests', () => {
   const tenantAId = 'a0000000-0000-0000-0000-000000000001';
   const tenantBId = 'b0000000-0000-0000-0000-000000000002';
   const patientAId = 'a1111111-1111-1111-1111-111111111111';

@@ -22,8 +22,15 @@ function getNextRecurringDate(
 }
 
 export async function GET(request: Request) {
-  const _authHeader = request.headers.get('authorization');
-  // Simple check for cron secret or allow standard trigger
+  const authHeader = request.headers.get('authorization');
+  const expectedSecret = process.env.CRON_SECRET;
+
+  if (process.env.NODE_ENV === 'production' || expectedSecret) {
+    if (!expectedSecret || authHeader !== `Bearer ${expectedSecret}`) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+  }
+
   console.log('[Cron Campaigns] Executing cron automation triggers...');
 
   const db = supabaseAdmin();

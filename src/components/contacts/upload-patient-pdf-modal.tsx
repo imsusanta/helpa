@@ -172,7 +172,9 @@ export function UploadPatientPdfModal({
                     key={t.id}
                     type="button"
                     onClick={() => {
-                      setDocType(t.id as unknown as never);
+                      setDocType(
+                        t.id as 'lab_report' | 'prescription' | 'medical_record'
+                      );
                       if (t.id === 'prescription' && !testName)
                         setTestName('Doctor Prescription Slip');
                       if (t.id === 'lab_report' && !testName)

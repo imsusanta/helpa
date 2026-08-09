@@ -415,7 +415,7 @@ export default function NewCampaignPage() {
           body_text: customMessage,
           category: 'Marketing',
           created_at: new Date().toISOString(),
-        } as unknown as MessageTemplate;
+        } as MessageTemplate;
       } else {
         finalTemplate = selectedTemplate!;
         finalVariables = templateVariables;
@@ -449,7 +449,7 @@ export default function NewCampaignPage() {
         cta_url: ctaUrl || undefined,
         recurrence,
         ai_suggested: !!searchParams.get('suggestion'),
-      } as unknown as Parameters<typeof createAndSendBroadcast>[0]);
+      } as Parameters<typeof createAndSendBroadcast>[0]);
 
       toast.success(
         scheduleMode === 'scheduled'
@@ -600,7 +600,7 @@ export default function NewCampaignPage() {
                 <select
                   value={audienceType}
                   onChange={(e) =>
-                    setAudienceType(e.target.value as unknown as never)
+                    setAudienceType(e.target.value as typeof audienceType)
                   }
                   className="border-border bg-background text-foreground h-10 w-full rounded-lg border px-3 text-sm focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                 >
@@ -1167,7 +1167,9 @@ export default function NewCampaignPage() {
                       <select
                         value={attachmentType}
                         onChange={(e) =>
-                          setAttachmentType(e.target.value as unknown as never)
+                          setAttachmentType(
+                            e.target.value as 'image' | 'document'
+                          )
                         }
                         className="border-border bg-background h-10 w-full rounded-lg border px-3 text-xs"
                       >
@@ -1188,7 +1190,13 @@ export default function NewCampaignPage() {
                       <select
                         value={ctaType}
                         onChange={(e) =>
-                          setCtaType(e.target.value as unknown as never)
+                          setCtaType(
+                            e.target.value as
+                              | 'url'
+                              | 'none'
+                              | 'appointment'
+                              | 'review'
+                          )
                         }
                         className="border-border bg-background h-10 w-full rounded-lg border px-3 text-xs"
                       >
@@ -1287,8 +1295,10 @@ export default function NewCampaignPage() {
                                     setTemplateVariables({
                                       ...templateVariables,
                                       [num]: {
-                                        type: e.target
-                                          .value as unknown as never,
+                                        type: e.target.value as
+                                          | 'field'
+                                          | 'custom_field'
+                                          | 'static',
                                         value: '',
                                       },
                                     });
@@ -1424,7 +1434,13 @@ export default function NewCampaignPage() {
                     <select
                       value={recurrence}
                       onChange={(e) =>
-                        setRecurrence(e.target.value as unknown as never)
+                        setRecurrence(
+                          e.target.value as
+                            | 'none'
+                            | 'weekly'
+                            | 'monthly'
+                            | 'yearly'
+                        )
                       }
                       className="border-border bg-background text-foreground h-10 w-full rounded-lg border px-3 text-sm"
                     >
