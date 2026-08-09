@@ -26,9 +26,7 @@ export interface WhatsAppProvider {
     caption?: string
   ): Promise<{ externalMessageId: string }>;
 
-  getSessionHealth(
-    clinicId: string
-  ): Promise<{
+  getSessionHealth(clinicId: string): Promise<{
     status: 'active' | 'degraded' | 'disconnected';
     lastCheckAt: string;
   }>;
