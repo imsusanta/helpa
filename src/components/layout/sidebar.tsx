@@ -159,9 +159,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
     accountRole,
     signOut,
     isSuperAdmin,
-    enabledModules,
   } = useAuth();
-  void enabledModules;
   const totalUnread = useTotalUnread();
 
   const activeModule = getIndustryModule(account?.industry);

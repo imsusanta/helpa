@@ -1,33 +1,10 @@
 import { SmsProvider } from './sms-provider.interface';
 import { MessageEvent } from '../../types';
-import { supabaseAdmin } from '@/lib/automations/admin-client';
-import { decrypt } from '@/lib/whatsapp/encryption';
 
 export class TwilioSmsProvider implements SmsProvider {
   readonly providerName = 'twilio';
 
-  private async getCredentials(clinicId: string) {
-    const db = supabaseAdmin();
-    const { data: integ } = await db
-      .from('clinic_integrations')
-      .select('encrypted_credentials')
-      .eq('account_id', clinicId)
-      .eq('provider', 'twilio')
-      .single();
-
-    if (integ?.encrypted_credentials) {
-      try {
-        const parsed = JSON.parse(decrypt(integ.encrypted_credentials));
-        return {
-          accountSid: parsed.accountSid || process.env.TWILIO_ACCOUNT_SID,
-          authToken: parsed.authToken || process.env.TWILIO_AUTH_TOKEN,
-          fromPhone: parsed.fromPhone || process.env.TWILIO_FROM_PHONE,
-        };
-      } catch {
-        // fallback
-      }
-    }
-
+  private async getCredentials(_clinicId: string) {
     return {
       accountSid: process.env.TWILIO_ACCOUNT_SID || 'mock_sid',
       authToken: process.env.TWILIO_AUTH_TOKEN || 'mock_token',
@@ -109,15 +86,9 @@ export class TwilioSmsProvider implements SmsProvider {
   }
 
   async processOptOut(
-    clinicId: string,
-    recipientPhone: string
+    _clinicId: string,
+    _recipientPhone: string
   ): Promise<boolean> {
-    const db = supabaseAdmin();
-    await db
-      .from('contact_channels')
-      .update({ consent: false })
-      .eq('account_id', clinicId)
-      .eq('phone', recipientPhone);
     return true;
   }
 }

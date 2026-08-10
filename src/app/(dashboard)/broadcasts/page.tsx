@@ -4,7 +4,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/appwrite-compat';
 import { Broadcast } from '@/types';
 import { Button } from '@/components/ui/button';
 import {

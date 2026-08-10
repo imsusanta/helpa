@@ -14,7 +14,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/appwrite-compat';
 import { Button } from '@/components/ui/button';
 import {
   Card,

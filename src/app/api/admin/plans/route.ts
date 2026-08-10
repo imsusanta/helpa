@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { checkSuperAdmin } from '@/lib/auth/admin';
-import { supabaseAdmin } from '@/lib/automations/admin-client';
+import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
 
 export async function GET() {
   try {

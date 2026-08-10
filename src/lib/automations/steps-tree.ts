@@ -1,4 +1,4 @@
-import { supabaseAdmin } from './admin-client';
+import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
 
 // ------------------------------------------------------------
 // Builder payload → flat rows for automation_steps.

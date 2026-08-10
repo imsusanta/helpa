@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { Loader2, KeyRound } from 'lucide-react';
 
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/appwrite-compat';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -64,7 +64,9 @@ export function PasswordForm() {
         password: next,
       });
       if (updateError) {
-        toast.error(`Password update failed: ${updateError.message}`);
+        toast.error(
+          `Password update failed: ${(updateError as any)?.message || 'error'}`
+        );
         return;
       }
 

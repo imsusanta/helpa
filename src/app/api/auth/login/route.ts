@@ -1,30 +1,39 @@
 import { NextResponse } from 'next/server';
-
-const APPWRITE_ENDPOINT = 'https://sgp.cloud.appwrite.io/v1';
-const APPWRITE_PROJECT_ID = '6a79822b003adde92f63';
+import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
+import {
+  checkRateLimit,
+  rateLimitResponse,
+  RATE_LIMITS,
+} from '@/lib/rate-limit';
 
 export async function POST(request: Request) {
   try {
+    const ip = request.headers.get('x-forwarded-for') || '127.0.0.1';
+    const rateLimit = checkRateLimit(`login_${ip}`, RATE_LIMITS.auth);
+    if (!rateLimit.success) {
+      return rateLimitResponse(rateLimit);
+    }
+
     const body = await request.json().catch(() => ({}));
     const { email, password } = body;
 
     if (!email || !password) {
       return NextResponse.json(
-        { success: false, error: 'Email and password are required.' },
+        { success: false, error: 'Invalid credentials provided.' },
         { status: 400 }
       );
     }
 
     const trimmedEmail = email.trim().toLowerCase();
 
-    // Call Appwrite REST API directly to create an email session
+    // Call Appwrite REST API to create an email session
     const appwriteRes = await fetch(
-      `${APPWRITE_ENDPOINT}/account/sessions/email`,
+      `${APPWRITE_CONFIG.endpoint}/account/sessions/email`,
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Appwrite-Project': APPWRITE_PROJECT_ID,
+          'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
           'X-SDK-Platform': 'client',
         },
         body: JSON.stringify({
@@ -40,19 +49,21 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            appwriteJson.message ||
-            'Invalid login credentials. Please check your email and password.',
+          error: 'Invalid credentials provided.',
         },
-        {
-          status:
-            appwriteRes.status >= 400 && appwriteRes.status < 500 ? 401 : 500,
-        }
+        { status: 401 }
       );
     }
 
-    const sessionSecret = appwriteJson.secret || appwriteJson.$id;
-    const userId = appwriteJson.userId || appwriteJson.$id;
+    const sessionSecret = appwriteJson.secret;
+    const userId = appwriteJson.userId;
+
+    if (!sessionSecret) {
+      return NextResponse.json(
+        { success: false, error: 'Authentication failed.' },
+        { status: 500 }
+      );
+    }
 
     const response = NextResponse.json({
       success: true,
@@ -64,7 +75,7 @@ export async function POST(request: Request) {
     });
 
     const cookieOptions = {
-      httpOnly: false,
+      httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax' as const,
       path: '/',
@@ -72,18 +83,18 @@ export async function POST(request: Request) {
     };
 
     response.cookies.set(
-      `a_session_${APPWRITE_PROJECT_ID}`,
+      `a_session_${APPWRITE_CONFIG.projectId}`,
       sessionSecret,
       cookieOptions
     );
     response.cookies.set('appwrite_session', sessionSecret, cookieOptions);
 
     return response;
-  } catch (err: unknown) {
+  } catch {
     return NextResponse.json(
       {
         success: false,
-        error: (err as Error).message || 'Server error during authentication.',
+        error: 'An unexpected authentication error occurred.',
       },
       { status: 500 }
     );

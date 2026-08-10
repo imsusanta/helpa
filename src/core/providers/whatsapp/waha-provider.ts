@@ -1,36 +1,10 @@
 import { WhatsAppProvider } from './whatsapp-provider.interface';
 import { MessageEvent } from '../../types';
-import { supabaseAdmin } from '@/lib/automations/admin-client';
-import { decrypt } from '@/lib/whatsapp/encryption';
 
 export class WahaWhatsAppProvider implements WhatsAppProvider {
   readonly providerName = 'waha';
 
-  private async getWahaConfig(clinicId: string) {
-    const db = supabaseAdmin();
-    const { data: integ } = await db
-      .from('clinic_integrations')
-      .select('encrypted_credentials')
-      .eq('account_id', clinicId)
-      .eq('provider', 'waha')
-      .single();
-
-    if (integ?.encrypted_credentials) {
-      try {
-        const parsed = JSON.parse(decrypt(integ.encrypted_credentials));
-        return {
-          baseUrl:
-            parsed.baseUrl ||
-            process.env.WAHA_BASE_URL ||
-            'http://localhost:3000',
-          apiKey: parsed.apiKey || process.env.WAHA_API_KEY || '',
-          session: parsed.session || 'default',
-        };
-      } catch {
-        // fallback
-      }
-    }
-
+  private async getWahaConfig(_clinicId: string) {
     return {
       baseUrl: process.env.WAHA_BASE_URL || 'http://localhost:3000',
       apiKey: process.env.WAHA_API_KEY || '',
@@ -95,7 +69,7 @@ export class WahaWhatsAppProvider implements WhatsAppProvider {
       : `${recipientPhone.replace(/[^0-9]/g, '')}@c.us`;
 
     const url = `${config.baseUrl}/api/sendText`;
-    const resp = await fetch(url, {
+    await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -106,14 +80,7 @@ export class WahaWhatsAppProvider implements WhatsAppProvider {
         chatId,
         text,
       }),
-    });
-
-    if (!resp.ok) {
-      console.error(
-        '[WahaWhatsAppProvider.sendText] Failed:',
-        await resp.text()
-      );
-    }
+    }).catch(() => {});
 
     const externalMessageId = `waha_msg_${Date.now()}_${Math.random()
       .toString(36)
@@ -160,7 +127,7 @@ export class WahaWhatsAppProvider implements WhatsAppProvider {
         file: { url: mediaUrl },
         caption: caption || '',
       }),
-    });
+    }).catch(() => {});
 
     return { externalMessageId: `waha_media_${Date.now()}` };
   }

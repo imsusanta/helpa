@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import type { SupabaseClient } from '@supabase/supabase-js';
-import { createClient } from '@/lib/supabase/server';
+import type { SupabaseClient } from '@/lib/appwrite-compat';
+import { createClient } from '@/lib/appwrite-compat';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import { submitMessageTemplate } from '@/lib/whatsapp/meta-api';
 import {

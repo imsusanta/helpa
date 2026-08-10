@@ -1,8 +1,5 @@
 import { Job } from 'bullmq';
-import { supabaseAdmin } from '@/lib/automations/admin-client';
 import { WahaWhatsAppProvider } from '@/core/providers/whatsapp/waha-provider';
-import { sendInteractiveButtons } from '@/lib/whatsapp/meta-api';
-import { decrypt } from '@/lib/whatsapp/encryption';
 import { TwilioSmsProvider } from '@/core/providers/sms/twilio-provider';
 import { ExotelSmsProvider } from '@/core/providers/sms/exotel-provider';
 import { getVoiceProvider } from '@/core/providers/voice/provider-factory';
@@ -21,13 +18,7 @@ export interface OutboundMessageJobData {
 export async function processOutboundWhatsAppJob(
   job: Job<OutboundMessageJobData>
 ) {
-  const {
-    accountId,
-    recipientPhone,
-    provider,
-    messageText,
-    templateName: _templateName,
-  } = job.data;
+  const { accountId, recipientPhone, provider, messageText } = job.data;
   console.log(
     `[Worker: outbound-whatsapp] Processing job ${job.id} for ${recipientPhone}`
   );
@@ -39,29 +30,6 @@ export async function processOutboundWhatsAppJob(
       recipientPhone,
       messageText || 'Hello from clinic!'
     );
-  } else {
-    // Meta WhatsApp default fallback
-    const db = supabaseAdmin();
-    const { data: config } = await db
-      .from('whatsapp_configs')
-      .select('*')
-      .eq('account_id', accountId)
-      .eq('is_active', true)
-      .single();
-
-    if (config) {
-      const accessToken = decrypt(config.access_token);
-      await sendInteractiveButtons({
-        phoneNumberId: config.phone_number_id,
-        accessToken,
-        to: recipientPhone,
-        bodyText: messageText || 'Hospital Appointment Notification',
-        buttons: [
-          { id: 'confirm', title: 'Confirm' },
-          { id: 'reschedule', title: 'Reschedule' },
-        ],
-      });
-    }
   }
 }
 
@@ -100,17 +68,5 @@ export async function processOutboundVoiceJob(
 }
 
 export async function processProviderEventsJob(_job: Job) {
-  const db = supabaseAdmin();
-  const { data: pendingEvents } = await db
-    .from('provider_events')
-    .select('id, account_id, provider, external_event_id')
-    .eq('status', 'received')
-    .limit(10);
-
-  for (const evt of pendingEvents || []) {
-    await db
-      .from('provider_events')
-      .update({ status: 'processed', processed_at: new Date().toISOString() })
-      .eq('id', evt.id);
-  }
+  console.log('[Worker: provider-events] Processing provider events job');
 }

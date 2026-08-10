@@ -1,4 +1,4 @@
-import { getAdminClient } from '@/lib/supabase/typed-admin';
+import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
 import { lookupInternalIdByMetaId } from './conversation-service';
 import type { WhatsAppMessage } from './types';
 

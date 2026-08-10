@@ -27,7 +27,7 @@
  * warning so operators can investigate.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@/lib/appwrite-compat';
 import { normalizeStatus } from './template-status-normalize';
 
 const TEMPLATE_WEBHOOK_FIELDS = new Set([

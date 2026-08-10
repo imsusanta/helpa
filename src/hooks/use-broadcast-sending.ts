@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { getAppwriteClient } from '@/infrastructure/appwrite/client';
+import { createClient } from '@/lib/appwrite-compat';
 import { useAuth } from '@/hooks/use-auth';
 import { Contact, MessageTemplate } from '@/types';
 
@@ -477,7 +478,11 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
     if (matchErr)
       throw new Error(`Custom-field filter failed: ${matchErr.message}`);
 
-    const contactIds = [...new Set((matches ?? []).map((m) => m.contact_id))];
+    const contactIds = [
+      ...new Set(
+        (matches ?? []).map((m: { contact_id: string }) => m.contact_id)
+      ),
+    ];
     if (contactIds.length === 0) return [];
 
     const { data, error } = await supabase
@@ -615,8 +620,8 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
       // One bulk fetch of custom values for every contact in this
       // broadcast, avoiding N+1 during the send loop.
       const contactIds = recipients
-        .map((r) => r.contact?.id)
-        .filter((id): id is string => Boolean(id));
+        .map((r: { contact?: { id?: string } | null }) => r.contact?.id)
+        .filter((id: string | undefined): id is string => Boolean(id));
       const customValueIndex = await fetchCustomValueIndex(
         supabase,
         contactIds
@@ -629,13 +634,15 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
         const batch = recipients.slice(i, i + SEND_BATCH_SIZE);
 
         const apiRecipients = batch
-          .filter((r) => r.contact?.phone)
-          .map((r) => ({
+          .filter(
+            (r: { contact?: { phone?: string } | null }) => r.contact?.phone
+          )
+          .map((r: { contact?: { id: string; phone?: string } | null }) => ({
             phone: r.contact!.phone as string,
             params: r.contact
               ? resolveVariables(
                   payload.variables,
-                  r.contact,
+                  r.contact as unknown as Contact,
                   customValueIndex.get(r.contact.id)
                 )
               : [],

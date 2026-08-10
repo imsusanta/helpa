@@ -33,7 +33,7 @@ import {
   Zap,
 } from 'lucide-react';
 
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/appwrite-compat';
 
 const features = [
   {

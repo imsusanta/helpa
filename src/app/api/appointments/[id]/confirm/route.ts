@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/automations/admin-client';
+import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
 import {
   engineSendText,
   engineSendDocument,

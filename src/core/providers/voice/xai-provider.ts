@@ -3,7 +3,7 @@ import {
   OutboundCallRequest,
 } from './voice-provider.interface';
 import { CallEvent } from '../../types';
-import { supabaseAdmin } from '@/lib/automations/admin-client';
+import { callsRepository } from '@/infrastructure/appwrite/repositories/calls.repository';
 
 export class XAiVoiceProvider implements VoicePlatformProvider {
   readonly providerName = 'xai';
@@ -48,15 +48,11 @@ export class XAiVoiceProvider implements VoicePlatformProvider {
     req: OutboundCallRequest
   ): Promise<{ externalCallId: string }> {
     const externalCallId = `xai_call_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    const db = supabaseAdmin();
-    await db.from('calls').insert({
-      account_id: req.clinicId,
+    await callsRepository.createCall(req.clinicId, {
       provider: 'xai',
-      external_call_id: externalCallId,
+      patientPhone: req.patientPhone,
       direction: 'outbound',
       status: 'initiated',
-      patient_phone: req.patientPhone,
-      started_at: new Date().toISOString(),
     });
 
     return { externalCallId };

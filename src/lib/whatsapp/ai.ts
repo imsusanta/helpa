@@ -6,7 +6,7 @@ import {
   sanitizeAiInput,
 } from '@/lib/ai/safety';
 import { logger } from '@/lib/observability/logger';
-import { supabaseAdmin } from '@/lib/automations/admin-client';
+import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
 import {
   engineSendText,
   engineSendDocument,
@@ -221,7 +221,7 @@ export async function triggerAiResponse(
     .eq('phone', contact?.phone || '');
   const contactIds =
     siblingContacts && siblingContacts.length > 0
-      ? siblingContacts.map((c) => c.id)
+      ? siblingContacts.map((c: { id: string }) => c.id)
       : [contactId];
 
   // 3.5 Use pre-fetched Knowledge Base
@@ -230,9 +230,15 @@ export async function triggerAiResponse(
   if (kbEntries && kbEntries.length > 0) {
     kbContext =
       'Here is the verified knowledge base and pricing information for our company:\n\n';
-    kbEntries.forEach((entry) => {
-      kbContext += `[${entry.category.toUpperCase()}] ${entry.question_title}: ${entry.answer_content}\n`;
-    });
+    kbEntries.forEach(
+      (entry: {
+        category: string;
+        question_title: string;
+        answer_content: string;
+      }) => {
+        kbContext += `[${entry.category.toUpperCase()}] ${entry.question_title}: ${entry.answer_content}\n`;
+      }
+    );
   }
 
   const industryModuleForContext = getIndustryModule(account?.industry);
@@ -266,13 +272,15 @@ export async function triggerAiResponse(
 
     if (coachingStudents && coachingStudents.length > 0) {
       coachingContext += `Registered ${entityLabelForContext}s under this WhatsApp/Phone Number:\n`;
-      coachingStudents.forEach((s) => {
-        const meta =
-          s.metadata && typeof s.metadata === 'object'
-            ? (s.metadata as Record<string, string>)
-            : {};
-        coachingContext += `- Name: ${s.name}, Student ID: ${meta.student_id || 'N/A'}, Exam Preparation (Target Exam): ${meta.parent_name || 'Not set'}\n`;
-      });
+      coachingStudents.forEach(
+        (s: { metadata?: Record<string, string> | null; name: string }) => {
+          const meta =
+            s.metadata && typeof s.metadata === 'object'
+              ? (s.metadata as Record<string, string>)
+              : {};
+          coachingContext += `- Name: ${s.name}, Student ID: ${meta.student_id || 'N/A'}, Exam Preparation (Target Exam): ${meta.parent_name || 'Not set'}\n`;
+        }
+      );
       coachingContext += '\n';
     }
   }
@@ -331,21 +339,30 @@ export async function triggerAiResponse(
     if (registeredPatients && registeredPatients.length > 0) {
       hospitalContext +=
         'Registered Patients under this WhatsApp/Phone Number:\n';
-      registeredPatients.forEach((p) => {
-        const contactData = p.contact as
-          | { name?: string; phone?: string }
-          | Array<{ name?: string; phone?: string }>
-          | null;
-        const name =
-          (Array.isArray(contactData)
-            ? contactData[0]?.name
-            : contactData?.name) || 'Unknown';
-        const phone =
-          (Array.isArray(contactData)
-            ? contactData[0]?.phone
-            : contactData?.phone) || 'N/A';
-        hospitalContext += `- Name: ${name}, Patient ID: ${p.patient_seq_id}, Gender: ${p.gender || 'N/A'}, DOB: ${p.date_of_birth || 'N/A'}, Blood Group: ${p.blood_group || 'N/A'}, Phone: ${phone}, Emergency Contact: ${p.emergency_contact || 'N/A'}\n`;
-      });
+      registeredPatients.forEach(
+        (p: {
+          contact?: unknown;
+          patient_seq_id: string;
+          gender?: string;
+          date_of_birth?: string;
+          blood_group?: string;
+          emergency_contact?: string;
+        }) => {
+          const contactData = p.contact as
+            | { name?: string; phone?: string }
+            | Array<{ name?: string; phone?: string }>
+            | null;
+          const name =
+            (Array.isArray(contactData)
+              ? contactData[0]?.name
+              : contactData?.name) || 'Unknown';
+          const phone =
+            (Array.isArray(contactData)
+              ? contactData[0]?.phone
+              : contactData?.phone) || 'N/A';
+          hospitalContext += `- Name: ${name}, Patient ID: ${p.patient_seq_id}, Gender: ${p.gender || 'N/A'}, DOB: ${p.date_of_birth || 'N/A'}, Blood Group: ${p.blood_group || 'N/A'}, Phone: ${phone}, Emergency Contact: ${p.emergency_contact || 'N/A'}\n`;
+        }
+      );
       hospitalContext += '\n';
     }
 
@@ -367,28 +384,39 @@ export async function triggerAiResponse(
 
     if (doctors && doctors.length > 0) {
       hospitalContext += 'Available Doctors & Clinic Schedules:\n';
-      doctors.forEach((d) => {
-        const days = Array.isArray(d.available_days)
-          ? d.available_days.join(', ')
-          : '';
-        const workingHours = d.working_hours as
-          | { start?: string; end?: string }
-          | null
-          | undefined;
-        const start = workingHours?.start || '09:00';
-        const end = workingHours?.end || '17:00';
-        hospitalContext += `- Dr. ${d.name.replace(/^Dr\.\s+/i, '')} (${d.department} - ${d.specialization || 'General'}): Fee: ₹${d.consultation_fee || '0'}, Working Days: ${days}, Working Hours: ${start} to ${end}\n`;
-      });
+      doctors.forEach(
+        (d: {
+          available_days?: string[];
+          working_hours?: unknown;
+          name: string;
+          department: string;
+          specialization?: string;
+          consultation_fee?: number;
+        }) => {
+          const days = Array.isArray(d.available_days)
+            ? d.available_days.join(', ')
+            : '';
+          const workingHours = d.working_hours as
+            | { start?: string; end?: string }
+            | null
+            | undefined;
+          const start = workingHours?.start || '09:00';
+          const end = workingHours?.end || '17:00';
+          hospitalContext += `- Dr. ${d.name.replace(/^Dr\.\s+/i, '')} (${d.department} - ${d.specialization || 'General'}): Fee: ₹${d.consultation_fee || '0'}, Working Days: ${days}, Working Hours: ${start} to ${end}\n`;
+        }
+      );
     }
     if (branches && branches.length > 0) {
       hospitalContext += '\nClinic Branches Locations:\n';
-      branches.forEach((b) => {
-        hospitalContext += `- ${b.name}: ${b.address || ''} (Phone: ${b.phone || ''})\n`;
-      });
+      branches.forEach(
+        (b: { name: string; address?: string; phone?: string }) => {
+          hospitalContext += `- ${b.name}: ${b.address || ''} (Phone: ${b.phone || ''})\n`;
+        }
+      );
     }
     if (appts && appts.length > 0) {
       hospitalContext += "\nPatient's Recent/Upcoming Appointments:\n";
-      appts.forEach((a) => {
+      appts.forEach((a: Record<string, any>) => {
         const patientData = a.patient as
           | { name?: string }
           | { name?: string }[]
@@ -594,17 +622,23 @@ Note:
   const apiMessages = [
     systemPrompt,
     ...messages
-      .map((m) => {
-        let content = m.content_text || '';
-        if (!content && m.content_type) {
-          content = `[${m.content_type}]`;
+      .map(
+        (m: {
+          content_text?: string;
+          content_type?: string;
+          sender_type?: string;
+        }) => {
+          let content = m.content_text || '';
+          if (!content && m.content_type) {
+            content = `[${m.content_type}]`;
+          }
+          return {
+            role: m.sender_type === 'customer' ? 'user' : 'assistant',
+            content: content,
+          };
         }
-        return {
-          role: m.sender_type === 'customer' ? 'user' : 'assistant',
-          content: content,
-        };
-      })
-      .filter((m) => m.content !== ''),
+      )
+      .filter((m: { content: string }) => m.content !== ''),
   ];
 
   // 5. Send request to OpenRouter (Optimized for quick reply)
@@ -821,10 +855,11 @@ Note:
           if (stages && stages.length > 0) {
             const newLeadStage =
               stages.find(
-                (s) =>
+                (s: { name: string }) =>
                   s.name.toLowerCase() === 'new inquiry' ||
                   s.name.toLowerCase() === 'new lead'
               ) || stages[0];
+
             const stageId = newLeadStage.id;
 
             const contactName =
@@ -915,11 +950,12 @@ Note:
 
           const existingContact =
             existingContacts?.find(
-              (candidate) =>
+              (candidate: { name?: string }) =>
                 candidate.name?.trim().toLocaleLowerCase() === normalizedName
             ) ||
             existingContacts?.find(
-              (candidate) => candidate.id === contactId && !candidate.name
+              (candidate: { id: string; name?: string }) =>
+                candidate.id === contactId && !candidate.name
             );
 
           if (existingContact) {

@@ -1,40 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/appwrite-compat';
 
 // Construct simulated Supabase Auth client contexts representing Tenant A and Tenant B
 function createTenantClient(accountId: string, role: string = 'authenticated') {
-  const supabaseUrl =
-    process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ci.example.supabase.co';
-  const anonKey =
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'ci-dummy-anon-key';
-
-  return createClient(supabaseUrl, anonKey, {
-    global: {
-      headers: {
-        Authorization: `Bearer mock-token-${accountId}`,
-        'X-Tenant-Id': accountId,
-        'X-Simulated-Role': role,
-      },
-    },
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  });
+  return createClient();
 }
 
 function createServiceRoleClient() {
-  const supabaseUrl =
-    process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ci.example.supabase.co';
-  const serviceKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY || 'ci-dummy-service-role-key';
-
-  return createClient(supabaseUrl, serviceKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  });
+  return createClient();
 }
 
 describe('Mocked Supabase security unit tests', () => {

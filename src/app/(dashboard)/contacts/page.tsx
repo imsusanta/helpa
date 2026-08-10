@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/appwrite-compat';
 import { toast } from 'sonner';
 import type { Contact, Tag, ContactTag } from '@/types';
 import { useAuth } from '@/hooks/use-auth';

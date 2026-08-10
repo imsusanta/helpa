@@ -19,7 +19,8 @@ import { LeadKanbanColumn, StageColumnDef } from './lead-kanban-column';
 import { LeadCardModel, LeadKanbanCard } from './lead-kanban-card';
 import { LeadDetailsDrawer } from './lead-details-drawer';
 import { toast } from 'sonner';
-import { createClient } from '@/lib/supabase/client';
+import { getAppwriteClient } from '@/infrastructure/appwrite/client';
+import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
 
 export const CANONICAL_STAGES: StageColumnDef[] = [
   { id: 'NEW', label: 'New Leads', color: '#3b82f6' },
@@ -68,46 +69,36 @@ export function LeadKanbanBoard({
     }
   }, [searchParams]);
 
-  // Load real leads from Supabase if initialLeads is empty
+  // Load real leads from Appwrite API endpoint
   const loadRealLeads = useCallback(async () => {
     setLoading(true);
     try {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from('deals')
-        .select(
-          '*, contact:contacts(*), assignee:profiles!deals_assigned_to_fkey(*)'
-        )
-        .order('updated_at', { ascending: false });
+      const res = await fetch('/api/leads');
+      const json = await res.json();
 
-      if (error) throw error;
-
-      if (data) {
-        const mapped: LeadCardModel[] = data.map((d) => ({
-          id: d.id,
-          patientName: d.contact?.name || d.title || 'Patient Inquiry',
-          phone: d.contact?.phone,
-          service: d.ai_product_service || d.title || 'General OPD',
+      if (json.success && Array.isArray(json.data)) {
+        const mapped: LeadCardModel[] = json.data.map((d: any) => ({
+          id: d.$id || d.id,
+          patientName: d.name || 'Patient Inquiry',
+          phone: d.phone,
+          service: d.service || 'General OPD',
           stage: (d.stage as LeadStageType) || 'NEW',
-          channel:
-            (d.contact?.metadata?.channel as 'whatsapp' | 'sms' | 'voice') ||
-            'whatsapp',
-          score: (d.ai_lead_score as 'hot' | 'warm' | 'cold') || 'warm',
-          assignedOwner: d.assignee
-            ? { name: d.assignee.full_name, avatarUrl: d.assignee.avatar_url }
+          channel: 'whatsapp',
+          score: 'warm',
+          assignedOwner: d.assignedAgentId
+            ? { name: d.assignedAgentId }
             : undefined,
-          lastActivityAt: d.updated_at
-            ? new Date(d.updated_at).toLocaleTimeString([], {
+          lastActivityAt: d.updatedAt
+            ? new Date(d.updatedAt).toLocaleTimeString([], {
                 hour: '2-digit',
                 minute: '2-digit',
               })
             : 'Recent',
-          nextAppointmentAt: d.expected_close_date || undefined,
         }));
         setLeads(mapped);
       }
     } catch (err: unknown) {
-      console.error('Failed to load leads:', err);
+      console.error('Failed to load leads from Appwrite:', err);
     } finally {
       setLoading(false);
     }
@@ -118,31 +109,24 @@ export function LeadKanbanBoard({
       loadRealLeads();
     }
 
-    const supabase = createClient();
-    const channel = supabase
-      .channel('kanban-realtime-deals')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'deals' },
-        () => {
-          loadRealLeads();
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'lead_stage_history' },
-        () => {
-          loadRealLeads();
-        }
-      )
-      .subscribe();
+    let unsubscribe: (() => void) | undefined;
+
+    try {
+      const { client } = getAppwriteClient();
+      const channel = `databases.${APPWRITE_CONFIG.databaseId}.collections.${APPWRITE_CONFIG.collections.leads}.documents`;
+      unsubscribe = client.subscribe([channel], () => {
+        loadRealLeads();
+      });
+    } catch {
+      // ignore
+    }
 
     return () => {
-      supabase.removeChannel(channel);
+      if (unsubscribe) unsubscribe();
     };
   }, [initialLeads.length, loadRealLeads]);
 
-  // DND Sensors (5px distance constraint to avoid accidental clicks)
+  // DND Sensors
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor)
@@ -151,7 +135,6 @@ export function LeadKanbanBoard({
   // Filter & Search Logic
   const filteredLeads = useMemo(() => {
     return leads.filter((lead) => {
-      // Search query filter (patient name, phone, service)
       if (filters.search.trim()) {
         const q = filters.search.toLowerCase().trim();
         const matchesName = lead.patientName.toLowerCase().includes(q);
@@ -160,12 +143,10 @@ export function LeadKanbanBoard({
         if (!matchesName && !matchesPhone && !matchesService) return false;
       }
 
-      // Channel filter
       if (filters.channel !== 'all' && lead.channel !== filters.channel) {
         return false;
       }
 
-      // Service filter
       if (
         filters.service !== 'all' &&
         !lead.service.toLowerCase().includes(filters.service.toLowerCase())
@@ -173,7 +154,6 @@ export function LeadKanbanBoard({
         return false;
       }
 
-      // Score filter
       if (filters.score !== 'all' && lead.score !== filters.score) {
         return false;
       }
@@ -182,13 +162,11 @@ export function LeadKanbanBoard({
     });
   }, [leads, filters]);
 
-  // Handlers for URL State & Drawer
   const handleCardClick = useCallback(
     (lead: LeadCardModel) => {
       setSelectedLeadId(lead.id);
       setDrawerOpen(true);
 
-      // Push ?leadId=... to URL
       const params = new URLSearchParams(searchParams.toString());
       params.set('leadId', lead.id);
       router.replace(`${pathname}?${params.toString()}`, { scroll: false });
@@ -209,29 +187,32 @@ export function LeadKanbanBoard({
     [pathname, router, searchParams]
   );
 
-  // Secure Stage Transition Boundary Call
   const handleMoveLeadStage = useCallback(
-    async (leadId: string, targetStage: LeadStageType, customReason?: string): Promise<boolean> => {
+    async (
+      leadId: string,
+      targetStage: LeadStageType,
+      customReason?: string
+    ): Promise<boolean> => {
       const originalLead = leads.find((l) => l.id === leadId);
       if (!originalLead || originalLead.stage === targetStage) return true;
 
       let reason = customReason;
       if (targetStage === 'LOST' && !reason) {
-        const userPrompt = window.prompt('Please provide a reason for marking this lead as LOST:');
+        const userPrompt = window.prompt(
+          'Please provide a reason for marking this lead as LOST:'
+        );
         if (userPrompt === null) {
-          // User cancelled
           return false;
         }
         reason = userPrompt.trim() || 'Marked lost from Kanban board';
       }
 
-      // 1. Optimistic Update
+      // Optimistic update
       setLeads((prev) =>
         prev.map((l) => (l.id === leadId ? { ...l, stage: targetStage } : l))
       );
 
       try {
-        // 2. Secure Server Call
         const res = await fetch(`/api/leads/${leadId}/stage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -241,7 +222,7 @@ export function LeadKanbanBoard({
         const json = await res.json();
 
         if (!res.ok || !json.success) {
-          // 3. Rollback on failure
+          // Rollback on failure
           setLeads((prev) =>
             prev.map((l) =>
               l.id === leadId ? { ...l, stage: originalLead.stage } : l
@@ -267,7 +248,6 @@ export function LeadKanbanBoard({
     [leads]
   );
 
-  // Drag & Drop Handlers
   function handleDragStart(event: DragStartEvent) {
     setActiveLeadId(String(event.active.id));
   }
@@ -304,7 +284,6 @@ export function LeadKanbanBoard({
 
   return (
     <div className="space-y-5">
-      {/* Board Toolbar */}
       <LeadBoardToolbar
         filters={filters}
         onFilterChange={handleFilterChange}
@@ -315,7 +294,6 @@ export function LeadKanbanBoard({
         filteredLeadsCount={filteredLeads.length}
       />
 
-      {/* DndContext & Horizontal Scrolling Columns Grid */}
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
@@ -351,7 +329,6 @@ export function LeadKanbanBoard({
         </DragOverlay>
       </DndContext>
 
-      {/* Lead Details Side Drawer */}
       <LeadDetailsDrawer
         leadId={selectedLeadId}
         open={drawerOpen}

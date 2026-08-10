@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth/account';
-import { supabaseAdmin } from '@/lib/automations/admin-client';
+import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
 import { DEFAULT_BOOKING_FORM_CONFIG } from '@/lib/booking-form/config';
 
 export async function GET() {

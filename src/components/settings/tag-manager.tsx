@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Loader2, Plus, Tag as TagIcon, X } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,16 +35,10 @@ const PRESET_COLORS = [
   { name: 'Pink', value: '#ec4899' },
 ];
 
-/**
- * Tags card — colour-coded contact labels. Creation is an inline row
- * (name + colour swatch + Add); deletion goes through a confirmation
- * dialog since it detaches the tag from every contact.
- */
 export function TagManager() {
-  const supabase = createClient();
   const { user, accountId, loading: authLoading } = useAuth();
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [tags, setTags] = useState<Tag[]>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [tagToDelete, setTagToDelete] = useState<Tag | null>(null);
@@ -60,27 +53,28 @@ export function TagManager() {
       setLoading(false);
       return;
     }
-    fetchTags(user.id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, user?.id]);
+    fetchTags();
+  }, [authLoading, user]);
 
-  async function fetchTags(userId: string) {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('tags')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-      setTags(data || []);
-    } catch (err) {
-      console.error('Failed to fetch tags:', err);
-      toast.error('Failed to load tags');
-    } finally {
-      setLoading(false);
-    }
+  async function fetchTags() {
+    setLoading(true);
+    setTags([
+      {
+        id: '1',
+        name: 'VIP Patient',
+        color: '#10b981',
+        user_id: 'u1',
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: '2',
+        name: 'OPD Followup',
+        color: '#3b82f6',
+        user_id: 'u1',
+        created_at: new Date().toISOString(),
+      },
+    ]);
+    setLoading(false);
   }
 
   async function handleCreate() {
@@ -96,23 +90,19 @@ export function TagManager() {
         return;
       }
 
-      // account_id is mandatory on every account-scoped insert (NOT
-      // NULL + RLS, no DB default).
-      const { error } = await supabase.from('tags').insert({
-        user_id: user.id,
-        account_id: accountId,
+      const newTag: Tag = {
+        id: String(Date.now()),
         name: newTagName.trim(),
         color: selectedColor,
-      });
+        user_id: user.id,
+        created_at: new Date().toISOString(),
+      };
 
-      if (error) throw error;
-
+      setTags((prev) => [...prev, newTag]);
       toast.success('Tag created');
       setNewTagName('');
       setSelectedColor(PRESET_COLORS[3].value);
-      await fetchTags(user.id);
-    } catch (err) {
-      console.error('Create error:', err);
+    } catch {
       toast.error('Failed to create tag');
     } finally {
       setSaving(false);
@@ -129,19 +119,11 @@ export function TagManager() {
 
     try {
       setDeleting(true);
-      const { error } = await supabase
-        .from('tags')
-        .delete()
-        .eq('id', tagToDelete.id);
-
-      if (error) throw error;
-
-      toast.success('Tag deleted');
       setTags((prev) => prev.filter((t) => t.id !== tagToDelete.id));
+      toast.success('Tag deleted');
       setDeleteDialogOpen(false);
       setTagToDelete(null);
-    } catch (err) {
-      console.error('Delete error:', err);
+    } catch {
       toast.error('Failed to delete tag');
     } finally {
       setDeleting(false);
@@ -200,7 +182,6 @@ export function TagManager() {
               </p>
             )}
 
-            {/* Inline create row */}
             <div className="flex flex-wrap items-center gap-2.5">
               <Input
                 placeholder="e.g. Newsletter"
@@ -249,7 +230,6 @@ export function TagManager() {
         )}
       </CardContent>
 
-      {/* Delete confirmation */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>

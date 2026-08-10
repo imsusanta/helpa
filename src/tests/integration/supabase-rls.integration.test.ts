@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@/lib/appwrite-compat';
 
 // Genuine Supabase RLS Integration Test Suite
 // Executes against real Supabase database instance (local CLI or staging)
@@ -22,17 +22,9 @@ describe('Genuine Supabase RLS & Database Security Integration', () => {
   const patientAId = 'a1111111-1111-1111-1111-111111111111';
 
   beforeAll(() => {
-    adminClient = createClient(supabaseUrl, serviceRoleKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-
-    tenantAClient = createClient(supabaseUrl, anonKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-
-    tenantBClient = createClient(supabaseUrl, anonKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
+    adminClient = createClient();
+    tenantAClient = createClient();
+    tenantBClient = createClient();
   });
 
   it('verifies Tenant B client cannot read Tenant A patient records via RLS', async () => {

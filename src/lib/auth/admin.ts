@@ -1,56 +1,40 @@
-import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
+import { getAppwriteAdminClient } from '@/infrastructure/appwrite/server';
+import { profilesRepository } from '@/infrastructure/appwrite/repositories/profiles.repository';
 
-/**
- * Server Component / Server Action guard that checks if the current user
- * is a Super Admin. If not authenticated, redirects to /login. If authenticated
- * but not a super admin, redirects to /dashboard.
- */
 export async function requireSuperAdmin() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  try {
+    const { account } = getAppwriteAdminClient();
+    const appwriteUser = await account.get().catch(() => null);
 
-  if (!user) {
+    if (!appwriteUser) {
+      redirect('/login');
+    }
+
+    const profile = await profilesRepository.getProfileByUserId(
+      appwriteUser.$id
+    );
+    if (!profile || !profile.is_super_admin) {
+      redirect('/dashboard');
+    }
+
+    return appwriteUser;
+  } catch {
     redirect('/login');
   }
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('is_super_admin')
-    .eq('user_id', user.id)
-    .single();
-
-  if (!profile || !profile.is_super_admin) {
-    redirect('/dashboard');
-  }
-
-  return user;
 }
 
-/**
- * Checks if the current user is a Super Admin. Returns boolean.
- * Suitable for API routes.
- */
 export async function checkSuperAdmin(): Promise<boolean> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { account } = getAppwriteAdminClient();
+    const appwriteUser = await account.get().catch(() => null);
+    if (!appwriteUser) return false;
 
-    if (!user) return false;
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('is_super_admin')
-      .eq('user_id', user.id)
-      .single();
-
-    return !!profile?.is_super_admin;
-  } catch (err) {
-    console.error('[checkSuperAdmin] error:', err);
+    const profile = await profilesRepository.getProfileByUserId(
+      appwriteUser.$id
+    );
+    return Boolean(profile?.is_super_admin);
+  } catch {
     return false;
   }
 }

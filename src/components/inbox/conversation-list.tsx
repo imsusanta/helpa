@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/appwrite-compat';
 import { cn } from '@/lib/utils';
 import type { Conversation, ConversationStatus } from '@/types';
 import { Search, ChevronDown } from 'lucide-react';

@@ -19,7 +19,7 @@
 // ============================================================
 
 import { NextResponse } from 'next/server';
-import type { PostgrestError } from '@supabase/supabase-js';
+import type { PostgrestError } from '@/lib/appwrite-compat';
 
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import {

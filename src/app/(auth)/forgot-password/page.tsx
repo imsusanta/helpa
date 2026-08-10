@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,8 +19,6 @@ export default function ForgotPasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const supabase = createClient();
-
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -45,20 +42,7 @@ export default function ForgotPasswordPage() {
       setSuccess(true);
       setLoading(false);
     } catch {
-      const { error: sbErr } = await supabase.auth.resetPasswordForEmail(
-        email,
-        {
-          redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
-        }
-      );
-
-      if (sbErr) {
-        setError(sbErr.message);
-        setLoading(false);
-        return;
-      }
-
-      setSuccess(true);
+      setError('Network error while sending the password reset email.');
       setLoading(false);
     }
   };

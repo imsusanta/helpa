@@ -13,7 +13,8 @@ import {
   RotateCcw,
   Upload,
 } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
+import { getAppwriteClient } from '@/infrastructure/appwrite/client';
+import { createClient } from '@/lib/appwrite-compat';
 import {
   uploadAccountMedia,
   MEDIA_MAX_BYTES_BY_KIND,

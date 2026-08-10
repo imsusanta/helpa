@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { supabaseAdmin } from '@/lib/automations/admin-client';
+import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
 import { GET } from './route';
 
-vi.mock('@/lib/automations/admin-client', () => ({
+vi.mock('@/lib/appwrite-compat', () => ({
   supabaseAdmin: vi.fn(),
 }));
 vi.mock('@/queues/producers/appointment-reminders', () => ({

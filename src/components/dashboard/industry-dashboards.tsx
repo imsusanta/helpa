@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/appwrite-compat';
 import { MetricCard } from './metric-card';
 import { formatCurrency } from '@/lib/currency';
 import {

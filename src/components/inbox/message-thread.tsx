@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/appwrite-compat';
 import { useAuth } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
 import type {
@@ -333,12 +333,10 @@ export function MessageThread({
           table: 'message_reactions',
           filter: `conversation_id=eq.${conversationId}`,
         },
-        (payload) => {
+        (payload: any) => {
           const row = payload.new as MessageReaction;
           setReactions((prev) => {
             if (prev.some((r) => r.id === row.id)) return prev;
-            // Swap any matching optimistic temp row for the real one so
-            // the pill doesn't double up after a successful POST.
             const tempIdx = prev.findIndex(
               (r) =>
                 r.id.startsWith('temp-') &&
@@ -363,7 +361,7 @@ export function MessageThread({
           table: 'message_reactions',
           filter: `conversation_id=eq.${conversationId}`,
         },
-        (payload) => {
+        (payload: any) => {
           const row = payload.new as MessageReaction;
           setReactions((prev) => prev.map((r) => (r.id === row.id ? row : r)));
         }
@@ -376,7 +374,7 @@ export function MessageThread({
           table: 'message_reactions',
           filter: `conversation_id=eq.${conversationId}`,
         },
-        (payload) => {
+        (payload: any) => {
           const old = payload.old as Partial<MessageReaction>;
           if (!old?.id) return;
           setReactions((prev) => prev.filter((r) => r.id !== old.id));

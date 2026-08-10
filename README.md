@@ -1,6 +1,6 @@
 # Helpa — WhatsApp AI Receptionist & Patient CRM for Clinics
 
-> **Helpa** is a production-grade, multi-tenant WhatsApp AI receptionist and CRM built specifically for clinics, doctors, and healthcare service businesses. Automate 24/7 patient appointment bookings, generate cryptographically signed digital OPD slips, dispatch pathology lab reports, and manage multi-doctor consultation schedules.
+> **Helpa** is a production-grade, multi-tenant WhatsApp AI receptionist and CRM built specifically for clinics, doctors, and healthcare service businesses. Automate 24/7 patient appointment bookings, generate cryptographically signed digital OPD slips, dispatch pathology lab reports, and manage multi-doctor consultation schedules using Appwrite Cloud / Self-Hosted.
 
 <p align="center">
   <img src="./public/assets/helpa-hero.svg" alt="Helpa — Clinic WhatsApp AI Receptionist" width="850">
@@ -10,7 +10,7 @@
 [![Release](https://img.shields.io/badge/Release-v0.3.0--beta.1-blue.svg)](https://github.com/imsusanta/wacrm_susanta/tree/v0.3.0-beta.1)
 [![CI](https://github.com/imsusanta/wacrm_susanta/actions/workflows/ci.yml/badge.svg)](https://github.com/imsusanta/wacrm_susanta/actions/workflows/ci.yml)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16.3-black?logo=nextdotjs)](https://nextjs.org)
-[![Supabase](https://img.shields.io/badge/Supabase-Postgres%2015%20%2B%20RLS-3ecf8e?logo=supabase)](https://supabase.com)
+[![Appwrite](https://img.shields.io/badge/Appwrite-Cloud%20%2F%20Self--Hosted-f02e65?logo=appwrite)](https://appwrite.io)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-blue?logo=typescript)](https://www.typescriptlang.org)
 
 ---
@@ -25,12 +25,12 @@ graph TD
     subgraph Security Boundary
         Webhook -->|HMAC-SHA256 Sig Check| WebhookVerifier["Webhook Verifier"]
         WebhookVerifier -->|AI Natural Language| Receptionist["AI Receptionist Engine"]
-        WebApp -->|Middleware Proxy| Guard["Auth & Role Guard"]
+        WebApp -->|Appwrite Auth Session| Guard["Auth & Role Guard"]
     end
 
     subgraph Multi-Tenant Database Layer
-        Receptionist -->|Service Role + account_id| DB[("Supabase PostgreSQL + RLS")]
-        Guard -->|Authenticated User JWT| DB
+        Receptionist -->|Appwrite Node SDK| DB[("Appwrite Databases & Collections")]
+        Guard -->|Tenant Scoped Teams| DB
     end
 
     subgraph Clinical Output
@@ -44,34 +44,20 @@ graph TD
 ## 🏥 Clinical & Omnichannel Capabilities
 
 - **24/7 AI Receptionist Copilot**: Resolves patient inquiries, explains doctor availability, and schedules OPD appointments automatically across WhatsApp, SMS, and AI Voice calls.
-- **Multichannel Patient Kanban CRM**: Real-time Kanban pipeline board supporting deterministic stage transitions (`NEW` -> `QUALIFYING` -> `BOOKED` -> `CONVERTED`), atomic database transitions, and complete patient details drawer.
+- **Multichannel Patient Kanban CRM**: Real-time Kanban pipeline board supporting deterministic stage transitions (`NEW` -> `QUALIFYING` -> `BOOKED` -> `CONVERTED`), Appwrite Realtime subscriptions, and complete patient details drawer.
 - **Real Calendly Integration**: Native Calendly API v2 integration for real event-type listing, live availability checking, scheduling links, and bidirectional webhook sync.
 - **AI Telephony & Voice Platform**: Outbound AI phone calls powered by Sarvam AI (Hindi/English), xAI, and ElevenLabs with real-time transcript logging and human takeover routing.
 - **Provider-Neutral Messaging**: Native support for Meta Cloud API, WAHA (WhatsApp HTTP API), Twilio SMS, and Exotel SMS.
 - **BullMQ Background Engine**: Persistent BullMQ worker pool processing appointment reminders, follow-up sequences, provider events, and Calendly synchronization.
 - **Digital OPD Tickets with Signed QR Codes**: Generates short-lived HMAC-signed PDF appointment tickets with embedded QR codes for reception check-in.
-- **Multi-Tenant Data Isolation**: Pure Supabase architecture (PostgreSQL + RLS) ensuring isolated clinical data per hospital/clinic tenant.
-
----
-
-## 🔒 Security & Verification Matrix
-
-| Quality Gate           | Verification Command           | CI Target    | Result                  |
-| ---------------------- | ------------------------------ | ------------ | ----------------------- |
-| **Formatting**         | `npm run format:check`         | Prettier 3.8 | ✅ 100% Clean           |
-| **Strict Linting**     | `npm run lint`                 | ESLint 9     | ✅ 0 Errors             |
-| **Type Safety**        | `npm run typecheck`            | TypeScript 6 | ✅ 0 Errors             |
-| **Unit & Integration** | `npm test`                     | Vitest 4     | ✅ 463/463 Tests Passed |
-| **Production Build**   | `npx next build --webpack`     | Next.js 16   | ✅ 76 Routes Compiled   |
-| **Security Audit**     | `npm audit --audit-level=high` | npm audit    | ✅ 0 High/Critical      |
-| **Playwright E2E**     | `npx playwright test`          | Playwright   | ✅ 12/12 E2E Passed     |
+- **Multi-Tenant Data Isolation**: Appwrite Teams & Document Security ensuring isolated clinical data per hospital/clinic tenant.
 
 ---
 
 ## 🔒 Security Architecture
 
 1. **Fail-Closed Webhook Verification**: Inbound WhatsApp webhooks on `POST /api/whatsapp/webhook` enforce constant-time HMAC-SHA256 signature verification with `META_APP_SECRET`.
-2. **Encrypted Credentials**: Meta Cloud API tokens and third-party keys are encrypted in PostgreSQL using AES-256-GCM authenticated encryption.
+2. **Encrypted Credentials**: Meta Cloud API tokens and third-party keys are encrypted using AES-256-GCM authenticated encryption.
 3. **Signed OPD Document Access**: Appointment slips and lab reports are protected by short-lived HMAC-SHA256 tokens bound to appointment ID and expiry timestamp.
 4. **Deep PII/PHI Redaction**: The structured logger automatically scrubs patient names, medical notes, phone numbers, passwords, and bearer tokens from production telemetry.
 5. **Strict No-Store Cache Policy**: Authenticated dashboard routes enforce `Cache-Control: private, no-store` to prevent public edge CDN caching of patient data.

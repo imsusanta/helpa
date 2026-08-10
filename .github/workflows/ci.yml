@@ -15,9 +15,10 @@ jobs:
     name: Production Quality & Security Gates
     runs-on: ubuntu-latest
     env:
-      NEXT_PUBLIC_SUPABASE_URL: https://ci.example.supabase.co
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-dummy-anon-key
-      SUPABASE_SERVICE_ROLE_KEY: ci-dummy-service-role-key
+      NEXT_PUBLIC_APPWRITE_ENDPOINT: https://cloud.appwrite.io/v1
+      NEXT_PUBLIC_APPWRITE_PROJECT_ID: wacrm_ci_test
+      APPWRITE_API_KEY: ci-dummy-appwrite-api-key
+      APPWRITE_DATABASE_ID: wacrm_ci_test
       ENCRYPTION_KEY: '0000000000000000000000000000000000000000000000000000000000000000'
       META_APP_SECRET: 'ci-dummy-meta-secret'
     steps:
@@ -36,6 +37,14 @@ jobs:
       - name: Format Check (Prettier)
         run: npm run format:check
 
+      - name: Secret Scanning (Check for hardcoded Appwrite secrets)
+        run: |
+          if grep -rn "standard_[0-9a-f]\{128\}" src/ ; then
+            echo "❌ Hardcoded Appwrite API key detected!"
+            exit 1
+          fi
+          echo "✅ Secret scanning passed cleanly."
+
       - name: Emit Lint Diagnostics
         run: |
           npx eslint . --format json --output-file /tmp/eslint.json || true
@@ -50,23 +59,11 @@ jobs:
       - name: Unit & Integration Tests (Vitest)
         run: npm test
 
+      - name: Appwrite Tenant Isolation Tests
+        run: npm run test:integration
+
       - name: Next.js Production Build
         run: npm run build
-
-      - name: Setup Supabase CLI & Disposable Integration Environment
-        uses: supabase/setup-cli@v1
-        with:
-          version: latest
-
-      - name: Start Disposable Supabase & Seed Database
-        run: |
-          supabase start
-          supabase db reset
-
-      - name: Real Supabase RLS Integration Tests
-        run: |
-          eval $(supabase status -o env)
-          NEXT_PUBLIC_SUPABASE_URL="$API_URL" NEXT_PUBLIC_SUPABASE_ANON_KEY="$ANON_KEY" SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" npm run test:integration
 
       - name: Security Dependency Audit
         run: npm audit --audit-level=high

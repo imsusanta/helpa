@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { TwilioSmsProvider } from '@/core/providers/sms/twilio-provider';
 import { ExotelSmsProvider } from '@/core/providers/sms/exotel-provider';
-import { supabaseAdmin } from '@/lib/automations/admin-client';
+import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
 
 export async function POST(
   request: Request,

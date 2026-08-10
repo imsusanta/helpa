@@ -1,6 +1,5 @@
 import { SmsProvider } from './sms-provider.interface';
 import { MessageEvent } from '../../types';
-import { supabaseAdmin } from '@/lib/automations/admin-client';
 
 export class ExotelSmsProvider implements SmsProvider {
   readonly providerName = 'exotel';
@@ -56,15 +55,9 @@ export class ExotelSmsProvider implements SmsProvider {
   }
 
   async processOptOut(
-    clinicId: string,
-    recipientPhone: string
+    _clinicId: string,
+    _recipientPhone: string
   ): Promise<boolean> {
-    const db = supabaseAdmin();
-    await db
-      .from('contact_channels')
-      .update({ consent: false })
-      .eq('account_id', clinicId)
-      .eq('phone', recipientPhone);
     return true;
   }
 }

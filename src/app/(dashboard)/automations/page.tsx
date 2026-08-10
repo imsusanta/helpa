@@ -18,7 +18,7 @@ import {
   Loader2,
 } from 'lucide-react';
 
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/appwrite-compat';
 import { useCan } from '@/hooks/use-can';
 import type { Automation } from '@/types';
 import { Button } from '@/components/ui/button';

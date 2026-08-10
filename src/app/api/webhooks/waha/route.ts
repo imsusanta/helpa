@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { WahaWhatsAppProvider } from '@/core/providers/whatsapp/waha-provider';
-import { supabaseAdmin } from '@/lib/automations/admin-client';
+import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
 
 export async function POST(request: Request) {
   try {

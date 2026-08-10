@@ -153,6 +153,8 @@ export const RATE_LIMITS = {
   patientExport: { limit: 10, windowMs: 60_000 },
   /** Hard deletion limit. 5/min per user prevents mass deletion abuse. */
   patientDelete: { limit: 5, windowMs: 60_000 },
+  /** Authentication actions limit. 10/min per IP prevents brute-force login/signup. */
+  auth: { limit: 10, windowMs: 60_000 },
 } as const;
 
 /** Test-only helper. Clears the in-memory state so unit tests don't

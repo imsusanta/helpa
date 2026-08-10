@@ -26,10 +26,10 @@ const SECURITY_HEADERS = [
         ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
         : "script-src 'self' 'unsafe-inline'",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https://*.supabase.co https://avatar.vercel.sh https://images.unsplash.com",
-      "media-src 'self' blob: https://*.supabase.co",
+      "img-src 'self' data: blob: https://*.appwrite.io https://*.appwrite.network https://images.unsplash.com",
+      "media-src 'self' blob: https://*.appwrite.io https://*.appwrite.network",
       "font-src 'self' data:",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.appwrite.io https://*.appwrite.network wss://*.appwrite.network https://openrouter.ai",
+      "connect-src 'self' https://*.appwrite.io https://*.appwrite.network wss://*.appwrite.network https://openrouter.ai",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",

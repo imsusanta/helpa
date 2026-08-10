@@ -1,4 +1,4 @@
-import { getAdminClient } from '@/lib/supabase/typed-admin';
+import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
 import type { Database } from '@/types/database';
 import type { WhatsAppStatusUpdate } from './types';
 

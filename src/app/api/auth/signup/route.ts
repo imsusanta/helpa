@@ -1,19 +1,20 @@
 import { NextResponse } from 'next/server';
-
-const APPWRITE_ENDPOINT =
-  process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT ||
-  'https://sgp.cloud.appwrite.io/v1';
-const APPWRITE_PROJECT_ID =
-  process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID || '6a79822b003adde92f63';
-
-function generateUniqueId() {
-  return (
-    'usr_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
-  );
-}
+import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
+import {
+  checkRateLimit,
+  rateLimitResponse,
+  RATE_LIMITS,
+} from '@/lib/rate-limit';
+import { ID } from 'node-appwrite';
 
 export async function POST(request: Request) {
   try {
+    const ip = request.headers.get('x-forwarded-for') || '127.0.0.1';
+    const rateLimit = checkRateLimit(`signup_${ip}`, RATE_LIMITS.auth);
+    if (!rateLimit.success) {
+      return rateLimitResponse(rateLimit);
+    }
+
     const body = await request.json().catch(() => ({}));
     const { email, password, fullName, name } = body;
     const userName = name || fullName || '';
@@ -25,9 +26,12 @@ export async function POST(request: Request) {
       );
     }
 
-    if (password.length < 6) {
+    if (password.length < 8) {
       return NextResponse.json(
-        { success: false, error: 'Password must be at least 6 characters.' },
+        {
+          success: false,
+          error: 'Password must be at least 8 characters long.',
+        },
         { status: 400 }
       );
     }
@@ -35,15 +39,15 @@ export async function POST(request: Request) {
     const trimmedEmail = email.trim().toLowerCase();
 
     // 1. Create account via Appwrite REST API
-    const createRes = await fetch(`${APPWRITE_ENDPOINT}/account`, {
+    const createRes = await fetch(`${APPWRITE_CONFIG.endpoint}/account`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Appwrite-Project': APPWRITE_PROJECT_ID,
+        'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
         'X-SDK-Platform': 'client',
       },
       body: JSON.stringify({
-        userId: generateUniqueId(),
+        userId: ID.unique(),
         email: trimmedEmail,
         password,
         name: userName,
@@ -56,7 +60,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: createJson.message || 'Failed to create account in Appwrite.',
+          error: createJson.message || 'Failed to create account.',
         },
         {
           status: createRes.status >= 400 && createRes.status < 500 ? 400 : 500,
@@ -66,12 +70,13 @@ export async function POST(request: Request) {
 
     // 2. Automatically log in to obtain session
     const sessionRes = await fetch(
-      `${APPWRITE_ENDPOINT}/account/sessions/email`,
+      `${APPWRITE_CONFIG.endpoint}/account/sessions/email`,
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Appwrite-Project': APPWRITE_PROJECT_ID,
+          'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
+          'X-SDK-Platform': 'client',
         },
         body: JSON.stringify({
           email: trimmedEmail,
@@ -90,8 +95,8 @@ export async function POST(request: Request) {
       });
     }
 
-    const sessionSecret = sessionJson.secret || sessionJson.$id;
-    const userId = sessionJson.userId || sessionJson.$id;
+    const sessionSecret = sessionJson.secret;
+    const userId = sessionJson.userId;
 
     const response = NextResponse.json({
       success: true,
@@ -111,12 +116,14 @@ export async function POST(request: Request) {
       maxAge: 60 * 60 * 24 * 30, // 30 days
     };
 
-    response.cookies.set(
-      `a_session_${APPWRITE_PROJECT_ID}`,
-      sessionSecret,
-      cookieOptions
-    );
-    response.cookies.set('appwrite_session', sessionSecret, cookieOptions);
+    if (sessionSecret) {
+      response.cookies.set(
+        `a_session_${APPWRITE_CONFIG.projectId}`,
+        sessionSecret,
+        cookieOptions
+      );
+      response.cookies.set('appwrite_session', sessionSecret, cookieOptions);
+    }
 
     return response;
   } catch (err: unknown) {

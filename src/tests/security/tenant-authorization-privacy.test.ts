@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { SupabaseClient } from '@supabase/supabase-js';
+// SupabaseClient type removed — using Appwrite
 import { POST as postConsent } from '@/app/api/patients/[id]/consent/route';
 import { GET as getExport } from '@/app/api/patients/[id]/export/route';
 import { POST as postWithdraw } from '@/app/api/patients/[id]/withdraw/route';
@@ -24,7 +24,7 @@ vi.mock('@/lib/auth/account', async () => {
 });
 
 // Mock supabaseAdmin
-vi.mock('@/lib/automations/admin-client', () => {
+vi.mock('@/lib/appwrite-compat', () => {
   return {
     supabaseAdmin: vi.fn().mockImplementation(() => {
       const mockChain: Record<string, unknown> = {};
@@ -145,7 +145,6 @@ describe('P0 / P1 Security, Authorization & Privacy Hardening Test Suite', () =>
 
     it('never reads account_id or actor_id from client request body or query params', async () => {
       vi.mocked(requireRole).mockResolvedValue({
-        supabase: {} as unknown as SupabaseClient,
         userId: USER_A_ID,
         accountId: TENANT_A_ID,
         role: 'admin',
@@ -175,7 +174,6 @@ describe('P0 / P1 Security, Authorization & Privacy Hardening Test Suite', () =>
 
     it('returns 404 for cross-tenant patient access, preventing resource enumeration', async () => {
       vi.mocked(requireRole).mockResolvedValue({
-        supabase: {} as unknown as SupabaseClient,
         userId: USER_A_ID,
         accountId: TENANT_A_ID,
         role: 'admin',

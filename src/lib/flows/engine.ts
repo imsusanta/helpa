@@ -32,7 +32,7 @@
  *     INSERT raises 23505 and the runner catches & exits.
  */
 
-import { supabaseAdmin } from './admin-client';
+import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
 import {
   engineSendInteractiveButtons,
   engineSendInteractiveList,
@@ -299,7 +299,7 @@ async function isDuplicateInbound(
     .eq('account_id', accountId)
     .eq('contact_id', contactId);
   if (!runs?.length) return false;
-  const runIds = runs.map((r) => (r as { id: string }).id);
+  const runIds = runs.map((r: { id: string }) => r.id);
 
   const { count } = await db
     .from('flow_run_events')

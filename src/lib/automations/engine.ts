@@ -14,7 +14,7 @@ import type {
   CreateDealStepConfig,
   AssignConversationStepConfig,
 } from '@/types';
-import { supabaseAdmin } from './admin-client';
+import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
 import { engineSendText, engineSendTemplate } from './meta-send';
 
 // ------------------------------------------------------------

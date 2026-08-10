@@ -3,7 +3,6 @@
 import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -45,8 +44,6 @@ function SignupPageInner() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const supabase = createClient();
-
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -89,27 +86,7 @@ function SignupPageInner() {
         setLoading(false);
       }
     } catch {
-      // Supabase fallback if API route is unreachable
-      const emailRedirectTo = inviteToken
-        ? `${window.location.origin}/join/${encodeURIComponent(inviteToken)}`
-        : undefined;
-
-      const { error: sbErr } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { full_name: fullName },
-          ...(emailRedirectTo ? { emailRedirectTo } : {}),
-        },
-      });
-
-      if (sbErr) {
-        setError(sbErr.message);
-        setLoading(false);
-        return;
-      }
-
-      setSuccess(true);
+      setError('Network error while creating your account.');
       setLoading(false);
     }
   };

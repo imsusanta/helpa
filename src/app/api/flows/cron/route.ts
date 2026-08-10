@@ -1,6 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/flows/admin-client';
+import { supabaseAdmin } from '@/lib/appwrite-compat';
 import { resolveFallbackPolicy } from '@/lib/flows/fallback';
 
 /**

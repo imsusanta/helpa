@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import crypto from 'node:crypto';
-import { getAdminClient } from '@/lib/supabase/typed-admin';
+import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
 
 /**
  * Retention Cleanup Cron Endpoint

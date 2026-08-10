@@ -17,7 +17,7 @@ const h = vi.hoisted(() => ({
   },
 }));
 
-vi.mock('./admin-client', () => {
+vi.mock('@/lib/appwrite-compat', () => {
   const { state } = h;
 
   function resolve(ops: {

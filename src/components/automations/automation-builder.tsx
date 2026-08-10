@@ -51,7 +51,7 @@ import type {
   MessageTemplate,
   Tag as TagRecord,
 } from '@/types';
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/appwrite-compat';
 import { cn } from '@/lib/utils';
 
 // ------------------------------------------------------------

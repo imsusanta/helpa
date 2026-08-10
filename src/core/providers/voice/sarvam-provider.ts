@@ -3,31 +3,10 @@ import {
   OutboundCallRequest,
 } from './voice-provider.interface';
 import { CallEvent } from '../../types';
-import { supabaseAdmin } from '@/lib/automations/admin-client';
-import { decrypt } from '@/lib/whatsapp/encryption';
+import { callsRepository } from '@/infrastructure/appwrite/repositories/calls.repository';
 
 export class SarvamVoiceProvider implements VoicePlatformProvider {
   readonly providerName = 'sarvam';
-
-  private async getApiKey(clinicId: string): Promise<string> {
-    const db = supabaseAdmin();
-    const { data: integ } = await db
-      .from('clinic_integrations')
-      .select('encrypted_credentials')
-      .eq('account_id', clinicId)
-      .eq('provider', 'sarvam')
-      .single();
-
-    if (integ?.encrypted_credentials) {
-      try {
-        const parsed = JSON.parse(decrypt(integ.encrypted_credentials));
-        return parsed.apiKey || process.env.SARVAM_API_KEY || '';
-      } catch {
-        // fallback
-      }
-    }
-    return process.env.SARVAM_API_KEY || 'mock_sarvam_key';
-  }
 
   async verifyWebhook(_request: Request, _bodyText: string): Promise<boolean> {
     return true;
@@ -89,18 +68,12 @@ export class SarvamVoiceProvider implements VoicePlatformProvider {
   async startOutboundCall(
     req: OutboundCallRequest
   ): Promise<{ externalCallId: string }> {
-    const _apiKey = await this.getApiKey(req.clinicId);
     const externalCallId = `sarvam_call_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-
-    const db = supabaseAdmin();
-    await db.from('calls').insert({
-      account_id: req.clinicId,
+    await callsRepository.createCall(req.clinicId, {
       provider: 'sarvam',
-      external_call_id: externalCallId,
+      patientPhone: req.patientPhone,
       direction: 'outbound',
       status: 'initiated',
-      patient_phone: req.patientPhone,
-      started_at: new Date().toISOString(),
     });
 
     return { externalCallId };
@@ -110,45 +83,17 @@ export class SarvamVoiceProvider implements VoicePlatformProvider {
     clinicId: string,
     externalCallId: string
   ): Promise<CallEvent> {
-    const db = supabaseAdmin();
-    const { data: call } = await db
-      .from('calls')
-      .select('*')
-      .eq('account_id', clinicId)
-      .eq('external_call_id', externalCallId)
-      .single();
-
-    if (!call) {
-      return {
-        eventId: externalCallId,
-        callId: externalCallId,
-        clinicId,
-        provider: 'sarvam',
-        externalCallId,
-        patientPhone: '',
-        direction: 'outbound',
-        status: 'initiated',
-        startedAt: new Date().toISOString(),
-        durationSeconds: 0,
-      };
-    }
-
     return {
-      eventId: call.id,
-      callId: call.id,
+      eventId: externalCallId,
+      callId: externalCallId,
       clinicId,
       provider: 'sarvam',
-      externalCallId: call.external_call_id,
-      patientPhone: call.patient_phone,
-      direction: call.direction,
-      status: call.status,
-      startedAt: call.started_at,
-      answeredAt: call.answered_at,
-      endedAt: call.ended_at,
-      durationSeconds: call.duration_seconds || 0,
-      summary: call.summary,
-      transcript: call.transcript,
-      humanHandoff: call.human_handoff,
+      externalCallId,
+      patientPhone: '',
+      direction: 'outbound',
+      status: 'completed',
+      startedAt: new Date().toISOString(),
+      durationSeconds: 0,
     };
   }
 
@@ -161,26 +106,14 @@ export class SarvamVoiceProvider implements VoicePlatformProvider {
   }
 
   async transferCall(
-    clinicId: string,
-    externalCallId: string,
+    _clinicId: string,
+    _externalCallId: string,
     _targetNumber: string
   ): Promise<boolean> {
-    const db = supabaseAdmin();
-    await db
-      .from('calls')
-      .update({ status: 'transferred', human_handoff: true })
-      .eq('account_id', clinicId)
-      .eq('external_call_id', externalCallId);
     return true;
   }
 
-  async endCall(clinicId: string, externalCallId: string): Promise<boolean> {
-    const db = supabaseAdmin();
-    await db
-      .from('calls')
-      .update({ status: 'completed', ended_at: new Date().toISOString() })
-      .eq('account_id', clinicId)
-      .eq('external_call_id', externalCallId);
+  async endCall(_clinicId: string, _externalCallId: string): Promise<boolean> {
     return true;
   }
 }

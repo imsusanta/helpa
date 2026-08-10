@@ -50,6 +50,43 @@ export class AppointmentsRepository {
     );
     return doc as unknown as AppointmentDocument;
   }
+
+  async getAppointment(
+    accountId: string,
+    appointmentId: string
+  ): Promise<AppointmentDocument | null> {
+    try {
+      const doc = await this.db.getDocument(
+        APPWRITE_CONFIG.databaseId,
+        APPWRITE_CONFIG.collections.appointments,
+        appointmentId
+      );
+      const appt = doc as unknown as AppointmentDocument;
+      if (appt.accountId !== accountId) return null;
+      return appt;
+    } catch {
+      return null;
+    }
+  }
+
+  async updateAppointment(
+    accountId: string,
+    appointmentId: string,
+    data: Partial<AppointmentDocument>
+  ): Promise<AppointmentDocument> {
+    const existing = await this.getAppointment(accountId, appointmentId);
+    if (!existing) throw new Error('Appointment not found');
+    const doc = await this.db.updateDocument(
+      APPWRITE_CONFIG.databaseId,
+      APPWRITE_CONFIG.collections.appointments,
+      appointmentId,
+      {
+        ...data,
+        updatedAt: new Date().toISOString(),
+      }
+    );
+    return doc as unknown as AppointmentDocument;
+  }
 }
 
 export const appointmentsRepository = new AppointmentsRepository();

@@ -1,4 +1,4 @@
-import { getAdminClient } from '@/lib/supabase/typed-admin';
+import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
 import { findExistingContact, isUniqueViolation } from '@/lib/contacts/dedupe';
 import type { Contact } from '@/types';
 

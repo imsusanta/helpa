@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/appwrite-compat';
 import { useAuth } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
 import type { Contact, Deal, ContactNote, Tag, Conversation } from '@/types';
@@ -59,8 +59,7 @@ export function ContactSidebar({
   conversation,
   isEmbedded = false,
 }: ContactSidebarProps) {
-  const { accountId, enabledModules, account } = useAuth();
-  void enabledModules;
+  const { accountId, account } = useAuth();
 
   const pipelineTitle =
     account?.industry === 'hospital_clinic'

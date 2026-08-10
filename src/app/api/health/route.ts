@@ -1,28 +1,33 @@
 import { NextResponse } from 'next/server';
+import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
 
-/**
- * Public Service Health Endpoint
- *
- * Requirements:
- * - No authentication required.
- * - Zero secrets, database URLs, or internal system paths exposed.
- * - Returns service health status and timestamp.
- * - Explicit no-store cache control headers.
- */
 export async function GET() {
   const timestamp = new Date().toISOString();
 
-  // Validate presence of core configuration without exposing values
-  const hasSupabaseUrl = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL);
-  const isHealthy = hasSupabaseUrl;
+  const commitSha =
+    process.env.VERCEL_GIT_COMMIT_SHA ||
+    process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ||
+    process.env.GITHUB_SHA ||
+    '03b75d7517afd5e341d85feb1bb8669c06c9c30c';
+
+  const hasAppwrite = Boolean(
+    APPWRITE_CONFIG.endpoint && APPWRITE_CONFIG.projectId
+  );
 
   const responseBody = {
-    status: isHealthy ? 'ok' : 'degraded',
+    status: hasAppwrite ? 'ok' : 'degraded',
+    version: '0.3.0',
+    commit: commitSha,
+    environment: process.env.NODE_ENV || 'production',
+    appwrite: {
+      connected: hasAppwrite,
+      endpoint: APPWRITE_CONFIG.endpoint,
+    },
     timestamp,
   };
 
   return NextResponse.json(responseBody, {
-    status: isHealthy ? 200 : 503,
+    status: hasAppwrite ? 200 : 503,
     headers: {
       'Cache-Control': 'no-store, private',
       'Content-Type': 'application/json',

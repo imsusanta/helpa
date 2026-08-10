@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { DefaultCalendlyProvider } from '@/core/providers/calendly/calendly-provider';
-import { supabaseAdmin } from '@/lib/automations/admin-client';
+import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
 import { TrustedActionExecutor } from '@/core/actions/action-executor';
 
 export async function POST(request: Request) {

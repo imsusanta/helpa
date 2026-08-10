@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/automations/admin-client';
+import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { logger } from '@/lib/observability/logger';
 

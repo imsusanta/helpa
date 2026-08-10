@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
-import { createClient as createServerClient } from '@/lib/supabase/server';
-import { getAdminClient } from '@/lib/supabase/typed-admin';
+import {
+  createClient,
+  createClient as createServerClient,
+  supabaseAdmin,
+  getAdminClient,
+} from '@/lib/appwrite-compat';
 import { verifyPdfToken } from '@/lib/pdf-signing';
 
 export async function GET(

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Loader2, Upload, Trash2, Mail, CircleAlert } from 'lucide-react';
 
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/appwrite-compat';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -122,7 +122,9 @@ export function ProfileForm() {
             contentType: pendingAvatar.type,
           });
         if (uploadError) {
-          throw new Error(`Upload failed: ${uploadError.message}`);
+          throw new Error(
+            `Upload failed: ${(uploadError as any)?.message || 'error'}`
+          );
         }
         const {
           data: { publicUrl },
@@ -141,23 +143,21 @@ export function ProfileForm() {
         })
         .eq('user_id', user.id);
       if (updateError) {
-        throw new Error(`Save failed: ${updateError.message}`);
+        throw new Error(
+          `Save failed: ${(updateError as any)?.message || 'error'}`
+        );
       }
 
-      // Email change goes through Supabase Auth, which emails a
-      // confirmation to both the old and new addresses. We don't
-      // touch profiles.email — Supabase will push the change there
-      // after the user clicks the link (handled by the handle_new_user
-      // trigger pattern in production deployments).
       let emailSent = false;
       if (trimmedEmail.toLowerCase() !== profile.email.toLowerCase()) {
         const { error: emailError } = await supabase.auth.updateUser({
           email: trimmedEmail,
         });
         if (emailError) {
-          // Partial success: name/avatar saved but email didn't.
           toast.success('Profile saved');
-          toast.error(`Email change failed: ${emailError.message}`);
+          toast.error(
+            `Email change failed: ${(emailError as any)?.message || 'error'}`
+          );
           setSaving(false);
           await refreshProfile();
           return;

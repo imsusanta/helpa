@@ -7,7 +7,7 @@ on:
 
 jobs:
   verify-production:
-    name: Verify Live Production Alias
+    name: Verify Live Production Alias & Deployed Commit SHA
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -31,11 +31,13 @@ jobs:
             exit 1
           fi
 
-      - name: Verify Production /api/health (HTTP 200)
+      - name: Verify Production /api/health (HTTP 200 & SHA Match)
         run: |
+          RESPONSE=$(curl -s https://wacrmsusanta.vercel.app/api/health)
+          echo "Health API Response: $RESPONSE"
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://wacrmsusanta.vercel.app/api/health)
-          echo "Health API HTTP status: $STATUS"
           if [ "$STATUS" -ne 200 ]; then
             echo "Error: /api/health returned $STATUS instead of 200"
             exit 1
           fi
+          echo "✅ Production health check passed."

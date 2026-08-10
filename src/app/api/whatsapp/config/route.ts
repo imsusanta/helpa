@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-import { createClient as createAdminClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/appwrite-compat';
+import { createClient as createAdminClient } from '@/lib/appwrite-compat';
 import {
   registerPhoneNumber,
   subscribeWabaToApp,
@@ -39,10 +39,7 @@ async function resolveAccountId(
 let _adminClient: any = null;
 function supabaseAdmin() {
   if (!_adminClient) {
-    _adminClient = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    _adminClient = createClient();
   }
   return _adminClient;
 }

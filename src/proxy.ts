@@ -1,5 +1,5 @@
-import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
 
 /**
  * Default-Deny Route Protection Middleware
@@ -48,51 +48,31 @@ function isPublicRoute(pathname: string): boolean {
 }
 
 export async function proxy(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request });
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          );
-          supabaseResponse = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          );
-        },
-      },
-    }
-  );
-
   let user: { id: string; email?: string } | null = null;
 
-  try {
-    const { data } = await supabase.auth.getUser();
-    if (data?.user) {
-      user = data.user;
-    }
-  } catch {
-    // Supabase project restricted or unavailable
-  }
+  const appwriteSession =
+    request.cookies.get(`a_session_${APPWRITE_CONFIG.projectId}`) ||
+    request.cookies.get('appwrite_session');
 
-  // Appwrite session fallback check
-  if (!user) {
-    const appwriteSession =
-      request.cookies.get('a_session_6a79822b003adde92f63') ||
-      request.cookies.get('appwrite_session') ||
-      request.cookies.get('a_session_legacy');
-    if (appwriteSession?.value) {
-      user = {
-        id: 'admin_sushanta',
-        email: 'sushantavibecode@gmail.com',
-      };
+  if (appwriteSession?.value) {
+    try {
+      const accountResponse = await fetch(
+        `${APPWRITE_CONFIG.endpoint}/account`,
+        {
+          headers: {
+            'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
+            'X-Appwrite-Session': appwriteSession.value,
+          },
+          cache: 'no-store',
+        }
+      );
+
+      if (accountResponse.ok) {
+        const account = await accountResponse.json();
+        user = { id: account.$id, email: account.email };
+      }
+    } catch {
+      // Treat an unavailable Appwrite auth service as unauthenticated.
     }
   }
 
@@ -130,7 +110,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  return supabaseResponse;
+  return NextResponse.next({ request });
 }
 
 export const config = {
