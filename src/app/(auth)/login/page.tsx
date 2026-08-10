@@ -56,21 +56,50 @@ function LoginPageInner() {
     setError(null);
     setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      // 1. Try Appwrite Authentication
+      const { account } = await import('@/lib/appwrite/client');
+      try {
+        await account.createEmailPasswordSession(email, password);
+        // Set cookie for Next.js proxy middleware
+        document.cookie = `appwrite_session=active; path=/; max-age=2592000; SameSite=Lax; ${location.protocol === 'https:' ? 'Secure;' : ''}`;
 
-    if (error) {
-      setError(error.message);
+        if (inviteToken) {
+          router.push(`/join/${encodeURIComponent(inviteToken)}`);
+        } else {
+          router.push('/dashboard');
+        }
+        return;
+      } catch (appwriteErr: unknown) {
+        // Fallback to Supabase Auth if Appwrite session creation fails
+        const { error: sbErr } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (sbErr) {
+          const appMsg =
+            (appwriteErr as Error)?.message || 'Invalid login credentials.';
+          setError(
+            sbErr.message.includes('exceed_db_size_quota')
+              ? appMsg
+              : sbErr.message
+          );
+          setLoading(false);
+          return;
+        }
+
+        if (inviteToken) {
+          router.push(`/join/${encodeURIComponent(inviteToken)}`);
+        } else {
+          router.push('/dashboard');
+        }
+      }
+    } catch (err: unknown) {
+      setError(
+        (err as Error).message || 'An unexpected authentication error occurred.'
+      );
       setLoading(false);
-      return;
-    }
-
-    if (inviteToken) {
-      router.push(`/join/${encodeURIComponent(inviteToken)}`);
-    } else {
-      router.push('/dashboard');
     }
   };
 
