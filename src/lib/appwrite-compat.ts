@@ -42,14 +42,18 @@ function clearBrowserSession() {
   }
 }
 
-function requestHeaders(extra?: HeadersInit): Headers {
+function requestHeaders(
+  extra?: HeadersInit,
+  sessionOverride?: string,
+  useApiKey = true
+): Headers {
   const headers = new Headers({
     'Content-Type': 'application/json',
     'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
   });
-  const session = browserSession();
+  const session = sessionOverride || browserSession();
   if (session) headers.set('X-Appwrite-Session', session);
-  if (typeof window === 'undefined' && APPWRITE_CONFIG.apiKey) {
+  if (useApiKey && typeof window === 'undefined' && APPWRITE_CONFIG.apiKey) {
     headers.set('X-Appwrite-Key', APPWRITE_CONFIG.apiKey);
   }
   new Headers(extra).forEach((value, key) => headers.set(key, value));
@@ -109,9 +113,13 @@ class QueryBuilder {
   private maxRows: number | undefined;
   private offset = 0;
   private selectionOptions: AnyRecord = {};
+  private readonly session?: string;
+  private readonly useApiKey: boolean;
 
-  constructor(table: string) {
+  constructor(table: string, session?: string, useApiKey = true) {
     this.table = table;
+    this.session = session;
+    this.useApiKey = useApiKey;
   }
 
   select(fields = '*', options: AnyRecord = {}) {
@@ -295,7 +303,10 @@ class QueryBuilder {
     if (this.offset) params.append('queries[]', `offset(${this.offset})`);
     const response = await fetch(
       `${endpoint}/databases/${encodeURIComponent(APPWRITE_CONFIG.databaseId)}/collections/${encodeURIComponent(this.table)}/documents?${params}`,
-      { headers: requestHeaders(), cache: 'no-store' }
+      {
+        headers: requestHeaders(undefined, this.session, this.useApiKey),
+        cache: 'no-store',
+      }
     );
     const body = await response.json().catch(() => ({}));
     if (!response.ok) throw Object.assign(new Error(body.message), body);
@@ -315,7 +326,7 @@ class QueryBuilder {
         `${endpoint}/databases/${encodeURIComponent(APPWRITE_CONFIG.databaseId)}/collections/${encodeURIComponent(this.table)}/documents`,
         {
           method: 'POST',
-          headers: requestHeaders(),
+          headers: requestHeaders(undefined, this.session, this.useApiKey),
           body: JSON.stringify({
             documentId: record.id || 'unique()',
             data: normalizePayload(record),
@@ -342,7 +353,7 @@ class QueryBuilder {
         `${endpoint}/databases/${encodeURIComponent(APPWRITE_CONFIG.databaseId)}/collections/${encodeURIComponent(this.table)}/documents/${encodeURIComponent(document.$id || document.id)}`,
         {
           method,
-          headers: requestHeaders(),
+          headers: requestHeaders(undefined, this.session, this.useApiKey),
           ...(method === 'PATCH'
             ? { body: JSON.stringify({ data: normalizePayload(this.payload) }) }
             : {}),
@@ -356,9 +367,13 @@ class QueryBuilder {
   }
 }
 
-function createDataClient(): AppwriteCompatClient {
+export function createDataClient(
+  sessionOverride?: string,
+  useApiKey = true
+): AppwriteCompatClient {
   const client: AnyRecord = {
-    from: (table: string) => new QueryBuilder(table),
+    from: (table: string) =>
+      new QueryBuilder(table, sessionOverride, useApiKey),
     rpc: async (functionName: string, params: AnyRecord = {}) => {
       const failure = (message: string) => ({
         data: null,
@@ -535,7 +550,7 @@ function createDataClient(): AppwriteCompatClient {
     auth: {
       getUser: async () => {
         const response = await fetch(`${endpoint}/account`, {
-          headers: requestHeaders(),
+          headers: requestHeaders(undefined, sessionOverride, useApiKey),
           cache: 'no-store',
         });
         const body = await response.json().catch(() => ({}));
@@ -562,7 +577,7 @@ function createDataClient(): AppwriteCompatClient {
       signInWithPassword: async ({ email, password }: AnyRecord) => {
         const response = await fetch(`${endpoint}/account/sessions/email`, {
           method: 'POST',
-          headers: requestHeaders(),
+          headers: requestHeaders(undefined, sessionOverride, useApiKey),
           body: JSON.stringify({ email, password }),
         });
         const body = await response.json().catch(() => ({}));
@@ -587,7 +602,7 @@ function createDataClient(): AppwriteCompatClient {
           const form = new FormData();
           form.append('fileId', 'unique()');
           form.append('file', file, path);
-          const headers = requestHeaders();
+          const headers = requestHeaders(undefined, sessionOverride, useApiKey);
           headers.delete('Content-Type');
           const response = await fetch(
             `${endpoint}/storage/buckets/${bucket}/files`,
@@ -607,7 +622,7 @@ function createDataClient(): AppwriteCompatClient {
           for (const path of paths)
             await fetch(`${endpoint}/storage/buckets/${bucket}/files/${path}`, {
               method: 'DELETE',
-              headers: requestHeaders(),
+              headers: requestHeaders(undefined, sessionOverride, useApiKey),
             });
           return { error: null };
         },

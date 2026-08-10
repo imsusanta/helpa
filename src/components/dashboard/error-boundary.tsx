@@ -6,6 +6,7 @@ import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 interface Props {
   children: ReactNode;
+  onLogin: () => void;
 }
 
 interface State {
@@ -55,7 +56,7 @@ export class DashboardErrorBoundary extends Component<Props, State> {
             <Button
               variant="outline"
               onClick={() => {
-                window.location.href = '/login';
+                this.props.onLogin();
               }}
             >
               Return to Login

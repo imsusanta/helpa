@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { AuthProvider, useAuth } from '@/hooks/use-auth';
 import { Sidebar } from '@/components/layout/sidebar';
@@ -11,6 +11,7 @@ import { Loader2 } from 'lucide-react';
 
 function DashboardShellInner({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
+  const router = useRouter();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
@@ -18,10 +19,10 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!loading && !user) {
       if (typeof window !== 'undefined') {
-        window.location.href = '/login';
+        router.push('/login');
       }
     }
-  }, [user, loading]);
+  }, [user, loading, router]);
 
   const pathname = usePathname();
   const isInbox = pathname === '/inbox';
@@ -63,7 +64,9 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
               : 'overflow-y-auto p-4 sm:p-6'
           )}
         >
-          <DashboardErrorBoundary>{children}</DashboardErrorBoundary>
+          <DashboardErrorBoundary onLogin={() => router.push('/login')}>
+            {children}
+          </DashboardErrorBoundary>
         </main>
       </div>
     </div>

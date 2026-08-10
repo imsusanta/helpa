@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { appwriteAdmin } from '@/lib/appwrite-compat';
+import { appwriteAdmin } from '@/lib/appwrite-server-compat';
 import {
   engineSendText,
   engineSendDocument,

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
@@ -11,6 +12,7 @@ export default function ErrorPage({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const router = useRouter();
   useEffect(() => {
     console.error('App Router Uncaught Error:', error);
   }, [error]);
@@ -35,7 +37,7 @@ export default function ErrorPage({
         <Button
           variant="outline"
           onClick={() => {
-            window.location.href = '/login';
+            router.push('/login');
           }}
         >
           Go to Login

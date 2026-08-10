@@ -18,7 +18,7 @@
 // ============================================================
 
 import { NextResponse } from 'next/server';
-import type { AppwriteError } from '@/lib/appwrite-compat';
+import type { AppwriteError } from '@/lib/appwrite-server-compat';
 
 import { hashInviteToken } from '@/lib/auth/invitations';
 import {
@@ -26,7 +26,7 @@ import {
   rateLimitResponse,
   RATE_LIMITS,
 } from '@/lib/rate-limit';
-import { createClient } from '@/lib/appwrite-compat';
+import { createClient } from '@/lib/appwrite-server-compat';
 
 function getClientIp(request: Request): string {
   const xff = request.headers.get('x-forwarded-for');

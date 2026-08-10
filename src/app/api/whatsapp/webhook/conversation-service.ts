@@ -1,4 +1,4 @@
-import { getAdminClient } from '@/lib/appwrite-compat';
+import { getAdminClient } from '@/lib/appwrite-server-compat';
 
 /**
  * Finds an existing conversation or creates one for the account and contact.

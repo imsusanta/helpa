@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getVoiceProvider } from '@/core/providers/voice/provider-factory';
-import { appwriteAdmin } from '@/lib/appwrite-compat';
+import { appwriteAdmin } from '@/lib/appwrite-server-compat';
 
 export async function POST(
   request: Request,

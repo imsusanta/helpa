@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import crypto from 'node:crypto';
-import { getAdminClient } from '@/lib/appwrite-compat';
+import { getAdminClient } from '@/lib/appwrite-server-compat';
 
 /**
  * Retention Cleanup Cron Endpoint

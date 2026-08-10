@@ -1,4 +1,4 @@
-import { getAdminClient } from '@/lib/appwrite-compat';
+import { getAdminClient } from '@/lib/appwrite-server-compat';
 import { lookupInternalIdByMetaId } from './conversation-service';
 import type { WhatsAppMessage } from './types';
 

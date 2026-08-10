@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { appwriteAdmin } from '@/lib/appwrite-compat';
+import { appwriteAdmin } from '@/lib/appwrite-server-compat';
 import { GET } from './route';
 
-vi.mock('@/lib/appwrite-compat', () => ({
+vi.mock('@/lib/appwrite-server-compat', () => ({
   appwriteAdmin: vi.fn(),
 }));
 vi.mock('@/queues/producers/appointment-reminders', () => ({

@@ -15,7 +15,7 @@
 // ============================================================
 
 import { NextResponse } from 'next/server';
-import type { AppwriteError } from '@/lib/appwrite-compat';
+import type { AppwriteError } from '@/lib/appwrite-server-compat';
 
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { isAccountRole } from '@/lib/auth/roles';

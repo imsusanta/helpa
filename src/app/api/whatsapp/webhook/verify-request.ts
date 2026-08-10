@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAdminClient } from '@/lib/appwrite-compat';
+import { getAdminClient } from '@/lib/appwrite-server-compat';
 import { decrypt, encrypt, isLegacyFormat } from '@/lib/whatsapp/encryption';
 
 /**

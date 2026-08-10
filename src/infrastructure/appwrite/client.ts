@@ -7,6 +7,15 @@ export function getAppwriteClient() {
     .setEndpoint(APPWRITE_CONFIG.endpoint)
     .setProject(APPWRITE_CONFIG.projectId);
 
+  if (typeof window !== 'undefined') {
+    try {
+      const session = window.localStorage.getItem('appwrite_session');
+      if (session) client.setSession(session);
+    } catch {
+      // The httpOnly session cookie remains the source of truth if storage is unavailable.
+    }
+  }
+
   const account = new Account(client);
   const databases = new Databases(client);
   const storage = new Storage(client);

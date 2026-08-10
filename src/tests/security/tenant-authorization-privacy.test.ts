@@ -23,29 +23,31 @@ vi.mock('@/lib/auth/account', async () => {
   };
 });
 
-// Mock appwriteAdmin
 vi.mock('@/lib/appwrite-compat', () => {
+  const createMockDb = () => {
+    const mockChain: Record<string, unknown> = {};
+    mockChain.from = vi.fn().mockReturnValue(mockChain);
+    mockChain.select = vi.fn().mockReturnValue(mockChain);
+    mockChain.eq = vi.fn().mockReturnValue(mockChain);
+    mockChain.in = vi.fn().mockReturnValue(mockChain);
+    mockChain.order = vi.fn().mockReturnValue(mockChain);
+    mockChain.limit = vi.fn().mockReturnValue(mockChain);
+    mockChain.maybeSingle = vi
+      .fn()
+      .mockResolvedValue({ data: null, error: null });
+    mockChain.insert = vi.fn().mockResolvedValue({ data: null, error: null });
+    mockChain.update = vi.fn().mockReturnValue(mockChain);
+    mockChain.delete = vi.fn().mockReturnValue(mockChain);
+    mockChain.rpc = vi.fn().mockResolvedValue({
+      data: { updated_at: '2026-08-08T12:00:00Z' },
+      error: null,
+    });
+    return mockChain;
+  };
   return {
-    appwriteAdmin: vi.fn().mockImplementation(() => {
-      const mockChain: Record<string, unknown> = {};
-      mockChain.from = vi.fn().mockReturnValue(mockChain);
-      mockChain.select = vi.fn().mockReturnValue(mockChain);
-      mockChain.eq = vi.fn().mockReturnValue(mockChain);
-      mockChain.in = vi.fn().mockReturnValue(mockChain);
-      mockChain.order = vi.fn().mockReturnValue(mockChain);
-      mockChain.limit = vi.fn().mockReturnValue(mockChain);
-      mockChain.maybeSingle = vi
-        .fn()
-        .mockResolvedValue({ data: null, error: null });
-      mockChain.insert = vi.fn().mockResolvedValue({ data: null, error: null });
-      mockChain.update = vi.fn().mockReturnValue(mockChain);
-      mockChain.delete = vi.fn().mockReturnValue(mockChain);
-      mockChain.rpc = vi.fn().mockResolvedValue({
-        data: { updated_at: '2026-08-08T12:00:00Z' },
-        error: null,
-      });
-      return mockChain;
-    }),
+    appwriteAdmin: vi.fn().mockImplementation(createMockDb),
+    createDataClient: vi.fn().mockImplementation(createMockDb),
+    createClient: vi.fn().mockImplementation(createMockDb),
   };
 });
 

@@ -1,4 +1,4 @@
-import { getAdminClient } from '@/lib/appwrite-compat';
+import { getAdminClient } from '@/lib/appwrite-server-compat';
 import type { Database } from '@/types/database';
 import type { WhatsAppStatusUpdate } from './types';
 

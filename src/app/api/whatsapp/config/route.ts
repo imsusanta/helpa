@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/appwrite-compat';
+import {
+  createClient,
+  appwriteAdmin as createAdminClient,
+} from '@/lib/appwrite-server-compat';
 import {
   registerPhoneNumber,
   subscribeWabaToApp,
@@ -38,7 +41,7 @@ async function resolveAccountId(
 let _adminClient: any = null;
 function appwriteAdmin() {
   if (!_adminClient) {
-    _adminClient = createClient();
+    _adminClient = createAdminClient();
   }
   return _adminClient;
 }

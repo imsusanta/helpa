@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { DefaultCalendlyProvider } from '@/core/providers/calendly/calendly-provider';
-import { appwriteAdmin } from '@/lib/appwrite-compat';
+import { appwriteAdmin } from '@/lib/appwrite-server-compat';
 import { TrustedActionExecutor } from '@/core/actions/action-executor';
 
 export async function POST(request: Request) {

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { WahaWhatsAppProvider } from '@/core/providers/whatsapp/waha-provider';
-import { appwriteAdmin } from '@/lib/appwrite-compat';
+import { appwriteAdmin } from '@/lib/appwrite-server-compat';
 
 export async function POST(request: Request) {
   try {

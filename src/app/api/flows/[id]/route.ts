@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/appwrite-compat';
-import { appwriteAdmin } from '@/lib/appwrite-compat';
+import { createClient } from '@/lib/appwrite-server-compat';
+import { appwriteAdmin } from '@/lib/appwrite-server-compat';
 
 /**
  * GET   /api/flows/[id]  — fetch one flow with its nodes.
