@@ -15,15 +15,15 @@ An exhaustive audit of `main` identified 18 verified production-readiness blocke
 | --- | -------------------------------------------------------------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1   | Vercel deployment returns `DEPLOYMENT_NOT_FOUND`                                                         | P0       | Centralize environment validation, add `GET /api/health`, document Vercel/Node.js deployment in `docs/DEPLOYMENT.md`                            |
 | 2   | CI fails on `npm audit --audit-level=high` (`nanoid`, `next`, `postcss`, `sharp`)                        | P0       | Patch dependencies safely in `package.json` (`next` to `16.3.0+` or safe version, update overrides) without `--force` or fake suppressions      |
-| 3   | `062_security_and_reliability_hardening_rollback.sql` sits in `supabase/migrations/`                     | P0       | Move rollback to `docs/rollbacks/062_security_and_reliability_hardening.rollback.sql` with manual emergency guidance                            |
+| 3   | `062_security_and_reliability_hardening_rollback.sql` sits in `appwrite/migrations/`                     | P0       | Move rollback to `docs/rollbacks/062_security_and_reliability_hardening.rollback.sql` with manual emergency guidance                            |
 | 4   | Migration 062 rollback file can execute during migrations                                                | P0       | Remove rollback file from executable migrations folder                                                                                          |
 | 5   | Migration 062 created `outbound_outbox` & `inbound_webhook_events` without RLS or revoking client access | P0       | Create forward-only migration `063_secure_webhook_and_outbox_tables.sql` enabling RLS and explicitly revoking `anon` and `authenticated` access |
 | 6   | `inbound_webhook_events` stores raw WhatsApp payloads without retention policy                           | P0       | Implement documented webhook retention & sanitization cron with fail-closed secret authentication                                               |
 | 7   | `inbound_webhook_events` lacked clear tenant/account association                                         | P0       | Add nullable `account_id` column to `inbound_webhook_events` with indexed lookup                                                                |
 | 8   | Playwright files exist without `@playwright/test` in `package.json` or CI scripts                        | P1       | Install `@playwright/test`, add `npm run test:e2e`, add Playwright step with Chromium in GitHub Actions CI                                      |
 | 9   | Existing E2E tests are only unauthenticated redirects                                                    | P1       | Implement comprehensive authenticated journeys, clinic appointment booking, document signing, and mobile viewport tests                         |
-| 10  | Existing tenant-isolation test uses a mock JS array                                                      | P0       | Add real Supabase RLS and API authorization test suites in `src/tests/security/`                                                                |
-| 11  | `src/lib/supabase/typed-admin.ts` returns `SupabaseClient<any>`                                          | P1       | Strictly type with `SupabaseClient<Database>`, enforce server-only boundary, and validate env vars safely                                       |
+| 10  | Existing tenant-isolation test uses a mock JS array                                                      | P0       | Add real Appwrite RLS and API authorization test suites in `src/tests/security/`                                                                |
+| 11  | `src/lib/appwrite/typed-admin.ts` returns `AppwriteClient<any>`                                          | P1       | Strictly type with `AppwriteClient<Database>`, enforce server-only boundary, and validate env vars safely                                       |
 | 12  | Structured logger does not comprehensively redact PII/PHI                                                | P1       | Expand `src/lib/observability/logger.ts` to redact patient names, medical notes, tokens, passwords, cookies, and recursive objects              |
 | 13  | README and metadata describe upstream wacrm rather than Helpa                                            | P2       | Rewrite `README.md` and `package.json` for Helpa with transparent upstream MIT attribution to `wacrm`                                           |
 | 14  | README badges point to upstream repository                                                               | P2       | Update badges to `imsusanta/wacrm_susanta`                                                                                                      |
@@ -45,7 +45,7 @@ graph TD
     end
 
     subgraph P1_Reliability["Phase 2: P1 Tenant Isolation & E2E Testing"]
-        T1[5. Install @playwright/test & E2E Scripts] --> T2[6. Real Supabase & API Tenant Isolation Tests]
+        T1[5. Install @playwright/test & E2E Scripts] --> T2[6. Real Appwrite & API Tenant Isolation Tests]
         T2 --> T3[7. Strongly-Typed Server-Only Admin Client]
         T3 --> T4[8. Deep PII/PHI & Secret Logging Redaction]
     end
@@ -65,8 +65,8 @@ graph TD
 
 ### Phase 1: Database Migration Safety & Queue Hardening (P0)
 
-1. **Move Rollback SQL**: Relocate `supabase/migrations/062_security_and_reliability_hardening_rollback.sql` to `docs/rollbacks/062_security_and_reliability_hardening.rollback.sql` with explicit manual operational warnings.
-2. **Forward-Only Migration 063 (`supabase/migrations/063_secure_webhook_and_outbox_tables.sql`)**:
+1. **Move Rollback SQL**: Relocate `appwrite/migrations/062_security_and_reliability_hardening_rollback.sql` to `docs/rollbacks/062_security_and_reliability_hardening.rollback.sql` with explicit manual operational warnings.
+2. **Forward-Only Migration 063 (`appwrite/migrations/063_secure_webhook_and_outbox_tables.sql`)**:
    - `ALTER TABLE outbound_outbox ENABLE ROW LEVEL SECURITY;`
    - `ALTER TABLE inbound_webhook_events ENABLE ROW LEVEL SECURITY;`
    - `REVOKE ALL ON outbound_outbox FROM anon, authenticated;`
@@ -93,7 +93,7 @@ graph TD
    - `e2e/mobile-viewport.spec.ts`: Mobile navigation, inbox, and appointment drawer layout at 375px viewport.
 4. Update `.github/workflows/ci.yml` to install Chromium dependencies and execute Playwright tests with artifact uploads on failure.
 
-### Phase 4: Real Supabase Tenant-Isolation Integration Tests (P0)
+### Phase 4: Real Appwrite Tenant-Isolation Integration Tests (P0)
 
 1. Replace simulated JavaScript array in `src/tests/security/tenant-isolation.test.ts` with real database queries, RLS policy verification, and API authorization assertions.
 2. Verify:
@@ -104,7 +104,7 @@ graph TD
 
 ### Phase 5: Strongly Typed Server-Only Admin Client (P1)
 
-1. Update `src/lib/supabase/typed-admin.ts` to return `SupabaseClient<Database>`.
+1. Update `src/lib/appwrite/typed-admin.ts` to return `AppwriteClient<Database>`.
 2. Guard with `if (typeof window !== 'undefined') throw new Error(...)` to prevent client bundle inclusion.
 3. Ensure all call sites use strongly typed table names and columns.
 

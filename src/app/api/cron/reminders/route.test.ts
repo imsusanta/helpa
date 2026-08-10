@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { appwriteAdmin, getAdminClient } from '@/lib/appwrite-compat';
+import { appwriteAdmin } from '@/lib/appwrite-compat';
 import { GET } from './route';
 
 vi.mock('@/lib/appwrite-compat', () => ({

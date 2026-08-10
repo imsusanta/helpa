@@ -17,6 +17,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { getAppwriteClient } from '@/infrastructure/appwrite/client';
 
 export default function SignupPage() {
   return (
@@ -75,11 +76,16 @@ function SignupPageInner() {
         return;
       }
 
+      if (data.sessionSecret) {
+        getAppwriteClient().client.setSession(data.sessionSecret);
+        window.localStorage.setItem('appwrite_session', data.sessionSecret);
+      }
+
       if (data.redirect === '/dashboard') {
         if (inviteToken) {
-          router.push(`/join/${encodeURIComponent(inviteToken)}`);
+          window.location.href = `/join/${encodeURIComponent(inviteToken)}`;
         } else {
-          router.push('/dashboard');
+          window.location.href = '/dashboard';
         }
       } else {
         setSuccess(true);

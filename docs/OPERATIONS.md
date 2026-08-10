@@ -52,11 +52,11 @@ To rotate cryptographic encryption keys without interrupting live clinic operati
 
 ### C. Database Backups & Point-in-Time Recovery (PITR)
 
-- Supabase Automated Daily Backups enabled with 30-day point-in-time recovery (PITR) WAL archiving.
+- Appwrite Automated Daily Backups enabled with 30-day point-in-time recovery (PITR) WAL archiving.
 - Disaster recovery target: RPO < 5 minutes, RTO < 1 hour.
 
 ### D. Incident Response Protocol
 
 1. **Meta WhatsApp API Service Outage**: Incoming webhooks fail over to dead-letter storage (`webhook_dead_letter`). System retries automatically via exponentially backed-off cron workers.
-2. **Database Failover**: Supabase auto-failover switches to standby replica within 60 seconds without data loss.
+2. **Database Failover**: Appwrite auto-failover switches to standby replica within 60 seconds without data loss.
 3. **Security Incident Response**: Immediately rotate `ENCRYPTION_KEY`, revoke affected user session JWTs, and inspect audit logs.

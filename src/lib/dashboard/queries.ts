@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@/lib/appwrite-compat';
+import type { AppwriteClient } from '@/lib/appwrite-compat';
 import {
   daysAgoStart,
   DOW_SHORT_MON_FIRST,
@@ -25,7 +25,7 @@ import type {
 // heavy aggregations to SQL RPCs. Noted in the PR.
 // ------------------------------------------------------------
 
-type DB = SupabaseClient;
+type DB = AppwriteClient;
 
 // --- 1. Metric cards ---------------------------------------------------
 
@@ -331,7 +331,7 @@ export async function loadActivity(
 
   const items: ActivityItem[] = [];
 
-  // PostgREST returns nested selections as arrays by default, even when
+  // Appwrite returns nested selections as arrays by default, even when
   // the foreign key is 1:1. We normalise by taking [0] on each level.
   for (const m of (msgs.data ?? []) as unknown as Array<{
     id: string;

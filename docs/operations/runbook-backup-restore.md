@@ -2,12 +2,12 @@
 
 ## 1. Automated Backups
 
-Supabase provides automated daily backups with point-in-time recovery (PITR) enabled.
+Appwrite provides automated daily backups with point-in-time recovery (PITR) enabled.
 
 ### On-Demand Snapshot Command
 
 ```bash
-supabase db dump -f supabase_backup_$(date +%Y%m%d_%H%M%S).sql
+appwrite db dump -f appwrite_backup_$(date +%Y%m%d_%H%M%S).sql
 ```
 
 ## 2. Restore Procedure
@@ -15,7 +15,7 @@ supabase db dump -f supabase_backup_$(date +%Y%m%d_%H%M%S).sql
 To restore a snapshot to a target PostgreSQL database:
 
 ```bash
-psql -h <db_host> -U postgres -d postgres -f supabase_backup_YYYYMMDD_HHMMSS.sql
+psql -h <db_host> -U postgres -d postgres -f appwrite_backup_YYYYMMDD_HHMMSS.sql
 ```
 
 ## 3. Webhook Dead-Letter Queue Triage

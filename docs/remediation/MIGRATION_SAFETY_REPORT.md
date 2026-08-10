@@ -2,7 +2,7 @@
 
 **Document Version:** 1.0.0  
 **Migration Path:** Forward-Only (001_initial_schema.sql → 063_secure_webhook_and_outbox_tables.sql)  
-**Database:** PostgreSQL 15+ (Supabase / Postgres)
+**Database:** PostgreSQL 15+ (Appwrite / Postgres)
 
 ---
 
@@ -24,11 +24,11 @@
 ## 2. Identified Vulnerabilities in Migration 062
 
 1. **Rollback File sitting in Migration Directory**:
-   `062_security_and_reliability_hardening_rollback.sql` was located directly in `supabase/migrations/`. Standard migration tools (e.g. `supabase db push`, `db-migrate`) execute all `.sql` files in lexicographical order. The rollback file immediately ran after 062, dropping `outbound_outbox` and `inbound_webhook_events` and truncating data.
+   `062_security_and_reliability_hardening_rollback.sql` was located directly in `appwrite/migrations/`. Standard migration tools (e.g. `appwrite db push`, `db-migrate`) execute all `.sql` files in lexicographical order. The rollback file immediately ran after 062, dropping `outbound_outbox` and `inbound_webhook_events` and truncating data.
    **Remediation:** Relocate to `docs/rollbacks/062_security_and_reliability_hardening.rollback.sql` with explicit manual operational warnings.
 
 2. **Missing Row Level Security on Queue Tables**:
-   `outbound_outbox` and `inbound_webhook_events` were created without `ALTER TABLE ... ENABLE ROW LEVEL SECURITY;`. In Supabase, tables without RLS are exposed to anonymous and authenticated PostgREST clients by default.
+   `outbound_outbox` and `inbound_webhook_events` were created without `ALTER TABLE ... ENABLE ROW LEVEL SECURITY;`. In Appwrite, tables without RLS are exposed to anonymous and authenticated PostgREST clients by default.
    **Remediation:** In Migration 063:
 
    ```sql
@@ -66,7 +66,7 @@ To manually roll back on a test environment:
 
 ```bash
 # 1. Take a physical database backup
-supabase db dump -f backup_pre_rollback.sql
+appwrite db dump -f backup_pre_rollback.sql
 
 # 2. Execute manual rollback SQL
 psql "$DATABASE_URL" -f docs/rollbacks/062_security_and_reliability_hardening.rollback.sql

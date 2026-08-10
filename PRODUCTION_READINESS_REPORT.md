@@ -23,7 +23,7 @@
 
 ### 1.2 Append-Only Audit Logs & Transactional Deletion RPC
 
-- **Database Migration:** `supabase/migrations/064_audit_immutability_and_consent_defaults.sql`
+- **Database Migration:** `appwrite/migrations/064_audit_immutability_and_consent_defaults.sql`
 - **Implementation:**
   - Replaced broad `FOR ALL` policy on `audit_logs` with explicit `SELECT` policy for tenant members and `INSERT` policy restricted to service role.
   - Installed `BEFORE UPDATE` and `BEFORE DELETE` triggers (`audit_logs_immutable_guard`) that raise exceptions on any modification attempt.
@@ -75,7 +75,7 @@
 
 ## 3. Awaiting Infrastructure Configuration
 
-- **Supabase PITR:** Point-In-Time-Recovery (30-day retention) must be enabled in the Supabase Cloud Console project settings.
+- **Appwrite PITR:** Point-In-Time-Recovery (30-day retention) must be enabled in the Appwrite Cloud Console project settings.
 - **Cron Scheduler:** Retention purge route `/api/cron/cleanup-webhooks` is implemented; automated execution requires configuring Vercel Cron (`vercel.json`) or an external runner.
 
 ---
@@ -90,7 +90,7 @@
 
 | Risk Area                  | Mitigation Strategy                                                   |
 | -------------------------- | --------------------------------------------------------------------- |
-| Database Quota             | Supabase DB quota spend cap monitoring required in production console |
+| Database Quota             | Appwrite DB quota spend cap monitoring required in production console |
 | OpenRouter Model Failovers | Built-in fallback to `google/gemini-2.0-flash` on API timeout         |
 
 ---

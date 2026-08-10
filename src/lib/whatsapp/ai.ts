@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { decrypt } from '@/lib/whatsapp/encryption';
 import {
   isEmergencyQuery,
@@ -6,7 +7,7 @@ import {
   sanitizeAiInput,
 } from '@/lib/ai/safety';
 import { logger } from '@/lib/observability/logger';
-import { appwriteAdmin, getAdminClient } from '@/lib/appwrite-compat';
+import { appwriteAdmin } from '@/lib/appwrite-compat';
 import {
   engineSendText,
   engineSendDocument,

@@ -13,7 +13,7 @@ import crypto from 'crypto';
 function getPdfSigningKey(): string {
   return (
     process.env.PDF_SIGNING_KEY ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.APPWRITE_API_KEY ||
     'helpa-pdf-signature-secret-key-32bytes'
   );
 }

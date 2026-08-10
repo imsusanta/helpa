@@ -1,7 +1,7 @@
 -- ============================================================
 -- 008_profile_avatars_storage.sql
 --
--- Creates the `avatars` Supabase Storage bucket and the RLS policies
+-- Creates the `avatars` Appwrite Storage bucket and the RLS policies
 -- that let each user manage only their own avatar file while letting
 -- everyone read (so rendering <img> tags without signed URLs works).
 --

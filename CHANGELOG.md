@@ -2,7 +2,7 @@
 
 User-visible changes in `wacrm`. Self-hosters: when pulling an update,
 check this file for any **migration required** notes and apply the
-matching SQL files from `supabase/migrations/` against your Supabase
+matching SQL files from `appwrite/migrations/` against your Appwrite
 project before restarting the app.
 
 Versions follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
@@ -58,7 +58,7 @@ always did.
 
 ### Migration required
 
-- `supabase/migrations/020_account_sharing_followups.sql` —
+- `appwrite/migrations/020_account_sharing_followups.sql` —
   composite partial indexes on `automations(account_id,
 trigger_type) WHERE is_active` and `flows(account_id) WHERE
 status='active'` for the engine dispatch hot path; updated
@@ -132,7 +132,7 @@ status='active'` for the engine dispatch hot path; updated
   [Members docs](https://wacrm.tech/docs/members).
 - **Account & member management API** — server-side endpoints
   backing the Members tab. All routes are role-gated and
-  return Supabase-RLS-scoped data.
+  return Appwrite-RLS-scoped data.
   - `GET /api/account` — caller's account + role. Any member.
   - `PATCH /api/account` — rename the account. Admin+.
   - `GET /api/account/members` — list members. Email visible to
@@ -167,9 +167,9 @@ status='active'` for the engine dispatch hot path; updated
 
 ### Migration required
 
-Apply against your Supabase project before deploying this version:
+Apply against your Appwrite project before deploying this version:
 
-- `supabase/migrations/017_account_sharing.sql` — introduces the
+- `appwrite/migrations/017_account_sharing.sql` — introduces the
   `accounts` and `account_invitations` tables plus an
   `account_role_enum` type; adds `account_id` to every
   user-scoped table and backfills it; rewrites every RLS policy;
@@ -177,26 +177,26 @@ Apply against your Supabase project before deploying this version:
   every existing user is mapped to a freshly-created account
   with role `owner` and every existing row of theirs is linked
   to that account.
-- `supabase/migrations/018_account_member_rpcs.sql` — adds three
+- `appwrite/migrations/018_account_member_rpcs.sql` — adds three
   `SECURITY DEFINER` RPCs (`set_member_role`,
   `remove_account_member`, `transfer_account_ownership`) that
   back the member-management API. They self-check the caller's
   role and raise SQLSTATE `42501` / `22023` on forbidden / bad
   input so the API layer can map cleanly to 403 / 400.
   Idempotent.
-- `supabase/migrations/019_invitation_rpcs.sql` — adds two
+- `appwrite/migrations/019_invitation_rpcs.sql` — adds two
   `SECURITY DEFINER` RPCs: `peek_invitation` (anonymous read by
   token hash, returns a fixed-shape JSON envelope) and
   `redeem_invitation` (authenticated atomic move + orphan
   cleanup, with a domain-data safety check). Both bypass the
   RLS that would otherwise block their reads/writes. Idempotent.
-- `supabase/migrations/021_account_default_currency.sql` — adds
+- `appwrite/migrations/021_account_default_currency.sql` — adds
   `accounts.default_currency` (`TEXT NOT NULL DEFAULT 'USD'`, with a
   3-letter-code `CHECK`) backing the configurable default currency.
   Idempotent; existing accounts backfill to `USD`. **Apply before
   deploying** — the app now reads this column when loading the
   account, so an un-migrated database breaks account loading.
-- `supabase/migrations/022_contact_phone_dedup.sql` — adds the
+- `appwrite/migrations/022_contact_phone_dedup.sql` — adds the
   generated `contacts.phone_normalized` column, **merges existing
   duplicate contacts into the oldest** (re-pointing conversations,
   deals, notes, tags, custom values, and broadcast recipients — no
@@ -217,7 +217,7 @@ video mid-conversation.
 - **`send_media` flow node.** Send an image (PNG / JPEG / WebP), video
   (MP4 / 3GP), or document (PDF, Word, Excel, PowerPoint, TXT) to the
   customer from any point in a flow. Pick a file in the builder, it
-  uploads to the new `flow-media` Supabase Storage bucket, and Meta
+  uploads to the new `flow-media` Appwrite Storage bucket, and Meta
   fetches the public URL at send time. Optional caption (1024 char cap,
   supports `{{vars.X}}` interpolation); documents also take an optional
   filename shown in the recipient's chat. Auto-advances after send —
@@ -226,13 +226,13 @@ video mid-conversation.
 
 ### Migration required
 
-Apply against your Supabase project before deploying this version:
+Apply against your Appwrite project before deploying this version:
 
-- `supabase/migrations/016_flow_media.sql` — does two things:
+- `appwrite/migrations/016_flow_media.sql` — does two things:
   1. Adds `'send_media'` to the `flow_nodes.node_type` CHECK
      constraint. Without this the `send_media` node fails to save with
      a constraint violation.
-  2. Creates the public `flow-media` Supabase Storage bucket (16 MB
+  2. Creates the public `flow-media` Appwrite Storage bucket (16 MB
      file-size cap, image / video / document MIME allowlist) plus
      per-user RLS policies (path prefix = `auth.uid()`). Without this
      the builder's file picker fails on upload. Same shape as the
@@ -266,9 +266,9 @@ when two users on the same instance saved the same WhatsApp
 
 ### Migration required
 
-Apply against your Supabase project before deploying this version:
+Apply against your Appwrite project before deploying this version:
 
-- `supabase/migrations/013_whatsapp_config_phone_number_id_unique.sql`
+- `appwrite/migrations/013_whatsapp_config_phone_number_id_unique.sql`
   — adds `UNIQUE(phone_number_id)` to `whatsapp_config`. **Fails
   loudly with a copy-pasteable resolution hint** if duplicate rows
   already exist; auto-deduping would destroy encrypted tokens, so
@@ -418,14 +418,14 @@ conversation engine that runs alongside Automations. Also ships a
 
 ### Migration required
 
-Apply, in order, against your Supabase project:
+Apply, in order, against your Appwrite project:
 
-1. `supabase/migrations/010_flows.sql` — Flows core tables, indexes,
+1. `appwrite/migrations/010_flows.sql` — Flows core tables, indexes,
    RLS policies, and the `messages` schema widening.
-2. `supabase/migrations/011_profile_beta_features.sql` — adds the
+2. `appwrite/migrations/011_profile_beta_features.sql` — adds the
    `profiles.beta_features` column. Surviving for future betas;
    Flows no longer reads it.
-3. `supabase/migrations/012_flows_increment_counter.sql` — atomic
+3. `appwrite/migrations/012_flows_increment_counter.sql` — atomic
    counter RPC. Without this the engine still runs but
    `flows.execution_count` is racy.
 
@@ -453,8 +453,8 @@ whether you applied a previous one.
 
 ### Migration required
 
-- Apply `supabase/migrations/009_message_actions.sql` to your
-  Supabase project. It adds `messages.reply_to_message_id` and the
+- Apply `appwrite/migrations/009_message_actions.sql` to your
+  Appwrite project. It adds `messages.reply_to_message_id` and the
   new `message_reactions` table (with RLS and realtime). The
   migration is idempotent — safe to re-run.
 
@@ -471,4 +471,4 @@ whether you applied a previous one.
 
 Initial template release. Core CRM: inbox, contacts, pipelines,
 broadcasts, automations (with a Wait-step cron drain), WhatsApp
-Cloud API integration, Supabase auth + RLS.
+Cloud API integration, Appwrite auth + RLS.

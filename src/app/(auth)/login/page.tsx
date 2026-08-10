@@ -22,6 +22,7 @@ import {
   CalendarCheck,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getAppwriteClient } from '@/infrastructure/appwrite/client';
 
 export default function LoginPage() {
   return (
@@ -71,10 +72,15 @@ function LoginPageInner() {
         return;
       }
 
+      if (data.sessionSecret) {
+        getAppwriteClient().client.setSession(data.sessionSecret);
+        window.localStorage.setItem('appwrite_session', data.sessionSecret);
+      }
+
       if (inviteToken) {
-        router.push(`/join/${encodeURIComponent(inviteToken)}`);
+        window.location.href = `/join/${encodeURIComponent(inviteToken)}`;
       } else {
-        router.push('/dashboard');
+        window.location.href = '/dashboard';
       }
     } catch (err: unknown) {
       setError(

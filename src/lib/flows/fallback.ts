@@ -4,7 +4,7 @@
  * Pure logic that decides what the engine does when a customer reply
  * doesn't match any option on the current `send_buttons` / `send_list`
  * node. Lifted out of `engine.ts` so it can be unit-tested without a
- * Supabase / Meta mock.
+ * Appwrite / Meta mock.
  *
  * The policy lives on `flows.fallback_policy` (JSONB) and is loaded
  * with the run; defaults filled in by `resolveFallbackPolicy` so an

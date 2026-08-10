@@ -37,7 +37,7 @@ import { ReplyQuote } from './reply-quote';
 /** Media content types an agent can send from the composer. */
 export type ComposerMediaKind = 'image' | 'video' | 'document' | 'audio';
 
-/** Supabase Storage bucket holding agent-sent chat attachments (migration 023). */
+/** Appwrite Storage bucket holding agent-sent chat attachments (migration 023). */
 export const CHAT_MEDIA_BUCKET = 'chat-media';
 
 /** Meta caps media captions at 1024 chars. Enforced here and in the send route. */

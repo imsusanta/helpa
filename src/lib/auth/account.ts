@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
-import { hasMinRole, isAccountRole, type AccountRole } from './roles';
-import { getAppwriteAdminClient } from '@/infrastructure/appwrite/server';
+import { cookies } from 'next/headers';
+import { hasMinRole, type AccountRole } from './roles';
+import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
+import { accountsRepository } from '@/infrastructure/appwrite/repositories/accounts.repository';
+import { profilesRepository } from '@/infrastructure/appwrite/repositories/profiles.repository';
 
 export class UnauthorizedError extends Error {
   readonly status = 401 as const;
@@ -41,32 +44,42 @@ export interface AccountContext {
   accountId: string;
   role: AccountRole;
   account: { id: string; name: string };
-  /** @deprecated appwrite removed — stub for backward compat */
-  appwrite?: any;
+  /** Appwrite data adapter used by routes being migrated to repositories. */
+  appwrite?: import('@/lib/appwrite-compat').AppwriteCompatClient;
 }
 
 export async function getCurrentAccount(): Promise<AccountContext> {
   try {
-    const { account } = getAppwriteAdminClient();
-    const appwriteUser = await account.get().catch(() => null);
+    const cookieStore = await cookies();
+    const session =
+      cookieStore.get(`a_session_${APPWRITE_CONFIG.projectId}`)?.value ||
+      cookieStore.get('appwrite_session')?.value;
+    if (!session) throw new UnauthorizedError();
 
-    if (!appwriteUser) {
-      // Fallback for development / server routes where session cookie is validated
-      return {
-        userId: 'admin_user_id',
-        accountId: 'default_account',
-        role: 'owner',
-        account: { id: 'default_account', name: 'Clinic Account' },
-      };
-    }
+    const response = await fetch(`${APPWRITE_CONFIG.endpoint}/account`, {
+      headers: {
+        'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
+        'X-Appwrite-Session': session,
+      },
+      cache: 'no-store',
+    });
+    if (!response.ok) throw new UnauthorizedError();
+
+    const appwriteUser = await response.json();
+    const profile = await profilesRepository.getProfileByUserId(
+      appwriteUser.$id
+    );
+    const accountId = profile?.accountId || 'default_account';
+    const accountDoc = await accountsRepository.getAccount(accountId);
 
     return {
       userId: appwriteUser.$id,
-      accountId: 'default_account',
-      role: 'owner',
-      account: { id: 'default_account', name: 'Clinic Account' },
+      accountId,
+      role: profile?.role || 'owner',
+      account: { id: accountId, name: accountDoc?.name || 'Clinic Account' },
     };
-  } catch {
+  } catch (error) {
+    if (error instanceof UnauthorizedError) throw error;
     throw new UnauthorizedError();
   }
 }

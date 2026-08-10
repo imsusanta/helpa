@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { LeadStageType } from '@/core/types';
 import { TrustedActionExecutor } from '@/core/actions/action-executor';
-import { leadsRepository } from '@/infrastructure/appwrite/repositories/leads.repository';
 
 const ALLOWED_STAGES: LeadStageType[] = [
   'NEW',

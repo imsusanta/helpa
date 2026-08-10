@@ -30,7 +30,7 @@ graph TD
 ### Phase 2: Health Monitoring & Deployment Reliability (P0)
 
 - **2.1 Production Health Endpoint**: Implement `src/app/api/health/route.ts` returning service status, timestamp, and bounded dependency checks without exposing internal versions or secrets.
-- **2.2 Deployment Documentation**: Create `docs/DEPLOYMENT.md` detailing step-by-step production deployment for Vercel, Node.js VPS, and Hostinger, with required environment variable setup and Supabase migration guides.
+- **2.2 Deployment Documentation**: Create `docs/DEPLOYMENT.md` detailing step-by-step production deployment for Vercel, Node.js VPS, and Hostinger, with required environment variable setup and Appwrite migration guides.
 
 ### Phase 3: Multi-Tenant Authorization & Storage Hardening (P0 / P1)
 

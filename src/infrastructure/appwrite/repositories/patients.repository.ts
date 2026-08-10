@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { ID, Query } from 'node-appwrite';
 import { getAppwriteAdminClient } from '../server';
 import { APPWRITE_CONFIG } from '../config';

@@ -106,6 +106,7 @@ export async function POST(request: Request) {
         email: trimmedEmail,
         name: userName,
       },
+      sessionSecret,
     });
 
     const cookieOptions = {

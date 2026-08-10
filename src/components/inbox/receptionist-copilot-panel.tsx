@@ -26,7 +26,6 @@ import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {} from '@/components/ui/scroll-area';
 import { useCan } from '@/hooks/use-can';
 import { cn } from '@/lib/utils';
 import type { ReceptionistCopilotSnapshot } from '@/lib/ai/receptionist-copilot';

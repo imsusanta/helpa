@@ -3,7 +3,7 @@
 **Document Version:** 1.0.0  
 **Repository:** `imsusanta/wacrm_susanta`  
 **Product:** Helpa — WhatsApp AI Receptionist & Patient Engagement CRM  
-**Target Environment:** Next.js 16 (App Router), React 19, Supabase Postgres/Auth/Storage/RLS, Meta WhatsApp Cloud API
+**Target Environment:** Next.js 16 (App Router), React 19, Appwrite Postgres/Auth/Storage/RLS, Meta WhatsApp Cloud API
 
 ---
 
@@ -46,10 +46,10 @@ flowchart TD
         OpenRouter["OpenRouter AI Gateway (Gemini 2.0 Flash)"]
     end
 
-    subgraph DataLayer["Supabase Backend (Postgres + Storage + Auth)"]
+    subgraph DataLayer["Appwrite Backend (Postgres + Storage + Auth)"]
         PostgresDB[(PostgreSQL Database + RLS)]
-        Storage[(Supabase Storage: chat-media, avatars, documents)]
-        SupabaseAuth[Supabase Auth & Session Engine]
+        Storage[(Appwrite Storage: chat-media, avatars, documents)]
+        AppwriteAuth[Appwrite Auth & Session Engine]
     end
 
     Patient <-->|Inbound/Outbound Messages| MetaAPI
@@ -61,7 +61,7 @@ flowchart TD
 
     ClinicStaff <-->|HTTPS Session| EdgeCDN
     EdgeCDN <--> Proxy
-    Proxy <--> SupabaseAuth
+    Proxy <--> AppwriteAuth
     Proxy <--> ApptAPI
     ApptAPI <-->|RLS Scoped Queries| PostgresDB
     ApptAPI --> DocGenerator
@@ -78,8 +78,8 @@ flowchart TD
 | ----------------------- | ------------------- | ------------------------------------------ | -------------------------------------------- |
 | `next`                  | `16.2.6`            | App Router, Server Actions, Route Handlers | Turbopack compilation; CSP headers enforced  |
 | `react` / `react-dom`   | `19.2.4`            | UI component rendering                     | Standard React 19 hooks and SSR              |
-| `@supabase/supabase-js` | `^2.107.0`          | Database, Auth, and Storage client         | Used via typed client and server SSR cookies |
-| `@supabase/ssr`         | `^0.10.3`           | Cookie-based session management            | Default-deny proxy session handling          |
+| `@appwrite/appwrite-js` | `^2.107.0`          | Database, Auth, and Storage client         | Used via typed client and server SSR cookies |
+| `@appwrite/ssr`         | `^0.10.3`           | Cookie-based session management            | Default-deny proxy session handling          |
 | `tailwindcss`           | `^4.0.0`            | Styling system                             | CSS variables and design tokens              |
 | `jspdf` / `qrcode`      | `^4.2.1` / `^1.5.4` | Digital OPD Ticket Generation              | Server-side PDF & barcode generation         |
 | `@xyflow/react`         | `^12.11.0`          | Visual flow builder                        | Gated to advanced automation users           |

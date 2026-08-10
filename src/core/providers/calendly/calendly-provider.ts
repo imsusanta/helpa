@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   CalendlyProvider,
   CalendlyEventType,
@@ -79,7 +80,7 @@ export class DefaultCalendlyProvider implements CalendlyProvider {
     return true;
   }
 
-  async refreshCredentials(clinicId: string): Promise<boolean> {
+  async refreshCredentials(_clinicId: string): Promise<boolean> {
     return true;
   }
 

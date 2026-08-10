@@ -96,7 +96,7 @@ export default function JoinPage() {
 
   const [peek, setPeek] = useState<PeekResult | null>(null);
   // Local auth probe — the AuthProvider lives inside the (dashboard)
-  // route group, so it doesn't reach this page. We hit Supabase
+  // route group, so it doesn't reach this page. We hit Appwrite
   // directly the same way `/login` and `/signup` do.
   const [authedUserId, setAuthedUserId] = useState<string | null | undefined>(
     undefined // undefined = unknown / still loading; null = signed out

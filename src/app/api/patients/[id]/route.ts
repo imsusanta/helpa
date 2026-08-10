@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { appwriteAdmin, getAdminClient } from '@/lib/appwrite-compat';
+import { appwriteAdmin } from '@/lib/appwrite-compat';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { logger } from '@/lib/observability/logger';
 import {

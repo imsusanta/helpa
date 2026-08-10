@@ -4,7 +4,7 @@ import { generatePdfToken, verifyPdfToken } from '@/lib/pdf-signing';
 
 describe('Security: Multi-Tenancy & Authorization Invariants', () => {
   const ACCOUNT_A_ID = '00000000-0000-0000-0000-00000000000a';
-  const ACCOUNT_B_ID = '00000000-0000-0000-0000-00000000000b';
+  const _ACCOUNT_B_ID = '00000000-0000-0000-0000-00000000000b';
   const APPT_A_ID = '11111111-1111-1111-1111-111111111111';
   const APPT_B_ID = '22222222-2222-2222-2222-222222222222';
 

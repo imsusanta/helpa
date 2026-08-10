@@ -15,7 +15,7 @@
 // ============================================================
 
 import { NextResponse } from 'next/server';
-import type { PostgrestError } from '@/lib/appwrite-compat';
+import type { AppwriteError } from '@/lib/appwrite-compat';
 
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { isAccountRole } from '@/lib/auth/roles';
@@ -28,7 +28,7 @@ import {
 // Map known SQLSTATEs from the RPCs (see migration 018) onto HTTP
 // statuses. The `error.code` field is the SQLSTATE; the `message`
 // is the human-readable RAISE message we put in the migration.
-function rpcErrorToResponse(err: PostgrestError): NextResponse {
+function rpcErrorToResponse(err: AppwriteError): NextResponse {
   if (err.code === '42501') {
     return NextResponse.json({ error: err.message }, { status: 403 });
   }

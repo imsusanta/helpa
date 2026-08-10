@@ -1,7 +1,7 @@
 # Helpa Production Deployment Guide
 
 **Product:** Helpa — Clinic WhatsApp AI Receptionist & Patient CRM  
-**Stack:** Next.js 16 (App Router), Supabase (PostgreSQL 15+), Meta WhatsApp Cloud API
+**Stack:** Next.js 16 (App Router), Appwrite (PostgreSQL 15+), Meta WhatsApp Cloud API
 
 ---
 
@@ -9,7 +9,7 @@
 
 | Variable Name                   | Exposure Scope            | Purpose                                        | Generation / Example                              |
 | ------------------------------- | ------------------------- | ---------------------------------------------- | ------------------------------------------------- |
-| `NEXT_PUBLIC_SUPABASE_URL`      | Public (Browser & Server) | Supabase project endpoint                      | `https://xxxx.supabase.co`                        |
+| `NEXT_PUBLIC_SUPABASE_URL`      | Public (Browser & Server) | Appwrite project endpoint                      | `https://xxxx.appwrite.co`                        |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public (Browser & Server) | Anonymous client API key                       | `eyJhbGciOiJIUzI1Ni...`                           |
 | `NEXT_PUBLIC_APP_URL`           | Public (Browser & Server) | Canonical production origin                    | `https://helpa.yourdomain.com`                    |
 | `SUPABASE_SERVICE_ROLE_KEY`     | **Server-Only Secret**    | Admin database operations (bypasses RLS)       | `eyJhbGciOiJIUzI1Ni...` (Never expose to browser) |
@@ -35,7 +35,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 2. **Framework Preset**: Select `Next.js`.
 3. **Build Command**: `next build` (default).
 4. **Environment Variables**: Add all required variables listed above in Project Settings -> Environment Variables.
-5. **Supabase Auth Redirects**: In Supabase Dashboard -> Authentication -> URL Configuration:
+5. **Appwrite Auth Redirects**: In Appwrite Dashboard -> Authentication -> URL Configuration:
    - Site URL: `https://your-domain.vercel.app`
    - Redirect URLs:
      - `https://your-domain.vercel.app/dashboard`

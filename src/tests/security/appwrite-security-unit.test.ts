@@ -1,8 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createClient } from '@/lib/appwrite-compat';
 
-// Construct simulated Supabase Auth client contexts representing Tenant A and Tenant B
-function createTenantClient(accountId: string, role: string = 'authenticated') {
+// Construct simulated Appwrite Auth client contexts representing Tenant A and Tenant B
+function createTenantClient(
+  _accountId: string,
+  _role: string = 'authenticated'
+) {
   return createClient();
 }
 
@@ -10,7 +13,7 @@ function createServiceRoleClient() {
   return createClient();
 }
 
-describe('Mocked Supabase security unit tests', () => {
+describe('Mocked Appwrite security unit tests', () => {
   const tenantAId = 'a0000000-0000-0000-0000-000000000001';
   const tenantBId = 'b0000000-0000-0000-0000-000000000002';
   const patientAId = 'a1111111-1111-1111-1111-111111111111';

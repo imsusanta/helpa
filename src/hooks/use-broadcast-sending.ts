@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { getAppwriteClient } from '@/infrastructure/appwrite/client';
 import { createClient } from '@/lib/appwrite-compat';
 import { useAuth } from '@/hooks/use-auth';
 import { Contact, MessageTemplate } from '@/types';
@@ -148,7 +147,7 @@ async function fetchCustomValueIndex(
   const index: CustomValueIndex = new Map();
   if (contactIds.length === 0) return index;
 
-  // appwrite PostgREST caps the .in(...) IN-clause roughly at 1000
+  // appwrite Appwrite caps the .in(...) IN-clause roughly at 1000
   // values. Page through to stay safe.
   const PAGE = 500;
   for (let i = 0; i < contactIds.length; i += PAGE) {
@@ -423,7 +422,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
       if (c.phone) byPhone.set(c.phone, c);
     }
 
-    // Insert only missing contacts, in one batch per 200 rows (PostgREST
+    // Insert only missing contacts, in one batch per 200 rows (Appwrite
     // has a default payload cap — 200 keeps individual requests small).
     const missing = phones
       .filter((p) => !byPhone.has(p))
@@ -461,7 +460,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
   ): Promise<Contact[]> {
     const { fieldId, operator, value } = filter;
 
-    // Build the WHERE clause for the operator. PostgREST supports
+    // Build the WHERE clause for the operator. Appwrite supports
     // eq/neq/ilike via the query builder — use ilike with wildcards
     // for "contains" so the match is case-insensitive.
     let query = appwrite

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-// appwriteClient type removed — using Appwrite
+// AppwriteClient type removed — using Appwrite
 import { POST as postConsent } from '@/app/api/patients/[id]/consent/route';
 import { GET as getExport } from '@/app/api/patients/[id]/export/route';
 import { POST as postWithdraw } from '@/app/api/patients/[id]/withdraw/route';

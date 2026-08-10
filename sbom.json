@@ -56,14 +56,14 @@
       "licenseConcluded": "NOASSERTION"
     },
     {
-      "name": "@supabase/ssr",
+      "name": "@appwrite/ssr",
       "SPDXID": "SPDXRef-Package-Dep-5",
       "versionInfo": "0.10.3",
       "downloadLocation": "NOASSERTION",
       "licenseConcluded": "NOASSERTION"
     },
     {
-      "name": "@supabase/supabase-js",
+      "name": "@appwrite/appwrite-js",
       "SPDXID": "SPDXRef-Package-Dep-6",
       "versionInfo": "2.107.0",
       "downloadLocation": "NOASSERTION",

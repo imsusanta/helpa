@@ -1,21 +1,15 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { createClient, appwriteClient } from '@/lib/appwrite-compat';
+import { createClient, AppwriteClient } from '@/lib/appwrite-compat';
 
 // Genuine appwrite RLS Integration Test Suite
 // Executes against real appwrite database instance (local CLI or staging)
 // Uses real JWT access tokens returned from appwrite Auth logins.
 // NO vi.spyOn(), NO mockResolvedValue(), NO mock-token, NO X-Tenant-Id header.
 
-const appwriteUrl =
-  process.env.NEXT_PUBLIC_appwrite_URL || 'http://127.0.0.1:54321';
-const anonKey = process.env.NEXT_PUBLIC_appwrite_ANON_KEY || 'dummy-anon-key';
-const serviceRoleKey =
-  process.env.appwrite_SERVICE_ROLE_KEY || 'dummy-service-role-key';
-
 describe('Genuine appwrite RLS & Database Security Integration', () => {
-  let adminClient: appwriteClient;
-  let tenantAClient: appwriteClient;
-  let tenantBClient: appwriteClient;
+  let adminClient: AppwriteClient;
+  let tenantAClient: AppwriteClient;
+  let tenantBClient: AppwriteClient;
 
   const tenantAId = 'a0000000-0000-0000-0000-000000000001';
   const tenantBId = 'b0000000-0000-0000-0000-000000000002';

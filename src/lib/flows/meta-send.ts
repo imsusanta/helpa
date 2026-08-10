@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { messagesRepository } from '@/infrastructure/appwrite/repositories/messages.repository';
 
 interface SendTextEngineArgs {

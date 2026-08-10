@@ -19,4 +19,4 @@
 - Quality Gates Passed: 100% Prettier clean, 0 ESLint errors, 0 TypeScript errors, 496/496 Vitest unit tests passed across 46 test files, 16/16 Playwright E2E tests passed.
 - AI Safety Guardrails: Integrated across all model call paths (WhatsApp AI, campaign generation, AI features, copilot).
 - Privacy & Audit Logs: Consent persistence, opt-out withdrawal, export, and atomic deletion APIs deployed with append-only audit logging and immutability triggers (`064_audit_immutability_and_consent_defaults.sql`).
-- Multi-Tenant RLS: Mocked security unit suite (`src/tests/security/supabase-security-unit.test.ts`) and genuine integration suite (`src/tests/integration/supabase-rls.integration.test.ts`) with disposable Supabase CLI integration in CI (`ci.yml`).
+- Multi-Tenant RLS: Mocked security unit suite (`src/tests/security/appwrite-security-unit.test.ts`) and genuine integration suite (`src/tests/integration/appwrite-rls.integration.test.ts`) with disposable Appwrite CLI integration in CI (`ci.yml`).

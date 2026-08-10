@@ -13,7 +13,6 @@ import {
   RotateCcw,
   Upload,
 } from 'lucide-react';
-import { getAppwriteClient } from '@/infrastructure/appwrite/client';
 import { createClient } from '@/lib/appwrite-compat';
 import {
   uploadAccountMedia,

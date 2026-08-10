@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { SupabaseClient } from '@/lib/appwrite-compat';
+import type { AppwriteClient } from '@/lib/appwrite-compat';
 import {
   dedupeByPhone,
   findExistingContact,
@@ -67,15 +67,15 @@ describe('dedupeByPhone', () => {
 });
 
 describe('findExistingContact', () => {
-  // Minimal SupabaseClient stub: resolves the .from().select().eq().like()
+  // Minimal AppwriteClient stub: resolves the .from().select().eq().like()
   // chain to a fixed candidate set.
-  function stubDb(rows: Array<{ id: string; phone: string }>): SupabaseClient {
+  function stubDb(rows: Array<{ id: string; phone: string }>): AppwriteClient {
     const builder = {
       select: () => builder,
       eq: () => builder,
       like: () => Promise.resolve({ data: rows, error: null }),
     };
-    return { from: () => builder } as unknown as SupabaseClient;
+    return { from: () => builder } as unknown as AppwriteClient;
   }
 
   it('returns a trunk-variant match via phonesMatch', async () => {

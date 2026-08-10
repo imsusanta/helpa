@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-// appwriteClient type removed — using Appwrite
+// AppwriteClient type removed — using Appwrite
 import {
   withdrawPatientConsent,
   exportPatientData,

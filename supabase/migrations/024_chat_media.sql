@@ -1,7 +1,7 @@
 -- ============================================================
 -- 023_chat_media.sql
 --
--- Adds the `chat-media` Supabase Storage bucket used when an agent
+-- Adds the `chat-media` Appwrite Storage bucket used when an agent
 -- sends a photo / video / document / voice note from the inbox
 -- composer (issue #213). Today media can only be RECEIVED from
 -- customers or sent via the Flows `send_media` node — never typed

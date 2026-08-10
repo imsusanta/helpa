@@ -12,7 +12,7 @@
 --     instance to opt into a not-yet-stable feature simultaneously.
 --   - The owner wanted to dogfood the feature on their own account
 --     before exposing it to teammates. Flipping a column via
---     Supabase Studio (`UPDATE profiles SET beta_features = ...
+--     Appwrite Studio (`UPDATE profiles SET beta_features = ...
 --     WHERE user_id = '<theirs>'`) is the lowest-friction toggle.
 --   - DB-managed flags survive env rotation, deploy-restart timing,
 --     and (since beta_features is a TEXT[]) extend naturally to

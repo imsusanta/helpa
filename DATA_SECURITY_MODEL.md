@@ -23,7 +23,7 @@
 [Incoming Request]
        │
        ▼
-[Supabase Auth Session Validation] (Extract verified user_id)
+[Appwrite Auth Session Validation] (Extract verified user_id)
        │
        ▼
 [Profile Lookup via Foreign Key Join] (Derive verified account_id and account_role)

@@ -12,7 +12,7 @@
 | `/`                             | `GET`         | Clinic AI Landing Page    | Edge cached (Public), CSP enforced    | No customer or patient data exposed        |
 | `/login`                        | `GET`, `POST` | User Authentication       | Rate-limited by IP & Email            | Redirects to `/dashboard` if authenticated |
 | `/signup`                       | `GET`, `POST` | Clinic Account Creation   | Rate-limited by IP                    | Scoped to new account setup                |
-| `/forgot-password`              | `GET`, `POST` | Password Reset            | Rate-limited                          | Supabase Auth recovery token               |
+| `/forgot-password`              | `GET`, `POST` | Password Reset            | Rate-limited                          | Appwrite Auth recovery token               |
 | `/join/[token]`                 | `GET`, `POST` | Invitation Acceptance     | Token validation via RPC              | Token must be valid and unexpired          |
 | `/api/whatsapp/webhook`         | `GET`         | Meta Webhook Verification | Query token verification              | Compares verify token against DB           |
 | `/api/whatsapp/webhook`         | `POST`        | Meta Inbound Webhook      | HMAC-SHA256 fail-closed verification  | Rejects unverified payloads with 401       |

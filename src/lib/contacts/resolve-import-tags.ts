@@ -1,4 +1,4 @@
-import type { appwriteClient } from '@/lib/appwrite-compat';
+import type { AppwriteClient } from '@/lib/appwrite-compat';
 
 const DEFAULT_TAG_COLOR = '#3b82f6';
 
@@ -19,7 +19,7 @@ export interface ResolveImportTagsResult {
  * auto-create missing tag definitions for admin+ callers.
  */
 export async function resolveImportTagIds(
-  appwrite: appwriteClient,
+  appwrite: AppwriteClient,
   params: {
     accountId: string;
     userId: string;
@@ -105,7 +105,7 @@ export interface ContactTagAssignment {
  * exist without changing the returned count.
  */
 export async function assignImportedContactTags(
-  appwrite: appwriteClient,
+  appwrite: AppwriteClient,
   assignments: ContactTagAssignment[],
   tagIdByKey: Map<string, string>
 ): Promise<number> {

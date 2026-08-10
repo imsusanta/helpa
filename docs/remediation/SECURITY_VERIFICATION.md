@@ -12,16 +12,16 @@
 | `/api/mcp` authentication & kill switch | Stale / Superseded | Removed stale unauthenticated `/api/mcp` endpoints; replaced with strict default-deny proxy middleware                        |
 | Fail-Closed HMAC Webhook Verification   | Present on Main    | Verified: Rejects missing secret (`401`), missing signature (`401`), tampered body (`401`), and invalid hex length (`401`)    |
 | Signed OPD Document URLs                | Present on Main    | Verified: Short-lived HMAC-SHA256 tokens bound to appointment ID, account ID, and expiry timestamp                            |
-| Multi-Tenant API Route Scoping          | Present on Main    | Verified: All API routes derive `accountId` strictly from authenticated Supabase profile via `requireRole`                    |
+| Multi-Tenant API Route Scoping          | Present on Main    | Verified: All API routes derive `accountId` strictly from authenticated Appwrite profile via `requireRole`                    |
 | Webhook Idempotency Registry            | Present on Main    | Hardened: Added forward migration 063 with RLS and revoked client access on `inbound_webhook_events`                          |
-| Typed Admin Client                      | Missing / Partial  | Hardened: Updated `src/lib/supabase/typed-admin.ts` to strictly return `SupabaseClient<Database>` and prevent browser leakage |
+| Typed Admin Client                      | Missing / Partial  | Hardened: Updated `src/lib/appwrite/typed-admin.ts` to strictly return `AppwriteClient<Database>` and prevent browser leakage |
 | Deep PII/PHI Logger Redaction           | Missing / Partial  | Hardened: Enhanced `src/lib/observability/logger.ts` to redact recursive patient data, notes, and authorization headers       |
 
 ---
 
 ## 2. Service-Role Usage Inventory & Scoping Audit
 
-Every file utilizing the Supabase service role client (`getAdminClient()` or `supabaseAdmin()`) was audited to verify that queries are explicitly partitioned by `account_id`:
+Every file utilizing the Appwrite service role client (`getAdminClient()` or `appwriteAdmin()`) was audited to verify that queries are explicitly partitioned by `account_id`:
 
 | Server-Side File                                       | Service-Role Operation     | Tenant Account Scoping Verification                                                       |
 | ------------------------------------------------------ | -------------------------- | ----------------------------------------------------------------------------------------- |

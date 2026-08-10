@@ -26,7 +26,7 @@ CREATE POLICY "audit_logs_tenant_select"
     )
   );
 
--- Only service-role (supabaseAdmin) may insert audit events.
+-- Only service-role (appwriteAdmin) may insert audit events.
 -- Regular authenticated users cannot insert directly.
 CREATE POLICY "audit_logs_service_insert"
   ON public.audit_logs

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth/account';
-import { appwriteAdmin, getAdminClient } from '@/lib/appwrite-compat';
+import { appwriteAdmin } from '@/lib/appwrite-compat';
 import { encrypt } from '@/lib/whatsapp/encryption';
 import {
   checkRateLimit,
@@ -24,7 +24,7 @@ export async function GET() {
       .single();
 
     if (error && error.message?.includes('welcome_message')) {
-      // Fallback query if welcome_message column is not yet in PostgREST schema cache
+      // Fallback query if welcome_message column is not yet in Appwrite schema cache
       const fallback = await db
         .from('accounts')
         .select(
@@ -122,7 +122,7 @@ export async function PATCH(request: Request) {
       )
       .single();
 
-    // If welcome_message is not in PostgREST schema cache yet, retry without welcome_message
+    // If welcome_message is not in Appwrite schema cache yet, retry without welcome_message
     if (
       error &&
       (error.message?.includes('welcome_message') ||

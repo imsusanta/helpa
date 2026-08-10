@@ -9,7 +9,7 @@
 --      JSONB and is shape-checked by the validator + TS types, not the
 --      DB.
 --
---   2. `flow-media` Supabase Storage bucket where the builder uploads
+--   2. `flow-media` Appwrite Storage bucket where the builder uploads
 --      the file the customer will receive. Public bucket so Meta can
 --      pull the URL without auth — same trade-off as the avatars
 --      bucket (see migration 008). Per-user RLS on writes scopes the

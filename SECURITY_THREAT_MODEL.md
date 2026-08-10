@@ -1,7 +1,7 @@
 # Helpa Security Threat Model
 
 **Product:** Helpa — WhatsApp AI Receptionist & Patient Engagement CRM  
-**Target Architecture:** Next.js 16, Supabase PostgreSQL with RLS, Meta WhatsApp Cloud API
+**Target Architecture:** Next.js 16, Appwrite PostgreSQL with RLS, Meta WhatsApp Cloud API
 
 ---
 
@@ -21,7 +21,7 @@
 
 ## 🛠 Manual Infrastructure Verification Checklist
 
-- [ ] Verify Supabase Automated Daily Backups and 30-day Point-in-Time Recovery (PITR) in Supabase Dashboard -> Database -> Backups.
+- [ ] Verify Appwrite Automated Daily Backups and 30-day Point-in-Time Recovery (PITR) in Appwrite Dashboard -> Database -> Backups.
 - [ ] Verify SSL/TLS Certificate Termination and HSTS Preloading on production CDN domain.
 - [ ] Conduct 3-5 clinic receptionist user onboarding walkthroughs.
 - [ ] Perform annual third-party external penetration testing before storing live production clinical records.

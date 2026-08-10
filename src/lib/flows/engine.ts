@@ -32,7 +32,7 @@
  *     INSERT raises 23505 and the runner catches & exits.
  */
 
-import { appwriteAdmin, getAdminClient } from '@/lib/appwrite-compat';
+import { appwriteAdmin } from '@/lib/appwrite-compat';
 import {
   engineSendInteractiveButtons,
   engineSendInteractiveList,
@@ -807,7 +807,7 @@ async function advanceCurrentNodeKey(
   expectedOldKey: string | null,
   newKey: string
 ): Promise<boolean> {
-  // PostgREST: when expectedOldKey is null we can't `.eq` (would match
+  // Appwrite: when expectedOldKey is null we can't `.eq` (would match
   // any row); use `.is('current_node_key', null)` instead.
   let q = db
     .from('flow_runs')

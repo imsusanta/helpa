@@ -856,7 +856,7 @@ interface SendMediaCfg {
 // Mirrors the bucket's allowed_mime_types from migration 016. Kept in
 // sync with the storage policy so the picker rejects unsupported files
 // before they hit the network rather than failing with a confusing
-// Supabase RLS / mime-type error.
+// Appwrite RLS / mime-type error.
 const MEDIA_ACCEPT: Record<NonNullable<SendMediaCfg['media_type']>, string> = {
   image: 'image/png,image/jpeg,image/webp',
   video: 'video/mp4,video/3gpp',

@@ -27,7 +27,7 @@
  * warning so operators can investigate.
  */
 
-import type { appwriteClient } from '@/lib/appwrite-compat';
+import type { AppwriteClient } from '@/lib/appwrite-compat';
 import { normalizeStatus } from './template-status-normalize';
 
 const TEMPLATE_WEBHOOK_FIELDS = new Set([
@@ -75,10 +75,10 @@ export interface TemplateWebhookChange {
  */
 export async function handleTemplateWebhookChange(
   change: TemplateWebhookChange,
-  // appwriteClient typed loosely — the webhook route lazy-initialises
+  // AppwriteClient typed loosely — the webhook route lazy-initialises
   // the admin client and exposes it as `any`. Type as the generic
-  // appwriteClient here so this module is testable in isolation.
-  appwrite: appwriteClient
+  // AppwriteClient here so this module is testable in isolation.
+  appwrite: AppwriteClient
 ): Promise<void> {
   switch (change.field) {
     case 'message_template_status_update':
@@ -101,7 +101,7 @@ export async function handleTemplateWebhookChange(
 
 async function handleStatusUpdate(
   value: TemplateStatusUpdateValue,
-  appwrite: appwriteClient
+  appwrite: AppwriteClient
 ): Promise<void> {
   const metaTemplateId =
     value.message_template_id !== undefined
@@ -159,7 +159,7 @@ async function handleStatusUpdate(
 
 async function handleQualityUpdate(
   value: TemplateQualityUpdateValue,
-  appwrite: appwriteClient
+  appwrite: AppwriteClient
 ): Promise<void> {
   const metaTemplateId =
     value.message_template_id !== undefined

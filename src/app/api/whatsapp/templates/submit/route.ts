@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import type { appwriteClient } from '@/lib/appwrite-compat';
+import type { AppwriteClient } from '@/lib/appwrite-compat';
 import { createClient } from '@/lib/appwrite-compat';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import { submitMessageTemplate } from '@/lib/whatsapp/meta-api';
@@ -57,7 +57,7 @@ function buildUpsertRow(
 }
 
 async function upsertTemplateRow(
-  appwrite: appwriteClient,
+  appwrite: AppwriteClient,
   row: ReturnType<typeof buildUpsertRow>
 ) {
   // TODO(account-sharing): conflict target is still scoped to

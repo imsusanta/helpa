@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Appwrite data adapter for the parts of the application that still use the
  * old fluent data-access shape.  It intentionally has no appwrite dependency
@@ -9,8 +10,8 @@ import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
 type AnyRecord = Record<string, any>;
 
 export type AppwriteCompatClient = any;
-export type appwriteClient = AppwriteCompatClient;
-export type PostgrestError = any;
+export type AppwriteClient = AppwriteCompatClient;
+export type AppwriteError = any;
 
 const endpoint = APPWRITE_CONFIG.endpoint.replace(/\/$/, '');
 

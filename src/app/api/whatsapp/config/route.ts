@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/appwrite-compat';
-import { createClient as createAdminClient } from '@/lib/appwrite-compat';
 import {
   registerPhoneNumber,
   subscribeWabaToApp,

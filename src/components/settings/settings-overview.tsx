@@ -17,7 +17,6 @@ import {
   BookOpenCheck,
 } from 'lucide-react';
 
-import { getAppwriteClient } from '@/infrastructure/appwrite/client';
 import { createClient } from '@/lib/appwrite-compat';
 import { useAuth } from '@/hooks/use-auth';
 import { useTheme } from '@/hooks/use-theme';
@@ -30,7 +29,6 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import {} from 'next/navigation';
 
 import { SECTION_META, type SettingsSection } from './settings-sections';
 import { SettingsChip, StatusDot } from './settings-chip';

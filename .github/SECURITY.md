@@ -42,7 +42,7 @@ In scope:
 
 Out of scope:
 
-- Vulnerabilities in Supabase, Next.js, Node.js, or other upstream
+- Vulnerabilities in Appwrite, Next.js, Node.js, or other upstream
   dependencies — please report those to their maintainers. We'll happily
   bump versions on request.
 - Issues that require a pre-compromised deployment (e.g. a leaked

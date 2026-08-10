@@ -1,10 +1,9 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { leadsRepository } from '@/infrastructure/appwrite/repositories/leads.repository';
 import { patientsRepository } from '@/infrastructure/appwrite/repositories/patients.repository';
 
 describe('Appwrite Multi-Tenant Isolation', () => {
   const tenantA = 'account_tenant_a_123';
-  const tenantB = 'account_tenant_b_456';
 
   it('rejects cross-tenant lead access: Tenant A cannot read Tenant B lead', async () => {
     // Attempting to read Tenant B's lead using Tenant A's account context should return null

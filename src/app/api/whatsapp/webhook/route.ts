@@ -1,5 +1,5 @@
 import { NextResponse, after } from 'next/server';
-import { appwriteAdmin, getAdminClient } from '@/lib/appwrite-compat';
+import { getAdminClient } from '@/lib/appwrite-compat';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import { verifyMetaWebhookSignature } from '@/lib/whatsapp/webhook-signature';
 import {

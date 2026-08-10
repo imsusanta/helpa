@@ -75,7 +75,7 @@ CREATE POLICY "Members can upload flow media"
     AND (
       -- New: any account member uploading under their account's folder.
       -- `'account-' || account_id` is how we namespace the folder, so
-      -- two accounts that happen to be in the same Supabase project
+      -- two accounts that happen to be in the same Appwrite project
       -- can never accidentally collide.
       EXISTS (
         SELECT 1 FROM public.profiles p

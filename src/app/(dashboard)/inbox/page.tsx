@@ -18,7 +18,6 @@ import { ReceptionistCopilotPanel } from '@/components/inbox/receptionist-copilo
 import type { InsertedComposerReply } from '@/components/inbox/message-composer';
 import { WifiOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import {} from '@/modules/registry';
 
 // Remembers the agent's show/hide choice for the desktop contact panel
 // across reloads and sessions (device-scoped, like the theme prefs).

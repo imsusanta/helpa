@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { appwriteClient } from '@/lib/appwrite-compat';
+import type { AppwriteClient } from '@/lib/appwrite-compat';
 import {
   handleTemplateWebhookChange,
   isTemplateWebhookField,
@@ -56,7 +56,7 @@ function makeappwriteStub(
     },
   };
 
-  return { stub: stub as unknown as appwriteClient, calls };
+  return { stub: stub as unknown as AppwriteClient, calls };
 }
 
 describe('isTemplateWebhookField', () => {

@@ -6,7 +6,7 @@ coverage
 next-env.d.ts
 package-lock.json
 # Generated / vendored
-supabase/migrations
+appwrite/migrations
 public/opus
 scratch
 .temp

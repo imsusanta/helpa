@@ -1,4 +1,4 @@
-import { appwriteAdmin, getAdminClient } from '@/lib/appwrite-compat';
+import { getAdminClient } from '@/lib/appwrite-compat';
 import { findExistingContact, isUniqueViolation } from '@/lib/contacts/dedupe';
 import type { Contact } from '@/types';
 

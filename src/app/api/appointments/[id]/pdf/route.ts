@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
-import {
-  createClient,
-  createClient as createServerClient,
-  appwriteAdmin,
-  getAdminClient,
-} from '@/lib/appwrite-compat';
+import { createClient, getAdminClient } from '@/lib/appwrite-compat';
 import { verifyPdfToken } from '@/lib/pdf-signing';
 
 export async function GET(
@@ -63,7 +58,7 @@ export async function GET(
     // Path B: Staff Session (LoggedIn User via CRM Dashboard)
     if (!isAuthorized) {
       try {
-        const userClient = await createServerClient();
+        const userClient = createClient();
         const {
           data: { user },
         } = await userClient.auth.getUser();

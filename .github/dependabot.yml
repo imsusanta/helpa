@@ -14,10 +14,10 @@ updates:
       - dependencies
     groups:
       # Batch related upgrades into one PR so we're not closing six
-      # independent Supabase-bumps per week.
-      supabase:
+      # independent Appwrite-bumps per week.
+      appwrite:
         patterns:
-          - '@supabase/*'
+          - '@appwrite/*'
       types:
         patterns:
           - '@types/*'

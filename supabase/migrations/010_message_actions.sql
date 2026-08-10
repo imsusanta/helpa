@@ -18,7 +18,7 @@
 --      reaction per actor per message" without read-modify-write
 --      games on a JSONB column.
 --
---      `conversation_id` is denormalised purely so Supabase Realtime
+--      `conversation_id` is denormalised purely so Appwrite Realtime
 --      can filter on it with a plain `eq`. Realtime can't join.
 --
 -- Idempotent — safe to run multiple times.
@@ -107,8 +107,8 @@ DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_publication_tables
-    WHERE pubname = 'supabase_realtime' AND tablename = 'message_reactions'
+    WHERE pubname = 'appwrite_realtime' AND tablename = 'message_reactions'
   ) THEN
-    ALTER PUBLICATION supabase_realtime ADD TABLE message_reactions;
+    ALTER PUBLICATION appwrite_realtime ADD TABLE message_reactions;
   END IF;
 END $$;

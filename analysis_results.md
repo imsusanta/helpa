@@ -1,6 +1,6 @@
 # Codebase Analysis: wacrm
 
-`wacrm` is a self-hostable Customer Relationship Management (CRM) template designed specifically for WhatsApp®. It is built using Next.js 16 (App Router), React 19, Tailwind CSS v4, and Supabase (Postgres, Auth, Storage, and RLS).
+`wacrm` is a self-hostable Customer Relationship Management (CRM) template designed specifically for WhatsApp®. It is built using Next.js 16 (App Router), React 19, Tailwind CSS v4, and Appwrite (Postgres, Auth, Storage, and RLS).
 
 This document outlines the architecture, database schema, domain logic, and security features of the codebase.
 
@@ -14,7 +14,7 @@ This document outlines the architecture, database schema, domain logic, and secu
 | **Frontend UI** | [React 19](https://react.dev), [Tailwind CSS v4](https://tailwindcss.com) | Core UI library and styling framework. |
 | **Components** | [shadcn/ui](https://ui.shadcn.com) & [@base-ui/react](https://base-ui.com) | Modular, styled UI components. |
 | **Diagrams/Canvas** | [@xyflow/react](https://reactflow.dev) | Renders flowcharts and visual node graphs for Automations and Flows. |
-| **Database & Auth** | [Supabase](https://supabase.com) (Postgres + GoTrue Auth) | Relational database, user authentication, Realtime sync, and Storage. |
+| **Database & Auth** | [Appwrite](https://appwrite.com) (Postgres + GoTrue Auth) | Relational database, user authentication, Realtime sync, and Storage. |
 | **API Integration** | WhatsApp Business Cloud API | Direct integration with Meta's official Cloud API. |
 | **Testing** | [Vitest](https://vitest.dev) | Runs the unit and integration test suite. |
 
@@ -24,7 +24,7 @@ This document outlines the architecture, database schema, domain logic, and secu
 
 The repository is structured logically by domain and layer:
 
-*   **`supabase/migrations/`**: Defines the SQL schema, security policies, triggers, and RPCs chronologically.
+*   **`appwrite/migrations/`**: Defines the SQL schema, security policies, triggers, and RPCs chronologically.
 *   **`src/app/`**: Next.js pages and API route handlers.
     *   `src/app/(auth)/`: Handles sign-in, sign-up, and password recovery.
     *   `src/app/(dashboard)/`: Authenticated dashboard views (Inbox, Contacts, Pipelines, Broadcasts, Automations, Flows, Settings).
@@ -76,8 +76,8 @@ sequenceDiagram
     autonumber
     participant Meta as Meta Cloud API
     participant Webhook as Webhook Route (route.ts)
-    participant DB as Supabase Postgres
-    participant Realtime as Supabase Realtime
+    participant DB as Appwrite Postgres
+    participant Realtime as Appwrite Realtime
     participant Engine as Automation Engine
     participant UI as Inbox UI
 
