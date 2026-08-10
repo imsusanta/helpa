@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 
 const APPWRITE_ENDPOINT =
-  process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT || 'https://sgp.cloud.appwrite.io/v1';
+  process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT ||
+  'https://sgp.cloud.appwrite.io/v1';
 const APPWRITE_PROJECT_ID =
   process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID || '6a79822b003adde92f63';
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://helpa.appwrite.network';
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL || 'https://helpa.appwrite.network';
 
 export async function POST(request: Request) {
   try {
@@ -43,7 +45,10 @@ export async function POST(request: Request) {
             recoveryJson.message ||
             'Failed to send password reset link. Account not found.',
         },
-        { status: recoveryRes.status >= 400 && recoveryRes.status < 500 ? 400 : 500 }
+        {
+          status:
+            recoveryRes.status >= 400 && recoveryRes.status < 500 ? 400 : 500,
+        }
       );
     }
 
@@ -55,7 +60,8 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         success: false,
-        error: (err as Error).message || 'Server error sending password reset link.',
+        error:
+          (err as Error).message || 'Server error sending password reset link.',
       },
       { status: 500 }
     );

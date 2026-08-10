@@ -13,10 +13,7 @@ export default defineConfig({
         __dirname,
         './src/lib/supabase/client.ts'
       ),
-      '@supabase/ssr': path.resolve(
-        __dirname,
-        './src/lib/supabase/client.ts'
-      ),
+      '@supabase/ssr': path.resolve(__dirname, './src/lib/supabase/client.ts'),
     },
   },
   test: {

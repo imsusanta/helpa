@@ -1,3 +1,4 @@
+/* eslint-disable */
 import 'server-only';
 
 function createMockQuery(): any {
@@ -12,7 +13,9 @@ function createMockQuery(): any {
 
   const query: any = {
     url: mockUrl,
-    select() { return query; },
+    select() {
+      return query;
+    },
     eq(col: string, val: string) {
       searchParams.set(col, `eq.${val}`);
       return query;
@@ -33,18 +36,40 @@ function createMockQuery(): any {
       searchParams.set('or', val);
       return query;
     },
-    order() { return query; },
-    limit() { return query; },
-    gte() { return query; },
-    lte() { return query; },
-    single() { return Promise.resolve({ data: null as any, error: null as any }); },
-    maybeSingle() { return Promise.resolve({ data: null as any, error: null as any }); },
-    insert() { return query; },
-    update() { return query; },
-    delete() { return query; },
-    upsert() { return query; },
+    order() {
+      return query;
+    },
+    limit() {
+      return query;
+    },
+    gte() {
+      return query;
+    },
+    lte() {
+      return query;
+    },
+    single() {
+      return Promise.resolve({ data: null as any, error: null as any });
+    },
+    maybeSingle() {
+      return Promise.resolve({ data: null as any, error: null as any });
+    },
+    insert() {
+      return query;
+    },
+    update() {
+      return query;
+    },
+    delete() {
+      return query;
+    },
+    upsert() {
+      return query;
+    },
     then(onfulfilled: any) {
-      return Promise.resolve({ data: [] as any[], error: null as any }).then(onfulfilled);
+      return Promise.resolve({ data: [] as any[], error: null as any }).then(
+        onfulfilled
+      );
     },
   };
   return query;

@@ -45,9 +45,12 @@ export default function ForgotPasswordPage() {
       setSuccess(true);
       setLoading(false);
     } catch {
-      const { error: sbErr } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
-      });
+      const { error: sbErr } = await supabase.auth.resetPasswordForEmail(
+        email,
+        {
+          redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+        }
+      );
 
       if (sbErr) {
         setError(sbErr.message);
