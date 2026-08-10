@@ -1,7 +1,14 @@
 export const APPWRITE_CONFIG = {
   endpoint:
-    process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT || 'https://cloud.appwrite.io/v1',
-  projectId: process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID || 'wacrm_production',
+    process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT &&
+    !process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT.includes('cloud.appwrite.io/v1')
+      ? process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT
+      : 'https://sgp.cloud.appwrite.io/v1',
+  projectId:
+    process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID &&
+    process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID !== 'wacrm_production'
+      ? process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID
+      : '6a79822b003adde92f63',
   apiKey: process.env.APPWRITE_API_KEY || '',
   databaseId: process.env.APPWRITE_DATABASE_ID || 'wacrm_production',
   buckets: {
