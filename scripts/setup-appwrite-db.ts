@@ -52,7 +52,7 @@ async function setupAppwriteDatabase() {
         collectionId,
         collectionId,
         [
-          'read("any")',
+          'read("users")',
           'create("users")',
           'update("users")',
           'delete("users")',
@@ -76,7 +76,7 @@ async function setupAppwriteDatabase() {
         bucketId,
         bucketId,
         [
-          'read("any")',
+          'read("users")',
           'create("users")',
           'update("users")',
           'delete("users")',

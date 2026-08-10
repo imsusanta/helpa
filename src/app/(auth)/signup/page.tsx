@@ -17,7 +17,6 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { getAppwriteClient } from '@/infrastructure/appwrite/client';
 
 export default function SignupPage() {
   return (
@@ -86,9 +85,9 @@ function SignupPageInner() {
 
       if (data.redirect === '/dashboard') {
         if (inviteToken) {
-          window.location.href = `/join/${encodeURIComponent(inviteToken)}`;
+          router.push(`/join/${encodeURIComponent(inviteToken)}`);
         } else {
-          window.location.href = '/dashboard';
+          router.push('/dashboard');
         }
       } else {
         setSuccess(true);
