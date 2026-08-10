@@ -1,70 +1,71 @@
-import { Worker, Job } from 'bullmq';
+import { Job, Worker } from 'bullmq';
 import Redis from 'ioredis';
+import { processFollowupJob } from '../src/queues/workers/appointment-reminder';
+import type { AppointmentReminderJobData } from '../src/queues/producers/appointment-reminders';
 
-const redisUrl = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
+const redisUrl = process.env.REDIS_URL;
+if (!redisUrl) throw new Error('REDIS_URL is required to start the worker');
+
 const connection = new Redis(redisUrl, { maxRetriesPerRequest: null });
-
 console.log('[Helpa Worker] Starting background worker queues...');
 
-// 1. Provider Events Queue Worker
-new Worker(
-  'provider-events',
-  async (job: Job) => {
-    console.log(
-      `[Worker: provider-events] Processing job ${job.id}:`,
-      job.name
-    );
-  },
-  { connection }
-);
+function placeholderProcessor(queueName: string) {
+  return async (job: Job) => {
+    console.log(`[Worker: ${queueName}] Received job`, {
+      jobId: job.id,
+      jobName: job.name,
+    });
+  };
+}
 
-// 2. Outbound WhatsApp Queue Worker
-new Worker(
-  'outbound-whatsapp',
-  async (job: Job) => {
-    console.log(
-      `[Worker: outbound-whatsapp] Dispatching message job ${job.id}`
-    );
-  },
-  { connection }
-);
+const workers: Worker[] = [
+  new Worker('provider-events', placeholderProcessor('provider-events'), {
+    connection,
+  }),
+  new Worker('outbound-whatsapp', placeholderProcessor('outbound-whatsapp'), {
+    connection,
+  }),
+  new Worker('outbound-sms', placeholderProcessor('outbound-sms'), {
+    connection,
+  }),
+  new Worker('outbound-voice', placeholderProcessor('outbound-voice'), {
+    connection,
+  }),
+  new Worker<AppointmentReminderJobData>('followups', processFollowupJob, {
+    connection,
+    concurrency: 5,
+  }),
+  new Worker('calendly-sync', placeholderProcessor('calendly-sync'), {
+    connection,
+  }),
+];
 
-// 3. Outbound SMS Queue Worker
-new Worker(
-  'outbound-sms',
-  async (job: Job) => {
-    console.log(`[Worker: outbound-sms] Dispatching SMS job ${job.id}`);
-  },
-  { connection }
-);
+for (const worker of workers) {
+  worker.on('failed', (job, error) => {
+    console.error('[Helpa Worker] Job failed', {
+      queue: worker.name,
+      jobId: job?.id,
+      jobName: job?.name,
+      attempt: job?.attemptsMade,
+      error: error.message,
+    });
+  });
+  worker.on('error', (error) => {
+    console.error('[Helpa Worker] Worker error', {
+      queue: worker.name,
+      error: error.message,
+    });
+  });
+}
 
-// 4. Outbound Voice Queue Worker
-new Worker(
-  'outbound-voice',
-  async (job: Job) => {
-    console.log(`[Worker: outbound-voice] Initiating call job ${job.id}`);
-  },
-  { connection }
-);
+async function shutdown(signal: string) {
+  console.log(`[Helpa Worker] ${signal} received; closing workers...`);
+  await Promise.all(workers.map((worker) => worker.close()));
+  await connection.quit();
+  process.exit(0);
+}
 
-// 5. Followups Queue Worker
-new Worker(
-  'followups',
-  async (job: Job) => {
-    console.log(`[Worker: followups] Executing sequence step job ${job.id}`);
-  },
-  { connection }
-);
+process.once('SIGTERM', () => void shutdown('SIGTERM'));
+process.once('SIGINT', () => void shutdown('SIGINT'));
 
-// 6. Calendly Sync Queue Worker
-new Worker(
-  'calendly-sync',
-  async (job: Job) => {
-    console.log(`[Worker: calendly-sync] Synchronizing event job ${job.id}`);
-  },
-  { connection }
-);
-
-console.log(
-  '[Helpa Worker] All 6 worker queues initialized and listening for jobs.'
-);
+console.log('[Helpa Worker] Worker queues initialized.');

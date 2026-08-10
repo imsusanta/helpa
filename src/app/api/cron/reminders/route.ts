@@ -1,89 +1,94 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
-import { engineSendButtons } from '@/lib/automations/meta-send';
+import { authorizeCronRequest } from '@/lib/cron/security';
+import {
+  addDaysToDateKey,
+  getDateKeyInTimeZone,
+  getZonedDateParts,
+  isValidTimeZone,
+  isWithinBusinessHours,
+  zonedDateTimeToUtc,
+} from '@/lib/cron/timezone';
+import { enqueueAppointmentReminder } from '@/queues/producers/appointment-reminders';
 
-function fillTemplate(
-  templateStr: string,
-  variables: Record<string, string>
-): string {
-  let result = templateStr;
-  for (const [key, val] of Object.entries(variables)) {
-    result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), val);
-  }
-  return result;
-}
+type ReminderBusinessHours = {
+  enabled?: boolean;
+  start?: string;
+  end?: string;
+};
+
+type ReminderAccount = {
+  id: string;
+  name: string | null;
+  timezone: string | null;
+  reminder_enabled: boolean | null;
+  reminder_24h_enabled: boolean | null;
+  reminder_2h_enabled: boolean | null;
+  reminder_business_hours: ReminderBusinessHours | null;
+};
+
+const NO_STORE_HEADERS = {
+  'Cache-Control': 'private, no-store, no-cache, must-revalidate',
+};
 
 export async function GET(request: Request) {
-  try {
-    // Basic authorization check: verify auth token if configured, or allow local run
-    const { searchParams } = new URL(request.url);
-    const cronSecret = searchParams.get('secret');
-    if (process.env.CRON_SECRET && cronSecret !== process.env.CRON_SECRET) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  const authorization = authorizeCronRequest(request);
+  if (!authorization.authorized) {
+    return NextResponse.json(
+      { error: authorization.message },
+      { status: authorization.status, headers: NO_STORE_HEADERS }
+    );
+  }
 
+  try {
     const db = supabaseAdmin();
     const now = new Date();
-
-    // 1. Fetch accounts with reminders enabled
-    const { data: accounts, error: accountsErr } = await db
+    const { data: accountRows, error: accountsError } = await db
       .from('accounts')
-      .select(
-        'id, name, reminder_enabled, reminder_24h_enabled, reminder_2h_enabled, reminder_custom_time, reminder_template, reminder_business_hours'
-      );
+      .select('*');
 
-    if (accountsErr) {
-      throw new Error(`Failed to load accounts: ${accountsErr.message}`);
-    }
+    if (accountsError) throw new Error('Unable to load reminder settings');
 
-    let totalSent24h = 0;
-    let totalSent2h = 0;
-    const errors: string[] = [];
+    const accounts = (accountRows || []) as unknown as ReminderAccount[];
+    let queued24h = 0;
+    let queued2h = 0;
+    let skipped = 0;
+    let failed = 0;
 
-    const activeAccounts = accounts.filter((acc) => acc.reminder_enabled);
-
-    for (const account of activeAccounts) {
-      // Check business hours if configured
-      const bh = account.reminder_business_hours || {};
-      if (bh.enabled) {
-        // Indian Standard Time / Standard server time check
-        const currentLocalTime = now.toLocaleTimeString('en-US', {
-          hour12: false,
-          hour: '2-digit',
-          minute: '2-digit',
-          timeZone: 'Asia/Kolkata', // standard local time zone for user
+    for (const account of accounts.filter((item) => item.reminder_enabled)) {
+      const timeZone = account.timezone?.trim() || '';
+      if (!isValidTimeZone(timeZone)) {
+        failed++;
+        console.error('[Cron Reminders] Invalid clinic timezone', {
+          accountId: account.id,
         });
-        if (currentLocalTime < bh.start || currentLocalTime > bh.end) {
-          console.log(
-            `[Cron Reminders] Skipping account ${account.name} - current time ${currentLocalTime} is outside business hours ${bh.start}-${bh.end}`
-          );
+        continue;
+      }
+
+      const businessHours = account.reminder_business_hours || {};
+      if (businessHours.enabled) {
+        const nowParts = getZonedDateParts(now, timeZone);
+        const currentMinutes = nowParts.hour * 60 + nowParts.minute;
+        if (
+          !businessHours.start ||
+          !businessHours.end ||
+          !isWithinBusinessHours(
+            currentMinutes,
+            businessHours.start,
+            businessHours.end
+          )
+        ) {
+          skipped++;
           continue;
         }
       }
 
-      // 2. Fetch appointments for this account that are pending, scheduled, or already reminder sent
-      // Look for appointments scheduled today, tomorrow, or the day after
-      const todayStr = now.toISOString().split('T')[0];
-      const maxDate = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
-      const maxDateStr = maxDate.toISOString().split('T')[0];
-
-      const { data: appts, error: apptsErr } = await db
+      const today = getDateKeyInTimeZone(now, timeZone);
+      const maxDate = addDaysToDateKey(today, 2);
+      const { data: appointments, error: appointmentsError } = await db
         .from('appointments')
         .select(
-          `
-          id,
-          account_id,
-          patient_id,
-          doctor_id,
-          department,
-          appointment_date,
-          appointment_time,
-          status,
-          token_number,
-          reminder_24h_sent,
-          reminder_2h_sent,
-          doctor:hospital_doctors(id, name, department)
-        `
+          'id, account_id, appointment_date, appointment_time, status, reminder_24h_sent, reminder_2h_sent'
         )
         .eq('account_id', account.id)
         .in('status', [
@@ -91,177 +96,91 @@ export async function GET(request: Request) {
           'Scheduled',
           'Reminder Sent',
           'pending-confirmation',
-        ]) // cover initial states
-        .gte('appointment_date', todayStr)
-        .lte('appointment_date', maxDateStr);
+        ])
+        .gte('appointment_date', today)
+        .lte('appointment_date', maxDate);
 
-      if (apptsErr) {
-        console.error(
-          `[Cron Reminders] Error loading appointments for account ${account.id}:`,
-          apptsErr
-        );
+      if (appointmentsError) {
+        failed++;
+        console.error('[Cron Reminders] Appointment query failed', {
+          accountId: account.id,
+        });
         continue;
       }
 
-      for (const appt of appts) {
-        // Parse date and time (standard Date parsing)
-        const apptDateStr = `${appt.appointment_date}T${appt.appointment_time}`;
-        const apptDateTime = new Date(apptDateStr);
-        const diffMs = apptDateTime.getTime() - now.getTime();
-        const diffHours = diffMs / (1000 * 60 * 60);
-
-        // Fetch patient contact details
-        const { data: contact, error: contactErr } = await db
-          .from('contacts')
-          .select('id, name, phone')
-          .eq('id', appt.patient_id)
-          .single();
-
-        if (contactErr || !contact || !contact.phone) {
-          continue;
-        }
-
-        let reminderLabel = '';
-        let triggerSend = false;
-        let is24h = false;
-
-        // Custom time check (if configured on account)
-        const _customMinutes = account.reminder_custom_time;
-
-        if (diffHours > 0 && diffHours <= 2) {
-          // Send 2h reminder
-          if (!appt.reminder_2h_sent && account.reminder_2h_enabled) {
-            triggerSend = true;
-            is24h = false;
-            reminderLabel = 'in 2 hours';
+      for (const appointment of appointments || []) {
+        try {
+          if (!appointment.appointment_date || !appointment.appointment_time) {
+            skipped++;
+            continue;
           }
-        } else if (diffHours > 2 && diffHours <= 24) {
-          // Send 24h reminder
-          if (!appt.reminder_24h_sent && account.reminder_24h_enabled) {
-            triggerSend = true;
-            is24h = true;
-            reminderLabel = 'tomorrow';
+
+          const appointmentAt = zonedDateTimeToUtc(
+            appointment.appointment_date,
+            appointment.appointment_time,
+            timeZone
+          );
+          const diffHours =
+            (appointmentAt.getTime() - now.getTime()) / (60 * 60 * 1000);
+
+          let reminderType: '24h' | '2h' | null = null;
+          if (
+            diffHours > 0 &&
+            diffHours <= 2 &&
+            !appointment.reminder_2h_sent &&
+            account.reminder_2h_enabled
+          ) {
+            reminderType = '2h';
+          } else if (
+            diffHours > 2 &&
+            diffHours <= 24 &&
+            !appointment.reminder_24h_sent &&
+            account.reminder_24h_enabled
+          ) {
+            reminderType = '24h';
           }
-        }
 
-        if (triggerSend) {
-          try {
-            // Find or create conversation row for message linkage
-            let { data: conv } = await db
-              .from('conversations')
-              .select('id')
-              .eq('contact_id', appt.patient_id)
-              .eq('account_id', appt.account_id)
-              .maybeSingle();
-
-            if (!conv) {
-              const { data: newConv, error: newConvErr } = await db
-                .from('conversations')
-                .insert({
-                  account_id: appt.account_id,
-                  contact_id: appt.patient_id,
-                  status: 'open',
-                })
-                .select('id')
-                .single();
-
-              if (newConvErr || !newConv) {
-                console.error(
-                  `[Cron Reminders] Failed to create conversation for contact ${appt.patient_id}:`,
-                  newConvErr
-                );
-                continue;
-              }
-              conv = newConv;
-            }
-
-            // Fill template variables
-            const docData = appt.doctor as
-              | { name?: string; department?: string }
-              | { name?: string; department?: string }[]
-              | null;
-            const docName =
-              (Array.isArray(docData) ? docData[0]?.name : docData?.name) ||
-              'Assigned Doctor';
-            const dept =
-              appt.department ||
-              (Array.isArray(docData)
-                ? docData[0]?.department
-                : docData?.department) ||
-              'General';
-
-            const bodyText = fillTemplate(account.reminder_template, {
-              PatientName: contact.name || contact.phone,
-              HospitalName: account.name || 'Hospital Receptionist',
-              DoctorName: docName,
-              Department: dept,
-              AppointmentDate: appt.appointment_date,
-              AppointmentTime: appt.appointment_time.substring(0, 5),
-              TokenNumber: appt.token_number || 'N/A',
-              ReminderTime: reminderLabel,
-            });
-
-            // Send WhatsApp interactive buttons message
-            await engineSendButtons({
-              accountId: appt.account_id,
-              userId: '00000000-0000-0000-0000-000000000000', // system user id representation
-              conversationId: conv.id,
-              contactId: appt.patient_id,
-              bodyText,
-              buttons: [
-                { id: `rem_confirm_${appt.id}`, title: 'Confirm' },
-                { id: `rem_resched_${appt.id}`, title: 'Reschedule' },
-                { id: `rem_cancel_${appt.id}`, title: 'Cancel' },
-              ],
-            });
-
-            // Record inside contact timeline (contact_notes)
-            await db.from('contact_notes').insert({
-              account_id: appt.account_id,
-              contact_id: appt.patient_id,
-              note_text: `[Timeline] Appointment Reminder Sent (${reminderLabel}) for Dr. ${docName} on ${appt.appointment_date} at ${appt.appointment_time.substring(0, 5)}.`,
-            });
-
-            // Update reminder sent status in database
-            const updates: Record<string, unknown> = {
-              status: 'Reminder Sent',
-            };
-            if (is24h) {
-              updates.reminder_24h_sent = true;
-              totalSent24h++;
-            } else {
-              updates.reminder_2h_sent = true;
-              totalSent2h++;
-            }
-
-            await db.from('appointments').update(updates).eq('id', appt.id);
-            console.log(
-              `[Cron Reminders] Successfully dispatched ${reminderLabel} reminder for appt ${appt.id}`
-            );
-          } catch (err: unknown) {
-            console.error(
-              `[Cron Reminders] Failed to dispatch reminder for appt ${appt.id}:`,
-              err
-            );
-            errors.push(
-              `Appt ${appt.id}: ${(err as Error).message || String(err)}`
-            );
+          if (!reminderType) {
+            skipped++;
+            continue;
           }
+
+          await enqueueAppointmentReminder({
+            accountId: account.id,
+            appointmentId: appointment.id,
+            reminderType,
+          });
+
+          if (reminderType === '24h') queued24h++;
+          else queued2h++;
+        } catch (error) {
+          failed++;
+          console.error('[Cron Reminders] Failed to enqueue appointment', {
+            accountId: account.id,
+            appointmentId: appointment.id,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          });
         }
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      sent_24h: totalSent24h,
-      sent_2h: totalSent2h,
-      errors: errors.length > 0 ? errors : undefined,
-    });
-  } catch (err: unknown) {
-    console.error('[Cron Reminders] Fatal handler crash:', err);
     return NextResponse.json(
-      { error: (err as Error).message || String(err) },
-      { status: 500 }
+      {
+        success: true,
+        queued_24h: queued24h,
+        queued_2h: queued2h,
+        skipped,
+        failed,
+      },
+      { headers: NO_STORE_HEADERS }
+    );
+  } catch (error) {
+    console.error('[Cron Reminders] Scheduling failed', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+    return NextResponse.json(
+      { error: 'Reminder scheduling failed' },
+      { status: 500, headers: NO_STORE_HEADERS }
     );
   }
 }

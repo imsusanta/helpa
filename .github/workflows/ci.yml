@@ -36,6 +36,11 @@ jobs:
       - name: Format Check (Prettier)
         run: npm run format:check
 
+      - name: Emit Lint Diagnostics
+        run: |
+          npx eslint . --format json --output-file /tmp/eslint.json || true
+          node scripts/ci-lint-diagnostics.mjs /tmp/eslint.json
+
       - name: Strict Lint (ESLint --max-warnings=0)
         run: npm run lint
 

@@ -33,6 +33,7 @@
     "dev": "next dev",
     "build": "next build --webpack",
     "start": "next start",
+    "worker": "tsx scripts/worker.ts",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
