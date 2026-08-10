@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/appwrite-compat';
-import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
+import { appwriteAdmin, getAdminClient } from '@/lib/appwrite-compat';
 import {
   loadStepsTree,
   replaceSteps,
@@ -12,10 +12,10 @@ import {
 } from '@/lib/automations/validate';
 
 async function requireUser() {
-  const supabase = await createClient();
+  const appwrite = await createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await appwrite.auth.getUser();
   return user;
 }
 
@@ -28,7 +28,7 @@ export async function GET(
   if (!user)
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const admin = supabaseAdmin();
+  const admin = appwriteAdmin();
   const { data: automation, error } = await admin
     .from('automations')
     .select('*')
@@ -58,7 +58,7 @@ export async function PATCH(
   if (!body)
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
 
-  const admin = supabaseAdmin();
+  const admin = appwriteAdmin();
 
   // Ownership check before we touch anything. Load the fields we need
   // to compute the post-patch "effective" state for validation.
@@ -142,7 +142,7 @@ export async function DELETE(
   if (!user)
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { error } = await supabaseAdmin()
+  const { error } = await appwriteAdmin()
     .from('automations')
     .delete()
     .eq('id', id)

@@ -121,12 +121,12 @@ export function BillingPanel() {
   const loadBillingData = useCallback(async () => {
     if (!accountId) return;
     setLoading(true);
-    const supabase = createClient();
+    const appwrite = createClient();
     const currentMonth = new Date().toISOString().substring(0, 7) + '-01';
 
     try {
       // 1. Fetch Subscription details
-      const { data: subData, error: subError } = await supabase
+      const { data: subData, error: subError } = await appwrite
         .from('subscriptions')
         .select('status, end_date, plan:plans(*)')
         .eq('account_id', accountId)
@@ -138,19 +138,19 @@ export function BillingPanel() {
       }
 
       // 2. Fetch Contact count
-      const { count: contactsCount } = await supabase
+      const { count: contactsCount } = await appwrite
         .from('contacts')
         .select('id', { count: 'exact', head: true })
         .eq('account_id', accountId);
 
       // 3. Fetch Team Member count
-      const { count: usersCount } = await supabase
+      const { count: usersCount } = await appwrite
         .from('profiles')
         .select('id', { count: 'exact', head: true })
         .eq('account_id', accountId);
 
       // 4. Fetch Usage tracking record
-      const { data: usageData } = await supabase
+      const { data: usageData } = await appwrite
         .from('usage_tracking')
         .select('ai_requests, whatsapp_messages')
         .eq('account_id', accountId)

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { checkSuperAdmin } from '@/lib/auth/admin';
-import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
+import { appwriteAdmin, getAdminClient } from '@/lib/appwrite-compat';
 
 export async function GET() {
   try {
@@ -12,7 +12,7 @@ export async function GET() {
       );
     }
 
-    const db = supabaseAdmin();
+    const db = appwriteAdmin();
     const { data: plans, error } = await db
       .from('plans')
       .select('*')
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const db = supabaseAdmin();
+    const db = appwriteAdmin();
     const body = await request.json().catch(() => null);
     const name = body?.name;
     const monthly_price = body?.monthly_price ?? 0;
@@ -91,7 +91,7 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const db = supabaseAdmin();
+    const db = appwriteAdmin();
     const body = await request.json().catch(() => null);
     const id = body?.id;
 
@@ -145,7 +145,7 @@ export async function DELETE(request: Request) {
       );
     }
 
-    const db = supabaseAdmin();
+    const db = appwriteAdmin();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 

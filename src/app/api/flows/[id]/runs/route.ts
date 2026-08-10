@@ -22,17 +22,17 @@ export async function GET(
 ) {
   const { id } = await context.params;
 
-  const supabase = await createClient();
+  const appwrite = await createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await appwrite.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   // Confirm flow exists + caller owns it (RLS does this) before doing
   // the run query — gives us a clean 404 instead of empty array.
-  const { data: flow } = await supabase
+  const { data: flow } = await appwrite
     .from('flows')
     .select('id, name')
     .eq('id', id)
@@ -44,7 +44,7 @@ export async function GET(
   // Pull runs + each run's contact name + each run's events. Two
   // joined selects keep the round-trip count to the runs query + one
   // per-run events query.
-  const { data: runs, error: runsErr } = await supabase
+  const { data: runs, error: runsErr } = await appwrite
     .from('flow_runs')
     .select(
       'id, status, current_node_key, started_at, last_advanced_at, ended_at, end_reason, vars, reprompt_count, contact:contacts(id, name, phone)'
@@ -65,7 +65,7 @@ export async function GET(
     created_at: string;
   }> = [];
   if (runIds.length > 0) {
-    const { data: evs, error: evsErr } = await supabase
+    const { data: evs, error: evsErr } = await appwrite
       .from('flow_run_events')
       .select('flow_run_id, event_type, node_key, payload, created_at')
       .in('flow_run_id', runIds)

@@ -189,8 +189,8 @@ export default function LandingPage() {
   const [plansError, setPlansError] = useState(false);
 
   useEffect(() => {
-    const supabase = createClient();
-    supabase.auth
+    const appwrite = createClient();
+    appwrite.auth
       .getUser()
       .then(({ data }) => setUser(data.user))
       .catch(() => setUser(null));

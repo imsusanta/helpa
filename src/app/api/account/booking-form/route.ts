@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth/account';
-import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
+import { appwriteAdmin, getAdminClient } from '@/lib/appwrite-compat';
 import { DEFAULT_BOOKING_FORM_CONFIG } from '@/lib/booking-form/config';
 
 export async function GET() {
   try {
     const ctx = await requireRole('admin');
-    const db = supabaseAdmin();
+    const db = appwriteAdmin();
 
     const { data: account, error } = await db
       .from('accounts')
@@ -59,7 +59,7 @@ export async function PATCH(request: Request) {
       phone: { show: true, required: true },
     };
 
-    const db = supabaseAdmin();
+    const db = appwriteAdmin();
     const { data, error } = await db
       .from('accounts')
       .update({ appointment_form_config: sanitizedConfig })

@@ -17,12 +17,12 @@ export async function GET(
       );
     }
 
-    const supabase = await createClient();
+    const appwrite = await createClient();
 
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser();
+    } = await appwrite.auth.getUser();
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -32,7 +32,7 @@ export async function GET(
     // account post-multi-user, so a teammate fetching media for a
     // conversation in the shared inbox needs the account's config,
     // not their personal (non-existent) row.
-    const { data: profile } = await supabase
+    const { data: profile } = await appwrite
       .from('profiles')
       .select('account_id')
       .eq('user_id', user.id)
@@ -46,7 +46,7 @@ export async function GET(
     }
 
     // Fetch and decrypt WhatsApp config
-    const { data: config, error: configError } = await supabase
+    const { data: config, error: configError } = await appwrite
       .from('whatsapp_config')
       .select('*')
       .eq('account_id', accountId)

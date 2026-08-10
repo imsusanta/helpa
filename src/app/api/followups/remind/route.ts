@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth/account';
-import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
+import { appwriteAdmin, getAdminClient } from '@/lib/appwrite-compat';
 import { engineSendText } from '@/lib/automations/meta-send';
 
 export async function POST(request: Request) {
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const db = supabaseAdmin();
+    const db = appwriteAdmin();
 
     // Fetch account details for business name
     const { data: acc } = await db

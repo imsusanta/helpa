@@ -69,19 +69,19 @@ export async function POST(
     );
   }
 
-  const supabase = await createClient();
+  const appwrite = await createClient();
 
   // The RPC checks `auth.uid()` itself, but failing fast here
-  // gives a cleaner 401 without a Supabase round trip on the
+  // gives a cleaner 401 without a appwrite round trip on the
   // common "user clicked the link before logging in" path.
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await appwrite.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { data: accountId, error } = await supabase.rpc('redeem_invitation', {
+  const { data: accountId, error } = await appwrite.rpc('redeem_invitation', {
     p_token_hash: hashInviteToken(token),
   });
 

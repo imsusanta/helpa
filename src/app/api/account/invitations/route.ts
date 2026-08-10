@@ -140,7 +140,7 @@ export async function GET() {
   try {
     const ctx = await requireRole('admin');
 
-    const { data, error } = await ctx.supabase
+    const { data, error } = await ctx.appwrite
       .from('account_invitations')
       .select(
         'id, role, label, created_by_user_id, created_at, expires_at, accepted_at, accepted_by_user_id'
@@ -218,7 +218,7 @@ export async function POST(request: Request) {
 
     const { token, hash } = generateInviteToken();
 
-    const { data, error } = await ctx.supabase
+    const { data, error } = await ctx.appwrite
       .from('account_invitations')
       .insert({
         account_id: ctx.accountId,

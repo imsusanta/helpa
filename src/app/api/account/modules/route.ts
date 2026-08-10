@@ -9,7 +9,7 @@ export async function GET() {
   try {
     const ctx = await getCurrentAccount();
 
-    const { data, error } = await ctx.supabase
+    const { data, error } = await ctx.appwrite
       .from('tenant_modules')
       .select('module_key, enabled, settings')
       .eq('account_id', ctx.accountId);
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { data, error } = await ctx.supabase
+    const { data, error } = await ctx.appwrite
       .from('tenant_modules')
       .upsert(
         {

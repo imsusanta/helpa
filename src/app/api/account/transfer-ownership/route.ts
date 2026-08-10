@@ -55,7 +55,7 @@ function looksLikeUuid(v: unknown): v is string {
 export async function POST(request: Request) {
   try {
     // `requireRole('owner')` is belt-and-braces — the RPC checks
-    // this too, but failing fast here saves a Supabase round trip
+    // this too, but failing fast here saves a appwrite round trip
     // on the obvious "admin trying to transfer" case.
     const ctx = await requireRole('owner');
 
@@ -81,7 +81,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { error } = await ctx.supabase.rpc('transfer_account_ownership', {
+    const { error } = await ctx.appwrite.rpc('transfer_account_ownership', {
       p_new_owner_user_id: newOwnerUserId,
     });
 

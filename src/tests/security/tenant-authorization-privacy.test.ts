@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-// SupabaseClient type removed — using Appwrite
+// appwriteClient type removed — using Appwrite
 import { POST as postConsent } from '@/app/api/patients/[id]/consent/route';
 import { GET as getExport } from '@/app/api/patients/[id]/export/route';
 import { POST as postWithdraw } from '@/app/api/patients/[id]/withdraw/route';
@@ -23,10 +23,10 @@ vi.mock('@/lib/auth/account', async () => {
   };
 });
 
-// Mock supabaseAdmin
+// Mock appwriteAdmin
 vi.mock('@/lib/appwrite-compat', () => {
   return {
-    supabaseAdmin: vi.fn().mockImplementation(() => {
+    appwriteAdmin: vi.fn().mockImplementation(() => {
       const mockChain: Record<string, unknown> = {};
       mockChain.from = vi.fn().mockReturnValue(mockChain);
       mockChain.select = vi.fn().mockReturnValue(mockChain);

@@ -21,14 +21,14 @@ const ALLOWED_MIME = new Set([
   'image/gif',
 ]);
 
-// Rough email shape check — the real validator is Supabase Auth, which
+// Rough email shape check — the real validator is appwrite Auth, which
 // rejects anything malformed when we call updateUser({ email }). We
 // just want to stop obvious typos before making a network call.
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function ProfileForm() {
   const { user, profile, refreshProfile } = useAuth();
-  const supabase = createClient();
+  const appwrite = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [fullName, setFullName] = useState('');
@@ -114,7 +114,7 @@ export function ProfileForm() {
       if (pendingAvatar) {
         const ext = pendingAvatar.name.split('.').pop()?.toLowerCase() || 'png';
         const path = `${user.id}/avatar-${Date.now()}.${ext}`;
-        const { error: uploadError } = await supabase.storage
+        const { error: uploadError } = await appwrite.storage
           .from('avatars')
           .upload(path, pendingAvatar, {
             cacheControl: '3600',
@@ -128,14 +128,14 @@ export function ProfileForm() {
         }
         const {
           data: { publicUrl },
-        } = supabase.storage.from('avatars').getPublicUrl(path);
+        } = appwrite.storage.from('avatars').getPublicUrl(path);
         nextAvatarUrl = publicUrl;
       } else if (removeAvatar) {
         nextAvatarUrl = null;
       }
 
       // Persist name + avatar to profiles.
-      const { error: updateError } = await supabase
+      const { error: updateError } = await appwrite
         .from('profiles')
         .update({
           full_name: trimmedName,
@@ -150,7 +150,7 @@ export function ProfileForm() {
 
       let emailSent = false;
       if (trimmedEmail.toLowerCase() !== profile.email.toLowerCase()) {
-        const { error: emailError } = await supabase.auth.updateUser({
+        const { error: emailError } = await appwrite.auth.updateUser({
           email: trimmedEmail,
         });
         if (emailError) {

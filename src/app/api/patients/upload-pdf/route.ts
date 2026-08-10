@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth/account';
-import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
+import { appwriteAdmin, getAdminClient } from '@/lib/appwrite-compat';
 import {
   engineSendDocument,
   engineSendText as _engineSendText,
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const db = supabaseAdmin();
+    const db = appwriteAdmin();
 
     // Fetch contact details
     const { data: contact, error: contactErr } = await db

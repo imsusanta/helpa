@@ -122,6 +122,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const init = async () => {
       try {
+        // 1. Check server-side HTTP-only session via /api/auth/me
+        const res = await fetch('/api/auth/me').catch(() => null);
+        if (res && res.ok) {
+          const data = await res.json().catch(() => null);
+          if (mounted && data?.success && data?.user) {
+            setUser(data.user);
+            fetchProfile(data.user.id);
+            return;
+          }
+        }
+
+        // 2. Fallback to client-side Appwrite SDK
         const { account: appwriteAccount } = getAppwriteClient();
         const appwriteUser = await appwriteAccount.get();
         if (mounted && appwriteUser) {

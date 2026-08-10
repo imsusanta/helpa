@@ -53,10 +53,10 @@ export function Step4ScheduleSend({
     async function calculateReach() {
       setLoadingReach(true);
       try {
-        const supabase = createClient();
+        const appwrite = createClient();
 
         if (audience.type === 'all') {
-          const { count } = await supabase
+          const { count } = await appwrite
             .from('contacts')
             .select('*', { count: 'exact', head: true });
           setEstimatedReach(count ?? 0);
@@ -65,7 +65,7 @@ export function Step4ScheduleSend({
           audience.tagIds &&
           audience.tagIds.length > 0
         ) {
-          const { data: contactTags } = await supabase
+          const { data: contactTags } = await appwrite
             .from('contact_tags')
             .select('contact_id')
             .in('tag_id', audience.tagIds);

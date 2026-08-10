@@ -121,7 +121,7 @@ export default function InboxPage() {
    * `let foundInList = false; setState(p => { foundInList = ...; return ... })`
    * flag reads as `false` in the same tick (this exact bug shipped in #105
    * and caused #106: every incoming message and every status flip fired a
-   * redundant DB hydrate, swamping the supabase client and starving the
+   * redundant DB hydrate, swamping the appwrite client and starving the
    * realtime channel). The ref is kept in sync via the effect below.
    */
   const knownConvIdsRef = useRef<Set<string>>(new Set());
@@ -132,7 +132,7 @@ export default function InboxPage() {
   }, [conversations]);
 
   // Pull the conversation row with its `contact` joined and merge it
-  // into state. Needed because Supabase Realtime payloads only carry the
+  // into state. Needed because appwrite Realtime payloads only carry the
   // row's own columns — a brand-new conversation arrives without a
   // contact, which surfaced as "Unknown" names, empty avatars, and
   // (when the conv-INSERT event was delayed past the message-INSERT)
@@ -143,14 +143,14 @@ export default function InboxPage() {
     if (hydratingConvIdsRef.current.has(convId)) return;
     hydratingConvIdsRef.current.add(convId);
     try {
-      const supabase = createClient();
-      const { data, error } = await supabase
+      const appwrite = createClient();
+      const { data, error } = await appwrite
         .from('conversations')
         .select('*, contact:contacts(*)')
         .eq('id', convId)
         .maybeSingle();
       if (error) {
-        // Supabase errors have non-enumerable properties — log fields
+        // appwrite errors have non-enumerable properties — log fields
         // explicitly so the console message isn't just `{}`.
         console.error('Failed to hydrate conversation:', {
           message: error.message,
@@ -186,10 +186,10 @@ export default function InboxPage() {
   // Check WhatsApp connection status on mount
   useEffect(() => {
     const checkConnection = async () => {
-      const supabase = createClient();
+      const appwrite = createClient();
       const {
         data: { session },
-      } = await supabase.auth.getSession();
+      } = await appwrite.auth.getSession();
       const user = session?.user;
 
       if (!user) return;
@@ -200,7 +200,7 @@ export default function InboxPage() {
       // the "WhatsApp not connected" banner would show in the
       // shared inbox even though the admin had it configured.
       // Resolve account_id via the profile and query by that.
-      const { data: profile } = await supabase
+      const { data: profile } = await appwrite
         .from('profiles')
         .select('account_id')
         .eq('user_id', user.id)
@@ -211,7 +211,7 @@ export default function InboxPage() {
         return;
       }
 
-      const { data } = await supabase
+      const { data } = await appwrite
         .from('whatsapp_config')
         .select('status')
         .eq('account_id', accountId)

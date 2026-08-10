@@ -88,11 +88,11 @@ export default function AiAnalyticsPage() {
 
   const fetchAiMetrics = async () => {
     setLoading(true);
-    const supabase = createClient();
+    const appwrite = createClient();
 
     try {
       // 1. Fetch conversations
-      const { data: conversations, error: convError } = await supabase
+      const { data: conversations, error: convError } = await appwrite
         .from('conversations')
         .select(
           'ai_intent, ai_lead_score, ai_sentiment, ai_resolved, ai_handoff_required, ai_faq_category, created_at, ai_chat_enabled'
@@ -101,7 +101,7 @@ export default function AiAnalyticsPage() {
       if (convError) throw convError;
 
       // 2. Fetch messages to count AI (bot) vs Human (agent) messages
-      const { data: messages, error: msgError } = await supabase
+      const { data: messages, error: msgError } = await appwrite
         .from('messages')
         .select('sender_type, created_at');
 

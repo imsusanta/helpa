@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
+import { appwriteAdmin, getAdminClient } from '@/lib/appwrite-compat';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { logger } from '@/lib/observability/logger';
 
@@ -33,7 +33,7 @@ export async function POST(
 
     const { reason = 'patient_opted_out' } = body;
 
-    const db = supabaseAdmin();
+    const db = appwriteAdmin();
 
     // 2. Atomic withdrawal via RPC (scoped by server-derived accountId)
     const { data: rpcResult, error: rpcErr } = await db.rpc(

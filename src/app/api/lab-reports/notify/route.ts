@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
+import { appwriteAdmin, getAdminClient } from '@/lib/appwrite-compat';
 import {
   engineSendText,
   engineSendDocument,
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const db = supabaseAdmin();
+    const db = appwriteAdmin();
 
     // Fetch report with patient contact info and doctor details
     const { data: report, error: reportErr } = await db

@@ -1,4 +1,4 @@
-import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
+import { appwriteAdmin, getAdminClient } from '@/lib/appwrite-compat';
 
 // ------------------------------------------------------------
 // Builder payload → flat rows for automation_steps.
@@ -37,7 +37,7 @@ export async function replaceSteps(
   automationId: string,
   input: BuilderStepInput[]
 ): Promise<string | null> {
-  const admin = supabaseAdmin();
+  const admin = appwriteAdmin();
   const { error: delErr } = await admin
     .from('automation_steps')
     .delete()
@@ -83,7 +83,7 @@ export async function insertSteps(
   walk(tree, null, null);
 
   if (rows.length === 0) return null;
-  const { error } = await supabaseAdmin().from('automation_steps').insert(rows);
+  const { error } = await appwriteAdmin().from('automation_steps').insert(rows);
   return error?.message ?? null;
 }
 
@@ -128,7 +128,7 @@ interface DbStep {
 export async function loadStepsTree(
   automationId: string
 ): Promise<BuilderStepNode[]> {
-  const { data, error } = await supabaseAdmin()
+  const { data, error } = await appwriteAdmin()
     .from('automation_steps')
     .select('*')
     .eq('automation_id', automationId)

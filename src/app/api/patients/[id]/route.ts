@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
+import { appwriteAdmin, getAdminClient } from '@/lib/appwrite-compat';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { logger } from '@/lib/observability/logger';
 import {
@@ -36,7 +36,7 @@ export async function DELETE(
       );
     }
 
-    const db = supabaseAdmin();
+    const db = appwriteAdmin();
 
     // 2. Atomic deletion + audit event within a single PostgreSQL transaction via RPC
     const { error: rpcErr } = await db.rpc('delete_patient_atomic', {

@@ -7,7 +7,7 @@ import {
   type MediaKind,
 } from '@/lib/whatsapp/meta-api';
 import { decrypt, encrypt, isLegacyFormat } from '@/lib/whatsapp/encryption';
-import { supabaseAdmin } from '@/lib/appwrite-compat';
+import { appwriteAdmin } from '@/lib/appwrite-compat';
 import {
   sanitizePhoneForMeta,
   isValidE164,
@@ -24,12 +24,12 @@ import { isMessageTemplate } from '@/lib/whatsapp/template-row-guard';
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient();
+    const appwrite = await createClient();
 
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser();
+    } = await appwrite.auth.getUser();
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     // (conversation, whatsapp_config, message_templates) is account-
     // scoped post-multi-user, so the previous `user_id` filters
     // returned nothing for teammates who didn't author the row.
-    const { data: profile } = await supabase
+    const { data: profile } = await appwrite
       .from('profiles')
       .select('account_id')
       .eq('user_id', user.id)
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
     const template_message_params = body.template_message_params;
     const reply_to_message_id = body.reply_to_message_id;
 
-    const dbAdmin = supabaseAdmin();
+    const dbAdmin = appwriteAdmin();
 
     // Validate contact_id tenant scoping if contact_id is explicitly provided
     if (body.contact_id) {
@@ -284,7 +284,7 @@ export async function POST(request: Request) {
     }
 
     // Fetch and decrypt WhatsApp config
-    const { data: config, error: configError } = await supabase
+    const { data: config, error: configError } = await appwrite
       .from('whatsapp_config')
       .select('*')
       .eq('account_id', accountId)
@@ -320,7 +320,7 @@ export async function POST(request: Request) {
     // concurrent sends both produce valid GCM ciphertexts of the same
     // plaintext, last write wins.
     if (isLegacyFormat(config.access_token)) {
-      void supabase
+      void appwrite
         .from('whatsapp_config')
         .update({ access_token: encrypt(accessToken) })
         .eq('id', config.id)
@@ -340,7 +340,7 @@ export async function POST(request: Request) {
     // could quote messages they can't see by guessing UUIDs.
     let contextMessageId: string | undefined;
     if (reply_to_message_id) {
-      const { data: parent, error: parentError } = await supabase
+      const { data: parent, error: parentError } = await appwrite
         .from('messages')
         .select('message_id, conversation_id')
         .eq('id', reply_to_message_id)
@@ -385,7 +385,7 @@ export async function POST(request: Request) {
     // crashing the send-builder later in the stack.
     let templateRow: MessageTemplate | null = null;
     if (message_type === 'template' && template_name) {
-      const { data } = await supabase
+      const { data } = await appwrite
         .from('message_templates')
         .select('*')
         .eq('account_id', accountId)
@@ -490,17 +490,17 @@ export async function POST(request: Request) {
       console.log(
         `[whatsapp/send] Auto-corrected contact phone: ${sanitizedPhone} → ${workingPhone}`
       );
-      await supabase
+      await appwrite
         .from('contacts')
         .update({ phone: workingPhone })
         .eq('id', contact.id);
     }
 
     // Insert message into DB — field names MUST match the messages schema
-    // (see supabase/migrations/001_initial_schema.sql):
+    // (see appwrite/migrations/001_initial_schema.sql):
     //   conversation_id, sender_type, content_type, content_text,
     //   media_url, template_name, message_id, status, created_at
-    const { data: messageRecord, error: msgError } = await supabase
+    const { data: messageRecord, error: msgError } = await appwrite
       .from('messages')
       .insert({
         conversation_id,
@@ -527,7 +527,7 @@ export async function POST(request: Request) {
     }
 
     // Update conversation
-    await supabase
+    await appwrite
       .from('conversations')
       .update({
         last_message_text: content_text || `[${message_type}]`,
@@ -543,7 +543,7 @@ export async function POST(request: Request) {
     // run later. For accounts with no active runs the UPDATE matches
     // zero rows — cheap and harmless.
     try {
-      const { error: pauseErr } = await supabaseAdmin()
+      const { error: pauseErr } = await appwriteAdmin()
         .from('flow_runs')
         .update({
           status: 'paused_by_agent',

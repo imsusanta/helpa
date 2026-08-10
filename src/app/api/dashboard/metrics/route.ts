@@ -18,7 +18,7 @@ export async function POST(request: Request) {
 
     // Execute each dynamic query
     for (const metric of activeModule.dashboardMetrics) {
-      let query = ctx.supabase
+      let query = ctx.appwrite
         .from(metric.queryTable)
         .select('*', { count: 'exact', head: true })
         .eq('account_id', ctx.accountId);
@@ -60,13 +60,13 @@ export async function POST(request: Request) {
     }
 
     // Always fetch general AI/chat metrics as well for dynamic cards
-    const { count: unreadCount } = await ctx.supabase
+    const { count: unreadCount } = await ctx.appwrite
       .from('conversations')
       .select('id', { count: 'exact', head: true })
       .eq('account_id', ctx.accountId)
       .eq('status', 'open');
 
-    const { count: campaignsCount } = await ctx.supabase
+    const { count: campaignsCount } = await ctx.appwrite
       .from('broadcasts')
       .select('id', { count: 'exact', head: true })
       .eq('account_id', ctx.accountId);

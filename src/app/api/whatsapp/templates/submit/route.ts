@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import type { SupabaseClient } from '@/lib/appwrite-compat';
+import type { appwriteClient } from '@/lib/appwrite-compat';
 import { createClient } from '@/lib/appwrite-compat';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import { submitMessageTemplate } from '@/lib/whatsapp/meta-api';
@@ -57,7 +57,7 @@ function buildUpsertRow(
 }
 
 async function upsertTemplateRow(
-  supabase: SupabaseClient,
+  appwrite: appwriteClient,
   row: ReturnType<typeof buildUpsertRow>
 ) {
   // TODO(account-sharing): conflict target is still scoped to
@@ -65,7 +65,7 @@ async function upsertTemplateRow(
   // index on (user_id, name, language) and adds (account_id,
   // name, language), switch `onConflict` here so two teammates
   // can't shadow each other's same-named template.
-  return supabase
+  return appwrite
     .from('message_templates')
     .upsert(row, { onConflict: 'user_id,name,language' })
     .select()
@@ -88,18 +88,18 @@ async function upsertTemplateRow(
  */
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient();
+    const appwrite = await createClient();
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser();
+    } = await appwrite.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Resolve the caller's account_id — whatsapp_config + the
     // message_templates row are account-scoped post-multi-user.
-    const { data: profile } = await supabase
+    const { data: profile } = await appwrite
       .from('profiles')
       .select('account_id')
       .eq('user_id', user.id)
@@ -152,7 +152,7 @@ export async function POST(request: Request) {
       metaTemplateId = `dry-run-${crypto.randomUUID()}`;
       metaStatus = 'PENDING';
     } else {
-      const { data: config, error: configError } = await supabase
+      const { data: config, error: configError } = await appwrite
         .from('whatsapp_config')
         .select('*')
         .eq('account_id', accountId)
@@ -208,7 +208,7 @@ export async function POST(request: Request) {
         // Persist the failure so the user can retry; row stays DRAFT
         // until they fix and re-submit.
         await upsertTemplateRow(
-          supabase,
+          appwrite,
           buildUpsertRow(accountId, user.id, payload, {
             status: 'DRAFT',
             metaTemplateId: null,
@@ -228,7 +228,7 @@ export async function POST(request: Request) {
     }
 
     const { data: row, error: upsertErr } = await upsertTemplateRow(
-      supabase,
+      appwrite,
       buildUpsertRow(accountId, user.id, payload, {
         status: normalizeStatus(metaStatus),
         metaTemplateId,

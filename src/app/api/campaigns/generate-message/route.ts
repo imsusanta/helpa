@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     const safePrompt = safety.safeText;
 
     // 2. Fetch API Key and Model Config
-    const { data: account, error } = await ctx.supabase
+    const { data: account, error } = await ctx.appwrite
       .from('accounts')
       .select('openrouter_api_key, openrouter_model')
       .eq('id', ctx.accountId)

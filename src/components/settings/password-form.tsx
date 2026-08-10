@@ -21,7 +21,7 @@ const MIN_PASSWORD = 8;
 
 export function PasswordForm() {
   const { profile } = useAuth();
-  const supabase = createClient();
+  const appwrite = createClient();
 
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
@@ -47,11 +47,11 @@ export function PasswordForm() {
     setSaving(true);
 
     try {
-      // Supabase doesn't expose a "verify password without issuing a
+      // appwrite doesn't expose a "verify password without issuing a
       // session" API, so we re-authenticate with the provided current
       // password. If it matches, the session refreshes silently; if it
       // doesn't, we abort before calling updateUser.
-      const { error: signInError } = await supabase.auth.signInWithPassword({
+      const { error: signInError } = await appwrite.auth.signInWithPassword({
         email: profile.email,
         password: current,
       });
@@ -60,7 +60,7 @@ export function PasswordForm() {
         return;
       }
 
-      const { error: updateError } = await supabase.auth.updateUser({
+      const { error: updateError } = await appwrite.auth.updateUser({
         password: next,
       });
       if (updateError) {

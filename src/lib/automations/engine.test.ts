@@ -84,7 +84,7 @@ vi.mock('@/lib/appwrite-compat', () => {
   }
 
   return {
-    supabaseAdmin: () => ({
+    appwriteAdmin: () => ({
       from: (t: string) => {
         state.fromCalls.push(t);
         return builder(t);

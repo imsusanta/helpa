@@ -13,10 +13,10 @@ import { listFlowTemplates } from '@/lib/flows/templates';
  * Available to any signed-in user. Flows is in soft-GA.
  */
 export async function GET() {
-  const supabase = await createClient();
+  const appwrite = await createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await appwrite.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }

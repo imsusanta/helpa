@@ -142,18 +142,18 @@ export function resolveVariables(
  * index keyed by contact_id → field_id → value.
  */
 async function fetchCustomValueIndex(
-  supabase: ReturnType<typeof createClient>,
+  appwrite: ReturnType<typeof createClient>,
   contactIds: string[]
 ): Promise<CustomValueIndex> {
   const index: CustomValueIndex = new Map();
   if (contactIds.length === 0) return index;
 
-  // Supabase PostgREST caps the .in(...) IN-clause roughly at 1000
+  // appwrite PostgREST caps the .in(...) IN-clause roughly at 1000
   // values. Page through to stay safe.
   const PAGE = 500;
   for (let i = 0; i < contactIds.length; i += PAGE) {
     const slice = contactIds.slice(i, i + PAGE);
-    const { data } = await supabase
+    const { data } = await appwrite
       .from('contact_custom_values')
       .select('contact_id, custom_field_id, value')
       .in('contact_id', slice);
@@ -173,12 +173,12 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
   const [progress, setProgress] = useState(0);
 
   async function resolveAudience(audience: AudienceConfig): Promise<Contact[]> {
-    const supabase = createClient();
+    const appwrite = createClient();
 
     let contacts: Contact[] = [];
 
     if (audience.type === 'all') {
-      const { data, error } = await supabase.from('contacts').select('*');
+      const { data, error } = await appwrite.from('contacts').select('*');
       if (error) throw new Error(`Failed to fetch contacts: ${error.message}`);
       contacts = data ?? [];
     } else if (
@@ -186,7 +186,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
       audience.tagIds &&
       audience.tagIds.length > 0
     ) {
-      const { data: contactTags, error: tagError } = await supabase
+      const { data: contactTags, error: tagError } = await appwrite
         .from('contact_tags')
         .select('contact_id')
         .in('tag_id', audience.tagIds);
@@ -198,7 +198,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
         const uniqueContactIds = [
           ...new Set(contactTags.map((ct) => ct.contact_id)),
         ];
-        const { data, error } = await supabase
+        const { data, error } = await appwrite
           .from('contacts')
           .select('*')
           .in('id', uniqueContactIds);
@@ -208,22 +208,22 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
       }
     } else if (audience.type === 'custom_field' && audience.customField) {
       contacts = await resolveCustomFieldAudience(
-        supabase,
+        appwrite,
         audience.customField
       );
     } else if (audience.type === 'csv' && audience.csvContacts) {
-      contacts = await upsertCsvContacts(supabase, audience.csvContacts);
+      contacts = await upsertCsvContacts(appwrite, audience.csvContacts);
     } else if (audience.type === 'new_patients') {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const { data, error } = await supabase
+      const { data, error } = await appwrite
         .from('contacts')
         .select('*')
         .gte('created_at', thirtyDaysAgo.toISOString());
       if (error) throw error;
       contacts = data ?? [];
     } else if (audience.type === 'returning_patients') {
-      const { data: appts, error } = await supabase
+      const { data: appts, error } = await appwrite
         .from('appointments')
         .select('patient_id');
       if (error) throw error;
@@ -233,7 +233,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
       });
       const returningIds = Object.keys(counts).filter((id) => counts[id] >= 2);
       if (returningIds.length > 0) {
-        const { data, error: fetchErr } = await supabase
+        const { data, error: fetchErr } = await appwrite
           .from('contacts')
           .select('*')
           .in('id', returningIds);
@@ -242,14 +242,14 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
       }
     } else if (audience.type === 'upcoming_appointments') {
       const todayStr = new Date().toISOString().split('T')[0];
-      const { data: appts, error } = await supabase
+      const { data: appts, error } = await appwrite
         .from('appointments')
         .select('patient_id')
         .gte('appointment_date', todayStr);
       if (error) throw error;
       const ids = [...new Set((appts || []).map((a) => a.patient_id))];
       if (ids.length > 0) {
-        const { data, error: fetchErr } = await supabase
+        const { data, error: fetchErr } = await appwrite
           .from('contacts')
           .select('*')
           .in('id', ids);
@@ -258,7 +258,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
       }
     } else if (audience.type === 'missed_appointments') {
       const todayStr = new Date().toISOString().split('T')[0];
-      const { data: appts, error } = await supabase
+      const { data: appts, error } = await appwrite
         .from('appointments')
         .select('patient_id')
         .or(
@@ -267,7 +267,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
       if (error) throw error;
       const ids = [...new Set((appts || []).map((a) => a.patient_id))];
       if (ids.length > 0) {
-        const { data, error: fetchErr } = await supabase
+        const { data, error: fetchErr } = await appwrite
           .from('contacts')
           .select('*')
           .in('id', ids);
@@ -275,13 +275,13 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
         contacts = data ?? [];
       }
     } else if (audience.type === 'due_followup') {
-      const { data: pats, error } = await supabase
+      const { data: pats, error } = await appwrite
         .from('patients')
         .select('id');
       if (error) throw error;
       const ids = (pats || []).map((p) => p.id);
       if (ids.length > 0) {
-        const { data, error: fetchErr } = await supabase
+        const { data, error: fetchErr } = await appwrite
           .from('contacts')
           .select('*')
           .in('id', ids);
@@ -289,14 +289,14 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
         contacts = data ?? [];
       }
     } else if (audience.type === 'by_department' && audience.department) {
-      const { data: pats, error } = await supabase
+      const { data: pats, error } = await appwrite
         .from('patients')
         .select('id')
         .eq('department', audience.department);
       if (error) throw error;
       const ids = (pats || []).map((p) => p.id);
       if (ids.length > 0) {
-        const { data, error: fetchErr } = await supabase
+        const { data, error: fetchErr } = await appwrite
           .from('contacts')
           .select('*')
           .in('id', ids);
@@ -304,14 +304,14 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
         contacts = data ?? [];
       }
     } else if (audience.type === 'by_doctor' && audience.doctorId) {
-      const { data: pats, error } = await supabase
+      const { data: pats, error } = await appwrite
         .from('patients')
         .select('id')
         .eq('assigned_doctor_id', audience.doctorId);
       if (error) throw error;
       const ids = (pats || []).map((p) => p.id);
       if (ids.length > 0) {
-        const { data, error: fetchErr } = await supabase
+        const { data, error: fetchErr } = await appwrite
           .from('contacts')
           .select('*')
           .in('id', ids);
@@ -319,14 +319,14 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
         contacts = data ?? [];
       }
     } else if (audience.type === 'by_gender' && audience.gender) {
-      const { data: pats, error } = await supabase
+      const { data: pats, error } = await appwrite
         .from('patients')
         .select('id')
         .eq('gender', audience.gender);
       if (error) throw error;
       const ids = (pats || []).map((p) => p.id);
       if (ids.length > 0) {
-        const { data, error: fetchErr } = await supabase
+        const { data, error: fetchErr } = await appwrite
           .from('contacts')
           .select('*')
           .in('id', ids);
@@ -335,7 +335,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
       }
     } else if (audience.type === 'by_age') {
       const nowYear = new Date().getFullYear();
-      let query = supabase.from('patients').select('id');
+      let query = appwrite.from('patients').select('id');
       if (audience.ageMin !== undefined) {
         const maxDob = new Date();
         maxDob.setFullYear(nowYear - audience.ageMin);
@@ -350,7 +350,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
       if (error) throw error;
       const ids = (pats || []).map((p) => p.id);
       if (ids.length > 0) {
-        const { data, error: fetchErr } = await supabase
+        const { data, error: fetchErr } = await appwrite
           .from('contacts')
           .select('*')
           .in('id', ids);
@@ -362,7 +362,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
     // Apply exclude tags (works across all contact-derived audience
     // types). CSV contacts are synthetic so exclusion doesn't apply.
     if (audience.excludeTagIds && audience.excludeTagIds.length > 0) {
-      const { data: excludeRows } = await supabase
+      const { data: excludeRows } = await appwrite
         .from('contact_tags')
         .select('contact_id')
         .in('tag_id', audience.excludeTagIds);
@@ -385,14 +385,14 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
    * broadcast silently created zero recipients.
    */
   async function upsertCsvContacts(
-    supabase: ReturnType<typeof createClient>,
+    appwrite: ReturnType<typeof createClient>,
     csvRows: { phone: string; name?: string }[]
   ): Promise<Contact[]> {
     if (csvRows.length === 0) return [];
 
     const {
       data: { session },
-    } = await supabase.auth.getSession();
+    } = await appwrite.auth.getSession();
     const user = session?.user;
     if (!user) {
       throw new Error('You are not signed in.');
@@ -409,7 +409,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
     const phones = [...uniqueByPhone.keys()];
 
     // Single round-trip lookup of existing contacts by phone.
-    const { data: existing, error: lookupErr } = await supabase
+    const { data: existing, error: lookupErr } = await appwrite
       .from('contacts')
       .select('*')
       .eq('user_id', user.id)
@@ -437,7 +437,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
     const INSERT_CHUNK = 200;
     for (let i = 0; i < missing.length; i += INSERT_CHUNK) {
       const chunk = missing.slice(i, i + INSERT_CHUNK);
-      const { data: inserted, error: insertErr } = await supabase
+      const { data: inserted, error: insertErr } = await appwrite
         .from('contacts')
         .insert(chunk)
         .select();
@@ -456,7 +456,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
   }
 
   async function resolveCustomFieldAudience(
-    supabase: ReturnType<typeof createClient>,
+    appwrite: ReturnType<typeof createClient>,
     filter: CustomFieldFilter
   ): Promise<Contact[]> {
     const { fieldId, operator, value } = filter;
@@ -464,7 +464,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
     // Build the WHERE clause for the operator. PostgREST supports
     // eq/neq/ilike via the query builder — use ilike with wildcards
     // for "contains" so the match is case-insensitive.
-    let query = supabase
+    let query = appwrite
       .from('contact_custom_values')
       .select('contact_id')
       .eq('custom_field_id', fieldId);
@@ -485,7 +485,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
     ];
     if (contactIds.length === 0) return [];
 
-    const { data, error } = await supabase
+    const { data, error } = await appwrite
       .from('contacts')
       .select('*')
       .in('id', contactIds);
@@ -499,7 +499,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
     setIsProcessing(true);
     setProgress(0);
 
-    const supabase = createClient();
+    const appwrite = createClient();
 
     try {
       // ── Step 0: Resolve current user ──────────────────────────────
@@ -509,7 +509,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
       // no-op with no feedback.
       const {
         data: { session },
-      } = await supabase.auth.getSession();
+      } = await appwrite.auth.getSession();
       const user = session?.user;
       if (!user) {
         throw new Error('You are not signed in.');
@@ -528,7 +528,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
 
       // ── Step 2: Create broadcast row ──────────────────────────────
       setProgress(10);
-      const { data: broadcast, error: broadcastError } = await supabase
+      const { data: broadcast, error: broadcastError } = await appwrite
         .from('broadcasts')
         .insert({
           user_id: user.id,
@@ -584,7 +584,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
 
       for (let i = 0; i < recipientRows.length; i += INSERT_BATCH_SIZE) {
         const batch = recipientRows.slice(i, i + INSERT_BATCH_SIZE);
-        const { error: recipientError } = await supabase
+        const { error: recipientError } = await appwrite
           .from('broadcast_recipients')
           .insert(batch);
         if (recipientError) {
@@ -593,7 +593,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
           // couldn't find some rows and the aggregate counts drifted.
           // Flip the broadcast to failed so the user sees the problem
           // immediately, then throw to abort the send loop.
-          await supabase
+          await appwrite
             .from('broadcasts')
             .update({
               status: 'failed',
@@ -608,7 +608,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
 
       // ── Step 4: Fetch recipients (joined contact) + preload custom values
       setProgress(30);
-      const { data: recipients, error: recipientsFetchError } = await supabase
+      const { data: recipients, error: recipientsFetchError } = await appwrite
         .from('broadcast_recipients')
         .select('*, contact:contacts(*)')
         .eq('broadcast_id', broadcast.id);
@@ -623,7 +623,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
         .map((r: { contact?: { id?: string } | null }) => r.contact?.id)
         .filter((id: string | undefined): id is string => Boolean(id));
       const customValueIndex = await fetchCustomValueIndex(
-        supabase,
+        appwrite,
         contactIds
       );
 
@@ -678,7 +678,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
 
             if (!result) {
               failedCount++;
-              await supabase
+              await appwrite
                 .from('broadcast_recipients')
                 .update({
                   status: 'failed',
@@ -689,7 +689,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
             }
 
             if (result.status === 'sent') {
-              await supabase
+              await appwrite
                 .from('broadcast_recipients')
                 .update({
                   status: 'sent',
@@ -700,7 +700,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
                 .eq('id', recipient.id);
             } else {
               failedCount++;
-              await supabase
+              await appwrite
                 .from('broadcast_recipients')
                 .update({
                   status: 'failed',
@@ -712,7 +712,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
         } catch (err) {
           for (const recipient of batch) {
             failedCount++;
-            await supabase
+            await appwrite
               .from('broadcast_recipients')
               .update({
                 status: 'failed',
@@ -737,7 +737,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
       // 003); we only flip the final status here.
       setProgress(95);
       const finalStatus = failedCount === totalRecipients ? 'failed' : 'sent';
-      await supabase
+      await appwrite
         .from('broadcasts')
         .update({ status: finalStatus })
         .eq('id', broadcast.id);

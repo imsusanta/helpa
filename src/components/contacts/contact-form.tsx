@@ -42,7 +42,7 @@ export function ContactForm({
   onSaved,
   onViewExisting,
 }: ContactFormProps) {
-  const supabase = createClient();
+  const appwrite = createClient();
   const { accountId, account } = useAuth();
   const isEdit = !!contact;
 
@@ -74,10 +74,10 @@ export function ContactForm({
 
   const fetchTags = useCallback(async () => {
     setLoadingTags(true);
-    const { data } = await supabase.from('tags').select('*').order('name');
+    const { data } = await appwrite.from('tags').select('*').order('name');
     if (data) setTags(data);
     setLoadingTags(false);
-  }, [supabase]);
+  }, [appwrite]);
 
   useEffect(() => {
     if (open) {
@@ -102,7 +102,7 @@ export function ContactForm({
     }
     setCheckingDup(true);
     try {
-      const existing = await findExistingContact(supabase, accountId, value);
+      const existing = await findExistingContact(appwrite, accountId, value);
       setDupMatch(
         existing
           ? { contact: existing, exact: isExactMatch(existing, value) }
@@ -149,7 +149,7 @@ export function ContactForm({
     try {
       const {
         data: { session },
-      } = await supabase.auth.getSession();
+      } = await appwrite.auth.getSession();
       const user = session?.user;
       if (!user) throw new Error('Not authenticated');
       if (!accountId)
@@ -176,7 +176,7 @@ export function ContactForm({
       };
 
       if (isEdit && contactId) {
-        const { error } = await supabase
+        const { error } = await appwrite
           .from('contacts')
           .update({
             ...payload,
@@ -185,7 +185,7 @@ export function ContactForm({
           .eq('id', contactId);
         if (error) throw error;
       } else {
-        const { data, error } = await supabase
+        const { data, error } = await appwrite
           .from('contacts')
           .insert({
             user_id: user.id,
@@ -199,7 +199,7 @@ export function ContactForm({
       }
 
       if (isHospitalWorkspace && contactId) {
-        const { data: existingPatient } = await supabase
+        const { data: existingPatient } = await appwrite
           .from('patients')
           .select('patient_seq_id, blood_group')
           .eq('id', contactId)
@@ -213,7 +213,7 @@ export function ContactForm({
           null;
 
         if (!existingPatient) {
-          const { data: maxPatient } = await supabase
+          const { data: maxPatient } = await appwrite
             .from('patients')
             .select('patient_seq_id')
             .eq('account_id', accountId)
@@ -231,7 +231,7 @@ export function ContactForm({
 
           seqId = `PAT-${String(nextNum).padStart(6, '0')}`;
 
-          await supabase.from('patients').insert({
+          await appwrite.from('patients').insert({
             id: contactId,
             account_id: accountId,
             patient_seq_id: seqId,
@@ -242,14 +242,14 @@ export function ContactForm({
           inputBloodGroup &&
           inputBloodGroup !== existingPatient.blood_group
         ) {
-          await supabase
+          await appwrite
             .from('patients')
             .update({ blood_group: inputBloodGroup })
             .eq('id', contactId);
         }
 
         if (seqId) {
-          await supabase
+          await appwrite
             .from('contacts')
             .update({
               metadata: {
@@ -265,7 +265,7 @@ export function ContactForm({
 
       // Sync tags
       if (contactId) {
-        await supabase
+        await appwrite
           .from('contact_tags')
           .delete()
           .eq('contact_id', contactId);
@@ -275,7 +275,7 @@ export function ContactForm({
             contact_id: contactId!,
             tag_id,
           }));
-          const { error: tagError } = await supabase
+          const { error: tagError } = await appwrite
             .from('contact_tags')
             .insert(tagRows);
           if (tagError) throw tagError;
@@ -300,7 +300,7 @@ export function ContactForm({
         );
         if (!isEdit && accountId) {
           const existing = await findExistingContact(
-            supabase,
+            appwrite,
             accountId,
             phone.trim()
           );

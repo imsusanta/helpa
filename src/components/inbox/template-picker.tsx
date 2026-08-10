@@ -86,10 +86,10 @@ export function TemplatePicker({
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const supabase = createClient();
+      const appwrite = createClient();
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await appwrite.auth.getUser();
 
       if (!user) {
         if (!cancelled) {
@@ -99,7 +99,7 @@ export function TemplatePicker({
         return;
       }
 
-      const { data, error } = await supabase
+      const { data, error } = await appwrite
         .from('message_templates')
         .select('*')
         .eq('user_id', user.id)

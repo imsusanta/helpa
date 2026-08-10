@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { checkSuperAdmin } from '@/lib/auth/admin';
-import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
+import { appwriteAdmin, getAdminClient } from '@/lib/appwrite-compat';
 
 export async function GET() {
   try {
@@ -12,7 +12,7 @@ export async function GET() {
       );
     }
 
-    const db = supabaseAdmin();
+    const db = appwriteAdmin();
     const { data, error } = await db
       .from('system_settings')
       .select('key, value');
@@ -48,7 +48,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { landing_hero_video_url, landing_action_video_url } = body;
 
-    const db = supabaseAdmin();
+    const db = appwriteAdmin();
 
     const upserts: Array<{ key: string; value: string }> = [];
     if (typeof landing_hero_video_url === 'string') {

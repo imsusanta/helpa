@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
+import { appwriteAdmin, getAdminClient } from '@/lib/appwrite-compat';
 import {
   engineSendText,
   engineSendDocument,
@@ -33,7 +33,7 @@ export async function GET(request: Request) {
 
   console.log('[Cron Campaigns] Executing cron automation triggers...');
 
-  const db = supabaseAdmin();
+  const db = appwriteAdmin();
   let totalDispatched = 0;
   let totalAutomatedReviews = 0;
   let totalAutomatedFollowups = 0;

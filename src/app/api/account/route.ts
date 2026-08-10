@@ -81,7 +81,7 @@ export async function PATCH(request: Request) {
     // RLS allows this UPDATE because accounts_update requires
     // `is_account_member(id, 'admin')`, and requireRole already
     // guaranteed the caller is admin+.
-    const { data, error } = await ctx.supabase
+    const { data, error } = await ctx.appwrite
       .from('accounts')
       .update({ name })
       .eq('id', ctx.accountId)

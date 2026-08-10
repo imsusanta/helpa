@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/appwrite-compat';
-import { supabaseAdmin } from '@/lib/appwrite-compat';
+import { appwriteAdmin } from '@/lib/appwrite-compat';
 
 /**
  * GET   /api/flows/[id]  — fetch one flow with its nodes.
@@ -21,20 +21,20 @@ async function requireOwnership(flowId: string): Promise<
   | {
       ok: true;
       userId: string;
-      supabase: Awaited<ReturnType<typeof createClient>>;
+      appwrite: Awaited<ReturnType<typeof createClient>>;
     }
   | { ok: false; status: number; body: { error: string } }
 > {
-  const supabase = await createClient();
+  const appwrite = await createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await appwrite.auth.getUser();
   if (!user) {
     return { ok: false, status: 401, body: { error: 'Unauthorized' } };
   }
   // RLS scopes this to the caller — a flow owned by another user
   // returns null (404 below).
-  const { data: flow } = await supabase
+  const { data: flow } = await appwrite
     .from('flows')
     .select('id')
     .eq('id', flowId)
@@ -42,7 +42,7 @@ async function requireOwnership(flowId: string): Promise<
   if (!flow) {
     return { ok: false, status: 404, body: { error: 'Not found' } };
   }
-  return { ok: true, userId: user.id, supabase };
+  return { ok: true, userId: user.id, appwrite };
 }
 
 export async function GET(
@@ -52,11 +52,11 @@ export async function GET(
   const { id } = await context.params;
   const guard = await requireOwnership(id);
   if (!guard.ok) return NextResponse.json(guard.body, { status: guard.status });
-  const { supabase } = guard;
+  const { appwrite } = guard;
 
   const [{ data: flow }, { data: nodes }] = await Promise.all([
-    supabase.from('flows').select('*').eq('id', id).maybeSingle(),
-    supabase
+    appwrite.from('flows').select('*').eq('id', id).maybeSingle(),
+    appwrite
       .from('flow_nodes')
       .select('*')
       .eq('flow_id', id)
@@ -103,7 +103,7 @@ export async function PUT(
     );
   }
 
-  const admin = supabaseAdmin();
+  const admin = appwriteAdmin();
 
   // Update the flow row first — the body may not include `nodes` (a
   // header-only save for editing the trigger config without touching
@@ -183,7 +183,7 @@ export async function DELETE(
   // mechanism in v1, but that's intentional: deleting a flow is a
   // deliberate destructive action and the partial unique index will
   // free up the contact for new triggers immediately.
-  const { error } = await supabaseAdmin().from('flows').delete().eq('id', id);
+  const { error } = await appwriteAdmin().from('flows').delete().eq('id', id);
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

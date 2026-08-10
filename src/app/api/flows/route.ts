@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/appwrite-compat';
-import { supabaseAdmin } from '@/lib/appwrite-compat';
+import { appwriteAdmin } from '@/lib/appwrite-compat';
 import { getFlowTemplate } from '@/lib/flows/templates';
 
 /**
@@ -17,18 +17,18 @@ async function requireUser(): Promise<
   | {
       ok: true;
       userId: string;
-      supabase: Awaited<ReturnType<typeof createClient>>;
+      appwrite: Awaited<ReturnType<typeof createClient>>;
     }
   | { ok: false; status: number; body: { error: string } }
 > {
-  const supabase = await createClient();
+  const appwrite = await createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await appwrite.auth.getUser();
   if (!user) {
     return { ok: false, status: 401, body: { error: 'Unauthorized' } };
   }
-  return { ok: true, userId: user.id, supabase };
+  return { ok: true, userId: user.id, appwrite };
 }
 
 export async function GET() {
@@ -36,9 +36,9 @@ export async function GET() {
   if (!guard.ok) {
     return NextResponse.json(guard.body, { status: guard.status });
   }
-  const { supabase } = guard;
+  const { appwrite } = guard;
 
-  const { data, error } = await supabase
+  const { data, error } = await appwrite
     .from('flows')
     .select('*')
     .order('created_at', { ascending: false });
@@ -53,12 +53,12 @@ export async function POST(request: Request) {
   if (!guard.ok) {
     return NextResponse.json(guard.body, { status: guard.status });
   }
-  const { userId, supabase } = guard;
+  const { userId, appwrite } = guard;
 
   // Resolve the caller's account_id — `flows.account_id` is NOT NULL
   // post-017, so an INSERT without it trips the not-null constraint
   // even though the admin client below bypasses RLS.
-  const { data: profile } = await supabase
+  const { data: profile } = await appwrite
     .from('profiles')
     .select('account_id')
     .eq('user_id', userId)
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const admin = supabaseAdmin();
+  const admin = appwriteAdmin();
 
   // -------- Template clone path --------
   if (body.template_slug) {

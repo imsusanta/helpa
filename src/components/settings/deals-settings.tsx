@@ -28,7 +28,7 @@ import { SettingsPanelHead } from './settings-panel-head';
  * admins+, so non-admins see a disabled, read-only control.
  */
 export function DealsSettings() {
-  const supabase = createClient();
+  const appwrite = createClient();
   const {
     accountId,
     defaultCurrency,
@@ -51,7 +51,7 @@ export function DealsSettings() {
   async function handleSave() {
     if (!accountId || !dirty) return;
     setSaving(true);
-    const { error } = await supabase
+    const { error } = await appwrite
       .from('accounts')
       .update({ default_currency: selected })
       .eq('id', accountId);

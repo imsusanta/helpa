@@ -67,7 +67,7 @@ async function loadCopilotContext(
   conversationId: string
 ): Promise<CopilotSourceContext | NextResponse> {
   const { data: conversationData, error: conversationError } =
-    await ctx.supabase
+    await ctx.appwrite
       .from('conversations')
       .select(
         'id, account_id, contact_id, status, last_message_text, last_message_at, ai_summary, created_at, contact:contacts(id, name, phone, email, company)'
@@ -95,7 +95,7 @@ async function loadCopilotContext(
   let contact = relatedOne(conversation.contact) as CopilotContact | null;
 
   if (!contact) {
-    const { data: contactData, error: contactError } = await ctx.supabase
+    const { data: contactData, error: contactError } = await ctx.appwrite
       .from('contacts')
       .select('id, name, phone, email, company')
       .eq('id', conversation.contact_id)
@@ -130,13 +130,13 @@ async function loadCopilotContext(
     notesRes,
     accountRes,
   ] = await Promise.all([
-    ctx.supabase
+    ctx.appwrite
       .from('messages')
       .select('sender_type, content_type, content_text, created_at')
       .eq('conversation_id', conversation.id)
       .order('created_at', { ascending: false })
       .limit(120),
-    ctx.supabase
+    ctx.appwrite
       .from('conversations')
       .select(
         'id, status, last_message_text, last_message_at, ai_summary, created_at'
@@ -145,7 +145,7 @@ async function loadCopilotContext(
       .eq('contact_id', contact.id)
       .order('last_message_at', { ascending: false, nullsFirst: false })
       .limit(8),
-    ctx.supabase
+    ctx.appwrite
       .from('patients')
       .select(
         'patient_seq_id, gender, date_of_birth, department, ai_summary, ai_notes, status, assigned_doctor:hospital_doctors(id, name, department, specialization)'
@@ -153,7 +153,7 @@ async function loadCopilotContext(
       .eq('id', contact.id)
       .eq('account_id', ctx.accountId)
       .maybeSingle(),
-    ctx.supabase
+    ctx.appwrite
       .from('appointments')
       .select(
         'id, appointment_date, appointment_time, status, department, token_number, queue_position, booking_id, notes, created_at, doctor:hospital_doctors(id, name, department, specialization)'
@@ -163,7 +163,7 @@ async function loadCopilotContext(
       .order('appointment_date', { ascending: false })
       .order('appointment_time', { ascending: false })
       .limit(12),
-    ctx.supabase
+    ctx.appwrite
       .from('hospital_lab_reports')
       .select(
         'id, test_name, status, expected_delivery_date, report_pdf_url, result_url, notes, created_at, updated_at'
@@ -172,26 +172,26 @@ async function loadCopilotContext(
       .eq('account_id', ctx.accountId)
       .order('created_at', { ascending: false })
       .limit(8),
-    ctx.supabase
+    ctx.appwrite
       .from('hospital_insurance')
       .select('provider_name, cashless_available, required_documents')
       .eq('account_id', ctx.accountId)
       .order('provider_name', { ascending: true })
       .limit(30),
-    ctx.supabase
+    ctx.appwrite
       .from('knowledge_base')
       .select('category, question_title, answer_content')
       .eq('account_id', ctx.accountId)
       .order('category', { ascending: true })
       .order('question_title', { ascending: true })
       .limit(30),
-    ctx.supabase
+    ctx.appwrite
       .from('contact_notes')
       .select('note_text, created_at')
       .eq('contact_id', contact.id)
       .order('created_at', { ascending: false })
       .limit(8),
-    ctx.supabase
+    ctx.appwrite
       .from('accounts')
       .select('name, openrouter_api_key, openrouter_model, ai_system_prompt')
       .eq('id', ctx.accountId)
@@ -263,7 +263,7 @@ export async function POST(request: Request) {
     if (contextOrResponse instanceof NextResponse) return contextOrResponse;
 
     const context = contextOrResponse;
-    const account = await ctx.supabase
+    const account = await ctx.appwrite
       .from('accounts')
       .select(
         'openrouter_api_key, openrouter_model, ai_system_prompt, industry'

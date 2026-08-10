@@ -12,7 +12,7 @@ export async function GET() {
   try {
     const ctx = await requireRole('viewer');
 
-    const { data: kbEntries, error } = await ctx.supabase
+    const { data: kbEntries, error } = await ctx.appwrite
       .from('knowledge_base')
       .select(
         'id, category, question_title, answer_content, created_at, updated_at'
@@ -79,7 +79,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { data, error } = await ctx.supabase
+    const { data, error } = await ctx.appwrite
       .from('knowledge_base')
       .insert({
         account_id: ctx.accountId,
@@ -169,7 +169,7 @@ export async function PATCH(request: Request) {
       updates.answer_content = answer_content.trim();
     }
 
-    const { data, error } = await ctx.supabase
+    const { data, error } = await ctx.appwrite
       .from('knowledge_base')
       .update(updates)
       .eq('id', id)
@@ -216,7 +216,7 @@ export async function DELETE(request: Request) {
       );
     }
 
-    const { error } = await ctx.supabase
+    const { error } = await ctx.appwrite
       .from('knowledge_base')
       .delete()
       .eq('id', id)

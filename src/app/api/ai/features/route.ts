@@ -6,19 +6,19 @@ import { applyAiSafety } from '@/lib/ai/safety';
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient();
+    const appwrite = await createClient();
 
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser();
+    } = await appwrite.auth.getUser();
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Resolve the caller's account_id
-    const { data: profile } = await supabase
+    const { data: profile } = await appwrite
       .from('profiles')
       .select('account_id')
       .eq('user_id', user.id)
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     }
 
     // Fetch OpenRouter configuration from accounts
-    const { data: account, error: accError } = await supabase
+    const { data: account, error: accError } = await appwrite
       .from('accounts')
       .select(
         'openrouter_api_key, openrouter_model, ai_system_prompt, industry'
@@ -85,7 +85,7 @@ export async function POST(request: Request) {
       }
 
       // Check if conversation belongs to account
-      const { data: conversation, error: convError } = await supabase
+      const { data: conversation, error: convError } = await appwrite
         .from('conversations')
         .select('account_id')
         .eq('id', conversationId)
@@ -99,7 +99,7 @@ export async function POST(request: Request) {
       }
 
       // Fetch Knowledge Base
-      const { data: kbEntries } = await supabase
+      const { data: kbEntries } = await appwrite
         .from('knowledge_base')
         .select('title, content, category')
         .eq('account_id', accountId);
@@ -117,7 +117,7 @@ export async function POST(request: Request) {
       }
 
       // Fetch conversation context (latest 15 messages)
-      const { data: messages, error: msgError } = await supabase
+      const { data: messages, error: msgError } = await appwrite
         .from('messages')
         .select('sender_type, content_type, content_text, created_at')
         .eq('conversation_id', conversationId)

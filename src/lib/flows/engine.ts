@@ -32,7 +32,7 @@
  *     INSERT raises 23505 and the runner catches & exits.
  */
 
-import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
+import { appwriteAdmin, getAdminClient } from '@/lib/appwrite-compat';
 import {
   engineSendInteractiveButtons,
   engineSendInteractiveList,
@@ -60,7 +60,7 @@ import {
 
 // ============================================================
 // Pure helpers — extracted so engine.test.ts can exercise them
-// without a Supabase / Meta mock.
+// without a appwrite / Meta mock.
 // ============================================================
 
 /**
@@ -171,7 +171,7 @@ export function evaluateConditionPredicate(args: {
 // readable. Errors surface as thrown — the entry point catches.
 // ============================================================
 
-type AdminClient = ReturnType<typeof supabaseAdmin>;
+type AdminClient = ReturnType<typeof appwriteAdmin>;
 
 async function loadActiveRunForContact(
   db: AdminClient,
@@ -464,7 +464,7 @@ async function executeHandoff(
 /**
  * Resolve a condition node's subject value from DB / run state, then
  * call the pure `evaluateConditionPredicate`. Splits out so the
- * predicate itself stays unit-testable without a Supabase mock.
+ * predicate itself stays unit-testable without a appwrite mock.
  *
  * Subject sources:
  *   - `var` → `flow_runs.vars[subject_key]` (captured by collect_input
@@ -837,7 +837,7 @@ async function advanceCurrentNodeKey(
 export async function dispatchInboundToFlows(
   input: DispatchInboundInput & { isFirstInboundMessage: boolean }
 ): Promise<DispatchInboundResult> {
-  const db = supabaseAdmin();
+  const db = appwriteAdmin();
   try {
     const activeRun = await loadActiveRunForContact(
       db,

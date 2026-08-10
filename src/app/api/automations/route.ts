@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/appwrite-compat';
-import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
+import { appwriteAdmin, getAdminClient } from '@/lib/appwrite-compat';
 import { getTemplate } from '@/lib/automations/templates';
 import {
   insertSteps,
@@ -12,14 +12,14 @@ import {
 } from '@/lib/automations/validate';
 
 export async function GET() {
-  const supabase = await createClient();
+  const appwrite = await createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await appwrite.auth.getUser();
   if (!user)
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { data, error } = await supabase
+  const { data, error } = await appwrite
     .from('automations')
     .select('*')
     .order('created_at', { ascending: false });
@@ -29,17 +29,17 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const supabase = await createClient();
+  const appwrite = await createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await appwrite.auth.getUser();
   if (!user)
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   // Resolve the caller's account_id — `automations.account_id` is NOT
   // NULL post-017, so an INSERT without it trips the not-null constraint
   // even though the admin client bypasses RLS.
-  const { data: profile } = await supabase
+  const { data: profile } = await appwrite
     .from('profiles')
     .select('account_id')
     .eq('user_id', user.id)
@@ -118,7 +118,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const admin = supabaseAdmin();
+  const admin = appwriteAdmin();
   const { data: automation, error: insertErr } = await admin
     .from('automations')
     .insert({

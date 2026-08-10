@@ -32,7 +32,7 @@ export function SendOutboundModal({
   defaultContact,
   onSuccess,
 }: SendOutboundModalProps) {
-  const supabase = createClient();
+  const appwrite = createClient();
   const { accountId, account } = useAuth();
   void accountId;
   const businessName = account?.name || 'our Clinic';
@@ -47,7 +47,7 @@ export function SendOutboundModal({
 
   const fetchContacts = useCallback(async () => {
     setLoadingContacts(true);
-    const { data } = await supabase
+    const { data } = await appwrite
       .from('contacts')
       .select('*')
       .order('name', { ascending: true })
@@ -56,7 +56,7 @@ export function SendOutboundModal({
       setContacts(data);
     }
     setLoadingContacts(false);
-  }, [supabase]);
+  }, [appwrite]);
 
   useEffect(() => {
     if (open) {

@@ -1,7 +1,7 @@
 /**
  * Type definitions for the Flows runtime.
  *
- * These mirror the Supabase schema added in migration 010 (`flows`,
+ * These mirror the appwrite schema added in migration 010 (`flows`,
  * `flow_nodes`, `flow_runs`, `flow_run_events`) plus the discriminated
  * unions the engine uses to typecheck node configs.
  *
@@ -71,7 +71,7 @@ export interface SendListNodeConfig {
 /**
  * Sends a single image / video / document via WhatsApp, then
  * auto-advances. The media file is uploaded to the `flow-media`
- * Supabase Storage bucket by the builder; `media_url` is the public
+ * appwrite Storage bucket by the builder; `media_url` is the public
  * URL Meta fetches at send time.
  *
  * Why one node with a `media_type` discriminator (rather than three
@@ -216,7 +216,7 @@ export type FlowTriggerConfig =
   | { trigger_type: 'manual'; config: Record<string, never> };
 
 // ============================================================
-// DB-row shapes (read by the engine via supabaseAdmin)
+// DB-row shapes (read by the engine via appwriteAdmin)
 // ============================================================
 
 export interface FlowRow {

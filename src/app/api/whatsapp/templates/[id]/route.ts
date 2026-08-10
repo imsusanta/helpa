@@ -33,7 +33,7 @@ const EDITABLE_STATUSES = new Set(['APPROVED', 'REJECTED', 'PAUSED']);
 
 // uuid v4 plus the looser shape Postgres gen_random_uuid emits.
 // We don't need exhaustive RFC parsing — just enough to reject
-// "../etc/passwd"-style payloads before they hit Supabase.
+// "../etc/passwd"-style payloads before they hit appwrite.
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -56,18 +56,18 @@ export async function PATCH(
         { status: 400 }
       );
     }
-    const supabase = await createClient();
+    const appwrite = await createClient();
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser();
+    } = await appwrite.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Resolve the caller's account_id so template + whatsapp_config
     // lookups work for teammates who didn't author the row.
-    const { data: profile } = await supabase
+    const { data: profile } = await appwrite
       .from('profiles')
       .select('account_id')
       .eq('user_id', user.id)
@@ -92,7 +92,7 @@ export async function PATCH(
 
     // RLS handles ownership, but we need the existing row to read
     // meta_template_id and status — fetch explicitly.
-    const { data: existing, error: lookupErr } = await supabase
+    const { data: existing, error: lookupErr } = await appwrite
       .from('message_templates')
       .select('id, name, status, meta_template_id, language')
       .eq('id', id)
@@ -144,7 +144,7 @@ export async function PATCH(
     }
 
     if (!isDryRun()) {
-      const { data: config, error: configError } = await supabase
+      const { data: config, error: configError } = await appwrite
         .from('whatsapp_config')
         .select('*')
         .eq('account_id', accountId)
@@ -180,7 +180,7 @@ export async function PATCH(
         });
       } catch (e) {
         const message = e instanceof Error ? e.message : 'Meta edit failed.';
-        await supabase
+        await appwrite
           .from('message_templates')
           .update({
             submission_error: message,
@@ -192,7 +192,7 @@ export async function PATCH(
     }
 
     // Meta accepted the edit — status flips back to PENDING for review.
-    const { data: row, error: updErr } = await supabase
+    const { data: row, error: updErr } = await appwrite
       .from('message_templates')
       .update({
         category: payload.category,
@@ -251,11 +251,11 @@ export async function DELETE(
         { status: 400 }
       );
     }
-    const supabase = await createClient();
+    const appwrite = await createClient();
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser();
+    } = await appwrite.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -263,7 +263,7 @@ export async function DELETE(
     // Same account-scoping rationale as the PATCH handler above —
     // teammates need to be able to operate on shared templates +
     // the shared whatsapp_config.
-    const { data: profile } = await supabase
+    const { data: profile } = await appwrite
       .from('profiles')
       .select('account_id')
       .eq('user_id', user.id)
@@ -276,7 +276,7 @@ export async function DELETE(
       );
     }
 
-    const { data: existing, error: lookupErr } = await supabase
+    const { data: existing, error: lookupErr } = await appwrite
       .from('message_templates')
       .select('id, name, meta_template_id')
       .eq('id', id)
@@ -290,7 +290,7 @@ export async function DELETE(
     }
 
     if (existing.meta_template_id && !isDryRun()) {
-      const { data: config, error: configError } = await supabase
+      const { data: config, error: configError } = await appwrite
         .from('whatsapp_config')
         .select('*')
         .eq('account_id', accountId)
@@ -315,7 +315,7 @@ export async function DELETE(
       }
     }
 
-    const { error: delErr } = await supabase
+    const { error: delErr } = await appwrite
       .from('message_templates')
       .delete()
       .eq('id', id);

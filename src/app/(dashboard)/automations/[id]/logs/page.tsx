@@ -37,10 +37,10 @@ export default function AutomationLogsPage({
   useEffect(() => {
     async function load() {
       try {
-        const supabase = createClient();
+        const appwrite = createClient();
         const [autRes, logRes] = await Promise.all([
-          supabase.from('automations').select('*').eq('id', id).maybeSingle(),
-          supabase
+          appwrite.from('automations').select('*').eq('id', id).maybeSingle(),
+          appwrite
             .from('automation_logs')
             .select('*, contact:contacts(id, name, phone)')
             .eq('automation_id', id)

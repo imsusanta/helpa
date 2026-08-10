@@ -125,23 +125,23 @@ export function ContactSidebar({
   const fetchContactData = useCallback(async () => {
     if (!contact) return;
 
-    const supabase = createClient();
+    const appwrite = createClient();
     const isHospital = account?.industry === 'hospital_clinic';
 
     try {
       // 1. Fetch core CRM fields (deals, notes, tags)
       const [dealsRes, notesRes, tagsRes] = await Promise.all([
-        supabase
+        appwrite
           .from('deals')
           .select('*, stage:pipeline_stages(*)')
           .eq('contact_id', contact.id)
           .order('created_at', { ascending: false }),
-        supabase
+        appwrite
           .from('contact_notes')
           .select('*')
           .eq('contact_id', contact.id)
           .order('created_at', { ascending: false }),
-        supabase
+        appwrite
           .from('contact_tags')
           .select('id, tag_id, tags(*)')
           .eq('contact_id', contact.id),
@@ -162,12 +162,12 @@ export function ContactSidebar({
       // 2. Fetch hospital-specific info if active workspace is Hospital & Clinic
       if (isHospital) {
         const [patientRes, apptRes, reportRes] = await Promise.all([
-          supabase
+          appwrite
             .from('patients')
             .select('*')
             .eq('id', contact.id)
             .maybeSingle(),
-          supabase
+          appwrite
             .from('appointments')
             .select('*, doctor:hospital_doctors(name)')
             .eq('patient_id', contact.id)
@@ -176,7 +176,7 @@ export function ContactSidebar({
             .order('appointment_time', { ascending: true })
             .limit(1)
             .maybeSingle(),
-          supabase
+          appwrite
             .from('hospital_lab_reports')
             .select('*')
             .eq('patient_id', contact.id)
@@ -211,15 +211,15 @@ export function ContactSidebar({
   // Lazy-load doctors & branches for hospital booking widget
   useEffect(() => {
     if ((showBookForm || showInviteForm) && doctors.length === 0) {
-      const supabase = createClient();
+      const appwrite = createClient();
       async function loadDocs() {
         const [dRes, bRes] = await Promise.all([
-          supabase
+          appwrite
             .from('hospital_doctors')
             .select('*')
             .eq('account_id', accountId)
             .eq('status', 'active'),
-          supabase
+          appwrite
             .from('hospital_branches')
             .select('*')
             .eq('account_id', accountId),
@@ -235,12 +235,12 @@ export function ContactSidebar({
     e.preventDefault();
     if (!contact || !bookingDate || !bookingTime) return;
     setLoadingForm(true);
-    const supabase = createClient();
+    const appwrite = createClient();
     try {
       // 1. Ensure patient record exists
       let pat = patient;
       if (!pat) {
-        const { data: newPat, error: pErr } = await supabase
+        const { data: newPat, error: pErr } = await appwrite
           .from('patients')
           .insert({
             id: contact.id,
@@ -259,7 +259,7 @@ export function ContactSidebar({
       const dept = doc ? doc.department : 'General Medicine';
 
       // 3. Book appointment
-      const { data: appt, error: apptErr } = await supabase
+      const { data: appt, error: apptErr } = await appwrite
         .from('appointments')
         .insert({
           account_id: accountId,
@@ -356,7 +356,7 @@ export function ContactSidebar({
   };
 
   // Load on contact change. setContactData/setTags run inside async
-  // Supabase callbacks, not synchronously in the effect body.
+  // appwrite callbacks, not synchronously in the effect body.
   useEffect(() => {
     fetchContactData();
   }, [fetchContactData]);
@@ -376,13 +376,13 @@ export function ContactSidebar({
     if (!accountId) return;
     setAddingNote(true);
 
-    const supabase = createClient();
+    const appwrite = createClient();
     const {
       data: { session },
-    } = await supabase.auth.getSession();
+    } = await appwrite.auth.getSession();
     const user = session?.user;
 
-    const { data, error } = await supabase
+    const { data, error } = await appwrite
       .from('contact_notes')
       .insert({
         contact_id: contact.id,

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
+import { appwriteAdmin, getAdminClient } from '@/lib/appwrite-compat';
 import {
   engineSendText,
   engineSendDocument,
@@ -202,7 +202,7 @@ export async function POST(
 ) {
   try {
     const { id: appointmentId } = await params;
-    const db = supabaseAdmin();
+    const db = appwriteAdmin();
 
     // 1. Fetch appointment details safely
     const { data: appt, error: apptErr } = await db
@@ -344,7 +344,7 @@ export async function POST(
       .lte('created_at', appt.created_at || new Date().toISOString());
     const ticketSerial = `TKT-${String(dailyCount || 1).padStart(3, '0')}`;
 
-    // 4. Generate PDF Buffer & upload to Supabase Storage `chat-media`
+    // 4. Generate PDF Buffer & upload to appwrite Storage `chat-media`
     const baseUrl =
       process.env.NEXT_PUBLIC_APP_URL ||
       process.env.NEXT_PUBLIC_SITE_URL ||

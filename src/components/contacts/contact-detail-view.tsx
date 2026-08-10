@@ -52,7 +52,7 @@ export function ContactDetailView({
   contactId,
   onUpdated,
 }: ContactDetailViewProps) {
-  const supabase = createClient();
+  const appwrite = createClient();
   const { accountId, defaultCurrency, account } = useAuth();
 
   const [contact, setContact] = useState<Contact | null>(null);
@@ -98,8 +98,8 @@ export function ContactDetailView({
     setLoading(true);
 
     const [contactRes, patientRes] = await Promise.all([
-      supabase.from('contacts').select('*').eq('id', contactId).single(),
-      supabase.from('patients').select('*').eq('id', contactId).maybeSingle(),
+      appwrite.from('contacts').select('*').eq('id', contactId).single(),
+      appwrite.from('patients').select('*').eq('id', contactId).maybeSingle(),
     ]);
 
     const data = contactRes.data;
@@ -108,7 +108,7 @@ export function ContactDetailView({
     if (data) {
       // Auto-generate patient_seq_id if missing in patients table
       if (!pData && accountId) {
-        const { data: maxPatient } = await supabase
+        const { data: maxPatient } = await appwrite
           .from('patients')
           .select('patient_seq_id')
           .eq('account_id', accountId)
@@ -126,7 +126,7 @@ export function ContactDetailView({
 
         const generatedSeqId = `PAT-${String(nextNum).padStart(6, '0')}`;
 
-        const { data: newP } = await supabase
+        const { data: newP } = await appwrite
           .from('patients')
           .insert({
             id: contactId,
@@ -141,7 +141,7 @@ export function ContactDetailView({
           pData = newP;
         }
 
-        await supabase
+        await appwrite
           .from('contacts')
           .update({
             metadata: {
@@ -177,14 +177,14 @@ export function ContactDetailView({
       setEditMetadata(mergedMeta);
     }
     setLoading(false);
-  }, [contactId, accountId, supabase]);
+  }, [contactId, accountId, appwrite]);
 
   const fetchTags = useCallback(async () => {
     if (!contactId) return;
 
     const [tagsRes, contactTagsRes] = await Promise.all([
-      supabase.from('tags').select('*').order('name'),
-      supabase
+      appwrite.from('tags').select('*').order('name'),
+      appwrite
         .from('contact_tags')
         .select('tag_id')
         .eq('contact_id', contactId),
@@ -194,13 +194,13 @@ export function ContactDetailView({
     if (contactTagsRes.data) {
       setContactTagIds(contactTagsRes.data.map((ct) => ct.tag_id));
     }
-  }, [contactId, supabase]);
+  }, [contactId, appwrite]);
 
   const fetchNotes = useCallback(async () => {
     if (!contactId) return;
     setLoadingNotes(true);
 
-    const { data } = await supabase
+    const { data } = await appwrite
       .from('contact_notes')
       .select('*')
       .eq('contact_id', contactId)
@@ -208,15 +208,15 @@ export function ContactDetailView({
 
     if (data) setNotes(data);
     setLoadingNotes(false);
-  }, [contactId, supabase]);
+  }, [contactId, appwrite]);
 
   const fetchCustomFields = useCallback(async () => {
     if (!contactId) return;
     setLoadingCustom(true);
 
     const [fieldsRes, valuesRes] = await Promise.all([
-      supabase.from('custom_fields').select('*').order('field_name'),
-      supabase
+      appwrite.from('custom_fields').select('*').order('field_name'),
+      appwrite
         .from('contact_custom_values')
         .select('*')
         .eq('contact_id', contactId),
@@ -231,19 +231,19 @@ export function ContactDetailView({
       setCustomValues(map);
     }
     setLoadingCustom(false);
-  }, [contactId, supabase]);
+  }, [contactId, appwrite]);
 
   const fetchDeals = useCallback(async () => {
     if (!contactId) return;
     setLoadingDeals(true);
-    const { data } = await supabase
+    const { data } = await appwrite
       .from('deals')
       .select('*, stage:pipeline_stages(*)')
       .eq('contact_id', contactId)
       .order('created_at', { ascending: false });
     setDeals((data ?? []) as Deal[]);
     setLoadingDeals(false);
-  }, [contactId, supabase]);
+  }, [contactId, appwrite]);
 
   useEffect(() => {
     if (open && contactId) {
@@ -290,7 +290,7 @@ export function ContactDetailView({
     setSavingDetails(true);
 
     if (patientSeqId && contactId && accountId) {
-      await supabase.from('patients').upsert({
+      await appwrite.from('patients').upsert({
         id: contactId,
         account_id: accountId,
         patient_seq_id: patientSeqId,
@@ -302,7 +302,7 @@ export function ContactDetailView({
       });
     }
 
-    const { error } = await supabase
+    const { error } = await appwrite
       .from('contacts')
       .update({
         name: editName.trim() || null,
@@ -336,7 +336,7 @@ export function ContactDetailView({
     const isSelected = contactTagIds.includes(tagId);
 
     if (isSelected) {
-      const { error } = await supabase
+      const { error } = await appwrite
         .from('contact_tags')
         .delete()
         .eq('contact_id', contactId)
@@ -346,7 +346,7 @@ export function ContactDetailView({
         onUpdated();
       }
     } else {
-      const { error } = await supabase
+      const { error } = await appwrite
         .from('contact_tags')
         .insert({ contact_id: contactId, tag_id: tagId });
       if (!error) {
@@ -363,7 +363,7 @@ export function ContactDetailView({
 
     const {
       data: { session },
-    } = await supabase.auth.getSession();
+    } = await appwrite.auth.getSession();
     const user = session?.user;
     if (!user || !accountId) {
       toast.error('Not authenticated');
@@ -371,7 +371,7 @@ export function ContactDetailView({
       return;
     }
 
-    const { error } = await supabase.from('contact_notes').insert({
+    const { error } = await appwrite.from('contact_notes').insert({
       contact_id: contactId,
       account_id: accountId,
       user_id: user.id,
@@ -389,7 +389,7 @@ export function ContactDetailView({
   }
 
   async function deleteNote(noteId: string) {
-    const { error } = await supabase
+    const { error } = await appwrite
       .from('contact_notes')
       .delete()
       .eq('id', noteId);
@@ -408,7 +408,7 @@ export function ContactDetailView({
 
     try {
       // Delete existing values and re-insert
-      await supabase
+      await appwrite
         .from('contact_custom_values')
         .delete()
         .eq('contact_id', contactId);
@@ -422,7 +422,7 @@ export function ContactDetailView({
         }));
 
       if (rows.length > 0) {
-        const { error } = await supabase
+        const { error } = await appwrite
           .from('contact_custom_values')
           .insert(rows);
         if (error) throw error;

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
+import { appwriteAdmin, getAdminClient } from '@/lib/appwrite-compat';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { logger } from '@/lib/observability/logger';
 import { scrubSensitiveFields } from '@/lib/privacy/consent-service';
@@ -60,7 +60,7 @@ export async function GET(
       );
     }
 
-    const db = supabaseAdmin();
+    const db = appwriteAdmin();
 
     // 2. Fetch patient — scoped by server-derived accountId
     const { data: patient, error: fetchErr } = await db

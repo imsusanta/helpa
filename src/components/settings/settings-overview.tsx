@@ -294,9 +294,9 @@ export function SettingsOverview({
   const handleUpdateBusinessName = async () => {
     if (!businessName.trim() || !accountId) return;
     setUpdatingName(true);
-    const supabase = createClient();
+    const appwrite = createClient();
     try {
-      const { error } = await supabase
+      const { error } = await appwrite
         .from('accounts')
         .update({ name: businessName.trim() })
         .eq('id', accountId);
@@ -313,7 +313,7 @@ export function SettingsOverview({
   useEffect(() => {
     if (!user || !accountId) return;
     let cancelled = false;
-    const supabase = createClient();
+    const appwrite = createClient();
     const userId = user.id;
     const acctId = accountId;
 
@@ -336,20 +336,20 @@ export function SettingsOverview({
               r.json()
             )
           : Promise.resolve(null),
-        supabase
+        appwrite
           .from('message_templates')
           .select('id', { count: 'exact', head: true })
           .eq('user_id', userId),
-        supabase
+        appwrite
           .from('message_templates')
           .select('id', { count: 'exact', head: true })
           .eq('user_id', userId)
           .eq('status', 'PENDING'),
-        supabase
+        appwrite
           .from('tags')
           .select('id', { count: 'exact', head: true })
           .eq('user_id', userId),
-        supabase
+        appwrite
           .from('custom_fields')
           .select('id', { count: 'exact', head: true }),
       ]);
@@ -393,7 +393,7 @@ export function SettingsOverview({
     (async () => {
       setWhatsappLoading(true);
       const [row, health] = await Promise.allSettled([
-        supabase
+        appwrite
           .from('whatsapp_config')
           .select('phone_number_id')
           .eq('account_id', acctId)

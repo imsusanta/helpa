@@ -26,11 +26,11 @@ import { getSubscribedApps, verifyPhoneNumber } from '@/lib/whatsapp/meta-api';
  * what the UI badges on.
  */
 export async function GET() {
-  const supabase = await createClient();
+  const appwrite = await createClient();
   const {
     data: { user },
     error: authError,
-  } = await supabase.auth.getUser();
+  } = await appwrite.auth.getUser();
   if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -38,7 +38,7 @@ export async function GET() {
   // whatsapp_config is one-row-per-account post-017. Resolve the
   // caller's account_id so a teammate who joined an existing account
   // sees the same registration state as the admin who set it up.
-  const { data: profile } = await supabase
+  const { data: profile } = await appwrite
     .from('profiles')
     .select('account_id')
     .eq('user_id', user.id)
@@ -52,7 +52,7 @@ export async function GET() {
     });
   }
 
-  const { data: config } = await supabase
+  const { data: config } = await appwrite
     .from('whatsapp_config')
     .select('*')
     .eq('account_id', accountId)

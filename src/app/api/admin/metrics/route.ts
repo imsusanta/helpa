@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { checkSuperAdmin } from '@/lib/auth/admin';
-import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
+import { appwriteAdmin, getAdminClient } from '@/lib/appwrite-compat';
 
 export async function GET() {
   try {
@@ -12,7 +12,7 @@ export async function GET() {
       );
     }
 
-    const db = supabaseAdmin();
+    const db = appwriteAdmin();
     const currentMonth = new Date().toISOString().substring(0, 7) + '-01';
 
     // 1. Fetch count of accounts

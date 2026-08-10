@@ -262,7 +262,7 @@ function ResourcesProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-    const supabase = createClient();
+    const appwrite = createClient();
 
     // Tags, templates and custom fields come straight from the DB — RLS
     // scopes them to the caller's account. Only APPROVED templates can
@@ -270,13 +270,13 @@ function ResourcesProvider({ children }: { children: ReactNode }) {
     // broadcast picker.
     void (async () => {
       const [tagsRes, templatesRes, customFieldsRes] = await Promise.all([
-        supabase.from('tags').select('*').order('name'),
-        supabase
+        appwrite.from('tags').select('*').order('name'),
+        appwrite
           .from('message_templates')
           .select('*')
           .eq('status', 'APPROVED')
           .order('name'),
-        supabase.from('custom_fields').select('*').order('field_name'),
+        appwrite.from('custom_fields').select('*').order('field_name'),
       ]);
       if (cancelled) return;
       setTags((tagsRes.data as TagRecord[] | null) ?? []);

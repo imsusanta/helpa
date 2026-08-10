@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
+import { appwriteAdmin, getAdminClient } from '@/lib/appwrite-compat';
 import { authorizeCronRequest } from '@/lib/cron/security';
 import {
   addDaysToDateKey,
@@ -41,7 +41,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const db = supabaseAdmin();
+    const db = appwriteAdmin();
     const now = new Date();
     const { data: accountRows, error: accountsError } = await db
       .from('accounts')

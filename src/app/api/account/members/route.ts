@@ -33,7 +33,7 @@ export async function GET() {
 
     // RLS on profiles allows reading any row whose account matches
     // the caller's, so this query is naturally account-scoped.
-    const { data, error } = await ctx.supabase
+    const { data, error } = await ctx.appwrite
       .from('profiles')
       .select('user_id, full_name, email, avatar_url, account_role, created_at')
       .eq('account_id', ctx.accountId)

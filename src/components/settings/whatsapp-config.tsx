@@ -43,7 +43,7 @@ type ConnectionStatus = 'connected' | 'disconnected' | 'unknown';
 type ResetReason = 'token_corrupted' | 'meta_api_error' | null;
 
 export function WhatsAppConfig() {
-  const supabase = createClient();
+  const appwrite = createClient();
   // After multi-user, whatsapp_config is one-row-per-account, not
   // one-row-per-user. We pull `accountId` straight off the auth
   // context and key every read off it — so a teammate who just
@@ -97,13 +97,13 @@ export function WhatsAppConfig() {
     async (acctId: string) => {
       setLoading(true);
       try {
-        // Load form values from Supabase (shows what's in DB).
+        // Load form values from appwrite (shows what's in DB).
         // Switched from `user_id` (which would only match the row's
         // original author) to `account_id` so every member of the
         // account sees the same saved configuration. UNIQUE(account_id)
         // on the table guarantees the .maybeSingle() return type
         // remains accurate.
-        const { data, error } = await supabase
+        const { data, error } = await appwrite
           .from('whatsapp_config')
           .select('*')
           .eq('account_id', acctId)
@@ -170,7 +170,7 @@ export function WhatsAppConfig() {
         setLoading(false);
       }
     },
-    [supabase]
+    [appwrite]
   );
 
   useEffect(() => {
@@ -202,7 +202,7 @@ export function WhatsAppConfig() {
 
       // Always POST through the API — it verifies with Meta and encrypts
       // the access_token server-side with ENCRYPTION_KEY. Skipping this
-      // and writing direct to Supabase stores the token in plaintext,
+      // and writing direct to appwrite stores the token in plaintext,
       // which then fails decryption on every subsequent health check.
       const payload: Record<string, unknown> = {
         phone_number_id: phoneNumberId.trim(),

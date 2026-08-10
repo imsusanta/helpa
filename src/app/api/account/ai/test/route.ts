@@ -23,7 +23,7 @@ export async function POST(request: Request) {
 
     // If key is empty/not provided or is a password placeholder, fetch and decrypt from DB
     if (!api_key || api_key.trim() === '' || api_key.includes('••••')) {
-      const { data: account, error } = await ctx.supabase
+      const { data: account, error } = await ctx.appwrite
         .from('accounts')
         .select('openrouter_api_key')
         .eq('id', ctx.accountId)
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     }
 
     if (!model || model.trim() === '') {
-      const { data: account } = await ctx.supabase
+      const { data: account } = await ctx.appwrite
         .from('accounts')
         .select('openrouter_model')
         .eq('id', ctx.accountId)

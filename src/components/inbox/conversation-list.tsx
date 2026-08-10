@@ -74,11 +74,11 @@ export function ConversationList({
   });
 
   useEffect(() => {
-    const supabase = createClient();
+    const appwrite = createClient();
     let cancelled = false;
 
     (async () => {
-      const { data, error } = await supabase
+      const { data, error } = await appwrite
         .from('conversations')
         .select('*, contact:contacts(*)')
         .order('last_message_at', { ascending: false });
@@ -86,7 +86,7 @@ export function ConversationList({
       if (cancelled) return;
 
       if (error) {
-        // Supabase errors have non-enumerable properties — log fields explicitly
+        // appwrite errors have non-enumerable properties — log fields explicitly
         console.error('Failed to fetch conversations:', {
           message: error.message,
           details: error.details,

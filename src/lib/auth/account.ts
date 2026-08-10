@@ -41,8 +41,8 @@ export interface AccountContext {
   accountId: string;
   role: AccountRole;
   account: { id: string; name: string };
-  /** @deprecated Supabase removed — stub for backward compat */
-  supabase?: any;
+  /** @deprecated appwrite removed — stub for backward compat */
+  appwrite?: any;
 }
 
 export async function getCurrentAccount(): Promise<AccountContext> {

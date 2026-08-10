@@ -126,12 +126,12 @@ function extractSampleValues(
 
 export async function POST() {
   try {
-    const supabase = await createClient();
+    const appwrite = await createClient();
 
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser();
+    } = await appwrite.auth.getUser();
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -139,7 +139,7 @@ export async function POST() {
 
     // Resolve the caller's account_id — both whatsapp_config and
     // the message_templates we sync into are account-scoped.
-    const { data: profile } = await supabase
+    const { data: profile } = await appwrite
       .from('profiles')
       .select('account_id')
       .eq('user_id', user.id)
@@ -152,7 +152,7 @@ export async function POST() {
       );
     }
 
-    const { data: config, error: configError } = await supabase
+    const { data: config, error: configError } = await appwrite
       .from('whatsapp_config')
       .select('*')
       .eq('account_id', accountId)
@@ -255,7 +255,7 @@ export async function POST() {
         updated_at: new Date().toISOString(),
       };
 
-      const { data: existing, error: lookupErr } = await supabase
+      const { data: existing, error: lookupErr } = await appwrite
         .from('message_templates')
         .select('id')
         .eq('account_id', accountId)
@@ -273,7 +273,7 @@ export async function POST() {
       }
 
       if (existing?.id) {
-        const { error: updErr } = await supabase
+        const { error: updErr } = await appwrite
           .from('message_templates')
           .update(row)
           .eq('id', existing.id);
@@ -287,7 +287,7 @@ export async function POST() {
           updated++;
         }
       } else {
-        const { error: insErr } = await supabase
+        const { error: insErr } = await appwrite
           .from('message_templates')
           .insert(row);
         if (insErr) {

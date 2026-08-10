@@ -96,8 +96,8 @@ export function Step2SelectAudience({
     async function fetchTags() {
       setLoadingTags(true);
       try {
-        const supabase = createClient();
-        const { data } = await supabase.from('tags').select('*').order('name');
+        const appwrite = createClient();
+        const { data } = await appwrite.from('tags').select('*').order('name');
         setTags(data ?? []);
       } finally {
         setLoadingTags(false);
@@ -112,8 +112,8 @@ export function Step2SelectAudience({
     async function fetchFields() {
       setLoadingFields(true);
       try {
-        const supabase = createClient();
-        const { data } = await supabase
+        const appwrite = createClient();
+        const { data } = await appwrite
           .from('custom_fields')
           .select('*')
           .order('field_name');
@@ -128,7 +128,7 @@ export function Step2SelectAudience({
   const fetchEstimatedCount = useCallback(async () => {
     setLoadingCount(true);
     try {
-      const supabase = createClient();
+      const appwrite = createClient();
 
       // Base query — produces the superset before exclude is applied.
       let baseIds: Set<string> | null = null; // null means "all contacts"
@@ -140,7 +140,7 @@ export function Step2SelectAudience({
         audience.tagIds &&
         audience.tagIds.length > 0
       ) {
-        const { data } = await supabase
+        const { data } = await appwrite
           .from('contact_tags')
           .select('contact_id')
           .in('tag_id', audience.tagIds);
@@ -151,7 +151,7 @@ export function Step2SelectAudience({
         audience.customField.value
       ) {
         const { fieldId, operator, value } = audience.customField;
-        let q = supabase
+        let q = appwrite
           .from('contact_custom_values')
           .select('contact_id')
           .eq('custom_field_id', fieldId);
@@ -176,7 +176,7 @@ export function Step2SelectAudience({
       // Apply exclude tags
       let excludeSet: Set<string> | null = null;
       if (audience.excludeTagIds && audience.excludeTagIds.length > 0) {
-        const { data: excludeRows } = await supabase
+        const { data: excludeRows } = await appwrite
           .from('contact_tags')
           .select('contact_id')
           .in('tag_id', audience.excludeTagIds);
@@ -188,7 +188,7 @@ export function Step2SelectAudience({
         setEstimatedCount(effective.length);
       } else {
         // "All" — fetch the total, then subtract exclude set if any.
-        const { count } = await supabase
+        const { count } = await appwrite
           .from('contacts')
           .select('*', { count: 'exact', head: true });
         const total = count ?? 0;

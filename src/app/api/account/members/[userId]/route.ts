@@ -81,7 +81,7 @@ export async function PATCH(
       );
     }
 
-    const { error } = await ctx.supabase.rpc('set_member_role', {
+    const { error } = await ctx.appwrite.rpc('set_member_role', {
       p_user_id: userId,
       p_new_role: role,
     });
@@ -109,7 +109,7 @@ export async function DELETE(
 
     const { userId } = await params;
 
-    const { data, error } = await ctx.supabase.rpc('remove_account_member', {
+    const { data, error } = await ctx.appwrite.rpc('remove_account_member', {
       p_user_id: userId,
     });
 

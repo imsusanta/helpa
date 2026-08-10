@@ -32,11 +32,11 @@ export function Step1ChooseTemplate({
   useEffect(() => {
     async function fetchTemplates() {
       try {
-        const supabase = createClient();
+        const appwrite = createClient();
         // Only APPROVED templates can be sent via Meta — anything else
         // would 400 at broadcast time. Hide them rather than letting
         // the user pick a template that will fail.
-        const { data, error: fetchError } = await supabase
+        const { data, error: fetchError } = await appwrite
           .from('message_templates')
           .select('*')
           .eq('status', 'APPROVED')

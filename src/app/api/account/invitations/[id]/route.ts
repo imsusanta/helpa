@@ -43,7 +43,7 @@ export async function DELETE(
     // filter would be redundant; omitting it surfaces a
     // cross-account attempt as a silent 0-row delete (which is
     // exactly what we want for a revocation endpoint).
-    const { error, count } = await ctx.supabase
+    const { error, count } = await ctx.appwrite
       .from('account_invitations')
       .delete({ count: 'exact' })
       .eq('id', id);

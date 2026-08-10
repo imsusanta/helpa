@@ -68,10 +68,10 @@ export function Step3Personalize({
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const supabase = createClient();
+      const appwrite = createClient();
       const [fieldsRes, contactRes] = await Promise.all([
-        supabase.from('custom_fields').select('*').order('field_name'),
-        supabase
+        appwrite.from('custom_fields').select('*').order('field_name'),
+        appwrite
           .from('contacts')
           .select('*')
           .order('created_at', { ascending: false })
@@ -87,7 +87,7 @@ export function Step3Personalize({
       setFirstContact(contact);
 
       if (contact) {
-        const { data: customVals } = await supabase
+        const { data: customVals } = await appwrite
           .from('contact_custom_values')
           .select('custom_field_id, value')
           .eq('contact_id', contact.id);

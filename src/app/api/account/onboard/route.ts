@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     } = body || {};
 
     if (reset) {
-      const { error: accErr } = await ctx.supabase
+      const { error: accErr } = await ctx.appwrite
         .from('accounts')
         .update({
           industry: 'general',
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
     if (workspaceName) updates.name = workspaceName;
     if (logo) updates.logo = logo;
 
-    const { error: accErr } = await ctx.supabase
+    const { error: accErr } = await ctx.appwrite
       .from('accounts')
       .update(updates)
       .eq('id', ctx.accountId);
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
 
     for (const mod of allKnownModules) {
       const isEnabled = config.id === mod;
-      const { error: modErr } = await ctx.supabase
+      const { error: modErr } = await ctx.appwrite
         .from('tenant_modules')
         .upsert(
           {
@@ -90,7 +90,7 @@ export async function POST(request: Request) {
 
     // 3. Set up primary pipeline stages
     let pipelineId: string;
-    const { data: extPipes, error: getPipeErr } = await ctx.supabase
+    const { data: extPipes, error: getPipeErr } = await ctx.appwrite
       .from('pipelines')
       .select('id')
       .eq('account_id', ctx.accountId)
@@ -102,7 +102,7 @@ export async function POST(request: Request) {
       pipelineId = extPipes[0].id;
     } else {
       // Find account owner
-      const { data: ownerProf } = await ctx.supabase
+      const { data: ownerProf } = await ctx.appwrite
         .from('profiles')
         .select('user_id')
         .eq('account_id', ctx.accountId)
@@ -111,7 +111,7 @@ export async function POST(request: Request) {
 
       const defaultUserId = ownerProf?.user_id || ctx.userId;
 
-      const { data: newPipe, error: pipeErr } = await ctx.supabase
+      const { data: newPipe, error: pipeErr } = await ctx.appwrite
         .from('pipelines')
         .insert({
           account_id: ctx.accountId,
@@ -129,7 +129,7 @@ export async function POST(request: Request) {
     }
 
     // Clear old stages to keep it fresh
-    await ctx.supabase
+    await ctx.appwrite
       .from('pipeline_stages')
       .delete()
       .eq('pipeline_id', pipelineId);
@@ -143,7 +143,7 @@ export async function POST(request: Request) {
         color: st.color,
       }));
 
-      const { error: stageErr } = await ctx.supabase
+      const { error: stageErr } = await ctx.appwrite
         .from('pipeline_stages')
         .insert(stagesToInsert);
 
@@ -153,7 +153,7 @@ export async function POST(request: Request) {
     }
 
     // 4. Pre-seed Knowledge Base entries
-    await ctx.supabase
+    await ctx.appwrite
       .from('knowledge_base')
       .delete()
       .eq('account_id', ctx.accountId);
@@ -166,7 +166,7 @@ export async function POST(request: Request) {
         answer_content: kb.answerContent,
       }));
 
-      const { error: kbErr } = await ctx.supabase
+      const { error: kbErr } = await ctx.appwrite
         .from('knowledge_base')
         .insert(kbToInsert);
 
@@ -176,7 +176,7 @@ export async function POST(request: Request) {
     }
 
     // 5. Pre-seed Campaign templates as Drafts
-    await ctx.supabase
+    await ctx.appwrite
       .from('broadcasts')
       .delete()
       .eq('account_id', ctx.accountId)
@@ -205,7 +205,7 @@ export async function POST(request: Request) {
         failed_count: 0,
       }));
 
-      const { error: campErr } = await ctx.supabase
+      const { error: campErr } = await ctx.appwrite
         .from('broadcasts')
         .insert(campaignsToInsert);
 
@@ -218,14 +218,14 @@ export async function POST(request: Request) {
     }
 
     // 6. Pre-seed Workflow Automations
-    await ctx.supabase
+    await ctx.appwrite
       .from('automations')
       .delete()
       .eq('account_id', ctx.accountId);
 
     if (config.workflows && config.workflows.length > 0) {
       for (const w of config.workflows) {
-        const { data: autoRecord, error: autoErr } = await ctx.supabase
+        const { data: autoRecord, error: autoErr } = await ctx.appwrite
           .from('automations')
           .insert({
             account_id: ctx.accountId,

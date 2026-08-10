@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/appwrite-compat';
-import { supabaseAdmin } from '@/lib/appwrite-compat';
+import { appwriteAdmin } from '@/lib/appwrite-compat';
 import { validateFlowForActivation } from '@/lib/flows/validate';
 
 /**
@@ -23,10 +23,10 @@ export async function POST(
 ) {
   const { id } = await context.params;
 
-  const supabase = await createClient();
+  const appwrite = await createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await appwrite.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -43,7 +43,7 @@ export async function POST(
   }
 
   // Ownership via RLS — caller's client.
-  const { data: existing } = await supabase
+  const { data: existing } = await appwrite
     .from('flows')
     .select('id')
     .eq('id', id)
@@ -52,7 +52,7 @@ export async function POST(
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 
-  const admin = supabaseAdmin();
+  const admin = appwriteAdmin();
 
   if (status === 'active') {
     // Re-load with the full payload the validator needs.

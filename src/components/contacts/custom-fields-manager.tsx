@@ -57,7 +57,7 @@ export function CustomFieldsManager({
  * `custom_fields` RLS also rejects non-admin writes as defense in depth.
  */
 export function CustomFieldsPanel() {
-  const supabase = createClient();
+  const appwrite = createClient();
   const { user, accountId } = useAuth();
 
   const [fields, setFields] = useState<CustomField[]>([]);
@@ -69,16 +69,16 @@ export function CustomFieldsPanel() {
   const fetchFields = useCallback(async () => {
     if (!accountId) return;
     setLoading(true);
-    const { data } = await supabase
+    const { data } = await appwrite
       .from('custom_fields')
       .select('*')
       .order('field_name');
     setFields((data as CustomField[] | null) ?? []);
     setLoading(false);
-  }, [supabase, accountId]);
+  }, [appwrite, accountId]);
 
   // Load the field list on mount once the account is known. The setters
-  // inside fetchFields run after the Supabase await — not synchronously in
+  // inside fetchFields run after the appwrite await — not synchronously in
   // the effect body — so the cascade the lint rule warns about doesn't apply.
   useEffect(() => {
     if (accountId) {
@@ -108,7 +108,7 @@ export function CustomFieldsPanel() {
     }
 
     setCreating(true);
-    const { error } = await supabase.from('custom_fields').insert({
+    const { error } = await appwrite.from('custom_fields').insert({
       field_name: name,
       field_type: 'text',
       user_id: user.id,
@@ -138,7 +138,7 @@ export function CustomFieldsPanel() {
       return false;
     }
     setBusyId(field.id);
-    const { error } = await supabase
+    const { error } = await appwrite
       .from('custom_fields')
       .update({ field_name: name })
       .eq('id', field.id);
@@ -160,7 +160,7 @@ export function CustomFieldsPanel() {
       return;
     }
     setBusyId(field.id);
-    const { error } = await supabase
+    const { error } = await appwrite
       .from('custom_fields')
       .delete()
       .eq('id', field.id);

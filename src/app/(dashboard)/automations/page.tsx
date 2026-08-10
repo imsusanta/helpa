@@ -70,8 +70,8 @@ export default function AutomationsPage() {
 
   async function load() {
     try {
-      const supabase = createClient();
-      const { data, error: fetchErr } = await supabase
+      const appwrite = createClient();
+      const { data, error: fetchErr } = await appwrite
         .from('automations')
         .select('*')
         .order('created_at', { ascending: false });

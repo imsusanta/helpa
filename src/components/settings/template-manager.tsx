@@ -131,7 +131,7 @@ function emptyButton(type: TemplateButton['type']): TemplateButton {
 }
 
 export function TemplateManager() {
-  const supabase = createClient();
+  const appwrite = createClient();
   const { user, loading: authLoading } = useAuth();
 
   const [loading, setLoading] = useState(true);
@@ -195,7 +195,7 @@ export function TemplateManager() {
   async function fetchTemplates(userId: string) {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      const { data, error } = await appwrite
         .from('message_templates')
         .select('*')
         .eq('user_id', userId)

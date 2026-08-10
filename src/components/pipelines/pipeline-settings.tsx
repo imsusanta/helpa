@@ -63,7 +63,7 @@ export function PipelineSettings({
   onStagesChanged,
   onCreateNewPipeline,
 }: PipelineSettingsProps) {
-  const supabase = createClient();
+  const appwrite = createClient();
 
   const [name, setName] = useState(pipeline.name);
   const [localStages, setLocalStages] = useState<PipelineStage[]>(stages);
@@ -112,11 +112,11 @@ export function PipelineSettings({
     }));
 
     const [renameRes, stagesRes] = await Promise.all([
-      supabase
+      appwrite
         .from('pipelines')
         .update({ name: name.trim() })
         .eq('id', pipeline.id),
-      supabase.from('pipeline_stages').upsert(stageRows, { onConflict: 'id' }),
+      appwrite.from('pipeline_stages').upsert(stageRows, { onConflict: 'id' }),
     ]);
 
     setSaving(false);
@@ -135,7 +135,7 @@ export function PipelineSettings({
   async function handleAddStage() {
     const trimmed = newStageName.trim();
     if (!trimmed) return;
-    const { data, error } = await supabase
+    const { data, error } = await appwrite
       .from('pipeline_stages')
       .insert({
         pipeline_id: pipeline.id,
@@ -158,7 +158,7 @@ export function PipelineSettings({
 
   async function handleRemoveStage(stageId: string) {
     // Refuse to delete if deals still reference the stage (FK would fail).
-    const { count } = await supabase
+    const { count } = await appwrite
       .from('deals')
       .select('id', { count: 'exact', head: true })
       .eq('stage_id', stageId);
@@ -166,7 +166,7 @@ export function PipelineSettings({
       toast.error('Move or delete deals in this stage first');
       return;
     }
-    const { error } = await supabase
+    const { error } = await appwrite
       .from('pipeline_stages')
       .delete()
       .eq('id', stageId);
@@ -180,7 +180,7 @@ export function PipelineSettings({
   async function handleDeletePipeline() {
     setDeleting(true);
     // ON DELETE CASCADE handles deals + stages.
-    const { error } = await supabase
+    const { error } = await appwrite
       .from('pipelines')
       .delete()
       .eq('id', pipeline.id);

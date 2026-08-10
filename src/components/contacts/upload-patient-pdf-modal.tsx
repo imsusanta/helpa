@@ -53,7 +53,7 @@ export function UploadPatientPdfModal({
   const [notes, setNotes] = useState('');
   const [uploading, setUploading] = useState(false);
 
-  const supabase = createClient();
+  const appwrite = createClient();
 
   async function handleUpload() {
     if (!file) {
@@ -68,12 +68,12 @@ export function UploadPatientPdfModal({
     setUploading(true);
 
     try {
-      // 1. Upload file to Supabase Storage
+      // 1. Upload file to appwrite Storage
       const fileExt = file.name.split('.').pop() || 'pdf';
       const fileName = `${contactId}_${Date.now()}.${fileExt}`;
       const filePath = `patient-docs/${fileName}`;
 
-      const { data: _uploadData, error: uploadErr } = await supabase.storage
+      const { data: _uploadData, error: uploadErr } = await appwrite.storage
         .from('chat-media')
         .upload(filePath, file, { upsert: true });
 
@@ -84,7 +84,7 @@ export function UploadPatientPdfModal({
       }
 
       // Get public URL
-      const { data: publicUrlData } = supabase.storage
+      const { data: publicUrlData } = appwrite.storage
         .from('chat-media')
         .getPublicUrl(filePath);
 

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { TwilioSmsProvider } from '@/core/providers/sms/twilio-provider';
 import { ExotelSmsProvider } from '@/core/providers/sms/exotel-provider';
-import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
+import { appwriteAdmin, getAdminClient } from '@/lib/appwrite-compat';
 
 export async function POST(
   request: Request,
@@ -34,7 +34,7 @@ export async function POST(
         ? new TwilioSmsProvider()
         : new ExotelSmsProvider();
     const event = await smsProvider.normalizeWebhook(payload);
-    const db = supabaseAdmin();
+    const db = appwriteAdmin();
 
     const accountId =
       (payload.account_id as string) || '00000000-0000-0000-0000-000000000000';

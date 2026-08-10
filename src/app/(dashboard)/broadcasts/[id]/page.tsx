@@ -160,9 +160,9 @@ export default function BroadcastDetailPage() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const supabase = createClient();
+        const appwrite = createClient();
 
-        const { data: bc, error: bcError } = await supabase
+        const { data: bc, error: bcError } = await appwrite
           .from('broadcasts')
           .select('*')
           .eq('id', broadcastId)
@@ -171,7 +171,7 @@ export default function BroadcastDetailPage() {
         if (bcError) throw bcError;
         setBroadcast(bc);
 
-        const { data: recs, error: recsError } = await supabase
+        const { data: recs, error: recsError } = await appwrite
           .from('broadcast_recipients')
           .select('*, contact:contacts(*)')
           .eq('broadcast_id', broadcastId)
@@ -230,12 +230,12 @@ export default function BroadcastDetailPage() {
 
   async function handleDelete() {
     setDeleting(true);
-    const supabase = createClient();
+    const appwrite = createClient();
     // broadcast_recipients cascades on broadcasts.id (migration 001), so a
     // single delete is sufficient — the aggregate trigger in migration 003
     // is defined on broadcast_recipients but fires only on its own row
     // changes, not on a cascaded drop of the parent row.
-    const { error: delErr } = await supabase
+    const { error: delErr } = await appwrite
       .from('broadcasts')
       .delete()
       .eq('id', broadcastId);

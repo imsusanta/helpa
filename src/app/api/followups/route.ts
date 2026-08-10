@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth/account';
-import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
+import { appwriteAdmin, getAdminClient } from '@/lib/appwrite-compat';
 
 export async function GET(request: Request) {
   try {
@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
 
-    const db = supabaseAdmin();
+    const db = appwriteAdmin();
     let query = db
       .from('hospital_followups')
       .select(
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const db = supabaseAdmin();
+    const db = appwriteAdmin();
     const { data: created, error } = await db
       .from('hospital_followups')
       .insert({

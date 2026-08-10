@@ -89,10 +89,10 @@ export default function CampaignsPage() {
   const fetchCampaignsAndStats = useCallback(async () => {
     if (!accountId) return;
     try {
-      const supabase = createClient();
+      const appwrite = createClient();
 
       // 1. Fetch campaigns
-      const { data: campaignRows, error: fetchError } = await supabase
+      const { data: campaignRows, error: fetchError } = await appwrite
         .from('broadcasts')
         .select('*')
         .order('created_at', { ascending: false });
@@ -101,7 +101,7 @@ export default function CampaignsPage() {
       setBroadcasts(campaignRows ?? []);
 
       // 2. Fetch attributed bookings
-      const { count: bookings, error: bookingsErr } = await supabase
+      const { count: bookings, error: bookingsErr } = await appwrite
         .from('appointments')
         .select('id', { count: 'exact', head: true })
         .not('campaign_id', 'is', null);
@@ -115,19 +115,19 @@ export default function CampaignsPage() {
       sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
       const [inactiveRes, missedRes, followupRes, pedRes] = await Promise.all([
-        supabase
+        appwrite
           .from('patients')
           .select('id', { count: 'exact', head: true })
           .lt('created_at', sixMonthsAgo.toISOString()),
-        supabase
+        appwrite
           .from('appointments')
           .select('id', { count: 'exact', head: true })
           .in('status', ['no_show', 'No Show', 'Cancelled']),
-        supabase
+        appwrite
           .from('patients')
           .select('id', { count: 'exact', head: true })
           .is('last_followup_sent_at', null),
-        supabase
+        appwrite
           .from('patients')
           .select('id', { count: 'exact', head: true })
           .eq('department', 'Pediatrics'),
@@ -231,8 +231,8 @@ export default function CampaignsPage() {
     if (!campaignIdToDelete) return;
     setDeletingCampaign(true);
     try {
-      const supabase = createClient();
-      const { error } = await supabase
+      const appwrite = createClient();
+      const { error } = await appwrite
         .from('broadcasts')
         .delete()
         .eq('id', campaignIdToDelete);

@@ -60,12 +60,12 @@ interface NewRecipient {
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient();
+    const appwrite = await createClient();
 
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser();
+    } = await appwrite.auth.getUser();
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -83,7 +83,7 @@ export async function POST(request: Request) {
     // + broadcasts are all account-scoped post-multi-user, so the
     // old `.eq('user_id', user.id)` filters miss every row created
     // by a teammate.
-    const { data: profile } = await supabase
+    const { data: profile } = await appwrite
       .from('profiles')
       .select('account_id')
       .eq('user_id', user.id)
@@ -107,7 +107,7 @@ export async function POST(request: Request) {
           { status: 400 }
         );
 
-      const { data: report, error: repErr } = await supabase
+      const { data: report, error: repErr } = await appwrite
         .from('lab_reports')
         .select('*, patient:contacts(*)')
         .eq('id', reportId)
@@ -122,7 +122,7 @@ export async function POST(request: Request) {
       }
 
       let conversationId = '';
-      const { data: conv } = await supabase
+      const { data: conv } = await appwrite
         .from('conversations')
         .select('id')
         .eq('contact_id', report.patient_id)
@@ -134,7 +134,7 @@ export async function POST(request: Request) {
       if (conv) {
         conversationId = conv.id;
       } else {
-        const { data: newConv } = await supabase
+        const { data: newConv } = await appwrite
           .from('conversations')
           .insert({
             account_id: accountId,
@@ -168,7 +168,7 @@ export async function POST(request: Request) {
           { status: 400 }
         );
 
-      const { data: invoice, error: invErr } = await supabase
+      const { data: invoice, error: invErr } = await appwrite
         .from('billing_invoices')
         .select('*, patient:contacts(*)')
         .eq('id', invoiceId)
@@ -183,7 +183,7 @@ export async function POST(request: Request) {
       }
 
       let conversationId = '';
-      const { data: conv } = await supabase
+      const { data: conv } = await appwrite
         .from('conversations')
         .select('id')
         .eq('contact_id', invoice.patient_id)
@@ -195,7 +195,7 @@ export async function POST(request: Request) {
       if (conv) {
         conversationId = conv.id;
       } else {
-        const { data: newConv } = await supabase
+        const { data: newConv } = await appwrite
           .from('conversations')
           .insert({
             account_id: accountId,
@@ -229,7 +229,7 @@ export async function POST(request: Request) {
           { status: 400 }
         );
 
-      const { data: appt, error: apptErr } = await supabase
+      const { data: appt, error: apptErr } = await appwrite
         .from('appointments')
         .select('*, patient:contacts(*), doctor:hospital_doctors(*)')
         .eq('id', appointmentId)
@@ -244,7 +244,7 @@ export async function POST(request: Request) {
       }
 
       let conversationId = '';
-      const { data: conv } = await supabase
+      const { data: conv } = await appwrite
         .from('conversations')
         .select('id')
         .eq('contact_id', appt.patient_id)
@@ -256,7 +256,7 @@ export async function POST(request: Request) {
       if (conv) {
         conversationId = conv.id;
       } else {
-        const { data: newConv } = await supabase
+        const { data: newConv } = await appwrite
           .from('conversations')
           .insert({
             account_id: accountId,
@@ -290,7 +290,7 @@ export async function POST(request: Request) {
           { status: 400 }
         );
 
-      const { data: appt, error: apptErr } = await supabase
+      const { data: appt, error: apptErr } = await appwrite
         .from('appointments')
         .select(
           '*, patient:contacts(*), doctor:hospital_doctors(*), branch:hospital_branches(*)'
@@ -307,7 +307,7 @@ export async function POST(request: Request) {
       }
 
       let conversationId = '';
-      const { data: conv } = await supabase
+      const { data: conv } = await appwrite
         .from('conversations')
         .select('id')
         .eq('contact_id', appt.patient_id)
@@ -319,7 +319,7 @@ export async function POST(request: Request) {
       if (conv) {
         conversationId = conv.id;
       } else {
-        const { data: newConv } = await supabase
+        const { data: newConv } = await appwrite
           .from('conversations')
           .insert({
             account_id: accountId,
@@ -358,14 +358,14 @@ export async function POST(request: Request) {
         );
       }
 
-      const { data: doctor, error: docErr } = await supabase
+      const { data: doctor, error: docErr } = await appwrite
         .from('hospital_doctors')
         .select('*')
         .eq('id', doctorId)
         .eq('account_id', accountId)
         .single();
 
-      const { data: patient, error: patErr } = await supabase
+      const { data: patient, error: patErr } = await appwrite
         .from('contacts')
         .select('*')
         .eq('id', patientId)
@@ -380,7 +380,7 @@ export async function POST(request: Request) {
       }
 
       let conversationId = '';
-      const { data: conv } = await supabase
+      const { data: conv } = await appwrite
         .from('conversations')
         .select('id')
         .eq('contact_id', patientId)
@@ -392,7 +392,7 @@ export async function POST(request: Request) {
       if (conv) {
         conversationId = conv.id;
       } else {
-        const { data: newConv } = await supabase
+        const { data: newConv } = await appwrite
           .from('conversations')
           .insert({
             account_id: accountId,
@@ -464,7 +464,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { data: config, error: configError } = await supabase
+    const { data: config, error: configError } = await appwrite
       .from('whatsapp_config')
       .select('*')
       .eq('account_id', accountId)
@@ -484,10 +484,10 @@ export async function POST(request: Request) {
 
     // Load the template row once so sendTemplateMessage can build
     // header + button components on each iteration. Loading inside
-    // the loop would N+1 against Supabase for every recipient.
+    // the loop would N+1 against appwrite for every recipient.
     // Guard against a malformed local row crashing every send in
     // the loop with the same opaque TypeError — fail loudly once.
-    const { data: rawTemplateRow } = await supabase
+    const { data: rawTemplateRow } = await appwrite
       .from('message_templates')
       .select('*')
       .eq('account_id', accountId)

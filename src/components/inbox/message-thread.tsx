@@ -209,8 +209,8 @@ export function MessageThread({
   // shape ready for shared-team workspaces without a refactor.
   useEffect(() => {
     let cancelled = false;
-    const supabase = createClient();
-    supabase
+    const appwrite = createClient();
+    appwrite
       .from('profiles')
       .select('*')
       .order('full_name')
@@ -254,13 +254,13 @@ export function MessageThread({
   useEffect(() => {
     if (!conversationId) return;
 
-    const supabase = createClient();
+    const appwrite = createClient();
     let cancelled = false;
 
     (async () => {
       setLoading(true);
 
-      const { data, error } = await supabase
+      const { data, error } = await appwrite
         .from('messages')
         .select('*')
         .eq('conversation_id', conversationId)
@@ -295,11 +295,11 @@ export function MessageThread({
       setReactions([]);
       return;
     }
-    const supabase = createClient();
+    const appwrite = createClient();
     let cancelled = false;
 
     (async () => {
-      const { data, error } = await supabase
+      const { data, error } = await appwrite
         .from('message_reactions')
         .select('*')
         .eq('conversation_id', conversationId);
@@ -321,9 +321,9 @@ export function MessageThread({
   // conversation and avoids cross-conversation chatter on a busy inbox.
   useEffect(() => {
     if (!conversationId) return;
-    const supabase = createClient();
+    const appwrite = createClient();
 
-    const channel = supabase
+    const channel = appwrite
       .channel(`reactions:${conversationId}`)
       .on(
         'postgres_changes',
@@ -383,7 +383,7 @@ export function MessageThread({
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      appwrite.removeChannel(channel);
     };
   }, [conversationId]);
 
@@ -404,8 +404,8 @@ export function MessageThread({
   // is 0 the condition is false, so no further UPDATE is issued.
   useEffect(() => {
     if (!conversationId || !hasUnread) return;
-    const supabase = createClient();
-    supabase
+    const appwrite = createClient();
+    appwrite
       .from('conversations')
       .update({ unread_count: 0 })
       .eq('id', conversationId)
@@ -553,8 +553,8 @@ export function MessageThread({
     async (status: ConversationStatus) => {
       if (!conversation) return;
 
-      const supabase = createClient();
-      await supabase
+      const appwrite = createClient();
+      await appwrite
         .from('conversations')
         .update({ status })
         .eq('id', conversation.id);
@@ -568,8 +568,8 @@ export function MessageThread({
     if (!conversation) return;
     const nextState = !conversation.ai_chat_enabled;
 
-    const supabase = createClient();
-    const { error } = await supabase
+    const appwrite = createClient();
+    const { error } = await appwrite
       .from('conversations')
       .update({ ai_chat_enabled: nextState })
       .eq('id', conversation.id);
@@ -770,8 +770,8 @@ export function MessageThread({
     async (agentId: string | null) => {
       if (!conversation) return;
 
-      const supabase = createClient();
-      const { error } = await supabase
+      const appwrite = createClient();
+      const { error } = await appwrite
         .from('conversations')
         .update({ assigned_agent_id: agentId })
         .eq('id', conversation.id);

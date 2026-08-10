@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
+import { appwriteAdmin, getAdminClient } from '@/lib/appwrite-compat';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET() {
   try {
-    const { data, error } = await supabaseAdmin()
+    const { data, error } = await appwriteAdmin()
       .from('plans')
       .select(
         'id, name, monthly_price, yearly_price, max_users, max_contacts, max_whatsapp_numbers, max_ai_requests, features'

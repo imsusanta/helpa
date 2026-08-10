@@ -132,10 +132,10 @@ export default function NewCampaignPage() {
 
     async function loadConfig() {
       try {
-        const supabase = createClient();
+        const appwrite = createClient();
 
         // 1. Fetch active doctors
-        const { data: docData } = await supabase
+        const { data: docData } = await appwrite
           .from('hospital_doctors')
           .select('id, name, department')
           .eq('account_id', accountId)
@@ -143,7 +143,7 @@ export default function NewCampaignPage() {
         setDoctors(docData || []);
 
         // 2. Fetch approved Meta templates
-        const { data: tempRows } = await supabase
+        const { data: tempRows } = await appwrite
           .from('message_templates')
           .select('*')
           .eq('account_id', accountId)
@@ -151,7 +151,7 @@ export default function NewCampaignPage() {
         setTemplates(tempRows || []);
 
         // 3. Fetch contact tags
-        const { data: tagRows } = await supabase
+        const { data: tagRows } = await appwrite
           .from('tags')
           .select('id, name')
           .eq('account_id', accountId);
@@ -232,11 +232,11 @@ export default function NewCampaignPage() {
       return;
     }
     try {
-      const supabase = createClient();
+      const appwrite = createClient();
 
       const draftPayload = {
         account_id: accountId,
-        user_id: (await supabase.auth.getSession()).data.session?.user.id,
+        user_id: (await appwrite.auth.getSession()).data.session?.user.id,
         name: name.trim(),
         template_name:
           contentMode === 'template'
@@ -272,7 +272,7 @@ export default function NewCampaignPage() {
         },
       };
 
-      const { error } = await supabase.from('broadcasts').insert(draftPayload);
+      const { error } = await appwrite.from('broadcasts').insert(draftPayload);
       if (error) throw error;
 
       toast.success('Campaign draft saved successfully');
@@ -302,12 +302,12 @@ export default function NewCampaignPage() {
       let finalTagIds: string[] | undefined = undefined;
 
       if (audienceType === 'contact_list') {
-        const supabase = createClient();
+        const appwrite = createClient();
         let tagId = selectedTagId;
 
         // 1. Create a new tag if needed
         if (isCreatingNewTag && newTagName.trim()) {
-          const { data: existingTag } = await supabase
+          const { data: existingTag } = await appwrite
             .from('tags')
             .select('id')
             .eq('account_id', accountId)
@@ -317,7 +317,7 @@ export default function NewCampaignPage() {
           if (existingTag) {
             tagId = existingTag.id;
           } else {
-            const { data: newTag, error: tagErr } = await supabase
+            const { data: newTag, error: tagErr } = await appwrite
               .from('tags')
               .insert({
                 account_id: accountId,
@@ -339,7 +339,7 @@ export default function NewCampaignPage() {
         if (tempContacts.length > 0) {
           const {
             data: { session },
-          } = await supabase.auth.getSession();
+          } = await appwrite.auth.getSession();
           const user = session?.user;
           if (!user) throw new Error('Not authenticated');
 
@@ -355,7 +355,7 @@ export default function NewCampaignPage() {
           const phones = [...uniqueContacts.keys()];
 
           // Look up existing
-          const { data: existing } = await supabase
+          const { data: existing } = await appwrite
             .from('contacts')
             .select('id, phone')
             .eq('account_id', accountId)
@@ -377,7 +377,7 @@ export default function NewCampaignPage() {
 
           const insertedIds: string[] = [];
           if (missing.length > 0) {
-            const { data: newC, error: insertErr } = await supabase
+            const { data: newC, error: insertErr } = await appwrite
               .from('contacts')
               .insert(missing)
               .select('id');
@@ -392,7 +392,7 @@ export default function NewCampaignPage() {
               contact_id: cid,
               tag_id: tagId,
             }));
-            await supabase
+            await appwrite
               .from('contact_tags')
               .upsert(tagLinks, { onConflict: 'contact_id,tag_id' });
           }

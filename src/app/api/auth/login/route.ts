@@ -49,7 +49,9 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Invalid credentials provided.',
+          error:
+            appwriteJson.message ||
+            'Invalid credentials provided. Please check your email and password.',
         },
         { status: 401 }
       );

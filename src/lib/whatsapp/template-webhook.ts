@@ -27,7 +27,7 @@
  * warning so operators can investigate.
  */
 
-import type { SupabaseClient } from '@/lib/appwrite-compat';
+import type { appwriteClient } from '@/lib/appwrite-compat';
 import { normalizeStatus } from './template-status-normalize';
 
 const TEMPLATE_WEBHOOK_FIELDS = new Set([
@@ -75,22 +75,22 @@ export interface TemplateWebhookChange {
  */
 export async function handleTemplateWebhookChange(
   change: TemplateWebhookChange,
-  // SupabaseClient typed loosely — the webhook route lazy-initialises
+  // appwriteClient typed loosely — the webhook route lazy-initialises
   // the admin client and exposes it as `any`. Type as the generic
-  // SupabaseClient here so this module is testable in isolation.
-  supabase: SupabaseClient
+  // appwriteClient here so this module is testable in isolation.
+  appwrite: appwriteClient
 ): Promise<void> {
   switch (change.field) {
     case 'message_template_status_update':
       await handleStatusUpdate(
         change.value as TemplateStatusUpdateValue,
-        supabase
+        appwrite
       );
       return;
     case 'message_template_quality_update':
       await handleQualityUpdate(
         change.value as TemplateQualityUpdateValue,
-        supabase
+        appwrite
       );
       return;
     case 'message_template_components_update':
@@ -101,7 +101,7 @@ export async function handleTemplateWebhookChange(
 
 async function handleStatusUpdate(
   value: TemplateStatusUpdateValue,
-  supabase: SupabaseClient
+  appwrite: appwriteClient
 ): Promise<void> {
   const metaTemplateId =
     value.message_template_id !== undefined
@@ -128,7 +128,7 @@ async function handleStatusUpdate(
     submission_error: null,
   };
 
-  const { data, error } = await supabase
+  const { data, error } = await appwrite
     .from('message_templates')
     .update(update)
     .eq('meta_template_id', metaTemplateId)
@@ -159,7 +159,7 @@ async function handleStatusUpdate(
 
 async function handleQualityUpdate(
   value: TemplateQualityUpdateValue,
-  supabase: SupabaseClient
+  appwrite: appwriteClient
 ): Promise<void> {
   const metaTemplateId =
     value.message_template_id !== undefined
@@ -179,7 +179,7 @@ async function handleQualityUpdate(
       ? (raw.toUpperCase() as 'GREEN' | 'YELLOW' | 'RED')
       : null;
 
-  const { error } = await supabase
+  const { error } = await appwrite
     .from('message_templates')
     .update({ quality_score: score })
     .eq('meta_template_id', metaTemplateId);

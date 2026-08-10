@@ -1,20 +1,20 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/appwrite-compat';
-import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
+import { appwriteAdmin, getAdminClient } from '@/lib/appwrite-compat';
 
 export async function POST(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const supabase = await createClient();
+  const appwrite = await createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await appwrite.auth.getUser();
   if (!user)
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const admin = supabaseAdmin();
+  const admin = appwriteAdmin();
   const { data: original, error: origErr } = await admin
     .from('automations')
     .select('*')

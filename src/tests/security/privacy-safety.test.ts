@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-// SupabaseClient type removed — using Appwrite
+// appwriteClient type removed — using Appwrite
 import {
   withdrawPatientConsent,
   exportPatientData,
@@ -16,10 +16,10 @@ vi.mock('@/lib/auth/account', async () => {
   };
 });
 
-// Mock supabaseAdmin
+// Mock appwriteAdmin
 vi.mock('@/lib/appwrite-compat', () => {
   return {
-    supabaseAdmin: vi.fn().mockImplementation(() => ({
+    appwriteAdmin: vi.fn().mockImplementation(() => ({
       from: vi.fn().mockReturnThis(),
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),

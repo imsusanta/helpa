@@ -6,7 +6,7 @@ import {
   sanitizeAiInput,
 } from '@/lib/ai/safety';
 import { logger } from '@/lib/observability/logger';
-import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
+import { appwriteAdmin, getAdminClient } from '@/lib/appwrite-compat';
 import {
   engineSendText,
   engineSendDocument,
@@ -37,7 +37,7 @@ export async function triggerAiResponse(
     return;
   }
 
-  const db = supabaseAdmin();
+  const db = appwriteAdmin();
 
   // ═══════ PHASE 1: Parallel fetch all independent data in one shot ═══════
   const [contactRes, accRes, messagesRes, kbRes] = await Promise.all([

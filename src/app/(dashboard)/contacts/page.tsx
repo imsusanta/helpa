@@ -62,7 +62,7 @@ interface ContactWithTags extends Contact {
 }
 
 export default function ContactsPage() {
-  const supabase = createClient();
+  const appwrite = createClient();
   const { account, accountId } = useAuth();
   const canEdit = useCan('send-messages');
   const canEditSettings = useCan('edit-settings');
@@ -103,13 +103,13 @@ export default function ContactsPage() {
   const [tagsMap, setTagsMap] = useState<Record<string, Tag>>({});
 
   const fetchTags = useCallback(async () => {
-    const { data } = await supabase.from('tags').select('*');
+    const { data } = await appwrite.from('tags').select('*');
     if (data) {
       const map: Record<string, Tag> = {};
       data.forEach((t) => (map[t.id] = t));
       setTagsMap(map);
     }
-  }, [supabase]);
+  }, [appwrite]);
 
   const fetchContacts = useCallback(async () => {
     setLoading(true);
@@ -121,7 +121,7 @@ export default function ContactsPage() {
     const from = page * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
 
-    let query = supabase
+    let query = appwrite
       .from('contacts')
       .select('*', { count: 'exact' })
       .order('created_at', { ascending: false })
@@ -152,12 +152,12 @@ export default function ContactsPage() {
 
     // Fetch tags & patients for these contacts
     const contactIds = data.map((c) => c.id);
-    const { data: contactTags } = await supabase
+    const { data: contactTags } = await appwrite
       .from('contact_tags')
       .select('contact_id, tag_id')
       .in('contact_id', contactIds);
 
-    const { data: patientsList } = await supabase
+    const { data: patientsList } = await appwrite
       .from('patients')
       .select('id, patient_seq_id, blood_group')
       .in('id', contactIds);
@@ -178,7 +178,7 @@ export default function ContactsPage() {
       (id) => !patientsMap[id]?.patient_seq_id
     );
     if (missingPatientContactIds.length > 0 && accountId) {
-      const { data: newPatients } = await supabase
+      const { data: newPatients } = await appwrite
         .from('patients')
         .upsert(
           missingPatientContactIds.map((id) => ({
@@ -231,10 +231,10 @@ export default function ContactsPage() {
 
     setContacts(enriched);
     setLoading(false);
-  }, [supabase, page, search, tagsMap, accountId]);
+  }, [appwrite, page, search, tagsMap, accountId]);
 
   // Load-once-on-mount-ish data fetches. Each setter inside runs
-  // inside an async promise completion (Supabase await), not
+  // inside an async promise completion (appwrite await), not
   // synchronously in the effect body, so the cascade the lint rule
   // warns about doesn't apply here.
   useEffect(() => {
@@ -252,7 +252,7 @@ export default function ContactsPage() {
   }
 
   async function openEditForm(contact: Contact) {
-    const { data } = await supabase
+    const { data } = await appwrite
       .from('contact_tags')
       .select('*')
       .eq('contact_id', contact.id);
@@ -277,7 +277,7 @@ export default function ContactsPage() {
 
     try {
       // 1. Fetch conversation IDs associated with the contact
-      const { data: conversations } = await supabase
+      const { data: conversations } = await appwrite
         .from('conversations')
         .select('id')
         .eq('contact_id', deleteTarget.id);
@@ -288,30 +288,30 @@ export default function ContactsPage() {
 
       // 2. Delete related deals
       if (convIds.length > 0) {
-        await supabase.from('deals').delete().in('conversation_id', convIds);
+        await appwrite.from('deals').delete().in('conversation_id', convIds);
       }
 
       // 3. Delete related appointments, reports, notes, patients, conversations
-      await supabase
+      await appwrite
         .from('appointments')
         .delete()
         .eq('patient_id', deleteTarget.id);
-      await supabase
+      await appwrite
         .from('hospital_lab_reports')
         .delete()
         .eq('patient_id', deleteTarget.id);
-      await supabase
+      await appwrite
         .from('contact_notes')
         .delete()
         .eq('contact_id', deleteTarget.id);
-      await supabase.from('patients').delete().eq('id', deleteTarget.id);
-      await supabase
+      await appwrite.from('patients').delete().eq('id', deleteTarget.id);
+      await appwrite
         .from('conversations')
         .delete()
         .eq('contact_id', deleteTarget.id);
 
       // 4. Finally, delete the contact record
-      const { error } = await supabase
+      const { error } = await appwrite
         .from('contacts')
         .delete()
         .eq('id', deleteTarget.id);
@@ -366,7 +366,7 @@ export default function ContactsPage() {
 
     try {
       // 1. Fetch conversation IDs associated with the contacts
-      const { data: conversations } = await supabase
+      const { data: conversations } = await appwrite
         .from('conversations')
         .select('id')
         .in('contact_id', ids);
@@ -377,21 +377,21 @@ export default function ContactsPage() {
 
       // 2. Delete related deals
       if (convIds.length > 0) {
-        await supabase.from('deals').delete().in('conversation_id', convIds);
+        await appwrite.from('deals').delete().in('conversation_id', convIds);
       }
 
       // 3. Delete related appointments, reports, notes, patients, conversations
-      await supabase.from('appointments').delete().in('patient_id', ids);
-      await supabase
+      await appwrite.from('appointments').delete().in('patient_id', ids);
+      await appwrite
         .from('hospital_lab_reports')
         .delete()
         .in('patient_id', ids);
-      await supabase.from('contact_notes').delete().in('contact_id', ids);
-      await supabase.from('patients').delete().in('id', ids);
-      await supabase.from('conversations').delete().in('contact_id', ids);
+      await appwrite.from('contact_notes').delete().in('contact_id', ids);
+      await appwrite.from('patients').delete().in('id', ids);
+      await appwrite.from('conversations').delete().in('contact_id', ids);
 
       // 4. Finally, delete the contacts
-      const { error } = await supabase.from('contacts').delete().in('id', ids);
+      const { error } = await appwrite.from('contacts').delete().in('id', ids);
 
       if (error) {
         throw error;

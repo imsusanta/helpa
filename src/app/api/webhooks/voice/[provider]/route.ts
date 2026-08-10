@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getVoiceProvider } from '@/core/providers/voice/provider-factory';
-import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
+import { appwriteAdmin, getAdminClient } from '@/lib/appwrite-compat';
 
 export async function POST(
   request: Request,
@@ -30,7 +30,7 @@ export async function POST(
     }
 
     const event = await voiceProvider.normalizeWebhook(payload);
-    const db = supabaseAdmin();
+    const db = appwriteAdmin();
 
     const accountId =
       (payload.account_id as string) || '00000000-0000-0000-0000-000000000000';

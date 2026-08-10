@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth/account';
-import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
+import { appwriteAdmin, getAdminClient } from '@/lib/appwrite-compat';
 import { encrypt } from '@/lib/whatsapp/encryption';
 import {
   checkRateLimit,
@@ -12,7 +12,7 @@ import { resolveSystemPrompt } from '@/modules/registry';
 export async function GET() {
   try {
     const ctx = await requireRole('admin');
-    const db = supabaseAdmin();
+    const db = appwriteAdmin();
 
     let account: Record<string, unknown> | null = null;
     let { data, error } = await db
@@ -112,7 +112,7 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const db = supabaseAdmin();
+    const db = appwriteAdmin();
     let { data, error } = await db
       .from('accounts')
       .update(updates)

@@ -1,6 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/appwrite-compat';
+import { appwriteAdmin } from '@/lib/appwrite-compat';
 import { resolveFallbackPolicy } from '@/lib/flows/fallback';
 
 /**
@@ -45,7 +45,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const admin = supabaseAdmin();
+  const admin = appwriteAdmin();
   const now = new Date();
 
   // Pull all currently-active runs along with their parent flow's

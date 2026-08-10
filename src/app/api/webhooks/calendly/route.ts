@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { DefaultCalendlyProvider } from '@/core/providers/calendly/calendly-provider';
-import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
+import { appwriteAdmin, getAdminClient } from '@/lib/appwrite-compat';
 import { TrustedActionExecutor } from '@/core/actions/action-executor';
 
 export async function POST(request: Request) {
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     }
 
     const event = await provider.normalizeWebhook(payload);
-    const db = supabaseAdmin();
+    const db = appwriteAdmin();
 
     // Store raw provider event
     const { data: provEvent } = await db

@@ -4,7 +4,7 @@ import QRCode from 'qrcode';
 import {
   createClient,
   createClient as createServerClient,
-  supabaseAdmin,
+  appwriteAdmin,
   getAdminClient,
 } from '@/lib/appwrite-compat';
 import { verifyPdfToken } from '@/lib/pdf-signing';

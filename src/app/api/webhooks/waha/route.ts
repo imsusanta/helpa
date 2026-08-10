@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { WahaWhatsAppProvider } from '@/core/providers/whatsapp/waha-provider';
-import { supabaseAdmin, getAdminClient } from '@/lib/appwrite-compat';
+import { appwriteAdmin, getAdminClient } from '@/lib/appwrite-compat';
 
 export async function POST(request: Request) {
   try {
@@ -9,7 +9,7 @@ export async function POST(request: Request) {
 
     const provider = new WahaWhatsAppProvider();
     const events = await provider.normalizeWebhook(payload);
-    const db = supabaseAdmin();
+    const db = appwriteAdmin();
 
     for (const evt of events) {
       await db.from('provider_events').insert({
