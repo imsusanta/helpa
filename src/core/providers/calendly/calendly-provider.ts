@@ -160,24 +160,25 @@ export class DefaultCalendlyProvider implements CalendlyProvider {
       });
 
       if (!resp.ok) {
-        return {
-          bookingUri: `${this.baseUrl}/scheduled_events/mock_${Date.now()}`,
-          inviteeUri: `${this.baseUrl}/scheduled_events/mock_${Date.now()}/invitees/mock_inv_${Date.now()}`,
-        };
+        const errText = await resp.text().catch(() => '');
+        throw new Error(
+          `Calendly API Error (${resp.status}): ${resp.statusText} ${errText}`
+        );
       }
 
       const json = await resp.json();
       const resObj = json.resource || {};
+      if (!resObj.uri) {
+        throw new Error('Calendly API response missing resource URI.');
+      }
+
       return {
-        bookingUri:
-          resObj.uri || `${this.baseUrl}/scheduled_events/mock_${Date.now()}`,
-        inviteeUri: resObj.uri || `${this.baseUrl}/invitees/mock_${Date.now()}`,
+        bookingUri: resObj.uri,
+        inviteeUri: resObj.uri,
       };
-    } catch {
-      return {
-        bookingUri: `${this.baseUrl}/scheduled_events/mock_${Date.now()}`,
-        inviteeUri: `${this.baseUrl}/scheduled_events/mock_${Date.now()}/invitees/mock_inv_${Date.now()}`,
-      };
+    } catch (err) {
+      if (err instanceof Error) throw err;
+      throw new Error('Failed to create Calendly booking.');
     }
   }
 
@@ -220,10 +221,10 @@ export class DefaultCalendlyProvider implements CalendlyProvider {
 
   async verifyWebhook(request: Request, bodyText: string): Promise<boolean> {
     const signatureHeader = request.headers.get('calendly-webhook-signature');
-    if (!signatureHeader) return true;
+    if (!signatureHeader) return false;
 
     const webhookSigningKey = process.env.CALENDLY_WEBHOOK_SIGNING_KEY;
-    if (!webhookSigningKey) return true;
+    if (!webhookSigningKey) return false;
 
     const parts = signatureHeader.split(',');
     const tPart = parts.find((p) => p.startsWith('t='))?.split('=')[1];

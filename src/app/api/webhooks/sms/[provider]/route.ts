@@ -17,6 +17,20 @@ export async function POST(
 
   try {
     const bodyText = await request.text();
+    const smsProvider =
+      providerName === 'twilio'
+        ? new TwilioSmsProvider()
+        : new ExotelSmsProvider();
+
+    // Verify webhook signature
+    const isValid = await smsProvider.verifyWebhook(request, bodyText);
+    if (!isValid) {
+      return NextResponse.json(
+        { error: 'Invalid or missing webhook signature' },
+        { status: 401 }
+      );
+    }
+
     let payload: Record<string, unknown> = {};
     if (
       request.headers
@@ -29,10 +43,6 @@ export async function POST(
       payload = JSON.parse(bodyText || '{}');
     }
 
-    const smsProvider =
-      providerName === 'twilio'
-        ? new TwilioSmsProvider()
-        : new ExotelSmsProvider();
     const event = await smsProvider.normalizeWebhook(payload);
     const db = appwriteAdmin();
 

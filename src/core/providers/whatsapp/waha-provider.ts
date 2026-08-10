@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { WhatsAppProvider } from './whatsapp-provider.interface';
 import { MessageEvent } from '../../types';
 
@@ -12,8 +13,22 @@ export class WahaWhatsAppProvider implements WhatsAppProvider {
     };
   }
 
-  async verifyWebhook(_request: Request, _bodyText: string): Promise<boolean> {
-    return true;
+  async verifyWebhook(request: Request, bodyText: string): Promise<boolean> {
+    const signature = request.headers.get('x-waha-signature');
+    const secret = process.env.WAHA_WEBHOOK_SECRET || process.env.WAHA_API_KEY;
+
+    if (!secret) return false;
+    if (!signature) return false;
+
+    const expectedSignature = crypto
+      .createHmac('sha256', secret)
+      .update(bodyText)
+      .digest('hex');
+
+    return crypto.timingSafeEqual(
+      Buffer.from(signature, 'utf-8'),
+      Buffer.from(expectedSignature, 'utf-8')
+    );
   }
 
   async normalizeWebhook(
@@ -69,7 +84,7 @@ export class WahaWhatsAppProvider implements WhatsAppProvider {
       : `${recipientPhone.replace(/[^0-9]/g, '')}@c.us`;
 
     const url = `${config.baseUrl}/api/sendText`;
-    await fetch(url, {
+    const resp = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -80,11 +95,20 @@ export class WahaWhatsAppProvider implements WhatsAppProvider {
         chatId,
         text,
       }),
-    }).catch(() => {});
+    });
 
-    const externalMessageId = `waha_msg_${Date.now()}_${Math.random()
-      .toString(36)
-      .substring(2, 7)}`;
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => '');
+      throw new Error(
+        `WAHA API Error (${resp.status}): ${resp.statusText} ${errText}`
+      );
+    }
+
+    const json = await resp.json().catch(() => ({}));
+    const externalMessageId =
+      json.id ||
+      json.key?.id ||
+      `waha_msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     return { externalMessageId };
   }
 
@@ -115,7 +139,7 @@ export class WahaWhatsAppProvider implements WhatsAppProvider {
       : `${recipientPhone.replace(/[^0-9]/g, '')}@c.us`;
 
     const url = `${config.baseUrl}/api/sendImage`;
-    await fetch(url, {
+    const resp = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -127,9 +151,19 @@ export class WahaWhatsAppProvider implements WhatsAppProvider {
         file: { url: mediaUrl },
         caption: caption || '',
       }),
-    }).catch(() => {});
+    });
 
-    return { externalMessageId: `waha_media_${Date.now()}` };
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => '');
+      throw new Error(
+        `WAHA Media API Error (${resp.status}): ${resp.statusText} ${errText}`
+      );
+    }
+
+    const json = await resp.json().catch(() => ({}));
+    return {
+      externalMessageId: json.id || json.key?.id || `waha_media_${Date.now()}`,
+    };
   }
 
   async getSessionHealth(clinicId: string): Promise<{

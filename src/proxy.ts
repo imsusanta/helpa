@@ -34,6 +34,7 @@ const PUBLIC_PATH_PREFIXES = [
   '/join/',
   '/api/invitations/',
   '/api/auth/',
+  '/api/webhooks/',
   '/_next/',
 ];
 

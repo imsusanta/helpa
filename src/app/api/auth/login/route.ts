@@ -110,7 +110,10 @@ export async function POST(request: Request) {
       sessionSecret,
       cookieOptions
     );
-    response.cookies.set('appwrite_session', sessionSecret, cookieOptions);
+    response.cookies.set('appwrite_session', sessionSecret, {
+      ...cookieOptions,
+      httpOnly: false,
+    });
 
     return response;
   } catch {

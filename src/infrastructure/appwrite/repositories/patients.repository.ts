@@ -61,7 +61,14 @@ export class PatientsRepository {
       APPWRITE_CONFIG.collections.patients,
       ID.unique(),
       {
-        ...data,
+        name: data.name || '',
+        phone: data.phone || '',
+        email: data.email || '',
+        gender: data.gender || '',
+        dateOfBirth: data.dateOfBirth || '',
+        department: data.department || '',
+        assignedDoctorId: data.assignedDoctorId || '',
+        consentStatus: data.consentStatus || 'pending',
         accountId,
         createdAt: now,
         updatedAt: now,
@@ -79,14 +86,27 @@ export class PatientsRepository {
     const patient = await this.getPatient(accountId, patientId);
     if (!patient) throw new Error('Patient not found in tenant');
 
+    // Explicit DTO Allowlist - prevents overwriting protected fields like accountId
+    const safePayload: Record<string, unknown> = {
+      updatedAt: new Date().toISOString(),
+    };
+    if (data.name !== undefined) safePayload.name = data.name;
+    if (data.phone !== undefined) safePayload.phone = data.phone;
+    if (data.email !== undefined) safePayload.email = data.email;
+    if (data.gender !== undefined) safePayload.gender = data.gender;
+    if (data.dateOfBirth !== undefined)
+      safePayload.dateOfBirth = data.dateOfBirth;
+    if (data.department !== undefined) safePayload.department = data.department;
+    if (data.assignedDoctorId !== undefined)
+      safePayload.assignedDoctorId = data.assignedDoctorId;
+    if (data.consentStatus !== undefined)
+      safePayload.consentStatus = data.consentStatus;
+
     const updated = await this.db.updateDocument(
       APPWRITE_CONFIG.databaseId,
       APPWRITE_CONFIG.collections.patients,
       patientId,
-      {
-        ...data,
-        updatedAt: new Date().toISOString(),
-      }
+      safePayload
     );
     return updated as unknown as PatientDocument;
   }
@@ -100,6 +120,27 @@ export class PatientsRepository {
       APPWRITE_CONFIG.collections.patients,
       patientId
     );
+
+    // Record audit log event for patient deletion
+    const now = new Date().toISOString();
+    await this.db
+      .createDocument(
+        APPWRITE_CONFIG.databaseId,
+        APPWRITE_CONFIG.collections.auditLogs,
+        ID.unique(),
+        {
+          accountId,
+          actorId: 'system',
+          action: 'patient.delete',
+          resourceType: 'patient',
+          resourceId: patientId,
+          details: JSON.stringify({ name: patient.name }),
+          createdAt: now,
+        },
+        createTenantPermissions(accountId)
+      )
+      .catch(() => {});
+
     return true;
   }
 }

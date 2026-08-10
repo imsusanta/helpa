@@ -18,7 +18,16 @@ const endpoint = APPWRITE_CONFIG.endpoint.replace(/\/$/, '');
 function browserSession(): string | undefined {
   if (typeof window === 'undefined') return undefined;
   try {
-    return window.localStorage.getItem('appwrite_session') || undefined;
+    const local = window.localStorage.getItem('appwrite_session');
+    if (local) return local;
+
+    const match = document.cookie.match(
+      /(?:^|;\s*)(?:a_session_[a-zA-Z0-9]+|appwrite_session)=([^;]*)/
+    );
+    if (match && match[1]) {
+      return decodeURIComponent(match[1]);
+    }
+    return undefined;
   } catch {
     return undefined;
   }
@@ -28,6 +37,7 @@ function saveBrowserSession(secret: string | undefined) {
   if (typeof window === 'undefined' || !secret) return;
   try {
     window.localStorage.setItem('appwrite_session', secret);
+    document.cookie = `appwrite_session=${encodeURIComponent(secret)}; path=/; max-age=2592000; SameSite=Lax`;
   } catch {
     // Storage may be disabled; the httpOnly cookie still protects the session.
   }
@@ -37,6 +47,8 @@ function clearBrowserSession() {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.removeItem('appwrite_session');
+    document.cookie =
+      'appwrite_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
   } catch {
     // Ignore storage failures during sign-out.
   }
@@ -306,6 +318,7 @@ class QueryBuilder {
       {
         headers: requestHeaders(undefined, this.session, this.useApiKey),
         cache: 'no-store',
+        credentials: 'include',
       }
     );
     const body = await response.json().catch(() => ({}));

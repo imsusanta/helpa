@@ -45,8 +45,9 @@ export class DashboardErrorBoundary extends Component<Props, State> {
           <div className="mt-6 flex items-center gap-3">
             <Button
               onClick={() => {
-                this.setState({ hasError: false, error: null });
-                window.location.reload();
+                if (typeof globalThis.location !== 'undefined') {
+                  globalThis.location.reload();
+                }
               }}
               className="gap-2 font-semibold"
             >

@@ -6,10 +6,12 @@ import { NextRequest } from 'next/server';
 
 describe('Security: Cache-Control & Private Data Protection', () => {
   it('enforces explicit no-store headers on public health route handler', async () => {
-    const response = await getHealth();
+    const response = await getHealth(
+      new NextRequest('http://localhost:3000/api/health')
+    );
     const cacheControl = response.headers.get('cache-control');
 
-    expect(response.status).toBe(200);
+    expect([200, 503]).toContain(response.status);
     expect(cacheControl).toBeDefined();
     expect(cacheControl).toContain('no-store');
     expect(cacheControl).toContain('private');

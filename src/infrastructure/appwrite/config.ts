@@ -23,6 +23,8 @@ export const APPWRITE_CONFIG = {
     messages: 'messages',
     appointments: 'appointments',
     calls: 'calls',
+    voiceIntegrations: 'voice_integrations',
+    voiceCommands: 'voice_commands',
     followups: 'followups',
     integrations: 'integrations',
     providerEvents: 'provider_events',

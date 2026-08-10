@@ -64,18 +64,22 @@ export async function getCurrentAccount(): Promise<AccountContext> {
       cache: 'no-store',
     });
     if (!response.ok) throw new UnauthorizedError();
-
     const appwriteUser = await response.json();
+
     const profile = await profilesRepository.getProfileByUserId(
       appwriteUser.$id
     );
-    const accountId = profile?.accountId || 'default_account';
+    if (!profile || !profile.accountId || !profile.role) {
+      throw new ForbiddenError('Account profile missing or unauthorized');
+    }
+
+    const accountId = profile.accountId;
     const accountDoc = await accountsRepository.getAccount(accountId);
 
     return {
       userId: appwriteUser.$id,
       accountId,
-      role: profile?.role || 'owner',
+      role: profile.role,
       account: { id: accountId, name: accountDoc?.name || 'Clinic Account' },
     };
   } catch (error) {

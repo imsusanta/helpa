@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { LeadStageType } from '@/core/types';
 import { TrustedActionExecutor } from '@/core/actions/action-executor';
+import { requireRole, toErrorResponse } from '@/lib/auth/account';
 
 const ALLOWED_STAGES: LeadStageType[] = [
   'NEW',
@@ -29,17 +30,11 @@ export async function POST(
   }
 
   try {
+    const ctx = await requireRole('agent');
     const body = await request.json().catch(() => ({}));
-    const {
-      nextStage,
-      reason,
-      accountId = 'default_account',
-      actorId = 'system',
-    } = body as {
+    const { nextStage, reason } = body as {
       nextStage: LeadStageType;
       reason?: string;
-      accountId?: string;
-      actorId?: string;
     };
 
     if (!nextStage || !ALLOWED_STAGES.includes(nextStage)) {
@@ -50,8 +45,8 @@ export async function POST(
     }
 
     const executor = new TrustedActionExecutor({
-      accountId,
-      actorId,
+      accountId: ctx.accountId,
+      actorId: ctx.userId,
       actorType: 'user',
     });
 
@@ -74,10 +69,7 @@ export async function POST(
       data: result.data,
     });
   } catch (err: unknown) {
-    return NextResponse.json(
-      { success: false, error: (err as Error).message || 'Server error.' },
-      { status: 500 }
-    );
+    return toErrorResponse(err);
   }
 }
 

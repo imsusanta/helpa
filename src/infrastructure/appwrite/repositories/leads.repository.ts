@@ -77,28 +77,56 @@ export class LeadsRepository {
     actorId: string,
     idempotencyKey?: string
   ): Promise<LeadDocument> {
-    if (idempotencyKey) {
-      try {
-        const existingKey = await this.db.getDocument(
-          APPWRITE_CONFIG.databaseId,
-          APPWRITE_CONFIG.collections.idempotencyKeys,
-          idempotencyKey
-        );
-        if (existingKey) {
-          const lead = await this.getLead(accountId, leadId);
-          if (lead) return lead;
+    const now = new Date().toISOString();
+    const effectiveKey =
+      idempotencyKey || `lead_stage_${leadId}_${toStage}_${Date.now()}`;
+
+    // 1. First attempt to record idempotency/command key BEFORE mutation
+    try {
+      await this.db.createDocument(
+        APPWRITE_CONFIG.databaseId,
+        APPWRITE_CONFIG.collections.idempotencyKeys,
+        effectiveKey,
+        {
+          accountId,
+          action: 'lead.stage_update',
+          status: 'PENDING',
+          createdAt: now,
+        },
+        createTenantPermissions(accountId)
+      );
+    } catch {
+      if (idempotencyKey) {
+        // Idempotency key already exists — check status
+        try {
+          const existingKey = await this.db.getDocument(
+            APPWRITE_CONFIG.databaseId,
+            APPWRITE_CONFIG.collections.idempotencyKeys,
+            idempotencyKey
+          );
+          if (existingKey && existingKey.status === 'COMPLETED') {
+            const existingLead = await this.getLead(accountId, leadId);
+            if (existingLead) return existingLead;
+          }
+        } catch {
+          // ignore lookup error
         }
-      } catch {
-        // Proceed with execution
+        throw new Error(
+          'A concurrent or duplicate stage transition request is already in progress.'
+        );
       }
     }
 
+    // 2. Fetch lead and verify tenant isolation
     const lead = await this.getLead(accountId, leadId);
-    if (!lead) throw new Error('Lead not found in tenant');
+    if (!lead) {
+      this.updateIdempotencyStatus(effectiveKey, 'FAILED').catch(() => {});
+      throw new Error('Lead not found in tenant');
+    }
 
     const fromStage = lead.stage;
-    const now = new Date().toISOString();
 
+    // 3. Update lead stage
     const updated = await this.db.updateDocument(
       APPWRITE_CONFIG.databaseId,
       APPWRITE_CONFIG.collections.leads,
@@ -109,58 +137,62 @@ export class LeadsRepository {
       }
     );
 
-    // Record stage history
-    await this.db.createDocument(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.leadStageHistory,
-      ID.unique(),
-      {
-        accountId,
-        leadId,
-        fromStage,
-        toStage,
-        changedBy: actorId,
-        createdAt: now,
-      },
-      createTenantPermissions(accountId)
-    );
-
-    // Record audit log
-    await this.db.createDocument(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.auditLogs,
-      ID.unique(),
-      {
-        accountId,
-        actorId,
-        action: 'lead.stage_update',
-        resourceType: 'lead',
-        resourceId: leadId,
-        details: JSON.stringify({ fromStage, toStage }),
-        createdAt: now,
-      },
-      createTenantPermissions(accountId)
-    );
-
-    if (idempotencyKey) {
-      try {
-        await this.db.createDocument(
+    // 4. Record stage history & audit log concurrently
+    await Promise.all([
+      this.db
+        .createDocument(
           APPWRITE_CONFIG.databaseId,
-          APPWRITE_CONFIG.collections.idempotencyKeys,
-          idempotencyKey,
+          APPWRITE_CONFIG.collections.leadStageHistory,
+          ID.unique(),
           {
             accountId,
-            action: 'lead.stage_update',
+            leadId,
+            fromStage,
+            toStage,
+            changedBy: actorId,
             createdAt: now,
           },
           createTenantPermissions(accountId)
-        );
-      } catch {
-        // Ignore duplicate key write
-      }
-    }
+        )
+        .catch(() => {}),
+      this.db
+        .createDocument(
+          APPWRITE_CONFIG.databaseId,
+          APPWRITE_CONFIG.collections.auditLogs,
+          ID.unique(),
+          {
+            accountId,
+            actorId,
+            action: 'lead.stage_update',
+            resourceType: 'lead',
+            resourceId: leadId,
+            details: JSON.stringify({ fromStage, toStage }),
+            createdAt: now,
+          },
+          createTenantPermissions(accountId)
+        )
+        .catch(() => {}),
+    ]);
+
+    // 5. Update idempotency state to COMPLETED
+    await this.updateIdempotencyStatus(effectiveKey, 'COMPLETED').catch(
+      () => {}
+    );
 
     return updated as unknown as LeadDocument;
+  }
+
+  private async updateIdempotencyStatus(key: string, status: string) {
+    try {
+      await this.db.updateDocument(
+        APPWRITE_CONFIG.databaseId,
+        APPWRITE_CONFIG.collections.idempotencyKeys,
+        key,
+        { status }
+      );
+    } catch {
+      // ignore status update failures
+    }
   }
 }
 

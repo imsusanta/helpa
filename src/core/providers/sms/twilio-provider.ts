@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { SmsProvider } from './sms-provider.interface';
 import { MessageEvent } from '../../types';
 
@@ -6,14 +7,39 @@ export class TwilioSmsProvider implements SmsProvider {
 
   private async getCredentials(_clinicId: string) {
     return {
-      accountSid: process.env.TWILIO_ACCOUNT_SID || 'mock_sid',
-      authToken: process.env.TWILIO_AUTH_TOKEN || 'mock_token',
-      fromPhone: process.env.TWILIO_FROM_PHONE || '+18005550199',
+      accountSid: process.env.TWILIO_ACCOUNT_SID || '',
+      authToken: process.env.TWILIO_AUTH_TOKEN || '',
+      fromPhone: process.env.TWILIO_FROM_PHONE || '',
     };
   }
 
-  async verifyWebhook(_request: Request, _bodyText: string): Promise<boolean> {
-    return true;
+  async verifyWebhook(request: Request, bodyText: string): Promise<boolean> {
+    const twilioSignature = request.headers.get('x-twilio-signature');
+    if (!twilioSignature) return false;
+
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    if (!authToken || authToken.startsWith('mock_')) return false;
+
+    const url = request.url;
+    const params = new URLSearchParams(bodyText);
+    const data: Record<string, string> = {};
+    params.forEach((val, key) => {
+      data[key] = val;
+    });
+
+    let expectedData = url;
+    Object.keys(data)
+      .sort()
+      .forEach((key) => {
+        expectedData += key + data[key];
+      });
+
+    const hmac = crypto
+      .createHmac('sha1', authToken)
+      .update(Buffer.from(expectedData, 'utf-8'))
+      .digest('base64');
+
+    return hmac === twilioSignature;
   }
 
   async normalizeWebhook(
@@ -54,35 +80,57 @@ export class TwilioSmsProvider implements SmsProvider {
   ): Promise<{ externalMessageId: string }> {
     const { accountSid, authToken, fromPhone } =
       await this.getCredentials(clinicId);
-    const externalMessageId = `SM${Date.now()}_${Math.random()
-      .toString(36)
-      .substring(2, 7)}`;
 
-    if (accountSid && !accountSid.startsWith('mock_')) {
-      const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
-      const auth = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
-      await fetch(url, {
-        method: 'POST',
-        headers: {
-          Authorization: `Basic ${auth}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          To: recipientPhone,
-          From: fromPhone,
-          Body: text,
-        }),
-      });
+    if (!accountSid || accountSid.startsWith('mock_')) {
+      throw new Error(
+        'Twilio credentials not configured (TWILIO_ACCOUNT_SID is missing).'
+      );
     }
 
-    return { externalMessageId };
+    const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
+    const auth = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${auth}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        To: recipientPhone,
+        From: fromPhone,
+        Body: text,
+      }),
+    });
+
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => '');
+      throw new Error(
+        `Twilio API Error (${resp.status}): ${resp.statusText} ${errText}`
+      );
+    }
+
+    const json = await resp.json();
+    return { externalMessageId: json.sid };
   }
 
   async getDeliveryStatus(
     _clinicId: string,
-    _externalMessageId: string
+    externalMessageId: string
   ): Promise<{ status: string }> {
-    return { status: 'delivered' };
+    const { accountSid, authToken } = await this.getCredentials(_clinicId);
+    if (!accountSid || accountSid.startsWith('mock_')) {
+      return { status: 'unknown' };
+    }
+
+    const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages/${externalMessageId}.json`;
+    const auth = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
+    const resp = await fetch(url, {
+      headers: { Authorization: `Basic ${auth}` },
+    });
+
+    if (!resp.ok) return { status: 'unknown' };
+    const json = await resp.json();
+    return { status: json.status || 'unknown' };
   }
 
   async processOptOut(

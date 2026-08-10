@@ -2,7 +2,6 @@ import { Job } from 'bullmq';
 import { WahaWhatsAppProvider } from '@/core/providers/whatsapp/waha-provider';
 import { TwilioSmsProvider } from '@/core/providers/sms/twilio-provider';
 import { ExotelSmsProvider } from '@/core/providers/sms/exotel-provider';
-import { getVoiceProvider } from '@/core/providers/voice/provider-factory';
 
 export interface OutboundMessageJobData {
   accountId: string;
@@ -56,15 +55,10 @@ export async function processOutboundVoiceJob(
     `[Worker: outbound-voice] Processing job ${job.id} for ${recipientPhone}`
   );
 
-  const voiceProvider = getVoiceProvider(
-    (provider as 'sarvam' | 'xai' | 'elevenlabs') || 'sarvam'
+  if (provider !== 'elevenlabs') throw new Error('VOICE_OPERATION_UNSUPPORTED');
+  throw new Error(
+    `Outbound voice jobs must use the authenticated voice command path for account ${accountId}; recipient ${recipientPhone} was not dispatched`
   );
-  await voiceProvider.startOutboundCall({
-    clinicId: accountId,
-    patientPhone: recipientPhone,
-    greeting:
-      'Namaste, this is your appointment reminder call from the clinic.',
-  });
 }
 
 export async function processProviderEventsJob(_job: Job) {

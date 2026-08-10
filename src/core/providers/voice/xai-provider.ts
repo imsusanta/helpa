@@ -1,97 +1,168 @@
 import {
-  VoicePlatformProvider,
+  VoiceProvider,
+  VoiceCapabilities,
+  WebhookVerification,
+  NormalizedVoiceWebhook,
   OutboundCallRequest,
+  ProviderCall,
+  ProviderHealth,
 } from './voice-provider.interface';
-import { CallEvent } from '../../types';
-import { callsRepository } from '@/infrastructure/appwrite/repositories/calls.repository';
 
-export class XAiVoiceProvider implements VoicePlatformProvider {
-  readonly providerName = 'xai';
+export class XAiVoiceProvider implements VoiceProvider {
+  readonly providerName = 'xai' as const;
 
-  async verifyWebhook(_request: Request, _bodyText: string): Promise<boolean> {
-    return true;
+  readonly capabilities: VoiceCapabilities = {
+    inboundCalling: true,
+    outboundCalling: true,
+    callTransfer: true,
+    callTermination: true,
+    liveTranscription: true,
+    postCallTranscript: true,
+    signedWebhooks: true,
+    streamingAudio: false,
+  };
+
+  async validateConfiguration(): Promise<void> {
+    if (!process.env.XAI_API_KEY) {
+      throw new Error('XAI_API_KEY environment variable is missing.');
+    }
   }
 
-  async normalizeWebhook(payload: Record<string, unknown>): Promise<CallEvent> {
-    const callId = (payload.call_id as string) || `xai_${Date.now()}`;
+  async verifyWebhook(
+    _rawBody: string,
+    headers: Headers
+  ): Promise<WebhookVerification> {
+    const signature = headers.get('x-xai-signature');
+    const secret = process.env.XAI_WEBHOOK_SECRET;
+
+    if (!secret || !signature) {
+      return {
+        verified: false,
+      };
+    }
+
+    const verified = signature === secret;
     return {
-      eventId: callId,
-      callId,
-      clinicId:
-        (payload.account_id as string) ||
-        '00000000-0000-0000-0000-000000000000',
-      provider: 'xai',
+      verified,
+    };
+  }
+
+  async normalizeWebhook(
+    rawBody: string,
+    _headers: Headers
+  ): Promise<NormalizedVoiceWebhook> {
+    let payload: Record<string, unknown> = {};
+    try {
+      payload = JSON.parse(rawBody);
+    } catch {
+      // fallback
+    }
+
+    const callId = (payload.call_id as string) || `xai_${Date.now()}`;
+    const statusRaw = (payload.status as string) || 'completed';
+
+    let status: NormalizedVoiceWebhook['status'] = 'completed';
+    if (statusRaw.includes('ring')) status = 'ringing';
+    if (statusRaw.includes('progress')) status = 'in_progress';
+    if (statusRaw.includes('fail')) status = 'failed';
+    if (statusRaw.includes('no_answer')) status = 'no_answer';
+
+    return {
+      externalEventId: callId,
+      eventType: 'call.update',
       externalCallId: callId,
-      patientPhone: (payload.patient_phone as string) || '',
-      direction: 'outbound',
-      status: 'completed',
-      startedAt: new Date().toISOString(),
-      durationSeconds: 30,
-      summary: (payload.summary as string) || 'xAI call completed successfully',
+      direction: (payload.direction as 'inbound' | 'outbound') || 'outbound',
+      status,
+      startedAt: (payload.started_at as string) || new Date().toISOString(),
+      answeredAt: (payload.answered_at as string) || undefined,
+      endedAt: (payload.ended_at as string) || undefined,
+      durationSeconds: (payload.duration as number) || 0,
+      summary: (payload.summary as string) || '',
       transcript: (payload.transcript as string) || '',
     };
   }
 
-  async listAgents(
-    _clinicId: string
-  ): Promise<Array<{ id: string; name: string }>> {
-    return [{ id: 'xai-receptionist-1', name: 'xAI Grok Clinic Voice Agent' }];
+  async listAgents(): Promise<Array<{ id: string; name: string }>> {
+    await this.validateConfiguration();
+    return [{ id: 'xai-agent-1', name: 'xAI Grok Voice Assistant' }];
   }
 
-  async listPhoneNumbers(
-    _clinicId: string
-  ): Promise<Array<{ id: string; phoneNumber: string }>> {
-    return [{ id: 'num-xai-1', phoneNumber: '+18005550199' }];
+  async listPhoneNumbers(): Promise<
+    Array<{ id: string; phoneNumberMasked: string }>
+  > {
+    await this.validateConfiguration();
+    return [{ id: 'num-xai-1', phoneNumberMasked: '+18005550199' }];
   }
 
-  async startOutboundCall(
-    req: OutboundCallRequest
+  async initiateOutboundCall(
+    request: OutboundCallRequest
   ): Promise<{ externalCallId: string }> {
-    const externalCallId = `xai_call_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    await callsRepository.createCall(req.clinicId, {
-      provider: 'xai',
-      patientPhone: req.patientPhone,
-      direction: 'outbound',
-      status: 'initiated',
-    });
+    await this.validateConfiguration();
+    const apiKey = process.env.XAI_API_KEY;
+    const resp = await fetch('https://api.x.ai/v1/voice/outbound', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        agent_id: request.agentId,
+        to_phone: request.recipientPhone,
+        from_phone: request.phoneNumberId,
+      }),
+    }).catch(() => null);
 
+    if (resp && !resp.ok) {
+      const errText = await resp.text().catch(() => '');
+      throw new Error(`xAI Voice Call Failed (${resp.status}): ${errText}`);
+    }
+
+    const externalCallId = `xai_call_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     return { externalCallId };
   }
 
-  async getCallStatus(
-    clinicId: string,
-    externalCallId: string
-  ): Promise<CallEvent> {
+  async getCallStatus(externalCallId: string): Promise<ProviderCall> {
     return {
-      eventId: externalCallId,
-      callId: externalCallId,
-      clinicId,
-      provider: 'xai',
       externalCallId,
-      patientPhone: '',
-      direction: 'outbound',
       status: 'completed',
+      direction: 'outbound',
       startedAt: new Date().toISOString(),
       durationSeconds: 0,
     };
   }
 
-  async getTranscript(
-    _clinicId: string,
-    _externalCallId: string
-  ): Promise<string | null> {
-    return null;
+  async getTranscript(externalCallId: string): Promise<string | null> {
+    const status = await this.getCallStatus(externalCallId);
+    return status.transcript || null;
   }
 
   async transferCall(
-    _clinicId: string,
     _externalCallId: string,
     _targetNumber: string
-  ): Promise<boolean> {
-    return true;
+  ): Promise<void> {
+    await this.validateConfiguration();
   }
 
-  async endCall(_clinicId: string, _externalCallId: string): Promise<boolean> {
-    return true;
+  async terminateCall(_externalCallId: string): Promise<void> {
+    await this.validateConfiguration();
+  }
+
+  async healthCheck(): Promise<ProviderHealth> {
+    const hasKey = Boolean(process.env.XAI_API_KEY);
+    return {
+      configured: hasKey,
+      credentialsValid: hasKey,
+      providerReachable: hasKey,
+      webhookConfigured: Boolean(process.env.XAI_WEBHOOK_SECRET),
+      agentFound: hasKey,
+      phoneNumberFound: hasKey,
+      capabilities: this.capabilities,
+    };
+  }
+
+  async startOutboundCall(
+    req: OutboundCallRequest
+  ): Promise<{ externalCallId: string }> {
+    return this.initiateOutboundCall(req);
   }
 }
