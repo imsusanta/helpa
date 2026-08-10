@@ -10,7 +10,13 @@ export function getAppwriteClient() {
   if (typeof window !== 'undefined') {
     try {
       const session = window.localStorage.getItem('appwrite_session');
-      if (session) client.setSession(session);
+      if (session) {
+        try {
+          client.setSession(session);
+        } catch {
+          // Ignore invalid session tokens
+        }
+      }
     } catch {
       // The httpOnly session cookie remains the source of truth if storage is unavailable.
     }
