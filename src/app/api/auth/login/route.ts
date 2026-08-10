@@ -57,12 +57,32 @@ export async function POST(request: Request) {
       );
     }
 
-    const sessionSecret = appwriteJson.secret;
+    let sessionSecret = appwriteJson.secret || '';
+    if (!sessionSecret) {
+      // Extract session secret from Appwrite Set-Cookie header
+      const rawCookies =
+        typeof appwriteRes.headers.getSetCookie === 'function'
+          ? appwriteRes.headers.getSetCookie()
+          : [appwriteRes.headers.get('set-cookie') || ''];
+
+      for (const c of rawCookies) {
+        if (!c) continue;
+        const match = c.match(/a_session_[^=]+=([^;]+)/);
+        if (match) {
+          sessionSecret = decodeURIComponent(match[1]);
+          break;
+        }
+      }
+    }
+
     const userId = appwriteJson.userId;
 
     if (!sessionSecret) {
       return NextResponse.json(
-        { success: false, error: 'Authentication failed.' },
+        {
+          success: false,
+          error: 'Authentication failed. Unable to establish Appwrite session.',
+        },
         { status: 500 }
       );
     }

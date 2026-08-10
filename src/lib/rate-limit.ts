@@ -7,7 +7,7 @@
  * template will usually deploy.
  *
  * Trade-off: a single Node process holds the Map, so horizontal scale
- * (multiple regions, multiple Hostinger nodes, Vercel serverless fan-
+ * (multiple regions, multiple Hostinger nodes, appwrite-sites serverless fan-
  * out) silently defeats the limit. If you scale beyond one instance,
  * swap the `check` implementation for Redis / Upstash / Cloudflare
  * Durable Objects keeping the same return shape. The call sites won't

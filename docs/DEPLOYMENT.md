@@ -65,4 +65,4 @@ npm run build
 ```
 
 If Appwrite service reports a quota error, resolve the quota or spend cap in
-the Appwrite project console; the application no longer contacts Supabase.
+the Appwrite project console; the application no longer contacts the legacy hosted database.

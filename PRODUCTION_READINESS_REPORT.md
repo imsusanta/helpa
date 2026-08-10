@@ -68,7 +68,7 @@
 
 ## 2. Awaiting Deployment Verification
 
-- **Vercel Post-Deployment Hook:** `.github/workflows/post-deploy.yml` checks `https://wacrmsusanta.vercel.app/` and `/api/health` upon main branch deployment.
+- **appwrite-sites Post-Deployment Hook:** `.github/workflows/post-deploy.yml` checks `https://wacrmsusanta.www.helpa.studio/` and `/api/health` upon main branch deployment.
 - **Production Alias Verification:** Needs live deployment run to confirm HTTP 200 response.
 
 ---
@@ -76,7 +76,7 @@
 ## 3. Awaiting Infrastructure Configuration
 
 - **Appwrite PITR:** Point-In-Time-Recovery (30-day retention) must be enabled in the Appwrite Cloud Console project settings.
-- **Cron Scheduler:** Retention purge route `/api/cron/cleanup-webhooks` is implemented; automated execution requires configuring Vercel Cron (`vercel.json`) or an external runner.
+- **Cron Scheduler:** Retention purge route `/api/cron/cleanup-webhooks` is implemented; automated execution requires configuring appwrite-sites Cron (`appwrite-sites.json`) or an external runner.
 
 ---
 

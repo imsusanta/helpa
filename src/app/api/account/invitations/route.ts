@@ -41,7 +41,7 @@ import {
 //      everything; if you set this, that's where links point.
 //   2. `X-Forwarded-Host` (+ `X-Forwarded-Proto`) — set by every
 //      reverse proxy in front of the app: Hostinger Managed
-//      Node.js, Vercel, Cloudflare, nginx. This is what makes
+//      Node.js, appwrite-sites, Cloudflare, nginx. This is what makes
 //      invite links Just Work in production without forcing the
 //      operator to set an env var.
 //   3. `Host` header + the protocol the request arrived on —
@@ -55,7 +55,7 @@ import {
 //
 //   The request-header path (#2 and #3 above) trusts whatever
 //   hostname the client (or proxy) puts in the header. On a
-//   typical proxied deploy (Vercel / Hostinger / Cloudflare) the
+//   typical proxied deploy (appwrite-sites / Hostinger / Cloudflare) the
 //   proxy overwrites these so they're trustworthy. On a bare
 //   deployment exposed to the public internet, an attacker could
 //   POST directly with a crafted `Host: phishing.example` and

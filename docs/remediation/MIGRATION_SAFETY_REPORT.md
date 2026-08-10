@@ -28,7 +28,7 @@
    **Remediation:** Relocate to `docs/rollbacks/062_security_and_reliability_hardening.rollback.sql` with explicit manual operational warnings.
 
 2. **Missing Row Level Security on Queue Tables**:
-   `outbound_outbox` and `inbound_webhook_events` were created without `ALTER TABLE ... ENABLE ROW LEVEL SECURITY;`. In Appwrite, tables without RLS are exposed to anonymous and authenticated PostgREST clients by default.
+   `outbound_outbox` and `inbound_webhook_events` were created without `ALTER TABLE ... ENABLE ROW LEVEL SECURITY;`. In Appwrite, tables without RLS are exposed to anonymous and authenticated Appwrite document clients by default.
    **Remediation:** In Migration 063:
 
    ```sql

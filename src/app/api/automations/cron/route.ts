@@ -5,7 +5,7 @@ import type { AutomationContext } from '@/lib/automations/engine';
 
 /**
  * Drain due `automation_pending_executions` rows. Meant to be hit
- * on a schedule (Vercel Cron / external pinger) — requires a shared
+ * on a schedule (appwrite-sites Cron / external pinger) — requires a shared
  * secret via the `x-cron-secret` header to match
  * `AUTOMATION_CRON_SECRET`.
  *

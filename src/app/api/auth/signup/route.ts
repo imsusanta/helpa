@@ -95,7 +95,22 @@ export async function POST(request: Request) {
       });
     }
 
-    const sessionSecret = sessionJson.secret;
+    let sessionSecret = sessionJson.secret || '';
+    if (!sessionSecret) {
+      const rawCookies =
+        typeof sessionRes.headers.getSetCookie === 'function'
+          ? sessionRes.headers.getSetCookie()
+          : [sessionRes.headers.get('set-cookie') || ''];
+
+      for (const c of rawCookies) {
+        if (!c) continue;
+        const match = c.match(/a_session_[^=]+=([^;]+)/);
+        if (match) {
+          sessionSecret = decodeURIComponent(match[1]);
+          break;
+        }
+      }
+    }
     const userId = sessionJson.userId;
 
     const response = NextResponse.json({

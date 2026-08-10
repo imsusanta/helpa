@@ -51,7 +51,7 @@ updating on your schedule is a valid alternative.
 If you find a bug in the upstream code — not one you introduced in your
 fork — please file it using the
 [bug report](https://github.com/ArnasDon/wacrm/issues/new?template=bug_report.yml)
-template. Including the commit SHA, the runtime (Hostinger / Vercel /
+template. Including the commit SHA, the runtime (Hostinger / appwrite-sites /
 local / other), and logs will get to a fix fastest.
 
 ## Reporting security issues

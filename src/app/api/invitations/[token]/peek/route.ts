@@ -33,7 +33,7 @@ import { createClient } from '@/lib/appwrite-server-compat';
 
 /**
  * Best-effort client IP. The `x-forwarded-for` header is what
- * every reverse proxy (Vercel, Hostinger, Cloudflare) sets when
+ * every reverse proxy (appwrite-sites, Hostinger, Cloudflare) sets when
  * forwarding a request; we take the leftmost entry, which is
  * the original client.
  *

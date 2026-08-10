@@ -16,7 +16,7 @@ test.describe('E2E: Team Permissions & Multi-Tenant Boundary Isolation', () => {
       expect([401, 403]).toContain(res.status());
       // Ensure response does not contain stack traces or schema structures
       const text = await res.text();
-      expect(text).not.toContain('PostgREST');
+      expect(text).not.toContain('database schema error');
       expect(text).not.toContain('column');
       expect(text).not.toContain('syntax error');
     }

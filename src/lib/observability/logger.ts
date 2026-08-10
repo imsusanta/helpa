@@ -2,7 +2,7 @@
  * Helpa Enterprise Structured Logger
  *
  * Implements recursive PII, PHI, authorization header, and secret redaction.
- * Emits JSON logs compatible with Datadog, CloudWatch, Axiom, and Vercel.
+ * Emits JSON logs compatible with Datadog, CloudWatch, Axiom, and appwrite-sites.
  * Prevents circular reference crashes, log-injection DoS, and patient data leakage.
  */
 

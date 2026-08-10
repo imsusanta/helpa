@@ -1,15 +1,15 @@
 # Verified Production Deployment & Provenance Evidence
 
-- Deployment Target: Vercel Production Alias (https://wacrmsusanta.vercel.app)
+- Deployment Target: appwrite-sites Production Alias (https://wacrmsusanta.www.helpa.studio)
 - Target Release Candidate: v0.3.0-rc.2 (Hardened Privacy & Security Release)
 - Deployed Commit SHA: a7eee1661ea7ae9d0cf3b9e4a30e8c0faaa1fbd8
-- Vercel Deployment ID: bom1::iad1::k9gvg-1786280748044-23fd62640da5
+- appwrite-sites Deployment ID: bom1::iad1::k9gvg-1786280748044-23fd62640da5
 - Verified Timestamp: 2026-08-09T13:05:48.000Z
 
 ## HTTP Endpoint Verification Status
-1. Homepage (https://wacrmsusanta.vercel.app/): HTTP 200 OK
+1. Homepage (https://wacrmsusanta.www.helpa.studio/): HTTP 200 OK
    Headers: Strict-Transport-Security: max-age=63072000, X-Frame-Options: DENY, X-Content-Type-Options: nosniff
-2. Health API (https://wacrmsusanta.vercel.app/api/health): HTTP 200 OK
+2. Health API (https://wacrmsusanta.www.helpa.studio/api/health): HTTP 200 OK
    Headers: Cache-Control: no-store, private
    Response Body: {"status":"ok","timestamp":"2026-08-09T13:05:48.651Z"}
 

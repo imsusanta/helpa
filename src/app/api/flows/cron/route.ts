@@ -21,7 +21,7 @@ import { resolveFallbackPolicy } from '@/lib/flows/fallback';
  * and this one) are independent operations; we keep them on separate
  * URLs so one failing doesn't block the other.
  *
- * Hosting: hit on a schedule (Vercel Cron / GitHub Actions / external
+ * Hosting: hit on a schedule (appwrite-sites Cron / GitHub Actions / external
  * pinger). A 5-minute interval is more than enough for a 24h timeout
  * default; once per hour would also be acceptable for low-volume
  * tenants.

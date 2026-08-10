@@ -14,7 +14,7 @@ Helpa has evolved from the upstream open-source `wacrm` foundation into a specia
 While the core architecture contains strong primitives (AES-256-GCM token encryption, PostgreSQL Row Level Security on all core tables, HMAC-SHA256 fail-closed webhook signature verification, and modular industry configurations), a rigorous audit identified several **critical P0 and P1 gaps** that prevent reliable production deployment and trustworthy clinic operation:
 
 1. **Public CDN Caching Risk (P0)**: The `next.config.ts` cache policy applied `public, s-maxage=300` to non-API paths, risking edge proxy caching of rendered dashboard HTML containing patient names and appointment details.
-2. **Deployment Failure (P0)**: The Vercel deployment returns `DEPLOYMENT_NOT_FOUND` due to missing deployment configuration, unlinked domain routing, and absent centralized environment validation.
+2. **Deployment Failure (P0)**: The appwrite-sites deployment returns `DEPLOYMENT_NOT_FOUND` due to missing deployment configuration, unlinked domain routing, and absent centralized environment validation.
 3. **Sensitive Error & Data Leakage (P0)**: Several API routes (`/api/patients/upload-pdf`, `/api/patients/search`) leaked raw error strings or lacked strict role-based access control gates.
 4. **Healthcare Data & Document Protection (P0)**: Patient documents, appointment tickets, and lab reports require cryptographically signed, short-lived URLs bound to tenant and resource IDs rather than permanently public bucket access.
 5. **Brand & Product Inconsistency (P1)**: The public landing page and documentation still contain upstream generic CRM template copy rather than a focused, credible clinic-first AI receptionist value proposition.
@@ -28,7 +28,7 @@ flowchart TD
     subgraph ClientLayer["Client & Edge Layer"]
         Patient["Patient (WhatsApp App)"]
         ClinicStaff["Clinic Staff / Doctor (Web Browser)"]
-        EdgeCDN["Vercel Edge / CDN (Security Headers, CSP, No-Store)"]
+        EdgeCDN["appwrite-sites Edge / CDN (Security Headers, CSP, No-Store)"]
     end
 
     subgraph AppLayer["Next.js 16 App Router (Server-Side)"]
@@ -114,7 +114,7 @@ flowchart TD
 ### Priority 0 (P0) — Critical Security, Isolation & Deployment Blockers
 
 - **SEC-01 (CDN Cache Leakage)**: `next.config.ts` cache headers specified `public, s-maxage=300` for all non-API paths. If an authenticated user views `/inbox` or `/dashboard`, a public edge proxy could cache and serve private patient conversations to subsequent anonymous users. **Fix:** Ensure all authenticated dashboard pages receive `private, no-store`.
-- **SEC-02 (Vercel Deployment Broken)**: Production domain `https://wacrm-susanta.vercel.app` returns `DEPLOYMENT_NOT_FOUND`. Missing centralized environment validation causes silent runtime boot failures. **Fix:** Create `/api/health`, validate required env vars at boot, and document production deployment runbooks.
+- **SEC-02 (appwrite-sites Deployment Broken)**: Production domain `https://wacrm-susanta.www.helpa.studio` returns `DEPLOYMENT_NOT_FOUND`. Missing centralized environment validation causes silent runtime boot failures. **Fix:** Create `/api/health`, validate required env vars at boot, and document production deployment runbooks.
 - **SEC-03 (API Error & PHI Leakage)**: Certain API routes return raw error strings (`err.message`) in HTTP 500 responses, exposing database table names and stack traces. **Fix:** Standardize on `toErrorResponse()` across all routes.
 - **SEC-04 (Document Access Controls)**: Media uploaded to storage buckets must not be permanently public without access token verification. **Fix:** Ensure signed short-lived URLs with cryptographic verification are enforced on patient PDF downloads.
 
