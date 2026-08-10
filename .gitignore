@@ -36,8 +36,8 @@ yarn-error.log*
 !.env.local.example
 !.env.example
 
-# vercel
-.vercel
+# Appwrite build output
+.appwrite
 
 # typescript
 *.tsbuildinfo

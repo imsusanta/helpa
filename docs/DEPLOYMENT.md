@@ -1,77 +1,68 @@
 # Helpa Production Deployment Guide
 
-**Product:** Helpa — Clinic WhatsApp AI Receptionist & Patient CRM  
-**Stack:** Next.js 16 (App Router), Appwrite (PostgreSQL 15+), Meta WhatsApp Cloud API
+Helpa runs as a Next.js application on Appwrite Sites with Appwrite Auth,
+Databases, Storage, and Teams.
 
----
+## Required environment variables
 
-## 1. Environment Variable Architecture
+Set these in the Appwrite Site environment configuration:
 
-| Variable Name                   | Exposure Scope            | Purpose                                        | Generation / Example                              |
-| ------------------------------- | ------------------------- | ---------------------------------------------- | ------------------------------------------------- |
-| `NEXT_PUBLIC_SUPABASE_URL`      | Public (Browser & Server) | Appwrite project endpoint                      | `https://xxxx.appwrite.co`                        |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public (Browser & Server) | Anonymous client API key                       | `eyJhbGciOiJIUzI1Ni...`                           |
-| `NEXT_PUBLIC_APP_URL`           | Public (Browser & Server) | Canonical production origin                    | `https://helpa.yourdomain.com`                    |
-| `SUPABASE_SERVICE_ROLE_KEY`     | **Server-Only Secret**    | Admin database operations (bypasses RLS)       | `eyJhbGciOiJIUzI1Ni...` (Never expose to browser) |
-| `ENCRYPTION_KEY`                | **Server-Only Secret**    | AES-256-GCM token encryption key               | 64-character (32-byte) hex string                 |
-| `PDF_SIGNING_KEY`               | **Server-Only Secret**    | HMAC-SHA256 OPD ticket signing key             | 64-character (32-byte) hex string                 |
-| `META_APP_SECRET`               | **Server-Only Secret**    | Meta WhatsApp webhook HMAC verification        | Meta Developer App Dashboard -> App Secret        |
-| `AUTOMATION_CRON_SECRET`        | **Server-Only Secret**    | Shared header secret for cron jobs             | 32-character random string                        |
-| `CRON_SECRET`                   | **Server-Only Secret**    | Shared header secret for appointment reminders | 32-character random string                        |
+| Variable                          | Scope       | Purpose                                             |
+| --------------------------------- | ----------- | --------------------------------------------------- |
+| `NEXT_PUBLIC_APPWRITE_ENDPOINT`   | Public      | Appwrite API endpoint                               |
+| `NEXT_PUBLIC_APPWRITE_PROJECT_ID` | Public      | Appwrite project ID                                 |
+| `APPWRITE_API_KEY`                | Server-only | Server SDK access to Databases and Storage          |
+| `APPWRITE_DATABASE_ID`            | Server-only | Appwrite database ID                                |
+| `NEXT_PUBLIC_SITE_URL`            | Public      | Canonical site URL, e.g. `https://www.helpa.studio` |
+| `ENCRYPTION_KEY`                  | Server-only | 64-character AES-256-GCM key                        |
+| `PDF_SIGNING_KEY`                 | Server-only | HMAC key for public appointment PDFs                |
+| `META_APP_SECRET`                 | Server-only | Meta webhook signature verification                 |
+| `REDIS_URL`                       | Server-only | BullMQ worker and queue connection                  |
+| `CRON_SECRET`                     | Server-only | Cron route protection                               |
 
-### Generating Cryptographic Keys
+Copy `.env.local.example` for local development, then fill in real values.
+Never expose `APPWRITE_API_KEY`, `ENCRYPTION_KEY`, or signing keys to the browser.
 
-Run in terminal to generate secure 256-bit hexadecimal keys:
+## Provision Appwrite
 
-```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-```
-
----
-
-## 2. Vercel Deployment Instructions
-
-1. **Import Repository**: Connect `imsusanta/wacrm_susanta` (branch `main` or release branch).
-2. **Framework Preset**: Select `Next.js`.
-3. **Build Command**: `next build` (default).
-4. **Environment Variables**: Add all required variables listed above in Project Settings -> Environment Variables.
-5. **Appwrite Auth Redirects**: In Appwrite Dashboard -> Authentication -> URL Configuration:
-   - Site URL: `https://your-domain.vercel.app`
-   - Redirect URLs:
-     - `https://your-domain.vercel.app/dashboard`
-     - `https://your-domain.vercel.app/login`
-     - `https://your-domain.vercel.app/join/*`
-6. **Meta WhatsApp Cloud API Webhook**:
-   - Callback URL: `https://your-domain.vercel.app/api/whatsapp/webhook`
-   - Verify Token: Configured in clinic settings / database.
-   - Webhook Subscribed Fields: `messages`.
-
----
-
-## 3. Production Health Check & Verification
-
-Once deployed, verify the public health endpoint:
+After creating the Appwrite project and API key, provision the database,
+collections, and buckets:
 
 ```bash
-curl -i https://your-domain.vercel.app/api/health
+npm ci
+npm run appwrite:setup
+npm run appwrite:verify
 ```
 
-Expected Response:
+The Appwrite project must include the production site domain under Platforms
+and the Auth redirect URL configuration. Add:
 
-```http
-HTTP/2 200
-cache-control: no-store, private
-content-type: application/json
+- `https://www.helpa.studio`
+- `https://www.helpa.studio/login`
+- `https://www.helpa.studio/dashboard`
+- `https://www.helpa.studio/join/*`
 
-{"status":"ok","timestamp":"2026-08-08T10:00:00.000Z"}
+## Build and deploy
+
+Use the Appwrite Sites Git deployment with:
+
+```text
+Build command: npm run build
+Install command: npm ci
+Output: Next.js server deployment
 ```
 
----
+The post-deployment workflow checks `/`, `/login`, and `/api/health` at
+`https://www.helpa.studio`.
 
-## 4. Emergency Rollback Procedure
+## Local verification
 
-If a deployment needs to be rolled back on Vercel:
+```bash
+npm run lint
+npm run typecheck
+npm test
+npm run build
+```
 
-1. Navigate to **Deployments** in Vercel Dashboard.
-2. Select the previous stable deployment and click **Promote to Production**.
-3. If database changes must be reverted, consult [`docs/rollbacks/062_security_and_reliability_hardening.rollback.sql`](./rollbacks/062_security_and_reliability_hardening.rollback.sql) with a verified physical database backup.
+If Appwrite service reports a quota error, resolve the quota or spend cap in
+the Appwrite project console; the application no longer contacts Supabase.

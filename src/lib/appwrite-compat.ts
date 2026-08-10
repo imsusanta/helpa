@@ -58,7 +58,39 @@ function requestHeaders(extra?: HeadersInit): Headers {
 
 function appwriteQuery(operator: string, field: string, value: any): string {
   const values = Array.isArray(value) ? value : [value];
-  return `${operator}("${field}",${JSON.stringify(values)})`;
+  const appwriteField = field === 'id' ? '$id' : toCamelCase(field);
+  return `${operator}("${appwriteField}",${JSON.stringify(values)})`;
+}
+
+function toCamelCase(field: string): string {
+  return field.replace(/_([a-z])/g, (_, letter: string) =>
+    letter.toUpperCase()
+  );
+}
+
+function toSnakeCase(field: string): string {
+  return field.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+}
+
+function normalizeRecord(document: AnyRecord): AnyRecord {
+  const result: AnyRecord = { ...document };
+  if (document.$id && !result.id) result.id = document.$id;
+  Object.entries(document).forEach(([key, value]) => {
+    const snake = toSnakeCase(key);
+    if (snake !== key && result[snake] === undefined) result[snake] = value;
+  });
+  return result;
+}
+
+function normalizePayload(record: AnyRecord): AnyRecord {
+  const payload = { ...record };
+  delete payload.id;
+  delete payload.$id;
+  delete payload.$createdAt;
+  delete payload.$updatedAt;
+  return Object.fromEntries(
+    Object.entries(payload).map(([key, value]) => [toCamelCase(key), value])
+  );
 }
 
 function queryValue(value: any): string {
@@ -267,7 +299,7 @@ class QueryBuilder {
     );
     const body = await response.json().catch(() => ({}));
     if (!response.ok) throw Object.assign(new Error(body.message), body);
-    const documents = body.documents || [];
+    const documents = (body.documents || []).map(normalizeRecord);
     return {
       data: this.selectionOptions.head ? null : documents,
       error: null,
@@ -286,13 +318,13 @@ class QueryBuilder {
           headers: requestHeaders(),
           body: JSON.stringify({
             documentId: record.id || 'unique()',
-            data: record,
+            data: normalizePayload(record),
           }),
         }
       );
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw Object.assign(new Error(body.message), body);
-      documents.push(body);
+      documents.push(normalizeRecord(body));
     }
     return {
       data: Array.isArray(this.payload) ? documents : documents[0],
@@ -312,13 +344,13 @@ class QueryBuilder {
           method,
           headers: requestHeaders(),
           ...(method === 'PATCH'
-            ? { body: JSON.stringify({ data: this.payload }) }
+            ? { body: JSON.stringify({ data: normalizePayload(this.payload) }) }
             : {}),
         }
       );
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw Object.assign(new Error(body.message), body);
-      if (method === 'PATCH') updated.push(body);
+      if (method === 'PATCH') updated.push(normalizeRecord(body));
     }
     return { data: updated, error: null, count: documents.length };
   }
@@ -327,11 +359,179 @@ class QueryBuilder {
 function createDataClient(): AppwriteCompatClient {
   const client: AnyRecord = {
     from: (table: string) => new QueryBuilder(table),
-    rpc: async () => ({
-      data: null,
-      error: { message: 'RPC is not available in Appwrite' },
-      count: null,
-    }),
+    rpc: async (functionName: string, params: AnyRecord = {}) => {
+      const failure = (message: string) => ({
+        data: null,
+        error: { message },
+        count: null,
+      });
+      const findOne = async (table: string, field: string, value: any) =>
+        client.from(table).select('*').eq(field, value).maybeSingle();
+
+      try {
+        if (functionName === 'peek_invitation') {
+          const invitation = await findOne(
+            'account_invitations',
+            'token_hash',
+            params.p_token_hash
+          );
+          if (invitation.error || !invitation.data) {
+            return { data: { ok: false, reason: 'not_found' }, error: null };
+          }
+          const row = invitation.data;
+          if (row.accepted_at || row.acceptedAt) {
+            return { data: { ok: false, reason: 'used' }, error: null };
+          }
+          const expiresAt = row.expires_at || row.expiresAt;
+          if (expiresAt && new Date(expiresAt).getTime() <= Date.now()) {
+            return { data: { ok: false, reason: 'expired' }, error: null };
+          }
+          const account = await findOne(
+            'accounts',
+            'id',
+            row.account_id || row.accountId
+          );
+          return {
+            data: {
+              ok: true,
+              account_name: account.data?.name || account.data?.accountName,
+              role: row.role || row.account_role,
+              expires_at: expiresAt,
+            },
+            error: null,
+          };
+        }
+
+        if (functionName === 'redeem_invitation') {
+          const auth = await client.auth.getUser();
+          if (!auth.data?.user) return failure('Unauthorized');
+          const invitation = await findOne(
+            'account_invitations',
+            'token_hash',
+            params.p_token_hash
+          );
+          if (invitation.error || !invitation.data) {
+            return failure('Invitation not found');
+          }
+          const row = invitation.data;
+          const accountId = row.account_id || row.accountId;
+          const profile = await findOne(
+            'profiles',
+            'user_id',
+            auth.data.user.id
+          );
+          if (
+            profile.data?.account_id === accountId ||
+            profile.data?.accountId === accountId
+          ) {
+            return failure('You are already a member of this account');
+          }
+          if (profile.data?.id || profile.data?.$id) {
+            await client
+              .from('profiles')
+              .update({
+                account_id: accountId,
+                account_role: row.role || 'agent',
+              })
+              .eq('id', profile.data.id || profile.data.$id);
+          }
+          await client
+            .from('account_invitations')
+            .update({
+              accepted_at: new Date().toISOString(),
+              accepted_by_user_id: auth.data.user.id,
+            })
+            .eq('id', row.id || row.$id);
+          return { data: accountId, error: null };
+        }
+
+        if (functionName === 'delete_patient_atomic') {
+          const patient = await client
+            .from('patients')
+            .select('*')
+            .eq('id', params.p_patient_id)
+            .eq('account_id', params.p_account_id)
+            .maybeSingle();
+          if (patient.error || !patient.data) {
+            return failure('Patient not found in tenant');
+          }
+          const deleted = await client
+            .from('patients')
+            .delete()
+            .eq('id', params.p_patient_id)
+            .eq('account_id', params.p_account_id);
+          if (deleted.error) return deleted;
+          return {
+            data: { deleted_at: new Date().toISOString() },
+            error: null,
+          };
+        }
+
+        if (functionName === 'update_patient_consent_atomic') {
+          const status = params.p_consent_status;
+          if (!['pending', 'opted_in', 'opted_out'].includes(status)) {
+            return failure(`Invalid consent_status: ${status}`);
+          }
+          const patient = await client
+            .from('patients')
+            .select('*')
+            .eq('id', params.p_patient_id)
+            .eq('account_id', params.p_account_id)
+            .maybeSingle();
+          if (patient.error || !patient.data) {
+            return failure('Patient not found in tenant');
+          }
+          const updated = await client
+            .from('patients')
+            .update({
+              consent_status: status,
+              consent_source: params.p_consent_source,
+              consent_updated_at: new Date().toISOString(),
+              policy_version: params.p_policy_version,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', params.p_patient_id)
+            .eq('account_id', params.p_account_id);
+          if (updated.error) return updated;
+          return {
+            data: { updated_at: new Date().toISOString() },
+            error: null,
+          };
+        }
+
+        if (
+          functionName === 'increment_automation_execution_count' ||
+          functionName === 'increment_flow_execution_count'
+        ) {
+          const table = functionName.includes('automation')
+            ? 'automations'
+            : 'flows';
+          const field = functionName.includes('automation')
+            ? 'p_automation_id'
+            : 'p_flow_id';
+          const row = await client
+            .from(table)
+            .select('*')
+            .eq('id', params[field])
+            .maybeSingle();
+          if (row.error || !row.data) return failure(`${table} not found`);
+          const current = Number(row.data.execution_count || 0);
+          const updated = await client
+            .from(table)
+            .update({ execution_count: current + 1 })
+            .eq('id', params[field]);
+          return updated.error ? updated : { data: null, error: null };
+        }
+
+        return failure(
+          `Appwrite function '${functionName}' is not implemented`
+        );
+      } catch (error: any) {
+        return failure(
+          error?.message || `Appwrite function '${functionName}' failed`
+        );
+      }
+    },
     auth: {
       getUser: async () => {
         const response = await fetch(`${endpoint}/account`, {

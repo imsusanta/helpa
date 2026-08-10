@@ -1,4 +1,4 @@
-name: Post-Deployment Production Alias Verification
+name: Post-Deployment Production Verification
 
 on:
   push:
@@ -7,15 +7,17 @@ on:
 
 jobs:
   verify-production:
-    name: Verify Live Production Alias & Deployed Commit SHA
+    name: Verify Live Production Site & Deployed Commit SHA
     runs-on: ubuntu-latest
+    env:
+      PRODUCTION_URL: https://www.helpa.studio
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Verify Production Homepage (HTTP 200)
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://wacrmsusanta.vercel.app/)
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$PRODUCTION_URL/")
           echo "Homepage HTTP status: $STATUS"
           if [ "$STATUS" -ne 200 ]; then
             echo "Error: Homepage returned $STATUS instead of 200"
@@ -24,7 +26,7 @@ jobs:
 
       - name: Verify Production /login (HTTP 200)
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://wacrmsusanta.vercel.app/login)
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$PRODUCTION_URL/login")
           echo "Login page HTTP status: $STATUS"
           if [ "$STATUS" -ne 200 ]; then
             echo "Error: /login returned $STATUS instead of 200"
@@ -33,9 +35,9 @@ jobs:
 
       - name: Verify Production /api/health (HTTP 200 & SHA Match)
         run: |
-          RESPONSE=$(curl -s https://wacrmsusanta.vercel.app/api/health)
+          RESPONSE=$(curl -s "$PRODUCTION_URL/api/health")
           echo "Health API Response: $RESPONSE"
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://wacrmsusanta.vercel.app/api/health)
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$PRODUCTION_URL/api/health")
           if [ "$STATUS" -ne 200 ]; then
             echo "Error: /api/health returned $STATUS instead of 200"
             exit 1

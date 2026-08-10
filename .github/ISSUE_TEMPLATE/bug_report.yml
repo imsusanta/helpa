@@ -61,7 +61,7 @@ body:
         - Local dev (npm run dev)
         - Hostinger Managed Node.js
         - Hostinger VPS
-        - Vercel
+        - Appwrite Sites
         - Other Node host
     validations:
       required: false

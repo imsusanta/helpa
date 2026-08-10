@@ -39,7 +39,7 @@ export class DefaultCalendlyProvider implements CalendlyProvider {
     const clientSecret = process.env.CALENDLY_CLIENT_SECRET || 'dummy_secret';
     const redirectUri =
       process.env.CALENDLY_REDIRECT_URI ||
-      'https://wacrmsusanta.vercel.app/api/calendly/oauth';
+      `${process.env.NEXT_PUBLIC_SITE_URL || 'https://www.helpa.studio'}/api/webhooks/calendly`;
 
     const resp = await fetch('https://auth.calendly.com/oauth/token', {
       method: 'POST',

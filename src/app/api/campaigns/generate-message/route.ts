@@ -106,7 +106,8 @@ ${department ? `Department: ${department}` : ''}`;
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${api_key.trim()}`,
-          'HTTP-Referer': 'https://wacrmsusanta.vercel.app',
+          'HTTP-Referer':
+            process.env.NEXT_PUBLIC_SITE_URL || 'https://www.helpa.studio',
           'X-Title': 'Helpa',
         },
         body: JSON.stringify({

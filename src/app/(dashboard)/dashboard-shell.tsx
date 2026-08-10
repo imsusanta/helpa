@@ -1,54 +1,60 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { AuthProvider, useAuth } from '@/hooks/use-auth';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
-
-// Auth-gated dashboard shell. Extracted from the layout so the layout
-// itself can stay a server component and export metadata (noindex) —
-// client components can't export Next's metadata object.
+import { DashboardErrorBoundary } from '@/components/dashboard/error-boundary';
+import { Loader2 } from 'lucide-react';
 
 function DashboardShellInner({ children }: { children: React.ReactNode }) {
-  const { user, loading, account } = useAuth();
-  void account;
-  const router = useRouter();
+  const { user, loading } = useAuth();
 
-  // Sidebar drawer state — only used on mobile. On lg+ the sidebar is
-  // always visible and this stays at `false` (ignored by the component).
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
   useEffect(() => {
     if (!loading && !user) {
-      router.push('/login');
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login';
+      }
     }
-  }, [user, loading, router]);
+  }, [user, loading]);
 
   const pathname = usePathname();
   const isInbox = pathname === '/inbox';
 
   if (loading) {
     return (
-      <div className="bg-background flex h-screen items-center justify-center">
+      <div className="flex min-h-screen w-full items-center justify-center bg-[#030712] text-zinc-300">
         <div className="flex flex-col items-center gap-3">
-          <div className="border-primary h-8 w-8 animate-spin rounded-full border-2 border-t-transparent" />
-          <p className="text-muted-foreground text-sm">Loading...</p>
+          <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
+          <p className="text-xs font-semibold text-zinc-400">
+            Loading Dashboard...
+          </p>
         </div>
       </div>
     );
   }
 
-  if (!user) return null;
+  if (!user) {
+    return (
+      <div className="flex min-h-screen w-full flex-col items-center justify-center bg-[#030712] text-zinc-300">
+        <Loader2 className="mb-3 h-8 w-8 animate-spin text-emerald-500" />
+        <p className="text-sm font-semibold text-zinc-200">
+          Session expired. Redirecting to login...
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-background flex h-screen overflow-hidden">
       <Sidebar open={sidebarOpen} onClose={closeSidebar} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header onOpenSidebar={() => setSidebarOpen(true)} />
-        {/* Thinner horizontal padding on mobile so cards have room to breathe. */}
         <main
           className={cn(
             'min-h-0 flex-1',
@@ -57,7 +63,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
               : 'overflow-y-auto p-4 sm:p-6'
           )}
         >
-          {children}
+          <DashboardErrorBoundary>{children}</DashboardErrorBoundary>
         </main>
       </div>
     </div>

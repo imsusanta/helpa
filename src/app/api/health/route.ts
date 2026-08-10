@@ -5,10 +5,10 @@ export async function GET() {
   const timestamp = new Date().toISOString();
 
   const commitSha =
-    process.env.VERCEL_GIT_COMMIT_SHA ||
-    process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ||
+    process.env.APPWRITE_GIT_COMMIT_SHA ||
+    process.env.NEXT_PUBLIC_APPWRITE_GIT_COMMIT_SHA ||
     process.env.GITHUB_SHA ||
-    '03b75d7517afd5e341d85feb1bb8669c06c9c30c';
+    'unknown';
 
   const hasAppwrite = Boolean(
     APPWRITE_CONFIG.endpoint && APPWRITE_CONFIG.projectId
