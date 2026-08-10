@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Queue } from 'bullmq';
 import Redis from 'ioredis';
 
@@ -25,7 +26,7 @@ function getFollowupsQueue(): Queue<AppointmentReminderJobData> {
   }
   if (!followupsQueue) {
     followupsQueue = new Queue<AppointmentReminderJobData>(FOLLOWUPS_QUEUE, {
-      connection: redisConnection,
+      connection: redisConnection as any,
       defaultJobOptions: {
         attempts: 3,
         backoff: { type: 'exponential', delay: 30_000 },

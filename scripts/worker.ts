@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Worker } from 'bullmq';
 import Redis from 'ioredis';
 import { processFollowupJob } from '../src/queues/workers/appointment-reminder';
@@ -18,26 +19,26 @@ console.log('[Helpa Worker] Starting background worker queues...');
 
 const workers: Worker[] = [
   new Worker('provider-events', processProviderEventsJob, {
-    connection,
+    connection: connection as any,
   }),
   new Worker('outbound-whatsapp', processOutboundWhatsAppJob, {
-    connection,
+    connection: connection as any,
     concurrency: 3,
   }),
   new Worker('outbound-sms', processOutboundSmsJob, {
-    connection,
+    connection: connection as any,
     concurrency: 3,
   }),
   new Worker('outbound-voice', processOutboundVoiceJob, {
-    connection,
+    connection: connection as any,
     concurrency: 2,
   }),
   new Worker<AppointmentReminderJobData>('followups', processFollowupJob, {
-    connection,
+    connection: connection as any,
     concurrency: 5,
   }),
   new Worker('calendly-sync', processCalendlySyncJob, {
-    connection,
+    connection: connection as any,
   }),
 ];
 
