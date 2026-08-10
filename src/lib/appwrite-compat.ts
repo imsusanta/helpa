@@ -72,16 +72,26 @@ function requestHeaders(
   return headers;
 }
 
-function appwriteQuery(operator: string, field: string, value: any): string {
-  const values = Array.isArray(value) ? value : [value];
-  const appwriteField = field === 'id' ? '$id' : toCamelCase(field);
-  return `${operator}("${appwriteField}",${JSON.stringify(values)})`;
+function appwriteQuery(operator: string, field?: string, value?: any): string {
+  const query: AnyRecord = { method: operator };
+  if (field !== undefined) query.attribute = toAppwriteField(field);
+  if (value !== undefined) {
+    query.values = Array.isArray(value) ? value : [value];
+  }
+  return JSON.stringify(query);
 }
 
 function toCamelCase(field: string): string {
   return field.replace(/_([a-z])/g, (_, letter: string) =>
     letter.toUpperCase()
   );
+}
+
+function toAppwriteField(field: string): string {
+  if (field === 'id') return '$id';
+  if (field === 'created_at') return '$createdAt';
+  if (field === 'updated_at') return '$updatedAt';
+  return toCamelCase(field);
 }
 
 function toSnakeCase(field: string): string {
@@ -91,6 +101,12 @@ function toSnakeCase(field: string): string {
 function normalizeRecord(document: AnyRecord): AnyRecord {
   const result: AnyRecord = { ...document };
   if (document.$id && !result.id) result.id = document.$id;
+  if (document.$createdAt && !result.created_at) {
+    result.created_at = document.$createdAt;
+  }
+  if (document.$updatedAt && !result.updated_at) {
+    result.updated_at = document.$updatedAt;
+  }
   Object.entries(document).forEach(([key, value]) => {
     const snake = toSnakeCase(key);
     if (snake !== key && result[snake] === undefined) result[snake] = value;
@@ -196,7 +212,7 @@ class QueryBuilder {
   is(field: string, value: any) {
     this.filters.push(
       value === null
-        ? appwriteQuery('isNull', field, [])
+        ? appwriteQuery('isNull', field)
         : appwriteQuery('equal', field, queryValue(value))
     );
     return this;
@@ -217,13 +233,31 @@ class QueryBuilder {
   }
   not(field: string, operator: string, value: any) {
     if (operator === 'is' && value === null) {
-      this.filters.push(appwriteQuery('isNotNull', field, []));
+      this.filters.push(appwriteQuery('isNotNull', field));
     }
     return this;
   }
   or(expression: string) {
-    const parts = expression.split(',').filter(Boolean);
-    if (parts.length) this.filters.push(`or(${parts.join(',')})`);
+    const parts = expression
+      .split(/,(?=[a-zA-Z_$][\w$]*\.)/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+    const queries = parts.map((part) => {
+      const match = part.match(/^([\w$]+)\.(ilike|like)\.(.*)$/);
+      if (match) {
+        return appwriteQuery('search', match[1], match[3].replace(/%/g, ''));
+      }
+      return appwriteQuery('equal', part.split('.')[0], '');
+    });
+    if (queries.length) {
+      this.filters.push(
+        appwriteQuery(
+          'or',
+          undefined,
+          queries.map((query) => JSON.parse(query))
+        )
+      );
+    }
     return this;
   }
   filter(field: string, operator: string, value: any) {
@@ -235,7 +269,10 @@ class QueryBuilder {
   }
   order(field: string, options: AnyRecord = {}) {
     this.ordering.push(
-      `${options.ascending === false ? 'desc' : 'asc'}:${field}`
+      appwriteQuery(
+        options.ascending === false ? 'orderDesc' : 'orderAsc',
+        field
+      )
     );
     return this;
   }
@@ -303,16 +340,14 @@ class QueryBuilder {
 
   private async list() {
     const params = new URLSearchParams();
-    this.filters.forEach((query) => params.append('queries[]', query));
-    this.ordering.forEach((query) =>
-      params.append(
-        'queries[]',
-        `order${query.startsWith('desc') ? 'Desc' : 'Asc'}("${query.slice(query.indexOf(':') + 1)}")`
-      )
-    );
+    const queries = [...this.filters, ...this.ordering];
     if (this.maxRows !== undefined)
-      params.append('queries[]', `limit(${this.maxRows})`);
-    if (this.offset) params.append('queries[]', `offset(${this.offset})`);
+      queries.push(appwriteQuery('limit', undefined, this.maxRows));
+    if (this.offset)
+      queries.push(appwriteQuery('offset', undefined, this.offset));
+    queries.forEach((query, index) =>
+      params.append(`queries[${index}]`, query)
+    );
     const response = await fetch(
       `${endpoint}/databases/${encodeURIComponent(APPWRITE_CONFIG.databaseId)}/collections/${encodeURIComponent(this.table)}/documents?${params}`,
       {

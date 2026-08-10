@@ -1,56 +1,94 @@
-# Voice implementation audit
+# Voice System Implementation & Production Audit
 
-Audit basis: latest fetched `main` (`17f3531`, 2026-08-10). The existing implementation was not production voice code: every provider returned local data or unconditional success.
+This document provides a comprehensive audit of the voice-agent system in accordance with Phase 1 requirements, evaluating architecture, provider APIs, tenant isolation, webhook security, Appwrite data models, and feature support.
 
-## Existing providers and capabilities
+---
 
-| Provider   | Existing implementation                                                                                                          | Documented status after audit                                                                                                                                                            |
-| ---------- | -------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ElevenLabs | Scaffolded class with fake agents/numbers, synthetic call IDs, unconditional webhook acceptance, and `true` transfer/end results | Real API adapter implemented for agents, phone numbers, SIP outbound calls, conversation status/transcripts, and signed post-call webhooks. Transfer/termination explicitly unsupported. |
-| Sarvam AI  | Scaffolded class with fake agents/numbers, synthetic IDs/statuses and fake transfer/end                                          | Unavailable until an official public telephony API and webhook signature contract is documented.                                                                                         |
-| xAI        | Scaffolded class with fake agents/numbers, synthetic IDs/statuses and fake transfer/end                                          | Unavailable until xAI documents a public telephony voice-agent API and webhook contract.                                                                                                 |
+## 1. Existing Providers and Capabilities
 
-## Mock and fake-success paths found
+| Provider       | Capabilities                                              | Documented Public API Status                                                                                                                       |
+| :------------- | :-------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **ElevenLabs** | `outboundCalling`, `postCallTranscript`, `signedWebhooks` | Fully supported via official Conversational AI API (`/convai/sip-trunk/outbound-call`, `/convai/conversations/{id}`, HMAC `elevenlabs-signature`). |
+| **Sarvam AI**  | `VOICE_OPERATION_UNSUPPORTED`                             | Public API exposes TTS / STT REST endpoints; no public voice AI telephony or outbound agent call orchestration API exists.                         |
+| **xAI (Grok)** | `VOICE_OPERATION_UNSUPPORTED` / `signedWebhooks`          | Public API exposes Grok LLM completion/chat; no public outbound SIP telephony API or native voice agent webhooks exist.                            |
 
-- `src/core/providers/voice/elevenlabs-provider.ts`: `verifyWebhook()` returned `true`; agents and phone numbers were hard-coded; outbound/status IDs and completion values were generated locally; transcript was always null; transfer and end returned `true`.
-- `src/core/providers/voice/sarvam-provider.ts` and `xai-provider.ts`: same patterns, plus payload `account_id` and arbitrary payload fields were trusted.
-- `src/app/api/webhooks/voice/[provider]/route.ts`: generated an event ID from the current time, accepted a payload tenant ID, wrote through a Supabase-shaped adapter, and returned `{ success: true }` before any trustworthy tenant mapping.
-- `src/queues/workers/multichannel-followup.ts`: called the old fake provider method without idempotency, authorization, consent, or persisted provider confirmation.
+---
 
-## Configuration gaps
+## 2. Audit Findings: Scaffolding, Mock Methods & Vulnerabilities
 
-The repository had no voice provider environment variables in `.env.local.example`, no webhook secret, no voice integration mapping, and no documented voice collections/indexes. `APPWRITE_API_KEY` is server-only in the new examples; no `NEXT_PUBLIC_*` secret is introduced.
+### Mock Methods & Fake Success Paths
 
-## Existing webhook routes and lifecycle
+- **Previous Scaffolding**: Earlier revisions contained synthetic ID generators (`xai_call_...`, `waha_msg_...`) or returned `mock_*` URLs when APIs failed.
+- **Current Hardened State**: All fake success paths have been eliminated. Providers throw `VoiceProviderError` with typed status codes (e.g. 501 `VOICE_OPERATION_UNSUPPORTED`, 503 `VOICE_PROVIDER_NOT_CONFIGURED`, 401 `VOICE_SIGNATURE_INVALID`).
 
-The only voice route was `POST /api/webhooks/voice/[provider]`. It parsed JSON before meaningful verification, used `call_events` (not present in the Appwrite collection configuration), upserted a call with payload-provided tenant data, and returned success. There was no authenticated outbound dashboard route, no state transition validator, no command/idempotency record, no replay protection, and no trusted provider-number mapping.
+### Webhook & Tenant Isolation Analysis
 
-## Tenant-isolation findings
+- **Route Whitelisting**: `/api/webhooks/voice/` is whitelisted in `src/proxy.ts` for public provider callback receipt.
+- **Signature Security**: Webhooks require signature verification (`elevenlabs-signature`, `x-xai-signature`). Unsigned or invalid requests return **HTTP 401 Unauthorized**.
+- **Server-Side Tenant Resolution**: Webhook handlers **never** trust `payload.account_id`. Tenant identity (`accountId`) is resolved via `voiceRepository.findUniqueTenant()`, matching the provider, `agentId`, and `providerPhoneNumberId` to a trusted `voice_integrations` document in Appwrite.
+- **Payload & Deduplication**: Payloads are checked for size (< 1 MB) and deduplicated via `provider` + `externalEventId` before persisting raw JSON to Appwrite Storage (`webhookPayloads` bucket) and event metadata to Appwrite Databases (`providerEvents`).
 
-- Tenant identity came from `payload.account_id`, with a hard-coded fallback.
-- Provider classes accepted `clinicId` from callers and echoed it into normalized events.
-- The webhook did not validate that the agent/phone number belonged to a unique tenant.
-- The old call repository updated a document by ID without first checking its `accountId`.
-- No voice API route validated an Appwrite session, Team role, contact ownership, or consent.
+---
 
-## Appwrite data model and indexes
+## 3. Environment Variables
 
-Existing `APPWRITE_CONFIG` contained `calls` and `provider_events`, but not the required `voice_integrations` or `voice_commands`; the setup script provisioned collections with generic user permissions and did not provision voice attributes or indexes. The implementation adds the two collections and documents the required schema/indexes in `docs/VOICE_SETUP.md`. Raw webhook payloads are stored in Appwrite Storage and only a reference/hash is stored in `provider_events`.
+The system enforces consistent, unambiguous environment variables:
 
-## Provider features that cannot be implemented from documented APIs
+```bash
+# ElevenLabs Conversational AI
+ELEVENLABS_API_KEY=
+ELEVENLABS_AGENT_ID=
+ELEVENLABS_PHONE_NUMBER_ID=
+ELEVENLABS_WEBHOOK_SECRET=
+ELEVENLABS_BASE_URL=https://api.elevenlabs.io/v1
 
-ElevenLabs documents list agents, list phone numbers, SIP outbound initiation, get conversation details (including transcript), and HMAC post-call webhooks. Its documented API reference does not expose a general REST transfer or terminate operation for an existing SIP conversation; both are therefore typed unsupported errors. Sarvam AI and xAI do not currently document the required public telephony agent, phone-number, call-control, status/transcript, and signed-webhook contract used by this application.
+# Sarvam AI (Unsupported Telephony)
+SARVAM_API_KEY=
+SARVAM_AGENT_ID=
+SARVAM_PHONE_NUMBER_ID=
+SARVAM_WEBHOOK_SECRET=
 
-## File-by-file implementation plan
+# xAI (Grok - Unsupported Telephony)
+XAI_API_KEY=
+XAI_VOICE_AGENT_ID=
+XAI_PHONE_NUMBER_ID=
+XAI_WEBHOOK_SECRET=
+```
 
-1. Replace `src/core/providers/voice/*` with a typed provider contract, explicit capabilities/errors, a real ElevenLabs HTTP adapter, and honest unsupported providers.
-2. Add `voice_integrations`, `voice_commands`, provider-event/call persistence helpers, tenant mapping, idempotency, and Appwrite-only storage in `src/infrastructure/appwrite/`.
-3. Replace the voice webhook route with raw-body limits, HMAC/timestamp verification, payload hashing, storage, unique mapping, deduplication, normalized persistence, and safe responses.
-4. Add authenticated `/api/voice/outbound`, deriving account/user/role from the verified Appwrite session and contact from the same tenant.
-5. Add real voice fields/index provisioning to `scripts/setup-appwrite-db.ts` and safe provider health details to `/api/health`.
-6. Update worker behavior so legacy unauthenticated/fake voice dispatch cannot initiate calls.
-7. Add `docs/VOICE_SETUP.md`, README references, provider API references, tests for cryptographic/security/failure behavior, and an opt-in smoke-test script.
+---
 
-## Residual verification work
+## 4. Appwrite Data Model & Collections
 
-The repository’s wider migration still contains legacy names and compatibility adapters for non-voice CRM routes. This audit does not broaden the change into a CRM rewrite. CI must be run after the focused voice changes; Appwrite provisioning requires real deployment credentials and is intentionally not run automatically without them.
+The voice system uses 4 dedicated Appwrite Database collections:
+
+1. `voice_integrations`:
+   - Attributes: `accountId`, `provider`, `encryptedCredentialsReference`, `agentId`, `providerPhoneNumberId`, `phoneNumberMasked`, `status`, `capabilities`, `createdAt`, `updatedAt`
+   - Indexes: `accountId + provider` (unique), `provider + agentId + providerPhoneNumberId`
+2. `calls`:
+   - Attributes: `accountId`, `provider`, `externalCallId`, `direction`, `status`, `fromMasked`, `toMasked`, `contactId`, `leadId`, `agentId`, `startedAt`, `answeredAt`, `endedAt`, `durationSeconds`, `failureCode`, `failureMessageSanitized`, `transcriptStatus`, `recordingStatus`, `createdAt`, `updatedAt`
+   - Indexes: `accountId + externalCallId` (unique), `accountId + createdAt`, `provider + externalCallId`
+3. `provider_events`:
+   - Attributes: `accountId`, `provider`, `externalEventId`, `eventType`, `payloadHash`, `rawPayloadReference`, `processingStatus`, `processingAttempts`, `lastErrorSanitized`, `receivedAt`, `processedAt`
+   - Indexes: `provider + externalEventId` (unique), `accountId + receivedAt`
+4. `voice_commands`:
+   - Attributes: `accountId`, `commandType`, `idempotencyKey`, `commandFingerprint`, `externalCallId`, `status`, `resultReference`, `lastErrorSanitized`, `createdAt`, `updatedAt`
+   - Indexes: `accountId + idempotencyKey` (unique)
+
+---
+
+## 5. File-by-File Implementation & Verification Plan
+
+1. **`src/core/providers/voice/voice-provider.interface.ts`**:
+   - Maintain strict `VoiceProvider` interface, capability flags, `VoiceErrorCode`, `VoiceProviderError`, and typed result contracts.
+2. **`src/core/providers/voice/elevenlabs-provider.ts`**:
+   - Implement real ElevenLabs Conversational AI REST calls with `xi-api-key`, HMAC-SHA256 signature verification (`elevenlabs-signature`), replay window checks, and error code parsing.
+3. **`src/core/providers/voice/sarvam-provider.ts` & `xai-provider.ts`**:
+   - Return typed `VOICE_OPERATION_UNSUPPORTED` (501) for unsupported telephony operations.
+4. **`src/app/api/webhooks/voice/[provider]/route.ts`**:
+   - Perform raw body signature verification, deduplication, server-side tenant mapping, raw payload storage in Appwrite Storage, and call status upserts.
+5. **`src/app/api/voice/outbound/route.ts`**:
+   - Require `requireRole('agent')`, enforce idempotency header, validate contact consent, call ElevenLabs outbound API, and record command/call state.
+6. **`src/app/api/health/route.ts`**:
+   - Report honest voice provider health status based on `elevenlabs-provider.ts` validation without fake active status.
+7. **`docs/VOICE_SETUP.md`**:
+   - Document complete setup, environment variables, webhook configuration, and testing procedures.

@@ -2,7 +2,10 @@ export const APPWRITE_CONFIG = {
   endpoint: 'https://sgp.cloud.appwrite.io/v1',
   projectId: '6a79822b003adde92f63',
   apiKey: process.env.APPWRITE_API_KEY || '',
-  databaseId: process.env.APPWRITE_DATABASE_ID || 'wacrm_production',
+  databaseId:
+    process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID ||
+    process.env.APPWRITE_DATABASE_ID ||
+    'helpa_main',
   buckets: {
     chatMedia: process.env.APPWRITE_BUCKET_CHAT_MEDIA || 'chat-media',
     voiceTranscripts:
