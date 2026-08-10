@@ -1128,11 +1128,9 @@ Note:
           }
 
           if (targetContactId && targetContact && hospital_profile_update) {
+            const tc = targetContact as Record<string, unknown>;
             const existingMetadata = (
-              targetContact.metadata &&
-              typeof targetContact.metadata === 'object'
-                ? targetContact.metadata
-                : {}
+              tc.metadata && typeof tc.metadata === 'object' ? tc.metadata : {}
             ) as Record<string, unknown>;
             const newMeta: Record<string, unknown> = {
               ...existingMetadata,

@@ -23,9 +23,18 @@ const PUBLIC_EXACT_PATHS = new Set([
   '/api/health',
   '/api/whatsapp/webhook',
   '/api/plans',
+  '/api/auth/login',
+  '/api/auth/signup',
+  '/api/auth/logout',
+  '/api/auth/reset-password',
 ]);
 
-const PUBLIC_PATH_PREFIXES = ['/join/', '/api/invitations/', '/_next/'];
+const PUBLIC_PATH_PREFIXES = [
+  '/join/',
+  '/api/invitations/',
+  '/api/auth/',
+  '/_next/',
+];
 
 function isPublicRoute(pathname: string): boolean {
   if (pathname.startsWith('/api/whatsapp/webhook')) return true;

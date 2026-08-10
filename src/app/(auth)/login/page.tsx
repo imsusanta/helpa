@@ -3,7 +3,6 @@
 import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -49,7 +48,6 @@ function LoginPageInner() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const supabase = createClient();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,47 +55,30 @@ function LoginPageInner() {
     setLoading(true);
 
     try {
-      // 1. Try Appwrite Authentication
-      const { account } = await import('@/lib/appwrite/client');
-      try {
-        await account.createEmailPasswordSession(email, password);
-        // Set cookie for Next.js proxy middleware
-        document.cookie = `appwrite_session=active; path=/; max-age=2592000; SameSite=Lax; ${location.protocol === 'https:' ? 'Secure;' : ''}`;
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
 
-        if (inviteToken) {
-          router.push(`/join/${encodeURIComponent(inviteToken)}`);
-        } else {
-          router.push('/dashboard');
-        }
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        setError(
+          data.error || 'Failed to sign in. Please check your credentials.'
+        );
+        setLoading(false);
         return;
-      } catch (appwriteErr: unknown) {
-        // Fallback to Supabase Auth if Appwrite session creation fails
-        const { error: sbErr } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+      }
 
-        if (sbErr) {
-          const appMsg =
-            (appwriteErr as Error)?.message || 'Invalid login credentials.';
-          setError(
-            sbErr.message.includes('exceed_db_size_quota')
-              ? appMsg
-              : sbErr.message
-          );
-          setLoading(false);
-          return;
-        }
-
-        if (inviteToken) {
-          router.push(`/join/${encodeURIComponent(inviteToken)}`);
-        } else {
-          router.push('/dashboard');
-        }
+      if (inviteToken) {
+        router.push(`/join/${encodeURIComponent(inviteToken)}`);
+      } else {
+        router.push('/dashboard');
       }
     } catch (err: unknown) {
       setError(
-        (err as Error).message || 'An unexpected authentication error occurred.'
+        (err as Error).message || 'Network error occurred during login.'
       );
       setLoading(false);
     }

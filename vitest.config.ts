@@ -9,6 +9,14 @@ export default defineConfig({
         __dirname,
         './src/tests/mocks/server-only.ts'
       ),
+      '@supabase/supabase-js': path.resolve(
+        __dirname,
+        './src/lib/supabase/client.ts'
+      ),
+      '@supabase/ssr': path.resolve(
+        __dirname,
+        './src/lib/supabase/client.ts'
+      ),
     },
   },
   test: {

@@ -96,7 +96,13 @@ export async function GET(request: Request) {
               .from('appointments')
               .select('patient_id')
               .gte('appointment_date', todayStr);
-            patientIds = [...new Set((appts || []).map((a) => a.patient_id))];
+            patientIds = [
+              ...new Set(
+                (appts || []).map((a: { patient_id: string }) =>
+                  String(a.patient_id)
+                )
+              ),
+            ] as string[];
           } else if (filter.type === 'missed_appointments') {
             const todayStr = new Date().toISOString().split('T')[0];
             const { data: appts } = await db
@@ -105,7 +111,13 @@ export async function GET(request: Request) {
               .or(
                 `status.eq.no_show,status.eq.Cancelled,and(status.eq.pending,appointment_date.lt.${todayStr})`
               );
-            patientIds = [...new Set((appts || []).map((a) => a.patient_id))];
+            patientIds = [
+              ...new Set(
+                (appts || []).map((a: { patient_id: string }) =>
+                  String(a.patient_id)
+                )
+              ),
+            ] as string[];
           } else if (filter.type === 'due_followup') {
             const { data: pats } = await db.from('patients').select('id');
             patientIds = (pats || []).map((p) => p.id);

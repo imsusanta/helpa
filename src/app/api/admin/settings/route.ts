@@ -50,7 +50,7 @@ export async function POST(req: Request) {
 
     const db = supabaseAdmin();
 
-    const upserts = [];
+    const upserts: Array<{ key: string; value: string }> = [];
     if (typeof landing_hero_video_url === 'string') {
       upserts.push({
         key: 'landing_hero_video_url',

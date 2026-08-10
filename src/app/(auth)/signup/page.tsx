@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,6 +34,7 @@ export default function SignupPage() {
 }
 
 function SignupPageInner() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const inviteToken = searchParams.get('invite');
 
@@ -62,29 +63,55 @@ function SignupPageInner() {
 
     setLoading(true);
 
-    const emailRedirectTo = inviteToken
-      ? `${window.location.origin}/join/${encodeURIComponent(inviteToken)}`
-      : undefined;
+    try {
+      const res = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, fullName }),
+      });
 
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        setError(data.error || 'Failed to create account.');
+        setLoading(false);
+        return;
+      }
+
+      if (data.redirect === '/dashboard') {
+        if (inviteToken) {
+          router.push(`/join/${encodeURIComponent(inviteToken)}`);
+        } else {
+          router.push('/dashboard');
+        }
+      } else {
+        setSuccess(true);
+        setLoading(false);
+      }
+    } catch {
+      // Supabase fallback if API route is unreachable
+      const emailRedirectTo = inviteToken
+        ? `${window.location.origin}/join/${encodeURIComponent(inviteToken)}`
+        : undefined;
+
+      const { error: sbErr } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { full_name: fullName },
+          ...(emailRedirectTo ? { emailRedirectTo } : {}),
         },
-        ...(emailRedirectTo ? { emailRedirectTo } : {}),
-      },
-    });
+      });
 
-    if (error) {
-      setError(error.message);
+      if (sbErr) {
+        setError(sbErr.message);
+        setLoading(false);
+        return;
+      }
+
+      setSuccess(true);
       setLoading(false);
-      return;
     }
-
-    setSuccess(true);
-    setLoading(false);
   };
 
   if (success) {

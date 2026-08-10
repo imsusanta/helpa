@@ -29,7 +29,7 @@ const SECURITY_HEADERS = [
       "img-src 'self' data: blob: https://*.supabase.co https://avatar.vercel.sh https://images.unsplash.com",
       "media-src 'self' blob: https://*.supabase.co",
       "font-src 'self' data:",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://openrouter.ai",
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.appwrite.io https://*.appwrite.network wss://*.appwrite.network https://openrouter.ai",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",

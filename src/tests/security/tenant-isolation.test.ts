@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { hasMinRole, type AccountRole } from '@/lib/auth/roles';
 import { generatePdfToken, verifyPdfToken } from '@/lib/pdf-signing';
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from '@/types/database';
 import { getAdminClient } from '@/lib/supabase/typed-admin';
 
 describe('Security: Multi-Tenancy & Authorization Invariants', () => {
@@ -151,7 +150,7 @@ describe('Security: Multi-Tenancy & Authorization Invariants', () => {
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'test-anon-key-1234567890';
 
       // Tenant User A session (Account A context)
-      const clientTenantA = createClient<Database>(url, anonKey, {
+      const clientTenantA = createClient(url, anonKey, {
         auth: { persistSession: false, autoRefreshToken: false },
         global: {
           headers: {
@@ -162,7 +161,7 @@ describe('Security: Multi-Tenancy & Authorization Invariants', () => {
       });
 
       // Tenant User B session (Account B context)
-      const clientTenantB = createClient<Database>(url, anonKey, {
+      const clientTenantB = createClient(url, anonKey, {
         auth: { persistSession: false, autoRefreshToken: false },
         global: {
           headers: {
