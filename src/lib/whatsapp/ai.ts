@@ -1105,7 +1105,7 @@ Note:
             .maybeSingle();
 
           let targetContactId = targetPatient?.id;
-          let targetContact = null;
+          let targetContact: Record<string, unknown> | null = null;
 
           if (targetContactId) {
             const { data: extContact } = await db
@@ -1113,7 +1113,7 @@ Note:
               .select('id, name, address, notes, metadata')
               .eq('id', targetContactId)
               .single();
-            targetContact = extContact;
+            targetContact = extContact as Record<string, unknown> | null;
           } else {
             // Fallback: search in contacts table metadata
             const { data: extContact } = await db
@@ -1123,7 +1123,7 @@ Note:
               .filter('metadata->>patient_id', 'eq', pId)
               .maybeSingle();
 
-            targetContact = extContact;
+            targetContact = extContact as Record<string, unknown> | null;
             targetContactId = extContact?.id;
           }
 
