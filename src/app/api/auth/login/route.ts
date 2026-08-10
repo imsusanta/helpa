@@ -18,18 +18,21 @@ export async function POST(request: Request) {
     const trimmedEmail = email.trim().toLowerCase();
 
     // Call Appwrite REST API directly to create an email session
-    const appwriteRes = await fetch(`${APPWRITE_ENDPOINT}/account/sessions/email`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Appwrite-Project': APPWRITE_PROJECT_ID,
-        'X-SDK-Platform': 'client',
-      },
-      body: JSON.stringify({
-        email: trimmedEmail,
-        password,
-      }),
-    });
+    const appwriteRes = await fetch(
+      `${APPWRITE_ENDPOINT}/account/sessions/email`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Appwrite-Project': APPWRITE_PROJECT_ID,
+          'X-SDK-Platform': 'client',
+        },
+        body: JSON.stringify({
+          email: trimmedEmail,
+          password,
+        }),
+      }
+    );
 
     const appwriteJson = await appwriteRes.json();
 
@@ -41,7 +44,10 @@ export async function POST(request: Request) {
             appwriteJson.message ||
             'Invalid login credentials. Please check your email and password.',
         },
-        { status: appwriteRes.status >= 400 && appwriteRes.status < 500 ? 401 : 500 }
+        {
+          status:
+            appwriteRes.status >= 400 && appwriteRes.status < 500 ? 401 : 500,
+        }
       );
     }
 

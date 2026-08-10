@@ -1,11 +1,10 @@
 import { Client, Account, Databases, Users } from 'node-appwrite';
 
-const endpoint =
-  process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT ||
-  'https://sgp.cloud.appwrite.io/v1';
-const projectId =
-  process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID || '6a79822b003adde92f63';
-const apiKey = process.env.APPWRITE_API_KEY || '';
+import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
+
+const endpoint = APPWRITE_CONFIG.endpoint;
+const projectId = APPWRITE_CONFIG.projectId;
+const apiKey = process.env.APPWRITE_API_KEY || APPWRITE_CONFIG.apiKey;
 
 export function createAdminClient() {
   const adminClient = new Client()
