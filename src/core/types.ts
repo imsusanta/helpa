@@ -25,14 +25,18 @@ export type LeadStageType =
 
 export interface MessageEvent {
   eventId: string;
+  messageId?: string;
   clinicId: string;
   provider: 'meta' | 'waha' | 'twilio' | 'exotel';
   channel: 'whatsapp' | 'sms';
   externalMessageId: string;
   direction: 'inbound' | 'outbound';
   patientAddress: string;
+  senderPhone?: string;
+  recipientPhone?: string;
+  content?: string;
   clinicAddress?: string;
-  contentType:
+  contentType?:
     | 'text'
     | 'image'
     | 'document'
@@ -44,10 +48,12 @@ export interface MessageEvent {
   mediaUrl?: string;
   status: 'sent' | 'delivered' | 'read' | 'failed';
   occurredAt: string;
+  timestamp?: string;
 }
 
 export interface CallEvent {
   eventId: string;
+  callId?: string;
   clinicId: string;
   provider: 'sarvam' | 'xai' | 'elevenlabs';
   externalCallId: string;
@@ -60,6 +66,8 @@ export interface CallEvent {
   summary?: string;
   outcome?: string;
   recordingUrl?: string;
+  failureReason?: string;
+  humanHandoff?: boolean;
   startedAt: string;
   answeredAt?: string;
   endedAt?: string;
@@ -69,6 +77,7 @@ export interface CallEvent {
 export interface CalendlyEvent {
   eventId: string;
   clinicId: string;
+  type?: 'scheduled' | 'canceled' | 'rescheduled';
   eventType:
     | 'invitee.created'
     | 'invitee.canceled'
@@ -76,6 +85,9 @@ export interface CalendlyEvent {
     | 'invitee_no_show.deleted';
   eventUri: string;
   inviteeUri: string;
+  patientName?: string;
+  patientPhone?: string;
+  patientEmail?: string;
   contactDetails: {
     name?: string;
     email?: string;
@@ -83,10 +95,13 @@ export interface CalendlyEvent {
   };
   startAt: string;
   endAt: string;
+  startTime?: string;
+  endTime?: string;
   timezone: string;
   status: 'active' | 'canceled';
   rescheduled: boolean;
   occurredAt: string;
+  rawPayload?: Record<string, unknown>;
 }
 
 export interface LeadEvent {

@@ -117,6 +117,29 @@ export function LeadKanbanBoard({
     if (initialLeads.length === 0) {
       loadRealLeads();
     }
+
+    const supabase = createClient();
+    const channel = supabase
+      .channel('kanban-realtime-deals')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'deals' },
+        () => {
+          loadRealLeads();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'lead_stage_history' },
+        () => {
+          loadRealLeads();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [initialLeads.length, loadRealLeads]);
 
   // DND Sensors (5px distance constraint to avoid accidental clicks)
@@ -188,9 +211,19 @@ export function LeadKanbanBoard({
 
   // Secure Stage Transition Boundary Call
   const handleMoveLeadStage = useCallback(
-    async (leadId: string, targetStage: LeadStageType): Promise<boolean> => {
+    async (leadId: string, targetStage: LeadStageType, customReason?: string): Promise<boolean> => {
       const originalLead = leads.find((l) => l.id === leadId);
       if (!originalLead || originalLead.stage === targetStage) return true;
+
+      let reason = customReason;
+      if (targetStage === 'LOST' && !reason) {
+        const userPrompt = window.prompt('Please provide a reason for marking this lead as LOST:');
+        if (userPrompt === null) {
+          // User cancelled
+          return false;
+        }
+        reason = userPrompt.trim() || 'Marked lost from Kanban board';
+      }
 
       // 1. Optimistic Update
       setLeads((prev) =>
@@ -202,7 +235,7 @@ export function LeadKanbanBoard({
         const res = await fetch(`/api/leads/${leadId}/stage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nextStage: targetStage }),
+          body: JSON.stringify({ nextStage: targetStage, reason }),
         });
 
         const json = await res.json();

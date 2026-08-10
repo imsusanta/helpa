@@ -182,10 +182,7 @@ export function LeadDetailsDrawer({
     setUpdatingStage(true);
     const ok = await onStageChange(leadId, newStage);
     if (ok) {
-      toast.success(`Lead moved to ${newStage}`);
       loadDetails(leadId);
-    } else {
-      toast.error('Failed to change lead stage.');
     }
     setUpdatingStage(false);
   };
@@ -196,15 +193,18 @@ export function LeadDetailsDrawer({
       const res = await fetch(`/api/leads/${leadId}/handoff`, {
         method: 'POST',
       });
-      if (res.ok) {
+      const json = await res.json();
+      if (res.ok && json.success) {
         toast.success(
           'Human takeover activated. AI automated responses paused.'
         );
       } else {
-        toast.info('Human takeover request sent.');
+        toast.error(json.error || 'Failed to activate human takeover.');
       }
-    } catch {
-      toast.info('Human takeover request logged.');
+    } catch (err: unknown) {
+      toast.error(
+        (err as Error).message || 'Network error activating human takeover.'
+      );
     }
   };
 

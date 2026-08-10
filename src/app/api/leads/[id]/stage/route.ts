@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
 import { LeadStageType } from '@/core/types';
 import { AccountRole, canSendMessages } from '@/lib/auth/roles';
+import { TrustedActionExecutor } from '@/core/actions/action-executor';
 
 const ALLOWED_STAGES: LeadStageType[] = [
   'NEW',
@@ -101,54 +102,30 @@ export async function POST(
       );
     }
 
-    const previousStage = (deal.stage || 'NEW') as LeadStageType;
+    // 4. Perform atomic transition via TrustedActionExecutor
+    const executor = new TrustedActionExecutor({
+      accountId,
+      actorId: user.id,
+      actorType: 'user',
+    });
 
-    // 4. Perform update within tenant scope
-    const { error: updateErr } = await adminDb
-      .from('deals')
-      .update({
-        stage: nextStage,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', leadId)
-      .eq('account_id', accountId);
+    const result = await executor.transitionLead({
+      leadId,
+      nextStage,
+      reason,
+      source: 'kanban_board',
+    });
 
-    if (updateErr) {
+    if (!result.success) {
       return NextResponse.json(
-        { success: false, error: 'Failed to update lead stage in database.' },
-        { status: 500 }
+        { success: false, error: result.error },
+        { status: 400 }
       );
     }
 
-    // 5. Record stage history and audit log
-    await Promise.allSettled([
-      adminDb.from('lead_stage_history').insert({
-        account_id: accountId,
-        lead_id: leadId,
-        previous_stage: previousStage,
-        next_stage: nextStage,
-        reason: reason || null,
-        source: 'kanban_board',
-        actor_type: 'user',
-        actor_id: user.id,
-      }),
-      adminDb.from('audit_logs').insert({
-        account_id: accountId,
-        actor_id: user.id,
-        action: 'lead.stage_changed',
-        resource_type: 'deals',
-        resource_id: leadId,
-        metadata: { previousStage, nextStage },
-      }),
-    ]);
-
     return NextResponse.json({
       success: true,
-      data: {
-        leadId,
-        previousStage,
-        nextStage,
-      },
+      data: result.data,
     });
   } catch (err: unknown) {
     return NextResponse.json(

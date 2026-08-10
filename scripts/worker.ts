@@ -1,6 +1,13 @@
-import { Job, Worker } from 'bullmq';
+import { Worker } from 'bullmq';
 import Redis from 'ioredis';
 import { processFollowupJob } from '../src/queues/workers/appointment-reminder';
+import {
+  processOutboundWhatsAppJob,
+  processOutboundSmsJob,
+  processOutboundVoiceJob,
+  processProviderEventsJob,
+} from '../src/queues/workers/multichannel-followup';
+import { processCalendlySyncJob } from '../src/queues/workers/calendly-sync-worker';
 import type { AppointmentReminderJobData } from '../src/queues/producers/appointment-reminders';
 
 const redisUrl = process.env.REDIS_URL;
@@ -9,33 +16,27 @@ if (!redisUrl) throw new Error('REDIS_URL is required to start the worker');
 const connection = new Redis(redisUrl, { maxRetriesPerRequest: null });
 console.log('[Helpa Worker] Starting background worker queues...');
 
-function placeholderProcessor(queueName: string) {
-  return async (job: Job) => {
-    console.log(`[Worker: ${queueName}] Received job`, {
-      jobId: job.id,
-      jobName: job.name,
-    });
-  };
-}
-
 const workers: Worker[] = [
-  new Worker('provider-events', placeholderProcessor('provider-events'), {
+  new Worker('provider-events', processProviderEventsJob, {
     connection,
   }),
-  new Worker('outbound-whatsapp', placeholderProcessor('outbound-whatsapp'), {
+  new Worker('outbound-whatsapp', processOutboundWhatsAppJob, {
     connection,
+    concurrency: 3,
   }),
-  new Worker('outbound-sms', placeholderProcessor('outbound-sms'), {
+  new Worker('outbound-sms', processOutboundSmsJob, {
     connection,
+    concurrency: 3,
   }),
-  new Worker('outbound-voice', placeholderProcessor('outbound-voice'), {
+  new Worker('outbound-voice', processOutboundVoiceJob, {
     connection,
+    concurrency: 2,
   }),
   new Worker<AppointmentReminderJobData>('followups', processFollowupJob, {
     connection,
     concurrency: 5,
   }),
-  new Worker('calendly-sync', placeholderProcessor('calendly-sync'), {
+  new Worker('calendly-sync', processCalendlySyncJob, {
     connection,
   }),
 ];
@@ -68,4 +69,4 @@ async function shutdown(signal: string) {
 process.once('SIGTERM', () => void shutdown('SIGTERM'));
 process.once('SIGINT', () => void shutdown('SIGINT'));
 
-console.log('[Helpa Worker] Worker queues initialized.');
+console.log('[Helpa Worker] All 6 worker queues initialized.');

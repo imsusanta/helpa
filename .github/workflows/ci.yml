@@ -64,7 +64,9 @@ jobs:
           supabase db reset
 
       - name: Real Supabase RLS Integration Tests
-        run: npm run test:integration
+        run: |
+          eval $(supabase status -o env)
+          NEXT_PUBLIC_SUPABASE_URL="$API_URL" NEXT_PUBLIC_SUPABASE_ANON_KEY="$ANON_KEY" SUPABASE_SERVICE_ROLE_KEY="$SERVICE_ROLE_KEY" npm run test:integration
 
       - name: Security Dependency Audit
         run: npm audit --audit-level=high

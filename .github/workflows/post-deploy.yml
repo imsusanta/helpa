@@ -22,6 +22,15 @@ jobs:
             exit 1
           fi
 
+      - name: Verify Production /login (HTTP 200)
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://wacrmsusanta.vercel.app/login)
+          echo "Login page HTTP status: $STATUS"
+          if [ "$STATUS" -ne 200 ]; then
+            echo "Error: /login returned $STATUS instead of 200"
+            exit 1
+          fi
+
       - name: Verify Production /api/health (HTTP 200)
         run: |
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://wacrmsusanta.vercel.app/api/health)

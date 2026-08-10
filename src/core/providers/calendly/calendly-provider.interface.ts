@@ -18,7 +18,7 @@ export interface CalendlyBookingRequest {
   eventTypeId: string;
   startAt: string;
   patientName: string;
-  patientEmail: string;
+  patientEmail?: string;
   patientPhone?: string;
   notes?: string;
 }

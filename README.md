@@ -41,15 +41,16 @@ graph TD
 
 ---
 
-## 🏥 Clinical Capabilities
+## 🏥 Clinical & Omnichannel Capabilities
 
-- **24/7 AI Receptionist Copilot**: Resolves patient inquiries, explains doctor availability, and schedules OPD appointments automatically over WhatsApp.
-- **Digital OPD Tickets with Signed QR Codes**: Generates short-lived HMAC-signed PDF appointment tickets with embedded QR codes that patients can present at the clinic reception desk.
-- **Pathology & Lab Report Dispatch**: Ingests laboratory PDFs, parses test names, and dispatches authenticated download links directly to patients on WhatsApp.
-- **Multi-Doctor & Department Rosters**: Schedule consultation hours, fee structures, and daily patient capacity per doctor.
-- **Automated Appointment Reminders**: Scheduled cron jobs dispatch interactive WhatsApp confirmation buttons (Confirm / Reschedule / Cancel) at 24 hours and 2 hours prior to consultations.
-- **Shared Clinic Inbox**: Front-desk staff and doctors can view live conversations, take over from AI, and add internal clinical notes.
-- **Multi-Tenant Data Isolation**: Every hospital/clinic has isolated records enforced via PostgreSQL Row Level Security (RLS) and server-side authorization.
+- **24/7 AI Receptionist Copilot**: Resolves patient inquiries, explains doctor availability, and schedules OPD appointments automatically across WhatsApp, SMS, and AI Voice calls.
+- **Multichannel Patient Kanban CRM**: Real-time Kanban pipeline board supporting deterministic stage transitions (`NEW` -> `QUALIFYING` -> `BOOKED` -> `CONVERTED`), atomic database transitions, and complete patient details drawer.
+- **Real Calendly Integration**: Native Calendly API v2 integration for real event-type listing, live availability checking, scheduling links, and bidirectional webhook sync.
+- **AI Telephony & Voice Platform**: Outbound AI phone calls powered by Sarvam AI (Hindi/English), xAI, and ElevenLabs with real-time transcript logging and human takeover routing.
+- **Provider-Neutral Messaging**: Native support for Meta Cloud API, WAHA (WhatsApp HTTP API), Twilio SMS, and Exotel SMS.
+- **BullMQ Background Engine**: Persistent BullMQ worker pool processing appointment reminders, follow-up sequences, provider events, and Calendly synchronization.
+- **Digital OPD Tickets with Signed QR Codes**: Generates short-lived HMAC-signed PDF appointment tickets with embedded QR codes for reception check-in.
+- **Multi-Tenant Data Isolation**: Pure Supabase architecture (PostgreSQL + RLS) ensuring isolated clinical data per hospital/clinic tenant.
 
 ---
 
