@@ -23,6 +23,7 @@ export async function POST(request: Request) {
       headers: {
         'Content-Type': 'application/json',
         'X-Appwrite-Project': APPWRITE_PROJECT_ID,
+        'X-SDK-Platform': 'client',
       },
       body: JSON.stringify({
         email: trimmedEmail,
