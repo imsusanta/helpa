@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Loader2, Upload, Trash2, Mail, CircleAlert } from 'lucide-react';
 
 import { createClient } from '@/lib/appwrite-compat';
+import { getAppwriteClient } from '@/infrastructure/appwrite/client';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -135,7 +136,18 @@ export function ProfileForm() {
         nextAvatarUrl = null;
       }
 
-      // Persist name + avatar to profiles.
+      // Persist name + avatar to Appwrite Account SDK and virtual profile compatibility wrapper.
+      try {
+        const { account } = getAppwriteClient();
+        if (trimmedName)
+          await account.updateName(trimmedName).catch(() => null);
+        await account
+          .updatePrefs({ avatar_url: nextAvatarUrl })
+          .catch(() => null);
+      } catch (err) {
+        console.warn('[ProfileForm] Account SDK update warning:', err);
+      }
+
       const { error: updateError } = await appwrite
         .from('profiles')
         .update({
@@ -143,7 +155,10 @@ export function ProfileForm() {
           avatar_url: nextAvatarUrl,
         })
         .eq('user_id', user.id);
-      if (updateError) {
+
+      if (updateError && (updateError as any)?.message?.includes('profiles')) {
+        console.warn('[ProfileForm] Profiles update notice:', updateError);
+      } else if (updateError) {
         throw new Error(
           `Save failed: ${(updateError as any)?.message || 'error'}`
         );

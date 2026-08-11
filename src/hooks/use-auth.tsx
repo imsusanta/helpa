@@ -79,11 +79,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchProfile = useCallback(async (userId: string) => {
     setProfileLoading(true);
     try {
+      let userName = 'Admin User';
+      let userEmail = 'admin@clinic.local';
+      let avatarUrl: string | null = null;
+
+      try {
+        const { account: appwriteAccount } = getAppwriteClient();
+        const appwriteUser = await appwriteAccount.get().catch(() => null);
+        if (appwriteUser) {
+          if (appwriteUser.name) userName = appwriteUser.name;
+          if (appwriteUser.email) userEmail = appwriteUser.email;
+          if (appwriteUser.prefs?.avatar_url)
+            avatarUrl = appwriteUser.prefs.avatar_url;
+        }
+      } catch {
+        // Ignore account fetch errors
+      }
+
       const fallbackProfile: Profile = {
         id: userId,
-        full_name: 'Admin User',
-        email: 'admin@clinic.local',
-        avatar_url: null,
+        full_name: userName,
+        email: userEmail,
+        avatar_url: avatarUrl,
         role: 'owner',
         beta_features: [],
         account_id: 'default_account',
