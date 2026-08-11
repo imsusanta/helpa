@@ -136,31 +136,20 @@ export function ProfileForm() {
         nextAvatarUrl = null;
       }
 
-      // Persist name + avatar to Appwrite Account SDK and virtual profile compatibility wrapper.
-      try {
-        const { account } = getAppwriteClient();
-        if (trimmedName)
-          await account.updateName(trimmedName).catch(() => null);
-        await account
-          .updatePrefs({ avatar_url: nextAvatarUrl })
-          .catch(() => null);
-      } catch (err) {
-        console.warn('[ProfileForm] Account SDK update warning:', err);
-      }
-
-      const { error: updateError } = await appwrite
-        .from('profiles')
-        .update({
+      // Persist name + avatar via /api/account/profile endpoint
+      const res = await fetch('/api/account/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           full_name: trimmedName,
           avatar_url: nextAvatarUrl,
-        })
-        .eq('user_id', user.id);
+        }),
+      });
 
-      if (updateError && (updateError as any)?.message?.includes('profiles')) {
-        console.warn('[ProfileForm] Profiles update notice:', updateError);
-      } else if (updateError) {
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
         throw new Error(
-          `Save failed: ${(updateError as any)?.message || 'error'}`
+          `Save failed: ${data.message || data.error || 'Server request failed'}`
         );
       }
 

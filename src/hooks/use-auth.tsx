@@ -84,6 +84,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       let avatarUrl: string | null = null;
 
       try {
+        const res = await fetch('/api/account/profile').catch(() => null);
+        if (res && res.ok) {
+          const data = await res.json().catch(() => null);
+          if (data?.success && data?.profile) {
+            setProfile(data.profile);
+            setAccount({
+              id: data.profile.account_id || 'default_account',
+              name: 'Clinic Account',
+              default_currency: DEFAULT_CURRENCY,
+              industry: 'hospital_clinic',
+            });
+            return;
+          }
+        }
+      } catch {
+        // Fallback to SDK / defaults
+      }
+
+      try {
         const { account: appwriteAccount } = getAppwriteClient();
         const appwriteUser = await appwriteAccount.get().catch(() => null);
         if (appwriteUser) {
