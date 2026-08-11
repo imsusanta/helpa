@@ -468,7 +468,32 @@ class QueryBuilder {
       }
     );
     const body = await response.json().catch(() => ({}));
-    if (!response.ok) throw Object.assign(new Error(body.message), body);
+    if (!response.ok) {
+      if (
+        response.status === 400 ||
+        body?.message?.includes('Attribute not found') ||
+        body?.message?.includes('Index not found')
+      ) {
+        const fallbackRes = await fetch(
+          `${endpoint}/databases/${encodeURIComponent(APPWRITE_CONFIG.databaseId)}/collections/${encodeURIComponent(this.table)}/documents`,
+          {
+            headers: requestHeaders(undefined, this.session, this.useApiKey),
+            cache: 'no-store',
+            credentials: 'include',
+          }
+        );
+        const fallbackBody = await fallbackRes.json().catch(() => ({}));
+        if (fallbackRes.ok) {
+          const documents = (fallbackBody.documents || []).map(normalizeRecord);
+          return {
+            data: this.selectionOptions.head ? null : documents,
+            error: null,
+            count: fallbackBody.total ?? documents.length,
+          };
+        }
+      }
+      throw Object.assign(new Error(body.message), body);
+    }
     const documents = (body.documents || []).map(normalizeRecord);
     return {
       data: this.selectionOptions.head ? null : documents,

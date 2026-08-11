@@ -129,29 +129,47 @@ export async function POST(request: Request) {
 
       if (!resolvedContactId && body.phone) {
         const cleanPhone = sanitizePhoneForMeta(body.phone);
-        const { data: extContact } = await dbAdmin
+        const rawPhone = body.phone.trim();
+        const plusPhone = rawPhone.startsWith('+')
+          ? rawPhone
+          : `+${cleanPhone}`;
+
+        const { data: contactsList } = await dbAdmin
           .from('contacts')
           .select('id')
           .eq('account_id', accountId)
-          .eq('phone', cleanPhone)
-          .maybeSingle();
+          .or(
+            `phone.eq.${cleanPhone},phone.eq.${plusPhone},phone.eq.${rawPhone}`
+          )
+          .limit(1);
 
-        if (extContact) {
-          resolvedContactId = extContact.id;
+        if (contactsList && contactsList.length > 0) {
+          resolvedContactId = contactsList[0].id;
         } else {
           const { data: newContact } = await dbAdmin
             .from('contacts')
             .insert({
               account_id: accountId,
               user_id: user.id,
-              phone: cleanPhone,
+              phone: plusPhone,
               name: body.name || cleanPhone,
               metadata: {},
             })
             .select('id')
             .single();
 
-          if (newContact) resolvedContactId = newContact.id;
+          if (newContact) {
+            resolvedContactId = newContact.id;
+          } else {
+            const { data: existingFallback } = await dbAdmin
+              .from('contacts')
+              .select('id')
+              .eq('account_id', accountId)
+              .limit(1);
+            if (existingFallback && existingFallback.length > 0) {
+              resolvedContactId = existingFallback[0].id;
+            }
+          }
         }
       }
 
@@ -184,6 +202,17 @@ export async function POST(request: Request) {
           }
 
           extConv = createdConv;
+        }
+
+        if (!extConv) {
+          const { data: fallbackConv } = await dbAdmin
+            .from('conversations')
+            .select('id')
+            .eq('contact_id', resolvedContactId)
+            .limit(1);
+          if (fallbackConv && fallbackConv.length > 0) {
+            extConv = fallbackConv[0];
+          }
         }
 
         if (extConv) {
