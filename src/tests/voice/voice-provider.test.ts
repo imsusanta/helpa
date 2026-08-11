@@ -110,6 +110,31 @@ describe('Voice Providers Contract & Security', () => {
       );
     });
 
+    it('calls official /convai/sip-trunk/outbound endpoint when initiating outbound calls', async () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+        ok: true,
+        text: async () =>
+          JSON.stringify({
+            success: true,
+            conversation_id: 'conv_official_123',
+          }),
+      } as Response);
+
+      const res = await elevenlabs.initiateOutboundCall({
+        toNumber: '+18005550199',
+        agentId: mockAgentId,
+        phoneNumberId: mockPhoneId,
+      });
+
+      expect(res.externalCallId).toBe('conv_official_123');
+      expect(fetchSpy).toHaveBeenCalledWith(
+        'https://api.elevenlabs.io/v1/convai/sip-trunk/outbound',
+        expect.objectContaining({
+          method: 'POST',
+        })
+      );
+    });
+
     it('returns VOICE_OPERATION_UNSUPPORTED for unsupported transfer & terminate', async () => {
       await expect(elevenlabs.transferCall()).rejects.toHaveProperty(
         'code',
@@ -135,19 +160,24 @@ describe('Voice Providers Contract & Security', () => {
     });
   });
 
-  describe('XAiVoiceProvider (Unsupported Telephony / LLM Only)', () => {
-    it('throws error when XAI_API_KEY is unconfigured', async () => {
-      delete process.env.XAI_API_KEY;
+  describe('XAiVoiceProvider (Unsupported Telephony / Fail Closed)', () => {
+    it('returns VOICE_OPERATION_UNSUPPORTED for all telephony operations', async () => {
       const xai = new XAiVoiceProvider();
-      await expect(xai.validateConfiguration()).rejects.toThrow(
-        'XAI_API_KEY environment variable is missing.'
+      await expect(xai.validateConfiguration()).rejects.toHaveProperty(
+        'code',
+        'VOICE_OPERATION_UNSUPPORTED'
       );
+      await expect(
+        xai.initiateOutboundCall({ toNumber: '+18005550199' })
+      ).rejects.toHaveProperty('code', 'VOICE_OPERATION_UNSUPPORTED');
     });
 
-    it('rejects webhooks with missing signature', async () => {
+    it('reports health as not configured and un-reachable', async () => {
       const xai = new XAiVoiceProvider();
-      const verification = await xai.verifyWebhook('{}', new Headers());
-      expect(verification.verified).toBe(false);
+      const health = await xai.healthCheck();
+      expect(health.configured).toBe(false);
+      expect(health.credentialsValid).toBe(false);
+      expect(health.providerReachable).toBe(false);
     });
   });
 });

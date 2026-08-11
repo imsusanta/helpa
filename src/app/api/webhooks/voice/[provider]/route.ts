@@ -51,7 +51,14 @@ export async function POST(
     );
   const provider = getVoiceProvider(providerName);
   try {
-    await provider.verifyWebhook(rawBody, request.headers);
+    const verification = await provider.verifyWebhook(rawBody, request.headers);
+    if (!verification || verification.verified !== true) {
+      throw new VoiceProviderError(
+        'VOICE_SIGNATURE_INVALID',
+        'Voice webhook signature verification failed',
+        401
+      );
+    }
     const event = await provider.normalizeWebhook(rawBody, request.headers);
     const integration = await voiceRepository.findUniqueTenant(
       providerName,
@@ -80,12 +87,13 @@ export async function POST(
       );
 
     const storage = getAppwriteAdminClient().storage;
-    const rawPayloadReference = `${providerName}/${event.externalEventId.replace(/[^a-zA-Z0-9_.:-]/g, '_')}-${payloadHash.slice(0, 16)}.json`;
-    await storage.createFile(
+    const filename = `${providerName}_${event.externalEventId.replace(/[^a-zA-Z0-9_.:-]/g, '_')}_${payloadHash.slice(0, 16)}.json`;
+    const createdFile = await storage.createFile(
       APPWRITE_CONFIG.buckets.webhookPayloads,
       ID.unique(),
-      InputFile.fromBuffer(Buffer.from(rawBody), rawPayloadReference)
+      InputFile.fromBuffer(Buffer.from(rawBody), filename)
     );
+    const rawPayloadReference = createdFile.$id;
     await voiceRepository.createProviderEvent({
       accountId: integration.accountId,
       provider: providerName,
@@ -109,6 +117,7 @@ export async function POST(
         endedAt: event.endedAt,
         durationSeconds: event.durationSeconds,
         transcriptStatus: event.transcript ? 'available' : 'pending',
+        ...(event.transcript ? { transcript: event.transcript } : {}),
         failureCode: event.failureCode,
         failureMessageSanitized: event.failureMessageSanitized,
       }

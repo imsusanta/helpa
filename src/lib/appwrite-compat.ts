@@ -6,7 +6,6 @@
  */
 
 import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
-import { getAppwriteClient } from '@/infrastructure/appwrite/client';
 
 type AnyRecord = Record<string, any>;
 
@@ -15,45 +14,6 @@ export type AppwriteClient = AppwriteCompatClient;
 export type AppwriteError = any;
 
 const endpoint = APPWRITE_CONFIG.endpoint.replace(/\/$/, '');
-
-function browserSession(): string | undefined {
-  if (typeof window === 'undefined') return undefined;
-  try {
-    const local = window.localStorage.getItem('appwrite_session');
-    if (local) return local;
-
-    const match = document.cookie.match(
-      /(?:^|;\s*)(?:a_session_[a-zA-Z0-9]+|appwrite_session)=([^;]*)/
-    );
-    if (match && match[1]) {
-      return decodeURIComponent(match[1]);
-    }
-    return undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function saveBrowserSession(secret: string | undefined) {
-  if (typeof window === 'undefined' || !secret) return;
-  try {
-    window.localStorage.setItem('appwrite_session', secret);
-    document.cookie = `appwrite_session=${encodeURIComponent(secret)}; path=/; max-age=2592000; SameSite=Lax`;
-  } catch {
-    // Storage may be disabled; the httpOnly cookie still protects the session.
-  }
-}
-
-function clearBrowserSession() {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.removeItem('appwrite_session');
-    document.cookie =
-      'appwrite_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-  } catch {
-    // Ignore storage failures during sign-out.
-  }
-}
 
 function requestHeaders(
   extra?: HeadersInit,
@@ -64,7 +24,7 @@ function requestHeaders(
     'Content-Type': 'application/json',
     'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
   });
-  const session = sessionOverride || browserSession();
+  const session = sessionOverride;
   if (session) headers.set('X-Appwrite-Session', session);
   if (useApiKey && typeof window === 'undefined' && APPWRITE_CONFIG.apiKey) {
     headers.set('X-Appwrite-Key', APPWRITE_CONFIG.apiKey);
@@ -307,8 +267,20 @@ class QueryBuilder {
 
   async maybeSingle() {
     const result = await this.execute();
-    if (!result.data || result.data.length === 0)
+    if (!result.data || !Array.isArray(result.data)) {
       return { ...result, data: null };
+    }
+    if (result.data.length === 0) return { ...result, data: null };
+    if (result.data.length > 1) {
+      return {
+        data: null,
+        error: {
+          message: 'Expected at most one document, found multiple',
+          code: 'PGRST116',
+        },
+        count: result.count,
+      };
+    }
     return { ...result, data: result.data[0] };
   }
 
@@ -321,7 +293,6 @@ class QueryBuilder {
 
   private async execute() {
     try {
-      if (this.table === 'profiles') return await this.handleVirtualProfiles();
       if (this.operation === 'select') return await this.list();
       if (this.operation === 'insert') return await this.create();
       if (this.operation === 'upsert') return await this.create(true);
@@ -336,115 +307,6 @@ class QueryBuilder {
           hint: error?.hint,
         },
         count: null,
-      };
-    }
-  }
-
-  private async handleVirtualProfiles() {
-    try {
-      let userId = 'user_susanta';
-      let name = 'Admin User';
-      let email = 'admin@clinic.local';
-      let avatarUrl: string | null = null;
-
-      if (typeof window !== 'undefined') {
-        try {
-          const { account } = getAppwriteClient();
-          const u = await account.get().catch(() => null);
-          if (u) {
-            userId = u.$id;
-            name = u.name || name;
-            email = u.email || email;
-            avatarUrl = u.prefs?.avatar_url || null;
-          }
-        } catch {
-          // Ignore account fetch error
-        }
-      }
-
-      if (this.operation === 'select') {
-        const profileRecord = {
-          id: userId,
-          user_id: userId,
-          full_name: name,
-          email: email,
-          avatar_url: avatarUrl,
-          role: 'owner',
-          account_id: 'default_account',
-          account_role: 'owner',
-          is_super_admin: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-
-        const isSingle =
-          this.selectionOptions.single || this.selectionOptions.maybeSingle;
-
-        return {
-          data: isSingle ? profileRecord : [profileRecord],
-          error: null,
-          count: 1,
-        };
-      }
-
-      if (
-        this.operation === 'update' ||
-        this.operation === 'upsert' ||
-        this.operation === 'insert'
-      ) {
-        const payload = (this.payload || {}) as Record<string, any>;
-        const nameToUpdate = payload.full_name || payload.name;
-        const avatarUrlToUpdate = payload.avatar_url;
-
-        if (
-          typeof window !== 'undefined' &&
-          (nameToUpdate || avatarUrlToUpdate !== undefined)
-        ) {
-          try {
-            const { account } = getAppwriteClient();
-            if (nameToUpdate) {
-              await account.updateName(nameToUpdate).catch(() => null);
-            }
-            if (avatarUrlToUpdate !== undefined) {
-              await account
-                .updatePrefs({ avatar_url: avatarUrlToUpdate })
-                .catch(() => null);
-            }
-          } catch {
-            // Ignore SDK errors in virtual layer
-          }
-        }
-
-        const updatedRecord = {
-          id: userId,
-          user_id: userId,
-          full_name: nameToUpdate || name,
-          email: email,
-          avatar_url:
-            avatarUrlToUpdate !== undefined ? avatarUrlToUpdate : avatarUrl,
-          role: 'owner',
-          account_id: 'default_account',
-          account_role: 'owner',
-          is_super_admin: true,
-          updated_at: new Date().toISOString(),
-        };
-
-        const isSingle =
-          this.selectionOptions.single || this.selectionOptions.maybeSingle;
-
-        return {
-          data: isSingle ? updatedRecord : [updatedRecord],
-          error: null,
-          count: 1,
-        };
-      }
-
-      return { data: [], error: null, count: 0 };
-    } catch {
-      return {
-        data: null,
-        error: null,
-        count: 0,
       };
     }
   }
@@ -474,23 +336,12 @@ class QueryBuilder {
         body?.message?.includes('Attribute not found') ||
         body?.message?.includes('Index not found')
       ) {
-        const fallbackRes = await fetch(
-          `${endpoint}/databases/${encodeURIComponent(APPWRITE_CONFIG.databaseId)}/collections/${encodeURIComponent(this.table)}/documents`,
-          {
-            headers: requestHeaders(undefined, this.session, this.useApiKey),
-            cache: 'no-store',
-            credentials: 'include',
-          }
+        throw Object.assign(
+          new Error(
+            `APPWRITE_SCHEMA_MISMATCH: ${body?.message || 'Attribute or index missing'}`
+          ),
+          { code: 'APPWRITE_SCHEMA_MISMATCH', status: 400 }
         );
-        const fallbackBody = await fallbackRes.json().catch(() => ({}));
-        if (fallbackRes.ok) {
-          const documents = (fallbackBody.documents || []).map(normalizeRecord);
-          return {
-            data: this.selectionOptions.head ? null : documents,
-            error: null,
-            count: fallbackBody.total ?? documents.length,
-          };
-        }
       }
       throw Object.assign(new Error(body.message), body);
     }
@@ -781,9 +632,8 @@ export function createDataClient(
           : { data: { user: null }, error: body };
       },
       getSession: async () => {
-        const token = browserSession();
         return {
-          data: { session: token ? { access_token: token } : null },
+          data: { session: null },
           error: null,
         };
       },
@@ -795,12 +645,21 @@ export function createDataClient(
         });
         const body = await response.json().catch(() => ({}));
         if (!response.ok) return { data: { session: null }, error: body };
-        saveBrowserSession(body.secret);
-        return { data: { session: body }, error: null };
+        return {
+          data: { session: null },
+          error: {
+            code: 'SERVER_AUTH_REQUIRED',
+            message: 'Use /api/auth/login to establish a secure session.',
+          },
+        };
       },
       signOut: async () => {
-        clearBrowserSession();
-        return { error: null };
+        return {
+          error: {
+            code: 'SERVER_AUTH_REQUIRED',
+            message: 'Use /api/auth/logout to revoke the secure session.',
+          },
+        };
       },
       updateUser: async ({ password, data }: AnyRecord) => ({
         data: null,

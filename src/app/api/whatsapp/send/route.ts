@@ -160,15 +160,6 @@ export async function POST(request: Request) {
 
           if (newContact) {
             resolvedContactId = newContact.id;
-          } else {
-            const { data: existingFallback } = await dbAdmin
-              .from('contacts')
-              .select('id')
-              .eq('account_id', accountId)
-              .limit(1);
-            if (existingFallback && existingFallback.length > 0) {
-              resolvedContactId = existingFallback[0].id;
-            }
           }
         }
       }
@@ -178,6 +169,7 @@ export async function POST(request: Request) {
           .from('conversations')
           .select('id')
           .eq('contact_id', resolvedContactId)
+          .eq('account_id', accountId)
           .maybeSingle();
 
         if (!extConv) {
@@ -202,17 +194,6 @@ export async function POST(request: Request) {
           }
 
           extConv = createdConv;
-        }
-
-        if (!extConv) {
-          const { data: fallbackConv } = await dbAdmin
-            .from('conversations')
-            .select('id')
-            .eq('contact_id', resolvedContactId)
-            .limit(1);
-          if (fallbackConv && fallbackConv.length > 0) {
-            extConv = fallbackConv[0];
-          }
         }
 
         if (extConv) {

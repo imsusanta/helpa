@@ -18,6 +18,24 @@ export class ProviderEventsRepository {
     return getAppwriteAdminClient().databases;
   }
 
+  async getEvent(
+    accountId: string,
+    eventId: string
+  ): Promise<ProviderEventDocument | null> {
+    try {
+      const doc = await this.db.getDocument(
+        APPWRITE_CONFIG.databaseId,
+        APPWRITE_CONFIG.collections.providerEvents,
+        eventId
+      );
+      if ((doc as unknown as { accountId?: string }).accountId !== accountId)
+        return null;
+      return doc as unknown as ProviderEventDocument;
+    } catch {
+      return null;
+    }
+  }
+
   async isDuplicateEvent(provider: string, eventId: string): Promise<boolean> {
     try {
       const res = await this.db.listDocuments(

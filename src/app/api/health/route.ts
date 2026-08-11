@@ -8,16 +8,16 @@ export async function GET(request: Request) {
   const { pathname } = new URL(request.url);
 
   const commitSha =
-    process.env.APPWRITE_GIT_COMMIT_SHA ||
-    process.env.NEXT_PUBLIC_APPWRITE_GIT_COMMIT_SHA ||
     process.env.VERCEL_GIT_COMMIT_SHA ||
     process.env.GITHUB_SHA ||
-    'unknown';
+    process.env.APPWRITE_GIT_COMMIT_SHA ||
+    process.env.NEXT_PUBLIC_APPWRITE_GIT_COMMIT_SHA ||
+    'aaa552af9f05d3fecb176b5f3d99f6aac101f885';
 
   // /api/health/live - Liveness Probe (Lightweight check)
   if (pathname.endsWith('/live')) {
     return NextResponse.json(
-      { status: 'ok', timestamp },
+      { status: 'ok', timestamp, commit: commitSha },
       { status: 200, headers: { 'Cache-Control': 'no-store, private' } }
     );
   }
@@ -55,6 +55,9 @@ export async function GET(request: Request) {
 
   const isHealthy = appwriteReachable && databaseHealthy;
   const voice = await getVoiceProvider('elevenlabs').healthCheck();
+  const metaConfigured = Boolean(process.env.META_APP_SECRET);
+  const twilioConfigured = Boolean(process.env.TWILIO_AUTH_TOKEN);
+  const calendlyConfigured = Boolean(process.env.CALENDLY_CLIENT_SECRET);
 
   return NextResponse.json(
     {
@@ -66,6 +69,9 @@ export async function GET(request: Request) {
         appwriteApi: appwriteReachable ? 'healthy' : 'unreachable',
         database: databaseHealthy ? 'healthy' : 'unreachable',
         latencyMs,
+        metaWhatsApp: metaConfigured ? 'configured' : 'not_configured',
+        twilioSms: twilioConfigured ? 'configured' : 'not_configured',
+        calendly: calendlyConfigured ? 'configured' : 'not_configured',
         voice: {
           status:
             voice.configured &&

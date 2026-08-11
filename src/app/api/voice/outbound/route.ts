@@ -40,11 +40,12 @@ export async function POST(request: Request) {
       ctx.accountId,
       body.contactId
     );
-    if (!contact || !contact.phone || contact.consentStatus === 'opted_out')
+    if (!contact || !contact.phone || contact.consentStatus !== 'opted_in')
       return NextResponse.json(
         {
           error: 'VOICE_PROVIDER_REQUEST_FAILED',
-          message: 'Contact is not eligible for an outbound call',
+          message:
+            'Contact is not eligible for an outbound call (explicit opted_in consent is required)',
         },
         { status: 422 }
       );

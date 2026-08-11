@@ -17,6 +17,24 @@ export class ConversationsRepository {
     return getAppwriteAdminClient().databases;
   }
 
+  async getConversation(
+    accountId: string,
+    conversationId: string
+  ): Promise<ConversationDocument | null> {
+    try {
+      const doc = await this.db.getDocument(
+        APPWRITE_CONFIG.databaseId,
+        APPWRITE_CONFIG.collections.conversations,
+        conversationId
+      );
+      if ((doc as unknown as { accountId: string }).accountId !== accountId)
+        return null;
+      return doc as unknown as ConversationDocument;
+    } catch {
+      return null;
+    }
+  }
+
   async listConversations(accountId: string): Promise<ConversationDocument[]> {
     const res = await this.db.listDocuments(
       APPWRITE_CONFIG.databaseId,
