@@ -382,7 +382,36 @@ class QueryBuilder {
         }
       );
       const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw Object.assign(new Error(body.message), body);
+      if (!response.ok) {
+        if (
+          _upsert &&
+          (response.status === 409 ||
+            body?.code === 409 ||
+            body?.type === 'document_already_exists')
+        ) {
+          const docId = record.id || record.$id;
+          if (docId) {
+            const patchRes = await fetch(
+              `${endpoint}/databases/${encodeURIComponent(APPWRITE_CONFIG.databaseId)}/collections/${encodeURIComponent(this.table)}/documents/${encodeURIComponent(docId)}`,
+              {
+                method: 'PATCH',
+                headers: requestHeaders(
+                  undefined,
+                  this.session,
+                  this.useApiKey
+                ),
+                body: JSON.stringify({ data: normalizePayload(record) }),
+              }
+            );
+            const patchBody = await patchRes.json().catch(() => ({}));
+            if (patchRes.ok) {
+              documents.push(normalizeRecord(patchBody));
+              continue;
+            }
+          }
+        }
+        throw Object.assign(new Error(body.message), body);
+      }
       documents.push(normalizeRecord(body));
     }
     return {

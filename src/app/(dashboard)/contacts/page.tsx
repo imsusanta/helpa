@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createClient } from '@/lib/appwrite-compat';
 import { toast } from 'sonner';
 import type { Contact, Tag, ContactTag } from '@/types';
@@ -62,7 +62,7 @@ interface ContactWithTags extends Contact {
 }
 
 export default function ContactsPage() {
-  const appwrite = createClient();
+  const appwrite = useMemo(() => createClient(), []);
   const { account, accountId } = useAuth();
   const canEdit = useCan('send-messages');
   const canEditSettings = useCan('edit-settings');
@@ -101,13 +101,22 @@ export default function ContactsPage() {
 
   // All tags for display
   const [tagsMap, setTagsMap] = useState<Record<string, Tag>>({});
+  const tagsMapRef = useRef(tagsMap);
+
+  useEffect(() => {
+    tagsMapRef.current = tagsMap;
+  }, [tagsMap]);
 
   const fetchTags = useCallback(async () => {
-    const { data } = await appwrite.from('tags').select('*');
-    if (data) {
-      const map: Record<string, Tag> = {};
-      data.forEach((t) => (map[t.id] = t));
-      setTagsMap(map);
+    try {
+      const { data } = await appwrite.from('tags').select('*');
+      if (data) {
+        const map: Record<string, Tag> = {};
+        data.forEach((t) => (map[t.id] = t));
+        setTagsMap(map);
+      }
+    } catch (err) {
+      console.warn('[ContactsPage] Failed to load tags:', err);
     }
   }, [appwrite]);
 
@@ -118,120 +127,136 @@ export default function ContactsPage() {
     // act on rows the user can no longer see.
     setSelected(new Set());
 
-    const from = page * PAGE_SIZE;
-    const to = from + PAGE_SIZE - 1;
+    try {
+      const from = page * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
 
-    let query = appwrite
-      .from('contacts')
-      .select('*', { count: 'exact' })
-      .order('created_at', { ascending: false })
-      .range(from, to);
+      let query = appwrite
+        .from('contacts')
+        .select('*', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
-    if (search.trim()) {
-      const term = `%${search.trim()}%`;
-      query = query.or(
-        `name.ilike.${term},phone.ilike.${term},email.ilike.${term}`
-      );
-    }
+      if (search.trim()) {
+        const term = `%${search.trim()}%`;
+        query = query.or(
+          `name.ilike.${term},phone.ilike.${term},email.ilike.${term}`
+        );
+      }
 
-    const { data, count, error } = await query;
+      const { data, count, error } = await query;
 
-    if (error) {
-      toast.error('Failed to load contacts');
-      setLoading(false);
-      return;
-    }
+      if (error) {
+        toast.error('Failed to load contacts');
+        setLoading(false);
+        return;
+      }
 
-    setTotalCount(count ?? 0);
+      setTotalCount(count ?? 0);
 
-    if (!data || data.length === 0) {
-      setContacts([]);
-      setLoading(false);
-      return;
-    }
+      if (!data || data.length === 0) {
+        setContacts([]);
+        setLoading(false);
+        return;
+      }
 
-    // Fetch tags & patients for these contacts
-    const contactIds = data.map((c) => c.id);
-    const { data: contactTags } = await appwrite
-      .from('contact_tags')
-      .select('contact_id, tag_id')
-      .in('contact_id', contactIds);
+      // Fetch tags & patients for these contacts with safety handling
+      const contactIds = data.map((c) => c.id);
+      const patientsMap: Record<
+        string,
+        { patient_seq_id?: string; blood_group?: string }
+      > = {};
+      const tagsByContact: Record<string, string[]> = {};
 
-    const { data: patientsList } = await appwrite
-      .from('patients')
-      .select('id, patient_seq_id, blood_group')
-      .in('id', contactIds);
+      try {
+        const { data: contactTags } = await appwrite
+          .from('contact_tags')
+          .select('contact_id, tag_id')
+          .in('contact_id', contactIds);
 
-    const patientsMap: Record<
-      string,
-      { patient_seq_id?: string; blood_group?: string }
-    > = {};
-    patientsList?.forEach((p) => {
-      patientsMap[p.id] = {
-        patient_seq_id: p.patient_seq_id || undefined,
-        blood_group: p.blood_group || undefined,
-      };
-    });
+        contactTags?.forEach((ct) => {
+          if (!tagsByContact[ct.contact_id]) tagsByContact[ct.contact_id] = [];
+          tagsByContact[ct.contact_id].push(ct.tag_id);
+        });
+      } catch (err) {
+        console.warn('[ContactsPage] Failed to fetch contact_tags:', err);
+      }
 
-    // Auto-create missing patients table records for contacts without one
-    const missingPatientContactIds = contactIds.filter(
-      (id) => !patientsMap[id]?.patient_seq_id
-    );
-    if (missingPatientContactIds.length > 0 && accountId) {
-      const { data: newPatients } = await appwrite
-        .from('patients')
-        .upsert(
-          missingPatientContactIds.map((id) => ({
-            id,
-            account_id: accountId,
-            status: 'active',
-          })),
-          { onConflict: 'id', ignoreDuplicates: true }
-        )
-        .select('id, patient_seq_id, blood_group');
+      try {
+        const { data: patientsList } = await appwrite
+          .from('patients')
+          .select('id, patient_seq_id, blood_group')
+          .in('id', contactIds);
 
-      newPatients?.forEach((p) => {
-        patientsMap[p.id] = {
-          patient_seq_id: p.patient_seq_id || undefined,
-          blood_group: p.blood_group || undefined,
+        patientsList?.forEach((p) => {
+          patientsMap[p.id] = {
+            patient_seq_id: p.patient_seq_id || undefined,
+            blood_group: p.blood_group || undefined,
+          };
+        });
+
+        // Auto-create missing patients table records for contacts without one
+        const missingPatientContactIds = contactIds.filter(
+          (id) => !patientsMap[id]?.patient_seq_id
+        );
+        if (missingPatientContactIds.length > 0 && accountId) {
+          const { data: newPatients } = await appwrite
+            .from('patients')
+            .upsert(
+              missingPatientContactIds.map((id) => ({
+                id,
+                account_id: accountId,
+                status: 'active',
+              })),
+              { onConflict: 'id', ignoreDuplicates: true }
+            )
+            .select('id, patient_seq_id, blood_group');
+
+          newPatients?.forEach((p) => {
+            patientsMap[p.id] = {
+              patient_seq_id: p.patient_seq_id || undefined,
+              blood_group: p.blood_group || undefined,
+            };
+          });
+        }
+      } catch (err) {
+        console.warn('[ContactsPage] Failed to fetch or sync patients:', err);
+      }
+
+      const currentTagsMap = tagsMapRef.current;
+      const enriched: ContactWithTags[] = data.map((c) => {
+        const meta =
+          c.metadata && typeof c.metadata === 'object' ? c.metadata : {};
+        const pData = patientsMap[c.id];
+        const patientIdVal = getOrGeneratePatientId(c, pData?.patient_seq_id);
+        const metaObj = meta as Record<string, unknown>;
+        const bloodGroupVal =
+          pData?.blood_group ||
+          (metaObj.blood_group as string) ||
+          (metaObj['Blood Group'] as string) ||
+          '—';
+
+        return {
+          ...c,
+          metadata: {
+            ...meta,
+            patient_id: patientIdVal,
+            blood_group: bloodGroupVal,
+          },
+          tags: (tagsByContact[c.id] ?? [])
+            .map((tid) => currentTagsMap[tid])
+            .filter(Boolean),
         };
       });
+
+      setContacts(enriched);
+    } catch (err) {
+      console.error('[ContactsPage] Error loading contacts:', err);
+      toast.error('Failed to load contacts');
+    } finally {
+      setLoading(false);
     }
-
-    const tagsByContact: Record<string, string[]> = {};
-    contactTags?.forEach((ct) => {
-      if (!tagsByContact[ct.contact_id]) tagsByContact[ct.contact_id] = [];
-      tagsByContact[ct.contact_id].push(ct.tag_id);
-    });
-
-    const enriched: ContactWithTags[] = data.map((c) => {
-      const meta =
-        c.metadata && typeof c.metadata === 'object' ? c.metadata : {};
-      const pData = patientsMap[c.id];
-      const patientIdVal = getOrGeneratePatientId(c, pData?.patient_seq_id);
-      const metaObj = meta as Record<string, unknown>;
-      const bloodGroupVal =
-        pData?.blood_group ||
-        (metaObj.blood_group as string) ||
-        (metaObj['Blood Group'] as string) ||
-        '—';
-
-      return {
-        ...c,
-        metadata: {
-          ...meta,
-          patient_id: patientIdVal,
-          blood_group: bloodGroupVal,
-        },
-        tags: (tagsByContact[c.id] ?? [])
-          .map((tid) => tagsMap[tid])
-          .filter(Boolean),
-      };
-    });
-
-    setContacts(enriched);
-    setLoading(false);
-  }, [appwrite, page, search, tagsMap, accountId]);
+  }, [appwrite, page, search, accountId]);
 
   // Load-once-on-mount-ish data fetches. Each setter inside runs
   // inside an async promise completion (appwrite await), not
