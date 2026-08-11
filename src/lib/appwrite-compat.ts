@@ -342,16 +342,33 @@ class QueryBuilder {
 
   private async handleVirtualProfiles() {
     try {
-      const auth = await this.getAuth();
-      const user = auth.data?.user;
+      let userId = 'user_susanta';
+      let name = 'Admin User';
+      let email = 'admin@clinic.local';
+      let avatarUrl: string | null = null;
+
+      if (typeof window !== 'undefined') {
+        try {
+          const { account } = getAppwriteClient();
+          const u = await account.get().catch(() => null);
+          if (u) {
+            userId = u.$id;
+            name = u.name || name;
+            email = u.email || email;
+            avatarUrl = u.prefs?.avatar_url || null;
+          }
+        } catch {
+          // Ignore account fetch error
+        }
+      }
 
       if (this.operation === 'select') {
         const profileRecord = {
-          id: user?.id || 'user_susanta',
-          user_id: user?.id || 'user_susanta',
-          full_name: user?.name || 'Admin User',
-          email: user?.email || 'admin@clinic.local',
-          avatar_url: user?.user_metadata?.avatar_url || null,
+          id: userId,
+          user_id: userId,
+          full_name: name,
+          email: email,
+          avatar_url: avatarUrl,
           role: 'owner',
           account_id: 'default_account',
           account_role: 'owner',
@@ -399,14 +416,12 @@ class QueryBuilder {
         }
 
         const updatedRecord = {
-          id: user?.id || 'user_susanta',
-          user_id: user?.id || 'user_susanta',
-          full_name: nameToUpdate || user?.name || 'Admin User',
-          email: user?.email || 'admin@clinic.local',
+          id: userId,
+          user_id: userId,
+          full_name: nameToUpdate || name,
+          email: email,
           avatar_url:
-            avatarUrlToUpdate !== undefined
-              ? avatarUrlToUpdate
-              : user?.user_metadata?.avatar_url || null,
+            avatarUrlToUpdate !== undefined ? avatarUrlToUpdate : avatarUrl,
           role: 'owner',
           account_id: 'default_account',
           account_role: 'owner',
