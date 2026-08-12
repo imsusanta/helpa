@@ -94,16 +94,6 @@ export async function GET() {
     }
 
     const accountId = await resolveAccountId(appwrite, user.id);
-    if (!accountId) {
-      return NextResponse.json(
-        {
-          connected: false,
-          reason: 'no_account',
-          message: 'Your profile is not linked to an account.',
-        },
-        { status: 200 }
-      );
-    }
 
     const { data: config, error: configError } = await appwrite
       .from('whatsapp_config')
@@ -223,12 +213,6 @@ export async function POST(request: Request) {
     }
 
     const accountId = await resolveAccountId(appwrite, user.id);
-    if (!accountId) {
-      return NextResponse.json(
-        { error: 'Your profile is not linked to an account.' },
-        { status: 403 }
-      );
-    }
 
     const body = await request.json();
     const { phone_number_id, waba_id, access_token, verify_token, pin } = body;
@@ -504,12 +488,6 @@ export async function DELETE() {
     }
 
     const accountId = await resolveAccountId(appwrite, user.id);
-    if (!accountId) {
-      return NextResponse.json(
-        { error: 'Your profile is not linked to an account.' },
-        { status: 403 }
-      );
-    }
 
     const { error: deleteError } = await appwrite
       .from('whatsapp_config')

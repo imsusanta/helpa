@@ -50,7 +50,7 @@ interface AuthContextValue {
   loading: boolean;
   profileLoading: boolean;
   account: AccountSummary | null;
-  accountId: string | null;
+  accountId: string;
   defaultCurrency: string;
   enabledModuleKeys: string[];
   modulesLoading: boolean;
@@ -236,7 +236,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       canSendMessages: role ? canSendMessagesFor(role) : false,
       accountRole: role,
       isSuperAdmin: Boolean(profile?.is_super_admin) || role === 'owner',
-      accountId: profile?.account_id || account?.id || null,
+      accountId: profile?.account_id || account?.id || 'default_account',
       defaultCurrency: account?.default_currency || DEFAULT_CURRENCY,
     };
   }, [profile, account]);
