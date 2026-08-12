@@ -111,7 +111,13 @@ export function KbPanel() {
       const response = await fetch('/api/account/kb');
       if (response.ok) {
         const data = await response.json();
-        setEntries(Array.isArray(data) ? data : []);
+        setEntries(
+          Array.isArray(data)
+            ? data
+            : Array.isArray(data?.data)
+            ? data.data
+            : []
+        );
       } else {
         setEntries([]);
       }

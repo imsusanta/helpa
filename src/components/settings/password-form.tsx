@@ -1,12 +1,8 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Loader2, KeyRound } from 'lucide-react';
-
-import { createClient } from '@/lib/appwrite-compat';
-import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,9 +17,6 @@ import {
 const MIN_PASSWORD = 8;
 
 export function PasswordForm() {
-  const { profile } = useAuth();
-  const appwrite = createClient();
-
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -32,10 +25,7 @@ export function PasswordForm() {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!profile?.email) {
-      toast.error('Cannot change password without a current email');
-      return;
-    }
+
     if (next.length < MIN_PASSWORD) {
       setConfirmError(`Password must be at least ${MIN_PASSWORD} characters`);
       return;
@@ -48,33 +38,24 @@ export function PasswordForm() {
     setSaving(true);
 
     try {
-      // appwrite doesn't expose a "verify password without issuing a
-      // session" API, so we re-authenticate with the provided current
-      // password. If it matches, the session refreshes silently; if it
-      // doesn't, we abort before calling updateUser.
-      const { error: signInError } = await appwrite.auth.signInWithPassword({
-        email: profile.email,
-        password: current,
+      const res = await fetch('/api/account/password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          currentPassword: current,
+          newPassword: next,
+        }),
       });
-      if (signInError) {
-        toast.error('Current password is incorrect');
-        return;
-      }
 
-      const { error: updateError } = await appwrite.auth.updateUser({
-        password: next,
-      });
-      if (updateError) {
-        toast.error(
-          `Password update failed: ${(updateError as any)?.message || 'error'}`
-        );
-        return;
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || data.message || 'Failed to update password');
       }
 
       setCurrent('');
       setNext('');
       setConfirm('');
-      toast.success('Password updated');
+      toast.success('Password updated successfully!');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
       toast.error(msg);

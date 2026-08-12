@@ -208,12 +208,17 @@ export function InsurancePanel() {
                       <span className="text-muted-foreground text-xs font-semibold">
                         Docs:
                       </span>
-                      {prov.required_documents.map((doc, idx) => (
+                      {(Array.isArray(prov.required_documents)
+                        ? prov.required_documents
+                        : typeof prov.required_documents === 'string'
+                        ? (prov.required_documents as string).split(',')
+                        : []
+                      ).map((doc, idx) => (
                         <span
                           key={idx}
                           className="bg-muted text-muted-foreground border-border rounded border px-1.5 py-0.5 text-[10px] font-medium"
                         >
-                          {doc}
+                          {String(doc).trim()}
                         </span>
                       ))}
                     </div>

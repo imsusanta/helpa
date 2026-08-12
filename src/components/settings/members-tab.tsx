@@ -136,7 +136,7 @@ export function MembersTab() {
         return;
       }
       const mdata = (await mres.json()) as { members: Member[] };
-      setMembers(mdata.members);
+      setMembers(Array.isArray(mdata.members) ? mdata.members : []);
 
       if (ires) {
         if (!ires.ok) {
@@ -145,7 +145,7 @@ export function MembersTab() {
           return;
         }
         const idata = (await ires.json()) as { invitations: Invitation[] };
-        setInvitations(idata.invitations);
+        setInvitations(Array.isArray(idata.invitations) ? idata.invitations : []);
       } else {
         setInvitations([]);
       }
