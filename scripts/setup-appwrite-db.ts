@@ -517,6 +517,12 @@ export const SCHEMA_MANIFEST: Record<string, CollectionSchema> = {
         default: 0,
       },
       {
+        key: 'maxAttempts',
+        type: 'integer',
+        required: false,
+        default: 5,
+      },
+      {
         key: 'lastErrorSanitized',
         type: 'string',
         size: 500,
@@ -529,9 +535,12 @@ export const SCHEMA_MANIFEST: Record<string, CollectionSchema> = {
         size: 64,
         required: false,
       },
+      { key: 'lockOwner', type: 'string', size: 255, required: false },
+      { key: 'lockExpiresAt', type: 'string', size: 64, required: false },
       { key: 'heartbeatAt', type: 'string', size: 64, required: false },
       { key: 'nextAttemptAt', type: 'string', size: 64, required: false },
       { key: 'processedAt', type: 'string', size: 64, required: false },
+      { key: 'deadLetteredAt', type: 'string', size: 64, required: false },
     ],
     indexes: [
       {

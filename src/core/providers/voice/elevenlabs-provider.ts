@@ -277,7 +277,7 @@ export class ElevenLabsVoiceProvider implements VoiceProvider {
           agent_id: request.agentId || this.config.agentId,
           agent_phone_number_id:
             request.phoneNumberId || this.config.phoneNumberId,
-          to_phone_number: request.toNumber,
+          to_number: request.toNumber,
           ...(request.context
             ? { conversation_initiation_client_data: request.context }
             : {}),

@@ -133,6 +133,10 @@ describe('Voice Providers Contract & Security', () => {
           method: 'POST',
         })
       );
+      const requestOptions = fetchSpy.mock.calls[0][1] as RequestInit;
+      const sentPayload = JSON.parse(requestOptions.body as string);
+      expect(sentPayload).toHaveProperty('to_number', '+18005550199');
+      expect(sentPayload).not.toHaveProperty('to_phone_number');
     });
 
     it('returns VOICE_OPERATION_UNSUPPORTED for unsupported transfer & terminate', async () => {

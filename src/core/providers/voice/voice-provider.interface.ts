@@ -20,7 +20,8 @@ export type VoiceErrorCode =
   | 'VOICE_PROVIDER_TIMEOUT'
   | 'VOICE_PROVIDER_REQUEST_FAILED'
   | 'VOICE_TENANT_MAPPING_NOT_FOUND'
-  | 'VOICE_DUPLICATE_EVENT';
+  | 'VOICE_DUPLICATE_EVENT'
+  | 'VOICE_PROVIDER_PERSISTENCE_FAILED';
 
 export class VoiceProviderError extends Error {
   constructor(

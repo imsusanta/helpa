@@ -10,14 +10,15 @@ import {
 import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
 import { getAppwriteAdminClient } from '@/infrastructure/appwrite/server';
 import { voiceRepository } from '@/infrastructure/appwrite/repositories/voice.repository';
-import { enqueueProviderEventJob } from '@/queues/producers/provider-events-producer';
+import { resolveTenantVoiceConfig } from '@/core/providers/voice/credential-resolver';
 
 const MAX_PAYLOAD_BYTES = 1_000_000;
 const ALLOWED_CONTENT_TYPE = /^application\/json(?:\s*;|$)/i;
 
 function sanitizedError(error: unknown): { error: string; status: number } {
-  if (error instanceof VoiceProviderError)
+  if (error instanceof VoiceProviderError) {
     return { error: error.code, status: error.status };
+  }
   return { error: 'VOICE_PROVIDER_REQUEST_FAILED', status: 502 };
 }
 
@@ -26,33 +27,84 @@ export async function POST(
   { params }: { params: Promise<{ provider: string }> }
 ) {
   const { provider: providerParam } = await params;
-  if (!['sarvam', 'xai', 'elevenlabs'].includes(providerParam))
+  if (!['sarvam', 'xai', 'elevenlabs'].includes(providerParam)) {
     return NextResponse.json(
       { error: 'VOICE_PROVIDER_REQUEST_FAILED' },
       { status: 400 }
     );
-  if (!ALLOWED_CONTENT_TYPE.test(request.headers.get('content-type') || ''))
+  }
+
+  if (!ALLOWED_CONTENT_TYPE.test(request.headers.get('content-type') || '')) {
     return NextResponse.json(
       { error: 'VOICE_PROVIDER_REQUEST_FAILED' },
       { status: 415 }
     );
+  }
+
   const contentLength = Number(request.headers.get('content-length'));
-  if (Number.isFinite(contentLength) && contentLength > MAX_PAYLOAD_BYTES)
+  if (Number.isFinite(contentLength) && contentLength > MAX_PAYLOAD_BYTES) {
     return NextResponse.json(
       { error: 'VOICE_PROVIDER_REQUEST_FAILED' },
       { status: 413 }
     );
+  }
 
   const providerName = providerParam as VoiceProviderName;
   const rawBody = await request.text();
-  if (Buffer.byteLength(rawBody, 'utf8') > MAX_PAYLOAD_BYTES)
+  if (Buffer.byteLength(rawBody, 'utf8') > MAX_PAYLOAD_BYTES) {
     return NextResponse.json(
       { error: 'VOICE_PROVIDER_REQUEST_FAILED' },
       { status: 413 }
     );
+  }
 
-  const provider = getVoiceProvider(providerName);
   try {
+    // 1. Initial parse to extract identifiers for tenant resolution
+    let tempPayload: Record<string, unknown>;
+    try {
+      tempPayload = JSON.parse(rawBody);
+    } catch {
+      throw new VoiceProviderError(
+        'VOICE_PROVIDER_REQUEST_FAILED',
+        'Invalid JSON payload',
+        400
+      );
+    }
+
+    const dataObj =
+      tempPayload.data && typeof tempPayload.data === 'object'
+        ? (tempPayload.data as Record<string, unknown>)
+        : {};
+
+    const agentId =
+      typeof dataObj.agent_id === 'string' ? dataObj.agent_id : undefined;
+    const phoneNumberId =
+      typeof dataObj.agent_phone_number_id === 'string'
+        ? dataObj.agent_phone_number_id
+        : undefined;
+
+    // 2. Resolve exactly one tenant integration server-side
+    const integration = await voiceRepository.findUniqueTenant(
+      providerName,
+      agentId,
+      phoneNumberId
+    );
+
+    if (!integration) {
+      throw new VoiceProviderError(
+        'VOICE_TENANT_MAPPING_NOT_FOUND',
+        'No unique server-side voice integration mapping exists',
+        422
+      );
+    }
+
+    // 3. Resolve tenant-scoped provider configuration and verify signature
+    const tenantConfig = await resolveTenantVoiceConfig(
+      integration.accountId,
+      providerName
+    );
+    const provider = getVoiceProvider(providerName, tenantConfig);
+
     const verification = await provider.verifyWebhook(rawBody, request.headers);
     if (!verification || verification.verified !== true) {
       throw new VoiceProviderError(
@@ -63,30 +115,16 @@ export async function POST(
     }
 
     const event = await provider.normalizeWebhook(rawBody, request.headers);
-
-    // Server-side Tenant Resolution: Never trust payload accountId
-    const integration = await voiceRepository.findUniqueTenant(
-      providerName,
-      event.externalAgentId,
-      event.externalPhoneNumberId
-    );
-    if (!integration)
-      throw new VoiceProviderError(
-        'VOICE_TENANT_MAPPING_NOT_FOUND',
-        'No unique server-side voice integration mapping exists',
-        422
-      );
-
     const payloadHash = crypto
       .createHash('sha256')
       .update(rawBody)
       .digest('hex');
 
-    // Webhook Deduplication Race Control: Atomic creation with unique provider + externalEventId index
+    // 4. Store raw payload in private Appwrite Storage bucket (FAIL CLOSED!)
     const storage = getAppwriteAdminClient().storage;
     const filename = `${providerName}_${event.externalEventId.replace(/[^a-zA-Z0-9_.:-]/g, '_')}_${payloadHash.slice(0, 16)}.json`;
 
-    let rawPayloadReference = '';
+    let rawPayloadReference: string;
     try {
       const createdFile = await storage.createFile(
         APPWRITE_CONFIG.buckets.webhookPayloads,
@@ -95,13 +133,18 @@ export async function POST(
       );
       rawPayloadReference = createdFile.$id;
     } catch (storageErr) {
-      console.warn(
-        '[voice-webhook] Failed to store raw payload in storage:',
+      console.error(
+        '[voice-webhook] Storage persistence failed for raw payload:',
         storageErr
       );
-      rawPayloadReference = 'inline_hash:' + payloadHash;
+      throw new VoiceProviderError(
+        'VOICE_PROVIDER_PERSISTENCE_FAILED',
+        'Failed to store raw webhook payload in Appwrite Storage',
+        500
+      );
     }
 
+    // 5. Store transcript in private Appwrite Storage bucket if present
     let transcriptReference: string | undefined = undefined;
     if (event.transcript) {
       try {
@@ -115,10 +158,19 @@ export async function POST(
         );
         transcriptReference = transcriptFile.$id;
       } catch (tErr) {
-        console.warn('[voice-webhook] Failed to store transcript file:', tErr);
+        console.error(
+          '[voice-webhook] Failed to store transcript file in Storage:',
+          tErr
+        );
+        throw new VoiceProviderError(
+          'VOICE_PROVIDER_PERSISTENCE_FAILED',
+          'Failed to store transcript in Appwrite Storage',
+          500
+        );
       }
     }
 
+    // 6. Atomically create provider_event document in Appwrite (FAIL CLOSED!)
     let eventDoc: { $id: string };
     try {
       eventDoc = (await voiceRepository.createProviderEvent({
@@ -143,7 +195,7 @@ export async function POST(
           return NextResponse.json(
             {
               error: 'VOICE_PROVIDER_REQUEST_FAILED',
-              message: 'Payload hash mismatch on duplicate event',
+              message: 'Payload hash mismatch on duplicate event ID',
             },
             { status: 409 }
           );
@@ -156,32 +208,7 @@ export async function POST(
       throw err;
     }
 
-    // Submit job to BullMQ queue
-    const enqueued = await enqueueProviderEventJob({
-      documentId: eventDoc.$id,
-      provider: providerName,
-      externalEventId: event.externalEventId,
-      eventType: event.eventType,
-      rawPayloadReference,
-      accountId: integration.accountId,
-    });
-
-    if (!enqueued) {
-      // Outbox fallback: Mark event retrying so background worker picks it up from database
-      await getAppwriteAdminClient()
-        .databases.updateDocument(
-          APPWRITE_CONFIG.databaseId,
-          APPWRITE_CONFIG.collections.providerEvents,
-          eventDoc.$id,
-          {
-            processingStatus: 'retrying',
-            nextAttemptAt: new Date(Date.now() + 5000).toISOString(),
-          }
-        )
-        .catch(() => null);
-    }
-
-    // Update Call document using Call State Machine (storing transcriptReference, NOT raw transcript text)
+    // 7. Update Call document using Call State Machine (storing transcriptReference, NOT raw text)
     if (event.status) {
       await voiceRepository.upsertCall(
         integration.accountId,
@@ -202,7 +229,10 @@ export async function POST(
       );
     }
 
-    return NextResponse.json({ accepted: true }, { status: 200 });
+    return NextResponse.json(
+      { accepted: true, eventId: eventDoc.$id },
+      { status: 200 }
+    );
   } catch (error) {
     const result = sanitizedError(error);
     console.warn('[voice-webhook]', {

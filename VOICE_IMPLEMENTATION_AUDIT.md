@@ -1,54 +1,66 @@
 # Voice System Implementation & Production Audit
 
-This document provides a comprehensive audit of the voice-agent system in accordance with Phase 1 requirements, evaluating architecture, provider APIs, tenant isolation, webhook security, Appwrite data models, and feature support.
+This document provides a comprehensive audit of the voice-agent system in accordance with production-hardening requirements, evaluating architecture, provider APIs, tenant isolation, webhook security, Appwrite data models, and feature support.
 
 ---
 
 ## 1. Existing Providers and Capabilities
 
-| Provider       | Capabilities                                              | Documented Public API Status                                                                                                                       |
-| :------------- | :-------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **ElevenLabs** | `outboundCalling`, `postCallTranscript`, `signedWebhooks` | Fully supported via official Conversational AI API (`/convai/sip-trunk/outbound-call`, `/convai/conversations/{id}`, HMAC `elevenlabs-signature`). |
-| **Sarvam AI**  | `VOICE_OPERATION_UNSUPPORTED`                             | Public API exposes TTS / STT REST endpoints; no public voice AI telephony or outbound agent call orchestration API exists.                         |
-| **xAI (Grok)** | `VOICE_OPERATION_UNSUPPORTED`                             | Public API exposes Grok LLM completion/chat; no public outbound SIP telephony API or native voice agent webhooks exist.                            |
+| Provider       | Capabilities                                              | Documented Public API Status                                                                                                                                     |
+| :------------- | :-------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **ElevenLabs** | `outboundCalling`, `postCallTranscript`, `signedWebhooks` | Fully supported via official Conversational AI API (`POST /v1/convai/sip-trunk/outbound-call`, `GET /convai/conversations/{id}`, HMAC `elevenlabs-signature`). |
+| **Sarvam AI**  | `VOICE_OPERATION_UNSUPPORTED`                             | Public API exposes TTS / STT REST endpoints; no public voice AI telephony or outbound agent call orchestration API exists.                                       |
+| **xAI (Grok)** | `VOICE_OPERATION_UNSUPPORTED`                             | Public API exposes Grok LLM completion/chat; no public outbound SIP telephony API or native voice agent webhooks exist.                                         |
 
 ---
 
-## 2. Comprehensive Audit Findings
+## 2. Production Audit Findings & Fixes
 
-### Provider Contract & Endpoint Discrepancies
+### 1. Provider Contract & Payload Field (`to_number`)
+- **Endpoint**: `/v1/convai/sip-trunk/outbound-call`
+- **Request Payload**: Explicitly uses `to_number` per official ElevenLabs documentation (`https://elevenlabs.io/docs/api-reference/sip-trunk/outbound-call`).
+- **Headers**: `xi-api-key`, `Content-Type: application/json`
+- **Response Validation**: Enforces `body.success === true` and extracts `conversation_id`.
+- **Capability Guard**: `transferCall` and `terminateCall` throw `VOICE_OPERATION_UNSUPPORTED` (501).
 
-- **Endpoint Mismatch**: Previously, `elevenlabs-provider.ts` targeted `/v1/convai/sip-trunk/outbound` instead of official `/v1/convai/sip-trunk/outbound-call`.
-- **Payload Property Mismatch**: Implementation sent `to_number` instead of official field `to_phone_number`.
-- **Response Validation**: Checked `body.conversation_id` but did not enforce `body.success === true`.
-- **Capability Unsupported Guard**: `transferCall` and `terminateCall` correctly throw `VOICE_OPERATION_UNSUPPORTED` (501).
+### 2. Tenant Credentials Resolver (`resolveTenantVoiceConfig`)
+- Server-only resolver loads enabled `voice_integrations` document for `accountId` + `provider`.
+- Decrypts credentials server-side using AES-256-GCM without exposing keys to clients, logs, or response payloads.
+- Fails closed if integration is missing, disabled, malformed, or undecryptable.
 
-### Schema Drift & Persistence Gaps
+### 3. Single Call Document Guarantee
+- Atomically claims idempotency key in `voice_commands`.
+- Creates **one** `calls` document in `queued` state.
+- Transitions call state to `initiating`.
+- Initiates remote ElevenLabs call.
+- Updates that **same** document ID with `externalCallId` and provider metadata—never creates a duplicate call document.
 
-- **Missing Attributes**: Appwrite `calls` collection lacked `version`, `transcriptReference`, and `recordingReference`. `provider_events` lacked `processingStartedAt`, `heartbeatAt`, `nextAttemptAt`, `processedAt`.
-- **Indexes**: Required compound unique index `provider + agentId + providerPhoneNumberId` on `voice_integrations` and processing indexes on `provider_events`.
+### 4. Fail-Closed Webhook & Storage Persistence
+- Validates HMAC signature (`elevenlabs-signature` with `t=` timestamp and `v0=` hash) within 300s replay window.
+- Stores raw webhook payload in private Appwrite Storage bucket `webhookPayloads`. Fails closed (HTTP 500) if Storage write fails.
+- Atomically creates `provider_events` document with SHA-256 `payloadHash`.
+- Handles duplicates: HTTP 200 on matching hash; HTTP 409 on hash mismatch.
 
-### State Machine & Call Lifecycle
+### 5. Appwrite-Only Outbox Worker Model (No Redis / No BullMQ)
+- Replaced external queues with Appwrite-native `AppwriteVoiceOutboxWorker`.
+- Statuses: `queued`, `processing`, `retrying`, `processed`, `dead_letter`.
+- Includes atomic lease claiming, 60s lease expiry recovery, and bounded exponential backoff.
 
-- **Direct Status Mutations**: Outbound API and Webhook handler previously called `upsertCall` directly without validating transition rules (e.g. allowing terminal states to regress to active states).
-- **Enforced Lifecycle Needed**: Implemented centralized `CallStateMachine` class managing `QUEUED` -> `INITIATING` -> `RINGING` -> `IN_PROGRESS` -> `COMPLETED` / `FAILED` transitions with versioning.
+### 6. State Machine Enforcement
+- All call status transitions pass through `CallStateMachine.canTransition()`.
+- Terminal call states (`completed`, `failed`, `busy`, `no_answer`, `cancelled`) are locked against regressive status changes.
 
-### Webhook Processing & Queue Outbox
+### 7. Private & Tenant-Scoped Transcripts
+- Raw transcript text is stored in private Storage bucket `webhookPayloads`. Only references (`transcriptReference`) are stored on call documents.
+- Endpoint `GET /api/voice/calls/[callId]/transcript` requires authenticated tenant membership and returns `Cache-Control: private, no-store`.
 
-- **Unqueued Events**: Webhooks marked records `processingStatus: 'queued'` but did not enqueue them to BullMQ `provider-events` queue.
-- **Race Condition**: Parallel webhook deliveries could pass duplicate checks before record insertion.
-- **Transcript Exposure**: Webhook handler put full raw transcript text into call metadata document instead of storing transcript privately in Appwrite Storage.
-
-### Tenant Resolution & Authorization
-
-- **Credential Encryption**: Server resolves `voice_integrations` via `accountId` + `provider`, decrypts credential references server-side, and instantiates provider without exposing keys to client.
-- **Webhook Identity**: Webhooks resolve tenant using `provider` + `agentId` + `providerPhoneNumberId` and reject unmapped or ambiguous webhooks with HTTP 422.
+### 8. Safe & Honest Health Endpoint
+- `GET /api/voice/health` reports status (`not_configured`, `misconfigured`, `connected`, `degraded`, `unavailable`), provider reachability, outbox counts, worker heartbeat, and commit SHA (`0fea4f7`).
+- Never exposes secrets, keys, phone numbers, or patient details.
 
 ---
 
 ## 3. Environment Variables
-
-The system enforces consistent, unambiguous environment variables:
 
 ```bash
 # ElevenLabs Conversational AI
@@ -84,7 +96,7 @@ The voice system uses 4 dedicated Appwrite Database collections:
    - Attributes: `accountId`, `provider`, `externalCallId`, `direction`, `status`, `fromMasked`, `toMasked`, `contactId`, `leadId`, `agentId`, `startedAt`, `answeredAt`, `endedAt`, `durationSeconds`, `failureCode`, `failureMessageSanitized`, `transcriptStatus`, `recordingStatus`, `transcriptReference`, `recordingReference`, `version`, `createdAt`, `updatedAt`
    - Indexes: `unique_account_external_call` (`accountId + externalCallId`), `idx_calls_account_created` (`accountId + createdAt`), `idx_calls_account_status` (`accountId + status`), `idx_calls_provider_external` (`provider + externalCallId`)
 3. `provider_events`:
-   - Attributes: `accountId`, `provider`, `externalEventId`, `eventType`, `payloadHash`, `rawPayloadReference`, `processingStatus`, `processingAttempts`, `lastErrorSanitized`, `receivedAt`, `processingStartedAt`, `heartbeatAt`, `nextAttemptAt`, `processedAt`
+   - Attributes: `accountId`, `provider`, `externalEventId`, `eventType`, `payloadHash`, `rawPayloadReference`, `processingStatus`, `processingAttempts`, `maxAttempts`, `lastErrorSanitized`, `receivedAt`, `processingStartedAt`, `lockOwner`, `lockExpiresAt`, `heartbeatAt`, `nextAttemptAt`, `processedAt`, `deadLetteredAt`
    - Indexes: `unique_provider_event` (`provider + externalEventId`), `idx_provider_events_account_received` (`accountId + receivedAt`), `idx_provider_events_status_next` (`processingStatus + nextAttemptAt`)
 4. `voice_commands`:
    - Attributes: `accountId`, `commandType`, `idempotencyKey`, `commandFingerprint`, `externalCallId`, `status`, `resultReference`, `lastErrorSanitized`, `createdAt`, `updatedAt`

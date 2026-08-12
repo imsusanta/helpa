@@ -5,12 +5,13 @@ import { contactsRepository } from '@/infrastructure/appwrite/repositories/conta
 import { voiceRepository } from '@/infrastructure/appwrite/repositories/voice.repository';
 import { getVoiceProvider } from '@/core/providers/voice/provider-factory';
 import { VoiceProviderError } from '@/core/providers/voice/voice-provider.interface';
+import { resolveTenantVoiceConfig } from '@/core/providers/voice/credential-resolver';
 
 export async function POST(request: Request) {
   try {
     const ctx = await requireRole('agent');
     const idempotencyKey = request.headers.get('idempotency-key')?.trim();
-    if (!idempotencyKey || idempotencyKey.length > 200)
+    if (!idempotencyKey || idempotencyKey.length > 200) {
       return NextResponse.json(
         {
           error: 'VOICE_PROVIDER_REQUEST_FAILED',
@@ -18,12 +19,15 @@ export async function POST(request: Request) {
         },
         { status: 400 }
       );
+    }
+
     const body = (await request.json().catch(() => null)) as {
       contactId?: unknown;
       provider?: unknown;
       context?: unknown;
     } | null;
-    if (typeof body?.contactId !== 'string' || body.contactId.length === 0)
+
+    if (typeof body?.contactId !== 'string' || body.contactId.length === 0) {
       return NextResponse.json(
         {
           error: 'VOICE_PROVIDER_REQUEST_FAILED',
@@ -31,16 +35,20 @@ export async function POST(request: Request) {
         },
         { status: 400 }
       );
-    if (body.provider !== 'elevenlabs')
+    }
+
+    if (body.provider !== 'elevenlabs') {
       return NextResponse.json(
         { error: 'VOICE_OPERATION_UNSUPPORTED' },
         { status: 501 }
       );
+    }
+
     const contact = await contactsRepository.getContact(
       ctx.accountId,
       body.contactId
     );
-    if (!contact || !contact.phone || contact.consentStatus !== 'opted_in')
+    if (!contact || !contact.phone || contact.consentStatus !== 'opted_in') {
       return NextResponse.json(
         {
           error: 'VOICE_PROVIDER_REQUEST_FAILED',
@@ -49,17 +57,17 @@ export async function POST(request: Request) {
         },
         { status: 422 }
       );
+    }
 
+    // Resolve trusted tenant-scoped configuration server-side
+    const tenantConfig = await resolveTenantVoiceConfig(
+      ctx.accountId,
+      'elevenlabs'
+    );
     const integration = await voiceRepository.findIntegration(
       ctx.accountId,
       'elevenlabs'
     );
-    if (!integration)
-      throw new VoiceProviderError(
-        'VOICE_PROVIDER_NOT_CONFIGURED',
-        'ElevenLabs is not configured for this account',
-        503
-      );
 
     const fingerprint = crypto
       .createHash('sha256')
@@ -67,18 +75,20 @@ export async function POST(request: Request) {
         JSON.stringify({
           accountId: ctx.accountId,
           contactId: contact.$id,
-          provider: integration.provider,
+          provider: 'elevenlabs',
           context: body.context || null,
         })
       )
       .digest('hex');
 
-    const existing = await voiceRepository.findCommand(
+    // 1. Check idempotency command
+    const existingCommand = await voiceRepository.findCommand(
       ctx.accountId,
       idempotencyKey
     );
-    if (existing) {
-      if (existing.commandFingerprint !== fingerprint)
+
+    if (existingCommand) {
+      if (existingCommand.commandFingerprint !== fingerprint) {
         return NextResponse.json(
           {
             error: 'VOICE_PROVIDER_REQUEST_FAILED',
@@ -86,26 +96,29 @@ export async function POST(request: Request) {
           },
           { status: 409 }
         );
+      }
 
-      if (existing.externalCallId) {
+      if (existingCommand.externalCallId) {
         const existingCall = await voiceRepository.findCallByExternalId(
           ctx.accountId,
-          existing.externalCallId
+          existingCommand.externalCallId
         );
         if (existingCall) {
           return NextResponse.json({ call: existingCall }, { status: 200 });
         }
       }
+
       return NextResponse.json(
         {
-          command: existing,
-          status: existing.status,
+          command: existingCommand,
+          status: existingCommand.status,
           message: 'Outbound command is being processed',
         },
         { status: 200 }
       );
     }
 
+    // Atomically claim idempotency key
     let command: Record<string, unknown>;
     try {
       command = await voiceRepository.createCommand({
@@ -145,10 +158,7 @@ export async function POST(request: Request) {
             }
           }
           return NextResponse.json(
-            {
-              command: raceCommand,
-              status: raceCommand.status,
-            },
+            { command: raceCommand, status: raceCommand.status },
             { status: 200 }
           );
         }
@@ -156,31 +166,43 @@ export async function POST(request: Request) {
       throw err;
     }
 
-    // Pre-call persistence: Create local INITIATING call before calling remote provider
-    const localCall = await voiceRepository.createCall(ctx.accountId, {
+    // 2. Persist ONE QUEUED call document
+    const callDoc = await voiceRepository.createCall(ctx.accountId, {
       provider: 'elevenlabs',
       direction: 'outbound',
-      status: 'initiating',
-      fromMasked: integration.phoneNumberMasked,
+      status: 'queued',
+      externalCallId: `pending_${command.$id}`,
+      fromMasked:
+        integration?.phoneNumberMasked || tenantConfig.phoneNumberId || '***',
       toMasked: contact.phone.slice(-4).padStart(contact.phone.length, '*'),
       contactId: contact.$id,
-      agentId: integration.agentId,
+      agentId: integration?.agentId || tenantConfig.agentId,
     });
 
-    const provider = getVoiceProvider('elevenlabs');
+    // 3. Transition call document status to INITIATING
+    await voiceRepository.updateCallStatus(
+      ctx.accountId,
+      callDoc.$id,
+      'initiating'
+    );
+
+    // 4. Contact ElevenLabs using tenant provider instance
+    const provider = getVoiceProvider('elevenlabs', tenantConfig);
     let outboundResult: { externalCallId: string };
+
     try {
       outboundResult = await provider.initiateOutboundCall({
         toNumber: contact.phone,
-        agentId: integration.agentId,
-        phoneNumberId: integration.providerPhoneNumberId,
+        agentId: integration?.agentId || tenantConfig.agentId,
+        phoneNumberId:
+          integration?.providerPhoneNumberId || tenantConfig.phoneNumberId,
         context:
           typeof body.context === 'object' && body.context
             ? (body.context as Record<string, unknown>)
             : undefined,
       });
     } catch (error) {
-      // Provider failure compensation: Mark local call FAILED
+      // Mark local call FAILED on provider error
       const errorMessage =
         error instanceof VoiceProviderError
           ? error.message
@@ -188,7 +210,7 @@ export async function POST(request: Request) {
 
       await voiceRepository.updateCallStatus(
         ctx.accountId,
-        localCall.$id,
+        callDoc.$id,
         'failed',
         {
           failureCode:
@@ -207,11 +229,12 @@ export async function POST(request: Request) {
             : 'VOICE_PROVIDER_REQUEST_FAILED',
       });
 
-      if (error instanceof VoiceProviderError)
+      if (error instanceof VoiceProviderError) {
         return NextResponse.json(
           { error: error.code },
           { status: error.status }
         );
+      }
 
       return NextResponse.json(
         { error: 'VOICE_PROVIDER_REQUEST_FAILED' },
@@ -219,19 +242,15 @@ export async function POST(request: Request) {
       );
     }
 
-    // Provider call succeeded! Persist real externalCallId
+    // 5. Update that SAME Appwrite call document with externalCallId!
     try {
-      const updatedCall = await voiceRepository.upsertCall(
+      const updatedCall = await voiceRepository.updateCallStatus(
         ctx.accountId,
-        outboundResult.externalCallId,
+        callDoc.$id,
+        'initiating',
         {
-          provider: 'elevenlabs',
-          direction: 'outbound',
-          status: 'initiating',
-          fromMasked: integration.phoneNumberMasked,
-          toMasked: contact.phone.slice(-4).padStart(contact.phone.length, '*'),
-          contactId: contact.$id,
-          agentId: integration.agentId,
+          externalCallId: outboundResult.externalCallId,
+          updatedAt: new Date().toISOString(),
         }
       );
 
@@ -243,12 +262,12 @@ export async function POST(request: Request) {
 
       return NextResponse.json({ call: updatedCall }, { status: 201 });
     } catch (err: unknown) {
-      // Remote call succeeded but local persistence threw an error:
-      // Record a reconciliation event to prevent leaving an untracked real remote call
       console.error(
-        '[outbound-call] Remote call succeeded but local persistence failed:',
+        '[outbound-call] Call initiation succeeded but status update failed:',
         err
       );
+
+      // Persist durable outbox reconciliation record
       try {
         await voiceRepository.createProviderEvent({
           accountId: ctx.accountId,
@@ -262,17 +281,16 @@ export async function POST(request: Request) {
           receivedAt: new Date().toISOString(),
         });
       } catch {
-        /* best effort reconciliation task persistence */
+        /* best effort reconciliation persistence */
       }
 
+      // Return sanitized failure—NOT fake success or partialSuccess!
       return NextResponse.json(
         {
-          partialSuccess: true,
-          externalCallId: outboundResult.externalCallId,
-          message:
-            'Outbound call initiated remotely; local status tracking is undergoing reconciliation',
+          error: 'VOICE_PROVIDER_PERSISTENCE_FAILED',
+          message: 'Failed to record provider response; reconciliation queued',
         },
-        { status: 202 }
+        { status: 500 }
       );
     }
   } catch (error) {

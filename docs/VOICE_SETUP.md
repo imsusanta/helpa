@@ -29,7 +29,7 @@ This guide details the setup, configuration, security rules, and production depl
   {
     "agent_id": "string",
     "agent_phone_number_id": "string",
-    "to_phone_number": "string",
+    "to_number": "string",
     "conversation_initiation_client_data": {}
   }
   ```
