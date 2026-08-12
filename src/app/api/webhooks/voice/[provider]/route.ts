@@ -10,6 +10,7 @@ import {
 import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
 import { getAppwriteAdminClient } from '@/infrastructure/appwrite/server';
 import { voiceRepository } from '@/infrastructure/appwrite/repositories/voice.repository';
+import { storageRepository } from '@/infrastructure/appwrite/repositories/storage.repository';
 import { resolveTenantVoiceConfig } from '@/core/providers/voice/credential-resolver';
 
 const MAX_PAYLOAD_BYTES = 1_000_000;
@@ -144,6 +145,9 @@ export async function POST(
 
     // 5. Store raw payload in private Appwrite Storage bucket (FAIL CLOSED!)
     const storage = getAppwriteAdminClient().storage;
+    await storageRepository.ensureBucketExists(
+      APPWRITE_CONFIG.buckets.webhookPayloads
+    );
     const filename = `${providerName}_${event.externalEventId.replace(/[^a-zA-Z0-9_.:-]/g, '_')}_${payloadHash.slice(0, 16)}.json`;
 
     let rawPayloadReference: string;

@@ -8,12 +8,36 @@ export class StorageRepository {
     return getAppwriteAdminClient().storage;
   }
 
+  async ensureBucketExists(bucketId: string) {
+    try {
+      await this.storage.getBucket(bucketId);
+    } catch (err: unknown) {
+      const code = (err as { code?: number })?.code;
+      if (code === 404) {
+        try {
+          await this.storage.createBucket(
+            bucketId,
+            bucketId,
+            [], // Private
+            false,
+            true,
+            undefined,
+            ['jpg', 'png', 'pdf', 'mp4', 'ogg', 'wav', 'json', 'txt']
+          );
+        } catch {
+          // ignore creation race condition
+        }
+      }
+    }
+  }
+
   async uploadFile(
     bucketId: string,
     fileBuffer: Buffer,
     filename: string,
     _mimeType: string
   ) {
+    await this.ensureBucketExists(bucketId);
     const inputFile = InputFile.fromBuffer(fileBuffer, filename);
     const result = await this.storage.createFile(
       bucketId,
