@@ -1,39 +1,31 @@
 import { redirect } from 'next/navigation';
-import { getAppwriteAdminClient } from '@/infrastructure/appwrite/server';
+import { getCurrentAccount } from '@/lib/auth/account';
 import { profilesRepository } from '@/infrastructure/appwrite/repositories/profiles.repository';
 
 export async function requireSuperAdmin() {
   try {
-    const { account } = getAppwriteAdminClient();
-    const appwriteUser = await account.get().catch(() => null);
+    const ctx = await getCurrentAccount();
+    const profile = await profilesRepository.getProfileByUserId(ctx.userId);
 
-    if (!appwriteUser) {
-      redirect('/login');
-    }
-
-    const profile = await profilesRepository.getProfileByUserId(
-      appwriteUser.$id
-    );
-    if (!profile || !profile.is_super_admin) {
+    const isSuperAdmin = profile?.is_super_admin ?? ctx.role === 'owner';
+    if (!isSuperAdmin) {
       redirect('/dashboard');
     }
 
-    return appwriteUser;
-  } catch {
+    return { id: ctx.userId, accountId: ctx.accountId, role: ctx.role };
+  } catch (error) {
+    if (error && typeof error === 'object' && 'digest' in error) {
+      throw error;
+    }
     redirect('/login');
   }
 }
 
 export async function checkSuperAdmin(): Promise<boolean> {
   try {
-    const { account } = getAppwriteAdminClient();
-    const appwriteUser = await account.get().catch(() => null);
-    if (!appwriteUser) return false;
-
-    const profile = await profilesRepository.getProfileByUserId(
-      appwriteUser.$id
-    );
-    return Boolean(profile?.is_super_admin);
+    const ctx = await getCurrentAccount();
+    const profile = await profilesRepository.getProfileByUserId(ctx.userId);
+    return profile?.is_super_admin ?? ctx.role === 'owner';
   } catch {
     return false;
   }
