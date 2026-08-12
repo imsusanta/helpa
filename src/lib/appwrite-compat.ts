@@ -81,9 +81,38 @@ function normalizePayload(record: AnyRecord): AnyRecord {
   delete payload.$id;
   delete payload.$createdAt;
   delete payload.$updatedAt;
+  delete payload.permissions;
+  delete payload.$permissions;
   return Object.fromEntries(
     Object.entries(payload).map(([key, value]) => [toCamelCase(key), value])
   );
+}
+
+function getPermissionsForRecord(record: AnyRecord): string[] {
+  if (Array.isArray(record.permissions) && record.permissions.length > 0) {
+    return record.permissions;
+  }
+  if (Array.isArray(record.$permissions) && record.$permissions.length > 0) {
+    return record.$permissions;
+  }
+
+  const accountId = record.account_id || record.accountId;
+  if (accountId) {
+    return [
+      `read("team:${accountId}")`,
+      `update("team:${accountId}")`,
+      `delete("team:${accountId}")`,
+      'read("any")',
+      'update("any")',
+      'delete("any")',
+    ];
+  }
+
+  return [
+    'read("any")',
+    'update("any")',
+    'delete("any")',
+  ];
 }
 
 function queryValue(value: any): string {
@@ -421,6 +450,7 @@ class QueryBuilder {
             body: JSON.stringify({
               documentId: record.id || 'unique()',
               data: normalizePayload(record),
+              permissions: getPermissionsForRecord(record),
             }),
           }
         );
