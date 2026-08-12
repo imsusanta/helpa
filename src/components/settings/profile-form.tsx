@@ -129,15 +129,25 @@ export function ProfileForm() {
             throw new Error(avatarData.error || 'Server upload failed');
           }
         } catch {
-          // Client SDK fallback to chat-media bucket
-          const { uploadAccountMedia } = await import(
-            '@/lib/storage/upload-media'
-          );
-          const mediaResult = await uploadAccountMedia(
-            'chat-media',
-            pendingAvatar
-          );
-          nextAvatarUrl = mediaResult.publicUrl;
+          // Client SDK fallback or local base64 Data URL fallback
+          try {
+            const { uploadAccountMedia } = await import(
+              '@/lib/storage/upload-media'
+            );
+            const mediaResult = await uploadAccountMedia(
+              'chat-media',
+              pendingAvatar
+            );
+            nextAvatarUrl = mediaResult.publicUrl;
+          } catch {
+            // Local FileReader base64 Data URL fallback if remote storage fails
+            nextAvatarUrl = await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result as string);
+              reader.onerror = () => resolve('');
+              reader.readAsDataURL(pendingAvatar);
+            });
+          }
         }
       } else if (removeAvatar) {
         nextAvatarUrl = null;

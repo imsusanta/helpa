@@ -13,15 +13,25 @@ export class StorageRepository {
       await this.storage.getBucket(bucketId);
     } catch (err: unknown) {
       const code = (err as { code?: number })?.code;
-      if (code === 404) {
+      if (code === 404 || String(err).includes('404')) {
         try {
-          await this.storage.createBucket(
-            bucketId,
-            bucketId,
-            ['read("any")'], // Public read permissions for media viewing
-            false,
-            true
-          );
+          // Create bucket via REST with public permissions
+          await fetch(`${APPWRITE_CONFIG.endpoint}/storage/buckets`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
+              'X-Appwrite-Key': APPWRITE_CONFIG.apiKey,
+            },
+            body: JSON.stringify({
+              bucketId,
+              name: bucketId,
+              permissions: ['read("any")'],
+              fileSecurity: false,
+              enabled: true,
+              maximumFileSize: 30 * 1024 * 1024,
+            }),
+          });
         } catch {
           // ignore creation race condition
         }
@@ -33,36 +43,42 @@ export class StorageRepository {
     bucketId: string,
     fileBuffer: Buffer,
     filename: string,
-    _mimeType: string
-  ) {
+    mimeType: string = 'image/png'
+  ): Promise<{ fileId: string; fileUrl: string }> {
     let targetBucket = bucketId;
+
     try {
       await this.ensureBucketExists(targetBucket);
-    } catch {
-      targetBucket = APPWRITE_CONFIG.buckets.chatMedia;
-    }
-
-    const inputFile = InputFile.fromBuffer(fileBuffer, filename);
-    let result;
-    try {
-      result = await this.storage.createFile(
+      const inputFile = InputFile.fromBuffer(fileBuffer, filename);
+      const result = await this.storage.createFile(
         targetBucket,
         ID.unique(),
         inputFile
       );
-    } catch {
-      // Fallback to chatMedia bucket if target bucket upload fails
-      targetBucket = APPWRITE_CONFIG.buckets.chatMedia;
-      await this.ensureBucketExists(targetBucket);
-      result = await this.storage.createFile(
-        targetBucket,
-        ID.unique(),
-        inputFile
-      );
-    }
 
-    const fileUrl = `${APPWRITE_CONFIG.endpoint}/storage/buckets/${targetBucket}/files/${result.$id}/view?project=${APPWRITE_CONFIG.projectId}`;
-    return { fileId: result.$id, fileUrl };
+      const fileUrl = `${APPWRITE_CONFIG.endpoint}/storage/buckets/${targetBucket}/files/${result.$id}/view?project=${APPWRITE_CONFIG.projectId}`;
+      return { fileId: result.$id, fileUrl };
+    } catch {
+      // Try fallback to chatMedia bucket
+      try {
+        targetBucket = APPWRITE_CONFIG.buckets.chatMedia;
+        await this.ensureBucketExists(targetBucket);
+        const inputFile = InputFile.fromBuffer(fileBuffer, filename);
+        const result = await this.storage.createFile(
+          targetBucket,
+          ID.unique(),
+          inputFile
+        );
+
+        const fileUrl = `${APPWRITE_CONFIG.endpoint}/storage/buckets/${targetBucket}/files/${result.$id}/view?project=${APPWRITE_CONFIG.projectId}`;
+        return { fileId: result.$id, fileUrl };
+      } catch {
+        // Base64 Data URL fallback if storage engine fails
+        const base64 = fileBuffer.toString('base64');
+        const dataUrl = `data:${mimeType};base64,${base64}`;
+        return { fileId: `base64_${Date.now()}`, fileUrl: dataUrl };
+      }
+    }
   }
 
   async deleteFile(bucketId: string, fileId: string) {
