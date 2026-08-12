@@ -66,11 +66,34 @@ export async function getCurrentAccount(): Promise<AccountContext> {
     if (!response.ok) throw new UnauthorizedError();
     const appwriteUser = await response.json();
 
-    const profile = await profilesRepository.getProfileByUserId(
-      appwriteUser.$id
-    );
+    let profile = await profilesRepository.getProfileByUserId(appwriteUser.$id);
+
     if (!profile || !profile.accountId || !profile.role) {
-      throw new ForbiddenError('Account profile missing or unauthorized');
+      const defaultAccountId =
+        appwriteUser.prefs?.accountId ||
+        appwriteUser.prefs?.account_id ||
+        `acc_${appwriteUser.$id}`;
+
+      try {
+        profile = await profilesRepository.createProfile({
+          userId: appwriteUser.$id,
+          accountId: defaultAccountId,
+          name: appwriteUser.name || appwriteUser.email || 'User',
+          email: appwriteUser.email || '',
+          role: 'owner',
+        });
+      } catch {
+        profile = {
+          $id: appwriteUser.$id,
+          userId: appwriteUser.$id,
+          accountId: defaultAccountId,
+          name: appwriteUser.name || 'User',
+          email: appwriteUser.email || '',
+          role: 'owner',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+      }
     }
 
     const accountId = profile.accountId;

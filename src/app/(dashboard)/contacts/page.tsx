@@ -250,7 +250,7 @@ export default function ContactsPage() {
     } finally {
       setLoading(false);
     }
-  }, [appwrite, page, search]);
+  }, [appwrite, page, router, search]);
 
   // Load-once-on-mount-ish data fetches. Each setter inside runs
   // inside an async promise completion (appwrite await), not
