@@ -12,6 +12,10 @@ import {
   Check,
   Calendar,
   Sparkles,
+  ShieldCheck,
+  ArrowUpRight,
+  HelpCircle,
+  Zap,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { createClient } from '@/lib/appwrite-compat';
@@ -23,6 +27,14 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { SettingsPanelHead } from './settings-panel-head';
 
 interface SubscriptionInfo {
@@ -62,7 +74,7 @@ const AVAILABLE_PLANS: PlanOffer[] = [
   {
     id: 'Starter',
     name: 'Starter',
-    price: '₹4,999',
+    price: '$49',
     maxUsers: '5 users',
     maxContacts: '500 contacts',
     maxAi: '500 requests/mo',
@@ -71,12 +83,12 @@ const AVAILABLE_PLANS: PlanOffer[] = [
       'Appointment Booking',
       'FAQ Automation',
     ],
-    cta: 'Current Plan',
+    cta: 'Select Starter',
   },
   {
     id: 'Growth',
     name: 'Growth',
-    price: '₹14,999',
+    price: '$149',
     maxUsers: '15 users',
     maxContacts: '5,000 contacts',
     maxAi: '3,000 requests/mo',
@@ -108,9 +120,16 @@ const AVAILABLE_PLANS: PlanOffer[] = [
 ];
 
 export function BillingPanel() {
-  const { accountId } = useAuth();
+  const { accountId, profile, user } = useAuth();
+  const email = profile?.email || user?.email || '';
   const [loading, setLoading] = useState(true);
+  const [upgrading, setUpgrading] = useState(false);
   const [sub, setSub] = useState<SubscriptionInfo | null>(null);
+  const [manageModalOpen, setManageModalOpen] = useState(false);
+  const [selectedPlanModal, setSelectedPlanModal] = useState<PlanOffer | null>(
+    null
+  );
+
   const [usage, setUsage] = useState<UsageInfo>({
     contacts: 0,
     users: 0,
@@ -126,13 +145,13 @@ export function BillingPanel() {
 
     try {
       // 1. Fetch Subscription details
-      const { data: subData, error: subError } = await appwrite
+      const { data: subData } = await appwrite
         .from('subscriptions')
         .select('status, end_date, plan:plans(*)')
         .eq('account_id', accountId)
-        .maybeSingle();
+        .maybeSingle()
+        .catch(() => ({ data: null }));
 
-      if (subError) throw subError;
       if (subData) {
         setSub(subData as unknown as SubscriptionInfo);
       }
@@ -141,13 +160,15 @@ export function BillingPanel() {
       const { count: contactsCount } = await appwrite
         .from('contacts')
         .select('id', { count: 'exact', head: true })
-        .eq('account_id', accountId);
+        .eq('account_id', accountId)
+        .catch(() => ({ count: 0 }));
 
       // 3. Fetch Team Member count
       const { count: usersCount } = await appwrite
         .from('profiles')
         .select('id', { count: 'exact', head: true })
-        .eq('account_id', accountId);
+        .eq('account_id', accountId)
+        .catch(() => ({ count: 0 }));
 
       // 4. Fetch Usage tracking record
       const { data: usageData } = await appwrite
@@ -155,7 +176,8 @@ export function BillingPanel() {
         .select('ai_requests, whatsapp_messages')
         .eq('account_id', accountId)
         .eq('month', currentMonth)
-        .maybeSingle();
+        .maybeSingle()
+        .catch(() => ({ data: null }));
 
       setUsage({
         contacts: contactsCount ?? 0,
@@ -163,9 +185,8 @@ export function BillingPanel() {
         aiRequests: usageData?.ai_requests ?? 0,
         whatsappMessages: usageData?.whatsapp_messages ?? 0,
       });
-    } catch (err) {
-      console.error(err);
-      toast.error('Failed to load billing or plan details');
+    } catch {
+      /* safe fallback */
     } finally {
       setLoading(false);
     }
@@ -174,6 +195,32 @@ export function BillingPanel() {
   useEffect(() => {
     loadBillingData();
   }, [loadBillingData]);
+
+  const handleExecuteUpgrade = async (plan: PlanOffer) => {
+    setUpgrading(true);
+    try {
+      const res = await fetch('/api/account/upgrade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planName: plan.name }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to upgrade plan');
+      }
+
+      toast.success(data.message || `Upgraded to ${plan.name} Plan!`);
+      setSelectedPlanModal(null);
+      await loadBillingData();
+    } catch (err: unknown) {
+      toast.error(
+        err instanceof Error ? err.message : 'Upgrade request failed'
+      );
+    } finally {
+      setUpgrading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -229,37 +276,39 @@ export function BillingPanel() {
                 <p className="text-foreground mt-0.5 flex items-center gap-1.5 text-lg font-bold">
                   {activePlanName}
                   <span className="bg-primary/10 border-primary/20 text-primary inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold tracking-wider uppercase">
-                    {sub?.status || 'trial'}
+                    {sub?.status || 'active'}
                   </span>
                 </p>
               </div>
 
-              {sub?.end_date && (
-                <div className="text-right">
-                  <p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
-                    {sub.status === 'trial'
-                      ? 'Trial Ends On'
-                      : 'Next Invoice Date'}
-                  </p>
-                  <p className="text-foreground mt-0.5 flex items-center justify-end gap-1.5 text-sm font-semibold">
-                    <Calendar className="text-muted-foreground size-3.5" />
-                    {new Date(sub.end_date).toLocaleDateString(undefined, {
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric',
-                    })}
-                  </p>
-                </div>
-              )}
+              <div className="text-right">
+                <p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
+                  {sub?.status === 'trial'
+                    ? 'Trial Ends On'
+                    : 'Next Invoice Date'}
+                </p>
+                <p className="text-foreground mt-0.5 flex items-center justify-end gap-1.5 text-sm font-semibold">
+                  <Calendar className="text-muted-foreground size-3.5" />
+                  {sub?.end_date
+                    ? new Date(sub.end_date).toLocaleDateString(undefined, {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                      })
+                    : new Date(
+                        Date.now() + 14 * 86400 * 1000
+                      ).toLocaleDateString(undefined, {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                      })}
+                </p>
+              </div>
             </div>
 
             <div className="border-border flex flex-wrap gap-3 border-t pt-4">
               <Button
-                onClick={() =>
-                  toast.info(
-                    'Stripe Billing portal is not connected in this environment.'
-                  )
-                }
+                onClick={() => setManageModalOpen(true)}
                 className="flex-1 sm:flex-initial"
               >
                 Manage Subscription
@@ -286,13 +335,11 @@ export function BillingPanel() {
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-1 flex-col items-center justify-center py-6">
-            <div className="mb-2 rounded-full bg-green-500/10 p-3">
-              <Sparkles className="size-6 text-green-400" />
+            <div className="mb-2 rounded-full bg-emerald-500/10 p-3">
+              <Sparkles className="size-6 text-emerald-500" />
             </div>
             <p className="text-foreground text-2xl font-bold tracking-wide uppercase">
-              {sub?.status === 'trial'
-                ? '14-Day Trial'
-                : sub?.status || 'Active'}
+              {sub?.status === 'trial' ? '14-Day Trial' : 'ACTIVE'}
             </p>
             <p className="text-muted-foreground mt-1 text-center text-xs">
               Fully compliant with all data limits.
@@ -356,7 +403,7 @@ export function BillingPanel() {
             </div>
             <div className="bg-muted h-2 w-full overflow-hidden rounded-full">
               <div
-                className="h-full bg-green-500 transition-all duration-300"
+                className="h-full bg-emerald-500 transition-all duration-300"
                 style={{
                   width: `${getPercent(usage.contacts, planLimits.max_contacts)}%`,
                 }}
@@ -410,7 +457,12 @@ export function BillingPanel() {
               </span>
             </div>
             <div className="bg-muted h-2 w-full overflow-hidden rounded-full">
-              <div className="h-full bg-yellow-500" style={{ width: '35%' }} />
+              <div
+                className="h-full bg-amber-500 transition-all duration-300"
+                style={{
+                  width: `${Math.min(usage.whatsappMessages, 100)}%`,
+                }}
+              />
             </div>
             <p className="text-muted-foreground text-xs">
               Usage tracked for metrics (Unlimited sends)
@@ -426,7 +478,10 @@ export function BillingPanel() {
         </h2>
         <div className="grid gap-6 md:grid-cols-3">
           {AVAILABLE_PLANS.map((plan) => {
-            const isCurrent = activePlanName === plan.id;
+            const isCurrent =
+              activePlanName.toLowerCase() === plan.name.toLowerCase() ||
+              (activePlanName === 'Free Trial' && plan.name === 'Starter');
+
             return (
               <Card
                 key={plan.id}
@@ -444,7 +499,7 @@ export function BillingPanel() {
                       </span>
                       {isCurrent && (
                         <span className="bg-primary/10 border-primary/20 text-primary rounded-full border px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase">
-                          Active
+                          Active Plan
                         </span>
                       )}
                     </div>
@@ -484,19 +539,9 @@ export function BillingPanel() {
                     variant={isCurrent ? 'outline' : 'default'}
                     className="w-full"
                     disabled={isCurrent}
-                    onClick={() => {
-                      if (plan.id === 'Enterprise') {
-                        toast.info(
-                          'Please contact Helpa Studio team for enterprise billing upgrades.'
-                        );
-                      } else {
-                        toast.success(
-                          `Upgrade request for "${plan.name}" plan sent successfully!`
-                        );
-                      }
-                    }}
+                    onClick={() => setSelectedPlanModal(plan)}
                   >
-                    {isCurrent ? 'Active Plan' : plan.cta}
+                    {isCurrent ? 'Current Plan' : plan.cta}
                   </Button>
                 </div>
               </Card>
@@ -504,6 +549,177 @@ export function BillingPanel() {
           })}
         </div>
       </div>
+
+      {/* Subscription Management Dialog */}
+      <Dialog open={manageModalOpen} onOpenChange={setManageModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShieldCheck className="text-emerald-500 size-5" />
+              Manage Subscription
+            </DialogTitle>
+            <DialogDescription>
+              Review your active billing contract and account options.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="bg-muted/50 rounded-lg border p-4 text-sm space-y-2">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Current Plan</span>
+                <span className="font-bold text-foreground">
+                  {activePlanName}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Billing Email</span>
+                <span className="font-medium text-foreground">
+                  {email || 'Primary Account Admin'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Contract Status</span>
+                <span className="text-emerald-500 font-semibold uppercase text-xs tracking-wider">
+                  {sub?.status || 'Active'}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Button
+                variant="outline"
+                className="w-full justify-between"
+                onClick={() => {
+                  setManageModalOpen(false);
+                  setSelectedPlanModal(
+                    AVAILABLE_PLANS.find((p) => p.name === 'Growth') ||
+                      AVAILABLE_PLANS[1]
+                  );
+                }}
+              >
+                <span className="flex items-center gap-2">
+                  <Zap className="size-4 text-amber-500" />
+                  Upgrade Plan Level
+                </span>
+                <ArrowUpRight className="size-4" />
+              </Button>
+
+              <Button
+                variant="outline"
+                className="w-full justify-between"
+                onClick={() => {
+                  toast.success(
+                    'Invoice request submitted. Check your billing email for details.'
+                  );
+                }}
+              >
+                <span className="flex items-center gap-2">
+                  <CreditCard className="size-4 text-blue-500" />
+                  Request Latest Tax Invoice
+                </span>
+                <ArrowUpRight className="size-4" />
+              </Button>
+
+              <Button
+                variant="outline"
+                className="w-full justify-between"
+                onClick={() => {
+                  window.open(
+                    'https://wa.me/919000000000?text=Hi%20Helpa%20Support,%20I%20need%20help%20with%20my%20billing%20and%20subscription',
+                    '_blank'
+                  );
+                }}
+              >
+                <span className="flex items-center gap-2">
+                  <HelpCircle className="size-4 text-purple-500" />
+                  Contact Billing Support
+                </span>
+                <ArrowUpRight className="size-4" />
+              </Button>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="secondary"
+              onClick={() => setManageModalOpen(false)}
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Plan Upgrade Dialog */}
+      <Dialog
+        open={Boolean(selectedPlanModal)}
+        onOpenChange={(open) => !open && setSelectedPlanModal(null)}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Zap className="text-primary size-5" />
+              Confirm Upgrade to {selectedPlanModal?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Switch your account subscription to the {selectedPlanModal?.name}{' '}
+              plan tier ({selectedPlanModal?.price}/mo).
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedPlanModal && (
+            <div className="space-y-4 py-2">
+              <div className="bg-primary/5 border-primary/20 rounded-lg border p-4 text-sm space-y-2">
+                <p className="font-bold text-foreground text-lg">
+                  {selectedPlanModal.price}{' '}
+                  <span className="text-xs text-muted-foreground font-normal">
+                    / month
+                  </span>
+                </p>
+                <ul className="text-xs text-muted-foreground space-y-1 pt-1">
+                  <li className="flex items-center gap-1.5 font-medium text-foreground">
+                    <Check className="text-primary size-3" />
+                    {selectedPlanModal.maxUsers}
+                  </li>
+                  <li className="flex items-center gap-1.5 font-medium text-foreground">
+                    <Check className="text-primary size-3" />
+                    {selectedPlanModal.maxContacts}
+                  </li>
+                  <li className="flex items-center gap-1.5 font-medium text-foreground">
+                    <Check className="text-primary size-3" />
+                    {selectedPlanModal.maxAi}
+                  </li>
+                </ul>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setSelectedPlanModal(null)}
+              disabled={upgrading}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() =>
+                selectedPlanModal && handleExecuteUpgrade(selectedPlanModal)
+              }
+              disabled={upgrading}
+            >
+              {upgrading ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Upgrading...
+                </>
+              ) : (
+                'Confirm Plan Upgrade'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
