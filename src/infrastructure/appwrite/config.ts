@@ -49,5 +49,6 @@ export const APPWRITE_CONFIG = {
     campaigns: 'campaigns',
     doctors: 'doctors',
     departments: 'departments',
+    knowledgeBase: 'knowledge_base',
   },
 };

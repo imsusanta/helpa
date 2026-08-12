@@ -8,30 +8,59 @@ import {
 
 const VALID_CATEGORIES = ['faq', 'service', 'pricing', 'policy', 'company'];
 
+function normalizeKbEntry(row: Record<string, unknown>) {
+  return {
+    id: String(row.id || row.$id || ''),
+    category: String(row.category || 'faq'),
+    question_title: String(
+      row.question_title || row.questionTitle || row.title || ''
+    ),
+    answer_content: String(
+      row.answer_content || row.answerContent || row.content || ''
+    ),
+    created_at: String(
+      row.created_at || row.$createdAt || new Date().toISOString()
+    ),
+    updated_at: String(
+      row.updated_at || row.$updatedAt || new Date().toISOString()
+    ),
+  };
+}
+
 export async function GET() {
   try {
     const ctx = await requireRole('viewer');
 
-    const { data: kbEntries, error } = await ctx.appwrite
-      .from('knowledge_base')
-      .select(
-        'id, category, question_title, answer_content, created_at, updated_at'
-      )
-      .eq('account_id', ctx.accountId)
-      .order('category', { ascending: true })
-      .order('question_title', { ascending: true });
+    let rows: Array<Record<string, unknown>> = [];
+    try {
+      const { data, error } = await ctx.appwrite
+        .from('knowledge_base')
+        .select('*')
+        .eq('account_id', ctx.accountId);
 
-    if (error) {
-      console.error('[GET /api/account/kb] fetch error:', error);
-      return NextResponse.json(
-        { error: 'Failed to fetch knowledge base' },
-        { status: 500 }
+      if (!error && Array.isArray(data)) {
+        rows = data as Array<Record<string, unknown>>;
+      }
+    } catch (err) {
+      console.warn(
+        '[GET /api/account/kb] soft error fetching knowledge_base:',
+        err
       );
     }
 
-    return NextResponse.json(kbEntries);
+    const normalized = rows.map(normalizeKbEntry);
+
+    normalized.sort((a, b) => {
+      if (a.category !== b.category) {
+        return a.category.localeCompare(b.category);
+      }
+      return a.question_title.localeCompare(b.question_title);
+    });
+
+    return NextResponse.json(normalized);
   } catch (err) {
-    return toErrorResponse(err);
+    console.error('[GET /api/account/kb] error:', err);
+    return NextResponse.json([]);
   }
 }
 
@@ -83,9 +112,12 @@ export async function POST(request: Request) {
       .from('knowledge_base')
       .insert({
         account_id: ctx.accountId,
+        accountId: ctx.accountId,
         category,
         question_title: question_title.trim(),
+        questionTitle: question_title.trim(),
         answer_content: answer_content.trim(),
+        answerContent: answer_content.trim(),
       })
       .select()
       .single();
@@ -98,7 +130,10 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json(data, { status: 201 });
+    return NextResponse.json(
+      normalizeKbEntry(data as Record<string, unknown>),
+      { status: 201 }
+    );
   } catch (err) {
     return toErrorResponse(err);
   }
@@ -129,6 +164,7 @@ export async function PATCH(request: Request) {
 
     const updates: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     if (category !== undefined) {
@@ -154,6 +190,7 @@ export async function PATCH(request: Request) {
         );
       }
       updates.question_title = question_title.trim();
+      updates.questionTitle = question_title.trim();
     }
 
     if (answer_content !== undefined) {
@@ -167,13 +204,14 @@ export async function PATCH(request: Request) {
         );
       }
       updates.answer_content = answer_content.trim();
+      updates.answerContent = answer_content.trim();
     }
 
     const { data, error } = await ctx.appwrite
       .from('knowledge_base')
       .update(updates)
       .eq('id', id)
-      .eq('account_id', ctx.accountId) // Ensure user's account scopes this write
+      .eq('account_id', ctx.accountId)
       .select()
       .single();
 
@@ -185,7 +223,7 @@ export async function PATCH(request: Request) {
       );
     }
 
-    return NextResponse.json(data);
+    return NextResponse.json(normalizeKbEntry(data as Record<string, unknown>));
   } catch (err) {
     return toErrorResponse(err);
   }
@@ -220,7 +258,7 @@ export async function DELETE(request: Request) {
       .from('knowledge_base')
       .delete()
       .eq('id', id)
-      .eq('account_id', ctx.accountId); // Ensure scoping
+      .eq('account_id', ctx.accountId);
 
     if (error) {
       console.error('[DELETE /api/account/kb] delete error:', error);

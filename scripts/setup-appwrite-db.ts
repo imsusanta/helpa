@@ -551,6 +551,20 @@ export const SCHEMA_MANIFEST: Record<string, CollectionSchema> = {
       },
     ],
   },
+  knowledge_base: {
+    id: APPWRITE_CONFIG.collections.knowledgeBase,
+    attributes: [
+      { key: 'accountId', type: 'string', size: 255, required: true },
+      { key: 'category', type: 'string', size: 64, required: true },
+      { key: 'questionTitle', type: 'string', size: 500, required: true },
+      { key: 'answerContent', type: 'string', size: 5000, required: true },
+      { key: 'createdAt', type: 'string', size: 64, required: false },
+      { key: 'updatedAt', type: 'string', size: 64, required: false },
+    ],
+    indexes: [
+      { key: 'idx_kb_account', type: 'key', attributes: ['accountId'] },
+    ],
+  },
   audit_logs: {
     id: APPWRITE_CONFIG.collections.auditLogs,
     attributes: [

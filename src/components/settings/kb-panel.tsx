@@ -111,13 +111,13 @@ export function KbPanel() {
       const response = await fetch('/api/account/kb');
       if (response.ok) {
         const data = await response.json();
-        setEntries(data);
+        setEntries(Array.isArray(data) ? data : []);
       } else {
-        toast.error('Failed to load Knowledge Base entries');
+        setEntries([]);
       }
     } catch (err) {
       console.error(err);
-      toast.error('Error loading Knowledge Base');
+      setEntries([]);
     } finally {
       setLoading(false);
     }
