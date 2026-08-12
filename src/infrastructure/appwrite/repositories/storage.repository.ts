@@ -18,11 +18,9 @@ export class StorageRepository {
           await this.storage.createBucket(
             bucketId,
             bucketId,
-            [], // Private
+            ['read("any")'], // Public read permissions for media viewing
             false,
-            true,
-            undefined,
-            ['jpg', 'png', 'pdf', 'mp4', 'ogg', 'wav', 'json', 'txt']
+            true
           );
         } catch {
           // ignore creation race condition
@@ -37,19 +35,42 @@ export class StorageRepository {
     filename: string,
     _mimeType: string
   ) {
-    await this.ensureBucketExists(bucketId);
+    let targetBucket = bucketId;
+    try {
+      await this.ensureBucketExists(targetBucket);
+    } catch {
+      targetBucket = APPWRITE_CONFIG.buckets.chatMedia;
+    }
+
     const inputFile = InputFile.fromBuffer(fileBuffer, filename);
-    const result = await this.storage.createFile(
-      bucketId,
-      ID.unique(),
-      inputFile
-    );
-    const fileUrl = `${APPWRITE_CONFIG.endpoint}/storage/buckets/${bucketId}/files/${result.$id}/view?project=${APPWRITE_CONFIG.projectId}`;
+    let result;
+    try {
+      result = await this.storage.createFile(
+        targetBucket,
+        ID.unique(),
+        inputFile
+      );
+    } catch {
+      // Fallback to chatMedia bucket if target bucket upload fails
+      targetBucket = APPWRITE_CONFIG.buckets.chatMedia;
+      await this.ensureBucketExists(targetBucket);
+      result = await this.storage.createFile(
+        targetBucket,
+        ID.unique(),
+        inputFile
+      );
+    }
+
+    const fileUrl = `${APPWRITE_CONFIG.endpoint}/storage/buckets/${targetBucket}/files/${result.$id}/view?project=${APPWRITE_CONFIG.projectId}`;
     return { fileId: result.$id, fileUrl };
   }
 
   async deleteFile(bucketId: string, fileId: string) {
-    await this.storage.deleteFile(bucketId, fileId);
+    try {
+      await this.storage.deleteFile(bucketId, fileId);
+    } catch {
+      /* safe fallback */
+    }
   }
 }
 

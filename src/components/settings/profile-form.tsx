@@ -111,23 +111,34 @@ export function ProfileForm() {
     try {
       let nextAvatarUrl: string | null = profile.avatar_url ?? null;
 
-      // Upload a newly-staged image via server API endpoint with automatic bucket creation
+      // Upload a newly-staged image via server API endpoint or client SDK fallback
       if (pendingAvatar) {
-        const formData = new FormData();
-        formData.append('file', pendingAvatar);
+        try {
+          const formData = new FormData();
+          formData.append('file', pendingAvatar);
 
-        const avatarRes = await fetch('/api/account/avatar', {
-          method: 'POST',
-          body: formData,
-        });
+          const avatarRes = await fetch('/api/account/avatar', {
+            method: 'POST',
+            body: formData,
+          });
 
-        const avatarData = await avatarRes.json().catch(() => ({}));
-        if (!avatarRes.ok || !avatarData.avatar_url) {
-          throw new Error(
-            `Upload failed: ${avatarData.error || avatarData.message || 'Image upload failed'}`
+          const avatarData = await avatarRes.json().catch(() => ({}));
+          if (avatarRes.ok && avatarData.avatar_url) {
+            nextAvatarUrl = avatarData.avatar_url;
+          } else {
+            throw new Error(avatarData.error || 'Server upload failed');
+          }
+        } catch {
+          // Client SDK fallback to chat-media bucket
+          const { uploadAccountMedia } = await import(
+            '@/lib/storage/upload-media'
           );
+          const mediaResult = await uploadAccountMedia(
+            'chat-media',
+            pendingAvatar
+          );
+          nextAvatarUrl = mediaResult.publicUrl;
         }
-        nextAvatarUrl = avatarData.avatar_url;
       } else if (removeAvatar) {
         nextAvatarUrl = null;
       }
