@@ -43,6 +43,7 @@ export interface AccountContext {
   userId: string;
   accountId: string;
   role: AccountRole;
+  email?: string;
   account: { id: string; name: string };
   /** Appwrite data adapter used by routes being migrated to repositories. */
   appwrite?: import('@/lib/appwrite-compat').AppwriteCompatClient;
@@ -104,6 +105,7 @@ export async function getCurrentAccount(): Promise<AccountContext> {
       userId: appwriteUser.$id,
       accountId,
       role: profile.role,
+      email: appwriteUser.email || profile.email || '',
       account: { id: accountId, name: accountDoc?.name || 'Clinic Account' },
     };
   } catch (error) {

