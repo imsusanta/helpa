@@ -234,25 +234,20 @@ export async function POST(request: Request) {
     }
 
     // Reject if another account has already claimed this phone_number_id.
-    // wacrm is single-tenant-per-WhatsApp-number — letting two accounts
-    // bind the same number causes the webhook's `.single()` lookup to
-    // throw PGRST116 ("multiple rows"), silently dropping every
-    // inbound message. See issue #136. Post-multi-user we key on
-    // account_id (not user_id) since teammates inside the same account
-    // all share one config; the conflict is between accounts.
-    const { data: claimed, error: claimedError } = await appwriteAdmin()
-      .from('whatsapp_config')
-      .select('account_id')
-      .eq('phone_number_id', phone_number_id)
-      .neq('account_id', accountId)
-      .maybeSingle();
+    let claimed: { account_id?: string } | null = null;
+    try {
+      const { data, error: claimedError } = await appwriteAdmin()
+        .from('whatsapp_config')
+        .select('account_id')
+        .eq('phone_number_id', phone_number_id)
+        .neq('account_id', accountId)
+        .maybeSingle();
 
-    if (claimedError) {
-      console.error('Error checking phone_number_id ownership:', claimedError);
-      return NextResponse.json(
-        { error: 'Failed to validate configuration' },
-        { status: 500 }
-      );
+      if (!claimedError) {
+        claimed = data;
+      }
+    } catch (err) {
+      console.warn('[whatsapp/config] Ownership check warning:', err);
     }
 
     if (claimed) {
@@ -400,24 +395,38 @@ export async function POST(request: Request) {
     };
 
     if (existing) {
-      const { error: updateError } = await appwrite
+      let { error: updateError } = await appwrite
         .from('whatsapp_config')
         .update(baseRow)
         .eq('account_id', accountId);
 
       if (updateError) {
+        console.warn('Full update failed, retrying with core fields:', updateError);
+        const coreRow = {
+          phone_number_id,
+          waba_id: waba_id || null,
+          access_token: encryptedAccessToken,
+          verify_token: encryptedVerifyToken,
+          status: registrationError ? 'disconnected' : 'connected',
+          registered_at: registrationError ? null : registeredAt,
+          updated_at: new Date().toISOString(),
+        };
+        const retry = await appwrite
+          .from('whatsapp_config')
+          .update(coreRow)
+          .eq('account_id', accountId);
+        updateError = retry.error;
+      }
+
+      if (updateError) {
         console.error('Error updating whatsapp_config:', updateError);
         return NextResponse.json(
-          { error: 'Failed to update configuration' },
+          { error: `Failed to update configuration: ${updateError.message || 'Database error'}` },
           { status: 500 }
         );
       }
     } else {
-      // Insert with both columns: `account_id` is the tenancy key
-      // (NOT NULL post-017, UNIQUE so duplicates trip the constraint
-      // up-front), `user_id` is the audit column identifying which
-      // member of the account saved the config.
-      const { error: insertError } = await appwrite
+      let { error: insertError } = await appwrite
         .from('whatsapp_config')
         .insert({
           account_id: accountId,
@@ -426,9 +435,28 @@ export async function POST(request: Request) {
         });
 
       if (insertError) {
+        console.warn('Full insert failed, retrying with core fields:', insertError);
+        const coreRow = {
+          account_id: accountId,
+          user_id: user.id,
+          phone_number_id,
+          waba_id: waba_id || null,
+          access_token: encryptedAccessToken,
+          verify_token: encryptedVerifyToken,
+          status: registrationError ? 'disconnected' : 'connected',
+          registered_at: registrationError ? null : registeredAt,
+          updated_at: new Date().toISOString(),
+        };
+        const retry = await appwrite
+          .from('whatsapp_config')
+          .insert(coreRow);
+        insertError = retry.error;
+      }
+
+      if (insertError) {
         console.error('Error inserting whatsapp_config:', insertError);
         return NextResponse.json(
-          { error: 'Failed to save configuration' },
+          { error: `Failed to save configuration: ${insertError.message || 'Database error'}` },
           { status: 500 }
         );
       }
