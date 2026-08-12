@@ -299,7 +299,8 @@ export async function POST(request: Request) {
     // Look up any pre-existing row for this account so we know whether
     // this number is already registered with Meta — if so we can skip
     // /register when the user didn't provide a PIN this time around.
-    const { data: existing } = await appwrite
+    const adminClient = appwriteAdmin();
+    const { data: existing } = await adminClient
       .from('whatsapp_config')
       .select('id, registered_at, phone_number_id')
       .eq('account_id', accountId)
@@ -395,7 +396,7 @@ export async function POST(request: Request) {
     };
 
     if (existing) {
-      let { error: updateError } = await appwrite
+      let { error: updateError } = await adminClient
         .from('whatsapp_config')
         .update(baseRow)
         .eq('account_id', accountId);
@@ -411,7 +412,7 @@ export async function POST(request: Request) {
           registered_at: registrationError ? null : registeredAt,
           updated_at: new Date().toISOString(),
         };
-        const retry = await appwrite
+        const retry = await adminClient
           .from('whatsapp_config')
           .update(coreRow)
           .eq('account_id', accountId);
@@ -426,7 +427,7 @@ export async function POST(request: Request) {
         );
       }
     } else {
-      let { error: insertError } = await appwrite
+      let { error: insertError } = await adminClient
         .from('whatsapp_config')
         .insert({
           account_id: accountId,
@@ -447,7 +448,7 @@ export async function POST(request: Request) {
           registered_at: registrationError ? null : registeredAt,
           updated_at: new Date().toISOString(),
         };
-        const retry = await appwrite
+        const retry = await adminClient
           .from('whatsapp_config')
           .insert(coreRow);
         insertError = retry.error;
