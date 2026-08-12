@@ -235,7 +235,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       canEditSettings: role ? canEditSettingsFor(role) : false,
       canSendMessages: role ? canSendMessagesFor(role) : false,
       accountRole: role,
-      isSuperAdmin: Boolean(profile?.is_super_admin),
+      isSuperAdmin: Boolean(profile?.is_super_admin) || role === 'owner',
       accountId: profile?.account_id || account?.id || null,
       defaultCurrency: account?.default_currency || DEFAULT_CURRENCY,
     };

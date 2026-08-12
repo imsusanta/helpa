@@ -7,7 +7,8 @@ export async function requireSuperAdmin() {
     const ctx = await getCurrentAccount();
     const profile = await profilesRepository.getProfileByUserId(ctx.userId);
 
-    const isSuperAdmin = profile?.is_super_admin ?? ctx.role === 'owner';
+    const isSuperAdmin =
+      Boolean(profile?.is_super_admin) || ctx.role === 'owner';
     if (!isSuperAdmin) {
       redirect('/dashboard');
     }
@@ -25,7 +26,7 @@ export async function checkSuperAdmin(): Promise<boolean> {
   try {
     const ctx = await getCurrentAccount();
     const profile = await profilesRepository.getProfileByUserId(ctx.userId);
-    return profile?.is_super_admin ?? ctx.role === 'owner';
+    return Boolean(profile?.is_super_admin) || ctx.role === 'owner';
   } catch {
     return false;
   }
