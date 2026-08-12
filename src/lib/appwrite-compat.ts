@@ -96,12 +96,12 @@ function getPermissionsForRecord(record: AnyRecord): string[] {
     return record.$permissions;
   }
 
-  const accountId = record.account_id || record.accountId;
-  if (accountId) {
+  const userId = record.user_id || record.userId;
+  if (userId && typeof userId === 'string' && userId.length > 5) {
     return [
-      `read("team:${accountId}")`,
-      `update("team:${accountId}")`,
-      `delete("team:${accountId}")`,
+      `read("user:${userId}")`,
+      `update("user:${userId}")`,
+      `delete("user:${userId}")`,
       'read("any")',
       'update("any")',
       'delete("any")',
@@ -442,7 +442,7 @@ class QueryBuilder {
       let success = false;
 
       for (const colId of candidates) {
-        const response = await fetch(
+        let response = await fetch(
           `${endpoint}/databases/${encodeURIComponent(APPWRITE_CONFIG.databaseId)}/collections/${encodeURIComponent(colId)}/documents`,
           {
             method: 'POST',
@@ -454,7 +454,27 @@ class QueryBuilder {
             }),
           }
         );
-        const body = await response.json().catch(() => ({}));
+        let body = await response.json().catch(() => ({}));
+
+        if (!response.ok && (body?.message?.includes('Permissions must be one of') || body?.message?.includes('permissions'))) {
+          const retryRes = await fetch(
+            `${endpoint}/databases/${encodeURIComponent(APPWRITE_CONFIG.databaseId)}/collections/${encodeURIComponent(colId)}/documents`,
+            {
+              method: 'POST',
+              headers: requestHeaders(undefined, this.session, this.useApiKey),
+              body: JSON.stringify({
+                documentId: record.id || 'unique()',
+                data: normalizePayload(record),
+                permissions: ['read("any")', 'update("any")', 'delete("any")'],
+              }),
+            }
+          );
+          if (retryRes.ok) {
+            response = retryRes;
+            body = await retryRes.json().catch(() => ({}));
+          }
+        }
+
         if (response.ok) {
           documents.push(normalizeRecord(body));
           success = true;
