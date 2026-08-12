@@ -10,6 +10,7 @@ import {
 import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
 import { getAppwriteAdminClient } from '@/infrastructure/appwrite/server';
 import { voiceRepository } from '@/infrastructure/appwrite/repositories/voice.repository';
+import { enqueueProviderEventJob } from '@/queues/producers/provider-events-producer';
 
 const MAX_PAYLOAD_BYTES = 1_000_000;
 const ALLOWED_CONTENT_TYPE = /^application\/json(?:\s*;|$)/i;
@@ -49,6 +50,7 @@ export async function POST(
       { error: 'VOICE_PROVIDER_REQUEST_FAILED' },
       { status: 413 }
     );
+
   const provider = getVoiceProvider(providerName);
   try {
     const verification = await provider.verifyWebhook(rawBody, request.headers);
@@ -59,7 +61,10 @@ export async function POST(
         401
       );
     }
+
     const event = await provider.normalizeWebhook(rawBody, request.headers);
+
+    // Server-side Tenant Resolution: Never trust payload accountId
     const integration = await voiceRepository.findUniqueTenant(
       providerName,
       event.externalAgentId,
@@ -76,26 +81,47 @@ export async function POST(
       .createHash('sha256')
       .update(rawBody)
       .digest('hex');
-    const duplicate = await voiceRepository.findProviderEvent(
-      providerName,
-      event.externalEventId
-    );
-    if (duplicate)
-      return NextResponse.json(
-        { accepted: true, duplicate: true },
-        { status: 200 }
-      );
 
+    // Webhook Deduplication Race Control: Atomic creation with unique provider + externalEventId index
     const storage = getAppwriteAdminClient().storage;
     const filename = `${providerName}_${event.externalEventId.replace(/[^a-zA-Z0-9_.:-]/g, '_')}_${payloadHash.slice(0, 16)}.json`;
-    const createdFile = await storage.createFile(
-      APPWRITE_CONFIG.buckets.webhookPayloads,
-      ID.unique(),
-      InputFile.fromBuffer(Buffer.from(rawBody), filename)
-    );
-    const rawPayloadReference = createdFile.$id;
+
+    let rawPayloadReference = '';
     try {
-      await voiceRepository.createProviderEvent({
+      const createdFile = await storage.createFile(
+        APPWRITE_CONFIG.buckets.webhookPayloads,
+        ID.unique(),
+        InputFile.fromBuffer(Buffer.from(rawBody), filename)
+      );
+      rawPayloadReference = createdFile.$id;
+    } catch (storageErr) {
+      console.warn(
+        '[voice-webhook] Failed to store raw payload in storage:',
+        storageErr
+      );
+      rawPayloadReference = 'inline_hash:' + payloadHash;
+    }
+
+    let transcriptReference: string | undefined = undefined;
+    if (event.transcript) {
+      try {
+        const transcriptFile = await storage.createFile(
+          APPWRITE_CONFIG.buckets.webhookPayloads,
+          ID.unique(),
+          InputFile.fromBuffer(
+            Buffer.from(event.transcript),
+            `transcript_${event.externalCallId}.txt`
+          )
+        );
+        transcriptReference = transcriptFile.$id;
+      } catch (tErr) {
+        console.warn('[voice-webhook] Failed to store transcript file:', tErr);
+      }
+    }
+
+    let eventDoc: { $id: string };
+    try {
+      eventDoc = (await voiceRepository.createProviderEvent({
         accountId: integration.accountId,
         provider: providerName,
         externalEventId: event.externalEventId,
@@ -105,10 +131,23 @@ export async function POST(
         processingStatus: 'queued',
         processingAttempts: 0,
         receivedAt: new Date().toISOString(),
-      });
+      })) as unknown as { $id: string };
     } catch (err: unknown) {
       const code = (err as { code?: number })?.code;
       if (code === 409) {
+        const existingEvent = await voiceRepository.findProviderEvent(
+          providerName,
+          event.externalEventId
+        );
+        if (existingEvent && existingEvent.payloadHash !== payloadHash) {
+          return NextResponse.json(
+            {
+              error: 'VOICE_PROVIDER_REQUEST_FAILED',
+              message: 'Payload hash mismatch on duplicate event',
+            },
+            { status: 409 }
+          );
+        }
         return NextResponse.json(
           { accepted: true, duplicate: true },
           { status: 200 }
@@ -117,23 +156,52 @@ export async function POST(
       throw err;
     }
 
-    await voiceRepository.upsertCall(
-      integration.accountId,
-      event.externalCallId,
-      {
-        provider: providerName,
-        direction: event.direction || 'outbound',
-        status: event.status || 'in_progress',
-        agentId: event.externalAgentId,
-        startedAt: event.startedAt,
-        endedAt: event.endedAt,
-        durationSeconds: event.durationSeconds,
-        transcriptStatus: event.transcript ? 'available' : 'pending',
-        ...(event.transcript ? { transcript: event.transcript } : {}),
-        failureCode: event.failureCode,
-        failureMessageSanitized: event.failureMessageSanitized,
-      }
-    );
+    // Submit job to BullMQ queue
+    const enqueued = await enqueueProviderEventJob({
+      documentId: eventDoc.$id,
+      provider: providerName,
+      externalEventId: event.externalEventId,
+      eventType: event.eventType,
+      rawPayloadReference,
+      accountId: integration.accountId,
+    });
+
+    if (!enqueued) {
+      // Outbox fallback: Mark event retrying so background worker picks it up from database
+      await getAppwriteAdminClient()
+        .databases.updateDocument(
+          APPWRITE_CONFIG.databaseId,
+          APPWRITE_CONFIG.collections.providerEvents,
+          eventDoc.$id,
+          {
+            processingStatus: 'retrying',
+            nextAttemptAt: new Date(Date.now() + 5000).toISOString(),
+          }
+        )
+        .catch(() => null);
+    }
+
+    // Update Call document using Call State Machine (storing transcriptReference, NOT raw transcript text)
+    if (event.status) {
+      await voiceRepository.upsertCall(
+        integration.accountId,
+        event.externalCallId,
+        {
+          provider: providerName,
+          direction: event.direction || 'outbound',
+          status: event.status,
+          agentId: event.externalAgentId,
+          startedAt: event.startedAt,
+          endedAt: event.endedAt,
+          durationSeconds: event.durationSeconds,
+          transcriptStatus: event.transcript ? 'available' : 'pending',
+          ...(transcriptReference ? { transcriptReference } : {}),
+          failureCode: event.failureCode,
+          failureMessageSanitized: event.failureMessageSanitized,
+        }
+      );
+    }
+
     return NextResponse.json({ accepted: true }, { status: 200 });
   } catch (error) {
     const result = sanitizedError(error);

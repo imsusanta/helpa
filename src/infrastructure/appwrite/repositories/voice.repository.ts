@@ -1,6 +1,10 @@
 import { ID, Query } from 'node-appwrite';
 import { APPWRITE_CONFIG } from '../config';
 import { getAppwriteAdminClient } from '../server';
+import {
+  CallStateMachine,
+  type CallStatus,
+} from '@/lib/voice/call-state-machine';
 
 export interface VoiceIntegrationDocument {
   $id: string;
@@ -92,13 +96,30 @@ export class VoiceRepository {
         Query.limit(1),
       ]
     );
-    if (existing.documents[0])
+    if (existing.documents[0]) {
+      const doc = existing.documents[0];
+      const currentStatus = (doc.status as CallStatus) || 'initiating';
+      const targetStatus = (data.status as CallStatus) || currentStatus;
+
+      const updatePayload = { ...data };
+      if (currentStatus !== targetStatus) {
+        if (!CallStateMachine.canTransition(currentStatus, targetStatus)) {
+          console.warn(
+            `[VoiceRepository] Ignoring regressive call state transition from ${currentStatus} to ${targetStatus} for call ${externalCallId}`
+          );
+          delete updatePayload.status;
+        }
+      }
+
+      const version = ((doc.version as number) || 1) + 1;
       return this.db.updateDocument(
         APPWRITE_CONFIG.databaseId,
         APPWRITE_CONFIG.collections.calls,
-        existing.documents[0].$id,
-        { ...data, updatedAt: new Date().toISOString() }
+        doc.$id,
+        { ...updatePayload, version, updatedAt: new Date().toISOString() }
       );
+    }
+
     return this.db.createDocument(
       APPWRITE_CONFIG.databaseId,
       APPWRITE_CONFIG.collections.calls,
@@ -106,6 +127,7 @@ export class VoiceRepository {
       {
         accountId,
         externalCallId,
+        version: 1,
         ...data,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -120,6 +142,7 @@ export class VoiceRepository {
       ID.unique(),
       {
         accountId,
+        version: 1,
         ...data,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -143,7 +166,7 @@ export class VoiceRepository {
   async updateCallStatus(
     accountId: string,
     callId: string,
-    status: string,
+    status: CallStatus,
     extra?: Record<string, unknown>
   ) {
     return this.db.updateDocument(

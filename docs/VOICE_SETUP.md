@@ -6,6 +6,9 @@ This guide details the setup, configuration, security rules, and production depl
 
 ## 1. Supported Providers & Capability Matrix
 
+**Verified Documentation**: [ElevenLabs Conversational AI SIP Outbound Call API](https://elevenlabs.io/docs/api-reference/conversational-ai/sip-trunk/outbound-call)  
+**Verification Date**: August 12, 2026
+
 | Feature / Capability     | ElevenLabs                                        | Sarvam AI                        | xAI (Grok)                       |
 | :----------------------- | :------------------------------------------------ | :------------------------------- | :------------------------------- |
 | **Outbound Calling**     | ✅ Supported (`/convai/sip-trunk/outbound-call`)  | ❌ `VOICE_OPERATION_UNSUPPORTED` | ❌ `VOICE_OPERATION_UNSUPPORTED` |
@@ -14,6 +17,29 @@ This guide details the setup, configuration, security rules, and production depl
 | **Call Transfer**        | ❌ `VOICE_OPERATION_UNSUPPORTED`                  | ❌ `VOICE_OPERATION_UNSUPPORTED` | ❌ `VOICE_OPERATION_UNSUPPORTED` |
 | **Call Termination**     | ❌ `VOICE_OPERATION_UNSUPPORTED`                  | ❌ `VOICE_OPERATION_UNSUPPORTED` | ❌ `VOICE_OPERATION_UNSUPPORTED` |
 | **Live Audio Streaming** | ❌ `VOICE_OPERATION_UNSUPPORTED`                  | ❌ `VOICE_OPERATION_UNSUPPORTED` | ❌ `VOICE_OPERATION_UNSUPPORTED` |
+
+### ElevenLabs Official Outbound Call Contract
+
+- **Endpoint**: `POST https://api.elevenlabs.io/v1/convai/sip-trunk/outbound-call`
+- **Headers**:
+  - `xi-api-key`: `<ELEVENLABS_API_KEY>`
+  - `Content-Type`: `application/json`
+- **Request Body**:
+  ```json
+  {
+    "agent_id": "string",
+    "agent_phone_number_id": "string",
+    "to_phone_number": "string",
+    "conversation_initiation_client_data": {}
+  }
+  ```
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "success": true,
+    "conversation_id": "conv_abc123"
+  }
+  ```
 
 ---
 

@@ -249,23 +249,43 @@ export class ElevenLabsVoiceProvider implements VoiceProvider {
       .filter((number) => number.id);
   }
 
+  async validateOutboundConfig(): Promise<void> {
+    await this.validateConfiguration();
+    if (!this.config.agentId)
+      throw new VoiceProviderError(
+        'VOICE_PROVIDER_NOT_CONFIGURED',
+        'ElevenLabs agent ID is not configured',
+        503
+      );
+    if (!this.config.phoneNumberId)
+      throw new VoiceProviderError(
+        'VOICE_PROVIDER_NOT_CONFIGURED',
+        'ElevenLabs phone number ID is not configured',
+        503
+      );
+  }
+
   async initiateOutboundCall(
     request: OutboundCallRequest
   ): Promise<{ externalCallId: string }> {
-    await this.validateConfiguration();
-    const body = await this.request<JsonRecord>('/convai/sip-trunk/outbound', {
-      method: 'POST',
-      body: JSON.stringify({
-        agent_id: request.agentId,
-        agent_phone_number_id: request.phoneNumberId,
-        to_number: request.toNumber,
-        ...(request.context
-          ? { conversation_initiation_client_data: request.context }
-          : {}),
-      }),
-    });
+    await this.validateOutboundConfig();
+    const body = await this.request<JsonRecord>(
+      '/convai/sip-trunk/outbound-call',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          agent_id: request.agentId || this.config.agentId,
+          agent_phone_number_id:
+            request.phoneNumberId || this.config.phoneNumberId,
+          to_phone_number: request.toNumber,
+          ...(request.context
+            ? { conversation_initiation_client_data: request.context }
+            : {}),
+        }),
+      }
+    );
     const conversationId = stringValue(body.conversation_id);
-    if (!body.success || !conversationId)
+    if (body.success !== true || !conversationId)
       throw new VoiceProviderError(
         'VOICE_PROVIDER_REQUEST_FAILED',
         'ElevenLabs did not confirm outbound call initiation',

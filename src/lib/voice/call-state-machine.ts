@@ -1,56 +1,98 @@
-import { NormalizedVoiceWebhook } from '@/core/providers/voice/voice-provider.interface';
+import { VoiceProviderError } from '@/core/providers/voice/voice-provider.interface';
 
-export type CallState = NonNullable<NormalizedVoiceWebhook['status']>;
+export type CallStatus =
+  | 'queued'
+  | 'initiating'
+  | 'ringing'
+  | 'in_progress'
+  | 'completed'
+  | 'failed'
+  | 'busy'
+  | 'no_answer'
+  | 'cancelled';
 
-const TERMINAL_STATES: ReadonlySet<CallState> = new Set([
+export const ACTIVE_CALL_STATUSES: readonly CallStatus[] = [
+  'queued',
+  'initiating',
+  'ringing',
+  'in_progress',
+];
+
+export const TERMINAL_CALL_STATUSES: readonly CallStatus[] = [
   'completed',
   'failed',
   'busy',
   'no_answer',
   'cancelled',
-]);
+];
 
-const ALLOWED_TRANSITIONS: Record<CallState, ReadonlySet<CallState>> = {
-  queued: new Set(['initiating', 'failed', 'cancelled']),
-  initiating: new Set([
+export const ALLOWED_TRANSITIONS: Record<CallStatus, readonly CallStatus[]> = {
+  queued: ['initiating', 'failed', 'cancelled'],
+  initiating: [
     'ringing',
     'in_progress',
     'completed',
     'failed',
+    'busy',
+    'no_answer',
     'cancelled',
-  ]),
-  ringing: new Set([
+  ],
+  ringing: [
     'in_progress',
     'completed',
     'failed',
-    'cancelled',
-    'no_answer',
     'busy',
-  ]),
-  in_progress: new Set(['completed', 'failed', 'cancelled']),
-  completed: new Set(),
-  failed: new Set(),
-  busy: new Set(),
-  no_answer: new Set(),
-  cancelled: new Set(),
+    'no_answer',
+    'cancelled',
+  ],
+  in_progress: ['completed', 'failed', 'cancelled'],
+  completed: [],
+  failed: [],
+  busy: [],
+  no_answer: [],
+  cancelled: [],
 };
 
-/**
- * Returns true if transition from `current` state to `next` state is valid.
- * If `current` is missing or undefined, transition to initial states (`queued`, `initiating`, `ringing`, `in_progress`) is permitted.
- */
-export function isValidCallStateTransition(
-  current: CallState | undefined,
-  next: CallState
-): boolean {
-  if (!current) return true;
-  if (current === next) return true; // Idempotent same-state updates are allowed
-  if (TERMINAL_STATES.has(current)) return false; // Terminal states can never regress
-  const allowed = ALLOWED_TRANSITIONS[current];
-  return allowed ? allowed.has(next) : false;
+export class CallStateMachine {
+  static isTerminal(status: CallStatus): boolean {
+    return TERMINAL_CALL_STATUSES.includes(status);
+  }
+
+  static canTransition(
+    current: CallStatus | undefined | null,
+    target: CallStatus
+  ): boolean {
+    const from = current || 'queued';
+    if (from === target) return true; // Idempotent same-state transition
+    const allowed = ALLOWED_TRANSITIONS[from] || [];
+    return allowed.includes(target);
+  }
+
+  static validateTransition(
+    current: CallStatus | undefined | null,
+    target: CallStatus
+  ): void {
+    if (!this.canTransition(current, target)) {
+      throw new VoiceProviderError(
+        'VOICE_PROVIDER_REQUEST_FAILED',
+        `Invalid call state transition from '${current || 'none'}' to '${target}'`,
+        409
+      );
+    }
+  }
 }
 
-export function isTerminalCallState(status: CallState | undefined): boolean {
-  if (!status) return false;
-  return TERMINAL_STATES.has(status);
+export type CallState = CallStatus;
+
+export function isValidCallStateTransition(
+  current: CallStatus | undefined | null,
+  target: CallStatus
+): boolean {
+  return CallStateMachine.canTransition(current, target);
+}
+
+export function isTerminalCallState(
+  status: CallStatus | undefined | null
+): boolean {
+  return Boolean(status && CallStateMachine.isTerminal(status));
 }

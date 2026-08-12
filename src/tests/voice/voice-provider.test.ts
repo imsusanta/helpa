@@ -128,7 +128,7 @@ describe('Voice Providers Contract & Security', () => {
 
       expect(res.externalCallId).toBe('conv_official_123');
       expect(fetchSpy).toHaveBeenCalledWith(
-        'https://api.elevenlabs.io/v1/convai/sip-trunk/outbound',
+        'https://api.elevenlabs.io/v1/convai/sip-trunk/outbound-call',
         expect.objectContaining({
           method: 'POST',
         })

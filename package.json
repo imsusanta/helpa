@@ -47,7 +47,8 @@
     "appwrite:setup": "tsx scripts/setup-appwrite-db.ts",
     "appwrite:verify": "tsx scripts/verify-appwrite-db.ts",
     "appwrite:test": "vitest run src/tests/appwrite/**/*.test.ts",
-    "appwrite:migrate": "tsx scripts/setup-appwrite-db.ts"
+    "appwrite:migrate": "tsx scripts/setup-appwrite-db.ts",
+    "voice:smoke": "tsx scripts/voice-smoke-test.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

@@ -33,6 +33,7 @@ export async function GET(request: Request) {
     const pingRes = await fetch(`${APPWRITE_CONFIG.endpoint}/health/version`, {
       headers: { 'X-Appwrite-Project': APPWRITE_CONFIG.projectId },
       cache: 'no-store',
+      signal: AbortSignal.timeout(1500),
     }).catch(() => null);
 
     if (pingRes && pingRes.ok) {
