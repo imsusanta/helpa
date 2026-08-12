@@ -1,11 +1,19 @@
 import { redirect } from 'next/navigation';
 import { getCurrentAccount } from '@/lib/auth/account';
-import { profilesRepository } from '@/infrastructure/appwrite/repositories/profiles.repository';
+import {
+  profilesRepository,
+  type ProfileDocument,
+} from '@/infrastructure/appwrite/repositories/profiles.repository';
 
 export async function requireSuperAdmin() {
   try {
     const ctx = await getCurrentAccount();
-    const profile = await profilesRepository.getProfileByUserId(ctx.userId);
+    let profile: ProfileDocument | null = null;
+    try {
+      profile = await profilesRepository.getProfileByUserId(ctx.userId);
+    } catch (e) {
+      console.warn('[requireSuperAdmin] profile fetch error:', e);
+    }
 
     const isSuperAdmin =
       Boolean(profile?.is_super_admin) || ctx.role === 'owner';
@@ -25,7 +33,12 @@ export async function requireSuperAdmin() {
 export async function checkSuperAdmin(): Promise<boolean> {
   try {
     const ctx = await getCurrentAccount();
-    const profile = await profilesRepository.getProfileByUserId(ctx.userId);
+    let profile: ProfileDocument | null = null;
+    try {
+      profile = await profilesRepository.getProfileByUserId(ctx.userId);
+    } catch (e) {
+      console.warn('[checkSuperAdmin] profile fetch error:', e);
+    }
     return Boolean(profile?.is_super_admin) || ctx.role === 'owner';
   } catch {
     return false;

@@ -51,9 +51,10 @@ export interface AccountContext {
 export async function getCurrentAccount(): Promise<AccountContext> {
   try {
     const cookieStore = await cookies();
-    const session = cookieStore.get(
-      `a_session_${APPWRITE_CONFIG.projectId}`
-    )?.value;
+    const allCookies = cookieStore.getAll();
+    const session =
+      allCookies.find((c) => c.name.startsWith('a_session_'))?.value ||
+      cookieStore.get(`a_session_${APPWRITE_CONFIG.projectId}`)?.value;
     if (!session) throw new UnauthorizedError();
 
     const response = await fetch(`${APPWRITE_CONFIG.endpoint}/account`, {
