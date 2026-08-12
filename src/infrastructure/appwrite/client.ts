@@ -7,20 +7,8 @@ export function getAppwriteClient() {
     .setEndpoint(APPWRITE_CONFIG.endpoint)
     .setProject(APPWRITE_CONFIG.projectId);
 
-  if (typeof window !== 'undefined') {
-    try {
-      const session = window.localStorage.getItem('appwrite_session');
-      if (session) {
-        try {
-          client.setSession(session);
-        } catch {
-          // Ignore invalid session tokens
-        }
-      }
-    } catch {
-      // The httpOnly session cookie remains the source of truth if storage is unavailable.
-    }
-  }
+  // Session secrets are intentionally not supplied to browser SDK code. All
+  // authenticated data access goes through server routes using HttpOnly cookies.
 
   const account = new Account(client);
   const databases = new Databases(client);

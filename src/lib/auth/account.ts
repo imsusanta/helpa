@@ -51,9 +51,9 @@ export interface AccountContext {
 export async function getCurrentAccount(): Promise<AccountContext> {
   try {
     const cookieStore = await cookies();
-    const session =
-      cookieStore.get(`a_session_${APPWRITE_CONFIG.projectId}`)?.value ||
-      cookieStore.get('appwrite_session')?.value;
+    const session = cookieStore.get(
+      `a_session_${APPWRITE_CONFIG.projectId}`
+    )?.value;
     if (!session) throw new UnauthorizedError();
 
     const response = await fetch(`${APPWRITE_CONFIG.endpoint}/account`, {
@@ -83,7 +83,9 @@ export async function getCurrentAccount(): Promise<AccountContext> {
       account: { id: accountId, name: accountDoc?.name || 'Clinic Account' },
     };
   } catch (error) {
-    if (error instanceof UnauthorizedError) throw error;
+    if (error instanceof UnauthorizedError || error instanceof ForbiddenError) {
+      throw error;
+    }
     throw new UnauthorizedError();
   }
 }

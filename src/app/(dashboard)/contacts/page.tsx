@@ -63,7 +63,7 @@ interface ContactWithTags extends Contact {
 
 export default function ContactsPage() {
   const appwrite = useMemo(() => createClient(), []);
-  const { account, accountId } = useAuth();
+  const { account } = useAuth();
   const canEdit = useCan('send-messages');
   const canEditSettings = useCan('edit-settings');
 
@@ -79,6 +79,8 @@ export default function ContactsPage() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const requestAbortRef = useRef<AbortController | null>(null);
 
   // Modals
   const [formOpen, setFormOpen] = useState(false);
@@ -121,38 +123,52 @@ export default function ContactsPage() {
   }, [appwrite]);
 
   const fetchContacts = useCallback(async () => {
+    requestAbortRef.current?.abort();
+    const controller = new AbortController();
+    requestAbortRef.current = controller;
     setLoading(true);
+    setLoadError(null);
     // The visible rows are about to change — drop any selection that
     // referred to the old page/search results so the bulk bar can't
     // act on rows the user can no longer see.
     setSelected(new Set());
 
     try {
-      const from = page * PAGE_SIZE;
-      const to = from + PAGE_SIZE - 1;
-
-      let query = appwrite
-        .from('contacts')
-        .select('*', { count: 'exact' })
-        .order('created_at', { ascending: false })
-        .range(from, to);
-
-      if (search.trim()) {
-        const term = `%${search.trim()}%`;
-        query = query.or(
-          `name.ilike.${term},phone.ilike.${term},email.ilike.${term}`
+      const params = new URLSearchParams({
+        limit: String(PAGE_SIZE),
+        offset: String(page * PAGE_SIZE),
+      });
+      if (search.trim()) params.set('search', search.trim());
+      const response = await fetch(`/api/contacts?${params}`, {
+        credentials: 'include',
+        cache: 'no-store',
+        signal: controller.signal,
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        data?: Contact[];
+        total?: number;
+        error?: string;
+        requestId?: string;
+      } | null;
+      if (controller.signal.aborted) return;
+      if (!response.ok) {
+        if (response.status === 401) {
+          window.location.assign('/login');
+          return;
+        }
+        const message =
+          payload?.error ?? `Unable to load contacts (${response.status})`;
+        setLoadError(
+          payload?.requestId
+            ? `${message} (request ${payload.requestId})`
+            : message
         );
-      }
-
-      const { data, count, error } = await query;
-
-      if (error) {
-        toast.error('Failed to load contacts');
-        setLoading(false);
+        toast.error(message);
         return;
       }
+      const data = payload?.data ?? [];
 
-      setTotalCount(count ?? 0);
+      setTotalCount(payload?.total ?? 0);
 
       if (!data || data.length === 0) {
         setContacts([]);
@@ -160,7 +176,7 @@ export default function ContactsPage() {
         return;
       }
 
-      // Fetch tags & patients for these contacts with safety handling
+      // Enrichment must not create or mutate patient records while listing.
       const contactIds = data.map((c) => c.id);
       const patientsMap: Record<
         string,
@@ -194,33 +210,8 @@ export default function ContactsPage() {
             blood_group: p.blood_group || undefined,
           };
         });
-
-        // Auto-create missing patients table records for contacts without one
-        const missingPatientContactIds = contactIds.filter(
-          (id) => !patientsMap[id]?.patient_seq_id
-        );
-        if (missingPatientContactIds.length > 0 && accountId) {
-          const { data: newPatients } = await appwrite
-            .from('patients')
-            .upsert(
-              missingPatientContactIds.map((id) => ({
-                id,
-                account_id: accountId,
-                status: 'active',
-              })),
-              { onConflict: 'id', ignoreDuplicates: true }
-            )
-            .select('id, patient_seq_id, blood_group');
-
-          newPatients?.forEach((p) => {
-            patientsMap[p.id] = {
-              patient_seq_id: p.patient_seq_id || undefined,
-              blood_group: p.blood_group || undefined,
-            };
-          });
-        }
       } catch (err) {
-        console.warn('[ContactsPage] Failed to fetch or sync patients:', err);
+        console.warn('[ContactsPage] Failed to fetch patient labels:', err);
       }
 
       const currentTagsMap = tagsMapRef.current;
@@ -251,12 +242,13 @@ export default function ContactsPage() {
 
       setContacts(enriched);
     } catch (err) {
-      console.error('[ContactsPage] Error loading contacts:', err);
+      if (controller.signal.aborted) return;
+      setLoadError('Unable to load contacts. Check your connection and retry.');
       toast.error('Failed to load contacts');
     } finally {
       setLoading(false);
     }
-  }, [appwrite, page, search, accountId]);
+  }, [appwrite, page, search]);
 
   // Load-once-on-mount-ish data fetches. Each setter inside runs
   // inside an async promise completion (appwrite await), not
@@ -267,7 +259,11 @@ export default function ContactsPage() {
   }, [fetchTags]);
 
   useEffect(() => {
-    fetchContacts();
+    const timer = window.setTimeout(() => void fetchContacts(), 250);
+    return () => {
+      window.clearTimeout(timer);
+      requestAbortRef.current?.abort();
+    };
   }, [fetchContacts]);
 
   function openAddForm() {
@@ -547,6 +543,21 @@ export default function ContactsPage() {
 
       {/* Table */}
       <div className="border-border overflow-hidden rounded-lg border">
+        {loadError && (
+          <div
+            role="alert"
+            className="border-destructive/30 bg-destructive/10 text-destructive flex items-center justify-between gap-3 border-b px-4 py-3 text-sm"
+          >
+            <span>{loadError}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void fetchContacts()}
+            >
+              Retry
+            </Button>
+          </div>
+        )}
         <Table>
           <TableHeader>
             <TableRow className="border-border hover:bg-transparent">
@@ -594,6 +605,17 @@ export default function ContactsPage() {
                       Loading {entityLabelPlural.toLowerCase()}...
                     </p>
                   </div>
+                </TableCell>
+              </TableRow>
+            ) : loadError ? (
+              <TableRow className="border-border">
+                <TableCell
+                  colSpan={8 + Math.min(2, customFields.length)}
+                  className="py-12 text-center"
+                >
+                  <p className="text-muted-foreground text-sm">
+                    Contacts could not be loaded. Use Retry to try again.
+                  </p>
                 </TableCell>
               </TableRow>
             ) : contacts.length === 0 ? (

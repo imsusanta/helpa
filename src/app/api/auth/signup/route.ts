@@ -121,7 +121,6 @@ export async function POST(request: Request) {
         email: trimmedEmail,
         name: userName,
       },
-      sessionSecret,
     });
 
     const cookieOptions = {
@@ -138,7 +137,6 @@ export async function POST(request: Request) {
         sessionSecret,
         cookieOptions
       );
-      response.cookies.set('appwrite_session', sessionSecret, cookieOptions);
     }
 
     return response;

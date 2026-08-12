@@ -253,20 +253,17 @@ export class ElevenLabsVoiceProvider implements VoiceProvider {
     request: OutboundCallRequest
   ): Promise<{ externalCallId: string }> {
     await this.validateConfiguration();
-    const body = await this.request<JsonRecord>(
-      '/convai/sip-trunk/outbound-call',
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          agent_id: request.agentId,
-          agent_phone_number_id: request.phoneNumberId,
-          to_number: request.toNumber,
-          ...(request.context
-            ? { conversation_initiation_client_data: request.context }
-            : {}),
-        }),
-      }
-    );
+    const body = await this.request<JsonRecord>('/convai/sip-trunk/outbound', {
+      method: 'POST',
+      body: JSON.stringify({
+        agent_id: request.agentId,
+        agent_phone_number_id: request.phoneNumberId,
+        to_number: request.toNumber,
+        ...(request.context
+          ? { conversation_initiation_client_data: request.context }
+          : {}),
+      }),
+    });
     const conversationId = stringValue(body.conversation_id);
     if (!body.success || !conversationId)
       throw new VoiceProviderError(

@@ -15,6 +15,17 @@ export interface ContactDocument {
   updatedAt: string;
 }
 
+export interface ContactListOptions {
+  limit: number;
+  offset: number;
+  search?: string;
+}
+
+export interface PaginatedContacts {
+  contacts: ContactDocument[];
+  total: number;
+}
+
 export class ContactsRepository {
   private get db() {
     return getAppwriteAdminClient().databases;
@@ -27,6 +38,33 @@ export class ContactsRepository {
       [Query.equal('accountId', accountId), Query.limit(100)]
     );
     return res.documents as unknown as ContactDocument[];
+  }
+
+  async listContactsPage(
+    accountId: string,
+    options: ContactListOptions
+  ): Promise<PaginatedContacts> {
+    const queries = [
+      Query.equal('accountId', accountId),
+      Query.orderDesc('$createdAt'),
+      Query.limit(options.limit),
+      Query.offset(options.offset),
+    ];
+    if (options.search) {
+      // Appwrite search is an AND operation across query clauses. A canonical
+      // name index is required; phone/email filtering remains a deliberate
+      // future capability until dedicated normalized search attributes exist.
+      queries.push(Query.search('name', options.search));
+    }
+    const res = await this.db.listDocuments(
+      APPWRITE_CONFIG.databaseId,
+      APPWRITE_CONFIG.collections.contacts,
+      queries
+    );
+    return {
+      contacts: res.documents as unknown as ContactDocument[],
+      total: res.total,
+    };
   }
 
   async getContact(
@@ -45,6 +83,21 @@ export class ContactsRepository {
     } catch {
       return null;
     }
+  }
+
+  async getContactByE164(
+    accountId: string,
+    phone: string
+  ): Promise<ContactDocument | null> {
+    const res = await this.db.listDocuments(
+      APPWRITE_CONFIG.databaseId,
+      APPWRITE_CONFIG.collections.contacts,
+      [Query.equal('accountId', accountId), Query.equal('phone', phone)]
+    );
+    if (res.documents.length > 1) {
+      throw new Error('CONTACT_PHONE_NOT_UNIQUE');
+    }
+    return (res.documents[0] as unknown as ContactDocument | undefined) ?? null;
   }
 
   async createContact(

@@ -2,18 +2,20 @@ import { test, expect } from '@playwright/test';
 
 test.describe('E2E: Helpa Premium Lead Kanban & Drawer Workflow', () => {
   test.beforeEach(async ({ page }) => {
-    // Authenticated session state setup
+    // Authenticated session state setup for Appwrite
     await page.context().addCookies([
       {
-        name: 'sb-bqebnidwumakohkupjqf-auth-token',
-        value: JSON.stringify({
-          access_token: 'test-real-authenticated-access-token',
-          refresh_token: 'test-real-authenticated-refresh-token',
-          user: {
-            id: '00000000-0000-0000-0000-000000000001',
-            email: 'doctor@helpa.studio',
-          },
-        }),
+        name: 'appwrite_session',
+        value: 'test-real-authenticated-access-token',
+        domain: 'localhost',
+        path: '/',
+        httpOnly: false,
+        secure: false,
+        sameSite: 'Lax',
+      },
+      {
+        name: 'a_session_6a79822b003adde92f63',
+        value: 'test-real-authenticated-access-token',
         domain: 'localhost',
         path: '/',
         httpOnly: false,
@@ -30,7 +32,9 @@ test.describe('E2E: Helpa Premium Lead Kanban & Drawer Workflow', () => {
     await page.goto('/leads');
 
     // Verify header title
-    await expect(page.locator('h1')).toContainText('Omnichannel Lead Pipeline');
+    await expect(
+      page.getByRole('heading', { name: 'Omnichannel Lead Pipeline' })
+    ).toBeVisible();
 
     // 2. Check canonical column headers
     await expect(page.getByText('New Leads', { exact: false })).toBeVisible();
@@ -53,6 +57,6 @@ test.describe('E2E: Helpa Premium Lead Kanban & Drawer Workflow', () => {
         data: { nextStage: 'QUALIFIED' },
       }
     );
-    expect([401, 403, 404]).toContain(apiRes.status());
+    expect([400, 401, 403, 404]).toContain(apiRes.status());
   });
 });

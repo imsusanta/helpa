@@ -171,14 +171,21 @@ export default function BroadcastDetailPage() {
         if (bcError) throw bcError;
         setBroadcast(bc);
 
-        const { data: recs, error: recsError } = await appwrite
-          .from('broadcast_recipients')
-          .select('*, contact:contacts(*)')
-          .eq('broadcast_id', broadcastId)
-          .order('created_at', { ascending: false });
+        try {
+          const { data: recs, error: recsError } = await appwrite
+            .from('broadcast_recipients')
+            .select('*, contact:contacts(*)')
+            .eq('broadcast_id', broadcastId)
+            .order('created_at', { ascending: false });
 
-        if (recsError) throw recsError;
-        setRecipients(recs ?? []);
+          if (recsError) {
+            setRecipients([]);
+          } else {
+            setRecipients(recs ?? []);
+          }
+        } catch {
+          setRecipients([]);
+        }
       } catch (err) {
         setError(
           err instanceof Error ? err.message : 'Failed to load broadcast'

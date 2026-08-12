@@ -92,53 +92,79 @@ export default function CampaignsPage() {
       const appwrite = createClient();
 
       // 1. Fetch campaigns
-      const { data: campaignRows, error: fetchError } = await appwrite
-        .from('broadcasts')
-        .select('*')
-        .order('created_at', { ascending: false });
+      try {
+        const { data: campaignRows, error: fetchError } = await appwrite
+          .from('broadcasts')
+          .select('*')
+          .order('created_at', { ascending: false });
 
-      if (fetchError) throw fetchError;
-      setBroadcasts(campaignRows ?? []);
-
-      // 2. Fetch attributed bookings
-      const { count: bookings, error: bookingsErr } = await appwrite
-        .from('appointments')
-        .select('id', { count: 'exact', head: true })
-        .not('campaign_id', 'is', null);
-
-      if (!bookingsErr && bookings !== null) {
-        setBookingsCount(bookings);
+        if (fetchError) {
+          console.warn('[Broadcasts] Fetch warning:', fetchError);
+          setBroadcasts([]);
+        } else {
+          setBroadcasts(campaignRows ?? []);
+        }
+      } catch (err) {
+        console.warn('[Broadcasts] Failed fetching broadcast collection:', err);
+        setBroadcasts([]);
       }
 
-      // 3. Fetch AI Opportunities counts
-      const sixMonthsAgo = new Date();
-      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-
-      const [inactiveRes, missedRes, followupRes, pedRes] = await Promise.all([
-        appwrite
-          .from('patients')
-          .select('id', { count: 'exact', head: true })
-          .lt('created_at', sixMonthsAgo.toISOString()),
-        appwrite
+      // 2. Fetch attributed bookings (auxiliary metric)
+      try {
+        const { count: bookings, error: bookingsErr } = await appwrite
           .from('appointments')
           .select('id', { count: 'exact', head: true })
-          .in('status', ['no_show', 'No Show', 'Cancelled']),
-        appwrite
-          .from('patients')
-          .select('id', { count: 'exact', head: true })
-          .is('last_followup_sent_at', null),
-        appwrite
-          .from('patients')
-          .select('id', { count: 'exact', head: true })
-          .eq('department', 'Pediatrics'),
-      ]);
+          .not('campaign_id', 'is', null);
 
-      setOppStats({
-        inactive: inactiveRes.count || 0,
-        missed: missedRes.count || 0,
-        followup: followupRes.count || 0,
-        pediatric: pedRes.count || 0,
-      });
+        if (!bookingsErr && bookings !== null) {
+          setBookingsCount(bookings);
+        }
+      } catch {
+        // auxiliary count fallback
+      }
+
+      // 3. Fetch AI Opportunities counts (auxiliary metrics)
+      try {
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+        const [inactiveRes, missedRes, followupRes, pedRes] =
+          await Promise.allSettled([
+            appwrite
+              .from('patients')
+              .select('id', { count: 'exact', head: true })
+              .lt('created_at', sixMonthsAgo.toISOString()),
+            appwrite
+              .from('appointments')
+              .select('id', { count: 'exact', head: true })
+              .in('status', ['no_show', 'No Show', 'Cancelled']),
+            appwrite
+              .from('patients')
+              .select('id', { count: 'exact', head: true })
+              .is('last_followup_sent_at', null),
+            appwrite
+              .from('patients')
+              .select('id', { count: 'exact', head: true })
+              .eq('department', 'Pediatrics'),
+          ]);
+
+        setOppStats({
+          inactive:
+            inactiveRes.status === 'fulfilled'
+              ? inactiveRes.value.count || 0
+              : 0,
+          missed:
+            missedRes.status === 'fulfilled' ? missedRes.value.count || 0 : 0,
+          followup:
+            followupRes.status === 'fulfilled'
+              ? followupRes.value.count || 0
+              : 0,
+          pediatric:
+            pedRes.status === 'fulfilled' ? pedRes.value.count || 0 : 0,
+        });
+      } catch {
+        // auxiliary metrics fallback
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load campaigns');
     } finally {

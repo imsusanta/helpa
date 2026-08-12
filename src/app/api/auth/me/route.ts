@@ -5,9 +5,9 @@ import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
 export async function GET() {
   try {
     const cookieStore = await cookies();
-    const sessionSecret =
-      cookieStore.get(`a_session_${APPWRITE_CONFIG.projectId}`)?.value ||
-      cookieStore.get('appwrite_session')?.value;
+    const sessionSecret = cookieStore.get(
+      `a_session_${APPWRITE_CONFIG.projectId}`
+    )?.value;
 
     if (!sessionSecret) {
       return NextResponse.json(
