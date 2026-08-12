@@ -97,22 +97,27 @@ function getPermissionsForRecord(record: AnyRecord): string[] {
   }
 
   const userId = record.user_id || record.userId;
-  if (userId && typeof userId === 'string' && userId.length > 5) {
-    return [
-      `read("user:${userId}")`,
-      `update("user:${userId}")`,
-      `delete("user:${userId}")`,
-      'read("any")',
-      'update("any")',
-      'delete("any")',
-    ];
-  }
-
-  return [
+  const perms = [
     'read("any")',
+    'create("any")',
     'update("any")',
     'delete("any")',
+    'read("users")',
+    'create("users")',
+    'update("users")',
+    'delete("users")',
   ];
+
+  if (userId && typeof userId === 'string' && userId.length > 5) {
+    perms.unshift(
+      `read("user:${userId}")`,
+      `create("user:${userId}")`,
+      `update("user:${userId}")`,
+      `delete("user:${userId}")`
+    );
+  }
+
+  return perms;
 }
 
 function queryValue(value: any): string {
@@ -466,7 +471,16 @@ class QueryBuilder {
               body: JSON.stringify({
                 documentId: record.id || 'unique()',
                 data: normalizePayload(record),
-                permissions: ['read("any")', 'update("any")', 'delete("any")'],
+                permissions: [
+                  'read("any")',
+                  'create("any")',
+                  'update("any")',
+                  'delete("any")',
+                  'read("users")',
+                  'create("users")',
+                  'update("users")',
+                  'delete("users")',
+                ],
               }),
             }
           );
