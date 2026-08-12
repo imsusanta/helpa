@@ -91,6 +91,45 @@ function queryValue(value: any): string {
   return String(value);
 }
 
+function getCollectionCandidates(table: string): string[] {
+  const map: Record<string, string> = {
+    whatsapp_config: APPWRITE_CONFIG.collections.whatsappConfigs || 'whatsapp_configs',
+    whatsapp_configs: APPWRITE_CONFIG.collections.whatsappConfigs || 'whatsapp_configs',
+    message_templates: APPWRITE_CONFIG.collections.messageTemplates || 'message_templates',
+    account_invitations: APPWRITE_CONFIG.collections.accountInvitations || 'account_invitations',
+    lead_stage_history: APPWRITE_CONFIG.collections.leadStageHistory || 'lead_stage_history',
+    contact_channels: APPWRITE_CONFIG.collections.contactChannels || 'contact_channels',
+    idempotency_keys: APPWRITE_CONFIG.collections.idempotencyKeys || 'idempotency_keys',
+    outbound_outbox: APPWRITE_CONFIG.collections.outboundOutbox || 'outbound_outbox',
+    flow_runs: APPWRITE_CONFIG.collections.flowRuns || 'flow_runs',
+    voice_integrations: APPWRITE_CONFIG.collections.voiceIntegrations || 'voice_integrations',
+    voice_commands: APPWRITE_CONFIG.collections.voiceCommands || 'voice_commands',
+    provider_events: APPWRITE_CONFIG.collections.providerEvents || 'provider_events',
+    audit_logs: APPWRITE_CONFIG.collections.auditLogs || 'audit_logs',
+    calendly_connections: APPWRITE_CONFIG.collections.calendlyConnections || 'calendly_connections',
+    calendly_event_types: APPWRITE_CONFIG.collections.calendlyEventTypes || 'calendly_event_types',
+    service_event_type_mappings: APPWRITE_CONFIG.collections.serviceEventTypeMappings || 'service_event_type_mappings',
+    knowledge_base: APPWRITE_CONFIG.collections.knowledgeBase || 'knowledge_base',
+    worker_health: APPWRITE_CONFIG.collections.workerHealth || 'worker_health',
+  };
+
+  const primary = map[table] || (APPWRITE_CONFIG.collections as Record<string, string>)[table] || table;
+  const candidates = [primary];
+
+  if (table === 'whatsapp_config' || table === 'whatsapp_configs') {
+    if (!candidates.includes('whatsapp_configs')) candidates.push('whatsapp_configs');
+    if (!candidates.includes('whatsapp_config')) candidates.push('whatsapp_config');
+  } else if (primary.endsWith('s')) {
+    const singular = primary.slice(0, -1);
+    if (!candidates.includes(singular)) candidates.push(singular);
+  } else {
+    const plural = `${primary}s`;
+    if (!candidates.includes(plural)) candidates.push(plural);
+  }
+
+  return candidates;
+}
+
 class QueryBuilder {
   private readonly table: string;
   private operation: 'select' | 'insert' | 'update' | 'upsert' | 'delete' =
@@ -321,55 +360,77 @@ class QueryBuilder {
     queries.forEach((query, index) =>
       params.append(`queries[${index}]`, query)
     );
-    const response = await fetch(
-      `${endpoint}/databases/${encodeURIComponent(APPWRITE_CONFIG.databaseId)}/collections/${encodeURIComponent(this.table)}/documents?${params}`,
-      {
-        headers: requestHeaders(undefined, this.session, this.useApiKey),
-        cache: 'no-store',
-        credentials: 'include',
+
+    const candidates = getCollectionCandidates(this.table);
+    let lastErrorBody: any = null;
+    let lastResponseStatus = 500;
+
+    for (const colId of candidates) {
+      const response = await fetch(
+        `${endpoint}/databases/${encodeURIComponent(APPWRITE_CONFIG.databaseId)}/collections/${encodeURIComponent(colId)}/documents?${params}`,
+        {
+          headers: requestHeaders(undefined, this.session, this.useApiKey),
+          cache: 'no-store',
+          credentials: 'include',
+        }
+      );
+      const body = await response.json().catch(() => ({}));
+      if (response.ok) {
+        const documents = (body.documents || []).map(normalizeRecord);
+        return {
+          data: this.selectionOptions.head ? null : documents,
+          error: null,
+          count: body.total ?? documents.length,
+        };
       }
-    );
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      if (
-        response.status === 400 ||
-        body?.message?.includes('Attribute not found') ||
-        body?.message?.includes('Index not found')
-      ) {
-        throw Object.assign(
-          new Error(
-            `APPWRITE_SCHEMA_MISMATCH: ${body?.message || 'Attribute or index missing'}`
-          ),
-          { code: 'APPWRITE_SCHEMA_MISMATCH', status: 400 }
-        );
-      }
-      throw Object.assign(new Error(body.message), body);
+      lastResponseStatus = response.status;
+      lastErrorBody = body;
+      if (response.status !== 404) break;
     }
-    const documents = (body.documents || []).map(normalizeRecord);
-    return {
-      data: this.selectionOptions.head ? null : documents,
-      error: null,
-      count: body.total ?? documents.length,
-    };
+
+    if (
+      lastResponseStatus === 400 ||
+      lastErrorBody?.message?.includes('Attribute not found') ||
+      lastErrorBody?.message?.includes('Index not found')
+    ) {
+      throw Object.assign(
+        new Error(
+          `APPWRITE_SCHEMA_MISMATCH: ${lastErrorBody?.message || 'Attribute or index missing'}`
+        ),
+        { code: 'APPWRITE_SCHEMA_MISMATCH', status: 400 }
+      );
+    }
+    throw Object.assign(new Error(lastErrorBody?.message || 'Appwrite request failed'), lastErrorBody);
   }
 
   private async create(_upsert = false) {
     const records = Array.isArray(this.payload) ? this.payload : [this.payload];
     const documents: any[] = [];
+    const candidates = getCollectionCandidates(this.table);
+
     for (const record of records) {
-      const response = await fetch(
-        `${endpoint}/databases/${encodeURIComponent(APPWRITE_CONFIG.databaseId)}/collections/${encodeURIComponent(this.table)}/documents`,
-        {
-          method: 'POST',
-          headers: requestHeaders(undefined, this.session, this.useApiKey),
-          body: JSON.stringify({
-            documentId: record.id || 'unique()',
-            data: normalizePayload(record),
-          }),
+      let lastErrorBody: any = null;
+      let success = false;
+
+      for (const colId of candidates) {
+        const response = await fetch(
+          `${endpoint}/databases/${encodeURIComponent(APPWRITE_CONFIG.databaseId)}/collections/${encodeURIComponent(colId)}/documents`,
+          {
+            method: 'POST',
+            headers: requestHeaders(undefined, this.session, this.useApiKey),
+            body: JSON.stringify({
+              documentId: record.id || 'unique()',
+              data: normalizePayload(record),
+            }),
+          }
+        );
+        const body = await response.json().catch(() => ({}));
+        if (response.ok) {
+          documents.push(normalizeRecord(body));
+          success = true;
+          break;
         }
-      );
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) {
+
         if (
           _upsert &&
           (response.status === 409 ||
@@ -379,7 +440,7 @@ class QueryBuilder {
           const docId = record.id || record.$id;
           if (docId) {
             const patchRes = await fetch(
-              `${endpoint}/databases/${encodeURIComponent(APPWRITE_CONFIG.databaseId)}/collections/${encodeURIComponent(this.table)}/documents/${encodeURIComponent(docId)}`,
+              `${endpoint}/databases/${encodeURIComponent(APPWRITE_CONFIG.databaseId)}/collections/${encodeURIComponent(colId)}/documents/${encodeURIComponent(docId)}`,
               {
                 method: 'PATCH',
                 headers: requestHeaders(
@@ -393,13 +454,19 @@ class QueryBuilder {
             const patchBody = await patchRes.json().catch(() => ({}));
             if (patchRes.ok) {
               documents.push(normalizeRecord(patchBody));
-              continue;
+              success = true;
+              break;
             }
           }
         }
-        throw Object.assign(new Error(body.message), body);
+
+        lastErrorBody = body;
+        if (response.status !== 404) break;
       }
-      documents.push(normalizeRecord(body));
+
+      if (!success) {
+        throw Object.assign(new Error(lastErrorBody?.message || 'Appwrite request failed'), lastErrorBody);
+      }
     }
     return {
       data: Array.isArray(this.payload) ? documents : documents[0],
@@ -412,20 +479,36 @@ class QueryBuilder {
     const current = await this.list();
     const documents = current.data || [];
     const updated: any[] = [];
+    const candidates = getCollectionCandidates(this.table);
+
     for (const document of documents) {
-      const response = await fetch(
-        `${endpoint}/databases/${encodeURIComponent(APPWRITE_CONFIG.databaseId)}/collections/${encodeURIComponent(this.table)}/documents/${encodeURIComponent(document.$id || document.id)}`,
-        {
-          method,
-          headers: requestHeaders(undefined, this.session, this.useApiKey),
-          ...(method === 'PATCH'
-            ? { body: JSON.stringify({ data: normalizePayload(this.payload) }) }
-            : {}),
+      let success = false;
+      let lastErrorBody: any = null;
+
+      for (const colId of candidates) {
+        const response = await fetch(
+          `${endpoint}/databases/${encodeURIComponent(APPWRITE_CONFIG.databaseId)}/collections/${encodeURIComponent(colId)}/documents/${encodeURIComponent(document.$id || document.id)}`,
+          {
+            method,
+            headers: requestHeaders(undefined, this.session, this.useApiKey),
+            ...(method === 'PATCH'
+              ? { body: JSON.stringify({ data: normalizePayload(this.payload) }) }
+              : {}),
+          }
+        );
+        const body = await response.json().catch(() => ({}));
+        if (response.ok) {
+          if (method === 'PATCH') updated.push(normalizeRecord(body));
+          success = true;
+          break;
         }
-      );
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw Object.assign(new Error(body.message), body);
-      if (method === 'PATCH') updated.push(normalizeRecord(body));
+        lastErrorBody = body;
+        if (response.status !== 404) break;
+      }
+
+      if (!success && method === 'PATCH') {
+        throw Object.assign(new Error(lastErrorBody?.message || 'Appwrite request failed'), lastErrorBody);
+      }
     }
     return { data: updated, error: null, count: documents.length };
   }
