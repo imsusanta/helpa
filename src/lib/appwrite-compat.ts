@@ -676,11 +676,62 @@ export function createDataClient(
           form.append('file', file, path);
           const headers = requestHeaders(undefined, sessionOverride, useApiKey);
           headers.delete('Content-Type');
-          const response = await fetch(
+          let response = await fetch(
             `${endpoint}/storage/buckets/${bucket}/files`,
             { method: 'POST', headers, body: form }
           );
-          const body = await response.json().catch(() => ({}));
+          let body = await response.json().catch(() => ({}));
+
+          // Auto-provision bucket on 404 storage_bucket_not_found and retry
+          if (
+            !response.ok &&
+            (response.status === 404 ||
+              body?.type === 'storage_bucket_not_found' ||
+              body?.code === 404)
+          ) {
+            try {
+              const createHeaders = requestHeaders(
+                undefined,
+                sessionOverride,
+                true
+              );
+              await fetch(`${endpoint}/storage/buckets`, {
+                method: 'POST',
+                headers: createHeaders,
+                body: JSON.stringify({
+                  bucketId: bucket,
+                  name: bucket,
+                  permissions: [],
+                  fileSecurity: false,
+                  enabled: true,
+                  allowedFileExtensions: [
+                    'jpg',
+                    'png',
+                    'pdf',
+                    'mp4',
+                    'ogg',
+                    'wav',
+                    'json',
+                    'txt',
+                    'csv',
+                    'docx',
+                  ],
+                }),
+              });
+
+              const retryForm = new FormData();
+              retryForm.append('fileId', 'unique()');
+              retryForm.append('file', file, path);
+              response = await fetch(
+                `${endpoint}/storage/buckets/${bucket}/files`,
+                { method: 'POST', headers, body: retryForm }
+              );
+              body = await response.json().catch(() => ({}));
+            } catch {
+              /* ignore bucket auto-creation failure */
+            }
+          }
+
           return response.ok
             ? { data: { path: body.$id }, error: null }
             : { data: null, error: body };
