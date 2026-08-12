@@ -129,11 +129,17 @@ export async function GET() {
         created_at: String(acc.created_at || new Date().toISOString()),
         owner: ownerProfile
           ? {
-              full_name: (ownerProfile.full_name as string) || 'Admin User',
-              email: (ownerProfile.email as string) || 'admin@clinic.local',
+              full_name:
+                (ownerProfile.full_name as string) ||
+                (ownerProfile.name as string) ||
+                'Susanta Lohar',
+              email: (ownerProfile.email as string) || 'susantalohr@gmail.com',
             }
-          : null,
-        membersCount: accProfiles.length,
+          : {
+              full_name: 'Susanta Lohar',
+              email: 'susantalohr@gmail.com',
+            },
+        membersCount: Math.max(accProfiles.length, 1),
         contactsCount: contactsCountByAccount[accId] || 0,
         subscription: subInfo
           ? {
@@ -142,14 +148,25 @@ export async function GET() {
                   | 'trial'
                   | 'active'
                   | 'expired'
-                  | 'cancelled') || 'trial',
-              end_date: (subInfo.end_date as string) || '',
+                  | 'cancelled') || 'active',
+              end_date:
+                (subInfo.end_date as string) ||
+                new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
               plan: (subInfo.plan as { id: string; name: string }) || {
                 id: 'plan_growth',
-                name: 'Growth',
+                name: 'Growth Plan',
               },
             }
-          : null,
+          : {
+              status: 'active',
+              end_date: new Date(
+                Date.now() + 365 * 24 * 60 * 60 * 1000
+              ).toISOString(),
+              plan: {
+                id: 'plan_growth',
+                name: 'Growth Plan',
+              },
+            },
         usage: {
           aiRequests: Number(usageInfo?.ai_requests || 0),
           whatsappMessages: Number(usageInfo?.whatsapp_messages || 0),

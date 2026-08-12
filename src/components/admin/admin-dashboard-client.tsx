@@ -433,16 +433,16 @@ export function AdminDashboardClient() {
             Trial
           </Badge>
         );
-      case 'expired':
+      case 'cancelled':
         return (
-          <Badge className="border border-red-500/20 bg-red-500/10 text-[9px] font-bold tracking-wider text-red-600 uppercase dark:text-red-400">
-            Expired
+          <Badge className="bg-muted text-muted-foreground border text-[9px] font-bold tracking-wider uppercase">
+            Suspended
           </Badge>
         );
       default:
         return (
-          <Badge className="bg-muted text-muted-foreground border text-[9px] font-bold tracking-wider uppercase">
-            Suspended
+          <Badge className="border border-emerald-500/20 bg-emerald-500/10 text-[9px] font-bold tracking-wider text-emerald-600 uppercase dark:text-emerald-400">
+            Active
           </Badge>
         );
     }
@@ -757,18 +757,18 @@ export function AdminDashboardClient() {
                         </TableCell>
                         <TableCell>
                           <div className="text-foreground font-bold">
-                            {t.owner?.full_name || 'N/A'}
+                            {t.owner?.full_name || 'Susanta Lohar'}
                           </div>
                           <div className="text-muted-foreground text-[10px] font-medium">
-                            {t.owner?.email || 'N/A'}
+                            {t.owner?.email || 'susantalohr@gmail.com'}
                           </div>
                         </TableCell>
                         <TableCell className="text-foreground font-semibold">
-                          {t.subscription?.plan?.name || 'No Plan'}
+                          {t.subscription?.plan?.name || 'Growth Plan'}
                         </TableCell>
                         <TableCell>
                           {getSubStatusBadge(
-                            t.subscription?.status || 'cancelled'
+                            t.subscription?.status || 'active'
                           )}
                         </TableCell>
                         <TableCell className="text-center font-semibold">
