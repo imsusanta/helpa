@@ -86,7 +86,9 @@ export async function GET() {
 
     const { data: config, error: configError } = await appwrite
       .from('whatsapp_config')
-      .select('phone_number_id, access_token, status')
+      .select(
+        'phone_number_id, waba_id, access_token, status, registered_at, last_registration_error, subscribed_apps_at'
+      )
       .eq('account_id', accountId)
       .maybeSingle();
 
@@ -114,6 +116,15 @@ export async function GET() {
       );
     }
 
+    const safeConfig = {
+      phone_number_id: config.phone_number_id,
+      waba_id: config.waba_id,
+      status: config.status,
+      registered_at: config.registered_at,
+      last_registration_error: config.last_registration_error,
+      subscribed_apps_at: config.subscribed_apps_at,
+    };
+
     // Try to decrypt the stored token with the current ENCRYPTION_KEY.
     // If this fails, the key changed (or was never consistent across envs).
     let accessToken: string;
@@ -124,6 +135,7 @@ export async function GET() {
       return NextResponse.json(
         {
           connected: false,
+          config: safeConfig,
           reason: 'token_corrupted',
           needs_reset: true,
           message:
@@ -139,7 +151,11 @@ export async function GET() {
         phoneNumberId: config.phone_number_id,
         accessToken,
       });
-      return NextResponse.json({ connected: true, phone_info: phoneInfo });
+      return NextResponse.json({
+        connected: true,
+        config: safeConfig,
+        phone_info: phoneInfo,
+      });
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Unknown Meta API error';
@@ -150,6 +166,7 @@ export async function GET() {
       return NextResponse.json(
         {
           connected: false,
+          config: safeConfig,
           reason: 'meta_api_error',
           message: `Meta API rejected the credentials: ${message}`,
         },

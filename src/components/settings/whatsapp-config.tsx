@@ -14,7 +14,6 @@ import {
   AlertTriangle,
   RotateCcw,
 } from 'lucide-react';
-import { createClient } from '@/lib/appwrite-compat';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,7 +41,6 @@ type ConnectionStatus = 'connected' | 'disconnected' | 'unknown';
 type ResetReason = 'token_corrupted' | 'meta_api_error' | null;
 
 export function WhatsAppConfig() {
-  const appwrite = createClient();
   // After multi-user, whatsapp_config is one-row-per-account, not
   // one-row-per-user. We pull `accountId` straight off the auth
   // context and key every read off it — so a teammate who just
@@ -92,98 +90,62 @@ export function WhatsAppConfig() {
       ? `${window.location.origin}/api/whatsapp/webhook`
       : '';
 
-  const fetchConfig = useCallback(
-    async (acctId: string) => {
-      setLoading(true);
-      try {
-        // Load form values from appwrite (shows what's in DB).
-        // Switched from `user_id` (which would only match the row's
-        // original author) to `account_id` so every member of the
-        // account sees the same saved configuration. UNIQUE(account_id)
-        // on the table guarantees the .maybeSingle() return type
-        // remains accurate.
-        const { data, error } = await appwrite
-          .from('whatsapp_config')
-          .select('*')
-          .eq('account_id', acctId)
-          .maybeSingle();
+  const fetchConfig = useCallback(async () => {
+    setLoading(true);
+    try {
+      setRegistrationProbe(null);
+      const res = await fetch('/api/whatsapp/config', { method: 'GET' });
+      const payload = await res.json().catch(() => ({}));
 
-        if (error) {
-          console.error('Failed to load config row:', error);
-        }
-
-        if (data) {
-          setConfig(data);
-          setPhoneNumberId(data.phone_number_id || '');
-          setWabaId(data.waba_id || '');
-          setAccessToken(MASKED_TOKEN);
-          setVerifyToken('');
-          setPin('');
-          setTokenEdited(false);
-        } else {
-          setConfig(null);
-          setPhoneNumberId('');
-          setWabaId('');
-          setAccessToken('');
-          setVerifyToken('');
-          setPin('');
-          setTokenEdited(false);
-        }
-        // Clear any stale probe result when reloading the row.
-        setRegistrationProbe(null);
-
-        // Then verify health via the API (decrypts token + pings Meta)
-        if (data) {
-          try {
-            const res = await fetch('/api/whatsapp/config', { method: 'GET' });
-            const payload = await res.json();
-
-            if (payload.connected) {
-              setConnectionStatus('connected');
-              setResetReason(null);
-              setStatusMessage('');
-            } else {
-              setConnectionStatus('disconnected');
-              setResetReason(
-                payload.needs_reset
-                  ? 'token_corrupted'
-                  : payload.reason === 'meta_api_error'
-                    ? 'meta_api_error'
-                    : null
-              );
-              setStatusMessage(payload.message || '');
-            }
-          } catch (err) {
-            console.error('Health check failed:', err);
-            setConnectionStatus('disconnected');
-          }
-        } else {
-          setConnectionStatus('disconnected');
-          setResetReason(null);
-          setStatusMessage('');
-        }
-      } catch (err) {
-        console.error('fetchConfig error:', err);
-        toast.error('Failed to load WhatsApp configuration');
-      } finally {
-        setLoading(false);
+      if (payload.config) {
+        setConfig(payload.config);
+        setPhoneNumberId(payload.config.phone_number_id || '');
+        setWabaId(payload.config.waba_id || '');
+        setAccessToken(MASKED_TOKEN);
+        setVerifyToken('');
+        setPin('');
+        setTokenEdited(false);
+      } else {
+        setConfig(null);
+        setPhoneNumberId('');
+        setWabaId('');
+        setAccessToken('');
+        setVerifyToken('');
+        setPin('');
+        setTokenEdited(false);
       }
-    },
-    [appwrite]
-  );
+
+      if (payload.connected) {
+        setConnectionStatus('connected');
+        setResetReason(null);
+        setStatusMessage('');
+      } else {
+        setConnectionStatus('disconnected');
+        setResetReason(
+          payload.needs_reset
+            ? 'token_corrupted'
+            : payload.reason === 'meta_api_error'
+              ? 'meta_api_error'
+              : null
+        );
+        setStatusMessage(payload.message || '');
+      }
+    } catch (err) {
+      console.error('fetchConfig error:', err);
+      toast.error('Failed to load WhatsApp configuration');
+      setConnectionStatus('disconnected');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    // Need both the auth session (`!authLoading`) AND the profile
-    // (`!profileLoading`, which carries `accountId`). Without the
-    // second guard, the effect would fire with `accountId === null`
-    // for the first render window and bail without ever retrying
-    // once the profile arrives.
     if (authLoading || profileLoading) return;
     if (!user || !accountId) {
       setLoading(false);
       return;
     }
-    fetchConfig(accountId);
+    fetchConfig();
   }, [authLoading, profileLoading, user, accountId, fetchConfig]);
 
   async function handleSave() {
@@ -272,7 +234,7 @@ export function WhatsAppConfig() {
         setPin('');
       }
 
-      if (accountId) await fetchConfig(accountId);
+      if (accountId) await fetchConfig();
     } catch (err) {
       console.error('Save error:', err);
       toast.error('Failed to save configuration');
@@ -334,7 +296,7 @@ export function WhatsAppConfig() {
           { duration: 8000 }
         );
       }
-      if (accountId) await fetchConfig(accountId);
+      if (accountId) await fetchConfig();
     } catch (err) {
       console.error('verify-registration failed:', err);
       toast.error('Could not reach the verification endpoint.');
