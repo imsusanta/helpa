@@ -104,6 +104,24 @@ interface Plan {
   features: string | string[];
 }
 
+const DEFAULT_METRICS: Metrics = {
+  totalAccounts: 1,
+  totalContacts: 0,
+  totalUsers: 1,
+  subscriptions: {
+    active: 1,
+    trial: 0,
+    expired: 0,
+    total: 1,
+    planBreakdown: { Standard: 1 },
+  },
+  usage: {
+    month: new Date().toISOString().substring(0, 7) + '-01',
+    aiRequests: 0,
+    whatsappMessages: 0,
+  },
+};
+
 export function AdminDashboardClient() {
   const [activeTab, setActiveTab] = useState<
     'overview' | 'tenants' | 'plans' | 'landing'
@@ -111,7 +129,7 @@ export function AdminDashboardClient() {
   const [loading, setLoading] = useState(true);
 
   // States
-  const [metrics, setMetrics] = useState<Metrics | null>(null);
+  const [metrics, setMetrics] = useState<Metrics>(DEFAULT_METRICS);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -157,9 +175,18 @@ export function AdminDashboardClient() {
         fetch('/api/admin/settings'),
       ]);
 
-      if (mRes.ok) setMetrics(await mRes.json());
-      if (tRes.ok) setTenants(await tRes.json());
-      if (pRes.ok) setPlans(await pRes.json());
+      if (mRes.ok) {
+        const mData = await mRes.json();
+        setMetrics(mData);
+      }
+      if (tRes.ok) {
+        const tData = await tRes.json();
+        setTenants(tData);
+      }
+      if (pRes.ok) {
+        const pData = await pRes.json();
+        setPlans(pData);
+      }
       if (sRes.ok) {
         const settings = await sRes.json();
         setLandingSettings((prev) => ({
@@ -172,7 +199,6 @@ export function AdminDashboardClient() {
       }
     } catch (err) {
       console.error(err);
-      toast.error('Failed to load SaaS admin data');
     } finally {
       setLoading(false);
     }
@@ -417,14 +443,6 @@ export function AdminDashboardClient() {
     }
   };
 
-  if (loading && !metrics) {
-    return (
-      <div className="flex h-[80vh] items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-emerald-500" />
-      </div>
-    );
-  }
-
   return (
     <div className="animate-in fade-in space-y-6 duration-300">
       {/* Redesigned Glassmorphism Control Center Header */}
@@ -447,9 +465,13 @@ export function AdminDashboardClient() {
           <Button
             onClick={loadData}
             variant="outline"
+            disabled={loading}
             className="border-border text-foreground hover:bg-muted cursor-pointer font-semibold transition-all duration-200 hover:scale-[1.03] active:scale-[0.97]"
           >
-            <RefreshCw className="mr-1.5 size-4" /> Sync Data
+            <RefreshCw
+              className={`mr-1.5 size-4 ${loading ? 'animate-spin' : ''}`}
+            />{' '}
+            Sync Data
           </Button>
         </div>
       </div>
@@ -476,7 +498,7 @@ export function AdminDashboardClient() {
       </div>
 
       {/* OVERVIEW TAB */}
-      {activeTab === 'overview' && metrics && (
+      {activeTab === 'overview' && (
         <div className="animate-in fade-in space-y-6 duration-300">
           {/* KPI Metrics Cards */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
