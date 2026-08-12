@@ -16,6 +16,7 @@ export interface VoiceIntegrationDocument {
   phoneNumberMasked?: string;
   status: 'configured' | 'disabled' | 'error';
   capabilities?: string[];
+  keyVersion?: string;
 }
 
 export class VoiceRepository {
@@ -101,14 +102,9 @@ export class VoiceRepository {
       const currentStatus = (doc.status as CallStatus) || 'initiating';
       const targetStatus = (data.status as CallStatus) || currentStatus;
 
-      const updatePayload = { ...data };
+      // Enforce central state machine validation; throws VOICE_INVALID_STATE_TRANSITION if invalid
       if (currentStatus !== targetStatus) {
-        if (!CallStateMachine.canTransition(currentStatus, targetStatus)) {
-          console.warn(
-            `[VoiceRepository] Ignoring regressive call state transition from ${currentStatus} to ${targetStatus} for call ${externalCallId}`
-          );
-          delete updatePayload.status;
-        }
+        CallStateMachine.validateTransition(currentStatus, targetStatus);
       }
 
       const version = ((doc.version as number) || 1) + 1;
@@ -116,9 +112,17 @@ export class VoiceRepository {
         APPWRITE_CONFIG.databaseId,
         APPWRITE_CONFIG.collections.calls,
         doc.$id,
-        { ...updatePayload, version, updatedAt: new Date().toISOString() }
+        {
+          ...data,
+          version,
+          previousState: currentStatus,
+          updatedAt: new Date().toISOString(),
+        }
       );
     }
+
+    const initialStatus = (data.status as CallStatus) || 'queued';
+    CallStateMachine.validateTransition(null, initialStatus);
 
     return this.db.createDocument(
       APPWRITE_CONFIG.databaseId,
@@ -136,6 +140,9 @@ export class VoiceRepository {
   }
 
   async createCall(accountId: string, data: Record<string, unknown>) {
+    const initialStatus = (data.status as CallStatus) || 'queued';
+    CallStateMachine.validateTransition(null, initialStatus);
+
     return this.db.createDocument(
       APPWRITE_CONFIG.databaseId,
       APPWRITE_CONFIG.collections.calls,
@@ -169,12 +176,34 @@ export class VoiceRepository {
     status: CallStatus,
     extra?: Record<string, unknown>
   ) {
+    const doc = await this.db.getDocument(
+      APPWRITE_CONFIG.databaseId,
+      APPWRITE_CONFIG.collections.calls,
+      callId
+    );
+
+    // Tenant Isolation check: Verify account match
+    if (doc.accountId !== accountId) {
+      throw new Error('Tenant isolation violation: accountId mismatch');
+    }
+
+    const currentStatus = (doc.status as CallStatus) || 'queued';
+
+    // Enforce central state machine validation; throws VOICE_INVALID_STATE_TRANSITION on invalid transition
+    if (currentStatus !== status) {
+      CallStateMachine.validateTransition(currentStatus, status);
+    }
+
+    const version = ((doc.version as number) || 1) + 1;
+
     return this.db.updateDocument(
       APPWRITE_CONFIG.databaseId,
       APPWRITE_CONFIG.collections.calls,
       callId,
       {
         status,
+        version,
+        previousState: currentStatus,
         ...extra,
         updatedAt: new Date().toISOString(),
       }

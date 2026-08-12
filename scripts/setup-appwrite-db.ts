@@ -674,6 +674,29 @@ export const SCHEMA_MANIFEST: Record<string, CollectionSchema> = {
       },
     ],
   },
+  worker_health: {
+    id: APPWRITE_CONFIG.collections.workerHealth,
+    attributes: [
+      { key: 'workerId', type: 'string', size: 255, required: true },
+      { key: 'commitSha', type: 'string', size: 64, required: true },
+      { key: 'startedAt', type: 'string', size: 64, required: true },
+      { key: 'lastHeartbeatAt', type: 'string', size: 64, required: true },
+      { key: 'lastScanAt', type: 'string', size: 64, required: false },
+      { key: 'lastSuccessAt', type: 'string', size: 64, required: false },
+      { key: 'lastFailureCode', type: 'string', size: 128, required: false },
+      { key: 'processedCount', type: 'integer', required: false, default: 0 },
+      { key: 'retryCount', type: 'integer', required: false, default: 0 },
+      { key: 'deadLetterCount', type: 'integer', required: false, default: 0 },
+      { key: 'updatedAt', type: 'string', size: 64, required: true },
+    ],
+    indexes: [
+      {
+        key: 'unique_worker_id',
+        type: 'unique',
+        attributes: ['workerId'],
+      },
+    ],
+  },
 };
 
 async function setupAppwriteDatabase() {

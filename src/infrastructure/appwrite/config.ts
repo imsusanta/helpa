@@ -50,5 +50,6 @@ export const APPWRITE_CONFIG = {
     doctors: 'doctors',
     departments: 'departments',
     knowledgeBase: 'knowledge_base',
+    workerHealth: 'worker_health',
   },
 };

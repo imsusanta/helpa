@@ -74,9 +74,9 @@ export class CallStateMachine {
   ): void {
     if (!this.canTransition(current, target)) {
       throw new VoiceProviderError(
-        'VOICE_PROVIDER_REQUEST_FAILED',
+        'VOICE_INVALID_STATE_TRANSITION',
         `Invalid call state transition from '${current || 'none'}' to '${target}'`,
-        409
+        422
       );
     }
   }

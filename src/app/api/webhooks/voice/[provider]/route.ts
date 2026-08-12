@@ -59,7 +59,7 @@ export async function POST(
   }
 
   try {
-    // 1. Initial parse to extract identifiers for tenant resolution
+    // 1. Initial parse to extract provider event identifiers for candidate tenant lookup
     let tempPayload: Record<string, unknown>;
     try {
       tempPayload = JSON.parse(rawBody);
@@ -83,7 +83,7 @@ export async function POST(
         ? dataObj.agent_phone_number_id
         : undefined;
 
-    // 2. Resolve exactly one tenant integration server-side
+    // 2. Resolve exactly one candidate integration server-side
     const integration = await voiceRepository.findUniqueTenant(
       providerName,
       agentId,
@@ -98,7 +98,7 @@ export async function POST(
       );
     }
 
-    // 3. Resolve tenant-scoped provider configuration and verify signature
+    // 3. Resolve tenant-scoped configuration and verify signature using tenant secret
     const tenantConfig = await resolveTenantVoiceConfig(
       integration.accountId,
       providerName
@@ -120,7 +120,29 @@ export async function POST(
       .update(rawBody)
       .digest('hex');
 
-    // 4. Store raw payload in private Appwrite Storage bucket (FAIL CLOSED!)
+    // 4. Pre-check for duplicate event before Storage upload to prevent orphan files
+    const preExistingEvent = await voiceRepository.findProviderEvent(
+      providerName,
+      event.externalEventId
+    );
+
+    if (preExistingEvent) {
+      if (preExistingEvent.payloadHash !== payloadHash) {
+        return NextResponse.json(
+          {
+            error: 'VOICE_DUPLICATE_EVENT',
+            message: 'Payload hash mismatch on duplicate event ID',
+          },
+          { status: 409 }
+        );
+      }
+      return NextResponse.json(
+        { accepted: true, duplicate: true },
+        { status: 200 }
+      );
+    }
+
+    // 5. Store raw payload in private Appwrite Storage bucket (FAIL CLOSED!)
     const storage = getAppwriteAdminClient().storage;
     const filename = `${providerName}_${event.externalEventId.replace(/[^a-zA-Z0-9_.:-]/g, '_')}_${payloadHash.slice(0, 16)}.json`;
 
@@ -144,7 +166,7 @@ export async function POST(
       );
     }
 
-    // 5. Store transcript in private Appwrite Storage bucket if present
+    // 6. Store transcript in private Storage bucket if present
     let transcriptReference: string | undefined = undefined;
     if (event.transcript) {
       try {
@@ -159,9 +181,17 @@ export async function POST(
         transcriptReference = transcriptFile.$id;
       } catch (tErr) {
         console.error(
-          '[voice-webhook] Failed to store transcript file in Storage:',
+          '[voice-webhook] Storage persistence failed for transcript:',
           tErr
         );
+        // Clean up raw payload file before throwing to prevent orphan files
+        await storage
+          .deleteFile(
+            APPWRITE_CONFIG.buckets.webhookPayloads,
+            rawPayloadReference
+          )
+          .catch(() => null);
+
         throw new VoiceProviderError(
           'VOICE_PROVIDER_PERSISTENCE_FAILED',
           'Failed to store transcript in Appwrite Storage',
@@ -170,7 +200,7 @@ export async function POST(
       }
     }
 
-    // 6. Atomically create provider_event document in Appwrite (FAIL CLOSED!)
+    // 7. Atomically create provider_event document in Appwrite
     let eventDoc: { $id: string };
     try {
       eventDoc = (await voiceRepository.createProviderEvent({
@@ -185,6 +215,23 @@ export async function POST(
         receivedAt: new Date().toISOString(),
       })) as unknown as { $id: string };
     } catch (err: unknown) {
+      // Race condition cleanup: delete redundant uploaded Storage files if another thread won insertion
+      await storage
+        .deleteFile(
+          APPWRITE_CONFIG.buckets.webhookPayloads,
+          rawPayloadReference
+        )
+        .catch(() => null);
+
+      if (transcriptReference) {
+        await storage
+          .deleteFile(
+            APPWRITE_CONFIG.buckets.webhookPayloads,
+            transcriptReference
+          )
+          .catch(() => null);
+      }
+
       const code = (err as { code?: number })?.code;
       if (code === 409) {
         const existingEvent = await voiceRepository.findProviderEvent(
@@ -194,7 +241,7 @@ export async function POST(
         if (existingEvent && existingEvent.payloadHash !== payloadHash) {
           return NextResponse.json(
             {
-              error: 'VOICE_PROVIDER_REQUEST_FAILED',
+              error: 'VOICE_DUPLICATE_EVENT',
               message: 'Payload hash mismatch on duplicate event ID',
             },
             { status: 409 }
@@ -208,7 +255,7 @@ export async function POST(
       throw err;
     }
 
-    // 7. Update Call document using Call State Machine (storing transcriptReference, NOT raw text)
+    // 8. Update Call document using Call State Machine (storing transcriptReference, NOT raw text)
     if (event.status) {
       await voiceRepository.upsertCall(
         integration.accountId,

@@ -21,7 +21,8 @@ export type VoiceErrorCode =
   | 'VOICE_PROVIDER_REQUEST_FAILED'
   | 'VOICE_TENANT_MAPPING_NOT_FOUND'
   | 'VOICE_DUPLICATE_EVENT'
-  | 'VOICE_PROVIDER_PERSISTENCE_FAILED';
+  | 'VOICE_PROVIDER_PERSISTENCE_FAILED'
+  | 'VOICE_INVALID_STATE_TRANSITION';
 
 export class VoiceProviderError extends Error {
   constructor(
@@ -130,7 +131,7 @@ export interface VoiceProvider {
   readonly capabilities: VoiceCapabilities;
   validateConfiguration(): Promise<void>;
   verifyWebhook(rawBody: string, headers: Headers): Promise<WebhookVerification>;
-  normalizeWebhook(rawBody: string, headers: Headers): Promise<NormalizedVoiceWebhook>;
+  normalizeWebhook(rawBody: string, headers?: Headers): Promise<NormalizedVoiceWebhook>;
   listAgents(): Promise<Array<{ id: string; name: string }>>;
   listPhoneNumbers(): Promise<Array<{ id: string; phoneNumberMasked: string }>>;
   initiateOutboundCall(request: OutboundCallRequest): Promise<{ externalCallId: string }>;

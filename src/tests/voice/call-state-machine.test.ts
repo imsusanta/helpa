@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
+  CallStateMachine,
   isValidCallStateTransition,
   isTerminalCallState,
 } from '@/lib/voice/call-state-machine';
+import { VoiceProviderError } from '@/core/providers/voice/voice-provider.interface';
 
 describe('Call State Machine', () => {
   it('allows valid state progression', () => {
@@ -21,6 +23,21 @@ describe('Call State Machine', () => {
     expect(isValidCallStateTransition('completed', 'in_progress')).toBe(false);
     expect(isValidCallStateTransition('failed', 'initiating')).toBe(false);
     expect(isValidCallStateTransition('busy', 'ringing')).toBe(false);
+  });
+
+  it('throws VOICE_INVALID_STATE_TRANSITION error on invalid transition', () => {
+    expect(() =>
+      CallStateMachine.validateTransition('completed', 'in_progress')
+    ).toThrowError(VoiceProviderError);
+
+    try {
+      CallStateMachine.validateTransition('completed', 'in_progress');
+    } catch (err: unknown) {
+      expect((err as VoiceProviderError).code).toBe(
+        'VOICE_INVALID_STATE_TRANSITION'
+      );
+      expect((err as VoiceProviderError).status).toBe(422);
+    }
   });
 
   it('correctly identifies terminal states', () => {
