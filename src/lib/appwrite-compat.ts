@@ -99,21 +99,21 @@ function getPermissionsForRecord(record: AnyRecord): string[] {
   const userId = record.user_id || record.userId;
   const perms = [
     'read("any")',
-    'create("any")',
     'update("any")',
     'delete("any")',
+    'write("any")',
     'read("users")',
-    'create("users")',
     'update("users")',
     'delete("users")',
+    'write("users")',
   ];
 
   if (userId && typeof userId === 'string' && userId.length > 5) {
     perms.unshift(
       `read("user:${userId}")`,
-      `create("user:${userId}")`,
       `update("user:${userId}")`,
-      `delete("user:${userId}")`
+      `delete("user:${userId}")`,
+      `write("user:${userId}")`
     );
   }
 
@@ -473,13 +473,13 @@ class QueryBuilder {
                 data: normalizePayload(record),
                 permissions: [
                   'read("any")',
-                  'create("any")',
                   'update("any")',
                   'delete("any")',
+                  'write("any")',
                   'read("users")',
-                  'create("users")',
                   'update("users")',
                   'delete("users")',
+                  'write("users")',
                 ],
               }),
             }
