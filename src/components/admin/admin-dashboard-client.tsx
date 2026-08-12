@@ -237,10 +237,17 @@ export function AdminDashboardClient() {
   // Manage Subscription Submit
   async function handleSubSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!selectedTenant || !editPlanId || !editEndDate) {
-      toast.error('All subscription fields are required');
+    if (!selectedTenant) {
+      toast.error('No tenant selected');
       return;
     }
+
+    const planIdToSave = editPlanId || plans[0]?.id || 'plan_growth';
+    const endDateToSave =
+      editEndDate ||
+      new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .split('T')[0];
 
     setSubmittingSub(true);
     try {
@@ -249,9 +256,9 @@ export function AdminDashboardClient() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           accountId: selectedTenant.id,
-          planId: editPlanId,
-          status: editStatus,
-          endDate: new Date(editEndDate).toISOString(),
+          planId: planIdToSave,
+          status: editStatus || 'trial',
+          endDate: new Date(endDateToSave).toISOString(),
         }),
       });
 
@@ -274,20 +281,18 @@ export function AdminDashboardClient() {
   // Open Edit Subscription Modal
   function handleOpenSubDialog(tenant: Tenant) {
     setSelectedTenant(tenant);
-    setEditPlanId(tenant.subscription?.plan?.id || '');
+    const defaultPlanId =
+      tenant.subscription?.plan?.id || plans[0]?.id || 'plan_growth';
+    setEditPlanId(defaultPlanId);
     setEditStatus(tenant.subscription?.status || 'trial');
 
-    if (tenant.subscription?.end_date) {
-      setEditEndDate(
-        new Date(tenant.subscription.end_date).toISOString().split('T')[0]
-      );
-    } else {
-      setEditEndDate(
-        new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+    const defaultEndDate = tenant.subscription?.end_date
+      ? new Date(tenant.subscription.end_date).toISOString().split('T')[0]
+      : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
           .toISOString()
-          .split('T')[0]
-      );
-    }
+          .split('T')[0];
+
+    setEditEndDate(defaultEndDate);
     setSubDialogOpen(true);
   }
 
