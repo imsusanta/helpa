@@ -26,17 +26,6 @@ export async function GET() {
       console.warn('[tenants] accounts fetch error:', e);
     }
 
-    if (accounts.length === 0) {
-      accounts = [
-        {
-          id: 'default_account',
-          name: 'Clinic Account',
-          created_at: new Date().toISOString(),
-          owner_user_id: null,
-        },
-      ];
-    }
-
     let profiles: Array<Record<string, unknown>> = [];
     try {
       const res = await db
@@ -76,7 +65,6 @@ export async function GET() {
       console.warn('[tenants] contacts fetch error:', e);
     }
 
-    // Aggregate statistics in memory
     const profilesByAccount: Record<string, typeof profiles> = {};
     profiles.forEach((p) => {
       const accId = String(p.account_id || '');
@@ -114,7 +102,7 @@ export async function GET() {
     });
 
     const tenantList = accounts.map((acc) => {
-      const accId = String(acc.id || 'default_account');
+      const accId = String(acc.id || acc.$id || '');
       const accProfiles = profilesByAccount[accId] || [];
       const ownerProfile =
         accProfiles.find((p) => p.user_id === acc.owner_user_id) ||
@@ -125,46 +113,37 @@ export async function GET() {
 
       return {
         id: accId,
-        name: String(acc.name || 'Clinic Account'),
+        name: String(acc.name || 'Account'),
         created_at: String(acc.created_at || new Date().toISOString()),
         owner: ownerProfile
           ? {
               full_name:
                 (ownerProfile.full_name as string) ||
                 (ownerProfile.name as string) ||
-                'Susanta Lohar',
-              email: (ownerProfile.email as string) || 'susantalohr@gmail.com',
+                'Unassigned',
+              email: (ownerProfile.email as string) || 'N/A',
             }
           : {
-              full_name: 'Susanta Lohar',
-              email: 'susantalohr@gmail.com',
+              full_name: 'Unassigned',
+              email: 'N/A',
             },
-        membersCount: Math.max(accProfiles.length, 1),
+        membersCount: accProfiles.length,
         contactsCount: contactsCountByAccount[accId] || 0,
         subscription: subInfo
           ? {
-              status:
-                (subInfo.status as
-                  | 'trial'
-                  | 'active'
-                  | 'expired'
-                  | 'cancelled') || 'active',
-              end_date:
-                (subInfo.end_date as string) ||
-                new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+              status: (subInfo.status as string) || 'trial',
+              end_date: (subInfo.end_date as string) || null,
               plan: (subInfo.plan as { id: string; name: string }) || {
-                id: 'plan_growth',
-                name: 'Growth Plan',
+                id: 'plan_starter',
+                name: 'Starter Plan',
               },
             }
           : {
-              status: 'active',
-              end_date: new Date(
-                Date.now() + 365 * 24 * 60 * 60 * 1000
-              ).toISOString(),
+              status: 'trial',
+              end_date: null,
               plan: {
-                id: 'plan_growth',
-                name: 'Growth Plan',
+                id: 'plan_starter',
+                name: 'Starter Plan',
               },
             },
         usage: {
@@ -196,7 +175,7 @@ export async function PATCH(request: Request) {
     const body = await request.json().catch(() => null);
     const accountId = body?.accountId;
     const planId = body?.planId;
-    const status = body?.status; // 'trial', 'active', 'expired', 'cancelled'
+    const status = body?.status;
     const endDate = body?.endDate;
 
     if (!accountId) {
@@ -218,8 +197,8 @@ export async function PATCH(request: Request) {
       success: true,
       accountId,
       status: status || 'trial',
-      planId: planId || 'plan_growth',
-      endDate,
+      planId: planId || 'plan_starter',
+      endDate: endDate || null,
     };
 
     try {
@@ -242,11 +221,9 @@ export async function PATCH(request: Request) {
           .from('subscriptions')
           .insert({
             account_id: accountId,
-            plan_id: planId || 'plan_growth',
+            plan_id: planId || 'plan_starter',
             status: status || 'trial',
-            end_date:
-              endDate ||
-              new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+            end_date: endDate || null,
           })
           .select()
           .single();
@@ -262,6 +239,14 @@ export async function PATCH(request: Request) {
     return NextResponse.json(result);
   } catch (err: unknown) {
     console.error('[PATCH /api/admin/tenants] error:', err);
-    return NextResponse.json({ success: true });
+    return NextResponse.json(
+      {
+        error:
+          err instanceof Error
+            ? err.message
+            : 'Failed to update tenant subscription',
+      },
+      { status: 500 }
+    );
   }
 }

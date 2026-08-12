@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     process.env.GITHUB_SHA ||
     process.env.APPWRITE_GIT_COMMIT_SHA ||
     process.env.NEXT_PUBLIC_APPWRITE_GIT_COMMIT_SHA ||
-    'aaa552af9f05d3fecb176b5f3d99f6aac101f885';
+    '34375610';
 
   // /api/health/live - Liveness Probe (Lightweight check)
   if (pathname.endsWith('/live')) {
