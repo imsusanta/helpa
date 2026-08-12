@@ -47,6 +47,21 @@ export class ContactsRepository {
     }
   }
 
+  async getContactByE164(
+    accountId: string,
+    phone: string
+  ): Promise<ContactDocument | null> {
+    const res = await this.db.listDocuments(
+      APPWRITE_CONFIG.databaseId,
+      APPWRITE_CONFIG.collections.contacts,
+      [Query.equal('accountId', accountId), Query.equal('phone', phone)]
+    );
+    if (res.documents.length > 1) {
+      throw new Error('CONTACT_PHONE_NOT_UNIQUE');
+    }
+    return (res.documents[0] as unknown as ContactDocument | undefined) ?? null;
+  }
+
   async createContact(
     accountId: string,
     data: Partial<ContactDocument>
