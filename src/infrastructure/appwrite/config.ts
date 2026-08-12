@@ -7,6 +7,7 @@ export const APPWRITE_CONFIG = {
     process.env.APPWRITE_DATABASE_ID ||
     'helpa_main',
   buckets: {
+    avatars: process.env.APPWRITE_BUCKET_AVATARS || 'avatars',
     chatMedia: process.env.APPWRITE_BUCKET_CHAT_MEDIA || 'chat-media',
     voiceTranscripts:
       process.env.APPWRITE_BUCKET_VOICE_TRANSCRIPTS || 'voice-transcripts',

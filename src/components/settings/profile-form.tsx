@@ -111,26 +111,23 @@ export function ProfileForm() {
     try {
       let nextAvatarUrl: string | null = profile.avatar_url ?? null;
 
-      // Upload a newly-staged image, if any.
+      // Upload a newly-staged image via server API endpoint with automatic bucket creation
       if (pendingAvatar) {
-        const ext = pendingAvatar.name.split('.').pop()?.toLowerCase() || 'png';
-        const path = `${user.id}/avatar-${Date.now()}.${ext}`;
-        const { error: uploadError } = await appwrite.storage
-          .from('avatars')
-          .upload(path, pendingAvatar, {
-            cacheControl: '3600',
-            upsert: true,
-            contentType: pendingAvatar.type,
-          });
-        if (uploadError) {
+        const formData = new FormData();
+        formData.append('file', pendingAvatar);
+
+        const avatarRes = await fetch('/api/account/avatar', {
+          method: 'POST',
+          body: formData,
+        });
+
+        const avatarData = await avatarRes.json().catch(() => ({}));
+        if (!avatarRes.ok || !avatarData.avatar_url) {
           throw new Error(
-            `Upload failed: ${(uploadError as any)?.message || 'error'}`
+            `Upload failed: ${avatarData.error || avatarData.message || 'Image upload failed'}`
           );
         }
-        const {
-          data: { publicUrl },
-        } = appwrite.storage.from('avatars').getPublicUrl(path);
-        nextAvatarUrl = publicUrl;
+        nextAvatarUrl = avatarData.avatar_url;
       } else if (removeAvatar) {
         nextAvatarUrl = null;
       }
