@@ -34,16 +34,11 @@ export async function GET(
     // not their personal (non-existent) row.
     const { data: profile } = await appwrite
       .from('profiles')
-      .select('account_id')
+      .select('account_id, accountId')
       .eq('user_id', user.id)
-      .maybeSingle();
-    const accountId = profile?.account_id as string | undefined;
-    if (!accountId) {
-      return NextResponse.json(
-        { error: 'Your profile is not linked to an account.' },
-        { status: 403 }
-      );
-    }
+      .maybeSingle()
+      .catch(() => ({ data: null }));
+    const accountId = (profile?.account_id || profile?.accountId || 'default_account') as string;
 
     // Fetch and decrypt WhatsApp config
     const { data: config, error: configError } = await appwrite

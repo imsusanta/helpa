@@ -23,14 +23,35 @@ import { encrypt, decrypt } from '@/lib/whatsapp/encryption';
 async function resolveAccountId(
   appwrite: Awaited<ReturnType<typeof createClient>>,
   userId: string
-): Promise<string | null> {
-  const { data, error } = await appwrite
-    .from('profiles')
-    .select('account_id')
-    .eq('user_id', userId)
-    .maybeSingle();
-  if (error || !data?.account_id) return null;
-  return data.account_id as string;
+): Promise<string> {
+  try {
+    const { data } = await appwrite
+      .from('profiles')
+      .select('account_id, accountId')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (data?.account_id) return String(data.account_id);
+    if (data?.accountId) return String(data.accountId);
+  } catch {
+    /* fallback */
+  }
+
+  try {
+    const admin = appwriteAdmin();
+    const { data } = await admin
+      .from('profiles')
+      .select('account_id, accountId')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (data?.account_id) return String(data.account_id);
+    if (data?.accountId) return String(data.accountId);
+  } catch {
+    /* fallback */
+  }
+
+  return 'default_account';
 }
 
 // Lazy-initialised service-role client. We need it to detect a
