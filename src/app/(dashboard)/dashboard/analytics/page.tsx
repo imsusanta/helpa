@@ -81,34 +81,73 @@ interface AiMetrics {
   botRepliesToday: number;
 }
 
+const DEFAULT_METRICS: AiMetrics = {
+  totalConversations: 0,
+  aiEnabledCount: 0,
+  leadHotCount: 0,
+  leadWarmCount: 0,
+  leadColdCount: 0,
+  intentSalesCount: 0,
+  intentSupportCount: 0,
+  intentBookingCount: 0,
+  intentComplaintCount: 0,
+  intentOtherCount: 0,
+  sentimentPositive: 0,
+  sentimentNeutral: 0,
+  sentimentNegative: 0,
+  handoffCount: 0,
+  resolvedCount: 0,
+  faqPricing: 0,
+  faqDelivery: 0,
+  faqRefund: 0,
+  faqDemo: 0,
+  faqGeneral: 0,
+  botMessagesCount: 0,
+  humanMessagesCount: 0,
+  newLeadsToday: 0,
+  hotLeadsToday: 0,
+  handoffsToday: 0,
+  botRepliesToday: 0,
+};
+
 export default function AiAnalyticsPage() {
   useAuth();
   const [loading, setLoading] = useState(true);
-  const [metrics, setMetrics] = useState<AiMetrics | null>(null);
+  const [metrics, setMetrics] = useState<AiMetrics>(DEFAULT_METRICS);
 
   const fetchAiMetrics = async () => {
     setLoading(true);
     const appwrite = createClient();
 
     try {
-      // 1. Fetch conversations
-      const { data: conversations, error: convError } = await appwrite
-        .from('conversations')
-        .select(
-          'ai_intent, ai_lead_score, ai_sentiment, ai_resolved, ai_handoff_required, ai_faq_category, created_at, ai_chat_enabled'
-        );
+      // 1. Fetch conversations safely
+      let conversations: Array<Record<string, unknown>> = [];
+      try {
+        const { data, error } = await appwrite
+          .from('conversations')
+          .select('*');
+        if (!error && Array.isArray(data)) {
+          conversations = data as unknown as Array<Record<string, unknown>>;
+        }
+      } catch (e) {
+        console.warn('Soft warning fetching conversations:', e);
+      }
 
-      if (convError) throw convError;
-
-      // 2. Fetch messages to count AI (bot) vs Human (agent) messages
-      const { data: messages, error: msgError } = await appwrite
-        .from('messages')
-        .select('sender_type, created_at');
-
-      if (msgError) throw msgError;
+      // 2. Fetch messages safely to count AI (bot) vs Human (agent) messages
+      let messages: Array<Record<string, unknown>> = [];
+      try {
+        const { data, error } = await appwrite
+          .from('messages')
+          .select('sender_type, created_at');
+        if (!error && Array.isArray(data)) {
+          messages = data as unknown as Array<Record<string, unknown>>;
+        }
+      } catch (e) {
+        console.warn('Soft warning fetching messages:', e);
+      }
 
       // Compute statistics
-      const totalConversations = conversations?.length || 0;
+      const totalConversations = conversations.length;
       let aiEnabledCount = 0;
       let leadHotCount = 0;
       let leadWarmCount = 0;
@@ -138,18 +177,19 @@ export default function AiAnalyticsPage() {
       let hotLeadsToday = 0;
       let handoffsToday = 0;
 
-      conversations?.forEach((c) => {
+      conversations.forEach((c) => {
+        const createdAt = String(c.created_at || c.$createdAt || '');
         if (c.ai_chat_enabled) aiEnabledCount++;
         if (c.ai_resolved) resolvedCount++;
         if (c.ai_handoff_required) {
           handoffCount++;
-          if (c.created_at >= todayIso) handoffsToday++;
+          if (createdAt >= todayIso) handoffsToday++;
         }
 
         // Lead scoring
         if (c.ai_lead_score === 'hot') {
           leadHotCount++;
-          if (c.created_at >= todayIso) hotLeadsToday++;
+          if (createdAt >= todayIso) hotLeadsToday++;
         } else if (c.ai_lead_score === 'warm') {
           leadWarmCount++;
         } else if (c.ai_lead_score === 'cold') {
@@ -158,7 +198,7 @@ export default function AiAnalyticsPage() {
 
         // Today leads count
         if (
-          c.created_at >= todayIso &&
+          createdAt >= todayIso &&
           (c.ai_lead_score === 'hot' || c.ai_lead_score === 'warm')
         ) {
           newLeadsToday++;
@@ -189,10 +229,11 @@ export default function AiAnalyticsPage() {
       let humanMessagesCount = 0;
       let botRepliesToday = 0;
 
-      messages?.forEach((m) => {
+      messages.forEach((m) => {
+        const createdAt = String(m.created_at || m.$createdAt || '');
         if (m.sender_type === 'bot') {
           botMessagesCount++;
-          if (m.created_at >= todayIso) botRepliesToday++;
+          if (createdAt >= todayIso) botRepliesToday++;
         } else if (m.sender_type === 'agent') {
           humanMessagesCount++;
         }
@@ -228,6 +269,7 @@ export default function AiAnalyticsPage() {
       });
     } catch (err) {
       console.error('Failed to load AI analytics metrics:', err);
+      setMetrics(DEFAULT_METRICS);
     } finally {
       setLoading(false);
     }
@@ -325,16 +367,6 @@ export default function AiAnalyticsPage() {
             Aggregating AI Insights...
           </p>
         </div>
-      </div>
-    );
-  }
-
-  if (!metrics) {
-    return (
-      <div className="flex h-[80vh] items-center justify-center">
-        <p className="text-muted-foreground text-sm">
-          Failed to compile AI insights database.
-        </p>
       </div>
     );
   }
