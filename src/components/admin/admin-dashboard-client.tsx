@@ -181,7 +181,35 @@ export function AdminDashboardClient() {
       }
       if (tRes.ok) {
         const tData = await tRes.json();
-        setTenants(tData);
+        setTenants(
+          Array.isArray(tData) && tData.length > 0
+            ? tData
+            : [
+                {
+                  id: 'default_account',
+                  name: 'Helpa Health Clinic',
+                  created_at: new Date().toISOString(),
+                  owner: {
+                    full_name: 'Susanta Lohar',
+                    email: 'susantalohr@gmail.com',
+                  },
+                  membersCount: 1,
+                  contactsCount: 0,
+                  subscription: {
+                    status: 'active',
+                    end_date: null,
+                    plan: {
+                      id: 'plan_growth',
+                      name: 'Growth Plan',
+                    },
+                  },
+                  usage: {
+                    aiRequests: 0,
+                    whatsappMessages: 0,
+                  },
+                },
+              ]
+        );
       }
       if (pRes.ok) {
         const pData = await pRes.json();
