@@ -113,6 +113,51 @@ export class VoiceRepository {
     );
   }
 
+  async createCall(accountId: string, data: Record<string, unknown>) {
+    return this.db.createDocument(
+      APPWRITE_CONFIG.databaseId,
+      APPWRITE_CONFIG.collections.calls,
+      ID.unique(),
+      {
+        accountId,
+        ...data,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+    );
+  }
+
+  async findCallByExternalId(accountId: string, externalCallId: string) {
+    const result = await this.db.listDocuments(
+      APPWRITE_CONFIG.databaseId,
+      APPWRITE_CONFIG.collections.calls,
+      [
+        Query.equal('accountId', accountId),
+        Query.equal('externalCallId', externalCallId),
+        Query.limit(1),
+      ]
+    );
+    return result.documents[0] || null;
+  }
+
+  async updateCallStatus(
+    accountId: string,
+    callId: string,
+    status: string,
+    extra?: Record<string, unknown>
+  ) {
+    return this.db.updateDocument(
+      APPWRITE_CONFIG.databaseId,
+      APPWRITE_CONFIG.collections.calls,
+      callId,
+      {
+        status,
+        ...extra,
+        updatedAt: new Date().toISOString(),
+      }
+    );
+  }
+
   async createCommand(data: Record<string, unknown>) {
     return this.db.createDocument(
       APPWRITE_CONFIG.databaseId,

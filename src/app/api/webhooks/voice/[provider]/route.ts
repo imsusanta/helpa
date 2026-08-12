@@ -94,17 +94,29 @@ export async function POST(
       InputFile.fromBuffer(Buffer.from(rawBody), filename)
     );
     const rawPayloadReference = createdFile.$id;
-    await voiceRepository.createProviderEvent({
-      accountId: integration.accountId,
-      provider: providerName,
-      externalEventId: event.externalEventId,
-      eventType: event.eventType,
-      payloadHash,
-      rawPayloadReference,
-      processingStatus: 'queued',
-      processingAttempts: 0,
-      receivedAt: new Date().toISOString(),
-    });
+    try {
+      await voiceRepository.createProviderEvent({
+        accountId: integration.accountId,
+        provider: providerName,
+        externalEventId: event.externalEventId,
+        eventType: event.eventType,
+        payloadHash,
+        rawPayloadReference,
+        processingStatus: 'queued',
+        processingAttempts: 0,
+        receivedAt: new Date().toISOString(),
+      });
+    } catch (err: unknown) {
+      const code = (err as { code?: number })?.code;
+      if (code === 409) {
+        return NextResponse.json(
+          { accepted: true, duplicate: true },
+          { status: 200 }
+        );
+      }
+      throw err;
+    }
+
     await voiceRepository.upsertCall(
       integration.accountId,
       event.externalCallId,

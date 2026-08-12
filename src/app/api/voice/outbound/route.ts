@@ -83,8 +83,20 @@ export async function POST(request: Request) {
           },
           { status: 409 }
         );
-      return NextResponse.json({ call: existing }, { status: 200 });
+
+      let existingCall: Record<string, unknown> | null = null;
+      if (existing.externalCallId) {
+        existingCall = await voiceRepository.findCallByExternalId(
+          ctx.accountId,
+          existing.externalCallId
+        );
+      }
+      return NextResponse.json(
+        { call: existingCall || existing },
+        { status: 200 }
+      );
     }
+
     const command = await voiceRepository.createCommand({
       accountId: ctx.accountId,
       commandType: 'initiate_outbound_call',
@@ -94,6 +106,18 @@ export async function POST(request: Request) {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
+
+    // Pre-call persistence: Create local INITIATING call before calling remote provider
+    const localCall = await voiceRepository.createCall(ctx.accountId, {
+      provider: 'elevenlabs',
+      direction: 'outbound',
+      status: 'initiating',
+      fromMasked: integration.phoneNumberMasked,
+      toMasked: contact.phone.slice(-4).padStart(contact.phone.length, '*'),
+      contactId: contact.$id,
+      agentId: integration.agentId,
+    });
+
     const provider = getVoiceProvider('elevenlabs');
     try {
       const result = await provider.initiateOutboundCall({
@@ -105,7 +129,8 @@ export async function POST(request: Request) {
             ? (body.context as Record<string, unknown>)
             : undefined,
       });
-      const call = await voiceRepository.upsertCall(
+
+      const updatedCall = await voiceRepository.upsertCall(
         ctx.accountId,
         result.externalCallId,
         {
@@ -118,13 +143,34 @@ export async function POST(request: Request) {
           agentId: integration.agentId,
         }
       );
+
       await voiceRepository.updateCommand(command.$id, {
         status: 'succeeded',
         externalCallId: result.externalCallId,
         resultReference: result.externalCallId,
       });
-      return NextResponse.json({ call }, { status: 201 });
+
+      return NextResponse.json({ call: updatedCall }, { status: 201 });
     } catch (error) {
+      // Compensation: Mark local call record failed if provider initiation fails
+      const errorMessage =
+        error instanceof VoiceProviderError
+          ? error.message
+          : 'VOICE_PROVIDER_REQUEST_FAILED';
+
+      await voiceRepository.updateCallStatus(
+        ctx.accountId,
+        localCall.$id,
+        'failed',
+        {
+          failureCode:
+            error instanceof VoiceProviderError
+              ? error.code
+              : 'VOICE_PROVIDER_REQUEST_FAILED',
+          failureMessageSanitized: errorMessage.slice(0, 120),
+        }
+      );
+
       await voiceRepository.updateCommand(command.$id, {
         status: 'failed',
         lastErrorSanitized:
@@ -132,11 +178,13 @@ export async function POST(request: Request) {
             ? error.code
             : 'VOICE_PROVIDER_REQUEST_FAILED',
       });
+
       if (error instanceof VoiceProviderError)
         return NextResponse.json(
           { error: error.code },
           { status: error.status }
         );
+
       return NextResponse.json(
         { error: 'VOICE_PROVIDER_REQUEST_FAILED' },
         { status: 502 }

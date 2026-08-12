@@ -47,6 +47,7 @@ import {
 } from 'lucide-react';
 import { SendOutboundModal } from '@/components/contacts/send-outbound-modal';
 import { ContactForm } from '@/components/contacts/contact-form';
+import { useRouter } from 'next/navigation';
 import { ContactDetailView } from '@/components/contacts/contact-detail-view';
 import { ImportModal } from '@/components/contacts/import-modal';
 import { CustomFieldsManager } from '@/components/contacts/custom-fields-manager';
@@ -62,6 +63,7 @@ interface ContactWithTags extends Contact {
 }
 
 export default function ContactsPage() {
+  const router = useRouter();
   const appwrite = useMemo(() => createClient(), []);
   const { account } = useAuth();
   const canEdit = useCan('send-messages');
@@ -153,7 +155,7 @@ export default function ContactsPage() {
       if (controller.signal.aborted) return;
       if (!response.ok) {
         if (response.status === 401) {
-          window.location.assign('/login');
+          router.push('/login');
           return;
         }
         const message =
@@ -241,7 +243,7 @@ export default function ContactsPage() {
       });
 
       setContacts(enriched);
-    } catch (err) {
+    } catch {
       if (controller.signal.aborted) return;
       setLoadError('Unable to load contacts. Check your connection and retry.');
       toast.error('Failed to load contacts');
