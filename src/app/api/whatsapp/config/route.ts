@@ -94,14 +94,26 @@ export async function GET() {
     }
 
     const accountId = await resolveAccountId(appwrite, user.id);
+    const admin = appwriteAdmin();
 
-    const { data: config, error: configError } = await appwrite
+    let { data: config, error: configError } = await admin
       .from('whatsapp_config')
       .select(
         'phone_number_id, waba_id, access_token, status, registered_at, last_registration_error, subscribed_apps_at'
       )
       .eq('account_id', accountId)
       .maybeSingle();
+
+    if (configError) {
+      console.warn('[whatsapp/config GET] Full fetch failed, retrying core fields:', configError);
+      const retry = await admin
+        .from('whatsapp_config')
+        .select('phone_number_id, waba_id, access_token, status, registered_at')
+        .eq('account_id', accountId)
+        .maybeSingle();
+      config = retry.data;
+      configError = retry.error;
+    }
 
     if (configError) {
       console.error('Error fetching whatsapp_config:', configError);
