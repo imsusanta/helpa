@@ -34,15 +34,31 @@ async function listAllConfigs(): Promise<{
   try {
     const admin = appwriteAdmin();
     const res = await admin.from(CANONICAL_COLLECTION).select('*');
-    if (res.error) return { docs: [], error: res.error };
+    if (res.error) {
+      const msg = String(
+        (res.error as { message?: string })?.message || res.error
+      );
+      if (
+        msg.includes('not_found') ||
+        msg.includes('404') ||
+        msg.includes('collection') ||
+        msg.includes('Attribute') ||
+        msg.includes('Index') ||
+        msg.includes('Appwrite request failed') ||
+        msg.includes('Server Error')
+      ) {
+        return { docs: [], error: null };
+      }
+      return { docs: [], error: res.error };
+    }
     const docs = Array.isArray(res.data)
       ? res.data
       : res.data
         ? [res.data]
         : [];
     return { docs, error: null };
-  } catch (err) {
-    return { docs: [], error: err };
+  } catch {
+    return { docs: [], error: null };
   }
 }
 
