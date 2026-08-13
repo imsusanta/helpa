@@ -361,8 +361,32 @@ export async function POST(request: Request) {
       );
     }
 
-    const contact = conversation.contact;
-    if (!contact?.phone) {
+    let contactPhone =
+      (conversation.contact as { phone?: string })?.phone ||
+      (conversation as { contact_phone?: string }).contact_phone ||
+      (conversation as { phone?: string }).phone ||
+      body.phone;
+
+    const contactId =
+      (conversation.contact as { id?: string })?.id ||
+      (conversation as { contact_id?: string }).contact_id ||
+      (conversation as { contactId?: string }).contactId ||
+      body.contact_id;
+
+    if (!contactPhone && contactId) {
+      const { data: directContact } = await dbAdmin
+        .from('contacts')
+        .select('*')
+        .eq('id', contactId)
+        .single()
+        .catch(() => ({ data: null }));
+
+      if (directContact?.phone) {
+        contactPhone = directContact.phone;
+      }
+    }
+
+    if (!contactPhone) {
       return NextResponse.json(
         { error: 'Contact phone number not found' },
         { status: 400 }
@@ -370,7 +394,7 @@ export async function POST(request: Request) {
     }
 
     // Sanitize and validate phone
-    const sanitizedPhone = sanitizePhoneForMeta(contact.phone);
+    const sanitizedPhone = sanitizePhoneForMeta(contactPhone);
     if (!isValidE164(sanitizedPhone)) {
       return NextResponse.json(
         { error: 'Invalid phone number format' },
@@ -379,13 +403,29 @@ export async function POST(request: Request) {
     }
 
     // Fetch and decrypt WhatsApp config
-    const { data: config, error: configError } = await dbAdmin
+    let config: Record<string, unknown> | null = null;
+    const { data: conf1 } = await dbAdmin
       .from('whatsapp_configs')
       .select('*')
-      .eq('accountId', accountId)
-      .single();
+      .eq('account_id', accountId)
+      .limit(1)
+      .maybeSingle()
+      .catch(() => ({ data: null }));
 
-    if (configError || !config) {
+    if (conf1) {
+      config = conf1;
+    } else {
+      const { data: conf2 } = await dbAdmin
+        .from('whatsapp_configs')
+        .select('*')
+        .eq('accountId', accountId)
+        .limit(1)
+        .maybeSingle()
+        .catch(() => ({ data: null }));
+      if (conf2) config = conf2;
+    }
+
+    if (!config) {
       return NextResponse.json(
         {
           error:
@@ -397,11 +437,13 @@ export async function POST(request: Request) {
 
     let accessToken: string;
     try {
-      const encryptedToken =
+      const encryptedToken = String(
         config.encryptedAccessToken ||
-        config.encrypted_access_token ||
-        config.accessToken ||
-        config.access_token;
+          config.encrypted_access_token ||
+          config.accessToken ||
+          config.access_token ||
+          ''
+      );
       accessToken = decrypt(encryptedToken);
     } catch (err: unknown) {
       console.error('[send/route.ts] Access token decryption failed:', err);
@@ -414,23 +456,21 @@ export async function POST(request: Request) {
       );
     }
 
-    // Self-heal legacy CBC-encrypted tokens. Fire-and-forget: we
-    // return from the send without waiting, so a failed upgrade just
-    // means the next send tries again. The upgrade is idempotent —
-    // concurrent sends both produce valid GCM ciphertexts of the same
-    // plaintext, last write wins.
     if (
       isLegacyFormat(
-        config.access_token ||
-          config.accessToken ||
-          config.encryptedAccessToken ||
-          config.encrypted_access_token
+        String(
+          config.access_token ||
+            config.accessToken ||
+            config.encryptedAccessToken ||
+            config.encrypted_access_token ||
+            ''
+        )
       )
     ) {
       void dbAdmin
         .from('whatsapp_configs')
         .update({ encryptedAccessToken: encrypt(accessToken) })
-        .eq('id', config.id)
+        .eq('id', String(config.id || ''))
         .then(({ error }: { error: { message: string } | null }) => {
           if (error) {
             console.warn(
@@ -512,9 +552,12 @@ export async function POST(request: Request) {
     }
 
     const attempt = async (phone: string): Promise<string> => {
+      const phoneNumberId = String(
+        config.phone_number_id || config.phoneNumberId || ''
+      );
       if (message_type === 'template') {
         const result = await sendTemplateMessage({
-          phoneNumberId: config.phone_number_id,
+          phoneNumberId,
           accessToken,
           to: phone,
           templateName: template_name,
@@ -533,7 +576,7 @@ export async function POST(request: Request) {
         // sendMediaMessage). filename surfaces in the recipient's chat
         // for documents only.
         const result = await sendMediaMessage({
-          phoneNumberId: config.phone_number_id,
+          phoneNumberId,
           accessToken,
           to: phone,
           kind: message_type as MediaKind,
@@ -545,7 +588,7 @@ export async function POST(request: Request) {
         return result.messageId;
       }
       const result = await sendTextMessage({
-        phoneNumberId: config.phone_number_id,
+        phoneNumberId,
         accessToken,
         to: phone,
         text: content_text,
@@ -593,14 +636,14 @@ export async function POST(request: Request) {
     // If a non-original variant succeeded, update the contact so future
     // sends go straight through. sanitizePhoneForMeta on workingPhone
     // will yield workingPhone itself, so re-storing preserves it.
-    if (workingPhone !== sanitizedPhone) {
+    if (workingPhone !== sanitizedPhone && contactId) {
       console.log(
         `[whatsapp/send] Auto-corrected contact phone: ${sanitizedPhone} → ${workingPhone}`
       );
       await appwrite
         .from('contacts')
         .update({ phone: workingPhone })
-        .eq('id', contact.id);
+        .eq('id', contactId);
     }
 
     // Insert message into DB — field names MUST match the messages schema
@@ -650,29 +693,34 @@ export async function POST(request: Request) {
     // lets the agent or the 24h timeout sweep cleanly resolve the
     // run later. For accounts with no active runs the UPDATE matches
     // zero rows — cheap and harmless.
-    try {
-      const { error: pauseErr } = await dbAdmin
-        .from('flow_runs')
-        .update({
-          status: 'paused_by_agent',
-          endedAt: new Date().toISOString(),
-          endReason: 'agent_replied',
-        })
-        .eq('accountId', accountId)
-        .eq('contactId', contact.id)
-        .eq('status', 'active');
-      if (pauseErr) {
-        // Best-effort — log + continue. The agent's message already
-        // landed at Meta; don't fail the response over a bookkeeping
-        // miss. Worst case: a stale active run gets caught by the
-        // stale-run cron sweep within 24h.
-        console.error('[flows] pause-on-agent-send failed:', pauseErr.message);
+    if (contactId) {
+      try {
+        const { error: pauseErr } = await dbAdmin
+          .from('flow_runs')
+          .update({
+            status: 'paused_by_agent',
+            endedAt: new Date().toISOString(),
+            endReason: 'agent_replied',
+          })
+          .eq('accountId', accountId)
+          .eq('contactId', contactId)
+          .eq('status', 'active');
+        if (pauseErr) {
+          // Best-effort — log + continue. The agent's message already
+          // landed at Meta; don't fail the response over a bookkeeping
+          // miss. Worst case: a stale active run gets caught by the
+          // stale-run cron sweep within 24h.
+          console.error(
+            '[flows] pause-on-agent-send failed:',
+            pauseErr.message
+          );
+        }
+      } catch (err) {
+        console.error(
+          '[flows] pause-on-agent-send threw:',
+          err instanceof Error ? err.message : err
+        );
       }
-    } catch (err) {
-      console.error(
-        '[flows] pause-on-agent-send threw:',
-        err instanceof Error ? err.message : err
-      );
     }
 
     return NextResponse.json({
