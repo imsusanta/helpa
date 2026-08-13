@@ -95,6 +95,19 @@ function normalizePayload(record: AnyRecord): AnyRecord {
   delete payload.$updatedAt;
   delete payload.permissions;
   delete payload.$permissions;
+
+  // Strip camelCase duplicate attributes (e.g. accountId alongside account_id)
+  // so Appwrite does not reject payloads with "Unknown attribute" errors.
+  for (const key of Object.keys(payload)) {
+    if (/[A-Z]/.test(key)) {
+      const snake = toSnakeCase(key);
+      if (payload[snake] === undefined) {
+        payload[snake] = payload[key];
+      }
+      delete payload[key];
+    }
+  }
+
   for (const [key, val] of Object.entries(payload)) {
     if (
       val !== null &&
