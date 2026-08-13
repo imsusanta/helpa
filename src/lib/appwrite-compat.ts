@@ -152,7 +152,7 @@ function getPermissionsForRecord(record: AnyRecord): string[] {
     ];
   }
 
-  return ['read("users")', 'update("users")', 'delete("users")'];
+  return [];
 }
 
 function queryValue(value: any): string {
