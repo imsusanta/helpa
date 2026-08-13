@@ -88,7 +88,7 @@ export async function POST(request: Request) {
         .from('contacts')
         .select('id')
         .eq('id', body.contact_id)
-        .eq('account_id', accountId)
+        .eq('accountId', accountId)
         .maybeSingle();
 
       if (!verifiedContact) {
@@ -141,56 +141,64 @@ export async function POST(request: Request) {
           ? rawPhone
           : `+${cleanPhone}`;
 
-        // Try finding an existing contact by phone. We attempt the
-        // composite .or() first, and if it returns nothing (possibly
-        // because Appwrite lacks the index), fall back to sequential
-        // individual lookups per variant.
+        // Try finding an existing contact by phone. Uses multiple
+        // strategies because Appwrite may lack the indexes needed
+        // for composite or() queries.
         const variants = [cleanPhone, plusPhone, rawPhone];
+        const uniqueVariants = [...new Set(variants)];
         let foundContact: { id: string } | null = null;
 
-        try {
-          const { data: contactsList } = await dbAdmin
-            .from('contacts')
-            .select('id')
-            .eq('account_id', accountId)
-            .or(
-              `phone.eq.${cleanPhone},phone.eq.${plusPhone},phone.eq.${rawPhone}`
-            )
-            .limit(1);
-
-          if (contactsList && contactsList.length > 0) {
-            foundContact = contactsList[0];
-          }
-        } catch {
-          // .or() not supported or index missing — fall through
-        }
-
-        if (!foundContact) {
-          for (const variant of variants) {
+        // Strategy 1: individual eq queries per phone variant
+        for (const variant of uniqueVariants) {
+          try {
             const { data: match } = await dbAdmin
               .from('contacts')
-              .select('id')
-              .eq('account_id', accountId)
+              .select('id, accountId, account_id')
+              .eq('accountId', accountId)
               .eq('phone', variant)
               .limit(1);
             if (match && match.length > 0) {
               foundContact = match[0];
               break;
             }
+          } catch {
+            // Index or attribute missing — try next
+          }
+        }
+
+        // Strategy 2: fetch all contacts for this account, filter phone in memory
+        if (!foundContact) {
+          try {
+            const { data: allContacts } = await dbAdmin
+              .from('contacts')
+              .select('id, accountId, account_id, phone')
+              .eq('accountId', accountId)
+              .limit(500);
+            if (allContacts && allContacts.length > 0) {
+              foundContact =
+                allContacts.find((c: Record<string, unknown>) =>
+                  uniqueVariants.includes(String(c.phone || ''))
+                ) || null;
+            }
+          } catch {
+            // Fall through to contact creation
           }
         }
 
         if (foundContact) {
           resolvedContactId = foundContact.id;
         } else {
+          // Create a new contact — use camelCase field names to match schema
           try {
+            const now = new Date().toISOString();
             const { data: newContact } = await dbAdmin
               .from('contacts')
               .insert({
-                account_id: accountId,
-                user_id: user.id,
+                accountId,
                 phone: plusPhone,
                 name: body.name || cleanPhone,
+                createdAt: now,
+                updatedAt: now,
               })
               .select('id')
               .single();
@@ -205,23 +213,26 @@ export async function POST(request: Request) {
       }
 
       if (resolvedContactId) {
+        // Find existing conversation — use camelCase field names
         let { data: extConv } = await dbAdmin
           .from('conversations')
           .select('id')
-          .eq('contact_id', resolvedContactId)
-          .eq('account_id', accountId)
+          .eq('contactId', resolvedContactId)
+          .eq('accountId', accountId)
           .maybeSingle();
 
         if (!extConv) {
+          const now = new Date().toISOString();
           const { data: createdConv, error: convErr } = await dbAdmin
             .from('conversations')
             .insert({
-              account_id: accountId,
-              user_id: user.id,
-              contact_id: resolvedContactId,
+              accountId,
+              contactId: resolvedContactId,
               status: 'open',
-              last_message_text: content_text || 'Outbound message',
-              last_message_at: new Date().toISOString(),
+              lastMessageText: content_text || 'Outbound message',
+              lastMessageAt: now,
+              createdAt: now,
+              updatedAt: now,
             })
             .select('id')
             .single();
@@ -306,7 +317,7 @@ export async function POST(request: Request) {
       .from('conversations')
       .select('*, contact:contacts(*)')
       .eq('id', conversation_id)
-      .eq('account_id', accountId)
+      .eq('accountId', accountId)
       .single();
 
     if (convError || !conversation) {
@@ -334,10 +345,10 @@ export async function POST(request: Request) {
     }
 
     // Fetch and decrypt WhatsApp config
-    const { data: config, error: configError } = await appwrite
+    const { data: config, error: configError } = await dbAdmin
       .from('whatsapp_configs')
       .select('*')
-      .eq('account_id', accountId)
+      .eq('accountId', accountId)
       .single();
 
     if (configError || !config) {
@@ -352,7 +363,12 @@ export async function POST(request: Request) {
 
     let accessToken: string;
     try {
-      accessToken = decrypt(config.access_token);
+      const encryptedToken =
+        config.encryptedAccessToken ||
+        config.encrypted_access_token ||
+        config.accessToken ||
+        config.access_token;
+      accessToken = decrypt(encryptedToken);
     } catch (err: unknown) {
       console.error('[send/route.ts] Access token decryption failed:', err);
       return NextResponse.json(
@@ -369,12 +385,19 @@ export async function POST(request: Request) {
     // means the next send tries again. The upgrade is idempotent —
     // concurrent sends both produce valid GCM ciphertexts of the same
     // plaintext, last write wins.
-    if (isLegacyFormat(config.access_token)) {
-      void appwrite
+    if (
+      isLegacyFormat(
+        config.access_token ||
+          config.accessToken ||
+          config.encryptedAccessToken ||
+          config.encrypted_access_token
+      )
+    ) {
+      void dbAdmin
         .from('whatsapp_configs')
-        .update({ access_token: encrypt(accessToken) })
+        .update({ encryptedAccessToken: encrypt(accessToken) })
         .eq('id', config.id)
-        .then(({ error }) => {
+        .then(({ error }: { error: { message: string } | null }) => {
           if (error) {
             console.warn(
               '[whatsapp/send] access_token GCM upgrade failed:',
@@ -390,11 +413,11 @@ export async function POST(request: Request) {
     // could quote messages they can't see by guessing UUIDs.
     let contextMessageId: string | undefined;
     if (reply_to_message_id) {
-      const { data: parent, error: parentError } = await appwrite
+      const { data: parent, error: parentError } = await dbAdmin
         .from('messages')
-        .select('message_id, conversation_id')
+        .select('messageId, conversationId, message_id, conversation_id')
         .eq('id', reply_to_message_id)
-        .eq('conversation_id', conversation_id)
+        .eq('conversationId', conversation_id)
         .maybeSingle();
 
       if (parentError || !parent) {
@@ -403,7 +426,7 @@ export async function POST(request: Request) {
           { status: 400 }
         );
       }
-      if (!parent.message_id) {
+      if (!parent.message_id && !parent.messageId) {
         // Parent never reached Meta (still in 'sending' or 'failed') — we
         // can't quote it on WhatsApp. Send without context rather than
         // dropping the message entirely.
@@ -411,7 +434,7 @@ export async function POST(request: Request) {
           '[whatsapp/send] reply target has no Meta message_id; sending without context'
         );
       } else {
-        contextMessageId = parent.message_id;
+        contextMessageId = parent.message_id || parent.messageId;
       }
     }
 
@@ -435,10 +458,10 @@ export async function POST(request: Request) {
     // crashing the send-builder later in the stack.
     let templateRow: MessageTemplate | null = null;
     if (message_type === 'template' && template_name) {
-      const { data } = await appwrite
+      const { data } = await dbAdmin
         .from('message_templates')
         .select('*')
-        .eq('account_id', accountId)
+        .eq('accountId', accountId)
         .eq('name', template_name)
         .eq('language', template_language || 'en_US')
         .maybeSingle();
@@ -550,18 +573,19 @@ export async function POST(request: Request) {
     // (see appwrite/migrations/001_initial_schema.sql):
     //   conversation_id, sender_type, content_type, content_text,
     //   media_url, template_name, message_id, status, created_at
-    const { data: messageRecord, error: msgError } = await appwrite
+    const { data: messageRecord, error: msgError } = await dbAdmin
       .from('messages')
       .insert({
-        conversation_id,
-        sender_type: 'agent',
-        content_type: message_type,
-        content_text: content_text || null,
-        media_url: media_url || null,
-        template_name: template_name || null,
-        message_id: waMessageId,
+        conversationId: conversation_id,
+        senderType: 'agent',
+        contentType: message_type,
+        contentText: content_text || null,
+        mediaUrl: media_url || null,
+        templateName: template_name || null,
+        messageId: waMessageId,
         status: 'sent',
-        reply_to_message_id: reply_to_message_id || null,
+        replyToMessageId: reply_to_message_id || null,
+        createdAt: new Date().toISOString(),
       })
       .select()
       .single();
@@ -577,12 +601,12 @@ export async function POST(request: Request) {
     }
 
     // Update conversation
-    await appwrite
+    await dbAdmin
       .from('conversations')
       .update({
-        last_message_text: content_text || `[${message_type}]`,
-        last_message_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        lastMessageText: content_text || `[${message_type}]`,
+        lastMessageAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       })
       .eq('id', conversation_id);
 
@@ -593,15 +617,15 @@ export async function POST(request: Request) {
     // run later. For accounts with no active runs the UPDATE matches
     // zero rows — cheap and harmless.
     try {
-      const { error: pauseErr } = await appwriteAdmin()
+      const { error: pauseErr } = await dbAdmin
         .from('flow_runs')
         .update({
           status: 'paused_by_agent',
-          ended_at: new Date().toISOString(),
-          end_reason: 'agent_replied',
+          endedAt: new Date().toISOString(),
+          endReason: 'agent_replied',
         })
-        .eq('account_id', accountId)
-        .eq('contact_id', contact.id)
+        .eq('accountId', accountId)
+        .eq('contactId', contact.id)
         .eq('status', 'active');
       if (pauseErr) {
         // Best-effort — log + continue. The agent's message already
