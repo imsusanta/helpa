@@ -33,6 +33,20 @@ function requestHeaders(
   return headers;
 }
 
+async function safeFetch(url: string, options: RequestInit): Promise<Response> {
+  try {
+    return await fetch(url, options);
+  } catch (err: unknown) {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    try {
+      return await fetch(url, options);
+    } catch {
+      const message = err instanceof Error ? err.message : String(err);
+      throw new Error(`Server connection failed: ${message}`);
+    }
+  }
+}
+
 function appwriteQuery(operator: string, field?: string, value?: any): string {
   const query: AnyRecord = { method: operator };
   if (field !== undefined) query.attribute = toAppwriteField(field);
@@ -471,7 +485,7 @@ class QueryBuilder {
     let lastResponseStatus = 500;
 
     for (const colId of candidates) {
-      const response = await fetch(
+      const response = await safeFetch(
         `${endpoint}/databases/${encodeURIComponent(APPWRITE_CONFIG.databaseId)}/collections/${encodeURIComponent(colId)}/documents?${params}`,
         {
           headers: requestHeaders(undefined, this.session, this.useApiKey),
