@@ -141,32 +141,65 @@ export async function POST(request: Request) {
           ? rawPhone
           : `+${cleanPhone}`;
 
-        const { data: contactsList } = await dbAdmin
-          .from('contacts')
-          .select('id')
-          .eq('account_id', accountId)
-          .or(
-            `phone.eq.${cleanPhone},phone.eq.${plusPhone},phone.eq.${rawPhone}`
-          )
-          .limit(1);
+        // Try finding an existing contact by phone. We attempt the
+        // composite .or() first, and if it returns nothing (possibly
+        // because Appwrite lacks the index), fall back to sequential
+        // individual lookups per variant.
+        const variants = [cleanPhone, plusPhone, rawPhone];
+        let foundContact: { id: string } | null = null;
 
-        if (contactsList && contactsList.length > 0) {
-          resolvedContactId = contactsList[0].id;
-        } else {
-          const { data: newContact } = await dbAdmin
+        try {
+          const { data: contactsList } = await dbAdmin
             .from('contacts')
-            .insert({
-              account_id: accountId,
-              user_id: user.id,
-              phone: plusPhone,
-              name: body.name || cleanPhone,
-              metadata: {},
-            })
             .select('id')
-            .single();
+            .eq('account_id', accountId)
+            .or(
+              `phone.eq.${cleanPhone},phone.eq.${plusPhone},phone.eq.${rawPhone}`
+            )
+            .limit(1);
 
-          if (newContact) {
-            resolvedContactId = newContact.id;
+          if (contactsList && contactsList.length > 0) {
+            foundContact = contactsList[0];
+          }
+        } catch {
+          // .or() not supported or index missing — fall through
+        }
+
+        if (!foundContact) {
+          for (const variant of variants) {
+            const { data: match } = await dbAdmin
+              .from('contacts')
+              .select('id')
+              .eq('account_id', accountId)
+              .eq('phone', variant)
+              .limit(1);
+            if (match && match.length > 0) {
+              foundContact = match[0];
+              break;
+            }
+          }
+        }
+
+        if (foundContact) {
+          resolvedContactId = foundContact.id;
+        } else {
+          try {
+            const { data: newContact } = await dbAdmin
+              .from('contacts')
+              .insert({
+                account_id: accountId,
+                user_id: user.id,
+                phone: plusPhone,
+                name: body.name || cleanPhone,
+              })
+              .select('id')
+              .single();
+
+            if (newContact) {
+              resolvedContactId = newContact.id;
+            }
+          } catch (insertErr) {
+            console.error('[whatsapp/send] Contact insert failed:', insertErr);
           }
         }
       }

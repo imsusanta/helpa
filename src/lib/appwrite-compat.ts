@@ -283,13 +283,39 @@ class QueryBuilder {
       .split(/,(?=[a-zA-Z_$][\w$]*\.)/)
       .map((part) => part.trim())
       .filter(Boolean);
-    const queries = parts.map((part) => {
-      const match = part.match(/^([\w$]+)\.(ilike|like)\.(.*)$/);
-      if (match) {
-        return appwriteQuery('search', match[1], match[3].replace(/%/g, ''));
-      }
-      return appwriteQuery('equal', part.split('.')[0], '');
-    });
+
+    // Map Supabase-style operator names to Appwrite query methods
+    const operatorMap: Record<string, string> = {
+      eq: 'equal',
+      neq: 'notEqual',
+      gt: 'greaterThan',
+      gte: 'greaterThanEqual',
+      lt: 'lessThan',
+      lte: 'lessThanEqual',
+      like: 'search',
+      ilike: 'search',
+    };
+
+    const queries = parts
+      .map((part) => {
+        // Match field.operator.value (e.g. phone.eq.+1234, name.ilike.%john%)
+        const match = part.match(
+          /^([\w$]+)\.(eq|neq|gt|gte|lt|lte|ilike|like)\.(.*)$/
+        );
+        if (match) {
+          const [, field, op, rawValue] = match;
+          const method = operatorMap[op] || 'equal';
+          const value =
+            op === 'ilike' || op === 'like'
+              ? rawValue.replace(/%/g, '')
+              : rawValue;
+          return appwriteQuery(method, field, value);
+        }
+        // Fallback: treat as field.eq.'' (shouldn't normally reach here)
+        return appwriteQuery('equal', part.split('.')[0], '');
+      })
+      .filter(Boolean);
+
     if (queries.length) {
       this.filters.push(
         appwriteQuery(

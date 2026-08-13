@@ -64,10 +64,12 @@ vi.mock('@/lib/appwrite-server-compat', () => {
                         ) || null,
                       error: null,
                     }),
+                    limit: vi.fn().mockResolvedValue({ data: [], error: null }),
                   }),
                   or: () => ({
                     limit: vi.fn().mockResolvedValue({ data: [], error: null }),
                   }),
+                  limit: vi.fn().mockResolvedValue({ data: [], error: null }),
                 };
                 return subChain;
               },
