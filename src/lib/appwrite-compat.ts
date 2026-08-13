@@ -75,7 +75,7 @@ function normalizeRecord(document: AnyRecord): AnyRecord {
   return result;
 }
 
-function normalizePayload(record: AnyRecord, camelCaseKeys = false): AnyRecord {
+function normalizePayload(record: AnyRecord): AnyRecord {
   const payload = { ...record };
   delete payload.id;
   delete payload.$id;
@@ -83,11 +83,6 @@ function normalizePayload(record: AnyRecord, camelCaseKeys = false): AnyRecord {
   delete payload.$updatedAt;
   delete payload.permissions;
   delete payload.$permissions;
-  if (camelCaseKeys) {
-    return Object.fromEntries(
-      Object.entries(payload).map(([key, value]) => [toCamelCase(key), value])
-    );
-  }
   return payload;
 }
 
@@ -490,26 +485,6 @@ class QueryBuilder {
           if (retryRes.ok) {
             response = retryRes;
             body = await retryRes.json().catch(() => ({}));
-          }
-        }
-
-        if (!response.ok && (body?.message?.includes('Unknown attribute') || body?.message?.includes('Attribute not found'))) {
-          const adminHeaders = requestHeaders(undefined, this.session, true);
-          const camelRes = await fetch(
-            `${endpoint}/databases/${encodeURIComponent(APPWRITE_CONFIG.databaseId)}/collections/${encodeURIComponent(colId)}/documents`,
-            {
-              method: 'POST',
-              headers: adminHeaders,
-              body: JSON.stringify({
-                documentId: record.id || 'unique()',
-                data: normalizePayload(record, true),
-                permissions: getPermissionsForRecord(record),
-              }),
-            }
-          );
-          if (camelRes.ok) {
-            response = camelRes;
-            body = await camelRes.json().catch(() => ({}));
           }
         }
 
