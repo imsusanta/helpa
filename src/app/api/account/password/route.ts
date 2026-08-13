@@ -15,7 +15,11 @@ export async function POST(request: Request) {
     } | null;
 
     const newPassword = body?.newPassword;
-    if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 8) {
+    if (
+      !newPassword ||
+      typeof newPassword !== 'string' ||
+      newPassword.length < 8
+    ) {
       return NextResponse.json(
         { error: 'New password must be at least 8 characters long' },
         { status: 400 }

@@ -555,7 +555,7 @@ export function BillingPanel() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <ShieldCheck className="text-emerald-500 size-5" />
+              <ShieldCheck className="size-5 text-emerald-500" />
               Manage Subscription
             </DialogTitle>
             <DialogDescription>
@@ -564,22 +564,22 @@ export function BillingPanel() {
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            <div className="bg-muted/50 rounded-lg border p-4 text-sm space-y-2">
+            <div className="bg-muted/50 space-y-2 rounded-lg border p-4 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Current Plan</span>
-                <span className="font-bold text-foreground">
+                <span className="text-foreground font-bold">
                   {activePlanName}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Billing Email</span>
-                <span className="font-medium text-foreground">
+                <span className="text-foreground font-medium">
                   {email || 'Primary Account Admin'}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Contract Status</span>
-                <span className="text-emerald-500 font-semibold uppercase text-xs tracking-wider">
+                <span className="text-xs font-semibold tracking-wider text-emerald-500 uppercase">
                   {sub?.status || 'Active'}
                 </span>
               </div>
@@ -669,23 +669,23 @@ export function BillingPanel() {
 
           {selectedPlanModal && (
             <div className="space-y-4 py-2">
-              <div className="bg-primary/5 border-primary/20 rounded-lg border p-4 text-sm space-y-2">
-                <p className="font-bold text-foreground text-lg">
+              <div className="bg-primary/5 border-primary/20 space-y-2 rounded-lg border p-4 text-sm">
+                <p className="text-foreground text-lg font-bold">
                   {selectedPlanModal.price}{' '}
-                  <span className="text-xs text-muted-foreground font-normal">
+                  <span className="text-muted-foreground text-xs font-normal">
                     / month
                   </span>
                 </p>
-                <ul className="text-xs text-muted-foreground space-y-1 pt-1">
-                  <li className="flex items-center gap-1.5 font-medium text-foreground">
+                <ul className="text-muted-foreground space-y-1 pt-1 text-xs">
+                  <li className="text-foreground flex items-center gap-1.5 font-medium">
                     <Check className="text-primary size-3" />
                     {selectedPlanModal.maxUsers}
                   </li>
-                  <li className="flex items-center gap-1.5 font-medium text-foreground">
+                  <li className="text-foreground flex items-center gap-1.5 font-medium">
                     <Check className="text-primary size-3" />
                     {selectedPlanModal.maxContacts}
                   </li>
-                  <li className="flex items-center gap-1.5 font-medium text-foreground">
+                  <li className="text-foreground flex items-center gap-1.5 font-medium">
                     <Check className="text-primary size-3" />
                     {selectedPlanModal.maxAi}
                   </li>

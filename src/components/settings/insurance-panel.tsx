@@ -211,8 +211,8 @@ export function InsurancePanel() {
                       {(Array.isArray(prov.required_documents)
                         ? prov.required_documents
                         : typeof prov.required_documents === 'string'
-                        ? (prov.required_documents as string).split(',')
-                        : []
+                          ? (prov.required_documents as string).split(',')
+                          : []
                       ).map((doc, idx) => (
                         <span
                           key={idx}

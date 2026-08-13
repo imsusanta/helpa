@@ -73,7 +73,9 @@ export async function PATCH(
       .eq('user_id', user.id)
       .maybeSingle()
       .catch(() => ({ data: null }));
-    const accountId = (profile?.account_id || profile?.accountId || 'default_account') as string;
+    const accountId = (profile?.account_id ||
+      profile?.accountId ||
+      'default_account') as string;
 
     let payload: TemplatePayload;
     try {
@@ -264,7 +266,9 @@ export async function DELETE(
       .eq('user_id', user.id)
       .maybeSingle()
       .catch(() => ({ data: null }));
-    const accountId = (profile?.account_id || profile?.accountId || 'default_account') as string;
+    const accountId = (profile?.account_id ||
+      profile?.accountId ||
+      'default_account') as string;
 
     const { data: existing, error: lookupErr } = await appwrite
       .from('message_templates')

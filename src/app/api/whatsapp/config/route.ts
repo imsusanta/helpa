@@ -105,7 +105,10 @@ export async function GET() {
       .maybeSingle();
 
     if (configError) {
-      console.warn('[whatsapp/config GET] Full fetch failed, retrying core fields:', configError);
+      console.warn(
+        '[whatsapp/config GET] Full fetch failed, retrying core fields:',
+        configError
+      );
       const retry = await admin
         .from('whatsapp_config')
         .select('phone_number_id, waba_id, access_token, status, registered_at')
@@ -414,7 +417,10 @@ export async function POST(request: Request) {
         .eq('account_id', accountId);
 
       if (updateError) {
-        console.warn('Full update failed, retrying with core fields:', updateError);
+        console.warn(
+          'Full update failed, retrying with core fields:',
+          updateError
+        );
         const coreRow = {
           phone_number_id,
           waba_id: waba_id || null,
@@ -434,7 +440,9 @@ export async function POST(request: Request) {
       if (updateError) {
         console.error('Error updating whatsapp_config:', updateError);
         return NextResponse.json(
-          { error: `Failed to update configuration: ${updateError.message || 'Database error'}` },
+          {
+            error: `Failed to update configuration: ${updateError.message || 'Database error'}`,
+          },
           { status: 500 }
         );
       }
@@ -448,7 +456,10 @@ export async function POST(request: Request) {
         });
 
       if (insertError) {
-        console.warn('Full insert failed, retrying with core fields:', insertError);
+        console.warn(
+          'Full insert failed, retrying with core fields:',
+          insertError
+        );
         const coreRow = {
           account_id: accountId,
           user_id: user.id,
@@ -460,16 +471,16 @@ export async function POST(request: Request) {
           registered_at: registrationError ? null : registeredAt,
           updated_at: new Date().toISOString(),
         };
-        const retry = await adminClient
-          .from('whatsapp_config')
-          .insert(coreRow);
+        const retry = await adminClient.from('whatsapp_config').insert(coreRow);
         insertError = retry.error;
       }
 
       if (insertError) {
         console.error('Error inserting whatsapp_config:', insertError);
         return NextResponse.json(
-          { error: `Failed to save configuration: ${insertError.message || 'Database error'}` },
+          {
+            error: `Failed to save configuration: ${insertError.message || 'Database error'}`,
+          },
           { status: 500 }
         );
       }

@@ -3,39 +3,64 @@ import { InputFile } from 'node-appwrite/file';
 import { getAppwriteAdminClient } from '../server';
 import { APPWRITE_CONFIG } from '../config';
 
+export type StorageErrorCode =
+  | 'AUTH_REQUIRED'
+  | 'ACCOUNT_MEMBERSHIP_REQUIRED'
+  | 'STORAGE_BUCKET_NOT_CONFIGURED'
+  | 'STORAGE_BUCKET_NOT_FOUND'
+  | 'STORAGE_PERMISSION_DENIED'
+  | 'FILE_TYPE_UNSUPPORTED'
+  | 'FILE_TOO_LARGE'
+  | 'FILE_UPLOAD_FAILED'
+  | 'FILE_REFERENCE_PERSISTENCE_FAILED';
+
+export class StorageError extends Error {
+  constructor(
+    public readonly code: StorageErrorCode,
+    message: string,
+    public readonly status: number = 400
+  ) {
+    super(message);
+    this.name = 'StorageError';
+  }
+}
+
 export class StorageRepository {
   private get storage() {
     return getAppwriteAdminClient().storage;
   }
 
-  async ensureBucketExists(bucketId: string) {
+  async verifyBucketExists(bucketId: string): Promise<void> {
+    if (!bucketId) {
+      throw new StorageError(
+        'STORAGE_BUCKET_NOT_CONFIGURED',
+        'Storage bucket ID is not configured.',
+        500
+      );
+    }
     try {
       await this.storage.getBucket(bucketId);
     } catch (err: unknown) {
       const code = (err as { code?: number })?.code;
       if (code === 404 || String(err).includes('404')) {
-        try {
-          // Create bucket via REST with public permissions
-          await fetch(`${APPWRITE_CONFIG.endpoint}/storage/buckets`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
-              'X-Appwrite-Key': APPWRITE_CONFIG.apiKey,
-            },
-            body: JSON.stringify({
-              bucketId,
-              name: bucketId,
-              permissions: ['read("any")'],
-              fileSecurity: false,
-              enabled: true,
-              maximumFileSize: 30 * 1024 * 1024,
-            }),
-          });
-        } catch {
-          // ignore creation race condition
-        }
+        throw new StorageError(
+          'STORAGE_BUCKET_NOT_FOUND',
+          `Storage bucket '${bucketId}' does not exist on Appwrite backend. Run schema setup scripts.`,
+          500
+        );
       }
+      if (code === 401 || code === 403) {
+        throw new StorageError(
+          'STORAGE_PERMISSION_DENIED',
+          `Permission denied when accessing bucket '${bucketId}'. Check API key scopes.`,
+          403
+        );
+      }
+      throw new StorageError(
+        'FILE_UPLOAD_FAILED',
+        `Failed to verify storage bucket '${bucketId}': ${(err as Error).message}`,
+        500
+      );
     }
   }
 
@@ -43,49 +68,42 @@ export class StorageRepository {
     bucketId: string,
     fileBuffer: Buffer,
     filename: string,
-    mimeType: string = 'image/png'
+    _mimeType: string = 'image/png',
+    permissions: string[] = []
   ): Promise<{ fileId: string; fileUrl: string }> {
-    let targetBucket = bucketId;
+    await this.verifyBucketExists(bucketId);
 
     try {
-      await this.ensureBucketExists(targetBucket);
       const inputFile = InputFile.fromBuffer(fileBuffer, filename);
       const result = await this.storage.createFile(
-        targetBucket,
+        bucketId,
         ID.unique(),
-        inputFile
+        inputFile,
+        permissions.length > 0 ? permissions : undefined
       );
 
-      const fileUrl = `${APPWRITE_CONFIG.endpoint}/storage/buckets/${targetBucket}/files/${result.$id}/view?project=${APPWRITE_CONFIG.projectId}`;
+      const fileUrl = `${APPWRITE_CONFIG.endpoint}/storage/buckets/${bucketId}/files/${result.$id}/view?project=${APPWRITE_CONFIG.projectId}`;
       return { fileId: result.$id, fileUrl };
-    } catch {
-      // Try fallback to chatMedia bucket
-      try {
-        targetBucket = APPWRITE_CONFIG.buckets.chatMedia;
-        await this.ensureBucketExists(targetBucket);
-        const inputFile = InputFile.fromBuffer(fileBuffer, filename);
-        const result = await this.storage.createFile(
-          targetBucket,
-          ID.unique(),
-          inputFile
-        );
-
-        const fileUrl = `${APPWRITE_CONFIG.endpoint}/storage/buckets/${targetBucket}/files/${result.$id}/view?project=${APPWRITE_CONFIG.projectId}`;
-        return { fileId: result.$id, fileUrl };
-      } catch {
-        // Base64 Data URL fallback if storage engine fails
-        const base64 = fileBuffer.toString('base64');
-        const dataUrl = `data:${mimeType};base64,${base64}`;
-        return { fileId: `base64_${Date.now()}`, fileUrl: dataUrl };
-      }
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : 'Unknown storage error';
+      throw new StorageError(
+        'FILE_UPLOAD_FAILED',
+        `Failed to upload file to bucket '${bucketId}': ${message}`,
+        500
+      );
     }
   }
 
-  async deleteFile(bucketId: string, fileId: string) {
+  async deleteFile(bucketId: string, fileId: string): Promise<void> {
+    if (!bucketId || !fileId) return;
     try {
       await this.storage.deleteFile(bucketId, fileId);
-    } catch {
-      /* safe fallback */
+    } catch (err: unknown) {
+      console.warn(
+        `[StorageRepository] Warning deleting file ${fileId} from bucket ${bucketId}:`,
+        (err as Error).message
+      );
     }
   }
 }

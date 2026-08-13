@@ -49,7 +49,9 @@ export function PasswordForm() {
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.error || data.message || 'Failed to update password');
+        throw new Error(
+          data.error || data.message || 'Failed to update password'
+        );
       }
 
       setCurrent('');

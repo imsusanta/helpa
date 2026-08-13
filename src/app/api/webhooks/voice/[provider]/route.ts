@@ -145,7 +145,7 @@ export async function POST(
 
     // 5. Store raw payload in private Appwrite Storage bucket (FAIL CLOSED!)
     const storage = getAppwriteAdminClient().storage;
-    await storageRepository.ensureBucketExists(
+    await storageRepository.verifyBucketExists(
       APPWRITE_CONFIG.buckets.webhookPayloads
     );
     const filename = `${providerName}_${event.externalEventId.replace(/[^a-zA-Z0-9_.:-]/g, '_')}_${payloadHash.slice(0, 16)}.json`;

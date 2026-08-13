@@ -1,5 +1,6 @@
 import { Client, Databases, Storage } from 'node-appwrite';
 import { APPWRITE_CONFIG } from '../src/infrastructure/appwrite/config';
+import { REQUIRED_STORAGE_BUCKETS } from '../src/infrastructure/appwrite/storage-manifest';
 
 export const SCHEMA_VERSION = '1.0.0';
 
@@ -836,28 +837,74 @@ async function setupAppwriteDatabase() {
   }
 
   // 3. Private Storage Buckets Provisioning
-  const buckets = Object.values(APPWRITE_CONFIG.buckets);
-  for (const bucketId of buckets) {
+  const args = process.argv.slice(2);
+  const isApply = args.includes('--apply');
+  const isProductionConfirm = args.includes('--confirm-production');
+
+  const isProductionEnv =
+    process.env.NODE_ENV === 'production' ||
+    process.env.VERCEL_ENV === 'production';
+
+  if (isApply && isProductionEnv && !isProductionConfirm) {
+    console.error(
+      '❌ Production Mutation Protection: Refusing schema mutation in production environment without explicit --confirm-production flag.'
+    );
+    process.exit(1);
+  }
+
+  const shouldMutate = isApply && (!isProductionEnv || isProductionConfirm);
+
+  if (!shouldMutate) {
+    console.log('ℹ️ Running in DRY-RUN mode (no mutations will be performed).');
+  }
+
+  const requiredBuckets = Object.values(REQUIRED_STORAGE_BUCKETS);
+  let bucketFailures = 0;
+
+  for (const bDef of requiredBuckets) {
     try {
-      await storage.getBucket(bucketId);
-      console.log(`✅ Storage Bucket '${bucketId}' exists.`);
+      const bucket = await storage.getBucket(bDef.id);
+      console.log(`✅ Storage Bucket '${bucket.$id}' ('${bDef.name}') exists.`);
     } catch {
-      console.log(`🪣 Creating Storage Bucket '${bucketId}'...`);
-      await storage.createBucket(
-        bucketId,
-        bucketId,
-        [], // Private: no public permissions
-        false, // fileSecurity: false (managed by backend server API key)
-        true, // enabled
-        undefined,
-        ['jpg', 'png', 'pdf', 'mp4', 'ogg', 'wav', 'json']
-      );
-      console.log(`✅ Private Storage Bucket '${bucketId}' created.`);
+      if (!shouldMutate) {
+        console.log(
+          `[DRY-RUN] Storage Bucket '${bDef.id}' ('${bDef.name}') is MISSING (would be created).`
+        );
+      } else {
+        console.log(`🪣 Creating Storage Bucket '${bDef.id}'...`);
+        try {
+          await storage.createBucket(
+            bDef.id,
+            bDef.name,
+            [], // Private: no public permissions (server-managed)
+            bDef.fileSecurity,
+            true, // enabled
+            bDef.maxSizeBytes,
+            bDef.allowedExtensions
+          );
+          console.log(
+            `✅ Private Storage Bucket '${bDef.id}' created successfully.`
+          );
+        } catch (createErr: unknown) {
+          console.error(
+            `❌ Failed to create Storage Bucket '${bDef.id}':`,
+            (createErr as Error).message
+          );
+          bucketFailures++;
+        }
+      }
     }
   }
 
+  if (bucketFailures > 0) {
+    console.error(
+      `❌ Appwrite setup failed: ${bucketFailures} required storage bucket(s) could not be created.`
+    );
+    process.exit(1);
+  }
+
   console.log(
-    `🎉 Appwrite Schema-as-Code setup completed for version ${SCHEMA_VERSION}.`
+    `🎉 Appwrite Schema & Storage setup complete (Version ${SCHEMA_VERSION}, Mutated: ${shouldMutate}).`
   );
 }
 

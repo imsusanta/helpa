@@ -145,7 +145,9 @@ export async function POST() {
       .eq('user_id', user.id)
       .maybeSingle()
       .catch(() => ({ data: null }));
-    const accountId = (profile?.account_id || profile?.accountId || 'default_account') as string;
+    const accountId = (profile?.account_id ||
+      profile?.accountId ||
+      'default_account') as string;
 
     const { data: config, error: configError } = await appwrite
       .from('whatsapp_config')

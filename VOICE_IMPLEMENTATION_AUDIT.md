@@ -17,6 +17,7 @@ This document provides a comprehensive audit of the voice-agent system in accord
 ## 2. Production Audit Findings & Remediations
 
 ### 1. Provider Contract & Payload Field (`to_number`)
+
 - **Endpoint**: `/v1/convai/sip-trunk/outbound-call`
 - **Request Payload**: Explicitly uses `to_number` per official ElevenLabs documentation (`https://elevenlabs.io/docs/api-reference/sip-trunk/outbound-call`).
 - **Headers**: `xi-api-key`, `Content-Type: application/json`
@@ -24,6 +25,7 @@ This document provides a comprehensive audit of the voice-agent system in accord
 - **Capability Guard**: `transferCall` and `terminateCall` throw `VOICE_OPERATION_UNSUPPORTED` (501).
 
 ### 2. Zero-Trust Credential Resolver (`resolveTenantVoiceConfig`)
+
 - Server-only resolver loads enabled `voice_integrations` document for `accountId` + `provider`.
 - Enforces strict security:
   - **Rejects unencrypted plaintext JSON** references starting with `{`.
@@ -33,6 +35,7 @@ This document provides a comprehensive audit of the voice-agent system in accord
   - Supports key versioning (`keyVersion: 'v1'`).
 
 ### 3. Single Call Document Guarantee & Reconciliation Honesty
+
 - Atomically claims idempotency key in `voice_commands`.
 - Creates **one** `calls` document in `queued` state.
 - Transitions call state to `initiating`.
@@ -41,6 +44,7 @@ This document provides a comprehensive audit of the voice-agent system in accord
 - If status update fails after remote initiation, queues a durable reconciliation event in `provider_events`. If reconciliation persistence fails, throws a typed server error (`VOICE_PROVIDER_PERSISTENCE_FAILED`, status 500)—never swallows persistence errors or returns fake success.
 
 ### 4. Fail-Closed Webhook & Storage Persistence
+
 - Validates HMAC signature (`elevenlabs-signature` with `t=` timestamp and `v0=` hash) within 300s replay window.
 - Stores raw webhook payload in private Appwrite Storage bucket `webhookPayloads`. Fails closed (HTTP 500) if Storage write fails.
 - Atomically creates `provider_events` document with SHA-256 `payloadHash`.
@@ -48,6 +52,7 @@ This document provides a comprehensive audit of the voice-agent system in accord
 - On duplicate race condition (Appwrite 409 conflict): cleans up redundant raw payload and transcript files from Storage. Returns 200 on matching hash; 409 on hash mismatch.
 
 ### 5. Durable Appwrite Outbox Worker & Persistent Heartbeat
+
 - Replaced external queues with Appwrite-native `AppwriteVoiceOutboxWorker`.
 - Statuses: `queued`, `processing`, `retrying`, `processed`, `dead_letter`.
 - Worker downloads raw payload from private Appwrite Storage bucket and verifies SHA-256 `payloadHash` before processing.
@@ -55,16 +60,19 @@ This document provides a comprehensive audit of the voice-agent system in accord
 - Persists worker heartbeat in Appwrite collection `worker_health` containing `workerId`, `commitSha`, `startedAt`, `lastHeartbeatAt`, `lastScanAt`, `lastSuccessAt`, `lastFailureCode`, `processedCount`, `retryCount`, and `deadLetterCount`.
 
 ### 6. Strict Central State Machine Enforcement
+
 - All call status mutations go through `CallStateMachine.validateTransition()` in `VoiceRepository`.
 - Invalid or regressive status transitions throw typed error `VOICE_INVALID_STATE_TRANSITION` (HTTP 422).
 - Terminal call states (`completed`, `failed`, `busy`, `no_answer`, `cancelled`) are locked against regressive status changes.
 - Records audit metadata: `previousState`, `targetState`, `version`, `updatedAt`.
 
 ### 7. Private & Tenant-Scoped Transcripts
+
 - Raw transcript text is stored in private Storage bucket `webhookPayloads`. Only references (`transcriptReference`) are stored on call documents.
 - Endpoint `GET /api/voice/calls/[callId]/transcript` requires authenticated tenant membership and returns `Cache-Control: private, no-store`.
 
 ### 8. Dynamic & Honest Health Endpoint
+
 - `GET /api/voice/health` dynamically queries Appwrite collections (`calls`, `provider_events`, `voice_commands`, `voice_integrations`, `worker_health`) and Storage buckets (`webhookPayloads`).
 - Derives worker readiness and heartbeat health directly from the persisted `worker_health` collection in Appwrite (< 120s freshness).
 - Never hardcodes success values or exposes secrets, keys, phone numbers, or patient details.

@@ -44,7 +44,9 @@ export async function GET() {
     .eq('user_id', user.id)
     .maybeSingle()
     .catch(() => ({ data: null }));
-  const accountId = (profile?.account_id || profile?.accountId || 'default_account') as string;
+  const accountId = (profile?.account_id ||
+    profile?.accountId ||
+    'default_account') as string;
 
   const { data: config } = await appwrite
     .from('whatsapp_config')

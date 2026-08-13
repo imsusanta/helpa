@@ -38,7 +38,9 @@ export async function GET(
       .eq('user_id', user.id)
       .maybeSingle()
       .catch(() => ({ data: null }));
-    const accountId = (profile?.account_id || profile?.accountId || 'default_account') as string;
+    const accountId = (profile?.account_id ||
+      profile?.accountId ||
+      'default_account') as string;
 
     // Fetch and decrypt WhatsApp config
     const { data: config, error: configError } = await appwrite

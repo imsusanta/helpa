@@ -44,7 +44,9 @@ export async function POST(request: Request) {
       .eq('user_id', user.id)
       .maybeSingle()
       .catch(() => ({ data: null }));
-    const accountId = (profile?.account_id || profile?.accountId || 'default_account') as string;
+    const accountId = (profile?.account_id ||
+      profile?.accountId ||
+      'default_account') as string;
 
     const body = await request.json();
     const { message_id, emoji } = body as {
