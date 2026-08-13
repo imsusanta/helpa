@@ -70,8 +70,8 @@ export function DealsSettings() {
   return (
     <section className="animate-in fade-in-50 max-w-2xl duration-200">
       <SettingsPanelHead
-        title="Appointment Settings & Currency"
-        description="The currency used for clinical billing, consultation fees, and dashboard totals."
+        title="Currency & Billing Settings"
+        description="Configure the default currency used across clinical billing, consultation fees, and dashboard financial totals."
       />
       <Card>
         <CardHeader>
