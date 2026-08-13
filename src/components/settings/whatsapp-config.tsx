@@ -97,10 +97,21 @@ export function WhatsAppConfig() {
       const res = await fetch('/api/whatsapp/config', { method: 'GET' });
       const payload = await res.json().catch(() => ({}));
 
+      if (!res.ok) {
+        const errorMsg =
+          payload.error || payload.message || 'Failed to fetch configuration';
+        setStatusMessage(errorMsg);
+        setConnectionStatus('disconnected');
+        toast.error(errorMsg);
+        return;
+      }
+
       if (payload.config) {
         setConfig(payload.config);
-        setPhoneNumberId(payload.config.phone_number_id || '');
-        setWabaId(payload.config.waba_id || '');
+        setPhoneNumberId(
+          payload.config.phone_number_id || payload.config.phoneNumberId || ''
+        );
+        setWabaId(payload.config.waba_id || payload.config.wabaId || '');
         setAccessToken(MASKED_TOKEN);
         setVerifyToken('');
         setPin('');
@@ -132,7 +143,8 @@ export function WhatsAppConfig() {
       }
     } catch (err) {
       console.error('fetchConfig error:', err);
-      toast.error('Failed to load WhatsApp configuration');
+      const msg = err instanceof Error ? err.message : 'Network error';
+      toast.error(`Failed to load WhatsApp configuration: ${msg}`);
       setConnectionStatus('disconnected');
     } finally {
       setLoading(false);

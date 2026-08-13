@@ -75,18 +75,14 @@ export async function GET() {
     // Query canonical collection with camelCase and snake_case fallbacks
     let { data: config, error: configError } = await admin
       .from(CANONICAL_COLLECTION)
-      .select(
-        'accountId, account_id, phoneNumberId, phone_number_id, wabaId, waba_id, encryptedAccessToken, encrypted_access_token, access_token, encryptedVerifyToken, verify_token, status, registeredAt, registered_at, lastRegistrationError, last_registration_error, subscribedAppsAt, subscribed_apps_at'
-      )
+      .select('*')
       .eq('accountId', accountId)
       .maybeSingle();
 
     if (configError || !config) {
       const retry = await admin
         .from(CANONICAL_COLLECTION)
-        .select(
-          'accountId, account_id, phoneNumberId, phone_number_id, wabaId, waba_id, encryptedAccessToken, encrypted_access_token, access_token, encryptedVerifyToken, verify_token, status, registeredAt, registered_at, lastRegistrationError, last_registration_error, subscribedAppsAt, subscribed_apps_at'
-        )
+        .select('*')
         .eq('account_id', accountId)
         .maybeSingle();
       if (retry.data) {
