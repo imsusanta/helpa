@@ -189,11 +189,36 @@ export default function LandingPage() {
   const [plansError, setPlansError] = useState(false);
 
   useEffect(() => {
-    const appwrite = createClient();
-    appwrite.auth
-      .getUser()
-      .then(({ data }) => setUser(data.user))
-      .catch(() => setUser(null));
+    let active = true;
+    async function checkAuth() {
+      try {
+        const res = await fetch('/api/auth/me', { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json().catch(() => null);
+          if (active && data?.success && data?.user) {
+            setUser(data.user);
+            return;
+          }
+        }
+      } catch {
+        // ignore
+      }
+
+      const appwrite = createClient();
+      appwrite.auth
+        .getUser()
+        .then(({ data }) => {
+          if (active) setUser(data.user);
+        })
+        .catch(() => {
+          if (active) setUser(null);
+        });
+    }
+
+    void checkAuth();
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {

@@ -1003,6 +1003,29 @@ export function createDataClient(
     },
     auth: {
       getUser: async () => {
+        if (typeof window !== 'undefined') {
+          try {
+            const meRes = await fetch('/api/auth/me', { cache: 'no-store' });
+            if (meRes.ok) {
+              const meData = await meRes.json().catch(() => null);
+              if (meData?.success && meData?.user) {
+                return {
+                  data: {
+                    user: {
+                      id: meData.user.id,
+                      email: meData.user.email,
+                      user_metadata: { full_name: meData.user.name },
+                    },
+                  },
+                  error: null,
+                };
+              }
+            }
+          } catch {
+            // fallback to direct endpoint fetch
+          }
+        }
+
         const response = await fetch(`${endpoint}/account`, {
           headers: requestHeaders(undefined, sessionOverride, useApiKey),
           cache: 'no-store',
