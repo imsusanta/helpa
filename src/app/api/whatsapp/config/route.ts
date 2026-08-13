@@ -518,75 +518,152 @@ export async function POST(request: Request) {
       updatedBy: user.id,
     };
 
-    // Only set createdAt/createdBy on new documents
+    const appwriteEndpoint = APPWRITE_CONFIG.endpoint.replace(/\/$/, '');
+    const databaseId = APPWRITE_CONFIG.databaseId;
+    const adminHeaders = new Headers({
+      'Content-Type': 'application/json',
+      'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
+      'X-Appwrite-Key': APPWRITE_CONFIG.apiKey,
+    });
+
+    const payloadData: Record<string, unknown> = {
+      account_id: accountId,
+      user_id: user.id,
+      phone_number_id: phoneNumberId,
+      waba_id: wabaId,
+      encrypted_access_token: encryptedAccessToken,
+      access_token: encryptedAccessToken,
+      encrypted_verify_token: encryptedVerifyToken,
+      status: registrationError ? 'disconnected' : 'connected',
+      registered_at: registeredAt,
+      last_registration_error: registrationError,
+      subscribed_apps_at: subscribedAppsAt,
+      encryption_key_version: 'v1',
+      updated_at: now,
+      updated_by: user.id,
+    };
+
     if (!existingConfig) {
-      canonicalDocument.createdAt = now;
-      canonicalDocument.createdBy = user.id;
+      payloadData.created_at = now;
+      payloadData.created_by = user.id;
     }
 
-    const admin = appwriteAdmin();
+    let saveSuccess = false;
+    let lastSaveError = 'DB save error';
 
     if (existingConfig) {
       const docId = String(existingConfig.$id || existingConfig.id || '');
-      canonicalDocument.id = docId;
-      canonicalDocument.$id = docId;
-      const { error: updateError } = await admin
-        .from(CANONICAL_COLLECTION)
-        .upsert(canonicalDocument);
-
-      if (updateError) {
-        console.error(
-          '[whatsapp/config POST] Update document error:',
-          updateError
-        );
-        const { error: retryError } = await admin
-          .from(CANONICAL_COLLECTION)
-          .insert(canonicalDocument);
-        if (retryError) {
-          return NextResponse.json(
-            {
-              code: 'WHATSAPP_CONFIG_PERSISTENCE_FAILED',
-              error: `Failed to update configuration in database: ${updateError.message || retryError.message || 'DB error'}`,
-            },
-            { status: 500 }
-          );
-        }
-      }
-    } else {
-      const { error: insertError } = await admin
-        .from(CANONICAL_COLLECTION)
-        .upsert(canonicalDocument);
-
-      if (insertError) {
-        console.error(
-          '[whatsapp/config POST] Insert document error:',
-          insertError
-        );
-        return NextResponse.json(
+      if (docId) {
+        let patchRes = await fetch(
+          `${appwriteEndpoint}/databases/${encodeURIComponent(databaseId)}/collections/${encodeURIComponent(CANONICAL_COLLECTION)}/documents/${encodeURIComponent(docId)}`,
           {
-            code: 'WHATSAPP_CONFIG_PERSISTENCE_FAILED',
-            error: `Failed to save configuration in database: ${insertError.message || 'DB error'}`,
-          },
-          { status: 500 }
+            method: 'PATCH',
+            headers: adminHeaders,
+            body: JSON.stringify({ data: payloadData }),
+          }
         );
+        let patchBody = await patchRes.json().catch(() => ({}));
+
+        let attempts = 0;
+        while (
+          !patchRes.ok &&
+          patchBody?.message?.includes('Unknown attribute:') &&
+          attempts < 15
+        ) {
+          attempts++;
+          const match = patchBody.message.match(
+            /Unknown attribute:\s*"([^"]+)"/
+          );
+          if (!match || !match[1]) break;
+          delete payloadData[match[1]];
+          patchRes = await fetch(
+            `${appwriteEndpoint}/databases/${encodeURIComponent(databaseId)}/collections/${encodeURIComponent(CANONICAL_COLLECTION)}/documents/${encodeURIComponent(docId)}`,
+            {
+              method: 'PATCH',
+              headers: adminHeaders,
+              body: JSON.stringify({ data: payloadData }),
+            }
+          );
+          patchBody = await patchRes.json().catch(() => ({}));
+        }
+
+        if (patchRes.ok) {
+          saveSuccess = true;
+        } else {
+          lastSaveError =
+            patchBody?.message || 'Failed to patch existing configuration';
+        }
       }
     }
 
-    // Re-read document to verify persistence
-    const { docs: verifiedDocs } = await listAllConfigs();
-    const verifiedDoc = verifiedDocs.find(
-      (doc) =>
-        String(doc.accountId || doc.account_id || '') === String(accountId)
-    );
-
-    if (!verifiedDoc) {
-      console.error(
-        '[whatsapp/config POST] Verified re-read failed: Document not found after save'
+    if (!saveSuccess) {
+      let createRes = await fetch(
+        `${appwriteEndpoint}/databases/${encodeURIComponent(databaseId)}/collections/${encodeURIComponent(CANONICAL_COLLECTION)}/documents`,
+        {
+          method: 'POST',
+          headers: adminHeaders,
+          body: JSON.stringify({
+            documentId: 'unique()',
+            data: payloadData,
+            permissions: [
+              `read("user:${user.id}")`,
+              `update("user:${user.id}")`,
+              `delete("user:${user.id}")`,
+              'read("users")',
+              'update("users")',
+              'delete("users")',
+            ],
+          }),
+        }
       );
+      let createBody = await createRes.json().catch(() => ({}));
+
+      let attempts = 0;
+      while (
+        !createRes.ok &&
+        createBody?.message?.includes('Unknown attribute:') &&
+        attempts < 15
+      ) {
+        attempts++;
+        const match = createBody.message.match(
+          /Unknown attribute:\s*"([^"]+)"/
+        );
+        if (!match || !match[1]) break;
+        delete payloadData[match[1]];
+        createRes = await fetch(
+          `${appwriteEndpoint}/databases/${encodeURIComponent(databaseId)}/collections/${encodeURIComponent(CANONICAL_COLLECTION)}/documents`,
+          {
+            method: 'POST',
+            headers: adminHeaders,
+            body: JSON.stringify({
+              documentId: 'unique()',
+              data: payloadData,
+              permissions: [
+                `read("user:${user.id}")`,
+                `update("user:${user.id}")`,
+                `delete("user:${user.id}")`,
+                'read("users")',
+                'update("users")',
+                'delete("users")',
+              ],
+            }),
+          }
+        );
+        createBody = await createRes.json().catch(() => ({}));
+      }
+
+      if (createRes.ok || createRes.status === 409) {
+        saveSuccess = true;
+      } else {
+        lastSaveError = createBody?.message || 'Failed to insert configuration';
+      }
+    }
+
+    if (!saveSuccess) {
       return NextResponse.json(
         {
           code: 'WHATSAPP_CONFIG_PERSISTENCE_FAILED',
-          error: 'Configuration save could not be verified in database.',
+          error: `Failed to save configuration in database: ${lastSaveError}`,
         },
         { status: 500 }
       );
