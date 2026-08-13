@@ -104,13 +104,19 @@ export function ContactDetailView({
           .select('*')
           .eq('id', contactId)
           .single()
-          .catch(() => ({ data: null })),
+          .catch((err) => {
+            console.warn('[contact-detail-view] fetch contact failed:', err);
+            return { data: null, error: err };
+          }),
         appwrite
           .from('patients')
           .select('*')
           .eq('id', contactId)
           .maybeSingle()
-          .catch(() => ({ data: null })),
+          .catch((err) => {
+            console.warn('[contact-detail-view] fetch patient failed:', err);
+            return { data: null, error: err };
+          }),
       ]);
 
       const data = contactRes?.data;
@@ -126,7 +132,13 @@ export function ContactDetailView({
               .eq('account_id', accountId)
               .limit(1)
               .maybeSingle()
-              .catch(() => ({ data: null }));
+              .catch((err) => {
+                console.warn(
+                  '[contact-detail-view] maxPatient query failed:',
+                  err
+                );
+                return { data: null, error: err };
+              });
 
             let nextNum = 1;
             if (maxPatient?.patient_seq_id) {
@@ -148,7 +160,13 @@ export function ContactDetailView({
               })
               .select('*')
               .single()
-              .catch(() => ({ data: null }));
+              .catch((err) => {
+                console.warn(
+                  '[contact-detail-view] patient insert failed:',
+                  err
+                );
+                return { data: null, error: err };
+              });
 
             if (newP) {
               pData = newP;
@@ -163,9 +181,18 @@ export function ContactDetailView({
                 },
               })
               .eq('id', contactId)
-              .catch(() => ({ error: null }));
-          } catch {
-            // Patient auto-provisioning fallback
+              .catch((err) => {
+                console.warn(
+                  '[contact-detail-view] metadata update failed:',
+                  err
+                );
+                return { error: err };
+              });
+          } catch (pErr) {
+            console.warn(
+              '[contact-detail-view] patient auto-provisioning exception:',
+              pErr
+            );
           }
         }
 
