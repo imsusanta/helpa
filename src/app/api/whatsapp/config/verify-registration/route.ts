@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/appwrite-server-compat';
+import { getCurrentAccount } from '@/lib/auth/account';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import { getSubscribedApps, verifyPhoneNumber } from '@/lib/whatsapp/meta-api';
 
@@ -7,23 +8,7 @@ import { getSubscribedApps, verifyPhoneNumber } from '@/lib/whatsapp/meta-api';
  * GET /api/whatsapp/config/verify-registration
  *
  * Diagnostic endpoint — confirms the user's saved phone number is
- * actually reachable on Meta's side. Solves the failure mode that
- * surfaced the multi-number bug originally: "UI says Connected but
- * Meta isn't delivering events."
- *
- * Three checks run independently so the UI can show which step
- * passes and which fails:
- *
- *   1. phone_info  — GET /{phone_number_id} succeeds
- *   2. waba_subscription — our app appears in
- *                    GET /{waba_id}/subscribed_apps
- *   3. registered_at — local timestamp set by POST /config when
- *                    /register last succeeded; NULL means the
- *                    number was saved but never actually subscribed
- *
- * Returns 200 in every case so the UI can render diagnostic detail
- * rather than a generic error toast. The combined `live` flag is
- * what the UI badges on.
+ * actually reachable on Meta's side.
  */
 export async function GET() {
   const appwrite = await createClient();
@@ -35,24 +20,45 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // whatsapp_config is one-row-per-account post-017. Resolve the
-  // caller's account_id so a teammate who joined an existing account
-  // sees the same registration state as the admin who set it up.
-  const { data: profile } = await appwrite
-    .from('profiles')
-    .select('account_id, accountId')
-    .eq('user_id', user.id)
-    .maybeSingle()
-    .catch(() => ({ data: null }));
-  const accountId = (profile?.account_id ||
-    profile?.accountId ||
-    'default_account') as string;
+  let accountId: string | null = null;
+  const ctx = await getCurrentAccount().catch(() => null);
+  if (ctx?.accountId) {
+    accountId = ctx.accountId;
+  } else {
+    const { data: profile } = await appwrite
+      .from('profiles')
+      .select('account_id, accountId')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .catch(() => ({ data: null }));
+    if (profile?.account_id || profile?.accountId) {
+      accountId = String(profile.account_id || profile.accountId);
+    }
+  }
 
-  const { data: config } = await appwrite
-    .from('whatsapp_config')
+  if (!accountId) {
+    return NextResponse.json(
+      { error: 'Account membership required' },
+      { status: 403 }
+    );
+  }
+
+  const { data: config, error: configError } = await appwrite
+    .from('whatsapp_configs')
     .select('*')
     .eq('account_id', accountId)
     .maybeSingle();
+
+  if (configError) {
+    console.error(
+      'Error querying whatsapp_configs in verify-registration:',
+      configError
+    );
+    return NextResponse.json(
+      { error: `Database error: ${configError.message || 'Unknown'}` },
+      { status: 500 }
+    );
+  }
 
   if (!config) {
     return NextResponse.json({
@@ -105,17 +111,13 @@ export async function GET() {
     );
   }
 
-  // 2. WABA subscription — only meaningful if we have a waba_id
+  // 2. WABA subscription
   if (config.waba_id) {
     try {
       const subs = await getSubscribedApps({
         wabaId: config.waba_id,
         accessToken,
       });
-      // Meta returns the apps subscribed to this WABA. If the list
-      // is non-empty, OUR app is in there (the access_token we used
-      // belongs to our app — Meta wouldn't return data for an app
-      // the token can't see). Treat any entry as success.
       checks.waba_subscribed_to_app = subs.length > 0;
       if (!checks.waba_subscribed_to_app) {
         errors.push(

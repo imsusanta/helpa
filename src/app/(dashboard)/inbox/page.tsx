@@ -211,7 +211,7 @@ export default function InboxPage() {
       }
 
       const { data } = await appwrite
-        .from('whatsapp_config')
+        .from('whatsapp_configs')
         .select('status')
         .eq('account_id', accountId)
         .maybeSingle();

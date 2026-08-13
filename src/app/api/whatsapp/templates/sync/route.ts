@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/appwrite-server-compat';
+import { getCurrentAccount } from '@/lib/auth/account';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import { normalizeStatus } from '@/lib/whatsapp/template-status-normalize';
 import type { TemplateButton, TemplateSampleValues } from '@/types';
@@ -137,20 +138,31 @@ export async function POST() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Resolve the caller's account_id — both whatsapp_config and
-    // the message_templates we sync into are account-scoped.
-    const { data: profile } = await appwrite
-      .from('profiles')
-      .select('account_id, accountId')
-      .eq('user_id', user.id)
-      .maybeSingle()
-      .catch(() => ({ data: null }));
-    const accountId = (profile?.account_id ||
-      profile?.accountId ||
-      'default_account') as string;
+    let accountId: string | null = null;
+    const ctx = await getCurrentAccount().catch(() => null);
+    if (ctx?.accountId) {
+      accountId = ctx.accountId;
+    } else {
+      const { data: profile } = await appwrite
+        .from('profiles')
+        .select('account_id, accountId')
+        .eq('user_id', user.id)
+        .maybeSingle()
+        .catch(() => ({ data: null }));
+      if (profile?.account_id || profile?.accountId) {
+        accountId = String(profile.account_id || profile.accountId);
+      }
+    }
+
+    if (!accountId) {
+      return NextResponse.json(
+        { error: 'Account membership required' },
+        { status: 403 }
+      );
+    }
 
     const { data: config, error: configError } = await appwrite
-      .from('whatsapp_config')
+      .from('whatsapp_configs')
       .select('*')
       .eq('account_id', accountId)
       .single();

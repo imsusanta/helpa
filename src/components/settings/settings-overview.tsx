@@ -392,7 +392,7 @@ export function SettingsOverview({
       setWhatsappLoading(true);
       const [row, health] = await Promise.allSettled([
         appwrite
-          .from('whatsapp_config')
+          .from('whatsapp_configs')
           .select('phone_number_id')
           .eq('account_id', acctId)
           .maybeSingle(),

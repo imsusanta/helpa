@@ -3,56 +3,13 @@ import {
   createClient,
   appwriteAdmin as createAdminClient,
 } from '@/lib/appwrite-server-compat';
+import { getCurrentAccount } from '@/lib/auth/account';
 import {
   registerPhoneNumber,
   subscribeWabaToApp,
   verifyPhoneNumber,
 } from '@/lib/whatsapp/meta-api';
 import { encrypt, decrypt } from '@/lib/whatsapp/encryption';
-
-/**
- * Resolve the caller's account_id from their profile. Inlined here
- * (rather than going through `@/lib/auth/account.getCurrentAccount`)
- * because the GET handler wants to return shaped 200s for every
- * non-auth failure mode, not throw — keeping the helper minimal lets
- * the existing response branches stay as-is.
- *
- * Returns null if the user has no profile or no account; callers
- * should treat that the same as "not connected".
- */
-async function resolveAccountId(
-  appwrite: Awaited<ReturnType<typeof createClient>>,
-  userId: string
-): Promise<string> {
-  try {
-    const { data } = await appwrite
-      .from('profiles')
-      .select('account_id, accountId')
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    if (data?.account_id) return String(data.account_id);
-    if (data?.accountId) return String(data.accountId);
-  } catch {
-    /* fallback */
-  }
-
-  try {
-    const admin = appwriteAdmin();
-    const { data } = await admin
-      .from('profiles')
-      .select('account_id, accountId')
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    if (data?.account_id) return String(data.account_id);
-    if (data?.accountId) return String(data.accountId);
-  } catch {
-    /* fallback */
-  }
-
-  return 'default_account';
-}
 
 // Lazy-initialised service-role client. We need it to detect a
 // phone_number_id already claimed by a *different* user — under RLS,
@@ -71,33 +28,51 @@ function appwriteAdmin() {
  * GET /api/whatsapp/config
  *
  * Used by the "Test API Connection" button and by the page to check
- * whether the saved config is healthy. Returns 200 in all non-auth cases
- * so the UI can render an appropriate message rather than show a 500.
- *
- * Response shape:
- *   { connected: true,  phone_info: {...} }
- *   { connected: false, reason: 'no_config',        message: '...' }
- *   { connected: false, reason: 'token_corrupted',  message: '...', needs_reset: true }
- *   { connected: false, reason: 'meta_api_error',   message: '...' }
+ * whether the saved config is healthy.
  */
 export async function GET() {
   try {
     const appwrite = await createClient();
-
     const {
       data: { user },
       error: authError,
     } = await appwrite.auth.getUser();
-
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json(
+        { code: 'AUTH_REQUIRED', error: 'Authentication required' },
+        { status: 401 }
+      );
     }
 
-    const accountId = await resolveAccountId(appwrite, user.id);
+    let accountId: string | null = null;
+    const ctx = await getCurrentAccount().catch(() => null);
+    if (ctx?.accountId) {
+      accountId = ctx.accountId;
+    } else {
+      const { data: profile } = await appwrite
+        .from('profiles')
+        .select('account_id, accountId')
+        .eq('user_id', user.id)
+        .maybeSingle()
+        .catch(() => ({ data: null }));
+      if (profile?.account_id || profile?.accountId) {
+        accountId = String(profile.account_id || profile.accountId);
+      }
+    }
+
+    if (!accountId) {
+      return NextResponse.json(
+        {
+          code: 'ACCOUNT_MEMBERSHIP_REQUIRED',
+          error: 'Account membership required',
+        },
+        { status: 403 }
+      );
+    }
     const admin = appwriteAdmin();
 
     let { data: config, error: configError } = await admin
-      .from('whatsapp_config')
+      .from('whatsapp_configs')
       .select(
         'phone_number_id, waba_id, access_token, status, registered_at, last_registration_error, subscribed_apps_at'
       )
@@ -106,27 +81,28 @@ export async function GET() {
 
     if (configError) {
       console.warn(
-        '[whatsapp/config GET] Full fetch failed, retrying core fields:',
+        '[whatsapp/config GET] Query failed on account_id, retrying accountId:',
         configError
       );
       const retry = await admin
-        .from('whatsapp_config')
-        .select('phone_number_id, waba_id, access_token, status, registered_at')
-        .eq('account_id', accountId)
+        .from('whatsapp_configs')
+        .select(
+          'phone_number_id, waba_id, access_token, status, registered_at, last_registration_error, subscribed_apps_at'
+        )
+        .eq('accountId', accountId)
         .maybeSingle();
       config = retry.data;
       configError = retry.error;
     }
 
     if (configError) {
-      console.error('Error fetching whatsapp_config:', configError);
+      console.error('Error fetching whatsapp_configs from DB:', configError);
       return NextResponse.json(
         {
-          connected: false,
-          reason: 'db_error',
-          message: 'Failed to fetch configuration',
+          code: 'DATABASE_ERROR',
+          error: `Failed to fetch WhatsApp configuration: ${configError.message || 'Database error'}`,
         },
-        { status: 200 }
+        { status: 500 }
       );
     }
 
@@ -152,7 +128,6 @@ export async function GET() {
     };
 
     // Try to decrypt the stored token with the current ENCRYPTION_KEY.
-    // If this fails, the key changed (or was never consistent across envs).
     let accessToken: string;
     try {
       accessToken = decrypt(config.access_token);
@@ -165,7 +140,7 @@ export async function GET() {
           reason: 'token_corrupted',
           needs_reset: true,
           message:
-            'The stored access token cannot be decrypted with the current ENCRYPTION_KEY. This usually means the key changed, or it differs between environments (local vs Hostinger vs appwrite-sites). Click "Reset Configuration" below, then re-save.',
+            'The stored access token cannot be decrypted with the current ENCRYPTION_KEY. This usually means the key changed, or it differs between environments. Click "Reset Configuration" below, then re-save.',
         },
         { status: 200 }
       );
@@ -202,7 +177,7 @@ export async function GET() {
   } catch (error) {
     console.error('Error in WhatsApp config GET:', error);
     return NextResponse.json(
-      { connected: false, reason: 'unknown', message: 'Internal server error' },
+      { code: 'INTERNAL_ERROR', error: 'Internal server error' },
       { status: 500 }
     );
   }
@@ -217,17 +192,42 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const appwrite = await createClient();
-
     const {
       data: { user },
       error: authError,
     } = await appwrite.auth.getUser();
-
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json(
+        { code: 'AUTH_REQUIRED', error: 'Authentication required' },
+        { status: 401 }
+      );
     }
 
-    const accountId = await resolveAccountId(appwrite, user.id);
+    let accountId: string | null = null;
+    const ctx = await getCurrentAccount().catch(() => null);
+    if (ctx?.accountId) {
+      accountId = ctx.accountId;
+    } else {
+      const { data: profile } = await appwrite
+        .from('profiles')
+        .select('account_id, accountId')
+        .eq('user_id', user.id)
+        .maybeSingle()
+        .catch(() => ({ data: null }));
+      if (profile?.account_id || profile?.accountId) {
+        accountId = String(profile.account_id || profile.accountId);
+      }
+    }
+
+    if (!accountId) {
+      return NextResponse.json(
+        {
+          code: 'ACCOUNT_MEMBERSHIP_REQUIRED',
+          error: 'Account membership required',
+        },
+        { status: 403 }
+      );
+    }
 
     const body = await request.json();
     const { phone_number_id, waba_id, access_token, verify_token, pin } = body;
@@ -252,7 +252,7 @@ export async function POST(request: Request) {
     let claimed: { account_id?: string } | null = null;
     try {
       const { data, error: claimedError } = await appwriteAdmin()
-        .from('whatsapp_config')
+        .from('whatsapp_configs')
         .select('account_id')
         .eq('phone_number_id', phone_number_id)
         .neq('account_id', accountId)
@@ -311,12 +311,9 @@ export async function POST(request: Request) {
       );
     }
 
-    // Look up any pre-existing row for this account so we know whether
-    // this number is already registered with Meta — if so we can skip
-    // /register when the user didn't provide a PIN this time around.
     const adminClient = appwriteAdmin();
     const { data: existing } = await adminClient
-      .from('whatsapp_config')
+      .from('whatsapp_configs')
       .select('id, registered_at, phone_number_id')
       .eq('account_id', accountId)
       .maybeSingle();
@@ -325,33 +322,14 @@ export async function POST(request: Request) {
       existing?.phone_number_id === phone_number_id &&
       existing?.registered_at != null;
 
-    // Step 1: register the phone number for inbound webhooks.
-    //
-    // Attempted on first save AND whenever the user supplies a fresh
-    // PIN (e.g. they rotated the 2FA PIN in Meta Manager). Skipped
-    // when the same number is already registered and no PIN was
-    // supplied — re-registering an already-active number with a
-    // stale PIN would actually fail and undo the active subscription.
     let registeredAt: string | null = existing?.registered_at ?? null;
     let registrationError: string | null = null;
-    // True when registration was deliberately skipped because no PIN
-    // was supplied (see below). Distinct from registrationError — this
-    // is not a failure, just an incomplete-but-valid save.
     let registrationSkipped = false;
 
     const needsRegistration =
       !sameNumber || (typeof pin === 'string' && pin.length > 0);
     if (needsRegistration) {
       if (!pin) {
-        // No PIN provided. Meta TEST numbers (Developer Console) are
-        // pre-registered by Meta and expose no two-step verification
-        // PIN to set, so requiring one made them impossible to connect
-        // (issue #242). The /register + PIN step only matters for
-        // production numbers under a shared WABA (issue #136), so treat
-        // it as best-effort: skip it, save the (already Meta-verified)
-        // credentials as connected, and leave registered_at null. The
-        // UI surfaces a separate "Not registered" banner with a path to
-        // add a PIN later for users who do need inbound webhook routing.
         registrationSkipped = true;
       } else {
         try {
@@ -365,18 +343,10 @@ export async function POST(request: Request) {
           registrationError =
             err instanceof Error ? err.message : 'Unknown Meta API error';
           console.error('Phone number /register failed:', registrationError);
-          // We deliberately fall through and still save the row so the
-          // user can retry without re-entering everything. The UI
-          // surfaces `last_registration_error` so they see WHY it's
-          // not actually live yet.
         }
       }
     }
 
-    // Step 2: subscribe the WABA to this app. Idempotent on Meta's
-    // side, so we call on every save and persist the timestamp.
-    // Skipped only when there's no waba_id (legacy rows from before
-    // we required it).
     let subscribedAppsAt: string | null = null;
     if (waba_id) {
       try {
@@ -388,57 +358,40 @@ export async function POST(request: Request) {
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.warn('WABA subscribed_apps failed (non-fatal):', message);
-        // Subscription failures are rare once the App has the right
-        // permissions; we don't block save on them — the diagnostic
-        // endpoint surfaces this state too.
       }
     }
 
-    // Persist everything in one shot. If /register failed we still
-    // store the credentials and the error so the UI can guide the
-    // user through a retry.
     const baseRow = {
+      account_id: accountId,
+      accountId: accountId,
+      user_id: user.id,
+      userId: user.id,
       phone_number_id,
+      phoneNumberId: phone_number_id,
       waba_id: waba_id || null,
+      wabaId: waba_id || null,
       access_token: encryptedAccessToken,
+      accessToken: encryptedAccessToken,
       verify_token: encryptedVerifyToken,
       status: registrationError ? 'disconnected' : 'connected',
-      connected_at: registrationError ? null : new Date().toISOString(),
       registered_at: registrationError ? null : registeredAt,
+      registeredAt: registrationError ? null : registeredAt,
       subscribed_apps_at: subscribedAppsAt ?? null,
+      subscribedAppsAt: subscribedAppsAt ?? null,
       last_registration_error: registrationError,
+      lastRegistrationError: registrationError,
       updated_at: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     if (existing) {
-      let { error: updateError } = await adminClient
-        .from('whatsapp_config')
+      const { error: updateError } = await adminClient
+        .from('whatsapp_configs')
         .update(baseRow)
         .eq('account_id', accountId);
 
       if (updateError) {
-        console.warn(
-          'Full update failed, retrying with core fields:',
-          updateError
-        );
-        const coreRow = {
-          phone_number_id,
-          waba_id: waba_id || null,
-          access_token: encryptedAccessToken,
-          verify_token: encryptedVerifyToken,
-          status: registrationError ? 'disconnected' : 'connected',
-          registered_at: registrationError ? null : registeredAt,
-          updated_at: new Date().toISOString(),
-        };
-        const retry = await adminClient
-          .from('whatsapp_config')
-          .update(coreRow)
-          .eq('account_id', accountId);
-        updateError = retry.error;
-      }
-
-      if (updateError) {
-        console.error('Error updating whatsapp_config:', updateError);
+        console.error('Error updating whatsapp_configs:', updateError);
         return NextResponse.json(
           {
             error: `Failed to update configuration: ${updateError.message || 'Database error'}`,
@@ -447,36 +400,15 @@ export async function POST(request: Request) {
         );
       }
     } else {
-      let { error: insertError } = await adminClient
-        .from('whatsapp_config')
+      const { error: insertError } = await adminClient
+        .from('whatsapp_configs')
         .insert({
-          account_id: accountId,
-          user_id: user.id,
+          createdAt: new Date().toISOString(),
           ...baseRow,
         });
 
       if (insertError) {
-        console.warn(
-          'Full insert failed, retrying with core fields:',
-          insertError
-        );
-        const coreRow = {
-          account_id: accountId,
-          user_id: user.id,
-          phone_number_id,
-          waba_id: waba_id || null,
-          access_token: encryptedAccessToken,
-          verify_token: encryptedVerifyToken,
-          status: registrationError ? 'disconnected' : 'connected',
-          registered_at: registrationError ? null : registeredAt,
-          updated_at: new Date().toISOString(),
-        };
-        const retry = await adminClient.from('whatsapp_config').insert(coreRow);
-        insertError = retry.error;
-      }
-
-      if (insertError) {
-        console.error('Error inserting whatsapp_config:', insertError);
+        console.error('Error inserting whatsapp_configs:', insertError);
         return NextResponse.json(
           {
             error: `Failed to save configuration: ${insertError.message || 'Database error'}`,
@@ -487,9 +419,6 @@ export async function POST(request: Request) {
     }
 
     if (registrationError) {
-      // Save succeeded but the number isn't actually live. Return
-      // 200 with a structured error so the UI can show the specific
-      // remediation step instead of a generic toast.
       return NextResponse.json({
         success: false,
         saved: true,
@@ -503,10 +432,6 @@ export async function POST(request: Request) {
       success: true,
       saved: true,
       registered: registeredAt != null,
-      // Credentials are valid and saved, but inbound webhook
-      // registration was skipped because no PIN was supplied (e.g. a
-      // Meta test number). The UI shows the "Not registered" banner
-      // rather than claiming the number is fully live.
       registration_skipped: registrationSkipped,
       phone_info: phoneInfo,
     });
@@ -523,31 +448,53 @@ export async function POST(request: Request) {
  * DELETE /api/whatsapp/config
  *
  * Removes the authenticated user's WhatsApp configuration row.
- * Used by the "Reset Configuration" button to recover from a corrupted
- * encrypted token (mismatched ENCRYPTION_KEY across environments).
  */
 export async function DELETE() {
   try {
     const appwrite = await createClient();
-
     const {
       data: { user },
       error: authError,
     } = await appwrite.auth.getUser();
-
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json(
+        { code: 'AUTH_REQUIRED', error: 'Authentication required' },
+        { status: 401 }
+      );
     }
 
-    const accountId = await resolveAccountId(appwrite, user.id);
+    let accountId: string | null = null;
+    const ctx = await getCurrentAccount().catch(() => null);
+    if (ctx?.accountId) {
+      accountId = ctx.accountId;
+    } else {
+      const { data: profile } = await appwrite
+        .from('profiles')
+        .select('account_id, accountId')
+        .eq('user_id', user.id)
+        .maybeSingle()
+        .catch(() => ({ data: null }));
+      if (profile?.account_id || profile?.accountId) {
+        accountId = String(profile.account_id || profile.accountId);
+      }
+    }
 
+    if (!accountId) {
+      return NextResponse.json(
+        {
+          code: 'ACCOUNT_MEMBERSHIP_REQUIRED',
+          error: 'Account membership required',
+        },
+        { status: 403 }
+      );
+    }
     const { error: deleteError } = await appwrite
-      .from('whatsapp_config')
+      .from('whatsapp_configs')
       .delete()
       .eq('account_id', accountId);
 
     if (deleteError) {
-      console.error('Error deleting whatsapp_config:', deleteError);
+      console.error('Error deleting whatsapp_configs:', deleteError);
       return NextResponse.json(
         { error: 'Failed to delete configuration' },
         { status: 500 }

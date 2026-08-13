@@ -698,6 +698,77 @@ export const SCHEMA_MANIFEST: Record<string, CollectionSchema> = {
       },
     ],
   },
+  whatsapp_configs: {
+    id: APPWRITE_CONFIG.collections.whatsappConfigs,
+    attributes: [
+      { key: 'accountId', type: 'string', size: 255, required: false },
+      { key: 'account_id', type: 'string', size: 255, required: false },
+      { key: 'userId', type: 'string', size: 255, required: false },
+      { key: 'user_id', type: 'string', size: 255, required: false },
+      { key: 'phone_number_id', type: 'string', size: 255, required: false },
+      { key: 'phoneNumberId', type: 'string', size: 255, required: false },
+      { key: 'waba_id', type: 'string', size: 255, required: false },
+      { key: 'wabaId', type: 'string', size: 255, required: false },
+      { key: 'access_token', type: 'string', size: 2000, required: false },
+      { key: 'accessToken', type: 'string', size: 2000, required: false },
+      {
+        key: 'encrypted_access_token',
+        type: 'string',
+        size: 2000,
+        required: false,
+      },
+      {
+        key: 'encryptedAccessToken',
+        type: 'string',
+        size: 2000,
+        required: false,
+      },
+      {
+        key: 'status',
+        type: 'string',
+        size: 32,
+        required: false,
+        default: 'active',
+      },
+      { key: 'registered_at', type: 'string', size: 64, required: false },
+      { key: 'registeredAt', type: 'string', size: 64, required: false },
+      {
+        key: 'last_registration_error',
+        type: 'string',
+        size: 1000,
+        required: false,
+      },
+      {
+        key: 'lastRegistrationError',
+        type: 'string',
+        size: 1000,
+        required: false,
+      },
+      { key: 'subscribed_apps_at', type: 'string', size: 64, required: false },
+      { key: 'subscribedAppsAt', type: 'string', size: 64, required: false },
+      {
+        key: 'business_phone_number',
+        type: 'string',
+        size: 64,
+        required: false,
+      },
+      { key: 'businessPhoneNumber', type: 'string', size: 64, required: false },
+      { key: 'createdAt', type: 'string', size: 64, required: false },
+      { key: 'updatedAt', type: 'string', size: 64, required: false },
+    ],
+    indexes: [
+      {
+        key: 'unique_whatsapp_account_id',
+        type: 'unique',
+        attributes: ['account_id'],
+      },
+      {
+        key: 'idx_whatsapp_phone_number',
+        type: 'key',
+        attributes: ['phone_number_id'],
+      },
+    ],
+  },
 };
 
 async function setupAppwriteDatabase() {

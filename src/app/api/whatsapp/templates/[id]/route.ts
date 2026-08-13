@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/appwrite-server-compat';
+import { getCurrentAccount } from '@/lib/auth/account';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import {
   deleteMessageTemplate,
@@ -67,15 +68,28 @@ export async function PATCH(
 
     // Resolve the caller's account_id so template + whatsapp_config
     // lookups work for teammates who didn't author the row.
-    const { data: profile } = await appwrite
-      .from('profiles')
-      .select('account_id, accountId')
-      .eq('user_id', user.id)
-      .maybeSingle()
-      .catch(() => ({ data: null }));
-    const accountId = (profile?.account_id ||
-      profile?.accountId ||
-      'default_account') as string;
+    let accountId: string | null = null;
+    const ctx = await getCurrentAccount().catch(() => null);
+    if (ctx?.accountId) {
+      accountId = ctx.accountId;
+    } else {
+      const { data: profile } = await appwrite
+        .from('profiles')
+        .select('account_id, accountId')
+        .eq('user_id', user.id)
+        .maybeSingle()
+        .catch(() => ({ data: null }));
+      if (profile?.account_id || profile?.accountId) {
+        accountId = String(profile.account_id || profile.accountId);
+      }
+    }
+
+    if (!accountId) {
+      return NextResponse.json(
+        { error: 'Account membership required' },
+        { status: 403 }
+      );
+    }
 
     let payload: TemplatePayload;
     try {
@@ -142,7 +156,7 @@ export async function PATCH(
 
     if (!isDryRun()) {
       const { data: config, error: configError } = await appwrite
-        .from('whatsapp_config')
+        .from('whatsapp_configs')
         .select('*')
         .eq('account_id', accountId)
         .single();
@@ -257,18 +271,28 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Same account-scoping rationale as the PATCH handler above —
-    // teammates need to be able to operate on shared templates +
-    // the shared whatsapp_config.
-    const { data: profile } = await appwrite
-      .from('profiles')
-      .select('account_id, accountId')
-      .eq('user_id', user.id)
-      .maybeSingle()
-      .catch(() => ({ data: null }));
-    const accountId = (profile?.account_id ||
-      profile?.accountId ||
-      'default_account') as string;
+    let accountId: string | null = null;
+    const ctx = await getCurrentAccount().catch(() => null);
+    if (ctx?.accountId) {
+      accountId = ctx.accountId;
+    } else {
+      const { data: profile } = await appwrite
+        .from('profiles')
+        .select('account_id, accountId')
+        .eq('user_id', user.id)
+        .maybeSingle()
+        .catch(() => ({ data: null }));
+      if (profile?.account_id || profile?.accountId) {
+        accountId = String(profile.account_id || profile.accountId);
+      }
+    }
+
+    if (!accountId) {
+      return NextResponse.json(
+        { error: 'Account membership required' },
+        { status: 403 }
+      );
+    }
 
     const { data: existing, error: lookupErr } = await appwrite
       .from('message_templates')
@@ -285,7 +309,7 @@ export async function DELETE(
 
     if (existing.meta_template_id && !isDryRun()) {
       const { data: config, error: configError } = await appwrite
-        .from('whatsapp_config')
+        .from('whatsapp_configs')
         .select('*')
         .eq('account_id', accountId)
         .single();
