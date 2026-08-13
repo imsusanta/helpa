@@ -562,33 +562,33 @@ class QueryBuilder {
           }
         }
 
-        if (!response.ok && body?.message?.includes('Unknown attribute:')) {
+        const currentPayload = normalizePayload(record);
+        let attempts = 0;
+        while (
+          !response.ok &&
+          body?.message?.includes('Unknown attribute:') &&
+          attempts < 15
+        ) {
+          attempts++;
           const match = body.message.match(/Unknown attribute:\s*"([^"]+)"/);
-          if (match && match[1]) {
-            const unknownAttr = match[1];
-            const cleanData = normalizePayload(record);
-            delete cleanData[unknownAttr];
-            const retryRes = await fetch(
-              `${endpoint}/databases/${encodeURIComponent(APPWRITE_CONFIG.databaseId)}/collections/${encodeURIComponent(colId)}/documents`,
-              {
-                method: 'POST',
-                headers: requestHeaders(
-                  undefined,
-                  this.session,
-                  this.useApiKey
-                ),
-                body: JSON.stringify({
-                  documentId: record.id || 'unique()',
-                  data: cleanData,
-                  permissions: getPermissionsForRecord(record),
-                }),
-              }
-            );
-            if (retryRes.ok) {
-              response = retryRes;
-              body = await retryRes.json().catch(() => ({}));
+          if (!match || !match[1]) break;
+          const unknownAttr = match[1];
+          delete currentPayload[unknownAttr];
+          const retryRes = await fetch(
+            `${endpoint}/databases/${encodeURIComponent(APPWRITE_CONFIG.databaseId)}/collections/${encodeURIComponent(colId)}/documents`,
+            {
+              method: 'POST',
+              headers: requestHeaders(undefined, this.session, this.useApiKey),
+              body: JSON.stringify({
+                documentId: record.id || 'unique()',
+                data: currentPayload,
+                permissions: getPermissionsForRecord(record),
+              }),
             }
-          }
+          );
+          response = retryRes;
+          body = await retryRes.json().catch(() => ({}));
+          if (response.ok) break;
         }
 
         if (response.ok) {
@@ -605,7 +605,9 @@ class QueryBuilder {
         ) {
           const docId = record.id || record.$id;
           if (docId) {
-            const patchRes = await fetch(
+            const upsertPayload = normalizePayload(record);
+            let upsertAttempts = 0;
+            let patchRes = await fetch(
               `${endpoint}/databases/${encodeURIComponent(APPWRITE_CONFIG.databaseId)}/collections/${encodeURIComponent(colId)}/documents/${encodeURIComponent(docId)}`,
               {
                 method: 'PATCH',
@@ -614,10 +616,36 @@ class QueryBuilder {
                   this.session,
                   this.useApiKey
                 ),
-                body: JSON.stringify({ data: normalizePayload(record) }),
+                body: JSON.stringify({ data: upsertPayload }),
               }
             );
-            const patchBody = await patchRes.json().catch(() => ({}));
+            let patchBody = await patchRes.json().catch(() => ({}));
+            while (
+              !patchRes.ok &&
+              patchBody?.message?.includes('Unknown attribute:') &&
+              upsertAttempts < 15
+            ) {
+              upsertAttempts++;
+              const match = patchBody.message.match(
+                /Unknown attribute:\s*"([^"]+)"/
+              );
+              if (!match || !match[1]) break;
+              delete upsertPayload[match[1]];
+              patchRes = await fetch(
+                `${endpoint}/databases/${encodeURIComponent(APPWRITE_CONFIG.databaseId)}/collections/${encodeURIComponent(colId)}/documents/${encodeURIComponent(docId)}`,
+                {
+                  method: 'PATCH',
+                  headers: requestHeaders(
+                    undefined,
+                    this.session,
+                    this.useApiKey
+                  ),
+                  body: JSON.stringify({ data: upsertPayload }),
+                }
+              );
+              patchBody = await patchRes.json().catch(() => ({}));
+              if (patchRes.ok) break;
+            }
             if (patchRes.ok) {
               documents.push(normalizeRecord(patchBody));
               success = true;
@@ -655,7 +683,8 @@ class QueryBuilder {
       let lastErrorBody: any = null;
 
       for (const colId of candidates) {
-        const response = await fetch(
+        const currentPatchPayload = normalizePayload(this.payload);
+        let response = await fetch(
           `${endpoint}/databases/${encodeURIComponent(APPWRITE_CONFIG.databaseId)}/collections/${encodeURIComponent(colId)}/documents/${encodeURIComponent(document.$id || document.id)}`,
           {
             method,
@@ -663,42 +692,35 @@ class QueryBuilder {
             ...(method === 'PATCH'
               ? {
                   body: JSON.stringify({
-                    data: normalizePayload(this.payload),
+                    data: currentPatchPayload,
                   }),
                 }
               : {}),
           }
         );
-        const body = await response.json().catch(() => ({}));
-        if (
+        let body = await response.json().catch(() => ({}));
+        let mutateAttempts = 0;
+        while (
           !response.ok &&
           method === 'PATCH' &&
-          body?.message?.includes('Unknown attribute:')
+          body?.message?.includes('Unknown attribute:') &&
+          mutateAttempts < 15
         ) {
+          mutateAttempts++;
           const match = body.message.match(/Unknown attribute:\s*"([^"]+)"/);
-          if (match && match[1]) {
-            const unknownAttr = match[1];
-            const cleanData = normalizePayload(this.payload);
-            delete cleanData[unknownAttr];
-            const retryRes = await fetch(
-              `${endpoint}/databases/${encodeURIComponent(APPWRITE_CONFIG.databaseId)}/collections/${encodeURIComponent(colId)}/documents/${encodeURIComponent(document.$id || document.id)}`,
-              {
-                method: 'PATCH',
-                headers: requestHeaders(
-                  undefined,
-                  this.session,
-                  this.useApiKey
-                ),
-                body: JSON.stringify({ data: cleanData }),
-              }
-            );
-            if (retryRes.ok) {
-              const patchBody = await retryRes.json().catch(() => ({}));
-              updated.push(normalizeRecord(patchBody));
-              success = true;
-              break;
+          if (!match || !match[1]) break;
+          delete currentPatchPayload[match[1]];
+          const retryRes = await fetch(
+            `${endpoint}/databases/${encodeURIComponent(APPWRITE_CONFIG.databaseId)}/collections/${encodeURIComponent(colId)}/documents/${encodeURIComponent(document.$id || document.id)}`,
+            {
+              method: 'PATCH',
+              headers: requestHeaders(undefined, this.session, this.useApiKey),
+              body: JSON.stringify({ data: currentPatchPayload }),
             }
-          }
+          );
+          response = retryRes;
+          body = await retryRes.json().catch(() => ({}));
+          if (response.ok) break;
         }
 
         if (response.ok) {
