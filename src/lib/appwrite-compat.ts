@@ -811,6 +811,9 @@ class QueryBuilder {
       }
 
       if (!success && method === 'PATCH') {
+        if (documents.length === 0) {
+          return { data: [], error: null, count: 0 };
+        }
         throw Object.assign(
           new Error(lastErrorBody?.message || 'Appwrite request failed'),
           lastErrorBody

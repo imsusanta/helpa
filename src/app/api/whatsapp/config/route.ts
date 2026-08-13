@@ -527,29 +527,35 @@ export async function POST(request: Request) {
     const admin = appwriteAdmin();
 
     if (existingConfig) {
-      const docId = existingConfig.$id || existingConfig.id;
+      const docId = String(existingConfig.$id || existingConfig.id || '');
+      canonicalDocument.id = docId;
+      canonicalDocument.$id = docId;
       const { error: updateError } = await admin
         .from(CANONICAL_COLLECTION)
-        .update(canonicalDocument)
-        .eq('id', docId);
+        .upsert(canonicalDocument);
 
       if (updateError) {
         console.error(
           '[whatsapp/config POST] Update document error:',
           updateError
         );
-        return NextResponse.json(
-          {
-            code: 'WHATSAPP_CONFIG_PERSISTENCE_FAILED',
-            error: `Failed to update configuration in database: ${updateError.message || 'DB error'}`,
-          },
-          { status: 500 }
-        );
+        const { error: retryError } = await admin
+          .from(CANONICAL_COLLECTION)
+          .insert(canonicalDocument);
+        if (retryError) {
+          return NextResponse.json(
+            {
+              code: 'WHATSAPP_CONFIG_PERSISTENCE_FAILED',
+              error: `Failed to update configuration in database: ${updateError.message || retryError.message || 'DB error'}`,
+            },
+            { status: 500 }
+          );
+        }
       }
     } else {
       const { error: insertError } = await admin
         .from(CANONICAL_COLLECTION)
-        .insert(canonicalDocument);
+        .upsert(canonicalDocument);
 
       if (insertError) {
         console.error(
