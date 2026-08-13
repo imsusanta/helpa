@@ -609,9 +609,6 @@ export async function POST(request: Request) {
               `read("user:${user.id}")`,
               `update("user:${user.id}")`,
               `delete("user:${user.id}")`,
-              'read("users")',
-              'update("users")',
-              'delete("users")',
             ],
           }),
         }

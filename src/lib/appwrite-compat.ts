@@ -137,10 +137,10 @@ function normalizePayload(record: AnyRecord): AnyRecord {
 
 function getPermissionsForRecord(record: AnyRecord): string[] {
   if (Array.isArray(record.permissions) && record.permissions.length > 0) {
-    return record.permissions;
+    return record.permissions.filter((p) => !p.includes('"any"'));
   }
   if (Array.isArray(record.$permissions) && record.$permissions.length > 0) {
-    return record.$permissions;
+    return record.$permissions.filter((p) => !p.includes('"any"'));
   }
 
   const userId = record.user_id || record.userId;
@@ -149,9 +149,6 @@ function getPermissionsForRecord(record: AnyRecord): string[] {
       `read("user:${userId}")`,
       `update("user:${userId}")`,
       `delete("user:${userId}")`,
-      'read("users")',
-      'update("users")',
-      'delete("users")',
     ];
   }
 
