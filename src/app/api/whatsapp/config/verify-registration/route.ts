@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/appwrite-server-compat';
+import {
+  appwriteAdmin as createAdminClient,
+  createClient,
+} from '@/lib/appwrite-server-compat';
 import { getCurrentAccount } from '@/lib/auth/account';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import { getSubscribedApps, verifyPhoneNumber } from '@/lib/whatsapp/meta-api';
@@ -43,10 +46,11 @@ export async function GET() {
     );
   }
 
-  const { data: config, error: configError } = await appwrite
+  const dbAdmin = createAdminClient();
+  const { data: config, error: configError } = await dbAdmin
     .from('whatsapp_configs')
     .select('*')
-    .eq('account_id', accountId)
+    .eq('accountId', accountId)
     .maybeSingle();
 
   if (configError) {
@@ -68,9 +72,25 @@ export async function GET() {
     });
   }
 
+  // Access config fields with camelCase primary, snake_case fallback
+  const encToken =
+    config.encryptedAccessToken ||
+    config.encrypted_access_token ||
+    config.accessToken ||
+    config.access_token;
+  const phoneNumId = String(
+    config.phoneNumberId || config.phone_number_id || ''
+  );
+  const wabaIdValue = config.wabaId || config.waba_id || null;
+  const regAt = config.registeredAt || config.registered_at || null;
+  const lastRegErr =
+    config.lastRegistrationError || config.last_registration_error || null;
+  const subAppsAt =
+    config.subscribedAppsAt || config.subscribed_apps_at || null;
+
   let accessToken: string;
   try {
-    accessToken = decrypt(config.access_token);
+    accessToken = decrypt(encToken);
   } catch {
     return NextResponse.json({
       live: false,
@@ -94,14 +114,14 @@ export async function GET() {
     token_decryptable: true,
     phone_metadata_ok: false,
     waba_subscribed_to_app: null,
-    locally_marked_registered: config.registered_at != null,
+    locally_marked_registered: regAt != null,
   };
   const errors: string[] = [];
 
   // 1. Phone metadata
   try {
     await verifyPhoneNumber({
-      phoneNumberId: config.phone_number_id,
+      phoneNumberId: phoneNumId,
       accessToken,
     });
     checks.phone_metadata_ok = true;
@@ -112,10 +132,10 @@ export async function GET() {
   }
 
   // 2. WABA subscription
-  if (config.waba_id) {
+  if (wabaIdValue) {
     try {
       const subs = await getSubscribedApps({
-        wabaId: config.waba_id,
+        wabaId: String(wabaIdValue),
         accessToken,
       });
       checks.waba_subscribed_to_app = subs.length > 0;
@@ -144,8 +164,8 @@ export async function GET() {
     live,
     checks,
     errors,
-    last_registration_error: config.last_registration_error ?? null,
-    registered_at: config.registered_at ?? null,
-    subscribed_apps_at: config.subscribed_apps_at ?? null,
+    last_registration_error: lastRegErr,
+    registered_at: regAt,
+    subscribed_apps_at: subAppsAt,
   });
 }

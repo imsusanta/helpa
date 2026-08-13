@@ -476,7 +476,8 @@ export async function POST(request: Request) {
       }
     }
 
-    const canonicalDocument = {
+    const now = new Date().toISOString();
+    const canonicalDocument: Record<string, unknown> = {
       accountId,
       account_id: accountId,
       userId: user.id,
@@ -489,7 +490,6 @@ export async function POST(request: Request) {
       encrypted_access_token: encryptedAccessToken,
       access_token: encryptedAccessToken,
       encryptedVerifyToken,
-      verify_token: encryptedVerifyToken,
       status: registrationError ? 'disconnected' : 'connected',
       registeredAt,
       registered_at: registeredAt,
@@ -498,7 +498,15 @@ export async function POST(request: Request) {
       subscribedAppsAt,
       subscribed_apps_at: subscribedAppsAt,
       encryptionKeyVersion: 'v1',
+      updatedAt: now,
+      updatedBy: user.id,
     };
+
+    // Only set createdAt/createdBy on new documents
+    if (!existingConfig) {
+      canonicalDocument.createdAt = now;
+      canonicalDocument.createdBy = user.id;
+    }
 
     const admin = appwriteAdmin();
 

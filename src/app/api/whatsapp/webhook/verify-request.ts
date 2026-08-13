@@ -22,7 +22,7 @@ export async function handleWebhookGet(request: Request): Promise<Response> {
     // Fetch all whatsapp configs to check verify tokens
     const { data: configs, error: configError } = await getAdminClient()
       .from('whatsapp_configs')
-      .select('id, verify_token');
+      .select('id, encryptedVerifyToken, verify_token');
 
     if (configError || !configs) {
       console.error('Error fetching configs for verification:', configError);
@@ -32,12 +32,17 @@ export async function handleWebhookGet(request: Request): Promise<Response> {
       );
     }
 
-    // Check if any config's verify_token matches
-    let matchedConfig: { id: string; verify_token: string } | null = null;
+    // Check if any config's encryptedVerifyToken matches
+    let matchedConfig: {
+      id: string;
+      encryptedVerifyToken?: string;
+      verify_token?: string;
+    } | null = null;
     for (const config of configs) {
-      if (!config.verify_token) continue;
+      const encToken = config.encryptedVerifyToken || config.verify_token;
+      if (!encToken) continue;
       try {
-        if (decrypt(config.verify_token) === verifyToken) {
+        if (decrypt(encToken) === verifyToken) {
           matchedConfig = config;
           break;
         }
@@ -47,16 +52,18 @@ export async function handleWebhookGet(request: Request): Promise<Response> {
     }
 
     if (matchedConfig) {
+      const encToken =
+        matchedConfig.encryptedVerifyToken || matchedConfig.verify_token;
       // Fire-and-forget GCM upgrade for legacy CBC tokens
-      if (isLegacyFormat(matchedConfig.verify_token)) {
+      if (encToken && isLegacyFormat(encToken)) {
         void getAdminClient()
           .from('whatsapp_configs')
-          .update({ verify_token: encrypt(verifyToken) })
+          .update({ encryptedVerifyToken: encrypt(verifyToken) })
           .eq('id', matchedConfig.id)
           .then(({ error }: { error: unknown }) => {
             if (error) {
               console.warn(
-                '[webhook] verify_token GCM upgrade failed:',
+                '[webhook] encryptedVerifyToken GCM upgrade failed:',
                 (error as { message?: string })?.message ?? error
               );
             }
