@@ -393,7 +393,7 @@ export function SettingsOverview({
       const [row, health] = await Promise.allSettled([
         appwrite
           .from('whatsapp_configs')
-          .select('phone_number_id')
+          .select('*')
           .eq('account_id', acctId)
           .maybeSingle(),
         fetch('/api/whatsapp/config', { cache: 'no-store' }).then((r) =>
@@ -401,10 +401,37 @@ export function SettingsOverview({
         ),
       ]);
       if (cancelled) return;
+
+      const dbData =
+        row.status === 'fulfilled' && row.value.data
+          ? (row.value.data as Record<string, unknown>)
+          : null;
+      const isConfiguredFromDb = Boolean(
+        dbData?.phone_number_id || dbData?.phoneNumberId
+      );
+
+      const healthData =
+        health.status === 'fulfilled' && health.value
+          ? (health.value as Record<string, unknown>)
+          : null;
+      const healthConfig = healthData?.config as
+        | Record<string, unknown>
+        | undefined;
+      const isConfiguredFromHealth = Boolean(
+        healthConfig?.phone_number_id ||
+        healthConfig?.phoneNumberId ||
+        healthData?.configured ||
+        (healthData?.connected && healthData?.reason !== 'no_config')
+      );
+
+      const isConfigured = isConfiguredFromDb || isConfiguredFromHealth;
+      const isConnected = Boolean(
+        healthData?.connected || healthConfig?.status === 'connected'
+      );
+
       setWhatsapp({
-        configured:
-          row.status === 'fulfilled' && !!row.value.data?.phone_number_id,
-        connected: health.status === 'fulfilled' && !!health.value?.connected,
+        configured: isConfigured,
+        connected: isConnected,
       });
       setWhatsappLoading(false);
     })();
