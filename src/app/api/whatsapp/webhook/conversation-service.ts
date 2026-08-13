@@ -8,18 +8,20 @@ export async function findOrCreateConversation(
   configOwnerUserId: string,
   contactId: string
 ) {
-  const { data: existing, error: findError } = await getAdminClient()
+  const db = getAdminClient();
+  const { data: matches } = await db
     .from('conversations')
     .select('*')
     .eq('account_id', accountId)
     .eq('contact_id', contactId)
-    .single();
+    .limit(1)
+    .catch(() => ({ data: null }));
 
-  if (!findError && existing) {
-    return existing;
+  if (matches && matches.length > 0 && matches[0]) {
+    return matches[0];
   }
 
-  const { data: newConv, error: createError } = await getAdminClient()
+  const { data: newConv, error: createError } = await db
     .from('conversations')
     .insert({
       account_id: accountId,
@@ -31,6 +33,18 @@ export async function findOrCreateConversation(
     .single();
 
   if (createError) {
+    const { data: retryMatches } = await db
+      .from('conversations')
+      .select('*')
+      .eq('account_id', accountId)
+      .eq('contact_id', contactId)
+      .limit(1)
+      .catch(() => ({ data: null }));
+
+    if (retryMatches && retryMatches.length > 0 && retryMatches[0]) {
+      return retryMatches[0];
+    }
+
     console.error('Error creating conversation:', createError);
     return null;
   }

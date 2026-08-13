@@ -97,7 +97,41 @@ export function ConversationList({
         return;
       }
 
-      onConversationsLoadedRef.current(data ?? []);
+      const convs = (data ?? []) as Conversation[];
+
+      // Hydrate contacts if unpopulated
+      const missingIds = Array.from(
+        new Set(
+          convs
+            .filter(
+              (c) => Boolean(c.contact_id) && (!c.contact || !c.contact.name)
+            )
+            .map((c) => c.contact_id as string)
+        )
+      );
+
+      if (missingIds.length > 0) {
+        try {
+          const { data: contactsData } = await appwrite
+            .from('contacts')
+            .select('*')
+            .in('id', missingIds);
+
+          if (contactsData && Array.isArray(contactsData)) {
+            const contactsMap = new Map(contactsData.map((c) => [c.id, c]));
+            convs.forEach((c) => {
+              if (c.contact_id && contactsMap.has(c.contact_id)) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                c.contact = contactsMap.get(c.contact_id) as any;
+              }
+            });
+          }
+        } catch {
+          // ignore contact hydration errors
+        }
+      }
+
+      onConversationsLoadedRef.current(convs);
       setLoading(false);
     })();
 
