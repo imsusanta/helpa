@@ -67,10 +67,22 @@ function normalizeRecord(document: AnyRecord): AnyRecord {
     result.updated_at = document.$updatedAt;
   }
   Object.entries(document).forEach(([key, value]) => {
+    let parsedVal = value;
+    if (
+      typeof value === 'string' &&
+      (value.startsWith('[') || value.startsWith('{'))
+    ) {
+      try {
+        parsedVal = JSON.parse(value);
+      } catch {
+        // keep raw string
+      }
+    }
+    result[key] = parsedVal;
     const snake = toSnakeCase(key);
-    if (snake !== key && result[snake] === undefined) result[snake] = value;
+    if (snake !== key && result[snake] === undefined) result[snake] = parsedVal;
     const camel = toCamelCase(key);
-    if (camel !== key && result[camel] === undefined) result[camel] = value;
+    if (camel !== key && result[camel] === undefined) result[camel] = parsedVal;
   });
   return result;
 }
@@ -83,6 +95,16 @@ function normalizePayload(record: AnyRecord): AnyRecord {
   delete payload.$updatedAt;
   delete payload.permissions;
   delete payload.$permissions;
+  for (const [key, val] of Object.entries(payload)) {
+    if (
+      val !== null &&
+      val !== undefined &&
+      typeof val === 'object' &&
+      !(val instanceof Date)
+    ) {
+      payload[key] = JSON.stringify(val);
+    }
+  }
   return payload;
 }
 

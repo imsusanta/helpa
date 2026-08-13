@@ -230,6 +230,29 @@ export async function POST() {
       const footer = (t.components ?? []).find((c) => c.type === 'FOOTER');
       const buttons = (t.components ?? []).find((c) => c.type === 'BUTTONS');
 
+      let bodyText = body?.text ?? '';
+      if (!bodyText) {
+        // Handle carousel templates where body text is inside cards
+        const carousel = (t.components ?? []).find(
+          (c) => c.type === 'CAROUSEL'
+        ) as
+          | (MetaTemplateComponent & {
+              cards?: Array<{ components?: MetaTemplateComponent[] }>;
+            })
+          | undefined;
+        if (carousel && Array.isArray(carousel.cards)) {
+          const cardTexts = carousel.cards
+            .map(
+              (card) =>
+                (card.components ?? []).find((c) => c.type === 'BODY')?.text
+            )
+            .filter(Boolean);
+          if (cardTexts.length > 0) {
+            bodyText = cardTexts.join(' | ');
+          }
+        }
+      }
+
       const parsedButtons = parseButtons(buttons?.buttons);
       const sampleValues = extractSampleValues(body, header);
 
@@ -254,7 +277,7 @@ export async function POST() {
         header_type: headerType,
         header_content: header?.text ?? null,
         header_handle: header?.example?.header_handle?.[0] ?? null,
-        body_text: body?.text ?? '',
+        body_text: bodyText,
         footer_text: footer?.text ?? null,
         buttons: parsedButtons.length ? parsedButtons : null,
         sample_values: sampleValues,
@@ -264,33 +287,27 @@ export async function POST() {
         updated_at: new Date().toISOString(),
       };
 
-      const { data: existing, error: lookupErr } = await appwrite
+      const { data: matches } = await appwrite
         .from('message_templates')
         .select('id')
         .eq('account_id', accountId)
         .eq('name', t.name)
         .eq('language', t.language)
-        .maybeSingle();
+        .limit(1)
+        .catch(() => ({ data: null }));
 
-      if (lookupErr) {
-        errors.push({
-          name: t.name,
-          language: t.language,
-          message: lookupErr.message,
-        });
-        continue;
-      }
+      const existingId = matches?.[0]?.id;
 
-      if (existing?.id) {
+      if (existingId) {
         const { error: updErr } = await appwrite
           .from('message_templates')
           .update(row)
-          .eq('id', existing.id);
+          .eq('id', existingId);
         if (updErr) {
           errors.push({
             name: t.name,
             language: t.language,
-            message: updErr.message,
+            message: updErr.message || 'Update failed',
           });
         } else {
           updated++;
@@ -300,11 +317,23 @@ export async function POST() {
           .from('message_templates')
           .insert(row);
         if (insErr) {
-          errors.push({
-            name: t.name,
-            language: t.language,
-            message: insErr.message,
-          });
+          // Retry with update if document already exists
+          const { error: retryUpdErr } = await appwrite
+            .from('message_templates')
+            .update(row)
+            .eq('account_id', accountId)
+            .eq('name', t.name)
+            .eq('language', t.language);
+
+          if (retryUpdErr) {
+            errors.push({
+              name: t.name,
+              language: t.language,
+              message: insErr.message || 'Insert failed',
+            });
+          } else {
+            updated++;
+          }
         } else {
           inserted++;
         }
