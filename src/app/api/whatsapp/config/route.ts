@@ -469,7 +469,6 @@ export async function POST(request: Request) {
       }
     }
 
-    const now = new Date().toISOString();
     const canonicalDocument = {
       accountId,
       account_id: accountId,
@@ -491,9 +490,6 @@ export async function POST(request: Request) {
       last_registration_error: registrationError,
       subscribedAppsAt,
       subscribed_apps_at: subscribedAppsAt,
-      updatedAt: now,
-      updated_at: now,
-      updatedBy: user.id,
       encryptionKeyVersion: 'v1',
     };
 
@@ -519,12 +515,7 @@ export async function POST(request: Request) {
     } else {
       const { error: insertError } = await admin
         .from(CANONICAL_COLLECTION)
-        .insert({
-          createdAt: now,
-          created_at: now,
-          createdBy: user.id,
-          ...canonicalDocument,
-        });
+        .insert(canonicalDocument);
 
       if (insertError) {
         console.error(

@@ -497,6 +497,35 @@ class QueryBuilder {
           }
         }
 
+        if (!response.ok && body?.message?.includes('Unknown attribute:')) {
+          const match = body.message.match(/Unknown attribute:\s*"([^"]+)"/);
+          if (match && match[1]) {
+            const unknownAttr = match[1];
+            const cleanData = normalizePayload(record);
+            delete cleanData[unknownAttr];
+            const retryRes = await fetch(
+              `${endpoint}/databases/${encodeURIComponent(APPWRITE_CONFIG.databaseId)}/collections/${encodeURIComponent(colId)}/documents`,
+              {
+                method: 'POST',
+                headers: requestHeaders(
+                  undefined,
+                  this.session,
+                  this.useApiKey
+                ),
+                body: JSON.stringify({
+                  documentId: record.id || 'unique()',
+                  data: cleanData,
+                  permissions: getPermissionsForRecord(record),
+                }),
+              }
+            );
+            if (retryRes.ok) {
+              response = retryRes;
+              body = await retryRes.json().catch(() => ({}));
+            }
+          }
+        }
+
         if (response.ok) {
           documents.push(normalizeRecord(body));
           success = true;
@@ -576,6 +605,37 @@ class QueryBuilder {
           }
         );
         const body = await response.json().catch(() => ({}));
+        if (
+          !response.ok &&
+          method === 'PATCH' &&
+          body?.message?.includes('Unknown attribute:')
+        ) {
+          const match = body.message.match(/Unknown attribute:\s*"([^"]+)"/);
+          if (match && match[1]) {
+            const unknownAttr = match[1];
+            const cleanData = normalizePayload(this.payload);
+            delete cleanData[unknownAttr];
+            const retryRes = await fetch(
+              `${endpoint}/databases/${encodeURIComponent(APPWRITE_CONFIG.databaseId)}/collections/${encodeURIComponent(colId)}/documents/${encodeURIComponent(document.$id || document.id)}`,
+              {
+                method: 'PATCH',
+                headers: requestHeaders(
+                  undefined,
+                  this.session,
+                  this.useApiKey
+                ),
+                body: JSON.stringify({ data: cleanData }),
+              }
+            );
+            if (retryRes.ok) {
+              const patchBody = await retryRes.json().catch(() => ({}));
+              updated.push(normalizeRecord(patchBody));
+              success = true;
+              break;
+            }
+          }
+        }
+
         if (response.ok) {
           if (method === 'PATCH') updated.push(normalizeRecord(body));
           success = true;
