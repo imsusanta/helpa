@@ -25,6 +25,28 @@ function appwriteAdmin() {
 const CANONICAL_COLLECTION = APPWRITE_CONFIG.collections.whatsappConfigs;
 
 /**
+ * Helper: Safely list documents from whatsapp_configs collection
+ */
+async function listAllConfigs(): Promise<{
+  docs: Record<string, unknown>[];
+  error: unknown;
+}> {
+  try {
+    const admin = appwriteAdmin();
+    const res = await admin.from(CANONICAL_COLLECTION).select('*');
+    if (res.error) return { docs: [], error: res.error };
+    const docs = Array.isArray(res.data)
+      ? res.data
+      : res.data
+        ? [res.data]
+        : [];
+    return { docs, error: null };
+  } catch (err) {
+    return { docs: [], error: err };
+  }
+}
+
+/**
  * GET /api/whatsapp/config
  *
  * Checks saved configuration health and Meta connectivity for caller's account.
@@ -70,37 +92,31 @@ export async function GET() {
       );
     }
 
-    const admin = appwriteAdmin();
+    const { docs, error: fetchErr } = await listAllConfigs();
 
-    // Query canonical collection with camelCase and snake_case fallbacks
-    let { data: config, error: configError } = await admin
-      .from(CANONICAL_COLLECTION)
-      .select('*')
-      .eq('accountId', accountId)
-      .maybeSingle();
-
-    if (configError || !config) {
-      const retry = await admin
-        .from(CANONICAL_COLLECTION)
-        .select('*')
-        .eq('account_id', accountId)
-        .maybeSingle();
-      if (retry.data) {
-        config = retry.data;
-        configError = retry.error;
-      }
-    }
-
-    if (configError) {
-      console.error('[GET /api/whatsapp/config] DB Query Error:', configError);
+    if (fetchErr) {
+      const errMsg =
+        fetchErr instanceof Error
+          ? fetchErr.message
+          : typeof fetchErr === 'object' &&
+              fetchErr !== null &&
+              'message' in fetchErr
+            ? String((fetchErr as { message: unknown }).message)
+            : 'Database error';
+      console.error('[GET /api/whatsapp/config] DB Query Error:', fetchErr);
       return NextResponse.json(
         {
           code: 'DATABASE_ERROR',
-          error: `Failed to fetch WhatsApp configuration: ${configError.message || 'Database error'}`,
+          error: `Failed to fetch WhatsApp configuration: ${errMsg}`,
         },
         { status: 500 }
       );
     }
+
+    const config = docs.find(
+      (doc) =>
+        String(doc.accountId || doc.account_id || '') === String(accountId)
+    );
 
     if (!config) {
       return NextResponse.json(
@@ -115,12 +131,22 @@ export async function GET() {
       );
     }
 
-    const phoneNumId = config.phoneNumberId || config.phone_number_id;
-    const wabaNumId = config.wabaId || config.waba_id;
+    const phoneNumId = String(
+      config.phoneNumberId || config.phone_number_id || ''
+    );
+    const wabaNumId = config.wabaId
+      ? String(config.wabaId)
+      : config.waba_id
+        ? String(config.waba_id)
+        : null;
     const rawEncryptedToken =
-      config.encryptedAccessToken ||
-      config.encrypted_access_token ||
-      config.access_token;
+      typeof config.encryptedAccessToken === 'string'
+        ? config.encryptedAccessToken
+        : typeof config.encrypted_access_token === 'string'
+          ? config.encrypted_access_token
+          : typeof config.access_token === 'string'
+            ? config.access_token
+            : null;
     const rawEncryptedVerify =
       config.encryptedVerifyToken || config.verify_token;
 
@@ -303,30 +329,17 @@ export async function POST(request: Request) {
     const pin = rawPin ? String(rawPin).trim() : null;
     const wabaId = rawWabaId ? String(rawWabaId).trim() : null;
 
-    const admin = appwriteAdmin();
+    const { docs: allConfigs } = await listAllConfigs();
 
     // Check if phone number is claimed by another account
-    let claimed: boolean = false;
-    try {
-      const { data: existingPhone } = await admin
-        .from(CANONICAL_COLLECTION)
-        .select('accountId, account_id')
-        .eq('phoneNumberId', phoneNumberId)
-        .maybeSingle();
+    const claimedConfig = allConfigs.find(
+      (doc) =>
+        String(doc.phoneNumberId || doc.phone_number_id || '') ===
+          String(phoneNumberId) &&
+        String(doc.accountId || doc.account_id || '') !== String(accountId)
+    );
 
-      const existingPhoneAccount =
-        existingPhone?.accountId || existingPhone?.account_id;
-      if (existingPhoneAccount && existingPhoneAccount !== accountId) {
-        claimed = true;
-      }
-    } catch (err) {
-      console.warn(
-        '[whatsapp/config POST] Phone ownership check warning:',
-        err
-      );
-    }
-
-    if (claimed) {
+    if (claimedConfig) {
       return NextResponse.json(
         {
           code: 'WHATSAPP_PHONE_ALREADY_CLAIMED',
@@ -337,14 +350,11 @@ export async function POST(request: Request) {
       );
     }
 
-    // Lookup existing config to handle token updates vs reuse
-    const { data: existingConfig } = await admin
-      .from(CANONICAL_COLLECTION)
-      .select(
-        'id, $id, encryptedAccessToken, encrypted_access_token, access_token, registeredAt, registered_at, phoneNumberId, phone_number_id'
-      )
-      .eq('accountId', accountId)
-      .maybeSingle();
+    // Lookup existing config for caller's account
+    const existingConfig = allConfigs.find(
+      (doc) =>
+        String(doc.accountId || doc.account_id || '') === String(accountId)
+    );
 
     let accessTokenToUse: string | null = null;
     if (
@@ -358,7 +368,7 @@ export async function POST(request: Request) {
         existingConfig.encryptedAccessToken ||
         existingConfig.encrypted_access_token ||
         existingConfig.access_token;
-      if (existingEnc) {
+      if (typeof existingEnc === 'string') {
         try {
           accessTokenToUse = decrypt(existingEnc);
         } catch (err) {
@@ -426,7 +436,8 @@ export async function POST(request: Request) {
     const sameNumber =
       existingPhoneId === phoneNumberId && existingRegAt != null;
 
-    let registeredAt: string | null = existingRegAt ?? null;
+    let registeredAt: string | null =
+      typeof existingRegAt === 'string' ? existingRegAt : null;
     let registrationError: string | null = null;
     let registrationSkipped = false;
 
@@ -489,11 +500,14 @@ export async function POST(request: Request) {
       encryptionKeyVersion: 'v1',
     };
 
+    const admin = appwriteAdmin();
+
     if (existingConfig) {
+      const docId = existingConfig.$id || existingConfig.id;
       const { error: updateError } = await admin
         .from(CANONICAL_COLLECTION)
         .update(canonicalDocument)
-        .eq('accountId', accountId);
+        .eq('id', docId);
 
       if (updateError) {
         console.error(
@@ -529,16 +543,15 @@ export async function POST(request: Request) {
     }
 
     // Re-read document to verify persistence
-    const { data: verifiedDoc, error: reReadError } = await admin
-      .from(CANONICAL_COLLECTION)
-      .select('accountId, account_id, phoneNumberId, phone_number_id')
-      .eq('accountId', accountId)
-      .maybeSingle();
+    const { docs: verifiedDocs } = await listAllConfigs();
+    const verifiedDoc = verifiedDocs.find(
+      (doc) =>
+        String(doc.accountId || doc.account_id || '') === String(accountId)
+    );
 
-    if (reReadError || !verifiedDoc) {
+    if (!verifiedDoc) {
       console.error(
-        '[whatsapp/config POST] Verified re-read failed:',
-        reReadError
+        '[whatsapp/config POST] Verified re-read failed: Document not found after save'
       );
       return NextResponse.json(
         {
@@ -637,21 +650,33 @@ export async function DELETE() {
       );
     }
 
-    const admin = appwriteAdmin();
-    const { error: deleteError } = await admin
-      .from(CANONICAL_COLLECTION)
-      .delete()
-      .eq('accountId', accountId);
+    const { docs } = await listAllConfigs();
+    const target = docs.find(
+      (doc) =>
+        String(doc.accountId || doc.account_id || '') === String(accountId)
+    );
 
-    if (deleteError) {
-      console.error('[DELETE /api/whatsapp/config] Delete error:', deleteError);
-      return NextResponse.json(
-        {
-          code: 'WHATSAPP_CONFIG_PERSISTENCE_FAILED',
-          error: `Failed to delete configuration: ${deleteError.message || 'DB error'}`,
-        },
-        { status: 500 }
-      );
+    if (target) {
+      const docId = target.$id || target.id;
+      const admin = appwriteAdmin();
+      const { error: deleteError } = await admin
+        .from(CANONICAL_COLLECTION)
+        .delete()
+        .eq('id', docId);
+
+      if (deleteError) {
+        console.error(
+          '[DELETE /api/whatsapp/config] Delete error:',
+          deleteError
+        );
+        return NextResponse.json(
+          {
+            code: 'WHATSAPP_CONFIG_PERSISTENCE_FAILED',
+            error: `Failed to delete configuration: ${deleteError.message || 'DB error'}`,
+          },
+          { status: 500 }
+        );
+      }
     }
 
     return NextResponse.json({ success: true });
