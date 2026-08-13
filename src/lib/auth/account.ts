@@ -4,6 +4,7 @@ import { hasMinRole, type AccountRole } from './roles';
 import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
 import { accountsRepository } from '@/infrastructure/appwrite/repositories/accounts.repository';
 import { profilesRepository } from '@/infrastructure/appwrite/repositories/profiles.repository';
+import { appwriteAdmin } from '@/lib/appwrite-server-compat';
 
 export class UnauthorizedError extends Error {
   readonly status = 401 as const;
@@ -107,6 +108,7 @@ export async function getCurrentAccount(): Promise<AccountContext> {
       role: profile.role,
       email: appwriteUser.email || profile.email || '',
       account: { id: accountId, name: accountDoc?.name || 'Clinic Account' },
+      appwrite: appwriteAdmin(),
     };
   } catch (error) {
     if (error instanceof UnauthorizedError || error instanceof ForbiddenError) {

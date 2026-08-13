@@ -16,6 +16,7 @@ import {
   getCurrentAccount,
   toErrorResponse,
 } from '@/lib/auth/account';
+import { appwriteAdmin } from '@/lib/appwrite-server-compat';
 import {
   checkRateLimit,
   rateLimitResponse,
@@ -112,7 +113,8 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const { data, error } = await ctx.appwrite
+    const admin = appwriteAdmin();
+    const { data, error } = await admin
       .from('accounts')
       .update(updates)
       .eq('id', ctx.accountId)
