@@ -50,9 +50,7 @@ function toCamelCase(field: string): string {
 
 function toAppwriteField(field: string): string {
   if (field === 'id') return '$id';
-  if (field === 'created_at') return '$createdAt';
-  if (field === 'updated_at') return '$updatedAt';
-  return toCamelCase(field);
+  return field;
 }
 
 function toSnakeCase(field: string): string {
@@ -71,11 +69,13 @@ function normalizeRecord(document: AnyRecord): AnyRecord {
   Object.entries(document).forEach(([key, value]) => {
     const snake = toSnakeCase(key);
     if (snake !== key && result[snake] === undefined) result[snake] = value;
+    const camel = toCamelCase(key);
+    if (camel !== key && result[camel] === undefined) result[camel] = value;
   });
   return result;
 }
 
-function normalizePayload(record: AnyRecord): AnyRecord {
+function normalizePayload(record: AnyRecord, camelCaseKeys = false): AnyRecord {
   const payload = { ...record };
   delete payload.id;
   delete payload.$id;
@@ -83,9 +83,12 @@ function normalizePayload(record: AnyRecord): AnyRecord {
   delete payload.$updatedAt;
   delete payload.permissions;
   delete payload.$permissions;
-  return Object.fromEntries(
-    Object.entries(payload).map(([key, value]) => [toCamelCase(key), value])
-  );
+  if (camelCaseKeys) {
+    return Object.fromEntries(
+      Object.entries(payload).map(([key, value]) => [toCamelCase(key), value])
+    );
+  }
+  return payload;
 }
 
 function getPermissionsForRecord(record: AnyRecord): string[] {
@@ -487,6 +490,26 @@ class QueryBuilder {
           if (retryRes.ok) {
             response = retryRes;
             body = await retryRes.json().catch(() => ({}));
+          }
+        }
+
+        if (!response.ok && (body?.message?.includes('Unknown attribute') || body?.message?.includes('Attribute not found'))) {
+          const adminHeaders = requestHeaders(undefined, this.session, true);
+          const camelRes = await fetch(
+            `${endpoint}/databases/${encodeURIComponent(APPWRITE_CONFIG.databaseId)}/collections/${encodeURIComponent(colId)}/documents`,
+            {
+              method: 'POST',
+              headers: adminHeaders,
+              body: JSON.stringify({
+                documentId: record.id || 'unique()',
+                data: normalizePayload(record, true),
+                permissions: getPermissionsForRecord(record),
+              }),
+            }
+          );
+          if (camelRes.ok) {
+            response = camelRes;
+            body = await camelRes.json().catch(() => ({}));
           }
         }
 
