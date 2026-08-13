@@ -97,86 +97,107 @@ export function ContactDetailView({
     if (!contactId) return;
     setLoading(true);
 
-    const [contactRes, patientRes] = await Promise.all([
-      appwrite.from('contacts').select('*').eq('id', contactId).single(),
-      appwrite.from('patients').select('*').eq('id', contactId).maybeSingle(),
-    ]);
-
-    const data = contactRes.data;
-    let pData = patientRes.data;
-
-    if (data) {
-      // Auto-generate patient_seq_id if missing in patients table
-      if (!pData && accountId) {
-        const { data: maxPatient } = await appwrite
+    try {
+      const [contactRes, patientRes] = await Promise.all([
+        appwrite
+          .from('contacts')
+          .select('*')
+          .eq('id', contactId)
+          .single()
+          .catch(() => ({ data: null })),
+        appwrite
           .from('patients')
-          .select('patient_seq_id')
-          .eq('account_id', accountId)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+          .select('*')
+          .eq('id', contactId)
+          .maybeSingle()
+          .catch(() => ({ data: null })),
+      ]);
 
-        let nextNum = 1;
-        if (maxPatient?.patient_seq_id) {
-          const numMatch = maxPatient.patient_seq_id.match(/\d+/);
-          if (numMatch) {
-            nextNum = parseInt(numMatch[0], 10) + 1;
+      const data = contactRes?.data;
+      let pData = patientRes?.data;
+
+      if (data) {
+        // Auto-generate patient_seq_id if missing in patients table
+        if (!pData && accountId) {
+          try {
+            const { data: maxPatient } = await appwrite
+              .from('patients')
+              .select('patient_seq_id')
+              .eq('account_id', accountId)
+              .limit(1)
+              .maybeSingle()
+              .catch(() => ({ data: null }));
+
+            let nextNum = 1;
+            if (maxPatient?.patient_seq_id) {
+              const numMatch = maxPatient.patient_seq_id.match(/\d+/);
+              if (numMatch) {
+                nextNum = parseInt(numMatch[0], 10) + 1;
+              }
+            }
+
+            const generatedSeqId = `PAT-${String(nextNum).padStart(6, '0')}`;
+
+            const { data: newP } = await appwrite
+              .from('patients')
+              .insert({
+                id: contactId,
+                account_id: accountId,
+                patient_seq_id: generatedSeqId,
+                status: 'active',
+              })
+              .select('*')
+              .single()
+              .catch(() => ({ data: null }));
+
+            if (newP) {
+              pData = newP;
+            }
+
+            await appwrite
+              .from('contacts')
+              .update({
+                metadata: {
+                  ...(data.metadata || {}),
+                  patient_id: generatedSeqId,
+                },
+              })
+              .eq('id', contactId)
+              .catch(() => ({ error: null }));
+          } catch {
+            // Patient auto-provisioning fallback
           }
         }
 
-        const generatedSeqId = `PAT-${String(nextNum).padStart(6, '0')}`;
+        setContact(data);
+        setEditName(data.name ?? '');
+        setEditPhone(data.phone ?? '');
+        setEditEmail(data.email ?? '');
+        setEditCompany(data.company ?? '');
+        setEditAddress(data.address ?? '');
+        setEditNotes(data.notes ?? '');
 
-        const { data: newP } = await appwrite
-          .from('patients')
-          .insert({
-            id: contactId,
-            account_id: accountId,
-            patient_seq_id: generatedSeqId,
-            status: 'active',
-          })
-          .select('*')
-          .single();
+        const seq = getOrGeneratePatientId(data, pData?.patient_seq_id);
+        setPatientSeqId(seq);
 
-        if (newP) {
-          pData = newP;
-        }
+        const mergedMeta = {
+          ...(data.metadata ?? {}),
+          patient_id: seq,
+          ...(pData?.blood_group ? { blood_group: pData.blood_group } : {}),
+          ...(pData?.gender ? { gender: pData.gender } : {}),
+          ...(pData?.date_of_birth ? { dob: pData.date_of_birth } : {}),
+          ...(pData?.emergency_contact
+            ? { emergency_contact: pData.emergency_contact }
+            : {}),
+        };
 
-        await appwrite
-          .from('contacts')
-          .update({
-            metadata: {
-              ...(data.metadata || {}),
-              patient_id: generatedSeqId,
-            },
-          })
-          .eq('id', contactId);
+        setEditMetadata(mergedMeta);
       }
-
-      setContact(data);
-      setEditName(data.name ?? '');
-      setEditPhone(data.phone);
-      setEditEmail(data.email ?? '');
-      setEditCompany(data.company ?? '');
-      setEditAddress(data.address ?? '');
-      setEditNotes(data.notes ?? '');
-
-      const seq = getOrGeneratePatientId(data, pData?.patient_seq_id);
-      setPatientSeqId(seq);
-
-      const mergedMeta = {
-        ...(data.metadata ?? {}),
-        patient_id: seq,
-        ...(pData?.blood_group ? { blood_group: pData.blood_group } : {}),
-        ...(pData?.gender ? { gender: pData.gender } : {}),
-        ...(pData?.date_of_birth ? { dob: pData.date_of_birth } : {}),
-        ...(pData?.emergency_contact
-          ? { emergency_contact: pData.emergency_contact }
-          : {}),
-      };
-
-      setEditMetadata(mergedMeta);
+    } catch (err) {
+      console.error('Failed to fetch contact details:', err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [contactId, accountId, appwrite]);
 
   const fetchTags = useCallback(async () => {
