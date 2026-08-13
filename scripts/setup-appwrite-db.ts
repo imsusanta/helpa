@@ -174,6 +174,11 @@ export const SCHEMA_MANIFEST: Record<string, CollectionSchema> = {
         type: 'unique',
         attributes: ['accountId', 'phone'],
       },
+      {
+        key: 'idx_contacts_name_search',
+        type: 'fulltext',
+        attributes: ['name'],
+      },
     ],
   },
   patients: {

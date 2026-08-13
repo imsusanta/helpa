@@ -56,15 +56,50 @@ export class ContactsRepository {
       // future capability until dedicated normalized search attributes exist.
       queries.push(Query.search('name', options.search));
     }
-    const res = await this.db.listDocuments(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.contacts,
-      queries
-    );
-    return {
-      contacts: res.documents as unknown as ContactDocument[],
-      total: res.total,
-    };
+
+    try {
+      const res = await this.db.listDocuments(
+        APPWRITE_CONFIG.databaseId,
+        APPWRITE_CONFIG.collections.contacts,
+        queries
+      );
+      return {
+        contacts: res.documents as unknown as ContactDocument[],
+        total: res.total,
+      };
+    } catch (err) {
+      // If the error is due to a missing fulltext index on "name" and we
+      // were searching, fall back to fetching all tenant contacts and
+      // filtering in memory. This keeps the page working while the
+      // fulltext index is being provisioned.
+      const msg = err instanceof Error ? err.message : '';
+      if (options.search && /index|attribute|search/i.test(msg)) {
+        const fallbackQueries = [
+          Query.equal('accountId', accountId),
+          Query.orderDesc('$createdAt'),
+          Query.limit(500),
+        ];
+        const res = await this.db.listDocuments(
+          APPWRITE_CONFIG.databaseId,
+          APPWRITE_CONFIG.collections.contacts,
+          fallbackQueries
+        );
+        const needle = options.search.toLowerCase();
+        const allDocs = res.documents as unknown as ContactDocument[];
+        const filtered = allDocs.filter(
+          (c) =>
+            c.name?.toLowerCase().includes(needle) ||
+            c.phone?.includes(needle) ||
+            c.email?.toLowerCase().includes(needle)
+        );
+        const paged = filtered.slice(
+          options.offset,
+          options.offset + options.limit
+        );
+        return { contacts: paged, total: filtered.length };
+      }
+      throw err;
+    }
   }
 
   async getContact(
