@@ -165,13 +165,10 @@ export async function GET() {
               full_name:
                 (ownerProfile.full_name as string) ||
                 (ownerProfile.name as string) ||
-                'Susanta Lohar',
-              email: (ownerProfile.email as string) || 'susantalohr@gmail.com',
+                'Account Owner',
+              email: (ownerProfile.email as string) || '',
             }
-          : {
-              full_name: 'Susanta Lohar',
-              email: 'susantalohr@gmail.com',
-            },
+          : null,
         membersCount: accProfiles.length || 1,
         contactsCount: contactsCountByAccount[accId] || contacts.length || 0,
         subscription: subInfo
