@@ -18,7 +18,7 @@ export async function GET() {
     const currentMonth = new Date().toISOString().substring(0, 7) + '-01';
 
     // 1. Fetch Accounts
-    let accounts: Array<Record<string, any>> = [];
+    let accounts: Array<Record<string, unknown>> = [];
     try {
       const accRes = await db.listDocuments(
         APPWRITE_CONFIG.databaseId,
@@ -31,7 +31,7 @@ export async function GET() {
     }
 
     // 2. Fetch Profiles
-    let profiles: Array<Record<string, any>> = [];
+    let profiles: Array<Record<string, unknown>> = [];
     try {
       const profRes = await db.listDocuments(
         APPWRITE_CONFIG.databaseId,
@@ -44,7 +44,7 @@ export async function GET() {
     }
 
     // 3. Fetch Subscriptions
-    let subs: Array<Record<string, any>> = [];
+    let subs: Array<Record<string, unknown>> = [];
     try {
       const subRes = await db.listDocuments(
         APPWRITE_CONFIG.databaseId,
@@ -57,7 +57,7 @@ export async function GET() {
     }
 
     // 4. Fetch Usage
-    let usage: Array<Record<string, any>> = [];
+    let usage: Array<Record<string, unknown>> = [];
     try {
       const usageRes = await db.listDocuments(
         APPWRITE_CONFIG.databaseId,
@@ -70,7 +70,7 @@ export async function GET() {
     }
 
     // 5. Fetch Contacts count
-    let contacts: Array<Record<string, any>> = [];
+    let contacts: Array<Record<string, unknown>> = [];
     try {
       const contactsRes = await db.listDocuments(
         APPWRITE_CONFIG.databaseId,
@@ -94,24 +94,23 @@ export async function GET() {
     const contactsCountByAccount: Record<string, number> = {};
     contacts.forEach((c) => {
       const accId = String(c.account_id || 'default_account');
-      contactsCountByAccount[accId] =
-        (contactsCountByAccount[accId] || 0) + 1;
+      contactsCountByAccount[accId] = (contactsCountByAccount[accId] || 0) + 1;
     });
 
-    const subByAccount: Record<string, any> = {};
+    const subByAccount: Record<string, Record<string, unknown>> = {};
     subs.forEach((s) => {
       const accId = String(s.account_id || 'default_account');
       subByAccount[accId] = s;
     });
 
-    const usageByAccount: Record<string, any> = {};
+    const usageByAccount: Record<string, Record<string, unknown>> = {};
     usage.forEach((u) => {
       const accId = String(u.account_id || 'default_account');
       usageByAccount[accId] = u;
     });
 
     // Ensure all account_ids from profiles exist in accounts array
-    const accountMap = new Map<string, Record<string, any>>();
+    const accountMap = new Map<string, Record<string, unknown>>();
     accounts.forEach((acc) => {
       const id = String(acc.$id || acc.id);
       accountMap.set(id, acc);
@@ -123,7 +122,10 @@ export async function GET() {
         accountMap.set(accId, {
           $id: accId,
           id: accId,
-          name: accId === 'default_account' ? 'Helpa Health Clinic' : 'Clinic Account',
+          name:
+            accId === 'default_account'
+              ? 'Helpa Health Clinic'
+              : 'Clinic Account',
           created_at: new Date().toISOString(),
         });
       }
@@ -144,7 +146,9 @@ export async function GET() {
       const accProfiles = profilesByAccount[accId] || profiles;
       const ownerProfile =
         accProfiles.find((p) => p.user_id === acc.owner_user_id) ||
-        accProfiles.find((p) => p.account_role === 'owner' || p.role === 'owner') ||
+        accProfiles.find(
+          (p) => p.account_role === 'owner' || p.role === 'owner'
+        ) ||
         accProfiles[0] ||
         null;
       const subInfo = subByAccount[accId] || null;
@@ -153,19 +157,18 @@ export async function GET() {
       return {
         id: accId,
         name: String(acc.name || 'Helpa Health Clinic'),
-        created_at: String(acc.created_at || acc.$createdAt || new Date().toISOString()),
+        created_at: String(
+          acc.created_at || acc.$createdAt || new Date().toISOString()
+        ),
         owner: ownerProfile
           ? {
               full_name:
                 (ownerProfile.full_name as string) ||
                 (ownerProfile.name as string) ||
-                'Susanta Lohar',
-              email: (ownerProfile.email as string) || 'susantalohr@gmail.com',
+                'Account Owner',
+              email: (ownerProfile.email as string) || '',
             }
-          : {
-              full_name: 'Susanta Lohar',
-              email: 'susantalohr@gmail.com',
-            },
+          : null,
         membersCount: accProfiles.length || 1,
         contactsCount: contactsCountByAccount[accId] || contacts.length || 0,
         subscription: subInfo
@@ -221,23 +224,28 @@ export async function PATCH(request: Request) {
     const db = getAppwriteAdminClient().databases;
 
     // Update or create subscription record
-    const existing = await db.listDocuments(
-      APPWRITE_CONFIG.databaseId,
-      'subscriptions',
-      [Query.equal('account_id', tenantId), Query.limit(1)]
-    ).catch(() => ({ documents: [] }));
+    const existing = await db
+      .listDocuments(APPWRITE_CONFIG.databaseId, 'subscriptions', [
+        Query.equal('account_id', tenantId),
+        Query.limit(1),
+      ])
+      .catch(() => ({ documents: [] }));
 
     if (existing.documents[0]) {
-      await db.updateDocument(
-        APPWRITE_CONFIG.databaseId,
-        'subscriptions',
-        existing.documents[0].$id,
-        {
-          status: body?.status || 'active',
-          end_date: body?.endDate || new Date(Date.now() + 30 * 86400 * 1000).toISOString(),
-          updated_at: new Date().toISOString(),
-        }
-      ).catch(() => null);
+      await db
+        .updateDocument(
+          APPWRITE_CONFIG.databaseId,
+          'subscriptions',
+          existing.documents[0].$id,
+          {
+            status: body?.status || 'active',
+            end_date:
+              body?.endDate ||
+              new Date(Date.now() + 30 * 86400 * 1000).toISOString(),
+            updated_at: new Date().toISOString(),
+          }
+        )
+        .catch(() => null);
     }
 
     return NextResponse.json({

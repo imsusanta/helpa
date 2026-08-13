@@ -115,8 +115,8 @@ export function KbPanel() {
           Array.isArray(data)
             ? data
             : Array.isArray(data?.data)
-            ? data.data
-            : []
+              ? data.data
+              : []
         );
       } else {
         setEntries([]);

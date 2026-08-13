@@ -1,11 +1,9 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Loader2, Upload, Trash2, Mail, CircleAlert } from 'lucide-react';
 
-import { createClient } from '@/lib/appwrite-compat';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,7 +27,6 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function ProfileForm() {
   const { user, profile, refreshProfile } = useAuth();
-  const appwrite = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [fullName, setFullName] = useState('');
@@ -131,9 +128,8 @@ export function ProfileForm() {
         } catch {
           // Client SDK fallback or local base64 Data URL fallback
           try {
-            const { uploadAccountMedia } = await import(
-              '@/lib/storage/upload-media'
-            );
+            const { uploadAccountMedia } =
+              await import('@/lib/storage/upload-media');
             const mediaResult = await uploadAccountMedia(
               'chat-media',
               pendingAvatar

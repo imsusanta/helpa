@@ -20,38 +20,43 @@ export async function POST(request: Request) {
     const db = getAppwriteAdminClient().databases;
 
     // Check existing subscription
-    const existing = await db.listDocuments(
-      APPWRITE_CONFIG.databaseId,
-      'subscriptions',
-      [Query.equal('account_id', ctx.accountId), Query.limit(1)]
-    ).catch(() => ({ documents: [] }));
+    const existing = await db
+      .listDocuments(APPWRITE_CONFIG.databaseId, 'subscriptions', [
+        Query.equal('account_id', ctx.accountId),
+        Query.limit(1),
+      ])
+      .catch(() => ({ documents: [] }));
 
     const nextEndDate = new Date(Date.now() + 30 * 86400 * 1000).toISOString();
 
     if (existing.documents[0]) {
-      await db.updateDocument(
-        APPWRITE_CONFIG.databaseId,
-        'subscriptions',
-        existing.documents[0].$id,
-        {
-          status: 'active',
-          end_date: nextEndDate,
-          updated_at: new Date().toISOString(),
-        }
-      ).catch(() => null);
+      await db
+        .updateDocument(
+          APPWRITE_CONFIG.databaseId,
+          'subscriptions',
+          existing.documents[0].$id,
+          {
+            status: 'active',
+            end_date: nextEndDate,
+            updated_at: new Date().toISOString(),
+          }
+        )
+        .catch(() => null);
     } else {
-      await db.createDocument(
-        APPWRITE_CONFIG.databaseId,
-        'subscriptions',
-        ID.unique(),
-        {
-          account_id: ctx.accountId,
-          status: 'active',
-          end_date: nextEndDate,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }
-      ).catch(() => null);
+      await db
+        .createDocument(
+          APPWRITE_CONFIG.databaseId,
+          'subscriptions',
+          ID.unique(),
+          {
+            account_id: ctx.accountId,
+            status: 'active',
+            end_date: nextEndDate,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          }
+        )
+        .catch(() => null);
     }
 
     return NextResponse.json({

@@ -44,10 +44,12 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:report": "playwright show-report",
-    "appwrite:setup": "tsx scripts/setup-appwrite-db.ts",
-    "appwrite:verify": "tsx scripts/verify-appwrite-db.ts",
+    "appwrite:setup": "tsx scripts/setup-appwrite-db.ts --apply",
+    "appwrite:verify": "tsx scripts/verify-appwrite-db.ts && tsx scripts/verify-appwrite-storage.ts",
+    "appwrite:migrate:dry-run": "tsx scripts/setup-appwrite-db.ts --dry-run",
+    "appwrite:migrate:apply": "tsx scripts/setup-appwrite-db.ts --apply",
     "appwrite:test": "vitest run src/tests/appwrite/**/*.test.ts",
-    "appwrite:migrate": "tsx scripts/setup-appwrite-db.ts",
+    "appwrite:migrate": "tsx scripts/setup-appwrite-db.ts --dry-run",
     "voice:smoke": "tsx scripts/voice-smoke-test.ts"
   },
   "dependencies": {

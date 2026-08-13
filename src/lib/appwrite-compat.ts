@@ -88,34 +88,22 @@ function normalizePayload(record: AnyRecord): AnyRecord {
 
 function getPermissionsForRecord(record: AnyRecord): string[] {
   if (Array.isArray(record.permissions) && record.permissions.length > 0) {
-    return record.permissions;
+    return record.permissions.filter((p) => !p.includes('"any"'));
   }
   if (Array.isArray(record.$permissions) && record.$permissions.length > 0) {
-    return record.$permissions;
+    return record.$permissions.filter((p) => !p.includes('"any"'));
   }
 
   const userId = record.user_id || record.userId;
-  const perms = [
-    'read("any")',
-    'update("any")',
-    'delete("any")',
-    'write("any")',
-    'read("users")',
-    'update("users")',
-    'delete("users")',
-    'write("users")',
-  ];
-
   if (userId && typeof userId === 'string' && userId.length > 5) {
-    perms.unshift(
+    return [
       `read("user:${userId}")`,
       `update("user:${userId}")`,
       `delete("user:${userId}")`,
-      `write("user:${userId}")`
-    );
+    ];
   }
 
-  return perms;
+  return ['read("users")', 'update("users")', 'delete("users")'];
 }
 
 function queryValue(value: any): string {
@@ -125,32 +113,53 @@ function queryValue(value: any): string {
 
 function getCollectionCandidates(table: string): string[] {
   const map: Record<string, string> = {
-    whatsapp_config: APPWRITE_CONFIG.collections.whatsappConfigs || 'whatsapp_configs',
-    whatsapp_configs: APPWRITE_CONFIG.collections.whatsappConfigs || 'whatsapp_configs',
-    message_templates: APPWRITE_CONFIG.collections.messageTemplates || 'message_templates',
-    account_invitations: APPWRITE_CONFIG.collections.accountInvitations || 'account_invitations',
-    lead_stage_history: APPWRITE_CONFIG.collections.leadStageHistory || 'lead_stage_history',
-    contact_channels: APPWRITE_CONFIG.collections.contactChannels || 'contact_channels',
-    idempotency_keys: APPWRITE_CONFIG.collections.idempotencyKeys || 'idempotency_keys',
-    outbound_outbox: APPWRITE_CONFIG.collections.outboundOutbox || 'outbound_outbox',
+    whatsapp_config:
+      APPWRITE_CONFIG.collections.whatsappConfigs || 'whatsapp_configs',
+    whatsapp_configs:
+      APPWRITE_CONFIG.collections.whatsappConfigs || 'whatsapp_configs',
+    message_templates:
+      APPWRITE_CONFIG.collections.messageTemplates || 'message_templates',
+    account_invitations:
+      APPWRITE_CONFIG.collections.accountInvitations || 'account_invitations',
+    lead_stage_history:
+      APPWRITE_CONFIG.collections.leadStageHistory || 'lead_stage_history',
+    contact_channels:
+      APPWRITE_CONFIG.collections.contactChannels || 'contact_channels',
+    idempotency_keys:
+      APPWRITE_CONFIG.collections.idempotencyKeys || 'idempotency_keys',
+    outbound_outbox:
+      APPWRITE_CONFIG.collections.outboundOutbox || 'outbound_outbox',
     flow_runs: APPWRITE_CONFIG.collections.flowRuns || 'flow_runs',
-    voice_integrations: APPWRITE_CONFIG.collections.voiceIntegrations || 'voice_integrations',
-    voice_commands: APPWRITE_CONFIG.collections.voiceCommands || 'voice_commands',
-    provider_events: APPWRITE_CONFIG.collections.providerEvents || 'provider_events',
+    voice_integrations:
+      APPWRITE_CONFIG.collections.voiceIntegrations || 'voice_integrations',
+    voice_commands:
+      APPWRITE_CONFIG.collections.voiceCommands || 'voice_commands',
+    provider_events:
+      APPWRITE_CONFIG.collections.providerEvents || 'provider_events',
     audit_logs: APPWRITE_CONFIG.collections.auditLogs || 'audit_logs',
-    calendly_connections: APPWRITE_CONFIG.collections.calendlyConnections || 'calendly_connections',
-    calendly_event_types: APPWRITE_CONFIG.collections.calendlyEventTypes || 'calendly_event_types',
-    service_event_type_mappings: APPWRITE_CONFIG.collections.serviceEventTypeMappings || 'service_event_type_mappings',
-    knowledge_base: APPWRITE_CONFIG.collections.knowledgeBase || 'knowledge_base',
+    calendly_connections:
+      APPWRITE_CONFIG.collections.calendlyConnections || 'calendly_connections',
+    calendly_event_types:
+      APPWRITE_CONFIG.collections.calendlyEventTypes || 'calendly_event_types',
+    service_event_type_mappings:
+      APPWRITE_CONFIG.collections.serviceEventTypeMappings ||
+      'service_event_type_mappings',
+    knowledge_base:
+      APPWRITE_CONFIG.collections.knowledgeBase || 'knowledge_base',
     worker_health: APPWRITE_CONFIG.collections.workerHealth || 'worker_health',
   };
 
-  const primary = map[table] || (APPWRITE_CONFIG.collections as Record<string, string>)[table] || table;
+  const primary =
+    map[table] ||
+    (APPWRITE_CONFIG.collections as Record<string, string>)[table] ||
+    table;
   const candidates = [primary];
 
   if (table === 'whatsapp_config' || table === 'whatsapp_configs') {
-    if (!candidates.includes('whatsapp_configs')) candidates.push('whatsapp_configs');
-    if (!candidates.includes('whatsapp_config')) candidates.push('whatsapp_config');
+    if (!candidates.includes('whatsapp_configs'))
+      candidates.push('whatsapp_configs');
+    if (!candidates.includes('whatsapp_config'))
+      candidates.push('whatsapp_config');
   } else if (primary.endsWith('s')) {
     const singular = primary.slice(0, -1);
     if (!candidates.includes(singular)) candidates.push(singular);
@@ -432,7 +441,10 @@ class QueryBuilder {
         { code: 'APPWRITE_SCHEMA_MISMATCH', status: 400 }
       );
     }
-    throw Object.assign(new Error(lastErrorBody?.message || 'Appwrite request failed'), lastErrorBody);
+    throw Object.assign(
+      new Error(lastErrorBody?.message || 'Appwrite request failed'),
+      lastErrorBody
+    );
   }
 
   private async create(_upsert = false) {
@@ -459,7 +471,13 @@ class QueryBuilder {
         );
         let body = await response.json().catch(() => ({}));
 
-        if (!response.ok && (body?.message?.includes('Permissions') || body?.message?.includes('permissions') || response.status === 401 || response.status === 403)) {
+        if (
+          !response.ok &&
+          (body?.message?.includes('Permissions') ||
+            body?.message?.includes('permissions') ||
+            response.status === 401 ||
+            response.status === 403)
+        ) {
           const adminHeaders = requestHeaders(undefined, this.session, true);
           const retryRes = await fetch(
             `${endpoint}/databases/${encodeURIComponent(APPWRITE_CONFIG.databaseId)}/collections/${encodeURIComponent(colId)}/documents`,
@@ -469,16 +487,7 @@ class QueryBuilder {
               body: JSON.stringify({
                 documentId: record.id || 'unique()',
                 data: normalizePayload(record),
-                permissions: [
-                  'read("any")',
-                  'update("any")',
-                  'delete("any")',
-                  'write("any")',
-                  'read("users")',
-                  'update("users")',
-                  'delete("users")',
-                  'write("users")',
-                ],
+                permissions: getPermissionsForRecord(record),
               }),
             }
           );
@@ -528,7 +537,10 @@ class QueryBuilder {
       }
 
       if (!success) {
-        throw Object.assign(new Error(lastErrorBody?.message || 'Appwrite request failed'), lastErrorBody);
+        throw Object.assign(
+          new Error(lastErrorBody?.message || 'Appwrite request failed'),
+          lastErrorBody
+        );
       }
     }
     return {
@@ -555,7 +567,11 @@ class QueryBuilder {
             method,
             headers: requestHeaders(undefined, this.session, this.useApiKey),
             ...(method === 'PATCH'
-              ? { body: JSON.stringify({ data: normalizePayload(this.payload) }) }
+              ? {
+                  body: JSON.stringify({
+                    data: normalizePayload(this.payload),
+                  }),
+                }
               : {}),
           }
         );
@@ -570,7 +586,10 @@ class QueryBuilder {
       }
 
       if (!success && method === 'PATCH') {
-        throw Object.assign(new Error(lastErrorBody?.message || 'Appwrite request failed'), lastErrorBody);
+        throw Object.assign(
+          new Error(lastErrorBody?.message || 'Appwrite request failed'),
+          lastErrorBody
+        );
       }
     }
     return { data: updated, error: null, count: documents.length };

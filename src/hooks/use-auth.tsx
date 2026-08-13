@@ -76,66 +76,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profileLoading, setProfileLoading] = useState(true);
   const [modulesLoading, setModulesLoading] = useState(false);
 
-  const fetchProfile = useCallback(async (userId: string) => {
+  const fetchProfile = useCallback(async (_userId: string) => {
     setProfileLoading(true);
     try {
-      let userName = 'Admin User';
-      let userEmail = 'admin@clinic.local';
-      let avatarUrl: string | null = null;
-
       try {
         const res = await fetch('/api/account/profile').catch(() => null);
         if (res && res.ok) {
           const data = await res.json().catch(() => null);
           if (data?.success && data?.profile) {
             setProfile(data.profile);
-            setAccount({
-              id: data.profile.account_id || 'default_account',
-              name: 'Clinic Account',
-              default_currency: DEFAULT_CURRENCY,
-              industry: 'hospital_clinic',
-            });
+            setAccount(
+              data.account || {
+                id: data.profile.account_id || null,
+                name: 'Clinic Account',
+                default_currency: DEFAULT_CURRENCY,
+                industry: 'hospital_clinic',
+              }
+            );
             return;
           }
         }
       } catch {
-        // Fallback to SDK / defaults
+        // Ignore profile fetch errors
       }
 
-      try {
-        const { account: appwriteAccount } = getAppwriteClient();
-        const appwriteUser = await appwriteAccount.get().catch(() => null);
-        if (appwriteUser) {
-          if (appwriteUser.name) userName = appwriteUser.name;
-          if (appwriteUser.email) userEmail = appwriteUser.email;
-          if (appwriteUser.prefs?.avatar_url)
-            avatarUrl = appwriteUser.prefs.avatar_url;
-        }
-      } catch {
-        // Ignore account fetch errors
-      }
-
-      const fallbackProfile: Profile = {
-        id: userId,
-        full_name: userName,
-        email: userEmail,
-        avatar_url: avatarUrl,
-        role: 'owner',
-        beta_features: [],
-        account_id: 'default_account',
-        account_role: 'owner',
-        is_super_admin: true,
-      };
-
-      const fallbackAccount: AccountSummary = {
-        id: 'default_account',
-        name: 'Clinic Account',
-        default_currency: DEFAULT_CURRENCY,
-        industry: 'hospital_clinic',
-      };
-
-      setProfile(fallbackProfile);
-      setAccount(fallbackAccount);
+      setProfile(null);
+      setAccount(null);
     } catch {
       setProfile(null);
       setAccount(null);

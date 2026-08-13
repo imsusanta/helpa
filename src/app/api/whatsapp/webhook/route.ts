@@ -85,7 +85,7 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
       const phoneNumberId = value.metadata.phone_number_id;
 
       const { data: configRows, error: configError } = await getAdminClient()
-        .from('whatsapp_config')
+        .from('whatsapp_configs')
         .select('*')
         .eq('phone_number_id', phoneNumberId);
 

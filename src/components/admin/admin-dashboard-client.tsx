@@ -189,10 +189,7 @@ export function AdminDashboardClient() {
                   id: 'default_account',
                   name: 'Helpa Health Clinic',
                   created_at: new Date().toISOString(),
-                  owner: {
-                    full_name: 'Susanta Lohar',
-                    email: 'susantalohr@gmail.com',
-                  },
+                  owner: null,
                   membersCount: 1,
                   contactsCount: 0,
                   subscription: {
@@ -785,10 +782,10 @@ export function AdminDashboardClient() {
                         </TableCell>
                         <TableCell>
                           <div className="text-foreground font-bold">
-                            {t.owner?.full_name || 'Susanta Lohar'}
+                            {t.owner?.full_name || 'Unassigned'}
                           </div>
                           <div className="text-muted-foreground text-[10px] font-medium">
-                            {t.owner?.email || 'susantalohr@gmail.com'}
+                            {t.owner?.email || '-'}
                           </div>
                         </TableCell>
                         <TableCell className="text-foreground font-semibold">

@@ -145,7 +145,9 @@ export function MembersTab() {
           return;
         }
         const idata = (await ires.json()) as { invitations: Invitation[] };
-        setInvitations(Array.isArray(idata.invitations) ? idata.invitations : []);
+        setInvitations(
+          Array.isArray(idata.invitations) ? idata.invitations : []
+        );
       } else {
         setInvitations([]);
       }

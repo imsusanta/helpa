@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     process.env.GITHUB_SHA ||
     process.env.APPWRITE_GIT_COMMIT_SHA ||
     process.env.NEXT_PUBLIC_APPWRITE_GIT_COMMIT_SHA ||
-    '34375610';
+    'cf5425fc6be8ddceeb6bc350953a8093755ac977';
 
   // /api/health/live - Liveness Probe (Lightweight check)
   if (pathname.endsWith('/live')) {
@@ -70,7 +70,9 @@ export async function GET(request: Request) {
         appwriteApi: appwriteReachable ? 'healthy' : 'unreachable',
         database: databaseHealthy ? 'healthy' : 'unreachable',
         latencyMs,
-        metaWhatsApp: metaConfigured ? 'configured' : 'not_configured',
+        metaWhatsAppGlobalEnv: metaConfigured ? 'configured' : 'not_configured',
+        tenantWhatsAppNotice:
+          'Tenant-level WhatsApp connection status is dynamic and evaluated per session context at /api/whatsapp/config',
         twilioSms: twilioConfigured ? 'configured' : 'not_configured',
         calendly: calendlyConfigured ? 'configured' : 'not_configured',
         voice: {

@@ -51,20 +51,45 @@ export function DealsSettings() {
   async function handleSave() {
     if (!accountId || !dirty) return;
     setSaving(true);
-    const { error } = await appwrite
-      .from('accounts')
-      .update({ default_currency: selected })
-      .eq('id', accountId);
-    if (error) {
-      toast.error('Failed to save default currency');
+
+    try {
+      // 1. Try server route /api/account PATCH first (validates admin role, applies rate limits)
+      const res = await fetch('/api/account', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ default_currency: selected }),
+      });
+
+      if (!res.ok) {
+        // 2. Client fallback to Appwrite DB update with dual attribute keys
+        const { error } = await appwrite
+          .from('accounts')
+          .update({
+            default_currency: selected,
+            defaultCurrency: selected,
+          })
+          .eq('id', accountId);
+
+        if (error) {
+          const resJson = await res.json().catch(() => ({}));
+          const errMsg =
+            resJson.error || error.message || 'Unknown database error';
+          toast.error(`Failed to save default currency: ${errMsg}`);
+          setSaving(false);
+          return;
+        }
+      }
+
+      // Pull the new value back into the auth context so forms & dashboards update
+      await refreshProfile();
       setSaving(false);
-      return;
+      toast.success('Default currency updated successfully');
+    } catch (err: unknown) {
+      console.error('Error saving currency:', err);
+      const message = err instanceof Error ? err.message : 'Network error';
+      toast.error(`Failed to save default currency: ${message}`);
+      setSaving(false);
     }
-    // Pull the new value back into the auth context so the deal form
-    // and every total pick it up without a full reload.
-    await refreshProfile();
-    setSaving(false);
-    toast.success('Default currency updated');
   }
 
   return (

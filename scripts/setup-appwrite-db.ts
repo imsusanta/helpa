@@ -1,5 +1,6 @@
 import { Client, Databases, Storage } from 'node-appwrite';
 import { APPWRITE_CONFIG } from '../src/infrastructure/appwrite/config';
+import { REQUIRED_STORAGE_BUCKETS } from '../src/infrastructure/appwrite/storage-manifest';
 
 export const SCHEMA_VERSION = '1.0.0';
 
@@ -36,6 +37,20 @@ export const SCHEMA_MANIFEST: Record<string, CollectionSchema> = {
         size: 64,
         required: false,
         default: 'free',
+      },
+      {
+        key: 'default_currency',
+        type: 'string',
+        size: 10,
+        required: false,
+        default: 'USD',
+      },
+      {
+        key: 'defaultCurrency',
+        type: 'string',
+        size: 10,
+        required: false,
+        default: 'USD',
       },
       { key: 'createdAt', type: 'string', size: 64, required: true },
       { key: 'updatedAt', type: 'string', size: 64, required: true },
@@ -697,6 +712,91 @@ export const SCHEMA_MANIFEST: Record<string, CollectionSchema> = {
       },
     ],
   },
+  whatsapp_configs: {
+    id: APPWRITE_CONFIG.collections.whatsappConfigs,
+    attributes: [
+      { key: 'accountId', type: 'string', size: 255, required: false },
+      { key: 'account_id', type: 'string', size: 255, required: false },
+      { key: 'userId', type: 'string', size: 255, required: false },
+      { key: 'user_id', type: 'string', size: 255, required: false },
+      { key: 'phone_number_id', type: 'string', size: 255, required: false },
+      { key: 'phoneNumberId', type: 'string', size: 255, required: false },
+      { key: 'waba_id', type: 'string', size: 255, required: false },
+      { key: 'wabaId', type: 'string', size: 255, required: false },
+      { key: 'access_token', type: 'string', size: 2000, required: false },
+      { key: 'accessToken', type: 'string', size: 2000, required: false },
+      {
+        key: 'encrypted_access_token',
+        type: 'string',
+        size: 2000,
+        required: false,
+      },
+      {
+        key: 'encryptedAccessToken',
+        type: 'string',
+        size: 2000,
+        required: false,
+      },
+      {
+        key: 'status',
+        type: 'string',
+        size: 32,
+        required: false,
+        default: 'active',
+      },
+      { key: 'registered_at', type: 'string', size: 64, required: false },
+      { key: 'registeredAt', type: 'string', size: 64, required: false },
+      {
+        key: 'last_registration_error',
+        type: 'string',
+        size: 1000,
+        required: false,
+      },
+      {
+        key: 'lastRegistrationError',
+        type: 'string',
+        size: 1000,
+        required: false,
+      },
+      { key: 'subscribed_apps_at', type: 'string', size: 64, required: false },
+      { key: 'subscribedAppsAt', type: 'string', size: 64, required: false },
+      {
+        key: 'business_phone_number',
+        type: 'string',
+        size: 64,
+        required: false,
+      },
+      {
+        key: 'encryptedVerifyToken',
+        type: 'string',
+        size: 2000,
+        required: false,
+      },
+      { key: 'createdBy', type: 'string', size: 255, required: false },
+      { key: 'updatedBy', type: 'string', size: 255, required: false },
+      {
+        key: 'encryptionKeyVersion',
+        type: 'string',
+        size: 32,
+        required: false,
+        default: 'v1',
+      },
+      { key: 'createdAt', type: 'string', size: 64, required: false },
+      { key: 'updatedAt', type: 'string', size: 64, required: false },
+    ],
+    indexes: [
+      {
+        key: 'unique_whatsapp_account_id',
+        type: 'unique',
+        attributes: ['account_id'],
+      },
+      {
+        key: 'idx_whatsapp_phone_number',
+        type: 'key',
+        attributes: ['phone_number_id'],
+      },
+    ],
+  },
 };
 
 async function setupAppwriteDatabase() {
@@ -836,28 +936,74 @@ async function setupAppwriteDatabase() {
   }
 
   // 3. Private Storage Buckets Provisioning
-  const buckets = Object.values(APPWRITE_CONFIG.buckets);
-  for (const bucketId of buckets) {
+  const args = process.argv.slice(2);
+  const isApply = args.includes('--apply');
+  const isProductionConfirm = args.includes('--confirm-production');
+
+  const isProductionEnv =
+    process.env.NODE_ENV === 'production' ||
+    process.env.VERCEL_ENV === 'production';
+
+  if (isApply && isProductionEnv && !isProductionConfirm) {
+    console.error(
+      '❌ Production Mutation Protection: Refusing schema mutation in production environment without explicit --confirm-production flag.'
+    );
+    process.exit(1);
+  }
+
+  const shouldMutate = isApply && (!isProductionEnv || isProductionConfirm);
+
+  if (!shouldMutate) {
+    console.log('ℹ️ Running in DRY-RUN mode (no mutations will be performed).');
+  }
+
+  const requiredBuckets = Object.values(REQUIRED_STORAGE_BUCKETS);
+  let bucketFailures = 0;
+
+  for (const bDef of requiredBuckets) {
     try {
-      await storage.getBucket(bucketId);
-      console.log(`✅ Storage Bucket '${bucketId}' exists.`);
+      const bucket = await storage.getBucket(bDef.id);
+      console.log(`✅ Storage Bucket '${bucket.$id}' ('${bDef.name}') exists.`);
     } catch {
-      console.log(`🪣 Creating Storage Bucket '${bucketId}'...`);
-      await storage.createBucket(
-        bucketId,
-        bucketId,
-        [], // Private: no public permissions
-        false, // fileSecurity: false (managed by backend server API key)
-        true, // enabled
-        undefined,
-        ['jpg', 'png', 'pdf', 'mp4', 'ogg', 'wav', 'json']
-      );
-      console.log(`✅ Private Storage Bucket '${bucketId}' created.`);
+      if (!shouldMutate) {
+        console.log(
+          `[DRY-RUN] Storage Bucket '${bDef.id}' ('${bDef.name}') is MISSING (would be created).`
+        );
+      } else {
+        console.log(`🪣 Creating Storage Bucket '${bDef.id}'...`);
+        try {
+          await storage.createBucket(
+            bDef.id,
+            bDef.name,
+            [], // Private: no public permissions (server-managed)
+            bDef.fileSecurity,
+            true, // enabled
+            bDef.maxSizeBytes,
+            bDef.allowedExtensions
+          );
+          console.log(
+            `✅ Private Storage Bucket '${bDef.id}' created successfully.`
+          );
+        } catch (createErr: unknown) {
+          console.error(
+            `❌ Failed to create Storage Bucket '${bDef.id}':`,
+            (createErr as Error).message
+          );
+          bucketFailures++;
+        }
+      }
     }
   }
 
+  if (bucketFailures > 0) {
+    console.error(
+      `❌ Appwrite setup failed: ${bucketFailures} required storage bucket(s) could not be created.`
+    );
+    process.exit(1);
+  }
+
   console.log(
-    `🎉 Appwrite Schema-as-Code setup completed for version ${SCHEMA_VERSION}.`
+    `🎉 Appwrite Schema & Storage setup complete (Version ${SCHEMA_VERSION}, Mutated: ${shouldMutate}).`
   );
 }
 

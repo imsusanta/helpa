@@ -21,7 +21,7 @@ export async function handleWebhookGet(request: Request): Promise<Response> {
 
     // Fetch all whatsapp configs to check verify tokens
     const { data: configs, error: configError } = await getAdminClient()
-      .from('whatsapp_config')
+      .from('whatsapp_configs')
       .select('id, verify_token');
 
     if (configError || !configs) {
@@ -50,7 +50,7 @@ export async function handleWebhookGet(request: Request): Promise<Response> {
       // Fire-and-forget GCM upgrade for legacy CBC tokens
       if (isLegacyFormat(matchedConfig.verify_token)) {
         void getAdminClient()
-          .from('whatsapp_config')
+          .from('whatsapp_configs')
           .update({ verify_token: encrypt(verifyToken) })
           .eq('id', matchedConfig.id)
           .then(({ error }: { error: unknown }) => {
