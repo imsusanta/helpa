@@ -430,6 +430,71 @@ class QueryBuilder {
     }
 
     if (
+      lastResponseStatus === 400 &&
+      lastErrorBody?.message?.includes('Attribute not found in schema:')
+    ) {
+      const match = lastErrorBody.message.match(
+        /Attribute not found in schema:\s*([^\s,]+)/
+      );
+      if (match && match[1]) {
+        const missingAttr = match[1];
+        const altAttr = missingAttr.includes('_')
+          ? toCamelCase(missingAttr)
+          : toSnakeCase(missingAttr);
+
+        if (altAttr !== missingAttr) {
+          const retryParams = new URLSearchParams();
+          const retryQueries = this.filters.map((qStr) => {
+            try {
+              const parsed = JSON.parse(qStr);
+              if (parsed.attribute === missingAttr) {
+                parsed.attribute = altAttr;
+              }
+              return JSON.stringify(parsed);
+            } catch {
+              return qStr;
+            }
+          });
+          if (this.ordering.length) retryQueries.push(...this.ordering);
+          if (this.maxRows !== undefined)
+            retryQueries.push(appwriteQuery('limit', undefined, this.maxRows));
+          if (this.offset)
+            retryQueries.push(appwriteQuery('offset', undefined, this.offset));
+
+          retryQueries.forEach((q, idx) =>
+            retryParams.append(`queries[${idx}]`, q)
+          );
+
+          for (const colId of candidates) {
+            const retryRes = await fetch(
+              `${endpoint}/databases/${encodeURIComponent(APPWRITE_CONFIG.databaseId)}/collections/${encodeURIComponent(colId)}/documents?${retryParams}`,
+              {
+                headers: requestHeaders(
+                  undefined,
+                  this.session,
+                  this.useApiKey
+                ),
+                cache: 'no-store',
+                credentials: 'include',
+              }
+            );
+            const retryBody = await retryRes.json().catch(() => ({}));
+            if (retryRes.ok) {
+              const documents = (retryBody.documents || []).map(
+                normalizeRecord
+              );
+              return {
+                data: this.selectionOptions.head ? null : documents,
+                error: null,
+                count: retryBody.total ?? documents.length,
+              };
+            }
+          }
+        }
+      }
+    }
+
+    if (
       lastResponseStatus === 400 ||
       lastErrorBody?.message?.includes('Attribute not found') ||
       lastErrorBody?.message?.includes('Index not found')
