@@ -213,26 +213,41 @@ export async function POST(request: Request) {
       }
 
       if (resolvedContactId) {
-        // Find existing conversation — use camelCase field names
         let { data: extConv } = await dbAdmin
           .from('conversations')
           .select('id')
-          .eq('contactId', resolvedContactId)
-          .eq('accountId', accountId)
-          .maybeSingle();
+          .eq('contact_id', resolvedContactId)
+          .eq('account_id', accountId)
+          .limit(1)
+          .maybeSingle()
+          .catch(() => ({ data: null }));
+
+        if (!extConv) {
+          const { data: camelConv } = await dbAdmin
+            .from('conversations')
+            .select('id')
+            .eq('contactId', resolvedContactId)
+            .limit(1)
+            .maybeSingle()
+            .catch(() => ({ data: null }));
+
+          if (camelConv) extConv = camelConv;
+        }
 
         if (!extConv) {
           const now = new Date().toISOString();
           const { data: createdConv, error: convErr } = await dbAdmin
             .from('conversations')
             .insert({
+              account_id: accountId,
               accountId,
+              contact_id: resolvedContactId,
               contactId: resolvedContactId,
+              user_id: user.id,
               status: 'open',
-              lastMessageText: content_text || 'Outbound message',
-              lastMessageAt: now,
-              createdAt: now,
-              updatedAt: now,
+              last_message_text: content_text || 'Outbound message',
+              last_message_at: now,
+              ai_chat_enabled: true,
             })
             .select('id')
             .single();

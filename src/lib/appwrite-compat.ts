@@ -570,6 +570,43 @@ class QueryBuilder {
     }
 
     if (
+      lastResponseStatus === 400 &&
+      (lastErrorBody?.message?.includes('Index not found') ||
+        lastErrorBody?.message?.includes('Index'))
+    ) {
+      const retryParams = new URLSearchParams();
+      const retryQueries = [...this.filters];
+      if (this.maxRows !== undefined)
+        retryQueries.push(appwriteQuery('limit', undefined, this.maxRows));
+      if (this.offset)
+        retryQueries.push(appwriteQuery('offset', undefined, this.offset));
+
+      retryQueries.forEach((q, idx) =>
+        retryParams.append(`queries[${idx}]`, q)
+      );
+
+      for (const colId of candidates) {
+        const retryRes = await safeFetch(
+          `${endpoint}/databases/${encodeURIComponent(APPWRITE_CONFIG.databaseId)}/collections/${encodeURIComponent(colId)}/documents?${retryParams}`,
+          {
+            headers: requestHeaders(undefined, this.session, this.useApiKey),
+            cache: 'no-store',
+            credentials: 'include',
+          }
+        );
+        const retryBody = await retryRes.json().catch(() => ({}));
+        if (retryRes.ok) {
+          const documents = (retryBody.documents || []).map(normalizeRecord);
+          return {
+            data: this.selectionOptions.head ? null : documents,
+            error: null,
+            count: retryBody.total ?? documents.length,
+          };
+        }
+      }
+    }
+
+    if (
       lastResponseStatus === 400 ||
       lastErrorBody?.message?.includes('Attribute not found') ||
       lastErrorBody?.message?.includes('Index not found')
