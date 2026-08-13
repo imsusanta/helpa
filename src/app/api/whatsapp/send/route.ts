@@ -328,14 +328,33 @@ export async function POST(request: Request) {
     }
 
     // Fetch conversation and contact via admin client to guarantee resolution
-    const { data: conversation, error: convError } = await dbAdmin
+    let conversation:
+      | (Record<string, unknown> & {
+          contact?: { phone?: string; name?: string; id?: string };
+          id?: string;
+        })
+      | null = null;
+    const { data: convData } = await dbAdmin
       .from('conversations')
       .select('*, contact:contacts(*)')
       .eq('id', conversation_id)
-      .eq('accountId', accountId)
-      .single();
+      .eq('account_id', accountId)
+      .single()
+      .catch(() => ({ data: null }));
 
-    if (convError || !conversation) {
+    if (convData) {
+      conversation = convData;
+    } else {
+      const { data: altConv } = await dbAdmin
+        .from('conversations')
+        .select('*, contact:contacts(*)')
+        .eq('id', conversation_id)
+        .single()
+        .catch(() => ({ data: null }));
+      if (altConv) conversation = altConv;
+    }
+
+    if (!conversation) {
       return NextResponse.json(
         { error: 'Conversation not found' },
         { status: 404 }
