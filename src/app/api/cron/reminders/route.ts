@@ -9,7 +9,7 @@ import {
   isWithinBusinessHours,
   zonedDateTimeToUtc,
 } from '@/lib/cron/timezone';
-import { enqueueAppointmentReminder } from '@/queues/producers/appointment-reminders';
+import { enqueueAppointmentReminder } from '@/lib/reminders/appointment-reminders';
 
 type ReminderBusinessHours = {
   enabled?: boolean;

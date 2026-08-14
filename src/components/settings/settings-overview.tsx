@@ -415,8 +415,7 @@ export function SettingsOverview({
           ? (health.value as Record<string, unknown>)
           : null;
       const healthConfig = healthData?.config as
-        | Record<string, unknown>
-        | undefined;
+        Record<string, unknown> | undefined;
       const isConfiguredFromHealth = Boolean(
         healthConfig?.phone_number_id ||
         healthConfig?.phoneNumberId ||

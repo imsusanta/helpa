@@ -2,7 +2,7 @@ import { Client, Databases, Storage } from 'node-appwrite';
 import { APPWRITE_CONFIG } from '../src/infrastructure/appwrite/config';
 import { REQUIRED_STORAGE_BUCKETS } from '../src/infrastructure/appwrite/storage-manifest';
 
-export const SCHEMA_VERSION = '1.0.0';
+export const SCHEMA_VERSION = '2.0.0';
 
 export interface AttributeDef {
   key: string;
@@ -37,13 +37,6 @@ export const SCHEMA_MANIFEST: Record<string, CollectionSchema> = {
         size: 64,
         required: false,
         default: 'free',
-      },
-      {
-        key: 'default_currency',
-        type: 'string',
-        size: 10,
-        required: false,
-        default: 'USD',
       },
       {
         key: 'defaultCurrency',
@@ -98,7 +91,14 @@ export const SCHEMA_MANIFEST: Record<string, CollectionSchema> = {
         required: true,
         default: 'draft',
       },
+      { key: 'targetAudience', type: 'string', size: 64, required: false },
+      { key: 'scheduledAt', type: 'string', size: 64, required: false },
+      { key: 'sentCount', type: 'integer', required: false, default: 0 },
+      { key: 'deliveredCount', type: 'integer', required: false, default: 0 },
+      { key: 'readCount', type: 'integer', required: false, default: 0 },
+      { key: 'repliedCount', type: 'integer', required: false, default: 0 },
       { key: 'createdAt', type: 'string', size: 64, required: true },
+      { key: 'updatedAt', type: 'string', size: 64, required: true },
     ],
     indexes: [
       { key: 'idx_campaigns_account', type: 'key', attributes: ['accountId'] },
@@ -109,43 +109,51 @@ export const SCHEMA_MANIFEST: Record<string, CollectionSchema> = {
     attributes: [
       { key: 'userId', type: 'string', size: 255, required: true },
       { key: 'accountId', type: 'string', size: 255, required: true },
-      { key: 'fullName', type: 'string', size: 255, required: true },
+      { key: 'name', type: 'string', size: 255, required: true },
       { key: 'email', type: 'string', size: 255, required: true },
       {
         key: 'role',
         type: 'string',
-        size: 64,
+        size: 32,
         required: true,
-        default: 'agent',
+        default: 'member',
       },
-      { key: 'avatarUrl', type: 'string', size: 1000, required: false },
       { key: 'createdAt', type: 'string', size: 64, required: true },
       { key: 'updatedAt', type: 'string', size: 64, required: true },
     ],
     indexes: [
-      { key: 'unique_user_profile', type: 'unique', attributes: ['userId'] },
-      { key: 'idx_profile_account', type: 'key', attributes: ['accountId'] },
+      {
+        key: 'unique_user_profile',
+        type: 'unique',
+        attributes: ['userId'],
+      },
+      {
+        key: 'idx_profiles_account',
+        type: 'key',
+        attributes: ['accountId'],
+      },
     ],
   },
   memberships: {
     id: APPWRITE_CONFIG.collections.memberships,
     attributes: [
-      { key: 'userId', type: 'string', size: 255, required: true },
       { key: 'accountId', type: 'string', size: 255, required: true },
+      { key: 'userId', type: 'string', size: 255, required: true },
       {
         key: 'role',
         type: 'string',
-        size: 64,
+        size: 32,
         required: true,
-        default: 'agent',
+        default: 'member',
       },
       { key: 'createdAt', type: 'string', size: 64, required: true },
+      { key: 'updatedAt', type: 'string', size: 64, required: true },
     ],
     indexes: [
       {
-        key: 'unique_user_account_membership',
+        key: 'unique_account_user_membership',
         type: 'unique',
-        attributes: ['userId', 'accountId'],
+        attributes: ['accountId', 'userId'],
       },
     ],
   },
@@ -156,6 +164,7 @@ export const SCHEMA_MANIFEST: Record<string, CollectionSchema> = {
       { key: 'name', type: 'string', size: 255, required: true },
       { key: 'phone', type: 'string', size: 64, required: false },
       { key: 'email', type: 'string', size: 255, required: false },
+      { key: 'tags', type: 'string', size: 64, required: false, array: true },
       {
         key: 'consentStatus',
         type: 'string',
@@ -163,7 +172,6 @@ export const SCHEMA_MANIFEST: Record<string, CollectionSchema> = {
         required: false,
         default: 'pending',
       },
-      { key: 'tags', type: 'string', size: 64, required: false, array: true },
       { key: 'createdAt', type: 'string', size: 64, required: true },
       { key: 'updatedAt', type: 'string', size: 64, required: true },
     ],
@@ -185,50 +193,52 @@ export const SCHEMA_MANIFEST: Record<string, CollectionSchema> = {
     id: APPWRITE_CONFIG.collections.patients,
     attributes: [
       { key: 'accountId', type: 'string', size: 255, required: true },
-      { key: 'contactId', type: 'string', size: 255, required: false },
+      { key: 'patientSeqId', type: 'string', size: 64, required: true },
       { key: 'name', type: 'string', size: 255, required: true },
       { key: 'phone', type: 'string', size: 64, required: false },
-      { key: 'medicalNotes', type: 'string', size: 4000, required: false },
+      { key: 'gender', type: 'string', size: 32, required: false },
+      { key: 'dob', type: 'string', size: 64, required: false },
       {
-        key: 'consentStatus',
+        key: 'status',
         type: 'string',
         size: 32,
         required: false,
-        default: 'pending',
+        default: 'active',
       },
       { key: 'createdAt', type: 'string', size: 64, required: true },
       { key: 'updatedAt', type: 'string', size: 64, required: true },
     ],
     indexes: [
       { key: 'idx_patients_account', type: 'key', attributes: ['accountId'] },
+      {
+        key: 'unique_patient_seq_per_account',
+        type: 'unique',
+        attributes: ['accountId', 'patientSeqId'],
+      },
     ],
   },
   leads: {
     id: APPWRITE_CONFIG.collections.leads,
     attributes: [
       { key: 'accountId', type: 'string', size: 255, required: true },
-      { key: 'contactId', type: 'string', size: 255, required: false },
       { key: 'name', type: 'string', size: 255, required: true },
+      { key: 'phone', type: 'string', size: 64, required: false },
+      { key: 'email', type: 'string', size: 255, required: false },
       {
         key: 'stage',
         type: 'string',
-        size: 64,
+        size: 32,
         required: true,
-        default: 'NEW',
+        default: 'new',
       },
+      { key: 'source', type: 'string', size: 64, required: false },
       { key: 'value', type: 'integer', required: false, default: 0 },
-      { key: 'lostReason', type: 'string', size: 500, required: false },
-      { key: 'assignedUserId', type: 'string', size: 255, required: false },
       { key: 'createdAt', type: 'string', size: 64, required: true },
       { key: 'updatedAt', type: 'string', size: 64, required: true },
     ],
     indexes: [
       { key: 'idx_leads_account', type: 'key', attributes: ['accountId'] },
-      {
-        key: 'idx_leads_stage',
-        type: 'key',
-        attributes: ['accountId', 'stage'],
-      },
+      { key: 'idx_leads_stage', type: 'key', attributes: ['stage'] },
     ],
   },
   lead_stage_history: {
@@ -236,14 +246,14 @@ export const SCHEMA_MANIFEST: Record<string, CollectionSchema> = {
     attributes: [
       { key: 'accountId', type: 'string', size: 255, required: true },
       { key: 'leadId', type: 'string', size: 255, required: true },
-      { key: 'fromStage', type: 'string', size: 64, required: true },
-      { key: 'toStage', type: 'string', size: 64, required: true },
-      { key: 'actorUserId', type: 'string', size: 255, required: true },
+      { key: 'fromStage', type: 'string', size: 32, required: true },
+      { key: 'toStage', type: 'string', size: 32, required: true },
+      { key: 'changedBy', type: 'string', size: 255, required: false },
       { key: 'createdAt', type: 'string', size: 64, required: true },
     ],
     indexes: [
       {
-        key: 'idx_lead_history',
+        key: 'idx_lead_history_account_lead',
         type: 'key',
         attributes: ['accountId', 'leadId'],
       },
@@ -321,10 +331,12 @@ export const SCHEMA_MANIFEST: Record<string, CollectionSchema> = {
         type: 'string',
         size: 32,
         required: true,
-        default: 'scheduled',
+        default: 'pending',
       },
-      { key: 'startTime', type: 'string', size: 64, required: true },
+      { key: 'startTime', type: 'string', size: 64, required: false },
       { key: 'endTime', type: 'string', size: 64, required: false },
+      { key: 'appointmentDate', type: 'string', size: 32, required: false },
+      { key: 'appointmentTime', type: 'string', size: 32, required: false },
       { key: 'createdAt', type: 'string', size: 64, required: true },
       { key: 'updatedAt', type: 'string', size: 64, required: true },
     ],
@@ -340,59 +352,24 @@ export const SCHEMA_MANIFEST: Record<string, CollectionSchema> = {
     id: APPWRITE_CONFIG.collections.calls,
     attributes: [
       { key: 'accountId', type: 'string', size: 255, required: true },
-      { key: 'externalCallId', type: 'string', size: 255, required: true },
       { key: 'provider', type: 'string', size: 64, required: true },
-      { key: 'direction', type: 'string', size: 32, required: false },
-      { key: 'status', type: 'string', size: 32, required: false },
-      { key: 'fromMasked', type: 'string', size: 64, required: false },
-      { key: 'toMasked', type: 'string', size: 64, required: false },
-      { key: 'agentId', type: 'string', size: 255, required: false },
-      { key: 'contactId', type: 'string', size: 255, required: false },
-      { key: 'leadId', type: 'string', size: 255, required: false },
-      { key: 'startedAt', type: 'string', size: 64, required: false },
-      { key: 'answeredAt', type: 'string', size: 64, required: false },
-      { key: 'endedAt', type: 'string', size: 64, required: false },
-      { key: 'durationSeconds', type: 'integer', required: false },
-      { key: 'failureCode', type: 'string', size: 128, required: false },
-      {
-        key: 'failureMessageSanitized',
-        type: 'string',
-        size: 500,
-        required: false,
-      },
-      { key: 'transcriptStatus', type: 'string', size: 32, required: false },
-      { key: 'recordingStatus', type: 'string', size: 32, required: false },
-      {
-        key: 'transcriptReference',
-        type: 'string',
-        size: 500,
-        required: false,
-      },
-      { key: 'recordingReference', type: 'string', size: 500, required: false },
-      { key: 'version', type: 'integer', required: false, default: 1 },
+      { key: 'providerCallId', type: 'string', size: 255, required: true },
+      { key: 'direction', type: 'string', size: 32, required: true },
+      { key: 'fromNumber', type: 'string', size: 64, required: false },
+      { key: 'toNumber', type: 'string', size: 64, required: false },
+      { key: 'status', type: 'string', size: 32, required: true },
+      { key: 'durationSeconds', type: 'integer', required: false, default: 0 },
+      { key: 'transcriptUrl', type: 'string', size: 1000, required: false },
+      { key: 'summary', type: 'string', size: 4000, required: false },
       { key: 'createdAt', type: 'string', size: 64, required: true },
       { key: 'updatedAt', type: 'string', size: 64, required: true },
     ],
     indexes: [
+      { key: 'idx_calls_account', type: 'key', attributes: ['accountId'] },
       {
-        key: 'unique_account_external_call',
+        key: 'unique_provider_call_id',
         type: 'unique',
-        attributes: ['accountId', 'externalCallId'],
-      },
-      {
-        key: 'idx_calls_account_created',
-        type: 'key',
-        attributes: ['accountId', 'createdAt'],
-      },
-      {
-        key: 'idx_calls_account_status',
-        type: 'key',
-        attributes: ['accountId', 'status'],
-      },
-      {
-        key: 'idx_calls_provider_external',
-        type: 'key',
-        attributes: ['provider', 'externalCallId'],
+        attributes: ['providerCallId'],
       },
     ],
   },
@@ -401,46 +378,30 @@ export const SCHEMA_MANIFEST: Record<string, CollectionSchema> = {
     attributes: [
       { key: 'accountId', type: 'string', size: 255, required: true },
       { key: 'provider', type: 'string', size: 64, required: true },
+      { key: 'apiKeyEncrypted', type: 'string', size: 2000, required: false },
+      { key: 'agentId', type: 'string', size: 255, required: false },
+      { key: 'phoneNumberId', type: 'string', size: 255, required: false },
       {
-        key: 'encryptedCredentialsReference',
+        key: 'webhookSecretEncrypted',
         type: 'string',
-        size: 1000,
-        required: true,
-      },
-      { key: 'agentId', type: 'string', size: 255, required: true },
-      {
-        key: 'providerPhoneNumberId',
-        type: 'string',
-        size: 255,
-        required: true,
-      },
-      { key: 'phoneNumberMasked', type: 'string', size: 64, required: false },
-      { key: 'status', type: 'string', size: 32, required: true },
-      {
-        key: 'capabilities',
-        type: 'string',
-        size: 64,
+        size: 2000,
         required: false,
-        array: true,
+      },
+      {
+        key: 'encryptionKeyVersion',
+        type: 'string',
+        size: 32,
+        required: false,
+        default: 'v1',
       },
       { key: 'createdAt', type: 'string', size: 64, required: true },
       { key: 'updatedAt', type: 'string', size: 64, required: true },
     ],
     indexes: [
       {
-        key: 'unique_voice_integration',
-        type: 'unique',
-        attributes: ['provider', 'agentId', 'providerPhoneNumberId'],
-      },
-      {
-        key: 'unique_account_provider',
+        key: 'unique_voice_integration_account_provider',
         type: 'unique',
         attributes: ['accountId', 'provider'],
-      },
-      {
-        key: 'idx_voice_account_status',
-        type: 'key',
-        attributes: ['accountId', 'status'],
       },
     ],
   },
@@ -448,27 +409,14 @@ export const SCHEMA_MANIFEST: Record<string, CollectionSchema> = {
     id: APPWRITE_CONFIG.collections.voiceCommands,
     attributes: [
       { key: 'accountId', type: 'string', size: 255, required: true },
+      { key: 'callId', type: 'string', size: 255, required: true },
       { key: 'commandType', type: 'string', size: 64, required: true },
-      { key: 'idempotencyKey', type: 'string', size: 255, required: true },
-      { key: 'commandFingerprint', type: 'string', size: 128, required: true },
       { key: 'status', type: 'string', size: 32, required: true },
-      { key: 'externalCallId', type: 'string', size: 255, required: false },
-      { key: 'resultReference', type: 'string', size: 500, required: false },
-      { key: 'lastErrorSanitized', type: 'string', size: 500, required: false },
+      { key: 'paramsJson', type: 'string', size: 4000, required: false },
       { key: 'createdAt', type: 'string', size: 64, required: true },
-      { key: 'updatedAt', type: 'string', size: 64, required: true },
     ],
     indexes: [
-      {
-        key: 'unique_command_idempotency',
-        type: 'unique',
-        attributes: ['accountId', 'idempotencyKey'],
-      },
-      {
-        key: 'idx_commands_account_created',
-        type: 'key',
-        attributes: ['accountId', 'createdAt'],
-      },
+      { key: 'idx_voice_commands_call', type: 'key', attributes: ['callId'] },
     ],
   },
   followups: {
@@ -477,7 +425,6 @@ export const SCHEMA_MANIFEST: Record<string, CollectionSchema> = {
       { key: 'accountId', type: 'string', size: 255, required: true },
       { key: 'contactId', type: 'string', size: 255, required: true },
       { key: 'channel', type: 'string', size: 32, required: true },
-      { key: 'scheduledAt', type: 'string', size: 64, required: true },
       {
         key: 'status',
         type: 'string',
@@ -485,8 +432,10 @@ export const SCHEMA_MANIFEST: Record<string, CollectionSchema> = {
         required: true,
         default: 'pending',
       },
-      { key: 'messageText', type: 'string', size: 2000, required: false },
+      { key: 'scheduledAt', type: 'string', size: 64, required: true },
+      { key: 'sentAt', type: 'string', size: 64, required: false },
       { key: 'createdAt', type: 'string', size: 64, required: true },
+      { key: 'updatedAt', type: 'string', size: 64, required: true },
     ],
     indexes: [
       { key: 'idx_followups_account', type: 'key', attributes: ['accountId'] },
@@ -496,13 +445,8 @@ export const SCHEMA_MANIFEST: Record<string, CollectionSchema> = {
     id: APPWRITE_CONFIG.collections.integrations,
     attributes: [
       { key: 'accountId', type: 'string', size: 255, required: true },
-      { key: 'provider', type: 'string', size: 64, required: true },
-      {
-        key: 'encryptedCredentials',
-        type: 'string',
-        size: 2000,
-        required: true,
-      },
+      { key: 'type', type: 'string', size: 64, required: true },
+      { key: 'configJson', type: 'string', size: 4000, required: false },
       {
         key: 'status',
         type: 'string',
@@ -511,56 +455,35 @@ export const SCHEMA_MANIFEST: Record<string, CollectionSchema> = {
         default: 'active',
       },
       { key: 'createdAt', type: 'string', size: 64, required: true },
+      { key: 'updatedAt', type: 'string', size: 64, required: true },
     ],
     indexes: [
       {
-        key: 'unique_account_provider_integration',
-        type: 'unique',
-        attributes: ['accountId', 'provider'],
+        key: 'idx_integrations_account',
+        type: 'key',
+        attributes: ['accountId'],
       },
     ],
   },
   provider_events: {
     id: APPWRITE_CONFIG.collections.providerEvents,
     attributes: [
-      { key: 'accountId', type: 'string', size: 255, required: false },
       { key: 'provider', type: 'string', size: 64, required: true },
       { key: 'externalEventId', type: 'string', size: 255, required: true },
       { key: 'eventType', type: 'string', size: 128, required: true },
-      { key: 'payloadHash', type: 'string', size: 128, required: true },
-      { key: 'rawPayloadReference', type: 'string', size: 500, required: true },
-      { key: 'processingStatus', type: 'string', size: 32, required: true },
+      { key: 'status', type: 'string', size: 32, required: true },
+      { key: 'attempts', type: 'integer', required: false, default: 0 },
       {
-        key: 'processingAttempts',
-        type: 'integer',
-        required: false,
-        default: 0,
-      },
-      {
-        key: 'maxAttempts',
-        type: 'integer',
-        required: false,
-        default: 5,
-      },
-      {
-        key: 'lastErrorSanitized',
+        key: 'rawPayloadReference',
         type: 'string',
-        size: 500,
+        size: 1000,
         required: false,
       },
-      { key: 'receivedAt', type: 'string', size: 64, required: true },
-      {
-        key: 'processingStartedAt',
-        type: 'string',
-        size: 64,
-        required: false,
-      },
-      { key: 'lockOwner', type: 'string', size: 255, required: false },
-      { key: 'lockExpiresAt', type: 'string', size: 64, required: false },
-      { key: 'heartbeatAt', type: 'string', size: 64, required: false },
+      { key: 'accountId', type: 'string', size: 255, required: false },
+      { key: 'lastErrorCode', type: 'string', size: 128, required: false },
       { key: 'nextAttemptAt', type: 'string', size: 64, required: false },
-      { key: 'processedAt', type: 'string', size: 64, required: false },
-      { key: 'deadLetteredAt', type: 'string', size: 64, required: false },
+      { key: 'createdAt', type: 'string', size: 64, required: true },
+      { key: 'updatedAt', type: 'string', size: 64, required: true },
     ],
     indexes: [
       {
@@ -569,29 +492,10 @@ export const SCHEMA_MANIFEST: Record<string, CollectionSchema> = {
         attributes: ['provider', 'externalEventId'],
       },
       {
-        key: 'idx_provider_events_account_received',
-        type: 'key',
-        attributes: ['accountId', 'receivedAt'],
-      },
-      {
         key: 'idx_provider_events_status_next',
         type: 'key',
-        attributes: ['processingStatus', 'nextAttemptAt'],
+        attributes: ['status', 'nextAttemptAt'],
       },
-    ],
-  },
-  knowledge_base: {
-    id: APPWRITE_CONFIG.collections.knowledgeBase,
-    attributes: [
-      { key: 'accountId', type: 'string', size: 255, required: true },
-      { key: 'category', type: 'string', size: 64, required: true },
-      { key: 'questionTitle', type: 'string', size: 500, required: true },
-      { key: 'answerContent', type: 'string', size: 5000, required: true },
-      { key: 'createdAt', type: 'string', size: 64, required: false },
-      { key: 'updatedAt', type: 'string', size: 64, required: false },
-    ],
-    indexes: [
-      { key: 'idx_kb_account', type: 'key', attributes: ['accountId'] },
     ],
   },
   audit_logs: {
@@ -630,11 +534,30 @@ export const SCHEMA_MANIFEST: Record<string, CollectionSchema> = {
     id: APPWRITE_CONFIG.collections.outboundOutbox,
     attributes: [
       { key: 'accountId', type: 'string', size: 255, required: true },
-      { key: 'channel', type: 'string', size: 32, required: true },
       { key: 'idempotencyKey', type: 'string', size: 255, required: true },
-      { key: 'status', type: 'string', size: 32, required: true },
+      { key: 'requestHash', type: 'string', size: 255, required: false },
+      { key: 'conversationId', type: 'string', size: 255, required: false },
+      { key: 'contactId', type: 'string', size: 255, required: false },
+      {
+        key: 'channel',
+        type: 'string',
+        size: 32,
+        required: false,
+        default: 'whatsapp',
+      },
+      {
+        key: 'status',
+        type: 'string',
+        size: 32,
+        required: true,
+        default: 'pending',
+      },
+      { key: 'attempts', type: 'integer', required: false, default: 0 },
       { key: 'metaMessageId', type: 'string', size: 255, required: false },
+      { key: 'lastErrorCode', type: 'string', size: 255, required: false },
+      { key: 'nextAttemptAt', type: 'string', size: 64, required: false },
       { key: 'createdAt', type: 'string', size: 64, required: true },
+      { key: 'updatedAt', type: 'string', size: 64, required: true },
     ],
     indexes: [
       {
@@ -720,56 +643,16 @@ export const SCHEMA_MANIFEST: Record<string, CollectionSchema> = {
   whatsapp_configs: {
     id: APPWRITE_CONFIG.collections.whatsappConfigs,
     attributes: [
-      { key: 'accountId', type: 'string', size: 255, required: false },
-      { key: 'account_id', type: 'string', size: 255, required: false },
-      { key: 'userId', type: 'string', size: 255, required: false },
-      { key: 'user_id', type: 'string', size: 255, required: false },
-      { key: 'phone_number_id', type: 'string', size: 255, required: false },
-      { key: 'phoneNumberId', type: 'string', size: 255, required: false },
-      { key: 'waba_id', type: 'string', size: 255, required: false },
+      { key: 'accountId', type: 'string', size: 255, required: true },
+      { key: 'createdBy', type: 'string', size: 255, required: false },
+      { key: 'updatedBy', type: 'string', size: 255, required: false },
+      { key: 'phoneNumberId', type: 'string', size: 255, required: true },
       { key: 'wabaId', type: 'string', size: 255, required: false },
-      { key: 'access_token', type: 'string', size: 2000, required: false },
-      { key: 'accessToken', type: 'string', size: 2000, required: false },
-      {
-        key: 'encrypted_access_token',
-        type: 'string',
-        size: 2000,
-        required: false,
-      },
       {
         key: 'encryptedAccessToken',
         type: 'string',
         size: 2000,
-        required: false,
-      },
-      {
-        key: 'status',
-        type: 'string',
-        size: 32,
-        required: false,
-        default: 'active',
-      },
-      { key: 'registered_at', type: 'string', size: 64, required: false },
-      { key: 'registeredAt', type: 'string', size: 64, required: false },
-      {
-        key: 'last_registration_error',
-        type: 'string',
-        size: 1000,
-        required: false,
-      },
-      {
-        key: 'lastRegistrationError',
-        type: 'string',
-        size: 1000,
-        required: false,
-      },
-      { key: 'subscribed_apps_at', type: 'string', size: 64, required: false },
-      { key: 'subscribedAppsAt', type: 'string', size: 64, required: false },
-      {
-        key: 'business_phone_number',
-        type: 'string',
-        size: 64,
-        required: false,
+        required: true,
       },
       {
         key: 'encryptedVerifyToken',
@@ -777,8 +660,6 @@ export const SCHEMA_MANIFEST: Record<string, CollectionSchema> = {
         size: 2000,
         required: false,
       },
-      { key: 'createdBy', type: 'string', size: 255, required: false },
-      { key: 'updatedBy', type: 'string', size: 255, required: false },
       {
         key: 'encryptionKeyVersion',
         type: 'string',
@@ -786,19 +667,34 @@ export const SCHEMA_MANIFEST: Record<string, CollectionSchema> = {
         required: false,
         default: 'v1',
       },
-      { key: 'createdAt', type: 'string', size: 64, required: false },
-      { key: 'updatedAt', type: 'string', size: 64, required: false },
+      {
+        key: 'status',
+        type: 'string',
+        size: 32,
+        required: false,
+        default: 'connected',
+      },
+      { key: 'registeredAt', type: 'string', size: 64, required: false },
+      {
+        key: 'lastRegistrationError',
+        type: 'string',
+        size: 1000,
+        required: false,
+      },
+      { key: 'subscribedAppsAt', type: 'string', size: 64, required: false },
+      { key: 'createdAt', type: 'string', size: 64, required: true },
+      { key: 'updatedAt', type: 'string', size: 64, required: true },
     ],
     indexes: [
       {
-        key: 'unique_whatsapp_account_id',
+        key: 'idx_whatsapp_configs_account',
         type: 'unique',
-        attributes: ['account_id'],
+        attributes: ['accountId'],
       },
       {
-        key: 'idx_whatsapp_phone_number',
-        type: 'key',
-        attributes: ['phone_number_id'],
+        key: 'idx_whatsapp_configs_phone',
+        type: 'unique',
+        attributes: ['phoneNumberId'],
       },
     ],
   },
@@ -832,115 +728,6 @@ async function setupAppwriteDatabase() {
   const databaseId =
     process.env.APPWRITE_DATABASE_ID || APPWRITE_CONFIG.databaseId;
 
-  // 1. Create Database if missing
-  try {
-    await databases.get(databaseId);
-    console.log(`✅ Database '${databaseId}' exists.`);
-  } catch {
-    console.log(`📦 Creating Database '${databaseId}'...`);
-    await databases.create(databaseId, databaseId);
-    console.log(`✅ Database '${databaseId}' created.`);
-  }
-
-  // 2. Provision Collections, Attributes, and Indexes
-  const collections = Object.values(APPWRITE_CONFIG.collections);
-
-  for (const collectionId of collections) {
-    try {
-      await databases.getCollection(databaseId, collectionId);
-      console.log(`✅ Collection '${collectionId}' exists.`);
-    } catch {
-      console.log(`📄 Creating Collection '${collectionId}'...`);
-      // Server-managed collections with document-level security enabled, no public browser access
-      await databases.createCollection(
-        databaseId,
-        collectionId,
-        collectionId,
-        [],
-        true,
-        true
-      );
-      console.log(`✅ Collection '${collectionId}' created.`);
-    }
-
-    const schema = SCHEMA_MANIFEST[collectionId];
-    if (schema) {
-      const existingCol = await databases.getCollection(
-        databaseId,
-        collectionId
-      );
-      const existingAttrKeys = new Set(
-        existingCol.attributes.map((a) => a.key)
-      );
-
-      for (const attr of schema.attributes) {
-        if (!existingAttrKeys.has(attr.key)) {
-          try {
-            if (attr.type === 'string') {
-              await databases.createStringAttribute(
-                databaseId,
-                collectionId,
-                attr.key,
-                attr.size || 255,
-                attr.required,
-                attr.default as string | undefined,
-                attr.array || false
-              );
-            } else if (attr.type === 'integer') {
-              await databases.createIntegerAttribute(
-                databaseId,
-                collectionId,
-                attr.key,
-                attr.required,
-                undefined,
-                undefined,
-                attr.default as number | undefined,
-                attr.array || false
-              );
-            } else if (attr.type === 'boolean') {
-              await databases.createBooleanAttribute(
-                databaseId,
-                collectionId,
-                attr.key,
-                attr.required,
-                attr.default as boolean | undefined,
-                attr.array || false
-              );
-            }
-            console.log(
-              `  └─ Created attribute '${attr.key}' on '${collectionId}'`
-            );
-          } catch (err: unknown) {
-            console.warn(
-              `  └─ Warning creating attribute '${attr.key}': ${(err as Error).message}`
-            );
-          }
-        }
-      }
-
-      const existingIndexKeys = new Set(
-        existingCol.indexes.map((idx) => idx.key)
-      );
-      for (const idx of schema.indexes) {
-        if (!existingIndexKeys.has(idx.key)) {
-          try {
-            await (
-              databases.createIndex as (...args: unknown[]) => Promise<unknown>
-            )(databaseId, collectionId, idx.key, idx.type, idx.attributes);
-            console.log(
-              `  └─ Created index '${idx.key}' (${idx.type}) on '${collectionId}'`
-            );
-          } catch (err: unknown) {
-            console.warn(
-              `  └─ Warning creating index '${idx.key}': ${(err as Error).message}`
-            );
-          }
-        }
-      }
-    }
-  }
-
-  // 3. Private Storage Buckets Provisioning
   const args = process.argv.slice(2);
   const isApply = args.includes('--apply');
   const isProductionConfirm = args.includes('--confirm-production');
@@ -962,6 +749,156 @@ async function setupAppwriteDatabase() {
     console.log('ℹ️ Running in DRY-RUN mode (no mutations will be performed).');
   }
 
+  // 1. Verify / Create Database
+  try {
+    await databases.get(databaseId);
+    console.log(`✅ Database '${databaseId}' exists.`);
+  } catch {
+    if (!shouldMutate) {
+      console.log(
+        `[DRY-RUN] Database '${databaseId}' is MISSING (would be created).`
+      );
+    } else {
+      console.log(`📦 Creating Database '${databaseId}'...`);
+      await databases.create(databaseId, databaseId);
+      console.log(`✅ Database '${databaseId}' created.`);
+    }
+  }
+
+  // 2. Provision Collections, Attributes, and Indexes
+  const collections = Object.values(APPWRITE_CONFIG.collections);
+
+  for (const collectionId of collections) {
+    let collectionExists = false;
+    try {
+      await databases.getCollection(databaseId, collectionId);
+      console.log(`✅ Collection '${collectionId}' exists.`);
+      collectionExists = true;
+    } catch {
+      if (!shouldMutate) {
+        console.log(
+          `[DRY-RUN] Collection '${collectionId}' is MISSING (would be created).`
+        );
+      } else {
+        console.log(`📄 Creating Collection '${collectionId}'...`);
+        await databases.createCollection(
+          databaseId,
+          collectionId,
+          collectionId,
+          [],
+          true,
+          true
+        );
+        console.log(`✅ Collection '${collectionId}' created.`);
+        collectionExists = true;
+      }
+    }
+
+    const schema = SCHEMA_MANIFEST[collectionId];
+    if (schema && (collectionExists || shouldMutate)) {
+      let existingAttrKeys = new Set<string>();
+      let existingIndexKeys = new Set<string>();
+
+      try {
+        const existingCol = await databases.getCollection(
+          databaseId,
+          collectionId
+        );
+        existingAttrKeys = new Set(existingCol.attributes.map((a) => a.key));
+        existingIndexKeys = new Set(existingCol.indexes.map((idx) => idx.key));
+      } catch {
+        // Collection does not exist yet
+      }
+
+      for (const attr of schema.attributes) {
+        if (!existingAttrKeys.has(attr.key)) {
+          if (!shouldMutate) {
+            console.log(
+              `  [DRY-RUN] Attribute '${attr.key}' on '${collectionId}' is MISSING (would be created)`
+            );
+          } else {
+            try {
+              if (attr.type === 'string') {
+                await databases.createStringAttribute(
+                  databaseId,
+                  collectionId,
+                  attr.key,
+                  attr.size || 255,
+                  attr.required,
+                  attr.default as string | undefined,
+                  attr.array || false
+                );
+              } else if (attr.type === 'integer') {
+                await databases.createIntegerAttribute(
+                  databaseId,
+                  collectionId,
+                  attr.key,
+                  attr.required,
+                  undefined,
+                  undefined,
+                  attr.default as number | undefined,
+                  attr.array || false
+                );
+              } else if (attr.type === 'boolean') {
+                await databases.createBooleanAttribute(
+                  databaseId,
+                  collectionId,
+                  attr.key,
+                  attr.required,
+                  attr.default as boolean | undefined,
+                  attr.array || false
+                );
+              }
+              console.log(
+                `  └─ Created attribute '${attr.key}' on '${collectionId}'`
+              );
+            } catch (err: unknown) {
+              const msg = (err as Error).message;
+              if (/already exists|duplicate/i.test(msg)) {
+                console.log(`  └─ Attribute '${attr.key}' already available.`);
+              } else {
+                console.warn(
+                  `  └─ Warning creating attribute '${attr.key}': ${msg}`
+                );
+              }
+            }
+          }
+        }
+      }
+
+      for (const idx of schema.indexes) {
+        if (!existingIndexKeys.has(idx.key)) {
+          if (!shouldMutate) {
+            console.log(
+              `  [DRY-RUN] Index '${idx.key}' (${idx.type}) on '${collectionId}' is MISSING (would be created)`
+            );
+          } else {
+            try {
+              await (
+                databases.createIndex as (
+                  ...args: unknown[]
+                ) => Promise<unknown>
+              )(databaseId, collectionId, idx.key, idx.type, idx.attributes);
+              console.log(
+                `  └─ Created index '${idx.key}' (${idx.type}) on '${collectionId}'`
+              );
+            } catch (err: unknown) {
+              const msg = (err as Error).message;
+              if (/already exists|duplicate/i.test(msg)) {
+                console.log(`  └─ Index '${idx.key}' already available.`);
+              } else {
+                console.warn(
+                  `  └─ Warning creating index '${idx.key}': ${msg}`
+                );
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 3. Private Storage Buckets Provisioning
   const requiredBuckets = Object.values(REQUIRED_STORAGE_BUCKETS);
   let bucketFailures = 0;
 

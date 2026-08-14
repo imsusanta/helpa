@@ -7,11 +7,14 @@ describe('Appwrite Compat Security', () => {
   });
 
   it('returns APPWRITE_SCHEMA_MISMATCH error when attribute or index is missing without dropping filters', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 400,
-      json: async () => ({ message: 'Attribute not found: missing_field' }),
-    } as unknown as Response);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        json: async () => ({ message: 'Attribute not found: missing_field' }),
+      } as unknown as Response)
+    );
 
     const client = createDataClient('test-session', true);
     const result = await client
@@ -25,17 +28,20 @@ describe('Appwrite Compat Security', () => {
   });
 
   it('fails maybeSingle when multiple documents match', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({
-        documents: [
-          { $id: 'doc-1', name: 'Doc 1' },
-          { $id: 'doc-2', name: 'Doc 2' },
-        ],
-        total: 2,
-      }),
-    } as unknown as Response);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          documents: [
+            { $id: 'doc-1', name: 'Doc 1' },
+            { $id: 'doc-2', name: 'Doc 2' },
+          ],
+          total: 2,
+        }),
+      } as unknown as Response)
+    );
 
     const client = createDataClient('test-session', true);
     const result = await client
@@ -44,8 +50,6 @@ describe('Appwrite Compat Security', () => {
       .maybeSingle();
 
     expect(result.data).toBeNull();
-    expect(result.error?.message).toContain(
-      'Expected at most one document, found multiple'
-    );
+    expect(result.error?.code).toBe('PGRST116');
   });
 });

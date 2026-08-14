@@ -548,7 +548,18 @@ class QueryBuilder {
               return qStr;
             }
           });
-          if (this.ordering.length) retryQueries.push(...this.ordering);
+          const retryOrdering = this.ordering.map((qStr) => {
+            try {
+              const parsed = JSON.parse(qStr);
+              if (parsed.attribute === missingAttr) {
+                parsed.attribute = altAttr;
+              }
+              return JSON.stringify(parsed);
+            } catch {
+              return qStr;
+            }
+          });
+          if (retryOrdering.length) retryQueries.push(...retryOrdering);
           if (this.maxRows !== undefined)
             retryQueries.push(appwriteQuery('limit', undefined, this.maxRows));
           if (this.offset)

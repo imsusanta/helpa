@@ -15,6 +15,7 @@ import { ConversationList } from '@/components/inbox/conversation-list';
 import { MessageThread } from '@/components/inbox/message-thread';
 import { ContactSidebar } from '@/components/inbox/contact-sidebar';
 import { ReceptionistCopilotPanel } from '@/components/inbox/receptionist-copilot-panel';
+import { SendOutboundModal } from '@/components/contacts/send-outbound-modal';
 import type { InsertedComposerReply } from '@/components/inbox/message-composer';
 import { WifiOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -61,6 +62,7 @@ export default function InboxPage() {
   const [whatsappConnected, setWhatsappConnected] = useState<boolean | null>(
     null
   );
+  const [startConversationOpen, setStartConversationOpen] = useState(false);
   /**
    * Bumped whenever we want children (ConversationList, MessageThread)
    * to refetch from the DB — used as a safety net against missed
@@ -592,6 +594,32 @@ export default function InboxPage() {
     [activeConversation]
   );
 
+  const handleOpenStartConversation = useCallback(() => {
+    setStartConversationOpen(true);
+  }, []);
+
+  const handleConversationCreated = useCallback(
+    (newConvId?: string) => {
+      setStartConversationOpen(false);
+      setResyncToken((prev) => prev + 1);
+      if (newConvId) {
+        autoSelectedForDeepLinkRef.current = newConvId;
+        router.replace(`/inbox?c=${newConvId}`, { scroll: false });
+        hydrateConversation(newConvId);
+      }
+    },
+    [router, hydrateConversation]
+  );
+
+  const handleSelectById = useCallback(
+    (convId: string) => {
+      autoSelectedForDeepLinkRef.current = convId;
+      router.replace(`/inbox?c=${convId}`, { scroll: false });
+      hydrateConversation(convId);
+    },
+    [router, hydrateConversation]
+  );
+
   // On mobile (<lg) we show a SINGLE pane — either the list or the
   // thread — rather than cramming both side-by-side. Selecting a
   // conversation slides the thread in; the thread's back button pops
@@ -628,6 +656,8 @@ export default function InboxPage() {
             conversations={conversations}
             onConversationsLoaded={handleConversationsLoaded}
             resyncToken={resyncToken}
+            onStartConversation={handleOpenStartConversation}
+            onSelectById={handleSelectById}
           />
         </div>
 
@@ -663,6 +693,7 @@ export default function InboxPage() {
             contactPanelOpen={contactPanelOpen}
             onToggleContactPanel={handleToggleContactPanel}
             insertedReply={insertedReply}
+            onStartConversation={handleOpenStartConversation}
           />
         </div>
 
@@ -681,7 +712,7 @@ export default function InboxPage() {
                     : 'text-muted-foreground hover:text-foreground'
                 )}
               >
-                🧠 AI Copilot
+                🤖 AI Copilot
               </button>
               <button
                 type="button"
@@ -718,6 +749,13 @@ export default function InboxPage() {
           </aside>
         )}
       </div>
+
+      {/* Start New Conversation Modal */}
+      <SendOutboundModal
+        open={startConversationOpen}
+        onOpenChange={setStartConversationOpen}
+        onSuccess={handleConversationCreated}
+      />
     </div>
   );
 }

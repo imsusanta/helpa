@@ -78,9 +78,7 @@ export async function POST(request: Request) {
 
     const hospitalName = account?.name || 'Hospital';
     const docData = report.doctor as
-      | { name?: string }
-      | { name?: string }[]
-      | null;
+      { name?: string } | { name?: string }[] | null;
     const doctorName = (
       Array.isArray(docData) ? docData[0]?.name : docData?.name
     )

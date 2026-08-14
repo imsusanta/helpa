@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { createClient } from '@/lib/appwrite-server-compat';
 import { getCurrentAccount } from '@/lib/auth/account';
 import {
@@ -99,20 +100,54 @@ export async function POST(request: Request) {
       }
     }
 
+    // 1. Calculate deterministic request hash for idempotency payload verification
+    const requestPayloadToHash = JSON.stringify({
+      conversation_id,
+      contact_id: body.contact_id,
+      phone: body.phone,
+      message_type,
+      content_text,
+      media_url,
+      template_name,
+      template_language,
+      reply_to_message_id,
+    });
+    const requestHash = crypto
+      .createHash('sha256')
+      .update(requestPayloadToHash)
+      .digest('hex');
+
+    const effectiveIdempotencyKey =
+      idempotencyKey ||
+      `send_${Date.now()}_${crypto.randomBytes(8).toString('hex')}`;
+
     // Check optional Outbound Idempotency key
     if (idempotencyKey) {
       const { data: existingOutbox } = await dbAdmin
         .from('outbound_outbox')
         .select('*')
-        .eq('account_id', accountId)
-        .eq('idempotency_key', idempotencyKey)
+        .eq('accountId', accountId)
+        .eq('idempotencyKey', idempotencyKey)
         .maybeSingle();
 
       if (existingOutbox) {
         if (existingOutbox.status === 'sent') {
+          if (
+            existingOutbox.requestHash &&
+            existingOutbox.requestHash !== requestHash
+          ) {
+            return NextResponse.json(
+              {
+                error: 'IDEMPOTENCY_CONFLICT',
+                message:
+                  'Idempotency key has already been used with a different message payload',
+              },
+              { status: 409 }
+            );
+          }
           return NextResponse.json({
             success: true,
-            message_id: existingOutbox.meta_message_id,
+            message_id: existingOutbox.metaMessageId || existingOutbox.id,
             idempotent: true,
           });
         }
@@ -639,6 +674,31 @@ export async function POST(request: Request) {
       return result.messageId;
     };
 
+    // Record pre-send Outbox record in Appwrite
+    const preSendNow = new Date().toISOString();
+    let outboxDocId: string | null = null;
+    try {
+      const { data: outboxItem } = await dbAdmin
+        .from('outbound_outbox')
+        .insert({
+          accountId,
+          idempotencyKey: effectiveIdempotencyKey,
+          requestHash,
+          conversationId: conversation_id,
+          contactId: contactId || null,
+          channel: 'whatsapp',
+          status: 'processing',
+          attempts: 0,
+          createdAt: preSendNow,
+          updatedAt: preSendNow,
+        })
+        .select('id')
+        .single();
+      if (outboxItem?.id) outboxDocId = outboxItem.id;
+    } catch {
+      // Outbox item might exist or index may be resolving
+    }
+
     try {
       const variants = phoneVariants(sanitizedPhone);
       let lastError: unknown = null;
@@ -669,6 +729,20 @@ export async function POST(request: Request) {
       const message =
         err instanceof Error ? err.message : 'Unknown Meta API error';
       console.error('Meta API send failed for all variants:', message);
+
+      if (outboxDocId) {
+        await dbAdmin
+          .from('outbound_outbox')
+          .update({
+            status: 'dead_letter',
+            lastErrorCode: message.slice(0, 255),
+            attempts: 1,
+            updatedAt: new Date().toISOString(),
+          })
+          .eq('id', outboxDocId)
+          .eq('accountId', accountId);
+      }
+
       return NextResponse.json(
         { error: `Meta API error: ${message}` },
         { status: 502 }
@@ -712,12 +786,39 @@ export async function POST(request: Request) {
 
     if (msgError) {
       console.error('Error inserting sent message:', msgError);
+      if (outboxDocId) {
+        await dbAdmin
+          .from('outbound_outbox')
+          .update({
+            status: 'reconciliation_required',
+            metaMessageId: waMessageId,
+            lastErrorCode: `Message sent to Meta but failed to save to DB: ${msgError.message}`,
+            attempts: 1,
+            updatedAt: new Date().toISOString(),
+          })
+          .eq('id', outboxDocId)
+          .eq('accountId', accountId);
+      }
       return NextResponse.json(
         {
           error: `Message sent to Meta but failed to save to DB: ${msgError.message}`,
         },
         { status: 500 }
       );
+    }
+
+    // Update outbox to sent state
+    if (outboxDocId) {
+      await dbAdmin
+        .from('outbound_outbox')
+        .update({
+          status: 'sent',
+          metaMessageId: waMessageId,
+          attempts: 1,
+          updatedAt: new Date().toISOString(),
+        })
+        .eq('id', outboxDocId)
+        .eq('accountId', accountId);
     }
 
     // Update conversation
@@ -771,6 +872,7 @@ export async function POST(request: Request) {
       success: true,
       message_id: messageRecord.id,
       whatsapp_message_id: waMessageId,
+      conversation_id: conversation_id,
     });
   } catch (error) {
     console.error('Error in WhatsApp send POST:', error);

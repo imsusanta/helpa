@@ -153,9 +153,7 @@ export default function LabReportsPage() {
       const mappedPats = (pats || []).map((p) => {
         const item = p as Record<string, unknown>;
         const cData = item.contact as
-          | { name?: string }
-          | { name?: string }[]
-          | null;
+          { name?: string } | { name?: string }[] | null;
         const cName =
           (Array.isArray(cData) ? cData[0]?.name : cData?.name) ||
           'Unknown Patient';
@@ -543,10 +541,7 @@ export default function LabReportsPage() {
                 onChange={(e) =>
                   setStatus(
                     e.target.value as
-                      | 'pending'
-                      | 'processing'
-                      | 'ready'
-                      | 'delivered'
+                      'pending' | 'processing' | 'ready' | 'delivered'
                   )
                 }
                 className="border-input bg-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
@@ -707,10 +702,7 @@ export default function LabReportsPage() {
                 onChange={(e) =>
                   setEditStatus(
                     e.target.value as
-                      | 'pending'
-                      | 'processing'
-                      | 'ready'
-                      | 'delivered'
+                      'pending' | 'processing' | 'ready' | 'delivered'
                   )
                 }
                 className="border-input bg-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
@@ -856,9 +848,7 @@ export default function LabReportsPage() {
               <tbody className="divide-border text-foreground divide-y">
                 {filteredReports.map((rep) => {
                   const docData = rep.doctor as
-                    | { name?: string }
-                    | { name?: string }[]
-                    | null;
+                    { name?: string } | { name?: string }[] | null;
                   const docName =
                     (Array.isArray(docData)
                       ? docData[0]?.name

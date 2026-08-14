@@ -49,11 +49,7 @@ export interface ResponseTimeSummary {
 }
 
 export type ActivityKind =
-  | 'message'
-  | 'deal'
-  | 'broadcast'
-  | 'automation'
-  | 'contact';
+  'message' | 'deal' | 'broadcast' | 'automation' | 'contact';
 
 export interface ActivityItem {
   id: string;

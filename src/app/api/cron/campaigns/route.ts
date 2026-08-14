@@ -401,9 +401,7 @@ export async function GET(request: Request) {
 
             if (conv) {
               const docData = appt.doctor as
-                | { name?: string }
-                | { name?: string }[]
-                | null;
+                { name?: string } | { name?: string }[] | null;
               const docName =
                 (Array.isArray(docData) ? docData[0]?.name : docData?.name) ||
                 'your doctor';

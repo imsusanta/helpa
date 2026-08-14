@@ -190,11 +190,7 @@ export type ContentType =
   /** Customer tapped a reply button or list row on a message we sent. */
   | 'interactive';
 export type MessageStatus =
-  | 'sending'
-  | 'sent'
-  | 'delivered'
-  | 'read'
-  | 'failed';
+  'sending' | 'sent' | 'delivered' | 'read' | 'failed';
 
 export interface Message {
   id: string;
@@ -350,18 +346,9 @@ export interface Deal {
 }
 
 export type BroadcastStatus =
-  | 'draft'
-  | 'scheduled'
-  | 'sending'
-  | 'sent'
-  | 'failed';
+  'draft' | 'scheduled' | 'sending' | 'sent' | 'failed';
 export type RecipientStatus =
-  | 'pending'
-  | 'sent'
-  | 'delivered'
-  | 'read'
-  | 'replied'
-  | 'failed';
+  'pending' | 'sent' | 'delivered' | 'read' | 'replied' | 'failed';
 
 export interface Broadcast {
   id: string;
@@ -512,10 +499,7 @@ export interface WaitStepConfig {
 }
 
 export type ConditionSubject =
-  | 'contact_field'
-  | 'tag_presence'
-  | 'message_content'
-  | 'time_of_day';
+  'contact_field' | 'tag_presence' | 'message_content' | 'time_of_day';
 
 export interface ConditionStepConfig {
   subject: ConditionSubject;

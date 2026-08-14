@@ -173,9 +173,7 @@ export async function handleReportButtonReply(
   const { engineSendText, engineSendDocument } =
     await import('@/lib/automations/meta-send');
   const docData = report.doctor as
-    | { name: string }
-    | Array<{ name: string }>
-    | null;
+    { name: string } | Array<{ name: string }> | null;
   const docName =
     (Array.isArray(docData) ? docData[0]?.name : docData?.name) || 'Doctor';
 
@@ -304,6 +302,18 @@ export async function processMessage(
     : message.type === 'sticker'
       ? 'image'
       : 'text';
+
+  // Deduplication check: ignore duplicate webhook deliveries for the same Meta message ID
+  const { data: existingMsg } = await getAdminClient()
+    .from('messages')
+    .select('id')
+    .eq('messageId', message.id)
+    .limit(1);
+
+  if (existingMsg && existingMsg.length > 0) {
+    console.log(`[webhook] Duplicate messageId ${message.id} ignored.`);
+    return;
+  }
 
   const { count: priorCustomerMsgCount } = await getAdminClient()
     .from('messages')

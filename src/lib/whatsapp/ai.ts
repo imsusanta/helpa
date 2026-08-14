@@ -398,9 +398,7 @@ export async function triggerAiResponse(
             ? d.available_days.join(', ')
             : '';
           const workingHours = d.working_hours as
-            | { start?: string; end?: string }
-            | null
-            | undefined;
+            { start?: string; end?: string } | null | undefined;
           const start = workingHours?.start || '09:00';
           const end = workingHours?.end || '17:00';
           hospitalContext += `- Dr. ${d.name.replace(/^Dr\.\s+/i, '')} (${d.department} - ${d.specialization || 'General'}): Fee: ₹${d.consultation_fee || '0'}, Working Days: ${days}, Working Hours: ${start} to ${end}\n`;
@@ -419,9 +417,7 @@ export async function triggerAiResponse(
       hospitalContext += "\nPatient's Recent/Upcoming Appointments:\n";
       appts.forEach((a: Record<string, any>) => {
         const patientData = a.patient as
-          | { name?: string }
-          | { name?: string }[]
-          | null;
+          { name?: string } | { name?: string }[] | null;
         const pName =
           (Array.isArray(patientData)
             ? patientData[0]?.name
@@ -436,16 +432,12 @@ export async function triggerAiResponse(
       labReports.forEach((rItem) => {
         const r = rItem as unknown as Record<string, unknown>;
         const docData = r.doctor as
-          | { name?: string }
-          | { name?: string }[]
-          | null;
+          { name?: string } | { name?: string }[] | null;
         const docName =
           (Array.isArray(docData) ? docData[0]?.name : docData?.name) ||
           'Doctor';
         const patientData = r.patient as
-          | { name?: string }
-          | { name?: string }[]
-          | null;
+          { name?: string } | { name?: string }[] | null;
         const pName =
           (Array.isArray(patientData)
             ? patientData[0]?.name
@@ -1410,9 +1402,7 @@ Note:
                 ? doc.available_days.join(', ')
                 : 'All days';
               const workingHours = doc.working_hours as
-                | { start?: string; end?: string }
-                | null
-                | undefined;
+                { start?: string; end?: string } | null | undefined;
               const start = workingHours?.start || '09:00';
               const end = workingHours?.end || '17:00';
               const fee = doc.consultation_fee || 0;

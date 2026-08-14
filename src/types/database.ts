@@ -719,11 +719,7 @@ export interface Database {
           account_id: string | null;
           event_type: string;
           status:
-            | 'received'
-            | 'processing'
-            | 'processed'
-            | 'failed'
-            | 'dead_letter';
+            'received' | 'processing' | 'processed' | 'failed' | 'dead_letter';
           payload: Json;
           retry_count: number;
           error_message: string | null;
@@ -736,11 +732,7 @@ export interface Database {
           account_id?: string | null;
           event_type: string;
           status?:
-            | 'received'
-            | 'processing'
-            | 'processed'
-            | 'failed'
-            | 'dead_letter';
+            'received' | 'processing' | 'processed' | 'failed' | 'dead_letter';
           payload: Json;
           retry_count?: number;
           error_message?: string | null;
@@ -753,11 +745,7 @@ export interface Database {
           account_id?: string | null;
           event_type?: string;
           status?:
-            | 'received'
-            | 'processing'
-            | 'processed'
-            | 'failed'
-            | 'dead_letter';
+            'received' | 'processing' | 'processed' | 'failed' | 'dead_letter';
           payload?: Json;
           retry_count?: number;
           error_message?: string | null;
@@ -775,11 +763,7 @@ export interface Database {
           field: string;
           payload: Json;
           status:
-            | 'received'
-            | 'processing'
-            | 'completed'
-            | 'failed'
-            | 'dead_letter';
+            'received' | 'processing' | 'completed' | 'failed' | 'dead_letter';
           retry_count: number;
           error_log: string | null;
           processed_at: string | null;
@@ -794,11 +778,7 @@ export interface Database {
           field?: string;
           payload: Json;
           status?:
-            | 'received'
-            | 'processing'
-            | 'completed'
-            | 'failed'
-            | 'dead_letter';
+            'received' | 'processing' | 'completed' | 'failed' | 'dead_letter';
           retry_count?: number;
           error_log?: string | null;
           processed_at?: string | null;
@@ -813,11 +793,7 @@ export interface Database {
           field?: string;
           payload?: Json;
           status?:
-            | 'received'
-            | 'processing'
-            | 'completed'
-            | 'failed'
-            | 'dead_letter';
+            'received' | 'processing' | 'completed' | 'failed' | 'dead_letter';
           retry_count?: number;
           error_log?: string | null;
           processed_at?: string | null;
