@@ -412,7 +412,15 @@ export function MessageThread({
       .subscribe();
 
     return () => {
-      appwrite.removeChannel(channel);
+      try {
+        if (typeof appwrite?.removeChannel === 'function') {
+          appwrite.removeChannel(channel);
+        } else if (typeof (channel as any)?.unsubscribe === 'function') {
+          (channel as any).unsubscribe();
+        }
+      } catch {
+        // Ignore cleanup error
+      }
     };
   }, [conversationId]);
 

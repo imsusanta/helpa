@@ -1279,10 +1279,24 @@ export function createDataClient(
         },
       }),
     },
-    channel: () => ({
-      on: () => ({ subscribe: () => ({ unsubscribe: () => {} }) }),
-      subscribe: () => ({ unsubscribe: () => {} }),
-    }),
+    channel: (name?: string) => {
+      const channelObj: any = {
+        name,
+        on: () => channelObj,
+        subscribe: (cb?: (status: string) => void) => {
+          if (typeof cb === 'function') {
+            try {
+              cb('SUBSCRIBED');
+            } catch {
+              // Ignore
+            }
+          }
+          return channelObj;
+        },
+        unsubscribe: () => 'ok',
+      };
+      return channelObj;
+    },
     removeChannel: async () => 'ok',
   };
   return client;

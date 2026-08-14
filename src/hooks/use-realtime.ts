@@ -158,7 +158,13 @@ export function useRealtime({
           });
 
         unsubscribeRef.current = () => {
-          supabase.removeChannel(channel);
+          try {
+            if (typeof supabase?.removeChannel === 'function') {
+              supabase.removeChannel(channel);
+            }
+          } catch {
+            // Ignore
+          }
         };
         return;
       } catch {
