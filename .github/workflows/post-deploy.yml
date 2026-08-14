@@ -11,9 +11,15 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PRODUCTION_URL: https://www.helpa.studio
+      EXPECTED_SHA: ${{ github.sha }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Set up Node.js runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
       - name: Verify Production Homepage (HTTP 200)
         run: |
@@ -33,13 +39,6 @@ jobs:
             exit 1
           fi
 
-      - name: Verify Production /api/health (HTTP 200 & SHA Match)
+      - name: Verify Live Deployed Commit SHA via /api/health
         run: |
-          RESPONSE=$(curl -s "$PRODUCTION_URL/api/health")
-          echo "Health API Response: $RESPONSE"
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$PRODUCTION_URL/api/health")
-          if [ "$STATUS" -ne 200 ]; then
-            echo "Error: /api/health returned $STATUS instead of 200"
-            exit 1
-          fi
-          echo "✅ Production health check passed."
+          node scripts/verify-deployment.mjs

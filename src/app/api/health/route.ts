@@ -1,24 +1,24 @@
 import { NextResponse } from 'next/server';
 import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
 import { getAppwriteAdminClient } from '@/infrastructure/appwrite/server';
-import { getVoiceProvider } from '@/core/providers/voice/provider-factory';
+import { resolveCommitSha } from '@/lib/commit-sha';
 
 export async function GET(request: Request) {
   const timestamp = new Date().toISOString();
   const { pathname } = new URL(request.url);
 
-  const commitSha =
-    process.env.NEXT_PUBLIC_COMMIT_SHA ||
-    process.env.VERCEL_GIT_COMMIT_SHA ||
-    process.env.GITHUB_SHA ||
-    process.env.APPWRITE_GIT_COMMIT_SHA ||
-    process.env.NEXT_PUBLIC_APPWRITE_GIT_COMMIT_SHA ||
-    'development';
+  const commitResolution = resolveCommitSha(process.env);
+  const isProd = process.env.NODE_ENV === 'production';
 
   // /api/health/live - Liveness Probe (Lightweight check)
   if (pathname.endsWith('/live')) {
     return NextResponse.json(
-      { status: 'ok', timestamp, commit: commitSha },
+      {
+        status: 'ok',
+        timestamp,
+        commit: commitResolution.commit,
+        deploymentShaStatus: commitResolution.deploymentShaStatus,
+      },
       { status: 200, headers: { 'Cache-Control': 'no-store, private' } }
     );
   }
@@ -56,16 +56,20 @@ export async function GET(request: Request) {
   }
 
   const isHealthy = appwriteReachable && databaseHealthy;
-  const voice = await getVoiceProvider('elevenlabs').healthCheck();
+  const isShaValid = !isProd || commitResolution.isValid;
+
+  // Final system status
+  const overallStatus = isHealthy && isShaValid ? 'ok' : 'degraded';
   const metaConfigured = Boolean(process.env.META_APP_SECRET);
   const twilioConfigured = Boolean(process.env.TWILIO_AUTH_TOKEN);
   const calendlyConfigured = Boolean(process.env.CALENDLY_CLIENT_SECRET);
 
   return NextResponse.json(
     {
-      status: isHealthy ? 'ok' : 'degraded',
+      status: overallStatus,
       version: '0.3.0',
-      commit: commitSha,
+      commit: commitResolution.commit,
+      deploymentShaStatus: commitResolution.deploymentShaStatus,
       environment: process.env.NODE_ENV || 'production',
       checks: {
         appwriteApi: appwriteReachable ? 'healthy' : 'unreachable',
@@ -77,22 +81,11 @@ export async function GET(request: Request) {
         twilioSms: twilioConfigured ? 'configured' : 'not_configured',
         calendly: calendlyConfigured ? 'configured' : 'not_configured',
         voice: {
-          status:
-            voice.configured &&
-            voice.credentialsValid &&
-            voice.providerReachable &&
-            voice.agentFound &&
-            voice.phoneNumberFound
-              ? 'connected'
-              : voice.configured
-                ? 'degraded'
-                : 'not_configured',
-          configured: voice.configured,
-          credentialsValid: voice.credentialsValid,
-          providerReachable: voice.providerReachable,
-          webhookConfigured: voice.webhookConfigured,
-          agentFound: voice.agentFound,
-          phoneNumberFound: voice.phoneNumberFound,
+          status: 'not_configured',
+          releaseBlocking: false,
+          configured: false,
+          notice:
+            'Voice CRM is excluded from the current production release scope (Option A: WhatsApp CRM focus).',
         },
       },
       appwrite: {

@@ -1,4 +1,5 @@
 import { AppwriteVoiceOutboxWorker } from '../src/lib/voice/voice-outbox-worker';
+import { OutboxService } from '../src/lib/whatsapp/outbox-service';
 
 console.log('[Helpa Worker] Starting Appwrite-native background worker...');
 
@@ -8,7 +9,15 @@ const POLL_INTERVAL_MS = 5000;
 async function runWorkerLoop() {
   while (isRunning) {
     try {
-      // 1. Process voice outbox & provider events
+      // 1. Process WhatsApp outbound outbox reconciliation
+      const reconciled = await OutboxService.reconcilePendingMessages();
+      if (reconciled > 0) {
+        console.log(
+          `[Helpa Worker] Reconciled ${reconciled} pending outbound messages.`
+        );
+      }
+
+      // 2. Process voice outbox & provider events
       await AppwriteVoiceOutboxWorker.processPendingEvents();
     } catch (err) {
       console.error(

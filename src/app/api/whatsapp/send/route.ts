@@ -23,6 +23,7 @@ import {
 } from '@/lib/rate-limit';
 import type { MessageTemplate } from '@/types';
 import { isMessageTemplate } from '@/lib/whatsapp/template-row-guard';
+import { OutboxService } from '@/lib/whatsapp/outbox-service';
 
 export async function POST(request: Request) {
   try {
@@ -100,71 +101,10 @@ export async function POST(request: Request) {
       }
     }
 
-    // 1. Calculate deterministic request hash for idempotency payload verification
-    const requestPayloadToHash = JSON.stringify({
-      conversation_id,
-      contact_id: body.contact_id,
-      phone: body.phone,
-      message_type,
-      content_text,
-      media_url,
-      template_name,
-      template_language,
-      reply_to_message_id,
-    });
-    const requestHash = crypto
-      .createHash('sha256')
-      .update(requestPayloadToHash)
-      .digest('hex');
-
     const effectiveIdempotencyKey =
       idempotencyKey ||
       `send_${Date.now()}_${crypto.randomBytes(8).toString('hex')}`;
 
-    // Check optional Outbound Idempotency key
-    if (idempotencyKey) {
-      const { data: existingOutbox } = await dbAdmin
-        .from('outbound_outbox')
-        .select('*')
-        .eq('accountId', accountId)
-        .eq('idempotencyKey', idempotencyKey)
-        .maybeSingle();
-
-      if (existingOutbox) {
-        if (existingOutbox.status === 'sent') {
-          if (
-            existingOutbox.requestHash &&
-            existingOutbox.requestHash !== requestHash
-          ) {
-            return NextResponse.json(
-              {
-                error: 'IDEMPOTENCY_CONFLICT',
-                message:
-                  'Idempotency key has already been used with a different message payload',
-              },
-              { status: 409 }
-            );
-          }
-          return NextResponse.json({
-            success: true,
-            message_id: existingOutbox.metaMessageId || existingOutbox.id,
-            idempotent: true,
-          });
-        }
-        if (
-          existingOutbox.status === 'processing' ||
-          existingOutbox.status === 'pending'
-        ) {
-          return NextResponse.json(
-            {
-              error: 'DUPLICATE_REQUEST',
-              message: 'Message send request already in progress',
-            },
-            { status: 409 }
-          );
-        }
-      }
-    }
     // Auto-resolve or create conversation if conversation_id was not provided
     if (!conversation_id && (body.contact_id || body.phone)) {
       let resolvedContactId = body.contact_id;
@@ -628,6 +568,90 @@ export async function POST(request: Request) {
       templateRow = data ?? null;
     }
 
+    // 1. Calculate deterministic request hash for idempotency payload verification
+    const requestPayloadToHash = JSON.stringify({
+      conversation_id,
+      contact_id: contactId,
+      phone: sanitizedPhone,
+      message_type,
+      content_text,
+      media_url,
+      template_name,
+      template_language,
+      reply_to_message_id,
+    });
+    const requestHash = crypto
+      .createHash('sha256')
+      .update(requestPayloadToHash)
+      .digest('hex');
+
+    // 2. Pre-send outbox check & lock
+    const outboxRes = await OutboxService.createPreSendOutbox({
+      accountId,
+      idempotencyKey: effectiveIdempotencyKey,
+      requestHash,
+      channel: 'whatsapp',
+      conversationId: conversation_id,
+      contactId: contactId || null,
+      provider: 'meta',
+    });
+
+    if (!outboxRes.ok) {
+      return NextResponse.json(
+        {
+          error: outboxRes.code,
+          message: outboxRes.message,
+          correlationId: crypto.randomUUID(),
+        },
+        { status: outboxRes.code === 'IDEMPOTENCY_CONFLICT' ? 409 : 503 }
+      );
+    }
+
+    if (outboxRes.status === 'existing') {
+      if (outboxRes.existingStatus === 'sent') {
+        return NextResponse.json({
+          success: true,
+          message_id: outboxRes.providerMessageId || outboxRes.outboxId,
+          idempotent: true,
+        });
+      }
+      if (
+        outboxRes.existingStatus === 'processing' ||
+        outboxRes.existingStatus === 'pending'
+      ) {
+        return NextResponse.json(
+          {
+            error: 'DUPLICATE_REQUEST_IN_PROGRESS',
+            status: 'processing',
+            message: 'Message send request already in progress',
+          },
+          { status: 202 }
+        );
+      }
+      if (outboxRes.existingStatus === 'reconciliation_required') {
+        return NextResponse.json(
+          {
+            status: 'reconciliation_required',
+            message_id: outboxRes.providerMessageId,
+            message:
+              'Message send recorded on Meta, awaiting local reconciliation',
+          },
+          { status: 202 }
+        );
+      }
+      if (outboxRes.existingStatus === 'dead_letter') {
+        return NextResponse.json(
+          {
+            error: 'PREVIOUS_SEND_FAILED',
+            message: 'Previous message send attempt failed permanently',
+          },
+          { status: 422 }
+        );
+      }
+    }
+
+    const outboxDocId = outboxRes.outboxId;
+
     const attempt = async (phone: string): Promise<string> => {
       const phoneNumberId = String(
         config.phone_number_id || config.phoneNumberId || ''
@@ -674,31 +698,6 @@ export async function POST(request: Request) {
       return result.messageId;
     };
 
-    // Record pre-send Outbox record in Appwrite
-    const preSendNow = new Date().toISOString();
-    let outboxDocId: string | null = null;
-    try {
-      const { data: outboxItem } = await dbAdmin
-        .from('outbound_outbox')
-        .insert({
-          accountId,
-          idempotencyKey: effectiveIdempotencyKey,
-          requestHash,
-          conversationId: conversation_id,
-          contactId: contactId || null,
-          channel: 'whatsapp',
-          status: 'processing',
-          attempts: 0,
-          createdAt: preSendNow,
-          updatedAt: preSendNow,
-        })
-        .select('id')
-        .single();
-      if (outboxItem?.id) outboxDocId = outboxItem.id;
-    } catch {
-      // Outbox item might exist or index may be resolving
-    }
-
     try {
       const variants = phoneVariants(sanitizedPhone);
       let lastError: unknown = null;
@@ -731,16 +730,7 @@ export async function POST(request: Request) {
       console.error('Meta API send failed for all variants:', message);
 
       if (outboxDocId) {
-        await dbAdmin
-          .from('outbound_outbox')
-          .update({
-            status: 'dead_letter',
-            lastErrorCode: message.slice(0, 255),
-            attempts: 1,
-            updatedAt: new Date().toISOString(),
-          })
-          .eq('id', outboxDocId)
-          .eq('accountId', accountId);
+        await OutboxService.markDeadLetter(outboxDocId, accountId, message);
       }
 
       return NextResponse.json(
@@ -764,9 +754,6 @@ export async function POST(request: Request) {
     }
 
     // Insert message into DB — field names MUST match the messages schema
-    // (see appwrite/migrations/001_initial_schema.sql):
-    //   conversation_id, sender_type, content_type, content_text,
-    //   media_url, template_name, message_id, status, created_at
     const { data: messageRecord, error: msgError } = await dbAdmin
       .from('messages')
       .insert({
@@ -785,40 +772,29 @@ export async function POST(request: Request) {
       .single();
 
     if (msgError) {
-      console.error('Error inserting sent message:', msgError);
+      console.error('Error inserting sent message into DB:', msgError);
       if (outboxDocId) {
-        await dbAdmin
-          .from('outbound_outbox')
-          .update({
-            status: 'reconciliation_required',
-            metaMessageId: waMessageId,
-            lastErrorCode: `Message sent to Meta but failed to save to DB: ${msgError.message}`,
-            attempts: 1,
-            updatedAt: new Date().toISOString(),
-          })
-          .eq('id', outboxDocId)
-          .eq('accountId', accountId);
+        await OutboxService.markReconciliationRequired(
+          outboxDocId,
+          accountId,
+          waMessageId,
+          msgError.message
+        );
       }
       return NextResponse.json(
         {
-          error: `Message sent to Meta but failed to save to DB: ${msgError.message}`,
+          success: false,
+          status: 'reconciliation_required',
+          message_id: waMessageId,
+          message: `Message sent to Meta but failed to save locally: ${msgError.message}`,
         },
-        { status: 500 }
+        { status: 202 }
       );
     }
 
     // Update outbox to sent state
     if (outboxDocId) {
-      await dbAdmin
-        .from('outbound_outbox')
-        .update({
-          status: 'sent',
-          metaMessageId: waMessageId,
-          attempts: 1,
-          updatedAt: new Date().toISOString(),
-        })
-        .eq('id', outboxDocId)
-        .eq('accountId', accountId);
+      await OutboxService.markSent(outboxDocId, accountId, waMessageId);
     }
 
     // Update conversation
