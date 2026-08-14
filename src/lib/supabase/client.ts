@@ -1,10 +1,9 @@
 import { createBrowserClient } from '@supabase/ssr';
+import { requireSupabasePublicConfig } from '@/lib/runtime-config';
 
 export function createClient() {
-  const supabaseUrl =
-    process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    'https://tmqlzsyqlprioeoowmtk.supabase.co';
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+  const { url: supabaseUrl, publishableKey: supabaseAnonKey } =
+    requireSupabasePublicConfig();
 
   return createBrowserClient(supabaseUrl, supabaseAnonKey);
 }

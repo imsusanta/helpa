@@ -1,14 +1,11 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { hasMinRole, type AccountRole } from './roles';
-import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
-import { accountsRepository } from '@/infrastructure/appwrite/repositories/accounts.repository';
-import { profilesRepository } from '@/infrastructure/appwrite/repositories/profiles.repository';
 import { appwriteAdmin } from '@/lib/appwrite-server-compat';
 import {
   createClient as createSupabaseServerClient,
   getAdminClient as getSupabaseAdminClient,
 } from '@/lib/supabase/server';
+import { getRuntimeConfig } from '@/lib/runtime-config';
 
 export class UnauthorizedError extends Error {
   readonly status = 401 as const;
@@ -56,103 +53,48 @@ export interface AccountContext {
 
 export async function getCurrentAccount(): Promise<AccountContext> {
   try {
-    // 1. Try Supabase Auth first
-    if (
-      process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    ) {
-      try {
-        const supabase = await createSupabaseServerClient();
-        const {
-          data: { user: sbUser },
-        } = await supabase.auth.getUser();
-
-        if (sbUser) {
-          const admin = getSupabaseAdminClient();
-          const { data: member } = await admin
-            .from('account_members')
-            .select('account_id, role, accounts:account_id(id, name)')
-            .eq('user_id', sbUser.id)
-            .maybeSingle();
-
-          const accountId = member?.account_id || sbUser.id;
-          const role = (member?.role as AccountRole) || 'owner';
-          const accountName =
-            (member?.accounts as { name?: string })?.name ||
-            sbUser.user_metadata?.full_name ||
-            'Clinic Account';
-
-          return {
-            userId: sbUser.id,
-            accountId,
-            role,
-            email: sbUser.email || '',
-            account: { id: accountId, name: accountName },
-            appwrite: appwriteAdmin(),
-          };
-        }
-      } catch {
-        // Fallback to Appwrite auth
+    const runtime = getRuntimeConfig();
+    if (runtime.authProvider !== 'supabase') {
+      if (runtime.migrationMode !== 'rollback') {
+        throw new UnauthorizedError('Canonical authentication is unavailable');
       }
+      throw new UnauthorizedError(
+        'Appwrite rollback authentication is not enabled'
+      );
     }
-
-    // 2. Fallback to Appwrite Auth
-    const cookieStore = await cookies();
-    const allCookies = cookieStore.getAll();
-    const session =
-      allCookies.find((c) => c.name.startsWith('a_session_'))?.value ||
-      cookieStore.get(`a_session_${APPWRITE_CONFIG.projectId}`)?.value;
-    if (!session) throw new UnauthorizedError();
-
-    const response = await fetch(`${APPWRITE_CONFIG.endpoint}/account`, {
-      headers: {
-        'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
-        'X-Appwrite-Session': session,
-      },
-      cache: 'no-store',
-    });
-    if (!response.ok) throw new UnauthorizedError();
-    const appwriteUser = await response.json();
-
-    let profile = await profilesRepository.getProfileByUserId(appwriteUser.$id);
-
-    if (!profile || !profile.accountId || !profile.role) {
-      const defaultAccountId =
-        appwriteUser.prefs?.accountId ||
-        appwriteUser.prefs?.account_id ||
-        `acc_${appwriteUser.$id}`;
-
-      try {
-        profile = await profilesRepository.createProfile({
-          userId: appwriteUser.$id,
-          accountId: defaultAccountId,
-          name: appwriteUser.name || appwriteUser.email || 'User',
-          email: appwriteUser.email || '',
-          role: 'owner',
-        });
-      } catch {
-        profile = {
-          $id: appwriteUser.$id,
-          userId: appwriteUser.$id,
-          accountId: defaultAccountId,
-          name: appwriteUser.name || 'User',
-          email: appwriteUser.email || '',
-          role: 'owner',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-      }
+    const supabase = await createSupabaseServerClient();
+    const { data: claims, error: claimsError } =
+      await supabase.auth.getClaims();
+    const userId = claims?.claims?.sub;
+    if (claimsError || !userId || typeof userId !== 'string') {
+      throw new UnauthorizedError();
     }
-
-    const accountId = profile.accountId;
-    const accountDoc = await accountsRepository.getAccount(accountId);
-
+    const admin = getSupabaseAdminClient();
+    const { data: member, error: memberError } = await admin
+      .from('account_members')
+      .select('account_id, role, accounts:account_id(id, name)')
+      .eq('user_id', userId)
+      .eq('active', true)
+      .maybeSingle();
+    if (memberError || !member?.account_id || !member.role) {
+      throw new ForbiddenError('Account membership is required');
+    }
+    const account = member.accounts as unknown as {
+      id: string;
+      name: string;
+    } | null;
     return {
-      userId: appwriteUser.$id,
-      accountId,
-      role: profile.role,
-      email: appwriteUser.email || profile.email || '',
-      account: { id: accountId, name: accountDoc?.name || 'Clinic Account' },
+      userId,
+      accountId: member.account_id,
+      role: member.role as AccountRole,
+      email:
+        typeof claims.claims.email === 'string'
+          ? claims.claims.email
+          : undefined,
+      account: {
+        id: member.account_id,
+        name: account?.name || 'Clinic Account',
+      },
       appwrite: appwriteAdmin(),
     };
   } catch (error) {

@@ -16,6 +16,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
+      AUTH_PROVIDER: supabase
+      DATABASE_PROVIDER: supabase
+      MIGRATION_MODE: cutover
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-test-supabase-anon-key
+      SUPABASE_SERVICE_ROLE_KEY: ci-test-supabase-service-role-key
       NEXT_PUBLIC_APPWRITE_ENDPOINT: https://cloud.appwrite.io/v1
       NEXT_PUBLIC_APPWRITE_PROJECT_ID: wacrm_ci_test
       APPWRITE_API_KEY: ci-dummy-appwrite-api-key
@@ -60,7 +66,10 @@ jobs:
       - name: Unit & Integration Tests (Vitest)
         run: npm test
 
-      - name: Appwrite Tenant Isolation Tests
+      - name: Supabase migration manifest validation
+        run: npm run supabase:validate
+
+      - name: Legacy Appwrite Tenant Isolation Tests (rollback coverage only)
         run: npm run test:integration
 
       - name: Next.js Production Build

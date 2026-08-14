@@ -10,6 +10,7 @@ import {
   createClient as createSupabaseServerClient,
   getAdminClient as getSupabaseAdminClient,
 } from '@/lib/supabase/server';
+import { getRuntimeConfig } from '@/lib/runtime-config';
 
 export type { AppwriteCompatClient, AppwriteClient, AppwriteError };
 
@@ -23,30 +24,24 @@ async function sessionFromRequest(): Promise<string | undefined> {
 
 /** User-scoped client for Route Handlers and Server Components. */
 export async function createClient(): Promise<AppwriteCompatClient> {
-  if (
-    process.env.NEXT_PUBLIC_SUPABASE_URL &&
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  ) {
-    try {
-      return await createSupabaseServerClient();
-    } catch {
-      // Fallback
-    }
+  const config = getRuntimeConfig();
+  if (config.databaseProvider === 'supabase') {
+    return await createSupabaseServerClient();
+  }
+  if (config.migrationMode !== 'rollback') {
+    throw new Error('APPWRITE_DATABASE_ACCESS_DISABLED');
   }
   return createDataClient(await sessionFromRequest(), false);
 }
 
 /** Server API-key / Service-Role client for trusted jobs, webhooks, and workers. */
 export function appwriteAdmin(): AppwriteCompatClient {
-  if (
-    process.env.NEXT_PUBLIC_SUPABASE_URL &&
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  ) {
-    try {
-      return getSupabaseAdminClient();
-    } catch {
-      // Fallback
-    }
+  const config = getRuntimeConfig();
+  if (config.databaseProvider === 'supabase') {
+    return getSupabaseAdminClient();
+  }
+  if (config.migrationMode !== 'rollback') {
+    throw new Error('APPWRITE_DATABASE_ACCESS_DISABLED');
   }
   return createDataClient(undefined, true);
 }
