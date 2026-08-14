@@ -7,6 +7,7 @@ import {
 } from '@/lib/auth/account';
 import { getAppwriteAdminClient } from '@/infrastructure/appwrite/server';
 import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
+import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
 import type { Conversation, Contact, ConversationStatus } from '@/types';
 
 const CACHE_HEADERS = {
@@ -94,6 +95,46 @@ export async function GET(request: NextRequest) {
       100
     );
 
+    // 1. Try Supabase first
+    if (
+      process.env.NEXT_PUBLIC_SUPABASE_URL &&
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    ) {
+      try {
+        const supabase = getSupabaseAdminClient();
+        let query = supabase
+          .from('conversations')
+          .select('*, contact:contacts(*)')
+          .eq('account_id', accountId)
+          .order('updated_at', { ascending: false })
+          .limit(limit);
+
+        if (
+          statusParam &&
+          ['open', 'pending', 'closed'].includes(statusParam.toLowerCase())
+        ) {
+          query = query.eq('status', statusParam.toLowerCase());
+        }
+
+        const { data: convs, error } = await query;
+        if (!error && Array.isArray(convs)) {
+          const normalized = convs.map((c) =>
+            normalizeConversation(
+              c,
+              c.contact ? normalizeContact(c.contact) : undefined
+            )
+          );
+          return NextResponse.json(
+            { conversations: normalized, total: normalized.length },
+            { status: 200, headers: CACHE_HEADERS }
+          );
+        }
+      } catch {
+        // Fallback to Appwrite
+      }
+    }
+
+    // 2. Fallback to Appwrite
     const admin = getAppwriteAdminClient();
     const queries = [
       Query.equal('accountId', accountId),

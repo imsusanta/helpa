@@ -6,6 +6,7 @@ import {
 } from '@/lib/auth/account';
 import { getAppwriteAdminClient } from '@/infrastructure/appwrite/server';
 import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
+import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
 import type { Conversation, Contact, ConversationStatus } from '@/types';
 
 const CACHE_HEADERS = {
@@ -90,6 +91,36 @@ export async function GET(_request: NextRequest, { params }: Params) {
       );
     }
 
+    // 1. Try Supabase first
+    if (
+      process.env.NEXT_PUBLIC_SUPABASE_URL &&
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    ) {
+      try {
+        const supabase = getSupabaseAdminClient();
+        const { data: conv } = await supabase
+          .from('conversations')
+          .select('*, contact:contacts(*)')
+          .eq('id', conversationId)
+          .eq('account_id', accountId)
+          .maybeSingle();
+
+        if (conv) {
+          const normalized = normalizeConversation(
+            conv,
+            conv.contact ? normalizeContact(conv.contact) : undefined
+          );
+          return NextResponse.json(
+            { conversation: normalized },
+            { status: 200, headers: CACHE_HEADERS }
+          );
+        }
+      } catch {
+        // Fallback to Appwrite
+      }
+    }
+
+    // 2. Fallback to Appwrite
     const admin = getAppwriteAdminClient();
     let doc: Record<string, unknown> | null = null;
 
