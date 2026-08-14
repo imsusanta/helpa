@@ -1,6 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
-import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
+import {
+  getRuntimeConfig,
+  requireSupabasePublicConfig,
+} from '@/lib/runtime-config';
 
 /**
  * Default-Deny Route Protection Proxy (Next.js 16 Proxy Convention)
@@ -51,82 +54,37 @@ function isPublicRoute(pathname: string): boolean {
 
 export async function proxy(request: NextRequest) {
   let user: { id: string; email?: string } | null = null;
-  let response = NextResponse.next({ request });
-
-  // 1. Cryptographically verify Supabase Auth session
   try {
-    const supabaseUrl =
-      process.env.NEXT_PUBLIC_SUPABASE_URL ||
-      'https://tmqlzsyqlprioeoowmtk.supabase.co';
-    const supabaseAnonKey =
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtcWx6c3lxbHByaW9lb293bXRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2OTQwNTcsImV4cCI6MjEwMjI3MDA1N30.NuZjQH0j5nBcR3AQLPa9SALiVO5RSO6GVPvnzS0-RDc';
-
-    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
+    const runtime = getRuntimeConfig();
+    if (runtime.authProvider === 'supabase') {
+      const { url, publishableKey } = requireSupabasePublicConfig();
+      let response = NextResponse.next({ request });
+      const supabase = createServerClient(url, publishableKey, {
+        cookies: {
+          getAll: () => request.cookies.getAll(),
+          setAll: (cookies) => {
+            cookies.forEach(({ name, value }) =>
+              request.cookies.set(name, value)
+            );
+            response = NextResponse.next({ request });
+            cookies.forEach(({ name, value, options }) =>
+              response.cookies.set(name, value, options)
+            );
+          },
         },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          );
-          response = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
-          );
-        },
-      },
-    });
-
-    const {
-      data: { user: authUser },
-    } = await supabase.auth.getUser();
-
-    if (authUser?.id) {
-      user = { id: authUser.id, email: authUser.email };
+      });
+      const { data } = await supabase.auth.getClaims();
+      if (data?.claims?.sub) {
+        user = {
+          id: data.claims.sub,
+          email: data.claims.email as string | undefined,
+        };
+      }
+      // The refreshed cookie response is used below for authenticated requests.
+      if (user && !isPublicRoute(request.nextUrl.pathname)) return response;
     }
   } catch {
-    // Supabase auth check error
-  }
-
-  // 2. Fallback: Check Appwrite session cookies
-  if (!user) {
-    const appwriteSession =
-      request.cookies.get(`a_session_${APPWRITE_CONFIG.projectId}`) ||
-      request.cookies.get('appwrite_session');
-
-    if (appwriteSession?.value) {
-      if (
-        appwriteSession.value.startsWith('test-') ||
-        appwriteSession.value === 'ci-test-session'
-      ) {
-        user = {
-          id: '00000000-0000-0000-0000-000000000001',
-          email: 'doctor@helpa.studio',
-        };
-      } else {
-        try {
-          const accountResponse = await fetch(
-            `${APPWRITE_CONFIG.endpoint}/account`,
-            {
-              headers: {
-                'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
-                'X-Appwrite-Session': appwriteSession.value,
-              },
-              cache: 'no-store',
-            }
-          );
-
-          if (accountResponse.ok) {
-            const account = await accountResponse.json();
-            user = { id: account.$id, email: account.email };
-          }
-        } catch {
-          // Treat unavailable Appwrite auth as unauthenticated
-        }
-      }
-    }
+    // Missing/invalid runtime configuration fails closed for protected routes.
   }
 
   const pathname = request.nextUrl.pathname;
@@ -163,7 +121,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  return response;
+  return NextResponse.next({ request });
 }
 
 export const config = {

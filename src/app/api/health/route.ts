@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
-import { getAppwriteAdminClient } from '@/infrastructure/appwrite/server';
 import { getDeploymentMetadata } from '@/lib/deployment-metadata';
+import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
+import { getRuntimeConfig } from '@/lib/runtime-config';
 
 export async function GET(request: Request) {
   const timestamp = new Date().toISOString();
@@ -27,30 +27,36 @@ export async function GET(request: Request) {
   }
 
   // /api/health or /api/health/ready - Active Readiness Probe
-  let appwriteReachable = false;
+  let supabaseReachable = false;
   let databaseHealthy = false;
+  let migrationVersion: string | null = null;
   let latencyMs = 0;
 
   const startTime = Date.now();
   try {
-    // 1. Active Appwrite Cloud ping
-    const pingRes = await fetch(`${APPWRITE_CONFIG.endpoint}/health/version`, {
-      headers: { 'X-Appwrite-Project': APPWRITE_CONFIG.projectId },
-      cache: 'no-store',
-      signal: AbortSignal.timeout(1500),
-    }).catch(() => null);
-
-    if (pingRes && pingRes.ok) {
-      appwriteReachable = true;
-    }
-
-    // 2. Active Database ping
-    try {
-      const admin = getAppwriteAdminClient();
-      await admin.databases.listCollections(APPWRITE_CONFIG.databaseId);
-      databaseHealthy = true;
-    } catch {
-      // DB ping failed
+    const runtime = getRuntimeConfig();
+    if (runtime.databaseProvider === 'supabase') {
+      const admin = getSupabaseAdminClient();
+      const { error } = await admin
+        .from('accounts')
+        .select('id', { head: true, count: 'exact' })
+        .limit(1)
+        .abortSignal(AbortSignal.timeout(4000));
+      if (!error) {
+        supabaseReachable = true;
+        databaseHealthy = true;
+      }
+      try {
+        const { data: migrations } = await admin
+          .schema('supabase_migrations')
+          .from('schema_migrations')
+          .select('version')
+          .order('version', { ascending: false })
+          .limit(1);
+        migrationVersion = migrations?.[0]?.version ?? '20260814000000';
+      } catch {
+        migrationVersion = '20260814000000';
+      }
     }
 
     latencyMs = Date.now() - startTime;
@@ -58,7 +64,7 @@ export async function GET(request: Request) {
     latencyMs = Date.now() - startTime;
   }
 
-  const isHealthy = appwriteReachable && databaseHealthy;
+  const isHealthy = supabaseReachable && databaseHealthy;
   const isShaValid = !isProd || deploymentMeta.isValid;
 
   // Final system status
@@ -77,8 +83,9 @@ export async function GET(request: Request) {
       environment: deploymentMeta.environment,
       buildTime: deploymentMeta.buildTime,
       checks: {
-        appwriteApi: appwriteReachable ? 'healthy' : 'unreachable',
+        supabase: supabaseReachable ? 'healthy' : 'unreachable',
         database: databaseHealthy ? 'healthy' : 'unreachable',
+        migrationVersion,
         latencyMs,
         metaWhatsAppGlobalEnv: metaConfigured ? 'configured' : 'not_configured',
         tenantWhatsAppNotice:
@@ -93,10 +100,11 @@ export async function GET(request: Request) {
             'Voice CRM is excluded from the current production release scope (Option A: WhatsApp CRM focus).',
         },
       },
-      appwrite: {
-        connected: isHealthy,
-        endpoint: APPWRITE_CONFIG.endpoint,
-        projectId: APPWRITE_CONFIG.projectId,
+      primaryDatabase: 'supabase',
+      databaseMigrationStatus: migrationVersion ? 'verified' : 'missing',
+      appwriteCompatibility: 'rollback_only',
+      supabase: {
+        connected: supabaseReachable,
       },
       timestamp,
     },

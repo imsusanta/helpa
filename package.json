@@ -51,7 +51,9 @@
     "appwrite:test": "vitest run src/tests/appwrite",
     "appwrite:migrate": "tsx scripts/setup-appwrite-db.ts --dry-run",
     "voice:smoke": "tsx scripts/voice-smoke-test.ts",
-    "verify:whatsapp-live": "node scripts/verify-whatsapp-live.mjs"
+    "verify:whatsapp-live": "node scripts/verify-whatsapp-live.mjs",
+    "supabase:migrate": "node scripts/apply-supabase-migrations.mjs",
+    "supabase:validate": "node scripts/validate-supabase-migrations.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
