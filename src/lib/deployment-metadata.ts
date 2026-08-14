@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { BUILD_METADATA } from './build-info';
 
 export type DeploymentShaStatus = 'available' | 'missing' | 'invalid';
 
@@ -18,14 +19,18 @@ const SHA_40_REGEX = /^[0-9a-f]{40}$/i;
 const VERSION = '0.3.0';
 
 interface BuildMetadataFile {
-  commit?: string;
-  commitSource?: string;
+  commit?: string | null;
+  commitSource?: string | null;
   deploymentShaStatus?: DeploymentShaStatus;
-  buildTime?: string;
+  buildTime?: string | null;
   environment?: string;
 }
 
 function readBuildMetadata(): BuildMetadataFile | null {
+  if (BUILD_METADATA && BUILD_METADATA.commit) {
+    return BUILD_METADATA;
+  }
+
   try {
     const paths = [
       path.join(process.cwd(), 'src', 'lib', 'build-metadata.json'),
@@ -97,7 +102,7 @@ export function getDeploymentMetadata(
 
   const candidates: Array<{
     source: string;
-    value: string | undefined;
+    value: string | null | undefined;
   }> = [
     { source: 'APP_COMMIT_SHA', value: env.APP_COMMIT_SHA },
     { source: 'VERCEL_GIT_COMMIT_SHA', value: env.VERCEL_GIT_COMMIT_SHA },
