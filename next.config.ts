@@ -1,4 +1,24 @@
 import type { NextConfig } from 'next';
+import { execSync } from 'child_process';
+
+function getCommitSha(): string {
+  if (process.env.NEXT_PUBLIC_COMMIT_SHA)
+    return process.env.NEXT_PUBLIC_COMMIT_SHA;
+  if (process.env.VERCEL_GIT_COMMIT_SHA)
+    return process.env.VERCEL_GIT_COMMIT_SHA;
+  if (process.env.GITHUB_SHA) return process.env.GITHUB_SHA;
+  if (process.env.APPWRITE_GIT_COMMIT_SHA)
+    return process.env.APPWRITE_GIT_COMMIT_SHA;
+  if (process.env.NEXT_PUBLIC_APPWRITE_GIT_COMMIT_SHA)
+    return process.env.NEXT_PUBLIC_APPWRITE_GIT_COMMIT_SHA;
+  try {
+    return execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim();
+  } catch {
+    return 'unknown';
+  }
+}
+
+const COMMIT_SHA = getCommitSha();
 
 /**
  * Enterprise Baseline Security Headers
@@ -38,6 +58,9 @@ const SECURITY_HEADERS = [
 ] as const;
 
 const nextConfig: NextConfig = {
+  env: {
+    NEXT_PUBLIC_COMMIT_SHA: COMMIT_SHA,
+  },
   turbopack: {
     root: process.cwd(),
   },

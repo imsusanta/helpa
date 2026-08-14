@@ -45,7 +45,7 @@ export async function findExistingContact(
   const { data, error } = await db
     .from('contacts')
     .select('*')
-    .eq('account_id', accountId)
+    .eq('accountId', accountId)
     .like('phone', `%${suffix}`);
 
   if (error || !data) return null;

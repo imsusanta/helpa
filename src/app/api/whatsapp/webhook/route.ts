@@ -82,19 +82,46 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
 
       if (!value.messages || !value.contacts) continue;
 
-      const phoneNumberId = value.metadata.phone_number_id;
+      const phoneNumberId = value.metadata?.phone_number_id;
+      if (!phoneNumberId) continue;
 
-      const { data: configRows, error: configError } = await getAdminClient()
-        .from('whatsapp_configs')
-        .select('*')
-        .eq('phone_number_id', phoneNumberId);
+      let configRows: Record<string, unknown>[] | null = null;
+      try {
+        const { data } = await getAdminClient()
+          .from('whatsapp_configs')
+          .select('*')
+          .eq('phoneNumberId', phoneNumberId);
+        if (data && data.length > 0) configRows = data;
+      } catch {
+        // Fallback to snake_case query
+      }
 
-      if (configError) {
-        console.error(
-          `Error fetching whatsapp_config for phone_number_id ${phoneNumberId}:`,
-          configError
-        );
-        continue;
+      if (!configRows || configRows.length === 0) {
+        try {
+          const { data } = await getAdminClient()
+            .from('whatsapp_configs')
+            .select('*')
+            .eq('phone_number_id', phoneNumberId);
+          if (data && data.length > 0) configRows = data;
+        } catch {
+          // Fallback to fetching all and filtering in-memory
+          try {
+            const { data: allConfigs } = await getAdminClient()
+              .from('whatsapp_configs')
+              .select('*')
+              .limit(100);
+            if (allConfigs && allConfigs.length > 0) {
+              const matched = allConfigs.filter(
+                (c: Record<string, unknown>) =>
+                  String(c.phoneNumberId || c.phone_number_id || '') ===
+                  String(phoneNumberId)
+              );
+              if (matched.length > 0) configRows = matched;
+            }
+          } catch {
+            // Ignored
+          }
+        }
       }
 
       if (!configRows || configRows.length === 0) {
@@ -105,17 +132,29 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
       }
 
       const config = configRows[0];
+      const encToken = String(
+        config.encryptedAccessToken ||
+          config.encrypted_access_token ||
+          config.accessToken ||
+          config.access_token ||
+          ''
+      );
 
       let decryptedAccessToken = '';
-      try {
-        decryptedAccessToken = decrypt(config.access_token);
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err);
-        console.warn(
-          `[webhook] Access token decryption failed for phone_number_id ${phoneNumberId}: ${message}. ` +
-            `Please re-save your WhatsApp configuration in CRM Settings → WhatsApp Integration.`
-        );
+      if (encToken) {
+        try {
+          decryptedAccessToken = decrypt(encToken);
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : String(err);
+          console.warn(
+            `[webhook] Access token decryption failed for phone_number_id ${phoneNumberId}: ${message}. ` +
+              `Please re-save your WhatsApp configuration in CRM Settings → WhatsApp Integration.`
+          );
+        }
       }
+
+      const accountId = String(config.accountId || config.account_id || '');
+      const userId = String(config.userId || config.user_id || '');
 
       for (let i = 0; i < value.messages.length; i++) {
         const message = value.messages[i];
@@ -124,8 +163,8 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
         await processMessage(
           message,
           contact,
-          config.account_id,
-          config.user_id,
+          accountId,
+          userId,
           decryptedAccessToken
         );
       }

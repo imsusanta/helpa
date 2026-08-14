@@ -39,7 +39,7 @@ export async function handleStatusUpdate(status: WhatsAppStatusUpdate) {
   const { error: msgErr } = await getAdminClient()
     .from('messages')
     .update({ status: status.status as MessageStatus })
-    .eq('message_id', status.id);
+    .eq('messageId', status.id);
 
   if (msgErr) {
     console.error('Error updating message status:', msgErr);

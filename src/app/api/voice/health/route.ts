@@ -30,11 +30,12 @@ export interface VoiceHealthResponse {
 
 export async function GET() {
   const commitSha =
+    process.env.NEXT_PUBLIC_COMMIT_SHA ||
     process.env.VERCEL_GIT_COMMIT_SHA ||
     process.env.GITHUB_SHA ||
     process.env.APPWRITE_GIT_COMMIT_SHA ||
     process.env.NEXT_PUBLIC_APPWRITE_GIT_COMMIT_SHA ||
-    '06048028b9c8cbba5696140dc3a1b57dae7ca4b0';
+    'development';
 
   const isConfigured = Boolean(process.env.ELEVENLABS_API_KEY);
   const hasWebhookSecret = Boolean(process.env.ELEVENLABS_WEBHOOK_SECRET);

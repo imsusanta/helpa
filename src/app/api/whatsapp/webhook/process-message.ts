@@ -308,23 +308,23 @@ export async function processMessage(
   const { count: priorCustomerMsgCount } = await getAdminClient()
     .from('messages')
     .select('id', { count: 'exact', head: true })
-    .eq('conversation_id', conversation.id)
-    .eq('sender_type', 'customer');
+    .eq('conversationId', conversation.id)
+    .eq('senderType', 'customer');
   const isFirstInboundMessage = (priorCustomerMsgCount ?? 0) === 0;
 
+  const nowIso = new Date(parseInt(message.timestamp) * 1000).toISOString();
   const { error: msgError } = await getAdminClient()
     .from('messages')
     .insert({
-      conversation_id: conversation.id,
-      sender_type: 'customer',
-      content_type: contentType,
-      content_text: contentText,
-      media_url: mediaUrl,
-      message_id: message.id,
+      conversationId: conversation.id,
+      senderType: 'customer',
+      contentType: contentType,
+      contentText: contentText || null,
+      mediaUrl: mediaUrl || null,
+      messageId: message.id,
       status: 'delivered',
-      created_at: new Date(parseInt(message.timestamp) * 1000).toISOString(),
-      reply_to_message_id: replyToInternalId,
-      interactive_reply_id: interactiveReplyId,
+      replyToMessageId: replyToInternalId || null,
+      createdAt: nowIso,
     });
 
   if (msgError) {
@@ -334,27 +334,30 @@ export async function processMessage(
 
   // Update conversation
   const messageDate = new Date(parseInt(message.timestamp) * 1000);
-  const existingLastMessageAt = conversation.last_message_at
-    ? new Date(conversation.last_message_at)
-    : null;
+  const existingLastMessageAt =
+    conversation.lastMessageAt || conversation.last_message_at
+      ? new Date(
+          (conversation.lastMessageAt || conversation.last_message_at) as string
+        )
+      : null;
   const shouldUpdatePreview =
     !existingLastMessageAt || messageDate >= existingLastMessageAt;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const convUpdatePayload: any = {
-    unread_count: (conversation.unread_count || 0) + 1,
-    updated_at: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   };
 
   if (shouldUpdatePreview) {
-    convUpdatePayload.last_message_text = contentText || `[${message.type}]`;
-    convUpdatePayload.last_message_at = messageDate.toISOString();
+    convUpdatePayload.lastMessageText = contentText || `[${message.type}]`;
+    convUpdatePayload.lastMessageAt = messageDate.toISOString();
   }
 
   const { error: convError } = await getAdminClient()
     .from('conversations')
     .update(convUpdatePayload)
-    .eq('id', conversation.id);
+    .eq('id', conversation.id)
+    .eq('accountId', accountId);
 
   if (convError) {
     console.error('Error updating conversation:', convError);

@@ -12,8 +12,8 @@ export async function findOrCreateConversation(
   const { data: matches } = await db
     .from('conversations')
     .select('*')
-    .eq('account_id', accountId)
-    .eq('contact_id', contactId)
+    .eq('accountId', accountId)
+    .eq('contactId', contactId)
     .limit(1)
     .catch(() => ({ data: null }));
 
@@ -21,13 +21,17 @@ export async function findOrCreateConversation(
     return matches[0];
   }
 
+  const now = new Date().toISOString();
   const { data: newConv, error: createError } = await db
     .from('conversations')
     .insert({
-      account_id: accountId,
-      user_id: configOwnerUserId,
-      contact_id: contactId,
-      ai_chat_enabled: true,
+      accountId,
+      contactId,
+      status: 'open',
+      lastMessageText: '',
+      lastMessageAt: now,
+      createdAt: now,
+      updatedAt: now,
     })
     .select()
     .single();
@@ -36,8 +40,8 @@ export async function findOrCreateConversation(
     const { data: retryMatches } = await db
       .from('conversations')
       .select('*')
-      .eq('account_id', accountId)
-      .eq('contact_id', contactId)
+      .eq('accountId', accountId)
+      .eq('contactId', contactId)
       .limit(1)
       .catch(() => ({ data: null }));
 

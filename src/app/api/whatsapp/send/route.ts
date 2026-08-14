@@ -340,7 +340,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Fetch conversation and contact via admin client
+    // Fetch conversation and contact via admin client with strict tenant scoping
     let conversation: Record<string, unknown> | null = null;
     try {
       const { data: convData } = await dbAdmin
@@ -349,16 +349,29 @@ export async function POST(request: Request) {
         .eq('id', conversation_id)
         .eq('accountId', accountId)
         .single();
-      if (convData) conversation = convData;
+      if (
+        convData &&
+        String(convData.accountId || convData.account_id || '') ===
+          String(accountId)
+      ) {
+        conversation = convData;
+      }
     } catch {
-      // Fallback: fetch without accountId filter
+      // Fallback: strictly query within the tenant's accountId
       try {
-        const { data: altConv } = await dbAdmin
+        const { data: tenantConvs } = await dbAdmin
           .from('conversations')
           .select('*, contact:contacts(*)')
-          .eq('id', conversation_id)
-          .single();
-        if (altConv) conversation = altConv;
+          .eq('accountId', accountId)
+          .limit(100);
+        if (tenantConvs && tenantConvs.length > 0) {
+          const match = tenantConvs.find(
+            (c: Record<string, unknown>) =>
+              String(c.id || c.$id || '') === String(conversation_id) &&
+              String(c.accountId || c.account_id || '') === String(accountId)
+          );
+          if (match) conversation = match;
+        }
       } catch {
         // Fall through to not found
       }
@@ -366,7 +379,7 @@ export async function POST(request: Request) {
 
     if (!conversation) {
       return NextResponse.json(
-        { error: 'Conversation not found' },
+        { error: 'Conversation not found or access denied' },
         { status: 404 }
       );
     }
@@ -389,9 +402,14 @@ export async function POST(request: Request) {
           .from('contacts')
           .select('*')
           .eq('id', contactId)
+          .eq('accountId', accountId)
           .single();
 
-        if (directContact?.phone) {
+        if (
+          directContact?.phone &&
+          String(directContact.accountId || directContact.account_id || '') ===
+            String(accountId)
+        ) {
           contactPhone = directContact.phone;
         }
       } catch {
@@ -415,7 +433,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // Fetch and decrypt WhatsApp config
+    // Fetch and decrypt WhatsApp config strictly for this tenant
     let config: Record<string, unknown> | null = null;
     try {
       const { data: conf1 } = await dbAdmin
@@ -423,13 +441,19 @@ export async function POST(request: Request) {
         .select('*')
         .eq('accountId', accountId)
         .maybeSingle();
-      if (conf1) config = conf1;
+      if (
+        conf1 &&
+        String(conf1.accountId || conf1.account_id || '') === String(accountId)
+      ) {
+        config = conf1;
+      }
     } catch {
-      // Fallback: fetch all and filter in memory
+      // Fallback: fetch scoped to accountId
       try {
         const { data: allConfigs } = await dbAdmin
           .from('whatsapp_configs')
           .select('*')
+          .eq('accountId', accountId)
           .limit(100);
         if (allConfigs && allConfigs.length > 0) {
           config =
@@ -658,10 +682,11 @@ export async function POST(request: Request) {
       console.log(
         `[whatsapp/send] Auto-corrected contact phone: ${sanitizedPhone} → ${workingPhone}`
       );
-      await appwrite
+      await dbAdmin
         .from('contacts')
         .update({ phone: workingPhone })
-        .eq('id', contactId);
+        .eq('id', contactId)
+        .eq('accountId', accountId);
     }
 
     // Insert message into DB — field names MUST match the messages schema
@@ -703,7 +728,8 @@ export async function POST(request: Request) {
         lastMessageAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       })
-      .eq('id', conversation_id);
+      .eq('id', conversation_id)
+      .eq('accountId', accountId);
 
     // Pause any active Flow run for this contact — the agent stepping
     // in is the strongest "yield, human is here" signal. See PR #2

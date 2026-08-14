@@ -166,4 +166,21 @@ describe('WhatsApp Send Route Contact Isolation', () => {
       'Could not resolve conversation for recipient'
     );
   });
+
+  it('fails closed when conversation_id belongs to another tenant or does not exist', async () => {
+    const req = new Request('http://localhost/api/whatsapp/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        conversation_id: 'conv-of-another-tenant',
+        message: 'Hello',
+      }),
+    });
+
+    const res = await POST(req);
+    const json = await res.json();
+
+    expect(res.status).toBe(404);
+    expect(json.error).toContain('Conversation not found or access denied');
+  });
 });

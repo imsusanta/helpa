@@ -19,10 +19,11 @@ export interface VoiceOutboxMetrics {
 }
 
 const COMMIT_SHA =
+  process.env.NEXT_PUBLIC_COMMIT_SHA ||
   process.env.VERCEL_GIT_COMMIT_SHA ||
   process.env.GITHUB_SHA ||
   process.env.APPWRITE_GIT_COMMIT_SHA ||
-  '06048028b9c8cbba5696140dc3a1b57dae7ca4b0';
+  'development';
 
 const WORKER_ID = `voice_worker_primary`;
 const HEARTBEAT_FRESHNESS_MS = 120_000;

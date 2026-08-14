@@ -45,13 +45,15 @@ export async function findOrCreateContact(
   }
 
   // Create new contact
+  const now = new Date().toISOString();
   const { data: newContact, error: createError } = await db
     .from('contacts')
     .insert({
-      account_id: accountId,
-      user_id: configOwnerUserId,
+      accountId,
       phone,
       name: name || phone,
+      createdAt: now,
+      updatedAt: now,
     })
     .select()
     .single();

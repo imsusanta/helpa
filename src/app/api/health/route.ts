@@ -8,11 +8,12 @@ export async function GET(request: Request) {
   const { pathname } = new URL(request.url);
 
   const commitSha =
+    process.env.NEXT_PUBLIC_COMMIT_SHA ||
     process.env.VERCEL_GIT_COMMIT_SHA ||
     process.env.GITHUB_SHA ||
     process.env.APPWRITE_GIT_COMMIT_SHA ||
     process.env.NEXT_PUBLIC_APPWRITE_GIT_COMMIT_SHA ||
-    'cf5425fc6be8ddceeb6bc350953a8093755ac977';
+    'development';
 
   // /api/health/live - Liveness Probe (Lightweight check)
   if (pathname.endsWith('/live')) {
