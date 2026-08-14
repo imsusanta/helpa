@@ -410,33 +410,51 @@ class QueryBuilder {
 
   async single() {
     const result = await this.execute();
-    if (!result.data || result.data.length !== 1) {
+    if (result.error) return result;
+    if (result.data === null || result.data === undefined) {
       return {
         data: null,
         error: { message: 'Expected exactly one document', code: 'PGRST116' },
         count: result.count,
       };
     }
-    return { ...result, data: result.data[0] };
+    if (Array.isArray(result.data)) {
+      if (result.data.length !== 1) {
+        return {
+          data: null,
+          error: {
+            message: 'Expected exactly one document',
+            code: 'PGRST116',
+          },
+          count: result.count,
+        };
+      }
+      return { ...result, data: result.data[0] };
+    }
+    return { ...result, data: result.data };
   }
 
   async maybeSingle() {
     const result = await this.execute();
-    if (!result.data || !Array.isArray(result.data)) {
+    if (result.error) return result;
+    if (result.data === null || result.data === undefined) {
       return { ...result, data: null };
     }
-    if (result.data.length === 0) return { ...result, data: null };
-    if (result.data.length > 1) {
-      return {
-        data: null,
-        error: {
-          message: 'Expected at most one document, found multiple',
-          code: 'PGRST116',
-        },
-        count: result.count,
-      };
+    if (Array.isArray(result.data)) {
+      if (result.data.length === 0) return { ...result, data: null };
+      if (result.data.length > 1) {
+        return {
+          data: null,
+          error: {
+            message: 'Expected at most one document, found multiple',
+            code: 'PGRST116',
+          },
+          count: result.count,
+        };
+      }
+      return { ...result, data: result.data[0] };
     }
-    return { ...result, data: result.data[0] };
+    return { ...result, data: result.data };
   }
 
   then<TResult1 = any, TResult2 = never>(

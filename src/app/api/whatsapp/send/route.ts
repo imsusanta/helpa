@@ -213,53 +213,66 @@ export async function POST(request: Request) {
       }
 
       if (resolvedContactId) {
-        let { data: extConv } = await dbAdmin
-          .from('conversations')
-          .select('id')
-          .eq('contact_id', resolvedContactId)
-          .eq('account_id', accountId)
-          .limit(1)
-          .maybeSingle()
-          .catch(() => ({ data: null }));
-
-        if (!extConv) {
-          const { data: camelConv } = await dbAdmin
+        // Find existing conversation — use camelCase field names
+        let extConv: { id: string } | null = null;
+        try {
+          const { data: convData } = await dbAdmin
             .from('conversations')
             .select('id')
             .eq('contactId', resolvedContactId)
-            .limit(1)
-            .maybeSingle()
-            .catch(() => ({ data: null }));
-
-          if (camelConv) extConv = camelConv;
+            .eq('accountId', accountId)
+            .maybeSingle();
+          if (convData) extConv = convData;
+        } catch {
+          // Schema mismatch — try without accountId filter
+          try {
+            const { data: allConvs } = await dbAdmin
+              .from('conversations')
+              .select('id, contactId, accountId')
+              .eq('accountId', accountId)
+              .limit(200);
+            if (allConvs && allConvs.length > 0) {
+              const match = allConvs.find(
+                (c: Record<string, unknown>) =>
+                  String(c.contactId || '') === resolvedContactId
+              );
+              if (match) extConv = { id: String(match.id) };
+            }
+          } catch {
+            // Fall through to creation
+          }
         }
 
         if (!extConv) {
           const now = new Date().toISOString();
-          const { data: createdConv, error: convErr } = await dbAdmin
-            .from('conversations')
-            .insert({
-              account_id: accountId,
-              accountId,
-              contact_id: resolvedContactId,
-              contactId: resolvedContactId,
-              user_id: user.id,
-              status: 'open',
-              last_message_text: content_text || 'Outbound message',
-              last_message_at: now,
-              ai_chat_enabled: true,
-            })
-            .select('id')
-            .single();
+          try {
+            const { data: createdConv, error: convErr } = await dbAdmin
+              .from('conversations')
+              .insert({
+                accountId,
+                contactId: resolvedContactId,
+                status: 'open',
+                lastMessageText: content_text || 'Outbound message',
+                lastMessageAt: now,
+                createdAt: now,
+                updatedAt: now,
+              })
+              .select('id')
+              .single();
 
-          if (convErr) {
+            if (convErr) {
+              console.error(
+                '[whatsapp/send] Conversation insert error:',
+                convErr
+              );
+            }
+            extConv = createdConv;
+          } catch (insertErr) {
             console.error(
-              '[whatsapp/send] Conversation insert error:',
-              convErr
+              '[whatsapp/send] Conversation insert threw:',
+              insertErr
             );
           }
-
-          extConv = createdConv;
         }
 
         if (extConv) {
@@ -327,31 +340,28 @@ export async function POST(request: Request) {
       );
     }
 
-    // Fetch conversation and contact via admin client to guarantee resolution
-    let conversation:
-      | (Record<string, unknown> & {
-          contact?: { phone?: string; name?: string; id?: string };
-          id?: string;
-        })
-      | null = null;
-    const { data: convData } = await dbAdmin
-      .from('conversations')
-      .select('*, contact:contacts(*)')
-      .eq('id', conversation_id)
-      .eq('account_id', accountId)
-      .single()
-      .catch(() => ({ data: null }));
-
-    if (convData) {
-      conversation = convData;
-    } else {
-      const { data: altConv } = await dbAdmin
+    // Fetch conversation and contact via admin client
+    let conversation: Record<string, unknown> | null = null;
+    try {
+      const { data: convData } = await dbAdmin
         .from('conversations')
         .select('*, contact:contacts(*)')
         .eq('id', conversation_id)
-        .single()
-        .catch(() => ({ data: null }));
-      if (altConv) conversation = altConv;
+        .eq('accountId', accountId)
+        .single();
+      if (convData) conversation = convData;
+    } catch {
+      // Fallback: fetch without accountId filter
+      try {
+        const { data: altConv } = await dbAdmin
+          .from('conversations')
+          .select('*, contact:contacts(*)')
+          .eq('id', conversation_id)
+          .single();
+        if (altConv) conversation = altConv;
+      } catch {
+        // Fall through to not found
+      }
     }
 
     if (!conversation) {
@@ -374,15 +384,18 @@ export async function POST(request: Request) {
       body.contact_id;
 
     if (!contactPhone && contactId) {
-      const { data: directContact } = await dbAdmin
-        .from('contacts')
-        .select('*')
-        .eq('id', contactId)
-        .single()
-        .catch(() => ({ data: null }));
+      try {
+        const { data: directContact } = await dbAdmin
+          .from('contacts')
+          .select('*')
+          .eq('id', contactId)
+          .single();
 
-      if (directContact?.phone) {
-        contactPhone = directContact.phone;
+        if (directContact?.phone) {
+          contactPhone = directContact.phone;
+        }
+      } catch {
+        // Could not fetch contact
       }
     }
 
@@ -404,25 +417,30 @@ export async function POST(request: Request) {
 
     // Fetch and decrypt WhatsApp config
     let config: Record<string, unknown> | null = null;
-    const { data: conf1 } = await dbAdmin
-      .from('whatsapp_configs')
-      .select('*')
-      .eq('account_id', accountId)
-      .limit(1)
-      .maybeSingle()
-      .catch(() => ({ data: null }));
-
-    if (conf1) {
-      config = conf1;
-    } else {
-      const { data: conf2 } = await dbAdmin
+    try {
+      const { data: conf1 } = await dbAdmin
         .from('whatsapp_configs')
         .select('*')
         .eq('accountId', accountId)
-        .limit(1)
-        .maybeSingle()
-        .catch(() => ({ data: null }));
-      if (conf2) config = conf2;
+        .maybeSingle();
+      if (conf1) config = conf1;
+    } catch {
+      // Fallback: fetch all and filter in memory
+      try {
+        const { data: allConfigs } = await dbAdmin
+          .from('whatsapp_configs')
+          .select('*')
+          .limit(100);
+        if (allConfigs && allConfigs.length > 0) {
+          config =
+            allConfigs.find(
+              (c: Record<string, unknown>) =>
+                String(c.accountId || c.account_id || '') === String(accountId)
+            ) || null;
+        }
+      } catch {
+        // Fall through to not configured
+      }
     }
 
     if (!config) {
