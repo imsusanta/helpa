@@ -147,33 +147,60 @@ export async function POST(request: Request) {
     }
     const userId = sessionJson.userId;
 
-    const response = NextResponse.json({
-      success: true,
-      redirect: '/dashboard',
-      user: {
-        id: userId,
-        email: trimmedEmail,
-        name: userName,
-      },
-    });
+    // Strict validation: format check & remote account verification
+    if (sessionSecret && /^[a-zA-Z0-9_\-\.]{32,512}$/.test(sessionSecret)) {
+      try {
+        const verifyRes = await fetch(`${APPWRITE_CONFIG.endpoint}/account`, {
+          method: 'GET',
+          headers: {
+            'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
+            'X-Appwrite-Session': sessionSecret,
+          },
+        });
 
-    const cookieOptions = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax' as const,
-      path: '/',
-      maxAge: 60 * 60 * 24 * 30, // 30 days
-    };
+        if (verifyRes.ok) {
+          const verifyData = await verifyRes.json();
+          if (
+            (!userId || verifyData.$id === userId) &&
+            verifyData.email?.toLowerCase() === trimmedEmail
+          ) {
+            const cookieOptions = {
+              httpOnly: true,
+              secure: process.env.NODE_ENV === 'production',
+              sameSite: 'lax' as const,
+              path: '/',
+              maxAge: 60 * 60 * 24 * 30, // 30 days
+            };
 
-    if (sessionSecret) {
-      response.cookies.set(
-        `a_session_${APPWRITE_CONFIG.projectId}`,
-        sessionSecret,
-        cookieOptions
-      );
+            const response = NextResponse.json({
+              success: true,
+              redirect: '/dashboard',
+              user: {
+                id: userId || verifyData.$id,
+                email: trimmedEmail,
+                name: userName,
+              },
+            });
+
+            response.cookies.set(
+              `a_session_${APPWRITE_CONFIG.projectId}`,
+              sessionSecret,
+              cookieOptions
+            );
+
+            return response;
+          }
+        }
+      } catch {
+        // Fall through to redirect
+      }
     }
 
-    return response;
+    return NextResponse.json({
+      success: true,
+      message: 'Account created successfully. Please sign in.',
+      redirect: '/login',
+    });
   } catch (err: unknown) {
     return NextResponse.json(
       {

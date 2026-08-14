@@ -110,13 +110,58 @@ export async function POST(request: Request) {
 
     const userId = appwriteJson.userId;
 
-    if (!sessionSecret) {
+    // Strict validation: format check
+    if (!sessionSecret || !/^[a-zA-Z0-9_\-\.]{32,512}$/.test(sessionSecret)) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Authentication failed. Unable to establish Appwrite session.',
+          error: 'Authentication failed. Invalid session format.',
         },
-        { status: 500 }
+        { status: 401 }
+      );
+    }
+
+    // Cryptographic validation: Verify session with Appwrite account endpoint before setting cookie
+    try {
+      const verifyRes = await fetch(`${APPWRITE_CONFIG.endpoint}/account`, {
+        method: 'GET',
+        headers: {
+          'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
+          'X-Appwrite-Session': sessionSecret,
+        },
+      });
+
+      if (!verifyRes.ok) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              'Authentication verification failed. Session could not be validated.',
+          },
+          { status: 401 }
+        );
+      }
+
+      const verifyData = await verifyRes.json();
+      if (
+        (userId && verifyData.$id !== userId) ||
+        verifyData.email?.toLowerCase() !== trimmedEmail
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Authentication verification mismatch.',
+          },
+          { status: 401 }
+        );
+      }
+    } catch {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Authentication service verification unavailable.',
+        },
+        { status: 503 }
       );
     }
 
