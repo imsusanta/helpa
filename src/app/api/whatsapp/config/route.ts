@@ -225,6 +225,8 @@ export async function GET() {
     return NextResponse.json(
       {
         connected: true,
+        status: 'connected',
+        configured: true,
         reason: 'active',
         config: {
           phone_number_id: phoneNumId,
