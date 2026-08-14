@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
 import { getAppwriteAdminClient } from '@/infrastructure/appwrite/server';
-import { resolveCommitSha } from '@/lib/commit-sha';
+import { getDeploymentMetadata } from '@/lib/deployment-metadata';
 
 export async function GET(request: Request) {
   const timestamp = new Date().toISOString();
   const { pathname } = new URL(request.url);
 
-  const commitResolution = resolveCommitSha(process.env);
+  const deploymentMeta = getDeploymentMetadata(process.env);
   const isProd = process.env.NODE_ENV === 'production';
 
   // /api/health/live - Liveness Probe (Lightweight check)
@@ -15,11 +15,11 @@ export async function GET(request: Request) {
     return NextResponse.json(
       {
         status: 'ok',
-        version: '0.3.0',
-        commit: commitResolution.commit,
-        commitSource: commitResolution.commitSource,
-        deploymentShaStatus: commitResolution.deploymentShaStatus,
-        buildTime: commitResolution.buildTime,
+        version: deploymentMeta.version,
+        commit: deploymentMeta.commit,
+        deploymentShaStatus: deploymentMeta.deploymentShaStatus,
+        commitSource: deploymentMeta.commitSource,
+        buildTime: deploymentMeta.buildTime,
         timestamp,
       },
       { status: 200, headers: { 'Cache-Control': 'no-store, private' } }
@@ -59,7 +59,7 @@ export async function GET(request: Request) {
   }
 
   const isHealthy = appwriteReachable && databaseHealthy;
-  const isShaValid = !isProd || commitResolution.isValid;
+  const isShaValid = !isProd || deploymentMeta.isValid;
 
   // Final system status
   const overallStatus = isHealthy && isShaValid ? 'ok' : 'degraded';
@@ -70,12 +70,12 @@ export async function GET(request: Request) {
   return NextResponse.json(
     {
       status: overallStatus,
-      version: '0.3.0',
-      commit: commitResolution.commit,
-      commitSource: commitResolution.commitSource,
-      deploymentShaStatus: commitResolution.deploymentShaStatus,
-      environment: process.env.NODE_ENV || 'production',
-      buildTime: commitResolution.buildTime,
+      version: deploymentMeta.version,
+      commit: deploymentMeta.commit,
+      deploymentShaStatus: deploymentMeta.deploymentShaStatus,
+      commitSource: deploymentMeta.commitSource,
+      environment: deploymentMeta.environment,
+      buildTime: deploymentMeta.buildTime,
       checks: {
         appwriteApi: appwriteReachable ? 'healthy' : 'unreachable',
         database: databaseHealthy ? 'healthy' : 'unreachable',

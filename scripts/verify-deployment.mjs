@@ -55,11 +55,14 @@ function saveArtifacts(result) {
 - **Expected SHA**: \`${result.expectedSha}\`
 - **Deployed SHA**: \`${result.deployedSha || 'None'}\`
 - **Match Status**: **${result.shaMatch ? 'PASS' : 'FAIL'}**
+- **Deployment SHA Status**: \`${result.deploymentShaStatus || 'unknown'}\`
 - **Homepage Status**: \`${result.homepageStatus || 'N/A'}\`
 - **Login Status**: \`${result.loginStatus || 'N/A'}\`
 - **Health Status**: \`${result.healthStatus || 'N/A'}\`
 - **Database Healthy**: \`${result.databaseHealthy ? 'YES' : 'NO'}\`
+- **Overall System Status**: \`${result.overallStatus || 'N/A'}\`
 - **Verification Result**: **${result.success ? 'SUCCESS' : 'FAILED'}**
+- **Attempts**: \`${result.attempts}/${MAX_ATTEMPTS}\`
 - **Timestamp**: \`${result.timestamp}\`
 `;
     const mdPath = path.join(dir, 'deployment-verification.md');
@@ -76,11 +79,13 @@ async function verify() {
     productionUrl: PRODUCTION_URL,
     expectedSha: EXPECTED_SHA,
     deployedSha: null,
+    deploymentShaStatus: null,
     shaMatch: false,
     homepageStatus: null,
     loginStatus: null,
     healthStatus: null,
     databaseHealthy: false,
+    overallStatus: null,
     success: false,
     timestamp: startTime,
     attempts: 0,
@@ -92,7 +97,7 @@ async function verify() {
     console.log(`\n--- Verification Attempt ${attempt}/${MAX_ATTEMPTS} ---`);
 
     try {
-      const cacheBust = `_t=${Date.now()}`;
+      const cacheBust = `verify_sha=${EXPECTED_SHA}&attempt=${attempt}&_t=${Date.now()}`;
 
       // 1. Check Homepage
       const homeRes = await fetch(`${PRODUCTION_URL}/?${cacheBust}`, {
@@ -143,13 +148,15 @@ async function verify() {
 
       const deployedSha = (body.commit || '').trim().toLowerCase();
       latestResult.deployedSha = deployedSha;
+      latestResult.deploymentShaStatus = body.deploymentShaStatus || 'unknown';
       latestResult.databaseHealthy = body.checks?.database === 'healthy';
+      latestResult.overallStatus = body.status || 'unknown';
 
       console.log(
-        `Deployed Commit SHA: ${deployedSha} (status: ${body.deploymentShaStatus || 'unknown'}, source: ${body.commitSource || 'unknown'})`
+        `Deployed Commit SHA: ${deployedSha} (status: ${latestResult.deploymentShaStatus}, source: ${body.commitSource || 'unknown'})`
       );
       console.log(
-        `Database Healthy: ${latestResult.databaseHealthy ? 'YES' : 'NO'}`
+        `Database Healthy: ${latestResult.databaseHealthy ? 'YES' : 'NO'}, Overall Status: ${latestResult.overallStatus}`
       );
 
       if (!SHA_40_REGEX.test(deployedSha)) {
@@ -172,7 +179,8 @@ async function verify() {
       latestResult.success =
         latestResult.homepageStatus === 200 &&
         latestResult.loginStatus === 200 &&
-        (healthRes.status === 200 || healthRes.status === 503);
+        (healthRes.status === 200 || healthRes.status === 503) &&
+        latestResult.databaseHealthy;
 
       saveArtifacts(latestResult);
       console.log(

@@ -40,15 +40,6 @@ function mask(str, start = 3, end = 3) {
   return `${str.slice(0, start)}***${str.slice(-end)}`;
 }
 
-function _hash(val) {
-  if (!val) return 'N/A';
-  return crypto
-    .createHash('sha256')
-    .update(String(val))
-    .digest('hex')
-    .slice(0, 16);
-}
-
 function saveEvidence(evidence) {
   try {
     const dir = path.resolve(process.cwd(), EVIDENCE_DIR);
@@ -62,6 +53,7 @@ function saveEvidence(evidence) {
     const mdContent = `# WhatsApp Live Production Verification Report
 
 - **Target URL**: \`${evidence.baseUrl}\`
+- **Tested Deployment SHA**: \`${evidence.testedDeploymentSha || 'N/A'}\`
 - **Run ID**: \`${evidence.runId}\`
 - **Status**: **${evidence.status}**
 - **Test Tenant ID**: \`${evidence.maskedTenantId}\`
@@ -74,12 +66,13 @@ function saveEvidence(evidence) {
 | Gate | Status | Details |
 |---|---|---|
 | 1. Explicit Confirmation | ${evidence.checks.confirmation ? '✅ PASS' : '❌ BLOCKED'} | \`--confirm-production\` provided |
-| 2. Environment Credentials | ${evidence.checks.credentialsConfigured ? '✅ PASS' : '⚠️ BLOCKED'} | Test tenant secrets configured |
-| 3. Config Persistence | ${evidence.checks.configPersistence || 'SKIPPED'} | Token encrypted, never returned in plaintext |
-| 4. Outbound Durability | ${evidence.checks.outboundDurability || 'SKIPPED'} | Outbox record created before Meta send |
-| 5. Idempotency Conflict | ${evidence.checks.idempotency || 'SKIPPED'} | Reused key with different payload rejected (409) |
-| 6. Inbound Webhook | ${evidence.checks.inboundWebhook || 'SKIPPED'} | Constant-time HMAC-SHA256 signature verified |
-| 7. Tenant Isolation | ${evidence.checks.tenantIsolation || 'SKIPPED'} | Cross-tenant access strictly blocked |
+| 2. Environment Credentials | ${evidence.checks.credentialsConfigured ? '✅ PASS' : '⚠️ BLOCKED'} | Dedicated test tenant secrets configured |
+| 3. Deployment Identity | ${evidence.checks.deploymentIdentity || 'SKIPPED'} | Valid production commit SHA verified |
+| 4. Config Persistence | ${evidence.checks.configPersistence || 'SKIPPED'} | Token encrypted, never returned in plaintext |
+| 5. Outbound Durability | ${evidence.checks.outboundDurability || 'SKIPPED'} | Outbox record created before Meta send |
+| 6. Idempotency Conflict | ${evidence.checks.idempotency || 'SKIPPED'} | Reused key with different payload rejected (409) |
+| 7. Inbound Webhook | ${evidence.checks.inboundWebhook || 'SKIPPED'} | Constant-time HMAC-SHA256 signature verified |
+| 8. Tenant Isolation | ${evidence.checks.tenantIsolation || 'SKIPPED'} | Cross-tenant access strictly blocked |
 
 ## Missing Prerequisites / Notes
 ${evidence.notes.map((n) => `- ${n}`).join('\n') || 'None'}
@@ -101,6 +94,7 @@ async function runVerification() {
     runId,
     timestamp,
     baseUrl: BASE_URL,
+    testedDeploymentSha: null,
     status: 'BLOCKED',
     maskedTenantId: mask(TEST_TENANT_ID),
     maskedPhoneNumberId: mask(TEST_PHONE_NUMBER_ID),
@@ -108,6 +102,7 @@ async function runVerification() {
     checks: {
       confirmation: Boolean(CONFIRM_PRODUCTION),
       credentialsConfigured: false,
+      deploymentIdentity: null,
       configPersistence: null,
       outboundDurability: null,
       idempotency: null,
@@ -125,7 +120,24 @@ async function runVerification() {
     process.exit(1);
   }
 
-  // Gate 2: Check required test environment variables
+  // Gate 2: Fetch health and verify deployment identity
+  try {
+    const healthRes = await fetch(`${BASE_URL}/api/health`, {
+      headers: { 'Cache-Control': 'no-cache' },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (healthRes.ok) {
+      const body = await healthRes.json();
+      evidence.testedDeploymentSha = body.commit || null;
+      if (body.commit && body.commit.length === 40) {
+        evidence.checks.deploymentIdentity = 'PASS';
+      }
+    }
+  } catch (err) {
+    evidence.notes.push(`Health endpoint check error: ${err.message}`);
+  }
+
+  // Gate 3: Check required test environment variables
   const missingSecrets = [];
   if (!TEST_TENANT_ID) missingSecrets.push('WHATSAPP_TEST_TENANT_ID');
   if (!TEST_PHONE_NUMBER_ID)

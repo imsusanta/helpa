@@ -4,14 +4,13 @@ test.describe('E2E: Team Permissions & Multi-Tenant Boundary Isolation', () => {
   test('unauthenticated API requests return 401 Unauthorized without data leakage', async ({
     request,
   }) => {
-    const protectedEndpoints = [
+    const protectedGetEndpoints = [
       '/api/account',
       '/api/account/members',
       '/api/patients/search?q=test',
-      '/api/whatsapp/send',
     ];
 
-    for (const endpoint of protectedEndpoints) {
+    for (const endpoint of protectedGetEndpoints) {
       const res = await request.get(endpoint);
       expect([401, 403]).toContain(res.status());
       // Ensure response does not contain stack traces or schema structures
@@ -20,6 +19,11 @@ test.describe('E2E: Team Permissions & Multi-Tenant Boundary Isolation', () => {
       expect(text).not.toContain('column');
       expect(text).not.toContain('syntax error');
     }
+
+    const postRes = await request.post('/api/whatsapp/send', {
+      data: { phone: '+1234567890', message: 'test' },
+    });
+    expect([401, 403]).toContain(postRes.status());
   });
 
   test('cross-account resource mutation fails closed', async ({ request }) => {
