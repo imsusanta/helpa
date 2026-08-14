@@ -350,78 +350,93 @@ export function MessageThread({
   // conversation and avoids cross-conversation chatter on a busy inbox.
   useEffect(() => {
     if (!conversationId) return;
-    const appwrite = createClient();
+    try {
+      const appwrite = createClient();
+      if (!appwrite || typeof appwrite.channel !== 'function') return;
 
-    const channel = appwrite
-      .channel(`reactions:${conversationId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'message_reactions',
-          filter: `conversation_id=eq.${conversationId}`,
-        },
-        (payload: any) => {
-          const row = payload.new as MessageReaction;
-          setReactions((prev) => {
-            if (prev.some((r) => r.id === row.id)) return prev;
-            const tempIdx = prev.findIndex(
-              (r) =>
-                r.id.startsWith('temp-') &&
-                r.message_id === row.message_id &&
-                r.actor_type === row.actor_type &&
-                r.actor_id === row.actor_id
+      const channel = appwrite.channel(`reactions:${conversationId}`);
+      if (!channel || typeof channel.on !== 'function') return;
+
+      channel
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'message_reactions',
+            filter: `conversation_id=eq.${conversationId}`,
+          },
+          (payload: any) => {
+            const row = payload.new as MessageReaction;
+            setReactions((prev) => {
+              if (prev.some((r) => r.id === row.id)) return prev;
+              const tempIdx = prev.findIndex(
+                (r) =>
+                  r.id.startsWith('temp-') &&
+                  r.message_id === row.message_id &&
+                  r.actor_type === row.actor_type &&
+                  r.actor_id === row.actor_id
+              );
+              if (tempIdx >= 0) {
+                const copy = prev.slice();
+                copy[tempIdx] = row;
+                return copy;
+              }
+              return [...prev, row];
+            });
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'message_reactions',
+            filter: `conversation_id=eq.${conversationId}`,
+          },
+          (payload: any) => {
+            const row = payload.new as MessageReaction;
+            setReactions((prev) =>
+              prev.map((r) => (r.id === row.id ? row : r))
             );
-            if (tempIdx >= 0) {
-              const copy = prev.slice();
-              copy[tempIdx] = row;
-              return copy;
-            }
-            return [...prev, row];
-          });
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'message_reactions',
-          filter: `conversation_id=eq.${conversationId}`,
-        },
-        (payload: any) => {
-          const row = payload.new as MessageReaction;
-          setReactions((prev) => prev.map((r) => (r.id === row.id ? row : r)));
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'message_reactions',
-          filter: `conversation_id=eq.${conversationId}`,
-        },
-        (payload: any) => {
-          const old = payload.old as Partial<MessageReaction>;
-          if (!old?.id) return;
-          setReactions((prev) => prev.filter((r) => r.id !== old.id));
-        }
-      )
-      .subscribe();
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'DELETE',
+            schema: 'public',
+            table: 'message_reactions',
+            filter: `conversation_id=eq.${conversationId}`,
+          },
+          (payload: any) => {
+            const old = payload.old as Partial<MessageReaction>;
+            if (!old?.id) return;
+            setReactions((prev) => prev.filter((r) => r.id !== old.id));
+          }
+        );
 
-    return () => {
-      try {
-        if (typeof appwrite?.removeChannel === 'function') {
-          appwrite.removeChannel(channel);
-        } else if (typeof (channel as any)?.unsubscribe === 'function') {
-          (channel as any).unsubscribe();
-        }
-      } catch {
-        // Ignore cleanup error
+      if (typeof channel.subscribe === 'function') {
+        channel.subscribe();
       }
-    };
+
+      return () => {
+        try {
+          if (typeof appwrite?.removeChannel === 'function') {
+            appwrite.removeChannel(channel);
+          } else if (typeof (channel as any)?.unsubscribe === 'function') {
+            (channel as any).unsubscribe();
+          }
+        } catch {
+          // Ignore cleanup error
+        }
+      };
+    } catch (err) {
+      console.warn(
+        '[reactions] failed to subscribe to reactions channel:',
+        err
+      );
+    }
   }, [conversationId]);
 
   // Clear any in-progress reply draft when the active conversation changes —
