@@ -1,24 +1,50 @@
 import type { NextConfig } from 'next';
 import { execSync } from 'child_process';
+import fs from 'fs';
+import path from 'path';
 
 function getCommitSha(): string {
-  if (process.env.NEXT_PUBLIC_COMMIT_SHA)
-    return process.env.NEXT_PUBLIC_COMMIT_SHA;
+  if (process.env.APP_COMMIT_SHA) return process.env.APP_COMMIT_SHA;
   if (process.env.VERCEL_GIT_COMMIT_SHA)
     return process.env.VERCEL_GIT_COMMIT_SHA;
   if (process.env.GITHUB_SHA) return process.env.GITHUB_SHA;
+  if (process.env.SOURCE_VERSION) return process.env.SOURCE_VERSION;
   if (process.env.APPWRITE_GIT_COMMIT_SHA)
     return process.env.APPWRITE_GIT_COMMIT_SHA;
   if (process.env.NEXT_PUBLIC_APPWRITE_GIT_COMMIT_SHA)
     return process.env.NEXT_PUBLIC_APPWRITE_GIT_COMMIT_SHA;
+  if (process.env.NEXT_PUBLIC_COMMIT_SHA)
+    return process.env.NEXT_PUBLIC_COMMIT_SHA;
   try {
     return execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim();
   } catch {
-    return 'unknown';
+    return '';
   }
 }
 
 const COMMIT_SHA = getCommitSha();
+const BUILD_TIME = new Date().toISOString();
+
+// Write build metadata during build
+try {
+  const buildInfoDir = path.join(process.cwd(), 'src', 'lib');
+  if (fs.existsSync(buildInfoDir)) {
+    fs.writeFileSync(
+      path.join(buildInfoDir, 'build-info.json'),
+      JSON.stringify(
+        {
+          commit: COMMIT_SHA || null,
+          buildTime: BUILD_TIME,
+          source: 'next.config.ts',
+        },
+        null,
+        2
+      )
+    );
+  }
+} catch {
+  // Ignore build file write errors
+}
 
 /**
  * Enterprise Baseline Security Headers
@@ -59,7 +85,9 @@ const SECURITY_HEADERS = [
 
 const nextConfig: NextConfig = {
   env: {
+    APP_COMMIT_SHA: COMMIT_SHA,
     NEXT_PUBLIC_COMMIT_SHA: COMMIT_SHA,
+    BUILD_TIME: BUILD_TIME,
   },
   turbopack: {
     root: process.cwd(),

@@ -1,5 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const PORT = process.env.PORT || '3005';
+const BASE_URL =
+  process.env.PLAYWRIGHT_TEST_BASE_URL || `http://localhost:${PORT}`;
+
 export default defineConfig({
   testDir: './e2e',
   timeout: 30 * 1000,
@@ -12,9 +16,10 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: [['html'], ['list']],
   use: {
-    baseURL: process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://localhost:3000',
-    trace: 'on-first-retry',
+    baseURL: BASE_URL,
+    trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
   },
   projects: [
     {
@@ -23,9 +28,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: process.env.CI ? 'npm run start' : 'npm run dev',
-    url: process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
+    command: `npx next start -p ${PORT}`,
+    url: BASE_URL,
+    reuseExistingServer: false,
     timeout: 120 * 1000,
   },
 });

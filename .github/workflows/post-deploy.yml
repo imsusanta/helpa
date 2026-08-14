@@ -9,9 +9,11 @@ jobs:
   verify-production:
     name: Verify Live Production Site & Deployed Commit SHA
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     env:
       PRODUCTION_URL: https://www.helpa.studio
       EXPECTED_SHA: ${{ github.sha }}
+      EVIDENCE_DIR: artifacts
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -21,24 +23,14 @@ jobs:
         with:
           node-version: 22
 
-      - name: Verify Production Homepage (HTTP 200)
-        run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$PRODUCTION_URL/")
-          echo "Homepage HTTP status: $STATUS"
-          if [ "$STATUS" -ne 200 ]; then
-            echo "Error: Homepage returned $STATUS instead of 200"
-            exit 1
-          fi
-
-      - name: Verify Production /login (HTTP 200)
-        run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$PRODUCTION_URL/login")
-          echo "Login page HTTP status: $STATUS"
-          if [ "$STATUS" -ne 200 ]; then
-            echo "Error: /login returned $STATUS instead of 200"
-            exit 1
-          fi
-
-      - name: Verify Live Deployed Commit SHA via /api/health
+      - name: Verify Live Deployed Commit SHA and Site Health
         run: |
           node scripts/verify-deployment.mjs
+
+      - name: Upload Deployment Verification Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-verification-report
+          path: artifacts/
+          retention-days: 7

@@ -15,9 +15,12 @@ export async function GET(request: Request) {
     return NextResponse.json(
       {
         status: 'ok',
-        timestamp,
+        version: '0.3.0',
         commit: commitResolution.commit,
+        commitSource: commitResolution.commitSource,
         deploymentShaStatus: commitResolution.deploymentShaStatus,
+        buildTime: commitResolution.buildTime,
+        timestamp,
       },
       { status: 200, headers: { 'Cache-Control': 'no-store, private' } }
     );
@@ -69,8 +72,10 @@ export async function GET(request: Request) {
       status: overallStatus,
       version: '0.3.0',
       commit: commitResolution.commit,
+      commitSource: commitResolution.commitSource,
       deploymentShaStatus: commitResolution.deploymentShaStatus,
       environment: process.env.NODE_ENV || 'production',
+      buildTime: commitResolution.buildTime,
       checks: {
         appwriteApi: appwriteReachable ? 'healthy' : 'unreachable',
         database: databaseHealthy ? 'healthy' : 'unreachable',

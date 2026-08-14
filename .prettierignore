@@ -23,3 +23,5 @@ src/core/providers/sms/sms-provider.interface.ts
 src/core/providers/voice/voice-provider.interface.ts
 src/core/providers/whatsapp/whatsapp-provider.interface.ts
 src/core/types.ts
+src/lib/build-info.json
+artifacts

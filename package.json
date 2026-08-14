@@ -47,10 +47,10 @@
     "appwrite:setup": "tsx scripts/setup-appwrite-db.ts --apply",
     "appwrite:verify": "tsx scripts/verify-appwrite-db.ts && tsx scripts/verify-appwrite-storage.ts",
     "appwrite:migrate:dry-run": "tsx scripts/setup-appwrite-db.ts --dry-run",
-    "appwrite:migrate:apply": "tsx scripts/setup-appwrite-db.ts --apply",
     "appwrite:test": "vitest run src/tests/appwrite",
     "appwrite:migrate": "tsx scripts/setup-appwrite-db.ts --dry-run",
-    "voice:smoke": "tsx scripts/voice-smoke-test.ts"
+    "voice:smoke": "tsx scripts/voice-smoke-test.ts",
+    "verify:whatsapp-live": "node scripts/verify-whatsapp-live.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
