@@ -50,3 +50,5 @@ next-env.d.ts
 
 scratch/
 .vercel
+src/lib/build-info.json
+artifacts/

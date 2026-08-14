@@ -1,10 +1,13 @@
 /**
  * scripts/verify-deployment.mjs
  *
- * Post-Deployment Verification Script.
- * Polls the production /api/health endpoint, parses the returned commit SHA,
- * and validates that the live deployed SHA matches the expected commit SHA exactly.
+ * Comprehensive Post-Deployment Verification Script.
+ * Polls the production endpoints with cache-busting, validates the deployed commit SHA against the expected SHA,
+ * checks health and database status, and outputs redacted verification artifacts.
  */
+
+import fs from 'fs';
+import path from 'path';
 
 const PRODUCTION_URL = process.env.PRODUCTION_URL || 'https://www.helpa.studio';
 const EXPECTED_SHA = (process.env.EXPECTED_SHA || process.env.GITHUB_SHA || '')
@@ -15,6 +18,7 @@ const RETRY_INTERVAL_MS = parseInt(
   process.env.RETRY_INTERVAL_MS || '10000',
   10
 );
+const EVIDENCE_DIR = process.env.EVIDENCE_DIR || 'artifacts';
 
 const SHA_40_REGEX = /^[0-9a-f]{40}$/;
 
@@ -35,29 +39,105 @@ async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function saveArtifacts(result) {
+  try {
+    const dir = path.resolve(process.cwd(), EVIDENCE_DIR);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    const jsonPath = path.join(dir, 'deployment-verification.json');
+    fs.writeFileSync(jsonPath, JSON.stringify(result, null, 2));
+
+    const mdContent = `# Production Deployment Verification Report
+
+- **Target URL**: \`${result.productionUrl}\`
+- **Expected SHA**: \`${result.expectedSha}\`
+- **Deployed SHA**: \`${result.deployedSha || 'None'}\`
+- **Match Status**: **${result.shaMatch ? 'PASS' : 'FAIL'}**
+- **Deployment SHA Status**: \`${result.deploymentShaStatus || 'unknown'}\`
+- **Homepage Status**: \`${result.homepageStatus || 'N/A'}\`
+- **Login Status**: \`${result.loginStatus || 'N/A'}\`
+- **Health Status**: \`${result.healthStatus || 'N/A'}\`
+- **Database Healthy**: \`${result.databaseHealthy ? 'YES' : 'NO'}\`
+- **Overall System Status**: \`${result.overallStatus || 'N/A'}\`
+- **Verification Result**: **${result.success ? 'SUCCESS' : 'FAILED'}**
+- **Attempts**: \`${result.attempts}/${MAX_ATTEMPTS}\`
+- **Timestamp**: \`${result.timestamp}\`
+`;
+    const mdPath = path.join(dir, 'deployment-verification.md');
+    fs.writeFileSync(mdPath, mdContent);
+    console.log(`📄 Redacted verification artifacts saved to ${dir}`);
+  } catch (err) {
+    console.warn(`⚠️ Could not save verification artifacts: ${err.message}`);
+  }
+}
+
 async function verify() {
+  const startTime = new Date().toISOString();
+  const latestResult = {
+    productionUrl: PRODUCTION_URL,
+    expectedSha: EXPECTED_SHA,
+    deployedSha: null,
+    deploymentShaStatus: null,
+    shaMatch: false,
+    homepageStatus: null,
+    loginStatus: null,
+    healthStatus: null,
+    databaseHealthy: false,
+    overallStatus: null,
+    success: false,
+    timestamp: startTime,
+    attempts: 0,
+  };
+
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    console.log(`\n--- Attempt ${attempt}/${MAX_ATTEMPTS} ---`);
+    latestResult.attempts = attempt;
+    latestResult.timestamp = new Date().toISOString();
+    console.log(`\n--- Verification Attempt ${attempt}/${MAX_ATTEMPTS} ---`);
+
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
+      const cacheBust = `verify_sha=${EXPECTED_SHA}&attempt=${attempt}&_t=${Date.now()}`;
 
-      const res = await fetch(`${PRODUCTION_URL}/api/health`, {
+      // 1. Check Homepage
+      const homeRes = await fetch(`${PRODUCTION_URL}/?${cacheBust}`, {
         headers: { 'Cache-Control': 'no-cache' },
-        signal: controller.signal,
-      });
-      clearTimeout(timeout);
+        signal: AbortSignal.timeout(8000),
+      }).catch(() => null);
+      latestResult.homepageStatus = homeRes?.status || null;
+      console.log(`Homepage HTTP status: ${latestResult.homepageStatus}`);
 
-      const status = res.status;
-      console.log(`HTTP Status: ${status}`);
+      // 2. Check /login
+      const loginRes = await fetch(`${PRODUCTION_URL}/login?${cacheBust}`, {
+        headers: { 'Cache-Control': 'no-cache' },
+        signal: AbortSignal.timeout(8000),
+      }).catch(() => null);
+      latestResult.loginStatus = loginRes?.status || null;
+      console.log(`Login HTTP status: ${latestResult.loginStatus}`);
 
-      if (status !== 200 && status !== 503) {
-        console.warn(`⚠️ Unexpected HTTP status: ${status}. Retrying...`);
+      // 3. Check /api/health
+      const healthRes = await fetch(
+        `${PRODUCTION_URL}/api/health?${cacheBust}`,
+        {
+          headers: { 'Cache-Control': 'no-cache' },
+          signal: AbortSignal.timeout(8000),
+        }
+      ).catch(() => null);
+      latestResult.healthStatus = healthRes?.status || null;
+      console.log(`Health HTTP status: ${latestResult.healthStatus}`);
+
+      if (
+        !healthRes ||
+        (healthRes.status !== 200 && healthRes.status !== 503)
+      ) {
+        console.warn(
+          `⚠️ Health endpoint returned unexpected status: ${latestResult.healthStatus}. Retrying...`
+        );
         await sleep(RETRY_INTERVAL_MS);
         continue;
       }
 
-      const body = await res.json().catch(() => null);
+      const body = await healthRes.json().catch(() => null);
       if (!body || typeof body !== 'object') {
         console.warn(
           '⚠️ Invalid JSON body returned from /api/health. Retrying...'
@@ -67,8 +147,17 @@ async function verify() {
       }
 
       const deployedSha = (body.commit || '').trim().toLowerCase();
-      const shaStatus = body.deploymentShaStatus || 'unknown';
-      console.log(`Deployed Commit SHA: ${deployedSha} (status: ${shaStatus})`);
+      latestResult.deployedSha = deployedSha;
+      latestResult.deploymentShaStatus = body.deploymentShaStatus || 'unknown';
+      latestResult.databaseHealthy = body.checks?.database === 'healthy';
+      latestResult.overallStatus = body.status || 'unknown';
+
+      console.log(
+        `Deployed Commit SHA: ${deployedSha} (status: ${latestResult.deploymentShaStatus}, source: ${body.commitSource || 'unknown'})`
+      );
+      console.log(
+        `Database Healthy: ${latestResult.databaseHealthy ? 'YES' : 'NO'}, Overall Status: ${latestResult.overallStatus}`
+      );
 
       if (!SHA_40_REGEX.test(deployedSha)) {
         console.warn(
@@ -86,6 +175,14 @@ async function verify() {
         continue;
       }
 
+      latestResult.shaMatch = true;
+      latestResult.success =
+        latestResult.homepageStatus === 200 &&
+        latestResult.loginStatus === 200 &&
+        (healthRes.status === 200 || healthRes.status === 503) &&
+        latestResult.databaseHealthy;
+
+      saveArtifacts(latestResult);
       console.log(
         `\n✅ Verification SUCCESS! Live production SHA matches expected SHA (${EXPECTED_SHA}).`
       );
@@ -98,6 +195,8 @@ async function verify() {
     }
   }
 
+  latestResult.success = false;
+  saveArtifacts(latestResult);
   console.error(
     `\n❌ Deployment verification TIMEOUT: Live production SHA did not match ${EXPECTED_SHA} after ${MAX_ATTEMPTS} attempts.`
   );
