@@ -773,9 +773,10 @@ export async function POST(request: Request) {
         conversationId: conversation_id,
         senderType: 'agent',
         contentType: message_type,
-        contentText: content_text || null,
+        contentText:
+          content_text ||
+          (template_name ? `[Template: ${template_name}]` : null),
         mediaUrl: media_url || null,
-        templateName: template_name || null,
         messageId: waMessageId,
         status: 'sent',
         replyToMessageId: reply_to_message_id || null,
