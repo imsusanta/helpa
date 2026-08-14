@@ -4,9 +4,19 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createClient } from '@/lib/appwrite-compat';
 import { cn } from '@/lib/utils';
 import type { Conversation, ConversationStatus } from '@/types';
-import { Search, ChevronDown } from 'lucide-react';
+import {
+  Search,
+  ChevronDown,
+  SquarePen,
+  MessageSquarePlus,
+  AlertCircle,
+  RefreshCw,
+  X,
+  Filter,
+} from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,6 +24,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { SendOutboundModal } from '@/components/contacts/send-outbound-modal';
 
 interface ConversationListProps {
   activeConversationId: string | null;
@@ -27,6 +38,8 @@ interface ConversationListProps {
    * or the tab was throttled. Optional so existing callers keep working.
    */
   resyncToken?: number;
+  onStartConversation?: () => void;
+  onSelectById?: (conversationId: string) => void;
 }
 
 const STATUS_COLORS: Record<ConversationStatus, string> = {
@@ -51,23 +64,18 @@ export function ConversationList({
   conversations,
   onConversationsLoaded,
   resyncToken = 0,
+  onStartConversation,
+  onSelectById,
 }: ConversationListProps) {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<InboxFilter>('all');
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [startModalOpen, setStartModalOpen] = useState(false);
+  const [retryCounter, setRetryCounter] = useState(0);
 
   // Keep the latest callback in a ref so the fetch effect below can
-  // have a stable, empty-dep identity. Previously the fetch useCallback
-  // depended on `onConversationsLoaded`, which depends on the parent's
-  // `deepLinkConvId` — so every URL change (including one the parent
-  // triggered via router.replace after a click) caused a fresh
-  // conversations fetch. That extra refetch was the trigger for the
-  // deep-link auto-select running a second time and wiping the active
-  // thread's messages.
-  // Mutation lives in an effect (not render) per React 19's refs rule;
-  // the fetch runs once on mount so it's fine to read the slightly
-  // older value — the very next render updates the ref for any
-  // subsequent async completion.
+  // have a stable, empty-dep identity.
   const onConversationsLoadedRef = useRef(onConversationsLoaded);
   useEffect(() => {
     onConversationsLoadedRef.current = onConversationsLoaded;
@@ -78,76 +86,86 @@ export function ConversationList({
     let cancelled = false;
 
     (async () => {
-      const { data, error } = await appwrite
-        .from('conversations')
-        .select('*, contact:contacts(*)')
-        .order('last_message_at', { ascending: false });
+      setLoading(true);
+      setFetchError(null);
+      try {
+        const { data, error } = await appwrite
+          .from('conversations')
+          .select('*, contact:contacts(*)')
+          .order('last_message_at', { ascending: false });
 
-      if (cancelled) return;
+        if (cancelled) return;
 
-      if (error) {
-        // appwrite errors have non-enumerable properties — log fields explicitly
-        console.error('Failed to fetch conversations:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-        });
-        setLoading(false);
-        return;
-      }
+        if (error) {
+          console.error('Failed to fetch conversations:', {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code,
+          });
+          setFetchError(error.message || 'Failed to load conversations');
+          setLoading(false);
+          return;
+        }
 
-      const convs = (data ?? []) as Conversation[];
+        const convs = (data ?? []) as Conversation[];
 
-      // Hydrate contacts if unpopulated
-      const missingIds = Array.from(
-        new Set(
-          convs
-            .filter(
-              (c) => Boolean(c.contact_id) && (!c.contact || !c.contact.name)
-            )
-            .map((c) => c.contact_id as string)
-        )
-      );
+        // Hydrate contacts if unpopulated
+        const missingIds = Array.from(
+          new Set(
+            convs
+              .filter(
+                (c) => Boolean(c.contact_id) && (!c.contact || !c.contact.name)
+              )
+              .map((c) => c.contact_id as string)
+          )
+        );
 
-      if (missingIds.length > 0) {
-        try {
-          const { data: contactsData } = await appwrite
-            .from('contacts')
-            .select('*')
-            .in('id', missingIds);
+        if (missingIds.length > 0) {
+          try {
+            const { data: contactsData } = await appwrite
+              .from('contacts')
+              .select('*')
+              .in('id', missingIds);
 
-          if (contactsData && Array.isArray(contactsData)) {
-            const contactsMap = new Map(contactsData.map((c) => [c.id, c]));
-            convs.forEach((c) => {
-              if (c.contact_id && contactsMap.has(c.contact_id)) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                c.contact = contactsMap.get(c.contact_id) as any;
-              }
-            });
+            if (contactsData && Array.isArray(contactsData)) {
+              const contactsMap = new Map(contactsData.map((c) => [c.id, c]));
+              convs.forEach((c) => {
+                if (c.contact_id && contactsMap.has(c.contact_id)) {
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  c.contact = contactsMap.get(c.contact_id) as any;
+                }
+              });
+            }
+          } catch {
+            // ignore contact hydration errors
           }
-        } catch {
-          // ignore contact hydration errors
+        }
+
+        onConversationsLoadedRef.current(convs);
+        setFetchError(null);
+      } catch (err: unknown) {
+        if (cancelled) return;
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error('Unexpected error fetching conversations:', msg);
+        setFetchError(msg);
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
         }
       }
-
-      onConversationsLoadedRef.current(convs);
-      setLoading(false);
     })();
 
     return () => {
       cancelled = true;
     };
-    // `resyncToken` is included so the parent can force a refetch when
-    // the realtime channel reconnects or the tab regains focus — catches
-    // up on any events sent while the WS was disconnected or throttled.
-  }, [resyncToken]);
+  }, [resyncToken, retryCounter]);
 
   const filtered = useMemo(() => {
     let result = conversations;
 
     if (filter === 'unread') {
-      result = result.filter((c) => c.unread_count > 0);
+      result = result.filter((c) => (c.unread_count ?? 0) > 0);
     } else if (filter !== 'all') {
       result = result.filter((c) => c.status === filter);
     }
@@ -181,6 +199,10 @@ export function ConversationList({
     []
   );
 
+  const handleClearSearch = useCallback(() => {
+    setSearch('');
+  }, []);
+
   const handleSelect = useCallback(
     (conv: Conversation) => {
       onSelect(conv);
@@ -188,13 +210,49 @@ export function ConversationList({
     [onSelect]
   );
 
+  const handleOpenStartChat = useCallback(() => {
+    if (onStartConversation) {
+      onStartConversation();
+    } else {
+      setStartModalOpen(true);
+    }
+  }, [onStartConversation]);
+
+  const handleConversationCreated = useCallback(
+    (newConvId?: string) => {
+      setStartModalOpen(false);
+      setRetryCounter((c) => c + 1);
+      if (newConvId && onSelectById) {
+        onSelectById(newConvId);
+      }
+    },
+    [onSelectById]
+  );
+
   const activeFilter = FILTER_OPTIONS.find((o) => o.value === filter);
 
   return (
-    // w-full on mobile so the list occupies the whole viewport when it's
-    // the single pane showing; fixed 320px on desktop where it shares the
-    // row with the thread + contact sidebar.
     <div className="border-border bg-card flex h-full w-full flex-col border-r lg:w-80">
+      {/* Header with Title and New Chat button */}
+      <div className="border-border flex items-center justify-between border-b px-3.5 py-3">
+        <div className="flex items-center gap-2">
+          <h2 className="text-foreground text-sm font-semibold">Chats</h2>
+          {conversations.length > 0 && (
+            <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-[11px] font-medium">
+              {conversations.length}
+            </span>
+          )}
+        </div>
+        <Button
+          size="sm"
+          onClick={handleOpenStartChat}
+          className="h-7 gap-1.5 px-2.5 text-xs font-medium shadow-xs"
+        >
+          <SquarePen className="h-3.5 w-3.5" />
+          <span>New Chat</span>
+        </Button>
+      </div>
+
       {/* Search + Filter */}
       <div className="border-border space-y-2 border-b p-3">
         <div className="relative">
@@ -203,14 +261,25 @@ export function ConversationList({
             value={search}
             onChange={handleSearchChange}
             placeholder="Search conversations..."
-            className="border-border bg-muted text-foreground placeholder-muted-foreground focus:border-primary/50 pl-9 text-sm"
+            className="border-border bg-muted text-foreground placeholder-muted-foreground focus:border-primary/50 pr-8 pl-9 text-sm"
           />
+          {search && (
+            <button
+              type="button"
+              onClick={handleClearSearch}
+              aria-label="Clear search"
+              className="text-muted-foreground hover:text-foreground absolute top-1/2 right-2.5 -translate-y-1/2 rounded-xs p-0.5"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
 
         <DropdownMenu>
           <DropdownMenuTrigger className="text-muted-foreground hover:text-foreground hover:bg-muted inline-flex h-7 items-center justify-center gap-1 rounded-md px-2 text-xs">
-            {activeFilter?.label ?? 'All'}
-            <ChevronDown className="h-3 w-3" />
+            <Filter className="mr-0.5 h-3 w-3 opacity-70" />
+            <span>Filter: {activeFilter?.label ?? 'All'}</span>
+            <ChevronDown className="ml-0.5 h-3 w-3 opacity-70" />
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align="start"
@@ -223,7 +292,7 @@ export function ConversationList({
                 className={cn(
                   'text-sm',
                   filter === opt.value
-                    ? 'text-primary'
+                    ? 'text-primary font-medium'
                     : 'text-popover-foreground'
                 )}
               >
@@ -234,22 +303,102 @@ export function ConversationList({
         </DropdownMenu>
       </div>
 
-      {/* Conversation Items.
-          `min-h-0` is load-bearing: a flex child defaults to
-          min-height:auto, so without it this ScrollArea grows to fit
-          every conversation instead of shrinking to the remaining
-          space — the list then overflows and gets clipped by the
-          parent's overflow-hidden with no scrollbar (issue #229). */}
+      {/* Conversation Items */}
       <ScrollArea className="min-h-0 flex-1">
         {loading ? (
-          <div className="flex items-center justify-center py-12">
+          <div className="flex flex-col items-center justify-center gap-2.5 py-16 text-center">
             <div className="border-primary h-5 w-5 animate-spin rounded-full border-2 border-t-transparent" />
+            <p className="text-muted-foreground text-xs">
+              Loading conversations...
+            </p>
+          </div>
+        ) : fetchError ? (
+          <div className="space-y-3 px-4 py-12 text-center">
+            <div className="bg-destructive/10 text-destructive mx-auto flex h-10 w-10 items-center justify-center rounded-full">
+              <AlertCircle className="h-5 w-5" />
+            </div>
+            <p className="text-foreground text-sm font-medium">
+              Unable to load conversations
+            </p>
+            <p className="text-muted-foreground mx-auto max-w-[220px] text-xs leading-relaxed">
+              {fetchError}
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setRetryCounter((c) => c + 1)}
+              className="gap-1.5 text-xs"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Retry
+            </Button>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="px-4 py-12 text-center">
-            <p className="text-muted-foreground text-sm">
-              No conversations found
-            </p>
+          <div className="space-y-3 px-4 py-12 text-center">
+            {search.trim() ? (
+              <>
+                <div className="bg-muted text-muted-foreground mx-auto flex h-10 w-10 items-center justify-center rounded-full">
+                  <Search className="h-5 w-5" />
+                </div>
+                <p className="text-foreground text-sm font-medium">
+                  No conversations found
+                </p>
+                <p className="text-muted-foreground text-xs">
+                  No matches for &ldquo;{search}&rdquo;
+                </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleClearSearch}
+                  className="text-xs"
+                >
+                  Clear search
+                </Button>
+              </>
+            ) : filter !== 'all' ? (
+              <>
+                <div className="bg-muted text-muted-foreground mx-auto flex h-10 w-10 items-center justify-center rounded-full">
+                  <Filter className="h-5 w-5" />
+                </div>
+                <p className="text-foreground text-sm font-medium">
+                  No {filter} conversations
+                </p>
+                <p className="text-muted-foreground text-xs">
+                  No conversations in this status.
+                </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setFilter('all')}
+                  className="text-xs"
+                >
+                  View all conversations
+                </Button>
+              </>
+            ) : (
+              <>
+                <div className="bg-primary/10 text-primary mx-auto flex h-12 w-12 items-center justify-center rounded-2xl">
+                  <MessageSquarePlus className="h-6 w-6" />
+                </div>
+                <div>
+                  <p className="text-foreground text-sm font-semibold">
+                    No conversations yet
+                  </p>
+                  <p className="text-muted-foreground mx-auto mt-1 max-w-[210px] text-xs leading-relaxed">
+                    Start a new conversation with a contact, or incoming
+                    WhatsApp messages will appear here.
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={handleOpenStartChat}
+                  className="gap-1.5 text-xs shadow-xs"
+                >
+                  <SquarePen className="h-3.5 w-3.5" />
+                  Start Conversation
+                </Button>
+              </>
+            )}
           </div>
         ) : (
           <div className="flex flex-col">
@@ -264,6 +413,13 @@ export function ConversationList({
           </div>
         )}
       </ScrollArea>
+
+      {/* Standalone Start Conversation Modal if not triggered via parent */}
+      <SendOutboundModal
+        open={startModalOpen}
+        onOpenChange={setStartModalOpen}
+        onSuccess={handleConversationCreated}
+      />
     </div>
   );
 }

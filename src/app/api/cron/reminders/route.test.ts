@@ -5,7 +5,7 @@ import { GET } from './route';
 vi.mock('@/lib/appwrite-server-compat', () => ({
   appwriteAdmin: vi.fn(),
 }));
-vi.mock('@/queues/producers/appointment-reminders', () => ({
+vi.mock('@/lib/reminders/appointment-reminders', () => ({
   enqueueAppointmentReminder: vi.fn(),
 }));
 

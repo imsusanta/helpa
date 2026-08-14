@@ -25,9 +25,11 @@ import {
   PanelRightOpen,
   PanelRightClose,
   Sparkles,
+  SquarePen,
 } from 'lucide-react';
 import { format, isToday, isYesterday } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -110,6 +112,7 @@ interface MessageThreadProps {
   contactPanelOpen?: boolean;
   onToggleContactPanel?: () => void;
   insertedReply?: InsertedComposerReply | null;
+  onStartConversation?: () => void;
 }
 
 function formatDateSeparator(dateStr: string): string {
@@ -174,6 +177,7 @@ export function MessageThread({
   contactPanelOpen,
   onToggleContactPanel,
   insertedReply,
+  onStartConversation,
 }: MessageThreadProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -795,19 +799,31 @@ export function MessageThread({
     return (
       <div
         className={cn(
-          'flex flex-1 flex-col items-center justify-center',
+          'flex flex-1 flex-col items-center justify-center p-6 text-center',
           DOODLE_BG_CLASSES
         )}
       >
-        <div className="bg-muted flex h-16 w-16 items-center justify-center rounded-full">
-          <MessageSquare className="text-muted-foreground h-8 w-8" />
+        <div className="bg-card/90 border-border/80 flex max-w-sm flex-col items-center rounded-2xl border p-8 shadow-lg backdrop-blur-xs">
+          <div className="bg-primary/10 text-primary mb-4 flex h-14 w-14 items-center justify-center rounded-2xl">
+            <MessageSquare className="h-7 w-7" />
+          </div>
+          <h3 className="text-foreground text-base font-semibold">
+            Select a conversation
+          </h3>
+          <p className="text-muted-foreground mt-1.5 text-xs leading-relaxed">
+            Choose a conversation from the left to start messaging, or start a
+            new WhatsApp conversation with any patient or contact.
+          </p>
+          {onStartConversation && (
+            <Button
+              onClick={onStartConversation}
+              className="mt-5 h-8.5 gap-2 px-4 text-xs font-medium shadow-xs"
+            >
+              <SquarePen className="h-3.5 w-3.5" />
+              Start New Conversation
+            </Button>
+          )}
         </div>
-        <h3 className="text-muted-foreground mt-4 text-sm font-medium">
-          Select a conversation
-        </h3>
-        <p className="text-muted-foreground mt-1 text-xs">
-          Choose a conversation from the left to start messaging
-        </p>
       </div>
     );
   }

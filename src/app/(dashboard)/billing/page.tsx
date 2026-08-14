@@ -70,9 +70,7 @@ export default function BillingPage() {
 
       const mappedPats = (pats || []).map((p) => {
         const cData = p.contact as
-          | { name?: string }
-          | { name?: string }[]
-          | null;
+          { name?: string } | { name?: string }[] | null;
         const cName =
           (Array.isArray(cData) ? cData[0]?.name : cData?.name) ||
           'Unknown Patient';

@@ -47,9 +47,7 @@ export async function POST(request: Request) {
     const patientName = followup.patient.name || 'Patient';
     const _patientPhone = followup.patient.phone;
     const docData = followup.doctor as
-      | { name?: string }
-      | { name?: string }[]
-      | null;
+      { name?: string } | { name?: string }[] | null;
     const docName =
       (Array.isArray(docData) ? docData[0]?.name : docData?.name) ||
       'your doctor';

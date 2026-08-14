@@ -23,7 +23,7 @@ interface SendOutboundModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   defaultContact?: Contact | null;
-  onSuccess?: () => void;
+  onSuccess?: (conversationId?: string) => void;
 }
 
 export function SendOutboundModal({
@@ -133,7 +133,7 @@ export function SendOutboundModal({
       );
       setMessage('');
       onOpenChange(false);
-      if (onSuccess) onSuccess();
+      if (onSuccess) onSuccess(data.conversation_id);
     } catch (err: unknown) {
       console.error('Outbound message failed:', err);
       toast.error(

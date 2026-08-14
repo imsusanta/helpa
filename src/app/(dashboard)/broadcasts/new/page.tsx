@@ -1192,10 +1192,7 @@ export default function NewCampaignPage() {
                         onChange={(e) =>
                           setCtaType(
                             e.target.value as
-                              | 'url'
-                              | 'none'
-                              | 'appointment'
-                              | 'review'
+                              'url' | 'none' | 'appointment' | 'review'
                           )
                         }
                         className="border-border bg-background h-10 w-full rounded-lg border px-3 text-xs"
@@ -1296,9 +1293,7 @@ export default function NewCampaignPage() {
                                       ...templateVariables,
                                       [num]: {
                                         type: e.target.value as
-                                          | 'field'
-                                          | 'custom_field'
-                                          | 'static',
+                                          'field' | 'custom_field' | 'static',
                                         value: '',
                                       },
                                     });
@@ -1436,10 +1431,7 @@ export default function NewCampaignPage() {
                       onChange={(e) =>
                         setRecurrence(
                           e.target.value as
-                            | 'none'
-                            | 'weekly'
-                            | 'monthly'
-                            | 'yearly'
+                            'none' | 'weekly' | 'monthly' | 'yearly'
                         )
                       }
                       className="border-border bg-background text-foreground h-10 w-full rounded-lg border px-3 text-sm"

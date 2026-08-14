@@ -6,10 +6,7 @@ import type {
 } from '@/types';
 
 export type TemplateSlug =
-  | 'welcome_message'
-  | 'out_of_office'
-  | 'lead_qualifier'
-  | 'follow_up_reminder';
+  'welcome_message' | 'out_of_office' | 'lead_qualifier' | 'follow_up_reminder';
 
 export interface TemplateStepSeed {
   step_type: AutomationStepType;
