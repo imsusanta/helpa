@@ -214,19 +214,15 @@ export function MessageThread({
   // shape ready for shared-team workspaces without a refactor.
   useEffect(() => {
     let cancelled = false;
-    const appwrite = createClient();
-    appwrite
-      .from('profiles')
-      .select('*')
-      .order('full_name')
-      .then(({ data, error }) => {
+    fetch('/api/account/members', { cache: 'no-store' })
+      .then((res) => res.json())
+      .then((json) => {
         if (cancelled) return;
-        if (error) {
-          console.error('Failed to fetch profiles:', error);
-          return;
+        if (json.success && Array.isArray(json.data)) {
+          setProfiles(json.data);
         }
-        setProfiles((data as Profile[]) ?? []);
-      });
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
@@ -258,25 +254,32 @@ export function MessageThread({
   // they only flip hasUnread, which only the reset effect listens to.
   useEffect(() => {
     if (!conversationId) return;
-
-    const appwrite = createClient();
     let cancelled = false;
 
     (async () => {
       setLoading(true);
 
-      const { data, error } = await appwrite
-        .from('messages')
-        .select('*')
-        .eq('conversation_id', conversationId)
-        .order('created_at', { ascending: true });
+      try {
+        const res = await fetch(
+          `/api/conversations/${encodeURIComponent(conversationId)}/messages`,
+          { cache: 'no-store' }
+        );
+        const json = await res.json().catch(() => ({}));
 
-      if (cancelled) return;
+        if (cancelled) return;
 
-      if (error) {
-        console.error('Failed to fetch messages:', error);
-      } else {
-        onMessagesLoadedRef.current(data ?? []);
+        if (res.ok && json.success) {
+          onMessagesLoadedRef.current(json.data ?? []);
+        } else {
+          console.error(
+            'Failed to fetch messages:',
+            json.message || json.error
+          );
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Failed to fetch messages:', err);
+        }
       }
 
       if (!cancelled) setLoading(false);
@@ -409,14 +412,11 @@ export function MessageThread({
   // is 0 the condition is false, so no further UPDATE is issued.
   useEffect(() => {
     if (!conversationId || !hasUnread) return;
-    const appwrite = createClient();
-    appwrite
-      .from('conversations')
-      .update({ unread_count: 0 })
-      .eq('id', conversationId)
-      .then(({ error }) => {
-        if (error) console.error('Failed to reset unread_count:', error);
-      });
+    fetch(`/api/conversations/${encodeURIComponent(conversationId)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ unread_count: 0 }),
+    }).catch((err) => console.error('Failed to reset unread_count:', err));
   }, [conversationId, hasUnread]);
 
   // Auto-scroll to bottom on new messages
@@ -558,11 +558,11 @@ export function MessageThread({
     async (status: ConversationStatus) => {
       if (!conversation) return;
 
-      const appwrite = createClient();
-      await appwrite
-        .from('conversations')
-        .update({ status })
-        .eq('id', conversation.id);
+      await fetch(`/api/conversations/${encodeURIComponent(conversation.id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      }).catch((err) => console.error('Failed to update status:', err));
 
       onStatusChange(conversation.id, status);
     },

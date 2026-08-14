@@ -144,25 +144,17 @@ export default function InboxPage() {
     if (hydratingConvIdsRef.current.has(convId)) return;
     hydratingConvIdsRef.current.add(convId);
     try {
-      const appwrite = createClient();
-      const { data, error } = await appwrite
-        .from('conversations')
-        .select('*, contact:contacts(*)')
-        .eq('id', convId)
-        .maybeSingle();
-      if (error) {
-        // appwrite errors have non-enumerable properties — log fields
-        // explicitly so the console message isn't just `{}`.
-        console.error('Failed to hydrate conversation:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-        });
+      const res = await fetch(
+        `/api/conversations/${encodeURIComponent(convId)}`,
+        {
+          cache: 'no-store',
+        }
+      );
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success || !json.data) {
         return;
       }
-      if (!data) return;
-      const fetched = data as Conversation;
+      const fetched = json.data as Conversation;
       setConversations((prev) => {
         const existing = prev.find((c) => c.id === fetched.id);
         if (existing) {

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { createClient } from '@/lib/appwrite-compat';
 import { cn } from '@/lib/utils';
 import type { Conversation, ConversationStatus } from '@/types';
 import {
@@ -82,66 +81,29 @@ export function ConversationList({
   });
 
   useEffect(() => {
-    const appwrite = createClient();
     let cancelled = false;
 
     (async () => {
       setLoading(true);
       setFetchError(null);
       try {
-        const { data, error } = await appwrite
-          .from('conversations')
-          .select('*, contact:contacts(*)')
-          .order('last_message_at', { ascending: false });
+        const res = await fetch('/api/conversations?limit=100', {
+          cache: 'no-store',
+        });
+        const json = await res.json().catch(() => ({}));
 
         if (cancelled) return;
 
-        if (error) {
-          console.error('Failed to fetch conversations:', {
-            message: error.message,
-            details: error.details,
-            hint: error.hint,
-            code: error.code,
-          });
-          setFetchError(error.message || 'Failed to load conversations');
+        if (!res.ok || !json.success) {
+          const errMsg =
+            json.message || json.error || 'Failed to load conversations';
+          console.error('Failed to fetch conversations:', errMsg);
+          setFetchError(errMsg);
           setLoading(false);
           return;
         }
 
-        const convs = (data ?? []) as Conversation[];
-
-        // Hydrate contacts if unpopulated
-        const missingIds = Array.from(
-          new Set(
-            convs
-              .filter(
-                (c) => Boolean(c.contact_id) && (!c.contact || !c.contact.name)
-              )
-              .map((c) => c.contact_id as string)
-          )
-        );
-
-        if (missingIds.length > 0) {
-          try {
-            const { data: contactsData } = await appwrite
-              .from('contacts')
-              .select('*')
-              .in('id', missingIds);
-
-            if (contactsData && Array.isArray(contactsData)) {
-              const contactsMap = new Map(contactsData.map((c) => [c.id, c]));
-              convs.forEach((c) => {
-                if (c.contact_id && contactsMap.has(c.contact_id)) {
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                  c.contact = contactsMap.get(c.contact_id) as any;
-                }
-              });
-            }
-          } catch {
-            // ignore contact hydration errors
-          }
-        }
-
+        const convs = (json.data ?? []) as Conversation[];
         onConversationsLoadedRef.current(convs);
         setFetchError(null);
       } catch (err: unknown) {

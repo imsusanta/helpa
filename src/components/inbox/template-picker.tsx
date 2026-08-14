@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { createClient } from '@/lib/appwrite-compat';
 import type { MessageTemplate } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -86,34 +85,24 @@ export function TemplatePicker({
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const appwrite = createClient();
-      const {
-        data: { user },
-      } = await appwrite.auth.getUser();
-
-      if (!user) {
-        if (!cancelled) {
+      try {
+        const res = await fetch('/api/whatsapp/templates', {
+          cache: 'no-store',
+        });
+        const json = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (res.ok && json.success && Array.isArray(json.data)) {
+          setTemplates(json.data as MessageTemplate[]);
+        } else {
           setTemplates([]);
-          setLoading(false);
         }
-        return;
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Failed to fetch templates:', err);
+          setTemplates([]);
+        }
       }
-
-      const { data, error } = await appwrite
-        .from('message_templates')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('status', 'APPROVED')
-        .order('created_at', { ascending: false });
-
-      if (cancelled) return;
-      if (error) {
-        console.error('Failed to fetch templates:', error);
-        setTemplates([]);
-      } else {
-        setTemplates((data as MessageTemplate[]) ?? []);
-      }
-      setLoading(false);
+      if (!cancelled) setLoading(false);
     })();
 
     return () => {

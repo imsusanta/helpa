@@ -25,7 +25,17 @@ function requestHeaders(
     'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
   });
   const session = sessionOverride;
-  if (session) headers.set('X-Appwrite-Session', session);
+  if (session) {
+    headers.set('X-Appwrite-Session', session);
+  } else if (typeof document !== 'undefined' && document.cookie) {
+    const match =
+      document.cookie.match(
+        new RegExp(`(?:^|;\\s*)a_session_${APPWRITE_CONFIG.projectId}=([^;]+)`)
+      ) || document.cookie.match(/(?:^|;\s*)appwrite_session=([^;]+)/);
+    if (match && match[1]) {
+      headers.set('X-Appwrite-Session', decodeURIComponent(match[1]));
+    }
+  }
   if (useApiKey && typeof window === 'undefined' && APPWRITE_CONFIG.apiKey) {
     headers.set('X-Appwrite-Key', APPWRITE_CONFIG.apiKey);
   }
