@@ -1,5 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
+import { createServerClient } from '@supabase/ssr';
+import {
+  getRuntimeConfig,
+  requireSupabasePublicConfig,
+} from '@/lib/runtime-config';
 
 /**
  * Default-Deny Route Protection Proxy (Next.js 16 Proxy Convention)
@@ -50,84 +54,37 @@ function isPublicRoute(pathname: string): boolean {
 
 export async function proxy(request: NextRequest) {
   let user: { id: string; email?: string } | null = null;
-
-  // 1. Check Supabase SSR session tokens
-  if (
-    process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  ) {
-    const supabaseCookie = request.cookies
-      .getAll()
-      .find(
-        (c) =>
-          c.name.startsWith('sb-') &&
-          (c.name.includes('-auth-token') || c.name.includes('access-token'))
-      );
-    if (supabaseCookie?.value) {
-      try {
-        const raw = supabaseCookie.value.startsWith('base64-')
-          ? Buffer.from(supabaseCookie.value.slice(7), 'base64').toString(
-              'utf-8'
-            )
-          : supabaseCookie.value;
-        const parsed = JSON.parse(raw);
-        const accessToken =
-          parsed.access_token || (Array.isArray(parsed) ? parsed[0] : null);
-        if (
-          accessToken &&
-          typeof accessToken === 'string' &&
-          accessToken.includes('.')
-        ) {
-          const payload = JSON.parse(
-            Buffer.from(accessToken.split('.')[1], 'base64').toString('utf-8')
-          );
-          if (payload && payload.sub && payload.exp * 1000 > Date.now()) {
-            user = { id: payload.sub, email: payload.email };
-          }
-        }
-      } catch {
-        // Ignore cookie parsing error
-      }
-    }
-  }
-
-  // 2. Fallback: Check Appwrite session cookies
-  if (!user) {
-    const appwriteSession =
-      request.cookies.get(`a_session_${APPWRITE_CONFIG.projectId}`) ||
-      request.cookies.get('appwrite_session');
-
-    if (appwriteSession?.value) {
-      if (
-        appwriteSession.value.startsWith('test-') ||
-        appwriteSession.value === 'ci-test-session'
-      ) {
+  try {
+    const runtime = getRuntimeConfig();
+    if (runtime.authProvider === 'supabase') {
+      const { url, publishableKey } = requireSupabasePublicConfig();
+      let response = NextResponse.next({ request });
+      const supabase = createServerClient(url, publishableKey, {
+        cookies: {
+          getAll: () => request.cookies.getAll(),
+          setAll: (cookies) => {
+            cookies.forEach(({ name, value }) =>
+              request.cookies.set(name, value)
+            );
+            response = NextResponse.next({ request });
+            cookies.forEach(({ name, value, options }) =>
+              response.cookies.set(name, value, options)
+            );
+          },
+        },
+      });
+      const { data } = await supabase.auth.getClaims();
+      if (data?.claims?.sub) {
         user = {
-          id: '00000000-0000-0000-0000-000000000001',
-          email: 'doctor@helpa.studio',
+          id: data.claims.sub,
+          email: data.claims.email as string | undefined,
         };
-      } else {
-        try {
-          const accountResponse = await fetch(
-            `${APPWRITE_CONFIG.endpoint}/account`,
-            {
-              headers: {
-                'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
-                'X-Appwrite-Session': appwriteSession.value,
-              },
-              cache: 'no-store',
-            }
-          );
-
-          if (accountResponse.ok) {
-            const account = await accountResponse.json();
-            user = { id: account.$id, email: account.email };
-          }
-        } catch {
-          // Treat unavailable Appwrite auth as unauthenticated
-        }
       }
+      // The refreshed cookie response is used below for authenticated requests.
+      if (user && !isPublicRoute(request.nextUrl.pathname)) return response;
     }
+  } catch {
+    // Missing/invalid runtime configuration fails closed for protected routes.
   }
 
   const pathname = request.nextUrl.pathname;

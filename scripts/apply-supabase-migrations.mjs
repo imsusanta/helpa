@@ -1,65 +1,115 @@
-import fs from 'fs';
-import path from 'path';
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
 
-const TOKEN =
-  process.env.SUPABASE_ACCESS_TOKEN || process.env.SUPABASE_AUTH_TOKEN || '';
-const PROJECT_REF =
-  process.env.NEXT_PUBLIC_SUPABASE_PROJECT_REF || 'tmqlzsyqlprioeoowmtk';
+const migrationsDir = path.join(process.cwd(), 'supabase', 'migrations');
+const reportPath = path.join(
+  process.cwd(),
+  'artifacts',
+  'supabase-migration-report.json'
+);
+const lockPath = path.join(process.cwd(), '.supabase-migration.lock');
+const projectRef = process.env.SUPABASE_PROJECT_REF;
+const target = process.env.MIGRATION_TARGET || 'staging';
+const isProduction = target === 'production';
+const placeholder = /placeholder|your-|dummy|example/i;
 
-async function executeSql(query) {
-  const res = await fetch(
-    `https://api.supabase.com/v1/projects/${PROJECT_REF}/database/query`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ query }),
-    }
-  );
-
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(
-      `SQL Execution Error (HTTP ${res.status}): ${JSON.stringify(body)}`
-    );
-  }
-  return body;
+function fail(code) {
+  throw new Error(code);
 }
 
-async function main() {
-  console.log('🚀 Applying Supabase SQL Migrations...');
-  const migrationsDir = path.join(
-    process.cwd(),
-    'docs',
-    'legacy-postgres-migrations'
-  );
-  const files = fs
+function assertPreflight() {
+  if (!fs.existsSync(migrationsDir)) fail('MIGRATIONS_DIRECTORY_MISSING');
+  if (!projectRef || !/^[a-z0-9]{20}$/i.test(projectRef)) {
+    fail('INVALID_SUPABASE_PROJECT_REF');
+  }
+  if (
+    !process.env.SUPABASE_ACCESS_TOKEN ||
+    placeholder.test(process.env.SUPABASE_ACCESS_TOKEN)
+  ) {
+    fail('INVALID_SUPABASE_ACCESS_TOKEN');
+  }
+  if (
+    !process.env.SUPABASE_DB_PASSWORD ||
+    placeholder.test(process.env.SUPABASE_DB_PASSWORD)
+  ) {
+    fail('INVALID_SUPABASE_DB_PASSWORD');
+  }
+  if (isProduction) {
+    if (process.env.MIGRATION_CONFIRM_PRODUCTION !== projectRef) {
+      fail('PRODUCTION_CONFIRMATION_MISMATCH');
+    }
+    if (
+      !process.env.SUPABASE_BACKUP_REFERENCE ||
+      placeholder.test(process.env.SUPABASE_BACKUP_REFERENCE)
+    ) {
+      fail('PRODUCTION_BACKUP_REFERENCE_REQUIRED');
+    }
+  }
+}
+
+function migrationVersions() {
+  return fs
     .readdirSync(migrationsDir)
-    .filter((f) => f.endsWith('.sql'))
-    .sort();
-
-  console.log(`Found ${files.length} migration files.`);
-
-  let successCount = 0;
-  for (const file of files) {
-    const filePath = path.join(migrationsDir, file);
-    const sql = fs.readFileSync(filePath, 'utf-8');
-    process.stdout.write(`Applying ${file}... `);
-
-    try {
-      await executeSql(sql);
-      console.log('✅ OK');
-      successCount++;
-    } catch (err) {
-      console.log(`❌ FAILED: ${err.message}`);
-    }
-  }
-
-  console.log(
-    `\n🎉 Migrations complete: ${successCount}/${files.length} applied successfully.`
-  );
+    .filter((file) => /^\d{14}_.+\.sql$/.test(file))
+    .sort()
+    .map((file) => file.slice(0, 14));
 }
 
-main().catch(console.error);
+function writeReport(report) {
+  fs.mkdirSync(path.dirname(reportPath), { recursive: true });
+  fs.writeFileSync(reportPath, JSON.stringify(report, null, 2));
+}
+
+function run(command, args) {
+  execFileSync(command, args, {
+    cwd: process.cwd(),
+    env: process.env,
+    stdio: 'inherit',
+  });
+}
+
+function main() {
+  const report = {
+    target,
+    projectRef: projectRef || null,
+    startedAt: new Date().toISOString(),
+    migrationVersions: [],
+    success: false,
+    error: null,
+  };
+  let lockFd;
+  try {
+    assertPreflight();
+    report.migrationVersions = migrationVersions();
+    if (report.migrationVersions.length === 0) fail('NO_MIGRATIONS_FOUND');
+    lockFd = fs.openSync(lockPath, 'wx');
+
+    // Official Supabase CLI maintains migration history and stops at the
+    // first SQL error. We deliberately do not send SQL through a REST API.
+    run('supabase', [
+      'link',
+      '--project-ref',
+      projectRef,
+      '--password',
+      process.env.SUPABASE_DB_PASSWORD,
+    ]);
+    run('supabase', ['db', 'push', '--linked', '--dry-run']);
+    run('supabase', ['db', 'push', '--linked']);
+    run('supabase', ['migration', 'list', '--linked']);
+
+    report.success = true;
+    report.completedAt = new Date().toISOString();
+    writeReport(report);
+  } catch (error) {
+    report.error = error instanceof Error ? error.message : 'MIGRATION_FAILED';
+    report.completedAt = new Date().toISOString();
+    writeReport(report);
+    process.exitCode = 1;
+  } finally {
+    if (lockFd !== undefined) fs.closeSync(lockFd);
+    if (fs.existsSync(lockPath)) fs.unlinkSync(lockPath);
+  }
+}
+
+main();
