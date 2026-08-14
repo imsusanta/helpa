@@ -66,21 +66,30 @@ export async function GET() {
     }
 
     const admin = appwriteAdmin();
-    const { data: config, error: fetchErr } = await admin
-      .from(CANONICAL_COLLECTION)
-      .select('*')
-      .eq('accountId', accountId)
-      .maybeSingle();
+    let config: Record<string, unknown> | null = null;
 
-    if (fetchErr) {
-      console.error('[GET /api/whatsapp/config] DB Query Error:', fetchErr);
-      return NextResponse.json(
-        {
-          code: 'DATABASE_ERROR',
-          error: 'Failed to fetch WhatsApp configuration from database',
-        },
-        { status: 500 }
-      );
+    try {
+      const { data: conf } = await admin
+        .from('whatsapp_config')
+        .select('*')
+        .eq('account_id', accountId)
+        .maybeSingle();
+      if (conf) config = conf as Record<string, unknown>;
+    } catch {
+      // Fallback to canonical collection
+    }
+
+    if (!config) {
+      try {
+        const { data: conf } = await admin
+          .from(CANONICAL_COLLECTION)
+          .select('*')
+          .eq('accountId', accountId)
+          .maybeSingle();
+        if (conf) config = conf as Record<string, unknown>;
+      } catch {
+        // Ignored
+      }
     }
 
     if (!config) {
@@ -96,19 +105,38 @@ export async function GET() {
       );
     }
 
-    const phoneNumId = String(config.phoneNumberId || '');
-    const wabaId = config.wabaId ? String(config.wabaId) : null;
-    const encryptedToken = String(config.encryptedAccessToken || '');
-    const hasVerifyToken = Boolean(config.encryptedVerifyToken);
-    const registeredAt = config.registeredAt
-      ? String(config.registeredAt)
-      : null;
-    const lastRegistrationError = config.lastRegistrationError
-      ? String(config.lastRegistrationError)
-      : null;
-    const subscribedAppsAt = config.subscribedAppsAt
-      ? String(config.subscribedAppsAt)
-      : null;
+    const phoneNumId = String(
+      config.phone_number_id || config.phoneNumberId || ''
+    );
+    const wabaId =
+      config.waba_id || config.wabaId
+        ? String(config.waba_id || config.wabaId)
+        : null;
+    const encryptedToken = String(
+      config.encrypted_access_token ||
+        config.encryptedAccessToken ||
+        config.access_token ||
+        config.accessToken ||
+        ''
+    );
+    const hasVerifyToken = Boolean(
+      config.encrypted_verify_token ||
+      config.encryptedVerifyToken ||
+      config.verify_token ||
+      config.verifyToken
+    );
+    const registeredAt =
+      config.registered_at || config.registeredAt
+        ? String(config.registered_at || config.registeredAt)
+        : null;
+    const lastRegistrationError =
+      config.last_registration_error || config.lastRegistrationError
+        ? String(config.last_registration_error || config.lastRegistrationError)
+        : null;
+    const subscribedAppsAt =
+      config.subscribed_apps_at || config.subscribedAppsAt
+        ? String(config.subscribed_apps_at || config.subscribedAppsAt)
+        : null;
 
     if (!encryptedToken) {
       return NextResponse.json(
@@ -463,22 +491,44 @@ export async function POST(request: Request) {
     }
 
     const now = new Date().toISOString();
-    const canonicalDocument = {
+    const canonicalDocument: Record<string, unknown> = {
       accountId,
-      createdBy: existingConfig?.createdBy || user.id,
+      account_id: accountId,
+      createdBy:
+        existingConfig?.createdBy || existingConfig?.created_by || user.id,
+      created_by:
+        existingConfig?.createdBy || existingConfig?.created_by || user.id,
+      user_id: user.id,
+      userId: user.id,
       updatedBy: user.id,
+      updated_by: user.id,
       phoneNumberId,
+      phone_number_id: phoneNumberId,
       wabaId,
+      waba_id: wabaId,
       encryptedAccessToken,
+      access_token: encryptedAccessToken,
       encryptedVerifyToken:
         encryptedVerifyToken || existingConfig?.encryptedVerifyToken || null,
+      verify_token:
+        encryptedVerifyToken ||
+        existingConfig?.encryptedVerifyToken ||
+        existingConfig?.verify_token ||
+        null,
       encryptionKeyVersion: 'v1',
       status: registrationError ? 'disconnected' : 'connected',
       registeredAt,
+      registered_at: registeredAt,
       lastRegistrationError: registrationError,
+      last_registration_error: registrationError,
       subscribedAppsAt,
-      createdAt: existingConfig?.createdAt || now,
+      subscribed_apps_at: subscribedAppsAt,
+      connected_at: now,
+      createdAt: existingConfig?.createdAt || existingConfig?.created_at || now,
+      created_at:
+        existingConfig?.createdAt || existingConfig?.created_at || now,
       updatedAt: now,
+      updated_at: now,
     };
 
     if (existingConfig) {
