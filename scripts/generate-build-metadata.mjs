@@ -23,6 +23,43 @@ function resolveGitSha() {
   } catch {
     // Git not available or not a git repository
   }
+
+  // Fallback: direct filesystem read of .git in case git CLI is absent in builder
+  try {
+    const gitDir = path.join(process.cwd(), '.git');
+    if (fs.existsSync(gitDir)) {
+      const headContent = fs
+        .readFileSync(path.join(gitDir, 'HEAD'), 'utf-8')
+        .trim();
+      if (SHA_40_REGEX.test(headContent)) {
+        return { sha: headContent.toLowerCase(), source: '.git/HEAD' };
+      }
+      if (headContent.startsWith('ref: ')) {
+        const refPath = headContent.slice(5).trim();
+        const fullRefPath = path.join(gitDir, refPath);
+        if (fs.existsSync(fullRefPath)) {
+          const refSha = fs.readFileSync(fullRefPath, 'utf-8').trim();
+          if (SHA_40_REGEX.test(refSha)) {
+            return { sha: refSha.toLowerCase(), source: `.git/${refPath}` };
+          }
+        }
+        // Also check packed-refs
+        const packedRefsPath = path.join(gitDir, 'packed-refs');
+        if (fs.existsSync(packedRefsPath)) {
+          const lines = fs.readFileSync(packedRefsPath, 'utf-8').split('\n');
+          for (const line of lines) {
+            const [sha, ref] = line.trim().split(' ');
+            if (ref === refPath && SHA_40_REGEX.test(sha)) {
+              return { sha: sha.toLowerCase(), source: '.git/packed-refs' };
+            }
+          }
+        }
+      }
+    }
+  } catch {
+    // Ignore fallback errors
+  }
+
   return null;
 }
 

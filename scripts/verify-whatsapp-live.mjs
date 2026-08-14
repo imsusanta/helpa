@@ -20,7 +20,9 @@ const getArg = (name, fallback = null) => {
 };
 
 const BASE_URL = getArg('base-url', 'https://www.helpa.studio');
-const CONFIRM_PRODUCTION = getArg('confirm-production', false);
+const CONFIRM_PRODUCTION =
+  getArg('confirm-production', false) ||
+  process.env.LIVE_WHATSAPP_TEST === 'true';
 const EVIDENCE_DIR = getArg('evidence-dir', 'artifacts/whatsapp-live');
 const TEST_TENANT_ID = process.env.WHATSAPP_TEST_TENANT_ID || null;
 const TEST_PHONE_NUMBER_ID = process.env.WHATSAPP_TEST_PHONE_NUMBER_ID || null;

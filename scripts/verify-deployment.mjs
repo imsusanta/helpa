@@ -179,7 +179,8 @@ async function verify() {
       latestResult.success =
         latestResult.homepageStatus === 200 &&
         latestResult.loginStatus === 200 &&
-        (healthRes.status === 200 || healthRes.status === 503) &&
+        healthRes.status === 200 &&
+        latestResult.overallStatus === 'ok' &&
         latestResult.databaseHealthy;
 
       saveArtifacts(latestResult);
