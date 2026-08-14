@@ -57,4 +57,5 @@ next-env.d.ts
 scratch/
 .vercel
 src/lib/build-info.json
+src/lib/build-metadata.json
 artifacts/
