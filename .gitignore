@@ -36,6 +36,12 @@ yarn-error.log*
 !.env.local.example
 !.env.example
 
+# Antigravity artifacts
+.antigravity
+.agent
+src/lib/build-info.json
+artifacts
+
 # Appwrite build output
 .appwrite
 

@@ -8,14 +8,7 @@ export interface DeploymentMetadata {
   version: string;
   commit: string | null;
   deploymentShaStatus: DeploymentShaStatus;
-  commitSource:
-    | 'APP_COMMIT_SHA'
-    | 'VERCEL_GIT_COMMIT_SHA'
-    | 'GITHUB_SHA'
-    | 'SOURCE_VERSION'
-    | 'build-info.json'
-    | 'development'
-    | null;
+  commitSource: string | null;
   environment: string;
   buildTime: string | null;
   isValid: boolean;
@@ -24,26 +17,29 @@ export interface DeploymentMetadata {
 const SHA_40_REGEX = /^[0-9a-f]{40}$/i;
 const VERSION = '0.3.0';
 
-interface BuildInfo {
+interface BuildMetadataFile {
   commit?: string;
+  commitSource?: string;
+  deploymentShaStatus?: DeploymentShaStatus;
   buildTime?: string;
-  source?: string;
+  environment?: string;
 }
 
-function getBuildInfo(): BuildInfo | null {
+function readBuildMetadata(): BuildMetadataFile | null {
   try {
-    const buildInfoPath = path.join(
-      process.cwd(),
-      'src',
-      'lib',
-      'build-info.json'
-    );
-    if (fs.existsSync(buildInfoPath)) {
-      const content = fs.readFileSync(buildInfoPath, 'utf-8');
-      return JSON.parse(content);
+    const paths = [
+      path.join(process.cwd(), 'src', 'lib', 'build-metadata.json'),
+      path.join(process.cwd(), 'src', 'lib', 'build-info.json'),
+    ];
+
+    for (const p of paths) {
+      if (fs.existsSync(p)) {
+        const content = fs.readFileSync(p, 'utf-8');
+        return JSON.parse(content);
+      }
     }
   } catch {
-    // Ignore build info read errors
+    // Ignore read errors
   }
   return null;
 }
@@ -54,7 +50,8 @@ function getBuildInfo(): BuildInfo | null {
  * 2. VERCEL_GIT_COMMIT_SHA (Vercel deployment platform)
  * 3. GITHUB_SHA (GitHub Actions CI/CD)
  * 4. SOURCE_VERSION (Appwrite / generic container deployment engine)
- * 5. src/lib/build-info.json (Generated during next build)
+ * 5. src/lib/build-metadata.json (Generated during prebuild / next build)
+ * 6. NEXT_PUBLIC_COMMIT_SHA (Build-time inlined fallback)
  */
 export function getDeploymentMetadata(
   env: NodeJS.ProcessEnv = process.env
@@ -63,7 +60,7 @@ export function getDeploymentMetadata(
   const isTest = env.NODE_ENV === 'test';
   const environment = env.NODE_ENV || 'production';
 
-  // In development/test with no production-like environment variables provided:
+  // If in development or test with no production vars, return dev identity
   if (!isProd) {
     const hasExplicitProdVar = Boolean(
       env.APP_COMMIT_SHA ||
@@ -88,7 +85,7 @@ export function getDeploymentMetadata(
     }
   }
 
-  // If explicit empty strings were passed for all sources (e.g. testing missing SHA), do not fall back to build-info.json
+  // If explicit empty strings were passed for all sources (e.g. testing missing SHA), do not fall back to file
   const explicitEmptyCheck =
     env.APP_COMMIT_SHA === '' &&
     env.VERCEL_GIT_COMMIT_SHA === '' &&
@@ -96,25 +93,22 @@ export function getDeploymentMetadata(
     env.SOURCE_VERSION === '' &&
     env.NEXT_PUBLIC_COMMIT_SHA === '';
 
-  const buildInfo = isProd && !explicitEmptyCheck ? getBuildInfo() : null;
+  const buildMeta = isProd && !explicitEmptyCheck ? readBuildMetadata() : null;
 
   const candidates: Array<{
-    source:
-      | 'APP_COMMIT_SHA'
-      | 'VERCEL_GIT_COMMIT_SHA'
-      | 'GITHUB_SHA'
-      | 'SOURCE_VERSION'
-      | 'build-info.json';
+    source: string;
     value: string | undefined;
   }> = [
     { source: 'APP_COMMIT_SHA', value: env.APP_COMMIT_SHA },
     { source: 'VERCEL_GIT_COMMIT_SHA', value: env.VERCEL_GIT_COMMIT_SHA },
     { source: 'GITHUB_SHA', value: env.GITHUB_SHA },
     { source: 'SOURCE_VERSION', value: env.SOURCE_VERSION },
-    { source: 'build-info.json', value: buildInfo?.commit },
+    { source: 'build-metadata.json', value: buildMeta?.commit },
+    { source: 'NEXT_PUBLIC_COMMIT_SHA', value: env.NEXT_PUBLIC_COMMIT_SHA },
   ];
 
-  const buildTime = env.BUILD_TIME || buildInfo?.buildTime || null;
+  const buildTime =
+    env.BUILD_TIME || buildMeta?.buildTime || new Date().toISOString();
 
   for (const candidate of candidates) {
     if (candidate.value && typeof candidate.value === 'string') {
@@ -125,7 +119,11 @@ export function getDeploymentMetadata(
           version: VERSION,
           commit: trimmed,
           deploymentShaStatus: 'available',
-          commitSource: candidate.source,
+          commitSource:
+            candidate.source === 'build-metadata.json' &&
+            buildMeta?.commitSource
+              ? buildMeta.commitSource
+              : candidate.source,
           environment,
           buildTime,
           isValid: true,
@@ -153,7 +151,7 @@ export function getDeploymentMetadata(
     deploymentShaStatus: 'missing',
     commitSource: null,
     environment,
-    buildTime,
+    buildTime: null,
     isValid: false,
   };
 }

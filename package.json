@@ -31,6 +31,7 @@
   },
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node scripts/generate-build-metadata.mjs",
     "build": "next build --webpack",
     "start": "next start",
     "worker": "tsx scripts/worker.ts",
@@ -47,7 +48,6 @@
     "appwrite:setup": "tsx scripts/setup-appwrite-db.ts --apply",
     "appwrite:verify": "tsx scripts/verify-appwrite-db.ts && tsx scripts/verify-appwrite-storage.ts",
     "appwrite:migrate:dry-run": "tsx scripts/setup-appwrite-db.ts --dry-run",
-    "appwrite:migrate:apply": "tsx scripts/setup-appwrite-db.ts --apply",
     "appwrite:test": "vitest run src/tests/appwrite",
     "appwrite:migrate": "tsx scripts/setup-appwrite-db.ts --dry-run",
     "voice:smoke": "tsx scripts/voice-smoke-test.ts",

@@ -3,7 +3,7 @@ import { getDeploymentMetadata } from '@/lib/deployment-metadata';
 import { resolveCommitSha } from '@/lib/commit-sha';
 
 describe('Deployment Metadata & Commit SHA Resolution', () => {
-  const validSha = 'a7fdfd7633dadda4899a9b827abae813782b5172';
+  const validSha = '1443268a958c0a3630456a7fd53bd5cdab7a9e2f';
 
   it('resolves valid APP_COMMIT_SHA with highest precedence', () => {
     const meta = getDeploymentMetadata({
