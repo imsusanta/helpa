@@ -111,9 +111,26 @@ vi.mock('@/lib/appwrite-server-compat', () => {
         };
       }
       return {
-        select: () => ({
-          eq: () => ({
+        select: () => {
+          const makeChain = () => ({
+            eq: () => makeChain(),
+            limit: vi.fn().mockResolvedValue({ data: [], error: null }),
             maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+            single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          });
+          return makeChain();
+        },
+        insert: () => ({
+          select: () => ({
+            single: vi.fn().mockResolvedValue({
+              data: { id: 'outbox_doc_mock' },
+              error: null,
+            }),
+          }),
+        }),
+        update: () => ({
+          eq: () => ({
+            eq: vi.fn().mockResolvedValue({ data: null, error: null }),
           }),
         }),
       };

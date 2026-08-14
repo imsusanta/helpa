@@ -145,11 +145,15 @@ export async function GET(request: Request) {
             continue;
           }
 
-          await enqueueAppointmentReminder({
+          const enqueueResult = await enqueueAppointmentReminder({
             accountId: account.id,
             appointmentId: appointment.id,
             reminderType,
           });
+
+          if (!enqueueResult.ok) {
+            throw new Error(`[${enqueueResult.code}] ${enqueueResult.message}`);
+          }
 
           if (reminderType === '24h') queued24h++;
           else queued2h++;
