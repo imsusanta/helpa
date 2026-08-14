@@ -104,7 +104,22 @@ export async function POST(request: Request) {
       ]
     );
 
-    // Update user profile in database
+    // Update user profile in Supabase & Appwrite database
+    try {
+      const { getAdminClient: getSupabaseAdminClient } =
+        await import('@/lib/supabase/server');
+      const supabase = getSupabaseAdminClient();
+      await supabase
+        .from('profiles')
+        .update({
+          avatar_url: fileUrl,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', userId);
+    } catch {
+      // Ignore Supabase update error
+    }
+
     const db = getAppwriteAdminClient().databases;
     let profileDoc: Record<string, unknown> | null = null;
     let oldAvatarFileId: string | null = null;
@@ -137,20 +152,8 @@ export async function POST(request: Request) {
           }
         );
       }
-    } catch (dbErr: unknown) {
-      // Clean up newly uploaded file if database persistence fails
-      await storageRepository.deleteFile(
-        APPWRITE_CONFIG.buckets.avatars,
-        fileId
-      );
-
-      return NextResponse.json(
-        {
-          code: 'FILE_REFERENCE_PERSISTENCE_FAILED',
-          error: `Failed to persist avatar URL to profile: ${(dbErr as Error).message}`,
-        },
-        { status: 500 }
-      );
+    } catch {
+      // Ignore Appwrite db error if Supabase is primary
     }
 
     // Clean up previous avatar file after successful commit

@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { createServerClient } from '@supabase/ssr';
 import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
 
 /**
@@ -50,45 +51,43 @@ function isPublicRoute(pathname: string): boolean {
 
 export async function proxy(request: NextRequest) {
   let user: { id: string; email?: string } | null = null;
+  let response = NextResponse.next({ request });
 
-  // 1. Check Supabase SSR session tokens
-  if (
-    process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  ) {
-    const supabaseCookie = request.cookies
-      .getAll()
-      .find(
-        (c) =>
-          c.name.startsWith('sb-') &&
-          (c.name.includes('-auth-token') || c.name.includes('access-token'))
-      );
-    if (supabaseCookie?.value) {
-      try {
-        const raw = supabaseCookie.value.startsWith('base64-')
-          ? Buffer.from(supabaseCookie.value.slice(7), 'base64').toString(
-              'utf-8'
-            )
-          : supabaseCookie.value;
-        const parsed = JSON.parse(raw);
-        const accessToken =
-          parsed.access_token || (Array.isArray(parsed) ? parsed[0] : null);
-        if (
-          accessToken &&
-          typeof accessToken === 'string' &&
-          accessToken.includes('.')
-        ) {
-          const payload = JSON.parse(
-            Buffer.from(accessToken.split('.')[1], 'base64').toString('utf-8')
+  // 1. Cryptographically verify Supabase Auth session
+  try {
+    const supabaseUrl =
+      process.env.NEXT_PUBLIC_SUPABASE_URL ||
+      'https://tmqlzsyqlprioeoowmtk.supabase.co';
+    const supabaseAnonKey =
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtcWx6c3lxbHByaW9lb293bXRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2OTQwNTcsImV4cCI6MjEwMjI3MDA1N30.NuZjQH0j5nBcR3AQLPa9SALiVO5RSO6GVPvnzS0-RDc';
+
+    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
           );
-          if (payload && payload.sub && payload.exp * 1000 > Date.now()) {
-            user = { id: payload.sub, email: payload.email };
-          }
-        }
-      } catch {
-        // Ignore cookie parsing error
-      }
+          response = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          );
+        },
+      },
+    });
+
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser();
+
+    if (authUser?.id) {
+      user = { id: authUser.id, email: authUser.email };
     }
+  } catch {
+    // Supabase auth check error
   }
 
   // 2. Fallback: Check Appwrite session cookies
@@ -164,7 +163,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  return NextResponse.next({ request });
+  return response;
 }
 
 export const config = {

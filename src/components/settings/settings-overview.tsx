@@ -292,13 +292,16 @@ export function SettingsOverview({
   const handleUpdateBusinessName = async () => {
     if (!businessName.trim() || !accountId) return;
     setUpdatingName(true);
-    const appwrite = createClient();
     try {
-      const { error } = await appwrite
-        .from('accounts')
-        .update({ name: businessName.trim() })
-        .eq('id', accountId);
-      if (error) throw error;
+      const res = await fetch('/api/account', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: businessName.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to update business name');
+      }
       toast.success('Business name updated successfully!');
       window.location.reload();
     } catch (err: unknown) {
@@ -311,128 +314,66 @@ export function SettingsOverview({
   useEffect(() => {
     if (!user || !accountId) return;
     let cancelled = false;
-    const appwrite = createClient();
-    const userId = user.id;
-    const acctId = accountId;
 
-    // Cheap counts — resolve fast, render immediately.
+    // Fetch counts from dedicated server API
     (async () => {
       setCountsLoading(true);
-      const [
-        membersRes,
-        invitesRes,
-        templatesTotal,
-        templatesPending,
-        tagsRes,
-        fieldsRes,
-      ] = await Promise.allSettled([
-        fetch('/api/account/members', { cache: 'no-store' }).then((r) =>
-          r.json()
-        ),
-        canManageMembers
-          ? fetch('/api/account/invitations', { cache: 'no-store' }).then((r) =>
-              r.json()
-            )
-          : Promise.resolve(null),
-        appwrite
-          .from('message_templates')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', userId),
-        appwrite
-          .from('message_templates')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', userId)
-          .eq('status', 'PENDING'),
-        appwrite
-          .from('tags')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', userId),
-        appwrite
-          .from('custom_fields')
-          .select('id', { count: 'exact', head: true }),
-      ]);
-
-      if (cancelled) return;
-
-      const members =
-        membersRes.status === 'fulfilled' &&
-        Array.isArray(membersRes.value?.members)
-          ? membersRes.value.members.length
-          : null;
-      const pendingInvites =
-        invitesRes.status === 'fulfilled' &&
-        invitesRes.value &&
-        Array.isArray(invitesRes.value.invitations)
-          ? invitesRes.value.invitations.length
-          : null;
-
-      setCounts({
-        members,
-        pendingInvites,
-        templates:
-          templatesTotal.status === 'fulfilled'
-            ? (templatesTotal.value.count ?? null)
-            : null,
-        templatesPending:
-          templatesPending.status === 'fulfilled'
-            ? (templatesPending.value.count ?? null)
-            : null,
-        tags:
-          tagsRes.status === 'fulfilled' ? (tagsRes.value.count ?? null) : null,
-        customFields:
-          fieldsRes.status === 'fulfilled'
-            ? (fieldsRes.value.count ?? null)
-            : null,
-      });
-      setCountsLoading(false);
+      try {
+        const res = await fetch('/api/settings/overview', {
+          cache: 'no-store',
+          credentials: 'include',
+        });
+        if (cancelled) return;
+        if (res.ok) {
+          const json = await res.json();
+          if (json?.counts) {
+            setCounts(json.counts);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to fetch settings overview counts:', err);
+      } finally {
+        if (!cancelled) setCountsLoading(false);
+      }
     })();
 
-    // WhatsApp connection status — slower, independent.
+    // WhatsApp connection status from verified server API
     (async () => {
       setWhatsappLoading(true);
-      const [row, health] = await Promise.allSettled([
-        appwrite
-          .from('whatsapp_configs')
-          .select('*')
-          .eq('account_id', acctId)
-          .maybeSingle(),
-        fetch('/api/whatsapp/config', { cache: 'no-store' }).then((r) =>
-          r.json()
-        ),
-      ]);
-      if (cancelled) return;
+      try {
+        const healthRes = await fetch('/api/whatsapp/config', {
+          cache: 'no-store',
+          credentials: 'include',
+        });
+        if (cancelled) return;
 
-      const dbData =
-        row.status === 'fulfilled' && row.value.data
-          ? (row.value.data as Record<string, unknown>)
-          : null;
-      const isConfiguredFromDb = Boolean(
-        dbData?.phone_number_id || dbData?.phoneNumberId
-      );
+        if (healthRes.ok) {
+          const healthData = await healthRes.json();
+          const healthConfig = healthData?.config as
+            Record<string, unknown> | undefined;
+          const isConfigured = Boolean(
+            healthConfig?.phone_number_id ||
+            healthConfig?.phoneNumberId ||
+            healthData?.configured ||
+            healthData?.status === 'connected' ||
+            (healthData?.connected && healthData?.reason !== 'no_config')
+          );
+          const isConnected = Boolean(
+            healthData?.connected === true ||
+            healthData?.status === 'connected' ||
+            healthConfig?.status === 'connected'
+          );
 
-      const healthData =
-        health.status === 'fulfilled' && health.value
-          ? (health.value as Record<string, unknown>)
-          : null;
-      const healthConfig = healthData?.config as
-        Record<string, unknown> | undefined;
-      const isConfiguredFromHealth = Boolean(
-        healthConfig?.phone_number_id ||
-        healthConfig?.phoneNumberId ||
-        healthData?.configured ||
-        (healthData?.connected && healthData?.reason !== 'no_config')
-      );
-
-      const isConfigured = isConfiguredFromDb || isConfiguredFromHealth;
-      const isConnected = Boolean(
-        healthData?.connected || healthConfig?.status === 'connected'
-      );
-
-      setWhatsapp({
-        configured: isConfigured,
-        connected: isConnected,
-      });
-      setWhatsappLoading(false);
+          setWhatsapp({
+            configured: isConfigured,
+            connected: isConnected,
+          });
+        }
+      } catch (err) {
+        console.warn('Failed to fetch whatsapp status in settings:', err);
+      } finally {
+        if (!cancelled) setWhatsappLoading(false);
+      }
     })();
 
     return () => {

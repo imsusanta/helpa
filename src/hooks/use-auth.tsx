@@ -136,18 +136,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         // 2. Fallback to client-side Appwrite SDK
-        const { account: appwriteAccount } = getAppwriteClient();
-        const appwriteUser = await appwriteAccount.get();
-        if (mounted && appwriteUser) {
-          const userObj: AppwriteUser = {
-            id: appwriteUser.$id,
-            email: appwriteUser.email,
-            name: appwriteUser.name,
-            created_at: appwriteUser.$createdAt,
-          };
-          setUser(userObj);
-          fetchProfile(userObj.id);
-        } else {
+        try {
+          const { account: appwriteAccount } = getAppwriteClient();
+          const appwriteUser = await appwriteAccount.get();
+          if (mounted && appwriteUser) {
+            const userObj: AppwriteUser = {
+              id: appwriteUser.$id,
+              email: appwriteUser.email,
+              name: appwriteUser.name,
+              created_at: appwriteUser.$createdAt,
+            };
+            setUser(userObj);
+            fetchProfile(userObj.id);
+            return;
+          }
+        } catch {
+          // Appwrite session not found
+        }
+
+        if (mounted) {
           setProfileLoading(false);
         }
       } catch {
@@ -172,8 +179,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
-      const { account: appwriteAccount } = getAppwriteClient();
-      await appwriteAccount.deleteSession('current').catch(() => {});
+      try {
+        const { account: appwriteAccount } = getAppwriteClient();
+        await appwriteAccount.deleteSession('current').catch(() => {});
+      } catch {
+        // ignore
+      }
     } catch {
       // ignore
     } finally {
@@ -196,13 +207,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const derived = useMemo(() => {
     const role = profile?.account_role ?? null;
+    const resolvedAccountId = profile?.account_id || account?.id || '';
     return {
       canManageMembers: role ? canManageMembersFor(role) : false,
       canEditSettings: role ? canEditSettingsFor(role) : false,
       canSendMessages: role ? canSendMessagesFor(role) : false,
       accountRole: role,
       isSuperAdmin: Boolean(profile?.is_super_admin) || role === 'owner',
-      accountId: profile?.account_id || account?.id || 'default_account',
+      accountId: resolvedAccountId,
       defaultCurrency: account?.default_currency || DEFAULT_CURRENCY,
     };
   }, [profile, account]);
