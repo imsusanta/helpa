@@ -1,8 +1,23 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
+import { createClient as createSupabaseServerClient } from '@/lib/supabase/server';
 
 export async function POST() {
+  // 1. Supabase SignOut
+  if (
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  ) {
+    try {
+      const supabase = await createSupabaseServerClient();
+      await supabase.auth.signOut();
+    } catch {
+      // Ignore signOut errors
+    }
+  }
+
+  // 2. Appwrite SignOut
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get(
     `a_session_${APPWRITE_CONFIG.projectId}`

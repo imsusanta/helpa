@@ -273,8 +273,8 @@ DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_publication_tables
-    WHERE pubname = 'appwrite_realtime' AND tablename = 'flow_runs'
+    WHERE pubname = 'supabase_realtime' AND tablename = 'flow_runs'
   ) THEN
-    ALTER PUBLICATION appwrite_realtime ADD TABLE flow_runs;
+    ALTER PUBLICATION supabase_realtime ADD TABLE flow_runs;
   END IF;
 END $$;

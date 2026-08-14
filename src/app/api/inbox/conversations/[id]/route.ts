@@ -6,6 +6,7 @@ import {
 } from '@/lib/auth/account';
 import { getAppwriteAdminClient } from '@/infrastructure/appwrite/server';
 import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
+import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
 import type { Conversation, Contact, ConversationStatus } from '@/types';
 
 const CACHE_HEADERS = {
@@ -90,6 +91,36 @@ export async function GET(_request: NextRequest, { params }: Params) {
       );
     }
 
+    // 1. Try Supabase first
+    if (
+      process.env.NEXT_PUBLIC_SUPABASE_URL &&
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    ) {
+      try {
+        const supabase = getSupabaseAdminClient();
+        const { data: conv } = await supabase
+          .from('conversations')
+          .select('*, contact:contacts(*)')
+          .eq('id', conversationId)
+          .eq('account_id', accountId)
+          .maybeSingle();
+
+        if (conv) {
+          const normalized = normalizeConversation(
+            conv,
+            conv.contact ? normalizeContact(conv.contact) : undefined
+          );
+          return NextResponse.json(
+            { conversation: normalized },
+            { status: 200, headers: CACHE_HEADERS }
+          );
+        }
+      } catch {
+        // Fallback to Appwrite
+      }
+    }
+
+    // 2. Fallback to Appwrite
     const admin = getAppwriteAdminClient();
     let doc: Record<string, unknown> | null = null;
 
@@ -177,6 +208,75 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       );
     }
 
+    const body = (await request.json().catch(() => ({}))) as Record<
+      string,
+      unknown
+    >;
+
+    // 1. Try Supabase first
+    if (
+      process.env.NEXT_PUBLIC_SUPABASE_URL &&
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    ) {
+      try {
+        const supabase = getSupabaseAdminClient();
+        const updatePayload: Record<string, unknown> = {
+          updated_at: new Date().toISOString(),
+        };
+
+        if (
+          typeof body.status === 'string' &&
+          ['open', 'pending', 'closed'].includes(body.status)
+        ) {
+          updatePayload.status = body.status;
+        }
+        if (body.unread_count !== undefined || body.unreadCount !== undefined) {
+          const count = Number(body.unread_count ?? body.unreadCount);
+          if (!isNaN(count) && count >= 0) {
+            updatePayload.unread_count = count;
+          }
+        }
+        if (
+          body.ai_chat_enabled !== undefined ||
+          body.aiChatEnabled !== undefined
+        ) {
+          updatePayload.ai_chat_enabled = Boolean(
+            body.ai_chat_enabled ?? body.aiChatEnabled
+          );
+        }
+        if (
+          body.assigned_agent_id !== undefined ||
+          body.assignedAgentId !== undefined
+        ) {
+          updatePayload.assigned_agent_id = (body.assigned_agent_id ??
+            body.assignedAgentId ??
+            null) as string | null;
+        }
+
+        const { data: updated, error } = await supabase
+          .from('conversations')
+          .update(updatePayload)
+          .eq('id', conversationId)
+          .eq('account_id', accountId)
+          .select('*, contact:contacts(*)')
+          .maybeSingle();
+
+        if (!error && updated) {
+          const normalized = normalizeConversation(
+            updated,
+            updated.contact ? normalizeContact(updated.contact) : undefined
+          );
+          return NextResponse.json(
+            { conversation: normalized },
+            { status: 200, headers: CACHE_HEADERS }
+          );
+        }
+      } catch {
+        // Fallback to Appwrite
+      }
+    }
+
+    // 2. Fallback to Appwrite
     const admin = getAppwriteAdminClient();
     let doc: Record<string, unknown> | null = null;
 
@@ -201,10 +301,6 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       );
     }
 
-    const body = (await request.json().catch(() => ({}))) as Record<
-      string,
-      unknown
-    >;
     const updatePayload: Record<string, unknown> = {
       updatedAt: new Date().toISOString(),
     };
@@ -246,7 +342,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     )) as unknown as Record<string, unknown>;
 
     return NextResponse.json(
-      { conversation: normalizeConversation(updatedDoc) },
+      { conversation: normalizeConversation(updatedDoc ?? doc) },
       { status: 200, headers: CACHE_HEADERS }
     );
   } catch (error) {

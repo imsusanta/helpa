@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { createClient as createSupabaseServerClient } from '@/lib/supabase/server';
 import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
 import {
   checkRateLimit,
@@ -26,7 +27,34 @@ export async function POST(request: Request) {
 
     const trimmedEmail = email.trim().toLowerCase();
 
-    // Call Appwrite REST API to create an email session
+    // 1. Try Supabase Auth first
+    if (
+      process.env.NEXT_PUBLIC_SUPABASE_URL &&
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    ) {
+      try {
+        const supabase = await createSupabaseServerClient();
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: trimmedEmail,
+          password,
+        });
+
+        if (!error && data?.user) {
+          return NextResponse.json({
+            success: true,
+            redirect: '/dashboard',
+            user: {
+              id: data.user.id,
+              email: data.user.email,
+            },
+          });
+        }
+      } catch {
+        // Fallback to Appwrite
+      }
+    }
+
+    // 2. Fallback: Call Appwrite REST API to create an email session
     const appwriteRes = await fetch(
       `${APPWRITE_CONFIG.endpoint}/account/sessions/email`,
       {

@@ -508,10 +508,10 @@ export async function POST(request: Request) {
         .from('messages')
         .select('messageId, conversationId, message_id, conversation_id')
         .eq('id', reply_to_message_id)
-        .eq('conversationId', conversation_id)
         .maybeSingle();
 
-      if (parentError || !parent) {
+      const parentConvId = parent?.conversation_id || parent?.conversationId;
+      if (parentError || !parent || parentConvId !== conversation_id) {
         return NextResponse.json(
           { error: 'reply_to_message_id not found in this conversation' },
           { status: 400 }
@@ -753,20 +753,29 @@ export async function POST(request: Request) {
         .eq('accountId', accountId);
     }
 
-    // Insert message into DB — field names MUST match the messages schema
+    // Insert message into DB — field names are compatible with both PostgreSQL and Appwrite
     const { data: messageRecord, error: msgError } = await dbAdmin
       .from('messages')
       .insert({
         conversationId: conversation_id,
+        conversation_id: conversation_id,
         senderType: 'agent',
+        sender_type: 'agent',
         contentType: message_type,
+        content_type: message_type,
         contentText: content_text || null,
+        content_text: content_text || null,
         mediaUrl: media_url || null,
+        media_url: media_url || null,
         templateName: template_name || null,
+        template_name: template_name || null,
         messageId: waMessageId,
+        message_id: waMessageId,
         status: 'sent',
         replyToMessageId: reply_to_message_id || null,
+        reply_to_message_id: reply_to_message_id || null,
         createdAt: new Date().toISOString(),
+        created_at: new Date().toISOString(),
       })
       .select()
       .single();
@@ -802,11 +811,13 @@ export async function POST(request: Request) {
       .from('conversations')
       .update({
         lastMessageText: content_text || `[${message_type}]`,
+        last_message_text: content_text || `[${message_type}]`,
         lastMessageAt: new Date().toISOString(),
+        last_message_at: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       })
-      .eq('id', conversation_id)
-      .eq('accountId', accountId);
+      .eq('id', conversation_id);
 
     // Pause any active Flow run for this contact — the agent stepping
     // in is the strongest "yield, human is here" signal. See PR #2

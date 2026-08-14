@@ -307,8 +307,9 @@ export async function processMessage(
   const { data: existingMsg } = await getAdminClient()
     .from('messages')
     .select('id')
-    .eq('messageId', message.id)
-    .limit(1);
+    .or(`messageId.eq.${message.id},message_id.eq.${message.id}`)
+    .limit(1)
+    .catch(() => ({ data: null }));
 
   if (existingMsg && existingMsg.length > 0) {
     console.log(`[webhook] Duplicate messageId ${message.id} ignored.`);
@@ -318,8 +319,8 @@ export async function processMessage(
   const { count: priorCustomerMsgCount } = await getAdminClient()
     .from('messages')
     .select('id', { count: 'exact', head: true })
-    .eq('conversationId', conversation.id)
-    .eq('senderType', 'customer');
+    .eq('conversation_id', conversation.id)
+    .catch(() => ({ count: 0 }));
   const isFirstInboundMessage = (priorCustomerMsgCount ?? 0) === 0;
 
   const nowIso = new Date(parseInt(message.timestamp) * 1000).toISOString();
@@ -327,14 +328,24 @@ export async function processMessage(
     .from('messages')
     .insert({
       conversationId: conversation.id,
+      conversation_id: conversation.id,
       senderType: 'customer',
+      sender_type: 'customer',
       contentType: contentType,
+      content_type: contentType,
       contentText: contentText || null,
+      content_text: contentText || null,
       mediaUrl: mediaUrl || null,
+      media_url: mediaUrl || null,
       messageId: message.id,
+      message_id: message.id,
       status: 'delivered',
       replyToMessageId: replyToInternalId || null,
+      reply_to_message_id: replyToInternalId || null,
+      interactiveReplyId: interactiveReplyId || null,
+      interactive_reply_id: interactiveReplyId || null,
       createdAt: nowIso,
+      created_at: nowIso,
     });
 
   if (msgError) {
@@ -353,21 +364,29 @@ export async function processMessage(
   const shouldUpdatePreview =
     !existingLastMessageAt || messageDate >= existingLastMessageAt;
 
+  const currentUnread = Number(
+    conversation.unread_count || conversation.unreadCount || 0
+  );
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const convUpdatePayload: any = {
     updatedAt: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    unreadCount: currentUnread + 1,
+    unread_count: currentUnread + 1,
   };
 
   if (shouldUpdatePreview) {
     convUpdatePayload.lastMessageText = contentText || `[${message.type}]`;
+    convUpdatePayload.last_message_text = contentText || `[${message.type}]`;
     convUpdatePayload.lastMessageAt = messageDate.toISOString();
+    convUpdatePayload.last_message_at = messageDate.toISOString();
   }
 
   const { error: convError } = await getAdminClient()
     .from('conversations')
     .update(convUpdatePayload)
-    .eq('id', conversation.id)
-    .eq('accountId', accountId);
+    .eq('id', conversation.id);
 
   if (convError) {
     console.error('Error updating conversation:', convError);

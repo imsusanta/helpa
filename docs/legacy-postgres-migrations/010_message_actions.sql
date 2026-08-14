@@ -107,8 +107,8 @@ DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_publication_tables
-    WHERE pubname = 'appwrite_realtime' AND tablename = 'message_reactions'
+    WHERE pubname = 'supabase_realtime' AND tablename = 'message_reactions'
   ) THEN
-    ALTER PUBLICATION appwrite_realtime ADD TABLE message_reactions;
+    ALTER PUBLICATION supabase_realtime ADD TABLE message_reactions;
   END IF;
 END $$;

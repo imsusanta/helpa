@@ -186,7 +186,10 @@ export default function InboxPage() {
         if (res.ok) {
           const data = await res.json();
           setWhatsappConnected(
-            data?.status === 'connected' || data?.configured === true
+            data?.connected === true ||
+              data?.status === 'connected' ||
+              data?.config?.status === 'connected' ||
+              data?.configured === true
           );
         } else {
           setWhatsappConnected(false);

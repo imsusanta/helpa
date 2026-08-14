@@ -6,6 +6,7 @@
  */
 
 import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
+import { createClient as createSupabaseBrowserClient } from '@/lib/supabase/client';
 
 type AnyRecord = Record<string, any>;
 
@@ -24,7 +25,29 @@ function requestHeaders(
     'Content-Type': 'application/json',
     'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
   });
-  const session = sessionOverride;
+  let session = sessionOverride;
+  if (!session && typeof document !== 'undefined') {
+    try {
+      const cookieStr = document.cookie || '';
+      const cookies = cookieStr.split(';');
+      for (const c of cookies) {
+        const parts = c.trim().split('=');
+        const k = parts[0];
+        const v = parts.slice(1).join('=');
+        if (
+          k === `a_session_${APPWRITE_CONFIG.projectId}` ||
+          k === `a_session_${APPWRITE_CONFIG.projectId}_legacy` ||
+          k === 'appwrite_session' ||
+          k === 'appwrite-session'
+        ) {
+          session = decodeURIComponent(v);
+          break;
+        }
+      }
+    } catch {
+      // Ignore cookie parsing error
+    }
+  }
   if (session) headers.set('X-Appwrite-Session', session);
   if (useApiKey && typeof window === 'undefined' && APPWRITE_CONFIG.apiKey) {
     headers.set('X-Appwrite-Key', APPWRITE_CONFIG.apiKey);
@@ -1113,6 +1136,30 @@ export function createDataClient(
           : { data: { user: null }, error: body };
       },
       getSession: async () => {
+        try {
+          const userRes = await fetch(`${endpoint}/account`, {
+            headers: requestHeaders(undefined, sessionOverride, useApiKey),
+            cache: 'no-store',
+          });
+          const body = await userRes.json().catch(() => ({}));
+          if (userRes.ok && body?.$id) {
+            return {
+              data: {
+                session: {
+                  user: {
+                    id: body.$id,
+                    email: body.email,
+                    user_metadata: { full_name: body.name },
+                  },
+                  access_token: 'valid',
+                },
+              },
+              error: null,
+            };
+          }
+        } catch {
+          // Ignore fetch errors
+        }
         return {
           data: { session: null },
           error: null,
@@ -1232,16 +1279,41 @@ export function createDataClient(
         },
       }),
     },
-    channel: () => ({
-      on: () => ({ subscribe: () => ({ unsubscribe: () => {} }) }),
-      subscribe: () => ({ unsubscribe: () => {} }),
-    }),
+    channel: (name?: string) => {
+      const channelObj: any = {
+        name,
+        on: () => channelObj,
+        subscribe: (cb?: (status: string) => void) => {
+          if (typeof cb === 'function') {
+            try {
+              cb('SUBSCRIBED');
+            } catch {
+              // Ignore
+            }
+          }
+          return channelObj;
+        },
+        unsubscribe: () => 'ok',
+      };
+      return channelObj;
+    },
     removeChannel: async () => 'ok',
   };
   return client;
 }
 
 export function createClient(): AppwriteCompatClient {
+  if (
+    typeof window !== 'undefined' &&
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  ) {
+    try {
+      return createSupabaseBrowserClient();
+    } catch {
+      // Fallback
+    }
+  }
   return createDataClient();
 }
 
