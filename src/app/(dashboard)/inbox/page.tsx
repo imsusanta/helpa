@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { createClient } from '@/lib/appwrite-compat';
 import type {
   Conversation,
   Message,
@@ -144,33 +143,23 @@ export default function InboxPage() {
     if (hydratingConvIdsRef.current.has(convId)) return;
     hydratingConvIdsRef.current.add(convId);
     try {
-      const appwrite = createClient();
-      const { data, error } = await appwrite
-        .from('conversations')
-        .select('*, contact:contacts(*)')
-        .eq('id', convId)
-        .maybeSingle();
-      if (error) {
-        // appwrite errors have non-enumerable properties — log fields
-        // explicitly so the console message isn't just `{}`.
-        console.error('Failed to hydrate conversation:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-        });
+      const res = await fetch(
+        `/api/inbox/conversations/${encodeURIComponent(convId)}`,
+        {
+          credentials: 'include',
+          cache: 'no-store',
+        }
+      );
+      if (!res.ok) {
+        console.error('Failed to hydrate conversation: HTTP', res.status);
         return;
       }
-      if (!data) return;
-      const fetched = data as Conversation;
+      const json = await res.json();
+      const fetched = (json.conversation || json) as Conversation;
+      if (!fetched?.id) return;
       setConversations((prev) => {
         const existing = prev.find((c) => c.id === fetched.id);
         if (existing) {
-          // Already in state — keep its fields (a realtime UPDATE may
-          // have landed while the fetch was in flight and patched
-          // last_message_text / unread_count to fresher values than
-          // the row we just read). Only backfill `contact`, which the
-          // realtime payloads never carry.
           return prev.map((c) =>
             c.id === fetched.id
               ? { ...c, contact: c.contact ?? fetched.contact }
@@ -179,6 +168,8 @@ export default function InboxPage() {
         }
         return [fetched, ...prev];
       });
+    } catch (e) {
+      console.error('Failed to hydrate conversation:', e);
     } finally {
       hydratingConvIdsRef.current.delete(convId);
     }
@@ -187,38 +178,22 @@ export default function InboxPage() {
   // Check WhatsApp connection status on mount
   useEffect(() => {
     const checkConnection = async () => {
-      const appwrite = createClient();
-      const {
-        data: { session },
-      } = await appwrite.auth.getSession();
-      const user = session?.user;
-
-      if (!user) return;
-
-      // whatsapp_config is one-row-per-account post-multi-user, so
-      // the previous `.eq('user_id', user.id)` would miss the row
-      // for any teammate who didn't personally save the config —
-      // the "WhatsApp not connected" banner would show in the
-      // shared inbox even though the admin had it configured.
-      // Resolve account_id via the profile and query by that.
-      const { data: profile } = await appwrite
-        .from('profiles')
-        .select('account_id')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      const accountId = profile?.account_id as string | undefined;
-      if (!accountId) {
+      try {
+        const res = await fetch('/api/whatsapp/config', {
+          credentials: 'include',
+          cache: 'no-store',
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setWhatsappConnected(
+            data?.status === 'connected' || data?.configured === true
+          );
+        } else {
+          setWhatsappConnected(false);
+        }
+      } catch {
         setWhatsappConnected(false);
-        return;
       }
-
-      const { data } = await appwrite
-        .from('whatsapp_configs')
-        .select('status')
-        .eq('account_id', accountId)
-        .maybeSingle();
-
-      setWhatsappConnected(data?.status === 'connected');
     };
 
     checkConnection();

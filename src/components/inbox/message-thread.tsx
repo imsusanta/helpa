@@ -214,18 +214,27 @@ export function MessageThread({
   // shape ready for shared-team workspaces without a refactor.
   useEffect(() => {
     let cancelled = false;
-    const appwrite = createClient();
-    appwrite
-      .from('profiles')
-      .select('*')
-      .order('full_name')
-      .then(({ data, error }) => {
+    fetch('/api/account/members', {
+      credentials: 'include',
+      cache: 'no-store',
+    })
+      .then((res) => (res.ok ? res.json() : { members: [] }))
+      .then((json) => {
         if (cancelled) return;
-        if (error) {
-          console.error('Failed to fetch profiles:', error);
-          return;
-        }
-        setProfiles((data as Profile[]) ?? []);
+        const members = json.members || [];
+        const profs = members.map((m: any) => ({
+          id: m.user_id,
+          user_id: m.user_id,
+          full_name: m.full_name,
+          email: m.email,
+          avatar_url: m.avatar_url,
+          role: m.role,
+          created_at: m.joined_at,
+        }));
+        setProfiles(profs as Profile[]);
+      })
+      .catch((err) => {
+        if (!cancelled) console.error('Failed to fetch members:', err);
       });
     return () => {
       cancelled = true;
@@ -259,27 +268,42 @@ export function MessageThread({
   useEffect(() => {
     if (!conversationId) return;
 
-    const appwrite = createClient();
     let cancelled = false;
 
     (async () => {
       setLoading(true);
 
-      const { data, error } = await appwrite
-        .from('messages')
-        .select('*')
-        .eq('conversation_id', conversationId)
-        .order('created_at', { ascending: true });
+      try {
+        const res = await fetch(
+          `/api/inbox/conversations/${encodeURIComponent(conversationId)}/messages`,
+          {
+            credentials: 'include',
+            cache: 'no-store',
+          }
+        );
 
-      if (cancelled) return;
+        if (cancelled) return;
 
-      if (error) {
-        console.error('Failed to fetch messages:', error);
-      } else {
-        onMessagesLoadedRef.current(data ?? []);
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          console.error(
+            'Failed to fetch messages:',
+            errData.error || `HTTP ${res.status}`
+          );
+        } else {
+          const json = await res.json();
+          const msgs = (
+            Array.isArray(json) ? json : (json.messages ?? [])
+          ) as Message[];
+          onMessagesLoadedRef.current(msgs);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Failed to fetch messages:', err);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-
-      if (!cancelled) setLoading(false);
     })();
 
     return () => {
@@ -409,14 +433,14 @@ export function MessageThread({
   // is 0 the condition is false, so no further UPDATE is issued.
   useEffect(() => {
     if (!conversationId || !hasUnread) return;
-    const appwrite = createClient();
-    appwrite
-      .from('conversations')
-      .update({ unread_count: 0 })
-      .eq('id', conversationId)
-      .then(({ error }) => {
-        if (error) console.error('Failed to reset unread_count:', error);
-      });
+    fetch(`/api/inbox/conversations/${encodeURIComponent(conversationId)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ unread_count: 0 }),
+    }).catch((err) => {
+      console.error('Failed to reset unread_count:', err);
+    });
   }, [conversationId, hasUnread]);
 
   // Auto-scroll to bottom on new messages
@@ -558,11 +582,19 @@ export function MessageThread({
     async (status: ConversationStatus) => {
       if (!conversation) return;
 
-      const appwrite = createClient();
-      await appwrite
-        .from('conversations')
-        .update({ status })
-        .eq('id', conversation.id);
+      try {
+        await fetch(
+          `/api/inbox/conversations/${encodeURIComponent(conversation.id)}`,
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ status }),
+          }
+        );
+      } catch (err) {
+        console.error('Failed to update status:', err);
+      }
 
       onStatusChange(conversation.id, status);
     },
@@ -573,22 +605,30 @@ export function MessageThread({
     if (!conversation) return;
     const nextState = !conversation.ai_chat_enabled;
 
-    const appwrite = createClient();
-    const { error } = await appwrite
-      .from('conversations')
-      .update({ ai_chat_enabled: nextState })
-      .eq('id', conversation.id);
+    try {
+      const res = await fetch(
+        `/api/inbox/conversations/${encodeURIComponent(conversation.id)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ ai_chat_enabled: nextState }),
+        }
+      );
 
-    if (error) {
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || `HTTP ${res.status}`);
+      }
+
+      if (onConversationUpdate) {
+        onConversationUpdate(conversation.id, { ai_chat_enabled: nextState });
+      }
+      toast.success(`AI Chat mode turned ${nextState ? 'ON' : 'OFF'}`);
+    } catch (error) {
       console.error('Failed to update AI chat mode:', error);
       toast.error('Failed to update AI chat mode');
-      return;
     }
-
-    if (onConversationUpdate) {
-      onConversationUpdate(conversation.id, { ai_chat_enabled: nextState });
-    }
-    toast.success(`AI Chat mode turned ${nextState ? 'ON' : 'OFF'}`);
   }, [conversation, onConversationUpdate]);
 
   const handleOpenTemplates = useCallback(() => {

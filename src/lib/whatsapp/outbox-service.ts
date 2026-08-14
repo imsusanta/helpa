@@ -85,7 +85,6 @@ export class OutboxService {
           channel: payload.channel || 'whatsapp',
           conversationId: payload.conversationId,
           contactId: payload.contactId || null,
-          provider: payload.provider || 'meta',
           status: 'processing',
           attempts: 0,
           createdAt: now,
@@ -127,9 +126,11 @@ export class OutboxService {
               status: 'existing',
               outboxId: String(recheckDoc.$id || recheckDoc.id),
               existingStatus: String(recheckDoc.status || 'processing'),
-              providerMessageId: recheckDoc.providerMessageId
-                ? String(recheckDoc.providerMessageId)
-                : undefined,
+              providerMessageId: recheckDoc.metaMessageId
+                ? String(recheckDoc.metaMessageId)
+                : recheckDoc.providerMessageId
+                  ? String(recheckDoc.providerMessageId)
+                  : undefined,
               requestHashMatches: true,
             };
           }
@@ -176,8 +177,7 @@ export class OutboxService {
       .from(APPWRITE_CONFIG.collections.outboundOutbox)
       .update({
         status: 'sent',
-        providerMessageId,
-        completedAt: now,
+        metaMessageId: providerMessageId,
         updatedAt: now,
       })
       .eq('id', outboxId)
@@ -207,7 +207,7 @@ export class OutboxService {
       .from(APPWRITE_CONFIG.collections.outboundOutbox)
       .update({
         status: 'reconciliation_required',
-        providerMessageId,
+        metaMessageId: providerMessageId,
         lastErrorCode: dbErrorMessage.slice(0, 255),
         updatedAt: now,
       })
