@@ -6,6 +6,7 @@
  */
 
 import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
+import { createClient as createSupabaseBrowserClient } from '@/lib/supabase/client';
 
 type AnyRecord = Record<string, any>;
 
@@ -1288,6 +1289,17 @@ export function createDataClient(
 }
 
 export function createClient(): AppwriteCompatClient {
+  if (
+    typeof window !== 'undefined' &&
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  ) {
+    try {
+      return createSupabaseBrowserClient();
+    } catch {
+      // Fallback
+    }
+  }
   return createDataClient();
 }
 

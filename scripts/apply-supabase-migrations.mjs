@@ -2,12 +2,9 @@ import fs from 'fs';
 import path from 'path';
 
 const TOKEN =
-  process.env.SUPABASE_ACCESS_TOKEN ||
-  process.env.SUPABASE_AUTH_TOKEN ||
-  '';
+  process.env.SUPABASE_ACCESS_TOKEN || process.env.SUPABASE_AUTH_TOKEN || '';
 const PROJECT_REF =
-  process.env.NEXT_PUBLIC_SUPABASE_PROJECT_REF ||
-  'tmqlzsyqlprioeoowmtk';
+  process.env.NEXT_PUBLIC_SUPABASE_PROJECT_REF || 'tmqlzsyqlprioeoowmtk';
 
 async function executeSql(query) {
   const res = await fetch(
