@@ -270,8 +270,8 @@ export function MessageThread({
 
     let cancelled = false;
 
-    (async () => {
-      setLoading(true);
+    const fetchMsgs = async (isBackground = false) => {
+      if (!isBackground) setLoading(true);
 
       try {
         const res = await fetch(
@@ -286,10 +286,12 @@ export function MessageThread({
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
-          console.error(
-            'Failed to fetch messages:',
-            errData.error || `HTTP ${res.status}`
-          );
+          if (!isBackground) {
+            console.error(
+              'Failed to fetch messages:',
+              errData.error || `HTTP ${res.status}`
+            );
+          }
         } else {
           const json = await res.json();
           const msgs = (
@@ -298,16 +300,26 @@ export function MessageThread({
           onMessagesLoadedRef.current(msgs);
         }
       } catch (err) {
-        if (!cancelled) {
+        if (!cancelled && !isBackground) {
           console.error('Failed to fetch messages:', err);
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled && !isBackground) setLoading(false);
       }
-    })();
+    };
+
+    void fetchMsgs(false);
+
+    // Periodic safety-net poll every 4 seconds for active thread
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        void fetchMsgs(true);
+      }
+    }, 4000);
 
     return () => {
       cancelled = true;
+      clearInterval(interval);
     };
     // `resyncToken` is included so the parent can force a refetch when
     // the realtime channel reconnects or the tab regains focus —
