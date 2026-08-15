@@ -100,23 +100,37 @@ export async function GET(_request: NextRequest, { params }: Params) {
         const supabase = getSupabaseAdminClient();
         const { data: conv } = await supabase
           .from('conversations')
-          .select('*, contact:contacts(*)')
+          .select('*')
           .eq('id', conversationId)
           .eq('account_id', accountId)
           .maybeSingle();
 
         if (conv) {
-          const normalized = normalizeConversation(
-            conv,
-            conv.contact ? normalizeContact(conv.contact) : undefined
-          );
+          let contact: Contact | undefined;
+          const cId = (conv.contact_id || conv.contactId) as string;
+          if (cId) {
+            const { data: cDoc } = await supabase
+              .from('contacts')
+              .select('*')
+              .eq('id', cId)
+              .eq('account_id', accountId)
+              .maybeSingle();
+            if (cDoc) {
+              contact = normalizeContact(cDoc);
+            }
+          }
+
+          const normalized = normalizeConversation(conv, contact);
           return NextResponse.json(
             { conversation: normalized },
             { status: 200, headers: CACHE_HEADERS }
           );
         }
-      } catch {
-        // Fallback to Appwrite
+      } catch (err) {
+        console.warn(
+          '[inbox/conversations/[id]] Supabase query fallback:',
+          err
+        );
       }
     }
 
@@ -258,14 +272,25 @@ export async function PATCH(request: NextRequest, { params }: Params) {
           .update(updatePayload)
           .eq('id', conversationId)
           .eq('account_id', accountId)
-          .select('*, contact:contacts(*)')
+          .select('*')
           .maybeSingle();
 
         if (!error && updated) {
-          const normalized = normalizeConversation(
-            updated,
-            updated.contact ? normalizeContact(updated.contact) : undefined
-          );
+          let contact: Contact | undefined;
+          const cId = (updated.contact_id || updated.contactId) as string;
+          if (cId) {
+            const { data: cDoc } = await supabase
+              .from('contacts')
+              .select('*')
+              .eq('id', cId)
+              .eq('account_id', accountId)
+              .maybeSingle();
+            if (cDoc) {
+              contact = normalizeContact(cDoc);
+            }
+          }
+
+          const normalized = normalizeConversation(updated, contact);
           return NextResponse.json(
             { conversation: normalized },
             { status: 200, headers: CACHE_HEADERS }

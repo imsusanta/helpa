@@ -330,7 +330,10 @@ export async function processMessage(
   const insertRes = await getAdminClient()
     .from('messages')
     .insert({
+      account_id: accountId,
       conversation_id: convId,
+      direction: 'inbound',
+      provider_message_id: message.id,
       sender_type: 'customer',
       content_type: contentType,
       content_text: contentText || null,
