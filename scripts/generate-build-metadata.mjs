@@ -105,21 +105,19 @@ function main() {
         '❌ [prebuild] ERROR: Could not resolve a valid 40-character Git commit SHA in production environment.'
       );
       console.error(
-        'Set APP_COMMIT_SHA, GITHUB_SHA, SOURCE_VERSION, or ensure .git is present.'
+        'Set APP_COMMIT_SHA, GITHUB_SHA, VERCEL_GIT_COMMIT_SHA, SOURCE_VERSION, or ensure .git is present.'
       );
       process.exit(1);
     }
 
     console.warn(
-      '⚠️ [prebuild] Warning: No commit SHA resolved. Using development placeholder.'
+      '⚠️ [prebuild] Warning: No commit SHA resolved. Setting null commit for non-production build.'
     );
   }
 
   const metadata = {
-    commit: resolved
-      ? resolved.sha
-      : '0000000000000000000000000000000000000000',
-    commitSource: resolved ? resolved.source : 'development',
+    commit: resolved ? resolved.sha : null,
+    commitSource: resolved ? resolved.source : null,
     deploymentShaStatus: resolved ? 'available' : 'missing',
     buildTime,
     environment: process.env.NODE_ENV || 'production',
@@ -146,7 +144,7 @@ export const BUILD_METADATA = {
   fs.writeFileSync(tsPath, tsContent);
 
   console.log(
-    `✅ [prebuild] Build metadata generated at ${outputPath} and ${tsPath}: commit=${metadata.commit.slice(0, 7)} (source=${metadata.commitSource})`
+    `✅ [prebuild] Build metadata generated at ${outputPath} and ${tsPath}: commit=${metadata.commit ? metadata.commit.slice(0, 7) : 'null'} (source=${metadata.commitSource})`
   );
 }
 

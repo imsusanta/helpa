@@ -13,7 +13,7 @@ describe('Deployment Metadata & Commit SHA Resolution', () => {
       NODE_ENV: 'production',
     });
     expect(meta.commit).toBe(validSha);
-    expect(meta.commitSource).toBe('APP_COMMIT_SHA');
+    expect(meta.commitSource).toBe('deployment_env');
     expect(meta.deploymentShaStatus).toBe('available');
     expect(meta.status).toBe('ok');
     expect(meta.isValid).toBe(true);
@@ -26,7 +26,7 @@ describe('Deployment Metadata & Commit SHA Resolution', () => {
       NODE_ENV: 'production',
     });
     expect(meta.commit).toBe(validSha);
-    expect(meta.commitSource).toBe('VERCEL_GIT_COMMIT_SHA');
+    expect(meta.commitSource).toBe('vercel');
     expect(meta.deploymentShaStatus).toBe('available');
     expect(meta.status).toBe('ok');
     expect(meta.isValid).toBe(true);
@@ -38,7 +38,7 @@ describe('Deployment Metadata & Commit SHA Resolution', () => {
       NODE_ENV: 'production',
     });
     expect(meta.commit).toBe(validSha);
-    expect(meta.commitSource).toBe('GITHUB_SHA');
+    expect(meta.commitSource).toBe('github_actions');
     expect(meta.deploymentShaStatus).toBe('available');
     expect(meta.status).toBe('ok');
     expect(meta.isValid).toBe(true);
@@ -50,10 +50,22 @@ describe('Deployment Metadata & Commit SHA Resolution', () => {
       NODE_ENV: 'production',
     });
     expect(meta.commit).toBe(validSha);
-    expect(meta.commitSource).toBe('SOURCE_VERSION');
+    expect(meta.commitSource).toBe('appwrite');
     expect(meta.deploymentShaStatus).toBe('available');
     expect(meta.status).toBe('ok');
     expect(meta.isValid).toBe(true);
+  });
+
+  it('rejects all-zero SHA as invalid and degraded in production', () => {
+    const meta = getDeploymentMetadata({
+      VERCEL_GIT_COMMIT_SHA: '0000000000000000000000000000000000000000',
+      NODE_ENV: 'production',
+    });
+    expect(meta.commit).toBeNull();
+    expect(meta.commitSource).toBe('vercel');
+    expect(meta.deploymentShaStatus).toBe('invalid');
+    expect(meta.status).toBe('degraded');
+    expect(meta.isValid).toBe(false);
   });
 
   it('flags invalid SHA format (short or non-hex) as degraded with invalid status', () => {
@@ -62,7 +74,7 @@ describe('Deployment Metadata & Commit SHA Resolution', () => {
       NODE_ENV: 'production',
     });
     expect(meta.commit).toBeNull();
-    expect(meta.commitSource).toBe('APP_COMMIT_SHA');
+    expect(meta.commitSource).toBe('deployment_env');
     expect(meta.deploymentShaStatus).toBe('invalid');
     expect(meta.status).toBe('degraded');
     expect(meta.isValid).toBe(false);
@@ -88,8 +100,8 @@ describe('Deployment Metadata & Commit SHA Resolution', () => {
     const meta = getDeploymentMetadata({
       NODE_ENV: 'development',
     });
-    expect(meta.commit).toBe('0000000000000000000000000000000000000000');
-    expect(meta.deploymentShaStatus).toBe('available');
+    expect(meta.commit).toBeNull();
+    expect(meta.deploymentShaStatus).toBe('missing');
     expect(meta.commitSource).toBe('development');
     expect(meta.isValid).toBe(true);
   });

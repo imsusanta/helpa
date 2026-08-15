@@ -249,7 +249,8 @@ export class OutboxService {
           meta_message_id: providerMessageId,
           updated_at: now,
         })
-        .eq('id', outboxId);
+        .eq('id', outboxId)
+        .eq('account_id', accountId);
       if (res.error) {
         await dbAdmin
           .from('outbound_outbox')
@@ -258,7 +259,8 @@ export class OutboxService {
             metaMessageId: providerMessageId,
             updatedAt: now,
           })
-          .eq('id', outboxId);
+          .eq('id', outboxId)
+          .eq('accountId', accountId);
       }
     } catch (err: unknown) {
       console.warn(
@@ -290,7 +292,8 @@ export class OutboxService {
           error_message: dbErrorMessage.slice(0, 255),
           updated_at: now,
         })
-        .eq('id', outboxId);
+        .eq('id', outboxId)
+        .eq('account_id', accountId);
       if (res.error) {
         await dbAdmin
           .from('outbound_outbox')
@@ -300,7 +303,8 @@ export class OutboxService {
             lastErrorCode: dbErrorMessage.slice(0, 255),
             updatedAt: now,
           })
-          .eq('id', outboxId);
+          .eq('id', outboxId)
+          .eq('accountId', accountId);
       }
     } catch (err: unknown) {
       console.error(
@@ -328,7 +332,8 @@ export class OutboxService {
           error_message: errorMessage.slice(0, 255),
           updated_at: now,
         })
-        .eq('id', outboxId);
+        .eq('id', outboxId)
+        .eq('account_id', accountId);
       if (res.error) {
         await dbAdmin
           .from('outbound_outbox')
@@ -338,7 +343,8 @@ export class OutboxService {
             attempts: 1,
             updatedAt: now,
           })
-          .eq('id', outboxId);
+          .eq('id', outboxId)
+          .eq('accountId', accountId);
       }
     } catch (err: unknown) {
       console.warn(

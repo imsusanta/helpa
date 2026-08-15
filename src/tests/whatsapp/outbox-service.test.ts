@@ -5,6 +5,7 @@ const mockInsert = vi.fn();
 const mockUpdate = vi.fn();
 const mockSelect = vi.fn();
 const mockMaybeSingle = vi.fn();
+const mockEq2 = vi.fn();
 
 vi.mock('@/lib/appwrite-server-compat', () => ({
   appwriteAdmin: () => ({
@@ -20,8 +21,11 @@ vi.mock('@/lib/appwrite-server-compat', () => ({
       update: (payload: unknown) => {
         mockUpdate(payload);
         return {
-          eq: () => ({
-            eq: () => Promise.resolve({ data: null, error: null }),
+          eq: (field1: string, val1: string) => ({
+            eq: (field2: string, val2: string) => {
+              mockEq2(field1, val1, field2, val2);
+              return Promise.resolve({ data: null, error: null });
+            },
           }),
         };
       },
@@ -36,12 +40,12 @@ vi.mock('@/lib/appwrite-server-compat', () => ({
   }),
 }));
 
-describe('OutboxService', () => {
+describe('OutboxService Tenant Isolation & Reliability', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('creates pre-send outbox entry successfully', async () => {
+  it('creates pre-send outbox entry successfully with tenant scoping', async () => {
     mockMaybeSingle.mockResolvedValue({ data: null, error: null });
     mockSelect.mockResolvedValue({
       data: { id: 'outbox_new_1' },
@@ -133,10 +137,26 @@ describe('OutboxService', () => {
     }
   });
 
-  it('marks outbox reconciliation_required on local DB failure without resending to Meta', async () => {
+  it('enforces tenant-scoped update in markSent', async () => {
+    await OutboxService.markSent('outbox_123', 'acc_tenant_a', 'wamid_123');
+    expect(mockUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'sent',
+        meta_message_id: 'wamid_123',
+      })
+    );
+    expect(mockEq2).toHaveBeenCalledWith(
+      'id',
+      'outbox_123',
+      'account_id',
+      'acc_tenant_a'
+    );
+  });
+
+  it('enforces tenant-scoped update in markReconciliationRequired', async () => {
     await OutboxService.markReconciliationRequired(
       'outbox_1',
-      'acc_1',
+      'acc_tenant_a',
       'wamid.abc',
       'Table locked'
     );
@@ -144,6 +164,31 @@ describe('OutboxService', () => {
       expect.objectContaining({
         status: 'reconciliation_required',
       })
+    );
+    expect(mockEq2).toHaveBeenCalledWith(
+      'id',
+      'outbox_1',
+      'account_id',
+      'acc_tenant_a'
+    );
+  });
+
+  it('enforces tenant-scoped update in markDeadLetter', async () => {
+    await OutboxService.markDeadLetter(
+      'outbox_fail_1',
+      'acc_tenant_a',
+      'Permanent provider error'
+    );
+    expect(mockUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'dead_letter',
+      })
+    );
+    expect(mockEq2).toHaveBeenCalledWith(
+      'id',
+      'outbox_fail_1',
+      'account_id',
+      'acc_tenant_a'
     );
   });
 });
