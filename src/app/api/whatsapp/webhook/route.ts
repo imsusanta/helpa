@@ -88,12 +88,12 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
       let configRows: Record<string, unknown>[] | null = null;
       try {
         const { data } = await getAdminClient()
-          .from('whatsapp_configs')
+          .from('whatsapp_config')
           .select('*')
-          .eq('phoneNumberId', phoneNumberId);
+          .eq('phone_number_id', phoneNumberId);
         if (data && data.length > 0) configRows = data;
       } catch {
-        // Fallback to snake_case query
+        // Fallback
       }
 
       if (!configRows || configRows.length === 0) {
@@ -104,23 +104,19 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
             .eq('phone_number_id', phoneNumberId);
           if (data && data.length > 0) configRows = data;
         } catch {
-          // Fallback to fetching all and filtering in-memory
-          try {
-            const { data: allConfigs } = await getAdminClient()
-              .from('whatsapp_configs')
-              .select('*')
-              .limit(100);
-            if (allConfigs && allConfigs.length > 0) {
-              const matched = allConfigs.filter(
-                (c: Record<string, unknown>) =>
-                  String(c.phoneNumberId || c.phone_number_id || '') ===
-                  String(phoneNumberId)
-              );
-              if (matched.length > 0) configRows = matched;
-            }
-          } catch {
-            // Ignored
-          }
+          // Fallback
+        }
+      }
+
+      if (!configRows || configRows.length === 0) {
+        try {
+          const { data } = await getAdminClient()
+            .from('whatsapp_configs')
+            .select('*')
+            .eq('phoneNumberId', phoneNumberId);
+          if (data && data.length > 0) configRows = data;
+        } catch {
+          // Fallback
         }
       }
 

@@ -42,11 +42,31 @@ export async function findExistingContact(
 
   const suffix = normalized.length >= 8 ? normalized.slice(-8) : normalized;
 
-  const { data, error } = await db
-    .from('contacts')
-    .select('*')
-    .eq('accountId', accountId)
-    .like('phone', `%${suffix}`);
+  let data: ExistingContact[] | null = null;
+  let error: unknown = null;
+
+  try {
+    const res = await db
+      .from('contacts')
+      .select('*')
+      .eq('account_id', accountId)
+      .like('phone', `%${suffix}`);
+    data = res.data as ExistingContact[] | null;
+    error = res.error;
+  } catch {
+    // Fallback to camelCase
+    try {
+      const res = await db
+        .from('contacts')
+        .select('*')
+        .eq('accountId', accountId)
+        .like('phone', `%${suffix}`);
+      data = res.data as ExistingContact[] | null;
+      error = res.error;
+    } catch {
+      // Ignore
+    }
+  }
 
   if (error || !data) return null;
 

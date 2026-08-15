@@ -11,6 +11,10 @@
     "vibedoctor-helpa": {
       "serverUrl": "https://vibedoctor.io/mcp/b8662a9c58dbb38dfe38295f974bf948ae63fdc0c69481e25140725865c775d4",
       "url": "https://vibedoctor.io/mcp/b8662a9c58dbb38dfe38295f974bf948ae63fdc0c69481e25140725865c775d4"
+    },
+    "meta-developer-tools": {
+      "serverUrl": "https://mcp.facebook.com/devtools",
+      "url": "https://mcp.facebook.com/devtools"
     }
   }
 }

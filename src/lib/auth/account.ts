@@ -74,7 +74,7 @@ export async function getCurrentAccount(): Promise<AccountContext> {
     }
 
     const admin = getSupabaseAdminClient();
-    let { data: profile, error: profileError } = await admin
+    let { data: profile } = await admin
       .from('profiles')
       .select('id, account_id, role, account_role, is_super_admin, email')
       .eq('user_id', userId)

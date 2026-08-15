@@ -9,46 +9,82 @@ export async function findOrCreateConversation(
   contactId: string
 ) {
   const db = getAdminClient();
-  const { data: matches } = await db
-    .from('conversations')
-    .select('*')
-    .eq('accountId', accountId)
-    .eq('contactId', contactId)
-    .limit(1)
-    .catch(() => ({ data: null }));
+  let matches: Record<string, unknown>[] | null = null;
+
+  try {
+    const { data } = await db
+      .from('conversations')
+      .select('*')
+      .eq('account_id', accountId)
+      .eq('contact_id', contactId)
+      .limit(1);
+    if (data && data.length > 0) matches = data;
+  } catch {
+    try {
+      const { data } = await db
+        .from('conversations')
+        .select('*')
+        .eq('accountId', accountId)
+        .eq('contactId', contactId)
+        .limit(1);
+      if (data && data.length > 0) matches = data;
+    } catch {
+      // Ignore
+    }
+  }
 
   if (matches && matches.length > 0 && matches[0]) {
     return matches[0];
   }
 
   const now = new Date().toISOString();
-  const { data: newConv, error: createError } = await db
-    .from('conversations')
-    .insert({
-      accountId,
-      contactId,
-      status: 'open',
-      lastMessageText: '',
-      lastMessageAt: now,
-      createdAt: now,
-      updatedAt: now,
-    })
-    .select()
-    .single();
+  let newConv: Record<string, unknown> | null = null;
+  let createError: unknown = null;
 
-  if (createError) {
-    const { data: retryMatches } = await db
+  try {
+    const { data, error } = await db
       .from('conversations')
-      .select('*')
-      .eq('accountId', accountId)
-      .eq('contactId', contactId)
-      .limit(1)
-      .catch(() => ({ data: null }));
+      .insert({
+        account_id: accountId,
+        user_id: configOwnerUserId || null,
+        contact_id: contactId,
+        status: 'open',
+        last_message_text: '',
+        last_message_at: now,
+        created_at: now,
+        updated_at: now,
+      })
+      .select()
+      .single();
+    if (data) newConv = data;
+    createError = error;
+  } catch (err) {
+    createError = err;
+  }
 
-    if (retryMatches && retryMatches.length > 0 && retryMatches[0]) {
-      return retryMatches[0];
+  if (!newConv) {
+    try {
+      const { data, error } = await db
+        .from('conversations')
+        .insert({
+          accountId,
+          contactId,
+          status: 'open',
+          lastMessageText: '',
+          lastMessageAt: now,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .select()
+        .single();
+      if (data) newConv = data;
+      createError = error;
+    } catch (err) {
+      createError = err;
     }
+  }
 
+  if (createError && !newConv) {
     console.error('Error creating conversation:', createError);
     return null;
   }

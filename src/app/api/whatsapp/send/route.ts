@@ -163,7 +163,6 @@ export async function POST(request: Request) {
                 account_id: accountId,
                 user_id: ctx?.userId || null,
                 phone: plusPhone,
-                phone_normalized: cleanPhone,
                 name: body.name || cleanPhone,
                 created_at: now,
                 updated_at: now,
@@ -223,7 +222,7 @@ export async function POST(request: Request) {
         if (!extConv) {
           const now = new Date().toISOString();
           try {
-            const { data: createdConv, error: convErr } = await dbAdmin
+            const { data: createdConv, error: _convErr } = await dbAdmin
               .from('conversations')
               .insert({
                 account_id: accountId,
