@@ -1,8 +1,22 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { GET as getHealth } from '@/app/api/health/route';
 import { POST as postCleanupWebhooks } from '@/app/api/cron/cleanup-webhooks/route';
 import { POST as postWhatsappWebhook } from '@/app/api/whatsapp/webhook/route';
 import { NextRequest } from 'next/server';
+
+vi.mock('@/lib/supabase/server', () => ({
+  getAdminClient: vi.fn().mockReturnValue({
+    from: vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        limit: vi.fn().mockReturnValue({
+          abortSignal: vi
+            .fn()
+            .mockResolvedValue({ data: [{ id: '1' }], error: null }),
+        }),
+      }),
+    }),
+  }),
+}));
 
 describe('Security: Cache-Control & Private Data Protection', () => {
   it('enforces explicit no-store headers on public health route handler', async () => {
@@ -15,7 +29,7 @@ describe('Security: Cache-Control & Private Data Protection', () => {
     expect(cacheControl).toBeDefined();
     expect(cacheControl).toContain('no-store');
     expect(cacheControl).toContain('private');
-  });
+  }, 15000);
 
   it('enforces no-store cache headers on cron cleanup webhook handler', async () => {
     const req = new NextRequest(

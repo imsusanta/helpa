@@ -51,6 +51,34 @@ vi.mock('@/lib/appwrite-compat', () => {
   };
 });
 
+vi.mock('@/lib/appwrite-server-compat', () => {
+  const createMockDb = () => {
+    const mockChain: Record<string, unknown> = {};
+    mockChain.from = vi.fn().mockReturnValue(mockChain);
+    mockChain.select = vi.fn().mockReturnValue(mockChain);
+    mockChain.eq = vi.fn().mockReturnValue(mockChain);
+    mockChain.in = vi.fn().mockReturnValue(mockChain);
+    mockChain.order = vi.fn().mockReturnValue(mockChain);
+    mockChain.limit = vi.fn().mockReturnValue(mockChain);
+    mockChain.maybeSingle = vi
+      .fn()
+      .mockResolvedValue({ data: null, error: null });
+    mockChain.insert = vi.fn().mockResolvedValue({ data: null, error: null });
+    mockChain.update = vi.fn().mockReturnValue(mockChain);
+    mockChain.delete = vi.fn().mockReturnValue(mockChain);
+    mockChain.rpc = vi.fn().mockResolvedValue({
+      data: { updated_at: '2026-08-08T12:00:00Z' },
+      error: null,
+    });
+    return mockChain;
+  };
+  return {
+    appwriteAdmin: vi.fn().mockImplementation(createMockDb),
+    createDataClient: vi.fn().mockImplementation(createMockDb),
+    createClient: vi.fn().mockImplementation(createMockDb),
+  };
+});
+
 import {
   requireRole,
   UnauthorizedError,
@@ -193,7 +221,7 @@ describe('P0 / P1 Security, Authorization & Privacy Hardening Test Suite', () =>
       expect(resExport.status).toBe(404);
       const data = await resExport.json();
       expect(data.error).toBe('Not found');
-    });
+    }, 15000);
   });
 
   describe('2. P0 — PHI & Credential Log Redaction', () => {

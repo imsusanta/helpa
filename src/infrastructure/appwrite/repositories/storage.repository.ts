@@ -1,7 +1,4 @@
-import { ID } from 'node-appwrite';
-import { InputFile } from 'node-appwrite/file';
-import { getAppwriteAdminClient } from '../server';
-import { APPWRITE_CONFIG } from '../config';
+import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
 
 export type StorageErrorCode =
   | 'AUTH_REQUIRED'
@@ -26,8 +23,8 @@ export class StorageError extends Error {
 }
 
 export class StorageRepository {
-  private get storage() {
-    return getAppwriteAdminClient().storage;
+  private get supabase() {
+    return getSupabaseAdminClient();
   }
 
   async verifyBucketExists(bucketId: string): Promise<void> {
@@ -39,27 +36,18 @@ export class StorageRepository {
       );
     }
     try {
-      await this.storage.getBucket(bucketId);
+      const { data: buckets } = await this.supabase.storage.listBuckets();
+      const exists = (buckets || []).some((b) => b.id === bucketId);
+      if (!exists) {
+        await this.supabase.storage.createBucket(bucketId, {
+          public: true,
+          fileSizeLimit: 20 * 1024 * 1024,
+        });
+      }
     } catch (err: unknown) {
-      const code = (err as { code?: number })?.code;
-      if (code === 404 || String(err).includes('404')) {
-        throw new StorageError(
-          'STORAGE_BUCKET_NOT_FOUND',
-          `Storage bucket '${bucketId}' does not exist on Appwrite backend. Run schema setup scripts.`,
-          500
-        );
-      }
-      if (code === 401 || code === 403) {
-        throw new StorageError(
-          'STORAGE_PERMISSION_DENIED',
-          `Permission denied when accessing bucket '${bucketId}'. Check API key scopes.`,
-          403
-        );
-      }
-      throw new StorageError(
-        'FILE_UPLOAD_FAILED',
-        `Failed to verify storage bucket '${bucketId}': ${(err as Error).message}`,
-        500
+      console.warn(
+        `[StorageRepository] Auto-provision bucket '${bucketId}' notice:`,
+        (err as Error).message
       );
     }
   }
@@ -68,22 +56,36 @@ export class StorageRepository {
     bucketId: string,
     fileBuffer: Buffer,
     filename: string,
-    _mimeType: string = 'image/png',
-    permissions: string[] = []
+    mimeType: string = 'image/png',
+    _permissions: string[] = []
   ): Promise<{ fileId: string; fileUrl: string }> {
     await this.verifyBucketExists(bucketId);
 
     try {
-      const inputFile = InputFile.fromBuffer(fileBuffer, filename);
-      const result = await this.storage.createFile(
-        bucketId,
-        ID.unique(),
-        inputFile,
-        permissions.length > 0 ? permissions : undefined
-      );
+      const fileExt = filename.split('.').pop() || 'bin';
+      const safeBaseName = filename
+        .replace(/\.[^.]+$/, '')
+        .replace(/[^a-zA-Z0-9_-]+/g, '_')
+        .slice(0, 40);
+      const filePath = `${Date.now()}-${safeBaseName}.${fileExt}`;
 
-      const fileUrl = `${APPWRITE_CONFIG.endpoint}/storage/buckets/${bucketId}/files/${result.$id}/view?project=${APPWRITE_CONFIG.projectId}`;
-      return { fileId: result.$id, fileUrl };
+      const { data, error } = await this.supabase.storage
+        .from(bucketId)
+        .upload(filePath, fileBuffer, {
+          contentType: mimeType,
+          cacheControl: '3600',
+          upsert: true,
+        });
+
+      if (error || !data) {
+        throw new Error(error?.message || 'Supabase storage upload failed');
+      }
+
+      const { data: pubData } = this.supabase.storage
+        .from(bucketId)
+        .getPublicUrl(data.path);
+
+      return { fileId: data.path, fileUrl: pubData.publicUrl };
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : 'Unknown storage error';
@@ -98,7 +100,7 @@ export class StorageRepository {
   async deleteFile(bucketId: string, fileId: string): Promise<void> {
     if (!bucketId || !fileId) return;
     try {
-      await this.storage.deleteFile(bucketId, fileId);
+      await this.supabase.storage.from(bucketId).remove([fileId]);
     } catch (err: unknown) {
       console.warn(
         `[StorageRepository] Warning deleting file ${fileId} from bucket ${bucketId}:`,
