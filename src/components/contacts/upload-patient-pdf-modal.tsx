@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { useState } from 'react';
@@ -23,7 +22,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { createClient } from '@/lib/appwrite-compat';
 
 interface UploadPatientPdfModalProps {
   open: boolean;
@@ -54,8 +52,6 @@ export function UploadPatientPdfModal({
   const [notes, setNotes] = useState('');
   const [uploading, setUploading] = useState(false);
 
-  const appwrite = createClient();
-
   async function handleUpload() {
     if (!file) {
       toast.error('Please select a PDF document to upload');
@@ -69,27 +65,10 @@ export function UploadPatientPdfModal({
     setUploading(true);
 
     try {
-      // 1. Upload file to appwrite Storage
-      const fileExt = file.name.split('.').pop() || 'pdf';
-      const fileName = `${contactId}_${Date.now()}.${fileExt}`;
-      const filePath = `patient-docs/${fileName}`;
-
-      const { data: _uploadData, error: uploadErr } = await appwrite.storage
-        .from('chat-media')
-        .upload(filePath, file, { upsert: true });
-
-      if (uploadErr) {
-        throw new Error(
-          `Upload failed: ${(uploadErr as any)?.message || 'error'}`
-        );
-      }
-
-      // Get public URL
-      const { data: publicUrlData } = appwrite.storage
-        .from('chat-media')
-        .getPublicUrl(filePath);
-
-      const documentUrl = publicUrlData.publicUrl;
+      // 1. Upload file using unified storage helper
+      const { uploadAccountMedia } = await import('@/lib/storage/upload-media');
+      const uploadResult = await uploadAccountMedia('chat-media', file);
+      const documentUrl = uploadResult.publicUrl;
 
       // 2. Call backend API to record PDF and auto-send to patient
       const res = await fetch('/api/patients/upload-pdf', {

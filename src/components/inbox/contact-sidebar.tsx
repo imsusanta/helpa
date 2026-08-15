@@ -1016,16 +1016,14 @@ export function ContactSidebar({
     </div>
   );
 
-  if (isEmbedded) {
-    return (
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        {content}
-      </div>
-    );
-  }
-
   return (
-    <div className="border-border bg-card flex h-full min-h-0 w-70 flex-col overflow-hidden border-l">
+    <div
+      className={
+        isEmbedded
+          ? 'flex min-h-0 flex-1 flex-col overflow-hidden'
+          : 'border-border bg-card flex h-full min-h-0 w-70 flex-col overflow-hidden border-l'
+      }
+    >
       {content}
 
       {contact && (
