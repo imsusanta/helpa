@@ -145,23 +145,30 @@ export default function LabReportsPage() {
 
       setReports(formattedReports);
 
-      // Fetch patients from contacts
-      const { data: contactsList } = await db
-        .from('contacts')
-        .select('id, name, phone')
-        .eq('account_id', accountId)
-        .order('name', { ascending: true });
-
-      const mappedPats = (contactsList || []).map((c) => {
-        const item = c as Record<string, unknown>;
-        const name = (item.name as string) || 'Patient';
-        const phone = (item.phone as string) || '';
-        return {
-          id: item.id as string,
-          name: phone ? `${name} (${phone})` : name,
-        };
-      });
-      setPatients(mappedPats);
+      // Fetch patients from authenticated /api/contacts endpoint
+      try {
+        const contactsRes = await fetch('/api/contacts?limit=100', {
+          credentials: 'include',
+          cache: 'no-store',
+        });
+        if (contactsRes.ok) {
+          const contactsPayload = await contactsRes.json();
+          const contactsList = contactsPayload.data || [];
+          const mappedPats = contactsList.map(
+            (c: { id: string; name?: string; phone?: string }) => {
+              const name = c.name || 'Patient';
+              const phone = c.phone || '';
+              return {
+                id: c.id,
+                name: phone ? `${name} (${phone})` : name,
+              };
+            }
+          );
+          setPatients(mappedPats);
+        }
+      } catch (err) {
+        console.warn('Failed to load contacts for patient select:', err);
+      }
 
       // Fetch doctors
       const { data: docsData } = await db
