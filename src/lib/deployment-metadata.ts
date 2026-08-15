@@ -1,6 +1,5 @@
 import fs from 'fs';
 import path from 'path';
-import { BUILD_METADATA } from './build-info';
 
 export type DeploymentShaStatus = 'available' | 'missing' | 'invalid';
 
@@ -35,14 +34,6 @@ interface BuildMetadataFile {
 }
 
 function readBuildMetadata(): BuildMetadataFile | null {
-  if (
-    BUILD_METADATA &&
-    BUILD_METADATA.commit &&
-    !ZERO_SHA_REGEX.test(BUILD_METADATA.commit)
-  ) {
-    return BUILD_METADATA;
-  }
-
   try {
     const paths = [
       path.join(process.cwd(), 'src', 'lib', 'build-metadata.json'),

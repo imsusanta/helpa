@@ -247,7 +247,9 @@ export async function processMessage(
     contactName
   );
   if (!contactOutcome) {
-    throw new Error(`Unable to resolve contact for inbound message ${message.id}`);
+    throw new Error(
+      `Unable to resolve contact for inbound message ${message.id}`
+    );
   }
   const contactRecord = contactOutcome.contact;
 

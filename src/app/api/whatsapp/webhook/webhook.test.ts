@@ -5,7 +5,11 @@ const { createEmptyQuery } = vi.hoisted(() => ({
   createEmptyQuery: () => {
     const query: Record<string, unknown> & {
       then?: (
-        resolve: (value: { data: unknown[]; error: null; count: number }) => unknown,
+        resolve: (value: {
+          data: unknown[];
+          error: null;
+          count: number;
+        }) => unknown,
         reject?: (reason: unknown) => unknown
       ) => Promise<unknown>;
     } = {
@@ -14,7 +18,10 @@ const { createEmptyQuery } = vi.hoisted(() => ({
       limit: () => query,
       order: () => query,
       then: (resolve, reject) =>
-        Promise.resolve({ data: [], error: null, count: 0 }).then(resolve, reject),
+        Promise.resolve({ data: [], error: null, count: 0 }).then(
+          resolve,
+          reject
+        ),
     };
     return query;
   },
@@ -95,7 +102,9 @@ describe('WhatsApp Webhook Route (Modular Fail-Closed)', () => {
               field: 'messages',
               value: {
                 metadata: { phone_number_id: 'unregistered-test-number' },
-                contacts: [{ profile: { name: 'Test User' }, wa_id: '15550000000' }],
+                contacts: [
+                  { profile: { name: 'Test User' }, wa_id: '15550000000' },
+                ],
                 messages: [
                   {
                     from: '15550000000',

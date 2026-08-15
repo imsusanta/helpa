@@ -131,20 +131,8 @@ function main() {
   const outputPath = path.join(outputDir, 'build-metadata.json');
   fs.writeFileSync(outputPath, JSON.stringify(metadata, null, 2) + '\n');
 
-  const tsContent = `// Auto-generated during prebuild. Do not edit manually.
-export const BUILD_METADATA = {
-  commit: ${metadata.commit ? `'${metadata.commit}'` : 'null'},
-  commitSource: ${metadata.commitSource ? `'${metadata.commitSource}'` : 'null'},
-  deploymentShaStatus: '${metadata.deploymentShaStatus}',
-  buildTime: '${metadata.buildTime}',
-  environment: '${metadata.environment}',
-} as const;
-`;
-  const tsPath = path.join(outputDir, 'build-info.ts');
-  fs.writeFileSync(tsPath, tsContent);
-
   console.log(
-    `✅ [prebuild] Build metadata generated at ${outputPath} and ${tsPath}: commit=${metadata.commit ? metadata.commit.slice(0, 7) : 'null'} (source=${metadata.commitSource})`
+    `✅ [prebuild] Build metadata generated at ${outputPath}: commit=${metadata.commit ? metadata.commit.slice(0, 7) : 'null'} (source=${metadata.commitSource})`
   );
 }
 
