@@ -14,6 +14,37 @@ export async function GET() {
     const ctx = await requireRole('admin');
     const db = appwriteAdmin();
 
+    // Verify authenticated user's active membership and admin role for this specific account
+    const { data: memberCheck } = await db
+      .from('account_members')
+      .select('id, role, active')
+      .eq('account_id', ctx.accountId)
+      .eq('user_id', ctx.userId)
+      .eq('active', true)
+      .maybeSingle();
+
+    if (
+      !memberCheck ||
+      !['admin', 'owner'].includes(String(memberCheck.role).toLowerCase())
+    ) {
+      const { data: profileCheck } = await db
+        .from('profiles')
+        .select('account_id, role, account_role')
+        .eq('user_id', ctx.userId)
+        .eq('account_id', ctx.accountId)
+        .maybeSingle();
+
+      const effectiveRole = String(
+        profileCheck?.account_role || profileCheck?.role || ''
+      ).toLowerCase();
+      if (!profileCheck || !['admin', 'owner'].includes(effectiveRole)) {
+        return NextResponse.json(
+          { error: 'Forbidden: Insufficient account permissions' },
+          { status: 403 }
+        );
+      }
+    }
+
     let account: Record<string, unknown> | null = null;
     let { data, error } = await db
       .from('accounts')
@@ -69,6 +100,38 @@ export async function GET() {
 export async function PATCH(request: Request) {
   try {
     const ctx = await requireRole('admin');
+    const db = appwriteAdmin();
+
+    // Verify authenticated user's active membership and admin role for this specific account
+    const { data: memberCheck } = await db
+      .from('account_members')
+      .select('id, role, active')
+      .eq('account_id', ctx.accountId)
+      .eq('user_id', ctx.userId)
+      .eq('active', true)
+      .maybeSingle();
+
+    if (
+      !memberCheck ||
+      !['admin', 'owner'].includes(String(memberCheck.role).toLowerCase())
+    ) {
+      const { data: profileCheck } = await db
+        .from('profiles')
+        .select('account_id, role, account_role')
+        .eq('user_id', ctx.userId)
+        .eq('account_id', ctx.accountId)
+        .maybeSingle();
+
+      const effectiveRole = String(
+        profileCheck?.account_role || profileCheck?.role || ''
+      ).toLowerCase();
+      if (!profileCheck || !['admin', 'owner'].includes(effectiveRole)) {
+        return NextResponse.json(
+          { error: 'Forbidden: Insufficient account permissions' },
+          { status: 403 }
+        );
+      }
+    }
 
     const limit = checkRateLimit(
       `admin:ai-config:${ctx.userId}`,
@@ -112,7 +175,6 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const db = appwriteAdmin();
     let { data, error } = await db
       .from('accounts')
       .update(updates)

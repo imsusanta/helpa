@@ -97,4 +97,29 @@ test.describe('E2E: Authenticated Clinic & Patient Workflows', () => {
     const res = await request.get('/api/patients/fake-patient-id/export');
     expect([401, 403, 404]).toContain(res.status());
   });
+
+  test('verifies settings overview API fails closed with 401 on unauthenticated access', async ({
+    request,
+  }) => {
+    const res = await request.get('/api/settings/overview');
+    expect([401, 403]).toContain(res.status());
+  });
+
+  test('verifies account settings mutation API fails closed with 401 on unauthenticated access', async ({
+    request,
+  }) => {
+    const res = await request.patch('/api/account', {
+      data: { name: 'Unauthorized Clinic Rename' },
+    });
+    expect([401, 403]).toContain(res.status());
+  });
+
+  test('verifies profile update API fails closed with 401 on unauthenticated access', async ({
+    request,
+  }) => {
+    const res = await request.patch('/api/account/profile', {
+      data: { full_name: 'Hacker User' },
+    });
+    expect([401, 403]).toContain(res.status());
+  });
 });

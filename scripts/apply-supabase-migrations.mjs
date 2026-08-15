@@ -23,6 +23,12 @@ function assertPreflight() {
   if (!projectRef || !/^[a-z0-9]{20}$/i.test(projectRef)) {
     fail('INVALID_SUPABASE_PROJECT_REF');
   }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  if (supabaseUrl && !supabaseUrl.startsWith('https://')) {
+    fail('INSECURE_HTTP_ENDPOINT_FORBIDDEN');
+  }
+
   if (
     !process.env.SUPABASE_ACCESS_TOKEN ||
     placeholder.test(process.env.SUPABASE_ACCESS_TOKEN)

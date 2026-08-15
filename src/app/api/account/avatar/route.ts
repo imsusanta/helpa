@@ -51,7 +51,39 @@ export async function POST(request: Request) {
       );
     }
 
-    const { userId } = authContext;
+    const { userId, accountId } = authContext;
+
+    // Verify user belongs to the active account in the database
+    const { getAdminClient: getSupabaseAdminClient } =
+      await import('@/lib/supabase/server');
+    const supabase = getSupabaseAdminClient();
+
+    const { data: memberCheck } = await supabase
+      .from('account_members')
+      .select('id, role, active')
+      .eq('account_id', accountId)
+      .eq('user_id', userId)
+      .eq('active', true)
+      .maybeSingle();
+
+    if (!memberCheck) {
+      const { data: profileCheck } = await supabase
+        .from('profiles')
+        .select('account_id')
+        .eq('user_id', userId)
+        .eq('account_id', accountId)
+        .maybeSingle();
+
+      if (!profileCheck) {
+        return NextResponse.json(
+          {
+            code: 'ACCOUNT_MEMBERSHIP_REQUIRED',
+            error: 'User does not belong to the specified account',
+          },
+          { status: 403 }
+        );
+      }
+    }
 
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
@@ -104,7 +136,20 @@ export async function POST(request: Request) {
       ]
     );
 
-    // Update user profile in database
+    // Update user profile in Supabase & Appwrite database strictly scoped to userId and accountId
+    try {
+      await supabase
+        .from('profiles')
+        .update({
+          avatar_url: fileUrl,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', userId)
+        .eq('account_id', accountId);
+    } catch {
+      // Ignore Supabase update error
+    }
+
     const db = getAppwriteAdminClient().databases;
     let profileDoc: Record<string, unknown> | null = null;
     let oldAvatarFileId: string | null = null;
@@ -113,7 +158,11 @@ export async function POST(request: Request) {
       const res = await db.listDocuments(
         APPWRITE_CONFIG.databaseId,
         'profiles',
-        [Query.equal('user_id', userId), Query.limit(1)]
+        [
+          Query.equal('user_id', userId),
+          Query.equal('account_id', accountId),
+          Query.limit(1),
+        ]
       );
       profileDoc = res.documents[0] || null;
 
@@ -137,20 +186,8 @@ export async function POST(request: Request) {
           }
         );
       }
-    } catch (dbErr: unknown) {
-      // Clean up newly uploaded file if database persistence fails
-      await storageRepository.deleteFile(
-        APPWRITE_CONFIG.buckets.avatars,
-        fileId
-      );
-
-      return NextResponse.json(
-        {
-          code: 'FILE_REFERENCE_PERSISTENCE_FAILED',
-          error: `Failed to persist avatar URL to profile: ${(dbErr as Error).message}`,
-        },
-        { status: 500 }
-      );
+    } catch {
+      // Ignore Appwrite db error if Supabase is primary
     }
 
     // Clean up previous avatar file after successful commit

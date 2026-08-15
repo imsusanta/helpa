@@ -1283,6 +1283,9 @@ export function createDataClient(
       const channelObj: any = {
         name,
         on: () => channelObj,
+        send: () => channelObj,
+        track: () => Promise.resolve('ok'),
+        untrack: () => Promise.resolve('ok'),
         subscribe: (cb?: (status: string) => void) => {
           if (typeof cb === 'function') {
             try {
@@ -1298,6 +1301,7 @@ export function createDataClient(
       return channelObj;
     },
     removeChannel: async () => 'ok',
+    getChannels: () => [],
   };
   return client;
 }

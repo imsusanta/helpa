@@ -1,9 +1,38 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { createClient as createSupabaseServerClient } from '@/lib/supabase/server';
 import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
 
 export async function GET() {
   try {
+    // 1. Check Supabase Auth
+    try {
+      const supabase = await createSupabaseServerClient();
+      const {
+        data: { user: supabaseUser },
+        error: supabaseErr,
+      } = await supabase.auth.getUser();
+
+      if (supabaseUser && !supabaseErr) {
+        return NextResponse.json({
+          success: true,
+          user: {
+            id: supabaseUser.id,
+            email: supabaseUser.email,
+            name:
+              supabaseUser.user_metadata?.full_name ||
+              supabaseUser.user_metadata?.name ||
+              supabaseUser.email?.split('@')[0] ||
+              'User',
+            created_at: supabaseUser.created_at,
+          },
+        });
+      }
+    } catch {
+      // Fallback to Appwrite
+    }
+
+    // 2. Fallback: Appwrite session
     const cookieStore = await cookies();
     const sessionSecret = cookieStore.get(
       `a_session_${APPWRITE_CONFIG.projectId}`
