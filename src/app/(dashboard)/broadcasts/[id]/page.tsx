@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { createClient } from '@/lib/appwrite-compat';
 import { Broadcast, BroadcastRecipient, RecipientStatus } from '@/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -160,32 +159,14 @@ export default function BroadcastDetailPage() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const appwrite = createClient();
-
-        const { data: bc, error: bcError } = await appwrite
-          .from('broadcasts')
-          .select('*')
-          .eq('id', broadcastId)
-          .single();
-
-        if (bcError) throw bcError;
-        setBroadcast(bc);
-
-        try {
-          const { data: recs, error: recsError } = await appwrite
-            .from('broadcast_recipients')
-            .select('*, contact:contacts(*)')
-            .eq('broadcast_id', broadcastId)
-            .order('created_at', { ascending: false });
-
-          if (recsError) {
-            setRecipients([]);
-          } else {
-            setRecipients(recs ?? []);
-          }
-        } catch {
-          setRecipients([]);
-        }
+        const res = await fetch(`/api/broadcasts/${broadcastId}`, {
+          credentials: 'include',
+          cache: 'no-store',
+        });
+        if (!res.ok) throw new Error('Failed to load broadcast');
+        const payload = await res.json();
+        setBroadcast(payload.data);
+        setRecipients(payload.data?.recipients ?? []);
       } catch (err) {
         setError(
           err instanceof Error ? err.message : 'Failed to load broadcast'
@@ -237,22 +218,18 @@ export default function BroadcastDetailPage() {
 
   async function handleDelete() {
     setDeleting(true);
-    const appwrite = createClient();
-    // broadcast_recipients cascades on broadcasts.id (migration 001), so a
-    // single delete is sufficient — the aggregate trigger in migration 003
-    // is defined on broadcast_recipients but fires only on its own row
-    // changes, not on a cascaded drop of the parent row.
-    const { error: delErr } = await appwrite
-      .from('broadcasts')
-      .delete()
-      .eq('id', broadcastId);
-    setDeleting(false);
-    if (delErr) {
-      toast.error(`Failed to delete: ${delErr.message}`);
-      return;
+    try {
+      const res = await fetch(`/api/broadcasts/${broadcastId}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) throw new Error('Failed to delete broadcast');
+      toast.success('Broadcast deleted');
+      router.push('/broadcasts');
+    } catch (err: unknown) {
+      toast.error(`Failed to delete: ${(err as Error).message}`);
+    } finally {
+      setDeleting(false);
     }
-    toast.success('Broadcast deleted');
-    router.push('/broadcasts');
   }
 
   if (loading) {

@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { createClient } from '@/lib/appwrite-compat';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -109,7 +108,6 @@ export default function AppointmentsPage() {
 
   const loadAllData = useCallback(async () => {
     if (!accountId) return;
-    const db = createClient();
 
     try {
       // 1. Fetch booking form settings config
@@ -126,25 +124,24 @@ export default function AppointmentsPage() {
         .catch((e) => console.error('Form config load error:', e));
 
       // 2. Fetch appointments
-      const { data: appts } = await db
-        .from('appointments')
-        .select(
-          'id, booking_id, appointment_date, appointment_time, status, notes, department, token_number, queue_position, patient:contacts(id, name, phone), doctor:hospital_doctors(id, name, specialization)'
-        )
-        .eq('account_id', accountId)
-        .order('appointment_date', { ascending: true })
-        .order('appointment_time', { ascending: true });
-
-      setAppointments((appts ?? []) as unknown as Appointment[]);
+      const apptsRes = await fetch('/api/appointments', {
+        credentials: 'include',
+        cache: 'no-store',
+      });
+      if (apptsRes.ok) {
+        const apptsPayload = await apptsRes.json();
+        setAppointments((apptsPayload.data ?? []) as unknown as Appointment[]);
+      }
 
       // 3. Fetch doctors dropdown
-      const { data: docs } = await db
-        .from('hospital_doctors')
-        .select('id, name, department, specialization')
-        .eq('account_id', accountId)
-        .eq('status', 'active');
-
-      setDoctors(docs || []);
+      const docsRes = await fetch('/api/doctors?status=active', {
+        credentials: 'include',
+        cache: 'no-store',
+      });
+      if (docsRes.ok) {
+        const docsPayload = await docsRes.json();
+        setDoctors(docsPayload.data || []);
+      }
     } catch (err) {
       console.error('Error loading appointments dataset:', err);
     } finally {
@@ -256,18 +253,16 @@ export default function AppointmentsPage() {
     const apptTime = time;
 
     setSaving(true);
-    const db = createClient();
 
     try {
       let finalContactId = selectedPatient?.id;
 
-      // Create new patient if no existing patient selected or creating new family member
+      // Create new patient contact if no existing patient selected or creating new family member
       if (!finalContactId || createNewFamilyMember) {
-        // 1. Create contact record
-        const { data: newContact, error: contactError } = await db
-          .from('contacts')
-          .insert({
-            account_id: accountId,
+        const contactRes = await fetch('/api/contacts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
             name: patientName.trim(),
             phone: mobileNumber.trim(),
             email: email.trim() || null,
@@ -282,52 +277,16 @@ export default function AppointmentsPage() {
               insurance_number: insuranceNumber || null,
               referred_by: referredBy || null,
             },
-          })
-          .select('id')
-          .single();
-
-        if (contactError || !newContact)
-          throw new Error(
-            'Failed to create patient profile: ' + contactError?.message
-          );
-
-        finalContactId = newContact.id;
-
-        // 2. Create patient record (triggers PAT-XXXXXX auto-sequence assignment)
-        const { error: patientInsertError } = await db.from('patients').insert({
-          id: finalContactId,
-          account_id: accountId,
-          gender: gender || null,
-          date_of_birth: dob || null,
-          blood_group: bloodGroup || null,
-          emergency_contact: emergencyContact || null,
+          }),
         });
-        if (patientInsertError) {
-          console.error(
-            'Patient record insert error:',
-            patientInsertError.message
-          );
-          // Non-fatal: the patient trigger may have failed but the contact exists
-        }
-      } else {
-        // Existing patient selected — ensure a patients record exists
-        const { data: existingPatientRow } = await db
-          .from('patients')
-          .select('id')
-          .eq('id', finalContactId)
-          .maybeSingle();
 
-        if (!existingPatientRow) {
-          // Patient contact exists but no patients record — create one
-          await db.from('patients').insert({
-            id: finalContactId,
-            account_id: accountId,
-            gender: gender || null,
-            date_of_birth: dob || null,
-            blood_group: bloodGroup || null,
-            emergency_contact: emergencyContact || null,
-          });
+        if (!contactRes.ok) {
+          const errData = await contactRes.json().catch(() => ({}));
+          throw new Error(errData.error || 'Failed to create patient profile');
         }
+
+        const contactData = await contactRes.json();
+        finalContactId = contactData.data?.id;
       }
 
       const selectedDoc = doctors.find((d) => d.id === doctorId);
@@ -335,11 +294,11 @@ export default function AppointmentsPage() {
         ? selectedDoc.department
         : department || 'General';
 
-      // 3. Create appointment record
-      const { data: newAppt, error: apptError } = await db
-        .from('appointments')
-        .insert({
-          account_id: accountId,
+      // Create appointment record via API
+      const apptRes = await fetch('/api/appointments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           patient_id: finalContactId,
           doctor_id: doctorId || null,
           department: apptDept,
@@ -347,13 +306,18 @@ export default function AppointmentsPage() {
           appointment_time: apptTime,
           status: 'pending',
           notes: notes.trim() || null,
-        })
-        .select('id, token_number, booking_id')
-        .single();
+        }),
+      });
 
-      if (apptError) throw apptError;
+      if (!apptRes.ok) {
+        const errData = await apptRes.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to create appointment');
+      }
 
-      // 4. Trigger WhatsApp Confirmation notification asynchronously
+      const apptData = await apptRes.json();
+      const newAppt = apptData.data;
+
+      // Trigger WhatsApp Confirmation notification asynchronously
       if (newAppt?.id) {
         fetch(`/api/appointments/${newAppt.id}/confirm`, {
           method: 'POST',
@@ -378,14 +342,18 @@ export default function AppointmentsPage() {
   };
 
   const handleUpdateStatus = async (apptId: string, newStatus: string) => {
-    const db = createClient();
     try {
-      const { error } = await db
-        .from('appointments')
-        .update({ status: newStatus, updated_at: new Date().toISOString() })
-        .eq('id', apptId);
+      const res = await fetch(`/api/appointments/${apptId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
 
-      if (error) throw error;
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to update appointment status');
+      }
+
       toast.success(`Appointment status updated to ${newStatus}.`);
       loadAllData();
     } catch (err: unknown) {

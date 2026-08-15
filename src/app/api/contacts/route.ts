@@ -122,3 +122,53 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return errorResponse(502, 'CONTACTS_QUERY_FAILED', correlationId);
   }
 }
+
+export async function POST(request: NextRequest): Promise<NextResponse> {
+  const correlationId = requestId(request);
+  try {
+    const context = await requireRole('agent');
+    const supabase = getSupabaseAdminClient();
+    const body = await request.json();
+
+    const { name, phone, email, address, metadata } = body;
+
+    if (!name || !phone) {
+      return errorResponse(400, 'NAME_AND_PHONE_REQUIRED', correlationId);
+    }
+
+    const { data: newContact, error: insertErr } = await supabase
+      .from('contacts')
+      .insert({
+        account_id: context.accountId,
+        user_id: context.userId,
+        name: name.trim(),
+        phone: phone.trim(),
+        email: email ? email.trim() : null,
+        address: address ? address.trim() : null,
+        metadata: metadata || {},
+      })
+      .select()
+      .single();
+
+    if (insertErr) {
+      console.error('[contacts] Insert failed:', insertErr);
+      return errorResponse(500, insertErr.message, correlationId);
+    }
+
+    return NextResponse.json(
+      { data: newContact, requestId: correlationId },
+      {
+        status: 201,
+        headers: { ...PRIVATE_HEADERS, 'X-Request-Id': correlationId },
+      }
+    );
+  } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return errorResponse(401, 'AUTH_REQUIRED', correlationId);
+    }
+    if (error instanceof ForbiddenError) {
+      return errorResponse(403, 'ACCOUNT_MEMBERSHIP_REQUIRED', correlationId);
+    }
+    return errorResponse(500, 'CONTACT_CREATE_FAILED', correlationId);
+  }
+}

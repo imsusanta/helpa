@@ -3,7 +3,6 @@
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 import { useEffect, useState, useCallback } from 'react';
-import { createClient } from '@/lib/appwrite-compat';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -70,19 +69,23 @@ export default function DoctorsPage() {
 
   const loadDoctors = useCallback(async () => {
     if (!accountId) return;
-    const db = createClient();
-    const { data, error } = await db
-      .from('hospital_doctors')
-      .select('*')
-      .eq('account_id', accountId)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error loading doctors:', error);
-    } else {
-      setDoctors(data || []);
+    try {
+      const res = await fetch('/api/doctors', {
+        credentials: 'include',
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const payload = await res.json();
+        setDoctors(payload.data || []);
+      } else {
+        const errPayload = await res.json().catch(() => ({}));
+        console.error('Error loading doctors:', errPayload);
+      }
+    } catch (err) {
+      console.error('Error loading doctors:', err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [accountId]);
 
   useEffect(() => {
@@ -103,38 +106,43 @@ export default function DoctorsPage() {
     }
 
     setSaving(true);
-    const db = createClient();
 
     try {
-      if (editingDocId) {
-        const { error } = await db
-          .from('hospital_doctors')
-          .update({
-            name,
-            department,
-            specialization: specialization || null,
-            consultation_fee: parseFloat(fee) || 0,
-            working_hours: { start: startHour, end: endHour },
-            available_days: selectedDays,
-            status: docStatus,
-          })
-          .eq('id', editingDocId);
+      const payload = {
+        name,
+        department,
+        specialization: specialization || null,
+        consultation_fee: parseFloat(fee) || 0,
+        working_hours: { start: startHour, end: endHour },
+        available_days: selectedDays,
+        status: docStatus,
+      };
 
-        if (error) throw error;
-        toast.success('Doctor profile updated successfully!');
-      } else {
-        const { error } = await db.from('hospital_doctors').insert({
-          account_id: accountId,
-          name,
-          department,
-          specialization: specialization || null,
-          consultation_fee: parseFloat(fee) || 0,
-          working_hours: { start: startHour, end: endHour },
-          available_days: selectedDays,
-          status: 'active',
+      if (editingDocId) {
+        const res = await fetch(`/api/doctors/${editingDocId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
         });
 
-        if (error) throw error;
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || 'Failed to update doctor');
+        }
+
+        toast.success('Doctor profile updated successfully!');
+      } else {
+        const res = await fetch('/api/doctors', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || 'Failed to create doctor');
+        }
+
         toast.success('Doctor registered successfully!');
       }
 
@@ -176,14 +184,15 @@ export default function DoctorsPage() {
   const executeDeleteDoctor = async () => {
     if (!docIdToDelete) return;
     setDeletingDoc(true);
-    const db = createClient();
     try {
-      const { error } = await db
-        .from('hospital_doctors')
-        .delete()
-        .eq('id', docIdToDelete);
+      const res = await fetch(`/api/doctors/${docIdToDelete}`, {
+        method: 'DELETE',
+      });
 
-      if (error) throw error;
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to delete doctor');
+      }
 
       toast.success('Doctor deleted successfully!');
       setDocIdToDelete(null);

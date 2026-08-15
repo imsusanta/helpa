@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { createClient } from '@/lib/appwrite-compat';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -51,17 +50,15 @@ export default function BillingPage() {
 
   const loadData = useCallback(async () => {
     if (!accountId) return;
-    const db = createClient();
     try {
-      const { data: billRows } = await db
-        .from('hospital_bills')
-        .select(
-          'id, bill_number, description, amount, status, created_at, patient:contacts(id, name, phone)'
-        )
-        .eq('account_id', accountId)
-        .order('created_at', { ascending: false });
-
-      setBills((billRows as unknown as Bill[]) || []);
+      const res = await fetch('/api/billing', {
+        credentials: 'include',
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const payload = await res.json();
+        setBills((payload.data as unknown as Bill[]) || []);
+      }
 
       // Fetch patients from authenticated /api/contacts endpoint
       try {
@@ -109,17 +106,23 @@ export default function BillingPage() {
     }
 
     setSaving(true);
-    const db = createClient();
     try {
-      const { error } = await db.from('hospital_bills').insert({
-        account_id: accountId,
-        patient_id: patientId,
-        description: description || 'General Consultation & Treatment Fee',
-        amount: parseFloat(amount),
-        status: 'unpaid',
+      const res = await fetch('/api/billing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          patient_id: patientId,
+          description: description || 'General Consultation & Treatment Fee',
+          amount: parseFloat(amount),
+          status: 'unpaid',
+        }),
       });
 
-      if (error) throw error;
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to generate bill');
+      }
+
       toast.success('Invoice generated successfully!');
       setPatientId('');
       setDescription('');
@@ -137,14 +140,18 @@ export default function BillingPage() {
     billId: string,
     newStatus: 'unpaid' | 'paid' | 'overdue'
   ) => {
-    const db = createClient();
     try {
-      const { error } = await db
-        .from('hospital_bills')
-        .update({ status: newStatus, updated_at: new Date().toISOString() })
-        .eq('id', billId);
+      const res = await fetch(`/api/billing/${billId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
 
-      if (error) throw error;
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to update bill status');
+      }
+
       toast.success(`Bill status updated to ${newStatus}.`);
       loadData();
     } catch (err: unknown) {

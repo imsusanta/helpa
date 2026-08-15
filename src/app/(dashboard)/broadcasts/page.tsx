@@ -4,7 +4,6 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/appwrite-compat';
 import { Broadcast } from '@/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -89,35 +88,42 @@ export default function CampaignsPage() {
   const fetchCampaignsAndStats = useCallback(async () => {
     if (!accountId) return;
     try {
-      const appwrite = createClient();
-
       // 1. Fetch campaigns
       try {
-        const { data: campaignRows, error: fetchError } = await appwrite
-          .from('broadcasts')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (fetchError) {
-          console.warn('[Broadcasts] Fetch warning:', fetchError);
-          setBroadcasts([]);
+        const res = await fetch('/api/broadcasts', {
+          credentials: 'include',
+          cache: 'no-store',
+        });
+        if (res.ok) {
+          const payload = await res.json();
+          setBroadcasts(payload.data ?? []);
         } else {
-          setBroadcasts(campaignRows ?? []);
+          setBroadcasts([]);
         }
       } catch (err) {
         console.warn('[Broadcasts] Failed fetching broadcast collection:', err);
         setBroadcasts([]);
       }
 
-      // 2. Fetch attributed bookings (auxiliary metric)
+      // 2. Fetch appointments for auxiliary counts
       try {
-        const { count: bookings, error: bookingsErr } = await appwrite
-          .from('appointments')
-          .select('id', { count: 'exact', head: true })
-          .not('campaign_id', 'is', null);
-
-        if (!bookingsErr && bookings !== null) {
-          setBookingsCount(bookings);
+        const apptsRes = await fetch('/api/appointments', {
+          credentials: 'include',
+          cache: 'no-store',
+        });
+        if (apptsRes.ok) {
+          const apptsPayload = await apptsRes.json();
+          const appts = apptsPayload.data || [];
+          const missedCount = appts.filter((a: { status?: string }) =>
+            ['no_show', 'No Show', 'Cancelled', 'cancelled'].includes(
+              a.status || ''
+            )
+          ).length;
+          setBookingsCount(appts.length);
+          setOppStats((prev) => ({
+            ...prev,
+            missed: missedCount,
+          }));
         }
       } catch {
         // auxiliary count fallback
@@ -125,43 +131,35 @@ export default function CampaignsPage() {
 
       // 3. Fetch AI Opportunities counts (auxiliary metrics)
       try {
-        const sixMonthsAgo = new Date();
-        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-
-        const [inactiveRes, missedRes, followupRes, pedRes] =
-          await Promise.allSettled([
-            appwrite
-              .from('patients')
-              .select('id', { count: 'exact', head: true })
-              .lt('created_at', sixMonthsAgo.toISOString()),
-            appwrite
-              .from('appointments')
-              .select('id', { count: 'exact', head: true })
-              .in('status', ['no_show', 'No Show', 'Cancelled']),
-            appwrite
-              .from('patients')
-              .select('id', { count: 'exact', head: true })
-              .is('last_followup_sent_at', null),
-            appwrite
-              .from('patients')
-              .select('id', { count: 'exact', head: true })
-              .eq('department', 'Pediatrics'),
-          ]);
-
-        setOppStats({
-          inactive:
-            inactiveRes.status === 'fulfilled'
-              ? inactiveRes.value.count || 0
-              : 0,
-          missed:
-            missedRes.status === 'fulfilled' ? missedRes.value.count || 0 : 0,
-          followup:
-            followupRes.status === 'fulfilled'
-              ? followupRes.value.count || 0
-              : 0,
-          pediatric:
-            pedRes.status === 'fulfilled' ? pedRes.value.count || 0 : 0,
+        const contactsRes = await fetch('/api/contacts', {
+          credentials: 'include',
+          cache: 'no-store',
         });
+        if (contactsRes.ok) {
+          const contactsPayload = await contactsRes.json();
+          const contacts = contactsPayload.data || [];
+
+          const sixMonthsAgo = new Date();
+          sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+          const inactive = contacts.filter(
+            (c: { created_at?: string }) =>
+              c.created_at && new Date(c.created_at) < sixMonthsAgo
+          ).length;
+          const followup = contacts.filter(
+            (c: { last_followup_sent_at?: string }) => !c.last_followup_sent_at
+          ).length;
+          const pediatric = contacts.filter(
+            (c: { department?: string }) => c.department === 'Pediatrics'
+          ).length;
+
+          setOppStats((prev) => ({
+            ...prev,
+            inactive,
+            followup,
+            pediatric,
+          }));
+        }
       } catch {
         // auxiliary metrics fallback
       }
@@ -257,12 +255,10 @@ export default function CampaignsPage() {
     if (!campaignIdToDelete) return;
     setDeletingCampaign(true);
     try {
-      const appwrite = createClient();
-      const { error } = await appwrite
-        .from('broadcasts')
-        .delete()
-        .eq('id', campaignIdToDelete);
-      if (error) throw error;
+      const res = await fetch(`/api/broadcasts/${campaignIdToDelete}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) throw new Error('Failed to delete campaign');
       toast.success('Campaign deleted successfully');
       setCampaignIdToDelete(null);
       fetchCampaignsAndStats();

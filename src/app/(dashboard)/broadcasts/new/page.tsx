@@ -132,25 +132,31 @@ export default function NewCampaignPage() {
 
     async function loadConfig() {
       try {
-        const appwrite = createClient();
-
-        // 1. Fetch active doctors
-        const { data: docData } = await appwrite
-          .from('hospital_doctors')
-          .select('id, name, department')
-          .eq('account_id', accountId)
-          .eq('status', 'active');
-        setDoctors(docData || []);
+        // 1. Fetch active doctors via authenticated API
+        const docRes = await fetch('/api/doctors?status=active', {
+          credentials: 'include',
+          cache: 'no-store',
+        });
+        if (docRes.ok) {
+          const docPayload = await docRes.json();
+          setDoctors(docPayload.data || []);
+        }
 
         // 2. Fetch approved Meta templates
-        const { data: tempRows } = await appwrite
-          .from('message_templates')
-          .select('*')
-          .eq('account_id', accountId)
-          .eq('status', 'APPROVED');
-        setTemplates(tempRows || []);
+        try {
+          const tempRes = await fetch('/api/whatsapp/templates/sync', {
+            credentials: 'include',
+          });
+          if (tempRes.ok) {
+            const tempPayload = await tempRes.json();
+            setTemplates(tempPayload.templates || []);
+          }
+        } catch {
+          // Template fallback
+        }
 
         // 3. Fetch contact tags
+        const appwrite = createClient();
         const { data: tagRows } = await appwrite
           .from('tags')
           .select('id, name')
@@ -176,47 +182,51 @@ export default function NewCampaignPage() {
       );
     } else if (suggestionType === 'missed') {
       setAudienceType('missed_appointments');
-      setCategory('Follow-up Reminder');
-      setName('Appointment Re-booking Campaign');
+      setCategory('Rescheduling Outreach');
+      setName('Appointment Rescheduling Outreach');
       setAiPrompt(
-        'Write a polite and helpful message to patients who missed their appointments this month, asking them if they would like to re-book. Prompt them to reply BOOK.'
+        'Write an empathetic outreach message for patients who missed their recent appointment, asking if they would like to reschedule.'
       );
-    } else if (suggestionType === 'followup') {
-      setAudienceType('due_followup');
-      setCategory('Health Camp');
-      setName('Diabetic Camp Follow-up Reminder');
+    } else if (suggestionType === 'wellness') {
+      setAudienceType('all');
+      setCategory('Seasonal Health Advisory');
+      setName('Seasonal Wellness Broadcast');
       setAiPrompt(
-        'Write an invitation to diabetic patients for a routine blood glucose test and follow-up appointment this week.'
+        'Write a seasonal wellness update with helpful preventive health tips and advice for maintaining immunity this season.'
+      );
+    } else if (suggestionType === 'pediatric') {
+      setAudienceType('by_department');
+      setSelectedDept('Pediatrics');
+      setCategory('Vaccination & Child Care');
+      setName('Pediatric Health & Immunization Alert');
+      setAiPrompt(
+        'Write a friendly note to parents about upcoming pediatric vaccination drives and seasonal child wellness checks.'
       );
     }
   }, [accountId, searchParams]);
 
-  // ═══════ AI WRITER TRIGGER ═══════
+  // ═══════ AI COPYWRITER GENERATOR ═══════
   async function handleAiGenerateText() {
     if (!aiPrompt.trim()) {
-      toast.error(
-        'Please enter a brief campaign topic for the AI to write about.'
-      );
+      toast.error('Please specify what kind of message you want AI to draft.');
       return;
     }
     setWritingMessage(true);
     try {
-      const activeDoc = doctors.find((d) => d.id === selectedDoctorId);
       const res = await fetch('/api/campaigns/generate-message', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          category,
           prompt: aiPrompt,
-          doctorName: activeDoc?.name || '',
-          department: selectedDept || activeDoc?.department || '',
+          category,
+          audienceType,
+          department: selectedDept,
         }),
       });
-
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to write message');
-
-      setCustomMessage(data.message || '');
+      if (!res.ok) throw new Error(data.error || 'Failed to generate copy');
+      setCustomMessage(data.message);
+      setContentMode('custom');
       toast.success('AI Campaign Message generated successfully!');
     } catch (err: unknown) {
       toast.error((err as Error).message || 'AI writer failed');
@@ -232,48 +242,28 @@ export default function NewCampaignPage() {
       return;
     }
     try {
-      const appwrite = createClient();
-
       const draftPayload = {
-        account_id: accountId,
-        user_id: (await appwrite.auth.getSession()).data.session?.user.id,
         name: name.trim(),
-        template_name:
-          contentMode === 'template'
-            ? selectedTemplate?.name || 'custom_draft'
-            : 'custom_campaign',
-        template_language:
-          contentMode === 'template'
-            ? selectedTemplate?.language || 'en_US'
-            : 'en_US',
+        message:
+          contentMode === 'custom'
+            ? customMessage
+            : selectedTemplate?.name || 'Draft Campaign',
+        target_type: audienceType,
+        target_tag_id: selectedTagId || null,
         status: 'draft' as const,
         total_recipients: 0,
-        sent_count: 0,
-        delivered_count: 0,
-        read_count: 0,
-        replied_count: 0,
-        failed_count: 0,
-        category,
-        message_body: contentMode === 'custom' ? customMessage : null,
-        attachment_url: attachmentUrl || null,
-        attachment_type: attachmentUrl ? attachmentType : null,
-        cta_type: ctaType,
-        cta_text: ctaText || null,
-        cta_url: ctaUrl || null,
-        recurrence,
-        ai_suggested: !!searchParams.get('suggestion'),
-        audience_filter: {
-          type: audienceType,
-          department: selectedDept || null,
-          doctorId: selectedDoctorId || null,
-          gender: selectedGender || null,
-          ageMin: ageMin || null,
-          ageMax: ageMax || null,
-        },
       };
 
-      const { error } = await appwrite.from('broadcasts').insert(draftPayload);
-      if (error) throw error;
+      const res = await fetch('/api/broadcasts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(draftPayload),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to save draft');
+      }
 
       toast.success('Campaign draft saved successfully');
       router.push('/broadcasts');

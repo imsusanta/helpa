@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/appwrite-compat';
 import { useAuth } from '@/hooks/use-auth';
 import {
   Building,
@@ -64,33 +63,33 @@ export default function DepartmentsPage() {
     async function loadStats() {
       if (!accountId) return;
       try {
-        const db = createClient();
         const [docsRes, apptsRes] = await Promise.all([
-          db.from('doctors').select('department').eq('account_id', accountId),
-          db
-            .from('appointments')
-            .select('department')
-            .eq('account_id', accountId),
+          fetch('/api/doctors', { credentials: 'include', cache: 'no-store' }),
+          fetch('/api/appointments', {
+            credentials: 'include',
+            cache: 'no-store',
+          }),
         ]);
 
-        const doctors = docsRes.data || [];
-        const appointments = apptsRes.data || [];
+        const doctorsPayload = docsRes.ok ? await docsRes.json() : { data: [] };
+        const apptsPayload = apptsRes.ok ? await apptsRes.json() : { data: [] };
+
+        const doctors = doctorsPayload.data || [];
+        const appointments = apptsPayload.data || [];
 
         const mapped: DepartmentData[] = DEPT_TEMPLATES.map((tmpl) => {
           const docCount = doctors.filter(
-            (d) =>
-              (d as { department?: string }).department?.toLowerCase() ===
-              tmpl.name.toLowerCase()
+            (d: { department?: string }) =>
+              d.department?.toLowerCase() === tmpl.name.toLowerCase()
           ).length;
           const apptCount = appointments.filter(
-            (a) =>
-              (a as { department?: string }).department?.toLowerCase() ===
-              tmpl.name.toLowerCase()
+            (a: { department?: string }) =>
+              a.department?.toLowerCase() === tmpl.name.toLowerCase()
           ).length;
 
           return {
             ...tmpl,
-            doctorCount: docCount || Math.floor(Math.random() * 2) + 1, // small fallback
+            doctorCount: docCount,
             appointmentCount: apptCount,
           };
         });

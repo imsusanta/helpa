@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { createClient } from '@/lib/appwrite-compat';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -94,58 +93,55 @@ export default function LabReportsPage() {
 
   const loadData = useCallback(async () => {
     if (!accountId) return;
-    const db = createClient();
     try {
-      const { data: repData, error } = await db
-        .from('hospital_lab_reports')
-        .select(
-          '*, patient:contacts(id, name, phone), doctor:hospital_doctors(id, name)'
-        )
-        .eq('account_id', accountId)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      const formattedReports: LabReport[] = (repData || []).map((r) => {
-        const item = r as Record<string, unknown>;
-        const pData = item.patient as {
-          id: string;
-          name: string;
-          phone: string;
-        } | null;
-        const docObj = item.doctor as { id: string; name: string } | null;
-        return {
-          id: item.id as string,
-          account_id: item.account_id as string,
-          patient_id: item.patient_id as string,
-          doctor_id: item.doctor_id as string,
-          test_name: item.test_name as string,
-          department: item.department as string,
-          status: item.status as LabReport['status'],
-          report_pdf_url: item.report_pdf_url as string,
-          expected_delivery_date: item.expected_delivery_date as string,
-          notes: item.notes as string,
-          created_at: item.created_at as string,
-          updated_at: item.updated_at as string,
-          patient: pData
-            ? {
-                id: pData.id,
-                name: pData.name || 'Unknown Patient',
-                phone: pData.phone || '—',
-              }
-            : null,
-          doctor: docObj
-            ? {
-                id: docObj.id,
-                name: docObj.name,
-              }
-            : null,
-        };
+      // 1. Fetch lab reports
+      const repRes = await fetch('/api/lab-reports', {
+        credentials: 'include',
+        cache: 'no-store',
       });
+      if (repRes.ok) {
+        const repPayload = await repRes.json();
+        const formattedReports: LabReport[] = (repPayload.data || []).map(
+          (r: Record<string, unknown>) => {
+            const pData = r.patient as {
+              id: string;
+              name: string;
+              phone: string;
+            } | null;
+            const docObj = r.doctor as { id: string; name: string } | null;
+            return {
+              id: r.id as string,
+              account_id: r.account_id as string,
+              patient_id: r.patient_id as string,
+              doctor_id: r.doctor_id as string,
+              test_name: r.test_name as string,
+              department: r.department as string,
+              status: r.status as LabReport['status'],
+              report_pdf_url: r.report_pdf_url as string,
+              expected_delivery_date: r.expected_delivery_date as string,
+              notes: r.notes as string,
+              created_at: r.created_at as string,
+              updated_at: r.updated_at as string,
+              patient: pData
+                ? {
+                    id: pData.id,
+                    name: pData.name || 'Unknown Patient',
+                    phone: pData.phone || '—',
+                  }
+                : null,
+              doctor: docObj
+                ? {
+                    id: docObj.id,
+                    name: docObj.name,
+                  }
+                : null,
+            };
+          }
+        );
+        setReports(formattedReports);
+      }
 
-      setReports(formattedReports);
-
-      // Fetch patients from authenticated /api/contacts endpoint
+      // 2. Fetch patients from authenticated /api/contacts endpoint
       try {
         const contactsRes = await fetch('/api/contacts?limit=100', {
           credentials: 'include',
@@ -170,14 +166,15 @@ export default function LabReportsPage() {
         console.warn('Failed to load contacts for patient select:', err);
       }
 
-      // Fetch doctors
-      const { data: docsData } = await db
-        .from('hospital_doctors')
-        .select('id, name, department')
-        .eq('account_id', accountId)
-        .eq('status', 'active');
-
-      setDoctors((docsData as unknown as Doctor[]) || []);
+      // 3. Fetch doctors
+      const docsRes = await fetch('/api/doctors?status=active', {
+        credentials: 'include',
+        cache: 'no-store',
+      });
+      if (docsRes.ok) {
+        const docsPayload = await docsRes.json();
+        setDoctors((docsPayload.data as unknown as Doctor[]) || []);
+      }
     } catch (err) {
       console.error('Error loading lab reports:', err);
     } finally {
@@ -263,11 +260,11 @@ export default function LabReportsPage() {
     e.preventDefault();
     if (!editingReportId || !accountId) return;
     setUpdating(true);
-    const db = createClient();
     try {
-      const { error } = await db
-        .from('hospital_lab_reports')
-        .update({
+      const res = await fetch(`/api/lab-reports/${editingReportId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           test_name: editTestName,
           status: editStatus,
           department: editDepartment || null,
@@ -277,11 +274,14 @@ export default function LabReportsPage() {
           notes: editNotes || null,
           internal_notes: editInternalNotes || null,
           result_url: editResultUrl || null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', editingReportId);
+        }),
+      });
 
-      if (error) throw error;
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to update report');
+      }
+
       toast.success('Diagnostic report updated successfully!');
       setEditingReportId(null);
       loadData();
@@ -314,16 +314,18 @@ export default function LabReportsPage() {
       const { uploadAccountMedia } = await import('@/lib/storage/upload-media');
       const result = await uploadAccountMedia('chat-media', file);
 
-      const db = createClient();
-      const { error } = await db
-        .from('hospital_lab_reports')
-        .update({
+      const res = await fetch(`/api/lab-reports/${reportId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           report_pdf_url: result.publicUrl,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', reportId);
+        }),
+      });
 
-      if (error) throw error;
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to link PDF to report');
+      }
 
       toast.success('PDF uploaded and linked to report!', { id: toastId });
       loadData();
@@ -340,24 +342,29 @@ export default function LabReportsPage() {
     }
 
     setSaving(true);
-    const db = createClient();
 
     try {
-      const { error } = await db.from('hospital_lab_reports').insert({
-        account_id: accountId,
-        patient_id: patientId,
-        test_name: testName,
-        status: status,
-        department: department || null,
-        doctor_id: doctorId || null,
-        expected_delivery_date: expectedDate || null,
-        report_pdf_url: pdfUrl || null,
-        result_url: resultUrl || null,
-        notes: notes || null,
-        internal_notes: internalNotes || null,
+      const res = await fetch('/api/lab-reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          patient_id: patientId,
+          test_name: testName,
+          status: status,
+          department: department || null,
+          doctor_id: doctorId || null,
+          expected_delivery_date: expectedDate || null,
+          report_pdf_url: pdfUrl || null,
+          result_url: resultUrl || null,
+          notes: notes || null,
+          internal_notes: internalNotes || null,
+        }),
       });
 
-      if (error) throw error;
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to create report');
+      }
 
       toast.success('Lab report created successfully!');
       setPatientId('');
@@ -382,25 +389,29 @@ export default function LabReportsPage() {
     reportId: string,
     newStatus: 'pending' | 'processing' | 'ready' | 'delivered'
   ) => {
-    const db = createClient();
     try {
-      const { error } = await db
-        .from('hospital_lab_reports')
-        .update({ status: newStatus, updated_at: new Date().toISOString() })
-        .eq('id', reportId);
+      const res = await fetch(`/api/lab-reports/${reportId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
 
-      if (error) throw error;
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Failed to update lab status');
+      }
+
       toast.success(`Lab status updated to ${newStatus}.`);
 
       if (newStatus === 'ready') {
         setNotifying(reportId);
         try {
-          const res = await fetch('/api/lab-reports/notify', {
+          const notifyRes = await fetch('/api/lab-reports/notify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ reportId, accountId }),
           });
-          if (res.ok) {
+          if (notifyRes.ok) {
             toast.success('Patient notified on WhatsApp!');
           } else {
             toast.error('Failed to notify patient on WhatsApp.');
