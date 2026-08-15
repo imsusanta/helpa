@@ -76,7 +76,18 @@ export async function POST(request: Request) {
       }
     );
 
-    const appwriteJson = await appwriteRes.json();
+    const appwriteJson = await appwriteRes.json().catch(() => null);
+
+    if (!appwriteJson || typeof appwriteJson !== 'object') {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            'Authentication provider returned an invalid response structure.',
+        },
+        { status: 502 }
+      );
+    }
 
     if (!appwriteRes.ok) {
       return NextResponse.json(
@@ -90,7 +101,8 @@ export async function POST(request: Request) {
       );
     }
 
-    let sessionSecret = appwriteJson.secret || '';
+    let sessionSecret =
+      typeof appwriteJson.secret === 'string' ? appwriteJson.secret : '';
     if (!sessionSecret) {
       // Extract session secret from Appwrite Set-Cookie header
       const rawCookies =
@@ -108,7 +120,24 @@ export async function POST(request: Request) {
       }
     }
 
-    const userId = appwriteJson.userId;
+    const userId =
+      typeof appwriteJson.userId === 'string'
+        ? appwriteJson.userId
+        : appwriteJson.$id;
+
+    if (
+      !userId ||
+      typeof userId !== 'string' ||
+      !/^[a-zA-Z0-9_\-\.]{1,64}$/.test(userId)
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Invalid user identifier in authentication response.',
+        },
+        { status: 502 }
+      );
+    }
 
     // Strict validation: format check
     if (!sessionSecret || !/^[a-zA-Z0-9_\-\.]{32,512}$/.test(sessionSecret)) {

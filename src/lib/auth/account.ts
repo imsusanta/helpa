@@ -70,30 +70,39 @@ export async function getCurrentAccount(): Promise<AccountContext> {
       throw new UnauthorizedError();
     }
     const admin = getSupabaseAdminClient();
-    const { data: member, error: memberError } = await admin
-      .from('account_members')
-      .select('account_id, role, accounts:account_id(id, name)')
+    const { data: profile, error: profileError } = await admin
+      .from('profiles')
+      .select('account_id, role, account_role, is_super_admin')
       .eq('user_id', userId)
-      .eq('active', true)
       .maybeSingle();
-    if (memberError || !member?.account_id || !member.role) {
+
+    if (profileError || !profile?.account_id) {
       throw new ForbiddenError('Account membership is required');
     }
-    const account = member.accounts as unknown as {
-      id: string;
-      name: string;
-    } | null;
+
+    const { data: accountDoc } = await admin
+      .from('accounts')
+      .select('id, name')
+      .eq('id', profile.account_id)
+      .maybeSingle();
+
+    const effectiveRole: AccountRole = profile.is_super_admin
+      ? 'owner'
+      : (profile.account_role as AccountRole) ||
+        (profile.role as AccountRole) ||
+        'owner';
+
     return {
       userId,
-      accountId: member.account_id,
-      role: member.role as AccountRole,
+      accountId: profile.account_id,
+      role: effectiveRole,
       email:
         typeof claims.claims.email === 'string'
           ? claims.claims.email
           : undefined,
       account: {
-        id: member.account_id,
-        name: account?.name || 'Clinic Account',
+        id: profile.account_id,
+        name: accountDoc?.name || 'Clinic Account',
       },
       appwrite: appwriteAdmin(),
     };
