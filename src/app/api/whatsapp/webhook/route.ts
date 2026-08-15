@@ -121,6 +121,34 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
       }
 
       if (!configRows || configRows.length === 0) {
+        try {
+          const { data: allConfigs } = await getAdminClient()
+            .from('whatsapp_config')
+            .select('*')
+            .limit(2);
+          if (allConfigs && allConfigs.length === 1) {
+            configRows = allConfigs;
+          }
+        } catch {
+          // Fallback
+        }
+      }
+
+      if (!configRows || configRows.length === 0) {
+        try {
+          const { data: allConfigs } = await getAdminClient()
+            .from('whatsapp_configs')
+            .select('*')
+            .limit(2);
+          if (allConfigs && allConfigs.length === 1) {
+            configRows = allConfigs;
+          }
+        } catch {
+          // Fallback
+        }
+      }
+
+      if (!configRows || configRows.length === 0) {
         console.warn(
           `[webhook] Received message for unregistered phone_number_id: ${phoneNumberId}`
         );
