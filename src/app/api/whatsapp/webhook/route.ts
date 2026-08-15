@@ -1,4 +1,4 @@
-import { NextResponse, after } from 'next/server';
+import { NextResponse } from 'next/server';
 import { getAdminClient } from '@/lib/appwrite-server-compat';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import { verifyMetaWebhookSignature } from '@/lib/whatsapp/webhook-signature';
@@ -41,19 +41,10 @@ export async function POST(request: Request) {
   }
 
   try {
-    after(async () => {
-      try {
-        await processWebhook(body);
-      } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : String(error);
-        console.error('Error processing webhook in background:', message);
-      }
-    });
-  } catch {
-    void processWebhook(body).catch((error: unknown) => {
-      const message = error instanceof Error ? error.message : String(error);
-      console.error('Error processing webhook in fallback context:', message);
-    });
+    await processWebhook(body);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('Error processing webhook:', message);
   }
 
   return NextResponse.json({ status: 'received' }, { status: 200 });

@@ -83,9 +83,8 @@ export function ConversationList({
   useEffect(() => {
     let cancelled = false;
 
-    (async () => {
-      setLoading(true);
-      setFetchError(null);
+    const fetchConvs = async (isBackground = false) => {
+      if (!isBackground) setLoading(true);
       try {
         const res = await fetch('/api/inbox/conversations', {
           credentials: 'include',
@@ -98,9 +97,10 @@ export function ConversationList({
           const errData = await res.json().catch(() => ({}));
           const errMsg =
             errData.error || `HTTP ${res.status}: Failed to load conversations`;
-          console.error('Failed to fetch conversations:', errMsg);
-          setFetchError(errMsg);
-          setLoading(false);
+          if (!isBackground) {
+            console.error('Failed to fetch conversations:', errMsg);
+            setFetchError(errMsg);
+          }
           return;
         }
 
@@ -114,17 +114,29 @@ export function ConversationList({
       } catch (err: unknown) {
         if (cancelled) return;
         const msg = err instanceof Error ? err.message : String(err);
-        console.error('Unexpected error fetching conversations:', msg);
-        setFetchError(msg);
+        if (!isBackground) {
+          console.error('Unexpected error fetching conversations:', msg);
+          setFetchError(msg);
+        }
       } finally {
-        if (!cancelled) {
+        if (!cancelled && !isBackground) {
           setLoading(false);
         }
       }
-    })();
+    };
+
+    void fetchConvs(false);
+
+    // Periodic safety-net poll every 4 seconds
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        void fetchConvs(true);
+      }
+    }, 4000);
 
     return () => {
       cancelled = true;
+      clearInterval(interval);
     };
   }, [resyncToken, retryCounter]);
 

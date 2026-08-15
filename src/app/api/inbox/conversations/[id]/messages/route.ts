@@ -152,10 +152,7 @@ export async function GET(request: NextRequest, { params }: Params) {
       messagesRes = await admin.databases.listDocuments(
         APPWRITE_CONFIG.databaseId,
         APPWRITE_CONFIG.collections.messages,
-        [
-          Query.equal('conversation_id', conversationId),
-          Query.limit(limit),
-        ]
+        [Query.equal('conversation_id', conversationId), Query.limit(limit)]
       );
     }
 

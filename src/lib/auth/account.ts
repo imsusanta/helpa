@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { hasMinRole, type AccountRole } from './roles';
+import { hasMinRole, isAccountRole, type AccountRole } from './roles';
 import { appwriteAdmin } from '@/lib/appwrite-server-compat';
 import {
   createClient as createSupabaseServerClient,
@@ -129,6 +129,10 @@ export async function getCurrentAccount(): Promise<AccountContext> {
     // Strict Fail-Closed: If user has no explicit verified membership, reject access!
     if (!accountId) {
       throw new ForbiddenError('Account membership is required');
+    }
+
+    if (!isAccountRole(role)) {
+      throw new ForbiddenError('Invalid account role');
     }
 
     const { data: accountDoc } = await admin

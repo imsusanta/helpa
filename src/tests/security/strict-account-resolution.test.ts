@@ -247,4 +247,50 @@ describe('Strict Multi-Tenant Account Resolution & RBAC Security', () => {
     const adminCtx = await requireSuperAdmin();
     expect(adminCtx.id).toBe('user_root_admin');
   });
+
+  it('fails closed when profile has an invalid role not in AccountRole union', async () => {
+    mockGetUser.mockResolvedValue({
+      data: {
+        user: { id: 'user_tampered_role', email: 'tampered@clinic.com' },
+      },
+      error: null,
+    });
+
+    mockAdminSelect.mockImplementation((table: string) => {
+      if (table === 'account_members') {
+        return Promise.resolve({
+          data: [
+            {
+              account_id: 'account_clinic_100',
+              role: 'super_hacker_role',
+              active: true,
+            },
+          ],
+          error: null,
+        });
+      }
+      return Promise.resolve({ data: null, error: null });
+    });
+
+    await expect(getCurrentAccount()).rejects.toThrow('Invalid account role');
+  });
+
+  it('fails closed when user membership is marked inactive (active = false)', async () => {
+    mockGetUser.mockResolvedValue({
+      data: {
+        user: { id: 'user_deactivated_staff', email: 'deactivated@clinic.com' },
+      },
+      error: null,
+    });
+
+    // Inactive row in account_members (active = false)
+    mockAdminSelect.mockImplementation(() =>
+      Promise.resolve({ data: [], error: null })
+    );
+    mockAdminMaybeSingle.mockImplementation(() =>
+      Promise.resolve({ data: null, error: null })
+    );
+
+    await expect(getCurrentAccount()).rejects.toThrow(ForbiddenError);
+  });
 });
