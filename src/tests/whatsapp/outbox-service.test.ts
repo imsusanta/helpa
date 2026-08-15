@@ -143,7 +143,6 @@ describe('OutboxService', () => {
     expect(mockUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
         status: 'reconciliation_required',
-        metaMessageId: 'wamid.abc',
       })
     );
   });

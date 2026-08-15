@@ -1,5 +1,4 @@
 import { appwriteAdmin } from '@/lib/appwrite-server-compat';
-import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
 
 export interface OutboxEntryPayload {
   accountId: string;
@@ -38,16 +37,40 @@ export class OutboxService {
     const now = new Date().toISOString();
 
     // 1. Check if an existing outbox record already exists for (accountId, idempotencyKey)
-    const { data: existing, error: findError } = await dbAdmin
-      .from(APPWRITE_CONFIG.collections.outboundOutbox)
-      .select('*')
-      .eq('accountId', payload.accountId)
-      .eq('idempotencyKey', payload.idempotencyKey)
-      .maybeSingle();
+    let existingDoc: Record<string, unknown> | null = null;
+    try {
+      const { data } = await dbAdmin
+        .from('outbound_outbox')
+        .select('*')
+        .eq('account_id', payload.accountId)
+        .eq('idempotency_key', payload.idempotencyKey)
+        .maybeSingle();
+      if (data) existingDoc = data as Record<string, unknown>;
+    } catch {
+      // Fallback
+    }
 
-    if (!findError && existing) {
-      const existingDoc = existing as Record<string, unknown>;
-      const existingHash = String(existingDoc.requestHash || '');
+    if (!existingDoc) {
+      try {
+        const { data } = await dbAdmin
+          .from('outbound_outbox')
+          .select('*')
+          .eq('accountId', payload.accountId)
+          .eq('idempotencyKey', payload.idempotencyKey)
+          .maybeSingle();
+        if (data) existingDoc = data as Record<string, unknown>;
+      } catch {
+        // Ignore
+      }
+    }
+
+    if (existingDoc) {
+      const existingHash = String(
+        (existingDoc.payload as Record<string, unknown>)?.requestHash ||
+          existingDoc.requestHash ||
+          existingDoc.request_hash ||
+          ''
+      );
       const hashMatches = !existingHash || existingHash === payload.requestHash;
 
       if (!hashMatches) {
@@ -63,55 +86,100 @@ export class OutboxService {
       return {
         ok: true,
         status: 'existing',
-        outboxId: String(existingDoc.$id || existingDoc.id),
+        outboxId: String(existingDoc.id || existingDoc.$id),
         existingStatus: String(existingDoc.status || 'processing'),
-        providerMessageId: existingDoc.providerMessageId
-          ? String(existingDoc.providerMessageId)
+        providerMessageId: existingDoc.meta_message_id
+          ? String(existingDoc.meta_message_id)
           : existingDoc.metaMessageId
             ? String(existingDoc.metaMessageId)
-            : undefined,
+            : existingDoc.providerMessageId
+              ? String(existingDoc.providerMessageId)
+              : undefined,
         requestHashMatches: true,
       };
     }
 
     // 2. Insert new outbox record before sending to Meta
     try {
-      const { data: created, error: insertError } = await dbAdmin
-        .from(APPWRITE_CONFIG.collections.outboundOutbox)
-        .insert({
-          accountId: payload.accountId,
-          idempotencyKey: payload.idempotencyKey,
+      let createdId: string | null = null;
+      let insertError: { code?: unknown; message?: string } | null = null;
+
+      const pgPayload = {
+        account_id: payload.accountId,
+        idempotency_key: payload.idempotencyKey,
+        conversation_id: payload.conversationId || null,
+        contact_id: payload.contactId || null,
+        message_type: 'text',
+        payload: {
           requestHash: payload.requestHash,
           channel: payload.channel || 'whatsapp',
-          conversationId: payload.conversationId,
-          contactId: payload.contactId || null,
-          status: 'processing',
-          attempts: 0,
-          createdAt: now,
-          updatedAt: now,
-        })
+        },
+        status: 'processing',
+        created_at: now,
+        updated_at: now,
+      };
+
+      const res = await dbAdmin
+        .from('outbound_outbox')
+        .insert(pgPayload)
         .select('id')
         .single();
 
-      if (insertError || !created?.id) {
+      if (res.data?.id) {
+        createdId = String(res.data.id);
+      } else {
+        insertError = res.error;
+        // Fallback to legacy schema
+        const legacyRes = await dbAdmin
+          .from('outbound_outbox')
+          .insert({
+            accountId: payload.accountId,
+            idempotencyKey: payload.idempotencyKey,
+            requestHash: payload.requestHash,
+            channel: payload.channel || 'whatsapp',
+            conversationId: payload.conversationId,
+            contactId: payload.contactId || null,
+            status: 'processing',
+            attempts: 0,
+            createdAt: now,
+            updatedAt: now,
+          })
+          .select('id')
+          .single();
+
+        if (legacyRes.data?.id) {
+          createdId = String(legacyRes.data.id);
+          insertError = null;
+        } else {
+          insertError = legacyRes.error || insertError;
+        }
+      }
+
+      if (!createdId) {
         // Check for concurrent conflict
         const isConflict =
           insertError?.code === 409 ||
+          insertError?.code === '23505' ||
           /duplicate|conflict|unique/i.test(insertError?.message || '');
 
         if (isConflict) {
           const { data: recheck } = await dbAdmin
-            .from(APPWRITE_CONFIG.collections.outboundOutbox)
+            .from('outbound_outbox')
             .select('*')
-            .eq('accountId', payload.accountId)
-            .eq('idempotencyKey', payload.idempotencyKey)
+            .eq('account_id', payload.accountId)
+            .eq('idempotency_key', payload.idempotencyKey)
             .maybeSingle();
 
           if (recheck) {
             const recheckDoc = recheck as Record<string, unknown>;
+            const existingHash = String(
+              (recheckDoc.payload as Record<string, unknown>)?.requestHash ||
+                recheckDoc.requestHash ||
+                recheckDoc.request_hash ||
+                ''
+            );
             const hashMatches =
-              !recheckDoc.requestHash ||
-              recheckDoc.requestHash === payload.requestHash;
+              !existingHash || existingHash === payload.requestHash;
             if (!hashMatches) {
               return {
                 ok: false,
@@ -124,12 +192,12 @@ export class OutboxService {
             return {
               ok: true,
               status: 'existing',
-              outboxId: String(recheckDoc.$id || recheckDoc.id),
+              outboxId: String(recheckDoc.id || recheckDoc.$id),
               existingStatus: String(recheckDoc.status || 'processing'),
-              providerMessageId: recheckDoc.metaMessageId
-                ? String(recheckDoc.metaMessageId)
-                : recheckDoc.providerMessageId
-                  ? String(recheckDoc.providerMessageId)
+              providerMessageId: recheckDoc.meta_message_id
+                ? String(recheckDoc.meta_message_id)
+                : recheckDoc.metaMessageId
+                  ? String(recheckDoc.metaMessageId)
                   : undefined,
               requestHashMatches: true,
             };
@@ -149,7 +217,7 @@ export class OutboxService {
       return {
         ok: true,
         status: 'created',
-        outboxId: String(created.id),
+        outboxId: createdId,
         requestHashMatches: true,
       };
     } catch (err: unknown) {
@@ -173,21 +241,31 @@ export class OutboxService {
   ): Promise<void> {
     const dbAdmin = appwriteAdmin();
     const now = new Date().toISOString();
-    await dbAdmin
-      .from(APPWRITE_CONFIG.collections.outboundOutbox)
-      .update({
-        status: 'sent',
-        metaMessageId: providerMessageId,
-        updatedAt: now,
-      })
-      .eq('id', outboxId)
-      .eq('accountId', accountId)
-      .catch((err: unknown) => {
-        console.warn(
-          '[OutboxService] Failed to mark outbox sent:',
-          err instanceof Error ? err.message : String(err)
-        );
-      });
+    try {
+      const res = await dbAdmin
+        .from('outbound_outbox')
+        .update({
+          status: 'sent',
+          meta_message_id: providerMessageId,
+          updated_at: now,
+        })
+        .eq('id', outboxId);
+      if (res.error) {
+        await dbAdmin
+          .from('outbound_outbox')
+          .update({
+            status: 'sent',
+            metaMessageId: providerMessageId,
+            updatedAt: now,
+          })
+          .eq('id', outboxId);
+      }
+    } catch (err: unknown) {
+      console.warn(
+        '[OutboxService] Failed to mark outbox sent:',
+        err instanceof Error ? err.message : String(err)
+      );
+    }
   }
 
   /**
@@ -203,22 +281,33 @@ export class OutboxService {
   ): Promise<void> {
     const dbAdmin = appwriteAdmin();
     const now = new Date().toISOString();
-    await dbAdmin
-      .from(APPWRITE_CONFIG.collections.outboundOutbox)
-      .update({
-        status: 'reconciliation_required',
-        metaMessageId: providerMessageId,
-        lastErrorCode: dbErrorMessage.slice(0, 255),
-        updatedAt: now,
-      })
-      .eq('id', outboxId)
-      .eq('accountId', accountId)
-      .catch((err: unknown) => {
-        console.error(
-          '[OutboxService] Failed to mark outbox reconciliation_required:',
-          err instanceof Error ? err.message : String(err)
-        );
-      });
+    try {
+      const res = await dbAdmin
+        .from('outbound_outbox')
+        .update({
+          status: 'reconciliation_required',
+          meta_message_id: providerMessageId,
+          error_message: dbErrorMessage.slice(0, 255),
+          updated_at: now,
+        })
+        .eq('id', outboxId);
+      if (res.error) {
+        await dbAdmin
+          .from('outbound_outbox')
+          .update({
+            status: 'reconciliation_required',
+            metaMessageId: providerMessageId,
+            lastErrorCode: dbErrorMessage.slice(0, 255),
+            updatedAt: now,
+          })
+          .eq('id', outboxId);
+      }
+    } catch (err: unknown) {
+      console.error(
+        '[OutboxService] Failed to mark outbox reconciliation_required:',
+        err instanceof Error ? err.message : String(err)
+      );
+    }
   }
 
   /**
@@ -231,22 +320,32 @@ export class OutboxService {
   ): Promise<void> {
     const dbAdmin = appwriteAdmin();
     const now = new Date().toISOString();
-    await dbAdmin
-      .from(APPWRITE_CONFIG.collections.outboundOutbox)
-      .update({
-        status: 'dead_letter',
-        lastErrorCode: errorMessage.slice(0, 255),
-        attempts: 1,
-        updatedAt: now,
-      })
-      .eq('id', outboxId)
-      .eq('accountId', accountId)
-      .catch((err: unknown) => {
-        console.warn(
-          '[OutboxService] Failed to mark outbox dead_letter:',
-          err instanceof Error ? err.message : String(err)
-        );
-      });
+    try {
+      const res = await dbAdmin
+        .from('outbound_outbox')
+        .update({
+          status: 'dead_letter',
+          error_message: errorMessage.slice(0, 255),
+          updated_at: now,
+        })
+        .eq('id', outboxId);
+      if (res.error) {
+        await dbAdmin
+          .from('outbound_outbox')
+          .update({
+            status: 'dead_letter',
+            lastErrorCode: errorMessage.slice(0, 255),
+            attempts: 1,
+            updatedAt: now,
+          })
+          .eq('id', outboxId);
+      }
+    } catch (err: unknown) {
+      console.warn(
+        '[OutboxService] Failed to mark outbox dead_letter:',
+        err instanceof Error ? err.message : String(err)
+      );
+    }
   }
 
   /**
@@ -255,22 +354,34 @@ export class OutboxService {
    */
   static async reconcilePendingMessages(): Promise<number> {
     const dbAdmin = appwriteAdmin();
-    const { data: pending } = await dbAdmin
-      .from(APPWRITE_CONFIG.collections.outboundOutbox)
-      .select('*')
-      .eq('status', 'reconciliation_required')
-      .limit(20);
+    let pending: Record<string, unknown>[] = [];
+    try {
+      const { data } = await dbAdmin
+        .from('outbound_outbox')
+        .select('*')
+        .eq('status', 'reconciliation_required')
+        .limit(20);
+      if (data && Array.isArray(data)) {
+        pending = data as Record<string, unknown>[];
+      }
+    } catch {
+      // Ignore
+    }
 
-    if (!pending || !Array.isArray(pending) || pending.length === 0) {
+    if (pending.length === 0) {
       return 0;
     }
 
     let reconciledCount = 0;
-    for (const doc of pending as Record<string, unknown>[]) {
-      const docId = String(doc.$id || doc.id || '');
-      const accountId = String(doc.accountId || '');
-      const conversationId = String(doc.conversationId || '');
-      const providerMessageId = String(doc.providerMessageId || '');
+    for (const doc of pending) {
+      const docId = String(doc.id || doc.$id || '');
+      const accountId = String(doc.account_id || doc.accountId || '');
+      const conversationId = String(
+        doc.conversation_id || doc.conversationId || ''
+      );
+      const providerMessageId = String(
+        doc.meta_message_id || doc.metaMessageId || doc.providerMessageId || ''
+      );
 
       if (!docId || !accountId || !conversationId || !providerMessageId) {
         continue;
@@ -278,25 +389,31 @@ export class OutboxService {
 
       try {
         // Check if message already exists
-        const { data: existingMsg } = await dbAdmin
-          .from(APPWRITE_CONFIG.collections.messages)
-          .select('id')
-          .eq('accountId', accountId)
-          .eq('messageId', providerMessageId)
-          .maybeSingle();
+        let existingMsg: { id: string } | null = null;
+        try {
+          const { data } = await dbAdmin
+            .from('messages')
+            .select('id')
+            .eq('account_id', accountId)
+            .eq('message_id', providerMessageId)
+            .maybeSingle();
+          if (data) existingMsg = data;
+        } catch {
+          // Fallback
+        }
 
         if (!existingMsg) {
           const now = new Date().toISOString();
-          await dbAdmin.from(APPWRITE_CONFIG.collections.messages).insert({
-            accountId,
-            conversationId,
-            senderType: 'agent',
-            contentType: 'text',
-            contentText: 'Message sent (reconciled)',
-            messageId: providerMessageId,
+          await dbAdmin.from('messages').insert({
+            account_id: accountId,
+            conversation_id: conversationId,
+            sender_type: 'agent',
+            content_type: 'text',
+            content_text: 'Message sent (reconciled)',
+            message_id: providerMessageId,
             status: 'sent',
-            createdAt: now,
-            updatedAt: now,
+            created_at: now,
+            updated_at: now,
           });
         }
 

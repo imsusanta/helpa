@@ -135,7 +135,7 @@ export async function POST(request: Request) {
     }
 
     let sessionSecret = sessionJson.secret || '';
-    if (!sessionSecret) {
+    if (!sessionSecret && sessionRes.ok) {
       const rawCookies =
         typeof sessionRes.headers.getSetCookie === 'function'
           ? sessionRes.headers.getSetCookie()
@@ -143,9 +143,11 @@ export async function POST(request: Request) {
 
       for (const c of rawCookies) {
         if (!c) continue;
-        const match = c.match(/a_session_[^=]+=([^;]+)/);
-        if (match) {
-          sessionSecret = decodeURIComponent(match[1]);
+        const match = c.match(
+          /a_session_[a-zA-Z0-9_\-]+?=([a-zA-Z0-9_\-\.]{32,512})/
+        );
+        if (match && match[1]) {
+          sessionSecret = match[1];
           break;
         }
       }

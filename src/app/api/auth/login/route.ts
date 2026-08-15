@@ -103,8 +103,8 @@ export async function POST(request: Request) {
 
     let sessionSecret =
       typeof appwriteJson.secret === 'string' ? appwriteJson.secret : '';
-    if (!sessionSecret) {
-      // Extract session secret from Appwrite Set-Cookie header
+    if (!sessionSecret && appwriteRes.ok) {
+      // Extract session secret from Appwrite Set-Cookie header with strict token format validation
       const rawCookies =
         typeof appwriteRes.headers.getSetCookie === 'function'
           ? appwriteRes.headers.getSetCookie()
@@ -112,9 +112,11 @@ export async function POST(request: Request) {
 
       for (const c of rawCookies) {
         if (!c) continue;
-        const match = c.match(/a_session_[^=]+=([^;]+)/);
-        if (match) {
-          sessionSecret = decodeURIComponent(match[1]);
+        const match = c.match(
+          /a_session_[a-zA-Z0-9_\-]+?=([a-zA-Z0-9_\-\.]{32,512})/
+        );
+        if (match && match[1]) {
+          sessionSecret = match[1];
           break;
         }
       }
