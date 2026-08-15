@@ -46,17 +46,40 @@ export async function findOrCreateContact(
 
   // Create new contact
   const now = new Date().toISOString();
-  const { data: newContact, error: createError } = await db
+  let newContact: Record<string, unknown> | null = null;
+  let createError: unknown = null;
+
+  const res = await db
     .from('contacts')
     .insert({
-      accountId,
+      account_id: accountId,
+      user_id: configOwnerUserId || null,
       phone,
       name: name || phone,
-      createdAt: now,
-      updatedAt: now,
+      created_at: now,
+      updated_at: now,
     })
     .select()
     .single();
+
+  if (res.data) {
+    newContact = res.data;
+  } else {
+    // Fallback to legacy fields
+    const legacyRes = await db
+      .from('contacts')
+      .insert({
+        accountId,
+        phone,
+        name: name || phone,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .select()
+      .single();
+    newContact = legacyRes.data;
+    createError = legacyRes.error || res.error;
+  }
 
   if (createError) {
     if (isUniqueViolation(createError)) {
@@ -116,5 +139,5 @@ export async function findOrCreateContact(
     }
   }
 
-  return { contact: newContact as ContactRow, wasCreated: true };
+  return { contact: newContact as unknown as ContactRow, wasCreated: true };
 }

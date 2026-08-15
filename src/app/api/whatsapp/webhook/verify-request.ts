@@ -20,12 +20,31 @@ export async function handleWebhookGet(request: Request): Promise<Response> {
     }
 
     // Fetch all whatsapp configs to check verify tokens
-    const { data: configs, error: configError } = await getAdminClient()
-      .from('whatsapp_configs')
-      .select('id, encryptedVerifyToken, verify_token');
+    let configs:
+      | { id: string; encryptedVerifyToken?: string; verify_token?: string }[]
+      | null = null;
+    try {
+      const { data } = await getAdminClient()
+        .from('whatsapp_config')
+        .select('id, verify_token');
+      if (data) configs = data;
+    } catch {
+      // Fallback
+    }
 
-    if (configError || !configs) {
-      console.error('Error fetching configs for verification:', configError);
+    if (!configs) {
+      try {
+        const { data } = await getAdminClient()
+          .from('whatsapp_configs')
+          .select('id, encryptedVerifyToken, verify_token');
+        if (data) configs = data;
+      } catch {
+        // Ignore
+      }
+    }
+
+    if (!configs) {
+      console.error('Error fetching configs for verification');
       return NextResponse.json(
         { error: 'Verification failed' },
         { status: 403 }

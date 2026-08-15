@@ -256,10 +256,11 @@ export async function processMessage(
     contactRecord.id
   );
   if (!conversation) return;
+  const convId = String(conversation.id);
 
   // Reactions short-circuit
   if (message.type === 'reaction') {
-    await handleReaction(message, conversation.id, contactRecord.id);
+    await handleReaction(message, convId, contactRecord.id);
     return;
   }
 
@@ -273,7 +274,7 @@ export async function processMessage(
   if (message.context?.id) {
     replyToInternalId = await lookupInternalIdByMetaId(
       message.context.id,
-      conversation.id
+      convId
     );
     if (!replyToInternalId) {
       console.warn(
@@ -307,7 +308,7 @@ export async function processMessage(
   const { data: existingMsg } = await getAdminClient()
     .from('messages')
     .select('id')
-    .or(`messageId.eq.${message.id},message_id.eq.${message.id}`)
+    .eq('message_id', message.id)
     .limit(1)
     .catch(() => ({ data: null }));
 
@@ -319,34 +320,47 @@ export async function processMessage(
   const { count: priorCustomerMsgCount } = await getAdminClient()
     .from('messages')
     .select('id', { count: 'exact', head: true })
-    .eq('conversation_id', conversation.id)
+    .eq('conversation_id', convId)
     .catch(() => ({ count: 0 }));
   const isFirstInboundMessage = (priorCustomerMsgCount ?? 0) === 0;
 
   const nowIso = new Date(parseInt(message.timestamp) * 1000).toISOString();
-  const { error: msgError } = await getAdminClient()
+  let msgError: unknown = null;
+
+  const insertRes = await getAdminClient()
     .from('messages')
     .insert({
-      conversationId: conversation.id,
-      conversation_id: conversation.id,
-      senderType: 'customer',
+      conversation_id: convId,
       sender_type: 'customer',
-      contentType: contentType,
       content_type: contentType,
-      contentText: contentText || null,
       content_text: contentText || null,
-      mediaUrl: mediaUrl || null,
       media_url: mediaUrl || null,
-      messageId: message.id,
       message_id: message.id,
       status: 'delivered',
-      replyToMessageId: replyToInternalId || null,
       reply_to_message_id: replyToInternalId || null,
-      interactiveReplyId: interactiveReplyId || null,
       interactive_reply_id: interactiveReplyId || null,
-      createdAt: nowIso,
       created_at: nowIso,
+      updated_at: nowIso,
     });
+
+  if (insertRes.error) {
+    // Fallback to legacy schema
+    const legacyRes = await getAdminClient()
+      .from('messages')
+      .insert({
+        conversationId: convId,
+        senderType: 'customer',
+        contentType: contentType,
+        contentText: contentText || null,
+        mediaUrl: mediaUrl || null,
+        messageId: message.id,
+        status: 'delivered',
+        replyToMessageId: replyToInternalId || null,
+        interactiveReplyId: interactiveReplyId || null,
+        createdAt: nowIso,
+      });
+    msgError = legacyRes.error;
+  }
 
   if (msgError) {
     console.error('Error inserting message:', msgError);
@@ -368,28 +382,36 @@ export async function processMessage(
     conversation.unread_count || conversation.unreadCount || 0
   );
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const convUpdatePayload: any = {
-    updatedAt: new Date().toISOString(),
+  const convUpdatePayload: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
-    unreadCount: currentUnread + 1,
     unread_count: currentUnread + 1,
   };
 
   if (shouldUpdatePreview) {
-    convUpdatePayload.lastMessageText = contentText || `[${message.type}]`;
     convUpdatePayload.last_message_text = contentText || `[${message.type}]`;
-    convUpdatePayload.lastMessageAt = messageDate.toISOString();
     convUpdatePayload.last_message_at = messageDate.toISOString();
   }
 
   const { error: convError } = await getAdminClient()
     .from('conversations')
     .update(convUpdatePayload)
-    .eq('id', conversation.id);
+    .eq('id', convId);
 
   if (convError) {
-    console.error('Error updating conversation:', convError);
+    // Legacy fallback
+    const legacyPayload: Record<string, unknown> = {
+      updatedAt: new Date().toISOString(),
+      unreadCount: currentUnread + 1,
+    };
+    if (shouldUpdatePreview) {
+      legacyPayload.lastMessageText = contentText || `[${message.type}]`;
+      legacyPayload.lastMessageAt = messageDate.toISOString();
+    }
+    await getAdminClient()
+      .from('conversations')
+      .update(legacyPayload)
+      .eq('id', convId)
+      .catch(() => {});
   }
 
   await flagBroadcastReplyIfAny(accountId, contactRecord.id);
@@ -412,7 +434,7 @@ export async function processMessage(
         accountId,
         apptId,
         action,
-        conversation.id,
+        convId,
         contactRecord.id,
         configOwnerUserId
       );
@@ -464,7 +486,7 @@ export async function processMessage(
             accountId,
             reminderAppt.id,
             matchedAction,
-            conversation.id,
+            convId,
             contactRecord.id,
             configOwnerUserId
           );
@@ -491,7 +513,7 @@ export async function processMessage(
         interactiveReplyId.startsWith('report_download_')
           ? 'download'
           : 'status',
-        conversation.id,
+        convId,
         contactRecord.id,
         configOwnerUserId
       );
@@ -511,7 +533,7 @@ export async function processMessage(
       accountId,
       userId: configOwnerUserId,
       contactId: contactRecord.id,
-      conversationId: conversation.id,
+      conversationId: convId,
       message: interactiveReplyId
         ? {
             kind: 'interactive_reply',
@@ -553,7 +575,7 @@ export async function processMessage(
             contactId: contactRecord.id,
             context: {
               message_text: inboundText,
-              conversation_id: conversation.id,
+              conversation_id: convId,
             },
           });
         } catch (err) {
@@ -568,7 +590,7 @@ export async function processMessage(
           await triggerAiResponse({
             accountId,
             userId: configOwnerUserId,
-            conversationId: conversation.id,
+            conversationId: convId,
             contactId: contactRecord.id,
           });
         } catch (err) {

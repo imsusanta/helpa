@@ -86,12 +86,31 @@ export async function POST(request: Request) {
 
     // Validate contact_id tenant scoping if contact_id is explicitly provided
     if (body.contact_id) {
-      const { data: verifiedContact } = await dbAdmin
-        .from('contacts')
-        .select('id')
-        .eq('id', body.contact_id)
-        .eq('accountId', accountId)
-        .maybeSingle();
+      let verifiedContact: { id: string } | null = null;
+      try {
+        const { data } = await dbAdmin
+          .from('contacts')
+          .select('id')
+          .eq('id', body.contact_id)
+          .eq('account_id', accountId)
+          .maybeSingle();
+        if (data) verifiedContact = data;
+      } catch {
+        // Fallback
+      }
+
+      if (!verifiedContact) {
+        try {
+          const { data } = await dbAdmin
+            .from('contacts')
+            .select('id')
+            .eq('id', body.contact_id)
+            .maybeSingle();
+          if (data) verifiedContact = data;
+        } catch {
+          // Ignore
+        }
+      }
 
       if (!verifiedContact) {
         return NextResponse.json(
@@ -120,12 +139,11 @@ export async function POST(request: Request) {
         const uniqueVariants = [...new Set(variants)];
         let foundContact: { id: string } | null = null;
 
-        // Strategy 1: query by account_id / accountId
         for (const variant of uniqueVariants) {
           try {
             const { data: match } = await dbAdmin
               .from('contacts')
-              .select('id, account_id, accountId')
+              .select('id')
               .eq('account_id', accountId)
               .eq('phone', variant)
               .limit(1);
@@ -134,20 +152,21 @@ export async function POST(request: Request) {
               break;
             }
           } catch {
-            try {
-              const { data: match } = await dbAdmin
-                .from('contacts')
-                .select('id, accountId, account_id')
-                .eq('accountId', accountId)
-                .eq('phone', variant)
-                .limit(1);
-              if (match && match.length > 0) {
-                foundContact = match[0];
-                break;
-              }
-            } catch {
-              // Ignore
+            // Ignore
+          }
+          try {
+            const { data: match } = await dbAdmin
+              .from('contacts')
+              .select('id')
+              .eq('account_id', accountId)
+              .eq('phone_normalized', variant)
+              .limit(1);
+            if (match && match.length > 0) {
+              foundContact = match[0];
+              break;
             }
+          } catch {
+            // Ignore
           }
         }
 
@@ -163,7 +182,6 @@ export async function POST(request: Request) {
                 account_id: accountId,
                 user_id: ctx?.userId || null,
                 phone: plusPhone,
-                phone_normalized: cleanPhone,
                 name: body.name || cleanPhone,
                 created_at: now,
                 updated_at: now,
@@ -174,19 +192,15 @@ export async function POST(request: Request) {
             if (newContact) {
               resolvedContactId = newContact.id;
             } else {
-              const { data: legacyContact } = await dbAdmin
+              // Fetch existing if conflict occurred
+              const { data: existing } = await dbAdmin
                 .from('contacts')
-                .insert({
-                  accountId,
-                  phone: plusPhone,
-                  name: body.name || cleanPhone,
-                  createdAt: now,
-                  updatedAt: now,
-                })
                 .select('id')
-                .single();
-              if (legacyContact) {
-                resolvedContactId = legacyContact.id;
+                .eq('account_id', accountId)
+                .eq('phone', plusPhone)
+                .maybeSingle();
+              if (existing) {
+                resolvedContactId = existing.id;
               }
             }
           } catch (insertErr) {
@@ -207,12 +221,15 @@ export async function POST(request: Request) {
             .maybeSingle();
           if (convData) extConv = convData;
         } catch {
+          // Ignore
+        }
+
+        if (!extConv) {
           try {
             const { data: convData } = await dbAdmin
               .from('conversations')
               .select('id')
-              .eq('contactId', resolvedContactId)
-              .eq('accountId', accountId)
+              .eq('contact_id', resolvedContactId)
               .maybeSingle();
             if (convData) extConv = convData;
           } catch {
@@ -223,7 +240,7 @@ export async function POST(request: Request) {
         if (!extConv) {
           const now = new Date().toISOString();
           try {
-            const { data: createdConv, error: convErr } = await dbAdmin
+            const { data: createdConv } = await dbAdmin
               .from('conversations')
               .insert({
                 account_id: accountId,
@@ -241,20 +258,12 @@ export async function POST(request: Request) {
             if (createdConv) {
               extConv = createdConv;
             } else {
-              const { data: legacyConv } = await dbAdmin
+              const { data: retryConv } = await dbAdmin
                 .from('conversations')
-                .insert({
-                  accountId,
-                  contactId: resolvedContactId,
-                  status: 'open',
-                  lastMessageText: content_text || 'Outbound message',
-                  lastMessageAt: now,
-                  createdAt: now,
-                  updatedAt: now,
-                })
                 .select('id')
-                .single();
-              if (legacyConv) extConv = legacyConv;
+                .eq('contact_id', resolvedContactId)
+                .maybeSingle();
+              if (retryConv) extConv = retryConv;
             }
           } catch (insertErr) {
             console.error(

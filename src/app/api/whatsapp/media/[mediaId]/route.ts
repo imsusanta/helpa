@@ -53,20 +53,45 @@ export async function GET(
     }
 
     // Fetch and decrypt WhatsApp config
-    const { data: config, error: configError } = await appwrite
-      .from('whatsapp_configs')
-      .select('*')
-      .eq('account_id', accountId)
-      .single();
+    let config: Record<string, unknown> | null = null;
+    try {
+      const { data } = await appwrite
+        .from('whatsapp_config')
+        .select('*')
+        .eq('account_id', accountId)
+        .single();
+      if (data) config = data as Record<string, unknown>;
+    } catch {
+      // Fallback
+    }
 
-    if (configError || !config) {
+    if (!config) {
+      try {
+        const { data } = await appwrite
+          .from('whatsapp_configs')
+          .select('*')
+          .eq('account_id', accountId)
+          .single();
+        if (data) config = data as Record<string, unknown>;
+      } catch {
+        // Ignore
+      }
+    }
+
+    if (!config) {
       return NextResponse.json(
         { error: 'WhatsApp not configured' },
         { status: 400 }
       );
     }
 
-    const accessToken = decrypt(config.access_token);
+    const encToken = String(
+      config.access_token ||
+        config.encrypted_access_token ||
+        config.accessToken ||
+        ''
+    );
+    const accessToken = decrypt(encToken);
 
     // Get the download URL from Meta
     const mediaInfo = await getMediaUrl({ mediaId, accessToken });

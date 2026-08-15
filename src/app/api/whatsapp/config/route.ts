@@ -350,16 +350,35 @@ export async function POST(request: Request) {
     const admin = appwriteAdmin();
 
     // Check if phone number is claimed by another account
-    const { data: claimedRows } = await admin
-      .from(CANONICAL_COLLECTION)
-      .select('id, accountId, phoneNumberId')
-      .eq('phoneNumberId', phoneNumberId)
-      .limit(5);
+    let claimedRows: Record<string, unknown>[] | null = null;
+    try {
+      const { data } = await admin
+        .from('whatsapp_config')
+        .select('id, account_id, phone_number_id')
+        .eq('phone_number_id', phoneNumberId)
+        .limit(5);
+      if (data) claimedRows = data;
+    } catch {
+      // Fallback
+    }
+
+    if (!claimedRows) {
+      try {
+        const { data } = await admin
+          .from('whatsapp_configs')
+          .select('id, account_id, phone_number_id')
+          .eq('phone_number_id', phoneNumberId)
+          .limit(5);
+        if (data) claimedRows = data;
+      } catch {
+        // Ignore
+      }
+    }
 
     if (claimedRows && claimedRows.length > 0) {
       const conflict = claimedRows.find(
         (row: Record<string, unknown>) =>
-          String(row.accountId || '') !== String(accountId)
+          String(row.account_id || row.accountId || '') !== String(accountId)
       );
       if (conflict) {
         return NextResponse.json(
@@ -374,22 +393,48 @@ export async function POST(request: Request) {
     }
 
     // Lookup existing config for caller's account
-    const { data: existingConfig } = await admin
-      .from(CANONICAL_COLLECTION)
-      .select('*')
-      .eq('accountId', accountId)
-      .maybeSingle();
+    let existingConfig: Record<string, unknown> | null = null;
+    try {
+      const { data } = await admin
+        .from('whatsapp_config')
+        .select('*')
+        .eq('account_id', accountId)
+        .maybeSingle();
+      if (data) existingConfig = data;
+    } catch {
+      // Fallback
+    }
+
+    if (!existingConfig) {
+      try {
+        const { data } = await admin
+          .from('whatsapp_configs')
+          .select('*')
+          .eq('account_id', accountId)
+          .maybeSingle();
+        if (data) existingConfig = data;
+      } catch {
+        // Ignore
+      }
+    }
 
     let accessTokenToUse: string | null = null;
+    const existingEncToken = String(
+      existingConfig?.access_token ||
+        existingConfig?.encryptedAccessToken ||
+        existingConfig?.encrypted_access_token ||
+        ''
+    );
+
     if (
       rawAccessToken &&
       typeof rawAccessToken === 'string' &&
       rawAccessToken.trim()
     ) {
       accessTokenToUse = rawAccessToken.trim();
-    } else if (existingConfig?.encryptedAccessToken) {
+    } else if (existingEncToken) {
       try {
-        accessTokenToUse = decrypt(String(existingConfig.encryptedAccessToken));
+        accessTokenToUse = decrypt(existingEncToken);
       } catch (err) {
         console.error(
           '[whatsapp/config POST] Stored token decryption failed:',
@@ -447,8 +492,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const existingPhoneId = existingConfig?.phoneNumberId;
-    const existingRegAt = existingConfig?.registeredAt;
+    const existingPhoneId =
+      existingConfig?.phone_number_id || existingConfig?.phoneNumberId;
+    const existingRegAt =
+      existingConfig?.registered_at || existingConfig?.registeredAt;
     const sameNumber =
       existingPhoneId === phoneNumberId && existingRegAt != null;
 
@@ -493,74 +540,75 @@ export async function POST(request: Request) {
     }
 
     const now = new Date().toISOString();
-    const canonicalDocument: Record<string, unknown> = {
-      accountId,
+    const pgDocument: Record<string, unknown> = {
       account_id: accountId,
-      createdBy:
-        existingConfig?.createdBy || existingConfig?.created_by || user.id,
-      created_by:
-        existingConfig?.createdBy || existingConfig?.created_by || user.id,
       user_id: user.id,
-      userId: user.id,
-      updatedBy: user.id,
-      updated_by: user.id,
-      phoneNumberId,
       phone_number_id: phoneNumberId,
-      wabaId,
       waba_id: wabaId,
-      encryptedAccessToken,
       access_token: encryptedAccessToken,
-      encryptedVerifyToken:
-        encryptedVerifyToken || existingConfig?.encryptedVerifyToken || null,
       verify_token:
         encryptedVerifyToken ||
-        existingConfig?.encryptedVerifyToken ||
-        existingConfig?.verify_token ||
+        (existingConfig?.verify_token as string) ||
+        (existingConfig?.encrypted_verify_token as string) ||
+        (existingConfig?.encryptedVerifyToken as string) ||
         null,
-      encryptionKeyVersion: 'v1',
       status: registrationError ? 'disconnected' : 'connected',
-      registeredAt,
       registered_at: registeredAt,
-      lastRegistrationError: registrationError,
       last_registration_error: registrationError,
-      subscribedAppsAt,
       subscribed_apps_at: subscribedAppsAt,
       connected_at: now,
-      createdAt: existingConfig?.createdAt || existingConfig?.created_at || now,
       created_at:
-        existingConfig?.createdAt || existingConfig?.created_at || now,
-      updatedAt: now,
+        (existingConfig?.created_at as string) ||
+        (existingConfig?.createdAt as string) ||
+        now,
       updated_at: now,
     };
 
     if (existingConfig) {
-      const docId = String(existingConfig.$id || existingConfig.id || '');
-      const { error: updateErr } = await admin
-        .from(CANONICAL_COLLECTION)
-        .update(canonicalDocument)
+      const docId = String(existingConfig.id || existingConfig.$id || '');
+      let updateError: { message: string } | null = null;
+
+      const res = await admin
+        .from('whatsapp_config')
+        .update(pgDocument)
         .eq('id', docId);
 
-      if (updateErr) {
-        console.error('[whatsapp/config POST] Update error:', updateErr);
+      if (res.error) {
+        const fallbackRes = await admin
+          .from('whatsapp_configs')
+          .update(pgDocument)
+          .eq('id', docId);
+        updateError = fallbackRes.error || res.error;
+      }
+
+      if (updateError) {
+        console.error('[whatsapp/config POST] Update error:', updateError);
         return NextResponse.json(
           {
             code: 'WHATSAPP_CONFIG_PERSISTENCE_FAILED',
-            error: `Failed to update configuration: ${updateErr.message}`,
+            error: `Failed to update configuration: ${updateError.message}`,
           },
           { status: 500 }
         );
       }
     } else {
-      const { error: insertErr } = await admin
-        .from(CANONICAL_COLLECTION)
-        .insert(canonicalDocument);
+      let insertError: { message: string } | null = null;
 
-      if (insertErr) {
-        console.error('[whatsapp/config POST] Insert error:', insertErr);
+      const res = await admin.from('whatsapp_config').insert(pgDocument);
+
+      if (res.error) {
+        const fallbackRes = await admin
+          .from('whatsapp_configs')
+          .insert(pgDocument);
+        insertError = fallbackRes.error || res.error;
+      }
+
+      if (insertError) {
+        console.error('[whatsapp/config POST] Insert error:', insertError);
         return NextResponse.json(
           {
             code: 'WHATSAPP_CONFIG_PERSISTENCE_FAILED',
-            error: `Failed to insert configuration: ${insertErr.message}`,
+            error: `Failed to insert configuration: ${insertError.message}`,
           },
           { status: 500 }
         );
@@ -579,7 +627,7 @@ export async function POST(request: Request) {
         waba_id: wabaId,
         has_access_token: true,
         has_verify_token: Boolean(encryptedVerifyToken),
-        status: canonicalDocument.status,
+        status: pgDocument.status,
         registered_at: registeredAt,
         subscribed_apps_at: subscribedAppsAt,
       },
@@ -624,13 +672,13 @@ export async function DELETE() {
     } else {
       const { data: profile } = await appwrite
         .from('profiles')
-        .select('accountId, role')
-        .eq('userId', user.id)
+        .select('account_id, role')
+        .eq('user_id', user.id)
         .maybeSingle()
         .catch(() => ({ data: null }));
 
-      if (profile?.accountId) {
-        accountId = String(profile.accountId);
+      if (profile?.account_id) {
+        accountId = String(profile.account_id);
         userRole = profile.role || 'member';
       }
     }
@@ -657,10 +705,20 @@ export async function DELETE() {
     }
 
     const admin = appwriteAdmin();
-    const { error: deleteError } = await admin
-      .from(CANONICAL_COLLECTION)
+    let deleteError: { message: string } | null = null;
+
+    const res = await admin
+      .from('whatsapp_config')
       .delete()
-      .eq('accountId', accountId);
+      .eq('account_id', accountId);
+
+    if (res.error) {
+      const fallbackRes = await admin
+        .from('whatsapp_configs')
+        .delete()
+        .eq('account_id', accountId);
+      deleteError = fallbackRes.error || res.error;
+    }
 
     if (deleteError) {
       console.error('[DELETE /api/whatsapp/config] Delete error:', deleteError);

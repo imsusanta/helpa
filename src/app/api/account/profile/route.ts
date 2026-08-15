@@ -101,7 +101,7 @@ export async function PATCH(request: Request) {
     // 1. Try Supabase PostgreSQL profiles update
     try {
       const supabase = getSupabaseAdminClient();
-      const updates: Record<string, any> = {
+      const updates: Record<string, unknown> = {
         updated_at: new Date().toISOString(),
       };
       if (name) updates.full_name = name;

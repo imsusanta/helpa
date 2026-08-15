@@ -47,21 +47,32 @@ export async function GET() {
   }
 
   const dbAdmin = createAdminClient();
-  const { data: config, error: configError } = await dbAdmin
-    .from('whatsapp_configs')
-    .select('*')
-    .eq('accountId', accountId)
-    .maybeSingle();
+  let config: Record<string, unknown> | null = null;
+  let configError: { message: string } | null = null;
 
-  if (configError) {
-    console.error(
-      'Error querying whatsapp_configs in verify-registration:',
-      configError
-    );
-    return NextResponse.json(
-      { error: `Database error: ${configError.message || 'Unknown'}` },
-      { status: 500 }
-    );
+  try {
+    const { data, error } = await dbAdmin
+      .from('whatsapp_config')
+      .select('*')
+      .eq('account_id', accountId)
+      .maybeSingle();
+    if (data) config = data as Record<string, unknown>;
+    configError = error;
+  } catch (err: unknown) {
+    configError = err as { message: string };
+  }
+
+  if (!config) {
+    try {
+      const { data } = await dbAdmin
+        .from('whatsapp_configs')
+        .select('*')
+        .eq('account_id', accountId)
+        .maybeSingle();
+      if (data) config = data as Record<string, unknown>;
+    } catch {
+      // Ignore
+    }
   }
 
   if (!config) {
@@ -90,7 +101,7 @@ export async function GET() {
 
   let accessToken: string;
   try {
-    accessToken = decrypt(encToken);
+    accessToken = decrypt(String(encToken));
   } catch {
     return NextResponse.json({
       live: false,

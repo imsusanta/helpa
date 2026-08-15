@@ -471,13 +471,32 @@ export async function POST(request: Request) {
       );
     }
 
-    const { data: config, error: configError } = await appwrite
-      .from('whatsapp_configs')
-      .select('*')
-      .eq('account_id', accountId)
-      .single();
+    let config: Record<string, unknown> | null = null;
+    try {
+      const { data } = await appwrite
+        .from('whatsapp_config')
+        .select('*')
+        .eq('account_id', accountId)
+        .single();
+      if (data) config = data as Record<string, unknown>;
+    } catch {
+      // Fallback
+    }
 
-    if (configError || !config) {
+    if (!config) {
+      try {
+        const { data } = await appwrite
+          .from('whatsapp_configs')
+          .select('*')
+          .eq('account_id', accountId)
+          .single();
+        if (data) config = data as Record<string, unknown>;
+      } catch {
+        // Ignore
+      }
+    }
+
+    if (!config) {
       return NextResponse.json(
         {
           error:
@@ -487,7 +506,13 @@ export async function POST(request: Request) {
       );
     }
 
-    const accessToken = decrypt(config.access_token);
+    const encToken = String(
+      config.access_token ||
+        config.encrypted_access_token ||
+        config.accessToken ||
+        ''
+    );
+    const accessToken = decrypt(encToken);
 
     // Load the template row once so sendTemplateMessage can build
     // header + button components on each iteration. Loading inside
@@ -538,7 +563,9 @@ export async function POST(request: Request) {
       for (const variant of variants) {
         try {
           const result = await sendTemplateMessage({
-            phoneNumberId: config.phone_number_id,
+            phoneNumberId: String(
+              config.phone_number_id || config.phoneNumberId || ''
+            ),
             accessToken,
             to: variant,
             templateName: template_name,

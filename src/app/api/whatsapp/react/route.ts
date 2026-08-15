@@ -120,25 +120,53 @@ export async function POST(request: Request) {
     }
 
     // WhatsApp config + access token. Account-scoped post-multi-user.
-    const { data: config, error: configError } = await appwrite
-      .from('whatsapp_configs')
-      .select('phone_number_id, access_token')
-      .eq('account_id', accountId)
-      .single();
+    let config: Record<string, unknown> | null = null;
+    try {
+      const { data } = await appwrite
+        .from('whatsapp_config')
+        .select('*')
+        .eq('account_id', accountId)
+        .single();
+      if (data) config = data as Record<string, unknown>;
+    } catch {
+      // Fallback
+    }
 
-    if (configError || !config) {
+    if (!config) {
+      try {
+        const { data } = await appwrite
+          .from('whatsapp_configs')
+          .select('*')
+          .eq('account_id', accountId)
+          .single();
+        if (data) config = data as Record<string, unknown>;
+      } catch {
+        // Ignore
+      }
+    }
+
+    if (!config) {
       return NextResponse.json(
         { error: 'WhatsApp not configured.' },
         { status: 400 }
       );
     }
 
-    const accessToken = decrypt(config.access_token);
+    const encToken = String(
+      config.access_token ||
+        config.encrypted_access_token ||
+        config.accessToken ||
+        ''
+    );
+    const accessToken = decrypt(encToken);
     const sanitizedPhone = sanitizePhoneForMeta(contact.phone);
+    const phoneNumberId = String(
+      config.phone_number_id || config.phoneNumberId || ''
+    );
 
     try {
       await sendReactionMessage({
-        phoneNumberId: config.phone_number_id,
+        phoneNumberId,
         accessToken,
         to: sanitizedPhone,
         targetMessageId: targetMessage.message_id,
