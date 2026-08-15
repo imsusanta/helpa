@@ -175,36 +175,60 @@ export async function POST(request: Request) {
 
     const configPayload: Record<string, unknown> = {
       account_id: accountId,
+      user_id: ctx.userId,
       phone_number_id: resolvedPhoneId,
       waba_id: resolvedWabaId || 'waba_auto',
       access_token: encryptedToken,
+      status: 'connected',
       registered_at: now,
       subscribed_apps_at: now,
+      connected_at: now,
       updated_at: now,
     };
 
-    if (verifiedName) {
-      configPayload.verified_name = verifiedName;
-    }
-    if (displayPhoneNumber) {
-      configPayload.display_phone_number = displayPhoneNumber;
-    }
-
     // Update existing or create new config record
-    const { data: existing } = await db
-      .from(CANONICAL_COLLECTION)
-      .select('id')
-      .eq('account_id', accountId)
-      .maybeSingle();
+    let existingId: string | null = null;
+    try {
+      const { data: existing } = await db
+        .from('whatsapp_config')
+        .select('id')
+        .eq('account_id', accountId)
+        .maybeSingle();
+      if (existing?.id) existingId = existing.id;
+    } catch {
+      // Fallback
+    }
 
-    if (existing?.id) {
-      await db
-        .from(CANONICAL_COLLECTION)
+    if (!existingId) {
+      try {
+        const { data: existing } = await db
+          .from('whatsapp_configs')
+          .select('id')
+          .eq('account_id', accountId)
+          .maybeSingle();
+        if (existing?.id) existingId = existing.id;
+      } catch {
+        // Ignore
+      }
+    }
+
+    if (existingId) {
+      const res = await db
+        .from('whatsapp_config')
         .update(configPayload)
-        .eq('id', existing.id);
+        .eq('id', existingId);
+      if (res.error) {
+        await db
+          .from('whatsapp_configs')
+          .update(configPayload)
+          .eq('id', existingId);
+      }
     } else {
       configPayload.created_at = now;
-      await db.from(CANONICAL_COLLECTION).insert(configPayload);
+      const res = await db.from('whatsapp_config').insert(configPayload);
+      if (res.error) {
+        await db.from('whatsapp_configs').insert(configPayload);
+      }
     }
 
     return NextResponse.json({
