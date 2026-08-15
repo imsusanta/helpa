@@ -45,6 +45,16 @@ export async function POST(request: Request) {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     console.error('Error processing webhook:', message);
+    return NextResponse.json(
+      { error: 'Webhook processing failed' },
+      {
+        status: 500,
+        headers: {
+          'Cache-Control': 'private, no-store, no-cache, must-revalidate',
+          'Retry-After': '5',
+        },
+      }
+    );
   }
 
   return NextResponse.json({ status: 'received' }, { status: 200 });
@@ -140,10 +150,9 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
       }
 
       if (!configRows || configRows.length === 0) {
-        console.warn(
-          `[webhook] Received message for unregistered phone_number_id: ${phoneNumberId}`
+        throw new Error(
+          `No WhatsApp configuration found for phone_number_id ${phoneNumberId}`
         );
-        continue;
       }
 
       const config = configRows[0];

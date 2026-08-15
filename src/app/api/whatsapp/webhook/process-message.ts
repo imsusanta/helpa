@@ -246,7 +246,9 @@ export async function processMessage(
     senderPhone,
     contactName
   );
-  if (!contactOutcome) return;
+  if (!contactOutcome) {
+    throw new Error(`Unable to resolve contact for inbound message ${message.id}`);
+  }
   const contactRecord = contactOutcome.contact;
 
   // Find or create conversation
@@ -255,7 +257,11 @@ export async function processMessage(
     configOwnerUserId,
     contactRecord.id
   );
-  if (!conversation) return;
+  if (!conversation) {
+    throw new Error(
+      `Unable to resolve conversation for inbound message ${message.id}`
+    );
+  }
   const convId = String(conversation.id);
 
   // Reactions short-circuit
@@ -382,7 +388,7 @@ export async function processMessage(
 
   if (!msgInserted || msgError) {
     console.error('Error inserting message:', msgError);
-    return;
+    throw new Error(`Unable to persist inbound message ${message.id}`);
   }
 
   // Update conversation
