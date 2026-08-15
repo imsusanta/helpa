@@ -34,7 +34,13 @@ async function throwMetaError(
   let message = fallback;
   try {
     const data = (await response.json()) as MetaErrorResponse;
-    if (data.error?.message) message = data.error.message;
+    if (data.error?.message) {
+      if (data.error.code === 131030) {
+        message = `Meta API error (#131030): Recipient phone number is not in your Meta allowed test list. Add this phone number in Meta Developer Portal (WhatsApp → API Setup → Manage phone number list) or switch your Meta App to Live Mode.`;
+      } else {
+        message = data.error.message;
+      }
+    }
   } catch {
     // response body wasn't JSON — keep the fallback
   }
