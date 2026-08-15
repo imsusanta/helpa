@@ -69,13 +69,14 @@ const SECURITY_HEADERS = [
     value: [
       "default-src 'self'",
       process.env.NODE_ENV === 'development'
-        ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
-        : "script-src 'self' 'unsafe-inline'",
+        ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://connect.facebook.net https://*.facebook.com https://*.facebook.net"
+        : "script-src 'self' 'unsafe-inline' https://connect.facebook.net https://*.facebook.com https://*.facebook.net",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https://*.appwrite.io https://*.appwrite.network https://images.unsplash.com",
-      "media-src 'self' blob: https://*.appwrite.io https://*.appwrite.network",
+      "img-src 'self' data: blob: https://*.appwrite.io https://*.appwrite.network https://images.unsplash.com https://*.facebook.com https://*.fbcdn.net https://*.supabase.co",
+      "media-src 'self' blob: https://*.appwrite.io https://*.appwrite.network https://*.supabase.co",
       "font-src 'self' data:",
-      "connect-src 'self' https://*.appwrite.io https://*.appwrite.network wss://*.appwrite.network https://openrouter.ai",
+      "connect-src 'self' https://*.appwrite.io https://*.appwrite.network wss://*.appwrite.network https://openrouter.ai https://*.supabase.co wss://*.supabase.co https://*.facebook.com https://*.facebook.net https://graph.facebook.com",
+      "frame-src 'self' https://*.facebook.com https://*.facebook.net https://web.facebook.com",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
