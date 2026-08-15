@@ -82,6 +82,9 @@ export async function GET(request: Request) {
       commitSource: deploymentMeta.commitSource,
       environment: deploymentMeta.environment,
       buildTime: deploymentMeta.buildTime,
+      primaryDatabase: 'supabase',
+      databaseMigrationStatus: migrationVersion ? 'verified' : 'missing',
+      canonicalDeploymentProvider: 'vercel',
       checks: {
         supabase: supabaseReachable ? 'healthy' : 'unreachable',
         database: databaseHealthy ? 'healthy' : 'unreachable',
@@ -100,8 +103,6 @@ export async function GET(request: Request) {
             'Voice CRM is excluded from the current production release scope (Option A: WhatsApp CRM focus).',
         },
       },
-      primaryDatabase: 'supabase',
-      databaseMigrationStatus: migrationVersion ? 'verified' : 'missing',
       appwriteCompatibility: 'rollback_only',
       supabase: {
         connected: supabaseReachable,
