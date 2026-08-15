@@ -43,14 +43,17 @@ export async function GET() {
     if (ctx?.accountId) {
       accountId = ctx.accountId;
     } else {
-      const { data: profile } = await appwrite
-        .from('profiles')
-        .select('accountId')
-        .eq('userId', user.id)
-        .maybeSingle()
-        .catch(() => ({ data: null }));
-      if (profile?.accountId) {
-        accountId = String(profile.accountId);
+      try {
+        const { data: profile } = await appwrite
+          .from('profiles')
+          .select('accountId')
+          .eq('userId', user.id)
+          .maybeSingle();
+        if (profile?.accountId) {
+          accountId = String(profile.accountId);
+        }
+      } catch {
+        // Fallback
       }
     }
 
@@ -280,16 +283,19 @@ export async function POST(request: Request) {
       accountId = ctx.accountId;
       userRole = ctx.role;
     } else {
-      const { data: profile } = await appwrite
-        .from('profiles')
-        .select('accountId, role')
-        .eq('userId', user.id)
-        .maybeSingle()
-        .catch(() => ({ data: null }));
+      try {
+        const { data: profile } = await appwrite
+          .from('profiles')
+          .select('accountId, role')
+          .eq('userId', user.id)
+          .maybeSingle();
 
-      if (profile?.accountId) {
-        accountId = String(profile.accountId);
-        userRole = profile.role || 'member';
+        if (profile?.accountId) {
+          accountId = String(profile.accountId);
+          userRole = profile.role || 'member';
+        }
+      } catch {
+        // Fallback
       }
     }
 
@@ -669,16 +675,19 @@ export async function DELETE() {
       accountId = ctx.accountId;
       userRole = ctx.role;
     } else {
-      const { data: profile } = await appwrite
-        .from('profiles')
-        .select('account_id, role')
-        .eq('user_id', user.id)
-        .maybeSingle()
-        .catch(() => ({ data: null }));
+      try {
+        const { data: profile } = await appwrite
+          .from('profiles')
+          .select('account_id, role')
+          .eq('user_id', user.id)
+          .maybeSingle();
 
-      if (profile?.account_id) {
-        accountId = String(profile.account_id);
-        userRole = profile.role || 'member';
+        if (profile?.account_id) {
+          accountId = String(profile.account_id);
+          userRole = profile.role || 'member';
+        }
+      } catch {
+        // Fallback
       }
     }
 

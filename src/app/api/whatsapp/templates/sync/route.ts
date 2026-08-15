@@ -143,14 +143,17 @@ export async function POST() {
     if (ctx?.accountId) {
       accountId = ctx.accountId;
     } else {
-      const { data: profile } = await appwrite
-        .from('profiles')
-        .select('account_id, accountId')
-        .eq('user_id', user.id)
-        .maybeSingle()
-        .catch(() => ({ data: null }));
-      if (profile?.account_id || profile?.accountId) {
-        accountId = String(profile.account_id || profile.accountId);
+      try {
+        const { data: profile } = await appwrite
+          .from('profiles')
+          .select('account_id, accountId')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        if (profile?.account_id || profile?.accountId) {
+          accountId = String(profile.account_id || profile.accountId);
+        }
+      } catch {
+        // Fallback
       }
     }
 
@@ -313,14 +316,19 @@ export async function POST() {
         updated_at: new Date().toISOString(),
       };
 
-      const { data: matches } = await appwrite
-        .from('message_templates')
-        .select('id')
-        .eq('account_id', accountId)
-        .eq('name', t.name)
-        .eq('language', t.language)
-        .limit(1)
-        .catch(() => ({ data: null }));
+      let matches: { id: string }[] | null = null;
+      try {
+        const res = await appwrite
+          .from('message_templates')
+          .select('id')
+          .eq('account_id', accountId)
+          .eq('name', t.name)
+          .eq('language', t.language)
+          .limit(1);
+        matches = (res.data as { id: string }[]) || null;
+      } catch {
+        matches = null;
+      }
 
       const existingId = matches?.[0]?.id;
 

@@ -149,8 +149,7 @@ export function BillingPanel() {
         .from('subscriptions')
         .select('status, end_date, plan:plans(*)')
         .eq('account_id', accountId)
-        .maybeSingle()
-        .catch(() => ({ data: null }));
+        .maybeSingle();
 
       if (subData) {
         setSub(subData as unknown as SubscriptionInfo);
@@ -160,15 +159,13 @@ export function BillingPanel() {
       const { count: contactsCount } = await appwrite
         .from('contacts')
         .select('id', { count: 'exact', head: true })
-        .eq('account_id', accountId)
-        .catch(() => ({ count: 0 }));
+        .eq('account_id', accountId);
 
       // 3. Fetch Team Member count
       const { count: usersCount } = await appwrite
         .from('profiles')
         .select('id', { count: 'exact', head: true })
-        .eq('account_id', accountId)
-        .catch(() => ({ count: 0 }));
+        .eq('account_id', accountId);
 
       // 4. Fetch Usage tracking record
       const { data: usageData } = await appwrite
@@ -176,8 +173,7 @@ export function BillingPanel() {
         .select('ai_requests, whatsapp_messages')
         .eq('account_id', accountId)
         .eq('month', currentMonth)
-        .maybeSingle()
-        .catch(() => ({ data: null }));
+        .maybeSingle();
 
       setUsage({
         contacts: contactsCount ?? 0,

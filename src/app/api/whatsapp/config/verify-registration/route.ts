@@ -28,14 +28,17 @@ export async function GET() {
   if (ctx?.accountId) {
     accountId = ctx.accountId;
   } else {
-    const { data: profile } = await appwrite
-      .from('profiles')
-      .select('account_id, accountId')
-      .eq('user_id', user.id)
-      .maybeSingle()
-      .catch(() => ({ data: null }));
-    if (profile?.account_id || profile?.accountId) {
-      accountId = String(profile.account_id || profile.accountId);
+    try {
+      const { data: profile } = await appwrite
+        .from('profiles')
+        .select('account_id, accountId')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (profile?.account_id || profile?.accountId) {
+        accountId = String(profile.account_id || profile.accountId);
+      }
+    } catch {
+      // Fallback
     }
   }
 

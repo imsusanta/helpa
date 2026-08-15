@@ -305,24 +305,34 @@ export async function processMessage(
       : 'text';
 
   // Deduplication check: ignore duplicate webhook deliveries for the same Meta message ID
-  const { data: existingMsg } = await getAdminClient()
-    .from('messages')
-    .select('id')
-    .eq('message_id', message.id)
-    .limit(1)
-    .catch(() => ({ data: null }));
+  let existingMsg: { id: string }[] | null = null;
+  try {
+    const res = await getAdminClient()
+      .from('messages')
+      .select('id')
+      .eq('message_id', message.id)
+      .limit(1);
+    existingMsg = (res.data as { id: string }[]) || null;
+  } catch {
+    existingMsg = null;
+  }
 
   if (existingMsg && existingMsg.length > 0) {
     console.log(`[webhook] Duplicate messageId ${message.id} ignored.`);
     return;
   }
 
-  const { count: priorCustomerMsgCount } = await getAdminClient()
-    .from('messages')
-    .select('id', { count: 'exact', head: true })
-    .eq('conversation_id', convId)
-    .catch(() => ({ count: 0 }));
-  const isFirstInboundMessage = (priorCustomerMsgCount ?? 0) === 0;
+  let priorCustomerMsgCount = 0;
+  try {
+    const res = await getAdminClient()
+      .from('messages')
+      .select('id', { count: 'exact', head: true })
+      .eq('conversation_id', convId);
+    priorCustomerMsgCount = res.count ?? 0;
+  } catch {
+    priorCustomerMsgCount = 0;
+  }
+  const isFirstInboundMessage = priorCustomerMsgCount === 0;
 
   const nowIso = new Date(parseInt(message.timestamp) * 1000).toISOString();
   let msgError: unknown = null;
@@ -415,11 +425,14 @@ export async function processMessage(
       legacyPayload.lastMessageText = contentText || `[${message.type}]`;
       legacyPayload.lastMessageAt = messageDate.toISOString();
     }
-    await getAdminClient()
-      .from('conversations')
-      .update(legacyPayload)
-      .eq('id', convId)
-      .catch(() => {});
+    try {
+      await getAdminClient()
+        .from('conversations')
+        .update(legacyPayload)
+        .eq('id', convId);
+    } catch {
+      // Ignore
+    }
   }
 
   await flagBroadcastReplyIfAny(accountId, contactRecord.id);
