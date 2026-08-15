@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "vibedoctor-telepost": {
+      "serverUrl": "https://vibedoctor.io/mcp/4cb5f3378fd722edb224750a4487c293931a3dd04b8aa4f706032b3191982f2d",
+      "url": "https://vibedoctor.io/mcp/4cb5f3378fd722edb224750a4487c293931a3dd04b8aa4f706032b3191982f2d"
+    },
+    "vibedoctor-practicekoro-finalv2": {
+      "serverUrl": "https://vibedoctor.io/mcp/73ac0f2c45e10ed37d509fc050af929ec510a0fca61e07604c2a22719ddf5f69",
+      "url": "https://vibedoctor.io/mcp/73ac0f2c45e10ed37d509fc050af929ec510a0fca61e07604c2a22719ddf5f69"
+    },
+    "vibedoctor-helpa": {
+      "serverUrl": "https://vibedoctor.io/mcp/b8662a9c58dbb38dfe38295f974bf948ae63fdc0c69481e25140725865c775d4",
+      "url": "https://vibedoctor.io/mcp/b8662a9c58dbb38dfe38295f974bf948ae63fdc0c69481e25140725865c775d4"
+    }
+  }
+}

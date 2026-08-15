@@ -114,6 +114,36 @@ export async function PATCH(request: Request) {
     }
 
     const admin = appwriteAdmin();
+
+    // Verify authenticated user has admin role in this specific account
+    const { data: profileCheck, error: pErr } = await admin
+      .from('profiles')
+      .select('account_id, role, account_role, is_super_admin')
+      .eq('user_id', ctx.userId)
+      .eq('account_id', ctx.accountId)
+      .maybeSingle();
+
+    if (pErr || !profileCheck) {
+      return NextResponse.json(
+        { error: 'Forbidden: Account ownership verification failed' },
+        { status: 403 }
+      );
+    }
+
+    const effectiveRole = String(
+      profileCheck.account_role || profileCheck.role || ''
+    ).toLowerCase();
+
+    if (
+      !profileCheck.is_super_admin &&
+      !['admin', 'owner'].includes(effectiveRole)
+    ) {
+      return NextResponse.json(
+        { error: 'Forbidden: Insufficient account permissions' },
+        { status: 403 }
+      );
+    }
+
     const { data, error } = await admin
       .from('accounts')
       .update(updates)

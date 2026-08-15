@@ -127,11 +127,9 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        <Script
-          id="theme-boot"
-          strategy="beforeInteractive"
-          dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }}
-        />
+        <Script id="theme-boot" strategy="beforeInteractive">
+          {THEME_BOOT_SCRIPT}
+        </Script>
       </head>
       <body className="bg-background text-foreground min-h-full font-sans">
         <ThemeProvider>
