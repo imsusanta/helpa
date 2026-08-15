@@ -161,12 +161,32 @@ export async function POST(request: Request) {
       metaTemplateId = `dry-run-${crypto.randomUUID()}`;
       metaStatus = 'PENDING';
     } else {
-      const { data: config, error: configError } = await appwrite
-        .from('whatsapp_configs')
-        .select('*')
-        .eq('account_id', accountId)
-        .single();
-      if (configError || !config) {
+      let config: Record<string, unknown> | null = null;
+      try {
+        const { data } = await appwrite
+          .from('whatsapp_config')
+          .select('*')
+          .eq('account_id', accountId)
+          .single();
+        if (data) config = data as Record<string, unknown>;
+      } catch {
+        // Fallback
+      }
+
+      if (!config) {
+        try {
+          const { data } = await appwrite
+            .from('whatsapp_configs')
+            .select('*')
+            .eq('account_id', accountId)
+            .single();
+          if (data) config = data as Record<string, unknown>;
+        } catch {
+          // Ignore
+        }
+      }
+
+      if (!config) {
         return NextResponse.json(
           {
             error:
@@ -175,7 +195,8 @@ export async function POST(request: Request) {
           { status: 400 }
         );
       }
-      if (!config.waba_id) {
+      const wabaId = String(config.waba_id || config.wabaId || '');
+      if (!wabaId) {
         return NextResponse.json(
           {
             error:
@@ -184,8 +205,13 @@ export async function POST(request: Request) {
           { status: 400 }
         );
       }
-
-      const accessToken = decrypt(config.access_token);
+      const encToken = String(
+        config.access_token ||
+          config.encrypted_access_token ||
+          config.accessToken ||
+          ''
+      );
+      const accessToken = decrypt(encToken);
 
       // Image headers need a Resumable-Upload handle (Meta rejects a
       // plain URL at creation). Derive it from header_media_url before
@@ -206,7 +232,7 @@ export async function POST(request: Request) {
       const metaPayload = buildMetaTemplatePayload(payload);
       try {
         const meta = await submitMessageTemplate({
-          wabaId: config.waba_id,
+          wabaId,
           accessToken,
           payload: metaPayload,
         });

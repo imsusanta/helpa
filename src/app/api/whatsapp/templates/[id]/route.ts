@@ -155,18 +155,44 @@ export async function PATCH(
     }
 
     if (!isDryRun()) {
-      const { data: config, error: configError } = await appwrite
-        .from('whatsapp_configs')
-        .select('*')
-        .eq('account_id', accountId)
-        .single();
-      if (configError || !config) {
+      let config: Record<string, unknown> | null = null;
+      try {
+        const { data } = await appwrite
+          .from('whatsapp_config')
+          .select('*')
+          .eq('account_id', accountId)
+          .single();
+        if (data) config = data as Record<string, unknown>;
+      } catch {
+        // Fallback
+      }
+
+      if (!config) {
+        try {
+          const { data } = await appwrite
+            .from('whatsapp_configs')
+            .select('*')
+            .eq('account_id', accountId)
+            .single();
+          if (data) config = data as Record<string, unknown>;
+        } catch {
+          // Ignore
+        }
+      }
+
+      if (!config) {
         return NextResponse.json(
           { error: 'WhatsApp not configured.' },
           { status: 400 }
         );
       }
-      const accessToken = decrypt(config.access_token);
+      const encToken = String(
+        config.access_token ||
+          config.encrypted_access_token ||
+          config.accessToken ||
+          ''
+      );
+      const accessToken = decrypt(encToken);
 
       // Image headers need a fresh Resumable-Upload handle on every edit
       // (Meta replaces components wholesale). Derive from header_media_url.
@@ -308,21 +334,48 @@ export async function DELETE(
     }
 
     if (existing.meta_template_id && !isDryRun()) {
-      const { data: config, error: configError } = await appwrite
-        .from('whatsapp_configs')
-        .select('*')
-        .eq('account_id', accountId)
-        .single();
-      if (configError || !config || !config.waba_id) {
+      let config: Record<string, unknown> | null = null;
+      try {
+        const { data } = await appwrite
+          .from('whatsapp_config')
+          .select('*')
+          .eq('account_id', accountId)
+          .single();
+        if (data) config = data as Record<string, unknown>;
+      } catch {
+        // Fallback
+      }
+
+      if (!config) {
+        try {
+          const { data } = await appwrite
+            .from('whatsapp_configs')
+            .select('*')
+            .eq('account_id', accountId)
+            .single();
+          if (data) config = data as Record<string, unknown>;
+        } catch {
+          // Ignore
+        }
+      }
+
+      const wabaId = String(config?.waba_id || config?.wabaId || '');
+      if (!config || !wabaId) {
         return NextResponse.json(
           { error: 'WhatsApp not configured — cannot delete on Meta.' },
           { status: 400 }
         );
       }
-      const accessToken = decrypt(config.access_token);
+      const encToken = String(
+        config.access_token ||
+          config.encrypted_access_token ||
+          config.accessToken ||
+          ''
+      );
+      const accessToken = decrypt(encToken);
       try {
         await deleteMessageTemplate({
-          wabaId: config.waba_id,
+          wabaId,
           accessToken,
           name: existing.name,
           metaTemplateId: existing.meta_template_id,
