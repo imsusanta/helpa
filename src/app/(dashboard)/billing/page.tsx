@@ -63,20 +63,20 @@ export default function BillingPage() {
 
       setBills((billRows as unknown as Bill[]) || []);
 
-      const { data: pats } = await db
-        .from('patients')
-        .select('id, contact:contacts(name)')
-        .eq('account_id', accountId);
+      // Fetch patients from contacts
+      const { data: contactsList } = await db
+        .from('contacts')
+        .select('id, name, phone')
+        .eq('account_id', accountId)
+        .order('name', { ascending: true });
 
-      const mappedPats = (pats || []).map((p) => {
-        const cData = p.contact as
-          { name?: string } | { name?: string }[] | null;
-        const cName =
-          (Array.isArray(cData) ? cData[0]?.name : cData?.name) ||
-          'Unknown Patient';
+      const mappedPats = (contactsList || []).map((c) => {
+        const item = c as Record<string, unknown>;
+        const name = (item.name as string) || 'Patient';
+        const phone = (item.phone as string) || '';
         return {
-          id: p.id as string,
-          name: cName,
+          id: item.id as string,
+          name: phone ? `${name} (${phone})` : name,
         };
       });
       setPatients(mappedPats);

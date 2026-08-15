@@ -99,7 +99,7 @@ export default function LabReportsPage() {
       const { data: repData, error } = await db
         .from('hospital_lab_reports')
         .select(
-          '*, patient:patients(id, contact:contacts(name, phone)), doctor:hospital_doctors(id, name)'
+          '*, patient:contacts(id, name, phone), doctor:hospital_doctors(id, name)'
         )
         .eq('account_id', accountId)
         .order('created_at', { ascending: false });
@@ -110,7 +110,8 @@ export default function LabReportsPage() {
         const item = r as Record<string, unknown>;
         const pData = item.patient as {
           id: string;
-          contact: { name: string; phone: string } | null;
+          name: string;
+          phone: string;
         } | null;
         const docObj = item.doctor as { id: string; name: string } | null;
         return {
@@ -129,8 +130,8 @@ export default function LabReportsPage() {
           patient: pData
             ? {
                 id: pData.id,
-                name: pData.contact?.name || 'Unknown Patient',
-                phone: pData.contact?.phone || '—',
+                name: pData.name || 'Unknown Patient',
+                phone: pData.phone || '—',
               }
             : null,
           doctor: docObj
@@ -144,22 +145,20 @@ export default function LabReportsPage() {
 
       setReports(formattedReports);
 
-      // Fetch patients
-      const { data: pats } = await db
-        .from('patients')
-        .select('id, contact:contacts(name)')
-        .eq('account_id', accountId);
+      // Fetch patients from contacts
+      const { data: contactsList } = await db
+        .from('contacts')
+        .select('id, name, phone')
+        .eq('account_id', accountId)
+        .order('name', { ascending: true });
 
-      const mappedPats = (pats || []).map((p) => {
-        const item = p as Record<string, unknown>;
-        const cData = item.contact as
-          { name?: string } | { name?: string }[] | null;
-        const cName =
-          (Array.isArray(cData) ? cData[0]?.name : cData?.name) ||
-          'Unknown Patient';
+      const mappedPats = (contactsList || []).map((c) => {
+        const item = c as Record<string, unknown>;
+        const name = (item.name as string) || 'Patient';
+        const phone = (item.phone as string) || '';
         return {
           id: item.id as string,
-          name: cName,
+          name: phone ? `${name} (${phone})` : name,
         };
       });
       setPatients(mappedPats);
