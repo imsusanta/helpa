@@ -54,10 +54,38 @@ function assertPreflight() {
   }
 }
 
+const FORBIDDEN_SQL_PATTERNS = [
+  /\bdrop\s+database\b/i,
+  /\bshutdown\b/i,
+  /\bcopy\s+.*\s+to\s+program\b/i,
+  /\bpg_read_file\b/i,
+  /\bpg_write_file\b/i,
+  /\bdblink_connect\b/i,
+];
+
+function validateMigrationFiles() {
+  const files = fs
+    .readdirSync(migrationsDir)
+    .filter((file) => /^\d{14}_[a-zA-Z0-9_-]+\.sql$/.test(file))
+    .sort();
+
+  if (files.length === 0) fail('NO_VALID_MIGRATIONS_FOUND');
+
+  for (const file of files) {
+    const content = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+    for (const pattern of FORBIDDEN_SQL_PATTERNS) {
+      if (pattern.test(content)) {
+        fail(`FORBIDDEN_SQL_PATTERN_DETECTED_${file}`);
+      }
+    }
+  }
+}
+
 function migrationVersions() {
+  validateMigrationFiles();
   return fs
     .readdirSync(migrationsDir)
-    .filter((file) => /^\d{14}_.+\.sql$/.test(file))
+    .filter((file) => /^\d{14}_[a-zA-Z0-9_-]+\.sql$/.test(file))
     .sort()
     .map((file) => file.slice(0, 14));
 }

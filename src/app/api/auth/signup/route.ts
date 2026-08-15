@@ -122,11 +122,16 @@ export async function POST(request: Request) {
     const sessionJson = await sessionRes.json();
 
     if (!sessionRes.ok) {
-      return NextResponse.json({
-        success: true,
-        message: 'Account created successfully. Please sign in.',
-        redirect: '/login',
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            sessionJson.message ||
+            'Account created but initial session could not be established. Please sign in.',
+          redirect: '/login',
+        },
+        { status: 400 }
+      );
     }
 
     let sessionSecret = sessionJson.secret || '';
@@ -192,15 +197,18 @@ export async function POST(request: Request) {
           }
         }
       } catch {
-        // Fall through to redirect
+        // Fall through to error
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      message: 'Account created successfully. Please sign in.',
-      redirect: '/login',
-    });
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Unable to establish secure session. Please log in directly.',
+        redirect: '/login',
+      },
+      { status: 401 }
+    );
   } catch (err: unknown) {
     return NextResponse.json(
       {
