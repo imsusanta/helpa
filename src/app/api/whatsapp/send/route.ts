@@ -116,20 +116,17 @@ export async function POST(request: Request) {
           ? rawPhone
           : `+${cleanPhone}`;
 
-        // Try finding an existing contact by phone. Uses multiple
-        // strategies because Appwrite may lack the indexes needed
-        // for composite or() queries.
         const variants = [cleanPhone, plusPhone, rawPhone];
         const uniqueVariants = [...new Set(variants)];
         let foundContact: { id: string } | null = null;
 
-        // Strategy 1: individual eq queries per phone variant
+        // Strategy 1: query by account_id / accountId
         for (const variant of uniqueVariants) {
           try {
             const { data: match } = await dbAdmin
               .from('contacts')
-              .select('id, accountId, account_id')
-              .eq('accountId', accountId)
+              .select('id, account_id, accountId')
+              .eq('account_id', accountId)
               .eq('phone', variant)
               .limit(1);
             if (match && match.length > 0) {
@@ -137,49 +134,60 @@ export async function POST(request: Request) {
               break;
             }
           } catch {
-            // Index or attribute missing — try next
-          }
-        }
-
-        // Strategy 2: fetch all contacts for this account, filter phone in memory
-        if (!foundContact) {
-          try {
-            const { data: allContacts } = await dbAdmin
-              .from('contacts')
-              .select('id, accountId, account_id, phone')
-              .eq('accountId', accountId)
-              .limit(500);
-            if (allContacts && allContacts.length > 0) {
-              foundContact =
-                allContacts.find((c: Record<string, unknown>) =>
-                  uniqueVariants.includes(String(c.phone || ''))
-                ) || null;
+            try {
+              const { data: match } = await dbAdmin
+                .from('contacts')
+                .select('id, accountId, account_id')
+                .eq('accountId', accountId)
+                .eq('phone', variant)
+                .limit(1);
+              if (match && match.length > 0) {
+                foundContact = match[0];
+                break;
+              }
+            } catch {
+              // Ignore
             }
-          } catch {
-            // Fall through to contact creation
           }
         }
 
         if (foundContact) {
           resolvedContactId = foundContact.id;
         } else {
-          // Create a new contact — use camelCase field names to match schema
+          // Create a new contact
           try {
             const now = new Date().toISOString();
             const { data: newContact } = await dbAdmin
               .from('contacts')
               .insert({
-                accountId,
+                account_id: accountId,
+                user_id: ctx?.userId || null,
                 phone: plusPhone,
+                phone_normalized: cleanPhone,
                 name: body.name || cleanPhone,
-                createdAt: now,
-                updatedAt: now,
+                created_at: now,
+                updated_at: now,
               })
               .select('id')
               .single();
 
             if (newContact) {
               resolvedContactId = newContact.id;
+            } else {
+              const { data: legacyContact } = await dbAdmin
+                .from('contacts')
+                .insert({
+                  accountId,
+                  phone: plusPhone,
+                  name: body.name || cleanPhone,
+                  createdAt: now,
+                  updatedAt: now,
+                })
+                .select('id')
+                .single();
+              if (legacyContact) {
+                resolvedContactId = legacyContact.id;
+              }
             }
           } catch (insertErr) {
             console.error('[whatsapp/send] Contact insert failed:', insertErr);
@@ -188,33 +196,27 @@ export async function POST(request: Request) {
       }
 
       if (resolvedContactId) {
-        // Find existing conversation — use camelCase field names
+        // Find existing conversation
         let extConv: { id: string } | null = null;
         try {
           const { data: convData } = await dbAdmin
             .from('conversations')
             .select('id')
-            .eq('contactId', resolvedContactId)
-            .eq('accountId', accountId)
+            .eq('contact_id', resolvedContactId)
+            .eq('account_id', accountId)
             .maybeSingle();
           if (convData) extConv = convData;
         } catch {
-          // Schema mismatch — try without accountId filter
           try {
-            const { data: allConvs } = await dbAdmin
+            const { data: convData } = await dbAdmin
               .from('conversations')
-              .select('id, contactId, accountId')
+              .select('id')
+              .eq('contactId', resolvedContactId)
               .eq('accountId', accountId)
-              .limit(200);
-            if (allConvs && allConvs.length > 0) {
-              const match = allConvs.find(
-                (c: Record<string, unknown>) =>
-                  String(c.contactId || '') === resolvedContactId
-              );
-              if (match) extConv = { id: String(match.id) };
-            }
+              .maybeSingle();
+            if (convData) extConv = convData;
           } catch {
-            // Fall through to creation
+            // Ignore
           }
         }
 
@@ -224,24 +226,36 @@ export async function POST(request: Request) {
             const { data: createdConv, error: convErr } = await dbAdmin
               .from('conversations')
               .insert({
-                accountId,
-                contactId: resolvedContactId,
+                account_id: accountId,
+                user_id: ctx?.userId || null,
+                contact_id: resolvedContactId,
                 status: 'open',
-                lastMessageText: content_text || 'Outbound message',
-                lastMessageAt: now,
-                createdAt: now,
-                updatedAt: now,
+                last_message_text: content_text || 'Outbound message',
+                last_message_at: now,
+                created_at: now,
+                updated_at: now,
               })
               .select('id')
               .single();
 
-            if (convErr) {
-              console.error(
-                '[whatsapp/send] Conversation insert error:',
-                convErr
-              );
+            if (createdConv) {
+              extConv = createdConv;
+            } else {
+              const { data: legacyConv } = await dbAdmin
+                .from('conversations')
+                .insert({
+                  accountId,
+                  contactId: resolvedContactId,
+                  status: 'open',
+                  lastMessageText: content_text || 'Outbound message',
+                  lastMessageAt: now,
+                  createdAt: now,
+                  updatedAt: now,
+                })
+                .select('id')
+                .single();
+              if (legacyConv) extConv = legacyConv;
             }
-            extConv = createdConv;
           } catch (insertErr) {
             console.error(
               '[whatsapp/send] Conversation insert threw:',
@@ -322,30 +336,29 @@ export async function POST(request: Request) {
         .from('conversations')
         .select('*, contact:contacts(*)')
         .eq('id', conversation_id)
-        .eq('accountId', accountId)
+        .eq('account_id', accountId)
         .single();
       if (
         convData &&
-        String(convData.accountId || convData.account_id || '') ===
+        String(convData.account_id || convData.accountId || '') ===
           String(accountId)
       ) {
         conversation = convData;
       }
     } catch {
-      // Fallback: strictly query within the tenant's accountId
       try {
-        const { data: tenantConvs } = await dbAdmin
+        const { data: convData } = await dbAdmin
           .from('conversations')
           .select('*, contact:contacts(*)')
+          .eq('id', conversation_id)
           .eq('accountId', accountId)
-          .limit(100);
-        if (tenantConvs && tenantConvs.length > 0) {
-          const match = tenantConvs.find(
-            (c: Record<string, unknown>) =>
-              String(c.id || c.$id || '') === String(conversation_id) &&
-              String(c.accountId || c.account_id || '') === String(accountId)
-          );
-          if (match) conversation = match;
+          .single();
+        if (
+          convData &&
+          String(convData.account_id || convData.accountId || '') ===
+            String(accountId)
+        ) {
+          conversation = convData;
         }
       } catch {
         // Fall through to not found
@@ -377,18 +390,36 @@ export async function POST(request: Request) {
           .from('contacts')
           .select('*')
           .eq('id', contactId)
-          .eq('accountId', accountId)
+          .eq('account_id', accountId)
           .single();
 
         if (
           directContact?.phone &&
-          String(directContact.accountId || directContact.account_id || '') ===
+          String(directContact.account_id || directContact.accountId || '') ===
             String(accountId)
         ) {
           contactPhone = directContact.phone;
         }
       } catch {
-        // Could not fetch contact
+        try {
+          const { data: directContact } = await dbAdmin
+            .from('contacts')
+            .select('*')
+            .eq('id', contactId)
+            .eq('accountId', accountId)
+            .single();
+
+          if (
+            directContact?.phone &&
+            String(
+              directContact.accountId || directContact.account_id || ''
+            ) === String(accountId)
+          ) {
+            contactPhone = directContact.phone;
+          }
+        } catch {
+          // Could not fetch contact
+        }
       }
     }
 
@@ -412,30 +443,29 @@ export async function POST(request: Request) {
     let config: Record<string, unknown> | null = null;
     try {
       const { data: conf1 } = await dbAdmin
-        .from('whatsapp_configs')
+        .from('whatsapp_config')
         .select('*')
-        .eq('accountId', accountId)
+        .eq('account_id', accountId)
         .maybeSingle();
       if (
         conf1 &&
-        String(conf1.accountId || conf1.account_id || '') === String(accountId)
+        String(conf1.account_id || conf1.accountId || '') === String(accountId)
       ) {
         config = conf1;
       }
     } catch {
-      // Fallback: fetch scoped to accountId
       try {
-        const { data: allConfigs } = await dbAdmin
+        const { data: conf2 } = await dbAdmin
           .from('whatsapp_configs')
           .select('*')
           .eq('accountId', accountId)
-          .limit(100);
-        if (allConfigs && allConfigs.length > 0) {
-          config =
-            allConfigs.find(
-              (c: Record<string, unknown>) =>
-                String(c.accountId || c.account_id || '') === String(accountId)
-            ) || null;
+          .maybeSingle();
+        if (
+          conf2 &&
+          String(conf2.accountId || conf2.account_id || '') ===
+            String(accountId)
+        ) {
+          config = conf2;
         }
       } catch {
         // Fall through to not configured
