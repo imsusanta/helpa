@@ -16,4 +16,5 @@ walkthrough.md
 analysis_results.md
 src/lib/build-info.json
 src/lib/build-metadata.json
+src/lib/build-info.ts
 artifacts

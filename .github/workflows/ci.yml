@@ -44,13 +44,13 @@ jobs:
       - name: Format Check (Prettier)
         run: npm run format:check
 
-      - name: Secret Scanning (Check for hardcoded Appwrite secrets across repository)
+      - name: Secret Scanning (Check for hardcoded secrets across tracked repository files)
         run: |
-          if grep -rn "standard_[0-9a-f]\{128\}" . --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.next --exclude=.env.local --exclude=.env ; then
-            echo "❌ Hardcoded Appwrite API key detected!"
+          if git grep -nE "standard_[0-9a-f]{128}" ; then
+            echo "❌ Hardcoded Appwrite API key detected in tracked repository files!"
             exit 1
           fi
-          echo "✅ Secret scanning passed cleanly."
+          echo "✅ Secret scanning passed cleanly across all tracked files."
 
       - name: Emit Lint Diagnostics
         run: |

@@ -133,11 +133,11 @@ function main() {
 
   const tsContent = `// Auto-generated during prebuild. Do not edit manually.
 export const BUILD_METADATA = {
-  commit: ${metadata.commit ? JSON.stringify(metadata.commit) : 'null'},
-  commitSource: ${metadata.commitSource ? JSON.stringify(metadata.commitSource) : 'null'},
-  deploymentShaStatus: ${JSON.stringify(metadata.deploymentShaStatus)},
-  buildTime: ${JSON.stringify(metadata.buildTime)},
-  environment: ${JSON.stringify(metadata.environment)},
+  commit: ${metadata.commit ? `'${metadata.commit}'` : 'null'},
+  commitSource: ${metadata.commitSource ? `'${metadata.commitSource}'` : 'null'},
+  deploymentShaStatus: '${metadata.deploymentShaStatus}',
+  buildTime: '${metadata.buildTime}',
+  environment: '${metadata.environment}',
 } as const;
 `;
   const tsPath = path.join(outputDir, 'build-info.ts');
