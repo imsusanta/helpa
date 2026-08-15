@@ -12,14 +12,11 @@ import { requireRole } from '@/lib/auth/account';
 import { appwriteAdmin } from '@/lib/appwrite-server-compat';
 import { encrypt } from '@/lib/whatsapp/encryption';
 import { subscribeWabaToApp, verifyPhoneNumber } from '@/lib/whatsapp/meta-api';
-import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
 import {
   checkRateLimit,
   rateLimitResponse,
   RATE_LIMITS,
 } from '@/lib/rate-limit';
-
-const CANONICAL_COLLECTION = APPWRITE_CONFIG.collections.whatsappConfigs;
 
 export async function POST(request: Request) {
   try {

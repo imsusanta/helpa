@@ -65,27 +65,21 @@ export async function POST(request: Request) {
       'solo_teacher',
     ];
 
-    for (const mod of allKnownModules) {
-      const isEnabled = config.id === mod;
-      const { error: modErr } = await ctx.appwrite
-        .from('tenant_modules')
-        .upsert(
-          {
-            account_id: ctx.accountId,
-            module_key: mod,
-            enabled: isEnabled,
-            settings: {},
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'account_id, module_key' }
-        );
+    const nowIso = new Date().toISOString();
+    const modulesToUpsert = allKnownModules.map((mod) => ({
+      account_id: ctx.accountId,
+      module_key: mod,
+      enabled: config.id === mod,
+      settings: {},
+      updated_at: nowIso,
+    }));
 
-      if (modErr) {
-        console.error(
-          `[onboard route] failed to upsert module ${mod}:`,
-          modErr
-        );
-      }
+    const { error: modErr } = await ctx.appwrite
+      .from('tenant_modules')
+      .upsert(modulesToUpsert, { onConflict: 'account_id, module_key' });
+
+    if (modErr) {
+      console.error('[onboard route] failed to batch upsert modules:', modErr);
     }
 
     // 3. Set up primary pipeline stages
@@ -224,33 +218,38 @@ export async function POST(request: Request) {
       .eq('account_id', ctx.accountId);
 
     if (config.workflows && config.workflows.length > 0) {
-      for (const w of config.workflows) {
-        const { data: autoRecord, error: autoErr } = await ctx.appwrite
-          .from('automations')
-          .insert({
-            account_id: ctx.accountId,
-            user_id: ctx.userId,
-            name: w.name,
-            description: w.description,
-            trigger_type: w.trigger_type,
-            trigger_config: w.trigger_config || {},
-            is_active: w.is_active,
-          })
-          .select('id')
-          .single();
+      await Promise.all(
+        config.workflows.map(async (w) => {
+          const { data: autoRecord, error: autoErr } = await ctx.appwrite
+            .from('automations')
+            .insert({
+              account_id: ctx.accountId,
+              user_id: ctx.userId,
+              name: w.name,
+              description: w.description,
+              trigger_type: w.trigger_type,
+              trigger_config: w.trigger_config || {},
+              is_active: w.is_active,
+            })
+            .select('id')
+            .single();
 
-        if (autoErr || !autoRecord) {
-          console.error('[onboard route] failed to seed automation:', autoErr);
-          continue;
-        }
+          if (autoErr || !autoRecord) {
+            console.error(
+              '[onboard route] failed to seed automation:',
+              autoErr
+            );
+            return;
+          }
 
-        if (w.steps && w.steps.length > 0) {
-          await insertSteps(
-            autoRecord.id,
-            w.steps as unknown as Parameters<typeof insertSteps>[1]
-          );
-        }
-      }
+          if (w.steps && w.steps.length > 0) {
+            await insertSteps(
+              autoRecord.id,
+              w.steps as unknown as Parameters<typeof insertSteps>[1]
+            );
+          }
+        })
+      );
     }
 
     return NextResponse.json({ success: true, industry: industryKey });
