@@ -227,7 +227,7 @@ export async function launchWhatsAppEmbeddedSignup({
       loginOptions.config_id = configId.trim();
     } else {
       loginOptions.scope =
-        'whatsapp_business_management,whatsapp_business_messaging';
+        'whatsapp_business_management,whatsapp_business_messaging,public_profile';
     }
 
     const fb = window.FB;
