@@ -1,5 +1,29 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import crypto from 'node:crypto';
+
+const { createEmptyQuery } = vi.hoisted(() => ({
+  createEmptyQuery: () => {
+    const query: Record<string, unknown> & {
+      then?: (
+        resolve: (value: { data: unknown[]; error: null; count: number }) => unknown,
+        reject?: (reason: unknown) => unknown
+      ) => Promise<unknown>;
+    } = {
+      select: () => query,
+      eq: () => query,
+      limit: () => query,
+      order: () => query,
+      then: (resolve, reject) =>
+        Promise.resolve({ data: [], error: null, count: 0 }).then(resolve, reject),
+    };
+    return query;
+  },
+}));
+
+vi.mock('@/lib/appwrite-server-compat', () => ({
+  getAdminClient: () => ({ from: () => createEmptyQuery() }),
+}));
+
 import { POST, GET } from './route';
 
 const SECRET = 'test-meta-secret-1234567890123456';
@@ -58,6 +82,40 @@ describe('WhatsApp Webhook Route (Modular Fail-Closed)', () => {
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.status).toBe('received');
+  });
+
+  it('returns 500 when an inbound message cannot be routed to a WhatsApp configuration', async () => {
+    const req = createSignedRequest({
+      object: 'whatsapp_business_account',
+      entry: [
+        {
+          id: 'test-entry',
+          changes: [
+            {
+              field: 'messages',
+              value: {
+                metadata: { phone_number_id: 'unregistered-test-number' },
+                contacts: [{ profile: { name: 'Test User' }, wa_id: '15550000000' }],
+                messages: [
+                  {
+                    from: '15550000000',
+                    id: 'wamid.test-inbound',
+                    timestamp: '1760000000',
+                    type: 'text',
+                    text: { body: 'Hello from a customer' },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(500);
+    const data = await res.json();
+    expect(data.error).toBe('Webhook processing failed');
   });
 
   it('handles GET challenge verification with missing parameters by returning 400', async () => {
