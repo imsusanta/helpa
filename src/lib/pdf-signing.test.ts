@@ -64,4 +64,35 @@ describe('pdf-signing', () => {
   it('rejects missing or empty tokens', () => {
     expect(verifyPdfToken('', APPOINTMENT_ID).valid).toBe(false);
   });
+
+  it('fails closed when the dedicated signing key is missing', () => {
+    const originalPdfKey = process.env.PDF_SIGNING_KEY;
+    const originalAppwriteKey = process.env.APPWRITE_API_KEY;
+    const expiresAt = Math.floor(Date.now() / 1000) + 3600;
+    const token = generatePdfToken({
+      appointmentId: APPOINTMENT_ID,
+      accountId: ACCOUNT_ID,
+      expiresAt,
+    });
+
+    try {
+      delete process.env.PDF_SIGNING_KEY;
+      delete process.env.APPWRITE_API_KEY;
+
+      expect(() =>
+        generatePdfToken({
+          appointmentId: APPOINTMENT_ID,
+          accountId: ACCOUNT_ID,
+          expiresAt,
+        })
+      ).toThrow(/PDF_SIGNING_KEY is not configured/);
+      expect(verifyPdfToken(token, APPOINTMENT_ID)).toEqual({
+        valid: false,
+        error: 'PDF signing key is not configured',
+      });
+    } finally {
+      process.env.PDF_SIGNING_KEY = originalPdfKey;
+      process.env.APPWRITE_API_KEY = originalAppwriteKey;
+    }
+  });
 });

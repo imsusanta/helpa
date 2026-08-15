@@ -6,23 +6,6 @@ import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server'
 export async function GET() {
   try {
     const ctx = await getCurrentAccount();
-    if (ctx.userId === '00000000-0000-0000-0000-000000000001') {
-      return NextResponse.json({
-        success: true,
-        profile: {
-          id: ctx.userId,
-          user_id: ctx.userId,
-          full_name: 'Dr. Test',
-          email: 'doctor@helpa.studio',
-          avatar_url: null,
-          role: ctx.role,
-          account_id: ctx.accountId,
-          account_role: ctx.role,
-          is_super_admin: true,
-        },
-      });
-    }
-
     // 1. Try Supabase PostgreSQL profiles table
     try {
       const supabase = getSupabaseAdminClient();
@@ -44,10 +27,7 @@ export async function GET() {
             role: dbProfile.role || ctx.role || 'owner',
             account_id: dbProfile.account_id || ctx.accountId,
             account_role: dbProfile.account_role || ctx.role || 'owner',
-            is_super_admin:
-              dbProfile.is_super_admin ||
-              dbProfile.role === 'owner' ||
-              dbProfile.email?.toLowerCase() === 'susantalohr@gmail.com',
+            is_super_admin: Boolean(dbProfile.is_super_admin),
           },
         });
       }
@@ -69,7 +49,7 @@ export async function GET() {
         role: ctx.role || 'owner',
         account_id: ctx.accountId,
         account_role: ctx.role || 'owner',
-        is_super_admin: ctx.role === 'owner',
+        is_super_admin: false,
       },
     });
   } catch (err) {
@@ -127,10 +107,7 @@ export async function PATCH(request: Request) {
             role: updatedProfile.role || ctx.role || 'owner',
             account_id: updatedProfile.account_id || ctx.accountId,
             account_role: updatedProfile.account_role || ctx.role || 'owner',
-            is_super_admin:
-              updatedProfile.is_super_admin ||
-              updatedProfile.role === 'owner' ||
-              updatedProfile.email?.toLowerCase() === 'susantalohr@gmail.com',
+            is_super_admin: Boolean(updatedProfile.is_super_admin),
           },
         });
       }
@@ -170,9 +147,7 @@ export async function PATCH(request: Request) {
         role: ctx.role || 'owner',
         account_id: ctx.accountId,
         account_role: ctx.role || 'owner',
-        is_super_admin:
-          ctx.role === 'owner' ||
-          updatedUser.email.toLowerCase() === 'susantalohr@gmail.com',
+        is_super_admin: false,
       },
     });
   } catch (err) {
