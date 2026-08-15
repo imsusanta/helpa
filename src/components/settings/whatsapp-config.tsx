@@ -396,7 +396,15 @@ export function WhatsAppConfig() {
       await fetchConfig();
     } catch (err: unknown) {
       console.error('Embedded Signup error:', err);
-      toast.error((err as Error)?.message || 'Failed to connect with Meta');
+      const msg = (err as Error)?.message || 'Failed to connect with Meta';
+      if (/jssdk|javascript sdk/i.test(msg)) {
+        toast.error(
+          'Please enable "Login with JavaScript SDK" in your Meta App Dashboard under Facebook Login for Business > Settings.',
+          { duration: 8000 }
+        );
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setConnectingEmbedded(false);
     }
