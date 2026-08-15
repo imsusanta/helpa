@@ -37,4 +37,31 @@ test.describe('E2E: Team Permissions & Multi-Tenant Boundary Isolation', () => {
     // Must be rejected strictly with 401 or 403, never 200/404/405
     expect([401, 403]).toContain(res.status());
   });
+
+  test('request body cannot escape tenant ownership on patient creation', async ({
+    request,
+  }) => {
+    const foreignAccountId = '00000000-0000-0000-0000-000000000001';
+    const res = await request.post('/api/patients', {
+      data: {
+        name: 'Attempted Boundary Escape',
+        phone: '+15550001111',
+        account_id: foreignAccountId,
+      },
+    });
+    expect([401, 403]).toContain(res.status());
+  });
+
+  test('unauthorized tenant message access and WhatsApp config are rejected', async ({
+    request,
+  }) => {
+    const fakeConvId = '11111111-1111-1111-1111-111111111111';
+    const msgRes = await request.get(
+      `/api/inbox/conversations/${fakeConvId}/messages`
+    );
+    expect([401, 403, 404]).toContain(msgRes.status());
+
+    const configRes = await request.get('/api/whatsapp/config');
+    expect([401, 403]).toContain(configRes.status());
+  });
 });
