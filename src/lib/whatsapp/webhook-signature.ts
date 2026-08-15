@@ -23,8 +23,15 @@ export function verifyMetaWebhookSignature(
   signatureHeader: string | null
 ): boolean {
   if (process.env.SKIP_META_SIGNATURE_VERIFICATION === 'true') {
+    if (process.env.NODE_ENV === 'production') {
+      console.error(
+        '[webhook] Refusing to bypass signature verification in production.'
+      );
+      return false;
+    }
+
     console.warn(
-      '[webhook] SKIP_META_SIGNATURE_VERIFICATION is enabled. Bypassing signature check.'
+      '[webhook] SKIP_META_SIGNATURE_VERIFICATION is enabled outside production. Bypassing signature check.'
     );
     return true;
   }

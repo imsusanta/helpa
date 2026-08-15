@@ -11,11 +11,11 @@ import crypto from 'crypto';
  */
 
 function getPdfSigningKey(): string {
-  return (
-    process.env.PDF_SIGNING_KEY ||
-    process.env.APPWRITE_API_KEY ||
-    'helpa-pdf-signature-secret-key-32bytes'
-  );
+  const key = process.env.PDF_SIGNING_KEY?.trim();
+  if (!key) {
+    throw new Error('PDF_SIGNING_KEY is not configured');
+  }
+  return key;
 }
 
 export interface PdfSignaturePayload {
@@ -74,12 +74,17 @@ export function verifyPdfToken(
     return { valid: false, error: 'Token appointment mismatch' };
   }
 
-  const secret = getPdfSigningKey();
-  const dataToSign = `pdf:${appointmentId}:${accountId}:${expiresAt}`;
-  const expectedSignature = crypto
-    .createHmac('sha256', secret)
-    .update(dataToSign)
-    .digest('hex');
+  let expectedSignature: string;
+  try {
+    const secret = getPdfSigningKey();
+    const dataToSign = `pdf:${appointmentId}:${accountId}:${expiresAt}`;
+    expectedSignature = crypto
+      .createHmac('sha256', secret)
+      .update(dataToSign)
+      .digest('hex');
+  } catch {
+    return { valid: false, error: 'PDF signing key is not configured' };
+  }
 
   const a = Buffer.from(signature);
   const b = Buffer.from(expectedSignature);

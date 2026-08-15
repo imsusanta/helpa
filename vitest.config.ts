@@ -21,6 +21,7 @@ export default defineConfig({
       NEXT_PUBLIC_APPWRITE_ENDPOINT: 'https://cloud.appwrite.io/v1',
       NEXT_PUBLIC_APPWRITE_PROJECT_ID: 'wacrm_test',
       APPWRITE_API_KEY: 'test-appwrite-api-key',
+      PDF_SIGNING_KEY: 'test-pdf-signing-key-for-vitest',
       APPWRITE_DATABASE_ID: 'wacrm_test',
     },
     clearMocks: true,

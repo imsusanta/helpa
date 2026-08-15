@@ -5,23 +5,6 @@ import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server'
 export async function GET() {
   try {
     const ctx = await getCurrentAccount();
-    if (ctx.userId === '00000000-0000-0000-0000-000000000001') {
-      return NextResponse.json({
-        success: true,
-        profile: {
-          id: ctx.userId,
-          user_id: ctx.userId,
-          full_name: 'Dr. Test',
-          email: 'doctor@helpa.studio',
-          avatar_url: null,
-          role: ctx.role,
-          account_id: ctx.accountId,
-          account_role: ctx.role,
-          is_super_admin: true,
-        },
-      });
-    }
-
     const supabase = getSupabaseAdminClient();
     const { data: dbProfile, error: pErr } = await supabase
       .from('profiles')

@@ -7,15 +7,20 @@ import { cn } from '@/lib/utils';
 import {
   Calendar,
   Users,
-  MessageSquare,
   Clock,
-  UserCheck,
   Plus,
   ArrowRight,
   FileText,
   CalendarCheck,
-  Sparkles,
-  User,
+  Activity,
+  ArrowUpRight,
+  Bot,
+  CheckCircle2,
+  CircleAlert,
+  Inbox,
+  RefreshCw,
+  ShieldCheck,
+  type LucideIcon,
 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -29,6 +34,53 @@ interface AppointmentRow {
   status: string;
   patient: { name: string; phone: string } | null;
   doctor: { name: string } | null;
+}
+
+function MetricCard({
+  label,
+  value,
+  detail,
+  icon: Icon,
+  tone = 'primary',
+  href,
+}: {
+  label: string;
+  value: number;
+  detail: string;
+  icon: LucideIcon;
+  tone?: 'primary' | 'amber' | 'rose' | 'emerald' | 'blue' | 'violet';
+  href?: string;
+}) {
+  const toneClasses = {
+    primary: 'bg-primary-soft text-primary',
+    amber: 'bg-amber-500/10 text-amber-600 dark:text-amber-300',
+    rose: 'bg-rose-500/10 text-rose-600 dark:text-rose-300',
+    emerald: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
+    blue: 'bg-blue-500/10 text-blue-600 dark:text-blue-300',
+    violet: 'bg-violet-500/10 text-violet-600 dark:text-violet-300',
+  };
+
+  const card = (
+    <div className="group border-border/60 bg-card/80 hover:border-primary/30 relative overflow-hidden rounded-[1.35rem] border p-5 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.45)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg">
+      <div className="bg-primary/5 absolute -top-8 -right-8 h-24 w-24 rounded-full blur-2xl transition-transform duration-300 group-hover:scale-125" />
+      <div className="relative flex items-start justify-between gap-3">
+        <div>
+          <p className="text-muted-foreground text-[10px] font-bold tracking-[0.16em] uppercase">
+            {label}
+          </p>
+          <p className="text-foreground mt-4 text-3xl font-semibold tracking-[-0.04em] tabular-nums">
+            {value}
+          </p>
+          <p className="text-muted-foreground mt-1 text-[11px]">{detail}</p>
+        </div>
+        <div className={cn('rounded-xl p-2.5', toneClasses[tone])}>
+          <Icon className="h-4 w-4" />
+        </div>
+      </div>
+    </div>
+  );
+
+  return href ? <Link href={href}>{card}</Link> : card;
 }
 
 export function ClinicalDashboardClient() {
@@ -315,364 +367,532 @@ export function ClinicalDashboardClient() {
   }
 
   return (
-    <div className="animate-in fade-in space-y-6 duration-500">
-      {/* Dynamic Glassmorphism Welcome Header */}
-      <div className="via-background to-background relative flex flex-col gap-4 overflow-hidden rounded-2xl border border-blue-500/20 bg-gradient-to-r from-blue-500/10 p-6 shadow-sm transition-all duration-300 md:flex-row md:items-center md:justify-between">
-        <div className="absolute top-0 right-0 p-8 opacity-5">
-          <Sparkles className="h-40 w-40 animate-pulse text-blue-500" />
-        </div>
-        <div className="z-10">
-          <h1 className="text-foreground text-2xl font-extrabold tracking-tight sm:text-3xl">
-            {greeting}, Receptionist
-          </h1>
-          <p className="text-muted-foreground mt-1 max-w-xl text-xs leading-relaxed">
-            Welcome to your digital reception desk. Manage today&apos;s
-            patients, appointments, and WhatsApp queries at a glance.
-          </p>
-        </div>
-        <div className="z-10 flex flex-wrap items-center gap-3">
-          {/* Active AI Status Badge */}
-          <Link href="/settings?tab=ai">
-            <div className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-blue-500/20 bg-blue-500/5 px-4 py-2 shadow-sm transition-all duration-200 hover:scale-[1.03] hover:bg-blue-500/10 active:scale-[0.97]">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-blue-500" />
-              </span>
-              <div className="text-left">
-                <p className="text-[10px] font-bold tracking-wider text-blue-600 uppercase dark:text-blue-400">
-                  AI Receptionist: Active
-                </p>
-                <p className="text-muted-foreground text-[9px] font-semibold">
-                  Model: {activeModelName}
-                </p>
-              </div>
+    <div className="animate-in fade-in space-y-7 duration-500">
+      <section className="border-primary/20 bg-card relative overflow-hidden rounded-[1.75rem] border shadow-[0_24px_80px_-44px_rgba(79,70,229,0.6)]">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(124,58,237,0.2),transparent_38%),radial-gradient(circle_at_bottom_left,rgba(14,165,233,0.12),transparent_34%)]" />
+        <div className="relative grid gap-8 p-6 sm:p-8 lg:grid-cols-[1fr_auto] lg:items-center">
+          <div className="max-w-2xl">
+            <div className="border-primary/20 bg-primary/10 text-primary mb-4 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-bold tracking-[0.16em] uppercase">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.14)]" />
+              Clinic operations center
             </div>
-          </Link>
-          <Link href="/appointments">
-            <Button className="bg-primary hover:bg-primary/90 cursor-pointer py-5 font-bold text-white transition-all duration-200 hover:scale-[1.03] active:scale-[0.97]">
-              <Plus className="mr-1.5 h-4 w-4" /> Book Appointment
-            </Button>
-          </Link>
-        </div>
-      </div>
-
-      {/* 8 Hospital Reception Desk Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {/* Today&apos;s Appointments */}
-        <div className="bg-card border-border/80 rounded-2xl border p-5 transition-all duration-200 hover:shadow-md">
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
-              Today&apos;s Appointments
-            </span>
-            <div className="rounded-lg bg-blue-500/10 p-2 text-blue-600">
-              <Calendar className="h-5 w-5" />
-            </div>
-          </div>
-          <div className="mt-4">
-            <span className="text-foreground text-3xl font-black tracking-tight tabular-nums">
-              {stats.appointmentsToday}
-            </span>
-          </div>
-        </div>
-
-        {/* Pending Appointments */}
-        <div className="bg-card border-border/80 rounded-2xl border p-5 transition-all duration-200 hover:shadow-md">
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
-              Pending Appointments
-            </span>
-            <div className="rounded-lg bg-amber-500/10 p-2 text-amber-600">
-              <Clock className="h-5 w-5" />
-            </div>
-          </div>
-          <div className="mt-4">
-            <span className="text-foreground text-3xl font-black tracking-tight tabular-nums">
-              {stats.pendingAppointments}
-            </span>
-          </div>
-        </div>
-
-        {/* Waiting Patients */}
-        <div className="bg-card border-border/80 rounded-2xl border p-5 transition-all duration-200 hover:shadow-md">
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
-              Waiting Patients
-            </span>
-            <div className="rounded-lg bg-rose-500/10 p-2 text-rose-600">
-              <Users className="h-5 w-5" />
-            </div>
-          </div>
-          <div className="mt-4">
-            <span className="text-foreground text-3xl font-black tracking-tight tabular-nums">
-              {stats.waitingPatientsToday}
-            </span>
-          </div>
-        </div>
-
-        {/* Reports Ready */}
-        <div className="bg-card border-border/80 rounded-2xl border p-5 transition-all duration-200 hover:shadow-md">
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
-              Reports Ready
-            </span>
-            <div className="rounded-lg bg-emerald-500/10 p-2 text-emerald-600">
-              <FileText className="h-5 w-5" />
-            </div>
-          </div>
-          <div className="mt-4">
-            <span className="text-foreground text-3xl font-black tracking-tight tabular-nums">
-              {stats.reportsAwaitingCollection}
-            </span>
-          </div>
-        </div>
-
-        {/* Doctors Available */}
-        <div className="bg-card border-border/80 rounded-2xl border p-5 transition-all duration-200 hover:shadow-md">
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
-              Doctors Available
-            </span>
-            <div className="rounded-lg bg-indigo-500/10 p-2 text-indigo-600">
-              <UserCheck className="h-5 w-5" />
-            </div>
-          </div>
-          <div className="mt-4">
-            <span className="text-foreground text-3xl font-black tracking-tight tabular-nums">
-              {stats.doctorsAvailable}
-            </span>
-          </div>
-        </div>
-
-        {/* Today&apos;s Follow-ups */}
-        <Link href="/follow-ups">
-          <div className="bg-card border-border/80 hover:border-primary/40 cursor-pointer rounded-2xl border p-5 transition-all duration-200 hover:shadow-md">
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
-                Today&apos;s Follow-ups
-              </span>
-              <div className="rounded-lg bg-purple-500/10 p-2 text-purple-600">
-                <Clock className="h-5 w-5" />
-              </div>
-            </div>
-            <div className="mt-4">
-              <span className="text-foreground text-3xl font-black tracking-tight tabular-nums">
-                {stats.todayFollowups}
-              </span>
-            </div>
-          </div>
-        </Link>
-
-        {/* Unread WhatsApp Chats */}
-        <div className="bg-card border-border/80 rounded-2xl border p-5 transition-all duration-200 hover:shadow-md">
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
-              Unread Chats
-            </span>
-            <div className="rounded-lg bg-green-500/10 p-2 text-green-600">
-              <MessageSquare className="h-5 w-5" />
-            </div>
-          </div>
-          <div className="mt-4">
-            <span className="text-foreground text-3xl font-black tracking-tight tabular-nums">
-              {stats.unreadWhatsAppChats}
-            </span>
-          </div>
-        </div>
-
-        {/* Today&apos;s AI Replies */}
-        <div className="bg-card border-border/80 rounded-2xl border p-5 transition-all duration-200 hover:shadow-md">
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
-              Today&apos;s AI Replies
-            </span>
-            <div className="rounded-lg bg-purple-500/10 p-2 text-purple-600">
-              <Sparkles className="h-5 w-5" />
-            </div>
-          </div>
-          <div className="mt-4">
-            <span className="text-foreground text-3xl font-black tracking-tight tabular-nums">
-              {stats.aiRepliesToday}
-            </span>
-          </div>
-        </div>
-
-        {/* Today&apos;s Human Replies */}
-        <div className="bg-card border-border/80 rounded-2xl border p-5 transition-all duration-200 hover:shadow-md">
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
-              Today&apos;s Human Replies
-            </span>
-            <div className="rounded-lg bg-sky-500/10 p-2 text-sky-600">
-              <User className="h-5 w-5" />
-            </div>
-          </div>
-          <div className="mt-4">
-            <span className="text-foreground text-3xl font-black tracking-tight tabular-nums">
-              {stats.humanRepliesToday}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Today&apos;s Schedule Table */}
-      <div className="bg-card border-border space-y-4 rounded-2xl border p-5 shadow-sm transition-all duration-200 hover:shadow-md">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-foreground text-md flex items-center gap-1.5 font-extrabold">
-              <CalendarCheck className="size-5 text-blue-600 dark:text-blue-400" />
-              Today&apos;s Appointment Schedule
-            </h3>
-            <p className="text-muted-foreground text-xs">
-              Manage appointments and check-in status directly
+            <h1 className="text-foreground max-w-xl text-3xl font-semibold tracking-[-0.05em] sm:text-4xl">
+              {greeting}, Receptionist.
+            </h1>
+            <p className="text-muted-foreground mt-3 max-w-xl text-sm leading-6">
+              Your front desk is in one view. Triage today&apos;s queue, keep
+              patients moving, and let Helpa handle the repetitive replies.
             </p>
           </div>
-          <Link
-            href="/appointments"
-            className="text-primary flex items-center gap-1 text-xs font-bold hover:underline"
-          >
-            View All Appointments <ArrowRight className="h-3 w-3" />
-          </Link>
+
+          <div className="flex flex-col gap-3 sm:flex-row lg:flex-col lg:items-stretch">
+            <Link
+              href="/settings?tab=ai"
+              className="group border-primary/20 bg-background/55 hover:border-primary/40 hover:bg-background/80 flex min-w-[220px] items-center gap-3 rounded-2xl border px-4 py-3 backdrop-blur transition-all duration-200 hover:-translate-y-0.5"
+            >
+              <span className="bg-primary/10 text-primary rounded-xl p-2.5">
+                <Bot className="h-4 w-4" />
+              </span>
+              <span className="min-w-0 flex-1 text-left">
+                <span className="flex items-center gap-1.5 text-xs font-bold">
+                  AI receptionist
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                </span>
+                <span className="text-muted-foreground mt-0.5 block truncate text-[11px]">
+                  {activeModelName} is active
+                </span>
+              </span>
+              <ArrowUpRight className="text-muted-foreground h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+            </Link>
+            <Link href="/appointments">
+              <Button className="shadow-primary/20 h-12 w-full rounded-2xl px-5 font-semibold shadow-lg transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.98]">
+                <Plus className="mr-2 h-4 w-4" />
+                Book appointment
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+        <MetricCard
+          label="Appointments"
+          value={stats.appointmentsToday}
+          detail="Scheduled today"
+          icon={Calendar}
+          tone="blue"
+          href="/appointments"
+        />
+        <MetricCard
+          label="Waiting"
+          value={stats.waitingPatientsToday}
+          detail="Patients in queue"
+          icon={Users}
+          tone="rose"
+        />
+        <MetricCard
+          label="Pending"
+          value={stats.pendingAppointments}
+          detail="Need a decision"
+          icon={Clock}
+          tone="amber"
+          href="/appointments"
+        />
+        <MetricCard
+          label="Reports ready"
+          value={stats.reportsAwaitingCollection}
+          detail="Awaiting collection"
+          icon={FileText}
+          tone="emerald"
+          href="/lab-reports"
+        />
+        <MetricCard
+          label="Unread chats"
+          value={stats.unreadWhatsAppChats}
+          detail="WhatsApp conversations"
+          icon={Inbox}
+          tone="primary"
+          href="/inbox"
+        />
+        <MetricCard
+          label="Follow-ups"
+          value={stats.todayFollowups}
+          detail="Due today"
+          icon={RefreshCw}
+          tone="violet"
+          href="/follow-ups"
+        />
+      </section>
+
+      <section className="grid gap-5 lg:grid-cols-[1.35fr_0.65fr]">
+        <div className="border-border/60 bg-card/80 rounded-[1.5rem] border p-5 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.45)] sm:p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-muted-foreground text-[10px] font-bold tracking-[0.16em] uppercase">
+                Service pulse
+              </p>
+              <h2 className="text-foreground mt-1 text-xl font-semibold tracking-[-0.03em]">
+                Keep the front desk flowing
+              </h2>
+            </div>
+            <div className="inline-flex w-fit items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-300">
+              <Activity className="h-3.5 w-3.5" />
+              Live operations
+            </div>
+          </div>
+
+          <div className="border-primary/15 bg-primary/5 mt-6 rounded-2xl border p-4 sm:p-5">
+            <div className="flex items-end justify-between gap-4">
+              <div>
+                <p className="text-muted-foreground text-xs font-semibold">
+                  AI resolution rate
+                </p>
+                <p className="text-foreground mt-2 text-4xl font-semibold tracking-[-0.06em] tabular-nums">
+                  {stats.aiResolutionRate}%
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-muted-foreground text-[11px]">
+                  {stats.aiRepliesToday} AI replies today
+                </p>
+                <p className="mt-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-300">
+                  {stats.humanRepliesToday} handed to staff
+                </p>
+              </div>
+            </div>
+            <div className="bg-background/70 mt-4 h-2 overflow-hidden rounded-full">
+              <div
+                className="from-primary h-full rounded-full bg-gradient-to-r via-violet-500 to-sky-400 transition-[width] duration-700"
+                style={{ width: `${stats.aiResolutionRate}%` }}
+              />
+            </div>
+            <p className="text-muted-foreground mt-3 text-xs leading-5">
+              Helpa resolved the majority of today&apos;s conversations without
+              a manual handoff.
+            </p>
+          </div>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            <div className="bg-muted/45 rounded-2xl p-4">
+              <p className="text-muted-foreground text-[10px] font-bold tracking-[0.14em] uppercase">
+                Doctors on duty
+              </p>
+              <p className="text-foreground mt-2 text-2xl font-semibold tabular-nums">
+                {stats.doctorsAvailable}
+              </p>
+              <p className="text-muted-foreground mt-1 text-[11px]">
+                Available today
+              </p>
+            </div>
+            <div className="bg-muted/45 rounded-2xl p-4">
+              <p className="text-muted-foreground text-[10px] font-bold tracking-[0.14em] uppercase">
+                Reminders sent
+              </p>
+              <p className="text-foreground mt-2 text-2xl font-semibold tabular-nums">
+                {stats.remindersSentToday}
+              </p>
+              <p className="text-muted-foreground mt-1 text-[11px]">
+                Automated today
+              </p>
+            </div>
+            <div className="bg-muted/45 rounded-2xl p-4">
+              <p className="text-muted-foreground text-[10px] font-bold tracking-[0.14em] uppercase">
+                No-show rate
+              </p>
+              <p className="text-foreground mt-2 text-2xl font-semibold tabular-nums">
+                {stats.noShowRate}%
+              </p>
+              <p className="text-muted-foreground mt-1 text-[11px]">
+                Completed + no-show
+              </p>
+            </div>
+          </div>
         </div>
 
-        {recentAppointments.length === 0 ? (
-          <div className="text-muted-foreground py-10 text-center text-sm italic">
-            No appointments scheduled for today.
+        <div className="border-border/60 bg-card/80 rounded-[1.5rem] border p-5 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.45)] sm:p-6">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-muted-foreground text-[10px] font-bold tracking-[0.16em] uppercase">
+                At a glance
+              </p>
+              <h2 className="text-foreground mt-1 text-xl font-semibold tracking-[-0.03em]">
+                Queue health
+              </h2>
+            </div>
+            <ShieldCheck className="text-primary h-5 w-5" />
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="text-muted-foreground w-full text-left text-xs">
-              <thead className="bg-muted/60 border-border text-foreground border-b text-[10px] font-bold tracking-wider uppercase">
-                <tr>
-                  <th className="px-4 py-3">Time</th>
-                  <th className="px-4 py-3">Patient</th>
-                  <th className="px-4 py-3">Doctor</th>
-                  <th className="px-4 py-3">Department</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-border text-foreground divide-y">
-                {recentAppointments.map((appt) => {
-                  const statusLower = appt.status.toLowerCase();
-                  return (
-                    <tr
-                      key={appt.id}
-                      className="hover:bg-muted/30 transition-all duration-150"
-                    >
-                      <td className="text-primary px-4 py-3 font-bold">
-                        {appt.appointment_time}
-                      </td>
-                      <td className="px-4 py-3 font-semibold">
-                        {appt.patient?.name || appt.patient?.phone || 'Unknown'}
-                      </td>
-                      <td className="px-4 py-3">
-                        {appt.doctor?.name || 'Unassigned'}
-                      </td>
-                      <td className="text-muted-foreground px-4 py-3">
-                        {appt.department || 'General'}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={cn(
-                            'rounded border px-2 py-0.5 text-[9px] font-bold uppercase',
-                            statusLower === 'confirmed' &&
-                              'border-emerald-500/20 bg-emerald-500/10 text-emerald-600',
-                            statusLower === 'pending' &&
-                              'border-amber-500/20 bg-amber-500/10 text-amber-600',
-                            statusLower === 'checked_in' &&
-                              'border-blue-500/20 bg-blue-500/10 text-blue-600',
-                            statusLower === 'waiting' &&
-                              'border-purple-500/20 bg-purple-500/10 text-purple-600',
-                            statusLower === 'completed' &&
-                              'border-slate-500/20 bg-slate-500/10 text-slate-600',
-                            statusLower === 'cancelled' &&
-                              'border-red-500/20 bg-red-500/10 text-red-600'
-                          )}
-                        >
-                          {appt.status}
-                        </span>
-                      </td>
-                      <td className="space-x-1.5 px-4 py-3 text-right">
-                        {(statusLower === 'pending' ||
-                          statusLower === 'requested') && (
-                          <>
-                            <button
-                              onClick={() =>
-                                handleUpdateApptStatus(appt.id, 'Confirmed')
-                              }
-                              className="cursor-pointer rounded bg-emerald-600 px-2.5 py-1 text-[10px] font-bold text-white shadow-sm transition-all hover:bg-emerald-700"
-                            >
-                              Confirm
-                            </button>
-                            <button
-                              onClick={() =>
-                                handleUpdateApptStatus(appt.id, 'Cancelled')
-                              }
-                              className="cursor-pointer rounded bg-red-600 px-2.5 py-1 text-[10px] font-bold text-white shadow-sm transition-all hover:bg-red-700"
-                            >
-                              Cancel
-                            </button>
-                          </>
-                        )}
-                        {statusLower === 'confirmed' && (
-                          <>
-                            <button
-                              onClick={() =>
-                                handleUpdateApptStatus(appt.id, 'Checked In')
-                              }
-                              className="cursor-pointer rounded bg-blue-600 px-2.5 py-1 text-[10px] font-bold text-white shadow-sm transition-all hover:bg-blue-700"
-                            >
-                              Check In
-                            </button>
-                            <button
-                              onClick={() =>
-                                handleUpdateApptStatus(appt.id, 'Cancelled')
-                              }
-                              className="cursor-pointer rounded bg-red-600 px-2.5 py-1 text-[10px] font-bold text-white shadow-sm transition-all hover:bg-red-700"
-                            >
-                              Cancel
-                            </button>
-                          </>
-                        )}
-                        {statusLower === 'checked_in' && (
-                          <>
-                            <button
-                              onClick={() =>
-                                handleUpdateApptStatus(appt.id, 'Waiting')
-                              }
-                              className="cursor-pointer rounded bg-purple-600 px-2.5 py-1 text-[10px] font-bold text-white shadow-sm transition-all hover:bg-purple-700"
-                            >
-                              Mark Waiting
-                            </button>
-                            <button
-                              onClick={() =>
-                                handleUpdateApptStatus(appt.id, 'Completed')
-                              }
-                              className="cursor-pointer rounded bg-slate-600 px-2.5 py-1 text-[10px] font-bold text-white shadow-sm transition-all hover:bg-slate-700"
-                            >
-                              Complete
-                            </button>
-                          </>
-                        )}
-                        {statusLower === 'waiting' && (
-                          <button
-                            onClick={() =>
-                              handleUpdateApptStatus(appt.id, 'Completed')
-                            }
-                            className="cursor-pointer rounded bg-emerald-600 px-2.5 py-1 text-[10px] font-bold text-white shadow-sm transition-all hover:bg-emerald-700"
-                          >
-                            Complete
-                          </button>
-                        )}
-                      </td>
+
+          <div className="mt-6 space-y-3">
+            <div className="flex items-center gap-3 rounded-2xl bg-amber-500/10 p-3">
+              <span className="rounded-xl bg-amber-500/15 p-2 text-amber-600 dark:text-amber-300">
+                <Clock className="h-4 w-4" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="text-foreground block text-xs font-semibold">
+                  Appointment decisions
+                </span>
+                <span className="text-muted-foreground mt-0.5 block text-[11px]">
+                  {stats.pendingAppointments} pending requests
+                </span>
+              </span>
+              <span className="text-foreground text-lg font-semibold tabular-nums">
+                {stats.pendingAppointments}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3 rounded-2xl bg-rose-500/10 p-3">
+              <span className="rounded-xl bg-rose-500/15 p-2 text-rose-600 dark:text-rose-300">
+                <CircleAlert className="h-4 w-4" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="text-foreground block text-xs font-semibold">
+                  Conversations to review
+                </span>
+                <span className="text-muted-foreground mt-0.5 block text-[11px]">
+                  AI handoffs needing attention
+                </span>
+              </span>
+              <span className="text-foreground text-lg font-semibold tabular-nums">
+                {stats.missedConversations}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3 rounded-2xl bg-emerald-500/10 p-3">
+              <span className="rounded-xl bg-emerald-500/15 p-2 text-emerald-600 dark:text-emerald-300">
+                <CheckCircle2 className="h-4 w-4" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="text-foreground block text-xs font-semibold">
+                  Reports processed
+                </span>
+                <span className="text-muted-foreground mt-0.5 block text-[11px]">
+                  Ready or delivered today
+                </span>
+              </span>
+              <span className="text-foreground text-lg font-semibold tabular-nums">
+                {stats.reportsReadyToday + stats.reportsDeliveredToday}
+              </span>
+            </div>
+          </div>
+
+          <Link
+            href="/inbox"
+            className="border-border/60 bg-muted/30 hover:border-primary/30 hover:bg-primary/5 mt-6 flex items-center justify-between rounded-2xl border px-4 py-3 text-xs font-semibold transition-colors"
+          >
+            Open inbox triage
+            <ArrowRight className="text-primary h-4 w-4" />
+          </Link>
+        </div>
+      </section>
+
+      <section className="grid gap-5 lg:grid-cols-[0.7fr_1.3fr]">
+        <div className="border-border/60 bg-card/80 rounded-[1.5rem] border p-5 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.45)] sm:p-6">
+          <div>
+            <p className="text-muted-foreground text-[10px] font-bold tracking-[0.16em] uppercase">
+              Shortcuts
+            </p>
+            <h2 className="text-foreground mt-1 text-xl font-semibold tracking-[-0.03em]">
+              Move faster
+            </h2>
+          </div>
+
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            {[
+              { href: '/appointments', label: 'Appointments', icon: Calendar },
+              { href: '/inbox', label: 'Inbox', icon: Inbox },
+              { href: '/patients', label: 'Patients', icon: Users },
+              { href: '/follow-ups', label: 'Follow-ups', icon: RefreshCw },
+            ].map(({ href, label, icon: Icon }) => (
+              <Link
+                key={href}
+                href={href}
+                className="group border-border/60 bg-muted/25 hover:border-primary/30 hover:bg-primary/5 rounded-2xl border p-3 transition-all duration-200 hover:-translate-y-0.5"
+              >
+                <Icon className="text-primary h-4 w-4" />
+                <span className="text-foreground mt-7 block text-xs font-semibold">
+                  {label}
+                </span>
+                <ArrowUpRight className="text-muted-foreground mt-2 h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        <div className="border-border/60 bg-card/80 rounded-[1.5rem] border p-5 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.45)] sm:p-6">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-muted-foreground text-[10px] font-bold tracking-[0.16em] uppercase">
+                Live schedule
+              </p>
+              <h2 className="text-foreground mt-1 text-xl font-semibold tracking-[-0.03em]">
+                Today&apos;s appointments
+              </h2>
+            </div>
+            <Link
+              href="/appointments"
+              className="text-primary flex items-center gap-1 text-xs font-semibold transition-opacity hover:opacity-75"
+            >
+              View all <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+
+          <div className="border-border/60 mt-5 overflow-hidden rounded-2xl border">
+            {recentAppointments.length === 0 ? (
+              <div className="bg-muted/20 flex min-h-48 flex-col items-center justify-center gap-3 px-6 text-center">
+                <span className="bg-primary/10 text-primary rounded-2xl p-3">
+                  <CalendarCheck className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="text-foreground text-sm font-semibold">
+                    No appointments yet
+                  </p>
+                  <p className="text-muted-foreground mt-1 text-xs">
+                    The schedule is clear for today.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[680px] text-left text-xs">
+                  <thead className="bg-muted/45 text-muted-foreground border-border/60 border-b text-[10px] font-bold tracking-[0.14em] uppercase">
+                    <tr>
+                      <th className="px-4 py-3">Time</th>
+                      <th className="px-4 py-3">Patient</th>
+                      <th className="px-4 py-3">Doctor</th>
+                      <th className="px-4 py-3">Department</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3 text-right">Actions</th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody className="divide-border/60 divide-y">
+                    {recentAppointments.map((appt) => {
+                      const statusKey = appt.status
+                        .toLowerCase()
+                        .replace(/\s+/g, '_');
+                      const statusClasses = {
+                        confirmed:
+                          'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
+                        pending:
+                          'bg-amber-500/10 text-amber-600 dark:text-amber-300',
+                        requested:
+                          'bg-amber-500/10 text-amber-600 dark:text-amber-300',
+                        checked_in:
+                          'bg-blue-500/10 text-blue-600 dark:text-blue-300',
+                        waiting:
+                          'bg-violet-500/10 text-violet-600 dark:text-violet-300',
+                        completed: 'bg-muted text-muted-foreground',
+                        cancelled:
+                          'bg-rose-500/10 text-rose-600 dark:text-rose-300',
+                      } as Record<string, string>;
+
+                      const actionClass =
+                        'rounded-lg border border-border/70 bg-background px-2.5 py-1.5 text-[10px] font-semibold transition-colors hover:border-primary/40 hover:bg-primary/5';
+
+                      return (
+                        <tr
+                          key={appt.id}
+                          className="group bg-card hover:bg-muted/20 transition-colors"
+                        >
+                          <td className="px-4 py-3.5 align-top">
+                            <span className="text-primary bg-primary/10 inline-flex rounded-lg px-2 py-1 font-semibold tabular-nums">
+                              {appt.appointment_time}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3.5 align-top">
+                            <p className="text-foreground font-semibold">
+                              {appt.patient?.name ||
+                                appt.patient?.phone ||
+                                'Unknown'}
+                            </p>
+                            <p className="text-muted-foreground mt-0.5 text-[11px]">
+                              Patient visit
+                            </p>
+                          </td>
+                          <td className="text-muted-foreground px-4 py-3.5 align-top">
+                            {appt.doctor?.name || 'Unassigned'}
+                          </td>
+                          <td className="text-muted-foreground px-4 py-3.5 align-top">
+                            {appt.department || 'General'}
+                          </td>
+                          <td className="px-4 py-3.5 align-top">
+                            <span
+                              className={cn(
+                                'inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wide uppercase',
+                                statusClasses[statusKey] ||
+                                  'bg-muted text-muted-foreground'
+                              )}
+                            >
+                              {appt.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3.5 text-right align-top">
+                            <div className="flex flex-wrap justify-end gap-1.5">
+                              {(statusKey === 'pending' ||
+                                statusKey === 'requested') && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleUpdateApptStatus(
+                                        appt.id,
+                                        'Confirmed'
+                                      )
+                                    }
+                                    className={cn(
+                                      actionClass,
+                                      'text-emerald-600 dark:text-emerald-300'
+                                    )}
+                                  >
+                                    Confirm
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleUpdateApptStatus(
+                                        appt.id,
+                                        'Cancelled'
+                                      )
+                                    }
+                                    className={cn(
+                                      actionClass,
+                                      'text-rose-600 dark:text-rose-300'
+                                    )}
+                                  >
+                                    Cancel
+                                  </button>
+                                </>
+                              )}
+                              {statusKey === 'confirmed' && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleUpdateApptStatus(
+                                        appt.id,
+                                        'Checked In'
+                                      )
+                                    }
+                                    className={cn(
+                                      actionClass,
+                                      'text-blue-600 dark:text-blue-300'
+                                    )}
+                                  >
+                                    Check in
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleUpdateApptStatus(
+                                        appt.id,
+                                        'Cancelled'
+                                      )
+                                    }
+                                    className={cn(
+                                      actionClass,
+                                      'text-rose-600 dark:text-rose-300'
+                                    )}
+                                  >
+                                    Cancel
+                                  </button>
+                                </>
+                              )}
+                              {statusKey === 'checked_in' && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleUpdateApptStatus(appt.id, 'Waiting')
+                                    }
+                                    className={cn(
+                                      actionClass,
+                                      'text-violet-600 dark:text-violet-300'
+                                    )}
+                                  >
+                                    Mark waiting
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleUpdateApptStatus(
+                                        appt.id,
+                                        'Completed'
+                                      )
+                                    }
+                                    className={cn(
+                                      actionClass,
+                                      'text-foreground'
+                                    )}
+                                  >
+                                    Complete
+                                  </button>
+                                </>
+                              )}
+                              {statusKey === 'waiting' && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleUpdateApptStatus(appt.id, 'Completed')
+                                  }
+                                  className={cn(
+                                    actionClass,
+                                    'text-emerald-600 dark:text-emerald-300'
+                                  )}
+                                >
+                                  Complete
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </div>
+      </section>
     </div>
   );
 }

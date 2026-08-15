@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { verifyMetaWebhookSignature } from './webhook-signature';
 
 const SECRET = process.env.META_APP_SECRET!;
@@ -62,5 +62,16 @@ describe('verifyMetaWebhookSignature', () => {
       const header = signedHeader(body, originalSecret!);
       expect(verifyMetaWebhookSignature(body, header)).toBe(false);
     });
+  });
+
+  it('rejects the bypass flag in production', () => {
+    vi.stubEnv('SKIP_META_SIGNATURE_VERIFICATION', 'true');
+    vi.stubEnv('NODE_ENV', 'production');
+
+    try {
+      expect(verifyMetaWebhookSignature('{}', null)).toBe(false);
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });
