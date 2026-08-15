@@ -4,10 +4,7 @@ import {
   UnauthorizedError,
   requireRole,
 } from '@/lib/auth/account';
-import {
-  contactsRepository,
-  type ContactDocument,
-} from '@/infrastructure/appwrite/repositories/contacts.repository';
+import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
 
 const PRIVATE_HEADERS = {
   'Cache-Control': 'private, no-store, no-cache, must-revalidate',
@@ -36,20 +33,9 @@ function errorResponse(
   );
 }
 
-function isSchemaError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : '';
-  return /attribute|index|collection.*not found|invalid query/i.test(message);
-}
-
-function isPermissionError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : '';
-  return /unauthorized|permission|not authorized/i.test(message);
-}
-
 /**
  * Tenant-scoped contact list boundary. Account identity is resolved only from
- * the validated Appwrite session and server-side profile; query parameters
- * never select a tenant.
+ * authenticated session; query parameters never select a tenant.
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const correlationId = requestId(request);
@@ -71,31 +57,49 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
 
     const context = await requireRole('viewer');
-    const result = await contactsRepository.listContactsPage(
-      context.accountId,
-      {
-        limit,
-        offset,
-        search: search || undefined,
-      }
-    );
+    const supabase = getSupabaseAdminClient();
 
+    let query = supabase
+      .from('contacts')
+      .select('*', { count: 'exact' })
+      .eq('account_id', context.accountId);
+
+    if (search) {
+      query = query.or(
+        `name.ilike.%${search}%,phone.ilike.%${search}%,email.ilike.%${search}%`
+      );
+    }
+
+    const {
+      data: contacts,
+      count,
+      error,
+    } = await query
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) {
+      console.error('[contacts] Supabase query failed:', error);
+      return errorResponse(502, 'CONTACTS_QUERY_FAILED', correlationId);
+    }
+
+    const rows = contacts || [];
     return NextResponse.json(
       {
-        data: result.contacts.map((contact) => ({
-          id: contact.$id,
-          account_id: contact.accountId,
-          user_id: (contact as AppwriteContactDocument).userId ?? '',
+        data: rows.map((contact) => ({
+          id: contact.id,
+          account_id: contact.account_id,
+          user_id: contact.user_id ?? '',
           name: contact.name,
           phone: contact.phone,
           email: contact.email,
-          address: (contact as ContactDocumentWithOptionalFields).address,
-          metadata: (contact as ContactDocumentWithOptionalFields).metadata,
-          consentStatus: contact.consentStatus,
-          created_at: (contact as AppwriteContactDocument).$createdAt,
-          updated_at: (contact as AppwriteContactDocument).$updatedAt,
+          address: contact.address,
+          metadata: contact.metadata,
+          consentStatus: contact.consent_status || 'pending',
+          created_at: contact.created_at,
+          updated_at: contact.updated_at,
         })),
-        total: result.total,
+        total: count ?? rows.length,
         limit,
         offset,
         requestId: correlationId,
@@ -109,12 +113,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     if (error instanceof ForbiddenError) {
       return errorResponse(403, 'ACCOUNT_MEMBERSHIP_REQUIRED', correlationId);
     }
-    if (isSchemaError(error)) {
-      return errorResponse(503, 'CONTACTS_SCHEMA_MISMATCH', correlationId);
-    }
-    if (isPermissionError(error)) {
-      return errorResponse(403, 'CONTACTS_PERMISSION_DENIED', correlationId);
-    }
     console.error(
       JSON.stringify({
         event: 'contacts_query_failed',
@@ -124,15 +122,3 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return errorResponse(502, 'CONTACTS_QUERY_FAILED', correlationId);
   }
 }
-
-type ContactDocumentWithOptionalFields = {
-  address?: string;
-  metadata?: Record<string, unknown>;
-};
-
-type AppwriteContactDocument = ContactDocument &
-  ContactDocumentWithOptionalFields & {
-    $createdAt: string;
-    $updatedAt: string;
-    userId?: string;
-  };

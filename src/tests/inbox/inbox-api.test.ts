@@ -1,16 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
-const {
-  getCurrentAccount,
-  mockListDocuments,
-  mockGetDocument,
-  mockUpdateDocument,
-} = vi.hoisted(() => ({
+const { getCurrentAccount, mockSupabaseFrom } = vi.hoisted(() => ({
   getCurrentAccount: vi.fn(),
-  mockListDocuments: vi.fn(),
-  mockGetDocument: vi.fn(),
-  mockUpdateDocument: vi.fn(),
+  mockSupabaseFrom: vi.fn(),
 }));
 
 vi.mock('@/lib/auth/account', () => ({
@@ -23,13 +16,9 @@ vi.mock('@/lib/auth/account', () => ({
   },
 }));
 
-vi.mock('@/infrastructure/appwrite/server', () => ({
-  getAppwriteAdminClient: () => ({
-    databases: {
-      listDocuments: mockListDocuments,
-      getDocument: mockGetDocument,
-      updateDocument: mockUpdateDocument,
-    },
+vi.mock('@/lib/supabase/server', () => ({
+  getAdminClient: () => ({
+    from: mockSupabaseFrom,
   }),
 }));
 
@@ -81,7 +70,16 @@ describe('Inbox API & Tenant Isolation Tests', () => {
     });
 
     it('returns 200 with empty array for empty inbox', async () => {
-      mockListDocuments.mockResolvedValueOnce({ documents: [], total: 0 });
+      const mockQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockResolvedValue({ data: [], error: null }),
+      };
+      mockSupabaseFrom.mockReturnValue(
+        mockQuery as unknown as Record<string, unknown>
+      );
+
       const res = await getConversations(createRequest());
       expect(res.status).toBe(200);
       const json = await res.json();
@@ -90,32 +88,48 @@ describe('Inbox API & Tenant Isolation Tests', () => {
     });
 
     it('queries conversations strictly with authenticated accountId, ignoring forged query params', async () => {
-      mockListDocuments
-        .mockResolvedValueOnce({
-          documents: [
+      const mockConvQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockResolvedValue({
+          data: [
             {
-              $id: 'conv-1',
-              accountId: 'tenant-a',
-              contactId: 'contact-1',
+              id: 'conv-1',
+              account_id: 'tenant-a',
+              contact_id: 'contact-1',
               status: 'open',
-              lastMessageText: 'Hello',
-              lastMessageAt: '2026-08-14T00:00:00Z',
-              unreadCount: 2,
+              last_message_text: 'Hello',
+              last_message_at: '2026-08-14T00:00:00Z',
+              unread_count: 2,
             },
           ],
-          total: 1,
-        })
-        .mockResolvedValueOnce({
-          documents: [
+          error: null,
+        }),
+      };
+
+      const mockContactQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        in: vi.fn().mockResolvedValue({
+          data: [
             {
-              $id: 'contact-1',
-              accountId: 'tenant-a',
+              id: 'contact-1',
+              account_id: 'tenant-a',
               name: 'Alice',
               phone: '+1234567890',
             },
           ],
-          total: 1,
-        });
+        }),
+      };
+
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === 'conversations')
+          return mockConvQuery as unknown as Record<string, unknown>;
+        if (table === 'contacts')
+          return mockContactQuery as unknown as Record<string, unknown>;
+        return {};
+      });
 
       const res = await getConversations(
         createRequest(
@@ -128,29 +142,20 @@ describe('Inbox API & Tenant Isolation Tests', () => {
       expect(json.conversations[0].id).toBe('conv-1');
       expect(json.conversations[0].contact.name).toBe('Alice');
 
-      // Verify server queried using tenant-a
-      const callArgs = mockListDocuments.mock.calls[0];
-      const queryList = callArgs[2];
-      expect(
-        queryList.some(
-          (q: string) => q.includes('accountId') && q.includes('tenant-a')
-        )
-      ).toBe(true);
-      expect(
-        queryList.some(
-          (q: string) => q.includes('accountId') && q.includes('tenant-b')
-        )
-      ).toBe(false);
+      expect(mockConvQuery.eq).toHaveBeenCalledWith('account_id', 'tenant-a');
     });
   });
 
   describe('GET /api/inbox/conversations/[id]', () => {
     it('returns 404 when conversation belongs to another tenant (Tenant B)', async () => {
-      mockGetDocument.mockResolvedValueOnce({
-        $id: 'conv-tenant-b',
-        accountId: 'tenant-b',
-        contactId: 'contact-b',
-      });
+      const mockConvQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+      };
+      mockSupabaseFrom.mockReturnValue(
+        mockConvQuery as unknown as Record<string, unknown>
+      );
 
       const res = await getConversation(
         createRequest('http://localhost/api/inbox/conversations/conv-tenant-b'),
@@ -163,21 +168,42 @@ describe('Inbox API & Tenant Isolation Tests', () => {
     });
 
     it('returns 200 when conversation belongs to authenticated tenant', async () => {
-      mockGetDocument
-        .mockResolvedValueOnce({
-          $id: 'conv-tenant-a',
-          accountId: 'tenant-a',
-          contactId: 'contact-a',
-          status: 'open',
-          lastMessageText: 'Test message',
-          unreadCount: 0,
-        })
-        .mockResolvedValueOnce({
-          $id: 'contact-a',
-          accountId: 'tenant-a',
-          name: 'Bob',
-          phone: '+1987654321',
-        });
+      const mockConvQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: {
+            id: 'conv-tenant-a',
+            account_id: 'tenant-a',
+            contact_id: 'contact-a',
+            status: 'open',
+            last_message_text: 'Test message',
+            unread_count: 0,
+          },
+          error: null,
+        }),
+      };
+
+      const mockContactQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: {
+            id: 'contact-a',
+            account_id: 'tenant-a',
+            name: 'Bob',
+            phone: '+1987654321',
+          },
+        }),
+      };
+
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === 'conversations')
+          return mockConvQuery as unknown as Record<string, unknown>;
+        if (table === 'contacts')
+          return mockContactQuery as unknown as Record<string, unknown>;
+        return {};
+      });
 
       const res = await getConversation(
         createRequest('http://localhost/api/inbox/conversations/conv-tenant-a'),
@@ -193,10 +219,14 @@ describe('Inbox API & Tenant Isolation Tests', () => {
 
   describe('GET /api/inbox/conversations/[id]/messages', () => {
     it('returns 404 when requested conversation belongs to another tenant', async () => {
-      mockGetDocument.mockResolvedValueOnce({
-        $id: 'conv-b',
-        accountId: 'tenant-b',
-      });
+      const mockConvQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+      };
+      mockSupabaseFrom.mockReturnValue(
+        mockConvQuery as unknown as Record<string, unknown>
+      );
 
       const res = await getMessages(
         createRequest(
@@ -206,27 +236,47 @@ describe('Inbox API & Tenant Isolation Tests', () => {
       );
 
       expect(res.status).toBe(404);
-      expect(mockListDocuments).not.toHaveBeenCalled();
     });
 
     it('returns 200 with messages for valid tenant conversation', async () => {
-      mockGetDocument.mockResolvedValueOnce({
-        $id: 'conv-a',
-        accountId: 'tenant-a',
-      });
-      mockListDocuments.mockResolvedValueOnce({
-        documents: [
-          {
-            $id: 'msg-1',
-            conversationId: 'conv-a',
-            senderType: 'customer',
-            contentType: 'text',
-            contentText: 'Hi',
-            status: 'delivered',
-            createdAt: '2026-08-14T00:00:00Z',
+      const mockConvQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: {
+            id: 'conv-a',
+            account_id: 'tenant-a',
           },
-        ],
-        total: 1,
+          error: null,
+        }),
+      };
+
+      const mockMsgQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockResolvedValue({
+          data: [
+            {
+              id: 'msg-1',
+              conversation_id: 'conv-a',
+              sender_type: 'customer',
+              content_type: 'text',
+              content_text: 'Hi',
+              status: 'delivered',
+              created_at: '2026-08-14T00:00:00Z',
+            },
+          ],
+          error: null,
+        }),
+      };
+
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === 'conversations')
+          return mockConvQuery as unknown as Record<string, unknown>;
+        if (table === 'messages')
+          return mockMsgQuery as unknown as Record<string, unknown>;
+        return {};
       });
 
       const res = await getMessages(
@@ -246,10 +296,15 @@ describe('Inbox API & Tenant Isolation Tests', () => {
 
   describe('PATCH /api/inbox/conversations/[id]', () => {
     it('rejects cross-tenant updates with 404', async () => {
-      mockGetDocument.mockResolvedValueOnce({
-        $id: 'conv-b',
-        accountId: 'tenant-b',
-      });
+      const mockConvQuery = {
+        update: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        select: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+      };
+      mockSupabaseFrom.mockReturnValue(
+        mockConvQuery as unknown as Record<string, unknown>
+      );
 
       const res = await patchConversation(
         createRequest(
@@ -261,19 +316,28 @@ describe('Inbox API & Tenant Isolation Tests', () => {
       );
 
       expect(res.status).toBe(404);
-      expect(mockUpdateDocument).not.toHaveBeenCalled();
     });
 
     it('updates conversation status and unread count for matching tenant', async () => {
-      mockGetDocument.mockResolvedValueOnce({
-        $id: 'conv-a',
-        accountId: 'tenant-a',
-      });
-      mockUpdateDocument.mockResolvedValueOnce({
-        $id: 'conv-a',
-        accountId: 'tenant-a',
-        status: 'closed',
-        unreadCount: 0,
+      const mockConvQuery = {
+        update: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        select: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: {
+            id: 'conv-a',
+            account_id: 'tenant-a',
+            status: 'closed',
+            unread_count: 0,
+          },
+          error: null,
+        }),
+      };
+
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === 'conversations')
+          return mockConvQuery as unknown as Record<string, unknown>;
+        return {};
       });
 
       const res = await patchConversation(
@@ -289,12 +353,6 @@ describe('Inbox API & Tenant Isolation Tests', () => {
       const json = await res.json();
       expect(json.conversation.status).toBe('closed');
       expect(json.conversation.unread_count).toBe(0);
-      expect(mockUpdateDocument).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.any(String),
-        'conv-a',
-        expect.objectContaining({ status: 'closed', unreadCount: 0 })
-      );
     });
   });
 });

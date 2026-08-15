@@ -1,12 +1,10 @@
 import { NextResponse } from 'next/server';
 import { createClient as createSupabaseServerClient } from '@/lib/supabase/server';
-import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
 import {
   checkRateLimit,
   rateLimitResponse,
   RATE_LIMITS,
 } from '@/lib/rate-limit';
-import { ID } from 'node-appwrite';
 
 export async function POST(request: Request) {
   try {
@@ -39,177 +37,45 @@ export async function POST(request: Request) {
 
     const trimmedEmail = email.trim().toLowerCase();
 
-    // 1. Try Supabase Auth first
-    if (
-      process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    ) {
-      try {
-        const supabase = await createSupabaseServerClient();
-        const { data, error } = await supabase.auth.signUp({
-          email: trimmedEmail,
-          password,
-          options: {
-            data: {
-              full_name: userName,
-            },
-          },
-        });
-
-        if (!error && data?.user) {
-          return NextResponse.json({
-            success: true,
-            redirect: '/dashboard',
-            user: {
-              id: data.user.id,
-              email: data.user.email,
-              name: userName,
-            },
-          });
-        }
-      } catch {
-        // Fallback to Appwrite
-      }
-    }
-
-    // 2. Fallback: Create account via Appwrite REST API
-    const createRes = await fetch(`${APPWRITE_CONFIG.endpoint}/account`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
-        'X-SDK-Platform': 'client',
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.auth.signUp({
+      email: trimmedEmail,
+      password,
+      options: {
+        data: {
+          full_name: userName,
+        },
       },
-      body: JSON.stringify({
-        userId: ID.unique(),
-        email: trimmedEmail,
-        password,
-        name: userName,
-      }),
     });
 
-    const createJson = await createRes.json();
-
-    if (!createRes.ok && createJson.type !== 'user_already_exists') {
+    if (error) {
       return NextResponse.json(
         {
           success: false,
-          error: createJson.message || 'Failed to create account.',
-        },
-        {
-          status: createRes.status >= 400 && createRes.status < 500 ? 400 : 500,
-        }
-      );
-    }
-
-    // 2. Automatically log in to obtain session
-    const sessionRes = await fetch(
-      `${APPWRITE_CONFIG.endpoint}/account/sessions/email`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
-          'X-SDK-Platform': 'client',
-        },
-        body: JSON.stringify({
-          email: trimmedEmail,
-          password,
-        }),
-      }
-    );
-
-    const sessionJson = await sessionRes.json();
-
-    if (!sessionRes.ok) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            sessionJson.message ||
-            'Account created but initial session could not be established. Please sign in.',
-          redirect: '/login',
+          error: error.message || 'Failed to create account.',
         },
         { status: 400 }
       );
     }
 
-    let sessionSecret = sessionJson.secret || '';
-    if (!sessionSecret && sessionRes.ok) {
-      const rawCookies =
-        typeof sessionRes.headers.getSetCookie === 'function'
-          ? sessionRes.headers.getSetCookie()
-          : [sessionRes.headers.get('set-cookie') || ''];
-
-      for (const c of rawCookies) {
-        if (!c) continue;
-        const match = c.match(
-          /a_session_[a-zA-Z0-9_\-]+?=([a-zA-Z0-9_\-\.]{32,512})/
-        );
-        if (match && match[1]) {
-          sessionSecret = match[1];
-          break;
-        }
-      }
-    }
-    const userId = sessionJson.userId;
-
-    // Strict validation: format check & remote account verification
-    if (sessionSecret && /^[a-zA-Z0-9_\-\.]{32,512}$/.test(sessionSecret)) {
-      try {
-        const verifyRes = await fetch(`${APPWRITE_CONFIG.endpoint}/account`, {
-          method: 'GET',
-          headers: {
-            'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
-            'X-Appwrite-Session': sessionSecret,
-          },
-        });
-
-        if (verifyRes.ok) {
-          const verifyData = await verifyRes.json();
-          if (
-            (!userId || verifyData.$id === userId) &&
-            verifyData.email?.toLowerCase() === trimmedEmail
-          ) {
-            const cookieOptions = {
-              httpOnly: true,
-              secure: process.env.NODE_ENV === 'production',
-              sameSite: 'lax' as const,
-              path: '/',
-              maxAge: 60 * 60 * 24 * 30, // 30 days
-            };
-
-            const response = NextResponse.json({
-              success: true,
-              redirect: '/dashboard',
-              user: {
-                id: userId || verifyData.$id,
-                email: trimmedEmail,
-                name: userName,
-              },
-            });
-
-            response.cookies.set(
-              `a_session_${APPWRITE_CONFIG.projectId}`,
-              sessionSecret,
-              cookieOptions
-            );
-
-            return response;
-          }
-        }
-      } catch {
-        // Fall through to error
-      }
+    if (data?.user) {
+      return NextResponse.json({
+        success: true,
+        redirect: '/dashboard',
+        user: {
+          id: data.user.id,
+          email: data.user.email,
+          name: userName,
+        },
+      });
     }
 
     return NextResponse.json(
       {
         success: false,
-        error: 'Unable to establish secure session. Please log in directly.',
-        redirect: '/login',
+        error: 'Unable to complete signup. Please try again.',
       },
-      { status: 401 }
+      { status: 400 }
     );
   } catch (err: unknown) {
     return NextResponse.json(

@@ -244,7 +244,8 @@ export async function POST(request: Request) {
         if (!extConv) {
           const now = new Date().toISOString();
           try {
-            const { data: createdConv } = await dbAdmin
+            // Attempt 1: Full schema with channel column
+            const { data: createdConv, error: convErr1 } = await dbAdmin
               .from('conversations')
               .insert({
                 account_id: accountId,
@@ -263,13 +264,34 @@ export async function POST(request: Request) {
 
             if (createdConv) {
               extConv = createdConv;
-            } else {
-              const { data: retryConv } = await dbAdmin
+            } else if (convErr1) {
+              // Attempt 2: Minimal schema without channel column
+              const { data: createdConv2 } = await dbAdmin
                 .from('conversations')
+                .insert({
+                  account_id: accountId,
+                  user_id: ctx?.userId || user.id || null,
+                  contact_id: resolvedContactId,
+                  status: 'open',
+                  unread_count: 0,
+                  last_message_text: content_text || 'Outbound message',
+                  last_message_at: now,
+                  created_at: now,
+                  updated_at: now,
+                })
                 .select('id')
-                .eq('contact_id', resolvedContactId)
-                .maybeSingle();
-              if (retryConv) extConv = retryConv;
+                .single();
+
+              if (createdConv2) {
+                extConv = createdConv2;
+              } else {
+                const { data: retryConv } = await dbAdmin
+                  .from('conversations')
+                  .select('id')
+                  .eq('contact_id', resolvedContactId)
+                  .maybeSingle();
+                if (retryConv) extConv = retryConv;
+              }
             }
           } catch (insertErr) {
             console.error(
@@ -845,12 +867,47 @@ export async function POST(request: Request) {
       messageInsertData.reply_to_message_id = cleanReplyToId;
     }
 
-    // Insert message into DB — strict PostgreSQL schema compatibility
-    const { data: messageRecord, error: msgError } = await dbAdmin
+    // Insert message into DB — resilient to schema column differences
+    let messageRecord: unknown = null;
+    let msgError: { message?: string } | null = null;
+
+    const { data: fullRecord, error: fullError } = await dbAdmin
       .from('messages')
       .insert(messageInsertData)
       .select()
       .maybeSingle();
+
+    if (!fullError && fullRecord) {
+      messageRecord = fullRecord;
+    } else {
+      // Minimal schema fallback (columns confirmed in live DB)
+      const minimalInsertData: Record<string, unknown> = {
+        conversation_id,
+        sender_type: 'agent',
+        content_type: message_type,
+        content_text: content_text || null,
+        media_url: media_url || null,
+        template_name: template_name || null,
+        message_id: waMessageId,
+        status: 'sent',
+        created_at: new Date().toISOString(),
+      };
+      if (cleanReplyToId) {
+        minimalInsertData.reply_to_message_id = cleanReplyToId;
+      }
+
+      const { data: minRecord, error: minError } = await dbAdmin
+        .from('messages')
+        .insert(minimalInsertData)
+        .select()
+        .maybeSingle();
+
+      if (!minError && minRecord) {
+        messageRecord = minRecord;
+      } else {
+        msgError = minError || fullError;
+      }
+    }
 
     if (msgError) {
       console.error('Error inserting sent message into DB:', msgError);
@@ -859,7 +916,7 @@ export async function POST(request: Request) {
           outboxDocId,
           accountId,
           waMessageId,
-          msgError.message
+          msgError.message || 'Insert failed'
         );
       }
       return NextResponse.json(
@@ -926,9 +983,14 @@ export async function POST(request: Request) {
       }
     }
 
+    const insertedId =
+      (messageRecord as { id?: string; $id?: string } | null)?.id ||
+      (messageRecord as { id?: string; $id?: string } | null)?.$id ||
+      waMessageId;
+
     return NextResponse.json({
       success: true,
-      message_id: messageRecord.id,
+      message_id: insertedId,
       whatsapp_message_id: waMessageId,
       conversation_id: conversation_id,
     });

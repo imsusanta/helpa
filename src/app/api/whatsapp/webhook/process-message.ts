@@ -326,14 +326,13 @@ export async function processMessage(
 
   const nowIso = new Date(parseInt(message.timestamp) * 1000).toISOString();
   let msgError: unknown = null;
+  let msgInserted = false;
 
+  // Attempt 1: Full schema (new columns present)
   const insertRes = await getAdminClient()
     .from('messages')
     .insert({
-      account_id: accountId,
       conversation_id: convId,
-      direction: 'inbound',
-      provider_message_id: message.id,
       sender_type: 'customer',
       content_type: contentType,
       content_text: contentText || null,
@@ -343,11 +342,12 @@ export async function processMessage(
       reply_to_message_id: replyToInternalId || null,
       interactive_reply_id: interactiveReplyId || null,
       created_at: nowIso,
-      updated_at: nowIso,
     });
 
-  if (insertRes.error) {
-    // Fallback to legacy schema
+  if (!insertRes.error) {
+    msgInserted = true;
+  } else {
+    // Attempt 2: Legacy schema fallback (Appwrite or alternate naming)
     const legacyRes = await getAdminClient()
       .from('messages')
       .insert({
@@ -362,10 +362,15 @@ export async function processMessage(
         interactiveReplyId: interactiveReplyId || null,
         createdAt: nowIso,
       });
-    msgError = legacyRes.error;
+
+    if (!legacyRes.error) {
+      msgInserted = true;
+    } else {
+      msgError = legacyRes.error || insertRes.error;
+    }
   }
 
-  if (msgError) {
+  if (!msgInserted || msgError) {
     console.error('Error inserting message:', msgError);
     return;
   }

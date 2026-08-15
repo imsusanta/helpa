@@ -1,8 +1,4 @@
-'use client';
-
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { getAppwriteClient } from '@/infrastructure/appwrite/client';
-import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
 import { createClient as createSupabaseBrowserClient } from '@/lib/supabase/client';
 import type {
   Message,
@@ -29,9 +25,7 @@ interface UseRealtimeOptions {
 function normalizeMessagePayload(doc: Record<string, unknown>): Message {
   return {
     id: (doc.$id || doc.id) as string,
-    conversation_id: (doc.conversationId ||
-      doc.conversation_id ||
-      doc.conversationId) as string,
+    conversation_id: (doc.conversationId || doc.conversation_id) as string,
     sender_type: (doc.senderType ||
       doc.sender_type ||
       'customer') as SenderType,
@@ -51,7 +45,8 @@ function normalizeMessagePayload(doc: Record<string, unknown>): Message {
       doc.delivery_status ||
       'sent') as MessageStatus,
     created_at:
-      ((doc.createdAt || doc.$createdAt) as string) || new Date().toISOString(),
+      ((doc.createdAt || doc.$createdAt || doc.created_at) as string) ||
+      new Date().toISOString(),
     reply_to_message_id: (doc.replyToMessageId || doc.reply_to_message_id) as
       string | undefined,
     interactive_reply_id: (doc.interactiveReplyId ||
@@ -75,6 +70,7 @@ function normalizeConversationPayload(
       ((doc.lastMessageAt ||
         doc.last_message_at ||
         doc.$updatedAt ||
+        doc.updated_at ||
         doc.updatedAt) as string) || undefined,
     unread_count: Number(doc.unreadCount || doc.unread_count || 0),
     ai_chat_enabled: Boolean(doc.aiChatEnabled ?? doc.ai_chat_enabled ?? false),
@@ -91,9 +87,11 @@ function normalizeConversationPayload(
     ai_faq_category:
       ((doc.aiFaqCategory || doc.ai_faq_category) as string | null) || null,
     created_at:
-      ((doc.createdAt || doc.$createdAt) as string) || new Date().toISOString(),
+      ((doc.createdAt || doc.$createdAt || doc.created_at) as string) ||
+      new Date().toISOString(),
     updated_at:
-      ((doc.updatedAt || doc.$updatedAt) as string) || new Date().toISOString(),
+      ((doc.updatedAt || doc.$updatedAt || doc.updated_at) as string) ||
+      new Date().toISOString(),
   };
 }
 
@@ -116,103 +114,53 @@ export function useRealtime({
   useEffect(() => {
     if (!enabled) return;
 
-    // 1. Try Supabase Realtime first
-    if (
-      process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    ) {
-      try {
-        const supabase = createSupabaseBrowserClient();
-        const channel = supabase
-          .channel('inbox-realtime-global')
-          .on(
-            'postgres_changes',
-            { event: '*', schema: 'public', table: 'messages' },
-            (payload) => {
-              const row = (payload.new || {}) as Record<string, unknown>;
-              const normalizedMessage = normalizeMessagePayload(row);
-              onMessageRef.current?.({
-                eventType: payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE',
-                new: normalizedMessage,
-                old: payload.old as Partial<Message>,
-              });
-            }
-          )
-          .on(
-            'postgres_changes',
-            { event: '*', schema: 'public', table: 'conversations' },
-            (payload) => {
-              const row = (payload.new || {}) as Record<string, unknown>;
-              const normalizedConv = normalizeConversationPayload(row);
-              onConversationRef.current?.({
-                eventType: payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE',
-                new: normalizedConv,
-                old: payload.old as Partial<Conversation>,
-              });
-            }
-          )
-          .subscribe((status) => {
-            if (status === 'SUBSCRIBED') {
-              setIsConnected(true);
-            }
-          });
-
-        unsubscribeRef.current = () => {
-          try {
-            if (typeof supabase?.removeChannel === 'function') {
-              supabase.removeChannel(channel);
-            }
-          } catch {
-            // Ignore
-          }
-        };
-        return;
-      } catch {
-        // Fallback to Appwrite
-      }
-    }
-
-    // 2. Fallback: Appwrite Realtime
     try {
-      const { client } = getAppwriteClient();
-      const messagesChannel = `databases.${APPWRITE_CONFIG.databaseId}.collections.${APPWRITE_CONFIG.collections.messages}.documents`;
-      const conversationsChannel = `databases.${APPWRITE_CONFIG.databaseId}.collections.${APPWRITE_CONFIG.collections.conversations}.documents`;
-
-      const unsubscribe = client.subscribe(
-        [messagesChannel, conversationsChannel],
-        (response) => {
-          const events = response.events || [];
-          const isInsert = events.some((e) => e.endsWith('.create'));
-          const isDelete = events.some((e) => e.endsWith('.delete'));
-          const eventType = isInsert
-            ? 'INSERT'
-            : isDelete
-              ? 'DELETE'
-              : 'UPDATE';
-
-          if (response.channels.includes(messagesChannel)) {
-            const raw = response.payload as Record<string, unknown>;
-            const normalized = normalizeMessagePayload(raw);
+      const supabase = createSupabaseBrowserClient();
+      const channel = supabase
+        .channel('inbox-realtime-global')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'messages' },
+          (payload) => {
+            const row = (payload.new || {}) as Record<string, unknown>;
+            const normalizedMessage = normalizeMessagePayload(row);
             onMessageRef.current?.({
-              eventType,
-              new: normalized,
-              old: {},
-            });
-          } else if (response.channels.includes(conversationsChannel)) {
-            const raw = response.payload as Record<string, unknown>;
-            const normalized = normalizeConversationPayload(raw);
-            onConversationRef.current?.({
-              eventType,
-              new: normalized,
-              old: {},
+              eventType: payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE',
+              new: normalizedMessage,
+              old: payload.old as Partial<Message>,
             });
           }
-        }
-      );
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'conversations' },
+          (payload) => {
+            const row = (payload.new || {}) as Record<string, unknown>;
+            const normalizedConv = normalizeConversationPayload(row);
+            onConversationRef.current?.({
+              eventType: payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE',
+              new: normalizedConv,
+              old: payload.old as Partial<Conversation>,
+            });
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            setIsConnected(true);
+          }
+        });
 
-      unsubscribeRef.current = unsubscribe;
-      Promise.resolve().then(() => setIsConnected(true));
+      unsubscribeRef.current = () => {
+        try {
+          if (typeof supabase?.removeChannel === 'function') {
+            supabase.removeChannel(channel);
+          }
+        } catch {
+          // Ignore
+        }
+      };
     } catch {
+      // Supabase client initialization failed
       Promise.resolve().then(() => setIsConnected(false));
     }
 

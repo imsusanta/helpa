@@ -41,13 +41,21 @@ export async function GET(
       );
     }
 
-    const storage = getAppwriteAdminClient().storage;
-    const fileBuffer = await storage.getFileDownload(
-      APPWRITE_CONFIG.buckets.webhookPayloads,
-      call.transcriptReference as string
-    );
+    let transcriptText = '';
+    try {
+      const storage = getAppwriteAdminClient().storage;
+      const fileBuffer = await storage.getFileDownload(
+        APPWRITE_CONFIG.buckets.webhookPayloads,
+        call.transcriptReference as string
+      );
+      transcriptText = Buffer.from(fileBuffer).toString('utf8');
+    } catch {
+      return NextResponse.json(
+        { transcript: null, status: 'unavailable' },
+        { status: 200, headers: { 'Cache-Control': 'private, no-store' } }
+      );
+    }
 
-    const transcriptText = Buffer.from(fileBuffer).toString('utf8');
     return NextResponse.json(
       {
         callId: call.externalCallId,

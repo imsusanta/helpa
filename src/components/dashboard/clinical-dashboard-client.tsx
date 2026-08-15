@@ -61,11 +61,11 @@ function MetricCard({
   };
 
   const card = (
-    <div className="group relative overflow-hidden rounded-[1.35rem] border border-border/60 bg-card/80 p-5 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.45)] transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-lg">
-      <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-primary/5 blur-2xl transition-transform duration-300 group-hover:scale-125" />
+    <div className="group border-border/60 bg-card/80 hover:border-primary/30 relative overflow-hidden rounded-[1.35rem] border p-5 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.45)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg">
+      <div className="bg-primary/5 absolute -top-8 -right-8 h-24 w-24 rounded-full blur-2xl transition-transform duration-300 group-hover:scale-125" />
       <div className="relative flex items-start justify-between gap-3">
         <div>
-          <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-[0.16em]">
+          <p className="text-muted-foreground text-[10px] font-bold tracking-[0.16em] uppercase">
             {label}
           </p>
           <p className="text-foreground mt-4 text-3xl font-semibold tracking-[-0.04em] tabular-nums">
@@ -368,11 +368,11 @@ export function ClinicalDashboardClient() {
 
   return (
     <div className="animate-in fade-in space-y-7 duration-500">
-      <section className="relative overflow-hidden rounded-[1.75rem] border border-primary/20 bg-card shadow-[0_24px_80px_-44px_rgba(79,70,229,0.6)]">
+      <section className="border-primary/20 bg-card relative overflow-hidden rounded-[1.75rem] border shadow-[0_24px_80px_-44px_rgba(79,70,229,0.6)]">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(124,58,237,0.2),transparent_38%),radial-gradient(circle_at_bottom_left,rgba(14,165,233,0.12),transparent_34%)]" />
         <div className="relative grid gap-8 p-6 sm:p-8 lg:grid-cols-[1fr_auto] lg:items-center">
           <div className="max-w-2xl">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-primary">
+            <div className="border-primary/20 bg-primary/10 text-primary mb-4 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-bold tracking-[0.16em] uppercase">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.14)]" />
               Clinic operations center
             </div>
@@ -388,9 +388,9 @@ export function ClinicalDashboardClient() {
           <div className="flex flex-col gap-3 sm:flex-row lg:flex-col lg:items-stretch">
             <Link
               href="/settings?tab=ai"
-              className="group flex min-w-[220px] items-center gap-3 rounded-2xl border border-primary/20 bg-background/55 px-4 py-3 backdrop-blur transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:bg-background/80"
+              className="group border-primary/20 bg-background/55 hover:border-primary/40 hover:bg-background/80 flex min-w-[220px] items-center gap-3 rounded-2xl border px-4 py-3 backdrop-blur transition-all duration-200 hover:-translate-y-0.5"
             >
-              <span className="rounded-xl bg-primary/10 p-2.5 text-primary">
+              <span className="bg-primary/10 text-primary rounded-xl p-2.5">
                 <Bot className="h-4 w-4" />
               </span>
               <span className="min-w-0 flex-1 text-left">
@@ -402,10 +402,10 @@ export function ClinicalDashboardClient() {
                   {activeModelName} is active
                 </span>
               </span>
-              <ArrowUpRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+              <ArrowUpRight className="text-muted-foreground h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
             </Link>
             <Link href="/appointments">
-              <Button className="h-12 w-full rounded-2xl px-5 font-semibold shadow-lg shadow-primary/20 transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.98]">
+              <Button className="shadow-primary/20 h-12 w-full rounded-2xl px-5 font-semibold shadow-lg transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.98]">
                 <Plus className="mr-2 h-4 w-4" />
                 Book appointment
               </Button>
@@ -465,10 +465,10 @@ export function ClinicalDashboardClient() {
       </section>
 
       <section className="grid gap-5 lg:grid-cols-[1.35fr_0.65fr]">
-        <div className="rounded-[1.5rem] border border-border/60 bg-card/80 p-5 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.45)] sm:p-6">
+        <div className="border-border/60 bg-card/80 rounded-[1.5rem] border p-5 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.45)] sm:p-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-[0.16em]">
+              <p className="text-muted-foreground text-[10px] font-bold tracking-[0.16em] uppercase">
                 Service pulse
               </p>
               <h2 className="text-foreground mt-1 text-xl font-semibold tracking-[-0.03em]">
@@ -481,7 +481,7 @@ export function ClinicalDashboardClient() {
             </div>
           </div>
 
-          <div className="mt-6 rounded-2xl border border-primary/15 bg-primary/5 p-4 sm:p-5">
+          <div className="border-primary/15 bg-primary/5 mt-6 rounded-2xl border p-4 sm:p-5">
             <div className="flex items-end justify-between gap-4">
               <div>
                 <p className="text-muted-foreground text-xs font-semibold">
@@ -500,9 +500,9 @@ export function ClinicalDashboardClient() {
                 </p>
               </div>
             </div>
-            <div className="mt-4 h-2 overflow-hidden rounded-full bg-background/70">
+            <div className="bg-background/70 mt-4 h-2 overflow-hidden rounded-full">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-primary via-violet-500 to-sky-400 transition-[width] duration-700"
+                className="from-primary h-full rounded-full bg-gradient-to-r via-violet-500 to-sky-400 transition-[width] duration-700"
                 style={{ width: `${stats.aiResolutionRate}%` }}
               />
             </div>
@@ -513,8 +513,8 @@ export function ClinicalDashboardClient() {
           </div>
 
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-2xl bg-muted/45 p-4">
-              <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-[0.14em]">
+            <div className="bg-muted/45 rounded-2xl p-4">
+              <p className="text-muted-foreground text-[10px] font-bold tracking-[0.14em] uppercase">
                 Doctors on duty
               </p>
               <p className="text-foreground mt-2 text-2xl font-semibold tabular-nums">
@@ -524,8 +524,8 @@ export function ClinicalDashboardClient() {
                 Available today
               </p>
             </div>
-            <div className="rounded-2xl bg-muted/45 p-4">
-              <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-[0.14em]">
+            <div className="bg-muted/45 rounded-2xl p-4">
+              <p className="text-muted-foreground text-[10px] font-bold tracking-[0.14em] uppercase">
                 Reminders sent
               </p>
               <p className="text-foreground mt-2 text-2xl font-semibold tabular-nums">
@@ -535,8 +535,8 @@ export function ClinicalDashboardClient() {
                 Automated today
               </p>
             </div>
-            <div className="rounded-2xl bg-muted/45 p-4">
-              <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-[0.14em]">
+            <div className="bg-muted/45 rounded-2xl p-4">
+              <p className="text-muted-foreground text-[10px] font-bold tracking-[0.14em] uppercase">
                 No-show rate
               </p>
               <p className="text-foreground mt-2 text-2xl font-semibold tabular-nums">
@@ -549,17 +549,17 @@ export function ClinicalDashboardClient() {
           </div>
         </div>
 
-        <div className="rounded-[1.5rem] border border-border/60 bg-card/80 p-5 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.45)] sm:p-6">
+        <div className="border-border/60 bg-card/80 rounded-[1.5rem] border p-5 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.45)] sm:p-6">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-[0.16em]">
+              <p className="text-muted-foreground text-[10px] font-bold tracking-[0.16em] uppercase">
                 At a glance
               </p>
               <h2 className="text-foreground mt-1 text-xl font-semibold tracking-[-0.03em]">
                 Queue health
               </h2>
             </div>
-            <ShieldCheck className="h-5 w-5 text-primary" />
+            <ShieldCheck className="text-primary h-5 w-5" />
           </div>
 
           <div className="mt-6 space-y-3">
@@ -579,6 +579,7 @@ export function ClinicalDashboardClient() {
                 {stats.pendingAppointments}
               </span>
             </div>
+
             <div className="flex items-center gap-3 rounded-2xl bg-rose-500/10 p-3">
               <span className="rounded-xl bg-rose-500/15 p-2 text-rose-600 dark:text-rose-300">
                 <CircleAlert className="h-4 w-4" />
@@ -595,6 +596,7 @@ export function ClinicalDashboardClient() {
                 {stats.missedConversations}
               </span>
             </div>
+
             <div className="flex items-center gap-3 rounded-2xl bg-emerald-500/10 p-3">
               <span className="rounded-xl bg-emerald-500/15 p-2 text-emerald-600 dark:text-emerald-300">
                 <CheckCircle2 className="h-4 w-4" />
@@ -615,24 +617,25 @@ export function ClinicalDashboardClient() {
 
           <Link
             href="/inbox"
-            className="mt-6 flex items-center justify-between rounded-2xl border border-border/60 bg-muted/30 px-4 py-3 text-xs font-semibold transition-colors hover:border-primary/30 hover:bg-primary/5"
+            className="border-border/60 bg-muted/30 hover:border-primary/30 hover:bg-primary/5 mt-6 flex items-center justify-between rounded-2xl border px-4 py-3 text-xs font-semibold transition-colors"
           >
             Open inbox triage
-            <ArrowRight className="h-4 w-4 text-primary" />
+            <ArrowRight className="text-primary h-4 w-4" />
           </Link>
         </div>
       </section>
 
       <section className="grid gap-5 lg:grid-cols-[0.7fr_1.3fr]">
-        <div className="rounded-[1.5rem] border border-border/60 bg-card/80 p-5 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.45)] sm:p-6">
+        <div className="border-border/60 bg-card/80 rounded-[1.5rem] border p-5 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.45)] sm:p-6">
           <div>
-            <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-[0.16em]">
+            <p className="text-muted-foreground text-[10px] font-bold tracking-[0.16em] uppercase">
               Shortcuts
             </p>
             <h2 className="text-foreground mt-1 text-xl font-semibold tracking-[-0.03em]">
               Move faster
             </h2>
           </div>
+
           <div className="mt-5 grid grid-cols-2 gap-3">
             {[
               { href: '/appointments', label: 'Appointments', icon: Calendar },
@@ -643,22 +646,22 @@ export function ClinicalDashboardClient() {
               <Link
                 key={href}
                 href={href}
-                className="group rounded-2xl border border-border/60 bg-muted/25 p-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary/5"
+                className="group border-border/60 bg-muted/25 hover:border-primary/30 hover:bg-primary/5 rounded-2xl border p-3 transition-all duration-200 hover:-translate-y-0.5"
               >
-                <Icon className="h-4 w-4 text-primary" />
+                <Icon className="text-primary h-4 w-4" />
                 <span className="text-foreground mt-7 block text-xs font-semibold">
                   {label}
                 </span>
-                <ArrowUpRight className="mt-2 h-3.5 w-3.5 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                <ArrowUpRight className="text-muted-foreground mt-2 h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
               </Link>
             ))}
           </div>
         </div>
 
-        <div className="rounded-[1.5rem] border border-border/60 bg-card/80 p-5 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.45)] sm:p-6">
+        <div className="border-border/60 bg-card/80 rounded-[1.5rem] border p-5 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.45)] sm:p-6">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-muted-foreground text-[10px] font-bold uppercase tracking-[0.16em]">
+              <p className="text-muted-foreground text-[10px] font-bold tracking-[0.16em] uppercase">
                 Live schedule
               </p>
               <h2 className="text-foreground mt-1 text-xl font-semibold tracking-[-0.03em]">
@@ -673,10 +676,10 @@ export function ClinicalDashboardClient() {
             </Link>
           </div>
 
-          <div className="mt-5 overflow-hidden rounded-2xl border border-border/60">
+          <div className="border-border/60 mt-5 overflow-hidden rounded-2xl border">
             {recentAppointments.length === 0 ? (
-              <div className="flex min-h-48 flex-col items-center justify-center gap-3 bg-muted/20 px-6 text-center">
-                <span className="rounded-2xl bg-primary/10 p-3 text-primary">
+              <div className="bg-muted/20 flex min-h-48 flex-col items-center justify-center gap-3 px-6 text-center">
+                <span className="bg-primary/10 text-primary rounded-2xl p-3">
                   <CalendarCheck className="h-5 w-5" />
                 </span>
                 <div>
@@ -691,7 +694,7 @@ export function ClinicalDashboardClient() {
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[680px] text-left text-xs">
-                  <thead className="bg-muted/45 text-muted-foreground border-b border-border/60 text-[10px] font-bold uppercase tracking-[0.14em]">
+                  <thead className="bg-muted/45 text-muted-foreground border-border/60 border-b text-[10px] font-bold tracking-[0.14em] uppercase">
                     <tr>
                       <th className="px-4 py-3">Time</th>
                       <th className="px-4 py-3">Patient</th>
@@ -701,32 +704,45 @@ export function ClinicalDashboardClient() {
                       <th className="px-4 py-3 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border/60">
+                  <tbody className="divide-border/60 divide-y">
                     {recentAppointments.map((appt) => {
-                      const statusKey = appt.status.toLowerCase().replace(/\s+/g, '_');
+                      const statusKey = appt.status
+                        .toLowerCase()
+                        .replace(/\s+/g, '_');
                       const statusClasses = {
-                        confirmed: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
-                        pending: 'bg-amber-500/10 text-amber-600 dark:text-amber-300',
-                        requested: 'bg-amber-500/10 text-amber-600 dark:text-amber-300',
-                        checked_in: 'bg-blue-500/10 text-blue-600 dark:text-blue-300',
-                        waiting: 'bg-violet-500/10 text-violet-600 dark:text-violet-300',
+                        confirmed:
+                          'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
+                        pending:
+                          'bg-amber-500/10 text-amber-600 dark:text-amber-300',
+                        requested:
+                          'bg-amber-500/10 text-amber-600 dark:text-amber-300',
+                        checked_in:
+                          'bg-blue-500/10 text-blue-600 dark:text-blue-300',
+                        waiting:
+                          'bg-violet-500/10 text-violet-600 dark:text-violet-300',
                         completed: 'bg-muted text-muted-foreground',
-                        cancelled: 'bg-rose-500/10 text-rose-600 dark:text-rose-300',
+                        cancelled:
+                          'bg-rose-500/10 text-rose-600 dark:text-rose-300',
                       } as Record<string, string>;
 
                       const actionClass =
                         'rounded-lg border border-border/70 bg-background px-2.5 py-1.5 text-[10px] font-semibold transition-colors hover:border-primary/40 hover:bg-primary/5';
 
                       return (
-                        <tr key={appt.id} className="group bg-card transition-colors hover:bg-muted/20">
+                        <tr
+                          key={appt.id}
+                          className="group bg-card hover:bg-muted/20 transition-colors"
+                        >
                           <td className="px-4 py-3.5 align-top">
-                            <span className="text-primary inline-flex rounded-lg bg-primary/10 px-2 py-1 font-semibold tabular-nums">
+                            <span className="text-primary bg-primary/10 inline-flex rounded-lg px-2 py-1 font-semibold tabular-nums">
                               {appt.appointment_time}
                             </span>
                           </td>
                           <td className="px-4 py-3.5 align-top">
                             <p className="text-foreground font-semibold">
-                              {appt.patient?.name || appt.patient?.phone || 'Unknown'}
+                              {appt.patient?.name ||
+                                appt.patient?.phone ||
+                                'Unknown'}
                             </p>
                             <p className="text-muted-foreground mt-0.5 text-[11px]">
                               Patient visit
@@ -741,8 +757,9 @@ export function ClinicalDashboardClient() {
                           <td className="px-4 py-3.5 align-top">
                             <span
                               className={cn(
-                                'inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide',
-                                statusClasses[statusKey] || 'bg-muted text-muted-foreground'
+                                'inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wide uppercase',
+                                statusClasses[statusKey] ||
+                                  'bg-muted text-muted-foreground'
                               )}
                             >
                               {appt.status}
@@ -750,19 +767,36 @@ export function ClinicalDashboardClient() {
                           </td>
                           <td className="px-4 py-3.5 text-right align-top">
                             <div className="flex flex-wrap justify-end gap-1.5">
-                              {(statusKey === 'pending' || statusKey === 'requested') && (
+                              {(statusKey === 'pending' ||
+                                statusKey === 'requested') && (
                                 <>
                                   <button
                                     type="button"
-                                    onClick={() => handleUpdateApptStatus(appt.id, 'Confirmed')}
-                                    className={cn(actionClass, 'text-emerald-600 dark:text-emerald-300')}
+                                    onClick={() =>
+                                      handleUpdateApptStatus(
+                                        appt.id,
+                                        'Confirmed'
+                                      )
+                                    }
+                                    className={cn(
+                                      actionClass,
+                                      'text-emerald-600 dark:text-emerald-300'
+                                    )}
                                   >
                                     Confirm
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => handleUpdateApptStatus(appt.id, 'Cancelled')}
-                                    className={cn(actionClass, 'text-rose-600 dark:text-rose-300')}
+                                    onClick={() =>
+                                      handleUpdateApptStatus(
+                                        appt.id,
+                                        'Cancelled'
+                                      )
+                                    }
+                                    className={cn(
+                                      actionClass,
+                                      'text-rose-600 dark:text-rose-300'
+                                    )}
                                   >
                                     Cancel
                                   </button>
@@ -772,15 +806,31 @@ export function ClinicalDashboardClient() {
                                 <>
                                   <button
                                     type="button"
-                                    onClick={() => handleUpdateApptStatus(appt.id, 'Checked In')}
-                                    className={cn(actionClass, 'text-blue-600 dark:text-blue-300')}
+                                    onClick={() =>
+                                      handleUpdateApptStatus(
+                                        appt.id,
+                                        'Checked In'
+                                      )
+                                    }
+                                    className={cn(
+                                      actionClass,
+                                      'text-blue-600 dark:text-blue-300'
+                                    )}
                                   >
                                     Check in
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => handleUpdateApptStatus(appt.id, 'Cancelled')}
-                                    className={cn(actionClass, 'text-rose-600 dark:text-rose-300')}
+                                    onClick={() =>
+                                      handleUpdateApptStatus(
+                                        appt.id,
+                                        'Cancelled'
+                                      )
+                                    }
+                                    className={cn(
+                                      actionClass,
+                                      'text-rose-600 dark:text-rose-300'
+                                    )}
                                   >
                                     Cancel
                                   </button>
@@ -790,15 +840,28 @@ export function ClinicalDashboardClient() {
                                 <>
                                   <button
                                     type="button"
-                                    onClick={() => handleUpdateApptStatus(appt.id, 'Waiting')}
-                                    className={cn(actionClass, 'text-violet-600 dark:text-violet-300')}
+                                    onClick={() =>
+                                      handleUpdateApptStatus(appt.id, 'Waiting')
+                                    }
+                                    className={cn(
+                                      actionClass,
+                                      'text-violet-600 dark:text-violet-300'
+                                    )}
                                   >
                                     Mark waiting
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => handleUpdateApptStatus(appt.id, 'Completed')}
-                                    className={cn(actionClass, 'text-foreground')}
+                                    onClick={() =>
+                                      handleUpdateApptStatus(
+                                        appt.id,
+                                        'Completed'
+                                      )
+                                    }
+                                    className={cn(
+                                      actionClass,
+                                      'text-foreground'
+                                    )}
                                   >
                                     Complete
                                   </button>
@@ -807,8 +870,13 @@ export function ClinicalDashboardClient() {
                               {statusKey === 'waiting' && (
                                 <button
                                   type="button"
-                                  onClick={() => handleUpdateApptStatus(appt.id, 'Completed')}
-                                  className={cn(actionClass, 'text-emerald-600 dark:text-emerald-300')}
+                                  onClick={() =>
+                                    handleUpdateApptStatus(appt.id, 'Completed')
+                                  }
+                                  className={cn(
+                                    actionClass,
+                                    'text-emerald-600 dark:text-emerald-300'
+                                  )}
                                 >
                                   Complete
                                 </button>

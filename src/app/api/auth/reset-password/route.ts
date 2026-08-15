@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { createClient as createSupabaseServerClient } from '@/lib/supabase/server';
-import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
 import {
   checkRateLimit,
   rateLimitResponse,
@@ -29,38 +28,13 @@ export async function POST(request: Request) {
     const siteUrl =
       process.env.NEXT_PUBLIC_SITE_URL || 'https://www.helpa.studio';
 
-    // 1. Try Supabase Auth password reset
-    if (
-      process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    ) {
-      try {
-        const supabase = await createSupabaseServerClient();
-        await supabase.auth.resetPasswordForEmail(trimmedEmail, {
-          redirectTo: `${siteUrl}/reset-password`,
-        });
-      } catch {
-        // Fall through to generic response
-      }
-    }
-
-    // 2. Trigger Appwrite password recovery email if configured
     try {
-      if (APPWRITE_CONFIG.endpoint && APPWRITE_CONFIG.projectId) {
-        await fetch(`${APPWRITE_CONFIG.endpoint}/account/recovery`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Appwrite-Project': APPWRITE_CONFIG.projectId,
-          },
-          body: JSON.stringify({
-            email: trimmedEmail,
-            url: `${siteUrl}/reset-password`,
-          }),
-        });
-      }
-    } catch {
-      // Fall through to generic response
+      const supabase = await createSupabaseServerClient();
+      await supabase.auth.resetPasswordForEmail(trimmedEmail, {
+        redirectTo: `${siteUrl}/reset-password`,
+      });
+    } catch (err) {
+      console.warn('[Reset Password] Supabase reset error:', err);
     }
 
     // Anti-enumeration: always return generic success message

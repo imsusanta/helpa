@@ -10,14 +10,13 @@ import { NextResponse } from 'next/server';
 import crypto from 'node:crypto';
 import { requireRole } from '@/lib/auth/account';
 import { appwriteAdmin } from '@/lib/appwrite-server-compat';
-import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
 import {
   checkRateLimit,
   rateLimitResponse,
   RATE_LIMITS,
 } from '@/lib/rate-limit';
 
-const CANONICAL_COLLECTION = APPWRITE_CONFIG.collections.whatsappConfigs;
+const CANONICAL_COLLECTION = 'whatsapp_configs';
 
 // In-memory active QR pairing session registry for instant live status polling
 interface QrSessionState {

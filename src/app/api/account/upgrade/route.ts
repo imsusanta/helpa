@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentAccount, toErrorResponse } from '@/lib/auth/account';
-import { getAppwriteAdminClient } from '@/infrastructure/appwrite/server';
-import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
-import { ID, Query } from 'node-appwrite';
+import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
 
 export async function POST(request: Request) {
   try {
@@ -17,46 +15,34 @@ export async function POST(request: Request) {
     } | null;
 
     const planName = body?.planName || body?.planId || 'Growth';
-    const db = getAppwriteAdminClient().databases;
-
-    // Check existing subscription
-    const existing = await db
-      .listDocuments(APPWRITE_CONFIG.databaseId, 'subscriptions', [
-        Query.equal('account_id', ctx.accountId),
-        Query.limit(1),
-      ])
-      .catch(() => ({ documents: [] }));
-
+    const supabase = getSupabaseAdminClient();
     const nextEndDate = new Date(Date.now() + 30 * 86400 * 1000).toISOString();
 
-    if (existing.documents[0]) {
-      await db
-        .updateDocument(
-          APPWRITE_CONFIG.databaseId,
-          'subscriptions',
-          existing.documents[0].$id,
-          {
-            status: 'active',
-            end_date: nextEndDate,
-            updated_at: new Date().toISOString(),
-          }
-        )
-        .catch(() => null);
+    // Check existing subscription
+    const { data: existing } = await supabase
+      .from('subscriptions')
+      .select('id')
+      .eq('account_id', ctx.accountId)
+      .limit(1)
+      .maybeSingle();
+
+    if (existing) {
+      await supabase
+        .from('subscriptions')
+        .update({
+          status: 'active',
+          end_date: nextEndDate,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existing.id);
     } else {
-      await db
-        .createDocument(
-          APPWRITE_CONFIG.databaseId,
-          'subscriptions',
-          ID.unique(),
-          {
-            account_id: ctx.accountId,
-            status: 'active',
-            end_date: nextEndDate,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          }
-        )
-        .catch(() => null);
+      await supabase.from('subscriptions').insert({
+        account_id: ctx.accountId,
+        status: 'active',
+        end_date: nextEndDate,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
     }
 
     return NextResponse.json({

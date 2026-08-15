@@ -5,8 +5,6 @@ import {
   StorageError,
 } from '@/infrastructure/appwrite/repositories/storage.repository';
 import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
-import { getAppwriteAdminClient } from '@/infrastructure/appwrite/server';
-import { Query } from 'node-appwrite';
 
 const MAX_AVATAR_BYTES = 10 * 1024 * 1024; // 10 MB
 const ALLOWED_MIME_TYPES = new Set([
@@ -124,7 +122,7 @@ export async function POST(request: Request) {
       : 'png';
     const filename = `avatar_${userId}_${Date.now()}.${safeExt}`;
 
-    const { fileId, fileUrl } = await storageRepository.uploadFile(
+    const { fileUrl } = await storageRepository.uploadFile(
       APPWRITE_CONFIG.buckets.avatars,
       fileBuffer,
       filename,
@@ -136,66 +134,18 @@ export async function POST(request: Request) {
       ]
     );
 
-    // Update user profile in Supabase & Appwrite database strictly scoped to userId and accountId
-    try {
-      await supabase
-        .from('profiles')
-        .update({
-          avatar_url: fileUrl,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('user_id', userId)
-        .eq('account_id', accountId);
-    } catch {
-      // Ignore Supabase update error
-    }
+    // Update user profile in Supabase strictly scoped to userId and accountId
+    const { error: supErr } = await supabase
+      .from('profiles')
+      .update({
+        avatar_url: fileUrl,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', userId)
+      .eq('account_id', accountId);
 
-    const db = getAppwriteAdminClient().databases;
-    let profileDoc: Record<string, unknown> | null = null;
-    let oldAvatarFileId: string | null = null;
-
-    try {
-      const res = await db.listDocuments(
-        APPWRITE_CONFIG.databaseId,
-        'profiles',
-        [
-          Query.equal('user_id', userId),
-          Query.equal('account_id', accountId),
-          Query.limit(1),
-        ]
-      );
-      profileDoc = res.documents[0] || null;
-
-      const currentAvatarUrl = (profileDoc as { avatar_url?: string } | null)
-        ?.avatar_url;
-      if (currentAvatarUrl) {
-        const matches = currentAvatarUrl.match(/\/files\/([^\/]+)\/view/);
-        if (matches && matches[1]) {
-          oldAvatarFileId = matches[1];
-        }
-      }
-
-      if (profileDoc && (profileDoc as { $id?: string }).$id) {
-        await db.updateDocument(
-          APPWRITE_CONFIG.databaseId,
-          'profiles',
-          (profileDoc as { $id: string }).$id,
-          {
-            avatar_url: fileUrl,
-            updated_at: new Date().toISOString(),
-          }
-        );
-      }
-    } catch {
-      // Ignore Appwrite db error if Supabase is primary
-    }
-
-    // Clean up previous avatar file after successful commit
-    if (oldAvatarFileId && oldAvatarFileId !== fileId) {
-      await storageRepository.deleteFile(
-        APPWRITE_CONFIG.buckets.avatars,
-        oldAvatarFileId
-      );
+    if (supErr) {
+      console.warn('[Avatar Upload] Profile update in Supabase error:', supErr);
     }
 
     return NextResponse.json({

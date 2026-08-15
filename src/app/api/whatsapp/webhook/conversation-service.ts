@@ -41,6 +41,7 @@ export async function findOrCreateConversation(
   let newConv: Record<string, unknown> | null = null;
   let createError: unknown = null;
 
+  // Attempt 1: Full schema (with channel column)
   try {
     const { data, error } = await db
       .from('conversations')
@@ -64,23 +65,30 @@ export async function findOrCreateConversation(
     createError = err;
   }
 
+  // Attempt 2: Minimal schema (live DB without channel column)
   if (!newConv) {
     try {
       const { data, error } = await db
         .from('conversations')
         .insert({
-          accountId,
-          contactId,
+          account_id: accountId,
+          user_id: configOwnerUserId || null,
+          contact_id: contactId,
           status: 'open',
-          lastMessageText: '',
-          lastMessageAt: now,
-          createdAt: now,
-          updatedAt: now,
+          unread_count: 0,
+          last_message_text: '',
+          last_message_at: now,
+          created_at: now,
+          updated_at: now,
         })
         .select()
         .single();
-      if (data) newConv = data;
-      createError = error;
+      if (data) {
+        newConv = data;
+        createError = null;
+      } else {
+        createError = error;
+      }
     } catch (err) {
       createError = err;
     }

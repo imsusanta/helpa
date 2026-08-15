@@ -59,3 +59,4 @@ scratch/
 src/lib/build-info.json
 src/lib/build-metadata.json
 artifacts/
+supabase/.temp/
