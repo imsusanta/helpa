@@ -415,18 +415,25 @@ function ConversationItem({
   onSelect,
 }: ConversationItemProps) {
   const contact = conversation.contact;
-  const displayName = contact?.name || contact?.phone || 'Unknown';
-  const initials = displayName.charAt(0).toUpperCase();
+  const displayName =
+    contact?.name || contact?.phone || conversation.contact_id || 'Contact';
+  const initials = displayName.charAt(0).toUpperCase() || 'C';
 
   const handleClick = useCallback(() => {
     onSelect(conversation);
   }, [onSelect, conversation]);
 
-  const timeAgo = conversation.last_message_at
-    ? formatDistanceToNow(new Date(conversation.last_message_at), {
-        addSuffix: false,
-      })
-    : '';
+  let timeAgo = '';
+  if (conversation.last_message_at) {
+    try {
+      const d = new Date(conversation.last_message_at);
+      if (!isNaN(d.getTime())) {
+        timeAgo = formatDistanceToNow(d, { addSuffix: false });
+      }
+    } catch {
+      timeAgo = '';
+    }
+  }
 
   const isUnread = (conversation.unread_count ?? 0) > 0 && !isActive;
 

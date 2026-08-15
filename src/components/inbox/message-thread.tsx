@@ -116,10 +116,15 @@ interface MessageThreadProps {
 }
 
 function formatDateSeparator(dateStr: string): string {
-  const date = new Date(dateStr);
-  if (isToday(date)) return 'Today';
-  if (isYesterday(date)) return 'Yesterday';
-  return format(date, 'MMMM d, yyyy');
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return 'Today';
+    if (isToday(date)) return 'Today';
+    if (isYesterday(date)) return 'Yesterday';
+    return format(date, 'MMMM d, yyyy');
+  } catch {
+    return 'Today';
+  }
 }
 
 function groupMessagesByDate(messages: Message[]) {
@@ -127,7 +132,14 @@ function groupMessagesByDate(messages: Message[]) {
   let currentDate = '';
 
   for (const msg of messages) {
-    const day = format(new Date(msg.created_at), 'yyyy-MM-dd');
+    let day = 'Today';
+    try {
+      const d = new Date(msg.created_at);
+      day = isNaN(d.getTime()) ? 'Today' : format(d, 'yyyy-MM-dd');
+    } catch {
+      day = 'Today';
+    }
+
     if (day !== currentDate) {
       currentDate = day;
       groups.push({ date: msg.created_at, messages: [msg] });
@@ -870,7 +882,7 @@ export function MessageThread({
   // Empty state — same WhatsApp-style doodle background as the active
   // thread below, so swapping between empty/selected doesn't change the
   // pattern under the user's eye.
-  if (!conversation || !contact) {
+  if (!conversation) {
     return (
       <div
         className={cn(
@@ -903,7 +915,24 @@ export function MessageThread({
     );
   }
 
-  const displayName = contact.name || contact.phone;
+  const effectiveContact: Contact =
+    contact ||
+    conversation.contact ||
+    ({
+      id: conversation.contact_id || 'unknown',
+      name: 'Contact',
+      phone: '',
+      account_id: '',
+      user_id: '',
+      created_at: conversation.created_at || new Date().toISOString(),
+      updated_at: conversation.updated_at || new Date().toISOString(),
+    } as Contact);
+
+  const displayName =
+    effectiveContact.name ||
+    effectiveContact.phone ||
+    conversation.contact_id ||
+    'Contact';
   const messageGroups = groupMessagesByDate(messages);
   const currentStatus = STATUS_OPTIONS.find(
     (s) => s.value === conversation.status
@@ -915,14 +944,6 @@ export function MessageThread({
     : 'Assign';
 
   return (
-    // `min-w-0` is load-bearing: the page already puts min-w-0 on the
-    // thread's flex *wrapper* (issue #165), but this root keeps the
-    // default `min-width: auto`, so a single wide message (long unbroken
-    // URL/word) expands the whole thread past its flex share and the chat
-    // paints on top of the contact sidebar at lg+ — outgoing bubbles get
-    // clipped and the hover toolbar overlaps the Tags panel. Letting the
-    // root shrink lets the bubbles' break-words / max-w caps apply.
-    // Issue #257.
     <div className={cn('flex min-w-0 flex-1 flex-col', DOODLE_BG_CLASSES)}>
       {/* Header — solid card surface sits on top of the doodle so the
           name/avatar/dropdowns stay legible. */}
@@ -941,10 +962,10 @@ export function MessageThread({
             </button>
           )}
           <div className="bg-muted text-foreground flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-medium">
-            {contact.avatar_url ? (
+            {effectiveContact.avatar_url ? (
               /* eslint-disable-next-line @next/next/no-img-element */
               <img
-                src={contact.avatar_url}
+                src={effectiveContact.avatar_url}
                 alt={displayName}
                 className="h-9 w-9 rounded-full object-cover"
               />
@@ -957,7 +978,7 @@ export function MessageThread({
               {displayName}
             </h2>
             <p className="text-muted-foreground truncate text-xs">
-              {contact.phone}
+              {effectiveContact.phone}
             </p>
           </div>
           {/* Session timer badge — hidden on the narrowest phones so

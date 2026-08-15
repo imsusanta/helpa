@@ -23,12 +23,25 @@ interface UseRealtimeOptions {
 }
 
 function normalizeMessagePayload(doc: Record<string, unknown>): Message {
+  const rawSender = (doc.sender_type || doc.senderType) as string | undefined;
+  const isOutbound =
+    doc.direction === 'outbound' ||
+    rawSender === 'agent' ||
+    rawSender === 'bot';
+
+  const senderType: SenderType =
+    rawSender === 'agent'
+      ? 'agent'
+      : rawSender === 'bot'
+        ? 'bot'
+        : isOutbound
+          ? 'agent'
+          : 'customer';
+
   return {
     id: (doc.$id || doc.id) as string,
     conversation_id: (doc.conversationId || doc.conversation_id) as string,
-    sender_type: (doc.senderType ||
-      doc.sender_type ||
-      'customer') as SenderType,
+    sender_type: senderType,
     sender_id: (doc.senderId || doc.sender_id) as string | undefined,
     content_type: (doc.contentType ||
       doc.content_type ||

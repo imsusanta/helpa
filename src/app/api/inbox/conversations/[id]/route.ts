@@ -167,10 +167,23 @@ export async function GET(_request: NextRequest, { params }: Params) {
         .from('contacts')
         .select('*')
         .eq('id', cId)
-        .eq('account_id', accountId)
         .maybeSingle();
       if (cDoc) {
         contact = normalizeContact(cDoc);
+      } else {
+        contact = {
+          id: cId,
+          account_id: accountId,
+          user_id: '',
+          name:
+            (conv.contact_name as string) ||
+            (conv.patient_name as string) ||
+            (conv.phone as string) ||
+            'Contact',
+          phone: (conv.phone as string) || '',
+          created_at: (conv.created_at as string) || new Date().toISOString(),
+          updated_at: (conv.updated_at as string) || new Date().toISOString(),
+        };
       }
     }
 

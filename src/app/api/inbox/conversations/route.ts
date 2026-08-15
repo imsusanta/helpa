@@ -234,7 +234,22 @@ export async function GET(request: NextRequest) {
 
     const normalized = convs.map((c) => {
       const cId = (c.contact_id || c.contactId) as string;
-      const contact = cId ? contactsMap.get(cId) : undefined;
+      let contact = cId ? contactsMap.get(cId) : undefined;
+      if (!contact && cId) {
+        contact = {
+          id: cId,
+          account_id: accountId,
+          user_id: '',
+          name:
+            (c.contact_name as string) ||
+            (c.patient_name as string) ||
+            (c.phone as string) ||
+            'Contact',
+          phone: (c.phone as string) || '',
+          created_at: (c.created_at as string) || new Date().toISOString(),
+          updated_at: (c.updated_at as string) || new Date().toISOString(),
+        };
+      }
       return normalizeConversation(c, contact);
     });
 
