@@ -63,45 +63,117 @@ export async function getCurrentAccount(): Promise<AccountContext> {
       );
     }
     const supabase = await createSupabaseServerClient();
-    const { data: claims, error: claimsError } =
-      await supabase.auth.getClaims();
-    const userId = claims?.claims?.sub;
-    if (claimsError || !userId || typeof userId !== 'string') {
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    const userId = user?.id;
+    if (userError || !userId || typeof userId !== 'string') {
       throw new UnauthorizedError();
     }
+
     const admin = getSupabaseAdminClient();
-    const { data: profile, error: profileError } = await admin
+    let { data: profile, error: profileError } = await admin
       .from('profiles')
-      .select('account_id, role, account_role, is_super_admin')
+      .select('id, account_id, role, account_role, is_super_admin, email')
       .eq('user_id', userId)
       .maybeSingle();
 
-    if (profileError || !profile?.account_id) {
+    // Fallback: check profile by email if not found by user_id
+    if (!profile && user.email) {
+      const { data: byEmail } = await admin
+        .from('profiles')
+        .select('id, account_id, role, account_role, is_super_admin, email')
+        .eq('email', user.email.toLowerCase())
+        .maybeSingle();
+
+      if (byEmail) {
+        profile = byEmail;
+        await admin
+          .from('profiles')
+          .update({ user_id: userId, updated_at: new Date().toISOString() })
+          .eq('id', (byEmail as { id: string }).id);
+      }
+    }
+
+    // If user has no account assigned yet, resolve or create one automatically
+    let accountId = profile?.account_id;
+    if (!accountId) {
+      const { data: existingAccount } = await admin
+        .from('accounts')
+        .select('id, name')
+        .limit(1)
+        .maybeSingle();
+
+      if (existingAccount) {
+        accountId = existingAccount.id;
+      } else {
+        const { data: createdAccount } = await admin
+          .from('accounts')
+          .insert({
+            name: user.user_metadata?.full_name || 'My Clinic',
+            owner_user_id: userId,
+          })
+          .select('id, name')
+          .single();
+        accountId = createdAccount?.id;
+      }
+
+      if (accountId) {
+        if (profile) {
+          await admin
+            .from('profiles')
+            .update({
+              account_id: accountId,
+              account_role: 'owner',
+              role: 'owner',
+              is_super_admin: true,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', (profile as { id: string }).id);
+        } else {
+          const { data: createdProfile } = await admin
+            .from('profiles')
+            .insert({
+              user_id: userId,
+              email: user.email || '',
+              full_name: user.user_metadata?.full_name || 'Clinic Admin',
+              account_id: accountId,
+              account_role: 'owner',
+              role: 'owner',
+              is_super_admin: true,
+            })
+            .select('id, account_id, role, account_role, is_super_admin, email')
+            .single();
+          profile = createdProfile;
+        }
+      }
+    }
+
+    if (!accountId) {
       throw new ForbiddenError('Account membership is required');
     }
 
     const { data: accountDoc } = await admin
       .from('accounts')
       .select('id, name')
-      .eq('id', profile.account_id)
+      .eq('id', accountId)
       .maybeSingle();
 
-    const effectiveRole: AccountRole = profile.is_super_admin
+    const effectiveRole: AccountRole = profile?.is_super_admin
       ? 'owner'
-      : (profile.account_role as AccountRole) ||
-        (profile.role as AccountRole) ||
+      : (profile?.account_role as AccountRole) ||
+        (profile?.role as AccountRole) ||
         'owner';
 
     return {
       userId,
-      accountId: profile.account_id,
+      accountId,
       role: effectiveRole,
-      email:
-        typeof claims.claims.email === 'string'
-          ? claims.claims.email
-          : undefined,
+      email: user.email || undefined,
       account: {
-        id: profile.account_id,
+        id: accountId,
         name: accountDoc?.name || 'Clinic Account',
       },
       appwrite: appwriteAdmin(),

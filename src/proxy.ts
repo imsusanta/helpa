@@ -73,11 +73,13 @@ export async function proxy(request: NextRequest) {
           },
         },
       });
-      const { data } = await supabase.auth.getClaims();
-      if (data?.claims?.sub) {
+      const {
+        data: { user: authUser },
+      } = await supabase.auth.getUser();
+      if (authUser?.id) {
         user = {
-          id: data.claims.sub,
-          email: data.claims.email as string | undefined,
+          id: authUser.id,
+          email: authUser.email,
         };
       }
       // The refreshed cookie response is used below for authenticated requests.
