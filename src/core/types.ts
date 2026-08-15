@@ -37,13 +37,7 @@ export interface MessageEvent {
   content?: string;
   clinicAddress?: string;
   contentType?:
-    | 'text'
-    | 'image'
-    | 'document'
-    | 'audio'
-    | 'video'
-    | 'location'
-    | 'template';
+    'text' | 'image' | 'document' | 'audio' | 'video' | 'location' | 'template';
   text?: string;
   mediaUrl?: string;
   status: 'sent' | 'delivered' | 'read' | 'failed';
