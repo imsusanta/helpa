@@ -127,7 +127,8 @@ export async function GET(request: NextRequest, { params }: Params) {
       );
     }
 
-    if (convDoc.accountId !== accountId) {
+    const docAccountId = (convDoc.accountId || convDoc.account_id) as string;
+    if (docAccountId !== accountId) {
       return NextResponse.json(
         { error: 'Conversation not found' },
         { status: 404, headers: CACHE_HEADERS }
@@ -136,15 +137,27 @@ export async function GET(request: NextRequest, { params }: Params) {
 
     // Fetch messages from Appwrite
 
-    const messagesRes = await admin.databases.listDocuments(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.messages,
-      [
-        Query.equal('conversationId', conversationId),
-        Query.orderAsc('createdAt'),
-        Query.limit(limit),
-      ]
-    );
+    let messagesRes;
+    try {
+      messagesRes = await admin.databases.listDocuments(
+        APPWRITE_CONFIG.databaseId,
+        APPWRITE_CONFIG.collections.messages,
+        [
+          Query.equal('conversationId', conversationId),
+          Query.orderAsc('createdAt'),
+          Query.limit(limit),
+        ]
+      );
+    } catch {
+      messagesRes = await admin.databases.listDocuments(
+        APPWRITE_CONFIG.databaseId,
+        APPWRITE_CONFIG.collections.messages,
+        [
+          Query.equal('conversation_id', conversationId),
+          Query.limit(limit),
+        ]
+      );
+    }
 
     const rawMsgs = messagesRes.documents as unknown as Array<
       Record<string, unknown>

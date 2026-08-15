@@ -74,83 +74,59 @@ export async function getCurrentAccount(): Promise<AccountContext> {
     }
 
     const admin = getSupabaseAdminClient();
-    let { data: profile } = await admin
-      .from('profiles')
-      .select('id, account_id, role, account_role, is_super_admin, email')
+
+    // 1. Check explicit active memberships from canonical account_members table
+    const { data: memberships } = await admin
+      .from('account_members')
+      .select('account_id, role, active')
       .eq('user_id', userId)
-      .maybeSingle();
+      .eq('active', true);
 
-    // Fallback: check profile by email if not found by user_id
-    if (!profile && user.email) {
-      const { data: byEmail } = await admin
+    let accountId: string | null = null;
+    let role: AccountRole = 'viewer';
+
+    if (memberships && memberships.length > 0) {
+      const activeMember = memberships[0];
+      accountId = activeMember.account_id;
+      role = (activeMember.role as AccountRole) || 'viewer';
+    } else {
+      // 2. Check legacy profile link if member record is yet to be populated
+      const { data: profile } = await admin
         .from('profiles')
-        .select('id, account_id, role, account_role, is_super_admin, email')
-        .eq('email', user.email.toLowerCase())
+        .select('id, account_id, role, account_role')
+        .eq('user_id', userId)
         .maybeSingle();
 
-      if (byEmail) {
-        profile = byEmail;
-        await admin
-          .from('profiles')
-          .update({ user_id: userId, updated_at: new Date().toISOString() })
-          .eq('id', (byEmail as { id: string }).id);
-      }
-    }
-
-    // If user has no account assigned yet, resolve or create one automatically
-    let accountId = profile?.account_id;
-    if (!accountId) {
-      const { data: existingAccount } = await admin
-        .from('accounts')
-        .select('id, name')
-        .limit(1)
-        .maybeSingle();
-
-      if (existingAccount) {
-        accountId = existingAccount.id;
-      } else {
-        const { data: createdAccount } = await admin
+      if (profile?.account_id) {
+        const { data: targetAccount } = await admin
           .from('accounts')
-          .insert({
-            name: user.user_metadata?.full_name || 'My Clinic',
-            owner_user_id: userId,
-          })
           .select('id, name')
-          .single();
-        accountId = createdAccount?.id;
-      }
+          .eq('id', profile.account_id)
+          .maybeSingle();
 
-      if (accountId) {
-        if (profile) {
-          await admin
-            .from('profiles')
-            .update({
+        if (targetAccount) {
+          accountId = targetAccount.id;
+          role =
+            (profile.account_role as AccountRole) ||
+            (profile.role as AccountRole) ||
+            'viewer';
+
+          // Sync explicit membership record
+          await admin.from('account_members').upsert(
+            {
               account_id: accountId,
-              account_role: 'owner',
-              role: 'owner',
-              is_super_admin: true,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', (profile as { id: string }).id);
-        } else {
-          const { data: createdProfile } = await admin
-            .from('profiles')
-            .insert({
               user_id: userId,
-              email: user.email || '',
-              full_name: user.user_metadata?.full_name || 'Clinic Admin',
-              account_id: accountId,
-              account_role: 'owner',
-              role: 'owner',
-              is_super_admin: true,
-            })
-            .select('id, account_id, role, account_role, is_super_admin, email')
-            .single();
-          profile = createdProfile;
+              role,
+              active: true,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'account_id, user_id' }
+          );
         }
       }
     }
 
+    // Strict Fail-Closed: If user has no explicit verified membership, reject access!
     if (!accountId) {
       throw new ForbiddenError('Account membership is required');
     }
@@ -161,20 +137,18 @@ export async function getCurrentAccount(): Promise<AccountContext> {
       .eq('id', accountId)
       .maybeSingle();
 
-    const effectiveRole: AccountRole = profile?.is_super_admin
-      ? 'owner'
-      : (profile?.account_role as AccountRole) ||
-        (profile?.role as AccountRole) ||
-        'owner';
+    if (!accountDoc) {
+      throw new ForbiddenError('Account not found');
+    }
 
     return {
       userId,
       accountId,
-      role: effectiveRole,
+      role,
       email: user.email || undefined,
       account: {
         id: accountId,
-        name: accountDoc?.name || 'Clinic Account',
+        name: accountDoc.name || 'Clinic Account',
       },
       appwrite: appwriteAdmin(),
     };

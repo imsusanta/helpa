@@ -1,24 +1,18 @@
 import { redirect } from 'next/navigation';
 import { getCurrentAccount } from '@/lib/auth/account';
-import {
-  profilesRepository,
-  type ProfileDocument,
-} from '@/infrastructure/appwrite/repositories/profiles.repository';
+import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
 
 export async function requireSuperAdmin() {
   try {
     const ctx = await getCurrentAccount();
-    let profile: ProfileDocument | null = null;
-    try {
-      profile = await profilesRepository.getProfileByUserId(ctx.userId);
-    } catch (e) {
-      console.warn('[requireSuperAdmin] profile fetch error:', e);
-    }
+    const admin = getSupabaseAdminClient();
+    const { data: profile } = await admin
+      .from('profiles')
+      .select('is_super_admin')
+      .eq('user_id', ctx.userId)
+      .maybeSingle();
 
-    const isSuperAdmin =
-      Boolean(profile?.is_super_admin) ||
-      ctx.role === 'owner' ||
-      (ctx.email && ctx.email.toLowerCase() === 'susantalohr@gmail.com');
+    const isSuperAdmin = Boolean(profile?.is_super_admin);
     if (!isSuperAdmin) {
       redirect('/dashboard');
     }
@@ -35,17 +29,14 @@ export async function requireSuperAdmin() {
 export async function checkSuperAdmin(): Promise<boolean> {
   try {
     const ctx = await getCurrentAccount();
-    let profile: ProfileDocument | null = null;
-    try {
-      profile = await profilesRepository.getProfileByUserId(ctx.userId);
-    } catch (e) {
-      console.warn('[checkSuperAdmin] profile fetch error:', e);
-    }
-    return (
-      Boolean(profile?.is_super_admin) ||
-      ctx.role === 'owner' ||
-      Boolean(ctx.email && ctx.email.toLowerCase() === 'susantalohr@gmail.com')
-    );
+    const admin = getSupabaseAdminClient();
+    const { data: profile } = await admin
+      .from('profiles')
+      .select('is_super_admin')
+      .eq('user_id', ctx.userId)
+      .maybeSingle();
+
+    return Boolean(profile?.is_super_admin);
   } catch {
     return false;
   }

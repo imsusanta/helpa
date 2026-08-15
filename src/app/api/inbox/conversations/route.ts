@@ -117,7 +117,7 @@ export async function GET(request: NextRequest) {
         }
 
         const { data: convs, error } = await query;
-        if (!error && Array.isArray(convs)) {
+        if (!error && Array.isArray(convs) && convs.length > 0) {
           const normalized = convs.map((c) =>
             normalizeConversation(
               c,
