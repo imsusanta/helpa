@@ -13,7 +13,11 @@ import {
   Zap,
   AlertTriangle,
   RotateCcw,
+  QrCode,
+  Sparkles,
 } from 'lucide-react';
+import { launchWhatsAppEmbeddedSignup } from '@/lib/whatsapp/embedded-signup';
+import { WhatsAppQrPanel } from './whatsapp-qr-panel';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -65,6 +69,10 @@ export function WhatsAppConfig() {
   const [verifyToken, setVerifyToken] = useState('');
   const [pin, setPin] = useState('');
   const [tokenEdited, setTokenEdited] = useState(false);
+  const [activeMethod, setActiveMethod] = useState<
+    'embedded' | 'qr' | 'manual'
+  >('embedded');
+  const [connectingEmbedded, setConnectingEmbedded] = useState(false);
 
   // True once /register has succeeded on Meta's side (timestamp set
   // in the row). When false, the saved config is metadata-only and
@@ -361,6 +369,39 @@ export function WhatsAppConfig() {
     toast.success('Webhook URL copied to clipboard');
   }
 
+  async function handleLaunchEmbeddedSignup() {
+    setConnectingEmbedded(true);
+    try {
+      const appId = process.env.NEXT_PUBLIC_META_APP_ID || '1461038582135406';
+      const result = await launchWhatsAppEmbeddedSignup({ appId });
+
+      const res = await fetch('/api/whatsapp/embedded-signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: result.code,
+          waba_id: result.wabaId,
+          phone_number_id: result.phoneNumberId,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          data.error || 'Failed to complete WhatsApp Embedded Signup'
+        );
+      }
+
+      toast.success('🎉 WhatsApp connected successfully via Meta!');
+      await fetchConfig();
+    } catch (err: unknown) {
+      console.error('Embedded Signup error:', err);
+      toast.error((err as Error)?.message || 'Failed to connect with Meta');
+    } finally {
+      setConnectingEmbedded(false);
+    }
+  }
+
   if (loading) {
     return (
       <section className="animate-in fade-in-50 duration-200">
@@ -557,224 +598,358 @@ export function WhatsAppConfig() {
             </Alert>
           )}
 
-          {/* API Credentials */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-foreground">API Credentials</CardTitle>
-              <CardDescription className="text-muted-foreground">
-                Enter your Meta WhatsApp Business API credentials.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">Phone Number ID</Label>
-                <Input
-                  placeholder="e.g. 100234567890123"
-                  value={phoneNumberId}
-                  onChange={(e) => setPhoneNumberId(e.target.value)}
-                  className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
-                />
-              </div>
+          {/* Connection Method Switcher Tabs */}
+          <div className="bg-muted/40 border-border grid grid-cols-3 gap-2 rounded-xl border p-1.5">
+            <button
+              type="button"
+              onClick={() => setActiveMethod('embedded')}
+              className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-xs font-semibold transition-all ${
+                activeMethod === 'embedded'
+                  ? 'bg-card text-foreground border-border/50 border shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Sparkles className="h-4 w-4 text-blue-500" />
+              <span>1-Click Meta Login</span>
+            </button>
 
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">
-                  WhatsApp Business Account ID
-                </Label>
-                <Input
-                  placeholder="e.g. 100234567890456"
-                  value={wabaId}
-                  onChange={(e) => setWabaId(e.target.value)}
-                  className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
-                />
-              </div>
+            <button
+              type="button"
+              onClick={() => setActiveMethod('qr')}
+              className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-xs font-semibold transition-all ${
+                activeMethod === 'qr'
+                  ? 'bg-card text-foreground border-border/50 border shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <QrCode className="h-4 w-4 text-emerald-500" />
+              <span>Scan QR Code</span>
+            </button>
 
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">
-                  Permanent Access Token
-                </Label>
-                <div className="relative">
-                  <Input
-                    type={showToken ? 'text' : 'password'}
-                    placeholder="Enter your access token"
-                    value={accessToken}
-                    onChange={(e) => {
-                      setAccessToken(e.target.value);
-                      setTokenEdited(true);
-                    }}
-                    onFocus={() => {
-                      if (accessToken === MASKED_TOKEN) {
-                        setAccessToken('');
-                        setTokenEdited(true);
-                      }
-                    }}
-                    className="bg-muted border-border text-foreground placeholder:text-muted-foreground pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowToken(!showToken)}
-                    className="text-muted-foreground hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2 transition-colors"
-                  >
-                    {showToken ? (
-                      <EyeOff className="size-4" />
-                    ) : (
-                      <Eye className="size-4" />
-                    )}
-                  </button>
+            <button
+              type="button"
+              onClick={() => setActiveMethod('manual')}
+              className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-xs font-semibold transition-all ${
+                activeMethod === 'manual'
+                  ? 'bg-card text-foreground border-border/50 border shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Zap className="h-4 w-4 text-amber-500" />
+              <span>Manual API Keys</span>
+            </button>
+          </div>
+
+          {/* Tab 1: Meta Embedded Signup */}
+          {activeMethod === 'embedded' && (
+            <Card className="border-blue-500/20 bg-blue-500/[0.03]">
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-foreground flex items-center gap-2">
+                      <Sparkles className="h-5 w-5 text-blue-500" />
+                      Connect via Official Meta Embedded Signup
+                    </CardTitle>
+                    <CardDescription className="text-muted-foreground mt-1">
+                      Link your existing WhatsApp Business number directly
+                      through Meta&apos;s 1-click popup flow.
+                    </CardDescription>
+                  </div>
                 </div>
-                {config && !tokenEdited && (
-                  <p className="text-muted-foreground text-xs">
-                    Token is hidden for security. Re-enter it to update
-                    configuration.
-                  </p>
-                )}
-              </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="bg-card border-border space-y-3 rounded-xl border p-4">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
+                    <div>
+                      <h4 className="text-foreground text-xs font-semibold">
+                        Automatic WABA & Phone Number Discovery
+                      </h4>
+                      <p className="text-muted-foreground mt-0.5 text-xs">
+                        No need to copy-paste Phone Number ID, WABA ID, or
+                        permanent tokens manually.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
+                    <div>
+                      <h4 className="text-foreground text-xs font-semibold">
+                        Official Cloud API Infrastructure
+                      </h4>
+                      <p className="text-muted-foreground mt-0.5 text-xs">
+                        Provides official Green Tick eligibility, high broadcast
+                        throughput, and 24/7 AI Receptionist auto-replies.
+                      </p>
+                    </div>
+                  </div>
+                </div>
 
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">
-                  Webhook Verify Token
-                </Label>
-                <Input
-                  placeholder="Create a custom verify token"
-                  value={verifyToken}
-                  onChange={(e) => setVerifyToken(e.target.value)}
-                  className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
-                />
-                <p className="text-muted-foreground text-xs">
-                  A custom string you create. Must match the token you set in
-                  Meta webhook settings.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">
-                  Two-step verification PIN
-                  <span className="text-muted-foreground ml-1">(optional)</span>
-                </Label>
-                <Input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={6}
-                  placeholder="6-digit PIN from Meta WhatsApp Manager"
-                  value={pin}
-                  onChange={(e) =>
-                    setPin(e.target.value.replace(/\D/g, '').slice(0, 6))
-                  }
-                  className="bg-muted border-border text-foreground placeholder:text-muted-foreground tracking-widest"
-                />
-                <p className="text-muted-foreground text-xs leading-relaxed">
-                  Needed only to wire{' '}
-                  <strong className="text-muted-foreground">inbound</strong>{' '}
-                  messages for a{' '}
-                  <strong className="text-muted-foreground">production</strong>{' '}
-                  number. Set it in{' '}
-                  <strong className="text-muted-foreground">
-                    Meta Business Manager → WhatsApp Accounts → Phone Numbers →
-                    Two-step verification
-                  </strong>
-                  , then paste it here so wacrm can subscribe the number —
-                  otherwise Meta routes inbound events to whichever app last
-                  claimed it (the symptom that hits second numbers under a
-                  shared WABA).{' '}
-                  <strong className="text-muted-foreground">
-                    Meta test numbers
-                  </strong>{' '}
-                  have no PIN and are pre-registered — leave this blank for
-                  them. Leaving it blank also keeps an existing registration
-                  untouched.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Webhook URL */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-foreground">
-                Webhook Configuration
-              </CardTitle>
-              <CardDescription className="text-muted-foreground">
-                Use this URL as your webhook callback in the Meta App Dashboard.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">
-                  Webhook Callback URL
-                </Label>
-                <div className="flex gap-2">
-                  <Input
-                    readOnly
-                    value={webhookUrl}
-                    className="bg-muted border-border text-muted-foreground font-mono text-sm"
-                  />
+                <div className="pt-2">
                   <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={handleCopyWebhookUrl}
-                    className="border-border text-muted-foreground hover:text-foreground hover:bg-muted shrink-0"
+                    onClick={handleLaunchEmbeddedSignup}
+                    disabled={connectingEmbedded}
+                    className="flex h-11 w-full items-center gap-2 bg-[#0866FF] px-6 font-semibold text-white shadow-md hover:bg-[#0759DF] sm:w-auto"
                   >
-                    <Copy className="size-4" />
+                    {connectingEmbedded ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Connecting with Facebook...
+                      </>
+                    ) : (
+                      <>
+                        <svg
+                          className="h-5 w-5 fill-current"
+                          viewBox="0 0 24 24"
+                        >
+                          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                        </svg>
+                        Connect with Facebook / WhatsApp
+                      </>
+                    )}
                   </Button>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
 
-          {/* Action Buttons */}
-          <div className="flex flex-wrap gap-3">
-            <Button
-              onClick={handleSave}
-              disabled={saving}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground"
-            >
-              {saving ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                'Save Configuration'
-              )}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleTestConnection}
-              disabled={testing || !config}
-              className="border-border text-muted-foreground hover:text-foreground hover:bg-muted"
-            >
-              {testing ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  Testing...
-                </>
-              ) : (
-                <>
-                  <Zap className="size-4" />
-                  Test API Connection
-                </>
-              )}
-            </Button>
-            {config && (
-              <Button
-                variant="outline"
-                onClick={handleReset}
-                disabled={resetting}
-                className="border-red-900 text-red-400 hover:bg-red-950/40 hover:text-red-300"
-              >
-                {resetting ? (
-                  <>
-                    <Loader2 className="size-4 animate-spin" />
-                    Resetting...
-                  </>
-                ) : (
-                  <>
-                    <RotateCcw className="size-4" />
-                    Reset Configuration
-                  </>
+          {/* Tab 2: QR Code Linked Device */}
+          {activeMethod === 'qr' && (
+            <WhatsAppQrPanel onConnectionSuccess={fetchConfig} />
+          )}
+
+          {/* Tab 3: Manual API Credentials (Advanced / Fallback) */}
+          {activeMethod === 'manual' && (
+            <>
+              {/* API Credentials */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-foreground">
+                    API Credentials
+                  </CardTitle>
+                  <CardDescription className="text-muted-foreground">
+                    Enter your Meta WhatsApp Business API credentials.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-muted-foreground">
+                      Phone Number ID
+                    </Label>
+                    <Input
+                      placeholder="e.g. 100234567890123"
+                      value={phoneNumberId}
+                      onChange={(e) => setPhoneNumberId(e.target.value)}
+                      className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-muted-foreground">
+                      WhatsApp Business Account ID
+                    </Label>
+                    <Input
+                      placeholder="e.g. 100234567890456"
+                      value={wabaId}
+                      onChange={(e) => setWabaId(e.target.value)}
+                      className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-muted-foreground">
+                      Permanent Access Token
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        type={showToken ? 'text' : 'password'}
+                        placeholder="Enter your access token"
+                        value={accessToken}
+                        onChange={(e) => {
+                          setAccessToken(e.target.value);
+                          setTokenEdited(true);
+                        }}
+                        onFocus={() => {
+                          if (accessToken === MASKED_TOKEN) {
+                            setAccessToken('');
+                            setTokenEdited(true);
+                          }
+                        }}
+                        className="bg-muted border-border text-foreground placeholder:text-muted-foreground pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowToken(!showToken)}
+                        className="text-muted-foreground hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2 transition-colors"
+                      >
+                        {showToken ? (
+                          <EyeOff className="size-4" />
+                        ) : (
+                          <Eye className="size-4" />
+                        )}
+                      </button>
+                    </div>
+                    {config && !tokenEdited && (
+                      <p className="text-muted-foreground text-xs">
+                        Token is hidden for security. Re-enter it to update
+                        configuration.
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-muted-foreground">
+                      Webhook Verify Token
+                    </Label>
+                    <Input
+                      placeholder="Create a custom verify token"
+                      value={verifyToken}
+                      onChange={(e) => setVerifyToken(e.target.value)}
+                      className="bg-muted border-border text-foreground placeholder:text-muted-foreground"
+                    />
+                    <p className="text-muted-foreground text-xs">
+                      A custom string you create. Must match the token you set
+                      in Meta webhook settings.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-muted-foreground">
+                      Two-step verification PIN
+                      <span className="text-muted-foreground ml-1">
+                        (optional)
+                      </span>
+                    </Label>
+                    <Input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      placeholder="6-digit PIN from Meta WhatsApp Manager"
+                      value={pin}
+                      onChange={(e) =>
+                        setPin(e.target.value.replace(/\D/g, '').slice(0, 6))
+                      }
+                      className="bg-muted border-border text-foreground placeholder:text-muted-foreground tracking-widest"
+                    />
+                    <p className="text-muted-foreground text-xs leading-relaxed">
+                      Needed only to wire{' '}
+                      <strong className="text-muted-foreground">inbound</strong>{' '}
+                      messages for a{' '}
+                      <strong className="text-muted-foreground">
+                        production
+                      </strong>{' '}
+                      number. Set it in{' '}
+                      <strong className="text-muted-foreground">
+                        Meta Business Manager → WhatsApp Accounts → Phone
+                        Numbers → Two-step verification
+                      </strong>
+                      , then paste it here so wacrm can subscribe the number —
+                      otherwise Meta routes inbound events to whichever app last
+                      claimed it (the symptom that hits second numbers under a
+                      shared WABA).{' '}
+                      <strong className="text-muted-foreground">
+                        Meta test numbers
+                      </strong>{' '}
+                      have no PIN and are pre-registered — leave this blank for
+                      them. Leaving it blank also keeps an existing registration
+                      untouched.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Webhook URL */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-foreground">
+                    Webhook Configuration
+                  </CardTitle>
+                  <CardDescription className="text-muted-foreground">
+                    Use this URL as your webhook callback in the Meta App
+                    Dashboard.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <Label className="text-muted-foreground">
+                      Webhook Callback URL
+                    </Label>
+                    <div className="flex gap-2">
+                      <Input
+                        readOnly
+                        value={webhookUrl}
+                        className="bg-muted border-border text-muted-foreground font-mono text-sm"
+                      />
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={handleCopyWebhookUrl}
+                        className="border-border text-muted-foreground hover:text-foreground hover:bg-muted shrink-0"
+                      >
+                        <Copy className="size-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Action Buttons */}
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Save Configuration'
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleTestConnection}
+                  disabled={testing || !config}
+                  className="border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+                >
+                  {testing ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" />
+                      Testing...
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="size-4" />
+                      Test API Connection
+                    </>
+                  )}
+                </Button>
+                {config && (
+                  <Button
+                    variant="outline"
+                    onClick={handleReset}
+                    disabled={resetting}
+                    className="border-red-900 text-red-400 hover:bg-red-950/40 hover:text-red-300"
+                  >
+                    {resetting ? (
+                      <>
+                        <Loader2 className="size-4 animate-spin" />
+                        Resetting...
+                      </>
+                    ) : (
+                      <>
+                        <RotateCcw className="size-4" />
+                        Reset Configuration
+                      </>
+                    )}
+                  </Button>
                 )}
-              </Button>
-            )}
-          </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Setup Instructions Sidebar */}
