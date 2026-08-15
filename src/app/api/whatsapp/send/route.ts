@@ -250,7 +250,9 @@ export async function POST(request: Request) {
                 account_id: accountId,
                 user_id: ctx?.userId || user.id || null,
                 contact_id: resolvedContactId,
+                channel: 'whatsapp',
                 status: 'open',
+                unread_count: 0,
                 last_message_text: content_text || 'Outbound message',
                 last_message_at: now,
                 created_at: now,
@@ -809,7 +811,10 @@ export async function POST(request: Request) {
       : null;
 
     const messageInsertData: {
+      account_id: string;
       conversation_id: string;
+      direction: 'outbound';
+      provider_message_id: string;
       sender_type: 'agent';
       content_type: string;
       content_text: string | null;
@@ -818,9 +823,13 @@ export async function POST(request: Request) {
       message_id: string;
       status: 'sent';
       created_at: string;
+      updated_at: string;
       reply_to_message_id?: string;
     } = {
+      account_id: accountId,
       conversation_id,
+      direction: 'outbound',
+      provider_message_id: waMessageId,
       sender_type: 'agent',
       content_type: message_type,
       content_text: content_text || null,
@@ -829,6 +838,7 @@ export async function POST(request: Request) {
       message_id: waMessageId,
       status: 'sent',
       created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     };
 
     if (cleanReplyToId) {

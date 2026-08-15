@@ -104,7 +104,7 @@ export async function GET(request: NextRequest) {
         const supabase = getSupabaseAdminClient();
         let query = supabase
           .from('conversations')
-          .select('*, contact:contacts(*)')
+          .select('*')
           .eq('account_id', accountId)
           .order('updated_at', { ascending: false })
           .limit(limit);
@@ -116,21 +116,44 @@ export async function GET(request: NextRequest) {
           query = query.eq('status', statusParam.toLowerCase());
         }
 
-        const { data: convs, error } = await query;
-        if (!error && Array.isArray(convs) && convs.length > 0) {
-          const normalized = convs.map((c) =>
-            normalizeConversation(
-              c,
-              c.contact ? normalizeContact(c.contact) : undefined
+        const { data: convs, error: convErr } = await query;
+        if (!convErr && Array.isArray(convs)) {
+          const contactIds = Array.from(
+            new Set(
+              convs
+                .map((c) => (c.contact_id || c.contactId) as string)
+                .filter(Boolean)
             )
           );
+
+          const contactsMap = new Map<string, Contact>();
+          if (contactIds.length > 0) {
+            const { data: contactsData } = await supabase
+              .from('contacts')
+              .select('*')
+              .eq('account_id', accountId)
+              .in('id', contactIds);
+
+            if (contactsData) {
+              for (const contact of contactsData) {
+                contactsMap.set(contact.id, normalizeContact(contact));
+              }
+            }
+          }
+
+          const normalized = convs.map((c) => {
+            const cId = (c.contact_id || c.contactId) as string;
+            const contact = cId ? contactsMap.get(cId) : undefined;
+            return normalizeConversation(c, contact);
+          });
+
           return NextResponse.json(
             { conversations: normalized, total: normalized.length },
             { status: 200, headers: CACHE_HEADERS }
           );
         }
-      } catch {
-        // Fallback to Appwrite
+      } catch (err) {
+        console.warn('[inbox/conversations] Supabase query fallback:', err);
       }
     }
 
