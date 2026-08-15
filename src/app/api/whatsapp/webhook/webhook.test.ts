@@ -1,5 +1,29 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import crypto from 'node:crypto';
+
+const { createEmptyQuery } = vi.hoisted(() => ({
+  createEmptyQuery: () => {
+    const query: Record<string, unknown> & {
+      then?: (
+        resolve: (value: { data: unknown[]; error: null; count: number }) => unknown,
+        reject?: (reason: unknown) => unknown
+      ) => Promise<unknown>;
+    } = {
+      select: () => query,
+      eq: () => query,
+      limit: () => query,
+      order: () => query,
+      then: (resolve, reject) =>
+        Promise.resolve({ data: [], error: null, count: 0 }).then(resolve, reject),
+    };
+    return query;
+  },
+}));
+
+vi.mock('@/lib/appwrite-server-compat', () => ({
+  getAdminClient: () => ({ from: () => createEmptyQuery() }),
+}));
+
 import { POST, GET } from './route';
 
 const SECRET = 'test-meta-secret-1234567890123456';
