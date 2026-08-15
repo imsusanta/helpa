@@ -130,12 +130,22 @@ export interface VoiceProvider {
   readonly providerName: VoiceProviderName;
   readonly capabilities: VoiceCapabilities;
   validateConfiguration(): Promise<void>;
-  verifyWebhook(rawBody: string, headers: Headers): Promise<WebhookVerification>;
-  normalizeWebhook(rawBody: string, headers?: Headers): Promise<NormalizedVoiceWebhook>;
+  verifyWebhook(
+    rawBody: string,
+    headers: Headers
+  ): Promise<WebhookVerification>;
+  normalizeWebhook(
+    rawBody: string,
+    headers?: Headers
+  ): Promise<NormalizedVoiceWebhook>;
   listAgents(): Promise<Array<{ id: string; name: string }>>;
   listPhoneNumbers(): Promise<Array<{ id: string; phoneNumberMasked: string }>>;
-  initiateOutboundCall(request: OutboundCallRequest): Promise<{ externalCallId: string }>;
-  startOutboundCall?(request: OutboundCallRequest): Promise<{ externalCallId: string }>;
+  initiateOutboundCall(
+    request: OutboundCallRequest
+  ): Promise<{ externalCallId: string }>;
+  startOutboundCall?(
+    request: OutboundCallRequest
+  ): Promise<{ externalCallId: string }>;
   getCallStatus(externalCallId: string): Promise<ProviderCall>;
   getTranscript(externalCallId: string): Promise<string | null>;
   transferCall(externalCallId: string, targetNumber: string): Promise<void>;

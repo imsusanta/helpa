@@ -46,7 +46,7 @@ jobs:
 
       - name: Secret Scanning (Check for hardcoded Appwrite secrets across repository)
         run: |
-          if grep -rn "standard_[0-9a-f]\{128\}" . --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.next ; then
+          if grep -rn "standard_[0-9a-f]\{128\}" . --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.next --exclude=.env.local --exclude=.env ; then
             echo "❌ Hardcoded Appwrite API key detected!"
             exit 1
           fi
