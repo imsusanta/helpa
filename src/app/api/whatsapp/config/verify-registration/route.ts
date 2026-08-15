@@ -48,7 +48,7 @@ export async function GET() {
 
   const dbAdmin = createAdminClient();
   let config: Record<string, unknown> | null = null;
-  let configError: { message: string } | null = null;
+  let _configError: { message: string } | null = null;
 
   try {
     const { data, error } = await dbAdmin
@@ -57,9 +57,9 @@ export async function GET() {
       .eq('account_id', accountId)
       .maybeSingle();
     if (data) config = data as Record<string, unknown>;
-    configError = error;
+    _configError = error;
   } catch (err: unknown) {
-    configError = err as { message: string };
+    _configError = err as { message: string };
   }
 
   if (!config) {

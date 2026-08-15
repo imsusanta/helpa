@@ -71,7 +71,10 @@ export async function POST(request: Request) {
     const body = await request.json();
     const idempotencyKey =
       request.headers.get('x-idempotency-key') || body.idempotency_key;
-    let conversation_id = body.conversation_id;
+    let conversation_id = body.conversation_id || body.conversationId;
+    const phoneInput =
+      body.phone || body.to || body.recipient || body.phoneNumber;
+    const contactIdInput = body.contact_id || body.contactId;
     const message_type = body.message_type || 'text';
     const content_text = body.content_text || body.message;
     const media_url = body.media_url;
@@ -85,13 +88,13 @@ export async function POST(request: Request) {
     const dbAdmin = appwriteAdmin();
 
     // Validate contact_id tenant scoping if contact_id is explicitly provided
-    if (body.contact_id) {
+    if (contactIdInput) {
       let verifiedContact: { id: string } | null = null;
       try {
         const { data } = await dbAdmin
           .from('contacts')
           .select('id')
-          .eq('id', body.contact_id)
+          .eq('id', contactIdInput)
           .eq('account_id', accountId)
           .maybeSingle();
         if (data) verifiedContact = data;
@@ -104,7 +107,7 @@ export async function POST(request: Request) {
           const { data } = await dbAdmin
             .from('contacts')
             .select('id')
-            .eq('id', body.contact_id)
+            .eq('id', contactIdInput)
             .maybeSingle();
           if (data) verifiedContact = data;
         } catch {
@@ -125,18 +128,19 @@ export async function POST(request: Request) {
       `send_${Date.now()}_${crypto.randomBytes(8).toString('hex')}`;
 
     // Auto-resolve or create conversation if conversation_id was not provided
-    if (!conversation_id && (body.contact_id || body.phone)) {
-      let resolvedContactId = body.contact_id;
+    if (!conversation_id && (contactIdInput || phoneInput)) {
+      let resolvedContactId = contactIdInput;
 
-      if (!resolvedContactId && body.phone) {
-        const cleanPhone = sanitizePhoneForMeta(body.phone);
-        const rawPhone = body.phone.trim();
+      if (!resolvedContactId && phoneInput) {
+        const rawPhone = String(phoneInput).trim();
+        const cleanPhone =
+          sanitizePhoneForMeta(rawPhone) || rawPhone.replace(/\D/g, '');
         const plusPhone = rawPhone.startsWith('+')
           ? rawPhone
           : `+${cleanPhone}`;
 
         const variants = [cleanPhone, plusPhone, rawPhone];
-        const uniqueVariants = [...new Set(variants)];
+        const uniqueVariants = [...new Set(variants.filter(Boolean))];
         let foundContact: { id: string } | null = null;
 
         for (const variant of uniqueVariants) {
@@ -180,9 +184,9 @@ export async function POST(request: Request) {
               .from('contacts')
               .insert({
                 account_id: accountId,
-                user_id: ctx?.userId || null,
+                user_id: ctx?.userId || user.id || null,
                 phone: plusPhone,
-                name: body.name || cleanPhone,
+                name: body.name || cleanPhone || rawPhone,
                 created_at: now,
                 updated_at: now,
               })
@@ -244,7 +248,7 @@ export async function POST(request: Request) {
               .from('conversations')
               .insert({
                 account_id: accountId,
-                user_id: ctx?.userId || null,
+                user_id: ctx?.userId || user.id || null,
                 contact_id: resolvedContactId,
                 status: 'open',
                 last_message_text: content_text || 'Outbound message',
@@ -298,7 +302,9 @@ export async function POST(request: Request) {
     const VALID_MESSAGE_TYPES = ['text', 'template', ...MEDIA_KINDS] as const;
     if (!(VALID_MESSAGE_TYPES as readonly string[]).includes(message_type)) {
       return NextResponse.json(
-        { error: `Unsupported message_type "${message_type}"` },
+        {
+          error: `Invalid message_type "${message_type}". Supported types: ${VALID_MESSAGE_TYPES.join(', ')}`,
+        },
         { status: 400 }
       );
     }
@@ -385,13 +391,13 @@ export async function POST(request: Request) {
       (conversation.contact as { phone?: string })?.phone ||
       (conversation as { contact_phone?: string }).contact_phone ||
       (conversation as { phone?: string }).phone ||
-      body.phone;
+      phoneInput;
 
     const contactId =
       (conversation.contact as { id?: string })?.id ||
       (conversation as { contact_id?: string }).contact_id ||
       (conversation as { contactId?: string }).contactId ||
-      body.contact_id;
+      contactIdInput;
 
     if (!contactPhone && contactId) {
       try {
