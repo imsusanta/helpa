@@ -50,6 +50,16 @@ export function loadFacebookSdk(appId: string): Promise<void> {
   }
 
   if (window.FB) {
+    try {
+      window.FB.init({
+        appId,
+        autoLogAppEvents: true,
+        xfbml: true,
+        version: 'v21.0',
+      });
+    } catch {
+      // Ignore
+    }
     return Promise.resolve();
   }
 
@@ -58,23 +68,51 @@ export function loadFacebookSdk(appId: string): Promise<void> {
   }
 
   fbSdkLoadingPromise = new Promise<void>((resolve, reject) => {
-    window.fbAsyncInit = function () {
+    const timeout = setTimeout(() => {
       if (window.FB) {
-        window.FB.init({
-          appId,
-          autoLogAppEvents: true,
-          xfbml: true,
-          version: 'v21.0',
-        });
         resolve();
       } else {
+        fbSdkLoadingPromise = null;
+        reject(
+          new Error(
+            'Facebook SDK load timed out. Please check your internet connection or disable ad/tracker blockers.'
+          )
+        );
+      }
+    }, 15000);
+
+    window.fbAsyncInit = function () {
+      clearTimeout(timeout);
+      if (window.FB) {
+        try {
+          window.FB.init({
+            appId,
+            autoLogAppEvents: true,
+            xfbml: true,
+            version: 'v21.0',
+          });
+          resolve();
+        } catch (initErr) {
+          fbSdkLoadingPromise = null;
+          reject(
+            new Error(
+              `Facebook SDK init failed: ${initErr instanceof Error ? initErr.message : 'Unknown'}`
+            )
+          );
+        }
+      } else {
+        fbSdkLoadingPromise = null;
         reject(new Error('Facebook SDK failed to initialize'));
       }
     };
 
     const scriptId = 'facebook-jssdk';
-    if (document.getElementById(scriptId)) {
-      if (window.FB) resolve();
+    const existing = document.getElementById(scriptId);
+    if (existing) {
+      if (window.FB) {
+        clearTimeout(timeout);
+        resolve();
+      }
       return;
     }
 
@@ -83,9 +121,41 @@ export function loadFacebookSdk(appId: string): Promise<void> {
     script.src = 'https://connect.facebook.net/en_US/sdk.js';
     script.async = true;
     script.defer = true;
-    script.onerror = () =>
-      reject(new Error('Failed to load Facebook SDK script'));
-    document.body.appendChild(script);
+    script.crossOrigin = 'anonymous';
+
+    script.onload = () => {
+      if (window.FB) {
+        clearTimeout(timeout);
+        try {
+          window.FB.init({
+            appId,
+            autoLogAppEvents: true,
+            xfbml: true,
+            version: 'v21.0',
+          });
+          resolve();
+        } catch {
+          resolve();
+        }
+      }
+    };
+
+    script.onerror = () => {
+      clearTimeout(timeout);
+      fbSdkLoadingPromise = null;
+      reject(
+        new Error(
+          'Failed to load Facebook SDK script. If you are using an ad-blocker (uBlock, Brave Shields, Privacy Badger), please pause it for this domain.'
+        )
+      );
+    };
+
+    const firstScript = document.getElementsByTagName('script')[0];
+    if (firstScript && firstScript.parentNode) {
+      firstScript.parentNode.insertBefore(script, firstScript);
+    } else {
+      document.head.appendChild(script);
+    }
   });
 
   return fbSdkLoadingPromise;
