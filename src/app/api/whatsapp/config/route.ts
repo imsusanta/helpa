@@ -10,9 +10,8 @@ import {
   verifyPhoneNumber,
 } from '@/lib/whatsapp/meta-api';
 import { encrypt, decrypt } from '@/lib/whatsapp/encryption';
-import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
 
-const CANONICAL_COLLECTION = APPWRITE_CONFIG.collections.whatsappConfigs;
+const CANONICAL_COLLECTION = 'whatsapp_configs';
 
 function appwriteAdmin() {
   return createAdminClient();

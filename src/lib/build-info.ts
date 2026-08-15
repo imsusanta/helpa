@@ -1,8 +1,8 @@
 // Auto-generated during prebuild. Do not edit manually.
 export const BUILD_METADATA = {
-  commit: '11247e3c58c9a7b92904a553caa5bf4315a6f5e1',
+  commit: 'e929500986d490abf69e6034b773205e595fd469',
   commitSource: 'git rev-parse HEAD',
   deploymentShaStatus: 'available',
-  buildTime: '2026-08-15T06:18:55.124Z',
+  buildTime: '2026-08-15T07:19:51.789Z',
   environment: 'production',
 } as const;

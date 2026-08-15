@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
-import { leadsRepository } from '@/infrastructure/appwrite/repositories/leads.repository';
+import { getCurrentAccount, toErrorResponse } from '@/lib/auth/account';
+import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
 
 export async function GET(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: leadId } = await params;
@@ -14,12 +15,16 @@ export async function GET(
   }
 
   try {
-    const { searchParams } = new URL(request.url);
-    const accountId = searchParams.get('accountId') || 'default_account';
+    const ctx = await getCurrentAccount();
+    const supabase = getSupabaseAdminClient();
+    const { data: lead, error } = await supabase
+      .from('leads')
+      .select('*')
+      .eq('id', leadId)
+      .eq('account_id', ctx.accountId)
+      .maybeSingle();
 
-    const lead = await leadsRepository.getLead(accountId, leadId);
-
-    if (!lead) {
+    if (error || !lead) {
       return NextResponse.json(
         { success: false, error: 'Lead not found.' },
         { status: 404 }
@@ -38,13 +43,10 @@ export async function GET(
         conversation: null,
         messages: [],
         followups: [],
-        role: 'owner',
+        role: ctx.role || 'owner',
       },
     });
   } catch (err: unknown) {
-    return NextResponse.json(
-      { success: false, error: (err as Error).message || 'Server error.' },
-      { status: 500 }
-    );
+    return toErrorResponse(err);
   }
 }

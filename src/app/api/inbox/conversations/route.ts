@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Query } from 'node-appwrite';
 import {
   getCurrentAccount,
   UnauthorizedError,
   ForbiddenError,
 } from '@/lib/auth/account';
+import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
 import { getAppwriteAdminClient } from '@/infrastructure/appwrite/server';
 import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
-import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
+import { Query } from 'node-appwrite';
+import { getRuntimeConfig } from '@/lib/runtime-config';
 import type { Conversation, Contact, ConversationStatus } from '@/types';
 
 const CACHE_HEADERS = {
@@ -24,9 +25,11 @@ function normalizeContact(doc: Record<string, unknown>): Contact {
     email: (doc.email as string) || undefined,
     metadata: (doc.metadata as Record<string, unknown>) || undefined,
     created_at:
-      ((doc.createdAt || doc.$createdAt) as string) || new Date().toISOString(),
+      ((doc.createdAt || doc.$createdAt || doc.created_at) as string) ||
+      new Date().toISOString(),
     updated_at:
-      ((doc.updatedAt || doc.$updatedAt) as string) || new Date().toISOString(),
+      ((doc.updatedAt || doc.$updatedAt || doc.updated_at) as string) ||
+      new Date().toISOString(),
   };
 }
 
@@ -47,6 +50,7 @@ function normalizeConversation(
       ((doc.lastMessageAt ||
         doc.last_message_at ||
         doc.$updatedAt ||
+        doc.updated_at ||
         doc.updatedAt) as string) || undefined,
     unread_count: Number(doc.unreadCount || doc.unread_count || 0),
     ai_chat_enabled: Boolean(doc.aiChatEnabled ?? doc.ai_chat_enabled ?? false),
@@ -63,9 +67,11 @@ function normalizeConversation(
     ai_faq_category:
       ((doc.aiFaqCategory || doc.ai_faq_category) as string | null) || null,
     created_at:
-      ((doc.createdAt || doc.$createdAt) as string) || new Date().toISOString(),
+      ((doc.createdAt || doc.$createdAt || doc.created_at) as string) ||
+      new Date().toISOString(),
     updated_at:
-      ((doc.updatedAt || doc.$updatedAt) as string) || new Date().toISOString(),
+      ((doc.updatedAt || doc.$updatedAt || doc.updated_at) as string) ||
+      new Date().toISOString(),
     contact,
   };
 }
@@ -95,140 +101,145 @@ export async function GET(request: NextRequest) {
       100
     );
 
-    // 1. Try Supabase first
-    if (
-      process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      process.env.SUPABASE_SERVICE_ROLE_KEY
-    ) {
-      try {
-        const supabase = getSupabaseAdminClient();
-        let query = supabase
-          .from('conversations')
-          .select('*')
-          .eq('account_id', accountId)
-          .order('updated_at', { ascending: false })
-          .limit(limit);
+    const runtime = getRuntimeConfig();
 
-        if (
-          statusParam &&
-          ['open', 'pending', 'closed'].includes(statusParam.toLowerCase())
-        ) {
-          query = query.eq('status', statusParam.toLowerCase());
-        }
+    if (runtime.databaseProvider === 'appwrite') {
+      const admin = getAppwriteAdminClient();
+      const queries = [
+        Query.equal('accountId', accountId),
+        Query.orderDesc('lastMessageAt'),
+        Query.limit(limit),
+      ];
 
-        const { data: convs, error: convErr } = await query;
-        if (!convErr && Array.isArray(convs)) {
-          const contactIds = Array.from(
-            new Set(
-              convs
-                .map((c) => (c.contact_id || c.contactId) as string)
-                .filter(Boolean)
-            )
-          );
-
-          const contactsMap = new Map<string, Contact>();
-          if (contactIds.length > 0) {
-            const { data: contactsData } = await supabase
-              .from('contacts')
-              .select('*')
-              .eq('account_id', accountId)
-              .in('id', contactIds);
-
-            if (contactsData) {
-              for (const contact of contactsData) {
-                contactsMap.set(contact.id, normalizeContact(contact));
-              }
-            }
-          }
-
-          const normalized = convs.map((c) => {
-            const cId = (c.contact_id || c.contactId) as string;
-            const contact = cId ? contactsMap.get(cId) : undefined;
-            return normalizeConversation(c, contact);
-          });
-
-          return NextResponse.json(
-            { conversations: normalized, total: normalized.length },
-            { status: 200, headers: CACHE_HEADERS }
-          );
-        }
-      } catch (err) {
-        console.warn('[inbox/conversations] Supabase query fallback:', err);
+      if (
+        statusParam &&
+        ['open', 'pending', 'closed'].includes(statusParam.toLowerCase())
+      ) {
+        queries.push(Query.equal('status', statusParam.toLowerCase()));
       }
+
+      const convsRes = await admin.databases.listDocuments(
+        APPWRITE_CONFIG.databaseId,
+        APPWRITE_CONFIG.collections.conversations,
+        queries
+      );
+
+      const rawConvs = convsRes.documents as unknown as Array<
+        Record<string, unknown>
+      >;
+      if (rawConvs.length === 0) {
+        return NextResponse.json(
+          { conversations: [], total: 0 },
+          { status: 200, headers: CACHE_HEADERS }
+        );
+      }
+
+      const contactIds = Array.from(
+        new Set(
+          rawConvs
+            .map((c) => (c.contactId || c.contact_id) as string | undefined)
+            .filter((id): id is string => Boolean(id))
+        )
+      );
+
+      const contactsMap = new Map<string, Contact>();
+      if (contactIds.length > 0) {
+        try {
+          const contactsRes = await admin.databases.listDocuments(
+            APPWRITE_CONFIG.databaseId,
+            APPWRITE_CONFIG.collections.contacts,
+            [
+              Query.equal('accountId', accountId),
+              Query.equal('$id', contactIds.slice(0, 100)),
+              Query.limit(100),
+            ]
+          );
+
+          for (const doc of contactsRes.documents as unknown as Array<
+            Record<string, unknown>
+          >) {
+            contactsMap.set(doc.$id as string, normalizeContact(doc));
+          }
+        } catch (e) {
+          console.warn('Failed to batch load contacts for conversations:', e);
+        }
+      }
+
+      const conversations: Conversation[] = rawConvs.map((doc) => {
+        const cId = (doc.contactId || doc.contact_id) as string | undefined;
+        const contact = cId ? contactsMap.get(cId) : undefined;
+        return normalizeConversation(doc, contact);
+      });
+
+      return NextResponse.json(
+        { conversations, total: convsRes.total ?? conversations.length },
+        { status: 200, headers: CACHE_HEADERS }
+      );
     }
 
-    // 2. Fallback to Appwrite
-    const admin = getAppwriteAdminClient();
-    const queries = [
-      Query.equal('accountId', accountId),
-      Query.orderDesc('lastMessageAt'),
-      Query.limit(limit),
-    ];
+    const supabase = getSupabaseAdminClient();
+    let query = supabase
+      .from('conversations')
+      .select('*')
+      .eq('account_id', accountId)
+      .order('updated_at', { ascending: false })
+      .limit(limit);
 
     if (
       statusParam &&
       ['open', 'pending', 'closed'].includes(statusParam.toLowerCase())
     ) {
-      queries.push(Query.equal('status', statusParam.toLowerCase()));
+      query = query.eq('status', statusParam.toLowerCase());
     }
 
-    const convsRes = await admin.databases.listDocuments(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.conversations,
-      queries
-    );
+    const { data: convs, error: convErr } = await query;
 
-    const rawConvs = convsRes.documents as unknown as Array<
-      Record<string, unknown>
-    >;
-    if (rawConvs.length === 0) {
+    if (convErr) {
+      console.error('[inbox/conversations] Query error:', convErr);
       return NextResponse.json(
         { conversations: [], total: 0 },
         { status: 200, headers: CACHE_HEADERS }
       );
     }
 
-    // Collect contact IDs for this tenant
+    if (!convs || convs.length === 0) {
+      return NextResponse.json(
+        { conversations: [], total: 0 },
+        { status: 200, headers: CACHE_HEADERS }
+      );
+    }
+
     const contactIds = Array.from(
       new Set(
-        rawConvs
-          .map((c) => (c.contactId || c.contact_id) as string | undefined)
-          .filter((id): id is string => Boolean(id))
+        convs
+          .map((c) => (c.contact_id || c.contactId) as string)
+          .filter(Boolean)
       )
     );
 
     const contactsMap = new Map<string, Contact>();
-
     if (contactIds.length > 0) {
-      try {
-        const contactsRes = await admin.databases.listDocuments(
-          APPWRITE_CONFIG.databaseId,
-          APPWRITE_CONFIG.collections.contacts,
-          [
-            Query.equal('accountId', accountId),
-            Query.equal('$id', contactIds.slice(0, 100)),
-            Query.limit(100),
-          ]
-        );
+      const { data: contactsData } = await supabase
+        .from('contacts')
+        .select('*')
+        .eq('account_id', accountId)
+        .in('id', contactIds);
 
-        for (const doc of contactsRes.documents as unknown as Array<
-          Record<string, unknown>
-        >) {
-          contactsMap.set(doc.$id as string, normalizeContact(doc));
+      if (contactsData) {
+        for (const contact of contactsData) {
+          contactsMap.set(contact.id, normalizeContact(contact));
         }
-      } catch (e) {
-        console.warn('Failed to batch load contacts for conversations:', e);
       }
     }
 
-    const conversations: Conversation[] = rawConvs.map((doc) => {
-      const cId = (doc.contactId || doc.contact_id) as string | undefined;
+    const normalized = convs.map((c) => {
+      const cId = (c.contact_id || c.contactId) as string;
       const contact = cId ? contactsMap.get(cId) : undefined;
-      return normalizeConversation(doc, contact);
+      return normalizeConversation(c, contact);
     });
 
     return NextResponse.json(
-      { conversations, total: convsRes.total ?? conversations.length },
+      { conversations: normalized, total: normalized.length },
       { status: 200, headers: CACHE_HEADERS }
     );
   } catch (error) {

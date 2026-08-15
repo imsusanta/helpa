@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Query } from 'node-appwrite';
 import {
   getCurrentAccount,
   UnauthorizedError,
   ForbiddenError,
 } from '@/lib/auth/account';
+import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
 import { getAppwriteAdminClient } from '@/infrastructure/appwrite/server';
 import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
-import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
+import { Query } from 'node-appwrite';
+import { getRuntimeConfig } from '@/lib/runtime-config';
 import type { Message, ContentType, MessageStatus } from '@/types';
 
 const CACHE_HEADERS = {
@@ -18,7 +19,9 @@ function normalizeMessage(doc: Record<string, unknown>): Message {
   const isOutbound =
     doc.direction === 'outbound' ||
     doc.sender_type === 'agent' ||
-    doc.senderType === 'agent';
+    doc.sender_type === 'bot' ||
+    doc.senderType === 'agent' ||
+    doc.senderType === 'bot';
 
   return {
     id: (doc.$id || doc.id) as string,
@@ -79,95 +82,97 @@ export async function GET(request: NextRequest, { params }: Params) {
       100
     );
 
-    // 1. Try Supabase first
-    if (
-      process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      process.env.SUPABASE_SERVICE_ROLE_KEY
-    ) {
+    const runtime = getRuntimeConfig();
+
+    if (runtime.databaseProvider === 'appwrite') {
+      const admin = getAppwriteAdminClient();
+      let convDoc: Record<string, unknown> | null = null;
       try {
-        const supabase = getSupabaseAdminClient();
-        const { data: conv } = await supabase
-          .from('conversations')
-          .select('id, account_id')
-          .eq('id', conversationId)
-          .eq('account_id', accountId)
-          .maybeSingle();
-
-        if (conv) {
-          const { data: msgs, error: mErr } = await supabase
-            .from('messages')
-            .select('*')
-            .eq('conversation_id', conversationId)
-            .order('created_at', { ascending: true })
-            .limit(limit);
-
-          if (!mErr && Array.isArray(msgs)) {
-            const normalized = msgs.map((m) => normalizeMessage(m));
-            return NextResponse.json(
-              { messages: normalized, total: normalized.length },
-              { status: 200, headers: CACHE_HEADERS }
-            );
-          }
-        }
+        convDoc = (await admin.databases.getDocument(
+          APPWRITE_CONFIG.databaseId,
+          APPWRITE_CONFIG.collections.conversations,
+          conversationId
+        )) as unknown as Record<string, unknown>;
       } catch {
-        // Fallback to Appwrite
+        return NextResponse.json(
+          { error: 'Conversation not found' },
+          { status: 404, headers: CACHE_HEADERS }
+        );
       }
+
+      const docAccountId = (convDoc.accountId || convDoc.account_id) as string;
+      if (docAccountId !== accountId) {
+        return NextResponse.json(
+          { error: 'Conversation not found' },
+          { status: 404, headers: CACHE_HEADERS }
+        );
+      }
+
+      let messagesRes;
+      try {
+        messagesRes = await admin.databases.listDocuments(
+          APPWRITE_CONFIG.databaseId,
+          APPWRITE_CONFIG.collections.messages,
+          [
+            Query.equal('conversationId', conversationId),
+            Query.orderAsc('createdAt'),
+            Query.limit(limit),
+          ]
+        );
+      } catch {
+        messagesRes = await admin.databases.listDocuments(
+          APPWRITE_CONFIG.databaseId,
+          APPWRITE_CONFIG.collections.messages,
+          [Query.equal('conversation_id', conversationId), Query.limit(limit)]
+        );
+      }
+
+      const rawMsgs = messagesRes.documents as unknown as Array<
+        Record<string, unknown>
+      >;
+      const messages: Message[] = rawMsgs.map((doc) => normalizeMessage(doc));
+
+      return NextResponse.json(
+        { messages, total: messagesRes.total ?? messages.length },
+        { status: 200, headers: CACHE_HEADERS }
+      );
     }
 
-    // 2. Fallback to Appwrite
-    const admin = getAppwriteAdminClient();
+    const supabase = getSupabaseAdminClient();
+    const { data: conv, error: cErr } = await supabase
+      .from('conversations')
+      .select('id, account_id')
+      .eq('id', conversationId)
+      .eq('account_id', accountId)
+      .maybeSingle();
 
-    // Verify parent conversation belongs to this tenant
-    let convDoc: Record<string, unknown> | null = null;
-    try {
-      convDoc = (await admin.databases.getDocument(
-        APPWRITE_CONFIG.databaseId,
-        APPWRITE_CONFIG.collections.conversations,
-        conversationId
-      )) as unknown as Record<string, unknown>;
-    } catch {
+    if (cErr || !conv) {
       return NextResponse.json(
         { error: 'Conversation not found' },
         { status: 404, headers: CACHE_HEADERS }
       );
     }
 
-    const docAccountId = (convDoc.accountId || convDoc.account_id) as string;
-    if (docAccountId !== accountId) {
+    const { data: msgs, error: mErr } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: true })
+      .limit(limit);
+
+    if (mErr) {
+      console.error('[inbox/conversations/[id]/messages] Query error:', mErr);
       return NextResponse.json(
-        { error: 'Conversation not found' },
-        { status: 404, headers: CACHE_HEADERS }
+        { messages: [], total: 0 },
+        { status: 200, headers: CACHE_HEADERS }
       );
     }
 
-    // Fetch messages from Appwrite
-
-    let messagesRes;
-    try {
-      messagesRes = await admin.databases.listDocuments(
-        APPWRITE_CONFIG.databaseId,
-        APPWRITE_CONFIG.collections.messages,
-        [
-          Query.equal('conversationId', conversationId),
-          Query.orderAsc('createdAt'),
-          Query.limit(limit),
-        ]
-      );
-    } catch {
-      messagesRes = await admin.databases.listDocuments(
-        APPWRITE_CONFIG.databaseId,
-        APPWRITE_CONFIG.collections.messages,
-        [Query.equal('conversation_id', conversationId), Query.limit(limit)]
-      );
-    }
-
-    const rawMsgs = messagesRes.documents as unknown as Array<
-      Record<string, unknown>
-    >;
-    const messages: Message[] = rawMsgs.map((doc) => normalizeMessage(doc));
+    const rawMsgs = Array.isArray(msgs) ? msgs : [];
+    const normalized = rawMsgs.map((m) => normalizeMessage(m));
 
     return NextResponse.json(
-      { messages, total: messagesRes.total ?? messages.length },
+      { messages: normalized, total: normalized.length },
       { status: 200, headers: CACHE_HEADERS }
     );
   } catch (error) {

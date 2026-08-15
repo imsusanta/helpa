@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentAccount, toErrorResponse } from '@/lib/auth/account';
-import { getAppwriteAdminClient } from '@/infrastructure/appwrite/server';
+import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
 
 export async function POST(request: Request) {
   try {
@@ -26,8 +26,20 @@ export async function POST(request: Request) {
       );
     }
 
-    const admin = getAppwriteAdminClient();
-    await admin.users.updatePassword(ctx.userId, newPassword);
+    const supabase = getSupabaseAdminClient();
+    const { error: updateErr } = await supabase.auth.admin.updateUserById(
+      ctx.userId,
+      {
+        password: newPassword,
+      }
+    );
+
+    if (updateErr) {
+      return NextResponse.json(
+        { error: updateErr.message || 'Failed to update password' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
