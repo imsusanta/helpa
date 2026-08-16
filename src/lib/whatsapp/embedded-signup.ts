@@ -184,7 +184,8 @@ export function loadFacebookSdk(appId: string): Promise<void> {
 }
 
 export interface EmbeddedSignupResult {
-  code: string;
+  code?: string;
+  accessToken?: string;
   wabaId?: string;
   phoneNumberId?: string;
 }
@@ -263,9 +264,10 @@ export async function launchWhatsAppEmbeddedSignup({
     fb.login((response) => {
       window.removeEventListener('message', messageListener);
 
-      if (response?.authResponse?.code) {
+      if (response?.authResponse?.code || response?.authResponse?.accessToken) {
         resolve({
           code: response.authResponse.code,
+          accessToken: response.authResponse.accessToken,
           wabaId: sessionWabaId,
           phoneNumberId: sessionPhoneId,
         });

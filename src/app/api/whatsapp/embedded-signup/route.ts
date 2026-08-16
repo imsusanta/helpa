@@ -39,17 +39,66 @@ export async function POST(request: Request) {
       );
     }
 
-    const { code, waba_id, phone_number_id } = body as {
+    const {
+      code,
+      accessToken: directAccessToken,
+      access_token: directAccessToken2,
+      waba_id,
+      phone_number_id,
+    } = body as {
       code?: string;
+      accessToken?: string;
+      access_token?: string;
       waba_id?: string;
       phone_number_id?: string;
     };
 
-    if (!code || typeof code !== 'string' || !code.trim()) {
-      return NextResponse.json(
-        { error: 'Authorization code is required' },
-        { status: 400 }
+    let accessToken = directAccessToken || directAccessToken2 || '';
+
+    if (!accessToken) {
+      if (!code || typeof code !== 'string' || !code.trim()) {
+        return NextResponse.json(
+          { error: 'Authorization code or access token is required' },
+          { status: 400 }
+        );
+      }
+
+      const appId =
+        process.env.META_APP_ID ||
+        process.env.NEXT_PUBLIC_META_APP_ID ||
+        '1461038582135406';
+      const appSecret = process.env.META_APP_SECRET;
+
+      if (!appSecret) {
+        return NextResponse.json(
+          {
+            error:
+              'META_APP_SECRET is not configured on the server. Please configure it in your environment variables.',
+          },
+          { status: 500 }
+        );
+      }
+
+      // 1. Exchange OAuth code for Meta Access Token
+      const tokenUrl = new URL(
+        'https://graph.facebook.com/v21.0/oauth/access_token'
       );
+      tokenUrl.searchParams.set('client_id', appId);
+      tokenUrl.searchParams.set('client_secret', appSecret);
+      tokenUrl.searchParams.set('code', code.trim());
+
+      const tokenRes = await fetch(tokenUrl.toString(), { method: 'GET' });
+      const tokenData = await tokenRes.json().catch(() => null);
+
+      if (!tokenRes.ok || !tokenData?.access_token) {
+        const errorMsg =
+          tokenData?.error?.message ||
+          'Failed to exchange authorization code for Meta access token.';
+        console.error('[Embedded Signup Token Exchange Error]:', tokenData);
+        return NextResponse.json({ error: errorMsg }, { status: 400 });
+      }
+
+      accessToken = tokenData.access_token as string;
     }
 
     const appId =
@@ -57,37 +106,6 @@ export async function POST(request: Request) {
       process.env.NEXT_PUBLIC_META_APP_ID ||
       '1461038582135406';
     const appSecret = process.env.META_APP_SECRET;
-
-    if (!appSecret) {
-      return NextResponse.json(
-        {
-          error:
-            'META_APP_SECRET is not configured on the server. Please configure it in your environment variables.',
-        },
-        { status: 500 }
-      );
-    }
-
-    // 1. Exchange OAuth code for Meta Access Token
-    const tokenUrl = new URL(
-      'https://graph.facebook.com/v21.0/oauth/access_token'
-    );
-    tokenUrl.searchParams.set('client_id', appId);
-    tokenUrl.searchParams.set('client_secret', appSecret);
-    tokenUrl.searchParams.set('code', code.trim());
-
-    const tokenRes = await fetch(tokenUrl.toString(), { method: 'GET' });
-    const tokenData = await tokenRes.json().catch(() => null);
-
-    if (!tokenRes.ok || !tokenData?.access_token) {
-      const errorMsg =
-        tokenData?.error?.message ||
-        'Failed to exchange authorization code for Meta access token.';
-      console.error('[Embedded Signup Token Exchange Error]:', tokenData);
-      return NextResponse.json({ error: errorMsg }, { status: 400 });
-    }
-
-    const accessToken = tokenData.access_token as string;
 
     let resolvedWabaId = typeof waba_id === 'string' ? waba_id.trim() : '';
     let resolvedPhoneId =

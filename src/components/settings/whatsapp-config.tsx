@@ -382,6 +382,7 @@ export function WhatsAppConfig() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           code: result.code,
+          accessToken: result.accessToken,
           waba_id: result.wabaId,
           phone_number_id: result.phoneNumberId,
         }),
