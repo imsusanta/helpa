@@ -11,6 +11,7 @@ export const salonManifest: IndustryModule = {
   id: 'salon',
   name: 'Salon & Spa',
   description: 'AI Salon Receptionist & Appointment Booking',
+  status: 'COMING_SOON',
   aiRole: 'AI Salon Receptionist',
   terminology: {
     contact: 'Customer',

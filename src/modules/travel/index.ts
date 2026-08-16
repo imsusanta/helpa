@@ -11,6 +11,7 @@ export const travelModule: IndustryModule = {
   id: 'travel',
   name: 'Travel Agency',
   description: 'AI Travel Assistant',
+  status: 'COMING_SOON',
   sidebar: sidebarConfig,
   dashboardMetrics: dashboardConfig,
   systemPrompt: systemPromptConfig,

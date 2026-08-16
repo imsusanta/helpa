@@ -11,7 +11,27 @@ export const healthManifest: IndustryModule = {
   id: 'hospital_clinic',
   name: 'Health & Clinic',
   description: 'AI WhatsApp Receptionist for Hospitals & Clinics',
+  status: 'ACTIVE',
   aiRole: 'AI Hospital Receptionist',
+  aiTools: [
+    'searchKnowledge',
+    'lookupDoctor',
+    'getDoctorAvailability',
+    'bookAppointment',
+    'lookupReportStatus',
+    'handoffToHuman',
+  ],
+  safetyKeywords: [
+    'emergency',
+    'chest pain',
+    'unconscious',
+    'bleeding heavily',
+    'suicide',
+    'heart attack',
+    'stroke',
+  ],
+  safetyResponse:
+    '⚠️ If you are experiencing a medical emergency, please call your local emergency number (such as 108 or 112) or go to the nearest emergency department immediately. Our staff has been alerted.',
   terminology: {
     contact: 'Patient',
     contacts: 'Patients',

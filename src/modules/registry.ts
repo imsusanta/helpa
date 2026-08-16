@@ -55,6 +55,7 @@ export const generalModule: IndustryModule = {
   id: 'general',
   name: 'General CRM',
   description: 'AI General Assistant',
+  status: 'ACTIVE',
 
   sidebar: [
     { href: '/dashboard', label: 'Dashboard', iconName: 'LayoutDashboard' },

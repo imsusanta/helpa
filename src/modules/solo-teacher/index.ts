@@ -11,6 +11,7 @@ export const soloTeacherModule: IndustryModule = {
   id: 'solo_teacher',
   name: 'Solo Tutor',
   description: 'AI Teaching Assistant for Solo Tutors & Educators',
+  status: 'COMING_SOON',
   aiRole: 'AI Teaching Assistant',
   terminology: {
     contact: 'Student',

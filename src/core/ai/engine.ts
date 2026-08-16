@@ -5,6 +5,7 @@
  * tool execution, human handoff, summary generation, and copilot suggestions.
  */
 
+import { getIndustryModule } from '@/modules/registry';
 import { coreEvents } from '@/core/events';
 import { getAiProvider, type AiMessage } from './provider';
 import { buildAiContextBundle } from './context-builder';
@@ -34,24 +35,29 @@ export async function executeAiPipeline({
   // 1. Build Layered Context Bundle
   const bundle = await buildAiContextBundle(context);
 
-  // 2. Safety Pre-screening for Health & Emergencies
+  // 2. Safety Pre-screening driven by Industry Manifest
   const lowerMsg = userMessage.toLowerCase();
+  const manifest = getIndustryModule(bundle.industry);
+
   if (
-    bundle.industry === 'health' &&
-    (lowerMsg.includes('emergency') ||
-      lowerMsg.includes('chest pain') ||
-      lowerMsg.includes('unconscious') ||
-      lowerMsg.includes('bleeding heavily') ||
-      lowerMsg.includes('suicide'))
+    manifest.safetyKeywords &&
+    manifest.safetyKeywords.length > 0 &&
+    manifest.safetyKeywords.some((keyword) =>
+      lowerMsg.includes(keyword.toLowerCase())
+    )
   ) {
     // Immediate emergency escalation
     await aiToolRegistry
       .get('handoffToHuman')
-      ?.execute({ reason: 'Medical emergency keyword detected' }, context);
+      ?.execute(
+        { reason: `Emergency keyword detected (${manifest.name})` },
+        context
+      );
 
     return {
       replyText:
-        '⚠️ If you are experiencing a medical emergency, please call your local emergency number (such as 108 or 112) or go to the nearest emergency department immediately. Our staff has been alerted.',
+        manifest.safetyResponse ||
+        '⚠️ An urgent situation was detected. Our staff has been alerted and will assist you shortly.',
       role: bundle.role,
       model: 'system-safety-guard',
       provider: 'core-safety',

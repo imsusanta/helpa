@@ -11,6 +11,7 @@ export const coachingModule: IndustryModule = {
   id: 'coaching',
   name: 'Coaching Institute',
   description: 'AI Admission Assistant for Coaching Institutes',
+  status: 'COMING_SOON',
   aiRole: 'AI Admission Assistant',
   terminology: {
     contact: 'Student',

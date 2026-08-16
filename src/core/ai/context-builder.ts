@@ -46,17 +46,7 @@ export async function buildAiContextBundle({
   // 2. Resolve Industry AI Configuration from manifest registry
   const moduleManifest = getIndustryModule(industry);
   const resolvedRole = (moduleManifest?.aiRole ||
-    (moduleManifest?.id === 'coaching'
-      ? 'AI Admission Assistant'
-      : moduleManifest?.id === 'solo_teacher'
-        ? 'AI Teaching Assistant'
-        : moduleManifest?.id === 'real_estate'
-          ? 'AI Property Assistant'
-          : moduleManifest?.id === 'salon'
-            ? 'AI Receptionist'
-            : moduleManifest?.id === 'hospital_clinic'
-              ? 'AI Receptionist'
-              : 'AI Business Assistant')) as AiRole;
+    'AI Business Assistant') as AiRole;
 
   const industryConfig: IndustryAiConfig = {
     role: resolvedRole,

@@ -45,6 +45,15 @@ describe('INDUSTRY_REGISTRY', () => {
     expect(getIndustryModule('restaurant').id).toBe('restaurant');
     expect(getIndustryModule(null).id).toBe('general');
   });
+
+  it('marks health as ACTIVE and future modules as COMING_SOON', () => {
+    expect(getIndustryModule('health').status).toBe('ACTIVE');
+    expect(getIndustryModule('coaching').status).toBe('COMING_SOON');
+    expect(getIndustryModule('tutor').status).toBe('COMING_SOON');
+    expect(getIndustryModule('salon').status).toBe('COMING_SOON');
+    expect(getIndustryModule('real_estate').status).toBe('COMING_SOON');
+    expect(getIndustryModule('health').aiTools).toBeDefined();
+  });
 });
 
 describe('resolveSystemPrompt', () => {

@@ -16,6 +16,8 @@ describe('Phase 2: Dynamic Industry Workspace Manifests', () => {
       expect(manifest).toBeDefined();
       expect(manifest.id).toBeTruthy();
       expect(manifest.name).toBeTruthy();
+      expect(manifest.status).toBeDefined();
+      expect(['ACTIVE', 'COMING_SOON']).toContain(manifest.status);
       expect(manifest.aiRole).toBeTruthy();
       expect(manifest.terminology).toBeDefined();
       expect(manifest.features).toBeDefined();
@@ -23,6 +25,14 @@ describe('Phase 2: Dynamic Industry Workspace Manifests', () => {
       expect(manifest.sidebar.length).toBeGreaterThan(0);
       expect(manifest.dashboardMetrics.length).toBeGreaterThan(0);
     }
+  });
+
+  it('marks health as ACTIVE and future industries as COMING_SOON', () => {
+    expect(getIndustryModule('health').status).toBe('ACTIVE');
+    expect(getIndustryModule('coaching').status).toBe('COMING_SOON');
+    expect(getIndustryModule('tutor').status).toBe('COMING_SOON');
+    expect(getIndustryModule('salon').status).toBe('COMING_SOON');
+    expect(getIndustryModule('real_estate').status).toBe('COMING_SOON');
   });
 
   it('resolves correct industry-specific terminology', () => {

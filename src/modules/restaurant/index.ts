@@ -11,6 +11,7 @@ export const restaurantModule: IndustryModule = {
   id: 'restaurant',
   name: 'Restaurant',
   description: 'AI Reservation Assistant',
+  status: 'COMING_SOON',
   sidebar: sidebarConfig,
   dashboardMetrics: dashboardConfig,
   systemPrompt: systemPromptConfig,

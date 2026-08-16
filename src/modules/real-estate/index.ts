@@ -11,6 +11,7 @@ export const realEstateModule: IndustryModule = {
   id: 'real_estate',
   name: 'Real Estate',
   description: 'AI Property Assistant for Real Estate Agencies',
+  status: 'COMING_SOON',
   aiRole: 'AI Property Assistant',
   terminology: {
     contact: 'Lead',

@@ -92,12 +92,15 @@ export interface IndustryTerminology {
   services: string;
 }
 
+export type IndustryStatus = 'ACTIVE' | 'COMING_SOON';
+
 export type IndustryFeatures = Record<string, boolean>;
 
 export interface IndustryModule {
   id: string;
   name: string;
   description: string;
+  status: IndustryStatus;
   aiRole?: string;
   terminology?: IndustryTerminology;
   features?: IndustryFeatures;
@@ -111,4 +114,8 @@ export interface IndustryModule {
   pipelineStages: PipelineStageSeed[];
   workflows: WorkflowSeed[];
   entityConfigs?: Record<string, EntityConfig>;
+  aiTools?: string[];
+  permissions?: Record<string, string[]>;
+  safetyKeywords?: string[];
+  safetyResponse?: string;
 }

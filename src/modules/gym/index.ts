@@ -11,6 +11,7 @@ export const gymModule: IndustryModule = {
   id: 'gym',
   name: 'Gym & Fitness',
   description: 'AI Membership Assistant',
+  status: 'COMING_SOON',
   sidebar: sidebarConfig,
   dashboardMetrics: dashboardConfig,
   systemPrompt: systemPromptConfig,
