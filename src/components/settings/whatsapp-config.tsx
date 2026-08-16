@@ -369,47 +369,84 @@ export function WhatsAppConfig() {
     toast.success('Webhook URL copied to clipboard');
   }
 
+  const handleMetaAuthResponse = useCallback(
+    async (auth: {
+      code?: string;
+      accessToken?: string;
+      wabaId?: string;
+      phoneNumberId?: string;
+    }) => {
+      setConnectingEmbedded(true);
+      try {
+        const res = await fetch('/api/whatsapp/embedded-signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            code: auth.code,
+            accessToken: auth.accessToken,
+            waba_id: auth.wabaId,
+            phone_number_id: auth.phoneNumberId,
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(
+            data.error || 'Failed to complete WhatsApp Embedded Signup'
+          );
+        }
+
+        toast.success('🎉 WhatsApp connected successfully via Meta!');
+        await fetchConfig();
+      } catch (err: unknown) {
+        console.error('Embedded Signup error:', err);
+        const msg = (err as Error)?.message || 'Failed to connect with Meta';
+        if (/jssdk|javascript sdk/i.test(msg)) {
+          toast.error(
+            'Please enable "Login with JavaScript SDK" in your Meta App Dashboard under Facebook Login for Business > Settings.',
+            { duration: 8000 }
+          );
+        } else {
+          toast.error(msg);
+        }
+      } finally {
+        setConnectingEmbedded(false);
+      }
+    },
+    [fetchConfig]
+  );
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as unknown as { checkLoginState: () => void }).checkLoginState =
+        function () {
+          if (window.FB && window.FB.getLoginStatus) {
+            window.FB.getLoginStatus((response) => {
+              if (
+                response?.status === 'connected' &&
+                response.authResponse?.accessToken
+              ) {
+                handleMetaAuthResponse({
+                  accessToken: response.authResponse.accessToken,
+                });
+              }
+            });
+          }
+        };
+    }
+  }, [handleMetaAuthResponse]);
+
   async function handleLaunchEmbeddedSignup() {
-    setConnectingEmbedded(true);
     try {
       const appId = process.env.NEXT_PUBLIC_META_APP_ID || '1461038582135406';
       const configId =
         process.env.NEXT_PUBLIC_META_CONFIG_ID || '4607476386162686';
       const result = await launchWhatsAppEmbeddedSignup({ appId, configId });
-
-      const res = await fetch('/api/whatsapp/embedded-signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          code: result.code,
-          accessToken: result.accessToken,
-          waba_id: result.wabaId,
-          phone_number_id: result.phoneNumberId,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(
-          data.error || 'Failed to complete WhatsApp Embedded Signup'
-        );
-      }
-
-      toast.success('🎉 WhatsApp connected successfully via Meta!');
-      await fetchConfig();
+      await handleMetaAuthResponse(result);
     } catch (err: unknown) {
       console.error('Embedded Signup error:', err);
       const msg = (err as Error)?.message || 'Failed to connect with Meta';
-      if (/jssdk|javascript sdk/i.test(msg)) {
-        toast.error(
-          'Please enable "Login with JavaScript SDK" in your Meta App Dashboard under Facebook Login for Business > Settings.',
-          { duration: 8000 }
-        );
-      } else {
-        toast.error(msg);
-      }
-    } finally {
-      setConnectingEmbedded(false);
+      toast.error(msg);
     }
   }
 
