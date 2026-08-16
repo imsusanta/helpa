@@ -255,14 +255,16 @@ export function SettingsOverview({
       const response = await fetch('/api/account/onboard', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           industry: selectedIndustry,
         }),
       });
 
-      const result = await response.json();
-      if (!response.ok)
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({}));
         throw new Error(result.error || 'Failed to apply workspace template');
+      }
 
       updateChecklistItem(4, 'done');
 

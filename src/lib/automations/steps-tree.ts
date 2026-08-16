@@ -1,4 +1,4 @@
-import { appwriteAdmin } from '@/lib/appwrite-compat';
+import { appwriteAdmin } from '@/lib/appwrite-server-compat';
 
 // ------------------------------------------------------------
 // Builder payload → flat rows for automation_steps.

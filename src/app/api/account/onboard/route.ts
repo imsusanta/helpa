@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
+import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
 import { getIndustryModule } from '@/modules/registry';
 import { insertSteps } from '@/lib/automations/steps-tree';
 
 export async function POST(request: Request) {
   try {
     const ctx = await requireRole('admin');
-    const body = await request.json();
+    const admin = getSupabaseAdminClient();
+    const body = await request.json().catch(() => ({}));
     const {
       industry,
       reset,
@@ -17,7 +19,7 @@ export async function POST(request: Request) {
     } = body || {};
 
     if (reset) {
-      const { error: accErr } = await ctx.appwrite
+      const { error: accErr } = await admin
         .from('accounts')
         .update({
           industry: 'general',
@@ -44,7 +46,7 @@ export async function POST(request: Request) {
     if (workspaceName) updates.name = workspaceName;
     if (logo) updates.logo = logo;
 
-    const { error: accErr } = await ctx.appwrite
+    const { error: accErr } = await admin
       .from('accounts')
       .update(updates)
       .eq('id', ctx.accountId);
@@ -74,7 +76,7 @@ export async function POST(request: Request) {
       updated_at: nowIso,
     }));
 
-    const { error: modErr } = await ctx.appwrite
+    const { error: modErr } = await admin
       .from('tenant_modules')
       .upsert(modulesToUpsert, { onConflict: 'account_id, module_key' });
 
@@ -82,21 +84,22 @@ export async function POST(request: Request) {
       console.error('[onboard route] failed to batch upsert modules:', modErr);
     }
 
-    // 3. Set up primary pipeline stages
-    let pipelineId: string;
-    const { data: extPipes, error: getPipeErr } = await ctx.appwrite
+    // 3. Set up primary pipeline stages safely
+    let pipelineId: string | null = null;
+    const { data: extPipes, error: getPipeErr } = await admin
       .from('pipelines')
       .select('id')
       .eq('account_id', ctx.accountId)
       .limit(1);
 
-    if (getPipeErr) throw getPipeErr;
+    if (getPipeErr) {
+      console.error('[onboard route] error fetching pipelines:', getPipeErr);
+    }
 
     if (extPipes && extPipes.length > 0) {
       pipelineId = extPipes[0].id;
     } else {
-      // Find account owner
-      const { data: ownerProf } = await ctx.appwrite
+      const { data: ownerProf } = await admin
         .from('profiles')
         .select('user_id')
         .eq('account_id', ctx.accountId)
@@ -105,7 +108,7 @@ export async function POST(request: Request) {
 
       const defaultUserId = ownerProf?.user_id || ctx.userId;
 
-      const { data: newPipe, error: pipeErr } = await ctx.appwrite
+      const { data: newPipe, error: pipeErr } = await admin
         .from('pipelines')
         .insert({
           account_id: ctx.accountId,
@@ -113,143 +116,171 @@ export async function POST(request: Request) {
           user_id: defaultUserId,
         })
         .select('id')
-        .single();
+        .maybeSingle();
 
       if (pipeErr) {
         console.error('[onboard route] failed to create pipeline:', pipeErr);
-        throw pipeErr;
+      } else if (newPipe) {
+        pipelineId = newPipe.id;
       }
-      pipelineId = newPipe.id;
     }
 
-    // Clear old stages to keep it fresh
-    await ctx.appwrite
-      .from('pipeline_stages')
-      .delete()
-      .eq('pipeline_id', pipelineId);
+    if (pipelineId) {
+      try {
+        const { data: existingStages } = await admin
+          .from('pipeline_stages')
+          .select('id, position')
+          .eq('pipeline_id', pipelineId)
+          .order('position', { ascending: true });
 
-    // Insert new seeded stages
-    if (config.pipelineStages && config.pipelineStages.length > 0) {
-      const stagesToInsert = config.pipelineStages.map((st) => ({
-        pipeline_id: pipelineId,
-        name: st.name,
-        position: st.position,
-        color: st.color,
-      }));
+        const stagesList = existingStages || [];
+        const newStages = config.pipelineStages || [];
 
-      const { error: stageErr } = await ctx.appwrite
-        .from('pipeline_stages')
-        .insert(stagesToInsert);
+        for (let i = 0; i < Math.min(stagesList.length, newStages.length); i++) {
+          await admin
+            .from('pipeline_stages')
+            .update({
+              name: newStages[i].name,
+              position: newStages[i].position,
+              color: newStages[i].color,
+            })
+            .eq('id', stagesList[i].id);
+        }
 
-      if (stageErr) {
-        console.error('[onboard route] failed to seed stages:', stageErr);
+        if (newStages.length > stagesList.length) {
+          const extraStages = newStages.slice(stagesList.length).map((st) => ({
+            pipeline_id: pipelineId,
+            name: st.name,
+            position: st.position,
+            color: st.color,
+          }));
+          await admin.from('pipeline_stages').insert(extraStages);
+        } else if (stagesList.length > newStages.length && stagesList.length > 0) {
+          const firstStageId = stagesList[0].id;
+          const extraStageIds = stagesList.slice(newStages.length).map((s) => s.id);
+
+          await admin
+            .from('deals')
+            .update({ stage_id: firstStageId })
+            .in('stage_id', extraStageIds);
+
+          await admin
+            .from('pipeline_stages')
+            .delete()
+            .in('id', extraStageIds);
+        }
+      } catch (stageErr) {
+        console.warn('[onboard route] soft error updating stages:', stageErr);
       }
     }
 
     // 4. Pre-seed Knowledge Base entries
-    await ctx.appwrite
-      .from('knowledge_base')
-      .delete()
-      .eq('account_id', ctx.accountId);
-
-    if (config.kbTemplates && config.kbTemplates.length > 0) {
-      const kbToInsert = config.kbTemplates.map((kb) => ({
-        account_id: ctx.accountId,
-        category: kb.category,
-        question_title: kb.questionTitle,
-        answer_content: kb.answerContent,
-      }));
-
-      const { error: kbErr } = await ctx.appwrite
+    try {
+      await admin
         .from('knowledge_base')
-        .insert(kbToInsert);
+        .delete()
+        .eq('account_id', ctx.accountId);
 
-      if (kbErr) {
-        console.error('[onboard route] failed to seed KB:', kbErr);
+      if (config.kbTemplates && config.kbTemplates.length > 0) {
+        const kbToInsert = config.kbTemplates.map((kb) => ({
+          account_id: ctx.accountId,
+          category: kb.category,
+          question_title: kb.questionTitle,
+          answer_content: kb.answerContent,
+        }));
+
+        await admin.from('knowledge_base').insert(kbToInsert);
       }
+    } catch (kbErr) {
+      console.warn('[onboard route] soft error seeding knowledge base:', kbErr);
     }
 
     // 5. Pre-seed Campaign templates as Drafts
-    await ctx.appwrite
-      .from('broadcasts')
-      .delete()
-      .eq('account_id', ctx.accountId)
-      .eq('status', 'draft');
-
-    if (config.campaignTemplates && config.campaignTemplates.length > 0) {
-      const campaignsToInsert = config.campaignTemplates.map((camp) => ({
-        account_id: ctx.accountId,
-        user_id: ctx.userId,
-        name: camp.name,
-        template_name: 'custom_campaign',
-        template_language: 'en_US',
-        status: 'draft' as const,
-        category: camp.category,
-        message_body: camp.messageBody,
-        cta_type: camp.ctaType,
-        cta_text: camp.ctaText || null,
-        cta_url: camp.ctaUrl || null,
-        attachment_url: camp.attachmentUrl || null,
-        attachment_type: camp.attachmentType || null,
-        total_recipients: 0,
-        sent_count: 0,
-        delivered_count: 0,
-        read_count: 0,
-        replied_count: 0,
-        failed_count: 0,
-      }));
-
-      const { error: campErr } = await ctx.appwrite
+    try {
+      await admin
         .from('broadcasts')
-        .insert(campaignsToInsert);
+        .delete()
+        .eq('account_id', ctx.accountId)
+        .eq('status', 'draft');
 
-      if (campErr) {
-        console.error(
-          '[onboard route] failed to seed campaign drafts:',
-          campErr
-        );
+      if (config.campaignTemplates && config.campaignTemplates.length > 0) {
+        const campaignsToInsert = config.campaignTemplates.map((camp) => ({
+          account_id: ctx.accountId,
+          user_id: ctx.userId,
+          name: camp.name,
+          template_name: 'custom_campaign',
+          template_language: 'en_US',
+          status: 'draft' as const,
+          category: camp.category,
+          message_body: camp.messageBody,
+          cta_type: camp.ctaType,
+          cta_text: camp.ctaText || null,
+          cta_url: camp.ctaUrl || null,
+          attachment_url: camp.attachmentUrl || null,
+          attachment_type: camp.attachmentType || null,
+          total_recipients: 0,
+          sent_count: 0,
+          delivered_count: 0,
+          read_count: 0,
+          replied_count: 0,
+          failed_count: 0,
+        }));
+
+        await admin.from('broadcasts').insert(campaignsToInsert);
       }
+    } catch (campErr) {
+      console.warn('[onboard route] soft error seeding campaigns:', campErr);
     }
 
     // 6. Pre-seed Workflow Automations
-    await ctx.appwrite
-      .from('automations')
-      .delete()
-      .eq('account_id', ctx.accountId);
+    try {
+      const { data: existingAutos } = await admin
+        .from('automations')
+        .select('id')
+        .eq('account_id', ctx.accountId);
 
-    if (config.workflows && config.workflows.length > 0) {
-      await Promise.all(
-        config.workflows.map(async (w) => {
-          const { data: autoRecord, error: autoErr } = await ctx.appwrite
-            .from('automations')
-            .insert({
-              account_id: ctx.accountId,
-              user_id: ctx.userId,
-              name: w.name,
-              description: w.description,
-              trigger_type: w.trigger_type,
-              trigger_config: w.trigger_config || {},
-              is_active: w.is_active,
-            })
-            .select('id')
-            .single();
+      if (existingAutos && existingAutos.length > 0) {
+        const autoIds = existingAutos.map((a) => a.id);
+        await admin.from('automation_steps').delete().in('automation_id', autoIds);
+        await admin.from('automations').delete().eq('account_id', ctx.accountId);
+      }
 
-          if (autoErr || !autoRecord) {
-            console.error(
-              '[onboard route] failed to seed automation:',
-              autoErr
-            );
-            return;
-          }
+      if (config.workflows && config.workflows.length > 0) {
+        await Promise.all(
+          config.workflows.map(async (w) => {
+            const { data: autoRecord, error: autoErr } = await admin
+              .from('automations')
+              .insert({
+                account_id: ctx.accountId,
+                user_id: ctx.userId,
+                name: w.name,
+                description: w.description,
+                trigger_type: w.trigger_type,
+                trigger_config: w.trigger_config || {},
+                is_active: w.is_active,
+              })
+              .select('id')
+              .single();
 
-          if (w.steps && w.steps.length > 0) {
-            await insertSteps(
-              autoRecord.id,
-              w.steps as unknown as Parameters<typeof insertSteps>[1]
-            );
-          }
-        })
-      );
+            if (autoErr || !autoRecord) {
+              console.error(
+                '[onboard route] failed to seed automation:',
+                autoErr
+              );
+              return;
+            }
+
+            if (w.steps && w.steps.length > 0) {
+              await insertSteps(
+                autoRecord.id,
+                w.steps as unknown as Parameters<typeof insertSteps>[1]
+              );
+            }
+          })
+        );
+      }
+    } catch (autoErr) {
+      console.warn('[onboard route] soft error seeding automations:', autoErr);
     }
 
     return NextResponse.json({ success: true, industry: industryKey });
