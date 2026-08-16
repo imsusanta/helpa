@@ -1,5 +1,5 @@
 import { IndustryModule } from './types';
-import { hospitalModule } from './hospital';
+import { healthModule } from './health';
 import { coachingModule } from './coaching';
 import { realEstateModule } from './real-estate';
 import { travelModule } from './travel';
@@ -9,7 +9,8 @@ import { soloTeacherModule } from './solo-teacher';
 import { salonModule } from './salon';
 
 export const INDUSTRY_REGISTRY: Record<string, IndustryModule> = {
-  hospital_clinic: hospitalModule,
+  hospital_clinic: healthModule,
+  health: healthModule,
   coaching: coachingModule,
   real_estate: realEstateModule,
   travel: travelModule,
