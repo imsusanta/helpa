@@ -181,12 +181,15 @@ Please arrive 15 minutes before your time slot. Thank you!`;
     });
 
     // 3. Create a timeline note
-    await db.from('contact_notes').insert({
-      account_id: accountId,
-      contact_id: contactId,
-      user_id: user.id,
-      content: `Resent appointment token slip (${bookingIdStr}) via WhatsApp.`,
-    });
+    try {
+      await db.from('contact_notes').insert({
+        account_id: accountId,
+        contact_id: contactId,
+        note_text: `Resent appointment token slip (${bookingIdStr}) via WhatsApp.`,
+      });
+    } catch {
+      // non-blocking
+    }
 
     return NextResponse.json({ success: true });
   } catch (err: unknown) {

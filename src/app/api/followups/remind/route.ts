@@ -106,12 +106,15 @@ export async function POST(request: Request) {
       .eq('id', followupId);
 
     // Create note in timeline
-    await db.from('contact_notes').insert({
-      account_id: accountId,
-      contact_id: followup.patient.id,
-      user_id: userId || null,
-      content: `📅 WhatsApp Follow-up Reminder sent for ${followup.followup_type} (Due: ${followup.due_date})`,
-    });
+    try {
+      await db.from('contact_notes').insert({
+        account_id: accountId,
+        contact_id: followup.patient.id,
+        note_text: `📅 WhatsApp Follow-up Reminder sent for ${followup.followup_type} (Due: ${followup.due_date})`,
+      });
+    } catch {
+      // non-blocking
+    }
 
     return NextResponse.json({
       success: true,

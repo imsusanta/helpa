@@ -413,12 +413,15 @@ Welcome to *${hospitalName}*! Your consultation ticket and token number have bee
     });
 
     // 8. Create a timeline note
-    await db.from('contact_notes').insert({
-      account_id: accountId,
-      contact_id: contactId,
-      user_id: null,
-      content: `Sent OPD Token Ticket #${tokenNum} PDF (${bookingIdStr}) via WhatsApp.`,
-    });
+    try {
+      await db.from('contact_notes').insert({
+        account_id: accountId,
+        contact_id: contactId,
+        note_text: `Sent OPD Token Ticket #${tokenNum} PDF (${bookingIdStr}) via WhatsApp.`,
+      });
+    } catch {
+      // non-blocking
+    }
 
     return NextResponse.json({ success: true, pdfUrl: publicPdfUrl });
   } catch (err: unknown) {

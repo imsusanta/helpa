@@ -149,12 +149,15 @@ export async function POST(request: Request) {
     }
 
     // Log event in contact_notes timeline
-    await db.from('contact_notes').insert({
-      account_id: accountId,
-      contact_id,
-      user_id: userId || null,
-      content: `📄 Uploaded ${doc_type.replace('_', ' ')}: ${test_name} (${auto_send ? 'Dispatched to WhatsApp' : 'Saved to profile'})`,
-    });
+    try {
+      await db.from('contact_notes').insert({
+        account_id: accountId,
+        contact_id,
+        note_text: `📄 Uploaded ${doc_type.replace('_', ' ')}: ${test_name} (${auto_send ? 'Dispatched to WhatsApp' : 'Saved to profile'})`,
+      });
+    } catch {
+      // non-blocking
+    }
 
     return NextResponse.json({
       success: true,

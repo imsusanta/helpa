@@ -33,8 +33,28 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       );
     }
 
+    const reports = data || [];
+    const missingPatientIds = reports
+      .filter((r) => !r.patient && r.patient_id)
+      .map((r) => r.patient_id as string);
+
+    if (missingPatientIds.length > 0) {
+      const { data: directContacts } = await supabase
+        .from('contacts')
+        .select('id, name, phone')
+        .in('id', missingPatientIds);
+
+      const contactMap = new Map((directContacts || []).map((c) => [c.id, c]));
+
+      for (const r of reports) {
+        if (!r.patient && r.patient_id && contactMap.has(r.patient_id)) {
+          r.patient = contactMap.get(r.patient_id);
+        }
+      }
+    }
+
     return NextResponse.json(
-      { data: data || [] },
+      { data: reports },
       { headers: PRIVATE_HEADERS }
     );
   } catch (err) {

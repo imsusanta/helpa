@@ -414,7 +414,10 @@ export default function LabReportsPage() {
           if (notifyRes.ok) {
             toast.success('Patient notified on WhatsApp!');
           } else {
-            toast.error('Failed to notify patient on WhatsApp.');
+            const errPayload = await notifyRes.json().catch(() => ({}));
+            toast.error(
+              errPayload.error || 'Failed to notify patient on WhatsApp.'
+            );
           }
         } catch {
           toast.error('Notification request failed.');
@@ -441,7 +444,10 @@ export default function LabReportsPage() {
         toast.success('Notification sent successfully!');
         loadData();
       } else {
-        toast.error('Failed to notify patient on WhatsApp.');
+        const errPayload = await res.json().catch(() => ({}));
+        toast.error(
+          errPayload.error || 'Failed to notify patient on WhatsApp.'
+        );
       }
     } catch {
       toast.error('Notification request failed.');

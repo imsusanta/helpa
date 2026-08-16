@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { requireRole } from '@/lib/auth/account';
 import {
   engineSendText,
   engineSendDocument,
@@ -7,7 +8,12 @@ import {
 
 export async function POST(request: Request) {
   try {
-    const { reportId, accountId } = await request.json();
+    const body = await request.json().catch(() => ({}));
+    const { reportId, accountId: bodyAccountId } = body;
+
+    const authContext = await requireRole('agent').catch(() => null);
+    const accountId = authContext?.accountId || bodyAccountId;
+
     if (!reportId || !accountId) {
       return NextResponse.json(
         { error: 'Missing reportId or accountId' },
@@ -17,123 +23,200 @@ export async function POST(request: Request) {
 
     const db = appwriteAdmin();
 
-    // Fetch report with patient contact info and doctor details
+    // 1. Fetch report details
     const { data: report, error: reportErr } = await db
       .from('hospital_lab_reports')
-      .select(
-        '*, patient:contacts(id, name, phone), doctor:hospital_doctors(id, name)'
-      )
+      .select('*')
       .eq('id', reportId)
-      .single();
+      .eq('account_id', accountId)
+      .maybeSingle();
 
     if (reportErr || !report) {
-      return NextResponse.json({ error: 'Report not found' }, { status: 404 });
-    }
-
-    const patientName = report.patient?.name || 'Patient';
-    const patientPhone = report.patient?.phone;
-    const contactId = report.patient?.id;
-
-    if (!patientPhone || !contactId) {
       return NextResponse.json(
-        { error: 'Patient contact not found' },
+        { error: 'Lab report record not found.' },
         { status: 404 }
       );
     }
 
-    // Find or create conversation
-    let { data: conv } = await db
+    // 2. Resolve Contact and Patient Info
+    let contactId = report.patient_id;
+    let patientName = 'Patient';
+    let patientPhone = '';
+
+    // Direct contact lookup
+    if (contactId) {
+      try {
+        const { data: directContact } = await db
+          .from('contacts')
+          .select('id, name, phone')
+          .eq('id', contactId)
+          .maybeSingle();
+
+        if (directContact) {
+          patientName = directContact.name || 'Patient';
+          patientPhone = directContact.phone || '';
+          contactId = directContact.id;
+        }
+      } catch {
+        // continue to patient fallback
+      }
+    }
+
+    // Fallback: check if patient_id refers to patients table
+    if (!patientPhone && report.patient_id) {
+      try {
+        const { data: patRec } = await db
+          .from('patients')
+          .select('id, contact_id, patient_seq_id, contact:contacts(id, name, phone)')
+          .or(`id.eq.${report.patient_id},patient_seq_id.eq.${report.patient_id}`)
+          .maybeSingle();
+
+        const linked = patRec?.contact as { id: string; name?: string; phone?: string } | null;
+        if (linked) {
+          patientName = linked.name || 'Patient';
+          patientPhone = linked.phone || '';
+          contactId = linked.id;
+        } else if (patRec?.contact_id) {
+          const { data: cById } = await db
+            .from('contacts')
+            .select('id, name, phone')
+            .eq('id', patRec.contact_id)
+            .maybeSingle();
+          if (cById) {
+            patientName = cById.name || 'Patient';
+            patientPhone = cById.phone || '';
+            contactId = cById.id;
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    if (!contactId || !patientPhone) {
+      return NextResponse.json(
+        {
+          error:
+            'Patient contact phone number not found. Please attach a valid contact with a phone number to this report.',
+        },
+        { status: 404 }
+      );
+    }
+
+    // 3. Find or create conversation
+    let convId = '';
+    const { data: existingConv } = await db
       .from('conversations')
       .select('id')
       .eq('contact_id', contactId)
       .eq('account_id', accountId)
       .maybeSingle();
 
-    if (!conv) {
+    if (existingConv?.id) {
+      convId = existingConv.id;
+    } else {
+      const { data: accountData } = await db
+        .from('accounts')
+        .select('owner_user_id')
+        .eq('id', accountId)
+        .maybeSingle();
+
+      const ownerUserId =
+        accountData?.owner_user_id ||
+        authContext?.userId ||
+        '00000000-0000-0000-0000-000000000000';
+
       const { data: newConv } = await db
         .from('conversations')
         .insert({
           account_id: accountId,
           contact_id: contactId,
+          user_id: ownerUserId,
           status: 'open',
+          unread_count: 0,
         })
         .select('id')
-        .single();
-      conv = newConv;
+        .maybeSingle();
+
+      if (newConv?.id) {
+        convId = newConv.id;
+      }
     }
 
-    if (!conv) {
-      return NextResponse.json(
-        { error: 'Failed to find/create conversation' },
-        { status: 500 }
-      );
+    // 4. Fetch Doctor and Account details
+    let doctorName = 'your doctor';
+    if (report.doctor_id) {
+      try {
+        const { data: doc } = await db
+          .from('hospital_doctors')
+          .select('name')
+          .eq('id', report.doctor_id)
+          .maybeSingle();
+        if (doc?.name) {
+          doctorName = `Dr. ${doc.name.replace(/^Dr\.\s+/i, '')}`;
+        }
+      } catch {
+        // ignore
+      }
     }
 
-    // Fetch account name
     const { data: account } = await db
       .from('accounts')
       .select('name')
       .eq('id', accountId)
-      .single();
+      .maybeSingle();
 
-    const hospitalName = account?.name || 'Hospital';
-    const docData = report.doctor as
-      { name?: string } | { name?: string }[] | null;
-    const doctorName = (
-      Array.isArray(docData) ? docData[0]?.name : docData?.name
-    )
-      ? `Dr. ${(Array.isArray(docData) ? docData[0]?.name : docData?.name)?.replace(/^Dr\.\s+/i, '')}`
-      : 'your doctor';
-    const systemUserId = '00000000-0000-0000-0000-000000000000';
+    const hospitalName = account?.name || 'Helpa Health';
+    const systemUserId = authContext?.userId || 'system';
 
-    // Formulate notification message text
-    const messageText = `Hello ${patientName} 👋\n\nYour *${report.test_name}* report is now *Ready*.\n\n🏥 Hospital: ${hospitalName}\n👨‍⚕️ Referred by: ${doctorName}\n📋 Department: ${report.department || 'General'}\n📅 Date: ${new Date(report.updated_at || report.created_at).toLocaleDateString()}\n\n${report.report_pdf_url ? 'Your report PDF has been attached below.' : 'Please visit the hospital reception to collect your report.'}\n\nIf you need assistance, simply reply to this message.`;
+    // 5. Send notification text message
+    const messageText = `Hello ${patientName} 👋\n\nYour *${report.test_name}* report is now *Ready*.\n\n🏥 Clinic: ${hospitalName}\n👨‍⚕️ Referred by: ${doctorName}\n📋 Department: ${report.department || 'General'}\n📅 Date: ${new Date(report.updated_at || report.created_at).toLocaleDateString()}\n\n${report.report_pdf_url ? 'Your report PDF has been attached below.' : 'Please visit the clinic reception to collect your physical report copy.'}\n\nIf you have any questions or would like to book a follow-up consultation, feel free to reply directly to this message.`;
 
-    // 1. Send the text notification
     await engineSendText({
       accountId,
       userId: systemUserId,
-      conversationId: conv.id,
+      conversationId: convId,
       contactId,
       text: messageText,
     });
 
-    // 2. Attach PDF if available
+    // 6. Attach PDF if available
     if (report.report_pdf_url) {
       await engineSendDocument({
         accountId,
         userId: systemUserId,
-        conversationId: conv.id,
+        conversationId: convId,
         contactId,
         documentUrl: report.report_pdf_url,
         filename: `${report.test_name.replace(/\s+/g, '_')}_Report.pdf`,
-        caption: `${report.test_name} Report PDF`,
+        caption: `Here is your completed ${report.test_name} report.`,
       });
     }
 
-    // Update notified_patient status
+    // 7. Update notified_patient status
     await db
       .from('hospital_lab_reports')
-      .update({ notified_patient: true })
+      .update({
+        notified_patient: true,
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', reportId);
 
-    // Save note in timeline
-    await db.from('contact_notes').insert({
-      account_id: accountId,
-      contact_id: contactId,
-      note_text: `[Timeline] Report Ready Notification sent via WhatsApp for ${report.test_name}.`,
-    });
+    // 8. Save note in timeline
+    try {
+      await db.from('contact_notes').insert({
+        account_id: accountId,
+        contact_id: contactId,
+        note_text: `[Timeline] Report Ready Notification sent via WhatsApp for ${report.test_name}.`,
+      });
+    } catch {
+      // ignore
+    }
 
-    // Notify receptionist inside the inbox chat thread
-    await db.from('messages').insert({
-      conversation_id: conv.id,
-      sender_type: 'bot',
-      content_type: 'text',
-      content_text: `[System Alert] WhatsApp notification sent: Report "${report.test_name}" is Ready.`,
-      status: 'sent',
+    return NextResponse.json({
+      success: true,
+      message: 'Patient notified on WhatsApp successfully',
     });
-
-    return NextResponse.json({ success: true });
   } catch (err: unknown) {
     console.error('[Report Notify API] Crash:', err);
     return NextResponse.json(
