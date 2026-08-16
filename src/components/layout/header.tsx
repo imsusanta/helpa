@@ -47,6 +47,8 @@ const pageTitles: Record<string, string> = {
   '/knowledge-base': 'Knowledge Base',
   '/dashboard/analytics': 'Analytics',
   '/settings': 'Settings',
+  '/services': 'Services & Menu',
+  '/staff': 'Stylists & Staff',
 };
 
 function getPageTitle(pathname: string): string {

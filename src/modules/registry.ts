@@ -6,6 +6,7 @@ import { travelModule } from './travel';
 import { gymModule } from './gym';
 import { restaurantModule } from './restaurant';
 import { soloTeacherModule } from './solo-teacher';
+import { salonModule } from './salon';
 
 export const INDUSTRY_REGISTRY: Record<string, IndustryModule> = {
   hospital_clinic: hospitalModule,
@@ -15,9 +16,11 @@ export const INDUSTRY_REGISTRY: Record<string, IndustryModule> = {
   gym: gymModule,
   restaurant: restaurantModule,
   solo_teacher: soloTeacherModule,
+  salon: salonModule,
 };
 
 const INDUSTRY_ALIASES: Record<string, keyof typeof INDUSTRY_REGISTRY> = {
+  health: 'hospital_clinic',
   hospital: 'hospital_clinic',
   clinic: 'hospital_clinic',
   healthcare: 'hospital_clinic',
@@ -26,6 +29,24 @@ const INDUSTRY_ALIASES: Record<string, keyof typeof INDUSTRY_REGISTRY> = {
   hospital_and_clinic: 'hospital_clinic',
   doctor: 'hospital_clinic',
   pathology: 'hospital_clinic',
+  coaching: 'coaching',
+  institute: 'coaching',
+  tutor: 'solo_teacher',
+  solo_teacher: 'solo_teacher',
+  teacher: 'solo_teacher',
+  educator: 'solo_teacher',
+  salon: 'salon',
+  spa: 'salon',
+  salon_spa: 'salon',
+  beauty: 'salon',
+  real_estate: 'real_estate',
+  realestate: 'real_estate',
+  property: 'real_estate',
+  travel: 'travel',
+  gym: 'gym',
+  fitness: 'gym',
+  restaurant: 'restaurant',
+  cafe: 'restaurant',
 };
 
 // Fallback module definition for 'general' or others

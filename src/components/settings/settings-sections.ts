@@ -118,6 +118,13 @@ const INDUSTRY_LABELS: Record<string, IndustryLabels> = {
     kb: 'Course Knowledge Base',
     reminders: 'Smart Reminders',
   },
+  salon: {
+    fields: 'Client Custom Fields',
+    deals: 'Currency & Services',
+    ai: 'AI Salon Receptionist',
+    kb: 'Salon Knowledge Base',
+    reminders: 'Smart Reminders',
+  },
 };
 
 const DEFAULT_LABELS: IndustryLabels = {

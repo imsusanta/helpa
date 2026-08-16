@@ -15,6 +15,7 @@ import {
   Dumbbell,
   HelpCircle,
   BookOpenCheck,
+  Sparkles,
 } from 'lucide-react';
 
 import { useAuth } from '@/hooks/use-auth';
@@ -143,6 +144,21 @@ const INDUSTRIES: IndustryItem[] = [
     color: 'text-violet-500',
     bg: 'bg-violet-500/5 hover:bg-violet-500/10',
     border: 'border-violet-500/20 hover:border-violet-500/40',
+  },
+  {
+    id: 'salon',
+    name: 'Salon & Spa',
+    description: 'AI Salon Receptionist',
+    features: [
+      'Client Management',
+      'Service Booking',
+      'Stylist Directory',
+      'AI Salon Receptionist',
+    ],
+    icon: Sparkles,
+    color: 'text-pink-500',
+    bg: 'bg-pink-500/5 hover:bg-pink-500/10',
+    border: 'border-pink-500/20 hover:border-pink-500/40',
   },
   {
     id: 'other',

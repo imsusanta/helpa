@@ -219,7 +219,8 @@ export async function launchWhatsAppEmbeddedSignup({
         extras: {
           feature: 'whatsapp_embedded_signup',
           version: 2,
-          sessionInfoVersion: 2,
+          sessionInfoVersion: 3,
+          setup: {},
         },
       };
 

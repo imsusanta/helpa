@@ -656,11 +656,11 @@ export function WhatsAppConfig() {
                   <div>
                     <CardTitle className="text-foreground flex items-center gap-2">
                       <Sparkles className="h-5 w-5 text-blue-500" />
-                      Connect via Official Meta Embedded Signup
+                      Connect your existing WhatsApp Business
                     </CardTitle>
                     <CardDescription className="text-muted-foreground mt-1">
-                      Link your existing WhatsApp Business number directly
-                      through Meta&apos;s 1-click popup flow.
+                      Keep your existing WhatsApp Business number and connect it
+                      to Helpa to manage conversations, automate replies, and use AI.
                     </CardDescription>
                   </div>
                 </div>
@@ -671,11 +671,10 @@ export function WhatsAppConfig() {
                     <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
                     <div>
                       <h4 className="text-foreground text-xs font-semibold">
-                        Automatic WABA & Phone Number Discovery
+                        Keep your existing WhatsApp Business number
                       </h4>
                       <p className="text-muted-foreground mt-0.5 text-xs">
-                        No need to copy-paste Phone Number ID, WABA ID, or
-                        permanent tokens manually.
+                        No need to delete your existing WhatsApp Business account or migrate to a new phone number.
                       </p>
                     </div>
                   </div>
@@ -683,11 +682,21 @@ export function WhatsAppConfig() {
                     <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
                     <div>
                       <h4 className="text-foreground text-xs font-semibold">
-                        Official Cloud API Infrastructure
+                        WhatsApp Business App + Cloud API Coexistence
                       </h4>
                       <p className="text-muted-foreground mt-0.5 text-xs">
-                        Provides official Green Tick eligibility, high broadcast
-                        throughput, and 24/7 AI Receptionist auto-replies.
+                        Use your existing WhatsApp mobile app while simultaneously powering Helpa AI auto-replies, Inbox, and campaigns.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
+                    <div>
+                      <h4 className="text-foreground text-xs font-semibold">
+                        Automatic WABA & Phone Number Discovery
+                      </h4>
+                      <p className="text-muted-foreground mt-0.5 text-xs">
+                        Meta automatically authenticates your business account and configures webhooks with zero manual API copy-pasting.
                       </p>
                     </div>
                   </div>
@@ -702,7 +711,7 @@ export function WhatsAppConfig() {
                     {connectingEmbedded ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        Connecting with Facebook...
+                        Connecting with Meta...
                       </>
                     ) : (
                       <>
@@ -712,7 +721,7 @@ export function WhatsAppConfig() {
                         >
                           <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
                         </svg>
-                        Connect with Facebook / WhatsApp
+                        Connect WhatsApp
                       </>
                     )}
                   </Button>

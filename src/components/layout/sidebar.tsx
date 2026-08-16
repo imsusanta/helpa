@@ -44,6 +44,7 @@ import {
   Plane,
   BookOpen,
   BookOpenCheck,
+  Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -109,6 +110,7 @@ const INDUSTRY_ICON: Record<string, LucideIcon> = {
   gym: Dumbbell,
   restaurant: Utensils,
   solo_teacher: BookOpenCheck,
+  salon: Sparkles,
   general: Bot,
 };
 
@@ -148,6 +150,7 @@ const ICON_COMPONENTS: Record<string, LucideIcon> = {
   Workflow,
   BookOpenCheck,
   UsersRound,
+  Sparkles,
 };
 
 export function Sidebar({ open = false, onClose }: SidebarProps) {

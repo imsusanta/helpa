@@ -65,6 +65,7 @@ export async function POST(request: Request) {
       'restaurant',
       'gym',
       'solo_teacher',
+      'salon',
     ];
 
     const nowIso = new Date().toISOString();

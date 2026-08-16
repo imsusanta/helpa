@@ -345,6 +345,33 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
       },
     ],
   },
+  services: {
+    tableName: 'coaching_courses',
+    label: 'Service',
+    pluralLabel: 'Services',
+    fields: [
+      { key: 'name', label: 'Service Name', type: 'text', required: true },
+      { key: 'fee', label: 'Price (in ₹)', type: 'number', required: true },
+      { key: 'duration', label: 'Duration (e.g. 45 Mins)', type: 'text' },
+    ],
+  },
+  staff: {
+    tableName: 'realestate_agents',
+    label: 'Staff Member',
+    pluralLabel: 'Staff Members',
+    fields: [
+      { key: 'name', label: 'Full Name', type: 'text', required: true },
+      { key: 'phone', label: 'Phone Number', type: 'text' },
+      { key: 'email', label: 'Email Address', type: 'text' },
+      {
+        key: 'status',
+        label: 'Status',
+        type: 'select',
+        options: ['active', 'inactive'],
+        required: true,
+      },
+    ],
+  },
 };
 
 export function EntityPage({ entityKey }: { entityKey: string }) {
