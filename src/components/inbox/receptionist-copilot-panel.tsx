@@ -27,6 +27,7 @@ import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useCan } from '@/hooks/use-can';
+import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import type { ReceptionistCopilotSnapshot } from '@/lib/ai/receptionist-copilot';
 import type { Contact, Conversation, Message } from '@/types';
@@ -137,6 +138,7 @@ export function ReceptionistCopilotPanel({
   isEmbedded,
 }: ReceptionistCopilotPanelProps) {
   const canSend = useCan('send-messages');
+  const router = useRouter();
   const [snapshotState, setSnapshotState] = useState<{
     conversationId: string;
     snapshot: ReceptionistCopilotSnapshot;
@@ -443,16 +445,44 @@ export function ReceptionistCopilotPanel({
               </div>
             </Section>
 
-            <Section title="Next Steps" icon={Zap}>
+            <Section title="Suggested Actions" icon={Zap}>
               <div className="flex flex-wrap gap-1.5">
                 {snapshot.suggestedActions.map((action) => (
-                  <Badge
+                  <button
                     key={action}
-                    variant="outline"
-                    className="h-auto rounded-md px-2 py-1 text-[11px]"
+                    type="button"
+                    onClick={() => {
+                      const lower = action.toLowerCase();
+                      if (lower.includes('appoint') || lower.includes('book')) {
+                        router.push(
+                          `/appointments?contactId=${contact?.id || ''}`
+                        );
+                      } else if (
+                        lower.includes('patient') ||
+                        lower.includes('contact') ||
+                        lower.includes('lead')
+                      ) {
+                        router.push(`/contacts?id=${contact?.id || ''}`);
+                      } else if (
+                        lower.includes('report') ||
+                        lower.includes('lab')
+                      ) {
+                        router.push(
+                          `/lab-reports?contactId=${contact?.id || ''}`
+                        );
+                      } else if (lower.includes('follow')) {
+                        router.push(
+                          `/follow-ups?contactId=${contact?.id || ''}`
+                        );
+                      } else {
+                        toast.info(`Triggered: ${action}`);
+                      }
+                    }}
+                    className="border-primary/25 bg-primary/10 text-primary hover:bg-primary/20 inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-semibold transition-all hover:scale-[1.02] active:scale-[0.98]"
                   >
-                    {action}
-                  </Badge>
+                    <Zap className="text-primary size-3" />
+                    <span>{action}</span>
+                  </button>
                 ))}
               </div>
             </Section>

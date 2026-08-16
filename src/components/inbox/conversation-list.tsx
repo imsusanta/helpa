@@ -25,17 +25,13 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { SendOutboundModal } from '@/components/contacts/send-outbound-modal';
 
+import { useAuth } from '@/hooks/use-auth';
+
 interface ConversationListProps {
   activeConversationId: string | null;
   onSelect: (conversation: Conversation) => void;
   conversations: Conversation[];
   onConversationsLoaded: (conversations: Conversation[]) => void;
-  /**
-   * Increment to force the fetch effect below to refire. The parent
-   * bumps this on realtime reconnect / tab visibility → visible so the
-   * list catches up on any events sent while the WS was disconnected
-   * or the tab was throttled. Optional so existing callers keep working.
-   */
   resyncToken?: number;
   onStartConversation?: () => void;
   onSelectById?: (conversationId: string) => void;
@@ -47,11 +43,22 @@ const STATUS_COLORS: Record<ConversationStatus, string> = {
   closed: 'bg-muted-foreground',
 };
 
-type InboxFilter = ConversationStatus | 'all' | 'unread';
+export type InboxFilter =
+  | 'all'
+  | 'unread'
+  | 'mine'
+  | 'ai'
+  | 'attention'
+  | 'open'
+  | 'pending'
+  | 'closed';
 
 const FILTER_OPTIONS: { label: string; value: InboxFilter }[] = [
   { label: 'All', value: 'all' },
   { label: 'Unread', value: 'unread' },
+  { label: 'Assigned to me', value: 'mine' },
+  { label: 'AI Handled', value: 'ai' },
+  { label: 'Needs Attention', value: 'attention' },
   { label: 'Open', value: 'open' },
   { label: 'Pending', value: 'pending' },
   { label: 'Closed', value: 'closed' },
@@ -66,6 +73,7 @@ export function ConversationList({
   onStartConversation,
   onSelectById,
 }: ConversationListProps) {
+  const { user } = useAuth();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<InboxFilter>('all');
   const [loading, setLoading] = useState(true);
@@ -140,11 +148,40 @@ export function ConversationList({
     };
   }, [resyncToken, retryCounter]);
 
+  // Tab counts
+  const counts = useMemo(() => {
+    let unread = 0;
+    let mine = 0;
+    let ai = 0;
+    let attention = 0;
+
+    for (const c of conversations) {
+      if ((c.unread_count ?? 0) > 0) unread++;
+      if (user?.id && c.assigned_agent_id === user.id) mine++;
+      if (c.status === 'open' && !c.assigned_agent_id) ai++;
+      if (c.status === 'pending' || (c.unread_count ?? 0) > 0) attention++;
+    }
+
+    return { unread, mine, ai, attention, total: conversations.length };
+  }, [conversations, user?.id]);
+
   const filtered = useMemo(() => {
     let result = conversations;
 
     if (filter === 'unread') {
       result = result.filter((c) => (c.unread_count ?? 0) > 0);
+    } else if (filter === 'mine') {
+      result = result.filter(
+        (c) => user?.id && c.assigned_agent_id === user.id
+      );
+    } else if (filter === 'ai') {
+      result = result.filter(
+        (c) => c.status === 'open' && !c.assigned_agent_id
+      );
+    } else if (filter === 'attention') {
+      result = result.filter(
+        (c) => c.status === 'pending' || (c.unread_count ?? 0) > 0
+      );
     } else if (filter !== 'all') {
       result = result.filter((c) => c.status === filter);
     }
@@ -169,7 +206,7 @@ export function ConversationList({
         : 0;
       return timeB - timeA;
     });
-  }, [conversations, filter, search]);
+  }, [conversations, filter, search, user?.id]);
 
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -233,7 +270,7 @@ export function ConversationList({
       </div>
 
       {/* Search + Filter */}
-      <div className="border-border space-y-2 border-b p-3">
+      <div className="border-border space-y-2.5 border-b p-3">
         <div className="relative">
           <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
           <Input
@@ -254,32 +291,117 @@ export function ConversationList({
           )}
         </div>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger className="text-muted-foreground hover:text-foreground hover:bg-muted inline-flex h-7 items-center justify-center gap-1 rounded-md px-2 text-xs">
-            <Filter className="mr-0.5 h-3 w-3 opacity-70" />
-            <span>Filter: {activeFilter?.label ?? 'All'}</span>
-            <ChevronDown className="ml-0.5 h-3 w-3 opacity-70" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="start"
-            className="border-border bg-popover"
+        {/* Quick Filter Tabs */}
+        <div className="flex scrollbar-none items-center gap-1 overflow-x-auto pb-1 text-xs">
+          <button
+            type="button"
+            onClick={() => setFilter('all')}
+            className={cn(
+              'flex shrink-0 items-center gap-1 rounded-md px-2 py-1 font-medium transition-colors',
+              filter === 'all'
+                ? 'bg-primary text-primary-foreground shadow-xs'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            )}
           >
-            {FILTER_OPTIONS.map((opt) => (
-              <DropdownMenuItem
-                key={opt.value}
-                onClick={() => setFilter(opt.value)}
-                className={cn(
-                  'text-sm',
-                  filter === opt.value
-                    ? 'text-primary font-medium'
-                    : 'text-popover-foreground'
-                )}
-              >
-                {opt.label}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+            <span>All</span>
+            <span className="text-[10px] opacity-75">{counts.total}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFilter('unread')}
+            className={cn(
+              'flex shrink-0 items-center gap-1 rounded-md px-2 py-1 font-medium transition-colors',
+              filter === 'unread'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            )}
+          >
+            <span>Unread</span>
+            {counts.unread > 0 && (
+              <span className="py-0.2 rounded-full bg-emerald-500/30 px-1.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
+                {counts.unread}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFilter('mine')}
+            className={cn(
+              'flex shrink-0 items-center gap-1 rounded-md px-2 py-1 font-medium transition-colors',
+              filter === 'mine'
+                ? 'bg-primary text-primary-foreground shadow-xs'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            )}
+          >
+            <span>Assigned</span>
+            {counts.mine > 0 && (
+              <span className="text-[10px] opacity-75">{counts.mine}</span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFilter('ai')}
+            className={cn(
+              'flex shrink-0 items-center gap-1 rounded-md px-2 py-1 font-medium transition-colors',
+              filter === 'ai'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            )}
+          >
+            <span>AI</span>
+            {counts.ai > 0 && (
+              <span className="text-[10px] opacity-75">{counts.ai}</span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFilter('attention')}
+            className={cn(
+              'flex shrink-0 items-center gap-1 rounded-md px-2 py-1 font-medium transition-colors',
+              filter === 'attention'
+                ? 'bg-amber-600 text-white shadow-xs'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            )}
+          >
+            <span>Attention</span>
+            {counts.attention > 0 && (
+              <span className="text-[10px] opacity-75">{counts.attention}</span>
+            )}
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between pt-0.5">
+          <DropdownMenu>
+            <DropdownMenuTrigger className="text-muted-foreground hover:text-foreground hover:bg-muted inline-flex h-6 items-center justify-center gap-1 rounded-md px-1.5 text-[11px]">
+              <Filter className="mr-0.5 h-3 w-3 opacity-70" />
+              <span>Status: {activeFilter?.label ?? 'All'}</span>
+              <ChevronDown className="ml-0.5 h-3 w-3 opacity-70" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="start"
+              className="border-border bg-popover"
+            >
+              {FILTER_OPTIONS.map((opt) => (
+                <DropdownMenuItem
+                  key={opt.value}
+                  onClick={() => setFilter(opt.value)}
+                  className={cn(
+                    'text-xs',
+                    filter === opt.value
+                      ? 'text-primary font-medium'
+                      : 'text-popover-foreground'
+                  )}
+                >
+                  {opt.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       {/* Conversation Items */}
@@ -521,6 +643,27 @@ function ConversationItem({
                 />
               )}
           </div>
+        </div>
+
+        {/* Status / Assignment metadata footer */}
+        <div className="mt-1 flex items-center gap-1.5">
+          {conversation.assigned_agent_id ? (
+            <span className="bg-muted text-muted-foreground inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-medium">
+              <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+              Assigned
+            </span>
+          ) : conversation.status === 'open' ? (
+            <span className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-medium text-emerald-600 dark:text-emerald-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              AI Copilot
+            </span>
+          ) : null}
+
+          {conversation.status === 'pending' && (
+            <span className="inline-flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-medium text-amber-600 dark:text-amber-400">
+              Needs Attention
+            </span>
+          )}
         </div>
       </div>
     </button>
