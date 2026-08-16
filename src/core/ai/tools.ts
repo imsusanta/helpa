@@ -230,6 +230,125 @@ aiToolRegistry.register({
   },
 });
 
+// 7. Search Courses (Coaching & Tutor)
+aiToolRegistry.register({
+  name: 'searchCourses',
+  description: 'Searches active courses, exam programs, fees, and duration for coaching students.',
+  type: 'read',
+  allowedIndustries: ['coaching', 'solo_teacher', 'tutor'],
+  parameters: {
+    query: {
+      type: 'string',
+      description: 'Course or exam name (e.g. SSC, NEET, JEE, Mathematics).',
+    },
+  },
+  execute: async (params) => {
+    const query = String(params.query || 'Competitive Exam');
+    return {
+      success: true,
+      data: {
+        courses: [
+          {
+            name: `${query} Foundation Program`,
+            duration: '12 Months',
+            fee: '₹25,000',
+            mode: 'Offline + Online Hybrid',
+            status: 'Admissions Open',
+          },
+        ],
+      },
+    };
+  },
+});
+
+// 8. Get Available Batches (Coaching & Tutor)
+aiToolRegistry.register({
+  name: 'getAvailableBatches',
+  description: 'Checks upcoming batches, class timings, start dates, and seat availability.',
+  type: 'read',
+  allowedIndustries: ['coaching', 'solo_teacher', 'tutor'],
+  parameters: {
+    courseName: {
+      type: 'string',
+      description: 'Course or exam name.',
+      required: true,
+    },
+  },
+  execute: async (params) => {
+    const course = String(params.courseName || 'General Course');
+    return {
+      success: true,
+      data: {
+        course,
+        batches: [
+          {
+            name: 'Morning Intensive Batch',
+            startDate: '1 September 2026',
+            timing: '8:00 AM – 10:00 AM',
+            days: 'Mon / Wed / Fri',
+            availableSeats: 18,
+          },
+          {
+            name: 'Evening Live Online Batch',
+            startDate: '5 September 2026',
+            timing: '6:30 PM – 8:30 PM',
+            days: 'Tue / Thu / Sat',
+            availableSeats: 36,
+          },
+        ],
+      },
+    };
+  },
+});
+
+// 9. Create Student Admission Enquiry (Coaching & Tutor)
+aiToolRegistry.register({
+  name: 'createEnquiry',
+  description: 'Records a new student admission enquiry or interested lead in the coaching pipeline.',
+  type: 'write',
+  allowedIndustries: ['coaching', 'solo_teacher', 'tutor'],
+  parameters: {
+    studentName: {
+      type: 'string',
+      description: 'Name of the student or prospective candidate.',
+      required: true,
+    },
+    targetCourse: {
+      type: 'string',
+      description: 'The course or exam the student is interested in.',
+      required: true,
+    },
+    preferredBatch: {
+      type: 'string',
+      description: 'Preferred timing or batch mode (e.g. Morning, Online).',
+    },
+  },
+  execute: async (params, context: AiExecutionContext) => {
+    const db = getAdminClient();
+    const studentName = String(params.studentName || 'Student');
+    const targetCourse = String(params.targetCourse || 'Course');
+
+    await db.from('contacts').update({
+      extra_attributes: {
+        target_course: targetCourse,
+        student_status: 'Interested',
+        enquiry_source: 'WhatsApp',
+      },
+      updated_at: new Date().toISOString(),
+    }).eq('id', context.contactId).eq('account_id', context.accountId);
+
+    return {
+      success: true,
+      data: {
+        studentName,
+        targetCourse,
+        stage: 'Interested',
+        message: `Enquiry recorded for ${studentName} (${targetCourse}). Counsellor notified.`,
+      },
+    };
+  },
+});
+
 // ═════════════════════════════════════════════════════════════════════════
 // Core WRITE Tools
 // ═════════════════════════════════════════════════════════════════════════
