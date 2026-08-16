@@ -25,7 +25,12 @@ import {
   updateQueueStatus,
   getPatientReports,
   deliverReportToPatient,
+  checkReportStatusForPatient,
+  createHealthPrescription,
+  deliverPrescriptionToPatient,
+  verifyPrescriptionToken,
   scheduleHealthFollowUp,
+  sendDueFollowUpReminders,
   getReceptionistCopilotContext,
 } from '@/modules/health/services';
 import * as appwriteCompat from '@/lib/appwrite-server-compat';
@@ -41,6 +46,7 @@ describe('Helpa Health & Clinic Industry Module', () => {
     appointments: Array<Record<string, unknown>>;
     doctors: Array<Record<string, unknown>>;
     lab_reports: Array<Record<string, unknown>>;
+    prescriptions: Array<Record<string, unknown>>;
     follow_ups: Array<Record<string, unknown>>;
   };
 
@@ -61,6 +67,7 @@ describe('Helpa Health & Clinic Industry Module', () => {
         },
       ],
       lab_reports: [],
+      prescriptions: [],
       follow_ups: [],
     };
 
@@ -345,11 +352,142 @@ describe('Helpa Health & Clinic Industry Module', () => {
         '+919000000000'
       );
       expect(delivery.success).toBe(true);
+      expect(delivery.secureUrl).toContain('token=');
       expect(whatsappCore.sendWhatsAppMessage).toHaveBeenCalled();
+    });
+
+    it('evaluates 4 distinct report inquiry states: Ready, Processing, Not Found, and Need Verification', async () => {
+      // 1. Ready state
+      mockDatabase.contacts.push({
+        id: 'patient-r1',
+        account_id: clinicA.id,
+        name: 'Rahul Sharma',
+        phone: '919000000000',
+      });
+      mockDatabase.lab_reports.push({
+        id: 'rep-ready-1',
+        account_id: clinicA.id,
+        patient_id: 'patient-r1',
+        patient_name: 'Rahul Sharma',
+        test_name: 'Blood Sugar Fasting',
+        status: 'Ready',
+        created_at: '2026-08-16T10:00:00.000Z',
+      });
+
+      const readyRes = await checkReportStatusForPatient({
+        accountId: clinicA.id,
+        contactId: 'patient-r1',
+      });
+      expect(readyRes.state).toBe('Ready');
+      expect(readyRes.secureDownloadUrl).toBeDefined();
+      expect(readyRes.message).toContain('READY');
+
+      // 2. Processing state
+      mockDatabase.lab_reports.push({
+        id: 'rep-proc-1',
+        account_id: clinicA.id,
+        patient_id: 'patient-p2',
+        patient_name: 'Priya Sharma',
+        test_name: 'Thyroid Profile',
+        status: 'Processing',
+        expected_delivery_date: 'Tomorrow 5:00 PM',
+        created_at: '2026-08-16T12:00:00.000Z',
+      });
+
+      const procRes = await checkReportStatusForPatient({
+        accountId: clinicA.id,
+        contactId: 'patient-p2',
+      });
+      expect(procRes.state).toBe('Processing');
+      expect(procRes.message).toContain('PROCESSING');
+      expect(procRes.message).toContain('Tomorrow 5:00 PM');
+
+      // 3. Not Found state
+      const notFoundRes = await checkReportStatusForPatient({
+        accountId: clinicA.id,
+        contactId: 'patient-unknown',
+      });
+      expect(notFoundRes.state).toBe('Not Found');
+
+      // 4. Need Verification state (no phone or contact passed)
+      const needVerifyRes = await checkReportStatusForPatient({
+        accountId: clinicA.id,
+      });
+      expect(needVerifyRes.state).toBe('Need Verification');
+    });
+
+    it('enforces strict report isolation — never exposes another patient or clinic report', async () => {
+      mockDatabase.lab_reports.push({
+        id: 'rep-other-patient',
+        account_id: clinicA.id,
+        patient_id: 'other-patient-id',
+        patient_name: 'Sneha Roy',
+        test_name: 'Chest X-Ray',
+        status: 'Ready',
+      });
+
+      const patientReports = await getPatientReports(
+        clinicA.id,
+        'my-patient-id'
+      );
+      expect(patientReports.some((r) => r.patientName === 'Sneha Roy')).toBe(
+        false
+      );
     });
   });
 
-  describe('Follow-up Scheduling & Receptionist Copilot', () => {
+  describe('Prescription Delivery & Cryptographic Access Verification', () => {
+    it('creates prescription, signs expiring token, delivers via WhatsApp, and verifies valid token', async () => {
+      process.env.PDF_SIGNING_KEY = 'test-secret-key-32-chars-long-minimum!';
+
+      const rx = await createHealthPrescription({
+        accountId: clinicA.id,
+        patientId: 'PAT-000001',
+        patientName: 'Rahul Sharma',
+        patientMobile: '+919000000000',
+        doctorName: 'Dr. Anirban Sen',
+        department: 'Cardiology',
+        diagnosis: 'Mild Hypertension',
+        medicines: [
+          {
+            name: 'Amlodipine 5mg',
+            dosage: '1 Tab Daily',
+            duration: '30 Days',
+            instructions: 'Take after breakfast',
+          },
+        ],
+      });
+
+      expect(rx.id).toBeDefined();
+      expect(rx.status).toBe('Ready');
+
+      // Deliver via WhatsApp
+      const delivery = await deliverPrescriptionToPatient({
+        accountId: clinicA.id,
+        prescriptionId: rx.id,
+        recipientMobile: '+919000000000',
+        patientName: 'Rahul Sharma',
+        doctorName: 'Dr. Anirban Sen',
+      });
+
+      expect(delivery.success).toBe(true);
+      expect(delivery.secureUrl).toContain('/api/prescriptions/');
+      expect(delivery.secureUrl).toContain('token=');
+
+      // Verify token
+      const token = delivery.secureUrl.split('token=')[1];
+      const verified = verifyPrescriptionToken(token, rx.id);
+      expect(verified.valid).toBe(true);
+      expect(verified.accountId).toBe(clinicA.id);
+
+      // Verify token rejected when used for a different prescription ID
+      const mismatch = verifyPrescriptionToken(token, 'other-rx-id');
+      expect(mismatch.valid).toBe(false);
+      expect(mismatch.error).toContain('mismatch');
+    });
+  });
+
+  describe('Follow-up Scheduling & Automation', () => {
     it('schedules follow-up appointment after 7 days and tracks due list', async () => {
       const followUp = await scheduleHealthFollowUp({
         accountId: clinicA.id,
@@ -364,6 +502,35 @@ describe('Helpa Health & Clinic Industry Module', () => {
       expect(followUp.status).toBe('Pending');
       expect(followUp.doctorName).toBe('Dr. Anirban Sen');
       expect(mockDatabase.follow_ups.length).toBe(1);
+    });
+
+    it('scans due follow-ups and delivers automated WhatsApp reminders', async () => {
+      mockDatabase.follow_ups.push({
+        id: 'fu-due-1',
+        account_id: clinicA.id,
+        patient_id: 'PAT-000001',
+        patient_name: 'Rahul Sharma',
+        patient_mobile: '+919000000000',
+        doctor_name: 'Dr. Anirban Sen',
+        follow_up_date: '2026-08-16', // Today (due)
+        reason: 'Post-op wound dressing check',
+        status: 'Pending',
+        created_at: '2026-08-09T10:00:00.000Z',
+      });
+
+      const result = await sendDueFollowUpReminders(clinicA.id);
+      expect(result.sentCount).toBe(1);
+      expect(whatsappCore.sendWhatsAppMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: '+919000000000',
+          text: expect.stringContaining('Post-op wound dressing check'),
+        })
+      );
+
+      const updatedFu = mockDatabase.follow_ups.find(
+        (f) => f.id === 'fu-due-1'
+      );
+      expect(updatedFu?.status).toBe('Scheduled');
     });
 
     it('generates rich Receptionist Copilot context for staff review', async () => {

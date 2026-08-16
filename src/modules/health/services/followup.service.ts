@@ -116,3 +116,38 @@ export async function getDueFollowUps(
     createdAt: r.created_at,
   }));
 }
+
+/**
+ * Scans due follow-ups and delivers automated WhatsApp reminders to patients.
+ */
+export async function sendDueFollowUpReminders(accountId: string): Promise<{
+  sentCount: number;
+  reminders: Array<{ followUpId: string; patientName: string }>;
+}> {
+  const db = getAdminClient();
+  const { sendWhatsAppMessage } = await import('@/core/whatsapp');
+  const dueList = await getDueFollowUps(accountId);
+  const sentReminders: Array<{ followUpId: string; patientName: string }> = [];
+
+  for (const item of dueList) {
+    await sendWhatsAppMessage({
+      tenantId: accountId,
+      to: item.patientMobile,
+      type: 'text',
+      text: `🩺 Hello ${item.patientName}, this is a friendly reminder for your scheduled health follow-up with ${item.doctorName} regarding: "${item.reason}". Would you like us to schedule your consultation slot today? Reply "Yes" or "Book Appointment".`,
+    });
+
+    await db
+      .from('follow_ups')
+      .update({
+        status: 'Scheduled',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', item.id)
+      .eq('account_id', accountId);
+
+    sentReminders.push({ followUpId: item.id, patientName: item.patientName });
+  }
+
+  return { sentCount: sentReminders.length, reminders: sentReminders };
+}

@@ -95,3 +95,84 @@ export function verifyPdfToken(
 
   return { valid: true, accountId };
 }
+
+export interface DocumentSignaturePayload {
+  documentId: string;
+  documentType: 'appointment' | 'prescription' | 'report';
+  accountId: string;
+  expiresAt: number; // Unix timestamp in seconds
+}
+
+export function generateDocumentToken(
+  payload: DocumentSignaturePayload
+): string {
+  const { documentId, documentType, accountId, expiresAt } = payload;
+  const secret = getPdfSigningKey();
+  const dataToSign = `doc:${documentType}:${documentId}:${accountId}:${expiresAt}`;
+  const signature = crypto
+    .createHmac('sha256', secret)
+    .update(dataToSign)
+    .digest('hex');
+
+  const payloadStr = `${documentId}|${documentType}|${accountId}|${expiresAt}|${signature}`;
+  return Buffer.from(payloadStr).toString('base64url');
+}
+
+export function verifyDocumentToken(
+  token: string,
+  targetDocumentId: string,
+  targetDocumentType: 'appointment' | 'prescription' | 'report'
+): { valid: boolean; accountId?: string; error?: string } {
+  if (!token) {
+    return { valid: false, error: 'Missing token' };
+  }
+
+  let decoded = '';
+  try {
+    decoded = Buffer.from(token, 'base64url').toString('utf8');
+  } catch {
+    return { valid: false, error: 'Malformed token format' };
+  }
+
+  const parts = decoded.split('|');
+  if (parts.length !== 5) {
+    return { valid: false, error: 'Invalid token structure' };
+  }
+
+  const [documentId, documentType, accountId, expiresAtStr, signature] = parts;
+  const expiresAt = parseInt(expiresAtStr, 10);
+
+  if (isNaN(expiresAt)) {
+    return { valid: false, error: 'Invalid expiration timestamp' };
+  }
+
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (nowSec > expiresAt) {
+    return { valid: false, error: 'Token expired' };
+  }
+
+  if (documentId !== targetDocumentId || documentType !== targetDocumentType) {
+    return { valid: false, error: 'Token document mismatch' };
+  }
+
+  let expectedSignature: string;
+  try {
+    const secret = getPdfSigningKey();
+    const dataToSign = `doc:${targetDocumentType}:${targetDocumentId}:${accountId}:${expiresAt}`;
+    expectedSignature = crypto
+      .createHmac('sha256', secret)
+      .update(dataToSign)
+      .digest('hex');
+  } catch {
+    return { valid: false, error: 'Document signing key is not configured' };
+  }
+
+  const a = Buffer.from(signature);
+  const b = Buffer.from(expectedSignature);
+
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+    return { valid: false, error: 'Invalid signature' };
+  }
+
+  return { valid: true, accountId };
+}

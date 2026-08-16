@@ -1,8 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { generatePdfToken, verifyPdfToken } from '@/lib/pdf-signing';
+import {
+  generatePdfToken,
+  verifyPdfToken,
+  generateDocumentToken,
+  verifyDocumentToken,
+} from '@/lib/pdf-signing';
 
 describe('Security: Cryptographic Document Token Verification', () => {
   const APPOINTMENT_ID = 'appt-12345';
+  const PRESCRIPTION_ID = 'rx-67890';
+  const REPORT_ID = 'rep-11223';
   const ACCOUNT_ID = 'account-67890';
   const FUTURE_EXPIRES = Math.floor(Date.now() / 1000) + 3600; // 1 hour ahead
   const PAST_EXPIRES = Math.floor(Date.now() / 1000) - 300; // 5 min ago
@@ -58,5 +65,43 @@ describe('Security: Cryptographic Document Token Verification', () => {
     const result = verifyPdfToken(tamperedToken, APPOINTMENT_ID);
     expect(result.valid).toBe(false);
     expect(result.error).toBe('Invalid signature');
+  });
+
+  it('verifies generic document tokens for prescriptions and reports with type scoping', () => {
+    const rxToken = generateDocumentToken({
+      documentId: PRESCRIPTION_ID,
+      documentType: 'prescription',
+      accountId: ACCOUNT_ID,
+      expiresAt: FUTURE_EXPIRES,
+    });
+
+    const rxResult = verifyDocumentToken(
+      rxToken,
+      PRESCRIPTION_ID,
+      'prescription'
+    );
+    expect(rxResult.valid).toBe(true);
+    expect(rxResult.accountId).toBe(ACCOUNT_ID);
+
+    // Mismatched document type rejected
+    const typeMismatch = verifyDocumentToken(
+      rxToken,
+      PRESCRIPTION_ID,
+      'report'
+    );
+    expect(typeMismatch.valid).toBe(false);
+    expect(typeMismatch.error).toBe('Token document mismatch');
+
+    // Report token verification
+    const repToken = generateDocumentToken({
+      documentId: REPORT_ID,
+      documentType: 'report',
+      accountId: ACCOUNT_ID,
+      expiresAt: FUTURE_EXPIRES,
+    });
+
+    const repResult = verifyDocumentToken(repToken, REPORT_ID, 'report');
+    expect(repResult.valid).toBe(true);
+    expect(repResult.accountId).toBe(ACCOUNT_ID);
   });
 });
