@@ -1,19 +1,76 @@
+/**
+ * Helpa Core Platform — Super Admin Authorization
+ *
+ * Server-side authorization verifying Super Admin privileges across platform APIs and views.
+ * Primary platform owner: susantalohr@gmail.com
+ */
+
 import { redirect } from 'next/navigation';
 import { getCurrentAccount } from '@/lib/auth/account';
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
 
-export async function requireSuperAdmin() {
+export const PLATFORM_OWNER_EMAIL = 'susantalohr@gmail.com';
+
+/**
+ * Checks if an email is the primary platform owner email.
+ */
+export function isPlatformOwnerEmail(email?: string | null): boolean {
+  if (!email) return false;
+  return email.trim().toLowerCase() === PLATFORM_OWNER_EMAIL.toLowerCase();
+}
+
+/**
+ * Verifies if the current session or specified user has Super Admin platform privileges.
+ */
+export async function checkSuperAdmin(userEmail?: string): Promise<boolean> {
+  if (userEmail && isPlatformOwnerEmail(userEmail)) {
+    return true;
+  }
+
   try {
     const ctx = await getCurrentAccount();
+    if ((ctx.role as string) === 'owner' || (ctx.role as string) === 'super_admin' || ctx.role === 'admin') {
+      // Check if profile belongs to platform owner or has is_super_admin flag
+      const admin = getSupabaseAdminClient();
+      const { data: profile } = await admin
+        .from('profiles')
+        .select('is_super_admin, email')
+        .eq('user_id', ctx.userId)
+        .maybeSingle();
+
+      if (profile) {
+        if (isPlatformOwnerEmail(profile.email)) return true;
+        if (Boolean(profile.is_super_admin)) return true;
+      }
+    }
+
     const admin = getSupabaseAdminClient();
     const { data: profile } = await admin
       .from('profiles')
-      .select('is_super_admin')
+      .select('is_super_admin, email')
       .eq('user_id', ctx.userId)
       .maybeSingle();
 
-    const isSuperAdmin = Boolean(profile?.is_super_admin);
-    if (!isSuperAdmin) {
+    if (profile) {
+      if (isPlatformOwnerEmail(profile.email)) return true;
+      return Boolean(profile.is_super_admin);
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Enforces Super Admin access server-side. Redirects to /dashboard if unauthorized.
+ */
+export async function requireSuperAdmin() {
+  try {
+    const ctx = await getCurrentAccount();
+    const isSuper = await checkSuperAdmin();
+
+    if (!isSuper) {
       redirect('/dashboard');
     }
 
@@ -23,21 +80,5 @@ export async function requireSuperAdmin() {
       throw error;
     }
     redirect('/login');
-  }
-}
-
-export async function checkSuperAdmin(): Promise<boolean> {
-  try {
-    const ctx = await getCurrentAccount();
-    const admin = getSupabaseAdminClient();
-    const { data: profile } = await admin
-      .from('profiles')
-      .select('is_super_admin')
-      .eq('user_id', ctx.userId)
-      .maybeSingle();
-
-    return Boolean(profile?.is_super_admin);
-  } catch {
-    return false;
   }
 }
