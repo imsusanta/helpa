@@ -74,31 +74,33 @@ const AVAILABLE_PLANS: PlanOffer[] = [
   {
     id: 'Starter',
     name: 'Starter',
-    price: '$49',
-    maxUsers: '5 users',
-    maxContacts: '500 contacts',
-    maxAi: '500 requests/mo',
+    price: '₹999',
+    maxUsers: '3 users',
+    maxContacts: '1,500 contacts',
+    maxAi: '1,500 requests/mo',
     features: [
       'AI Chat Assistant autopilot',
-      'Appointment Booking',
+      'Appointment Booking & Reminders',
+      'Unified Web Inbox',
       'FAQ Automation',
     ],
     cta: 'Select Starter',
   },
   {
-    id: 'Growth',
-    name: 'Growth',
-    price: '$149',
-    maxUsers: '15 users',
-    maxContacts: '5,000 contacts',
-    maxAi: '3,000 requests/mo',
+    id: 'Professional',
+    name: 'Professional',
+    price: '₹2,499',
+    maxUsers: '10 users',
+    maxContacts: '10,000 contacts',
+    maxAi: '5,000 requests/mo',
     features: [
-      'AI Chat Assistant autopilot',
-      'Deals pipelines',
-      'Broadcast campaigns',
-      'Advanced automation rules',
+      'AI Chat Assistant & Copilot',
+      'Deals & Patient Pipelines',
+      'Broadcast Campaigns & Tags',
+      'Advanced Automation Rules',
+      'Custom Knowledge Base Training',
     ],
-    cta: 'Upgrade to Growth',
+    cta: 'Upgrade to Professional',
   },
   {
     id: 'Enterprise',
@@ -108,12 +110,12 @@ const AVAILABLE_PLANS: PlanOffer[] = [
     maxContacts: 'Unlimited',
     maxAi: 'Unlimited',
     features: [
-      'AI Chat Assistant autopilot',
-      'Deals pipelines',
-      'Broadcast campaigns',
-      'Advanced automation rules',
-      'Dynamic interactive Flows',
-      'Dedicated account manager',
+      'Dedicated Custom LLM Instance',
+      'Unlimited CRM Contacts & Numbers',
+      'Broadcast Campaigns & Flows',
+      'Advanced Automation Rules',
+      'Dynamic Interactive Flows',
+      'Dedicated Account Manager',
     ],
     cta: 'Contact Sales',
   },
@@ -588,7 +590,7 @@ export function BillingPanel() {
                 onClick={() => {
                   setManageModalOpen(false);
                   setSelectedPlanModal(
-                    AVAILABLE_PLANS.find((p) => p.name === 'Growth') ||
+                    AVAILABLE_PLANS.find((p) => p.name === 'Professional') ||
                       AVAILABLE_PLANS[1]
                   );
                 }}
