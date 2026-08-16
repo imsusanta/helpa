@@ -135,10 +135,36 @@ function main() {
     report.success = true;
     report.completedAt = new Date().toISOString();
     writeReport(report);
+    console.log('✅ Supabase database migrations applied successfully!');
   } catch (error) {
-    report.error = error instanceof Error ? error.message : 'MIGRATION_FAILED';
+    const errorMsg =
+      error instanceof Error ? error.message : 'MIGRATION_FAILED';
+    report.error = errorMsg;
     report.completedAt = new Date().toISOString();
     writeReport(report);
+    console.error(`\n❌ Migration preflight check failed: ${errorMsg}\n`);
+    console.error(
+      'To apply migrations automatically to your Supabase PostgreSQL database, configure:'
+    );
+    console.error(
+      '  - SUPABASE_PROJECT_REF (20-character project ref from https://<ref>.supabase.co)'
+    );
+    console.error(
+      '  - SUPABASE_ACCESS_TOKEN (from Supabase Dashboard → Account → Access Tokens)'
+    );
+    console.error('  - SUPABASE_DB_PASSWORD (your database password)\n');
+    console.error(
+      'Alternatively, you can apply the migration SQL scripts directly via the Supabase Dashboard SQL Editor:'
+    );
+    console.error(
+      '  1. supabase/migrations/20260814000000_canonical_tenant_cutover.sql'
+    );
+    console.error(
+      '  2. supabase/migrations/20260815100000_account_members_view.sql'
+    );
+    console.error(
+      '  3. supabase/migrations/20260815120000_add_missing_inbox_columns.sql\n'
+    );
     process.exitCode = 1;
   } finally {
     if (lockFd !== undefined) fs.closeSync(lockFd);
