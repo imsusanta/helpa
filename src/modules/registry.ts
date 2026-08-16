@@ -19,6 +19,13 @@ export const INDUSTRY_REGISTRY: Record<string, IndustryModule> = {
 
 const INDUSTRY_ALIASES: Record<string, keyof typeof INDUSTRY_REGISTRY> = {
   hospital: 'hospital_clinic',
+  clinic: 'hospital_clinic',
+  healthcare: 'hospital_clinic',
+  medical: 'hospital_clinic',
+  hospital_clinic: 'hospital_clinic',
+  hospital_and_clinic: 'hospital_clinic',
+  doctor: 'hospital_clinic',
+  pathology: 'hospital_clinic',
 };
 
 // Fallback module definition for 'general' or others

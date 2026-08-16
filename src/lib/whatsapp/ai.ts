@@ -214,16 +214,59 @@ export async function triggerAiResponse(
   // Reverse messages to restore chronological order (ascending) for the LLM
   messages.reverse();
 
-  // ═══════ PHASE 2: Sibling contacts (depends on contact phone) ═══════
-  // Fetch all contacts sharing the same phone number (family/siblings)
-  const { data: siblingContacts } = await db
-    .from('contacts')
-    .select('id')
-    .eq('phone', contact?.phone || '');
-  const contactIds =
-    siblingContacts && siblingContacts.length > 0
-      ? siblingContacts.map((c: { id: string }) => c.id)
-      : [contactId];
+  // ═══════ PHASE 2: Sibling contacts & Patient IDs (depends on contact phone) ═══════
+  const rawPhone = contact?.phone || '';
+  const cleanDigits = rawPhone.replace(/\D/g, '');
+  const phoneVariants = Array.from(
+    new Set(
+      [
+        rawPhone,
+        `+${cleanDigits}`,
+        cleanDigits,
+        cleanDigits.startsWith('91') ? cleanDigits.slice(2) : `91${cleanDigits}`,
+        cleanDigits.startsWith('91') ? `+${cleanDigits.slice(2)}` : `+91${cleanDigits}`,
+      ].filter((p) => Boolean(p && p.trim().length > 3))
+    )
+  );
+
+  let siblingContacts: { id: string }[] | null = null;
+  if (phoneVariants.length > 0) {
+    try {
+      const res = await db
+        .from('contacts')
+        .select('id')
+        .in('phone', phoneVariants);
+      siblingContacts = res.data as { id: string }[] | null;
+    } catch {
+      // ignore
+    }
+  }
+
+  const contactIds = Array.from(
+    new Set(
+      [
+        contactId,
+        ...(siblingContacts || []).map((c: { id: string }) => c.id),
+      ].filter(Boolean)
+    )
+  );
+
+  let registeredPatientIds: string[] = [];
+  try {
+    const { data: patsData } = await db
+      .from('patients')
+      .select('id, patient_seq_id')
+      .in('id', contactIds);
+    if (patsData && patsData.length > 0) {
+      registeredPatientIds = patsData.map((p: { id: string }) => p.id);
+    }
+  } catch {
+    // ignore
+  }
+
+  const allPatientAndContactIds = Array.from(
+    new Set([...contactIds, ...registeredPatientIds])
+  );
 
   // 3.5 Use pre-fetched Knowledge Base
   const kbEntries = kbRes.data;
@@ -243,7 +286,13 @@ export async function triggerAiResponse(
   }
 
   const industryModuleForContext = getIndustryModule(account?.industry);
-  const isHospitalEnabled = industryModuleForContext.id === 'hospital_clinic';
+  const isHospitalEnabled =
+    industryModuleForContext.id === 'hospital_clinic' ||
+    !account?.industry ||
+    account?.industry === 'hospital' ||
+    account?.industry === 'clinic' ||
+    account?.industry === 'healthcare' ||
+    account?.industry === 'general';
   const isCoachingEnabled = industryModuleForContext.id === 'coaching';
   const isSoloTeacherEnabled = industryModuleForContext.id === 'solo_teacher';
   let hospitalContext = '';
@@ -309,23 +358,23 @@ export async function triggerAiResponse(
       db
         .from('appointments')
         .select('*, doctor:hospital_doctors(name), patient:contacts(name)')
-        .in('patient_id', contactIds)
+        .in('patient_id', allPatientAndContactIds)
         .order('appointment_date', { ascending: false })
-        .limit(3),
+        .limit(5),
       db
         .from('hospital_lab_reports')
         .select(
           'id, test_name, status, expected_delivery_date, report_pdf_url, notes, department, doctor:hospital_doctors(name), patient:contacts(name)'
         )
-        .in('patient_id', contactIds)
+        .in('patient_id', allPatientAndContactIds)
         .order('created_at', { ascending: false })
-        .limit(10),
+        .limit(20),
       db
         .from('patients')
         .select(
           'patient_seq_id, gender, date_of_birth, blood_group, emergency_contact, contact:contacts(name, phone)'
         )
-        .in('id', contactIds),
+        .in('id', allPatientAndContactIds),
       db
         .from('broadcast_recipients')
         .select('id, broadcast_id, broadcasts(*)')
@@ -585,6 +634,11 @@ JSON Schema:
     "date": "YYYY-MM-DD string or null",
     "time": "HH:MM string or null"
   },
+  "hospital_report_send": {
+    "send_report": true | false,
+    "report_id": "string or null (ID of the report to send)",
+    "test_name": "string or null (Name of the test, e.g. Blood Test, CBC)"
+  },
   "hospital_profile_update": {
     "patient_id": "string or null (The Patient ID to modify, e.g. PAT-90325)",
     "name": "string or null (New or updated full name if corrected)",
@@ -733,6 +787,7 @@ Note:
     let hospital_patient_info: Record<string, unknown> | null = null;
     let hospital_booking: Record<string, unknown> | null = null;
     let hospital_profile_update: Record<string, unknown> | null = null;
+    let hospital_report_send: Record<string, unknown> | null = null;
     let coaching_student_update: Record<string, unknown> | null = null;
     let emergency_detected = false;
 
@@ -762,6 +817,8 @@ Note:
         (parsed.hospital_booking as Record<string, unknown>) || null;
       hospital_profile_update =
         (parsed.hospital_profile_update as Record<string, unknown>) || null;
+      hospital_report_send =
+        (parsed.hospital_report_send as Record<string, unknown>) || null;
       coaching_student_update =
         (parsed.coaching_student_update as Record<string, unknown>) || null;
       emergency_detected = !!parsed.emergency_detected;
@@ -1592,15 +1649,48 @@ Please arrive 15 minutes before your time slot. Thank you!`;
 
       // 4. Lab Report Smart Status Assistant
       if (labReports && labReports.length > 0) {
+        const rawReportSend = hospital_report_send as {
+          send_report?: boolean;
+          report_id?: string;
+          test_name?: string;
+        } | null;
         const lowercaseMsg = (latestMessage?.content_text || '').toLowerCase();
         const reportKeywords = [
           'report',
           'test',
           'blood',
           'result',
-          'report status',
+          'status',
           'রিপোর্ট',
+          'রিপোট',
+          'টেস্ট',
+          'পরীক্ষা',
+          'রক্ত',
+          'ব্লাড',
+          'পাঠাও',
+          'পাঠান',
+          'দেবেন',
+          'চাই',
+          'পাব',
+          'দেখব',
+          'dao',
+          'din',
+          'pathan',
+          'pathao',
+          'deben',
+          'chai',
+          'pabo',
+          'paabo',
+          'dekhte',
+          'bhejo',
+          'bhejiye',
+          'chahiye',
+          'do',
           'रिपोर्ट',
+          'जांच',
+          'खून',
+          'ब्लड',
+          'रिजल्ट',
           'lab',
           'x-ray',
           'xray',
@@ -1610,41 +1700,151 @@ Please arrive 15 minutes before your time slot. Thank you!`;
           'ecg',
           'usg',
           'ultrasound',
+          'pathology',
+          'urine',
+          'sugar',
+          'glucose',
+          'lipid',
+          'thyroid',
+          'lft',
+          'kft',
+          'hemoglobin',
+          'haemoglobin',
+          'platelet',
+          'pdf',
+          'download',
         ];
-        const isReportQuery = reportKeywords.some((kw) =>
-          lowercaseMsg.includes(kw)
-        );
+        const isReportQuery =
+          rawReportSend?.send_report === true ||
+          reportKeywords.some((kw) => lowercaseMsg.includes(kw));
 
         if (isReportQuery) {
-          const readyReportsWithPdf = labReports.filter(
-            (r) => r.status === 'ready' && r.report_pdf_url
+          const reportsWithPdf = labReports.filter(
+            (r) =>
+              Boolean(r.report_pdf_url) &&
+              (!r.status ||
+                [
+                  'ready',
+                  'delivered',
+                  'completed',
+                  'generated',
+                  'done',
+                ].includes(r.status.toLowerCase()))
           );
 
-          if (readyReportsWithPdf.length === 1) {
-            const readyReport = readyReportsWithPdf[0];
+          let targetReport: LabReportRow | null = null;
+
+          // 1. If LLM provided report_id
+          if (rawReportSend?.report_id) {
+            targetReport =
+              reportsWithPdf.find((r) => r.id === rawReportSend.report_id) ||
+              null;
+          }
+
+          // 2. If LLM provided test_name
+          if (!targetReport && rawReportSend?.test_name) {
+            const reqNameLower = rawReportSend.test_name.toLowerCase();
+            targetReport =
+              reportsWithPdf.find((r) =>
+                (r.test_name || '').toLowerCase().includes(reqNameLower)
+              ) || null;
+          }
+
+          // 3. Test specific matching based on user keywords (e.g. Blood / CBC / Sugar)
+          if (!targetReport) {
+            const isBloodQuery =
+              lowercaseMsg.includes('blood') ||
+              lowercaseMsg.includes('রক্ত') ||
+              lowercaseMsg.includes('ব্লাড') ||
+              lowercaseMsg.includes('खून') ||
+              lowercaseMsg.includes('cbc') ||
+              lowercaseMsg.includes('hemoglobin') ||
+              lowercaseMsg.includes('haemoglobin');
+
+            if (isBloodQuery) {
+              targetReport =
+                reportsWithPdf.find((r) => {
+                  const tName = (r.test_name || '').toLowerCase();
+                  const dept = (r.department || '').toLowerCase();
+                  return (
+                    tName.includes('blood') ||
+                    tName.includes('cbc') ||
+                    tName.includes('hemoglobin') ||
+                    tName.includes('haemoglobin') ||
+                    tName.includes('platelet') ||
+                    tName.includes('sugar') ||
+                    tName.includes('glucose') ||
+                    tName.includes('lipid') ||
+                    tName.includes('thyroid') ||
+                    tName.includes('lft') ||
+                    tName.includes('kft') ||
+                    dept.includes('pathology') ||
+                    dept.includes('hematology') ||
+                    dept.includes('blood')
+                  );
+                }) || null;
+            }
+          }
+
+          // 4. Test specific matching for X-Ray
+          if (!targetReport) {
+            if (
+              lowercaseMsg.includes('x-ray') ||
+              lowercaseMsg.includes('xray') ||
+              lowercaseMsg.includes('এক্সরে')
+            ) {
+              targetReport =
+                reportsWithPdf.find(
+                  (r) =>
+                    (r.test_name || '').toLowerCase().includes('x-ray') ||
+                    (r.test_name || '').toLowerCase().includes('xray') ||
+                    (r.department || '').toLowerCase().includes('radiology')
+                ) || null;
+            }
+          }
+
+          // 5. Test specific matching for Urine
+          if (!targetReport) {
+            if (
+              lowercaseMsg.includes('urine') ||
+              lowercaseMsg.includes('ইউরিন')
+            ) {
+              targetReport =
+                reportsWithPdf.find((r) =>
+                  (r.test_name || '').toLowerCase().includes('urine')
+                ) || null;
+            }
+          }
+
+          // 6. Default to single ready report if only one is available
+          if (!targetReport && reportsWithPdf.length === 1) {
+            targetReport = reportsWithPdf[0];
+          }
+
+          if (targetReport && targetReport.report_pdf_url) {
             console.log(
               '[AI Hospital] Auto-sending lab report PDF:',
-              readyReport.test_name
+              targetReport.test_name
             );
             engineSendDocument({
               accountId,
               userId,
               conversationId,
               contactId,
-              documentUrl: readyReport.report_pdf_url!,
-              filename: `${readyReport.test_name.replace(/\s+/g, '_')}_Report.pdf`,
-              caption: `Here is your completed ${readyReport.test_name} report.`,
+              documentUrl: targetReport.report_pdf_url,
+              filename: `${targetReport.test_name.replace(/\s+/g, '_')}_Report.pdf`,
+              caption: `Here is your completed ${targetReport.test_name} report.`,
             }).catch((e: unknown) =>
               console.error(
                 '[AI Hospital] Failed to auto-send lab report PDF:',
                 e instanceof Error ? e.message : String(e)
               )
             );
-          } else if (readyReportsWithPdf.length > 1) {
+          } else if (reportsWithPdf.length > 1) {
             console.log(
               '[AI Hospital] Multiple ready reports, sending selection buttons'
             );
-            const buttons = readyReportsWithPdf.slice(0, 3).map((r) => ({
+            const buttons = reportsWithPdf.slice(0, 3).map((r) => ({
               id: `report_download_${r.id}`,
               title: r.test_name.substring(0, 20),
             }));
