@@ -11,10 +11,14 @@ declare global {
     FB?: {
       init: (options: {
         appId: string;
+        cookie?: boolean;
         autoLogAppEvents?: boolean;
         xfbml?: boolean;
         version: string;
       }) => void;
+      AppEvents?: {
+        logPageView: () => void;
+      };
       login: (
         callback: (response: {
           authResponse?: {
@@ -53,10 +57,12 @@ export function loadFacebookSdk(appId: string): Promise<void> {
     try {
       window.FB.init({
         appId,
+        cookie: true,
         autoLogAppEvents: true,
         xfbml: true,
         version: 'v21.0',
       });
+      window.FB.AppEvents?.logPageView();
     } catch {
       // Ignore
     }
@@ -87,10 +93,12 @@ export function loadFacebookSdk(appId: string): Promise<void> {
         try {
           window.FB.init({
             appId,
+            cookie: true,
             autoLogAppEvents: true,
             xfbml: true,
             version: 'v21.0',
           });
+          window.FB.AppEvents?.logPageView();
           resolve();
         } catch (initErr) {
           fbSdkLoadingPromise = null;
@@ -129,10 +137,12 @@ export function loadFacebookSdk(appId: string): Promise<void> {
         try {
           window.FB.init({
             appId,
+            cookie: true,
             autoLogAppEvents: true,
             xfbml: true,
             version: 'v21.0',
           });
+          window.FB.AppEvents?.logPageView();
           resolve();
         } catch {
           resolve();
