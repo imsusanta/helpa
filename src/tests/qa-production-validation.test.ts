@@ -449,7 +449,7 @@ describe('Helpa Phase 14 — QA & Production Validation Suite', () => {
         gender: 'Male',
         notes: 'Age: 28',
       });
-      expect(p1.patientId).toBe('PT-000001');
+      expect(p1.patientId).toBe('PAT-000001');
 
       // Family member with same phone gets distinct patient ID
       const p2 = await createOrFindPatient({
@@ -459,7 +459,7 @@ describe('Helpa Phase 14 — QA & Production Validation Suite', () => {
         gender: 'Female',
         notes: 'Age: 56',
       });
-      expect(p2.patientId).toBe('PT-000002');
+      expect(p2.patientId).toBe('PAT-000002');
       expect(p2.patientId).not.toBe(p1.patientId);
 
       // Book appointment with OPD PDF ticket

@@ -144,9 +144,9 @@ describe('Helpa Health & Clinic Industry Module', () => {
   });
 
   describe('Patient Management & Unique Patient ID', () => {
-    it('generates sequential unique Patient ID (PT-000001)', async () => {
+    it('generates sequential unique Patient ID (PAT-000001)', async () => {
       const patientId = await generateNextPatientId(clinicA.id);
-      expect(patientId).toBe('PT-000001');
+      expect(patientId).toBe('PAT-000001');
     });
 
     it('allows multiple patients (family members) with the same mobile number', async () => {
@@ -162,7 +162,7 @@ describe('Helpa Health & Clinic Industry Module', () => {
 
       expect(patientA.name).toBe('Rahul Sharma');
       expect(patientA.phone).toContain('919000000000');
-      expect(patientA.patientId).toBe('PT-000001');
+      expect(patientA.patientId).toBe('PAT-000001');
 
       // 2. Create Patient B (Ananya Sharma) with the EXACT SAME mobile number
       const patientB = await createOrFindPatient({
@@ -174,7 +174,7 @@ describe('Helpa Health & Clinic Industry Module', () => {
 
       expect(patientB.name).toBe('Ananya Sharma');
       expect(patientB.phone).toContain('919000000000');
-      expect(patientB.patientId).toBe('PT-000002');
+      expect(patientB.patientId).toBe('PAT-000002');
       expect(patientA.id).not.toBe(patientB.id);
 
       // Verify both patients are in database under the clinic
@@ -251,7 +251,7 @@ describe('Helpa Health & Clinic Industry Module', () => {
         bookedBy: 'ai',
       });
 
-      expect(booking.patientId).toBe('PT-000001');
+      expect(booking.patientId).toBe('PAT-000001');
       expect(booking.doctorName).toBe('Dr. Anirban Sen');
       expect(booking.tokenNumber).toBe('A-001');
       expect(booking.bookingSource).toBe('WhatsApp');
@@ -272,6 +272,30 @@ describe('Helpa Health & Clinic Industry Module', () => {
           }),
         })
       );
+    });
+
+    it('prevents duplicate booking for the same doctor at the same slot', async () => {
+      await bookHealthAppointment({
+        accountId: clinicA.id,
+        patientName: 'Rahul Sharma',
+        patientMobile: '+919000000000',
+        doctorIdOrName: 'Dr. Anirban Sen',
+        appointmentDate: '2026-08-24',
+        appointmentTime: '10:30 AM',
+        bookedBy: 'ai',
+      });
+
+      await expect(
+        bookHealthAppointment({
+          accountId: clinicA.id,
+          patientName: 'Amit Sharma',
+          patientMobile: '+919000000000',
+          doctorIdOrName: 'Dr. Anirban Sen',
+          appointmentDate: '2026-08-24',
+          appointmentTime: '10:30 AM',
+          bookedBy: 'receptionist',
+        })
+      ).rejects.toThrow(/Duplicate booking prevented/i);
     });
 
     it('updates queue status to In Consultation and Completed', async () => {
@@ -329,7 +353,7 @@ describe('Helpa Health & Clinic Industry Module', () => {
     it('schedules follow-up appointment after 7 days and tracks due list', async () => {
       const followUp = await scheduleHealthFollowUp({
         accountId: clinicA.id,
-        patientId: 'PT-000001',
+        patientId: 'PAT-000001',
         patientName: 'Rahul Sharma',
         patientMobile: '+919000000000',
         doctorName: 'Dr. Anirban Sen',

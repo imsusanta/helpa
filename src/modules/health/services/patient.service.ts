@@ -42,7 +42,7 @@ export interface PatientTimelineEvent {
 }
 
 /**
- * Generates the next sequential unique Patient ID (e.g. PT-000123) for a workspace.
+ * Generates the next sequential unique Patient ID (e.g. PAT-000001) for a workspace.
  */
 export async function generateNextPatientId(
   accountId: string
@@ -60,7 +60,7 @@ export async function generateNextPatientId(
     for (const c of contacts) {
       const extra = (c.extra_attributes as Record<string, unknown>) || {};
       const ptId = String(extra.patient_id || extra.patient_seq_id || '');
-      const match = ptId.match(/PT-(\d+)/i);
+      const match = ptId.match(/(?:PAT|PT)-(\d+)/i);
       if (match && match[1]) {
         const seq = parseInt(match[1], 10);
         if (!isNaN(seq) && seq > maxSeq) {
@@ -71,7 +71,7 @@ export async function generateNextPatientId(
   }
 
   const nextSeq = maxSeq + 1;
-  return `PT-${nextSeq.toString().padStart(6, '0')}`;
+  return `PAT-${nextSeq.toString().padStart(6, '0')}`;
 }
 
 /**
@@ -96,7 +96,7 @@ export async function getPatientsByMobile(
     return {
       id: r.id,
       accountId: r.account_id,
-      patientId: String(extra.patient_id || `PT-${r.id.slice(0, 6)}`),
+      patientId: String(extra.patient_id || `PAT-${r.id.slice(0, 6)}`),
       name: r.name,
       phone: r.phone,
       gender: extra.gender as string,

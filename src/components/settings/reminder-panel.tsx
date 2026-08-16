@@ -23,6 +23,20 @@ interface ReminderContext {
 }
 
 const REMINDER_CTX: Record<string, ReminderContext> = {
+  health: {
+    eventType: 'Appointment',
+    personPlural: 'patients',
+    templateVars: [
+      { code: '{{PatientName}}', desc: 'Patient Name' },
+      { code: '{{HospitalName}}', desc: 'Hospital Name' },
+      { code: '{{DoctorName}}', desc: 'Doctor Name' },
+      { code: '{{Department}}', desc: 'Doctor Department' },
+      { code: '{{AppointmentDate}}', desc: 'Booking Date' },
+      { code: '{{AppointmentTime}}', desc: 'Booking Time' },
+      { code: '{{TokenNumber}}', desc: 'Appointment Token' },
+      { code: '{{ReminderTime}}', desc: 'Time Left' },
+    ],
+  },
   hospital_clinic: {
     eventType: 'Appointment',
     personPlural: 'patients',

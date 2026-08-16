@@ -94,7 +94,31 @@ export async function bookHealthAppointment(
   const department = doctor ? doctor.department : 'General Medicine';
   const fee = doctor ? doctor.consultationFee : 500;
 
-  // 3. Generate Token Number
+  // 3. Duplicate booking prevention
+  const { data: existingAppts } = await db
+    .from('appointments')
+    .select('id, status, extra_attributes')
+    .eq('account_id', input.accountId)
+    .eq('appointment_date', input.appointmentDate)
+    .eq('appointment_time', input.appointmentTime)
+    .neq('status', 'Cancelled');
+
+  if (existingAppts && existingAppts.length > 0) {
+    const hasConflict = existingAppts.some((a) => {
+      const extra = (a.extra_attributes as Record<string, unknown>) || {};
+      return (
+        extra.doctor_name === doctorName ||
+        (a.doctor_name && a.doctor_name === doctorName)
+      );
+    });
+    if (hasConflict) {
+      throw new Error(
+        `Duplicate booking prevented: Dr. ${doctorName} is already booked on ${input.appointmentDate} at ${input.appointmentTime}.`
+      );
+    }
+  }
+
+  // 4. Generate Token Number
   const tokenNumber = await generateQueueToken(
     input.accountId,
     input.appointmentDate
@@ -102,7 +126,7 @@ export async function bookHealthAppointment(
   const bookingSource = 'WhatsApp';
   const bookedBy = input.bookedBy || 'ai';
 
-  // 4. Insert into database
+  // 5. Insert into database
   const extraAttributes = {
     patient_id: patient.patientId,
     token_number: tokenNumber,
