@@ -354,7 +354,7 @@ export async function GET(
       15,
       278
     );
-    doc.text(`Powered by WACRM AI Hospital Assistant`, 155, 278);
+    doc.text(`Powered by Helpa AI Assistant`, 155, 278);
 
     const pdfOutput = doc.output('arraybuffer');
 
@@ -362,6 +362,7 @@ export async function GET(
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `inline; filename="opd-ticket-${bookingId}.pdf"`,
+        'Cache-Control': 'private, no-store, no-cache, must-revalidate',
       },
     });
   } catch (err: unknown) {
