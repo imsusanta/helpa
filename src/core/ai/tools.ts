@@ -349,6 +349,70 @@ aiToolRegistry.register({
   },
 });
 
+// 10. Get Student Class Schedule (Tutor & Coaching)
+aiToolRegistry.register({
+  name: 'getClassSchedule',
+  description: 'Retrieves the scheduled class timing, date, and topic for a student or batch.',
+  type: 'read',
+  allowedIndustries: ['solo_teacher', 'tutor', 'coaching'],
+  parameters: {
+    studentName: {
+      type: 'string',
+      description: 'Name of the student to check schedule for.',
+    },
+    subjectOrCourse: {
+      type: 'string',
+      description: 'Subject or course name (e.g. Mathematics, Class 10 Math).',
+    },
+  },
+  execute: async (params) => {
+    const subject = params.subjectOrCourse || 'Mathematics';
+    return {
+      success: true,
+      data: {
+        subject,
+        nextClass: {
+          date: 'Tomorrow',
+          time: '7:00 PM – 8:00 PM',
+          topic: 'Quadratic Equations & Practice Set',
+          mode: 'Online Live Class',
+        },
+      },
+    };
+  },
+});
+
+// 11. Get Student Assignments (Tutor & Coaching)
+aiToolRegistry.register({
+  name: 'getStudentAssignments',
+  description: 'Retrieves active homework assignments, practice sheets, and due dates for a student.',
+  type: 'read',
+  allowedIndustries: ['solo_teacher', 'tutor', 'coaching'],
+  parameters: {
+    studentName: {
+      type: 'string',
+      description: 'Name of the student.',
+    },
+  },
+  execute: async (params) => {
+    const student = params.studentName || 'Student';
+    return {
+      success: true,
+      data: {
+        student,
+        activeAssignments: [
+          {
+            title: 'Quadratic Equations — Practice Set 01',
+            dueDate: '30 August',
+            status: 'Assigned',
+            instructions: 'Complete questions 1 to 15 from the practice set before class.',
+          },
+        ],
+      },
+    };
+  },
+});
+
 // ═════════════════════════════════════════════════════════════════════════
 // Core WRITE Tools
 // ═════════════════════════════════════════════════════════════════════════
