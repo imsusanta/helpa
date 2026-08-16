@@ -235,6 +235,11 @@ export interface WhatsAppConfig {
   verify_token?: string;
   status: 'connected' | 'disconnected';
   connected_at?: string;
+  phone_number?: string;
+  display_phone_number?: string;
+  verified_name?: string;
+  business_name?: string;
+  coexistence_eligible?: boolean;
   /**
    * Set when POST /{phone_number_id}/register last succeeded. NULL
    * means the number was saved but never actually subscribed for

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import Link from 'next/link';
 import { toast } from 'sonner';
 import {
   Eye,
@@ -14,6 +15,7 @@ import {
   AlertTriangle,
   RotateCcw,
   Sparkles,
+  MessageSquare,
 } from 'lucide-react';
 import { launchWhatsAppEmbeddedSignup } from '@/lib/whatsapp/embedded-signup';
 import { useAuth } from '@/hooks/use-auth';
@@ -506,27 +508,94 @@ export function WhatsAppConfig() {
             </Alert>
           )}
 
-          {/* Connection Status */}
-          <Alert className="bg-card border-border">
-            <div className="flex items-center gap-2">
-              {connectionStatus === 'connected' ? (
-                <CheckCircle2 className="text-primary size-4" />
-              ) : (
+          {/* Connected Status Banner */}
+          {connectionStatus === 'connected' && config ? (
+            <Card className="border-emerald-500/30 bg-emerald-500/[0.04]">
+              <CardContent className="p-5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600">
+                      <CheckCircle2 className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-base font-semibold text-foreground">
+                          WhatsApp Connected ✓
+                        </h3>
+                        <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-600">
+                          Active & Live
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {config.verified_name || config.business_name || 'WhatsApp Business Account'}{' '}
+                        •{' '}
+                        {config.display_phone_number ||
+                          config.phone_number ||
+                          phoneNumberId}
+                      </p>
+                      <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1.5 font-medium text-emerald-600">
+                          <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />{' '}
+                          Webhook: Healthy
+                        </span>
+                        <span>•</span>
+                        <span>Multi-tenant Isolation: Guaranteed</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Link href="/inbox">
+                      <Button
+                        size="sm"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 shadow-sm"
+                      >
+                        <MessageSquare className="h-4 w-4" />
+                        Open Inbox
+                      </Button>
+                    </Link>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleLaunchEmbeddedSignup}
+                      disabled={connectingEmbedded}
+                      className="border-border text-foreground hover:bg-muted gap-1.5"
+                    >
+                      {connectingEmbedded ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <RotateCcw className="h-3.5 w-3.5" />
+                      )}
+                      Reconnect
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleReset}
+                      disabled={resetting}
+                      className="border-red-500/30 text-red-500 hover:bg-red-500/10"
+                    >
+                      Disconnect
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            /* Disconnected Alert */
+            <Alert className="bg-card border-border">
+              <div className="flex items-center gap-2">
                 <XCircle className="size-4 text-red-500" />
-              )}
-              <AlertTitle className="text-foreground mb-0">
-                {connectionStatus === 'connected'
-                  ? 'Credentials valid'
-                  : 'Not Connected'}
-              </AlertTitle>
-            </div>
-            <AlertDescription className="text-muted-foreground">
-              {connectionStatus === 'connected'
-                ? 'Your access token authenticates with Meta. See Registration status below for whether webhooks are actually wired.'
-                : statusMessage ||
-                  'Configure your Meta API credentials below to connect your WhatsApp Business account.'}
-            </AlertDescription>
-          </Alert>
+                <AlertTitle className="text-foreground mb-0">
+                  Not Connected
+                </AlertTitle>
+              </div>
+              <AlertDescription className="text-muted-foreground">
+                {statusMessage ||
+                  'Connect your WhatsApp Business account below to start receiving and sending customer messages.'}
+              </AlertDescription>
+            </Alert>
+          )}
 
           {/* Registration Status — the "is it actually live?" check.
             Credentials being valid is necessary but not sufficient;

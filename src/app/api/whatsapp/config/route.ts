@@ -739,6 +739,21 @@ export async function DELETE() {
       );
     }
 
+    // Record sanitized audit event
+    try {
+      await admin.from('audit_logs').insert({
+        account_id: accountId,
+        action: 'WHATSAPP_DISCONNECTED',
+        details: {
+          user_id: user.id,
+          timestamp: new Date().toISOString(),
+        },
+        created_at: new Date().toISOString(),
+      });
+    } catch (auditErr) {
+      console.warn('[DELETE /api/whatsapp/config] Failed to record audit log:', auditErr);
+    }
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error in WhatsApp config DELETE:', error);

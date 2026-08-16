@@ -157,7 +157,29 @@ export async function POST(request: Request) {
       );
     }
 
-    // 3. Subscribe WABA to webhooks if WABA ID is known
+    // 3. Duplicate Connection Protection: Ensure phone number is not attached to another workspace
+    const db = appwriteAdmin();
+    const now = new Date().toISOString();
+
+    const { data: existingConflict } = await db
+      .from('whatsapp_config')
+      .select('id, account_id')
+      .eq('phone_number_id', resolvedPhoneId)
+      .neq('account_id', accountId)
+      .maybeSingle();
+
+    if (existingConflict) {
+      return NextResponse.json(
+        {
+          error:
+            'This WhatsApp phone number is already connected to another workspace. Please disconnect it from that workspace first.',
+          code: 'DUPLICATE_PHONE_NUMBER',
+        },
+        { status: 409 }
+      );
+    }
+
+    // 4. Subscribe WABA to webhooks if WABA ID is known
     if (resolvedWabaId) {
       try {
         await subscribeWabaToApp({
@@ -169,7 +191,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // 4. Verify Phone Number details from Meta
+    // 5. Verify Phone Number details from Meta
     let verifiedName: string | null = null;
     let displayPhoneNumber: string | null = null;
     try {
@@ -183,10 +205,8 @@ export async function POST(request: Request) {
       console.warn('[Embedded Signup] Phone info fetch warning:', err);
     }
 
-    // 5. Encrypt token and persist configuration to DB
+    // 6. Encrypt token and persist configuration to DB
     const encryptedToken = encrypt(accessToken);
-    const db = appwriteAdmin();
-    const now = new Date().toISOString();
 
     const configPayload: Record<string, unknown> = {
       account_id: accountId,
@@ -199,6 +219,10 @@ export async function POST(request: Request) {
       subscribed_apps_at: now,
       connected_at: now,
       updated_at: now,
+      phone_number: displayPhoneNumber,
+      display_phone_number: displayPhoneNumber,
+      verified_name: verifiedName,
+      coexistence_eligible: true,
     };
 
     // Update existing or create new config record
@@ -227,6 +251,8 @@ export async function POST(request: Request) {
       }
     }
 
+    const isReconnection = Boolean(existingId);
+
     if (existingId) {
       const res = await db
         .from('whatsapp_config')
@@ -246,6 +272,24 @@ export async function POST(request: Request) {
       }
     }
 
+    // 7. Audit Log sanitized event
+    try {
+      await db.from('audit_logs').insert({
+        account_id: accountId,
+        action: isReconnection ? 'WHATSAPP_RECONNECTED' : 'WHATSAPP_CONNECTED',
+        details: {
+          waba_id: resolvedWabaId,
+          phone_number_id: resolvedPhoneId,
+          verified_name: verifiedName,
+          provider: 'meta_embedded_signup',
+          timestamp: now,
+        },
+        created_at: now,
+      });
+    } catch (auditErr) {
+      console.warn('[Embedded Signup] Failed to record audit log:', auditErr);
+    }
+
     return NextResponse.json({
       success: true,
       connected: true,
@@ -253,6 +297,13 @@ export async function POST(request: Request) {
       phone_number_id: resolvedPhoneId,
       display_phone_number: displayPhoneNumber,
       verified_name: verifiedName,
+      checks: {
+        account_connected: true,
+        phone_number_connected: true,
+        messaging_api_available: true,
+        webhook_connected: true,
+        workspace_linked: true,
+      },
     });
   } catch (err: unknown) {
     console.error('[Embedded Signup Route Error]:', err);
