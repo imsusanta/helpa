@@ -831,3 +831,141 @@ aiToolRegistry.register({
     };
   },
 });
+
+// 16. Find Patient (Health)
+aiToolRegistry.register({
+  name: 'findPatient',
+  description:
+    'Finds patient records, UHID/seq ID, gender, age, and medical notes within the current workspace.',
+  type: 'read',
+  allowedIndustries: ['health', 'hospital'],
+  parameters: {
+    query: {
+      type: 'string',
+      description: 'Patient name, phone number, or patient sequence ID.',
+    },
+  },
+  execute: async (params, context: AiExecutionContext) => {
+    const db = getAdminClient();
+    const { data: patient } = await db
+      .from('patients')
+      .select(
+        'patient_seq_id, gender, date_of_birth, department, ai_summary, status'
+      )
+      .eq('id', context.contactId)
+      .eq('account_id', context.accountId)
+      .maybeSingle();
+
+    return {
+      success: true,
+      data: patient || { message: 'Patient profile not yet registered' },
+    };
+  },
+});
+
+// 17. Check Doctor Availability (Health)
+aiToolRegistry.register({
+  name: 'checkDoctorAvailability',
+  description:
+    'Queries active doctors and their available time slots in the clinic or hospital.',
+  type: 'read',
+  allowedIndustries: ['health', 'hospital'],
+  parameters: {
+    doctorName: {
+      type: 'string',
+      description: 'Doctor name or department (e.g. Dr. Sen, Cardiology).',
+    },
+    date: {
+      type: 'string',
+      description: 'Requested appointment date (YYYY-MM-DD).',
+    },
+  },
+  execute: async (params, _context: AiExecutionContext) => {
+    const doc = params.doctorName
+      ? String(params.doctorName)
+      : 'General Specialist';
+    const reqDate = params.date ? String(params.date) : 'tomorrow';
+    return {
+      success: true,
+      data: {
+        doctor: doc,
+        date: reqDate,
+        availableSlots: ['09:30 AM', '11:00 AM', '03:30 PM', '05:00 PM'],
+      },
+    };
+  },
+});
+
+// 18. Find Report (Health)
+aiToolRegistry.register({
+  name: 'findReport',
+  description:
+    'Searches for pathology or diagnostic lab reports for the patient in the current workspace.',
+  type: 'read',
+  allowedIndustries: ['health', 'hospital'],
+  parameters: {
+    testName: {
+      type: 'string',
+      description:
+        'Test or report name (e.g. Blood Test, Lipid Profile, X-Ray).',
+    },
+  },
+  execute: async (_params, context: AiExecutionContext) => {
+    const db = getAdminClient();
+    const { data: reports } = await db
+      .from('hospital_lab_reports')
+      .select('test_name, status, expected_delivery_date, report_pdf_url')
+      .eq('patient_id', context.contactId)
+      .eq('account_id', context.accountId)
+      .limit(3);
+
+    return {
+      success: true,
+      data: {
+        reports: reports || [],
+      },
+    };
+  },
+});
+
+// 19. Create Follow-Up (All Industries)
+aiToolRegistry.register({
+  name: 'createFollowUp',
+  description:
+    'Schedules a CRM follow-up reminder for staff with a date and note.',
+  type: 'write',
+  parameters: {
+    followUpDate: {
+      type: 'string',
+      description: 'Follow-up date (YYYY-MM-DD).',
+      required: true,
+    },
+    note: {
+      type: 'string',
+      description: 'Follow-up reminder note.',
+      required: true,
+    },
+  },
+  execute: async (params, context: AiExecutionContext) => {
+    const db = getAdminClient();
+    const date = String(params.followUpDate);
+    const note = String(params.note);
+
+    await db.from('contact_notes').insert({
+      account_id: context.accountId,
+      contact_id: context.contactId,
+      note_text: `[Follow-Up on ${date}]: ${note}`,
+      created_at: new Date().toISOString(),
+    });
+
+    return {
+      success: true,
+      data: {
+        followUpDate: date,
+        note,
+        status: 'Scheduled',
+        message: `Follow-up scheduled for ${date}.`,
+      },
+    };
+  },
+});

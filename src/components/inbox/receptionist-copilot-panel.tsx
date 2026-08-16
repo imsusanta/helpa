@@ -305,6 +305,21 @@ export function ReceptionistCopilotPanel({
               </div>
             )}
 
+            {snapshot.humanHandoffRecommended && (
+              <div className="border-b border-rose-500/20 bg-rose-500/10 px-4 py-2.5 text-xs text-rose-600 dark:text-rose-400">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="mt-0.5 size-4 shrink-0 text-rose-500" />
+                  <div>
+                    <p className="font-semibold">Human Transfer Recommended</p>
+                    <p className="text-[11px] opacity-90">
+                      {snapshot.humanHandoffReason ||
+                        'Staff intervention is recommended for this inquiry.'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {loading && (
               <div className="border-border/70 text-muted-foreground border-b px-4 py-2 text-[11px]">
                 <span className="inline-flex items-center gap-1.5">
@@ -486,6 +501,14 @@ export function ReceptionistCopilotPanel({
                 ))}
               </div>
             </Section>
+
+            {snapshot.followUpSuggestion && (
+              <Section title="Follow-up Suggestion" icon={Clock3}>
+                <div className="border-border/70 bg-background/70 text-foreground rounded-md border p-2.5 text-xs leading-relaxed">
+                  <p>{snapshot.followUpSuggestion}</p>
+                </div>
+              </Section>
+            )}
 
             <Section title="Chat Summary" icon={MessageSquareReply}>
               <p className="text-foreground text-xs leading-relaxed whitespace-pre-wrap">

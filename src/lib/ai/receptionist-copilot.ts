@@ -175,6 +175,9 @@ export interface ReceptionistCopilotSnapshot {
   conversationSummary: string;
   suggestedReply: string;
   suggestedActions: string[];
+  followUpSuggestion?: string;
+  humanHandoffRecommended?: boolean;
+  humanHandoffReason?: string;
   internalNotes: string[];
   intent: CopilotConfidence;
   confidence: CopilotConfidence[];
@@ -905,6 +908,44 @@ export function buildFallbackCopilotSnapshot(
       : '',
   ]).slice(0, 6);
 
+  const userRequestsHuman =
+    /\b(human|agent|representative|speak to someone|talk to doctor|call me)\b/i.test(
+      latestText
+    );
+  const isEmergency = EMERGENCY_KEYWORDS.some((kw) =>
+    latestText.toLowerCase().includes(kw)
+  );
+  const isMedicalAdvice = MEDICAL_ADVICE_KEYWORDS.some((kw) =>
+    latestText.toLowerCase().includes(kw)
+  );
+  const isLowConfidence = intent.score < 70;
+
+  const humanHandoffRecommended =
+    userRequestsHuman || isEmergency || isMedicalAdvice || isLowConfidence;
+  const humanHandoffReason = isEmergency
+    ? 'Critical: Emergency symptoms detected. Urgent escalation to ER staff required.'
+    : isMedicalAdvice
+      ? 'Medical advice or diagnosis requested. Escalation to licensed doctor required.'
+      : userRequestsHuman
+        ? 'Patient explicitly requested to speak with human staff.'
+        : isLowConfidence
+          ? 'Low AI confidence score (<70%). Staff review recommended.'
+          : undefined;
+
+  let followUpSuggestion =
+    'Review conversation status in 24 hours if patient sends a follow-up query.';
+  if (upcoming) {
+    followUpSuggestion = `Send automated appointment confirmation reminder 2 hours prior to ${formatDate(upcoming.appointment_date)}.`;
+  } else if (
+    latestReport &&
+    (latestReport.status || '').toLowerCase() !== 'ready'
+  ) {
+    followUpSuggestion = `Follow up with pathology lab on ${formatDate(latestReport.expected_delivery_date || 'tomorrow')} if report status is not updated to Ready.`;
+  } else if (intent.label === 'Appointment Booking') {
+    followUpSuggestion =
+      'Follow up in 24 hours if patient has not confirmed their preferred slot.';
+  }
+
   return {
     generatedAt: new Date().toISOString(),
     generatedBy: 'rules',
@@ -934,6 +975,9 @@ export function buildFallbackCopilotSnapshot(
       latestReport,
       insuranceInfo
     ),
+    followUpSuggestion,
+    humanHandoffRecommended,
+    humanHandoffReason,
     internalNotes: buildInternalNotes(
       context,
       language,
@@ -1160,6 +1204,27 @@ function snapshotFromUnknown(
       8,
       80
     ),
+    followUpSuggestion:
+      typeof obj.followUpSuggestion === 'string' &&
+      obj.followUpSuggestion.trim().length > 0
+        ? clampText(
+            obj.followUpSuggestion,
+            fallback.followUpSuggestion || '',
+            300
+          )
+        : fallback.followUpSuggestion,
+    humanHandoffRecommended:
+      typeof obj.humanHandoffRecommended === 'boolean'
+        ? obj.humanHandoffRecommended
+        : fallback.humanHandoffRecommended,
+    humanHandoffReason:
+      typeof obj.humanHandoffReason === 'string'
+        ? clampText(
+            obj.humanHandoffReason,
+            fallback.humanHandoffReason || '',
+            200
+          )
+        : fallback.humanHandoffReason,
     internalNotes: asStringArray(
       obj.internalNotes,
       fallback.internalNotes,

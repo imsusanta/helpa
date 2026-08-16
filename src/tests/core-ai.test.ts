@@ -465,4 +465,69 @@ describe('Helpa Core AI Engine', () => {
       expect(copilot.suggestedAction?.label).toBe('Book Appointment');
     });
   });
+
+  describe('Health AI Tools & Follow-Up Execution', () => {
+    it('executes checkDoctorAvailability tool and returns slots', async () => {
+      const tool = aiToolRegistry.get('checkDoctorAvailability');
+      expect(tool).toBeDefined();
+
+      const result = await tool!.execute(
+        { doctorName: 'Dr. Sen', date: '2026-08-20' },
+        {
+          accountId: tenantHealth.id,
+          userId: 'user-1',
+          conversationId: 'conv-h1',
+          contactId: 'contact-h1',
+        }
+      );
+
+      expect(result.success).toBe(true);
+      const data = result.data as { doctor: string; availableSlots: string[] };
+      expect(data.doctor).toBe('Dr. Sen');
+      expect(data.availableSlots.length).toBeGreaterThan(0);
+    });
+
+    it('executes createFollowUp tool and records staff reminder note', async () => {
+      const tool = aiToolRegistry.get('createFollowUp');
+      expect(tool).toBeDefined();
+
+      const result = await tool!.execute(
+        {
+          followUpDate: '2026-08-22',
+          note: 'Confirm blood test report with patient',
+        },
+        {
+          accountId: tenantHealth.id,
+          userId: 'user-1',
+          conversationId: 'conv-h1',
+          contactId: 'contact-h1',
+        }
+      );
+
+      expect(result.success).toBe(true);
+      const data = result.data as { status: string; followUpDate: string };
+      expect(data.status).toBe('Scheduled');
+      expect(data.followUpDate).toBe('2026-08-22');
+    });
+
+    it('executes handoffToHuman tool and pauses AI automation for the thread', async () => {
+      const tool = aiToolRegistry.get('handoffToHuman');
+      expect(tool).toBeDefined();
+
+      const result = await tool!.execute(
+        { reason: 'Patient requested human doctor' },
+        {
+          accountId: tenantHealth.id,
+          userId: 'user-1',
+          conversationId: 'conv-h1',
+          contactId: 'contact-h1',
+        }
+      );
+
+      expect(result.success).toBe(true);
+      const conv = mockDatabase.conversations.find((c) => c.id === 'conv-h1');
+      expect(conv?.needs_human).toBe(true);
+      expect(conv?.ai_chat_enabled).toBe(false);
+    });
+  });
 });
