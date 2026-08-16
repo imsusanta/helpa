@@ -112,12 +112,9 @@ export async function POST(request: Request) {
       .from('knowledge_base')
       .insert({
         account_id: ctx.accountId,
-        accountId: ctx.accountId,
         category,
         question_title: question_title.trim(),
-        questionTitle: question_title.trim(),
         answer_content: answer_content.trim(),
-        answerContent: answer_content.trim(),
       })
       .select()
       .single();
@@ -190,7 +187,6 @@ export async function PATCH(request: Request) {
         );
       }
       updates.question_title = question_title.trim();
-      updates.questionTitle = question_title.trim();
     }
 
     if (answer_content !== undefined) {
@@ -204,7 +200,6 @@ export async function PATCH(request: Request) {
         );
       }
       updates.answer_content = answer_content.trim();
-      updates.answerContent = answer_content.trim();
     }
 
     const { data, error } = await ctx.appwrite

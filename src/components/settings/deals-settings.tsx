@@ -53,7 +53,7 @@ export function DealsSettings() {
     setSaving(true);
 
     try {
-      // 1. Try server route /api/account PATCH first (validates admin role, applies rate limits)
+      // 1. Send server route /api/account PATCH (validates admin role, applies rate limits)
       const res = await fetch('/api/account', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -61,23 +61,8 @@ export function DealsSettings() {
       });
 
       if (!res.ok) {
-        // 2. Client fallback to Appwrite DB update with dual attribute keys
-        const { error } = await appwrite
-          .from('accounts')
-          .update({
-            default_currency: selected,
-            defaultCurrency: selected,
-          })
-          .eq('id', accountId);
-
-        if (error) {
-          const resJson = await res.json().catch(() => ({}));
-          const errMsg =
-            resJson.error || error.message || 'Unknown database error';
-          toast.error(`Failed to save default currency: ${errMsg}`);
-          setSaving(false);
-          return;
-        }
+        const resJson = await res.json().catch(() => ({}));
+        throw new Error(resJson.error || 'Failed to update default currency');
       }
 
       // Pull the new value back into the auth context so forms & dashboards update

@@ -103,7 +103,6 @@ export async function PATCH(request: Request) {
         );
       }
       updates.default_currency = currency;
-      updates.defaultCurrency = currency;
     }
 
     if (Object.keys(updates).length === 0) {
