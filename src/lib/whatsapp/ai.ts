@@ -7,7 +7,7 @@ import {
   sanitizeAiInput,
 } from '@/lib/ai/safety';
 import { logger } from '@/lib/observability/logger';
-import { appwriteAdmin } from '@/lib/appwrite-compat';
+import { appwriteAdmin } from '@/lib/appwrite-server-compat';
 import {
   engineSendText,
   engineSendDocument,
@@ -129,7 +129,10 @@ export async function triggerAiResponse(
     }
   }
 
-  const model = account.openrouter_model || 'google/gemini-2.0-flash';
+  let model = account.openrouter_model || 'google/gemini-2.5-flash';
+  if (model === 'google/gemini-2.0-flash') {
+    model = 'google/gemini-2.0-flash-001';
+  }
 
   // 3. Use pre-fetched messages
   const messages = messagesRes.data;
@@ -714,7 +717,7 @@ Note:
     clearTimeout(timeoutId);
   } catch (err) {
     console.warn(
-      `[AI Assistant] Request with model ${model} failed or timed out. Trying fast fallback model 'google/gemini-2.0-flash'...`,
+      `[AI Assistant] Request with model ${model} failed or timed out. Trying fast fallback model 'google/gemini-2.5-flash'...`,
       err
     );
     try {
@@ -727,10 +730,10 @@ Note:
           'Content-Type': 'application/json',
           Authorization: `Bearer ${apiKey}`,
           'HTTP-Referer': 'https://helpa.studio',
-          'X-Title': 'Helpa Health',
+          'X-Title': businessName || 'Helpa Studio',
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.0-flash',
+          model: 'google/gemini-2.5-flash',
           messages: apiMessages,
           temperature: 0.3,
           max_tokens: 450,
