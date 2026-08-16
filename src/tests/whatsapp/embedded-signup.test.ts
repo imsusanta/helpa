@@ -308,5 +308,51 @@ describe('Meta WhatsApp Embedded Signup & 1-Click Onboarding', () => {
       expect(audit).toBeDefined();
       expect(audit?.account_id).toBe(tenantA.id);
     });
+
+    it('safely handles reconnect flow by updating existing config row and logging WHATSAPP_RECONNECTED', async () => {
+      // Pre-existing connected state
+      mockDatabase.whatsapp_config.push({
+        id: 'cfg-existing-alpha',
+        account_id: tenantA.id,
+        phone_number_id: 'phone-100200',
+        waba_id: 'waba-old',
+        access_token: encrypt('OLD_TOKEN'),
+        status: 'connected',
+      });
+
+      const request = new Request(
+        'http://localhost:3000/api/whatsapp/embedded-signup',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            accessToken: 'EAABwzLIX_RECONNECTED_TOKEN_999',
+            waba_id: 'waba-updated',
+            phone_number_id: 'phone-100200',
+          }),
+        }
+      );
+
+      const response = await embeddedSignupHandler(request);
+      const json = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(json.connected).toBe(true);
+
+      // Still exactly 1 row (updated in place)
+      expect(mockDatabase.whatsapp_config.length).toBe(1);
+      const updated = mockDatabase.whatsapp_config[0];
+      expect(decrypt(updated.access_token as string)).toBe(
+        'EAABwzLIX_RECONNECTED_TOKEN_999'
+      );
+
+      // Audit log records WHATSAPP_RECONNECTED
+      const audit = mockDatabase.audit_logs.find(
+        (l) => l.action === 'WHATSAPP_RECONNECTED'
+      );
+      expect(audit).toBeDefined();
+      expect(audit?.account_id).toBe(tenantA.id);
+    });
   });
 });
