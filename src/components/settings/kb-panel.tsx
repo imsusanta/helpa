@@ -15,6 +15,7 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
+import { getIndustryModule } from '@/modules/registry';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -61,39 +62,81 @@ interface KbEntry {
   updated_at: string;
 }
 
-const CATEGORY_MAP: Record<
-  KbEntry['category'],
-  { label: string; icon: React.ElementType; color: string }
-> = {
-  faq: {
-    label: 'FAQ',
-    icon: HelpCircle,
-    color: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-  },
-  service: {
-    label: 'Services',
-    icon: Briefcase,
-    color: 'bg-green-500/10 text-green-400 border-green-500/20',
-  },
-  pricing: {
-    label: 'Fees & Charges',
-    icon: DollarSign,
-    color: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
-  },
-  policy: {
-    label: 'Hospital Policies',
-    icon: ShieldAlert,
-    color: 'bg-red-500/10 text-red-400 border-red-500/20',
-  },
-  company: {
-    label: 'Hospital Profile',
-    icon: FileText,
-    color: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
-  },
-};
+function getCategoryMap(industryId?: string) {
+  const isHospital = industryId === 'hospital_clinic';
+  const isTravel = industryId === 'travel';
+  const isCoaching = industryId === 'coaching' || industryId === 'solo_teacher';
+  const isRealEstate = industryId === 'real_estate';
+
+  return {
+    faq: {
+      label: 'FAQ',
+      icon: HelpCircle,
+      color: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+    },
+    service: {
+      label: isHospital
+        ? 'Services'
+        : isTravel
+          ? 'Tour Packages & Services'
+          : isCoaching
+            ? 'Courses & Programs'
+            : isRealEstate
+              ? 'Properties & Services'
+              : 'Services',
+      icon: Briefcase,
+      color: 'bg-green-500/10 text-green-400 border-green-500/20',
+    },
+    pricing: {
+      label: isHospital
+        ? 'Fees & Charges'
+        : isTravel
+          ? 'Pricing & Rates'
+          : isCoaching
+            ? 'Tuition & Fees'
+            : 'Pricing & Cost',
+      icon: DollarSign,
+      color: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
+    },
+    policy: {
+      label: isHospital
+        ? 'Hospital Policies'
+        : isTravel
+          ? 'Cancellation & Terms'
+          : isCoaching
+            ? 'Admission Rules'
+            : 'Policies & Terms',
+      icon: ShieldAlert,
+      color: 'bg-red-500/10 text-red-400 border-red-500/20',
+    },
+    company: {
+      label: isHospital
+        ? 'Hospital Profile'
+        : isTravel
+          ? 'Agency Profile'
+          : isCoaching
+            ? 'Institute Profile'
+            : 'Company Profile',
+      icon: FileText,
+      color: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+    },
+  };
+}
 
 export function KbPanel() {
-  const { canSendMessages } = useAuth(); // Agents and above can manage Knowledge Base
+  const { canSendMessages, account } = useAuth();
+  const activeModule = getIndustryModule(account?.industry);
+  const isHospital = activeModule.id === 'hospital_clinic';
+  const categoryMap = getCategoryMap(activeModule.id);
+
+  const panelTitle = isHospital
+    ? 'Hospital Information'
+    : `${activeModule.name} Knowledge Base`;
+
+  const panelDesc = isHospital
+    ? 'Build a repository of verified knowledge about your clinic/hospital. The AI Reply Engine will search this context to answer patient questions accurately.'
+    : `Build a repository of verified knowledge about your ${activeModule.name.toLowerCase()} business. The AI Reply Engine will search this context to answer customer inquiries accurately.`;
+
   const [entries, setEntries] = useState<KbEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>('all');
@@ -228,8 +271,8 @@ export function KbPanel() {
     return (
       <section className="animate-in fade-in-50 max-w-4xl duration-200">
         <SettingsPanelHead
-          title="Hospital Information"
-          description="Manage FAQs, clinical services, consultation fees, and hospital policies that the AI uses to reply to patient inquiries."
+          title={panelTitle}
+          description={panelDesc}
         />
         <Card className="flex h-64 items-center justify-center">
           <Loader2 className="text-muted-foreground size-6 animate-spin" />
@@ -242,8 +285,8 @@ export function KbPanel() {
     <section className="animate-in fade-in-50 max-w-4xl duration-200">
       <div className="flex items-center justify-between">
         <SettingsPanelHead
-          title="Hospital Information"
-          description="Build a repository of verified knowledge about your clinic/hospital. The AI Reply Engine will search this context to answer patient questions accurately."
+          title={panelTitle}
+          description={panelDesc}
         />
         {canSendMessages && (
           <Button
@@ -251,7 +294,7 @@ export function KbPanel() {
             className="flex shrink-0 items-center gap-1.5"
           >
             <Plus className="size-4" />
-            Add Info
+            Add Knowledge
           </Button>
         )}
       </div>
@@ -271,7 +314,7 @@ export function KbPanel() {
             >
               {tab === 'all'
                 ? 'All Categories'
-                : CATEGORY_MAP[tab as KbEntry['category']].label}
+                : categoryMap[tab as KbEntry['category']].label}
             </button>
           )
         )}
@@ -281,7 +324,7 @@ export function KbPanel() {
         <CardHeader>
           <CardTitle className="text-foreground flex items-center gap-2">
             <Database className="text-primary size-4" />
-            Hospital Info Context ({filteredEntries.length})
+            {isHospital ? 'Hospital Info Context' : 'Knowledge Context'} ({filteredEntries.length})
           </CardTitle>
           <CardDescription className="text-muted-foreground">
             Keep your knowledge context concise and factual. The AI works best
@@ -324,7 +367,7 @@ export function KbPanel() {
                 </TableHeader>
                 <TableBody>
                   {filteredEntries.map((entry) => {
-                    const catMeta = CATEGORY_MAP[entry.category];
+                    const catMeta = categoryMap[entry.category] || categoryMap.faq;
                     const CatIcon = catMeta.icon;
                     return (
                       <TableRow key={entry.id} className="hover:bg-muted/30">
@@ -398,11 +441,11 @@ export function KbPanel() {
                   <SelectValue placeholder="Select Category" />
                 </SelectTrigger>
                 <SelectContent className="bg-popover text-popover-foreground border-border">
-                  <SelectItem value="faq">FAQ</SelectItem>
-                  <SelectItem value="service">Service Details</SelectItem>
-                  <SelectItem value="pricing">Pricing & Cost</SelectItem>
-                  <SelectItem value="policy">Terms & Policies</SelectItem>
-                  <SelectItem value="company">Company Info</SelectItem>
+                  <SelectItem value="faq">{categoryMap.faq.label}</SelectItem>
+                  <SelectItem value="service">{categoryMap.service.label}</SelectItem>
+                  <SelectItem value="pricing">{categoryMap.pricing.label}</SelectItem>
+                  <SelectItem value="policy">{categoryMap.policy.label}</SelectItem>
+                  <SelectItem value="company">{categoryMap.company.label}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -413,7 +456,11 @@ export function KbPanel() {
                 id="title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g., What are our delivery charges?"
+                placeholder={
+                  isHospital
+                    ? 'e.g., Consultation Hours or Blood Test Cost'
+                    : 'e.g., Cancellation Policy or Tour Package Details'
+                }
                 className="bg-background text-foreground"
               />
             </div>

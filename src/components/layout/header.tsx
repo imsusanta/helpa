@@ -12,21 +12,39 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { getIndustryModule } from '@/modules/registry';
 import { ModeToggle } from '@/components/layout/mode-toggle';
 
 const pageTitles: Record<string, string> = {
   '/dashboard': 'Dashboard',
   '/inbox': 'WhatsApp Chats',
   '/patients': 'Patients',
+  '/customers': 'Customers',
+  '/students': 'Students',
+  '/members': 'Members',
   '/appointments': 'Appointments',
-  '/follow-ups': 'Follow-ups & Patient Care',
+  '/bookings': 'Bookings',
+  '/site-visits': 'Site Visits',
+  '/follow-ups': 'Follow-ups',
   '/doctors': 'Doctors',
+  '/teachers': 'Teachers',
+  '/trainers': 'Trainers',
   '/departments': 'Departments',
+  '/courses': 'Courses',
+  '/packages': 'Tour Packages',
+  '/properties': 'Properties',
+  '/classes': 'Classes',
+  '/tables': 'Tables',
+  '/orders': 'Orders',
+  '/reservations': 'Reservations',
+  '/memberships': 'Memberships',
+  '/admissions': 'Admissions',
+  '/leads': 'Leads',
   '/lab-reports': 'Reports',
   '/billing': 'Billing',
-  '/pipelines': 'Appointment Status',
+  '/pipelines': 'Pipelines',
   '/broadcasts': 'Broadcast Campaigns',
-  '/knowledge-base': 'Hospital Information',
+  '/knowledge-base': 'Knowledge Base',
   '/dashboard/analytics': 'Analytics',
   '/settings': 'Settings',
 };
@@ -47,8 +65,16 @@ interface HeaderProps {
 
 export function Header({ onOpenSidebar }: HeaderProps) {
   const pathname = usePathname();
-  const { profile, signOut } = useAuth();
-  const title = getPageTitle(pathname);
+  const { profile, account, signOut } = useAuth();
+  const activeModule = getIndustryModule(account?.industry);
+
+  const sidebarMatch = activeModule?.sidebar?.find(
+    (item) =>
+      pathname === item.href ||
+      (item.href !== '/dashboard' && pathname.startsWith(item.href))
+  );
+
+  const title = sidebarMatch?.label || pageTitles[pathname] || getPageTitle(pathname);
 
   const initial =
     profile?.full_name?.charAt(0)?.toUpperCase() ??
