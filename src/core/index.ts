@@ -26,3 +26,4 @@ export * from './notifications';
 export * from './analytics';
 export * from './workspace';
 export * from './tenants';
+export * from './whatsapp';

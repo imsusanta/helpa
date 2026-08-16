@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getAdminClient } from '@/lib/appwrite-server-compat';
-import { decrypt } from '@/lib/whatsapp/encryption';
 import { verifyMetaWebhookSignature } from '@/lib/whatsapp/webhook-signature';
 import {
   handleTemplateWebhookChange,
   isTemplateWebhookField,
 } from '@/lib/whatsapp/template-webhook';
+import { resolveTenantByPhoneNumberId } from '@/core/whatsapp';
 import { handleWebhookGet } from './verify-request';
 import { handleStatusUpdate } from './process-status';
 import { processMessage } from './process-message';
@@ -86,99 +86,23 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
       const phoneNumberId = value.metadata?.phone_number_id;
       if (!phoneNumberId) continue;
 
-      let configRows: Record<string, unknown>[] | null = null;
-      try {
-        const { data } = await getAdminClient()
-          .from('whatsapp_config')
-          .select('*')
-          .eq('phone_number_id', phoneNumberId);
-        if (data && data.length > 0) configRows = data;
-      } catch {
-        // Fallback
-      }
-
-      if (!configRows || configRows.length === 0) {
-        try {
-          const { data } = await getAdminClient()
-            .from('whatsapp_configs')
-            .select('*')
-            .eq('phone_number_id', phoneNumberId);
-          if (data && data.length > 0) configRows = data;
-        } catch {
-          // Fallback
-        }
-      }
-
-      if (!configRows || configRows.length === 0) {
-        try {
-          const { data } = await getAdminClient()
-            .from('whatsapp_configs')
-            .select('*')
-            .eq('phoneNumberId', phoneNumberId);
-          if (data && data.length > 0) configRows = data;
-        } catch {
-          // Fallback
-        }
-      }
-
-      if (!configRows || configRows.length === 0) {
-        try {
-          const { data: allConfigs } = await getAdminClient()
-            .from('whatsapp_config')
-            .select('*')
-            .limit(2);
-          if (allConfigs && allConfigs.length === 1) {
-            configRows = allConfigs;
-          }
-        } catch {
-          // Fallback
-        }
-      }
-
-      if (!configRows || configRows.length === 0) {
-        try {
-          const { data: allConfigs } = await getAdminClient()
-            .from('whatsapp_configs')
-            .select('*')
-            .limit(2);
-          if (allConfigs && allConfigs.length === 1) {
-            configRows = allConfigs;
-          }
-        } catch {
-          // Fallback
-        }
-      }
-
-      if (!configRows || configRows.length === 0) {
+      // Strict multi-tenant resolution by Phone Number ID
+      const tenantContext = await resolveTenantByPhoneNumberId(phoneNumberId);
+      if (!tenantContext) {
         throw new Error(
           `No WhatsApp configuration found for phone_number_id ${phoneNumberId}`
         );
       }
 
-      const config = configRows[0];
-      const encToken = String(
-        config.encryptedAccessToken ||
-          config.encrypted_access_token ||
-          config.accessToken ||
-          config.access_token ||
-          ''
-      );
-
-      let decryptedAccessToken = '';
-      if (encToken) {
-        try {
-          decryptedAccessToken = decrypt(encToken);
-        } catch (err: unknown) {
-          const message = err instanceof Error ? err.message : String(err);
-          console.warn(
-            `[webhook] Access token decryption failed for phone_number_id ${phoneNumberId}: ${message}. ` +
-              `Please re-save your WhatsApp configuration in CRM Settings → WhatsApp Integration.`
-          );
-        }
+      // Update last_webhook_at timestamp for tenant health tracking
+      try {
+        await getAdminClient()
+          .from('whatsapp_config')
+          .update({ last_webhook_at: new Date().toISOString() })
+          .eq('phone_number_id', phoneNumberId);
+      } catch {
+        // Non-critical timestamp update failure
       }
-
-      const accountId = String(config.accountId || config.account_id || '');
-      const userId = String(config.userId || config.user_id || '');
 
       for (let i = 0; i < value.messages.length; i++) {
         const message = value.messages[i];
@@ -187,11 +111,12 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
         await processMessage(
           message,
           contact,
-          accountId,
-          userId,
-          decryptedAccessToken
+          tenantContext.tenantId,
+          tenantContext.userId,
+          tenantContext.accessToken
         );
       }
     }
   }
 }
+

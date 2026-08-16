@@ -13,11 +13,9 @@ import {
   Zap,
   AlertTriangle,
   RotateCcw,
-  QrCode,
   Sparkles,
 } from 'lucide-react';
 import { launchWhatsAppEmbeddedSignup } from '@/lib/whatsapp/embedded-signup';
-import { WhatsAppQrPanel } from './whatsapp-qr-panel';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -69,9 +67,7 @@ export function WhatsAppConfig() {
   const [verifyToken, setVerifyToken] = useState('');
   const [pin, setPin] = useState('');
   const [tokenEdited, setTokenEdited] = useState(false);
-  const [activeMethod, setActiveMethod] = useState<
-    'embedded' | 'qr' | 'manual'
-  >('embedded');
+  const [activeMethod, setActiveMethod] = useState<'embedded' | 'manual'>('embedded');
   const [connectingEmbedded, setConnectingEmbedded] = useState(false);
 
   // True once /register has succeeded on Meta's side (timestamp set
@@ -647,7 +643,7 @@ export function WhatsAppConfig() {
           )}
 
           {/* Connection Method Switcher Tabs */}
-          <div className="bg-muted/40 border-border grid grid-cols-3 gap-2 rounded-xl border p-1.5">
+          <div className="bg-muted/40 border-border grid grid-cols-2 gap-2 rounded-xl border p-1.5">
             <button
               type="button"
               onClick={() => setActiveMethod('embedded')}
@@ -658,20 +654,7 @@ export function WhatsAppConfig() {
               }`}
             >
               <Sparkles className="h-4 w-4 text-blue-500" />
-              <span>1-Click Meta Login</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveMethod('qr')}
-              className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-xs font-semibold transition-all ${
-                activeMethod === 'qr'
-                  ? 'bg-card text-foreground border-border/50 border shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <QrCode className="h-4 w-4 text-emerald-500" />
-              <span>Scan QR Code</span>
+              <span>⚡ 1-Click Meta Login (Recommended)</span>
             </button>
 
             <button
@@ -684,7 +667,7 @@ export function WhatsAppConfig() {
               }`}
             >
               <Zap className="h-4 w-4 text-amber-500" />
-              <span>Manual API Keys</span>
+              <span>⚙️ Developer / Manual API Setup</span>
             </button>
           </div>
 
@@ -770,12 +753,7 @@ export function WhatsAppConfig() {
             </Card>
           )}
 
-          {/* Tab 2: QR Code Linked Device */}
-          {activeMethod === 'qr' && (
-            <WhatsAppQrPanel onConnectionSuccess={fetchConfig} />
-          )}
-
-          {/* Tab 3: Manual API Credentials (Advanced / Fallback) */}
+          {/* Tab 2: Manual API Credentials (Advanced / Fallback) */}
           {activeMethod === 'manual' && (
             <>
               {/* API Credentials */}

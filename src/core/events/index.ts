@@ -50,6 +50,13 @@ class CoreEventBus {
     };
   }
 
+  public on<T = Record<string, unknown>>(
+    eventType: CoreEventType | string,
+    handler: EventHandler<T>
+  ): () => void {
+    return this.subscribe(eventType, handler);
+  }
+
   public async emit<T = Record<string, unknown>>(
     type: CoreEventType | string,
     accountId: string,
