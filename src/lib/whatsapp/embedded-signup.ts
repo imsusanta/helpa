@@ -19,6 +19,18 @@ declare global {
       AppEvents?: {
         logPageView: () => void;
       };
+      getLoginStatus?: (
+        callback: (response: {
+          authResponse?: {
+            accessToken?: string;
+            userID?: string;
+            expiresIn?: number;
+            signedRequest?: string;
+          };
+          status?: string;
+        }) => void,
+        roundtrip?: boolean
+      ) => void;
       login: (
         callback: (response: {
           authResponse?: {
@@ -267,5 +279,29 @@ export async function launchWhatsAppEmbeddedSignup({
         );
       }
     }, loginOptions);
+  });
+}
+
+/**
+ * Checks current Facebook login status using FB.getLoginStatus.
+ */
+export async function getFacebookLoginStatus(appId: string): Promise<{
+  status?: string;
+  authResponse?: {
+    accessToken?: string;
+    userID?: string;
+    expiresIn?: number;
+    signedRequest?: string;
+  };
+}> {
+  await loadFacebookSdk(appId);
+  return new Promise((resolve) => {
+    if (!window.FB || !window.FB.getLoginStatus) {
+      resolve({ status: 'unknown' });
+      return;
+    }
+    window.FB.getLoginStatus((response) => {
+      resolve(response);
+    });
   });
 }
