@@ -373,7 +373,9 @@ export function WhatsAppConfig() {
     setConnectingEmbedded(true);
     try {
       const appId = process.env.NEXT_PUBLIC_META_APP_ID || '1461038582135406';
-      const result = await launchWhatsAppEmbeddedSignup({ appId });
+      const configId =
+        process.env.NEXT_PUBLIC_META_CONFIG_ID || '4607476386162686';
+      const result = await launchWhatsAppEmbeddedSignup({ appId, configId });
 
       const res = await fetch('/api/whatsapp/embedded-signup', {
         method: 'POST',
