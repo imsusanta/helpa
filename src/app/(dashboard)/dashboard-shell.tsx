@@ -4,13 +4,16 @@ import { useCallback, useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { AuthProvider, useAuth } from '@/hooks/use-auth';
+import { useWorkspace } from '@/hooks/use-workspace';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
 import { DashboardErrorBoundary } from '@/components/dashboard/error-boundary';
 import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 function DashboardShellInner({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
+  const { isRouteAllowed, manifest } = useWorkspace();
   const router = useRouter();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -26,6 +29,16 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
 
   const pathname = usePathname();
   const isInbox = pathname === '/inbox';
+
+  // Route protection: prevent access to irrelevant industry modules
+  useEffect(() => {
+    if (!loading && user && pathname && !isRouteAllowed(pathname)) {
+      toast.info(
+        `The page '${pathname}' is not available in the ${manifest.name} workspace.`
+      );
+      router.replace('/dashboard');
+    }
+  }, [loading, user, pathname, isRouteAllowed, manifest, router]);
 
   if (loading) {
     return (

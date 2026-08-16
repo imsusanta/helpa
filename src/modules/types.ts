@@ -81,10 +81,27 @@ export interface WorkflowSeed {
   steps: Array<Record<string, unknown>>;
 }
 
+export interface IndustryTerminology {
+  contact: string;
+  contacts: string;
+  booking: string;
+  bookings: string;
+  staff: string;
+  staffMembers: string;
+  service: string;
+  services: string;
+}
+
+export type IndustryFeatures = Record<string, boolean>;
+
 export interface IndustryModule {
   id: string;
   name: string;
   description: string;
+  aiRole?: string;
+  terminology?: IndustryTerminology;
+  features?: IndustryFeatures;
+  allowedRoutes?: string[];
   sidebar: ModuleNavItem[];
   dashboardMetrics: DashboardMetricWidget[];
   systemPrompt: string;

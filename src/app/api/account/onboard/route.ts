@@ -34,12 +34,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, reset: true });
     }
 
-    const industryKey = industry || 'general';
-    const config = getIndustryModule(industryKey);
+    if (!industry || typeof industry !== 'string') {
+      return NextResponse.json(
+        { error: 'Industry selection is required.' },
+        { status: 400 }
+      );
+    }
+
+    const config = getIndustryModule(industry);
+    const validIndustryId = config.id;
 
     // 1. Update Accounts table columns (industry, name, logo, ai_system_prompt)
     const updates: Record<string, unknown> = {
-      industry: industryKey,
+      industry: validIndustryId,
       ai_system_prompt: config.systemPrompt,
       updated_at: new Date().toISOString(),
     };
@@ -284,7 +291,7 @@ export async function POST(request: Request) {
       console.warn('[onboard route] soft error seeding automations:', autoErr);
     }
 
-    return NextResponse.json({ success: true, industry: industryKey });
+    return NextResponse.json({ success: true, industry: validIndustryId });
   } catch (err) {
     return toErrorResponse(err);
   }

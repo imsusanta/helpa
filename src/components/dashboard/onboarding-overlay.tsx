@@ -35,13 +35,14 @@ interface IndustryItem {
 
 const INDUSTRIES: IndustryItem[] = [
   {
-    id: 'hospital_clinic',
-    name: 'Hospital & Clinic',
-    description: 'AI Hospital Receptionist',
+    id: 'health',
+    name: 'Health & Clinic',
+    description: 'AI-powered patient communication and clinic reception.',
     features: [
-      'Patient Communication',
+      'Patient Management',
       'Appointment Booking',
       'Doctor Directory',
+      'Lab Reports',
       'AI Receptionist',
     ],
     icon: Stethoscope,
@@ -51,12 +52,13 @@ const INDUSTRIES: IndustryItem[] = [
   },
   {
     id: 'coaching',
-    name: 'Coaching Institute',
-    description: 'AI Admission Assistant',
+    name: 'Coaching',
+    description: 'Manage student enquiries, courses and admissions.',
     features: [
-      'Student Communication',
+      'Student CRM',
       'Course Enquiries',
-      'Admission Management',
+      'Batches & Classes',
+      'Admission Pipeline',
       'AI Counselor',
     ],
     icon: GraduationCap,
@@ -65,57 +67,13 @@ const INDUSTRIES: IndustryItem[] = [
     border: 'border-indigo-500/20 hover:border-indigo-500/40',
   },
   {
-    id: 'real_estate',
-    name: 'Real Estate',
-    description: 'AI Property Consultant',
+    id: 'tutor',
+    name: 'Solo Tutor',
+    description: 'Manage students, courses and classes.',
     features: [
-      'Lead Management',
-      'Property Enquiries',
-      'Site Visits',
-      'AI Sales Assistant',
-    ],
-    icon: Building2,
-    color: 'text-blue-500',
-    bg: 'bg-blue-500/5 hover:bg-blue-500/10',
-    border: 'border-blue-500/20 hover:border-blue-500/40',
-  },
-  {
-    id: 'travel',
-    name: 'Travel Agency',
-    description: 'AI Travel Assistant',
-    features: ['Booking Support', 'Tour Packages', 'Customer Communication'],
-    icon: Plane,
-    color: 'text-sky-500',
-    bg: 'bg-sky-500/5 hover:bg-sky-500/10',
-    border: 'border-sky-500/20 hover:border-sky-500/40',
-  },
-  {
-    id: 'gym',
-    name: 'Gym & Fitness',
-    description: 'AI Membership Assistant',
-    features: ['Member Support', 'Memberships', 'Class Booking'],
-    icon: Dumbbell,
-    color: 'text-red-500',
-    bg: 'bg-red-500/5 hover:bg-red-500/10',
-    border: 'border-red-500/20 hover:border-red-500/40',
-  },
-  {
-    id: 'restaurant',
-    name: 'Restaurant',
-    description: 'AI Reservation Assistant',
-    features: ['Table Reservation', 'Customer Communication', 'Order Support'],
-    icon: Utensils,
-    color: 'text-orange-500',
-    bg: 'bg-orange-500/5 hover:bg-orange-500/10',
-    border: 'border-orange-500/20 hover:border-orange-500/40',
-  },
-  {
-    id: 'solo_teacher',
-    name: 'Solo Teacher',
-    description: 'AI Teaching Assistant',
-    features: [
-      'Student Communication',
-      'Course Management',
+      'Student Management',
+      'Course Schedule',
+      'Class Batches',
       'Enrollment Tracking',
       'AI Tutor',
     ],
@@ -125,14 +83,36 @@ const INDUSTRIES: IndustryItem[] = [
     border: 'border-violet-500/20 hover:border-violet-500/40',
   },
   {
-    id: 'other',
-    name: 'Other Business',
-    description: 'Create a custom workspace.',
-    features: ['Custom Layouts', 'Flexible CRM Tools'],
-    icon: HelpCircle,
-    color: 'text-muted-foreground',
-    bg: 'bg-muted/30 hover:bg-muted/60',
-    border: 'border-border hover:border-muted-foreground/30',
+    id: 'salon',
+    name: 'Salon & Spa',
+    description: 'Manage customers, services and appointments.',
+    features: [
+      'Client Management',
+      'Service Menu',
+      'Stylist Directory',
+      'Appointment Booking',
+      'AI Salon Receptionist',
+    ],
+    icon: Sparkles,
+    color: 'text-pink-500',
+    bg: 'bg-pink-500/5 hover:bg-pink-500/10',
+    border: 'border-pink-500/20 hover:border-pink-500/40',
+  },
+  {
+    id: 'real_estate',
+    name: 'Real Estate',
+    description: 'Manage leads, properties and site visits.',
+    features: [
+      'Lead Management',
+      'Property Listings',
+      'Agent Directory',
+      'Site Visit Booking',
+      'AI Property Assistant',
+    ],
+    icon: Building2,
+    color: 'text-blue-500',
+    bg: 'bg-blue-500/5 hover:bg-blue-500/10',
+    border: 'border-blue-500/20 hover:border-blue-500/40',
   },
 ];
 
@@ -290,11 +270,11 @@ export function OnboardingOverlay() {
             </div>
             <div className="space-y-3">
               <h2 className="text-foreground from-foreground to-muted-foreground bg-gradient-to-r bg-clip-text text-3xl font-extrabold tracking-tight text-transparent sm:text-5xl">
-                Welcome to ReplyDesk
+                Welcome to Helpa
               </h2>
               <p className="text-muted-foreground mx-auto max-w-md text-sm leading-relaxed">
-                Your intelligent multi-industry AI assistant dashboard.
-                Let&apos;s seed your workspace parameters and templates in
+                Your intelligent multi-industry AI business communication platform.
+                Let&apos;s configure your workspace parameters and templates in
                 seconds.
               </p>
             </div>
@@ -448,9 +428,9 @@ export function OnboardingOverlay() {
                 What type of business do you run?
               </h2>
               <p className="text-muted-foreground text-xs leading-relaxed sm:text-sm">
-                Choose your business type. ReplyDesk will automatically
-                configure your workspace, AI assistant, dashboard, and
-                workflows.
+                Choose the workspace that best fits your business. Helpa will
+                automatically configure your workspace, AI assistant, dashboard,
+                and workflows.
               </p>
             </div>
 
@@ -521,7 +501,7 @@ export function OnboardingOverlay() {
                 disabled={!selectedIndustry}
                 className="w-full cursor-pointer rounded-full bg-indigo-600 px-8 py-4 text-xs font-bold text-white shadow-lg shadow-indigo-500/20 transition-all hover:scale-[1.02] hover:bg-indigo-700 hover:shadow-indigo-500/35 disabled:opacity-50 sm:w-auto"
               >
-                Confirm & Launch Workspace
+                Continue
               </Button>
             </div>
           </div>
