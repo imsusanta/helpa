@@ -63,20 +63,32 @@ export function useWorkspace(): WorkspaceContextValue {
 
   const isRouteAllowed = useMemo(
     () => (pathname: string) => {
-      if (!manifest.allowedRoutes || manifest.allowedRoutes.length === 0) {
-        return true;
-      }
-      // Core routes always allowed
+      // Core platform routes always allowed across all workspace industries
       if (
         pathname === '/dashboard' ||
+        pathname.startsWith('/dashboard/') ||
         pathname === '/inbox' ||
+        pathname.startsWith('/inbox/') ||
         pathname === '/settings' ||
+        pathname.startsWith('/settings/') ||
         pathname === '/broadcasts' ||
+        pathname.startsWith('/broadcasts/') ||
         pathname === '/knowledge-base' ||
-        pathname === '/dashboard/analytics'
+        pathname.startsWith('/knowledge-base/') ||
+        pathname === '/admin' ||
+        pathname.startsWith('/admin/') ||
+        pathname === '/billing' ||
+        pathname.startsWith('/billing/') ||
+        pathname === '/automations' ||
+        pathname.startsWith('/automations/')
       ) {
         return true;
       }
+
+      if (!manifest.allowedRoutes || manifest.allowedRoutes.length === 0) {
+        return true;
+      }
+
       return manifest.allowedRoutes.some((route) => pathname.startsWith(route));
     },
     [manifest]
