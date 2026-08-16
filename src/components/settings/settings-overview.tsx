@@ -235,24 +235,9 @@ export function SettingsOverview({
 
     try {
       updateChecklistItem(0, 'loading');
-      await new Promise((r) => setTimeout(r, 800));
-      updateChecklistItem(0, 'done');
 
-      updateChecklistItem(1, 'loading');
-      await new Promise((r) => setTimeout(r, 800));
-      updateChecklistItem(1, 'done');
-
-      updateChecklistItem(2, 'loading');
-      await new Promise((r) => setTimeout(r, 850));
-      updateChecklistItem(2, 'done');
-
-      updateChecklistItem(3, 'loading');
-      await new Promise((r) => setTimeout(r, 800));
-      updateChecklistItem(3, 'done');
-
-      updateChecklistItem(4, 'loading');
-
-      const response = await fetch('/api/account/onboard', {
+      // Fire the API request immediately
+      const onboardPromise = fetch('/api/account/onboard', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -261,22 +246,39 @@ export function SettingsOverview({
         }),
       });
 
+      // Animate progress smoothly while API processes
+      await new Promise((r) => setTimeout(r, 400));
+      updateChecklistItem(0, 'done');
+      updateChecklistItem(1, 'loading');
+
+      await new Promise((r) => setTimeout(r, 400));
+      updateChecklistItem(1, 'done');
+      updateChecklistItem(2, 'loading');
+
+      await new Promise((r) => setTimeout(r, 400));
+      updateChecklistItem(2, 'done');
+      updateChecklistItem(3, 'loading');
+
+      await new Promise((r) => setTimeout(r, 400));
+      updateChecklistItem(3, 'done');
+      updateChecklistItem(4, 'loading');
+
+      const response = await onboardPromise;
       if (!response.ok) {
         const result = await response.json().catch(() => ({}));
         throw new Error(result.error || 'Failed to apply workspace template');
       }
 
       updateChecklistItem(4, 'done');
-
       updateChecklistItem(5, 'loading');
-      await new Promise((r) => setTimeout(r, 800));
+      await new Promise((r) => setTimeout(r, 300));
       updateChecklistItem(5, 'done');
 
       toast.success('Workspace updated successfully!');
       setModalOpen(false);
       setInstallationStep('idle');
 
-      // Reload page to force recalculating sidebar items and clean context layouts
+      // Reload page to re-render sidebar items and module layouts
       window.location.reload();
     } catch (err: unknown) {
       toast.error((err as Error).message || 'Template application failed.');

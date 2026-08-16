@@ -12,6 +12,40 @@ export async function GET() {
       .eq('user_id', ctx.userId)
       .maybeSingle();
 
+    const effectiveAccountId = dbProfile?.account_id || ctx.accountId;
+    let accountData: {
+      id: string;
+      name: string;
+      default_currency: string;
+      industry: string;
+    } | null = null;
+
+    if (effectiveAccountId) {
+      const { data: dbAccount } = await supabase
+        .from('accounts')
+        .select('id, name, default_currency, industry')
+        .eq('id', effectiveAccountId)
+        .maybeSingle();
+
+      if (dbAccount) {
+        accountData = {
+          id: dbAccount.id,
+          name: dbAccount.name || 'Workspace Account',
+          default_currency: dbAccount.default_currency || 'USD',
+          industry: dbAccount.industry || 'general',
+        };
+      }
+    }
+
+    if (!accountData) {
+      accountData = {
+        id: effectiveAccountId || ctx.accountId,
+        name: ctx.account?.name || 'Workspace Account',
+        default_currency: 'USD',
+        industry: 'general',
+      };
+    }
+
     if (pErr || !dbProfile) {
       return NextResponse.json({
         success: true,
@@ -26,6 +60,7 @@ export async function GET() {
           account_role: ctx.role,
           is_super_admin: false,
         },
+        account: accountData,
       });
     }
 
@@ -42,6 +77,7 @@ export async function GET() {
         account_role: dbProfile.account_role || ctx.role || 'owner',
         is_super_admin: Boolean(dbProfile.is_super_admin),
       },
+      account: accountData,
     });
   } catch (err) {
     return toErrorResponse(err);
