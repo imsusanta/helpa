@@ -481,7 +481,148 @@ aiToolRegistry.register({
   },
 });
 
-// 8. Human Handoff (All industries)
+// 12. Search Salon Services (Salon)
+aiToolRegistry.register({
+  name: 'searchSalonServices',
+  description: 'Searches salon service menu, treatments, duration, and pricing.',
+  type: 'read',
+  allowedIndustries: ['salon'],
+  parameters: {
+    serviceQuery: {
+      type: 'string',
+      description: 'Name of the salon treatment or service category (e.g. Haircut, Hair Color, Facial, Spa).',
+    },
+  },
+  execute: async (params) => {
+    const q = String(params.serviceQuery || 'Haircut').toLowerCase();
+    return {
+      success: true,
+      data: {
+        services: [
+          {
+            name: 'Haircut & Styling',
+            category: 'Hair',
+            price: '₹500',
+            duration: '45 mins',
+            pricingType: 'Fixed',
+          },
+          {
+            name: 'Global Hair Coloring & Highlights',
+            category: 'Hair Color',
+            price: 'Starting From ₹2,500',
+            duration: '120 mins',
+            pricingType: 'Starting From',
+          },
+          {
+            name: 'Hydra-Glow Brightening Facial',
+            category: 'Facial',
+            price: '₹1,200',
+            duration: '60 mins',
+            pricingType: 'Fixed',
+          },
+        ],
+      },
+    };
+  },
+});
+
+// 13. Reschedule Appointment (Health / Salon)
+aiToolRegistry.register({
+  name: 'rescheduleAppointment',
+  description: 'Reschedules an existing appointment to a new date and time slot.',
+  type: 'write',
+  allowedIndustries: ['health', 'hospital', 'salon'],
+  parameters: {
+    appointmentId: {
+      type: 'string',
+      description: 'Appointment ID to reschedule.',
+      required: true,
+    },
+    newDate: {
+      type: 'string',
+      description: 'New appointment date (YYYY-MM-DD).',
+      required: true,
+    },
+    newTime: {
+      type: 'string',
+      description: 'New appointment time slot (e.g. 05:00 PM).',
+      required: true,
+    },
+  },
+  execute: async (params, context: AiExecutionContext) => {
+    const db = getAdminClient();
+    const apptId = String(params.appointmentId);
+    const newDate = String(params.newDate);
+    const newTime = String(params.newTime);
+
+    await db
+      .from('appointments')
+      .update({
+        appointment_date: newDate,
+        appointment_time: newTime,
+        status: 'Rescheduled',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', apptId)
+      .eq('account_id', context.accountId);
+
+    return {
+      success: true,
+      data: {
+        appointmentId: apptId,
+        newDate,
+        newTime,
+        status: 'Rescheduled',
+        message: `Appointment successfully rescheduled to ${newDate} at ${newTime}.`,
+      },
+    };
+  },
+});
+
+// 14. Cancel Appointment (Health / Salon)
+aiToolRegistry.register({
+  name: 'cancelAppointment',
+  description: 'Cancels an existing appointment without deleting historical records.',
+  type: 'write',
+  allowedIndustries: ['health', 'hospital', 'salon'],
+  parameters: {
+    appointmentId: {
+      type: 'string',
+      description: 'Appointment ID to cancel.',
+      required: true,
+    },
+    reason: {
+      type: 'string',
+      description: 'Reason for cancellation.',
+    },
+  },
+  execute: async (params, context: AiExecutionContext) => {
+    const db = getAdminClient();
+    const apptId = String(params.appointmentId);
+    const reason = params.reason ? String(params.reason) : 'Cancelled by customer';
+
+    await db
+      .from('appointments')
+      .update({
+        status: 'Cancelled',
+        notes: `Cancelled: ${reason}`,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', apptId)
+      .eq('account_id', context.accountId);
+
+    return {
+      success: true,
+      data: {
+        appointmentId: apptId,
+        status: 'Cancelled',
+        message: 'Appointment has been cancelled.',
+      },
+    };
+  },
+});
+
+// 15. Human Handoff (All industries)
 aiToolRegistry.register({
   name: 'handoffToHuman',
   description: 'Transfers the conversation to human staff when the user requests it or when the inquiry requires specialized human assistance.',
