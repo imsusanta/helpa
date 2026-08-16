@@ -23,14 +23,26 @@ import {
   recordSecurityEvent,
 } from '@/core/security';
 import { encrypt, decrypt } from '@/lib/whatsapp/encryption';
-import { checkSuperAdmin, isPlatformOwnerEmail, PLATFORM_OWNER_EMAIL } from '@/lib/auth/admin';
+import {
+  checkSuperAdmin,
+  isPlatformOwnerEmail,
+  PLATFORM_OWNER_EMAIL,
+} from '@/lib/auth/admin';
 import { ForbiddenError } from '@/lib/auth/account';
 import * as appwriteCompat from '@/lib/appwrite-server-compat';
 import { coreEvents } from '@/core/events';
 
 describe('Helpa Multi-Tenant Security & Security Hardening', () => {
-  const tenantA = { id: 'workspace-alpha-01', name: 'Alpha Clinic', industry: 'Health' };
-  const tenantB = { id: 'workspace-beta-02', name: 'Beta Salon', industry: 'Salon' };
+  const tenantA = {
+    id: 'workspace-alpha-01',
+    name: 'Alpha Clinic',
+    industry: 'Health',
+  };
+  const tenantB = {
+    id: 'workspace-beta-02',
+    name: 'Beta Salon',
+    industry: 'Salon',
+  };
 
   let mockDatabase: {
     audit_logs: Array<Record<string, unknown>>;
@@ -43,7 +55,10 @@ describe('Helpa Multi-Tenant Security & Security Hardening', () => {
 
     vi.spyOn(appwriteCompat, 'getAdminClient').mockReturnValue({
       from: (table: string) => {
-        const store = (mockDatabase as Record<string, Array<Record<string, unknown>>>)[table] || [];
+        const store =
+          (mockDatabase as Record<string, Array<Record<string, unknown>>>)[
+            table
+          ] || [];
         return {
           insert: (data: Record<string, unknown>) => {
             const row = { id: `id-${Date.now()}-${Math.random()}`, ...data };
@@ -94,9 +109,9 @@ describe('Helpa Multi-Tenant Security & Security Hardening', () => {
 
     it('rejects client workspace_id parameter manipulation', () => {
       // Authenticated as Tenant A, but client sends Tenant B in payload
-      expect(() =>
-        validateWorkspaceContext(tenantA.id, tenantB.id)
-      ).toThrow(ForbiddenError);
+      expect(() => validateWorkspaceContext(tenantA.id, tenantB.id)).toThrow(
+        ForbiddenError
+      );
 
       // Same workspace passes
       expect(validateWorkspaceContext(tenantA.id, tenantA.id)).toBe(tenantA.id);
@@ -149,7 +164,10 @@ describe('Helpa Multi-Tenant Security & Security Hardening', () => {
         },
       };
 
-      const sanitized = sanitizeLogMetadata(metadata) as Record<string, unknown>;
+      const sanitized = sanitizeLogMetadata(metadata) as Record<
+        string,
+        unknown
+      >;
       expect(sanitized.action).toBe('user_login');
       expect(sanitized.user_email).toBe('test@helpa.ai');
       expect(sanitized.password).toBe('[REDACTED]');

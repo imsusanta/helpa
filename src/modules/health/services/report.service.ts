@@ -82,8 +82,7 @@ export async function deliverReportToPatient(
     tenantId: accountId,
     to: recipientMobile,
     type: 'text',
-    text:
-      '📄 Hello, your diagnostic medical report is ready and attached. Please find your official clinic report. For doctor consultation, reply with "Book Appointment".',
+    text: '📄 Hello, your diagnostic medical report is ready and attached. Please find your official clinic report. For doctor consultation, reply with "Book Appointment".',
   });
 
   return {

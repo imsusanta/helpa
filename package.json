@@ -5,13 +5,13 @@
   "description": "Helpa — WhatsApp AI Receptionist & Patient Engagement CRM for Clinics and Hospitals. Built on Next.js 16 and Appwrite.",
   "license": "MIT",
   "author": "Susanta Lohar",
-  "homepage": "https://github.com/imsusanta/wacrm_susanta",
+  "homepage": "https://github.com/imsusanta/helpa",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/imsusanta/wacrm_susanta.git"
+    "url": "git+https://github.com/imsusanta/helpa.git"
   },
   "bugs": {
-    "url": "https://github.com/imsusanta/wacrm_susanta/issues"
+    "url": "https://github.com/imsusanta/helpa/issues"
   },
   "keywords": [
     "crm",

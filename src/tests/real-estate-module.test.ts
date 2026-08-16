@@ -36,7 +36,10 @@ import { coreEvents } from '@/core/events';
 
 describe('Helpa Real Estate Industry Module', () => {
   const agencyA = { id: 'agency-skyline-01', name: 'Skyline Realty Group' };
-  const agencyB = { id: 'agency-heritage-02', name: 'Heritage Estate Consultants' };
+  const _agencyB = {
+    id: 'agency-heritage-02',
+    name: 'Heritage Estate Consultants',
+  };
 
   let mockDatabase: {
     contacts: Array<Record<string, unknown>>;
@@ -77,7 +80,10 @@ describe('Helpa Real Estate Industry Module', () => {
 
     vi.spyOn(appwriteCompat, 'getAdminClient').mockReturnValue({
       from: (table: string) => {
-        const store = (mockDatabase as Record<string, Array<Record<string, unknown>>>)[table] || [];
+        const store =
+          (mockDatabase as Record<string, Array<Record<string, unknown>>>)[
+            table
+          ] || [];
         return {
           select: () => {
             let filtered = [...store];
@@ -92,7 +98,11 @@ describe('Helpa Real Estate Industry Module', () => {
               },
               ilike: (f: string, v: string) => {
                 const clean = v.replace(/%/g, '').toLowerCase();
-                filtered = filtered.filter((r) => String(r[f] || '').toLowerCase().includes(clean));
+                filtered = filtered.filter((r) =>
+                  String(r[f] || '')
+                    .toLowerCase()
+                    .includes(clean)
+                );
                 return builder;
               },
               or: () => builder,
@@ -222,8 +232,12 @@ describe('Helpa Real Estate Industry Module', () => {
       expect(topMatch.property.bedrooms).toBe('2 BHK');
       expect(topMatch.score).toBeGreaterThanOrEqual(85);
       expect(topMatch.matchTier).toBe('Strong Match');
-      expect(topMatch.reasons.some((r) => r.includes('Location matches'))).toBe(true);
-      expect(topMatch.reasons.some((r) => r.includes('Price within budget'))).toBe(true);
+      expect(topMatch.reasons.some((r) => r.includes('Location matches'))).toBe(
+        true
+      );
+      expect(
+        topMatch.reasons.some((r) => r.includes('Price within budget'))
+      ).toBe(true);
     });
   });
 
@@ -374,7 +388,9 @@ describe('Helpa Real Estate Industry Module', () => {
       expect(copilot.lead.name).toBe('Rahul Sharma');
       expect(copilot.requirement?.location).toBe('New Town');
       expect(copilot.suggestedReply).toContain('New Town Residency');
-      expect(copilot.quickActions.some((a) => a.actionType === 'confirm_site_visit')).toBe(true);
+      expect(
+        copilot.quickActions.some((a) => a.actionType === 'confirm_site_visit')
+      ).toBe(true);
     });
   });
 
@@ -400,7 +416,11 @@ describe('Helpa Real Estate Industry Module', () => {
       expect(matchRes.success).toBe(true);
 
       const visitRes = await visitTool!.execute(
-        { propertyTitle: 'New Town Residency', visitDate: '2026-08-25', visitTime: '11:00 AM' },
+        {
+          propertyTitle: 'New Town Residency',
+          visitDate: '2026-08-25',
+          visitTime: '11:00 AM',
+        },
         {
           accountId: agencyA.id,
           userId: 'u1',

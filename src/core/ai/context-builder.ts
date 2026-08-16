@@ -9,11 +9,7 @@ import { getAdminClient } from '@/lib/appwrite-server-compat';
 import { getIndustryModule } from '@/modules/registry';
 import { getConversationMemory } from './memory';
 import { aiToolRegistry } from './tools';
-import type {
-  AiContextBundle,
-  AiRole,
-  IndustryAiConfig,
-} from './types';
+import type { AiContextBundle, AiRole, IndustryAiConfig } from './types';
 
 const CORE_SYSTEM_PROMPT = `You are Helpa AI, a professional, empathetic, and highly capable business communication assistant built by Helpa Studio.
 
@@ -89,7 +85,12 @@ export async function buildAiContextBundle({
   );
 
   // 4. Retrieve Conversation Memory
-  const memory = await getConversationMemory(accountId, conversationId, contactId, 10);
+  const memory = await getConversationMemory(
+    accountId,
+    conversationId,
+    contactId,
+    10
+  );
 
   // 5. Gather Tools for this Industry
   const availableTools = aiToolRegistry.getToolsForIndustry(industry);

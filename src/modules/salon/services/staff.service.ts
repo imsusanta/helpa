@@ -90,7 +90,7 @@ export async function getStaffAvailableSlots({
   accountId,
   staffName,
   dateStr,
-  durationMinutes = 45,
+  durationMinutes: _durationMinutes = 45,
 }: {
   accountId: string;
   staffName?: string;
@@ -112,7 +112,8 @@ export async function getStaffAvailableSlots({
     for (const appt of existingAppts) {
       if (
         !staffName ||
-        (appt.notes && appt.notes.toLowerCase().includes(staffName.toLowerCase()))
+        (appt.notes &&
+          appt.notes.toLowerCase().includes(staffName.toLowerCase()))
       ) {
         bookedSlots.add(appt.appointment_time);
       }

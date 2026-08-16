@@ -29,7 +29,9 @@ export interface SalonCustomerRecord {
 /**
  * Generates the next sequential unique Customer ID (e.g. CUS-000123) for a salon workspace.
  */
-export async function generateNextCustomerId(accountId: string): Promise<string> {
+export async function generateNextCustomerId(
+  accountId: string
+): Promise<string> {
   const db = getAdminClient();
   const { data: contacts } = await db
     .from('contacts')
@@ -101,7 +103,8 @@ export async function getOrCreateSalonCustomer({
       email: existing.email,
       gender: extra.gender as string,
       preferredStaff: (extra.preferred_staff as string) || preferredStaff,
-      preferredServices: (extra.preferred_services as string[]) || preferredServices,
+      preferredServices:
+        (extra.preferred_services as string[]) || preferredServices,
       totalVisits: Number(extra.total_visits || 0),
       cancelledAppointments: Number(extra.cancelled_appointments || 0),
       noShows: Number(extra.no_shows || 0),
@@ -140,7 +143,9 @@ export async function getOrCreateSalonCustomer({
     .single();
 
   if (error || !created) {
-    throw new Error(`Failed to create salon customer: ${error?.message || 'DB error'}`);
+    throw new Error(
+      `Failed to create salon customer: ${error?.message || 'DB error'}`
+    );
   }
 
   return {

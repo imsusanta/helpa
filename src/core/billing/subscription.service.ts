@@ -30,7 +30,9 @@ export async function startFreeTrial({
 
   const now = new Date();
   const trialEndDate = new Date(now);
-  trialEndDate.setDate(trialEndDate.getDate() + (trialDays || plan.trialDays || 14));
+  trialEndDate.setDate(
+    trialEndDate.getDate() + (trialDays || plan.trialDays || 14)
+  );
 
   const subscription: WorkspaceSubscription = {
     id: `sub-${workspaceId}`,
@@ -48,15 +50,18 @@ export async function startFreeTrial({
     updatedAt: now.toISOString(),
   };
 
-  await db.from('accounts').update({
-    subscription_plan: plan.id,
-    subscription_status: 'TRIALING',
-    extra_attributes: {
-      trial_start: subscription.trialStart,
-      trial_end: subscription.trialEnd,
-    },
-    updated_at: now.toISOString(),
-  }).eq('id', workspaceId);
+  await db
+    .from('accounts')
+    .update({
+      subscription_plan: plan.id,
+      subscription_status: 'TRIALING',
+      extra_attributes: {
+        trial_start: subscription.trialStart,
+        trial_end: subscription.trialEnd,
+      },
+      updated_at: now.toISOString(),
+    })
+    .eq('id', workspaceId);
 
   coreEvents.emit('billing.trial_started', workspaceId, {
     planId: plan.id,
@@ -110,18 +115,21 @@ export async function upgradeSubscription({
     updatedAt: now.toISOString(),
   };
 
-  await db.from('accounts').update({
-    subscription_plan: plan.id,
-    subscription_status: 'ACTIVE',
-    extra_attributes: {
-      billing_cycle: billingCycle,
-      current_period_start: subscription.currentPeriodStart,
-      current_period_end: subscription.currentPeriodEnd,
-      external_customer_id: externalCustomerId,
-      external_subscription_id: externalSubscriptionId,
-    },
-    updated_at: now.toISOString(),
-  }).eq('id', workspaceId);
+  await db
+    .from('accounts')
+    .update({
+      subscription_plan: plan.id,
+      subscription_status: 'ACTIVE',
+      extra_attributes: {
+        billing_cycle: billingCycle,
+        current_period_start: subscription.currentPeriodStart,
+        current_period_end: subscription.currentPeriodEnd,
+        external_customer_id: externalCustomerId,
+        external_subscription_id: externalSubscriptionId,
+      },
+      updated_at: now.toISOString(),
+    })
+    .eq('id', workspaceId);
 
   coreEvents.emit('billing.subscription_activated', workspaceId, {
     planId: plan.id,
@@ -145,16 +153,21 @@ export async function cancelSubscription({
   const db = getAdminClient();
   const now = new Date().toISOString();
 
-  const newStatus: SubscriptionStatus = cancelImmediately ? 'CANCELLED' : 'ACTIVE';
+  const newStatus: SubscriptionStatus = cancelImmediately
+    ? 'CANCELLED'
+    : 'ACTIVE';
 
-  await db.from('accounts').update({
-    subscription_status: newStatus,
-    extra_attributes: {
-      cancel_at_period_end: true,
-      cancelled_at: now,
-    },
-    updated_at: now,
-  }).eq('id', workspaceId);
+  await db
+    .from('accounts')
+    .update({
+      subscription_status: newStatus,
+      extra_attributes: {
+        cancel_at_period_end: true,
+        cancelled_at: now,
+      },
+      updated_at: now,
+    })
+    .eq('id', workspaceId);
 
   coreEvents.emit('billing.subscription_cancelled', workspaceId, {
     cancelImmediately,
@@ -167,18 +180,23 @@ export async function cancelSubscription({
 /**
  * Reactivates a subscription that was marked for cancellation at period end.
  */
-export async function reactivateSubscription(workspaceId: string): Promise<boolean> {
+export async function reactivateSubscription(
+  workspaceId: string
+): Promise<boolean> {
   const db = getAdminClient();
   const now = new Date().toISOString();
 
-  await db.from('accounts').update({
-    subscription_status: 'ACTIVE',
-    extra_attributes: {
-      cancel_at_period_end: false,
-      cancelled_at: null,
-    },
-    updated_at: now,
-  }).eq('id', workspaceId);
+  await db
+    .from('accounts')
+    .update({
+      subscription_status: 'ACTIVE',
+      extra_attributes: {
+        cancel_at_period_end: false,
+        cancelled_at: null,
+      },
+      updated_at: now,
+    })
+    .eq('id', workspaceId);
 
   return true;
 }
@@ -195,13 +213,16 @@ export async function handlePaymentFailure(
   const graceEnd = new Date(now);
   graceEnd.setDate(graceEnd.getDate() + gracePeriodDays);
 
-  await db.from('accounts').update({
-    subscription_status: 'PAST_DUE',
-    extra_attributes: {
-      grace_period_end: graceEnd.toISOString(),
-    },
-    updated_at: now.toISOString(),
-  }).eq('id', workspaceId);
+  await db
+    .from('accounts')
+    .update({
+      subscription_status: 'PAST_DUE',
+      extra_attributes: {
+        grace_period_end: graceEnd.toISOString(),
+      },
+      updated_at: now.toISOString(),
+    })
+    .eq('id', workspaceId);
 
   coreEvents.emit('billing.payment_failed', workspaceId, {
     gracePeriodEnd: graceEnd.toISOString(),

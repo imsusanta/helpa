@@ -68,7 +68,9 @@ export function checkRateLimit(
 export function cleanupRateLimitStore(): void {
   const now = Date.now();
   for (const [key, entry] of rateLimitStore.entries()) {
-    entry.timestamps = entry.timestamps.filter((ts) => ts > now - 5 * 60 * 1000);
+    entry.timestamps = entry.timestamps.filter(
+      (ts) => ts > now - 5 * 60 * 1000
+    );
     if (entry.timestamps.length === 0) {
       rateLimitStore.delete(key);
     }

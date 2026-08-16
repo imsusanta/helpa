@@ -52,7 +52,8 @@ export async function listSalonServices(
         accountId,
         name: 'Haircut & Styling',
         category: 'Hair',
-        description: 'Customized precision haircut with wash and blow-dry styling.',
+        description:
+          'Customized precision haircut with wash and blow-dry styling.',
         durationMinutes: 45,
         price: 500,
         pricingType: 'Fixed',
@@ -78,7 +79,8 @@ export async function listSalonServices(
         accountId,
         name: 'Hydra-Glow Brightening Facial',
         category: 'Facial',
-        description: 'Deep pore cleansing, exfoliation, and instant hydration booster.',
+        description:
+          'Deep pore cleansing, exfoliation, and instant hydration booster.',
         durationMinutes: 60,
         price: 1200,
         pricingType: 'Fixed',
@@ -97,7 +99,8 @@ export async function listSalonServices(
     description: r.description,
     durationMinutes: r.duration || 45,
     price: r.price || 500,
-    pricingType: (r.pricing_type as SalonServiceRecord['pricingType']) || 'Fixed',
+    pricingType:
+      (r.pricing_type as SalonServiceRecord['pricingType']) || 'Fixed',
     assignedStaffNames: r.assigned_staff || [],
     status: r.status || 'Active',
     followUpDaysInterval: r.followup_days || 30,

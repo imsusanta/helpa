@@ -144,7 +144,11 @@ export async function POST(request: Request) {
         const stagesList = existingStages || [];
         const newStages = config.pipelineStages || [];
 
-        for (let i = 0; i < Math.min(stagesList.length, newStages.length); i++) {
+        for (
+          let i = 0;
+          i < Math.min(stagesList.length, newStages.length);
+          i++
+        ) {
           await admin
             .from('pipeline_stages')
             .update({
@@ -163,19 +167,21 @@ export async function POST(request: Request) {
             color: st.color,
           }));
           await admin.from('pipeline_stages').insert(extraStages);
-        } else if (stagesList.length > newStages.length && stagesList.length > 0) {
+        } else if (
+          stagesList.length > newStages.length &&
+          stagesList.length > 0
+        ) {
           const firstStageId = stagesList[0].id;
-          const extraStageIds = stagesList.slice(newStages.length).map((s) => s.id);
+          const extraStageIds = stagesList
+            .slice(newStages.length)
+            .map((s) => s.id);
 
           await admin
             .from('deals')
             .update({ stage_id: firstStageId })
             .in('stage_id', extraStageIds);
 
-          await admin
-            .from('pipeline_stages')
-            .delete()
-            .in('id', extraStageIds);
+          await admin.from('pipeline_stages').delete().in('id', extraStageIds);
         }
       } catch (stageErr) {
         console.warn('[onboard route] soft error updating stages:', stageErr);
@@ -249,8 +255,14 @@ export async function POST(request: Request) {
 
       if (existingAutos && existingAutos.length > 0) {
         const autoIds = existingAutos.map((a) => a.id);
-        await admin.from('automation_steps').delete().in('automation_id', autoIds);
-        await admin.from('automations').delete().eq('account_id', ctx.accountId);
+        await admin
+          .from('automation_steps')
+          .delete()
+          .in('automation_id', autoIds);
+        await admin
+          .from('automations')
+          .delete()
+          .eq('account_id', ctx.accountId);
       }
 
       if (config.workflows && config.workflows.length > 0) {

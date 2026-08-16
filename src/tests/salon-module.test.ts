@@ -36,7 +36,7 @@ import { coreEvents } from '@/core/events';
 
 describe('Helpa Salon Industry Module', () => {
   const salonA = { id: 'salon-glamour-01', name: 'Glamour Beauty & Spa' };
-  const salonB = { id: 'salon-luxe-02', name: 'Luxe Unisex Studio' };
+  const _salonB = { id: 'salon-luxe-02', name: 'Luxe Unisex Studio' };
 
   let mockDatabase: {
     contacts: Array<Record<string, unknown>>;
@@ -94,7 +94,10 @@ describe('Helpa Salon Industry Module', () => {
 
     vi.spyOn(appwriteCompat, 'getAdminClient').mockReturnValue({
       from: (table: string) => {
-        const store = (mockDatabase as Record<string, Array<Record<string, unknown>>>)[table] || [];
+        const store =
+          (mockDatabase as Record<string, Array<Record<string, unknown>>>)[
+            table
+          ] || [];
         return {
           select: () => {
             let filtered = [...store];
@@ -109,7 +112,11 @@ describe('Helpa Salon Industry Module', () => {
               },
               ilike: (f: string, v: string) => {
                 const clean = v.replace(/%/g, '').toLowerCase();
-                filtered = filtered.filter((r) => String(r[f] || '').toLowerCase().includes(clean));
+                filtered = filtered.filter((r) =>
+                  String(r[f] || '')
+                    .toLowerCase()
+                    .includes(clean)
+                );
                 return builder;
               },
               or: () => builder,
@@ -359,7 +366,11 @@ describe('Helpa Salon Industry Module', () => {
       expect(copilot.customer.name).toBe('Rahul Sharma');
       expect(copilot.preferredStaff).toBe('Amit Roy');
       expect(copilot.suggestedReply).toContain('Amit');
-      expect(copilot.quickActions.some((a) => a.actionType === 'reschedule_appointment')).toBe(true);
+      expect(
+        copilot.quickActions.some(
+          (a) => a.actionType === 'reschedule_appointment'
+        )
+      ).toBe(true);
     });
   });
 

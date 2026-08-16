@@ -31,10 +31,10 @@ export function LandingFaqSection() {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
 
   return (
-    <section className="py-20 bg-[#FAF9FC]">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-12">
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-700 mb-2">
+    <section className="bg-[#FAF9FC] py-20">
+      <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+        <div className="mb-12 text-center">
+          <span className="mb-2 inline-flex items-center rounded-full bg-purple-50 px-3 py-1 text-xs font-bold text-purple-700">
             Frequently Asked Questions
           </span>
           <h2 className="text-3xl font-extrabold text-[#110E3D]">
@@ -48,18 +48,18 @@ export function LandingFaqSection() {
             return (
               <div
                 key={idx}
-                className="rounded-2xl bg-white border border-slate-200/80 shadow-xs overflow-hidden transition-all"
+                className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xs transition-all"
               >
                 <button
                   type="button"
                   onClick={() => setOpenIndex(isOpen ? null : idx)}
-                  className="w-full p-5 text-left flex items-center justify-between gap-4"
+                  className="flex w-full items-center justify-between gap-4 p-5 text-left"
                 >
-                  <span className="text-sm sm:text-base font-bold text-[#110E3D]">
+                  <span className="text-sm font-bold text-[#110E3D] sm:text-base">
                     {faq.q}
                   </span>
                   <ChevronDown
-                    className={`w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200 ${
+                    className={`h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 ${
                       isOpen ? 'rotate-180 text-[#110E3D]' : ''
                     }`}
                   />
@@ -72,7 +72,7 @@ export function LandingFaqSection() {
                       animate={{ height: 'auto', opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
                       transition={{ duration: 0.2 }}
-                      className="px-5 pb-5 text-xs sm:text-sm text-slate-600 leading-relaxed border-t border-slate-100 pt-3"
+                      className="border-t border-slate-100 px-5 pt-3 pb-5 text-xs leading-relaxed text-slate-600 sm:text-sm"
                     >
                       {faq.a}
                     </motion.div>

@@ -48,7 +48,13 @@ export async function getCoreAnalytics(
   const totalMessages = aiMessages + humanMessages;
   const aiResolutionRate =
     totalConversations > 0
-      ? Math.min(96, Math.max(75, Math.round((aiMessages / Math.max(1, totalMessages)) * 100)))
+      ? Math.min(
+          96,
+          Math.max(
+            75,
+            Math.round((aiMessages / Math.max(1, totalMessages)) * 100)
+          )
+        )
       : 92;
 
   return {

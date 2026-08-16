@@ -31,33 +31,38 @@ export function LandingSecurityBadges() {
   ];
 
   return (
-    <section id="security" className="py-16 bg-white border-y border-slate-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-2xl mx-auto mb-12">
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 mb-2">
+    <section id="security" className="border-y border-slate-100 bg-white py-16">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto mb-12 max-w-2xl text-center">
+          <span className="mb-2 inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
             Security & Trust
           </span>
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-[#110E3D]">
+          <h2 className="text-2xl font-extrabold text-[#110E3D] sm:text-3xl">
             Enterprise-grade security by default
           </h2>
-          <p className="text-xs sm:text-sm text-slate-500 mt-2">
-            Your patient records, student details, customer conversations, and business data are protected by defense-in-depth security.
+          <p className="mt-2 text-xs text-slate-500 sm:text-sm">
+            Your patient records, student details, customer conversations, and
+            business data are protected by defense-in-depth security.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {securityFeatures.map((item, i) => {
             const Icon = item.icon;
             return (
               <div
                 key={i}
-                className="p-5 rounded-2xl bg-slate-50/70 border border-slate-100 space-y-2 hover:bg-slate-50 transition-colors"
+                className="space-y-2 rounded-2xl border border-slate-100 bg-slate-50/70 p-5 transition-colors hover:bg-slate-50"
               >
-                <div className="w-9 h-9 rounded-xl bg-white text-[#110E3D] shadow-xs flex items-center justify-center border border-slate-200/60">
-                  <Icon className="w-5 h-5 text-indigo-600" />
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/60 bg-white text-[#110E3D] shadow-xs">
+                  <Icon className="h-5 w-5 text-indigo-600" />
                 </div>
-                <h3 className="text-sm font-bold text-[#110E3D]">{item.title}</h3>
-                <p className="text-xs text-slate-500 leading-relaxed">{item.description}</p>
+                <h3 className="text-sm font-bold text-[#110E3D]">
+                  {item.title}
+                </h3>
+                <p className="text-xs leading-relaxed text-slate-500">
+                  {item.description}
+                </p>
               </div>
             );
           })}

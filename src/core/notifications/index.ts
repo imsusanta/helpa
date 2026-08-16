@@ -4,7 +4,6 @@
  * Tenant-aware notification dispatcher across WhatsApp and In-App channels.
  */
 
-import { engineSendText } from '@/lib/automations/meta-send';
 import { coreEvents } from '@/core/events';
 
 export interface NotificationPayload {
@@ -33,7 +32,10 @@ export async function sendNotification(
 
       return true;
     } catch (err) {
-      console.error('[Notifications] Failed to send WhatsApp notification:', err);
+      console.error(
+        '[Notifications] Failed to send WhatsApp notification:',
+        err
+      );
       return false;
     }
   }

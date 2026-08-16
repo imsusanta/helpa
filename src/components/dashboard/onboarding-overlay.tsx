@@ -8,14 +8,10 @@ import { Label } from '@/components/ui/label';
 import {
   Building2,
   Stethoscope,
-  Plane,
   GraduationCap,
-  Utensils,
-  Dumbbell,
   Loader2,
   Sparkles,
   ArrowRight,
-  HelpCircle,
   CheckCircle2,
   Circle,
   BookOpenCheck,
@@ -273,9 +269,9 @@ export function OnboardingOverlay() {
                 Welcome to Helpa
               </h2>
               <p className="text-muted-foreground mx-auto max-w-md text-sm leading-relaxed">
-                Your intelligent multi-industry AI business communication platform.
-                Let&apos;s configure your workspace parameters and templates in
-                seconds.
+                Your intelligent multi-industry AI business communication
+                platform. Let&apos;s configure your workspace parameters and
+                templates in seconds.
               </p>
             </div>
             <Button

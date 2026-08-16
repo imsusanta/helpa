@@ -104,9 +104,11 @@ export async function checkUsageLimit(
 
   let limit = 5000;
   if (metric === 'ai_message') limit = plan.usageLimits.aiMessages;
-  else if (metric === 'whatsapp_message') limit = plan.usageLimits.whatsappMessages;
+  else if (metric === 'whatsapp_message')
+    limit = plan.usageLimits.whatsappMessages;
   else if (metric === 'team_member') limit = plan.usageLimits.teamMembers;
-  else if (metric === 'campaign_message') limit = plan.usageLimits.campaignMessages;
+  else if (metric === 'campaign_message')
+    limit = plan.usageLimits.campaignMessages;
   else if (metric === 'contact') limit = plan.usageLimits.contacts;
 
   // 0 means unlimited
@@ -121,7 +123,10 @@ export async function checkUsageLimit(
   }
 
   const projectedUsage = currentUsage + requestedQuantity;
-  const percentageUsed = Math.min(100, Math.round((currentUsage / limit) * 100));
+  const percentageUsed = Math.min(
+    100,
+    Math.round((currentUsage / limit) * 100)
+  );
   const remaining = Math.max(0, limit - currentUsage);
 
   let warningLevel: UsageLimitCheckResult['warningLevel'];

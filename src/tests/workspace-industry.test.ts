@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getIndustryModule, INDUSTRY_REGISTRY } from '@/modules/registry';
-import { DEFAULT_TERMINOLOGY } from '@/hooks/use-workspace';
+import { getIndustryModule } from '@/modules/registry';
 
 describe('Phase 2: Dynamic Industry Workspace Manifests', () => {
   const supportedIndustries = [

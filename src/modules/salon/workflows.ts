@@ -3,7 +3,8 @@ import { WorkflowSeed } from '../types';
 export const workflowsConfig: WorkflowSeed[] = [
   {
     name: 'Salon Appointment Auto-Confirmation',
-    description: 'Sends instant WhatsApp confirmation upon booking a salon slot',
+    description:
+      'Sends instant WhatsApp confirmation upon booking a salon slot',
     trigger_type: 'appointment_created',
     trigger_config: {},
     is_active: true,

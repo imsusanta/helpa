@@ -44,7 +44,9 @@ export function sanitizeLogMetadata(data: unknown): unknown {
 
   const result: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
-    const isSensitive = SENSITIVE_KEY_PATTERNS.some((pattern) => pattern.test(key));
+    const isSensitive = SENSITIVE_KEY_PATTERNS.some((pattern) =>
+      pattern.test(key)
+    );
     if (isSensitive) {
       result[key] = '[REDACTED]';
     } else if (typeof value === 'object' && value !== null) {

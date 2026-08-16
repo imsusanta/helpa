@@ -17,11 +17,7 @@ export type WhatsAppConnectionStatus =
   | 'COEXISTENCE_CONNECTED';
 
 export type CoexistenceStatus =
-  | 'active'
-  | 'eligible'
-  | 'ineligible'
-  | 'not_supported'
-  | 'unknown';
+  'active' | 'eligible' | 'ineligible' | 'not_supported' | 'unknown';
 
 export interface WhatsAppConnection {
   id: string;

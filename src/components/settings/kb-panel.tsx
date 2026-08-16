@@ -270,10 +270,7 @@ export function KbPanel() {
   if (loading) {
     return (
       <section className="animate-in fade-in-50 max-w-4xl duration-200">
-        <SettingsPanelHead
-          title={panelTitle}
-          description={panelDesc}
-        />
+        <SettingsPanelHead title={panelTitle} description={panelDesc} />
         <Card className="flex h-64 items-center justify-center">
           <Loader2 className="text-muted-foreground size-6 animate-spin" />
         </Card>
@@ -284,10 +281,7 @@ export function KbPanel() {
   return (
     <section className="animate-in fade-in-50 max-w-4xl duration-200">
       <div className="flex items-center justify-between">
-        <SettingsPanelHead
-          title={panelTitle}
-          description={panelDesc}
-        />
+        <SettingsPanelHead title={panelTitle} description={panelDesc} />
         {canSendMessages && (
           <Button
             onClick={handleOpenAddDialog}
@@ -324,7 +318,8 @@ export function KbPanel() {
         <CardHeader>
           <CardTitle className="text-foreground flex items-center gap-2">
             <Database className="text-primary size-4" />
-            {isHospital ? 'Hospital Info Context' : 'Knowledge Context'} ({filteredEntries.length})
+            {isHospital ? 'Hospital Info Context' : 'Knowledge Context'} (
+            {filteredEntries.length})
           </CardTitle>
           <CardDescription className="text-muted-foreground">
             Keep your knowledge context concise and factual. The AI works best
@@ -367,7 +362,8 @@ export function KbPanel() {
                 </TableHeader>
                 <TableBody>
                   {filteredEntries.map((entry) => {
-                    const catMeta = categoryMap[entry.category] || categoryMap.faq;
+                    const catMeta =
+                      categoryMap[entry.category] || categoryMap.faq;
                     const CatIcon = catMeta.icon;
                     return (
                       <TableRow key={entry.id} className="hover:bg-muted/30">
@@ -442,10 +438,18 @@ export function KbPanel() {
                 </SelectTrigger>
                 <SelectContent className="bg-popover text-popover-foreground border-border">
                   <SelectItem value="faq">{categoryMap.faq.label}</SelectItem>
-                  <SelectItem value="service">{categoryMap.service.label}</SelectItem>
-                  <SelectItem value="pricing">{categoryMap.pricing.label}</SelectItem>
-                  <SelectItem value="policy">{categoryMap.policy.label}</SelectItem>
-                  <SelectItem value="company">{categoryMap.company.label}</SelectItem>
+                  <SelectItem value="service">
+                    {categoryMap.service.label}
+                  </SelectItem>
+                  <SelectItem value="pricing">
+                    {categoryMap.pricing.label}
+                  </SelectItem>
+                  <SelectItem value="policy">
+                    {categoryMap.policy.label}
+                  </SelectItem>
+                  <SelectItem value="company">
+                    {categoryMap.company.label}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>

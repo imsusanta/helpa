@@ -17,7 +17,8 @@ export interface TutorAssignmentRecord {
   topic: string;
   description?: string;
   dueDate: string; // YYYY-MM-DD
-  status: 'Assigned' | 'Due' | 'Submitted' | 'Reviewed' | 'Overdue' | 'Completed';
+  status:
+    'Assigned' | 'Due' | 'Submitted' | 'Reviewed' | 'Overdue' | 'Completed';
   createdAt: string;
 }
 
@@ -43,7 +44,8 @@ export async function listTutorAssignments(
         courseName: 'Class 10 Mathematics',
         batchName: 'Evening Batch',
         topic: 'Algebra & Quadratic Equations',
-        description: 'Complete questions 1 to 15 from the practice sheet and submit before class.',
+        description:
+          'Complete questions 1 to 15 from the practice sheet and submit before class.',
         dueDate: '2026-08-30',
         status: 'Assigned',
         createdAt: '2026-08-20T10:00:00.000Z',

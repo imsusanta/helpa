@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Coins, Loader2 } from 'lucide-react';
 
-import { createClient } from '@/lib/appwrite-compat';
 import { useAuth } from '@/hooks/use-auth';
 import { CURRENCIES } from '@/lib/currency';
 import { Button } from '@/components/ui/button';
@@ -28,7 +27,6 @@ import { SettingsPanelHead } from './settings-panel-head';
  * admins+, so non-admins see a disabled, read-only control.
  */
 export function DealsSettings() {
-  const appwrite = createClient();
   const {
     accountId,
     defaultCurrency,

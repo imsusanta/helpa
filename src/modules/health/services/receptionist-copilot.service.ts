@@ -64,7 +64,9 @@ export async function getReceptionistCopilotContext({
     .single();
 
   const extra = (contact?.extra_attributes as Record<string, unknown>) || {};
-  const patientId = String(extra.patient_id || `PT-${contact?.id?.slice(0, 6) || '000001'}`);
+  const patientId = String(
+    extra.patient_id || `PT-${contact?.id?.slice(0, 6) || '000001'}`
+  );
   const patientName = contact?.name || 'Rahul Sharma';
   const patientMobile = contact?.phone || '+919876543210';
 
@@ -85,8 +87,10 @@ export async function getReceptionistCopilotContext({
   const reports = await getPatientReports(accountId, contactId);
   const latestReport = reports[0];
 
-  const upcomingExtra = (upcomingAppt?.extra_attributes as Record<string, unknown>) || {};
-  const pastExtra = (pastAppt?.extra_attributes as Record<string, unknown>) || {};
+  const upcomingExtra =
+    (upcomingAppt?.extra_attributes as Record<string, unknown>) || {};
+  const pastExtra =
+    (pastAppt?.extra_attributes as Record<string, unknown>) || {};
 
   return {
     patient: {

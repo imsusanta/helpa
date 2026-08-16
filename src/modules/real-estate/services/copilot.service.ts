@@ -52,7 +52,9 @@ export async function getRealEstateCopilotContext({
     .single();
 
   const extra = (contact?.extra_attributes as Record<string, unknown>) || {};
-  const leadId = String(extra.lead_id || `LEAD-${contact?.id?.slice(0, 6) || '000123'}`);
+  const leadId = String(
+    extra.lead_id || `LEAD-${contact?.id?.slice(0, 6) || '000123'}`
+  );
   const leadName = contact?.name || 'Rahul Sharma';
   const leadMobile = contact?.phone || '+919000000000';
   const assignedAgent = (extra.assigned_agent as string) || 'Amit Roy';

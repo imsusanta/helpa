@@ -10,6 +10,9 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   check:
     name: Production Quality & Security Gates
@@ -31,6 +34,14 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks Secret Detection
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
 
       - name: Set up Node.js runtime
         uses: actions/setup-node@v4
@@ -44,7 +55,7 @@ jobs:
       - name: Format Check (Prettier)
         run: npm run format:check
 
-      - name: Secret Scanning (Check for hardcoded secrets across tracked repository files)
+      - name: Hardcoded Pattern Secret Scanning
         run: |
           if git grep -nE "standard_[0-9a-f]{128}" ; then
             echo "❌ Hardcoded Appwrite API key detected in tracked repository files!"

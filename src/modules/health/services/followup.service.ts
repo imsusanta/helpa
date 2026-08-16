@@ -61,7 +61,9 @@ export async function scheduleHealthFollowUp({
     .single();
 
   if (error || !created) {
-    throw new Error(`Failed to schedule follow-up: ${error?.message || 'Database error'}`);
+    throw new Error(
+      `Failed to schedule follow-up: ${error?.message || 'Database error'}`
+    );
   }
 
   // Emit event for automated notification
@@ -88,7 +90,9 @@ export async function scheduleHealthFollowUp({
   };
 }
 
-export async function getDueFollowUps(accountId: string): Promise<HealthFollowUp[]> {
+export async function getDueFollowUps(
+  accountId: string
+): Promise<HealthFollowUp[]> {
   const db = getAdminClient();
   const todayStr = new Date().toISOString().split('T')[0];
 

@@ -53,9 +53,7 @@ export async function getRelevantKnowledge(
     return { item: item as KnowledgeItem, score };
   });
 
-  return scored
-    .sort((a, b) => b.score - a.score)
-    .map((s) => s.item);
+  return scored.sort((a, b) => b.score - a.score).map((s) => s.item);
 }
 
 export function formatKnowledgeForAi(items: KnowledgeItem[]): string {

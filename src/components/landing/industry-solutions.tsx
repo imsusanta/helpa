@@ -95,22 +95,23 @@ export function LandingIndustrySolutions() {
   const [selectedIndustry, setSelectedIndustry] = useState(INDUSTRIES[0]);
 
   return (
-    <section id="industries" className="py-20 bg-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-3xl mx-auto mb-12">
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 mb-3">
+    <section id="industries" className="bg-white py-20">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto mb-12 max-w-3xl text-center">
+          <span className="mb-3 inline-flex items-center rounded-full bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-700">
             Modular Industry Workspaces
           </span>
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-[#110E3D] tracking-tight">
+          <h2 className="text-3xl font-extrabold tracking-tight text-[#110E3D] sm:text-4xl">
             Built specifically for your business workflow
           </h2>
-          <p className="text-base text-slate-500 mt-3">
-            Helpa adapts terminology, features, and AI workflows dynamically to match your exact industry.
+          <p className="mt-3 text-base text-slate-500">
+            Helpa adapts terminology, features, and AI workflows dynamically to
+            match your exact industry.
           </p>
         </div>
 
         {/* Industry Pill Selector */}
-        <div className="flex items-center justify-center gap-2 sm:gap-3 flex-wrap mb-10">
+        <div className="mb-10 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
           {INDUSTRIES.map((ind) => {
             const Icon = ind.icon;
             const isSelected = selectedIndustry.id === ind.id;
@@ -119,13 +120,13 @@ export function LandingIndustrySolutions() {
                 key={ind.id}
                 type="button"
                 onClick={() => setSelectedIndustry(ind)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-all ${
+                className={`flex items-center gap-2 rounded-full px-4 py-2.5 text-xs font-bold transition-all sm:text-sm ${
                   isSelected
-                    ? 'bg-[#110E3D] text-white shadow-md scale-105'
+                    ? 'scale-105 bg-[#110E3D] text-white shadow-md'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200/80'
                 }`}
               >
-                <Icon className="w-4 h-4" />
+                <Icon className="h-4 w-4" />
                 <span>{ind.name}</span>
               </button>
             );
@@ -140,23 +141,26 @@ export function LandingIndustrySolutions() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -12 }}
             transition={{ duration: 0.2 }}
-            className="rounded-3xl bg-gradient-to-br from-slate-50 to-[#F7F5FC] border border-slate-200/80 p-6 sm:p-10 shadow-sm grid grid-cols-1 lg:grid-cols-12 gap-8 items-center"
+            className="grid grid-cols-1 items-center gap-8 rounded-3xl border border-slate-200/80 bg-gradient-to-br from-slate-50 to-[#F7F5FC] p-6 shadow-sm sm:p-10 lg:grid-cols-12"
           >
-            <div className="lg:col-span-7 space-y-5">
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-white text-slate-700 shadow-xs border border-slate-100">
+            <div className="space-y-5 lg:col-span-7">
+              <span className="inline-flex items-center rounded-full border border-slate-100 bg-white px-3 py-1 text-xs font-bold text-slate-700 shadow-xs">
                 {selectedIndustry.badge}
               </span>
-              <h3 className="text-2xl sm:text-3xl font-extrabold text-[#110E3D]">
+              <h3 className="text-2xl font-extrabold text-[#110E3D] sm:text-3xl">
                 {selectedIndustry.title}
               </h3>
-              <p className="text-sm sm:text-base text-slate-600 leading-relaxed">
+              <p className="text-sm leading-relaxed text-slate-600 sm:text-base">
                 {selectedIndustry.description}
               </p>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+              <div className="grid grid-cols-1 gap-3 pt-2 sm:grid-cols-2">
                 {selectedIndustry.benefits.map((b, i) => (
-                  <div key={i} className="flex items-start gap-2 text-xs text-slate-700">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <div
+                    key={i}
+                    className="flex items-start gap-2 text-xs text-slate-700"
+                  >
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
                     <span>{b}</span>
                   </div>
                 ))}
@@ -166,39 +170,46 @@ export function LandingIndustrySolutions() {
                 <Link href="/signup">
                   <button
                     type="button"
-                    className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#110E3D] text-white text-xs font-bold hover:bg-slate-800 transition-colors shadow-sm"
+                    className="inline-flex items-center gap-2 rounded-full bg-[#110E3D] px-6 py-3 text-xs font-bold text-white shadow-sm transition-colors hover:bg-slate-800"
                   >
                     <span>Launch {selectedIndustry.name} Workspace</span>
-                    <ArrowRight className="w-4 h-4" />
+                    <ArrowRight className="h-4 w-4" />
                   </button>
                 </Link>
               </div>
             </div>
 
-            <div className="lg:col-span-5 bg-white rounded-2xl p-5 border border-slate-200/80 shadow-md space-y-3">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div className="space-y-3 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-md lg:col-span-5">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-emerald-500" />
+                  <div className="h-3 w-3 rounded-full bg-emerald-500" />
                   <span className="text-xs font-bold text-[#110E3D]">
                     {selectedIndustry.name} Assistant
                   </span>
                 </div>
-                <span className="text-[10px] text-slate-400">WhatsApp Live</span>
+                <span className="text-[10px] text-slate-400">
+                  WhatsApp Live
+                </span>
               </div>
 
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 space-y-1.5">
-                <div className="text-[11px] font-bold text-slate-700">Customer Message:</div>
+              <div className="space-y-1.5 rounded-xl border border-slate-100 bg-slate-50 p-3">
+                <div className="text-[11px] font-bold text-slate-700">
+                  Customer Message:
+                </div>
                 <p className="text-xs text-slate-600 italic">
-                  &ldquo;I need to book for tomorrow. What are the available timings and charges?&rdquo;
+                  &ldquo;I need to book for tomorrow. What are the available
+                  timings and charges?&rdquo;
                 </p>
               </div>
 
-              <div className="p-3 rounded-xl bg-[#DCF8C6]/80 border border-emerald-200/60 space-y-1.5">
-                <div className="text-[11px] font-bold text-emerald-900 flex items-center gap-1">
+              <div className="space-y-1.5 rounded-xl border border-emerald-200/60 bg-[#DCF8C6]/80 p-3">
+                <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-900">
                   <span>Helpa AI Response:</span>
                 </div>
-                <p className="text-xs text-emerald-950 leading-relaxed">
-                  &ldquo;We have open slots tomorrow at 10:30 AM and 02:00 PM. Standard fee is ₹500. Reply with your preferred time to receive instant confirmation!&rdquo;
+                <p className="text-xs leading-relaxed text-emerald-950">
+                  &ldquo;We have open slots tomorrow at 10:30 AM and 02:00 PM.
+                  Standard fee is ₹500. Reply with your preferred time to
+                  receive instant confirmation!&rdquo;
                 </p>
               </div>
             </div>

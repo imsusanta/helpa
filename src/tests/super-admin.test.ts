@@ -98,7 +98,10 @@ describe('Helpa Super Admin / Platform Control Center', () => {
 
     vi.spyOn(appwriteCompat, 'getAdminClient').mockReturnValue({
       from: (table: string) => {
-        const store = (mockDatabase as Record<string, Array<Record<string, unknown>>>)[table] || [];
+        const store =
+          (mockDatabase as Record<string, Array<Record<string, unknown>>>)[
+            table
+          ] || [];
         return {
           select: () => {
             let filtered = [...store];
@@ -109,7 +112,11 @@ describe('Helpa Super Admin / Platform Control Center', () => {
               },
               ilike: (f: string, v: string) => {
                 const clean = v.replace(/%/g, '').toLowerCase();
-                filtered = filtered.filter((r) => String(r[f] || '').toLowerCase().includes(clean));
+                filtered = filtered.filter((r) =>
+                  String(r[f] || '')
+                    .toLowerCase()
+                    .includes(clean)
+                );
                 return builder;
               },
               order: () => builder,
@@ -225,7 +232,9 @@ describe('Helpa Super Admin / Platform Control Center', () => {
       });
       expect(suspended).toBe(true);
 
-      const clinicAccount = mockDatabase.accounts.find((a) => a.id === 'acc-clinic-01');
+      const clinicAccount = mockDatabase.accounts.find(
+        (a) => a.id === 'acc-clinic-01'
+      );
       expect(clinicAccount?.is_suspended).toBe(true);
       expect(clinicAccount?.status).toBe('SUSPENDED');
 
@@ -248,7 +257,9 @@ describe('Helpa Super Admin / Platform Control Center', () => {
       });
 
       expect(res.trialEnd).toBeDefined();
-      const academyAccount = mockDatabase.accounts.find((a) => a.id === 'acc-academy-02');
+      const academyAccount = mockDatabase.accounts.find(
+        (a) => a.id === 'acc-academy-02'
+      );
       expect(academyAccount?.subscription_status).toBe('TRIALING');
     });
   });

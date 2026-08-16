@@ -69,7 +69,9 @@ export function WhatsAppConfig() {
   const [verifyToken, setVerifyToken] = useState('');
   const [pin, setPin] = useState('');
   const [tokenEdited, setTokenEdited] = useState(false);
-  const [activeMethod, setActiveMethod] = useState<'embedded' | 'manual'>('embedded');
+  const [activeMethod, setActiveMethod] = useState<'embedded' | 'manual'>(
+    'embedded'
+  );
   const [connectingEmbedded, setConnectingEmbedded] = useState(false);
 
   // True once /register has succeeded on Meta's side (timestamp set
@@ -519,23 +521,25 @@ export function WhatsAppConfig() {
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="text-base font-semibold text-foreground">
+                        <h3 className="text-foreground text-base font-semibold">
                           WhatsApp Connected ✓
                         </h3>
                         <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-600">
                           Active & Live
                         </span>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {config.verified_name || config.business_name || 'WhatsApp Business Account'}{' '}
+                      <p className="text-muted-foreground mt-0.5 text-xs">
+                        {config.verified_name ||
+                          config.business_name ||
+                          'WhatsApp Business Account'}{' '}
                         •{' '}
                         {config.display_phone_number ||
                           config.phone_number ||
                           phoneNumberId}
                       </p>
-                      <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                      <div className="text-muted-foreground mt-2 flex flex-wrap items-center gap-3 text-xs">
                         <span className="flex items-center gap-1.5 font-medium text-emerald-600">
-                          <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />{' '}
+                          <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />{' '}
                           Webhook: Healthy
                         </span>
                         <span>•</span>
@@ -548,7 +552,7 @@ export function WhatsAppConfig() {
                     <Link href="/inbox">
                       <Button
                         size="sm"
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 shadow-sm"
+                        className="gap-1.5 bg-emerald-600 text-white shadow-sm hover:bg-emerald-700"
                       >
                         <MessageSquare className="h-4 w-4" />
                         Open Inbox
@@ -752,7 +756,8 @@ export function WhatsAppConfig() {
                     </CardTitle>
                     <CardDescription className="text-muted-foreground mt-1">
                       Keep your existing WhatsApp Business number and connect it
-                      to Helpa to manage conversations, automate replies, and use AI.
+                      to Helpa to manage conversations, automate replies, and
+                      use AI.
                     </CardDescription>
                   </div>
                 </div>
@@ -766,7 +771,8 @@ export function WhatsAppConfig() {
                         Keep your existing WhatsApp Business number
                       </h4>
                       <p className="text-muted-foreground mt-0.5 text-xs">
-                        No need to delete your existing WhatsApp Business account or migrate to a new phone number.
+                        No need to delete your existing WhatsApp Business
+                        account or migrate to a new phone number.
                       </p>
                     </div>
                   </div>
@@ -777,7 +783,9 @@ export function WhatsAppConfig() {
                         WhatsApp Business App + Cloud API Coexistence
                       </h4>
                       <p className="text-muted-foreground mt-0.5 text-xs">
-                        Use your existing WhatsApp mobile app while simultaneously powering Helpa AI auto-replies, Inbox, and campaigns.
+                        Use your existing WhatsApp mobile app while
+                        simultaneously powering Helpa AI auto-replies, Inbox,
+                        and campaigns.
                       </p>
                     </div>
                   </div>
@@ -788,7 +796,9 @@ export function WhatsAppConfig() {
                         Automatic WABA & Phone Number Discovery
                       </h4>
                       <p className="text-muted-foreground mt-0.5 text-xs">
-                        Meta automatically authenticates your business account and configures webhooks with zero manual API copy-pasting.
+                        Meta automatically authenticates your business account
+                        and configures webhooks with zero manual API
+                        copy-pasting.
                       </p>
                     </div>
                   </div>

@@ -91,7 +91,7 @@ export async function listTutorBatches(
       maxStudents: max,
       currentStudents: current,
       availableSeats: available,
-      status: available === 0 ? 'Full' : (r.status || 'Active'),
+      status: available === 0 ? 'Full' : r.status || 'Active',
     };
   });
 }

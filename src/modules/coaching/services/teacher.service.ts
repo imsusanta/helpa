@@ -37,7 +37,8 @@ export async function listCoachingTeachers(
         id: 'teach-001',
         accountId,
         name: 'Prof. R. K. Mukherjee',
-        specialization: 'Senior Mathematics & Quantitative Aptitude Faculty (15+ yrs exp)',
+        specialization:
+          'Senior Mathematics & Quantitative Aptitude Faculty (15+ yrs exp)',
         subjects: ['Quantitative Aptitude', 'Advanced Mathematics'],
         experienceYears: 15,
         assignedCourses: ['SSC CGL Foundation', 'Banking Special'],

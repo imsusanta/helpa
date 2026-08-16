@@ -43,13 +43,19 @@ export async function listCoachingCourses(
         name: 'SSC CGL Foundation',
         code: 'SSC-CGL-101',
         category: 'Staff Selection Commission (SSC)',
-        description: 'Comprehensive 12-month preparation for SSC CGL Tier 1 & Tier 2 exams.',
+        description:
+          'Comprehensive 12-month preparation for SSC CGL Tier 1 & Tier 2 exams.',
         durationMonths: 12,
         mode: 'Hybrid',
         totalFee: 25000,
         registrationFee: 2000,
         status: 'Active',
-        subjects: ['Quantitative Aptitude', 'General Intelligence & Reasoning', 'English Language', 'General Awareness'],
+        subjects: [
+          'Quantitative Aptitude',
+          'General Intelligence & Reasoning',
+          'English Language',
+          'General Awareness',
+        ],
       },
       {
         id: 'course-neet-02',
@@ -57,7 +63,8 @@ export async function listCoachingCourses(
         name: 'NEET Medical Foundation',
         code: 'NEET-MED-201',
         category: 'Medical Entrance (NEET)',
-        description: 'Intensive 2-year classroom and test-series program for NEET aspirants.',
+        description:
+          'Intensive 2-year classroom and test-series program for NEET aspirants.',
         durationMonths: 24,
         mode: 'Offline',
         totalFee: 65000,

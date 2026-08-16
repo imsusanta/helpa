@@ -19,7 +19,6 @@ import {
   buildAiContextBundle,
   aiToolRegistry,
   executeAiPipeline,
-  generateConversationSummary,
   generateCopilotSuggestions,
 } from '@/core/ai';
 import * as appwriteCompat from '@/lib/appwrite-server-compat';
@@ -68,11 +67,31 @@ describe('Helpa Core AI Engine', () => {
   beforeEach(() => {
     mockDatabase = {
       accounts: [
-        { id: tenantHealth.id, name: tenantHealth.name, industry: tenantHealth.industry },
-        { id: tenantCoaching.id, name: tenantCoaching.name, industry: tenantCoaching.industry },
-        { id: tenantTutor.id, name: tenantTutor.name, industry: tenantTutor.industry },
-        { id: tenantSalon.id, name: tenantSalon.name, industry: tenantSalon.industry },
-        { id: tenantRealEstate.id, name: tenantRealEstate.name, industry: tenantRealEstate.industry },
+        {
+          id: tenantHealth.id,
+          name: tenantHealth.name,
+          industry: tenantHealth.industry,
+        },
+        {
+          id: tenantCoaching.id,
+          name: tenantCoaching.name,
+          industry: tenantCoaching.industry,
+        },
+        {
+          id: tenantTutor.id,
+          name: tenantTutor.name,
+          industry: tenantTutor.industry,
+        },
+        {
+          id: tenantSalon.id,
+          name: tenantSalon.name,
+          industry: tenantSalon.industry,
+        },
+        {
+          id: tenantRealEstate.id,
+          name: tenantRealEstate.name,
+          industry: tenantRealEstate.industry,
+        },
       ],
       contacts: [
         {
@@ -134,7 +153,8 @@ describe('Helpa Core AI Engine', () => {
           id: 'kb-c1',
           account_id: tenantCoaching.id,
           question_title: 'NEET Foundation Fees',
-          answer_content: 'NEET 1-year course fee is ₹45,000 payable in 3 installments.',
+          answer_content:
+            'NEET 1-year course fee is ₹45,000 payable in 3 installments.',
           category: 'Admissions',
         },
       ],
@@ -143,7 +163,10 @@ describe('Helpa Core AI Engine', () => {
 
     vi.spyOn(appwriteCompat, 'getAdminClient').mockReturnValue({
       from: (table: string) => {
-        const store = (mockDatabase as Record<string, Array<Record<string, unknown>>>)[table] || [];
+        const store =
+          (mockDatabase as Record<string, Array<Record<string, unknown>>>)[
+            table
+          ] || [];
         return {
           select: () => {
             let filtered = [...store];
@@ -200,8 +223,8 @@ describe('Helpa Core AI Engine', () => {
       },
     } as unknown as ReturnType<typeof appwriteCompat.getAdminClient>);
 
-    vi.spyOn(appwriteCompat, 'appwriteAdmin').mockImplementation(
-      () => appwriteCompat.getAdminClient()
+    vi.spyOn(appwriteCompat, 'appwriteAdmin').mockImplementation(() =>
+      appwriteCompat.getAdminClient()
     );
   });
 
@@ -269,7 +292,9 @@ describe('Helpa Core AI Engine', () => {
 
       expect(healthBundle.knowledgeSnippets.length).toBe(1);
       expect(healthBundle.knowledgeSnippets[0]).toContain('Dr. Sen');
-      expect(healthBundle.knowledgeSnippets[0]).not.toContain('NEET 1-year course fee');
+      expect(healthBundle.knowledgeSnippets[0]).not.toContain(
+        'NEET 1-year course fee'
+      );
     });
 
     it('prevents Coaching AI from retrieving Health Knowledge Base', async () => {
@@ -280,7 +305,9 @@ describe('Helpa Core AI Engine', () => {
       });
 
       expect(coachingBundle.knowledgeSnippets.length).toBe(1);
-      expect(coachingBundle.knowledgeSnippets[0]).toContain('NEET 1-year course fee');
+      expect(coachingBundle.knowledgeSnippets[0]).toContain(
+        'NEET 1-year course fee'
+      );
       expect(coachingBundle.knowledgeSnippets[0]).not.toContain('Dr. Sen');
     });
   });
@@ -290,8 +317,12 @@ describe('Helpa Core AI Engine', () => {
       const realEstateTools = aiToolRegistry.getToolsForIndustry('real_estate');
       const healthTools = aiToolRegistry.getToolsForIndustry('health');
 
-      expect(realEstateTools.some((t) => t.name === 'searchProperties')).toBe(true);
-      expect(healthTools.some((t) => t.name === 'searchProperties')).toBe(false);
+      expect(realEstateTools.some((t) => t.name === 'searchProperties')).toBe(
+        true
+      );
+      expect(healthTools.some((t) => t.name === 'searchProperties')).toBe(
+        false
+      );
     });
 
     it('executes createAppointment WRITE tool cleanly with validated parameters', async () => {
@@ -315,7 +346,9 @@ describe('Helpa Core AI Engine', () => {
       expect(result.success).toBe(true);
       expect(mockDatabase.appointments.length).toBe(1);
       expect(mockDatabase.appointments[0].appointment_date).toBe('2026-08-20');
-      expect(mockDatabase.appointments[0].notes).toContain('Dr. Sen Cardiac Checkup');
+      expect(mockDatabase.appointments[0].notes).toContain(
+        'Dr. Sen Cardiac Checkup'
+      );
     });
   });
 
@@ -348,7 +381,8 @@ describe('Helpa Core AI Engine', () => {
         name = 'mock-provider';
         async generateCompletion() {
           return {
-            content: 'Dr. Sen is available Mon-Fri 4 PM - 7 PM. Would you like me to book a slot?',
+            content:
+              'Dr. Sen is available Mon-Fri 4 PM - 7 PM. Would you like me to book a slot?',
             model: 'mock-llama-3',
             promptTokens: 120,
             completionTokens: 30,
@@ -399,7 +433,8 @@ describe('Helpa Core AI Engine', () => {
             content: JSON.stringify({
               summary: 'Customer inquiring about Dr. Sen consultation timings.',
               intent: 'Booking Enquiry',
-              suggestedReply: 'Dr. Sen is available today at 4:00 PM. Shall I book an appointment?',
+              suggestedReply:
+                'Dr. Sen is available today at 4:00 PM. Shall I book an appointment?',
               suggestedAction: {
                 label: 'Book Appointment',
                 actionType: 'create_appointment',
@@ -410,7 +445,9 @@ describe('Helpa Core AI Engine', () => {
         }
       }
 
-      setAiProvider(new MockCopilotProvider() as unknown as OpenRouterAiProvider);
+      setAiProvider(
+        new MockCopilotProvider() as unknown as OpenRouterAiProvider
+      );
 
       const copilot = await generateCopilotSuggestions({
         context: {
@@ -422,7 +459,9 @@ describe('Helpa Core AI Engine', () => {
       });
 
       expect(copilot.intent).toBe('Booking Enquiry');
-      expect(copilot.suggestedReply).toContain('Dr. Sen is available today at 4:00 PM');
+      expect(copilot.suggestedReply).toContain(
+        'Dr. Sen is available today at 4:00 PM'
+      );
       expect(copilot.suggestedAction?.label).toBe('Book Appointment');
     });
   });

@@ -52,7 +52,9 @@ export async function getSalonCopilotContext({
     .single();
 
   const extra = (contact?.extra_attributes as Record<string, unknown>) || {};
-  const customerId = String(extra.customer_id || `CUS-${contact?.id?.slice(0, 6) || '000123'}`);
+  const customerId = String(
+    extra.customer_id || `CUS-${contact?.id?.slice(0, 6) || '000123'}`
+  );
   const customerName = contact?.name || 'Rahul Sharma';
   const customerMobile = contact?.phone || '+919000000000';
   const preferredStaff = (extra.preferred_staff as string) || 'Amit Roy';

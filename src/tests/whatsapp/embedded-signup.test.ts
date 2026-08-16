@@ -16,7 +16,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { POST as embeddedSignupHandler } from '@/app/api/whatsapp/embedded-signup/route';
 import { DELETE as disconnectHandler } from '@/app/api/whatsapp/config/route';
-import { getWhatsAppConnection } from '@/core/whatsapp/service';
 import { resolveTenantByPhoneNumberId } from '@/core/whatsapp/tenant-resolver';
 import { encrypt, decrypt } from '@/lib/whatsapp/encryption';
 import * as authAccount from '@/lib/auth/account';
@@ -24,8 +23,16 @@ import * as appwriteCompat from '@/lib/appwrite-server-compat';
 import * as metaApi from '@/lib/whatsapp/meta-api';
 
 describe('Meta WhatsApp Embedded Signup & 1-Click Onboarding', () => {
-  const tenantA = { id: 'ws-embedded-alpha', name: 'Alpha Clinic', userId: 'usr-alpha' };
-  const tenantB = { id: 'ws-embedded-beta', name: 'Beta Salon', userId: 'usr-beta' };
+  const tenantA = {
+    id: 'ws-embedded-alpha',
+    name: 'Alpha Clinic',
+    userId: 'usr-alpha',
+  };
+  const tenantB = {
+    id: 'ws-embedded-beta',
+    name: 'Beta Salon',
+    userId: 'usr-beta',
+  };
 
   let mockDatabase: {
     whatsapp_config: Array<Record<string, unknown>>;
@@ -58,7 +65,10 @@ describe('Meta WhatsApp Embedded Signup & 1-Click Onboarding', () => {
     // Mock Appwrite server database client
     vi.spyOn(appwriteCompat, 'getAdminClient').mockReturnValue({
       from: (table: string) => {
-        const store = (mockDatabase as Record<string, Array<Record<string, unknown>>>)[table] || [];
+        const store =
+          (mockDatabase as Record<string, Array<Record<string, unknown>>>)[
+            table
+          ] || [];
         return {
           select: () => {
             let filtered = [...store];
@@ -116,9 +126,10 @@ describe('Meta WhatsApp Embedded Signup & 1-Click Onboarding', () => {
           }),
           delete: () => ({
             eq: (f: string, v: unknown) => {
-              const beforeCount = store.length;
               const remaining = store.filter((r) => r[f] !== v);
-              (mockDatabase as Record<string, Array<Record<string, unknown>>>)[table] = remaining;
+              (mockDatabase as Record<string, Array<Record<string, unknown>>>)[
+                table
+              ] = remaining;
               return Promise.resolve({ data: remaining, error: null });
             },
           }),
@@ -142,7 +153,9 @@ describe('Meta WhatsApp Embedded Signup & 1-Click Onboarding', () => {
     } as never);
 
     // Mock Meta Graph API responses
-    vi.spyOn(metaApi, 'subscribeWabaToApp').mockResolvedValue(undefined as never);
+    vi.spyOn(metaApi, 'subscribeWabaToApp').mockResolvedValue(
+      undefined as never
+    );
     vi.spyOn(metaApi, 'verifyPhoneNumber').mockResolvedValue({
       id: 'phone-100200',
       display_phone_number: '+91 98765 43210',
@@ -159,11 +172,14 @@ describe('Meta WhatsApp Embedded Signup & 1-Click Onboarding', () => {
         phone_number_id: 'phone-100200',
       };
 
-      const request = new Request('http://localhost:3000/api/whatsapp/embedded-signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      const request = new Request(
+        'http://localhost:3000/api/whatsapp/embedded-signup',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }
+      );
 
       const response = await embeddedSignupHandler(request);
       const json = await response.json();
@@ -184,13 +200,17 @@ describe('Meta WhatsApp Embedded Signup & 1-Click Onboarding', () => {
       expect(stored.account_id).toBe(tenantA.id);
       expect(stored.phone_number_id).toBe('phone-100200');
       expect(stored.access_token).not.toBe('EAABwzLIX_TEST_TOKEN_12345');
-      expect(decrypt(stored.access_token as string)).toBe('EAABwzLIX_TEST_TOKEN_12345');
+      expect(decrypt(stored.access_token as string)).toBe(
+        'EAABwzLIX_TEST_TOKEN_12345'
+      );
 
       // Verify Audit Log was created without credential leakage
       expect(mockDatabase.audit_logs.length).toBe(1);
       const audit = mockDatabase.audit_logs[0];
       expect(audit.action).toBe('WHATSAPP_CONNECTED');
-      expect(JSON.stringify(audit.details)).not.toContain('EAABwzLIX_TEST_TOKEN_12345');
+      expect(JSON.stringify(audit.details)).not.toContain(
+        'EAABwzLIX_TEST_TOKEN_12345'
+      );
     });
 
     it('prevents connecting a phone number that is already bound to another workspace', async () => {
@@ -205,15 +225,18 @@ describe('Meta WhatsApp Embedded Signup & 1-Click Onboarding', () => {
       });
 
       // Tenant A attempts to connect the same phone-100200
-      const request = new Request('http://localhost:3000/api/whatsapp/embedded-signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          accessToken: 'EAABwzLIX_NEW_TOKEN',
-          waba_id: 'waba-999888',
-          phone_number_id: 'phone-100200', // Conflict!
-        }),
-      });
+      const request = new Request(
+        'http://localhost:3000/api/whatsapp/embedded-signup',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            accessToken: 'EAABwzLIX_NEW_TOKEN',
+            waba_id: 'waba-999888',
+            phone_number_id: 'phone-100200', // Conflict!
+          }),
+        }
+      );
 
       const response = await embeddedSignupHandler(request);
       const json = await response.json();
@@ -243,7 +266,8 @@ describe('Meta WhatsApp Embedded Signup & 1-Click Onboarding', () => {
       expect(resolved?.accessToken).toBe('TOKEN_ALPHA');
 
       // Unregistered phone returns null
-      const unregistered = await resolveTenantByPhoneNumberId('phone-unknown-999');
+      const unregistered =
+        await resolveTenantByPhoneNumberId('phone-unknown-999');
       expect(unregistered).toBeNull();
     });
   });
@@ -278,7 +302,9 @@ describe('Meta WhatsApp Embedded Signup & 1-Click Onboarding', () => {
       expect(mockDatabase.contacts.length).toBe(1);
 
       // Verify audit log
-      const audit = mockDatabase.audit_logs.find((l) => l.action === 'WHATSAPP_DISCONNECTED');
+      const audit = mockDatabase.audit_logs.find(
+        (l) => l.action === 'WHATSAPP_DISCONNECTED'
+      );
       expect(audit).toBeDefined();
       expect(audit?.account_id).toBe(tenantA.id);
     });

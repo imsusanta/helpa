@@ -70,7 +70,11 @@ export const salonManifest: IndustryModule = {
         { key: 'preferred_stylist', label: 'Preferred Stylist', type: 'text' },
         { key: 'hair_skin_type', label: 'Hair / Skin Type', type: 'text' },
         { key: 'allergies', label: 'Allergies / Sensitivities', type: 'text' },
-        { key: 'preferred_time_slot', label: 'Preferred Time Slot', type: 'text' },
+        {
+          key: 'preferred_time_slot',
+          label: 'Preferred Time Slot',
+          type: 'text',
+        },
       ],
     },
   },

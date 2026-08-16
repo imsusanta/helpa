@@ -44,8 +44,10 @@ export async function resolveTenantByPhoneNumberId(
     const tenantId = String(config.account_id || config.accountId || '');
     const userId = String(config.user_id || config.userId || '');
     const wabaId = String(config.waba_id || config.wabaId || '');
-    const displayPhoneNumber = config.display_phone_number || config.phone_number || undefined;
-    const businessName = config.verified_name || config.business_name || undefined;
+    const displayPhoneNumber =
+      config.display_phone_number || config.phone_number || undefined;
+    const businessName =
+      config.verified_name || config.business_name || undefined;
 
     const encToken = String(
       config.access_token_encrypted ||
@@ -148,7 +150,9 @@ export async function resolveContactForTenant({
     if (retry) {
       return { contactId: retry.id, wasCreated: false };
     }
-    throw new Error(`Failed to create contact for tenant ${tenantId}: ${error?.message}`);
+    throw new Error(
+      `Failed to create contact for tenant ${tenantId}: ${error?.message}`
+    );
   }
 
   return { contactId: created.id, wasCreated: true };

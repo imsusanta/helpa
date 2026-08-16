@@ -20,7 +20,14 @@ export type LeadStage =
 
 export interface PropertyRequirement {
   purpose: 'Buy' | 'Rent' | 'Lease' | 'Investment';
-  propertyType: 'Apartment' | 'Villa' | 'Independent House' | 'Plot' | 'Commercial' | 'Office' | 'Shop';
+  propertyType:
+    | 'Apartment'
+    | 'Villa'
+    | 'Independent House'
+    | 'Plot'
+    | 'Commercial'
+    | 'Office'
+    | 'Shop';
   location: string;
   minBudget?: number; // In INR Lakhs e.g. 50
   maxBudget?: number; // In INR Lakhs e.g. 70
@@ -155,7 +162,9 @@ export async function getOrCreateRealEstateLead({
     .single();
 
   if (error || !created) {
-    throw new Error(`Failed to create real estate lead: ${error?.message || 'DB error'}`);
+    throw new Error(
+      `Failed to create real estate lead: ${error?.message || 'DB error'}`
+    );
   }
 
   return {
@@ -191,8 +200,10 @@ export async function updateLeadRequirement(
     .eq('account_id', accountId)
     .single();
 
-  const currentExtra = (contact?.extra_attributes as Record<string, unknown>) || {};
-  const currentReq = (currentExtra.requirement as Record<string, unknown>) || {};
+  const currentExtra =
+    (contact?.extra_attributes as Record<string, unknown>) || {};
+  const currentReq =
+    (currentExtra.requirement as Record<string, unknown>) || {};
 
   const updatedExtra = {
     ...currentExtra,

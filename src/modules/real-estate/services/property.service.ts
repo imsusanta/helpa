@@ -11,9 +11,17 @@ export interface PropertyRecord {
   accountId: string;
   propertyCode: string; // e.g. "PROP-001"
   title: string;
-  propertyType: 'Apartment' | 'Villa' | 'Independent House' | 'Plot' | 'Commercial' | 'Office' | 'Shop';
+  propertyType:
+    | 'Apartment'
+    | 'Villa'
+    | 'Independent House'
+    | 'Plot'
+    | 'Commercial'
+    | 'Office'
+    | 'Shop';
   purpose: 'Buy' | 'Rent' | 'Lease' | 'Investment';
-  status: 'Available' | 'Reserved' | 'Sold' | 'Rented' | 'Unavailable' | 'Draft';
+  status:
+    'Available' | 'Reserved' | 'Sold' | 'Rented' | 'Unavailable' | 'Draft';
   price: number; // in INR or Lakhs
   priceDisplay: string; // e.g. "₹65 Lakhs" or "₹25,000 / month"
   location: string; // e.g. "New Town, Kolkata"
@@ -68,9 +76,16 @@ export async function listProperties(
         possession: 'Ready to Move',
         furnishing: 'Semi-Furnished',
         parking: true,
-        amenities: ['Gym', 'Swimming Pool', 'Lift', '24/7 Security', 'Covered Parking'],
+        amenities: [
+          'Gym',
+          'Swimming Pool',
+          'Lift',
+          '24/7 Security',
+          'Covered Parking',
+        ],
         assignedAgentName: 'Amit Roy',
-        description: 'Prime location 2 BHK with open balcony facing central park. OC received.',
+        description:
+          'Prime location 2 BHK with open balcony facing central park. OC received.',
       },
       {
         id: 'prop-nt-02',
@@ -89,9 +104,15 @@ export async function listProperties(
         possession: 'Under Construction',
         furnishing: 'Unfurnished',
         parking: true,
-        amenities: ['Clubhouse', 'Power Backup', 'Landscaped Garden', 'Intercom'],
+        amenities: [
+          'Clubhouse',
+          'Power Backup',
+          'Landscaped Garden',
+          'Intercom',
+        ],
         assignedAgentName: 'Amit Roy',
-        description: 'Modern high-rise 3 BHK apartments near major IT hubs. Possession in Dec 2026.',
+        description:
+          'Modern high-rise 3 BHK apartments near major IT hubs. Possession in Dec 2026.',
       },
       {
         id: 'prop-hw-03',
@@ -112,7 +133,8 @@ export async function listProperties(
         parking: true,
         amenities: ['24/7 Water', 'Lift', 'Security'],
         assignedAgentName: 'Priya Sen',
-        description: 'Peaceful river-view residential project with excellent road connectivity.',
+        description:
+          'Peaceful river-view residential project with excellent road connectivity.',
       },
     ];
   }

@@ -85,7 +85,9 @@ export async function bookHealthAppointment(
   const doctors = await listClinicDoctors(input.accountId);
   const doctor =
     doctors.find((d) => d.id === availability.doctorId) ||
-    doctors.find((d) => d.name.toLowerCase().includes(input.doctorIdOrName.toLowerCase())) ||
+    doctors.find((d) =>
+      d.name.toLowerCase().includes(input.doctorIdOrName.toLowerCase())
+    ) ||
     doctors[0];
 
   const doctorName = doctor ? doctor.name : input.doctorIdOrName;
@@ -93,7 +95,10 @@ export async function bookHealthAppointment(
   const fee = doctor ? doctor.consultationFee : 500;
 
   // 3. Generate Token Number
-  const tokenNumber = await generateQueueToken(input.accountId, input.appointmentDate);
+  const tokenNumber = await generateQueueToken(
+    input.accountId,
+    input.appointmentDate
+  );
   const bookingSource = 'WhatsApp';
   const bookedBy = input.bookedBy || 'ai';
 
@@ -124,7 +129,9 @@ export async function bookHealthAppointment(
     .single();
 
   if (error || !created) {
-    throw new Error(`Appointment creation failed: ${error?.message || 'Database error'}`);
+    throw new Error(
+      `Appointment creation failed: ${error?.message || 'Database error'}`
+    );
   }
 
   // 5. Generate confirmation slip
@@ -181,7 +188,13 @@ export async function bookHealthAppointment(
 export async function updateQueueStatus(
   accountId: string,
   appointmentId: string,
-  newStatus: 'Waiting' | 'Now Serving' | 'In Consultation' | 'Completed' | 'Cancelled' | 'No Show'
+  newStatus:
+    | 'Waiting'
+    | 'Now Serving'
+    | 'In Consultation'
+    | 'Completed'
+    | 'Cancelled'
+    | 'No Show'
 ): Promise<boolean> {
   const db = getAdminClient();
   const { error } = await db

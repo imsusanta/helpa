@@ -49,7 +49,9 @@ export async function getCoachingCopilotContext({
     .single();
 
   const extra = (contact?.extra_attributes as Record<string, unknown>) || {};
-  const studentId = String(extra.student_id || `STU-${contact?.id?.slice(0, 6) || '000123'}`);
+  const studentId = String(
+    extra.student_id || `STU-${contact?.id?.slice(0, 6) || '000123'}`
+  );
   const studentName = contact?.name || 'Rahul Sharma';
   const studentMobile = contact?.phone || '+919000000000';
   const targetCourse = String(extra.target_course || 'SSC CGL Foundation');

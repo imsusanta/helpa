@@ -3,7 +3,7 @@
   "dataLicense": "CC0-1.0",
   "SPDXID": "SPDXRef-DOCUMENT",
   "name": "helpa",
-  "documentNamespace": "https://github.com/imsusanta/wacrm_susanta/sbom/helpa-0.3.0",
+  "documentNamespace": "https://github.com/imsusanta/helpa/sbom/helpa-0.3.0",
   "creationInfo": {
     "creators": [
       "Tool: Helpa-SBOM-Generator-1.0",
@@ -16,7 +16,7 @@
       "name": "helpa",
       "SPDXID": "SPDXRef-Package-Root",
       "versionInfo": "0.3.0",
-      "downloadLocation": "git+https://github.com/imsusanta/wacrm_susanta.git",
+      "downloadLocation": "git+https://github.com/imsusanta/helpa.git",
       "licenseConcluded": "MIT",
       "supplier": "Organization: Helpa Studio"
     },

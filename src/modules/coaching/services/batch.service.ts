@@ -114,7 +114,7 @@ export async function listCourseBatches(
       capacity,
       enrolledStudents: enrolled,
       availableSeats: available,
-      status: available === 0 ? 'Full' : (r.status || 'Upcoming'),
+      status: available === 0 ? 'Full' : r.status || 'Upcoming',
     };
   });
 }

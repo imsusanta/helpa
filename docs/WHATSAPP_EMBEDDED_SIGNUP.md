@@ -34,7 +34,7 @@ Helpa uses Meta's official **WhatsApp Embedded Signup Flow** with the Facebook J
 1. **Meta App Type**: Business.
 2. **Products Added**:
    - **WhatsApp**: API Setup & Quickstart.
-   - **Facebook Login for Business**: Settings → *Login with the JavaScript SDK* must be enabled (`Yes`).
+   - **Facebook Login for Business**: Settings → _Login with the JavaScript SDK_ must be enabled (`Yes`).
    - Allowed Domains: `https://your-domain.com`, `https://*.appwrite.network`.
 3. **Configurations (Config ID)**:
    - Create a Configuration in Meta App Dashboard → WhatsApp → Embedded Signup.

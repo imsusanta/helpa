@@ -16,10 +16,8 @@ import {
   resolveTenantByPhoneNumberId,
   resolveContactForTenant,
   resolveConversationForTenant,
-  getWhatsAppConnection,
   getWhatsAppHealth,
   disconnectWhatsApp,
-  reconnectWhatsApp,
   sendWhatsAppMessage,
 } from '@/core/whatsapp';
 import * as appwriteCompat from '@/lib/appwrite-server-compat';
@@ -97,7 +95,10 @@ describe('Helpa Core WhatsApp Integration', () => {
     // Mock DB client
     vi.spyOn(appwriteCompat, 'getAdminClient').mockReturnValue({
       from: (table: string) => {
-        const store = (mockDatabase as Record<string, Array<Record<string, unknown>>>)[table] || [];
+        const store =
+          (mockDatabase as Record<string, Array<Record<string, unknown>>>)[
+            table
+          ] || [];
         return {
           select: () => {
             let filtered = [...store];
@@ -116,8 +117,9 @@ describe('Helpa Core WhatsApp Integration', () => {
                 data: filtered[0] || null,
                 error: filtered[0] ? null : { message: 'Row not found' },
               }),
-              then: (resolve: (res: { data: unknown[]; error: null }) => void) =>
-                resolve({ data: filtered, error: null }),
+              then: (
+                resolve: (res: { data: unknown[]; error: null }) => void
+              ) => resolve({ data: filtered, error: null }),
             };
             return queryBuilder;
           },
@@ -138,12 +140,15 @@ describe('Helpa Core WhatsApp Integration', () => {
               matched.forEach((r) => Object.assign(r, data));
               return {
                 eq: (f2: string, v2: unknown) => {
-                  const m2 = store.filter((r) => r[field] === val && r[f2] === v2);
+                  const m2 = store.filter(
+                    (r) => r[field] === val && r[f2] === v2
+                  );
                   m2.forEach((r) => Object.assign(r, data));
                   return Promise.resolve({ data: m2, error: null });
                 },
-                then: (resolve: (res: { data: unknown; error: null }) => void) =>
-                  resolve({ data: matched, error: null }),
+                then: (
+                  resolve: (res: { data: unknown; error: null }) => void
+                ) => resolve({ data: matched, error: null }),
               };
             },
           }),
@@ -161,7 +166,9 @@ describe('Helpa Core WhatsApp Integration', () => {
 
   describe('Strict Tenant Resolution', () => {
     it('resolves Tenant A when receiving webhook for Phone Number ID A', async () => {
-      const resolved = await resolveTenantByPhoneNumberId(tenantA.phoneNumberId);
+      const resolved = await resolveTenantByPhoneNumberId(
+        tenantA.phoneNumberId
+      );
       expect(resolved).not.toBeNull();
       expect(resolved?.tenantId).toBe(tenantA.id);
       expect(resolved?.wabaId).toBe(tenantA.wabaId);
@@ -170,7 +177,9 @@ describe('Helpa Core WhatsApp Integration', () => {
     });
 
     it('resolves Tenant B when receiving webhook for Phone Number ID B', async () => {
-      const resolved = await resolveTenantByPhoneNumberId(tenantB.phoneNumberId);
+      const resolved = await resolveTenantByPhoneNumberId(
+        tenantB.phoneNumberId
+      );
       expect(resolved).not.toBeNull();
       expect(resolved?.tenantId).toBe(tenantB.id);
       expect(resolved?.wabaId).toBe(tenantB.wabaId);

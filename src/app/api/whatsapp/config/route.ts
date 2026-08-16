@@ -751,7 +751,10 @@ export async function DELETE() {
         created_at: new Date().toISOString(),
       });
     } catch (auditErr) {
-      console.warn('[DELETE /api/whatsapp/config] Failed to record audit log:', auditErr);
+      console.warn(
+        '[DELETE /api/whatsapp/config] Failed to record audit log:',
+        auditErr
+      );
     }
 
     return NextResponse.json({ success: true });

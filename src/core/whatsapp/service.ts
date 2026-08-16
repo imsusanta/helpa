@@ -41,11 +41,14 @@ export async function getWhatsAppConnection(
 
   const config = rows[0];
   const hasToken = Boolean(
-    config.access_token_encrypted || config.encrypted_access_token || config.access_token
+    config.access_token_encrypted ||
+    config.encrypted_access_token ||
+    config.access_token
   );
   const isRegistered = Boolean(config.registered_at);
 
-  let connectionStatus: WhatsAppConnection['connectionStatus'] = 'NOT_CONNECTED';
+  let connectionStatus: WhatsAppConnection['connectionStatus'] =
+    'NOT_CONNECTED';
   if (hasToken && config.phone_number_id && isRegistered) {
     connectionStatus = 'CONNECTED';
   } else if (hasToken && config.phone_number_id) {
@@ -60,7 +63,8 @@ export async function getWhatsAppConnection(
     businessId: config.business_id || undefined,
     wabaId: String(config.waba_id || ''),
     phoneNumberId: String(config.phone_number_id || ''),
-    displayPhoneNumber: config.display_phone_number || config.phone_number || undefined,
+    displayPhoneNumber:
+      config.display_phone_number || config.phone_number || undefined,
     businessName: config.verified_name || config.business_name || undefined,
     connectionStatus,
     coexistenceStatus: config.coexistence_eligible ? 'active' : 'unknown',
@@ -77,7 +81,16 @@ export async function getWhatsAppConnection(
 export async function sendWhatsAppMessage(
   options: WhatsAppSendOptions
 ): Promise<WhatsAppSendResult> {
-  const { tenantId, to, type = 'text', text, mediaUrl, templateName, templateLanguage = 'en_US', templateComponents } = options;
+  const {
+    tenantId,
+    to,
+    type = 'text',
+    text,
+    mediaUrl,
+    templateName,
+    templateLanguage = 'en_US',
+    templateComponents,
+  } = options;
 
   if (!tenantId) {
     return {
@@ -113,7 +126,10 @@ export async function sendWhatsAppMessage(
   const config = rows[0];
   const phoneNumberId = String(config.phone_number_id || '');
   const encToken = String(
-    config.access_token_encrypted || config.encrypted_access_token || config.access_token || ''
+    config.access_token_encrypted ||
+      config.encrypted_access_token ||
+      config.access_token ||
+      ''
   );
 
   if (!phoneNumberId || !encToken) {
@@ -347,7 +363,8 @@ export async function disconnectWhatsApp(
 
   return {
     success: true,
-    message: 'WhatsApp has been disconnected cleanly. Conversation history was preserved.',
+    message:
+      'WhatsApp has been disconnected cleanly. Conversation history was preserved.',
   };
 }
 
@@ -361,7 +378,8 @@ export async function reconnectWhatsApp(
   if (!health.connected) {
     return {
       success: false,
-      message: 'WhatsApp is not connected. Please click Connect WhatsApp to link with Meta.',
+      message:
+        'WhatsApp is not connected. Please click Connect WhatsApp to link with Meta.',
     };
   }
 

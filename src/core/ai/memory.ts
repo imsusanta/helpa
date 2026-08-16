@@ -44,7 +44,10 @@ export async function getConversationMemory(
     .reverse()
     .filter((m) => m.content_text && m.content_text.trim().length > 0)
     .map((m) => ({
-      role: m.sender_type === 'ai' || m.sender_type === 'agent' ? 'assistant' : 'user',
+      role:
+        m.sender_type === 'ai' || m.sender_type === 'agent'
+          ? 'assistant'
+          : 'user',
       content: m.content_text,
     }));
 

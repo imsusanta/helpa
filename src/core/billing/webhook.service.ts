@@ -5,7 +5,11 @@
  */
 
 import { getAdminClient } from '@/lib/appwrite-server-compat';
-import { upgradeSubscription, handlePaymentFailure, cancelSubscription } from './subscription.service';
+import {
+  upgradeSubscription,
+  handlePaymentFailure,
+  cancelSubscription,
+} from './subscription.service';
 import { PaymentRecord } from './types';
 import { coreEvents } from '@/core/events';
 
@@ -84,7 +88,11 @@ export async function processPaymentWebhook(
         created_at: new Date().toISOString(),
       });
 
-      coreEvents.emit('billing.payment_succeeded', payload.workspaceId, paymentRecord);
+      coreEvents.emit(
+        'billing.payment_succeeded',
+        payload.workspaceId,
+        paymentRecord
+      );
       break;
     }
 

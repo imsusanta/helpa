@@ -27,7 +27,9 @@ export interface TutorStudentRecord {
 /**
  * Generates the next sequential unique Student ID (e.g. STU-000123) for a tutor workspace.
  */
-export async function generateNextTutorStudentId(accountId: string): Promise<string> {
+export async function generateNextTutorStudentId(
+  accountId: string
+): Promise<string> {
   const db = getAdminClient();
   const { data: contacts } = await db
     .from('contacts')
@@ -86,7 +88,8 @@ export async function getTutorStudentsByMobile(
       subjectOrCourse: extra.target_course as string,
       levelOrClass: extra.level_or_class as string,
       currentBatch: extra.current_batch as string,
-      status: (extra.student_status as TutorStudentRecord['status']) || 'active',
+      status:
+        (extra.student_status as TutorStudentRecord['status']) || 'active',
       notes: r.notes,
       createdAt: r.created_at,
     };
@@ -156,7 +159,9 @@ export async function createOrFindTutorStudent({
     .single();
 
   if (error || !created) {
-    throw new Error(`Failed to create tutor student: ${error?.message || 'DB error'}`);
+    throw new Error(
+      `Failed to create tutor student: ${error?.message || 'DB error'}`
+    );
   }
 
   return {

@@ -9,7 +9,8 @@ export const DEFAULT_PLANS: SubscriptionPlan[] = [
   {
     id: 'plan_free',
     name: 'Free',
-    description: 'Essential communication tools for solo businesses and evaluation.',
+    description:
+      'Essential communication tools for solo businesses and evaluation.',
     monthlyPrice: 0,
     yearlyPrice: 0,
     currency: 'INR',
@@ -37,7 +38,8 @@ export const DEFAULT_PLANS: SubscriptionPlan[] = [
   {
     id: 'plan_starter',
     name: 'Starter',
-    description: 'For growing businesses requiring AI-powered appointment & lead communication.',
+    description:
+      'For growing businesses requiring AI-powered appointment & lead communication.',
     monthlyPrice: 999,
     yearlyPrice: 9990,
     currency: 'INR',
@@ -76,7 +78,8 @@ export const DEFAULT_PLANS: SubscriptionPlan[] = [
   {
     id: 'plan_professional',
     name: 'Professional',
-    description: 'Full-featured AI automation, AI Copilot, and high-volume WhatsApp communication.',
+    description:
+      'Full-featured AI automation, AI Copilot, and high-volume WhatsApp communication.',
     monthlyPrice: 2499,
     yearlyPrice: 24990,
     currency: 'INR',
@@ -123,7 +126,8 @@ export const DEFAULT_PLANS: SubscriptionPlan[] = [
   {
     id: 'plan_business',
     name: 'Business',
-    description: 'High-scale multi-agent operations, custom models, and priority support.',
+    description:
+      'High-scale multi-agent operations, custom models, and priority support.',
     monthlyPrice: 5999,
     yearlyPrice: 59990,
     currency: 'INR',
@@ -195,7 +199,9 @@ export async function getAvailablePlans(): Promise<SubscriptionPlan[]> {
     features: (r.features as string[]) || [],
     usageLimits: {
       aiMessages: Number(r.max_ai_requests || r.ai_messages || 5000),
-      whatsappMessages: Number(r.max_whatsapp_numbers || r.whatsapp_messages || 10000),
+      whatsappMessages: Number(
+        r.max_whatsapp_numbers || r.whatsapp_messages || 10000
+      ),
       teamMembers: Number(r.max_users || r.team_members || 5),
       campaignMessages: Number(r.campaign_messages || 2000),
       contacts: Number(r.max_contacts || r.contacts || 5000),

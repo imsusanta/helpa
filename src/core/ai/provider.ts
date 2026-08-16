@@ -64,7 +64,8 @@ export class OpenRouterAiProvider implements AiProvider {
           headers: {
             Authorization: `Bearer ${apiKey}`,
             'Content-Type': 'application/json',
-            'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'https://helpa.studio',
+            'HTTP-Referer':
+              process.env.NEXT_PUBLIC_APP_URL || 'https://helpa.studio',
             'X-Title': 'Helpa Studio',
           },
           body: JSON.stringify({
@@ -85,9 +86,7 @@ export class OpenRouterAiProvider implements AiProvider {
       }
 
       const data = await response.json();
-      const content =
-        data.choices?.[0]?.message?.content ||
-        '';
+      const content = data.choices?.[0]?.message?.content || '';
 
       return {
         content,

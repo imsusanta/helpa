@@ -1311,7 +1311,10 @@ export function createClient(): AppwriteCompatClient {
     try {
       return createSupabaseBrowserClient();
     } catch (err) {
-      console.warn('[appwrite-compat] Supabase browser client failed, falling back to data client:', err);
+      console.warn(
+        '[appwrite-compat] Supabase browser client failed, falling back to data client:',
+        err
+      );
     }
   }
   return createDataClient();

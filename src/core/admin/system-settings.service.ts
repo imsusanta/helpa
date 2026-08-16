@@ -34,15 +34,34 @@ export async function getSystemSettings(): Promise<SystemSettings> {
 
   const s = (row.settings as Record<string, unknown>) || {};
   return {
-    defaultTrialDays: Number(s.defaultTrialDays ?? DEFAULT_SYSTEM_SETTINGS.defaultTrialDays),
-    defaultCurrency: String(s.defaultCurrency || DEFAULT_SYSTEM_SETTINGS.defaultCurrency),
-    defaultTimezone: String(s.defaultTimezone || DEFAULT_SYSTEM_SETTINGS.defaultTimezone),
-    defaultAiModel: String(s.defaultAiModel || DEFAULT_SYSTEM_SETTINGS.defaultAiModel),
-    usageWarningThreshold: Number(s.usageWarningThreshold ?? DEFAULT_SYSTEM_SETTINGS.usageWarningThreshold),
-    defaultGracePeriodDays: Number(s.defaultGracePeriodDays ?? DEFAULT_SYSTEM_SETTINGS.defaultGracePeriodDays),
-    maintenanceMode: Boolean(s.maintenanceMode ?? DEFAULT_SYSTEM_SETTINGS.maintenanceMode),
-    newSignupEnabled: Boolean(s.newSignupEnabled ?? DEFAULT_SYSTEM_SETTINGS.newSignupEnabled),
-    newIndustrySignupEnabled: Boolean(s.newIndustrySignupEnabled ?? DEFAULT_SYSTEM_SETTINGS.newIndustrySignupEnabled),
+    defaultTrialDays: Number(
+      s.defaultTrialDays ?? DEFAULT_SYSTEM_SETTINGS.defaultTrialDays
+    ),
+    defaultCurrency: String(
+      s.defaultCurrency || DEFAULT_SYSTEM_SETTINGS.defaultCurrency
+    ),
+    defaultTimezone: String(
+      s.defaultTimezone || DEFAULT_SYSTEM_SETTINGS.defaultTimezone
+    ),
+    defaultAiModel: String(
+      s.defaultAiModel || DEFAULT_SYSTEM_SETTINGS.defaultAiModel
+    ),
+    usageWarningThreshold: Number(
+      s.usageWarningThreshold ?? DEFAULT_SYSTEM_SETTINGS.usageWarningThreshold
+    ),
+    defaultGracePeriodDays: Number(
+      s.defaultGracePeriodDays ?? DEFAULT_SYSTEM_SETTINGS.defaultGracePeriodDays
+    ),
+    maintenanceMode: Boolean(
+      s.maintenanceMode ?? DEFAULT_SYSTEM_SETTINGS.maintenanceMode
+    ),
+    newSignupEnabled: Boolean(
+      s.newSignupEnabled ?? DEFAULT_SYSTEM_SETTINGS.newSignupEnabled
+    ),
+    newIndustrySignupEnabled: Boolean(
+      s.newIndustrySignupEnabled ??
+      DEFAULT_SYSTEM_SETTINGS.newIndustrySignupEnabled
+    ),
   };
 }
 

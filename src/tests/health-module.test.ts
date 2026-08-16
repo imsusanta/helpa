@@ -18,17 +18,14 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   generateNextPatientId,
   createOrFindPatient,
-  getPatientsByMobile,
   getPatientTimeline,
   listClinicDoctors,
   getDoctorSlotAvailability,
   bookHealthAppointment,
   updateQueueStatus,
-  generateAppointmentSlipText,
   getPatientReports,
   deliverReportToPatient,
   scheduleHealthFollowUp,
-  getDueFollowUps,
   getReceptionistCopilotContext,
 } from '@/modules/health/services';
 import * as appwriteCompat from '@/lib/appwrite-server-compat';
@@ -37,7 +34,7 @@ import { coreEvents } from '@/core/events';
 
 describe('Helpa Health & Clinic Industry Module', () => {
   const clinicA = { id: 'clinic-apollo-01', name: 'Apollo Day Clinic' };
-  const clinicB = { id: 'clinic-fortis-02', name: 'Fortis Health Center' };
+  const _clinicB = { id: 'clinic-fortis-02', name: 'Fortis Health Center' };
 
   let mockDatabase: {
     contacts: Array<Record<string, unknown>>;
@@ -69,7 +66,10 @@ describe('Helpa Health & Clinic Industry Module', () => {
 
     vi.spyOn(appwriteCompat, 'getAdminClient').mockReturnValue({
       from: (table: string) => {
-        const store = (mockDatabase as Record<string, Array<Record<string, unknown>>>)[table] || [];
+        const store =
+          (mockDatabase as Record<string, Array<Record<string, unknown>>>)[
+            table
+          ] || [];
         return {
           select: () => {
             let filtered = [...store];
@@ -256,7 +256,9 @@ describe('Helpa Health & Clinic Industry Module', () => {
       expect(booking.tokenNumber).toBe('A-001');
       expect(booking.bookingSource).toBe('WhatsApp');
       expect(booking.bookedBy).toBe('ai');
-      expect(booking.confirmationSlip).toContain('DIGITAL APPOINTMENT CONFIRMATION SLIP');
+      expect(booking.confirmationSlip).toContain(
+        'DIGITAL APPOINTMENT CONFIRMATION SLIP'
+      );
       expect(booking.confirmationSlip).toContain('Token: 🎫 A-001');
 
       // Verify event emission for reminders
@@ -289,7 +291,9 @@ describe('Helpa Health & Clinic Industry Module', () => {
       );
       expect(updated).toBe(true);
 
-      const appt = mockDatabase.appointments.find((a) => a.id === booking.appointmentId);
+      const appt = mockDatabase.appointments.find(
+        (a) => a.id === booking.appointmentId
+      );
       expect(appt?.status).toBe('In Consultation');
     });
   });
@@ -354,8 +358,14 @@ describe('Helpa Health & Clinic Industry Module', () => {
       expect(copilotContext.patient.name).toBe('Rahul Sharma');
       expect(copilotContext.summary).toContain('Returning patient');
       expect(copilotContext.suggestedReply).toContain('Rahul');
-      expect(copilotContext.quickActions.some((a) => a.actionType === 'book_appointment')).toBe(true);
-      expect(copilotContext.quickActions.some((a) => a.actionType === 'send_report')).toBe(true);
+      expect(
+        copilotContext.quickActions.some(
+          (a) => a.actionType === 'book_appointment'
+        )
+      ).toBe(true);
+      expect(
+        copilotContext.quickActions.some((a) => a.actionType === 'send_report')
+      ).toBe(true);
     });
   });
 });

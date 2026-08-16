@@ -21,28 +21,21 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 // Security & Tenant Isolation
 import {
   assertTenantOwnership,
-  validateWorkspaceContext,
   maskPhoneNumber,
   sanitizeLogMetadata,
   checkRateLimit,
-  recordSecurityEvent,
 } from '@/core/security';
 import { encrypt, decrypt } from '@/lib/whatsapp/encryption';
-import { checkSuperAdmin, isPlatformOwnerEmail, PLATFORM_OWNER_EMAIL } from '@/lib/auth/admin';
+import { checkSuperAdmin, PLATFORM_OWNER_EMAIL } from '@/lib/auth/admin';
 import { ForbiddenError } from '@/lib/auth/account';
 
 // SaaS Billing & Feature Gating
 import {
-  getAvailablePlans,
-  getPlanById,
   canAccessFeature,
   startFreeTrial,
-  upgradeSubscription,
   cancelSubscription,
   reactivateSubscription,
-  handlePaymentFailure,
   recordUsage,
-  getCurrentUsage,
   checkUsageLimit,
   processPaymentWebhook,
 } from '@/core/billing';
@@ -53,28 +46,18 @@ import {
   listAllTenants,
   suspendTenant,
   reactivateTenant,
-  extendTenantTrial,
-  listAllUsers,
-  getSystemSettings,
-  updateSystemSettings,
   logAdminAction,
-  listAdminAuditLogs,
 } from '@/core/admin';
 
 // Industry Modules
 import {
-  generateNextPatientId,
   createOrFindPatient,
   bookHealthAppointment,
-  listClinicDoctors,
 } from '@/modules/health/services';
 import {
-  generateNextStudentId as generateCoachingStudentId,
   createOrFindStudent,
   createCoachingAdmission,
   updateAdmissionStage,
-  listCoachingCourses,
-  listCourseBatches,
 } from '@/modules/coaching/services';
 import {
   createOrFindTutorStudent,
@@ -83,31 +66,42 @@ import {
   createTutorAssignment,
 } from '@/modules/solo-teacher/services';
 import {
-  generateNextCustomerId,
   getOrCreateSalonCustomer,
-  listSalonServices,
   getStaffAvailableSlots,
   bookSalonAppointment,
   rescheduleSalonAppointment,
-  cancelSalonAppointment,
 } from '@/modules/salon/services';
 import {
-  generateNextLeadId,
   getOrCreateRealEstateLead,
   matchPropertiesToRequirement,
   scheduleSiteVisit,
 } from '@/modules/real-estate/services';
 
 import * as appwriteCompat from '@/lib/appwrite-server-compat';
-import { coreEvents } from '@/core/events';
 
 describe('Helpa Phase 14 — QA & Production Validation Suite', () => {
   const tenants = {
-    health: { id: 'ws-health-01', name: 'Apex Health Clinic', industry: 'health' },
+    health: {
+      id: 'ws-health-01',
+      name: 'Apex Health Clinic',
+      industry: 'health',
+    },
     salon: { id: 'ws-salon-02', name: 'Glow Beauty Salon', industry: 'salon' },
-    coaching: { id: 'ws-coaching-03', name: 'Pinnacle Academy', industry: 'coaching' },
-    tutor: { id: 'ws-tutor-04', name: 'Ravi Private Tuition', industry: 'solo_teacher' },
-    realEstate: { id: 'ws-realty-05', name: 'Skyline Real Estate', industry: 'real_estate' },
+    coaching: {
+      id: 'ws-coaching-03',
+      name: 'Pinnacle Academy',
+      industry: 'coaching',
+    },
+    tutor: {
+      id: 'ws-tutor-04',
+      name: 'Ravi Private Tuition',
+      industry: 'solo_teacher',
+    },
+    realEstate: {
+      id: 'ws-realty-05',
+      name: 'Skyline Real Estate',
+      industry: 'real_estate',
+    },
   };
 
   let mockDatabase: {
@@ -174,7 +168,13 @@ describe('Helpa Phase 14 — QA & Production Validation Suite', () => {
           name: 'Priya Sharma',
           role: 'Senior Stylist',
           specialization: 'Hair Cutting',
-          working_days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+          working_days: [
+            'Monday',
+            'Tuesday',
+            'Wednesday',
+            'Thursday',
+            'Friday',
+          ],
           status: 'Available',
         },
       ],
@@ -209,7 +209,10 @@ describe('Helpa Phase 14 — QA & Production Validation Suite', () => {
 
     vi.spyOn(appwriteCompat, 'getAdminClient').mockReturnValue({
       from: (table: string) => {
-        const store = (mockDatabase as Record<string, Array<Record<string, unknown>>>)[table] || [];
+        const store =
+          (mockDatabase as Record<string, Array<Record<string, unknown>>>)[
+            table
+          ] || [];
         return {
           select: () => {
             let filtered = [...store];
@@ -224,7 +227,11 @@ describe('Helpa Phase 14 — QA & Production Validation Suite', () => {
               },
               ilike: (f: string, v: string) => {
                 const clean = v.replace(/%/g, '').toLowerCase();
-                filtered = filtered.filter((r) => String(r[f] || '').toLowerCase().includes(clean));
+                filtered = filtered.filter((r) =>
+                  String(r[f] || '')
+                    .toLowerCase()
+                    .includes(clean)
+                );
                 return builder;
               },
               or: () => builder,
@@ -349,7 +356,9 @@ describe('Helpa Phase 14 — QA & Production Validation Suite', () => {
         'salon.services'
       );
       expect(crossAccess.allowed).toBe(false);
-      expect(crossAccess.reason).toContain('not supported in the health workspace');
+      expect(crossAccess.reason).toContain(
+        'not supported in the health workspace'
+      );
     });
   });
 
@@ -372,7 +381,12 @@ describe('Helpa Phase 14 — QA & Production Validation Suite', () => {
         quantity: 1250, // 83%
         source: 'whatsapp_ai',
       });
-      const check80 = await checkUsageLimit(wsId, 'plan_starter', 'ai_message', 1);
+      const check80 = await checkUsageLimit(
+        wsId,
+        'plan_starter',
+        'ai_message',
+        1
+      );
       expect(check80.warningLevel).toBe('80%');
 
       // Reach 100% limit
@@ -382,7 +396,12 @@ describe('Helpa Phase 14 — QA & Production Validation Suite', () => {
         quantity: 260, // 1510 total > 1500
         source: 'whatsapp_ai',
       });
-      const check100 = await checkUsageLimit(wsId, 'plan_starter', 'ai_message', 1);
+      const check100 = await checkUsageLimit(
+        wsId,
+        'plan_starter',
+        'ai_message',
+        1
+      );
       expect(check100.allowed).toBe(false);
       expect(check100.warningLevel).toBe('100%');
 
@@ -592,14 +611,17 @@ describe('Helpa Phase 14 — QA & Production Validation Suite', () => {
       expect(lead.leadId).toBe('LEAD-000001');
 
       // Intelligent Matching Engine
-      const matches = await matchPropertiesToRequirement(tenants.realEstate.id, {
-        purpose: 'Buy',
-        propertyType: 'Apartment',
-        location: 'New Town',
-        maxBudget: 70,
-        bedrooms: '2 BHK',
-        possession: 'Ready to Move',
-      });
+      const matches = await matchPropertiesToRequirement(
+        tenants.realEstate.id,
+        {
+          purpose: 'Buy',
+          propertyType: 'Apartment',
+          location: 'New Town',
+          maxBudget: 70,
+          bedrooms: '2 BHK',
+          possession: 'Ready to Move',
+        }
+      );
 
       expect(matches.length).toBeGreaterThan(0);
       expect(matches[0].matchTier).toBe('Strong Match');

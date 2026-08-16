@@ -53,10 +53,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       }
     }
 
-    return NextResponse.json(
-      { data: reports },
-      { headers: PRIVATE_HEADERS }
-    );
+    return NextResponse.json({ data: reports }, { headers: PRIVATE_HEADERS });
   } catch (err) {
     return toErrorResponse(err);
   }

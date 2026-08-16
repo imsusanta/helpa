@@ -32,7 +32,10 @@ export async function matchPropertiesToRequirement(
     const reasons: string[] = [];
 
     // 1. Purpose Match (e.g. Buy vs Rent) - 20 pts
-    if (!requirement.purpose || prop.purpose.toLowerCase() === requirement.purpose.toLowerCase()) {
+    if (
+      !requirement.purpose ||
+      prop.purpose.toLowerCase() === requirement.purpose.toLowerCase()
+    ) {
       score += 20;
       reasons.push(`✓ Purpose matches (${prop.purpose})`);
     }
@@ -47,10 +50,15 @@ export async function matchPropertiesToRequirement(
 
     // 3. Budget Match - 25 pts
     if (requirement.maxBudget) {
-      const budgetInINR = requirement.maxBudget <= 1000 ? requirement.maxBudget * 100000 : requirement.maxBudget;
+      const budgetInINR =
+        requirement.maxBudget <= 1000
+          ? requirement.maxBudget * 100000
+          : requirement.maxBudget;
       if (prop.price <= budgetInINR) {
         score += 25;
-        reasons.push(`✓ Price within budget (${prop.priceDisplay} ≤ ₹${requirement.maxBudget}L)`);
+        reasons.push(
+          `✓ Price within budget (${prop.priceDisplay} ≤ ₹${requirement.maxBudget}L)`
+        );
       }
     } else {
       score += 25;
@@ -70,7 +78,9 @@ export async function matchPropertiesToRequirement(
 
     // 5. Possession / Move-in Match - 10 pts
     if (requirement.possession && prop.possession) {
-      if (requirement.possession.toLowerCase() === prop.possession.toLowerCase()) {
+      if (
+        requirement.possession.toLowerCase() === prop.possession.toLowerCase()
+      ) {
         score += 10;
         reasons.push(`✓ ${prop.possession} preference matches`);
       }
@@ -79,7 +89,11 @@ export async function matchPropertiesToRequirement(
     }
 
     const matchTier: PropertyMatchResult['matchTier'] =
-      score >= 85 ? 'Strong Match' : score >= 65 ? 'Good Match' : 'Partial Match';
+      score >= 85
+        ? 'Strong Match'
+        : score >= 65
+          ? 'Good Match'
+          : 'Partial Match';
 
     results.push({
       property: prop,

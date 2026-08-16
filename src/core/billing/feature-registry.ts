@@ -41,14 +41,20 @@ export async function canAccessFeature(
   // 2. Industry scope validation (cross-industry feature isolation)
   const [featureDomain] = featureKey.split('.');
   if (featureDomain !== 'core') {
-    const normalizedIndustry = workspace.industry.toLowerCase().replace(/[\s_-]+/g, '');
-    const normalizedDomain = featureDomain.toLowerCase().replace(/[\s_-]+/g, '');
+    const normalizedIndustry = workspace.industry
+      .toLowerCase()
+      .replace(/[\s_-]+/g, '');
+    const normalizedDomain = featureDomain
+      .toLowerCase()
+      .replace(/[\s_-]+/g, '');
 
     const isMatch =
       normalizedIndustry.includes(normalizedDomain) ||
       normalizedDomain.includes(normalizedIndustry) ||
-      (normalizedIndustry.includes('tutor') && normalizedDomain.includes('tutor')) ||
-      (normalizedIndustry.includes('teacher') && normalizedDomain.includes('tutor'));
+      (normalizedIndustry.includes('tutor') &&
+        normalizedDomain.includes('tutor')) ||
+      (normalizedIndustry.includes('teacher') &&
+        normalizedDomain.includes('tutor'));
 
     if (!isMatch) {
       return {

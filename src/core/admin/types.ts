@@ -23,11 +23,7 @@ export interface PlatformMetrics {
 }
 
 export type TenantAdminStatus =
-  | 'Active'
-  | 'Trial'
-  | 'Suspended'
-  | 'Cancelled'
-  | 'Expired';
+  'Active' | 'Trial' | 'Suspended' | 'Cancelled' | 'Expired';
 
 export interface TenantAdminView {
   id: string;

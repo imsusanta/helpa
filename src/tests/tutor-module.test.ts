@@ -19,14 +19,11 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   generateNextTutorStudentId,
   createOrFindTutorStudent,
-  getTutorStudentsByMobile,
   resolveStudentOrAskParent,
   listTutorCourses,
   listTutorBatches,
   enrollTutorStudent,
-  listTutorClasses,
   scheduleTutorClass,
-  listTutorAssignments,
   createTutorAssignment,
   getTutorCopilotContext,
 } from '@/modules/solo-teacher/services';
@@ -36,7 +33,7 @@ import { coreEvents } from '@/core/events';
 
 describe('Helpa Solo Tutor / Private Teacher Industry Module', () => {
   const tutorA = { id: 'tutor-ananya-01', name: 'Ananya Math Academy' };
-  const tutorB = { id: 'tutor-roy-02', name: 'Roy Physics Classes' };
+  const _tutorB = { id: 'tutor-roy-02', name: 'Roy Physics Classes' };
 
   let mockDatabase: {
     contacts: Array<Record<string, unknown>>;
@@ -79,7 +76,10 @@ describe('Helpa Solo Tutor / Private Teacher Industry Module', () => {
 
     vi.spyOn(appwriteCompat, 'getAdminClient').mockReturnValue({
       from: (table: string) => {
-        const store = (mockDatabase as Record<string, Array<Record<string, unknown>>>)[table] || [];
+        const store =
+          (mockDatabase as Record<string, Array<Record<string, unknown>>>)[
+            table
+          ] || [];
         return {
           select: () => {
             let filtered = [...store];
@@ -94,7 +94,11 @@ describe('Helpa Solo Tutor / Private Teacher Industry Module', () => {
               },
               ilike: (f: string, v: string) => {
                 const clean = v.replace(/%/g, '').toLowerCase();
-                filtered = filtered.filter((r) => String(r[f] || '').toLowerCase().includes(clean));
+                filtered = filtered.filter((r) =>
+                  String(r[f] || '')
+                    .toLowerCase()
+                    .includes(clean)
+                );
                 return builder;
               },
               or: () => builder,
@@ -207,11 +211,17 @@ describe('Helpa Solo Tutor / Private Teacher Industry Module', () => {
       const res = await resolveStudentOrAskParent(tutorA.id, parentMobile);
       expect(res.isAmbiguous).toBe(true);
       expect(res.studentsFound.length).toBe(2);
-      expect(res.clarificationMessage).toContain('Which student are you asking about');
+      expect(res.clarificationMessage).toContain(
+        'Which student are you asking about'
+      );
       expect(res.clarificationMessage).toContain('Ayan Sharma or Riya Sharma');
 
       // If parent explicitly specifies "Ayan"
-      const resSpecific = await resolveStudentOrAskParent(tutorA.id, parentMobile, 'Ayan');
+      const resSpecific = await resolveStudentOrAskParent(
+        tutorA.id,
+        parentMobile,
+        'Ayan'
+      );
       expect(resSpecific.isAmbiguous).toBe(false);
       expect(resSpecific.selectedStudent?.name).toBe('Ayan Sharma');
     });
@@ -351,7 +361,9 @@ describe('Helpa Solo Tutor / Private Teacher Industry Module', () => {
       expect(copilot.student.name).toBe('Ayan Sharma');
       expect(copilot.enrolledCourse).toBe('Class 10 Mathematics');
       expect(copilot.suggestedReply).toContain('Ayan');
-      expect(copilot.quickActions.some((a) => a.actionType === 'send_class_reminder')).toBe(true);
+      expect(
+        copilot.quickActions.some((a) => a.actionType === 'send_class_reminder')
+      ).toBe(true);
     });
 
     it('executes getClassSchedule and getStudentAssignments tools successfully', async () => {

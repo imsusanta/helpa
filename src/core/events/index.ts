@@ -1,6 +1,6 @@
 /**
  * Helpa Core Platform — Event Bus
- * 
+ *
  * Reusable, industry-agnostic event system for inter-module communication.
  * Industry modules subscribe to Core events without Core having hardcoded dependencies.
  */
@@ -77,7 +77,10 @@ class CoreEventBus {
           try {
             await handler(event as CoreEvent<Record<string, unknown>>);
           } catch (err) {
-            console.error(`[EventBus] Error in handler for event '${type}':`, err);
+            console.error(
+              `[EventBus] Error in handler for event '${type}':`,
+              err
+            );
           }
         })
       );

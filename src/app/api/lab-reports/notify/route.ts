@@ -67,11 +67,19 @@ export async function POST(request: Request) {
       try {
         const { data: patRec } = await db
           .from('patients')
-          .select('id, contact_id, patient_seq_id, contact:contacts(id, name, phone)')
-          .or(`id.eq.${report.patient_id},patient_seq_id.eq.${report.patient_id}`)
+          .select(
+            'id, contact_id, patient_seq_id, contact:contacts(id, name, phone)'
+          )
+          .or(
+            `id.eq.${report.patient_id},patient_seq_id.eq.${report.patient_id}`
+          )
           .maybeSingle();
 
-        const linked = patRec?.contact as { id: string; name?: string; phone?: string } | null;
+        const linked = patRec?.contact as {
+          id: string;
+          name?: string;
+          phone?: string;
+        } | null;
         if (linked) {
           patientName = linked.name || 'Patient';
           patientPhone = linked.phone || '';

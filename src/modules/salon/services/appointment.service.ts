@@ -60,11 +60,15 @@ export async function bookSalonAppointment(
   const db = getAdminClient();
 
   // 1. Resolve Service details
-  const service = await findSalonServiceByName(input.accountId, input.serviceName);
+  const service = await findSalonServiceByName(
+    input.accountId,
+    input.serviceName
+  );
   const serviceName = service ? service.name : input.serviceName;
   const duration = service ? service.durationMinutes : 45;
   const price = service ? service.price : 500;
-  const staffName = input.staffName || (service?.assignedStaffNames?.[0] || 'Amit Roy');
+  const staffName =
+    input.staffName || service?.assignedStaffNames?.[0] || 'Amit Roy';
 
   // 2. Resolve / Create Customer
   const customer = await getOrCreateSalonCustomer({

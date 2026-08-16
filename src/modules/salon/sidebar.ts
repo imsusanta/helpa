@@ -7,7 +7,12 @@ export const sidebarConfig: ModuleNavItem[] = [
   { href: '/services', label: 'Services & Menu', iconName: 'Sparkles' },
   { href: '/staff', label: 'Stylists & Staff', iconName: 'UserCheck' },
   { href: '/appointments', label: 'Appointments', iconName: 'Calendar' },
-  { href: '/broadcasts', label: 'Campaigns', iconName: 'Megaphone', roleMin: 'admin' },
+  {
+    href: '/broadcasts',
+    label: 'Campaigns',
+    iconName: 'Megaphone',
+    roleMin: 'admin',
+  },
   { href: '/knowledge-base', label: 'Knowledge Base', iconName: 'FileText' },
   { href: '/settings', label: 'Settings', iconName: 'Settings' },
 ];

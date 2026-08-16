@@ -45,25 +45,32 @@ export const aiToolRegistry = new AiToolRegistry();
 // 1. Search Knowledge Base
 aiToolRegistry.register({
   name: 'searchKnowledge',
-  description: 'Searches the workspace Knowledge Base for official FAQs, pricing, rules, and services.',
+  description:
+    'Searches the workspace Knowledge Base for official FAQs, pricing, rules, and services.',
   type: 'read',
   parameters: {
     query: {
       type: 'string',
-      description: 'The search keywords or question topic to look up in the Knowledge Base.',
+      description:
+        'The search keywords or question topic to look up in the Knowledge Base.',
       required: true,
     },
   },
   execute: async (params, context: AiExecutionContext) => {
     const db = getAdminClient();
-    const query = String(params.query || '').trim().toLowerCase();
+    const query = String(params.query || '')
+      .trim()
+      .toLowerCase();
     const { data: kbRows } = await db
       .from('knowledge_base')
       .select('question_title, answer_content, category')
       .eq('account_id', context.accountId);
 
     if (!kbRows || kbRows.length === 0) {
-      return { success: true, data: { results: [], message: 'No knowledge base entries found.' } };
+      return {
+        success: true,
+        data: { results: [], message: 'No knowledge base entries found.' },
+      };
     }
 
     const matches = kbRows.filter(
@@ -89,7 +96,8 @@ aiToolRegistry.register({
 // 2. Get Business Hours
 aiToolRegistry.register({
   name: 'getBusinessHours',
-  description: 'Retrieves official operating hours and clinic/business opening schedule.',
+  description:
+    'Retrieves official operating hours and clinic/business opening schedule.',
   type: 'read',
   parameters: {},
   execute: async (_, context: AiExecutionContext) => {
@@ -105,7 +113,8 @@ aiToolRegistry.register({
       data: {
         businessName: account?.name || 'Helpa Business',
         industry: account?.industry || 'General',
-        hours: 'Monday to Saturday: 9:00 AM – 8:00 PM. Sunday: 10:00 AM – 2:00 PM.',
+        hours:
+          'Monday to Saturday: 9:00 AM – 8:00 PM. Sunday: 10:00 AM – 2:00 PM.',
       },
     };
   },
@@ -114,7 +123,8 @@ aiToolRegistry.register({
 // 3. Get Contact Details
 aiToolRegistry.register({
   name: 'getContactDetails',
-  description: 'Retrieves contact name, phone, notes, and previous interactions for the current conversation.',
+  description:
+    'Retrieves contact name, phone, notes, and previous interactions for the current conversation.',
   type: 'read',
   parameters: {},
   execute: async (_, context: AiExecutionContext) => {
@@ -136,7 +146,8 @@ aiToolRegistry.register({
 // 4. Get Available Appointment Slots (Health / Salon)
 aiToolRegistry.register({
   name: 'getAvailableSlots',
-  description: 'Checks available booking dates and time slots for doctors or service staff.',
+  description:
+    'Checks available booking dates and time slots for doctors or service staff.',
   type: 'read',
   allowedIndustries: ['health', 'hospital', 'salon', 'coaching'],
   parameters: {
@@ -150,9 +161,11 @@ aiToolRegistry.register({
       description: 'Optional name of the doctor or staff member.',
     },
   },
-  execute: async (params, context: AiExecutionContext) => {
+  execute: async (params, _context: AiExecutionContext) => {
     const date = String(params.date || 'today');
-    const doctorName = params.staffOrDoctorName ? String(params.staffOrDoctorName) : 'Available Specialist';
+    const doctorName = params.staffOrDoctorName
+      ? String(params.staffOrDoctorName)
+      : 'Available Specialist';
 
     return {
       success: true,
@@ -168,7 +181,8 @@ aiToolRegistry.register({
 // 5. Search Properties (Real Estate)
 aiToolRegistry.register({
   name: 'searchProperties',
-  description: 'Searches available property listings by location, bedrooms (BHK), or budget.',
+  description:
+    'Searches available property listings by location, bedrooms (BHK), or budget.',
   type: 'read',
   allowedIndustries: ['real_estate'],
   parameters: {
@@ -194,9 +208,16 @@ aiToolRegistry.register({
           {
             title: `Luxury ${bhk} Apartment`,
             location: params.location || 'Central Park View',
-            price: params.maxBudget ? `₹${params.maxBudget} Lakhs` : '₹45 Lakhs',
+            price: params.maxBudget
+              ? `₹${params.maxBudget} Lakhs`
+              : '₹45 Lakhs',
             status: 'Available',
-            amenities: ['Gym', 'Swimming Pool', 'Covered Parking', '24/7 Security'],
+            amenities: [
+              'Gym',
+              'Swimming Pool',
+              'Covered Parking',
+              '24/7 Security',
+            ],
           },
         ],
       },
@@ -207,7 +228,8 @@ aiToolRegistry.register({
 // 5b. Match Properties to Requirement (Real Estate)
 aiToolRegistry.register({
   name: 'matchPropertiesToRequirement',
-  description: 'Matches structured lead requirements (location, budget, bedrooms, purpose) against active available property listings.',
+  description:
+    'Matches structured lead requirements (location, budget, bedrooms, purpose) against active available property listings.',
   type: 'read',
   allowedIndustries: ['real_estate'],
   parameters: {
@@ -232,7 +254,9 @@ aiToolRegistry.register({
   execute: async (params) => {
     const loc = String(params.location || 'New Town');
     const bhk = String(params.bedrooms || '2 BHK');
-    const budget = params.maxBudgetLakhs ? `₹${params.maxBudgetLakhs}L` : '₹70L';
+    const budget = params.maxBudgetLakhs
+      ? `₹${params.maxBudgetLakhs}L`
+      : '₹70L';
 
     return {
       success: true,
@@ -260,7 +284,8 @@ aiToolRegistry.register({
 // 5c. Schedule Site Visit (Real Estate)
 aiToolRegistry.register({
   name: 'scheduleSiteVisit',
-  description: 'Schedules an in-person or virtual property site visit for a real estate lead.',
+  description:
+    'Schedules an in-person or virtual property site visit for a real estate lead.',
   type: 'write',
   allowedIndustries: ['real_estate'],
   parameters: {
@@ -321,13 +346,15 @@ aiToolRegistry.register({
 // 6. Get Course Details (Coaching & Tutor)
 aiToolRegistry.register({
   name: 'getCourseDetails',
-  description: 'Retrieves course curriculum, batch timings, and fee structures.',
+  description:
+    'Retrieves course curriculum, batch timings, and fee structures.',
   type: 'read',
   allowedIndustries: ['coaching', 'solo_teacher', 'tutor'],
   parameters: {
     courseName: {
       type: 'string',
-      description: 'Name of the subject or course (e.g. Mathematics, Class 10 Foundation, NEET).',
+      description:
+        'Name of the subject or course (e.g. Mathematics, Class 10 Foundation, NEET).',
     },
   },
   execute: async (params) => {
@@ -347,7 +374,8 @@ aiToolRegistry.register({
 // 7. Search Courses (Coaching & Tutor)
 aiToolRegistry.register({
   name: 'searchCourses',
-  description: 'Searches active courses, exam programs, fees, and duration for coaching students.',
+  description:
+    'Searches active courses, exam programs, fees, and duration for coaching students.',
   type: 'read',
   allowedIndustries: ['coaching', 'solo_teacher', 'tutor'],
   parameters: {
@@ -378,7 +406,8 @@ aiToolRegistry.register({
 // 8. Get Available Batches (Coaching & Tutor)
 aiToolRegistry.register({
   name: 'getAvailableBatches',
-  description: 'Checks upcoming batches, class timings, start dates, and seat availability.',
+  description:
+    'Checks upcoming batches, class timings, start dates, and seat availability.',
   type: 'read',
   allowedIndustries: ['coaching', 'solo_teacher', 'tutor'],
   parameters: {
@@ -418,7 +447,8 @@ aiToolRegistry.register({
 // 9. Create Student Admission Enquiry (Coaching & Tutor)
 aiToolRegistry.register({
   name: 'createEnquiry',
-  description: 'Records a new student admission enquiry or interested lead in the coaching pipeline.',
+  description:
+    'Records a new student admission enquiry or interested lead in the coaching pipeline.',
   type: 'write',
   allowedIndustries: ['coaching', 'solo_teacher', 'tutor'],
   parameters: {
@@ -442,14 +472,18 @@ aiToolRegistry.register({
     const studentName = String(params.studentName || 'Student');
     const targetCourse = String(params.targetCourse || 'Course');
 
-    await db.from('contacts').update({
-      extra_attributes: {
-        target_course: targetCourse,
-        student_status: 'Interested',
-        enquiry_source: 'WhatsApp',
-      },
-      updated_at: new Date().toISOString(),
-    }).eq('id', context.contactId).eq('account_id', context.accountId);
+    await db
+      .from('contacts')
+      .update({
+        extra_attributes: {
+          target_course: targetCourse,
+          student_status: 'Interested',
+          enquiry_source: 'WhatsApp',
+        },
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', context.contactId)
+      .eq('account_id', context.accountId);
 
     return {
       success: true,
@@ -466,7 +500,8 @@ aiToolRegistry.register({
 // 10. Get Student Class Schedule (Tutor & Coaching)
 aiToolRegistry.register({
   name: 'getClassSchedule',
-  description: 'Retrieves the scheduled class timing, date, and topic for a student or batch.',
+  description:
+    'Retrieves the scheduled class timing, date, and topic for a student or batch.',
   type: 'read',
   allowedIndustries: ['solo_teacher', 'tutor', 'coaching'],
   parameters: {
@@ -499,7 +534,8 @@ aiToolRegistry.register({
 // 11. Get Student Assignments (Tutor & Coaching)
 aiToolRegistry.register({
   name: 'getStudentAssignments',
-  description: 'Retrieves active homework assignments, practice sheets, and due dates for a student.',
+  description:
+    'Retrieves active homework assignments, practice sheets, and due dates for a student.',
   type: 'read',
   allowedIndustries: ['solo_teacher', 'tutor', 'coaching'],
   parameters: {
@@ -519,7 +555,8 @@ aiToolRegistry.register({
             title: 'Quadratic Equations — Practice Set 01',
             dueDate: '30 August',
             status: 'Assigned',
-            instructions: 'Complete questions 1 to 15 from the practice set before class.',
+            instructions:
+              'Complete questions 1 to 15 from the practice set before class.',
           },
         ],
       },
@@ -534,7 +571,8 @@ aiToolRegistry.register({
 // 7. Create Appointment Booking (Health / Salon)
 aiToolRegistry.register({
   name: 'createAppointment',
-  description: 'Books an appointment for a patient/client on a confirmed date and time slot.',
+  description:
+    'Books an appointment for a patient/client on a confirmed date and time slot.',
   type: 'write',
   requiresConfirmation: true,
   allowedIndustries: ['health', 'hospital', 'salon'],
@@ -598,17 +636,19 @@ aiToolRegistry.register({
 // 12. Search Salon Services (Salon)
 aiToolRegistry.register({
   name: 'searchSalonServices',
-  description: 'Searches salon service menu, treatments, duration, and pricing.',
+  description:
+    'Searches salon service menu, treatments, duration, and pricing.',
   type: 'read',
   allowedIndustries: ['salon'],
   parameters: {
     serviceQuery: {
       type: 'string',
-      description: 'Name of the salon treatment or service category (e.g. Haircut, Hair Color, Facial, Spa).',
+      description:
+        'Name of the salon treatment or service category (e.g. Haircut, Hair Color, Facial, Spa).',
     },
   },
   execute: async (params) => {
-    const q = String(params.serviceQuery || 'Haircut').toLowerCase();
+    const _q = String(params.serviceQuery || 'Haircut').toLowerCase();
     return {
       success: true,
       data: {
@@ -643,7 +683,8 @@ aiToolRegistry.register({
 // 13. Reschedule Appointment (Health / Salon)
 aiToolRegistry.register({
   name: 'rescheduleAppointment',
-  description: 'Reschedules an existing appointment to a new date and time slot.',
+  description:
+    'Reschedules an existing appointment to a new date and time slot.',
   type: 'write',
   allowedIndustries: ['health', 'hospital', 'salon'],
   parameters: {
@@ -696,7 +737,8 @@ aiToolRegistry.register({
 // 14. Cancel Appointment (Health / Salon)
 aiToolRegistry.register({
   name: 'cancelAppointment',
-  description: 'Cancels an existing appointment without deleting historical records.',
+  description:
+    'Cancels an existing appointment without deleting historical records.',
   type: 'write',
   allowedIndustries: ['health', 'hospital', 'salon'],
   parameters: {
@@ -713,7 +755,9 @@ aiToolRegistry.register({
   execute: async (params, context: AiExecutionContext) => {
     const db = getAdminClient();
     const apptId = String(params.appointmentId);
-    const reason = params.reason ? String(params.reason) : 'Cancelled by customer';
+    const reason = params.reason
+      ? String(params.reason)
+      : 'Cancelled by customer';
 
     await db
       .from('appointments')
@@ -739,18 +783,22 @@ aiToolRegistry.register({
 // 15. Human Handoff (All industries)
 aiToolRegistry.register({
   name: 'handoffToHuman',
-  description: 'Transfers the conversation to human staff when the user requests it or when the inquiry requires specialized human assistance.',
+  description:
+    'Transfers the conversation to human staff when the user requests it or when the inquiry requires specialized human assistance.',
   type: 'write',
   parameters: {
     reason: {
       type: 'string',
-      description: 'The reason for escalating to human staff (e.g. complex request, customer asked for human, medical symptoms).',
+      description:
+        'The reason for escalating to human staff (e.g. complex request, customer asked for human, medical symptoms).',
       required: true,
     },
   },
   execute: async (params, context: AiExecutionContext) => {
     const db = getAdminClient();
-    const reason = String(params.reason || 'Customer requested human assistance');
+    const reason = String(
+      params.reason || 'Customer requested human assistance'
+    );
 
     // Mark conversation for human handoff and pause AI
     await db

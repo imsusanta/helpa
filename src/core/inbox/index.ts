@@ -84,7 +84,8 @@ export async function recordMessage(
   conversationId: string,
   message: {
     senderType: 'user' | 'agent' | 'ai' | 'system';
-    contentType?: 'text' | 'image' | 'document' | 'audio' | 'button' | 'template';
+    contentType?:
+      'text' | 'image' | 'document' | 'audio' | 'button' | 'template';
     contentText: string;
     mediaUrl?: string;
   }

@@ -19,7 +19,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   generateNextStudentId,
   createOrFindStudent,
-  getStudentsByMobile,
   listCoachingCourses,
   findCourseByNameOrCode,
   listCoachingTeachers,
@@ -35,7 +34,7 @@ import { coreEvents } from '@/core/events';
 
 describe('Helpa Coaching Industry Module', () => {
   const instituteA = { id: 'inst-apex-01', name: 'Apex JEE & SSC Academy' };
-  const instituteB = { id: 'inst-pinnacle-02', name: 'Pinnacle Career Hub' };
+  const _instituteB = { id: 'inst-pinnacle-02', name: 'Pinnacle Career Hub' };
 
   let mockDatabase: {
     contacts: Array<Record<string, unknown>>;
@@ -87,7 +86,10 @@ describe('Helpa Coaching Industry Module', () => {
 
     vi.spyOn(appwriteCompat, 'getAdminClient').mockReturnValue({
       from: (table: string) => {
-        const store = (mockDatabase as Record<string, Array<Record<string, unknown>>>)[table] || [];
+        const store =
+          (mockDatabase as Record<string, Array<Record<string, unknown>>>)[
+            table
+          ] || [];
         return {
           select: () => {
             let filtered = [...store];
@@ -102,7 +104,11 @@ describe('Helpa Coaching Industry Module', () => {
               },
               ilike: (f: string, v: string) => {
                 const clean = v.replace(/%/g, '').toLowerCase();
-                filtered = filtered.filter((r) => String(r[f] || '').toLowerCase().includes(clean));
+                filtered = filtered.filter((r) =>
+                  String(r[f] || '')
+                    .toLowerCase()
+                    .includes(clean)
+                );
                 return builder;
               },
               or: () => builder,
@@ -313,7 +319,11 @@ describe('Helpa Coaching Industry Module', () => {
       expect(copilot.student.name).toBe('Rahul Sharma');
       expect(copilot.interestedCourse).toBe('SSC CGL Foundation');
       expect(copilot.suggestedReply).toContain('SSC CGL');
-      expect(copilot.quickActions.some((a) => a.actionType === 'send_admission_details')).toBe(true);
+      expect(
+        copilot.quickActions.some(
+          (a) => a.actionType === 'send_admission_details'
+        )
+      ).toBe(true);
     });
   });
 

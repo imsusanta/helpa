@@ -31,7 +31,9 @@ export interface StudentRecord {
 /**
  * Generates the next sequential unique Student ID (e.g. STU-000123) for a coaching workspace.
  */
-export async function generateNextStudentId(accountId: string): Promise<string> {
+export async function generateNextStudentId(
+  accountId: string
+): Promise<string> {
   const db = getAdminClient();
   const { data: contacts } = await db
     .from('contacts')
@@ -162,7 +164,9 @@ export async function createOrFindStudent({
     .single();
 
   if (error || !created) {
-    throw new Error(`Failed to create student: ${error?.message || 'DB error'}`);
+    throw new Error(
+      `Failed to create student: ${error?.message || 'DB error'}`
+    );
   }
 
   return {

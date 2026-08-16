@@ -51,7 +51,8 @@ export async function scheduleSiteVisit(
 ): Promise<SiteVisitRecord> {
   const db = getAdminClient();
   const agentName = input.agentName || 'Amit Roy';
-  const meetingLocation = input.meetingLocation || `${input.propertyTitle} Site Office, New Town`;
+  const meetingLocation =
+    input.meetingLocation || `${input.propertyTitle} Site Office, New Town`;
 
   // 1. Resolve / Create Lead
   const lead = await getOrCreateRealEstateLead({

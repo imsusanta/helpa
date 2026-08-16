@@ -7,7 +7,7 @@
 
 import { getAdminClient } from '@/lib/appwrite-server-compat';
 import { coreEvents } from '@/core/events';
-import { createOrFindStudent, type StudentRecord } from './student.service';
+import { createOrFindStudent } from './student.service';
 import { findCourseByNameOrCode } from './course.service';
 import { listCourseBatches } from './batch.service';
 
@@ -65,13 +65,18 @@ export async function createCoachingAdmission(
   const db = getAdminClient();
 
   // 1. Resolve Course & Batches
-  const course = await findCourseByNameOrCode(input.accountId, input.courseNameOrCode);
+  const course = await findCourseByNameOrCode(
+    input.accountId,
+    input.courseNameOrCode
+  );
   const courseName = course ? course.name : input.courseNameOrCode;
   const totalFee = course ? course.totalFee : 20000;
 
   const batches = await listCourseBatches(input.accountId, courseName);
   const selectedBatch = input.batchNameOrCode
-    ? batches.find((b) => b.name.toLowerCase().includes(input.batchNameOrCode!.toLowerCase()))
+    ? batches.find((b) =>
+        b.name.toLowerCase().includes(input.batchNameOrCode!.toLowerCase())
+      )
     : batches[0];
   const batchName = selectedBatch ? selectedBatch.name : 'Upcoming Batch';
 
@@ -93,11 +98,7 @@ export async function createCoachingAdmission(
   const stage = input.stage || 'Interested';
 
   const paymentStatus: AdmissionRecord['paymentStatus'] =
-    paid >= netFee && netFee > 0
-      ? 'Paid'
-      : paid > 0
-        ? 'Partial'
-        : 'Unpaid';
+    paid >= netFee && netFee > 0 ? 'Paid' : paid > 0 ? 'Partial' : 'Unpaid';
 
   const admissionId = `ADM-${Date.now().toString().slice(-6)}`;
 

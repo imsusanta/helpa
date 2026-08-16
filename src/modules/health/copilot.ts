@@ -1,7 +1,13 @@
 import { CopilotConfig } from '../types';
 
 export const copilotConfig: CopilotConfig = {
-  summaryFields: ['patient_id', 'blood_group', 'emergency_contact', 'allergies', 'medical_notes'],
+  summaryFields: [
+    'patient_id',
+    'blood_group',
+    'emergency_contact',
+    'allergies',
+    'medical_notes',
+  ],
   quickActions: [
     {
       label: 'Book Consultation',

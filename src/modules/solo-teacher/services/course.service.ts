@@ -42,7 +42,8 @@ export async function listTutorCourses(
         code: 'MATH-10',
         subject: 'Mathematics',
         level: 'Class 10 (CBSE & State Board)',
-        description: 'Complete syllabus coverage, NCERT solutions, and weekly practice tests.',
+        description:
+          'Complete syllabus coverage, NCERT solutions, and weekly practice tests.',
         durationMonths: 6,
         mode: 'Online',
         feePerMonth: 1500,
@@ -55,7 +56,8 @@ export async function listTutorCourses(
         code: 'SSC-MATH',
         subject: 'Mathematics',
         level: 'Competitive Exam (SSC / CGL / CHSL)',
-        description: 'Shortcuts, speed techniques, and previous year questions practice.',
+        description:
+          'Shortcuts, speed techniques, and previous year questions practice.',
         durationMonths: 4,
         mode: 'Online',
         feePerMonth: 2000,

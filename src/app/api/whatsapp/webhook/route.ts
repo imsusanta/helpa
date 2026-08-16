@@ -119,4 +119,3 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
     }
   }
 }
-

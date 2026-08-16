@@ -72,11 +72,7 @@ export const ROLE_PERMISSIONS: Record<CoreRole, CorePermission[]> = {
     'inbox.reply',
     'knowledge.read',
   ],
-  viewer: [
-    'contacts.read',
-    'inbox.read',
-    'knowledge.read',
-  ],
+  viewer: ['contacts.read', 'inbox.read', 'knowledge.read'],
 };
 
 export function hasPermission(

@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { getIndustryModule, resolveSystemPrompt, INDUSTRY_REGISTRY } from './registry';
+import {
+  getIndustryModule,
+  resolveSystemPrompt,
+  INDUSTRY_REGISTRY,
+} from './registry';
 
 describe('INDUSTRY_REGISTRY', () => {
   it('registers all core industry modules with valid manifests', () => {

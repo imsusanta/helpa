@@ -37,11 +37,18 @@ export async function recordSecurityEvent(
       created_at: event.timestamp,
     });
   } catch (err) {
-    console.error('[recordSecurityEvent] Failed to persist security event:', err);
+    console.error(
+      '[recordSecurityEvent] Failed to persist security event:',
+      err
+    );
   }
 
   // Emit event for alerting
-  coreEvents.emit('security.incident', event.attemptedWorkspaceId || 'platform', event);
+  coreEvents.emit(
+    'security.incident',
+    event.attemptedWorkspaceId || 'platform',
+    event
+  );
 
   return event;
 }

@@ -226,8 +226,12 @@ export async function triggerAiResponse(
         rawPhone,
         `+${cleanDigits}`,
         cleanDigits,
-        cleanDigits.startsWith('91') ? cleanDigits.slice(2) : `91${cleanDigits}`,
-        cleanDigits.startsWith('91') ? `+${cleanDigits.slice(2)}` : `+91${cleanDigits}`,
+        cleanDigits.startsWith('91')
+          ? cleanDigits.slice(2)
+          : `91${cleanDigits}`,
+        cleanDigits.startsWith('91')
+          ? `+${cleanDigits.slice(2)}`
+          : `+91${cleanDigits}`,
       ].filter((p) => Boolean(p && p.trim().length > 3))
     )
   );

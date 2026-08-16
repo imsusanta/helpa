@@ -28,7 +28,13 @@ export interface PatientRecord {
 
 export interface PatientTimelineEvent {
   id: string;
-  type: 'conversation' | 'appointment' | 'prescription' | 'report' | 'followup' | 'checkin';
+  type:
+    | 'conversation'
+    | 'appointment'
+    | 'prescription'
+    | 'report'
+    | 'followup'
+    | 'checkin';
   title: string;
   description: string;
   timestamp: string;
@@ -38,7 +44,9 @@ export interface PatientTimelineEvent {
 /**
  * Generates the next sequential unique Patient ID (e.g. PT-000123) for a workspace.
  */
-export async function generateNextPatientId(accountId: string): Promise<string> {
+export async function generateNextPatientId(
+  accountId: string
+): Promise<string> {
   const db = getAdminClient();
   const { data: contacts } = await db
     .from('contacts')
@@ -164,7 +172,9 @@ export async function createOrFindPatient({
     .single();
 
   if (error || !created) {
-    throw new Error(`Failed to create patient: ${error?.message || 'DB error'}`);
+    throw new Error(
+      `Failed to create patient: ${error?.message || 'DB error'}`
+    );
   }
 
   return {

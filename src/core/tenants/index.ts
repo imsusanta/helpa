@@ -9,7 +9,11 @@ export function assertTenantMatch(
   authenticatedAccountId: string,
   entityName: string = 'Record'
 ): void {
-  if (!recordAccountId || !authenticatedAccountId || recordAccountId !== authenticatedAccountId) {
+  if (
+    !recordAccountId ||
+    !authenticatedAccountId ||
+    recordAccountId !== authenticatedAccountId
+  ) {
     throw new Error(
       `Tenant Isolation Violation: ${entityName} does not belong to the active workspace.`
     );

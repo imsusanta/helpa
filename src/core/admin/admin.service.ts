@@ -60,7 +60,8 @@ export async function getPlatformMetrics(): Promise<PlatformMetrics> {
     if (acc.subscription_status === 'ACTIVE') {
       const plan = String(acc.subscription_plan || '').toLowerCase();
       if (plan.includes('business')) mrr += 5999;
-      else if (plan.includes('professional') || plan.includes('pro')) mrr += 2499;
+      else if (plan.includes('professional') || plan.includes('pro'))
+        mrr += 2499;
       else if (plan.includes('starter')) mrr += 999;
     }
   }
@@ -81,12 +82,20 @@ export async function getPlatformMetrics(): Promise<PlatformMetrics> {
     monthlyRevenue: mrr,
     mrr,
     arr: mrr * 12,
-    industryDistribution: Object.keys(industryDistribution).length > 0
-      ? industryDistribution
-      : { Health: 1, Coaching: 1, 'Solo Tutor': 1, Salon: 1, 'Real Estate': 1 },
-    planDistribution: Object.keys(planDistribution).length > 0
-      ? planDistribution
-      : { Professional: 1, Starter: 1, Free: 1 },
+    industryDistribution:
+      Object.keys(industryDistribution).length > 0
+        ? industryDistribution
+        : {
+            Health: 1,
+            Coaching: 1,
+            'Solo Tutor': 1,
+            Salon: 1,
+            'Real Estate': 1,
+          },
+    planDistribution:
+      Object.keys(planDistribution).length > 0
+        ? planDistribution
+        : { Professional: 1, Starter: 1, Free: 1 },
   };
 }
 
@@ -128,7 +137,11 @@ export async function listAllTenants(filter?: {
   let result: TenantAdminView[] = accounts.map((acc) => {
     const isSuspended = acc.is_suspended === true || acc.status === 'SUSPENDED';
     const subStatus = String(acc.subscription_status || 'ACTIVE').toUpperCase();
-    const tenantStatus = isSuspended ? 'Suspended' : subStatus === 'TRIALING' ? 'Trial' : 'Active';
+    const tenantStatus = isSuspended
+      ? 'Suspended'
+      : subStatus === 'TRIALING'
+        ? 'Trial'
+        : 'Active';
 
     return {
       id: acc.id,
@@ -161,11 +174,15 @@ export async function listAllTenants(filter?: {
   }
 
   if (filter?.industry) {
-    result = result.filter((t) => t.industry.toLowerCase().includes(filter.industry!.toLowerCase()));
+    result = result.filter((t) =>
+      t.industry.toLowerCase().includes(filter.industry!.toLowerCase())
+    );
   }
 
   if (filter?.status) {
-    result = result.filter((t) => t.tenantStatus.toLowerCase() === filter.status!.toLowerCase());
+    result = result.filter(
+      (t) => t.tenantStatus.toLowerCase() === filter.status!.toLowerCase()
+    );
   }
 
   return result;
@@ -185,11 +202,14 @@ export async function suspendTenant({
 }): Promise<boolean> {
   const db = getAdminClient();
 
-  await db.from('accounts').update({
-    is_suspended: true,
-    status: 'SUSPENDED',
-    updated_at: new Date().toISOString(),
-  }).eq('id', workspaceId);
+  await db
+    .from('accounts')
+    .update({
+      is_suspended: true,
+      status: 'SUSPENDED',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', workspaceId);
 
   await logAdminAction({
     actorEmail,
@@ -215,11 +235,14 @@ export async function reactivateTenant({
 }): Promise<boolean> {
   const db = getAdminClient();
 
-  await db.from('accounts').update({
-    is_suspended: false,
-    status: 'ACTIVE',
-    updated_at: new Date().toISOString(),
-  }).eq('id', workspaceId);
+  await db
+    .from('accounts')
+    .update({
+      is_suspended: false,
+      status: 'ACTIVE',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', workspaceId);
 
   await logAdminAction({
     actorEmail,
@@ -252,15 +275,18 @@ export async function extendTenantTrial({
   newEnd.setDate(newEnd.getDate() + additionalDays);
   const trialEndStr = newEnd.toISOString();
 
-  await db.from('accounts').update({
-    subscription_status: 'TRIALING',
-    extra_attributes: {
-      trial_end: trialEndStr,
-      trial_extended_by: actorEmail,
-      trial_extension_reason: reason,
-    },
-    updated_at: new Date().toISOString(),
-  }).eq('id', workspaceId);
+  await db
+    .from('accounts')
+    .update({
+      subscription_status: 'TRIALING',
+      extra_attributes: {
+        trial_end: trialEndStr,
+        trial_extended_by: actorEmail,
+        trial_extension_reason: reason,
+      },
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', workspaceId);
 
   await logAdminAction({
     actorEmail,

@@ -77,7 +77,10 @@ describe('Helpa Core SaaS Billing & Monetization Layer', () => {
 
     vi.spyOn(appwriteCompat, 'getAdminClient').mockReturnValue({
       from: (table: string) => {
-        const store = (mockDatabase as Record<string, Array<Record<string, unknown>>>)[table] || [];
+        const store =
+          (mockDatabase as Record<string, Array<Record<string, unknown>>>)[
+            table
+          ] || [];
         return {
           select: () => {
             let filtered = [...store];
@@ -92,7 +95,11 @@ describe('Helpa Core SaaS Billing & Monetization Layer', () => {
               },
               ilike: (f: string, v: string) => {
                 const clean = v.replace(/%/g, '').toLowerCase();
-                filtered = filtered.filter((r) => String(r[f] || '').toLowerCase().includes(clean));
+                filtered = filtered.filter((r) =>
+                  String(r[f] || '')
+                    .toLowerCase()
+                    .includes(clean)
+                );
                 return builder;
               },
               order: () => builder,
@@ -231,15 +238,24 @@ describe('Helpa Core SaaS Billing & Monetization Layer', () => {
 
   describe('Centralized Feature Registry & Gating', () => {
     it('allows Professional Health workspace to access AI Copilot & Appointments', async () => {
-      const copilotAccess = await canAccessFeature(workspaceA, 'core.ai_copilot');
+      const copilotAccess = await canAccessFeature(
+        workspaceA,
+        'core.ai_copilot'
+      );
       expect(copilotAccess.allowed).toBe(true);
 
-      const apptAccess = await canAccessFeature(workspaceA, 'health.appointments');
+      const apptAccess = await canAccessFeature(
+        workspaceA,
+        'health.appointments'
+      );
       expect(apptAccess.allowed).toBe(true);
     });
 
     it('blocks feature access if workspace subscription is expired or cancelled', async () => {
-      const expiredWs = { ...workspaceA, subscriptionStatus: 'EXPIRED' as const };
+      const expiredWs = {
+        ...workspaceA,
+        subscriptionStatus: 'EXPIRED' as const,
+      };
       const access = await canAccessFeature(expiredWs, 'core.inbox');
       expect(access.allowed).toBe(false);
       expect(access.reason).toContain('expired');
@@ -248,11 +264,16 @@ describe('Helpa Core SaaS Billing & Monetization Layer', () => {
     it('blocks cross-industry feature access (Health cannot access Salon or Real Estate features)', async () => {
       const crossAccess = await canAccessFeature(workspaceA, 'salon.services');
       expect(crossAccess.allowed).toBe(false);
-      expect(crossAccess.reason).toContain('not supported in the health workspace');
+      expect(crossAccess.reason).toContain(
+        'not supported in the health workspace'
+      );
     });
 
     it('blocks Starter plan from accessing advanced features (e.g. AI Copilot)', async () => {
-      const copilotAccess = await canAccessFeature(workspaceB, 'core.ai_copilot');
+      const copilotAccess = await canAccessFeature(
+        workspaceB,
+        'core.ai_copilot'
+      );
       expect(copilotAccess.allowed).toBe(false);
       expect(copilotAccess.requiredPlan).toBe('Professional');
     });
@@ -296,7 +317,12 @@ describe('Helpa Core SaaS Billing & Monetization Layer', () => {
         source: 'whatsapp_ai',
       });
 
-      const check80 = await checkUsageLimit(workspaceB.id, 'plan_starter', 'ai_message', 1);
+      const check80 = await checkUsageLimit(
+        workspaceB.id,
+        'plan_starter',
+        'ai_message',
+        1
+      );
       expect(check80.allowed).toBe(true);
       expect(check80.percentageUsed).toBe(83);
       expect(check80.warningLevel).toBe('80%');
@@ -309,7 +335,12 @@ describe('Helpa Core SaaS Billing & Monetization Layer', () => {
         source: 'whatsapp_ai',
       });
 
-      const check100 = await checkUsageLimit(workspaceB.id, 'plan_starter', 'ai_message', 1);
+      const check100 = await checkUsageLimit(
+        workspaceB.id,
+        'plan_starter',
+        'ai_message',
+        1
+      );
       expect(check100.allowed).toBe(false);
       expect(check100.percentageUsed).toBe(100);
       expect(check100.warningLevel).toBe('100%');

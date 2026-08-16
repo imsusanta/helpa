@@ -45,10 +45,9 @@ export async function executeAiPipeline({
       lowerMsg.includes('suicide'))
   ) {
     // Immediate emergency escalation
-    await aiToolRegistry.get('handoffToHuman')?.execute(
-      { reason: 'Medical emergency keyword detected' },
-      context
-    );
+    await aiToolRegistry
+      .get('handoffToHuman')
+      ?.execute({ reason: 'Medical emergency keyword detected' }, context);
 
     return {
       replyText:
@@ -71,15 +70,12 @@ export async function executeAiPipeline({
 
   // 4. Generate AI Completion
   const provider = getAiProvider();
-  const completion = await provider.generateCompletion(
-    conversationMessages,
-    {
-      apiKey: customApiKey,
-      model: customModel,
-      temperature: 0.3,
-      maxTokens: 800,
-    }
-  );
+  const completion = await provider.generateCompletion(conversationMessages, {
+    apiKey: customApiKey,
+    model: customModel,
+    temperature: 0.3,
+    maxTokens: 800,
+  });
 
   let replyText = completion.content.trim();
   const toolCallsExecuted: AiExecutionResult['toolCallsExecuted'] = [];
@@ -106,7 +102,9 @@ export async function executeAiPipeline({
 
           if (parsed.name === 'handoffToHuman') {
             needsHumanHandoff = true;
-            handoffReason = String(parsed.arguments.reason || 'Requested by AI');
+            handoffReason = String(
+              parsed.arguments.reason || 'Requested by AI'
+            );
           }
         }
         // Clean out tool tag from client response
@@ -126,10 +124,9 @@ export async function executeAiPipeline({
   ) {
     needsHumanHandoff = true;
     handoffReason = 'Customer requested human staff';
-    await aiToolRegistry.get('handoffToHuman')?.execute(
-      { reason: handoffReason },
-      context
-    );
+    await aiToolRegistry
+      .get('handoffToHuman')
+      ?.execute({ reason: handoffReason }, context);
   }
 
   // 7. Emit Core Platform Event
@@ -153,7 +150,8 @@ export async function executeAiPipeline({
       completionTokens: completion.completionTokens,
       totalTokens: completion.totalTokens,
     },
-    toolCallsExecuted: toolCallsExecuted.length > 0 ? toolCallsExecuted : undefined,
+    toolCallsExecuted:
+      toolCallsExecuted.length > 0 ? toolCallsExecuted : undefined,
     needsHumanHandoff,
     handoffReason,
     timestamp: new Date().toISOString(),
@@ -204,9 +202,9 @@ export async function generateCopilotSuggestions({
   customApiKey?: string;
 }): Promise<CopilotSuggestions> {
   const bundle = await buildAiContextBundle(context);
-  const lastUserMsg = bundle.messages
-    .filter((m) => m.role === 'user')
-    .slice(-1)[0]?.content || 'Customer conversation';
+  const lastUserMsg =
+    bundle.messages.filter((m) => m.role === 'user').slice(-1)[0]?.content ||
+    'Customer conversation';
 
   const copilotPrompt = `You are the staff AI Copilot for "${bundle.businessName}" in the ${bundle.industry} industry.
 Analyze the following conversation and return a JSON object with:
@@ -226,7 +224,10 @@ ${bundle.knowledgeSnippets.join('\n')}
   const promptMessages: AiMessage[] = [
     { role: 'system', content: copilotPrompt },
     ...bundle.messages,
-    { role: 'user', content: `Generate Copilot suggestions for: "${lastUserMsg}"` },
+    {
+      role: 'user',
+      content: `Generate Copilot suggestions for: "${lastUserMsg}"`,
+    },
   ];
 
   try {
@@ -242,7 +243,8 @@ ${bundle.knowledgeSnippets.join('\n')}
       return {
         summary: parsed.summary || 'Customer inquiry regarding services.',
         intent: parsed.intent || 'General Inquiry',
-        suggestedReply: parsed.suggestedReply || 'Hello, how can we assist you today?',
+        suggestedReply:
+          parsed.suggestedReply || 'Hello, how can we assist you today?',
         suggestedAction: parsed.suggestedAction,
         confidence: 0.92,
       };

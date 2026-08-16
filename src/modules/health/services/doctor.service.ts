@@ -142,10 +142,21 @@ export async function getDoctorSlotAvailability(
     .eq('appointment_date', dateStr)
     .neq('status', 'Cancelled');
 
-  const bookedTimes = new Set((bookedAppts || []).map((a) => a.appointment_time));
+  const bookedTimes = new Set(
+    (bookedAppts || []).map((a) => a.appointment_time)
+  );
 
   // Generate standard slots within doctor's working hours
-  const baseSlots = ['10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM', '04:00 PM', '04:30 PM', '05:00 PM', '05:30 PM'];
+  const baseSlots = [
+    '10:00 AM',
+    '10:30 AM',
+    '11:00 AM',
+    '11:30 AM',
+    '04:00 PM',
+    '04:30 PM',
+    '05:00 PM',
+    '05:30 PM',
+  ];
   const availableSlots = baseSlots.filter((slot) => !bookedTimes.has(slot));
 
   return {
@@ -156,6 +167,7 @@ export async function getDoctorSlotAvailability(
     date: dateStr,
     isAvailable: availableSlots.length > 0,
     availableSlots,
-    reasonIfNotAvailable: availableSlots.length === 0 ? 'Fully booked for this date.' : undefined,
+    reasonIfNotAvailable:
+      availableSlots.length === 0 ? 'Fully booked for this date.' : undefined,
   };
 }

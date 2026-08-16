@@ -37,7 +37,8 @@ export async function listRealEstateAgents(
         accountId,
         name: 'Amit Roy',
         role: 'Senior Property Consultant',
-        specialization: 'Residential Apartments & Villas (New Town & Salt Lake)',
+        specialization:
+          'Residential Apartments & Villas (New Town & Salt Lake)',
         assignedLocations: ['New Town', 'Salt Lake', 'Action Area 1'],
         phone: '+919876500001',
         status: 'Available',
@@ -47,7 +48,8 @@ export async function listRealEstateAgents(
         accountId,
         name: 'Priya Sen',
         role: 'Commercial & Rental Specialist',
-        specialization: 'Commercial Office Space & Riverfront Properties (Howrah & Central)',
+        specialization:
+          'Commercial Office Space & Riverfront Properties (Howrah & Central)',
         assignedLocations: ['Howrah', 'Park Street', 'Sector 5'],
         phone: '+919876500002',
         status: 'Available',

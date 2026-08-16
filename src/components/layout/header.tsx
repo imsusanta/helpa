@@ -76,7 +76,8 @@ export function Header({ onOpenSidebar }: HeaderProps) {
       (item.href !== '/dashboard' && pathname.startsWith(item.href))
   );
 
-  const title = sidebarMatch?.label || pageTitles[pathname] || getPageTitle(pathname);
+  const title =
+    sidebarMatch?.label || pageTitles[pathname] || getPageTitle(pathname);
 
   const initial =
     profile?.full_name?.charAt(0)?.toUpperCase() ??

@@ -3,7 +3,6 @@ import {
   coreEvents,
   hasPermission,
   assertPermission,
-  ROLE_PERMISSIONS,
   OpenRouterAiProvider,
   getAiProvider,
   formatKnowledgeForAi,
@@ -17,13 +16,10 @@ describe('Phase 3: Core Platform Architecture', () => {
       let received = false;
       let eventText: string | undefined;
 
-      const unsubscribe = coreEvents.subscribe(
-        'message.received',
-        (event) => {
-          received = true;
-          eventText = (event.payload as { text?: string })?.text;
-        }
-      );
+      const unsubscribe = coreEvents.subscribe('message.received', (event) => {
+        received = true;
+        eventText = (event.payload as { text?: string })?.text;
+      });
 
       await coreEvents.emit('message.received', 'acc_123', {
         text: 'Hello, world!',
@@ -82,7 +78,9 @@ describe('Phase 3: Core Platform Architecture', () => {
       ];
 
       const formatted = formatKnowledgeForAi(items);
-      expect(formatted).toContain('[Article 1] (PRICING): Standard Consultation Fee');
+      expect(formatted).toContain(
+        '[Article 1] (PRICING): Standard Consultation Fee'
+      );
       expect(formatted).toContain('Fee is $50 per session.');
       expect(formatted).toContain('[Article 2] (POLICY): Cancellation Window');
     });
