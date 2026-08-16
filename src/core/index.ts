@@ -11,9 +11,8 @@ export * from './events';
 // Permissions & Roles
 export * from './permissions';
 
-// AI Provider & OpenRouter
-export * from './ai/provider';
-export * from './ai/memory';
+// AI Engine & OpenRouter
+export * from './ai';
 
 // Core Subsystems
 export * from './knowledge';
