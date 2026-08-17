@@ -454,25 +454,37 @@ export function AdminDashboardClient() {
     switch (status) {
       case 'active':
         return (
-          <Badge className="border border-emerald-500/20 bg-emerald-500/10 text-[9px] font-bold tracking-wider text-emerald-600 uppercase dark:text-emerald-400">
+          <Badge
+            variant="outline"
+            className="border-emerald-500/30 bg-emerald-500/10 text-xs font-medium text-emerald-600 dark:text-emerald-400"
+          >
             Active
           </Badge>
         );
       case 'trial':
         return (
-          <Badge className="border border-blue-500/20 bg-blue-500/10 text-[9px] font-bold tracking-wider text-blue-600 uppercase dark:text-blue-400">
+          <Badge
+            variant="outline"
+            className="border-blue-500/30 bg-blue-500/10 text-xs font-medium text-blue-600 dark:text-blue-400"
+          >
             Trial
           </Badge>
         );
       case 'cancelled':
         return (
-          <Badge className="bg-muted text-muted-foreground border text-[9px] font-bold tracking-wider uppercase">
+          <Badge
+            variant="outline"
+            className="bg-muted text-muted-foreground border-border text-xs font-medium"
+          >
             Suspended
           </Badge>
         );
       default:
         return (
-          <Badge className="border border-emerald-500/20 bg-emerald-500/10 text-[9px] font-bold tracking-wider text-emerald-600 uppercase dark:text-emerald-400">
+          <Badge
+            variant="outline"
+            className="border-emerald-500/30 bg-emerald-500/10 text-xs font-medium text-emerald-600 dark:text-emerald-400"
+          >
             Active
           </Badge>
         );
@@ -480,67 +492,58 @@ export function AdminDashboardClient() {
   };
 
   return (
-    <div className="animate-in fade-in space-y-6 duration-300">
-      {/* Redesigned Glassmorphism Control Center Header */}
-      <div className="via-background to-background relative flex flex-col gap-4 overflow-hidden rounded-2xl border border-emerald-500/20 bg-gradient-to-r from-emerald-500/10 p-6 shadow-sm transition-all duration-300 md:flex-row md:items-center md:justify-between">
-        <div className="z-10 flex items-start gap-4">
-          <div className="shrink-0 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-emerald-600 dark:text-emerald-400">
-            <Shield className="size-8 animate-pulse drop-shadow-[0_0_8px_rgba(16,185,129,0.3)]" />
-          </div>
-          <div>
-            <h1 className="text-foreground flex items-center gap-2 text-2xl font-extrabold tracking-tight sm:text-3xl">
-              Super Admin Control Center
+    <div className="space-y-6">
+      {/* Clean Minimal Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <Shield className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+            <h1 className="text-foreground text-2xl font-semibold tracking-tight">
+              Super Admin
             </h1>
-            <p className="text-muted-foreground mt-1 max-w-xl text-xs leading-relaxed">
-              Global platform diagnostics, provisioning tenant limits, and
-              subscription configuration.
-            </p>
           </div>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Manage your platform, tenants, billing plans, and AI setup.
+          </p>
         </div>
-        <div className="z-10 flex items-center gap-2">
+        <div className="flex items-center gap-2">
           <Button
             onClick={loadData}
             variant="outline"
+            size="sm"
             disabled={loading}
-            className="border-border text-foreground hover:bg-muted cursor-pointer font-semibold transition-all duration-200 hover:scale-[1.03] active:scale-[0.97]"
+            className="h-8 gap-1.5 text-xs font-medium"
           >
             <RefreshCw
-              className={`mr-1.5 size-4 ${loading ? 'animate-spin' : ''}`}
-            />{' '}
+              className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`}
+            />
             Sync Data
           </Button>
         </div>
       </div>
 
-      {/* Modernized Tab selection triggers */}
-      <div className="border-border/80 flex gap-1 overflow-x-auto border-b">
+      {/* Clean Tab Navigation */}
+      <div className="border-border flex gap-2 border-b">
         {[
           { key: 'overview', label: 'Overview', icon: LayoutDashboard },
           { key: 'tenants', label: 'Tenants', icon: Users },
           { key: 'plans', label: 'Plans & Pricing', icon: CreditCard },
-          { key: 'ai', label: 'AI Settings', icon: Brain, isBadge: true },
+          { key: 'ai', label: 'AI Setup', icon: Brain },
           { key: 'landing', label: 'Landing Page', icon: Globe },
-        ].map(({ key, label, icon: Icon, isBadge }) => {
+        ].map(({ key, label, icon: Icon }) => {
           const isActive = activeTab === key;
           return (
             <button
               key={key}
               onClick={() => setActiveTab(key as typeof activeTab)}
-              className={`flex cursor-pointer items-center gap-2 border-b-2 px-4 py-3 text-xs font-bold tracking-wide whitespace-nowrap transition-all ${
+              className={`flex cursor-pointer items-center gap-2 border-b-2 px-3.5 py-2.5 text-xs font-medium whitespace-nowrap transition-colors ${
                 isActive
-                  ? 'border-emerald-500 font-extrabold text-emerald-600 dark:text-emerald-400'
+                  ? 'border-emerald-600 text-emerald-600 dark:border-emerald-400 dark:text-emerald-400'
                   : 'text-muted-foreground hover:text-foreground border-transparent'
               }`}
             >
-              <Icon
-                className={`h-4 w-4 ${isActive ? 'text-emerald-500' : 'text-muted-foreground'}`}
-              />
+              <Icon className="h-3.5 w-3.5" />
               <span>{label}</span>
-              {isBadge && (
-                <span className="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
-                  Live
-                </span>
-              )}
             </button>
           );
         })}
@@ -548,143 +551,148 @@ export function AdminDashboardClient() {
 
       {/* OVERVIEW TAB */}
       {activeTab === 'overview' && (
-        <div className="animate-in fade-in space-y-6 duration-300">
+        <div className="space-y-6">
           {/* KPI Metrics Cards */}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {/* Active Tenants Card */}
-            <div className="group bg-card border-border/80 relative overflow-hidden rounded-2xl border p-5 transition-all duration-300 hover:scale-[1.02] hover:border-emerald-500/20 hover:shadow-[0_8px_30px_rgba(16,185,129,0.06)] active:scale-[0.99]">
-              <div className="absolute -right-2 -bottom-2 text-emerald-500 opacity-5 transition-transform duration-300 group-hover:scale-110">
-                <Layers className="h-20 w-20" />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
-                  Active Tenants
-                </span>
-                <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-2 text-emerald-600 transition-transform duration-200 group-hover:scale-110 dark:text-emerald-400">
-                  <Layers className="h-4 w-4" />
+            <Card className="bg-card border-border shadow-none">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground text-xs font-medium">
+                    Active Tenants
+                  </span>
+                  <div className="bg-muted flex h-8 w-8 items-center justify-center rounded-lg">
+                    <Layers className="text-muted-foreground h-4 w-4" />
+                  </div>
                 </div>
-              </div>
-              <div className="mt-4 flex items-baseline gap-2">
-                <span className="text-foreground text-3xl font-black tracking-tight tabular-nums">
-                  {metrics?.totalAccounts ?? 0}
-                </span>
-              </div>
-              <p className="text-muted-foreground mt-2 text-[10px] font-medium">
-                Total registered business workspaces
-              </p>
-            </div>
+                <div className="mt-3">
+                  <span className="text-foreground text-2xl font-semibold tracking-tight tabular-nums">
+                    {metrics?.totalAccounts ?? 0}
+                  </span>
+                </div>
+                <p className="text-muted-foreground mt-1 text-xs">
+                  Registered business workspaces
+                </p>
+              </CardContent>
+            </Card>
 
             {/* Platform Users Card */}
-            <div className="group bg-card border-border/80 relative overflow-hidden rounded-2xl border p-5 transition-all duration-300 hover:scale-[1.02] hover:border-blue-500/20 hover:shadow-[0_8px_30px_rgba(59,130,246,0.06)] active:scale-[0.99]">
-              <div className="absolute -right-2 -bottom-2 text-blue-500 opacity-5 transition-transform duration-300 group-hover:scale-110">
-                <Users className="h-20 w-20" />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
-                  Platform Agents
-                </span>
-                <div className="rounded-lg border border-blue-500/20 bg-blue-500/10 p-2 text-blue-600 transition-transform duration-200 group-hover:scale-110 dark:text-blue-400">
-                  <Users className="h-4 w-4" />
+            <Card className="bg-card border-border shadow-none">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground text-xs font-medium">
+                    Platform Agents
+                  </span>
+                  <div className="bg-muted flex h-8 w-8 items-center justify-center rounded-lg">
+                    <Users className="text-muted-foreground h-4 w-4" />
+                  </div>
                 </div>
-              </div>
-              <div className="mt-4 flex items-baseline gap-2">
-                <span className="text-foreground text-3xl font-black tracking-tight tabular-nums">
-                  {metrics?.totalUsers ?? 0}
-                </span>
-              </div>
-              <p className="text-muted-foreground mt-2 text-[10px] font-medium">
-                Workspace agents & owners configured
-              </p>
-            </div>
+                <div className="mt-3">
+                  <span className="text-foreground text-2xl font-semibold tracking-tight tabular-nums">
+                    {metrics?.totalUsers ?? 0}
+                  </span>
+                </div>
+                <p className="text-muted-foreground mt-1 text-xs">
+                  Configured agents and owners
+                </p>
+              </CardContent>
+            </Card>
 
             {/* Monthly AI Requests Card */}
-            <div className="group bg-card border-border/80 relative overflow-hidden rounded-2xl border p-5 transition-all duration-300 hover:scale-[1.02] hover:border-purple-500/20 hover:shadow-[0_8px_30px_rgba(139,92,246,0.06)] active:scale-[0.99]">
-              <div className="absolute -right-2 -bottom-2 text-purple-500 opacity-5 transition-transform duration-300 group-hover:scale-110">
-                <Activity className="h-20 w-20" />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
-                  AI Pilots Month
-                </span>
-                <div className="rounded-lg border border-purple-500/20 bg-purple-500/10 p-2 text-purple-600 transition-transform duration-200 group-hover:scale-110 dark:text-purple-400">
-                  <Activity className="h-4 w-4" />
+            <Card className="bg-card border-border shadow-none">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground text-xs font-medium">
+                    AI Requests (Month)
+                  </span>
+                  <div className="bg-muted flex h-8 w-8 items-center justify-center rounded-lg">
+                    <Activity className="text-muted-foreground h-4 w-4" />
+                  </div>
                 </div>
-              </div>
-              <div className="mt-4 flex items-baseline gap-2">
-                <span className="text-foreground text-3xl font-black tracking-tight tabular-nums">
-                  {metrics?.usage?.aiRequests ?? 0}
-                </span>
-              </div>
-              <p className="text-muted-foreground mt-2 text-[10px] font-medium">
-                Autopilot completions requested
-              </p>
-            </div>
+                <div className="mt-3">
+                  <span className="text-foreground text-2xl font-semibold tracking-tight tabular-nums">
+                    {(metrics?.usage?.aiRequests ?? 0).toLocaleString()}
+                  </span>
+                </div>
+                <p className="text-muted-foreground mt-1 text-xs">
+                  Total autopilot completions
+                </p>
+              </CardContent>
+            </Card>
 
             {/* Total Contacts Card */}
-            <div className="group bg-card border-border/80 relative overflow-hidden rounded-2xl border p-5 transition-all duration-300 hover:scale-[1.02] hover:border-amber-500/20 hover:shadow-[0_8px_30px_rgba(245,158,11,0.06)] active:scale-[0.99]">
-              <div className="absolute -right-2 -bottom-2 text-amber-500 opacity-5 transition-transform duration-300 group-hover:scale-110">
-                <Users className="h-20 w-20" />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
-                  Total CRM Contacts
-                </span>
-                <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-2 text-amber-600 transition-transform duration-200 group-hover:scale-110 dark:text-amber-400">
-                  <Users className="h-4 w-4" />
+            <Card className="bg-card border-border shadow-none">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground text-xs font-medium">
+                    Total Contacts
+                  </span>
+                  <div className="bg-muted flex h-8 w-8 items-center justify-center rounded-lg">
+                    <Users className="text-muted-foreground h-4 w-4" />
+                  </div>
                 </div>
-              </div>
-              <div className="mt-4 flex items-baseline gap-2">
-                <span className="text-foreground text-3xl font-black tracking-tight tabular-nums">
-                  {metrics?.totalContacts ?? 0}
-                </span>
-              </div>
-              <p className="text-muted-foreground mt-2 text-[10px] font-medium">
-                Total sync hospital patient profiles
-              </p>
-            </div>
+                <div className="mt-3">
+                  <span className="text-foreground text-2xl font-semibold tracking-tight tabular-nums">
+                    {(metrics?.totalContacts ?? 0).toLocaleString()}
+                  </span>
+                </div>
+                <p className="text-muted-foreground mt-1 text-xs">
+                  CRM contacts across tenants
+                </p>
+              </CardContent>
+            </Card>
           </div>
 
           <div className="grid gap-6 md:grid-cols-2">
             {/* Subscriptions Tier Card */}
-            <div className="bg-card border-border/80 space-y-4 rounded-2xl border p-6 shadow-sm transition-all duration-300 hover:scale-[1.01] hover:border-emerald-500/20 hover:shadow-[0_8px_30px_rgba(16,185,129,0.04)]">
-              <div>
-                <h3 className="text-foreground text-md flex items-center gap-1.5 font-extrabold">
-                  <Layers className="h-4 w-4 text-emerald-500" />
+            <Card className="bg-card border-border shadow-none">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-foreground flex items-center gap-2 text-sm font-semibold">
+                  <Layers className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                   Subscriptions Tier Share
-                </h3>
-                <p className="text-muted-foreground text-xs">
+                </CardTitle>
+                <CardDescription className="text-muted-foreground text-xs">
                   Breakdown of tenant plan registrations
-                </p>
-              </div>
-              <div className="space-y-3.5 pt-2">
-                <div className="bg-muted/20 border-border/50 hover:bg-muted/30 flex items-center justify-between rounded-lg border p-2 text-xs transition-all duration-200 hover:scale-[1.02]">
-                  <span className="text-muted-foreground font-semibold">
-                    Growth Premium ($29/mo)
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 pt-0">
+                <div className="flex items-center justify-between py-1.5 text-xs">
+                  <span className="text-muted-foreground">
+                    Growth Premium (₹2,900/mo)
                   </span>
-                  <span className="text-foreground rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 font-bold text-emerald-600 dark:text-emerald-400">
+                  <Badge
+                    variant="outline"
+                    className="border-emerald-500/30 bg-emerald-500/10 font-medium text-emerald-600 dark:text-emerald-400"
+                  >
                     {metrics?.subscriptions?.planBreakdown?.['Growth'] || 0}{' '}
                     active
-                  </span>
+                  </Badge>
                 </div>
-                <div className="bg-muted/20 border-border/50 hover:bg-muted/30 flex items-center justify-between rounded-lg border p-2 text-xs transition-all duration-200 hover:scale-[1.02]">
-                  <span className="text-muted-foreground font-semibold">
+                <div className="flex items-center justify-between py-1.5 text-xs">
+                  <span className="text-muted-foreground">
                     Enterprise custom plans
                   </span>
-                  <span className="text-foreground rounded border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 font-bold text-blue-600 dark:text-blue-400">
+                  <Badge
+                    variant="outline"
+                    className="border-blue-500/30 bg-blue-500/10 font-medium text-blue-600 dark:text-blue-400"
+                  >
                     {metrics?.subscriptions?.planBreakdown?.['Enterprise'] || 0}{' '}
                     active
-                  </span>
+                  </Badge>
                 </div>
-                <div className="bg-muted/20 border-border/50 hover:bg-muted/30 flex items-center justify-between rounded-lg border p-2 text-xs transition-all duration-200 hover:scale-[1.02]">
-                  <span className="text-muted-foreground font-semibold">
+                <div className="flex items-center justify-between py-1.5 text-xs">
+                  <span className="text-muted-foreground">
                     14-Day Free Trials
                   </span>
-                  <span className="text-foreground rounded border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 font-bold text-amber-600 dark:text-amber-400">
+                  <Badge
+                    variant="outline"
+                    className="border-amber-500/30 bg-amber-500/10 font-medium text-amber-600 dark:text-amber-400"
+                  >
                     {metrics?.subscriptions?.planBreakdown?.['Free Trial'] || 0}{' '}
                     trial
-                  </span>
+                  </Badge>
                 </div>
-                <div className="border-border flex items-center justify-between border-t pt-3 text-sm font-bold">
+                <div className="border-border flex items-center justify-between border-t pt-3 text-xs font-semibold">
                   <span className="text-foreground">
                     Total Active Contracts
                   </span>
@@ -692,102 +700,100 @@ export function AdminDashboardClient() {
                     {metrics?.subscriptions?.total ?? 0}
                   </span>
                 </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
 
             {/* Platform Active Usage Card */}
-            <div className="bg-card border-border/80 space-y-4 rounded-2xl border p-6 shadow-sm transition-all duration-300 hover:scale-[1.01] hover:border-emerald-500/20 hover:shadow-[0_8px_30px_rgba(16,185,129,0.04)]">
-              <div>
-                <h3 className="text-foreground text-md flex items-center gap-1.5 font-extrabold">
-                  <TrendingUp className="h-4 w-4 text-emerald-500" />
+            <Card className="bg-card border-border shadow-none">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-foreground flex items-center gap-2 text-sm font-semibold">
+                  <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                   Platform Active Usage
-                </h3>
-                <p className="text-muted-foreground text-xs">
+                </CardTitle>
+                <CardDescription className="text-muted-foreground text-xs">
                   Monthly totals for API transactions
-                </p>
-              </div>
-              <div className="space-y-3.5 pt-2">
-                <div className="bg-muted/20 border-border/50 hover:bg-muted/30 flex items-center justify-between rounded-lg border p-2 text-xs transition-all duration-200 hover:scale-[1.02]">
-                  <span className="text-muted-foreground font-semibold">
-                    AI Requests Sum
-                  </span>
-                  <span className="text-foreground font-bold">
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 pt-0">
+                <div className="flex items-center justify-between py-1.5 text-xs">
+                  <span className="text-muted-foreground">AI Requests Sum</span>
+                  <span className="text-foreground font-medium">
                     {(metrics?.usage?.aiRequests ?? 0).toLocaleString()} calls
                   </span>
                 </div>
-                <div className="bg-muted/20 border-border/50 hover:bg-muted/30 flex items-center justify-between rounded-lg border p-2 text-xs transition-all duration-200 hover:scale-[1.02]">
-                  <span className="text-muted-foreground font-semibold">
+                <div className="flex items-center justify-between py-1.5 text-xs">
+                  <span className="text-muted-foreground">
                     WhatsApp Messages Sent
                   </span>
-                  <span className="text-foreground font-bold">
+                  <span className="text-foreground font-medium">
                     {(metrics?.usage?.whatsappMessages ?? 0).toLocaleString()}{' '}
                     msgs
                   </span>
                 </div>
-                <div className="border-border flex items-center justify-between border-t pt-3 text-sm font-bold">
+                <div className="border-border flex items-center justify-between border-t pt-3 text-xs font-semibold">
                   <span className="text-foreground">Billing Month</span>
-                  <span className="text-muted-foreground text-xs font-semibold">
+                  <span className="text-muted-foreground text-xs font-normal">
                     {metrics?.usage?.month || 'Current Month'}
                   </span>
                 </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       )}
 
       {/* TENANTS TAB */}
       {activeTab === 'tenants' && (
-        <div className="animate-in fade-in space-y-4 duration-200">
+        <div className="space-y-4">
           <div className="flex items-center justify-between gap-4">
             <div className="relative max-w-sm flex-1">
               <Search className="text-muted-foreground absolute top-2.5 left-3 h-4 w-4" />
               <Input
-                placeholder="Search by company name, owner, or email..."
+                placeholder="Search tenants by name, owner, or email..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-card text-foreground border-border pl-9 focus-visible:ring-emerald-500"
+                className="bg-card text-foreground border-border h-9 pl-9 text-xs"
               />
             </div>
           </div>
 
-          <div className="bg-card border-border overflow-hidden rounded-2xl border shadow-sm">
+          <div className="bg-card border-border overflow-hidden rounded-xl border">
             <div className="overflow-x-auto">
               <Table>
-                <TableHeader className="bg-muted/40 border-border border-b font-bold">
+                <TableHeader className="bg-muted/30 border-border border-b">
                   <TableRow>
-                    <TableHead className="text-foreground text-[10px] font-bold tracking-wider uppercase">
-                      Company/Tenant
+                    <TableHead className="text-muted-foreground text-xs font-semibold">
+                      Company / Tenant
                     </TableHead>
-                    <TableHead className="text-foreground text-[10px] font-bold tracking-wider uppercase">
+                    <TableHead className="text-muted-foreground text-xs font-semibold">
                       Owner
                     </TableHead>
-                    <TableHead className="text-foreground text-[10px] font-bold tracking-wider uppercase">
+                    <TableHead className="text-muted-foreground text-xs font-semibold">
                       Plan
                     </TableHead>
-                    <TableHead className="text-foreground text-[10px] font-bold tracking-wider uppercase">
+                    <TableHead className="text-muted-foreground text-xs font-semibold">
                       Status
                     </TableHead>
-                    <TableHead className="text-foreground text-center text-[10px] font-bold tracking-wider uppercase">
+                    <TableHead className="text-muted-foreground text-center text-xs font-semibold">
                       Contacts
                     </TableHead>
-                    <TableHead className="text-foreground text-center text-[10px] font-bold tracking-wider uppercase">
+                    <TableHead className="text-muted-foreground text-center text-xs font-semibold">
                       Members
                     </TableHead>
-                    <TableHead className="text-foreground text-center text-[10px] font-bold tracking-wider uppercase">
-                      AI Requests (Mo)
+                    <TableHead className="text-muted-foreground text-center text-xs font-semibold">
+                      AI Requests
                     </TableHead>
-                    <TableHead className="text-foreground w-[120px] text-right text-[10px] font-bold tracking-wider uppercase">
+                    <TableHead className="text-muted-foreground text-right text-xs font-semibold">
                       Actions
                     </TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody className="text-foreground text-xs">
+                <TableBody className="text-xs">
                   {filteredTenants.length === 0 ? (
                     <TableRow>
                       <TableCell
                         colSpan={8}
-                        className="text-muted-foreground py-8 text-center italic"
+                        className="text-muted-foreground py-8 text-center"
                       >
                         No tenants match your search query.
                       </TableCell>
@@ -796,20 +802,20 @@ export function AdminDashboardClient() {
                     filteredTenants.map((t) => (
                       <TableRow
                         key={t.id}
-                        className="hover:bg-muted/10 cursor-pointer transition-all duration-200 hover:translate-x-1.5"
+                        className="hover:bg-muted/40 transition-colors"
                       >
-                        <TableCell className="text-foreground font-extrabold">
+                        <TableCell className="text-foreground font-medium">
                           {t.name}
                         </TableCell>
                         <TableCell>
-                          <div className="text-foreground font-bold">
+                          <div className="text-foreground font-medium">
                             {t.owner?.full_name || 'Unassigned'}
                           </div>
-                          <div className="text-muted-foreground text-[10px] font-medium">
+                          <div className="text-muted-foreground text-xs">
                             {t.owner?.email || '-'}
                           </div>
                         </TableCell>
-                        <TableCell className="text-foreground font-semibold">
+                        <TableCell className="text-foreground">
                           {t.subscription?.plan?.name || 'Growth Plan'}
                         </TableCell>
                         <TableCell>
@@ -817,23 +823,23 @@ export function AdminDashboardClient() {
                             t.subscription?.status || 'active'
                           )}
                         </TableCell>
-                        <TableCell className="text-center font-semibold">
+                        <TableCell className="text-center font-medium">
                           {t.contactsCount}
                         </TableCell>
-                        <TableCell className="text-center font-semibold">
+                        <TableCell className="text-center font-medium">
                           {t.membersCount}
                         </TableCell>
-                        <TableCell className="text-center font-semibold">
+                        <TableCell className="text-center font-medium">
                           {t.usage.aiRequests}
                         </TableCell>
                         <TableCell className="text-right">
                           <Button
                             size="sm"
                             variant="outline"
-                            className="border-border text-foreground hover:bg-muted font-bold"
+                            className="h-7 text-xs font-medium"
                             onClick={() => handleOpenSubDialog(t)}
                           >
-                            Manage Plan
+                            Manage
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -848,25 +854,26 @@ export function AdminDashboardClient() {
 
       {/* PLANS TAB */}
       {activeTab === 'plans' && (
-        <div className="animate-in fade-in space-y-4 duration-200">
+        <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-md text-foreground font-bold">
-                Billing Plans List
+              <h3 className="text-foreground text-sm font-semibold">
+                Billing Plans
               </h3>
               <p className="text-muted-foreground text-xs">
-                Setup maximum usage metrics limits for SaaS tiers
+                Configure usage limits and pricing for subscription tiers
               </p>
             </div>
             <Button
               onClick={handleOpenAddPlan}
-              className="cursor-pointer bg-emerald-700 font-bold text-white transition-all hover:scale-[1.03] hover:bg-emerald-600 active:scale-[0.97] dark:bg-emerald-600 dark:hover:bg-emerald-500"
+              size="sm"
+              className="h-8 gap-1.5 text-xs font-medium"
             >
-              <Plus className="mr-1 size-4" /> Add Plan
+              <Plus className="h-3.5 w-3.5" /> Add Plan
             </Button>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {plans.map((p) => {
               let featsArray: string[] = [];
               try {
@@ -879,139 +886,142 @@ export function AdminDashboardClient() {
               }
 
               return (
-                <div
+                <Card
                   key={p.id}
-                  className="bg-card border-border flex flex-col justify-between rounded-2xl border p-5 transition-all duration-300 hover:scale-[1.02] hover:border-emerald-500/20 hover:shadow-[0_8px_30px_rgba(16,185,129,0.06)] active:scale-[0.99]"
+                  className="bg-card border-border flex flex-col justify-between shadow-none"
                 >
-                  <div className="border-border border-b pb-3">
+                  <CardHeader className="border-border border-b p-4">
                     <div className="flex items-start justify-between">
-                      <h4 className="text-md text-foreground font-extrabold">
+                      <CardTitle className="text-foreground text-sm font-semibold">
                         {p.name}
-                      </h4>
+                      </CardTitle>
                       <div className="flex gap-1">
                         <Button
                           size="icon"
                           variant="ghost"
-                          className="hover:bg-muted size-8 cursor-pointer rounded-lg"
+                          className="h-7 w-7 rounded-md"
                           onClick={() => handleOpenEditPlan(p)}
                         >
-                          <Edit className="text-muted-foreground hover:text-foreground size-3.5" />
+                          <Edit className="text-muted-foreground h-3.5 w-3.5" />
                         </Button>
                         <Button
                           size="icon"
                           variant="ghost"
-                          className="size-8 cursor-pointer rounded-lg hover:bg-red-500/10"
+                          className="h-7 w-7 rounded-md text-red-500 hover:text-red-600"
                           onClick={() => handleDeletePlan(p.id)}
                         >
-                          <Trash2 className="size-3.5 text-red-500 hover:text-red-400" />
+                          <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
                     </div>
                     <div className="mt-2 flex items-baseline gap-1">
-                      <span className="text-foreground text-2xl font-black">
+                      <span className="text-foreground text-xl font-semibold">
                         ₹{(p.monthly_price ?? 0).toLocaleString('en-IN')}
                       </span>
-                      <span className="text-muted-foreground text-xs font-semibold">
-                        /mo
-                      </span>
-                      <span className="text-muted-foreground ml-2 text-[10px] font-semibold">
-                        (₹
-                        {(p.yearly_price
-                          ? Math.round(p.yearly_price / 12)
-                          : 0
-                        ).toLocaleString('en-IN')}
-                        /mo billed yearly)
-                      </span>
+                      <span className="text-muted-foreground text-xs">/mo</span>
+                      {p.yearly_price ? (
+                        <span className="text-muted-foreground ml-1.5 text-xs">
+                          (₹
+                          {Math.round(p.yearly_price / 12).toLocaleString(
+                            'en-IN'
+                          )}
+                          /mo/yr)
+                        </span>
+                      ) : null}
                     </div>
-                  </div>
-                  <div className="space-y-4 py-3 text-[11px]">
-                    <div className="text-muted-foreground grid grid-cols-2 gap-2.5 font-semibold">
+                  </CardHeader>
+                  <CardContent className="space-y-3 p-4 text-xs">
+                    <div className="text-muted-foreground grid grid-cols-2 gap-2">
                       <div>
-                        Max Users:{' '}
-                        <span className="text-foreground">
+                        Users:{' '}
+                        <span className="text-foreground font-medium">
                           {p.max_users >= 999 ? '∞' : p.max_users}
                         </span>
                       </div>
                       <div>
-                        Max Contacts:{' '}
-                        <span className="text-foreground">
-                          {p.max_contacts >= 99999 ? '∞' : p.max_contacts}
+                        Contacts:{' '}
+                        <span className="text-foreground font-medium">
+                          {p.max_contacts >= 99999
+                            ? '∞'
+                            : p.max_contacts.toLocaleString()}
                         </span>
                       </div>
                       <div>
-                        Max AI autopilot:{' '}
-                        <span className="text-foreground">
-                          {p.max_ai_requests}
+                        AI Autopilot:{' '}
+                        <span className="text-foreground font-medium">
+                          {p.max_ai_requests.toLocaleString()}
                         </span>
                       </div>
                       <div>
-                        Phone Numbers:{' '}
-                        <span className="text-foreground">
+                        WhatsApp:{' '}
+                        <span className="text-foreground font-medium">
                           {p.max_whatsapp_numbers}
                         </span>
                       </div>
                     </div>
-                    <div className="space-y-1.5">
-                      <p className="text-foreground text-[10px] font-bold tracking-wider uppercase">
-                        Features Included:
-                      </p>
+                    <div className="space-y-1.5 pt-1">
+                      <span className="text-muted-foreground text-xs font-medium">
+                        Features:
+                      </span>
                       <div className="flex flex-wrap gap-1">
                         {featsArray.map((f, i) => (
                           <Badge
                             key={i}
                             variant="secondary"
-                            className="border border-emerald-500/20 bg-emerald-500/5 text-[9px] font-bold text-emerald-600 dark:text-emerald-400"
+                            className="bg-muted text-foreground text-[11px] font-normal"
                           >
                             {f.replace('_', ' ')}
                           </Badge>
                         ))}
                         {featsArray.length === 0 && (
-                          <span className="text-muted-foreground text-[10px] italic">
+                          <span className="text-muted-foreground text-xs italic">
                             None
                           </span>
                         )}
                       </div>
                     </div>
-                  </div>
-                </div>
+                  </CardContent>
+                </Card>
               );
             })}
           </div>
         </div>
       )}
 
-      {/* AI INFRASTRUCTURE TAB */}
+      {/* AI SETUP TAB */}
       {activeTab === 'ai' && <AdminAiInfrastructure />}
 
       {/* LANDING TAB */}
       {activeTab === 'landing' && (
-        <div className="animate-in fade-in space-y-6 duration-200">
+        <div className="space-y-4">
           <div>
-            <h3 className="text-md text-foreground font-bold">
+            <h3 className="text-foreground text-sm font-semibold">
               Landing Page Settings
             </h3>
             <p className="text-muted-foreground text-xs">
-              Manage the video embeds displayed on the public landing page
+              Manage video embeds shown on the public landing page
             </p>
           </div>
 
-          <Card className="bg-card border-border max-w-2xl">
-            <CardHeader>
-              <CardTitle className="text-foreground text-sm font-extrabold tracking-wider uppercase">
-                YouTube Video Embeds
+          <Card className="bg-card border-border max-w-2xl shadow-none">
+            <CardHeader className="p-5 pb-3">
+              <CardTitle className="text-foreground text-xs font-semibold uppercase">
+                Video Embed Links
               </CardTitle>
               <CardDescription className="text-muted-foreground text-xs">
                 Provide valid YouTube embed URLs (e.g.{' '}
-                <code>https://www.youtube.com/embed/VIDEO_ID</code>) to change
-                the landing page videos.
+                <code className="bg-muted rounded px-1 py-0.5 font-mono text-[11px]">
+                  https://www.youtube.com/embed/VIDEO_ID
+                </code>
+                ).
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-5 pt-0">
               <form onSubmit={handleSaveSettings} className="space-y-4">
-                <div className="grid gap-2">
+                <div className="grid gap-1.5">
                   <Label
                     htmlFor="heroVideoInput"
-                    className="text-muted-foreground text-xs font-bold tracking-wider uppercase"
+                    className="text-muted-foreground text-xs font-medium"
                   >
                     Hero Video URL
                   </Label>
@@ -1025,14 +1035,14 @@ export function AdminDashboardClient() {
                         landing_hero_video_url: e.target.value,
                       }))
                     }
-                    className="bg-background text-foreground border-border font-mono text-xs focus-visible:ring-emerald-500"
+                    className="bg-background text-foreground border-border font-mono text-xs"
                   />
                 </div>
 
-                <div className="grid gap-2">
+                <div className="grid gap-1.5">
                   <Label
                     htmlFor="actionVideoInput"
-                    className="text-muted-foreground text-xs font-bold tracking-wider uppercase"
+                    className="text-muted-foreground text-xs font-medium"
                   >
                     Product Walkthrough Video URL
                   </Label>
@@ -1046,20 +1056,21 @@ export function AdminDashboardClient() {
                         landing_action_video_url: e.target.value,
                       }))
                     }
-                    className="bg-background text-foreground border-border font-mono text-xs focus-visible:ring-emerald-500"
+                    className="bg-background text-foreground border-border font-mono text-xs"
                   />
                 </div>
 
                 <div className="flex justify-end pt-2">
                   <Button
                     type="submit"
+                    size="sm"
                     disabled={submittingSettings}
-                    className="cursor-pointer bg-emerald-700 font-bold text-white transition-all hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-500"
+                    className="h-8 text-xs font-medium"
                   >
                     {submittingSettings && (
-                      <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                      <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
                     )}
-                    Save Video Settings
+                    Save Settings
                   </Button>
                 </div>
               </form>
@@ -1070,24 +1081,24 @@ export function AdminDashboardClient() {
 
       {/* Edit Subscription Dialog */}
       <Dialog open={subDialogOpen} onOpenChange={setSubDialogOpen}>
-        <DialogContent className="bg-popover text-popover-foreground border-border max-w-md rounded-2xl">
+        <DialogContent className="bg-popover text-popover-foreground border-border max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-foreground text-lg font-extrabold">
+            <DialogTitle className="text-foreground text-base font-semibold">
               Manage Tenant Subscription
             </DialogTitle>
-            <DialogDescription className="text-muted-foreground text-xs leading-relaxed">
+            <DialogDescription className="text-muted-foreground text-xs">
               Modify the subscription tier and billing dates for{' '}
               {selectedTenant?.name}.
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSubSubmit} className="space-y-4 py-2">
-            <div className="grid gap-2">
+            <div className="grid gap-1.5">
               <Label
                 htmlFor="planSelect"
-                className="text-muted-foreground text-xs font-bold tracking-wider uppercase"
+                className="text-muted-foreground text-xs font-medium"
               >
-                Billing Tier Plan
+                Billing Plan
               </Label>
               <Select
                 value={editPlanId}
@@ -1110,12 +1121,12 @@ export function AdminDashboardClient() {
               </Select>
             </div>
 
-            <div className="grid gap-2">
+            <div className="grid gap-1.5">
               <Label
                 htmlFor="statusSelect"
-                className="text-muted-foreground text-xs font-bold tracking-wider uppercase"
+                className="text-muted-foreground text-xs font-medium"
               >
-                Subscription Contract Status
+                Subscription Status
               </Label>
               <Select
                 value={editStatus}
@@ -1138,10 +1149,10 @@ export function AdminDashboardClient() {
               </Select>
             </div>
 
-            <div className="grid gap-2">
+            <div className="grid gap-1.5">
               <Label
                 htmlFor="endDateInput"
-                className="text-muted-foreground text-xs font-bold tracking-wider uppercase"
+                className="text-muted-foreground text-xs font-medium"
               >
                 Contract Expiration Date
               </Label>
@@ -1150,15 +1161,16 @@ export function AdminDashboardClient() {
                 type="date"
                 value={editEndDate}
                 onChange={(e) => setEditEndDate(e.target.value)}
-                className="bg-background text-foreground border-border focus-visible:ring-emerald-500"
+                className="bg-background text-foreground border-border text-xs"
               />
             </div>
 
-            <DialogFooter className="mt-6 gap-2">
+            <DialogFooter className="mt-4 gap-2">
               <Button
                 type="button"
                 variant="outline"
-                className="border-border text-foreground hover:bg-muted font-bold"
+                size="sm"
+                className="h-8 text-xs"
                 onClick={() => setSubDialogOpen(false)}
                 disabled={submittingSub}
               >
@@ -1166,11 +1178,12 @@ export function AdminDashboardClient() {
               </Button>
               <Button
                 type="submit"
-                className="cursor-pointer bg-emerald-700 font-bold text-white hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-500"
+                size="sm"
+                className="h-8 text-xs font-medium"
                 disabled={submittingSub}
               >
                 {submittingSub && (
-                  <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                  <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
                 )}
                 Apply Subscription
               </Button>
@@ -1181,21 +1194,21 @@ export function AdminDashboardClient() {
 
       {/* Add / Edit Plan Dialog */}
       <Dialog open={planDialogOpen} onOpenChange={setPlanDialogOpen}>
-        <DialogContent className="bg-popover text-popover-foreground border-border max-w-md rounded-2xl">
+        <DialogContent className="bg-popover text-popover-foreground border-border max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-foreground text-lg font-extrabold">
+            <DialogTitle className="text-foreground text-base font-semibold">
               {editingPlan ? 'Edit Subscription Plan' : 'Add Subscription Plan'}
             </DialogTitle>
-            <DialogDescription className="text-muted-foreground text-xs leading-relaxed">
-              Define pricing limits and feature availability for this SaaS tier.
+            <DialogDescription className="text-muted-foreground text-xs">
+              Define pricing limits and feature availability for this tier.
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handlePlanSubmit} className="space-y-4 py-2">
-            <div className="grid gap-2">
+            <div className="grid gap-1.5">
               <Label
                 htmlFor="planNameInput"
-                className="text-muted-foreground text-xs font-bold tracking-wider uppercase"
+                className="text-muted-foreground text-xs font-medium"
               >
                 Plan Name
               </Label>
@@ -1206,15 +1219,15 @@ export function AdminDashboardClient() {
                   setPlanForm((prev) => ({ ...prev, name: e.target.value }))
                 }
                 placeholder="e.g. Starter, Premium"
-                className="bg-background text-foreground border-border focus-visible:ring-emerald-500"
+                className="bg-background text-foreground border-border text-xs"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-1.5">
                 <Label
                   htmlFor="monthlyPriceInput"
-                  className="text-muted-foreground text-xs font-bold tracking-wider uppercase"
+                  className="text-muted-foreground text-xs font-medium"
                 >
                   Monthly Price (₹)
                 </Label>
@@ -1228,13 +1241,13 @@ export function AdminDashboardClient() {
                       monthly_price: Number(e.target.value),
                     }))
                   }
-                  className="bg-background text-foreground border-border focus-visible:ring-emerald-500"
+                  className="bg-background text-foreground border-border text-xs"
                 />
               </div>
-              <div className="grid gap-2">
+              <div className="grid gap-1.5">
                 <Label
                   htmlFor="yearlyPriceInput"
-                  className="text-muted-foreground text-xs font-bold tracking-wider uppercase"
+                  className="text-muted-foreground text-xs font-medium"
                 >
                   Yearly Price (₹)
                 </Label>
@@ -1248,18 +1261,18 @@ export function AdminDashboardClient() {
                       yearly_price: Number(e.target.value),
                     }))
                   }
-                  className="bg-background text-foreground border-border focus-visible:ring-emerald-500"
+                  className="bg-background text-foreground border-border text-xs"
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-1.5">
                 <Label
                   htmlFor="maxUsersInput"
-                  className="text-muted-foreground text-xs font-bold tracking-wider uppercase"
+                  className="text-muted-foreground text-xs font-medium"
                 >
-                  Max Team Members
+                  Max Members
                 </Label>
                 <Input
                   id="maxUsersInput"
@@ -1271,13 +1284,13 @@ export function AdminDashboardClient() {
                       max_users: Number(e.target.value),
                     }))
                   }
-                  className="bg-background text-foreground border-border focus-visible:ring-emerald-500"
+                  className="bg-background text-foreground border-border text-xs"
                 />
               </div>
-              <div className="grid gap-2">
+              <div className="grid gap-1.5">
                 <Label
                   htmlFor="maxContactsInput"
-                  className="text-muted-foreground text-xs font-bold tracking-wider uppercase"
+                  className="text-muted-foreground text-xs font-medium"
                 >
                   Max Contacts
                 </Label>
@@ -1291,16 +1304,16 @@ export function AdminDashboardClient() {
                       max_contacts: Number(e.target.value),
                     }))
                   }
-                  className="bg-background text-foreground border-border focus-visible:ring-emerald-500"
+                  className="bg-background text-foreground border-border text-xs"
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-1.5">
                 <Label
                   htmlFor="maxWhatsappInput"
-                  className="text-muted-foreground text-xs font-bold tracking-wider uppercase"
+                  className="text-muted-foreground text-xs font-medium"
                 >
                   WhatsApp Numbers
                 </Label>
@@ -1314,13 +1327,13 @@ export function AdminDashboardClient() {
                       max_whatsapp_numbers: Number(e.target.value),
                     }))
                   }
-                  className="bg-background text-foreground border-border focus-visible:ring-emerald-500"
+                  className="bg-background text-foreground border-border text-xs"
                 />
               </div>
-              <div className="grid gap-2">
+              <div className="grid gap-1.5">
                 <Label
                   htmlFor="maxAiRequestsInput"
-                  className="text-muted-foreground text-xs font-bold tracking-wider uppercase"
+                  className="text-muted-foreground text-xs font-medium"
                 >
                   Monthly AI Autopilot
                 </Label>
@@ -1334,13 +1347,13 @@ export function AdminDashboardClient() {
                       max_ai_requests: Number(e.target.value),
                     }))
                   }
-                  className="bg-background text-foreground border-border focus-visible:ring-emerald-500"
+                  className="bg-background text-foreground border-border text-xs"
                 />
               </div>
             </div>
 
-            <div className="grid gap-2">
-              <Label className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
+            <div className="grid gap-1.5">
+              <Label className="text-muted-foreground text-xs font-medium">
                 Feature Flags
               </Label>
               <div className="mt-1 grid grid-cols-2 gap-2">
@@ -1353,13 +1366,13 @@ export function AdminDashboardClient() {
                 ].map((feat) => (
                   <label
                     key={feat}
-                    className="text-muted-foreground hover:text-foreground flex cursor-pointer items-center gap-2 text-xs font-semibold select-none"
+                    className="text-muted-foreground hover:text-foreground flex cursor-pointer items-center gap-2 text-xs select-none"
                   >
                     <input
                       type="checkbox"
                       checked={planForm.features.includes(feat)}
                       onChange={() => toggleFeature(feat)}
-                      className="border-border bg-background size-3.5 rounded text-emerald-600 focus:ring-emerald-500"
+                      className="border-border bg-background h-3.5 w-3.5 rounded text-emerald-600 focus:ring-emerald-500"
                     />
                     {feat.replace('_', ' ')}
                   </label>
@@ -1367,11 +1380,12 @@ export function AdminDashboardClient() {
               </div>
             </div>
 
-            <DialogFooter className="mt-6 gap-2">
+            <DialogFooter className="mt-4 gap-2">
               <Button
                 type="button"
                 variant="outline"
-                className="border-border text-foreground hover:bg-muted font-bold"
+                size="sm"
+                className="h-8 text-xs"
                 onClick={() => setPlanDialogOpen(false)}
                 disabled={submittingPlan}
               >
@@ -1379,11 +1393,12 @@ export function AdminDashboardClient() {
               </Button>
               <Button
                 type="submit"
-                className="cursor-pointer bg-emerald-700 font-bold text-white hover:bg-emerald-600 dark:bg-emerald-600 dark:hover:bg-emerald-500"
+                size="sm"
+                className="h-8 text-xs font-medium"
                 disabled={submittingPlan}
               >
                 {submittingPlan && (
-                  <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                  <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
                 )}
                 {editingPlan ? 'Save Changes' : 'Create Plan'}
               </Button>

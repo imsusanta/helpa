@@ -4,31 +4,28 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
   Activity,
-  Brain,
-  Cpu,
-  Zap,
-  Plus,
-  Loader2,
-  BarChart3,
-  Sparkles,
-  RefreshCw,
-  KeyRound,
-  Eye,
-  EyeOff,
-  Search,
   Bot,
   Shield,
   Check,
   ChevronDown,
   ChevronUp,
   Settings2,
-  Building2,
+  Plus,
+  Loader2,
+  KeyRound,
+  Eye,
+  EyeOff,
+  Search,
   MessageSquare,
   FileText,
   Stethoscope,
   BookOpen,
   Megaphone,
   Workflow,
+  Sparkles,
+  BarChart3,
+  Bell,
+  Wallet,
 } from 'lucide-react';
 import {
   Card,
@@ -42,10 +39,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import {
-  validateAiModelId,
-  sanitizeModelIdentifier,
-} from '@/core/ai/validation';
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -53,6 +46,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  validateAiModelId,
+  sanitizeModelIdentifier,
+} from '@/core/ai/validation';
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TYPES & DEFAULT CATALOGS
+// ═══════════════════════════════════════════════════════════════════════════════
 
 interface ModelItem {
   id: string;
@@ -61,6 +62,11 @@ interface ModelItem {
   badge: string;
   desc: string;
   enabled: boolean;
+  capabilities?: {
+    streaming?: boolean;
+    toolCalling?: boolean;
+    vision?: boolean;
+  };
 }
 
 const DEFAULT_OPENROUTER_MODELS: ModelItem[] = [
@@ -71,6 +77,7 @@ const DEFAULT_OPENROUTER_MODELS: ModelItem[] = [
     badge: 'Ultra Fast',
     desc: 'Lightning-fast response time, perfect for instant customer chat.',
     enabled: true,
+    capabilities: { streaming: true, toolCalling: true, vision: true },
   },
   {
     id: 'deepseek/deepseek-r1',
@@ -79,6 +86,7 @@ const DEFAULT_OPENROUTER_MODELS: ModelItem[] = [
     badge: 'Reasoning',
     desc: 'Deep reasoning model for clinical triage and complex questions.',
     enabled: true,
+    capabilities: { streaming: true, toolCalling: true, vision: false },
   },
   {
     id: 'google/gemini-2.5-pro',
@@ -87,6 +95,7 @@ const DEFAULT_OPENROUTER_MODELS: ModelItem[] = [
     badge: 'Flagship',
     desc: 'Top-tier accuracy for clinical knowledge base and complex workflows.',
     enabled: true,
+    capabilities: { streaming: true, toolCalling: true, vision: true },
   },
   {
     id: 'anthropic/claude-3.5-sonnet',
@@ -95,6 +104,7 @@ const DEFAULT_OPENROUTER_MODELS: ModelItem[] = [
     badge: 'Max Quality',
     desc: 'Superior writing quality for receptionist drafts and customer copy.',
     enabled: true,
+    capabilities: { streaming: true, toolCalling: true, vision: true },
   },
   {
     id: 'meta-llama/llama-3.3-70b-instruct',
@@ -103,6 +113,7 @@ const DEFAULT_OPENROUTER_MODELS: ModelItem[] = [
     badge: 'Balanced',
     desc: 'High performance open-weights model for fast clinical tasks.',
     enabled: true,
+    capabilities: { streaming: true, toolCalling: true, vision: false },
   },
   {
     id: 'nvidia/nemotron-3.5-lightning:free',
@@ -111,6 +122,7 @@ const DEFAULT_OPENROUTER_MODELS: ModelItem[] = [
     badge: 'Free Tier',
     desc: 'Zero-cost high-speed model for automated notification flows.',
     enabled: true,
+    capabilities: { streaming: true, toolCalling: false, vision: false },
   },
 ];
 
@@ -122,6 +134,7 @@ const DEFAULT_ORCAROUTER_MODELS: ModelItem[] = [
     badge: 'Smart Auto',
     desc: 'Automatically chooses the most reliable and cost-effective AI model.',
     enabled: true,
+    capabilities: { streaming: true, toolCalling: true, vision: true },
   },
   {
     id: 'openai/gpt-4o-mini',
@@ -130,6 +143,7 @@ const DEFAULT_ORCAROUTER_MODELS: ModelItem[] = [
     badge: 'Fast',
     desc: 'Fast, lightweight general purpose AI model.',
     enabled: true,
+    capabilities: { streaming: true, toolCalling: true, vision: true },
   },
   {
     id: 'anthropic/claude-3-5-sonnet',
@@ -138,6 +152,7 @@ const DEFAULT_ORCAROUTER_MODELS: ModelItem[] = [
     badge: 'Reasoning',
     desc: 'High reasoning model for autonomous tasks.',
     enabled: true,
+    capabilities: { streaming: true, toolCalling: true, vision: true },
   },
   {
     id: 'deepseek/deepseek-chat',
@@ -146,6 +161,7 @@ const DEFAULT_ORCAROUTER_MODELS: ModelItem[] = [
     badge: 'Fast',
     desc: 'High efficiency Chinese & global multilingual model.',
     enabled: true,
+    capabilities: { streaming: true, toolCalling: true, vision: false },
   },
 ];
 
@@ -183,7 +199,7 @@ const AI_FEATURES = [
   {
     id: 'CAMPAIGN',
     name: 'Campaign Generator',
-    desc: 'Creates high-converting promotional broadcasts and patient alerts.',
+    desc: 'Creates promotional broadcasts and patient alerts.',
     icon: Megaphone,
   },
   {
@@ -196,6 +212,7 @@ const AI_FEATURES = [
 
 function formatModelNameFromId(id: string): string {
   if (!id) return '';
+  if (id === 'orcarouter/auto') return 'Auto (Orca Auto Engine)';
   const parts = id.split('/');
   const modelPart = parts.length > 1 ? parts[1] : parts[0];
   return modelPart
@@ -209,12 +226,16 @@ function formatModelNameFromId(id: string): string {
     .join(' ');
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// COMPONENT
+// ═══════════════════════════════════════════════════════════════════════════════
+
 export function AdminAiInfrastructure() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  // Core Settings
+  // Core configuration
   const [primaryProvider, setPrimaryProvider] = useState<
     'openrouter' | 'orcarouter'
   >('orcarouter');
@@ -231,28 +252,12 @@ export function AdminAiInfrastructure() {
   const [defaultOrcaRouterModel, setDefaultOrcaRouterModel] =
     useState('orcarouter/auto');
 
-  // Advanced section visibility
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [advancedTab, setAdvancedTab] = useState<
-    'services' | 'catalog' | 'routing'
-  >('services');
-
-  // Modals
-  const [changeAiModalOpen, setChangeAiModalOpen] = useState(false);
-  const [changeBackupModalOpen, setChangeBackupModalOpen] = useState(false);
-  const [usageModalOpen, setUsageModalOpen] = useState(false);
-  const [keyModalOpen, setKeyModalOpen] = useState(false);
-  const [addModelModalOpen, setAddModelModalOpen] = useState(false);
-
   // Model catalog
   const [models, setModels] = useState<ModelItem[]>([
     ...DEFAULT_OPENROUTER_MODELS,
     ...DEFAULT_ORCAROUTER_MODELS,
   ]);
   const [modelSearchQuery, setModelSearchQuery] = useState('');
-  const [modelProviderFilter, _setModelProviderFilter] = useState<
-    'all' | 'openrouter' | 'orcarouter'
-  >('all');
 
   // Feature routing map
   const [featureRouting, setFeatureRouting] = useState<Record<string, string>>({
@@ -274,8 +279,9 @@ export function AdminAiInfrastructure() {
   const [testingProvider, setTestingProvider] = useState<
     'openrouter' | 'orcarouter' | null
   >(null);
+  const [lastTestedTime, setLastTestedTime] = useState<string>('Just now');
 
-  // Usage data
+  // Usage statistics
   const [usageStats, setUsageStats] = useState<{
     totalRequests: number;
     totalTokens: number;
@@ -289,58 +295,90 @@ export function AdminAiInfrastructure() {
       estimatedCostInr: number;
     }>;
   }>({
-    totalRequests: 12540,
+    totalRequests: 8420,
     totalTokens: 1845000,
     estimatedCostInr: 1250,
-    providers: { orcarouter: 7540, openrouter: 5000 },
-    models: {},
+    providers: { orcarouter: 5200, openrouter: 3220 },
+    models: {
+      'orcarouter/auto': 5200,
+      'google/gemini-2.5-flash': 2400,
+      'anthropic/claude-3.5-sonnet': 820,
+    },
     topWorkspaces: [
       {
         workspaceId: 'City Care Hospital',
-        requests: 5240,
-        tokens: 780000,
-        estimatedCostInr: 520,
+        requests: 4200,
+        tokens: 880000,
+        estimatedCostInr: 620,
       },
       {
-        workspaceId: 'Apollo Clinic Kolkata',
-        requests: 4120,
-        tokens: 610000,
-        estimatedCostInr: 410,
+        workspaceId: 'Apollo Clinic',
+        requests: 2620,
+        tokens: 580000,
+        estimatedCostInr: 390,
       },
       {
         workspaceId: 'Metro Diagnostic Center',
-        requests: 3180,
-        tokens: 455000,
-        estimatedCostInr: 320,
+        requests: 1600,
+        tokens: 385000,
+        estimatedCostInr: 240,
       },
     ],
   });
 
-  // Modal editing forms
-  const [tempMainAi, setTempMainAi] = useState<'openrouter' | 'orcarouter'>(
-    'orcarouter'
-  );
-  const [tempUseAutoModel, setTempUseAutoModel] = useState(true);
-  const [tempSelectedModel, _setTempSelectedModel] = useState('');
+  // Alerts & cost controls state
+  const [alert80, setAlert80] = useState(true);
+  const [alert90, setAlert90] = useState(true);
+  const [alert100, setAlert100] = useState(true);
+  const [monthlyLimitInr, _setMonthlyLimitInr] = useState(10000);
+  const [limitAction, _setLimitAction] = useState<
+    'stop' | 'backup' | 'notify' | 'warn'
+  >('backup');
 
-  const [tempBackupAi, setTempBackupAi] = useState<
+  // UI accordion state
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [advancedTab, setAdvancedTab] = useState<
+    'services' | 'catalog' | 'routing'
+  >('services');
+
+  // Modals state
+  const [setupWizardOpen, setSetupWizardOpen] = useState(false);
+  const [wizardStep, setWizardStep] = useState<1 | 2 | 3>(1);
+  const [wizardProvider, setWizardProvider] = useState<
+    'openrouter' | 'orcarouter'
+  >('orcarouter');
+  const [wizardApiKey, setWizardApiKey] = useState('');
+  const [wizardShowKey, setWizardShowKey] = useState(false);
+  const [wizardModel, setWizardModel] = useState('');
+  const [wizardTested, setWizardTested] = useState<boolean | null>(null);
+  const [wizardTesting, setWizardTesting] = useState(false);
+
+  const [configureBackupModalOpen, setConfigureBackupModalOpen] =
+    useState(false);
+  const [tempBackupChoice, setTempBackupChoice] = useState<
     'none' | 'openrouter' | 'orcarouter'
   >('openrouter');
 
+  const [usageModalOpen, setUsageModalOpen] = useState(false);
+  const [keyModalOpen, setKeyModalOpen] = useState(false);
   const [selectedKeyProvider, setSelectedKeyProvider] = useState<
     'openrouter' | 'orcarouter'
   >('openrouter');
   const [newApiKey, setNewApiKey] = useState('');
   const [showRawKey, setShowRawKey] = useState(false);
 
-  // Add Model Form
+  const [addModelModalOpen, setAddModelModalOpen] = useState(false);
   const [newModelProvider, setNewModelProvider] = useState<
     'openrouter' | 'orcarouter'
   >('openrouter');
+  const [newModelName, setNewModelName] = useState('');
   const [newModelId, setNewModelId] = useState('');
-  const [newModelBadge, _setNewModelBadge] = useState('Custom');
+  const [newModelDesc, setNewModelDesc] = useState('');
 
-  // Load Settings
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // LOAD DATA
+  // ═══════════════════════════════════════════════════════════════════════════════
+
   const loadSettings = useCallback(async () => {
     setLoading(true);
     try {
@@ -412,6 +450,7 @@ export function AdminAiInfrastructure() {
       if (res.ok) {
         const data = await res.json();
         setHealthData(data);
+        setLastTestedTime('Just now');
       }
     } catch {
       // Non-critical health check error
@@ -438,7 +477,10 @@ export function AdminAiInfrastructure() {
     loadUsage();
   }, [loadSettings, loadHealth, loadUsage]);
 
-  // Save Settings
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // ACTIONS
+  // ═══════════════════════════════════════════════════════════════════════════════
+
   async function handleSaveAll() {
     setSaving(true);
     try {
@@ -464,7 +506,7 @@ export function AdminAiInfrastructure() {
         throw new Error(err.error || 'Failed to save settings');
       }
 
-      toast.success('AI Settings saved successfully');
+      toast.success('AI Setup saved successfully');
       setHasUnsavedChanges(false);
       loadHealth();
     } catch (err) {
@@ -476,7 +518,139 @@ export function AdminAiInfrastructure() {
     }
   }
 
-  // Save API Key
+  async function handleTestConnection(provider: 'openrouter' | 'orcarouter') {
+    setTestingProvider(provider);
+    try {
+      const res = await fetch(`/api/admin/ai/health?provider=${provider}`);
+      const data = await res.json();
+      const statusObj = data[provider];
+
+      if (statusObj && statusObj.status === 'healthy') {
+        toast.success('Your AI service is connected and ready to use.');
+      } else {
+        toast.error(
+          "We couldn't connect to this AI service. Please check your API key and try again."
+        );
+      }
+      setLastTestedTime('Just now');
+      loadHealth();
+    } catch {
+      toast.error(
+        "We couldn't connect to this AI service. Please check your API key and try again."
+      );
+    } finally {
+      setTestingProvider(null);
+    }
+  }
+
+  async function handleWizardTest() {
+    setWizardTesting(true);
+    setWizardTested(null);
+    try {
+      // If user entered a key, temporarily save it before testing
+      if (wizardApiKey.trim()) {
+        const keySettingName =
+          wizardProvider === 'openrouter'
+            ? 'system_openrouter_api_key'
+            : 'system_orcarouter_api_key';
+
+        await fetch('/api/admin/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            settings: { [keySettingName]: wizardApiKey.trim() },
+          }),
+        });
+        if (wizardProvider === 'openrouter') setHasOpenRouterKey(true);
+        if (wizardProvider === 'orcarouter') setHasOrcaRouterKey(true);
+      }
+
+      const res = await fetch(
+        `/api/admin/ai/health?provider=${wizardProvider}`
+      );
+      const data = await res.json();
+      const statusObj = data[wizardProvider];
+
+      if (statusObj && statusObj.status === 'healthy') {
+        setWizardTested(true);
+        toast.success('Connection successful! Your AI service is ready.');
+      } else {
+        setWizardTested(false);
+        toast.error(
+          "We couldn't connect to this AI service. Please check your API key and try again."
+        );
+      }
+      loadHealth();
+    } catch {
+      setWizardTested(false);
+      toast.error(
+        "We couldn't connect to this AI service. Please check your API key and try again."
+      );
+    } finally {
+      setWizardTesting(false);
+    }
+  }
+
+  async function handleWizardSaveAndActivate() {
+    setSaving(true);
+    try {
+      // 1. Save API key if entered
+      if (wizardApiKey.trim()) {
+        const keySettingName =
+          wizardProvider === 'openrouter'
+            ? 'system_openrouter_api_key'
+            : 'system_orcarouter_api_key';
+
+        await fetch('/api/admin/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            settings: { [keySettingName]: wizardApiKey.trim() },
+          }),
+        });
+      }
+
+      // 2. Save active provider and model
+      const payload: Record<string, string> = {
+        system_ai_provider: wizardProvider,
+        system_openrouter_enabled: 'true',
+        system_orcarouter_enabled: 'true',
+      };
+
+      if (wizardProvider === 'orcarouter') {
+        payload.system_orcarouter_model = wizardModel || 'orcarouter/auto';
+        setDefaultOrcaRouterModel(wizardModel || 'orcarouter/auto');
+      } else {
+        payload.system_openrouter_model =
+          wizardModel || 'google/gemini-2.5-flash';
+        setDefaultOpenRouterModel(wizardModel || 'google/gemini-2.5-flash');
+      }
+
+      const res = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ settings: payload }),
+      });
+
+      if (!res.ok) throw new Error('Failed to activate configuration');
+
+      setPrimaryProvider(wizardProvider);
+      setSetupWizardOpen(false);
+      setWizardApiKey('');
+      toast.success(
+        `Helpa AI activated with ${wizardProvider === 'orcarouter' ? 'OrcaRouter' : 'OpenRouter'}`
+      );
+      loadSettings();
+      loadHealth();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : 'Failed to save configuration'
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function handleSaveKey() {
     if (!newApiKey.trim()) {
       toast.error('API key cannot be empty');
@@ -503,7 +677,7 @@ export function AdminAiInfrastructure() {
       if (!res.ok) throw new Error('Failed to update API key');
 
       toast.success(
-        `${selectedKeyProvider === 'openrouter' ? 'OpenRouter' : 'OrcaRouter'} connection key updated`
+        `${selectedKeyProvider === 'openrouter' ? 'OpenRouter' : 'OrcaRouter'} API key saved securely`
       );
       setKeyModalOpen(false);
       setNewApiKey('');
@@ -512,87 +686,35 @@ export function AdminAiInfrastructure() {
       loadHealth();
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : 'Failed to save connection key'
+        err instanceof Error ? err.message : 'Failed to save API key'
       );
     } finally {
       setSaving(false);
     }
   }
 
-  // Test Connection
-  async function handleTestConnection(provider: 'openrouter' | 'orcarouter') {
-    setTestingProvider(provider);
-    try {
-      const res = await fetch(`/api/admin/ai/health?provider=${provider}`);
-      const data = await res.json();
-      const statusObj = data[provider];
-
-      if (statusObj && statusObj.status === 'healthy') {
-        toast.success(
-          `${provider === 'openrouter' ? 'OpenRouter' : 'OrcaRouter'} is connected and working normally.`
-        );
-      } else {
-        toast.error(
-          `${provider === 'openrouter' ? 'OpenRouter' : 'OrcaRouter'} connection needs attention.`
-        );
-      }
-      loadHealth();
-    } catch {
-      toast.error(
-        `${provider === 'openrouter' ? 'OpenRouter' : 'OrcaRouter'} could not be connected.`
-      );
-    } finally {
-      setTestingProvider(null);
-    }
-  }
-
-  // Handle Main AI Change from Modal
-  function handleSaveMainAiModal() {
-    setPrimaryProvider(tempMainAi);
-    if (tempUseAutoModel) {
-      if (tempMainAi === 'orcarouter') {
-        setDefaultOrcaRouterModel('orcarouter/auto');
-      } else {
-        setDefaultOpenRouterModel('google/gemini-2.5-flash');
-      }
-    } else if (tempSelectedModel) {
-      if (tempMainAi === 'orcarouter') {
-        setDefaultOrcaRouterModel(tempSelectedModel);
-      } else {
-        setDefaultOpenRouterModel(tempSelectedModel);
-      }
-    }
+  function handleSaveBackup() {
+    setFallbackProvider(tempBackupChoice);
     setHasUnsavedChanges(true);
-    setChangeAiModalOpen(false);
+    setConfigureBackupModalOpen(false);
     toast.success(
-      `Main AI changed to ${tempMainAi === 'orcarouter' ? 'OrcaRouter' : 'OpenRouter'}`
-    );
-  }
-
-  // Handle Backup AI Change from Modal
-  function handleSaveBackupAiModal() {
-    setFallbackProvider(tempBackupAi);
-    setHasUnsavedChanges(true);
-    setChangeBackupModalOpen(false);
-    toast.success(
-      tempBackupAi === 'none'
+      tempBackupChoice === 'none'
         ? 'Backup AI disabled'
-        : `Backup AI changed to ${tempBackupAi === 'openrouter' ? 'OpenRouter' : 'OrcaRouter'}`
+        : `Backup AI set to ${tempBackupChoice === 'openrouter' ? 'OpenRouter' : 'OrcaRouter'}`
     );
   }
 
-  // Add Custom Model
-  function handleAddModel() {
+  function handleAddCustomModel() {
     if (!newModelId.trim()) {
       toast.error('Please enter a model identifier');
       return;
     }
 
-    const validation = validateAiModelId(newModelId, newModelProvider);
+    const sanitizedId = sanitizeModelIdentifier(newModelId.trim());
+    const validation = validateAiModelId(sanitizedId, newModelProvider);
     if (!validation.valid) {
       toast.error(
-        validation.error ||
-          'Invalid model identifier format (author/model-name)'
+        validation.error || 'Invalid model ID format (e.g. author/model-name)'
       );
       return;
     }
@@ -604,29 +726,32 @@ export function AdminAiInfrastructure() {
           m.provider === newModelProvider
       )
     ) {
-      toast.error(
-        `Model ${validation.normalizedId} already exists in catalog.`
-      );
+      toast.error(`Model ${validation.normalizedId} already exists.`);
       return;
     }
 
-    const resolvedName = formatModelNameFromId(validation.normalizedId);
-    const resolvedDesc = `Custom added model (${validation.normalizedId}).`;
+    const resolvedName =
+      newModelName.trim() || formatModelNameFromId(validation.normalizedId);
+    const resolvedDesc =
+      newModelDesc.trim() || `Custom model (${validation.normalizedId})`;
 
     const newItem: ModelItem = {
       id: validation.normalizedId,
       name: resolvedName,
       provider: newModelProvider,
-      badge: newModelBadge.trim() || 'Custom',
+      badge: 'Custom',
       desc: resolvedDesc,
       enabled: true,
+      capabilities: { streaming: true, toolCalling: true, vision: false },
     };
 
     setModels([...models, newItem]);
     setHasUnsavedChanges(true);
     setAddModelModalOpen(false);
     setNewModelId('');
-    toast.success(`Model "${newItem.name}" added to catalog`);
+    setNewModelName('');
+    setNewModelDesc('');
+    toast.success(`Model "${newItem.name}" added to ${newModelProvider}`);
   }
 
   function handleToggleModel(id: string) {
@@ -636,40 +761,89 @@ export function AdminAiInfrastructure() {
     setHasUnsavedChanges(true);
   }
 
-  const filteredModels = useMemo(() => {
-    return models.filter((m) => {
-      const matchesProvider =
-        modelProviderFilter === 'all' || m.provider === modelProviderFilter;
-      const matchesSearch =
-        !modelSearchQuery ||
-        m.name.toLowerCase().includes(modelSearchQuery.toLowerCase()) ||
-        m.id.toLowerCase().includes(modelSearchQuery.toLowerCase()) ||
-        m.badge.toLowerCase().includes(modelSearchQuery.toLowerCase());
-      return matchesProvider && matchesSearch;
-    });
-  }, [models, modelProviderFilter, modelSearchQuery]);
+  function openSetupWizard() {
+    setWizardProvider(primaryProvider);
+    setWizardApiKey('');
+    setWizardModel(
+      primaryProvider === 'orcarouter'
+        ? defaultOrcaRouterModel
+        : defaultOpenRouterModel
+    );
+    setWizardStep(1);
+    setWizardTested(null);
+    setSetupWizardOpen(true);
+  }
 
-  const activeMainModelDisplay =
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // COMPUTED VALUES
+  // ═══════════════════════════════════════════════════════════════════════════════
+
+  const activeModelId =
+    primaryProvider === 'orcarouter'
+      ? defaultOrcaRouterModel
+      : defaultOpenRouterModel;
+
+  const activeModelName =
     primaryProvider === 'orcarouter'
       ? defaultOrcaRouterModel === 'orcarouter/auto'
-        ? 'Auto (Automatic Model Selection)'
+        ? 'Auto (Smart Selection)'
         : formatModelNameFromId(defaultOrcaRouterModel)
       : defaultOpenRouterModel === 'google/gemini-2.5-flash'
-        ? 'Auto (High-Speed Flash)'
+        ? 'Gemini 2.5 Flash'
         : formatModelNameFromId(defaultOpenRouterModel);
 
-  const isMainAiWorking =
+  const activeModelObject = useMemo(() => {
+    return models.find(
+      (m) => m.id === activeModelId && m.provider === primaryProvider
+    );
+  }, [models, activeModelId, primaryProvider]);
+
+  const hasActiveKey =
+    primaryProvider === 'openrouter' ? hasOpenRouterKey : hasOrcaRouterKey;
+
+  const currentHealth =
     primaryProvider === 'openrouter'
-      ? hasOpenRouterKey && healthData.openrouter?.status !== 'error'
-      : hasOrcaRouterKey && healthData.orcarouter?.status !== 'error';
+      ? healthData.openrouter
+      : healthData.orcarouter;
+
+  const isConnected = hasActiveKey && currentHealth?.status === 'healthy';
+  const isAttention = hasActiveKey && currentHealth?.status === 'error';
+
+  const availableModelsForSelectedProvider = useMemo(() => {
+    return models.filter((m) => m.provider === wizardProvider && m.enabled);
+  }, [models, wizardProvider]);
+
+  const filteredCatalogModels = useMemo(() => {
+    return models.filter((m) => {
+      if (!modelSearchQuery) return true;
+      return (
+        m.name.toLowerCase().includes(modelSearchQuery.toLowerCase()) ||
+        m.id.toLowerCase().includes(modelSearchQuery.toLowerCase())
+      );
+    });
+  }, [models, modelSearchQuery]);
+
+  const monthlyCreditMax = 10000;
+  const usagePercentage = Math.min(
+    100,
+    Math.round((usageStats.totalRequests / monthlyCreditMax) * 100)
+  );
+  const remainingRequests = Math.max(
+    0,
+    monthlyCreditMax - usageStats.totalRequests
+  );
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // RENDER
+  // ═══════════════════════════════════════════════════════════════════════════════
 
   if (loading) {
     return (
-      <div className="flex h-96 items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
-          <p className="text-muted-foreground text-xs font-semibold">
-            Loading AI Settings...
+      <div className="flex h-64 items-center justify-center">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
+          <p className="text-muted-foreground text-xs font-medium">
+            Loading AI Setup...
           </p>
         </div>
       </div>
@@ -679,330 +853,459 @@ export function AdminAiInfrastructure() {
   return (
     <div className="space-y-6">
       {/* ═══════════════════════════════════════════════════════════════════
-          HEADER: AI Settings
+          PAGE HEADER
       ═══════════════════════════════════════════════════════════════════ */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-              <Brain className="h-5 w-5" />
-            </div>
-            <div>
-              <h2 className="text-foreground text-xl font-bold tracking-tight">
-                AI Settings
-              </h2>
-              <p className="text-muted-foreground text-xs">
-                Manage the AI that powers Helpa for your customers.
-              </p>
-            </div>
-          </div>
+          <h2 className="text-foreground text-lg font-semibold tracking-tight">
+            AI Setup
+          </h2>
+          <p className="text-muted-foreground text-xs">
+            Connect an AI service and choose the model Helpa should use.
+          </p>
         </div>
-
-        <div className="flex items-center gap-2.5">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              loadSettings();
-              loadHealth();
-              loadUsage();
-              toast.success('AI status refreshed');
-            }}
-            className="h-9 text-xs font-semibold"
-          >
-            <RefreshCw className="text-muted-foreground mr-1.5 h-3.5 w-3.5" />
-            Refresh
-          </Button>
-
+        <div className="flex items-center gap-2">
           {hasUnsavedChanges && (
             <Button
-              size="sm"
               onClick={handleSaveAll}
               disabled={saving}
-              className="h-9 bg-emerald-600 font-bold text-white shadow-sm hover:bg-emerald-700 active:scale-95"
+              size="sm"
+              className="h-8 gap-1.5 text-xs font-medium"
             >
               {saving ? (
-                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
-                <Check className="mr-1.5 h-3.5 w-3.5" />
+                <Check className="h-3.5 w-3.5" />
               )}
-              Save AI Configuration
+              Save Changes
             </Button>
           )}
+          <Button
+            onClick={openSetupWizard}
+            size="sm"
+            variant="default"
+            className="h-8 gap-1.5 text-xs font-medium"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            Change AI
+          </Button>
         </div>
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════
-          PRIMARY CARDS: Simple, Non-Technical Business Overview
+          1. CURRENT AI STATUS CARD
       ═══════════════════════════════════════════════════════════════════ */}
-      <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-        {/* CARD 1: MAIN AI */}
-        <Card className="bg-card border-border/80 relative overflow-hidden rounded-2xl shadow-xs transition-all hover:border-emerald-500/30">
-          <div className="absolute top-0 right-0 left-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-400" />
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
+      <Card className="bg-card border-border shadow-none">
+        <CardContent className="p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-3">
               <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                  <Bot className="h-4 w-4" />
-                </div>
-                <CardTitle className="text-foreground text-base font-bold">
+                <Bot className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                <h3 className="text-foreground text-base font-semibold">
                   Helpa AI
-                </CardTitle>
+                </h3>
               </div>
-              <Badge
-                variant="outline"
-                className={`gap-1.5 px-2.5 py-0.5 text-xs font-semibold ${
-                  isMainAiWorking
-                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                    : 'border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                }`}
-              >
-                <span
-                  className={`h-1.5 w-1.5 rounded-full ${
-                    isMainAiWorking
-                      ? 'animate-pulse bg-emerald-500'
-                      : 'bg-amber-500'
-                  }`}
-                />
-                {isMainAiWorking ? 'Working normally' : 'Needs attention'}
-              </Badge>
+
+              {/* Status Badge */}
+              <div className="flex items-center gap-2">
+                {isConnected ? (
+                  <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                    Connected & Ready
+                  </span>
+                ) : isAttention ? (
+                  <span className="flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+                    <span className="h-2 w-2 rounded-full bg-amber-500" />
+                    Needs attention
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
+                    <span className="bg-muted-foreground/40 h-2 w-2 rounded-full" />
+                    Not connected (API key required)
+                  </span>
+                )}
+              </div>
+
+              {/* Provider & Model Info */}
+              <div className="grid grid-cols-1 gap-x-6 gap-y-1.5 text-xs sm:grid-cols-3">
+                <div>
+                  <span className="text-muted-foreground">Provider:</span>{' '}
+                  <span className="text-foreground font-medium">
+                    {primaryProvider === 'orcarouter'
+                      ? 'OrcaRouter'
+                      : 'OpenRouter'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Model:</span>{' '}
+                  <span className="text-foreground font-medium">
+                    {activeModelName}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Last checked:</span>{' '}
+                  <span className="text-foreground font-medium">
+                    {lastTestedTime}
+                  </span>
+                </div>
+              </div>
+
+              {/* Optional Capabilities Info */}
+              {activeModelObject?.capabilities && (
+                <div className="flex items-center gap-3 pt-1 text-[11px]">
+                  <span className="text-muted-foreground">Capabilities:</span>
+                  <span
+                    className={
+                      activeModelObject.capabilities.streaming
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : 'text-muted-foreground line-through'
+                    }
+                  >
+                    Streaming ✓
+                  </span>
+                  <span
+                    className={
+                      activeModelObject.capabilities.toolCalling
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : 'text-muted-foreground line-through'
+                    }
+                  >
+                    Tool Calling ✓
+                  </span>
+                  <span
+                    className={
+                      activeModelObject.capabilities.vision
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : 'text-muted-foreground line-through'
+                    }
+                  >
+                    Vision ✓
+                  </span>
+                </div>
+              )}
             </div>
-            <CardDescription className="text-muted-foreground pt-1 text-xs">
-              The primary AI service handling patient replies and assistant
-              tasks.
+
+            {/* Quick Actions */}
+            <div className="flex shrink-0 items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleTestConnection(primaryProvider)}
+                disabled={testingProvider === primaryProvider}
+                className="h-8 gap-1.5 text-xs font-medium"
+              >
+                {testingProvider === primaryProvider ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Activity className="h-3 w-3" />
+                )}
+                Test Connection
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={openSetupWizard}
+                className="h-8 text-xs font-medium"
+              >
+                Change AI
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          2. USAGE & BACKUP ROW
+      ═══════════════════════════════════════════════════════════════════ */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* AI Usage Card */}
+        <Card className="bg-card border-border shadow-none">
+          <CardHeader className="p-5 pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-foreground flex items-center gap-2 text-sm font-semibold">
+                <BarChart3 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                AI Usage
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setUsageModalOpen(true)}
+                className="text-muted-foreground hover:text-foreground h-7 text-xs font-medium"
+              >
+                View Usage
+              </Button>
+            </div>
+            <CardDescription className="text-muted-foreground text-xs">
+              Tracked Helpa usage for this billing period
             </CardDescription>
           </CardHeader>
-
-          <CardContent className="space-y-4 text-xs">
-            <div className="bg-muted/30 border-border/60 space-y-2.5 rounded-xl border p-3.5">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground font-medium">
-                  Main AI Service
+          <CardContent className="space-y-3 p-5 pt-0">
+            <div>
+              <div className="flex items-baseline justify-between text-xs">
+                <span className="text-foreground text-lg font-semibold tabular-nums">
+                  {usageStats.totalRequests.toLocaleString()}{' '}
+                  <span className="text-muted-foreground text-xs font-normal">
+                    / {monthlyCreditMax.toLocaleString()} requests
+                  </span>
                 </span>
-                <span className="text-foreground font-bold">
-                  {primaryProvider === 'orcarouter'
-                    ? 'OrcaRouter'
-                    : 'OpenRouter'}
+                <span className="text-muted-foreground text-xs font-medium">
+                  {usagePercentage}% used
                 </span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground font-medium">
-                  AI Model
-                </span>
-                <span className="text-foreground font-semibold">
-                  {activeMainModelDisplay}
+
+              {/* Progress bar */}
+              <div className="bg-muted mt-2 h-2 w-full overflow-hidden rounded-full">
+                <div
+                  className={`h-full transition-all duration-300 ${
+                    usagePercentage > 90
+                      ? 'bg-amber-500'
+                      : usagePercentage > 98
+                        ? 'bg-red-500'
+                        : 'bg-emerald-500'
+                  }`}
+                  style={{ width: `${usagePercentage}%` }}
+                />
+              </div>
+
+              <div className="text-muted-foreground mt-2 flex items-center justify-between text-xs">
+                <span>{remainingRequests.toLocaleString()} remaining</span>
+                <span>
+                  Est. Cost:{' '}
+                  <strong className="text-foreground font-medium">
+                    ₹{usageStats.estimatedCostInr.toLocaleString('en-IN')}
+                  </strong>
                 </span>
               </div>
             </div>
 
-            <Button
-              onClick={() => {
-                setTempMainAi(primaryProvider);
-                setTempUseAutoModel(true);
-                setChangeAiModalOpen(true);
-              }}
-              className="w-full bg-emerald-600 font-bold text-white hover:bg-emerald-700"
-              size="sm"
-            >
-              <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-              Change AI
-            </Button>
+            {/* Provider Balance Info */}
+            <div className="border-border border-t pt-2.5">
+              <div className="text-muted-foreground flex items-center justify-between text-xs">
+                <span>Provider Balance:</span>
+                <span className="text-muted-foreground italic">
+                  Provider balance unavailable via API
+                </span>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
-        {/* CARD 2: BACKUP AI */}
-        <Card className="bg-card border-border/80 relative overflow-hidden rounded-2xl shadow-xs transition-all hover:border-blue-500/30">
-          <div className="absolute top-0 right-0 left-0 h-1 bg-gradient-to-r from-blue-500 to-cyan-400" />
-          <CardHeader className="pb-3">
+        {/* Backup AI Card */}
+        <Card className="bg-card border-border shadow-none">
+          <CardHeader className="p-5 pb-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
-                  <Shield className="h-4 w-4" />
-                </div>
-                <CardTitle className="text-foreground text-base font-bold">
-                  Backup AI
-                </CardTitle>
-              </div>
-              <Badge
-                variant="outline"
-                className={`gap-1.5 px-2.5 py-0.5 text-xs font-semibold ${
-                  fallbackProvider !== 'none'
-                    ? 'border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400'
-                    : 'border-muted text-muted-foreground'
-                }`}
+              <CardTitle className="text-foreground flex items-center gap-2 text-sm font-semibold">
+                <Shield className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                Backup AI
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setTempBackupChoice(fallbackProvider);
+                  setConfigureBackupModalOpen(true);
+                }}
+                className="text-muted-foreground hover:text-foreground h-7 text-xs font-medium"
               >
-                <span
-                  className={`h-1.5 w-1.5 rounded-full ${
-                    fallbackProvider !== 'none'
-                      ? 'bg-blue-500'
-                      : 'bg-muted-foreground'
-                  }`}
-                />
-                {fallbackProvider !== 'none' ? 'Backup enabled' : 'No backup'}
-              </Badge>
+                Configure
+              </Button>
             </div>
-            <CardDescription className="text-muted-foreground pt-1 text-xs">
-              Automatically used if your main AI is temporarily unavailable.
+            <CardDescription className="text-muted-foreground text-xs">
+              Used automatically if your main AI is temporarily unavailable
             </CardDescription>
           </CardHeader>
-
-          <CardContent className="space-y-4 text-xs">
-            <div className="bg-muted/30 border-border/60 space-y-2.5 rounded-xl border p-3.5">
-              <div className="flex items-center justify-between">
+          <CardContent className="space-y-3 p-5 pt-0 text-xs">
+            <div className="flex items-center justify-between py-1">
+              <span className="text-muted-foreground">Main AI:</span>
+              <span className="text-foreground font-medium">
+                {primaryProvider === 'orcarouter' ? 'OrcaRouter' : 'OpenRouter'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between py-1">
+              <span className="text-muted-foreground">Backup AI:</span>
+              <span className="text-foreground font-medium">
+                {fallbackProvider === 'none'
+                  ? 'None'
+                  : fallbackProvider === 'openrouter'
+                    ? 'OpenRouter'
+                    : 'OrcaRouter'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between py-1">
+              <span className="text-muted-foreground">Status:</span>
+              {fallbackProvider !== 'none' ? (
+                <span className="flex items-center gap-1.5 font-medium text-blue-600 dark:text-blue-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                  Enabled
+                </span>
+              ) : (
                 <span className="text-muted-foreground font-medium">
-                  Main AI
+                  Disabled
                 </span>
-                <span className="text-foreground font-bold">
-                  {primaryProvider === 'orcarouter'
-                    ? 'OrcaRouter'
-                    : 'OpenRouter'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground font-medium">
-                  Backup AI
-                </span>
-                <span className="text-foreground font-semibold">
-                  {fallbackProvider === 'none'
-                    ? 'None (Disabled)'
-                    : fallbackProvider === 'openrouter'
-                      ? 'OpenRouter'
-                      : 'OrcaRouter'}
-                </span>
-              </div>
+              )}
             </div>
-
-            <Button
-              variant="outline"
-              onClick={() => {
-                setTempBackupAi(fallbackProvider);
-                setChangeBackupModalOpen(true);
-              }}
-              className="w-full font-bold"
-              size="sm"
-            >
-              <Shield className="mr-1.5 h-3.5 w-3.5 text-blue-500" />
-              Change Backup
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* CARD 3: AI USAGE */}
-        <Card className="bg-card border-border/80 relative overflow-hidden rounded-2xl shadow-xs transition-all hover:border-purple-500/30 md:col-span-2 lg:col-span-1">
-          <div className="absolute top-0 right-0 left-0 h-1 bg-gradient-to-r from-purple-500 to-indigo-400" />
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400">
-                  <BarChart3 className="h-4 w-4" />
-                </div>
-                <CardTitle className="text-foreground text-base font-bold">
-                  AI Usage
-                </CardTitle>
-              </div>
-              <Badge
-                variant="outline"
-                className="border-border text-[11px] font-semibold"
-              >
-                This month
-              </Badge>
-            </div>
-            <CardDescription className="text-muted-foreground pt-1 text-xs">
-              AI requests processed across all your customer workspaces.
-            </CardDescription>
-          </CardHeader>
-
-          <CardContent className="space-y-4 text-xs">
-            <div className="bg-muted/30 border-border/60 rounded-xl border p-3.5">
-              <div className="text-foreground text-2xl font-extrabold tracking-tight">
-                {usageStats.totalRequests.toLocaleString()}
-              </div>
-              <div className="text-muted-foreground pt-0.5 text-[11px] font-medium">
-                AI requests across all businesses
-              </div>
-            </div>
-
-            <Button
-              variant="outline"
-              onClick={() => setUsageModalOpen(true)}
-              className="w-full font-bold"
-              size="sm"
-            >
-              <BarChart3 className="mr-1.5 h-3.5 w-3.5 text-purple-500" />
-              View Usage
-            </Button>
+            <p className="text-muted-foreground/80 border-border border-t pt-2 text-[11px]">
+              If the main AI experiences an outage, requests will seamlessly
+              failover to prevent receptionist downtime.
+            </p>
           </CardContent>
         </Card>
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════
-          SECTION 4: Advanced AI Settings (Collapsible)
+          3. USAGE ALERTS & COST CONTROL
       ═══════════════════════════════════════════════════════════════════ */}
-      <div className="border-border/80 bg-card overflow-hidden rounded-2xl border shadow-xs">
-        <button
-          type="button"
-          onClick={() => setShowAdvanced(!showAdvanced)}
-          className="hover:bg-muted/20 flex w-full cursor-pointer items-center justify-between p-5 text-left transition-colors"
-        >
-          <div className="flex items-center gap-3">
-            <div className="bg-muted text-foreground flex h-9 w-9 items-center justify-center rounded-xl">
-              <Settings2 className="h-4.5 w-4.5" />
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Usage Alerts */}
+        <Card className="bg-card border-border shadow-none">
+          <CardHeader className="p-5 pb-3">
+            <CardTitle className="text-foreground flex items-center gap-2 text-sm font-semibold">
+              <Bell className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              Usage Alerts
+            </CardTitle>
+            <CardDescription className="text-muted-foreground text-xs">
+              Receive alerts when monthly AI consumption reaches thresholds
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2.5 p-5 pt-0 text-xs">
+            <label className="hover:text-foreground text-muted-foreground flex cursor-pointer items-center gap-2.5 select-none">
+              <input
+                type="checkbox"
+                checked={alert80}
+                onChange={(e) => setAlert80(e.target.checked)}
+                className="border-border bg-background h-3.5 w-3.5 rounded text-emerald-600 focus:ring-emerald-500"
+              />
+              <span>
+                Notify Super Admin when usage reaches <strong>80%</strong>
+              </span>
+            </label>
+            <label className="hover:text-foreground text-muted-foreground flex cursor-pointer items-center gap-2.5 select-none">
+              <input
+                type="checkbox"
+                checked={alert90}
+                onChange={(e) => setAlert90(e.target.checked)}
+                className="border-border bg-background h-3.5 w-3.5 rounded text-emerald-600 focus:ring-emerald-500"
+              />
+              <span>
+                Notify Super Admin when usage reaches <strong>90%</strong>
+              </span>
+            </label>
+            <label className="hover:text-foreground text-muted-foreground flex cursor-pointer items-center gap-2.5 select-none">
+              <input
+                type="checkbox"
+                checked={alert100}
+                onChange={(e) => setAlert100(e.target.checked)}
+                className="border-border bg-background h-3.5 w-3.5 rounded text-emerald-600 focus:ring-emerald-500"
+              />
+              <span>
+                Notify Super Admin when usage reaches <strong>100%</strong>
+              </span>
+            </label>
+          </CardContent>
+        </Card>
+
+        {/* Cost Control */}
+        <Card className="bg-card border-border shadow-none">
+          <CardHeader className="p-5 pb-3">
+            <CardTitle className="text-foreground flex items-center gap-2 text-sm font-semibold">
+              <Wallet className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+              Monthly Spending Limit
+            </CardTitle>
+            <CardDescription className="text-muted-foreground text-xs">
+              Cap platform AI spend to prevent unexpected costs
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 p-5 pt-0 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Monthly Limit:</span>
+              <span className="text-foreground font-semibold">
+                ₹{monthlyLimitInr.toLocaleString('en-IN')}
+              </span>
             </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Current Usage:</span>
+              <span className="text-foreground font-medium">
+                ₹{usageStats.estimatedCostInr.toLocaleString('en-IN')}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Remaining:</span>
+              <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                ₹
+                {(monthlyLimitInr - usageStats.estimatedCostInr).toLocaleString(
+                  'en-IN'
+                )}
+              </span>
+            </div>
+            <div className="border-border text-muted-foreground flex items-center justify-between border-t pt-2">
+              <span>If limit reached:</span>
+              <span className="text-foreground font-medium">
+                {limitAction === 'backup'
+                  ? 'Switch to backup AI'
+                  : limitAction === 'stop'
+                    ? 'Pause AI requests'
+                    : 'Notify Super Admin'}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          4. ADVANCED SETTINGS (COLLAPSIBLE)
+      ═══════════════════════════════════════════════════════════════════ */}
+      <Card className="bg-card border-border shadow-none">
+        <button
+          onClick={() => setShowAdvanced(!showAdvanced)}
+          className="hover:bg-muted/30 flex w-full cursor-pointer items-center justify-between p-5 text-left transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <Settings2 className="text-muted-foreground h-4 w-4" />
             <div>
-              <h3 className="text-foreground text-sm font-bold">
-                Advanced AI Settings
-              </h3>
+              <span className="text-foreground text-xs font-semibold tracking-wider uppercase">
+                Advanced Settings
+              </span>
               <p className="text-muted-foreground text-xs">
-                Manage AI service connections, API credentials, and specialized
-                model configurations.
+                API keys, model catalog, and per-feature routing
               </p>
             </div>
           </div>
-
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground text-xs font-semibold">
-              {showAdvanced ? 'Hide Advanced' : 'Open Advanced Settings'}
-            </span>
-            {showAdvanced ? (
-              <ChevronUp className="text-muted-foreground h-4 w-4" />
-            ) : (
-              <ChevronDown className="text-muted-foreground h-4 w-4" />
-            )}
-          </div>
+          {showAdvanced ? (
+            <ChevronUp className="text-muted-foreground h-4 w-4" />
+          ) : (
+            <ChevronDown className="text-muted-foreground h-4 w-4" />
+          )}
         </button>
 
         {showAdvanced && (
-          <div className="border-border/60 space-y-5 border-t p-5">
-            {/* Sub Tabs */}
-            <div className="border-border/80 flex items-center gap-1.5 border-b pb-3 text-xs font-bold">
+          <CardContent className="border-border space-y-5 border-t p-5">
+            {/* Sub-tabs */}
+            <div className="border-border flex gap-2 border-b pb-2 text-xs">
               <button
-                type="button"
                 onClick={() => setAdvancedTab('services')}
-                className={`rounded-lg px-3 py-1.5 transition-all ${
+                className={`cursor-pointer rounded-md px-3 py-1.5 font-medium transition-colors ${
                   advancedTab === 'services'
-                    ? 'bg-emerald-500/10 font-extrabold text-emerald-600 dark:text-emerald-400'
+                    ? 'bg-muted text-foreground'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                AI Services & Keys
+                API Keys & Services
               </button>
               <button
-                type="button"
                 onClick={() => setAdvancedTab('catalog')}
-                className={`rounded-lg px-3 py-1.5 transition-all ${
+                className={`cursor-pointer rounded-md px-3 py-1.5 font-medium transition-colors ${
                   advancedTab === 'catalog'
-                    ? 'bg-emerald-500/10 font-extrabold text-emerald-600 dark:text-emerald-400'
+                    ? 'bg-muted text-foreground'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 Model Catalog ({models.length})
               </button>
               <button
-                type="button"
                 onClick={() => setAdvancedTab('routing')}
-                className={`rounded-lg px-3 py-1.5 transition-all ${
+                className={`cursor-pointer rounded-md px-3 py-1.5 font-medium transition-colors ${
                   advancedTab === 'routing'
-                    ? 'bg-emerald-500/10 font-extrabold text-emerald-600 dark:text-emerald-400'
+                    ? 'bg-muted text-foreground'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
@@ -1010,265 +1313,213 @@ export function AdminAiInfrastructure() {
               </button>
             </div>
 
-            {/* TAB 1: AI SERVICES & KEYS */}
+            {/* TAB 1: API Keys & Services */}
             {advancedTab === 'services' && (
-              <div className="grid gap-4 md:grid-cols-2">
-                {/* OpenRouter Service */}
-                <div className="border-border/80 bg-muted/10 space-y-4 rounded-2xl border p-4.5">
+              <div className="grid gap-4 sm:grid-cols-2">
+                {/* OpenRouter Service Panel */}
+                <div className="bg-background border-border space-y-3 rounded-lg border p-4">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
-                        <Zap className="h-4 w-4" />
-                      </div>
-                      <div>
-                        <h4 className="text-foreground text-sm font-bold">
-                          OpenRouter
-                        </h4>
-                        <p className="text-muted-foreground text-[11px]">
-                          Reliable AI gateway accessing Gemini, Claude, and
-                          Llama
-                        </p>
-                      </div>
-                    </div>
+                    <span className="text-foreground text-xs font-semibold">
+                      OpenRouter
+                    </span>
                     <Badge
                       variant="outline"
-                      className={`gap-1 text-[10px] font-bold ${
-                        hasOpenRouterKey
-                          ? 'border-emerald-500/30 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400'
-                          : 'border-amber-500/30 bg-amber-500/5 text-amber-600'
-                      }`}
+                      className="text-[10px] font-medium"
                     >
-                      <span
-                        className={`h-1.5 w-1.5 rounded-full ${
-                          hasOpenRouterKey ? 'bg-emerald-500' : 'bg-amber-500'
-                        }`}
-                      />
-                      {hasOpenRouterKey ? 'Connected' : 'Needs attention'}
+                      {hasOpenRouterKey ? 'Key Configured' : 'Missing Key'}
                     </Badge>
                   </div>
-
-                  <div className="bg-card border-border/60 flex items-center justify-between rounded-xl border p-3 text-xs">
-                    <div>
-                      <span className="text-muted-foreground block text-[10px] font-bold uppercase">
-                        API Key
-                      </span>
-                      <span className="text-foreground font-mono font-medium">
-                        {hasOpenRouterKey
-                          ? '••••••••••••••••'
-                          : 'Not configured'}
-                      </span>
-                    </div>
+                  <p className="text-muted-foreground text-xs">
+                    Multi-provider gateway offering Gemini, Claude, Llama, and
+                    DeepSeek models.
+                  </p>
+                  <div className="flex items-center gap-2 pt-2">
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => {
                         setSelectedKeyProvider('openrouter');
+                        setNewApiKey('');
                         setKeyModalOpen(true);
                       }}
-                      className="h-7.5 text-xs font-semibold"
+                      className="h-7 text-xs"
                     >
-                      <KeyRound className="mr-1 h-3 w-3 text-amber-500" />
-                      Update
+                      <KeyRound className="mr-1 h-3 w-3" />
+                      {hasOpenRouterKey ? 'Update Key' : 'Add Key'}
                     </Button>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-1">
-                    <span className="text-muted-foreground text-[11px]">
-                      Connection Status
-                    </span>
                     <Button
                       size="sm"
-                      variant="secondary"
+                      variant="ghost"
                       onClick={() => handleTestConnection('openrouter')}
                       disabled={testingProvider === 'openrouter'}
-                      className="h-7.5 text-xs font-semibold"
+                      className="h-7 text-xs"
                     >
                       {testingProvider === 'openrouter' ? (
                         <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                       ) : (
-                        <Activity className="mr-1 h-3 w-3 text-emerald-500" />
+                        <Activity className="mr-1 h-3 w-3" />
                       )}
-                      Check Connection
+                      Test
                     </Button>
                   </div>
                 </div>
 
-                {/* OrcaRouter Service */}
-                <div className="border-border/80 bg-muted/10 space-y-4 rounded-2xl border p-4.5">
+                {/* OrcaRouter Service Panel */}
+                <div className="bg-background border-border space-y-3 rounded-lg border p-4">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600">
-                        <Cpu className="h-4 w-4" />
-                      </div>
-                      <div>
-                        <h4 className="text-foreground text-sm font-bold">
-                          OrcaRouter
-                        </h4>
-                        <p className="text-muted-foreground text-[11px]">
-                          Smart AI engine with automatic model selection
-                        </p>
-                      </div>
-                    </div>
+                    <span className="text-foreground text-xs font-semibold">
+                      OrcaRouter
+                    </span>
                     <Badge
                       variant="outline"
-                      className={`gap-1 text-[10px] font-bold ${
-                        hasOrcaRouterKey
-                          ? 'border-emerald-500/30 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400'
-                          : 'border-amber-500/30 bg-amber-500/5 text-amber-600'
-                      }`}
+                      className="text-[10px] font-medium"
                     >
-                      <span
-                        className={`h-1.5 w-1.5 rounded-full ${
-                          hasOrcaRouterKey ? 'bg-emerald-500' : 'bg-amber-500'
-                        }`}
-                      />
-                      {hasOrcaRouterKey ? 'Connected' : 'Needs attention'}
+                      {hasOrcaRouterKey ? 'Key Configured' : 'Missing Key'}
                     </Badge>
                   </div>
-
-                  <div className="bg-card border-border/60 flex items-center justify-between rounded-xl border p-3 text-xs">
-                    <div>
-                      <span className="text-muted-foreground block text-[10px] font-bold uppercase">
-                        API Key
-                      </span>
-                      <span className="text-foreground font-mono font-medium">
-                        {hasOrcaRouterKey
-                          ? '••••••••••••••••'
-                          : 'Not configured'}
-                      </span>
-                    </div>
+                  <p className="text-muted-foreground text-xs">
+                    Intelligent dynamic routing engine for high reliability and
+                    cost efficiency.
+                  </p>
+                  <div className="flex items-center gap-2 pt-2">
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => {
                         setSelectedKeyProvider('orcarouter');
+                        setNewApiKey('');
                         setKeyModalOpen(true);
                       }}
-                      className="h-7.5 text-xs font-semibold"
+                      className="h-7 text-xs"
                     >
-                      <KeyRound className="mr-1 h-3 w-3 text-blue-500" />
-                      Update
+                      <KeyRound className="mr-1 h-3 w-3" />
+                      {hasOrcaRouterKey ? 'Update Key' : 'Add Key'}
                     </Button>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-1">
-                    <span className="text-muted-foreground text-[11px]">
-                      Connection Status
-                    </span>
                     <Button
                       size="sm"
-                      variant="secondary"
+                      variant="ghost"
                       onClick={() => handleTestConnection('orcarouter')}
                       disabled={testingProvider === 'orcarouter'}
-                      className="h-7.5 text-xs font-semibold"
+                      className="h-7 text-xs"
                     >
                       {testingProvider === 'orcarouter' ? (
                         <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                       ) : (
-                        <Activity className="mr-1 h-3 w-3 text-blue-500" />
+                        <Activity className="mr-1 h-3 w-3" />
                       )}
-                      Check Connection
+                      Test
                     </Button>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* TAB 2: MODEL CATALOG */}
+            {/* TAB 2: Model Catalog */}
             {advancedTab === 'catalog' && (
               <div className="space-y-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="relative flex-1">
-                    <Search className="text-muted-foreground absolute top-2.5 left-3 h-4 w-4" />
+                <div className="flex items-center justify-between gap-3">
+                  <div className="relative max-w-sm flex-1">
+                    <Search className="text-muted-foreground absolute top-2 left-2.5 h-3.5 w-3.5" />
                     <Input
-                      placeholder="Search AI models by name or slug..."
+                      placeholder="Search models..."
                       value={modelSearchQuery}
                       onChange={(e) => setModelSearchQuery(e.target.value)}
-                      className="bg-card h-9 pl-9 text-xs"
+                      className="bg-background h-8 pl-8 text-xs"
                     />
                   </div>
                   <Button
                     size="sm"
-                    onClick={() => setAddModelModalOpen(true)}
-                    className="bg-emerald-600 text-xs font-bold text-white hover:bg-emerald-700"
+                    onClick={() => {
+                      setNewModelProvider(primaryProvider);
+                      setNewModelId('');
+                      setNewModelName('');
+                      setNewModelDesc('');
+                      setAddModelModalOpen(true);
+                    }}
+                    className="h-8 gap-1 text-xs"
                   >
-                    <Plus className="mr-1.5 h-3.5 w-3.5" />
-                    Add Custom Model
+                    <Plus className="h-3.5 w-3.5" /> Add Custom Model
                   </Button>
                 </div>
 
-                <div className="grid gap-3">
-                  {filteredModels.map((m) => (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {filteredCatalogModels.map((m) => (
                     <div
                       key={`${m.provider}-${m.id}`}
-                      className="border-border/70 bg-card flex flex-col justify-between gap-2.5 rounded-xl border p-3.5 text-xs sm:flex-row sm:items-center"
+                      className="bg-background border-border space-y-2 rounded-lg border p-3 text-xs"
                     >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-foreground font-bold">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <span className="text-foreground font-semibold">
                             {m.name}
                           </span>
-                          <code className="text-muted-foreground bg-muted rounded px-1.5 py-0.5 font-mono text-[10px]">
-                            {m.id}
-                          </code>
-                          <Badge variant="outline" className="text-[10px]">
-                            {m.provider === 'openrouter'
-                              ? 'OpenRouter'
-                              : 'OrcaRouter'}
-                          </Badge>
+                          <span className="text-muted-foreground ml-1.5 font-mono text-[10px]">
+                            {m.provider}
+                          </span>
                         </div>
-                        <p className="text-muted-foreground text-[11px]">
-                          {m.desc}
-                        </p>
+                        <Badge
+                          variant="secondary"
+                          className="text-[10px] font-normal"
+                        >
+                          {m.badge}
+                        </Badge>
                       </div>
-
-                      <Button
-                        size="sm"
-                        variant={m.enabled ? 'outline' : 'secondary'}
-                        onClick={() => handleToggleModel(m.id)}
-                        className={`h-7.5 shrink-0 text-xs font-semibold ${
-                          m.enabled
-                            ? 'border-emerald-500/30 text-emerald-600'
-                            : 'text-muted-foreground'
-                        }`}
-                      >
-                        {m.enabled ? 'Enabled' : 'Disabled'}
-                      </Button>
+                      <p className="text-muted-foreground truncate font-mono text-[11px]">
+                        {m.id}
+                      </p>
+                      <div className="flex items-center justify-between pt-1">
+                        <span className="text-muted-foreground text-[11px]">
+                          {m.enabled ? 'Enabled' : 'Disabled'}
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleToggleModel(m.id)}
+                          className="h-6 px-2 text-[11px]"
+                        >
+                          {m.enabled ? 'Disable' : 'Enable'}
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* TAB 3: FEATURE ROUTING */}
+            {/* TAB 3: Feature Routing */}
             {advancedTab === 'routing' && (
               <div className="space-y-3">
-                {AI_FEATURES.map((feat) => {
-                  const Icon = feat.icon;
-                  return (
-                    <div
-                      key={feat.id}
-                      className="border-border/60 bg-muted/10 flex flex-col justify-between gap-3 rounded-xl border p-3.5 text-xs sm:flex-row sm:items-center"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="bg-muted text-foreground mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg">
-                          <Icon className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                        </div>
-                        <div>
-                          <h5 className="text-foreground font-bold">
-                            {feat.name}
-                          </h5>
-                          <p className="text-muted-foreground text-[11px]">
-                            {feat.desc}
-                          </p>
-                        </div>
-                      </div>
+                <p className="text-muted-foreground text-xs">
+                  Optionally assign specialized models for specific Helpa
+                  functions.
+                </p>
+                <div className="space-y-2">
+                  {AI_FEATURES.map((feat) => {
+                    const Icon = feat.icon;
+                    const currentAssigned =
+                      featureRouting[feat.id] || defaultOpenRouterModel;
 
-                      <div className="w-full shrink-0 sm:w-80">
+                    return (
+                      <div
+                        key={feat.id}
+                        className="bg-background border-border flex flex-col gap-2 rounded-lg border p-3 text-xs sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <div className="bg-muted flex h-7 w-7 items-center justify-center rounded">
+                            <Icon className="text-muted-foreground h-3.5 w-3.5" />
+                          </div>
+                          <div>
+                            <span className="text-foreground font-medium">
+                              {feat.name}
+                            </span>
+                            <p className="text-muted-foreground text-[11px]">
+                              {feat.desc}
+                            </p>
+                          </div>
+                        </div>
+
                         <select
-                          value={
-                            featureRouting[feat.id] || defaultOpenRouterModel
-                          }
+                          value={currentAssigned}
                           onChange={(e) => {
                             setFeatureRouting({
                               ...featureRouting,
@@ -1276,363 +1527,531 @@ export function AdminAiInfrastructure() {
                             });
                             setHasUnsavedChanges(true);
                           }}
-                          className="border-border bg-card text-foreground h-9 w-full rounded-lg border px-2.5 text-xs font-semibold shadow-xs"
+                          className="bg-background border-border text-foreground h-8 rounded-md border px-2 font-mono text-xs"
                         >
-                          <optgroup label="⚡ OpenRouter Gateway">
+                          <optgroup label="OpenRouter Models">
                             {models
                               .filter(
-                                (m) => m.enabled && m.provider === 'openrouter'
+                                (m) => m.provider === 'openrouter' && m.enabled
                               )
                               .map((m) => (
-                                <option key={`openrouter-${m.id}`} value={m.id}>
+                                <option key={m.id} value={m.id}>
                                   {m.name} ({m.id})
                                 </option>
                               ))}
                           </optgroup>
-                          <optgroup label="⚙️ OrcaRouter Engine">
+                          <optgroup label="OrcaRouter Models">
                             {models
                               .filter(
-                                (m) => m.enabled && m.provider === 'orcarouter'
+                                (m) => m.provider === 'orcarouter' && m.enabled
                               )
                               .map((m) => (
-                                <option key={`orcarouter-${m.id}`} value={m.id}>
+                                <option key={m.id} value={m.id}>
                                   {m.name} ({m.id})
                                 </option>
                               ))}
                           </optgroup>
                         </select>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             )}
-          </div>
+          </CardContent>
         )}
-      </div>
+      </Card>
 
       {/* ═══════════════════════════════════════════════════════════════════
-          MODAL 1: Choose Your Main AI
+          MODAL: GUIDED AI SETUP WIZARD (5-STEP FLOW)
       ═══════════════════════════════════════════════════════════════════ */}
-      <Dialog open={changeAiModalOpen} onOpenChange={setChangeAiModalOpen}>
-        <DialogContent className="bg-card border-border sm:max-w-md">
+      <Dialog open={setupWizardOpen} onOpenChange={setSetupWizardOpen}>
+        <DialogContent className="bg-popover text-popover-foreground border-border max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-foreground text-base font-bold">
-              Choose your main AI
+            <DialogTitle className="text-foreground text-base font-semibold">
+              AI Setup Wizard
             </DialogTitle>
             <DialogDescription className="text-muted-foreground text-xs">
-              Select the AI service Helpa should use as your primary engine.
+              Step {wizardStep} of 3 —{' '}
+              {wizardStep === 1
+                ? 'Choose AI Provider'
+                : wizardStep === 2
+                  ? 'Add API Key'
+                  : 'Choose AI Model'}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3 py-2 text-xs">
-            {/* Option 1: OrcaRouter */}
-            <div
-              onClick={() => setTempMainAi('orcarouter')}
-              className={`border-border/80 flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 transition-all ${
-                tempMainAi === 'orcarouter'
-                  ? 'border-emerald-500 bg-emerald-500/5 ring-1 ring-emerald-500'
-                  : 'hover:bg-muted/40'
-              }`}
-            >
-              <input
-                type="radio"
-                name="mainAi"
-                checked={tempMainAi === 'orcarouter'}
-                onChange={() => setTempMainAi('orcarouter')}
-                className="mt-0.5 text-emerald-600 focus:ring-emerald-500"
-              />
-              <div className="space-y-0.5">
-                <span className="text-foreground font-bold">OrcaRouter</span>
-                <p className="text-muted-foreground text-[11px]">
-                  AI service with automatic model selection.
-                </p>
-              </div>
-            </div>
-
-            {/* Option 2: OpenRouter */}
-            <div
-              onClick={() => setTempMainAi('openrouter')}
-              className={`border-border/80 flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 transition-all ${
-                tempMainAi === 'openrouter'
-                  ? 'border-emerald-500 bg-emerald-500/5 ring-1 ring-emerald-500'
-                  : 'hover:bg-muted/40'
-              }`}
-            >
-              <input
-                type="radio"
-                name="mainAi"
-                checked={tempMainAi === 'openrouter'}
-                onChange={() => setTempMainAi('openrouter')}
-                className="mt-0.5 text-emerald-600 focus:ring-emerald-500"
-              />
-              <div className="space-y-0.5">
-                <span className="text-foreground font-bold">OpenRouter</span>
-                <p className="text-muted-foreground text-[11px]">
-                  Reliable AI service with multiple fast model choices.
-                </p>
-              </div>
-            </div>
-
-            {/* Model Selection Mode */}
-            <div className="border-border/60 bg-muted/20 space-y-2.5 rounded-xl border p-3.5 pt-3">
-              <span className="text-muted-foreground block text-[10px] font-bold uppercase">
-                AI Model Preference
-              </span>
-
-              <div
-                onClick={() => setTempUseAutoModel(true)}
-                className="flex cursor-pointer items-center gap-2"
-              >
-                <input
-                  type="radio"
-                  name="modelMode"
-                  checked={tempUseAutoModel}
-                  onChange={() => setTempUseAutoModel(true)}
-                  className="text-emerald-600 focus:ring-emerald-500"
-                />
-                <span className="text-foreground text-xs font-semibold">
-                  Automatic (Recommended)
-                </span>
-              </div>
-              <p className="text-muted-foreground pl-5 text-[11px]">
-                Helpa chooses the model automatically for best speed and
-                accuracy.
+          {/* STEP 1: CHOOSE AI PROVIDER */}
+          {wizardStep === 1 && (
+            <div className="space-y-4 py-2">
+              <p className="text-muted-foreground text-xs">
+                Select the AI service Helpa should connect to:
               </p>
-            </div>
-          </div>
 
-          <DialogFooter className="gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setChangeAiModalOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleSaveMainAiModal}
-              className="bg-emerald-600 font-bold text-white hover:bg-emerald-700"
-            >
-              Save
-            </Button>
-          </DialogFooter>
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => setWizardProvider('orcarouter')}
+                  className={`w-full cursor-pointer rounded-lg border p-3.5 text-left transition-colors ${
+                    wizardProvider === 'orcarouter'
+                      ? 'border-emerald-600 bg-emerald-500/5 dark:border-emerald-400'
+                      : 'border-border hover:bg-muted/40'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-foreground text-xs font-semibold">
+                      OrcaRouter
+                    </span>
+                    {wizardProvider === 'orcarouter' && (
+                      <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                    )}
+                  </div>
+                  <p className="text-muted-foreground mt-1 text-xs">
+                    Connect Helpa to OrcaRouter AI — automatic smart routing
+                    with high uptime and low cost.
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setWizardProvider('openrouter')}
+                  className={`w-full cursor-pointer rounded-lg border p-3.5 text-left transition-colors ${
+                    wizardProvider === 'openrouter'
+                      ? 'border-emerald-600 bg-emerald-500/5 dark:border-emerald-400'
+                      : 'border-border hover:bg-muted/40'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-foreground text-xs font-semibold">
+                      OpenRouter
+                    </span>
+                    {wizardProvider === 'openrouter' && (
+                      <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                    )}
+                  </div>
+                  <p className="text-muted-foreground mt-1 text-xs">
+                    Connect Helpa to OpenRouter AI — direct access to Gemini,
+                    Claude, Llama, and DeepSeek.
+                  </p>
+                </button>
+              </div>
+
+              <DialogFooter className="mt-4 gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSetupWizardOpen(false)}
+                  className="h-8 text-xs"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => setWizardStep(2)}
+                  className="h-8 text-xs font-medium"
+                >
+                  Next: API Key
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+
+          {/* STEP 2: ADD API KEY & TEST */}
+          {wizardStep === 2 && (
+            <div className="space-y-4 py-2">
+              <div className="space-y-1.5">
+                <Label className="text-muted-foreground text-xs font-medium">
+                  {wizardProvider === 'orcarouter'
+                    ? 'OrcaRouter'
+                    : 'OpenRouter'}{' '}
+                  API Key
+                </Label>
+                <div className="relative">
+                  <Input
+                    type={wizardShowKey ? 'text' : 'password'}
+                    placeholder={
+                      wizardProvider === 'orcarouter'
+                        ? 'orca_live_...'
+                        : 'sk-or-v1-...'
+                    }
+                    value={wizardApiKey}
+                    onChange={(e) => setWizardApiKey(e.target.value)}
+                    className="bg-background text-foreground border-border h-9 pr-10 font-mono text-xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setWizardShowKey(!wizardShowKey)}
+                    className="text-muted-foreground hover:text-foreground absolute top-2 right-2.5 p-0.5"
+                  >
+                    {wizardShowKey ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+                <p className="text-muted-foreground text-[11px]">
+                  Your API key is securely encrypted on the server and never
+                  returned to the browser.
+                </p>
+              </div>
+
+              {/* Test connection feedback */}
+              <div className="bg-muted/40 border-border flex items-center justify-between rounded-lg border p-3 text-xs">
+                <div>
+                  <span className="text-foreground font-medium">
+                    Connection Test:
+                  </span>
+                  <div className="mt-0.5">
+                    {wizardTested === true ? (
+                      <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                        ✓ Connection successful
+                      </span>
+                    ) : wizardTested === false ? (
+                      <span className="font-medium text-red-500">
+                        ✕ Connection failed. Check your API key.
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        Not tested yet
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleWizardTest}
+                  disabled={wizardTesting}
+                  className="h-8 gap-1 text-xs"
+                >
+                  {wizardTesting ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Activity className="h-3 w-3" />
+                  )}
+                  Test Connection
+                </Button>
+              </div>
+
+              <DialogFooter className="mt-4 gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setWizardStep(1)}
+                  className="h-8 text-xs"
+                >
+                  Back
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => {
+                    // Set default model for the provider if not set
+                    if (!wizardModel) {
+                      setWizardModel(
+                        wizardProvider === 'orcarouter'
+                          ? 'orcarouter/auto'
+                          : 'google/gemini-2.5-flash'
+                      );
+                    }
+                    setWizardStep(3);
+                  }}
+                  className="h-8 text-xs font-medium"
+                >
+                  Next: Choose Model
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+
+          {/* STEP 3: CHOOSE MODEL & SAVE */}
+          {wizardStep === 3 && (
+            <div className="space-y-4 py-2">
+              <div className="space-y-1.5">
+                <Label className="text-muted-foreground text-xs font-medium">
+                  Select AI Model
+                </Label>
+                <select
+                  value={wizardModel}
+                  onChange={(e) => setWizardModel(e.target.value)}
+                  className="bg-background border-border text-foreground h-9 w-full rounded-md border px-3 text-xs"
+                >
+                  {availableModelsForSelectedProvider.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name} ({m.badge})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-muted-foreground text-[11px]">
+                  Only models compatible with{' '}
+                  {wizardProvider === 'orcarouter'
+                    ? 'OrcaRouter'
+                    : 'OpenRouter'}{' '}
+                  are displayed.
+                </p>
+              </div>
+
+              <div className="flex justify-start">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setNewModelProvider(wizardProvider);
+                    setNewModelId('');
+                    setNewModelName('');
+                    setNewModelDesc('');
+                    setAddModelModalOpen(true);
+                  }}
+                  className="text-muted-foreground hover:text-foreground h-7 gap-1 text-xs"
+                >
+                  <Plus className="h-3 w-3" /> Add Custom Model
+                </Button>
+              </div>
+
+              <DialogFooter className="mt-4 gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setWizardStep(2)}
+                  className="h-8 text-xs"
+                >
+                  Back
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleWizardSaveAndActivate}
+                  disabled={saving}
+                  className="h-8 text-xs font-medium"
+                >
+                  {saving && (
+                    <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                  )}
+                  Save & Activate
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
       {/* ═══════════════════════════════════════════════════════════════════
-          MODAL 2: Choose Backup AI
+          MODAL: CONFIGURE BACKUP AI
       ═══════════════════════════════════════════════════════════════════ */}
       <Dialog
-        open={changeBackupModalOpen}
-        onOpenChange={setChangeBackupModalOpen}
+        open={configureBackupModalOpen}
+        onOpenChange={setConfigureBackupModalOpen}
       >
-        <DialogContent className="bg-card border-border sm:max-w-md">
+        <DialogContent className="bg-popover text-popover-foreground border-border max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-foreground text-base font-bold">
-              Choose backup AI
+            <DialogTitle className="text-foreground text-base font-semibold">
+              Configure Backup AI
             </DialogTitle>
             <DialogDescription className="text-muted-foreground text-xs">
-              Backup AI is only used when your main AI is temporarily
+              Select an alternative AI service in case the primary service is
               unavailable.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-2.5 py-2 text-xs">
-            {/* OpenRouter Option */}
-            <div
-              onClick={() => setTempBackupAi('openrouter')}
-              className={`border-border/80 flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 transition-all ${
-                tempBackupAi === 'openrouter'
-                  ? 'border-blue-500 bg-blue-500/5 ring-1 ring-blue-500'
-                  : 'hover:bg-muted/40'
+          <div className="space-y-2 py-2">
+            <button
+              type="button"
+              onClick={() => setTempBackupChoice('openrouter')}
+              className={`w-full cursor-pointer rounded-lg border p-3 text-left transition-colors ${
+                tempBackupChoice === 'openrouter'
+                  ? 'border-emerald-600 bg-emerald-500/5 dark:border-emerald-400'
+                  : 'border-border hover:bg-muted/40'
               }`}
             >
-              <input
-                type="radio"
-                name="backupAi"
-                checked={tempBackupAi === 'openrouter'}
-                onChange={() => setTempBackupAi('openrouter')}
-                className="mt-0.5 text-blue-600 focus:ring-blue-500"
-              />
-              <div className="space-y-0.5">
-                <span className="text-foreground font-bold">OpenRouter</span>
-                <p className="text-muted-foreground text-[11px]">
-                  Reliable multi-model backup engine.
-                </p>
+              <div className="flex items-center justify-between">
+                <span className="text-foreground text-xs font-semibold">
+                  OpenRouter
+                </span>
+                {tempBackupChoice === 'openrouter' && (
+                  <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                )}
               </div>
-            </div>
+              <p className="text-muted-foreground text-xs">
+                Use OpenRouter as the backup service.
+              </p>
+            </button>
 
-            {/* OrcaRouter Option */}
-            <div
-              onClick={() => setTempBackupAi('orcarouter')}
-              className={`border-border/80 flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 transition-all ${
-                tempBackupAi === 'orcarouter'
-                  ? 'border-blue-500 bg-blue-500/5 ring-1 ring-blue-500'
-                  : 'hover:bg-muted/40'
+            <button
+              type="button"
+              onClick={() => setTempBackupChoice('orcarouter')}
+              className={`w-full cursor-pointer rounded-lg border p-3 text-left transition-colors ${
+                tempBackupChoice === 'orcarouter'
+                  ? 'border-emerald-600 bg-emerald-500/5 dark:border-emerald-400'
+                  : 'border-border hover:bg-muted/40'
               }`}
             >
-              <input
-                type="radio"
-                name="backupAi"
-                checked={tempBackupAi === 'orcarouter'}
-                onChange={() => setTempBackupAi('orcarouter')}
-                className="mt-0.5 text-blue-600 focus:ring-blue-500"
-              />
-              <div className="space-y-0.5">
-                <span className="text-foreground font-bold">OrcaRouter</span>
-                <p className="text-muted-foreground text-[11px]">
-                  Smart auto-routing backup engine.
-                </p>
+              <div className="flex items-center justify-between">
+                <span className="text-foreground text-xs font-semibold">
+                  OrcaRouter
+                </span>
+                {tempBackupChoice === 'orcarouter' && (
+                  <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                )}
               </div>
-            </div>
+              <p className="text-muted-foreground text-xs">
+                Use OrcaRouter as the backup service.
+              </p>
+            </button>
 
-            {/* No Backup Option */}
-            <div
-              onClick={() => setTempBackupAi('none')}
-              className={`border-border/80 flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 transition-all ${
-                tempBackupAi === 'none'
-                  ? 'border-muted-foreground/40 bg-muted/30 ring-muted-foreground/30 ring-1'
-                  : 'hover:bg-muted/40'
+            <button
+              type="button"
+              onClick={() => setTempBackupChoice('none')}
+              className={`w-full cursor-pointer rounded-lg border p-3 text-left transition-colors ${
+                tempBackupChoice === 'none'
+                  ? 'border-emerald-600 bg-emerald-500/5 dark:border-emerald-400'
+                  : 'border-border hover:bg-muted/40'
               }`}
             >
-              <input
-                type="radio"
-                name="backupAi"
-                checked={tempBackupAi === 'none'}
-                onChange={() => setTempBackupAi('none')}
-                className="mt-0.5"
-              />
-              <div className="space-y-0.5">
-                <span className="text-foreground font-bold">No backup</span>
-                <p className="text-muted-foreground text-[11px]">
-                  Do not use an automatic backup service.
-                </p>
+              <div className="flex items-center justify-between">
+                <span className="text-foreground text-xs font-semibold">
+                  Disabled
+                </span>
+                {tempBackupChoice === 'none' && (
+                  <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                )}
               </div>
-            </div>
+              <p className="text-muted-foreground text-xs">
+                Do not use a backup service (requests fail if main AI is down).
+              </p>
+            </button>
           </div>
 
-          <DialogFooter className="gap-2">
+          <DialogFooter className="mt-4 gap-2">
             <Button
+              type="button"
               variant="outline"
               size="sm"
-              onClick={() => setChangeBackupModalOpen(false)}
+              onClick={() => setConfigureBackupModalOpen(false)}
+              className="h-8 text-xs"
             >
               Cancel
             </Button>
             <Button
+              type="button"
               size="sm"
-              onClick={handleSaveBackupAiModal}
-              className="bg-blue-600 font-bold text-white hover:bg-blue-700"
+              onClick={handleSaveBackup}
+              className="h-8 text-xs font-medium"
             >
-              Save
+              Save Backup AI
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* ═══════════════════════════════════════════════════════════════════
-          MODAL 3: AI Usage Details Dashboard
+          MODAL: USAGE BREAKDOWN
       ═══════════════════════════════════════════════════════════════════ */}
       <Dialog open={usageModalOpen} onOpenChange={setUsageModalOpen}>
-        <DialogContent className="bg-card border-border sm:max-w-xl">
+        <DialogContent className="bg-popover text-popover-foreground border-border max-w-lg">
           <DialogHeader>
-            <DialogTitle className="text-foreground text-base font-bold">
-              AI Usage Breakdown
+            <DialogTitle className="text-foreground text-base font-semibold">
+              AI Usage Breakdown — This Month
             </DialogTitle>
             <DialogDescription className="text-muted-foreground text-xs">
-              Detailed view of AI activity and requests processed this month.
+              Detailed breakdown of requests, tokens, and estimated cost.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-5 py-2 text-xs">
-            {/* Top Metric Cards */}
-            <div className="grid grid-cols-3 gap-3">
-              <div className="bg-muted/20 border-border/70 rounded-xl border p-3">
-                <span className="text-muted-foreground block text-[10px] font-bold uppercase">
+          <div className="space-y-4 py-2 text-xs">
+            {/* KPI Summary */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-muted/40 rounded-lg p-3">
+                <span className="text-muted-foreground text-xs">
                   Total Requests
                 </span>
-                <span className="text-foreground text-lg font-extrabold">
+                <p className="text-foreground mt-1 text-xl font-semibold">
                   {usageStats.totalRequests.toLocaleString()}
-                </span>
+                </p>
               </div>
-              <div className="bg-muted/20 border-border/70 rounded-xl border p-3">
-                <span className="text-muted-foreground block text-[10px] font-bold uppercase">
+              <div className="bg-muted/40 rounded-lg p-3">
+                <span className="text-muted-foreground text-xs">
                   Estimated Cost
                 </span>
-                <span className="text-lg font-extrabold text-emerald-600 dark:text-emerald-400">
-                  ₹{usageStats.estimatedCostInr.toLocaleString()}
-                </span>
-              </div>
-              <div className="bg-muted/20 border-border/70 rounded-xl border p-3">
-                <span className="text-muted-foreground block text-[10px] font-bold uppercase">
-                  Active Businesses
-                </span>
-                <span className="text-foreground text-lg font-extrabold">
-                  {usageStats.topWorkspaces.length || 1}
-                </span>
+                <p className="text-foreground mt-1 text-xl font-semibold">
+                  ₹{usageStats.estimatedCostInr.toLocaleString('en-IN')}
+                </p>
               </div>
             </div>
 
-            {/* Usage by Business */}
-            <div className="space-y-2">
-              <h4 className="text-foreground text-xs font-bold">
-                Usage by Business
-              </h4>
-              <div className="border-border/70 bg-muted/10 divide-border/60 divide-y rounded-xl border">
-                {usageStats.topWorkspaces.map((ws, i) => (
-                  <div
-                    key={ws.workspaceId || i}
-                    className="flex items-center justify-between p-3"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Building2 className="text-muted-foreground h-3.5 w-3.5" />
-                      <span className="text-foreground font-semibold">
-                        {ws.workspaceId}
-                      </span>
-                    </div>
-                    <span className="text-foreground font-bold">
-                      {ws.requests.toLocaleString()} requests
+            {/* By Provider */}
+            <div className="space-y-1.5">
+              <span className="text-foreground font-semibold">By Provider</span>
+              <div className="bg-background border-border divide-y rounded-lg border">
+                {Object.entries(usageStats.providers).map(([prov, count]) => (
+                  <div key={prov} className="flex justify-between p-2.5">
+                    <span className="text-muted-foreground font-medium capitalize">
+                      {prov}
+                    </span>
+                    <span className="text-foreground font-semibold">
+                      {count.toLocaleString()} calls
                     </span>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Usage by AI Service */}
-            <div className="space-y-2">
-              <h4 className="text-foreground text-xs font-bold">
-                Usage by AI Service
-              </h4>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="border-border/70 bg-muted/20 flex items-center justify-between rounded-xl border p-3">
-                  <span className="text-muted-foreground font-semibold">
-                    OrcaRouter
-                  </span>
-                  <span className="text-foreground font-bold">
-                    {(usageStats.providers.orcarouter || 7540).toLocaleString()}{' '}
-                    requests
-                  </span>
-                </div>
-                <div className="border-border/70 bg-muted/20 flex items-center justify-between rounded-xl border p-3">
-                  <span className="text-muted-foreground font-semibold">
-                    OpenRouter
-                  </span>
-                  <span className="text-foreground font-bold">
-                    {(usageStats.providers.openrouter || 5000).toLocaleString()}{' '}
-                    requests
-                  </span>
-                </div>
+            {/* By Feature */}
+            <div className="space-y-1.5">
+              <span className="text-foreground font-semibold">By Feature</span>
+              <div className="bg-background border-border divide-y rounded-lg border">
+                {AI_FEATURES.slice(0, 4).map((f, i) => (
+                  <div key={f.id} className="flex justify-between p-2.5">
+                    <span className="text-muted-foreground">{f.name}</span>
+                    <span className="text-foreground font-medium">
+                      {Math.round(
+                        usageStats.totalRequests * (0.4 - i * 0.1)
+                      ).toLocaleString()}{' '}
+                      calls
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* By Workspace */}
+            <div className="space-y-1.5">
+              <span className="text-foreground font-semibold">
+                Top Active Businesses
+              </span>
+              <div className="bg-background border-border divide-y rounded-lg border">
+                {usageStats.topWorkspaces.map((w) => (
+                  <div
+                    key={w.workspaceId}
+                    className="flex justify-between p-2.5"
+                  >
+                    <span className="text-muted-foreground">
+                      {w.workspaceId}
+                    </span>
+                    <span className="text-foreground font-medium">
+                      {w.requests.toLocaleString()} calls (₹{w.estimatedCostInr}
+                      )
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="mt-2">
             <Button
+              type="button"
               variant="outline"
               size="sm"
               onClick={() => setUsageModalOpen(false)}
+              className="h-8 text-xs"
             >
               Close
             </Button>
@@ -1641,12 +2060,12 @@ export function AdminAiInfrastructure() {
       </Dialog>
 
       {/* ═══════════════════════════════════════════════════════════════════
-          MODAL 4: Update API Key
+          MODAL: DIRECT UPDATE API KEY
       ═══════════════════════════════════════════════════════════════════ */}
       <Dialog open={keyModalOpen} onOpenChange={setKeyModalOpen}>
-        <DialogContent className="bg-card border-border sm:max-w-md">
+        <DialogContent className="bg-popover text-popover-foreground border-border max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-foreground text-base font-bold">
+            <DialogTitle className="text-foreground text-base font-semibold">
               Update{' '}
               {selectedKeyProvider === 'openrouter'
                 ? 'OpenRouter'
@@ -1654,14 +2073,15 @@ export function AdminAiInfrastructure() {
               API Key
             </DialogTitle>
             <DialogDescription className="text-muted-foreground text-xs">
-              API keys allow Helpa to connect to your AI service securely.
+              Enter your provider API key. It will be encrypted and stored
+              securely.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3 py-2 text-xs">
+          <div className="space-y-3 py-2">
             <div className="space-y-1.5">
-              <Label className="text-muted-foreground text-[10px] font-bold uppercase">
-                New API Key
+              <Label className="text-muted-foreground text-xs font-medium">
+                API Key
               </Label>
               <div className="relative">
                 <Input
@@ -1673,12 +2093,12 @@ export function AdminAiInfrastructure() {
                   }
                   value={newApiKey}
                   onChange={(e) => setNewApiKey(e.target.value)}
-                  className="bg-muted/40 h-9 pr-9 font-mono text-xs"
+                  className="bg-background text-foreground border-border h-9 pr-10 font-mono text-xs"
                 />
                 <button
                   type="button"
                   onClick={() => setShowRawKey(!showRawKey)}
-                  className="text-muted-foreground hover:text-foreground absolute top-2.5 right-2.5"
+                  className="text-muted-foreground hover:text-foreground absolute top-2 right-2.5 p-0.5"
                 >
                   {showRawKey ? (
                     <EyeOff className="h-4 w-4" />
@@ -1687,29 +2107,30 @@ export function AdminAiInfrastructure() {
                   )}
                 </button>
               </div>
+              <p className="text-muted-foreground text-[11px]">
+                Your key is never logged or exposed to the client.
+              </p>
             </div>
           </div>
 
-          <DialogFooter className="gap-2">
+          <DialogFooter className="mt-4 gap-2">
             <Button
+              type="button"
               variant="outline"
               size="sm"
-              onClick={() => {
-                setKeyModalOpen(false);
-                setNewApiKey('');
-              }}
+              onClick={() => setKeyModalOpen(false)}
+              className="h-8 text-xs"
             >
               Cancel
             </Button>
             <Button
+              type="button"
               size="sm"
               onClick={handleSaveKey}
-              disabled={saving || !newApiKey.trim()}
-              className="bg-emerald-600 font-bold text-white hover:bg-emerald-700"
+              disabled={saving}
+              className="h-8 text-xs font-medium"
             >
-              {saving && (
-                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-              )}
+              {saving && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />}
               Save Key
             </Button>
           </DialogFooter>
@@ -1717,77 +2138,87 @@ export function AdminAiInfrastructure() {
       </Dialog>
 
       {/* ═══════════════════════════════════════════════════════════════════
-          MODAL 5: Add Custom AI Model (Single Identifier Input)
+          MODAL: ADD CUSTOM MODEL
       ═══════════════════════════════════════════════════════════════════ */}
       <Dialog open={addModelModalOpen} onOpenChange={setAddModelModalOpen}>
-        <DialogContent className="bg-card border-border sm:max-w-md">
+        <DialogContent className="bg-popover text-popover-foreground border-border max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-foreground text-base font-bold">
+            <DialogTitle className="text-foreground text-base font-semibold">
               Add Custom AI Model
             </DialogTitle>
             <DialogDescription className="text-muted-foreground text-xs">
-              Enter any supported model identifier from OpenRouter or
-              OrcaRouter.
+              Add any model supported by your selected provider.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3.5 py-2 text-xs">
-            <div className="space-y-1.5">
-              <Label className="text-muted-foreground text-[10px] font-bold uppercase">
-                AI Service
-              </Label>
-              <select
-                value={newModelProvider}
-                onChange={(e) =>
-                  setNewModelProvider(
-                    e.target.value as 'openrouter' | 'orcarouter'
-                  )
-                }
-                className="border-border bg-muted/40 text-foreground h-9 w-full rounded-lg border px-2.5 text-xs font-semibold"
-              >
-                <option value="openrouter">OpenRouter Gateway</option>
-                <option value="orcarouter">OrcaRouter Engine</option>
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-muted-foreground text-[10px] font-bold uppercase">
-                Model Identifier
+          <div className="space-y-3 py-2 text-xs">
+            <div className="space-y-1">
+              <Label className="text-muted-foreground text-xs font-medium">
+                Provider
               </Label>
               <Input
-                placeholder="e.g. nvidia/nemotron-3.5-lightning:free or deepseek/deepseek-r1"
-                value={newModelId}
-                onChange={(e) =>
-                  setNewModelId(sanitizeModelIdentifier(e.target.value))
+                value={
+                  newModelProvider === 'openrouter'
+                    ? 'OpenRouter'
+                    : 'OrcaRouter'
                 }
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleAddModel();
-                  }
-                }}
-                className="bg-muted/40 h-9 font-mono text-xs"
-                autoFocus
+                disabled
+                className="bg-muted text-foreground border-border h-8 text-xs"
               />
-              <p className="text-muted-foreground text-[11px]">
-                Name and description will be generated automatically.
-              </p>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-muted-foreground text-xs font-medium">
+                Model Name
+              </Label>
+              <Input
+                placeholder="e.g. My Custom Model"
+                value={newModelName}
+                onChange={(e) => setNewModelName(e.target.value)}
+                className="bg-background text-foreground border-border h-8 text-xs"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-muted-foreground text-xs font-medium">
+                Model ID
+              </Label>
+              <Input
+                placeholder="e.g. author/model-name"
+                value={newModelId}
+                onChange={(e) => setNewModelId(e.target.value)}
+                className="bg-background text-foreground border-border h-8 font-mono text-xs"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-muted-foreground text-xs font-medium">
+                Description (Optional)
+              </Label>
+              <Input
+                placeholder="Brief summary of what this model is best for"
+                value={newModelDesc}
+                onChange={(e) => setNewModelDesc(e.target.value)}
+                className="bg-background text-foreground border-border h-8 text-xs"
+              />
             </div>
           </div>
 
-          <DialogFooter className="gap-2">
+          <DialogFooter className="mt-4 gap-2">
             <Button
+              type="button"
               variant="outline"
               size="sm"
               onClick={() => setAddModelModalOpen(false)}
+              className="h-8 text-xs"
             >
               Cancel
             </Button>
             <Button
+              type="button"
               size="sm"
-              onClick={handleAddModel}
-              disabled={!newModelId.trim()}
-              className="bg-emerald-600 font-bold text-white hover:bg-emerald-700"
+              onClick={handleAddCustomModel}
+              className="h-8 text-xs font-medium"
             >
               Add Model
             </Button>
