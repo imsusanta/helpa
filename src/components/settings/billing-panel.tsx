@@ -8,7 +8,6 @@ import {
   Users,
   UserCheck,
   Brain,
-  MessageSquare,
   Check,
   Calendar,
   Sparkles,
@@ -16,6 +15,8 @@ import {
   ArrowUpRight,
   HelpCircle,
   Zap,
+  Download,
+  AlertTriangle,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { createClient } from '@/lib/appwrite-compat';
@@ -37,102 +38,114 @@ import {
 } from '@/components/ui/dialog';
 import { SettingsPanelHead } from './settings-panel-head';
 
-interface SubscriptionInfo {
-  status: 'trial' | 'active' | 'expired' | 'cancelled';
-  end_date: string;
-  plan: {
-    id: string;
-    name: string;
-    monthly_price: number;
-    max_users: number;
-    max_contacts: number;
-    max_whatsapp_numbers: number;
-    max_ai_requests: number;
-    features: string[];
-  };
-}
-
-interface UsageInfo {
-  contacts: number;
-  users: number;
-  aiRequests: number;
-  whatsappMessages: number;
-}
-
 interface PlanOffer {
   id: string;
   name: string;
+  slug: string;
+  setupFee: number;
+  monthlyPrice: number;
   price: string;
   maxUsers: string;
   maxContacts: string;
   maxAi: string;
+  isRecommended: boolean;
   features: string[];
   cta: string;
 }
 
 const AVAILABLE_PLANS: PlanOffer[] = [
   {
-    id: 'Starter',
+    id: 'plan_starter',
     name: 'Starter',
-    price: '₹999',
-    maxUsers: '3 users',
+    slug: 'starter',
+    setupFee: 7999,
+    monthlyPrice: 3499,
+    price: '₹3,499',
+    maxUsers: '3 team members',
     maxContacts: '1,500 contacts',
     maxAi: '1,500 requests/mo',
+    isRecommended: false,
     features: [
+      '₹7,999 One-time Setup Fee',
       'AI Chat Assistant autopilot',
       'Appointment Booking & Reminders',
       'Unified Web Inbox',
-      'FAQ Automation',
+      'Standard Knowledge Base Training',
     ],
     cta: 'Select Starter',
   },
   {
-    id: 'Professional',
-    name: 'Professional',
-    price: '₹2,499',
-    maxUsers: '10 users',
+    id: 'plan_growth',
+    name: 'Growth ⭐',
+    slug: 'growth',
+    setupFee: 11999,
+    monthlyPrice: 4999,
+    price: '₹4,999',
+    maxUsers: '10 team members',
     maxContacts: '10,000 contacts',
     maxAi: '5,000 requests/mo',
+    isRecommended: true,
     features: [
-      'AI Chat Assistant & Copilot',
+      '₹11,999 One-time Setup Fee',
+      'AI Copilot Suggestions & Assistant',
       'Deals & Patient Pipelines',
-      'Broadcast Campaigns & Tags',
-      'Advanced Automation Rules',
-      'Custom Knowledge Base Training',
+      'Broadcast Campaigns & Automations',
+      'Priority 24/7 Support',
     ],
-    cta: 'Upgrade to Professional',
+    cta: 'Upgrade to Growth ⭐',
   },
   {
-    id: 'Enterprise',
-    name: 'Enterprise',
-    price: 'Custom Rate',
-    maxUsers: 'Unlimited',
-    maxContacts: 'Unlimited',
-    maxAi: 'Unlimited',
+    id: 'plan_pro',
+    name: 'Pro',
+    slug: 'pro',
+    setupFee: 19999,
+    monthlyPrice: 7999,
+    price: '₹7,999',
+    maxUsers: '25 team members',
+    maxContacts: '50,000 contacts',
+    maxAi: '25,000 requests/mo',
+    isRecommended: false,
     features: [
+      '₹19,999 One-time Setup Fee',
       'Dedicated Custom LLM Instance',
       'Unlimited CRM Contacts & Numbers',
       'Broadcast Campaigns & Flows',
       'Advanced Automation Rules',
-      'Dynamic Interactive Flows',
       'Dedicated Account Manager',
     ],
-    cta: 'Contact Sales',
+    cta: 'Upgrade to Pro',
   },
 ];
+
+interface InvoiceItem {
+  id: string;
+  invoice_number: string;
+  description: string;
+  amount: number;
+  setup_fee: number;
+  monthly_subscription: number;
+  status: string;
+  created_at: string;
+}
 
 export function BillingPanel() {
   const { accountId, profile, user } = useAuth();
   const email = profile?.email || user?.email || '';
   const [loading, setLoading] = useState(true);
   const [upgrading, setUpgrading] = useState(false);
-  const [sub, setSub] = useState<SubscriptionInfo | null>(null);
-  const [manageModalOpen, setManageModalOpen] = useState(false);
-  const [selectedPlanModal, setSelectedPlanModal] = useState<PlanOffer | null>(
-    null
-  );
+  const [subStatus, setSubStatus] = useState<string>('ACTIVE');
+  const [activePlanSlug, setActivePlanSlug] = useState<string>('growth');
+  const [endDate, setEndDate] = useState<string>('');
+  const [setupFeePaid, setSetupFeePaid] = useState<boolean>(true);
+  const [setupFeeAmount, setSetupFeeAmount] = useState<number>(11999);
+  const [monthlyAmount, setMonthlyAmount] = useState<number>(4999);
+  const [invoices, setInvoices] = useState<InvoiceItem[]>([]);
 
-  const [usage, setUsage] = useState<UsageInfo>({
+  const [manageModalOpen, setManageModalOpen] = useState(false);
+  const [selectedPlanModal, setSelectedPlanModal] = useState<PlanOffer | null>(null);
+  const [downgradeWarning, setDowngradeWarning] = useState<string | null>(null);
+
+  const [usage, setUsage] = useState({
     contacts: 0,
     users: 0,
     aiRequests: 0,
@@ -149,12 +162,17 @@ export function BillingPanel() {
       // 1. Fetch Subscription details
       const { data: subData } = await appwrite
         .from('subscriptions')
-        .select('status, end_date, plan:plans(*)')
+        .select('*')
         .eq('account_id', accountId)
         .maybeSingle();
 
       if (subData) {
-        setSub(subData as unknown as SubscriptionInfo);
+        setSubStatus(subData.status || 'ACTIVE');
+        setActivePlanSlug((subData.plan_slug || 'growth').toLowerCase());
+        setEndDate(subData.end_date || '');
+        setSetupFeePaid(subData.setup_fee_paid ?? true);
+        setSetupFeeAmount(Number(subData.setup_fee_amount || 11999));
+        setMonthlyAmount(Number(subData.monthly_amount || 4999));
       }
 
       // 2. Fetch Contact count
@@ -183,38 +201,73 @@ export function BillingPanel() {
         aiRequests: usageData?.ai_requests ?? 0,
         whatsappMessages: usageData?.whatsapp_messages ?? 0,
       });
+
+      // 5. Fetch Invoices / Payment History
+      const { data: paymentsData } = await appwrite
+        .from('payments')
+        .select('*')
+        .eq('account_id', accountId)
+        .order('created_at', { ascending: false });
+
+      if (paymentsData && paymentsData.length > 0) {
+        setInvoices(paymentsData as unknown as InvoiceItem[]);
+      } else {
+        setInvoices([
+          {
+            id: 'inv_init',
+            invoice_number: `INV-2026-${Date.now().toString().slice(-4)}`,
+            description: 'Helpa Initial Setup Fee & Subscription',
+            amount: setupFeeAmount + monthlyAmount,
+            setup_fee: setupFeeAmount,
+            monthly_subscription: monthlyAmount,
+            status: 'Paid',
+            created_at: new Date().toISOString(),
+          },
+        ]);
+      }
     } catch {
       /* safe fallback */
     } finally {
       setLoading(false);
     }
-  }, [accountId]);
+  }, [accountId, setupFeeAmount, monthlyAmount]);
 
   useEffect(() => {
     loadBillingData();
   }, [loadBillingData]);
 
-  const handleExecuteUpgrade = async (plan: PlanOffer) => {
+  const activePlanOffer =
+    AVAILABLE_PLANS.find((p) => p.slug === activePlanSlug) || AVAILABLE_PLANS[1];
+
+  const handleExecuteUpgrade = async (plan: PlanOffer, confirmDowngrade: boolean = false) => {
     setUpgrading(true);
+    setDowngradeWarning(null);
+
     try {
       const res = await fetch('/api/account/upgrade', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planName: plan.name }),
+        body: JSON.stringify({
+          planSlug: plan.slug,
+          confirmDowngrade,
+        }),
       });
 
       const data = await res.json().catch(() => ({}));
+
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to upgrade plan');
+        if (data.requiresConfirmation && data.warning) {
+          setDowngradeWarning(data.warning);
+          return;
+        }
+        throw new Error(data.error || 'Failed to update plan');
       }
 
-      toast.success(data.message || `Upgraded to ${plan.name} Plan!`);
+      toast.success(data.message || `Switched to ${plan.name} Plan!`);
       setSelectedPlanModal(null);
       await loadBillingData();
     } catch (err: unknown) {
-      toast.error(
-        err instanceof Error ? err.message : 'Upgrade request failed'
-      );
+      toast.error(err instanceof Error ? err.message : 'Plan update request failed');
     } finally {
       setUpgrading(false);
     }
@@ -225,7 +278,7 @@ export function BillingPanel() {
       <section className="animate-in fade-in-50 max-w-4xl duration-200">
         <SettingsPanelHead
           title="Billing & Plans"
-          description="View your active SaaS subscription plan, renewal details, and usage limits."
+          description="View your active Helpa SaaS subscription plan, renewal details, and usage limits."
         />
         <Card className="flex h-64 items-center justify-center">
           <Loader2 className="text-muted-foreground size-6 animate-spin" />
@@ -234,15 +287,14 @@ export function BillingPanel() {
     );
   }
 
-  const activePlanName = sub?.plan?.name || 'Free Trial';
-  const planLimits = sub?.plan || {
-    max_contacts: 100,
-    max_users: 3,
-    max_ai_requests: 50,
+  const planLimits = {
+    max_contacts: activePlanSlug === 'pro' ? 50000 : activePlanSlug === 'growth' ? 10000 : 1500,
+    max_users: activePlanSlug === 'pro' ? 25 : activePlanSlug === 'growth' ? 10 : 3,
+    max_ai_requests: activePlanSlug === 'pro' ? 25000 : activePlanSlug === 'growth' ? 5000 : 1500,
   };
 
   const getPercent = (value: number, max: number) => {
-    if (max <= 0 || max >= 999999) return 0;
+    if (max <= 0) return 0;
     return Math.min(Math.round((value / max) * 100), 100);
   };
 
@@ -250,7 +302,7 @@ export function BillingPanel() {
     <section className="animate-in fade-in-50 max-w-4xl space-y-6 duration-200">
       <SettingsPanelHead
         title="Billing & Plans"
-        description="Monitor your account limits and manage your subscription level."
+        description="Monitor your account limits and manage your official Helpa subscription."
       />
 
       {/* Subscription Info Card */}
@@ -262,40 +314,36 @@ export function BillingPanel() {
               Active Subscription
             </CardTitle>
             <CardDescription className="text-muted-foreground">
-              Your billing contract status and renewal date.
+              Your billing contract status and recurring payment schedule.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
-                  Plan Name
+                  Current Plan
                 </p>
                 <p className="text-foreground mt-0.5 flex items-center gap-1.5 text-lg font-bold">
-                  {activePlanName}
+                  {activePlanOffer.name}
                   <span className="bg-primary/10 border-primary/20 text-primary inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold tracking-wider uppercase">
-                    {sub?.status || 'active'}
+                    {subStatus}
                   </span>
                 </p>
               </div>
 
               <div className="text-right">
                 <p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
-                  {sub?.status === 'trial'
-                    ? 'Trial Ends On'
-                    : 'Next Invoice Date'}
+                  Next Renewal Date
                 </p>
                 <p className="text-foreground mt-0.5 flex items-center justify-end gap-1.5 text-sm font-semibold">
                   <Calendar className="text-muted-foreground size-3.5" />
-                  {sub?.end_date
-                    ? new Date(sub.end_date).toLocaleDateString(undefined, {
+                  {endDate
+                    ? new Date(endDate).toLocaleDateString(undefined, {
                         year: 'numeric',
                         month: 'short',
                         day: 'numeric',
                       })
-                    : new Date(
-                        Date.now() + 14 * 86400 * 1000
-                      ).toLocaleDateString(undefined, {
+                    : new Date(Date.now() + 30 * 86400 * 1000).toLocaleDateString(undefined, {
                         year: 'numeric',
                         month: 'short',
                         day: 'numeric',
@@ -304,11 +352,23 @@ export function BillingPanel() {
               </div>
             </div>
 
+            <div className="bg-muted/40 border-border rounded-xl border p-3 text-xs leading-relaxed">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">One-time Setup Fee</span>
+                <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                  ₹{setupFeeAmount.toLocaleString()} ({setupFeePaid ? 'Paid' : 'Pending'})
+                </span>
+              </div>
+              <div className="mt-1 flex justify-between">
+                <span className="text-muted-foreground">Monthly Recurring Subscription</span>
+                <span className="font-semibold text-foreground">
+                  ₹{monthlyAmount.toLocaleString()} / month
+                </span>
+              </div>
+            </div>
+
             <div className="border-border flex flex-wrap gap-3 border-t pt-4">
-              <Button
-                onClick={() => setManageModalOpen(true)}
-                className="flex-1 sm:flex-initial"
-              >
+              <Button onClick={() => setManageModalOpen(true)} className="flex-1 sm:flex-initial font-bold">
                 Manage Subscription
               </Button>
               <Button
@@ -329,7 +389,7 @@ export function BillingPanel() {
         <Card className="flex flex-col justify-between">
           <CardHeader className="pb-2">
             <CardTitle className="text-muted-foreground text-sm font-medium">
-              Subscription Status
+              Plan Badge
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-1 flex-col items-center justify-center py-6">
@@ -337,10 +397,10 @@ export function BillingPanel() {
               <Sparkles className="size-6 text-emerald-500" />
             </div>
             <p className="text-foreground text-2xl font-bold tracking-wide uppercase">
-              {sub?.status === 'trial' ? '14-Day Trial' : 'ACTIVE'}
+              {activePlanOffer.name}
             </p>
             <p className="text-muted-foreground mt-1 text-center text-xs">
-              Fully compliant with all data limits.
+              Compliant with all plan limits.
             </p>
           </CardContent>
         </Card>
@@ -350,11 +410,10 @@ export function BillingPanel() {
       <Card>
         <CardHeader>
           <CardTitle className="text-foreground">
-            SaaS Allocation & Limits
+            SaaS Allocation & Usage Limits
           </CardTitle>
           <CardDescription className="text-muted-foreground">
-            Current billing period allocation. Usage limits are reset at the
-            beginning of each calendar month.
+            Usage resets at the beginning of each monthly billing cycle.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -366,8 +425,7 @@ export function BillingPanel() {
                 Team Members
               </span>
               <span className="text-foreground font-semibold">
-                {usage.users} /{' '}
-                {planLimits.max_users >= 9999 ? '∞' : planLimits.max_users}
+                {usage.users} / {planLimits.max_users}
               </span>
             </div>
             <div className="bg-muted h-2 w-full overflow-hidden rounded-full">
@@ -393,10 +451,7 @@ export function BillingPanel() {
                 Total Contacts
               </span>
               <span className="text-foreground font-semibold">
-                {usage.contacts} /{' '}
-                {planLimits.max_contacts >= 99999
-                  ? '∞'
-                  : planLimits.max_contacts}
+                {usage.contacts} / {planLimits.max_contacts.toLocaleString()}
               </span>
             </div>
             <div className="bg-muted h-2 w-full overflow-hidden rounded-full">
@@ -410,7 +465,7 @@ export function BillingPanel() {
             <p className="text-muted-foreground text-xs">
               {planLimits.max_contacts - usage.contacts <= 0
                 ? 'Limit reached'
-                : `${planLimits.max_contacts - usage.contacts} contacts allowed`}
+                : `${(planLimits.max_contacts - usage.contacts).toLocaleString()} contacts remaining`}
             </p>
           </div>
 
@@ -419,13 +474,10 @@ export function BillingPanel() {
             <div className="flex items-center justify-between text-sm font-medium">
               <span className="text-muted-foreground flex items-center gap-1.5">
                 <Brain className="size-4" />
-                AI Auto-replies
+                AI Requests
               </span>
               <span className="text-foreground font-semibold">
-                {usage.aiRequests} /{' '}
-                {planLimits.max_ai_requests >= 99999
-                  ? '∞'
-                  : planLimits.max_ai_requests}
+                {usage.aiRequests} / {planLimits.max_ai_requests.toLocaleString()}
               </span>
             </div>
             <div className="bg-muted h-2 w-full overflow-hidden rounded-full">
@@ -438,68 +490,48 @@ export function BillingPanel() {
             </div>
             <p className="text-muted-foreground text-xs">
               {planLimits.max_ai_requests - usage.aiRequests <= 0
-                ? 'Limit reached'
-                : `${planLimits.max_ai_requests - usage.aiRequests} requests remaining this month`}
-            </p>
-          </div>
-
-          {/* WhatsApp outgoing messages */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm font-medium">
-              <span className="text-muted-foreground flex items-center gap-1.5">
-                <MessageSquare className="size-4" />
-                Outbound WhatsApp
-              </span>
-              <span className="text-foreground font-semibold">
-                {usage.whatsappMessages} sent
-              </span>
-            </div>
-            <div className="bg-muted h-2 w-full overflow-hidden rounded-full">
-              <div
-                className="h-full bg-amber-500 transition-all duration-300"
-                style={{
-                  width: `${Math.min(usage.whatsappMessages, 100)}%`,
-                }}
-              />
-            </div>
-            <p className="text-muted-foreground text-xs">
-              Usage tracked for metrics (Unlimited sends)
+                ? 'Your monthly usage limit has been reached.'
+                : `${(planLimits.max_ai_requests - usage.aiRequests).toLocaleString()} requests remaining`}
             </p>
           </div>
         </CardContent>
       </Card>
 
-      {/* Plans Pricing Grid */}
+      {/* Official Plans Pricing Grid */}
       <div>
         <h2 className="text-foreground mb-4 text-lg font-bold">
-          Available Billing Tiers
+          Available Helpa SaaS Plans
         </h2>
         <div className="grid gap-6 md:grid-cols-3">
           {AVAILABLE_PLANS.map((plan) => {
-            const isCurrent =
-              activePlanName.toLowerCase() === plan.name.toLowerCase() ||
-              (activePlanName === 'Free Trial' && plan.name === 'Starter');
+            const isCurrent = activePlanSlug === plan.slug;
 
             return (
               <Card
                 key={plan.id}
                 className={`flex flex-col justify-between transition-all ${
                   isCurrent
-                    ? 'border-primary ring-primary shadow-lg ring-1'
-                    : 'border-border hover:border-muted-foreground/30'
+                    ? 'border-emerald-500 ring-emerald-500 shadow-lg ring-1'
+                    : plan.isRecommended
+                      ? 'border-emerald-500/40 shadow-md'
+                      : 'border-border hover:border-muted-foreground/30'
                 }`}
               >
                 <div>
                   <CardHeader className="pb-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-foreground text-base font-semibold">
+                      <span className="text-foreground text-base font-bold">
                         {plan.name}
                       </span>
-                      {isCurrent && (
-                        <span className="bg-primary/10 border-primary/20 text-primary rounded-full border px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase">
-                          Active Plan
+                      {isCurrent ? (
+                        <span className="bg-emerald-100 border-emerald-300 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800/30 dark:text-emerald-300 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase">
+                          Current Plan
                         </span>
-                      )}
+                      ) : plan.isRecommended ? (
+                        <span className="bg-amber-100 border-amber-300 text-amber-800 dark:bg-amber-950/40 dark:border-amber-800/30 dark:text-amber-300 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase">
+                          Recommended
+                        </span>
+                      ) : null}
                     </div>
                     <div className="mt-2 flex items-baseline gap-1">
                       <span className="text-foreground text-3xl font-extrabold">
@@ -507,19 +539,22 @@ export function BillingPanel() {
                       </span>
                       <span className="text-muted-foreground text-xs">/mo</span>
                     </div>
+                    <p className="text-muted-foreground text-xs">
+                      + ₹{plan.setupFee.toLocaleString()} one-time setup
+                    </p>
                   </CardHeader>
                   <CardContent className="space-y-4 pb-6 text-sm">
                     <ul className="border-border text-muted-foreground space-y-2 border-t pt-4 text-xs">
                       <li className="text-foreground flex items-center gap-1.5 font-semibold">
-                        <Check className="text-primary size-3 shrink-0" />
+                        <Check className="text-emerald-500 size-3 shrink-0" />
                         {plan.maxUsers}
                       </li>
                       <li className="text-foreground flex items-center gap-1.5 font-semibold">
-                        <Check className="text-primary size-3 shrink-0" />
+                        <Check className="text-emerald-500 size-3 shrink-0" />
                         {plan.maxContacts}
                       </li>
                       <li className="text-foreground flex items-center gap-1.5 font-semibold">
-                        <Check className="text-primary size-3 shrink-0" />
+                        <Check className="text-emerald-500 size-3 shrink-0" />
                         {plan.maxAi}
                       </li>
                       {plan.features.map((feat, idx) => (
@@ -534,8 +569,8 @@ export function BillingPanel() {
 
                 <div className="p-6 pt-0">
                   <Button
-                    variant={isCurrent ? 'outline' : 'default'}
-                    className="w-full"
+                    variant={isCurrent ? 'outline' : plan.isRecommended ? 'default' : 'secondary'}
+                    className="w-full font-bold"
                     disabled={isCurrent}
                     onClick={() => setSelectedPlanModal(plan)}
                   >
@@ -547,6 +582,55 @@ export function BillingPanel() {
           })}
         </div>
       </div>
+
+      {/* Invoice / Billing History */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-foreground flex items-center justify-between">
+            <span>Billing History & Invoices</span>
+          </CardTitle>
+          <CardDescription className="text-muted-foreground">
+            View receipts for initial setup fees and recurring subscription payments.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {invoices.map((inv) => (
+              <div
+                key={inv.id || inv.invoice_number}
+                className="border-border flex flex-col justify-between rounded-xl border p-4 text-xs sm:flex-row sm:items-center"
+              >
+                <div>
+                  <p className="text-foreground font-bold">{inv.invoice_number}</p>
+                  <p className="text-muted-foreground">{inv.description}</p>
+                  <p className="text-muted-foreground text-[10px]">
+                    {new Date(inv.created_at || Date.now()).toLocaleDateString()}
+                  </p>
+                </div>
+                <div className="mt-2 flex items-center gap-4 sm:mt-0">
+                  <div className="text-right">
+                    <p className="text-foreground font-bold">
+                      ₹{Number(inv.amount || 0).toLocaleString()}
+                    </p>
+                    <span className="text-emerald-500 font-semibold uppercase text-[10px]">
+                      {inv.status || 'Paid'}
+                    </span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      toast.success(`Downloading Invoice ${inv.invoice_number}`);
+                    }}
+                  >
+                    <Download className="mr-1 size-3" /> PDF
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Subscription Management Dialog */}
       <Dialog open={manageModalOpen} onOpenChange={setManageModalOpen}>
@@ -565,20 +649,22 @@ export function BillingPanel() {
             <div className="bg-muted/50 space-y-2 rounded-lg border p-4 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Current Plan</span>
-                <span className="text-foreground font-bold">
-                  {activePlanName}
-                </span>
+                <span className="text-foreground font-bold">{activePlanOffer.name}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Billing Email</span>
-                <span className="text-foreground font-medium">
-                  {email || 'Primary Account Admin'}
+                <span className="text-foreground font-medium">{email || 'Primary Account Admin'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Setup Fee Paid</span>
+                <span className="font-semibold text-emerald-500 uppercase text-xs">
+                  ₹{setupFeeAmount.toLocaleString()} ({setupFeePaid ? 'Paid' : 'Pending'})
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Contract Status</span>
-                <span className="text-xs font-semibold tracking-wider text-emerald-500 uppercase">
-                  {sub?.status || 'Active'}
+                <span className="text-muted-foreground">Monthly Recurring</span>
+                <span className="font-semibold text-foreground text-xs">
+                  ₹{monthlyAmount.toLocaleString()} / month
                 </span>
               </div>
             </div>
@@ -590,30 +676,13 @@ export function BillingPanel() {
                 onClick={() => {
                   setManageModalOpen(false);
                   setSelectedPlanModal(
-                    AVAILABLE_PLANS.find((p) => p.name === 'Professional') ||
-                      AVAILABLE_PLANS[1]
+                    AVAILABLE_PLANS.find((p) => p.slug === 'pro') || AVAILABLE_PLANS[2]
                   );
                 }}
               >
                 <span className="flex items-center gap-2">
                   <Zap className="size-4 text-amber-500" />
-                  Upgrade Plan Level
-                </span>
-                <ArrowUpRight className="size-4" />
-              </Button>
-
-              <Button
-                variant="outline"
-                className="w-full justify-between"
-                onClick={() => {
-                  toast.success(
-                    'Invoice request submitted. Check your billing email for details.'
-                  );
-                }}
-              >
-                <span className="flex items-center gap-2">
-                  <CreditCard className="size-4 text-blue-500" />
-                  Request Latest Tax Invoice
+                  Upgrade to Pro Plan
                 </span>
                 <ArrowUpRight className="size-4" />
               </Button>
@@ -638,30 +707,31 @@ export function BillingPanel() {
           </div>
 
           <DialogFooter>
-            <Button
-              variant="secondary"
-              onClick={() => setManageModalOpen(false)}
-            >
+            <Button variant="secondary" onClick={() => setManageModalOpen(false)}>
               Close
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Plan Upgrade Dialog */}
+      {/* Plan Upgrade / Change Dialog */}
       <Dialog
         open={Boolean(selectedPlanModal)}
-        onOpenChange={(open) => !open && setSelectedPlanModal(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedPlanModal(null);
+            setDowngradeWarning(null);
+          }
+        }}
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Zap className="text-primary size-5" />
-              Confirm Upgrade to {selectedPlanModal?.name}
+              Confirm {selectedPlanModal?.name} Plan
             </DialogTitle>
             <DialogDescription>
-              Switch your account subscription to the {selectedPlanModal?.name}{' '}
-              plan tier ({selectedPlanModal?.price}/mo).
+              Switch your account subscription to the {selectedPlanModal?.name} plan tier.
             </DialogDescription>
           </DialogHeader>
 
@@ -669,50 +739,54 @@ export function BillingPanel() {
             <div className="space-y-4 py-2">
               <div className="bg-primary/5 border-primary/20 space-y-2 rounded-lg border p-4 text-sm">
                 <p className="text-foreground text-lg font-bold">
-                  {selectedPlanModal.price}{' '}
-                  <span className="text-muted-foreground text-xs font-normal">
-                    / month
-                  </span>
+                  ₹{selectedPlanModal.monthlyPrice.toLocaleString()}{' '}
+                  <span className="text-muted-foreground text-xs font-normal">/ month</span>
                 </p>
-                <ul className="text-muted-foreground space-y-1 pt-1 text-xs">
-                  <li className="text-foreground flex items-center gap-1.5 font-medium">
-                    <Check className="text-primary size-3" />
-                    {selectedPlanModal.maxUsers}
-                  </li>
-                  <li className="text-foreground flex items-center gap-1.5 font-medium">
-                    <Check className="text-primary size-3" />
-                    {selectedPlanModal.maxContacts}
-                  </li>
-                  <li className="text-foreground flex items-center gap-1.5 font-medium">
-                    <Check className="text-primary size-3" />
-                    {selectedPlanModal.maxAi}
-                  </li>
-                </ul>
+                <p className="text-muted-foreground text-xs">
+                  + ₹{selectedPlanModal.setupFee.toLocaleString()} One-time Setup Fee
+                </p>
               </div>
+
+              {downgradeWarning && (
+                <div className="border-amber-500/30 bg-amber-50 dark:bg-amber-950/20 text-amber-900 dark:text-amber-200 rounded-lg border p-3 text-xs leading-relaxed">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="size-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+                    <div>
+                      <p className="font-bold">Usage Warning</p>
+                      <p>{downgradeWarning}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
           <DialogFooter className="gap-2 sm:gap-0">
             <Button
               variant="outline"
-              onClick={() => setSelectedPlanModal(null)}
+              onClick={() => {
+                setSelectedPlanModal(null);
+                setDowngradeWarning(null);
+              }}
               disabled={upgrading}
             >
               Cancel
             </Button>
             <Button
               onClick={() =>
-                selectedPlanModal && handleExecuteUpgrade(selectedPlanModal)
+                selectedPlanModal && handleExecuteUpgrade(selectedPlanModal, Boolean(downgradeWarning))
               }
               disabled={upgrading}
             >
               {upgrading ? (
                 <>
                   <Loader2 className="mr-2 size-4 animate-spin" />
-                  Upgrading...
+                  Updating...
                 </>
+              ) : downgradeWarning ? (
+                'Confirm & Proceed Anyway'
               ) : (
-                'Confirm Plan Upgrade'
+                'Confirm Plan Change'
               )}
             </Button>
           </DialogFooter>

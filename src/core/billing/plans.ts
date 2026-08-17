@@ -1,5 +1,5 @@
 /**
- * Helpa Core SaaS Billing — Plans Catalog & Management
+ * Helpa Core SaaS Billing — Official Plans Catalog & Management
  */
 
 import { SubscriptionPlan } from './types';
@@ -7,45 +7,19 @@ import { getAdminClient } from '@/lib/appwrite-server-compat';
 
 export const DEFAULT_PLANS: SubscriptionPlan[] = [
   {
-    id: 'plan_free',
-    name: 'Free',
-    description:
-      'Essential communication tools for solo businesses and evaluation.',
-    monthlyPrice: 0,
-    yearlyPrice: 0,
-    currency: 'INR',
-    trialDays: 0,
-    isActive: true,
-    displayOrder: 1,
-    features: [
-      'core.inbox',
-      'core.contacts',
-      'core.ai',
-      'health.patients',
-      'coaching.students',
-      'tutor.students',
-      'salon.customers',
-      'realestate.leads',
-    ],
-    usageLimits: {
-      aiMessages: 100,
-      whatsappMessages: 500,
-      teamMembers: 1,
-      campaignMessages: 100,
-      contacts: 250,
-    },
-  },
-  {
     id: 'plan_starter',
     name: 'Starter',
+    slug: 'starter',
     description:
       'For growing businesses requiring AI-powered appointment & lead communication.',
-    monthlyPrice: 999,
-    yearlyPrice: 9990,
+    setupFee: 7999,
+    monthlyPrice: 3499,
+    yearlyPrice: 34990,
     currency: 'INR',
-    trialDays: 14,
+    billingInterval: 'monthly',
+    isRecommended: false,
     isActive: true,
-    displayOrder: 2,
+    displayOrder: 1,
     features: [
       'core.inbox',
       'core.contacts',
@@ -57,15 +31,9 @@ export const DEFAULT_PLANS: SubscriptionPlan[] = [
       'health.appointments',
       'coaching.students',
       'coaching.courses',
-      'coaching.batches',
       'tutor.students',
-      'tutor.assignments',
-      'tutor.class_reminders',
       'salon.customers',
-      'salon.services',
-      'salon.appointments',
       'realestate.leads',
-      'realestate.properties',
     ],
     usageLimits: {
       aiMessages: 1500,
@@ -73,19 +41,26 @@ export const DEFAULT_PLANS: SubscriptionPlan[] = [
       teamMembers: 3,
       campaignMessages: 1000,
       contacts: 1500,
+      automations: 5,
+      knowledgeBaseMb: 25,
+      appointments: 250,
+      storageMb: 500,
     },
   },
   {
-    id: 'plan_professional',
-    name: 'Professional',
+    id: 'plan_growth',
+    name: 'Growth ⭐',
+    slug: 'growth',
     description:
-      'Full-featured AI automation, AI Copilot, and high-volume WhatsApp communication.',
-    monthlyPrice: 2499,
-    yearlyPrice: 24990,
+      'Recommended plan for clinics, institutes, and agencies needing Copilot & Automations.',
+    setupFee: 11999,
+    monthlyPrice: 4999,
+    yearlyPrice: 49990,
     currency: 'INR',
-    trialDays: 14,
+    billingInterval: 'monthly',
+    isRecommended: true,
     isActive: true,
-    displayOrder: 3,
+    displayOrder: 2,
     features: [
       'core.inbox',
       'core.contacts',
@@ -121,19 +96,26 @@ export const DEFAULT_PLANS: SubscriptionPlan[] = [
       teamMembers: 10,
       campaignMessages: 5000,
       contacts: 10000,
+      automations: 25,
+      knowledgeBaseMb: 100,
+      appointments: 1000,
+      storageMb: 2000,
     },
   },
   {
-    id: 'plan_business',
-    name: 'Business',
+    id: 'plan_pro',
+    name: 'Pro',
+    slug: 'pro',
     description:
-      'High-scale multi-agent operations, custom models, and priority support.',
-    monthlyPrice: 5999,
-    yearlyPrice: 59990,
+      'High-scale multi-agent operations, custom models, and unlimited capacity.',
+    setupFee: 19999,
+    monthlyPrice: 7999,
+    yearlyPrice: 79990,
     currency: 'INR',
-    trialDays: 14,
+    billingInterval: 'monthly',
+    isRecommended: false,
     isActive: true,
-    displayOrder: 4,
+    displayOrder: 3,
     features: [
       'core.inbox',
       'core.contacts',
@@ -163,54 +145,85 @@ export const DEFAULT_PLANS: SubscriptionPlan[] = [
       'realestate.matching',
       'realestate.site_visits',
       'core.custom_models',
+      'core.dedicated_support',
     ],
     usageLimits: {
-      aiMessages: 20000,
-      whatsappMessages: 35000,
+      aiMessages: 25000,
+      whatsappMessages: 50000,
       teamMembers: 25,
-      campaignMessages: 20000,
+      campaignMessages: 25000,
       contacts: 50000,
+      automations: 100,
+      knowledgeBaseMb: 500,
+      appointments: 5000,
+      storageMb: 10000,
     },
   },
 ];
 
 export async function getAvailablePlans(): Promise<SubscriptionPlan[]> {
-  const db = getAdminClient();
-  const { data: rows } = await db
-    .from('plans')
-    .select('*')
-    .eq('is_active', true)
-    .order('display_order', { ascending: true });
+  try {
+    const db = getAdminClient();
+    const { data: rows, error } = await db
+      .from('plans')
+      .select('*')
+      .order('display_order', { ascending: true });
 
-  if (!rows || rows.length === 0) {
+    if (error || !rows || rows.length === 0) {
+      return DEFAULT_PLANS;
+    }
+
+    return rows.map((r) => {
+      const slug = r.slug || String(r.id || r.name).toLowerCase().replace(/^plan_/, '');
+      const defaultPlan = DEFAULT_PLANS.find((dp) => dp.slug === slug || dp.id === r.id);
+
+      return {
+        id: r.id || defaultPlan?.id || `plan_${slug}`,
+        name: r.name || defaultPlan?.name || 'Plan',
+        slug: slug as 'starter' | 'growth' | 'pro',
+        description: r.description || defaultPlan?.description || '',
+        setupFee: Number(r.setup_fee ?? defaultPlan?.setupFee ?? 0),
+        monthlyPrice: Number(r.monthly_price ?? defaultPlan?.monthlyPrice ?? 0),
+        yearlyPrice: Number(r.yearly_price ?? defaultPlan?.yearlyPrice ?? 0),
+        currency: r.currency || 'INR',
+        billingInterval: (r.billing_interval as 'monthly' | 'yearly') || 'monthly',
+        isRecommended: r.is_recommended ?? defaultPlan?.isRecommended ?? false,
+        isActive: r.is_active !== false,
+        displayOrder: Number(r.display_order || defaultPlan?.displayOrder || 1),
+        features: Array.isArray(r.features)
+          ? (r.features as string[])
+          : typeof r.features === 'string'
+            ? JSON.parse(r.features)
+            : defaultPlan?.features || [],
+        usageLimits: {
+          aiMessages: Number(r.max_ai_requests ?? r.ai_messages ?? defaultPlan?.usageLimits.aiMessages ?? 5000),
+          whatsappMessages: Number(r.max_whatsapp_numbers ?? r.whatsapp_messages ?? defaultPlan?.usageLimits.whatsappMessages ?? 10000),
+          teamMembers: Number(r.max_users ?? r.team_members ?? defaultPlan?.usageLimits.teamMembers ?? 5),
+          campaignMessages: Number(r.campaign_messages ?? defaultPlan?.usageLimits.campaignMessages ?? 2000),
+          contacts: Number(r.max_contacts ?? r.contacts ?? defaultPlan?.usageLimits.contacts ?? 5000),
+          automations: Number(r.automations ?? defaultPlan?.usageLimits.automations ?? 25),
+          knowledgeBaseMb: Number(r.knowledge_base_mb ?? defaultPlan?.usageLimits.knowledgeBaseMb ?? 100),
+          appointments: Number(r.appointments ?? defaultPlan?.usageLimits.appointments ?? 1000),
+          storageMb: Number(r.storage_mb ?? defaultPlan?.usageLimits.storageMb ?? 2000),
+        },
+        createdAt: r.created_at,
+        updatedAt: r.updated_at,
+      };
+    });
+  } catch (err) {
+    console.warn('[getAvailablePlans] DB fetch failed, returning DEFAULT_PLANS:', err);
     return DEFAULT_PLANS;
   }
+}
 
-  return rows.map((r) => ({
-    id: r.id,
-    name: r.name,
-    description: r.description || '',
-    monthlyPrice: Number(r.monthly_price || 0),
-    yearlyPrice: Number(r.yearly_price || 0),
-    currency: r.currency || 'INR',
-    trialDays: Number(r.trial_days || 14),
-    isActive: r.is_active !== false,
-    displayOrder: Number(r.display_order || 1),
-    features: (r.features as string[]) || [],
-    usageLimits: {
-      aiMessages: Number(r.max_ai_requests || r.ai_messages || 5000),
-      whatsappMessages: Number(
-        r.max_whatsapp_numbers || r.whatsapp_messages || 10000
-      ),
-      teamMembers: Number(r.max_users || r.team_members || 5),
-      campaignMessages: Number(r.campaign_messages || 2000),
-      contacts: Number(r.max_contacts || r.contacts || 5000),
-    },
-  }));
+export async function getPlanBySlug(slug: string): Promise<SubscriptionPlan> {
+  const plans = await getAvailablePlans();
+  const found = plans.find(
+    (p) => p.slug.toLowerCase() === slug.toLowerCase() || p.id.toLowerCase() === slug.toLowerCase()
+  );
+  return found || DEFAULT_PLANS[1]; // Default to Growth ⭐
 }
 
 export async function getPlanById(planId: string): Promise<SubscriptionPlan> {
-  const plans = await getAvailablePlans();
-  const found = plans.find((p) => p.id.toLowerCase() === planId.toLowerCase());
-  return found || DEFAULT_PLANS[2]; // Default to Professional if not found
+  return getPlanBySlug(planId);
 }

@@ -17,7 +17,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   getAvailablePlans,
-  getPlanById,
+  getPlanBySlug,
   canAccessFeature,
   startFreeTrial,
   upgradeSubscription,
@@ -148,33 +148,36 @@ describe('Helpa Core SaaS Billing & Monetization Layer', () => {
   });
 
   describe('Plans Catalog & Safe Defaults', () => {
-    it('retrieves default plans (Free, Starter, Professional, Business)', async () => {
+    it('retrieves default official plans (Starter, Growth ⭐, Pro)', async () => {
       const plans = await getAvailablePlans();
-      expect(plans.length).toBeGreaterThanOrEqual(4);
+      expect(plans.length).toBeGreaterThanOrEqual(3);
 
-      const freePlan = plans.find((p) => p.id === 'plan_free');
-      expect(freePlan?.monthlyPrice).toBe(0);
+      const starterPlan = plans.find((p) => p.slug === 'starter');
+      expect(starterPlan?.monthlyPrice).toBe(3499);
+      expect(starterPlan?.setupFee).toBe(7999);
 
-      const proPlan = await getPlanById('plan_professional');
-      expect(proPlan.name).toBe('Professional');
-      expect(proPlan.monthlyPrice).toBe(2499);
-      expect(proPlan.features).toContain('core.ai_copilot');
+      const growthPlan = await getPlanBySlug('growth');
+      expect(growthPlan.name).toBe('Growth ⭐');
+      expect(growthPlan.monthlyPrice).toBe(4999);
+      expect(growthPlan.setupFee).toBe(11999);
+      expect(growthPlan.isRecommended).toBe(true);
+      expect(growthPlan.features).toContain('core.ai_copilot');
     });
   });
 
   describe('Subscription Lifecycle & Free Trial', () => {
-    it('starts a 14-day free trial on Professional plan', async () => {
+    it('starts a 14-day free trial on Growth plan', async () => {
       const eventSpy = vi.fn();
       coreEvents.on('billing.trial_started', eventSpy);
 
       const sub = await startFreeTrial({
         workspaceId: 'ws-new-01',
-        planId: 'plan_professional',
+        planId: 'plan_growth',
         trialDays: 14,
       });
 
       expect(sub.status).toBe('TRIALING');
-      expect(sub.planId).toBe('plan_professional');
+      expect(sub.planId).toBe('plan_growth');
       expect(sub.trialEnd).toBeDefined();
 
       expect(eventSpy).toHaveBeenCalledWith(
@@ -191,12 +194,12 @@ describe('Helpa Core SaaS Billing & Monetization Layer', () => {
 
       const sub = await upgradeSubscription({
         workspaceId: workspaceB.id,
-        newPlanId: 'plan_professional',
+        newPlanId: 'plan_growth',
         billingCycle: 'yearly',
       });
 
       expect(sub.status).toBe('ACTIVE');
-      expect(sub.planId).toBe('plan_professional');
+      expect(sub.planId).toBe('plan_growth');
       expect(sub.billingCycle).toBe('yearly');
 
       expect(eventSpy).toHaveBeenCalledWith(
