@@ -336,7 +336,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                     href="/admin"
                     className={cn(
                       'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2',
-                      pathname === '/admin'
+                      pathname.startsWith('/admin')
                         ? 'bg-primary/10 text-primary'
                         : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                     )}

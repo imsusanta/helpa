@@ -50,6 +50,7 @@ import {
   validateAiModelId,
   sanitizeModelIdentifier,
 } from '@/core/ai/validation';
+import { AdminNav } from './admin-nav';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TYPES & DEFAULT CATALOGS
@@ -852,16 +853,25 @@ export function AdminAiInfrastructure() {
 
   return (
     <div className="space-y-6">
+      <AdminNav
+        onRefresh={() => {
+          loadSettings();
+          loadHealth();
+          loadUsage();
+        }}
+        loading={loading}
+      />
+
       {/* ═══════════════════════════════════════════════════════════════════
-          PAGE HEADER
+          PAGE ACTIONS
       ═══════════════════════════════════════════════════════════════════ */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-foreground text-lg font-semibold tracking-tight">
-            AI Setup
+          <h2 className="text-foreground text-sm font-semibold">
+            AI Provider & Model Settings
           </h2>
           <p className="text-muted-foreground text-xs">
-            Connect an AI service and choose the model Helpa should use.
+            Connect an AI service, choose default models, and configure failover
           </p>
         </div>
         <div className="flex items-center gap-2">
