@@ -79,23 +79,25 @@ export async function resolveAccountAiConfig(
       });
 
       if (
-        settingsMap.system_ai_provider === 'openrouter' ||
-        settingsMap.system_ai_provider === 'orcarouter'
+        !overrides?.primaryProvider &&
+        (settingsMap.system_ai_provider === 'openrouter' ||
+          settingsMap.system_ai_provider === 'orcarouter')
       ) {
         primaryName = settingsMap.system_ai_provider;
       }
       if (
-        settingsMap.system_ai_fallback_provider === 'openrouter' ||
-        settingsMap.system_ai_fallback_provider === 'orcarouter' ||
-        settingsMap.system_ai_fallback_provider === 'none'
+        overrides?.fallbackProvider === undefined &&
+        (settingsMap.system_ai_fallback_provider === 'openrouter' ||
+          settingsMap.system_ai_fallback_provider === 'orcarouter' ||
+          settingsMap.system_ai_fallback_provider === 'none')
       ) {
         fallbackName = settingsMap.system_ai_fallback_provider as
           AiProviderName | 'none';
       }
-      if (settingsMap.system_openrouter_model) {
+      if (settingsMap.system_openrouter_model && !overrides?.primaryProvider) {
         openrouterModel = settingsMap.system_openrouter_model;
       }
-      if (settingsMap.system_orcarouter_model) {
+      if (settingsMap.system_orcarouter_model && !overrides?.primaryProvider) {
         orcarouterModel = settingsMap.system_orcarouter_model;
       }
       if (settingsMap.system_openrouter_enabled !== undefined) {
@@ -135,11 +137,25 @@ export async function resolveAccountAiConfig(
     );
   }
 
+  // Explicit overrides always take precedence
+  if (overrides?.primaryProvider) {
+    primaryName = overrides.primaryProvider;
+  }
+  if (overrides?.fallbackProvider !== undefined) {
+    fallbackName = overrides.fallbackProvider;
+  }
+
   // If primary provider is explicitly disabled by Super Admin, switch to fallback
-  if (primaryName === 'openrouter' && !openrouterEnabled && orcarouterEnabled) {
+  if (
+    !overrides?.primaryProvider &&
+    primaryName === 'openrouter' &&
+    !openrouterEnabled &&
+    orcarouterEnabled
+  ) {
     primaryName = 'orcarouter';
     fallbackName = 'none';
   } else if (
+    !overrides?.primaryProvider &&
     primaryName === 'orcarouter' &&
     !orcarouterEnabled &&
     openrouterEnabled

@@ -646,6 +646,7 @@ JSON Schema:
 }
 
 Note:
+- ULTRA-FAST & CRISP REPLIES: Keep the "reply" concise, professional, and direct (1 to 3 short sentences maximum). Avoid long repetitive introductions or verbose text so the patient gets an instant response.
 - Set "sales_signal" to true if you detect genuine buying intent, service inquiry, quotation request, booking intent, or any strong sales signal from the customer.
 - Under "extracted_lead_info", populate only the fields mentioned by the customer. Use null for any details not mentioned or unknown.`;
 
@@ -682,8 +683,8 @@ Note:
     completion = await executeAiCompletionWithFallback({
       messages: apiMessages,
       options: {
-        temperature: 0.3,
-        maxTokens: 450,
+        temperature: 0.2,
+        maxTokens: 320,
         responseFormat: { type: 'json_object' },
       },
       resolutionParams: {

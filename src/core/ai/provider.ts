@@ -104,6 +104,11 @@ export class OpenRouterProvider implements AiProvider {
             messages,
             temperature,
             max_tokens: maxTokens,
+            provider: {
+              require_parameters: true,
+              sort: 'latency',
+              allow_fallbacks: true,
+            },
             ...(options?.responseFormat
               ? { response_format: options.responseFormat }
               : {}),
