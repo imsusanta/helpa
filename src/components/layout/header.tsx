@@ -16,8 +16,8 @@ import { getIndustryModule } from '@/modules/registry';
 import { ModeToggle } from '@/components/layout/mode-toggle';
 
 const pageTitles: Record<string, string> = {
-  '/dashboard': 'Dashboard',
-  '/inbox': 'WhatsApp Chats',
+  '/dashboard': 'Home',
+  '/inbox': 'Messages',
   '/patients': 'Patients',
   '/customers': 'Customers',
   '/students': 'Students',
@@ -43,12 +43,12 @@ const pageTitles: Record<string, string> = {
   '/lab-reports': 'Reports',
   '/billing': 'Billing',
   '/pipelines': 'Pipelines',
-  '/broadcasts': 'Broadcast Campaigns',
-  '/knowledge-base': 'Knowledge Base',
+  '/broadcasts': 'Campaigns',
+  '/knowledge-base': 'Knowledge',
   '/dashboard/analytics': 'Analytics',
   '/settings': 'Settings',
-  '/services': 'Services & Menu',
-  '/staff': 'Stylists & Staff',
+  '/services': 'Services',
+  '/staff': 'Staff',
 };
 
 function getPageTitle(pathname: string): string {

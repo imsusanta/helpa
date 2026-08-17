@@ -1,8 +1,8 @@
 import { ModuleNavItem } from '../types';
 
 export const sidebarConfig: ModuleNavItem[] = [
-  { href: '/dashboard', label: 'Dashboard', iconName: 'LayoutDashboard' },
-  { href: '/inbox', label: 'WhatsApp Chats', iconName: 'MessageSquare' },
+  { href: '/dashboard', label: 'Home', iconName: 'LayoutDashboard' },
+  { href: '/inbox', label: 'Messages', iconName: 'MessageSquare' },
   { href: '/reservations', label: 'Reservations', iconName: 'Calendar' },
   { href: '/tables', label: 'Tables', iconName: 'FileText' },
   { href: '/orders', label: 'Orders', iconName: 'FileText' },

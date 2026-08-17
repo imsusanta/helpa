@@ -1,8 +1,8 @@
 import { ModuleNavItem } from '../types';
 
 export const sidebarConfig: ModuleNavItem[] = [
-  { href: '/dashboard', label: 'Dashboard', iconName: 'LayoutDashboard' },
-  { href: '/inbox', label: 'WhatsApp Inbox', iconName: 'MessageSquare' },
+  { href: '/dashboard', label: 'Home', iconName: 'LayoutDashboard' },
+  { href: '/inbox', label: 'Messages', iconName: 'MessageSquare' },
   { href: '/patients', label: 'Patients', iconName: 'Users' },
   { href: '/doctors', label: 'Doctors', iconName: 'UserCheck' },
   { href: '/appointments', label: 'Appointments', iconName: 'Calendar' },
@@ -14,7 +14,6 @@ export const sidebarConfig: ModuleNavItem[] = [
     iconName: 'Megaphone',
     roleMin: 'admin',
   },
-  { href: '/knowledge-base', label: 'Knowledge Base', iconName: 'BookOpen' },
-  { href: '/dashboard/analytics', label: 'AI Analytics', iconName: 'Brain' },
+  { href: '/knowledge-base', label: 'Knowledge', iconName: 'BookOpen' },
   { href: '/settings', label: 'Settings', iconName: 'Settings' },
 ];

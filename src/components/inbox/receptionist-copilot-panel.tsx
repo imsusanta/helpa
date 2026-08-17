@@ -24,7 +24,6 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useCan } from '@/hooks/use-can';
 import { useRouter } from 'next/navigation';
@@ -248,21 +247,13 @@ export function ReceptionistCopilotPanel({
           <div className="flex items-center gap-2">
             <Brain className="size-4 text-emerald-600 dark:text-emerald-400" />
             <h3 className="text-foreground truncate text-sm font-semibold">
-              AI Receptionist Copilot
+              AI Assistant
             </h3>
           </div>
-          <div className="mt-1 flex items-center gap-1.5">
-            <Badge variant="outline" className="h-4 px-1.5 text-[10px]">
-              {snapshot?.generatedBy === 'openrouter' ? 'AI' : 'Rules'}
-            </Badge>
-            {snapshot && (
-              <span className="text-muted-foreground text-[10px]">
-                {new Date(snapshot.generatedAt).toLocaleTimeString([], {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </span>
-            )}
+          <div className="mt-0.5 flex items-center gap-1.5">
+            <span className="text-muted-foreground text-[11px]">
+              Ask Helpa to help you with this conversation
+            </span>
           </div>
         </div>
         <Button

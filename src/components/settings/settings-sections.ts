@@ -131,7 +131,7 @@ const DEFAULT_LABELS: IndustryLabels = {
   fields: 'Contact Custom Fields',
   deals: 'Currency Settings',
   ai: 'AI Assistant',
-  kb: 'Knowledge Base',
+  kb: 'Knowledge',
   reminders: 'Smart Reminders',
 };
 

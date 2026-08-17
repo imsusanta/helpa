@@ -249,10 +249,10 @@ export function ConversationList({
 
   return (
     <div className="border-border bg-card flex h-full w-full flex-col border-r lg:w-80">
-      {/* Header with Title and New Chat button */}
+      {/* Header with Title and New Message button */}
       <div className="border-border flex items-center justify-between border-b px-3.5 py-3">
         <div className="flex items-center gap-2">
-          <h2 className="text-foreground text-sm font-semibold">Chats</h2>
+          <h2 className="text-foreground text-sm font-semibold">Messages</h2>
           {conversations.length > 0 && (
             <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-[11px] font-medium">
               {conversations.length}
@@ -265,7 +265,7 @@ export function ConversationList({
           className="h-7 gap-1.5 px-2.5 text-xs font-medium shadow-xs"
         >
           <SquarePen className="h-3.5 w-3.5" />
-          <span>New Chat</span>
+          <span>New Message</span>
         </Button>
       </div>
 
@@ -276,7 +276,7 @@ export function ConversationList({
           <Input
             value={search}
             onChange={handleSearchChange}
-            placeholder="Search conversations..."
+            placeholder="Search messages by name or phone..."
             className="border-border bg-muted text-foreground placeholder-muted-foreground focus:border-primary/50 pr-8 pl-9 text-sm"
           />
           {search && (
@@ -351,7 +351,7 @@ export function ConversationList({
                 : 'text-muted-foreground hover:bg-muted hover:text-foreground'
             )}
           >
-            <span>AI</span>
+            <span>AI Replied</span>
             {counts.ai > 0 && (
               <span className="text-[10px] opacity-75">{counts.ai}</span>
             )}

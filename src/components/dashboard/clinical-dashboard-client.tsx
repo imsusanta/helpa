@@ -14,7 +14,6 @@ import {
   CalendarCheck,
   Activity,
   ArrowUpRight,
-  Bot,
   CheckCircle2,
   CircleAlert,
   Inbox,
@@ -88,7 +87,6 @@ export function ClinicalDashboardClient() {
 
   const [loading, setLoading] = useState(true);
   const [greeting, setGreeting] = useState('Welcome back');
-  const [activeModelName, setActiveModelName] = useState('Gemini 2.5 Flash');
   const [stats, setStats] = useState({
     conversationsToday: 0,
     aiRepliesToday: 0,
@@ -123,30 +121,6 @@ export function ClinicalDashboardClient() {
     else if (hr < 18) setGreeting('Good Afternoon');
     else setGreeting('Good Evening');
   }, []);
-
-  // Fetch active OpenRouter model
-  useEffect(() => {
-    if (!accountId) return;
-    async function getAiModel() {
-      try {
-        const res = await fetch('/api/account/ai');
-        if (res.ok) {
-          const data = await res.json();
-          const modelId = data.openrouter_model || 'google/gemini-2.5-flash';
-          if (modelId === 'google/gemini-2.5-flash')
-            setActiveModelName('Gemini 2.5 Flash');
-          else if (modelId === 'anthropic/claude-3.5-sonnet')
-            setActiveModelName('Claude 3.5 Sonnet');
-          else if (modelId === 'meta-llama/llama-3.3-70b-instruct')
-            setActiveModelName('Llama 3.3 70B');
-          else setActiveModelName(modelId.split('/')[1] || modelId);
-        }
-      } catch (e) {
-        console.error('Failed to load active model name:', e);
-      }
-    }
-    getAiModel();
-  }, [accountId]);
 
   const loadDashboardData = useCallback(async () => {
     if (!accountId) return;
@@ -368,51 +342,85 @@ export function ClinicalDashboardClient() {
 
   return (
     <div className="animate-in fade-in space-y-7 duration-500">
-      <section className="border-primary/20 bg-card relative overflow-hidden rounded-[1.75rem] border shadow-[0_24px_80px_-44px_rgba(79,70,229,0.6)]">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(124,58,237,0.2),transparent_38%),radial-gradient(circle_at_bottom_left,rgba(14,165,233,0.12),transparent_34%)]" />
-        <div className="relative grid gap-8 p-6 sm:p-8 lg:grid-cols-[1fr_auto] lg:items-center">
-          <div className="max-w-2xl">
-            <div className="border-primary/20 bg-primary/10 text-primary mb-4 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-bold tracking-[0.16em] uppercase">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.14)]" />
-              Clinic operations center
+      <section className="border-border bg-card relative overflow-hidden rounded-2xl border p-6 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Clinic Assistant Active</span>
             </div>
-            <h1 className="text-foreground max-w-xl text-3xl font-semibold tracking-[-0.05em] sm:text-4xl">
-              {greeting}, Receptionist.
+            <h1 className="text-foreground text-2xl font-bold tracking-tight sm:text-3xl">
+              {greeting} 👋
             </h1>
-            <p className="text-muted-foreground mt-3 max-w-xl text-sm leading-6">
-              Your front desk is in one view. Triage today&apos;s queue, keep
-              patients moving, and let Helpa handle the repetitive replies.
+            <p className="text-muted-foreground mt-1 text-sm">
+              Here&apos;s what needs your attention today.
             </p>
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row lg:flex-col lg:items-stretch">
-            <Link
-              href="/settings?tab=ai"
-              className="group border-primary/20 bg-background/55 hover:border-primary/40 hover:bg-background/80 flex min-w-[220px] items-center gap-3 rounded-2xl border px-4 py-3 backdrop-blur transition-all duration-200 hover:-translate-y-0.5"
-            >
-              <span className="bg-primary/10 text-primary rounded-xl p-2.5">
-                <Bot className="h-4 w-4" />
-              </span>
-              <span className="min-w-0 flex-1 text-left">
-                <span className="flex items-center gap-1.5 text-xs font-bold">
-                  AI receptionist
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                </span>
-                <span className="text-muted-foreground mt-0.5 block truncate text-[11px]">
-                  {activeModelName} is active
-                </span>
-              </span>
-              <ArrowUpRight className="text-muted-foreground h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-            </Link>
+          <div className="flex items-center gap-3">
             <Link href="/appointments">
-              <Button className="shadow-primary/20 h-12 w-full rounded-2xl px-5 font-semibold shadow-lg transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.98]">
-                <Plus className="mr-2 h-4 w-4" />
-                Book appointment
+              <Button className="h-10 rounded-xl px-4 text-xs font-semibold">
+                <Plus className="mr-1.5 h-4 w-4" />
+                Book Appointment
               </Button>
             </Link>
           </div>
         </div>
       </section>
+
+      {/* What needs your attention section */}
+      {(stats.pendingAppointments > 0 || stats.todayFollowups > 0 || stats.unreadWhatsAppChats > 0 || stats.reportsAwaitingCollection > 0) && (
+        <section className="border-amber-500/30 bg-amber-500/5 dark:bg-amber-500/10 rounded-xl border p-4 shadow-sm space-y-2">
+          <div className="flex items-center gap-2 mb-2">
+            <CircleAlert className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <h2 className="text-xs font-semibold text-amber-900 dark:text-amber-200 uppercase tracking-wider">
+              Needs Your Attention
+            </h2>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {stats.pendingAppointments > 0 && (
+              <div className="flex items-center justify-between gap-3 bg-background/80 dark:bg-background/40 p-2.5 rounded-lg border border-amber-500/20 text-xs">
+                <span>{stats.pendingAppointments} appointment{stats.pendingAppointments > 1 ? 's' : ''} waiting for confirmation</span>
+                <Link href="/appointments">
+                  <Button size="sm" variant="outline" className="h-6 text-[11px] font-medium">
+                    Review
+                  </Button>
+                </Link>
+              </div>
+            )}
+            {stats.unreadWhatsAppChats > 0 && (
+              <div className="flex items-center justify-between gap-3 bg-background/80 dark:bg-background/40 p-2.5 rounded-lg border border-amber-500/20 text-xs">
+                <span>{stats.unreadWhatsAppChats} unread patient message{stats.unreadWhatsAppChats > 1 ? 's' : ''}</span>
+                <Link href="/inbox">
+                  <Button size="sm" variant="outline" className="h-6 text-[11px] font-medium">
+                    Reply
+                  </Button>
+                </Link>
+              </div>
+            )}
+            {stats.todayFollowups > 0 && (
+              <div className="flex items-center justify-between gap-3 bg-background/80 dark:bg-background/40 p-2.5 rounded-lg border border-amber-500/20 text-xs">
+                <span>{stats.todayFollowups} patient follow-up{stats.todayFollowups > 1 ? 's' : ''} due today</span>
+                <Link href="/follow-ups">
+                  <Button size="sm" variant="outline" className="h-6 text-[11px] font-medium">
+                    Open
+                  </Button>
+                </Link>
+              </div>
+            )}
+            {stats.reportsAwaitingCollection > 0 && (
+              <div className="flex items-center justify-between gap-3 bg-background/80 dark:bg-background/40 p-2.5 rounded-lg border border-amber-500/20 text-xs">
+                <span>{stats.reportsAwaitingCollection} lab report{stats.reportsAwaitingCollection > 1 ? 's' : ''} ready for delivery</span>
+                <Link href="/lab-reports">
+                  <Button size="sm" variant="outline" className="h-6 text-[11px] font-medium">
+                    View
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
         <MetricCard

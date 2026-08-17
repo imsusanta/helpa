@@ -10,14 +10,18 @@ import {
   FileText,
   UserCheck,
   Megaphone,
-  Brain,
-  Settings,
-  Sparkles,
+  Plus,
   ArrowRight,
-  TrendingUp,
+  Clock,
+  Sparkles,
+  Bot,
+  AlertCircle,
+  Building,
+  GraduationCap,
 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { SkeletonCard } from '@/components/dashboard/skeleton';
 
 const ICON_COMPONENTS: Record<
@@ -31,23 +35,26 @@ const ICON_COMPONENTS: Record<
   FileText,
   UserCheck,
   Megaphone,
-  Brain,
-  Settings,
+  Building,
+  GraduationCap,
+  Sparkles,
+  Clock,
 };
 
 export function GenericDashboardClient() {
-  const { account, accountId } = useAuth();
+  const { account, accountId, profile } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [greeting, setGreeting] = useState('Welcome back');
+  const [greeting, setGreeting] = useState('Good morning');
   const [metrics, setMetrics] = useState<Record<string, number>>({});
 
   const activeModule = getIndustryModule(account?.industry);
+  const userName = profile?.full_name?.split(' ')[0] || account?.name || 'there';
 
   useEffect(() => {
     const hr = new Date().getHours();
-    if (hr < 12) setGreeting('Good Morning');
-    else if (hr < 18) setGreeting('Good Afternoon');
-    else setGreeting('Good Evening');
+    if (hr < 12) setGreeting('Good morning');
+    else if (hr < 18) setGreeting('Good afternoon');
+    else setGreeting('Good evening');
   }, []);
 
   useEffect(() => {
@@ -80,7 +87,8 @@ export function GenericDashboardClient() {
     return (
       <div className="space-y-6">
         <div className="bg-muted h-8 w-48 animate-pulse rounded" />
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <SkeletonCard />
           <SkeletonCard />
           <SkeletonCard />
           <SkeletonCard />
@@ -89,140 +97,199 @@ export function GenericDashboardClient() {
     );
   }
 
+  // Determine industry-specific primary entity and quick actions
+  const primaryEntityHref = activeModule.sidebar.find((s) => s.href !== '/dashboard' && s.href !== '/inbox')?.href || '/contacts';
+  const primaryEntityLabel = activeModule.sidebar.find((s) => s.href === primaryEntityHref)?.label || 'People';
+
+  // Build actionable attention items
+  const attentionItems: Array<{ id: string; text: string; href: string; actionLabel: string }> = [];
+  const unreadCount = metrics.unread_messages || metrics.new_messages || metrics.conversations || 0;
+  const pendingCount = metrics.pending_appointments || metrics.pending_bookings || metrics.pending_enquiries || 0;
+  const followupsCount = metrics.followups_due || metrics.follow_ups || 0;
+
+  if (pendingCount > 0) {
+    attentionItems.push({
+      id: 'pending',
+      text: `${pendingCount} item${pendingCount > 1 ? 's' : ''} require your confirmation or review`,
+      href: primaryEntityHref,
+      actionLabel: 'Review',
+    });
+  }
+
+  if (unreadCount > 0) {
+    attentionItems.push({
+      id: 'messages',
+      text: `${unreadCount} new customer message${unreadCount > 1 ? 's' : ''} waiting for reply`,
+      href: '/inbox',
+      actionLabel: 'View',
+    });
+  }
+
+  if (followupsCount > 0) {
+    attentionItems.push({
+      id: 'followups',
+      text: `${followupsCount} scheduled follow-up${followupsCount > 1 ? 's' : ''} due today`,
+      href: '/follow-ups',
+      actionLabel: 'Open',
+    });
+  }
+
   return (
-    <div className="space-y-6">
-      {/* Header Banner */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-7 max-w-6xl mx-auto pb-10">
+      {/* 1. Header Greeting */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-foreground flex items-center gap-2 text-2xl font-bold tracking-tight sm:text-3xl">
-            {greeting}, {account?.name || 'Workspace'}
-            <span className="bg-primary/10 text-primary inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium">
-              <Sparkles className="h-3 w-3 animate-spin" />
-              {activeModule.name}
-            </span>
+          <h1 className="text-foreground text-2xl font-bold tracking-tight sm:text-3xl flex items-center gap-2">
+            {greeting}, {userName} 👋
           </h1>
-          <p className="text-muted-foreground mt-1 text-xs">
-            Overview of your AI communication hub and operations.
+          <p className="text-muted-foreground mt-1 text-sm">
+            Here&apos;s what needs your attention today.
           </p>
+        </div>
+
+        {/* AI Status Badge */}
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-xs font-medium self-start sm:self-auto">
+          <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span>AI Assistant is active</span>
         </div>
       </div>
 
-      {/* Dynamic Metrics Widgets Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {activeModule.dashboardMetrics.map((widget) => {
-          const Icon = ICON_COMPONENTS[widget.iconName] || FileText;
-          const count = metrics[widget.key] || 0;
-
-          return (
-            <div
-              key={widget.key}
-              className="border-border bg-card group relative overflow-hidden rounded-xl border p-5 shadow-sm transition hover:shadow-md"
-            >
-              <div className="flex items-center justify-between">
-                <p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
-                  {widget.label}
-                </p>
-                <div className="bg-primary/10 text-primary rounded-lg p-2 transition-transform group-hover:scale-110">
-                  <Icon className="h-4 w-4" />
+      {/* 2. What Needs Your Attention? (Conditional Alert Card) */}
+      {attentionItems.length > 0 && (
+        <Card className="border-amber-500/30 bg-amber-500/5 dark:bg-amber-500/10 shadow-sm overflow-hidden">
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <h2 className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+                Needs your attention
+              </h2>
+            </div>
+            <div className="space-y-2">
+              {attentionItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-center justify-between gap-3 bg-background/80 dark:bg-background/40 p-2.5 rounded-lg border border-amber-500/20 text-xs text-foreground"
+                >
+                  <span>{item.text}</span>
+                  <Link href={item.href}>
+                    <Button size="sm" variant="outline" className="h-7 text-xs font-medium">
+                      {item.actionLabel}
+                    </Button>
+                  </Link>
                 </div>
-              </div>
-              <div className="mt-4 flex items-baseline gap-2">
-                <span className="text-foreground text-3xl font-bold tracking-tight">
-                  {count}
-                </span>
-                <span className="text-muted-foreground flex items-center gap-0.5 text-[10px] font-medium">
-                  <TrendingUp className="h-3 w-3 text-emerald-500" />
-                  Live count
-                </span>
-              </div>
+              ))}
             </div>
-          );
-        })}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 3. Today's Overview (4–6 Summary Cards) */}
+      <div>
+        <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+          Today&apos;s Overview
+        </h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {activeModule.dashboardMetrics.map((widget) => {
+            const Icon = ICON_COMPONENTS[widget.iconName] || FileText;
+            const count = metrics[widget.key] || 0;
+
+            return (
+              <Card
+                key={widget.key}
+                className="border-border bg-card shadow-sm hover:shadow-md transition-shadow"
+              >
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between">
+                    <p className="text-muted-foreground text-xs font-medium">
+                      {widget.label}
+                    </p>
+                    <div className="bg-primary/10 text-primary rounded-lg p-2">
+                      <Icon className="h-4 w-4" />
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <span className="text-foreground text-3xl font-bold tracking-tight tabular-nums">
+                      {count}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       </div>
 
-      {/* AI Assistant & Copilot Quick Actions */}
+      {/* 4. Quick Actions & Direct Tasks */}
       <div className="grid gap-6 md:grid-cols-3">
-        <div className="border-border bg-card space-y-4 rounded-xl border p-6 md:col-span-2">
-          <h3 className="text-foreground flex items-center gap-2 font-bold">
-            <Brain className="h-4 w-4 text-indigo-500" />
-            AI Assistant Configuration
-          </h3>
-          <p className="text-muted-foreground text-xs leading-relaxed">
-            Your WhatsApp automated inbox is driven by a state-of-the-art AI
-            assistant preloaded with customized settings for the{' '}
-            {activeModule.name} industry.
-          </p>
+        {/* Left 2 Cols: Primary Business Shortcuts */}
+        <Card className="md:col-span-2 border-border shadow-sm">
+          <CardContent className="p-6 space-y-4">
+            <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              Quick Actions
+            </h2>
+            <p className="text-muted-foreground text-xs">
+              Fast shortcuts to manage {activeModule.name.toLowerCase()} operations.
+            </p>
 
-          <div className="bg-muted/30 border-border/50 space-y-3 rounded-lg border p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-foreground text-xs font-semibold">
-                Active Industry Model
-              </span>
-              <span className="rounded bg-indigo-500/10 px-2 py-0.5 text-[11px] font-bold text-indigo-600 dark:text-indigo-400">
-                Gemini 2.5 Flash
-              </span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+              <Link href={primaryEntityHref}>
+                <Button variant="outline" className="w-full justify-start h-12 text-xs font-medium border-border">
+                  <Plus className="mr-2 h-4 w-4 text-primary" />
+                  Add {primaryEntityLabel.slice(0, -1) || 'Entry'}
+                </Button>
+              </Link>
+
+              <Link href="/inbox">
+                <Button variant="outline" className="w-full justify-start h-12 text-xs font-medium border-border">
+                  <MessageSquare className="mr-2 h-4 w-4 text-emerald-500" />
+                  Open Messages
+                </Button>
+              </Link>
+
+              <Link href="/broadcasts">
+                <Button variant="outline" className="w-full justify-start h-12 text-xs font-medium border-border">
+                  <Megaphone className="mr-2 h-4 w-4 text-blue-500" />
+                  Send Campaign
+                </Button>
+              </Link>
+
+              <Link href="/knowledge-base">
+                <Button variant="outline" className="w-full justify-start h-12 text-xs font-medium border-border">
+                  <FileText className="mr-2 h-4 w-4 text-violet-500" />
+                  Update Knowledge
+                </Button>
+              </Link>
             </div>
-            <div className="space-y-1">
-              <span className="text-muted-foreground text-[10px] font-bold uppercase">
-                Current system instructions:
-              </span>
-              <p className="text-muted-foreground bg-card border-border/30 line-clamp-3 rounded border p-2 text-xs italic">
-                {activeModule.systemPrompt}
-              </p>
+          </CardContent>
+        </Card>
+
+        {/* Right Col: AI Business Assistant Card */}
+        <Card className="border-border shadow-sm bg-gradient-to-b from-primary/5 to-transparent">
+          <CardContent className="p-6 space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="bg-primary/10 text-primary p-2 rounded-lg">
+                <Bot className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-sm font-semibold text-foreground">AI Assistant</h2>
+                <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">Ready to reply</span>
+              </div>
             </div>
-          </div>
 
-          <div className="flex justify-end">
-            <Link href="/settings">
-              <Button
-                size="sm"
-                variant="outline"
-                className="flex cursor-pointer items-center gap-1 text-xs"
-              >
-                Configure AI Agent <ArrowRight className="h-3.5 w-3.5" />
-              </Button>
-            </Link>
-          </div>
-        </div>
+            <p className="text-muted-foreground text-xs leading-relaxed">
+              Helpa automatically replies to repetitive customer inquiries on WhatsApp using your business knowledge.
+            </p>
 
-        <div className="border-border bg-card space-y-4 rounded-xl border p-6">
-          <h3 className="text-foreground font-bold">Quick Action Shortcuts</h3>
-          <p className="text-muted-foreground text-xs">
-            Configure templates, contacts, or initialize dynamic actions.
-          </p>
-
-          <div className="space-y-2">
-            <Link href="/inbox">
-              <Button
-                className="w-full justify-start text-xs font-semibold"
-                variant="outline"
-              >
-                <MessageSquare className="mr-2 h-3.5 w-3.5 text-indigo-500" />
-                Go to Inbox Chats
-              </Button>
-            </Link>
-
-            <Link href="/broadcasts">
-              <Button
-                className="w-full justify-start text-xs font-semibold"
-                variant="outline"
-              >
-                <Megaphone className="mr-2 h-3.5 w-3.5 text-indigo-500" />
-                Launch Campaign Campaign
-              </Button>
-            </Link>
-
-            <Link href="/knowledge-base">
-              <Button
-                className="w-full justify-start text-xs font-semibold"
-                variant="outline"
-              >
-                <FileText className="mr-2 h-3.5 w-3.5 text-indigo-500" />
-                Add FAQ Article
-              </Button>
-            </Link>
-          </div>
-        </div>
+            <div className="pt-2">
+              <Link href="/inbox">
+                <Button size="sm" className="w-full text-xs font-medium">
+                  View Live Chats <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

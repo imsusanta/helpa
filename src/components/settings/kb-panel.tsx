@@ -129,13 +129,8 @@ export function KbPanel() {
   const isHospital = activeModule.id === 'hospital_clinic';
   const categoryMap = getCategoryMap(activeModule.id);
 
-  const panelTitle = isHospital
-    ? 'Hospital Information'
-    : `${activeModule.name} Knowledge Base`;
-
-  const panelDesc = isHospital
-    ? 'Build a repository of verified knowledge about your clinic/hospital. The AI Reply Engine will search this context to answer patient questions accurately.'
-    : `Build a repository of verified knowledge about your ${activeModule.name.toLowerCase()} business. The AI Reply Engine will search this context to answer customer inquiries accurately.`;
+  const panelTitle = 'Knowledge';
+  const panelDesc = 'Tell Helpa about your business so it can answer customer questions accurately.';
 
   const [entries, setEntries] = useState<KbEntry[]>([]);
   const [loading, setLoading] = useState(true);
