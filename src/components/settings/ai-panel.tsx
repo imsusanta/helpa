@@ -1,114 +1,35 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { toast } from 'sonner';
 import {
   Brain,
   Loader2,
-  Cpu,
-  AlertCircle,
-  CheckCircle2,
   MessageSquare,
-  Layers,
-  Zap,
+  Sparkles,
+  BookOpen,
+  BarChart2,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-
-const OPENROUTER_MODELS = [
-  {
-    id: 'google/gemini-2.5-flash',
-    name: 'Gemini 2.5 Flash',
-    provider: 'Google',
-    badge: 'Recommended',
-    desc: 'Lightning fast responses. Optimal choice for receptionist tasks.',
-  },
-  {
-    id: 'anthropic/claude-3.5-sonnet',
-    name: 'Claude 3.5 Sonnet',
-    provider: 'Anthropic',
-    badge: 'Max Quality',
-    desc: 'Industry-leading reasoning and clinical instruction-following.',
-  },
-  {
-    id: 'meta-llama/llama-3.3-70b-instruct',
-    name: 'Llama 3.3 70B',
-    provider: 'Meta',
-    badge: 'Balanced',
-    desc: 'Open-source intelligence with high reasoning capabilities.',
-  },
-  {
-    id: 'custom',
-    name: '✏️ Enter Custom Model Identifier...',
-    provider: 'Custom LLM',
-    badge: 'Custom',
-    desc: 'Enter any valid OpenRouter model string (e.g. deepseek/deepseek-r1).',
-  },
-];
-
-const ORCAROUTER_MODELS = [
-  {
-    id: 'orcarouter/auto',
-    name: 'OrcaRouter Auto Engine',
-    provider: 'OrcaRouter',
-    badge: 'Smart Auto',
-    desc: 'Automated intelligent routing across best performing LLM models.',
-  },
-  {
-    id: 'openai/gpt-4o-mini',
-    name: 'GPT-4o Mini',
-    provider: 'OpenAI (via Orca)',
-    badge: 'Fast',
-    desc: 'High speed and concise responses.',
-  },
-  {
-    id: 'custom',
-    name: '✏️ Enter Custom Model Identifier...',
-    provider: 'Custom LLM',
-    badge: 'Custom',
-    desc: 'Enter any custom model identifier supported by OrcaRouter.',
-  },
-];
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { SettingsPanelHead } from './settings-panel-head';
 
 export function AiPanel() {
   const { canEditSettings } = useAuth();
 
-  // Provider routing state
-  const [primaryProvider, setPrimaryProvider] = useState<'openrouter' | 'orcarouter'>('openrouter');
-  const [fallbackProvider, setFallbackProvider] = useState<'none' | 'openrouter' | 'orcarouter'>('none');
-
-  // OpenRouter state
-  const [openRouterModel, setOpenRouterModel] = useState('google/gemini-2.5-flash');
-  const [isOpenRouterCustom, setIsOpenRouterCustom] = useState(false);
-  const [openRouterCustomId, setOpenRouterCustomId] = useState('');
-  const [openRouterApiKey, setOpenRouterApiKey] = useState('');
-  const [hasOpenRouterKey, setHasOpenRouterKey] = useState(false);
-
-  // OrcaRouter state
-  const [orcaRouterModel, setOrcaRouterModel] = useState('orcarouter/auto');
-  const [isOrcaRouterCustom, setIsOrcaRouterCustom] = useState(false);
-  const [orcaRouterCustomId, setOrcaRouterCustomId] = useState('');
-  const [orcaRouterApiKey, setOrcaRouterApiKey] = useState('');
-  const [hasOrcaRouterKey, setHasOrcaRouterKey] = useState(false);
-
-  // System & Welcome prompt state
+  // Tenant workspace state
   const [systemPrompt, setSystemPrompt] = useState('');
   const [welcomeMessage, setWelcomeMessage] = useState('');
   const [accountName, setAccountName] = useState('');
+  const [usageRequests, setUsageRequests] = useState(2340);
+  const [maxRequests, setMaxRequests] = useState(5000);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [testingOpenRouter, setTestingOpenRouter] = useState(false);
-  const [testingOrcaRouter, setTestingOrcaRouter] = useState(false);
-
-  const [testResult, setTestResult] = useState<{
-    provider: string;
-    success: boolean;
-    message: string;
-  } | null>(null);
 
   useEffect(() => {
     async function loadConfig() {
@@ -116,37 +37,11 @@ export function AiPanel() {
         const response = await fetch('/api/account/ai');
         if (response.ok) {
           const data = await response.json();
-          setPrimaryProvider(data.ai_provider || 'openrouter');
-          setFallbackProvider(data.ai_fallback_provider || 'none');
-
-          const dbOpenRouterModel = data.openrouter_model || 'google/gemini-2.5-flash';
-          const dbOrcaRouterModel = data.orcarouter_model || 'orcarouter/auto';
-
-          const openRouterMatched = OPENROUTER_MODELS.some((m) => m.id === dbOpenRouterModel && m.id !== 'custom');
-          if (openRouterMatched) {
-            setOpenRouterModel(dbOpenRouterModel);
-            setIsOpenRouterCustom(false);
-          } else {
-            setIsOpenRouterCustom(true);
-            setOpenRouterCustomId(dbOpenRouterModel);
-            setOpenRouterModel('custom');
-          }
-
-          const orcaRouterMatched = ORCAROUTER_MODELS.some((m) => m.id === dbOrcaRouterModel && m.id !== 'custom');
-          if (orcaRouterMatched) {
-            setOrcaRouterModel(dbOrcaRouterModel);
-            setIsOrcaRouterCustom(false);
-          } else {
-            setIsOrcaRouterCustom(true);
-            setOrcaRouterCustomId(dbOrcaRouterModel);
-            setOrcaRouterModel('custom');
-          }
-
-          setHasOpenRouterKey(!!data.has_openrouter_key);
-          setHasOrcaRouterKey(!!data.has_orcarouter_key);
           setSystemPrompt(data.ai_system_prompt || '');
           setWelcomeMessage(data.welcome_message || '');
           setAccountName(data.account_name || '');
+          if (data.usage_requests !== undefined) setUsageRequests(data.usage_requests);
+          if (data.max_requests !== undefined) setMaxRequests(data.max_requests);
         }
       } catch (err) {
         console.error('Failed to load AI config:', err);
@@ -158,24 +53,9 @@ export function AiPanel() {
     loadConfig();
   }, []);
 
-  const activeOpenRouterModel = isOpenRouterCustom ? openRouterCustomId.trim() : openRouterModel;
-  const activeOrcaRouterModel = isOrcaRouterCustom ? orcaRouterCustomId.trim() : orcaRouterModel;
-
   async function handleSave() {
     if (!canEditSettings) return;
-
-    if (isOpenRouterCustom && !openRouterCustomId.trim()) {
-      toast.error('Please enter a valid custom model identifier for OpenRouter (e.g. deepseek/deepseek-r1)');
-      return;
-    }
-
-    if (isOrcaRouterCustom && !orcaRouterCustomId.trim()) {
-      toast.error('Please enter a valid custom model identifier for OrcaRouter');
-      return;
-    }
-
     setSaving(true);
-    setTestResult(null);
 
     try {
       const response = await fetch('/api/account/ai', {
@@ -184,14 +64,8 @@ export function AiPanel() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ai_provider: primaryProvider,
-          ai_fallback_provider: fallbackProvider,
-          openrouter_model: activeOpenRouterModel,
-          orcarouter_model: activeOrcaRouterModel,
           ai_system_prompt: systemPrompt,
           welcome_message: welcomeMessage,
-          ...(openRouterApiKey.trim() ? { openrouter_api_key: openRouterApiKey } : {}),
-          ...(orcaRouterApiKey.trim() ? { orcarouter_api_key: orcaRouterApiKey } : {}),
         }),
       });
 
@@ -208,79 +82,12 @@ export function AiPanel() {
         return;
       }
 
-      const data = await response.json();
-      setHasOpenRouterKey(!!data.has_openrouter_key);
-      setHasOrcaRouterKey(!!data.has_orcarouter_key);
-      setOpenRouterApiKey('');
-      setOrcaRouterApiKey('');
-      toast.success('AI Provider & Autopilot configuration saved');
+      toast.success('AI Receptionist guidelines & welcome greeting saved');
     } catch (err: unknown) {
       toast.error((err as Error).message || 'Failed to save AI configuration');
       console.error(err);
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function handleTestProvider(provider: 'openrouter' | 'orcarouter') {
-    if (provider === 'openrouter' && isOpenRouterCustom && !openRouterCustomId.trim()) {
-      toast.error('Please enter a custom OpenRouter model identifier to test');
-      return;
-    }
-
-    if (provider === 'orcarouter' && isOrcaRouterCustom && !orcaRouterCustomId.trim()) {
-      toast.error('Please enter a custom OrcaRouter model identifier to test');
-      return;
-    }
-
-    if (provider === 'openrouter') setTestingOpenRouter(true);
-    if (provider === 'orcarouter') setTestingOrcaRouter(true);
-    setTestResult(null);
-
-    const modelToTest = provider === 'openrouter' ? activeOpenRouterModel : activeOrcaRouterModel;
-
-    try {
-      const response = await fetch('/api/account/ai/test', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          provider,
-          api_key: provider === 'openrouter' ? openRouterApiKey : orcaRouterApiKey,
-          model: modelToTest,
-        }),
-      });
-
-      const data = await response.json();
-      const pLabel = provider === 'openrouter' ? 'OpenRouter' : 'OrcaRouter';
-
-      if (response.ok && data.success) {
-        setTestResult({
-          provider: pLabel,
-          success: true,
-          message: `Successfully connected to ${pLabel} (${modelToTest})! Latency: ${data.latencyMs || 0}ms. Message: "${data.message}"`,
-        });
-        toast.success(`${pLabel} connection check succeeded`);
-      } else {
-        setTestResult({
-          provider: pLabel,
-          success: false,
-          message: data.error || `${pLabel} connection test failed.`,
-        });
-        toast.error(`${pLabel} connection check failed`);
-      }
-    } catch (err) {
-      const pLabel = provider === 'openrouter' ? 'OpenRouter' : 'OrcaRouter';
-      setTestResult({
-        provider: pLabel,
-        success: false,
-        message: err instanceof Error ? err.message : 'Failed to communicate with test endpoint',
-      });
-      toast.error(`Failed to test ${pLabel}`);
-    } finally {
-      setTestingOpenRouter(false);
-      setTestingOrcaRouter(false);
     }
   }
 
@@ -292,336 +99,77 @@ export function AiPanel() {
     );
   }
 
+  const usagePercent = Math.min(100, Math.round((usageRequests / (maxRequests || 1)) * 100));
+
   return (
-    <section className="animate-in fade-in space-y-8 duration-300">
-      {/* Header */}
-      <div className="via-background to-background flex items-start gap-4 rounded-2xl border border-emerald-500/20 bg-gradient-to-r from-emerald-500/10 p-6 backdrop-blur-xl">
-        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3">
-          <Brain className="h-8 w-8 animate-pulse text-emerald-600 drop-shadow-[0_0_8px_rgba(16,185,129,0.3)] dark:text-emerald-400" />
-        </div>
-        <div>
-          <h2 className="text-foreground flex items-center gap-2 text-xl font-extrabold">
-            Helpa Multi-Provider AI Engine
-            <span className="rounded-full border border-emerald-200 bg-emerald-100 px-2 py-0.5 text-[10px] font-bold tracking-widest text-emerald-800 uppercase dark:border-emerald-800/30 dark:bg-emerald-950/40 dark:text-emerald-300">
-              Provider-Agnostic
-            </span>
-          </h2>
-          <p className="text-muted-foreground mt-1 max-w-xl text-xs leading-relaxed">
-            Configure first-class AI Providers (OpenRouter and OrcaRouter) with primary/fallback routing, custom model IDs, health monitoring, and AI Autopilot instructions.
-          </p>
-        </div>
-      </div>
+    <section className="animate-in fade-in space-y-6 duration-300">
+      <SettingsPanelHead
+        title="AI Receptionist & Guidelines"
+        description="Helpa AI automates patient replies, schedules consultations, and triages inbound chats using your practice instructions."
+      />
+
+      {/* Helpa AI Managed Status Card */}
+      <Card className="border-emerald-500/20 bg-emerald-500/[0.03] shadow-md">
+        <CardContent className="p-6">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600 shadow-sm">
+                <Brain className="h-6 w-6" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-foreground text-base font-bold">Helpa AI Engine</h3>
+                  <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-xs font-bold">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 mr-1 animate-pulse" />
+                    Available
+                  </Badge>
+                </div>
+                <p className="text-muted-foreground text-xs leading-relaxed max-w-lg">
+                  AI is managed centrally by Helpa. You don&apos;t need to provide an AI API key or configure language models.
+                </p>
+              </div>
+            </div>
+
+            {/* Monthly Usage Meter */}
+            <div className="bg-card border-border/80 min-w-[200px] rounded-xl border p-3.5 shadow-sm space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground font-semibold flex items-center gap-1">
+                  <BarChart2 className="h-3.5 w-3.5 text-emerald-600" />
+                  Monthly Quota
+                </span>
+                <span className="font-mono font-bold text-foreground">
+                  {usageRequests.toLocaleString()} / {maxRequests.toLocaleString()}
+                </span>
+              </div>
+              <div className="bg-muted h-2 w-full overflow-hidden rounded-full">
+                <div
+                  className="bg-emerald-500 h-full transition-all duration-500"
+                  style={{ width: `${usagePercent}%` }}
+                />
+              </div>
+              <p className="text-muted-foreground text-[10px] text-right">
+                {usagePercent}% utilized this billing cycle
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="space-y-6">
-        {/* Section 1: Provider Selection & Routing */}
-        <div className="bg-card border-border space-y-5 rounded-2xl border p-6 shadow-md transition-all duration-300 hover:border-emerald-500/20">
+        {/* Section 1: AI Instructions & System Prompt */}
+        <div className="bg-card border-border space-y-4 rounded-2xl border p-6 shadow-md transition-all duration-300 hover:border-emerald-500/20">
           <div className="flex items-center gap-2">
             <span className="flex h-6 w-6 items-center justify-center rounded-full border border-emerald-200 bg-emerald-100 text-xs font-bold text-emerald-700 dark:border-emerald-800/30 dark:bg-emerald-950/40 dark:text-emerald-300">
               1
             </span>
             <h3 className="text-foreground flex items-center gap-1.5 text-sm font-bold">
-              <Layers className="size-4 text-emerald-600 dark:text-emerald-400" />
-              Primary & Fallback Provider Routing
+              <Sparkles className="size-4 text-emerald-600 dark:text-emerald-400" />
+              Practice Instructions & Receptionist Persona
             </h3>
           </div>
-          <p className="text-muted-foreground max-w-xl text-xs leading-relaxed">
-            Select your Primary AI Provider and optional Fallback Provider. If your Primary Provider experiences a temporary network or 5xx issue, Helpa will seamlessly route requests to your Fallback Provider.
+          <p className="text-muted-foreground text-xs leading-relaxed max-w-xl">
+            Instruct your AI Receptionist on how to greet patients, clinic operating hours, available doctor specialties, and triage rules.
           </p>
-
-          <div className="grid gap-6 sm:grid-cols-2">
-            {/* Primary Provider */}
-            <div className="space-y-2">
-              <Label className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
-                Primary Provider
-              </Label>
-              <select
-                value={primaryProvider}
-                onChange={(e) => setPrimaryProvider(e.target.value as 'openrouter' | 'orcarouter')}
-                disabled={!canEditSettings}
-                className="border-border bg-muted/40 text-foreground h-10 w-full rounded-lg border px-3 text-sm font-medium outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
-              >
-                <option value="openrouter">OpenRouter (Default)</option>
-                <option value="orcarouter">OrcaRouter</option>
-              </select>
-            </div>
-
-            {/* Fallback Provider */}
-            <div className="space-y-2">
-              <Label className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
-                Fallback Provider
-              </Label>
-              <select
-                value={fallbackProvider}
-                onChange={(e) => setFallbackProvider(e.target.value as 'none' | 'openrouter' | 'orcarouter')}
-                disabled={!canEditSettings}
-                className="border-border bg-muted/40 text-foreground h-10 w-full rounded-lg border px-3 text-sm font-medium outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
-              >
-                <option value="none">None (No Fallback)</option>
-                <option value="openrouter" disabled={primaryProvider === 'openrouter'}>
-                  OpenRouter
-                </option>
-                <option value="orcarouter" disabled={primaryProvider === 'orcarouter'}>
-                  OrcaRouter
-                </option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Section 2: OpenRouter Provider Settings */}
-        <div className="bg-card border-border space-y-4 rounded-2xl border p-6 shadow-md transition-all duration-300 hover:border-emerald-500/20">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full border border-emerald-200 bg-emerald-100 text-xs font-bold text-emerald-700 dark:border-emerald-800/30 dark:bg-emerald-950/40 dark:text-emerald-300">
-                2
-              </span>
-              <h3 className="text-foreground flex items-center gap-1.5 text-sm font-bold">
-                <Zap className="size-4 text-emerald-600 dark:text-emerald-400" />
-                OpenRouter Provider Configuration
-              </h3>
-            </div>
-            {hasOpenRouterKey ? (
-              <span className="flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-100 px-2.5 py-0.5 text-[10px] font-bold text-emerald-800 dark:border-emerald-800/30 dark:bg-emerald-950/40 dark:text-emerald-300">
-                ● Connected
-              </span>
-            ) : (
-              <span className="flex items-center gap-1 rounded-full border border-amber-200 bg-amber-100 px-2.5 py-0.5 text-[10px] font-bold text-amber-800 dark:border-amber-800/30 dark:bg-amber-950/40 dark:text-amber-300">
-                ● Not Configured
-              </span>
-            )}
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
-                OpenRouter API Key
-              </Label>
-              <Input
-                type="password"
-                placeholder={hasOpenRouterKey ? '••••••••••••••••••••••••••••••••' : 'sk-or-v1-...'}
-                value={openRouterApiKey}
-                onChange={(e) => setOpenRouterApiKey(e.target.value)}
-                disabled={!canEditSettings}
-                className="bg-muted/40 border-border text-foreground focus-visible:ring-emerald-500"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
-                OpenRouter Default Model
-              </Label>
-              <select
-                value={isOpenRouterCustom ? 'custom' : openRouterModel}
-                onChange={(e) => {
-                  if (e.target.value === 'custom') {
-                    setIsOpenRouterCustom(true);
-                  } else {
-                    setIsOpenRouterCustom(false);
-                    setOpenRouterModel(e.target.value);
-                  }
-                }}
-                disabled={!canEditSettings}
-                className="border-border bg-muted/40 text-foreground h-9 w-full rounded-lg border px-2.5 text-sm outline-none focus:border-emerald-500"
-              >
-                {OPENROUTER_MODELS.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name} {m.provider !== 'Custom LLM' ? `(${m.provider})` : ''}
-                  </option>
-                ))}
-              </select>
-
-              {isOpenRouterCustom && (
-                <div className="pt-2 animate-in fade-in space-y-1.5">
-                  <Label className="text-muted-foreground text-[10px] font-bold tracking-wider uppercase">
-                    Custom OpenRouter Model Identifier
-                  </Label>
-                  <Input
-                    type="text"
-                    placeholder="e.g. deepseek/deepseek-r1 or cohere/north-mini-code:free"
-                    value={openRouterCustomId}
-                    onChange={(e) => setOpenRouterCustomId(e.target.value.replace(/['"]/g, '').trimStart())}
-                    disabled={!canEditSettings}
-                    className="bg-muted/40 border-border text-foreground h-9 font-mono text-xs focus-visible:ring-emerald-500"
-                  />
-                  {/* Quick-suggest pills */}
-                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                    <span className="text-muted-foreground text-[10px]">Suggestions:</span>
-                    {[
-                      'deepseek/deepseek-r1',
-                      'cohere/north-mini-code:free',
-                      'google/gemini-2.0-flash-thinking-exp:free',
-                      'meta-llama/llama-3.3-70b-instruct:free',
-                      'qwen/qwen-2.5-72b-instruct',
-                    ].map((sug) => (
-                      <button
-                        key={sug}
-                        type="button"
-                        onClick={() => setOpenRouterCustomId(sug)}
-                        className="rounded border border-border/70 bg-muted/60 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground hover:bg-emerald-500/10 hover:text-emerald-600 hover:border-emerald-500/40 transition-colors"
-                      >
-                        {sug}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-muted-foreground text-[10px] italic">
-                    Active Model: <code className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{activeOpenRouterModel || 'None specified'}</code>
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => handleTestProvider('openrouter')}
-              disabled={testingOpenRouter}
-              className="border-border text-foreground hover:bg-muted font-bold text-xs"
-            >
-              {testingOpenRouter ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : null}
-              Test OpenRouter Connection
-            </Button>
-          </div>
-        </div>
-
-        {/* Section 3: OrcaRouter Provider Settings */}
-        <div className="bg-card border-border space-y-4 rounded-2xl border p-6 shadow-md transition-all duration-300 hover:border-emerald-500/20">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full border border-emerald-200 bg-emerald-100 text-xs font-bold text-emerald-700 dark:border-emerald-800/30 dark:bg-emerald-950/40 dark:text-emerald-300">
-                3
-              </span>
-              <h3 className="text-foreground flex items-center gap-1.5 text-sm font-bold">
-                <Cpu className="size-4 text-emerald-600 dark:text-emerald-400" />
-                OrcaRouter Provider Configuration
-              </h3>
-            </div>
-            {hasOrcaRouterKey ? (
-              <span className="flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-100 px-2.5 py-0.5 text-[10px] font-bold text-emerald-800 dark:border-emerald-800/30 dark:bg-emerald-950/40 dark:text-emerald-300">
-                ● Connected
-              </span>
-            ) : (
-              <span className="flex items-center gap-1 rounded-full border border-amber-200 bg-amber-100 px-2.5 py-0.5 text-[10px] font-bold text-amber-800 dark:border-amber-800/30 dark:bg-amber-950/40 dark:text-amber-300">
-                ● Not Configured
-              </span>
-            )}
-          </div>
-          <p className="text-muted-foreground text-xs">
-            Official OrcaRouter API endpoint:{' '}
-            <code className="font-mono text-emerald-600 dark:text-emerald-400">
-              https://api.orcarouter.ai/v1
-            </code>
-          </p>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
-                OrcaRouter API Key
-              </Label>
-              <Input
-                type="password"
-                placeholder={hasOrcaRouterKey ? '••••••••••••••••••••••••••••••••' : 'orca_live_...'}
-                value={orcaRouterApiKey}
-                onChange={(e) => setOrcaRouterApiKey(e.target.value)}
-                disabled={!canEditSettings}
-                className="bg-muted/40 border-border text-foreground focus-visible:ring-emerald-500"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
-                OrcaRouter Default Model
-              </Label>
-              <select
-                value={isOrcaRouterCustom ? 'custom' : orcaRouterModel}
-                onChange={(e) => {
-                  if (e.target.value === 'custom') {
-                    setIsOrcaRouterCustom(true);
-                  } else {
-                    setIsOrcaRouterCustom(false);
-                    setOrcaRouterModel(e.target.value);
-                  }
-                }}
-                disabled={!canEditSettings}
-                className="border-border bg-muted/40 text-foreground h-9 w-full rounded-lg border px-2.5 text-sm outline-none focus:border-emerald-500"
-              >
-                {ORCAROUTER_MODELS.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
-
-              {isOrcaRouterCustom && (
-                <div className="pt-2 animate-in fade-in space-y-1.5">
-                  <Label className="text-muted-foreground text-[10px] font-bold tracking-wider uppercase">
-                    Custom OrcaRouter Model Identifier
-                  </Label>
-                  <Input
-                    type="text"
-                    placeholder="e.g. anthropic/claude-3-5-sonnet or custom-llm-id"
-                    value={orcaRouterCustomId}
-                    onChange={(e) => setOrcaRouterCustomId(e.target.value.replace(/['"]/g, '').trimStart())}
-                    disabled={!canEditSettings}
-                    className="bg-muted/40 border-border text-foreground h-9 font-mono text-xs focus-visible:ring-emerald-500"
-                  />
-                  {/* Quick-suggest pills */}
-                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                    <span className="text-muted-foreground text-[10px]">Suggestions:</span>
-                    {[
-                      'openai/gpt-4o-mini',
-                      'anthropic/claude-3-5-sonnet',
-                      'deepseek/deepseek-chat',
-                      'meta-llama/llama-3.3-70b',
-                    ].map((sug) => (
-                      <button
-                        key={sug}
-                        type="button"
-                        onClick={() => setOrcaRouterCustomId(sug)}
-                        className="rounded border border-border/70 bg-muted/60 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground hover:bg-emerald-500/10 hover:text-emerald-600 hover:border-emerald-500/40 transition-colors"
-                      >
-                        {sug}
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-muted-foreground text-[10px] italic">
-                    Active Model: <code className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{activeOrcaRouterModel || 'None specified'}</code>
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => handleTestProvider('orcarouter')}
-              disabled={testingOrcaRouter}
-              className="border-border text-foreground hover:bg-muted font-bold text-xs"
-            >
-              {testingOrcaRouter ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : null}
-              Test OrcaRouter Connection
-            </Button>
-          </div>
-        </div>
-
-        {/* Section 4: System Prompt Guidelines */}
-        <div className="bg-card border-border space-y-4 rounded-2xl border p-6 shadow-md transition-all duration-300 hover:border-emerald-500/20">
-          <div className="flex max-w-xl items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full border border-emerald-200 bg-emerald-100 text-xs font-bold text-emerald-700 dark:border-emerald-800/30 dark:bg-emerald-950/40 dark:text-emerald-300">
-                4
-              </span>
-              <h3 className="text-foreground flex items-center gap-1.5 text-sm font-bold">
-                <Brain className="size-4 text-emerald-600 dark:text-emerald-400" />
-                AI System Instructions & Guidelines
-              </h3>
-            </div>
-          </div>
           <div className="space-y-3">
             <Textarea
               id="systemPrompt"
@@ -635,20 +183,23 @@ export function AiPanel() {
           </div>
         </div>
 
-        {/* Section 5: Welcome Message */}
+        {/* Section 2: Automated Welcome Greeting */}
         <div className="bg-card border-border space-y-4 rounded-2xl border p-6 shadow-md transition-all duration-300 hover:border-emerald-500/20">
           <div className="flex items-center gap-2">
             <span className="flex h-6 w-6 items-center justify-center rounded-full border border-emerald-200 bg-emerald-100 text-xs font-bold text-emerald-700 dark:border-emerald-800/30 dark:bg-emerald-950/40 dark:text-emerald-300">
-              5
+              2
             </span>
             <h3 className="text-foreground flex items-center gap-1.5 text-sm font-bold">
               <MessageSquare className="size-4 text-emerald-600 dark:text-emerald-400" />
-              Customizable Welcome Greeting
+              Automated First Message / Welcome Greeting
             </h3>
           </div>
+          <p className="text-muted-foreground text-xs leading-relaxed max-w-xl">
+            Initial greeting sent automatically when a new patient contacts your WhatsApp Business number.
+          </p>
           <Textarea
             id="welcomeMessage"
-            placeholder={`👋 Hello! Welcome to ${accountName || 'our business'}. How can we assist you today?`}
+            placeholder={`👋 Hello! Welcome to ${accountName || 'our practice'}. How can we assist you today?`}
             value={welcomeMessage}
             onChange={(e) => setWelcomeMessage(e.target.value)}
             disabled={!canEditSettings}
@@ -657,30 +208,25 @@ export function AiPanel() {
           />
         </div>
 
-        {/* Test Result Display */}
-        {testResult && (
-          <div
-            className={`animate-in fade-in max-w-xl rounded-xl p-4 text-xs duration-200 ${
-              testResult.success
-                ? 'border border-green-500/20 bg-green-50 text-green-900 dark:bg-green-950/20 dark:text-green-200'
-                : 'border border-red-500/20 bg-red-50 text-red-900 dark:bg-red-950/20 dark:text-red-200'
-            }`}
-          >
-            <div className="flex items-start gap-2.5">
-              {testResult.success ? (
-                <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-green-600 dark:text-green-400" />
-              ) : (
-                <AlertCircle className="mt-0.5 size-4 shrink-0 text-red-600 dark:text-red-400" />
-              )}
-              <div>
-                <p className="mb-1 font-bold">
-                  [{testResult.provider}] {testResult.success ? 'Connection Check Successful' : 'Connection Check Failed'}
-                </p>
-                <p className="leading-relaxed whitespace-pre-wrap opacity-90">{testResult.message}</p>
+        {/* Section 3: Knowledge Base Quick Link */}
+        <Card className="border-border">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <BookOpen className="h-5 w-5 text-blue-500" />
+                <CardTitle className="text-foreground text-sm font-bold">Practice Knowledge Base</CardTitle>
               </div>
+              <Link href="/settings?tab=kb">
+                <Button size="sm" variant="outline" className="text-xs h-8">
+                  Manage Knowledge Base →
+                </Button>
+              </Link>
             </div>
-          </div>
-        )}
+            <CardDescription className="text-muted-foreground text-xs">
+              Upload doctor bios, service rate cards, treatment FAQs, and PDF documents for intelligent AI search.
+            </CardDescription>
+          </CardHeader>
+        </Card>
 
         {/* Action Controls */}
         {canEditSettings ? (
@@ -693,10 +239,10 @@ export function AiPanel() {
               {saving ? (
                 <>
                   <Loader2 className="mr-1.5 size-4 animate-spin" />
-                  Saving Configuration...
+                  Saving Guidelines...
                 </>
               ) : (
-                'Save Provider & Autopilot Config'
+                'Save AI Receptionist Guidelines'
               )}
             </Button>
           </div>

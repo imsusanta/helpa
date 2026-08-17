@@ -50,6 +50,8 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 
+import { AdminAiInfrastructure } from './admin-ai-infrastructure';
+
 interface Metrics {
   totalAccounts: number;
   totalContacts: number;
@@ -124,7 +126,7 @@ const DEFAULT_METRICS: Metrics = {
 
 export function AdminDashboardClient() {
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'tenants' | 'plans' | 'landing'
+    'overview' | 'tenants' | 'plans' | 'ai' | 'landing'
   >('overview');
   const [loading, setLoading] = useState(true);
 
@@ -508,9 +510,14 @@ export function AdminDashboardClient() {
 
       {/* Modernized Tab selection triggers */}
       <div className="border-border flex gap-2 overflow-x-auto border-b">
-        {['overview', 'tenants', 'plans', 'landing'].map((tab) => {
+        {['overview', 'tenants', 'plans', 'ai', 'landing'].map((tab) => {
           const isActive = activeTab === tab;
-          const label = tab === 'landing' ? 'landing page' : tab;
+          const label =
+            tab === 'landing'
+              ? 'landing page'
+              : tab === 'ai'
+                ? 'AI Infrastructure'
+                : tab;
           return (
             <button
               key={tab}
@@ -957,6 +964,9 @@ export function AdminDashboardClient() {
           </div>
         </div>
       )}
+
+      {/* AI INFRASTRUCTURE TAB */}
+      {activeTab === 'ai' && <AdminAiInfrastructure />}
 
       {/* LANDING TAB */}
       {activeTab === 'landing' && (

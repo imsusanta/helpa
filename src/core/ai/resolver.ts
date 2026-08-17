@@ -1,7 +1,8 @@
 /**
  * Helpa Core Platform — AI Provider Resolver & Fallback Engine
  *
- * Handles provider selection, bounded retries with exponential backoff,
+ * Centralized SaaS-level AI infrastructure resolver managed by Super Admin.
+ * Handles provider selection, feature routing, bounded retries with exponential backoff,
  * safe fallback routing between Primary and Fallback AI Providers,
  * error normalization, and automatic usage logging.
  */
@@ -43,7 +44,7 @@ export interface ResolvedProviderConfig {
 }
 
 /**
- * Resolves account-specific or system-default provider configuration for an account.
+ * Resolves platform-wide Super Admin provider configuration and feature-level model routing.
  */
 export async function resolveAccountAiConfig(
   accountId?: string,
@@ -55,11 +56,14 @@ export async function resolveAccountAiConfig(
   let openrouterModel = 'google/gemini-2.5-flash';
   let orcarouterKey: string | undefined = process.env.ORCAROUTER_API_KEY;
   let orcarouterModel = 'orcarouter/auto';
+  let openrouterEnabled = true;
+  let orcarouterEnabled = true;
+  let featureRouting: Record<string, string> = {};
 
   try {
     const db = appwriteAdmin();
 
-    // 1. Check Super Admin System-Level Defaults in system_settings
+    // 1. Check Super Admin Central AI Infrastructure in system_settings
     const { data: sysSettings } = await db
       .from('system_settings')
       .select('key, value');
@@ -91,6 +95,13 @@ export async function resolveAccountAiConfig(
       if (settingsMap.system_orcarouter_model) {
         orcarouterModel = settingsMap.system_orcarouter_model;
       }
+      if (settingsMap.system_openrouter_enabled !== undefined) {
+        openrouterEnabled = settingsMap.system_openrouter_enabled !== 'false';
+      }
+      if (settingsMap.system_orcarouter_enabled !== undefined) {
+        orcarouterEnabled = settingsMap.system_orcarouter_enabled !== 'false';
+      }
+
       if (settingsMap.system_openrouter_api_key) {
         try {
           openrouterKey = decrypt(settingsMap.system_openrouter_api_key);
@@ -105,77 +116,40 @@ export async function resolveAccountAiConfig(
           orcarouterKey = process.env.ORCAROUTER_API_KEY;
         }
       }
-    }
 
-    // 2. Check Tenant-Specific Account Overrides
-    if (accountId) {
-      const { data: acc } = await db
-        .from('accounts')
-        .select(
-          'ai_provider, ai_fallback_provider, openrouter_api_key, openrouter_model, orcarouter_api_key, orcarouter_model'
-        )
-        .eq('id', accountId)
-        .maybeSingle();
-
-      const { data: sysRows } = await db
-        .from('system_settings')
-        .select('key, value')
-        .ilike('key', `account:${accountId}:%`);
-
-      const sysMap: Record<string, string> = {};
-      if (sysRows && Array.isArray(sysRows)) {
-        sysRows.forEach((r: { key?: string; value?: string }) => {
-          if (r.key && r.value) {
-            const fieldName = r.key.replace(`account:${accountId}:`, '');
-            sysMap[fieldName] = r.value;
-          }
-        });
-      }
-
-      const effAiProvider = acc?.ai_provider || sysMap.ai_provider;
-      if (effAiProvider === 'openrouter' || effAiProvider === 'orcarouter') {
-        primaryName = effAiProvider;
-      }
-
-      const effFallback = acc?.ai_fallback_provider || sysMap.ai_fallback_provider;
-      if (
-        effFallback === 'openrouter' ||
-        effFallback === 'orcarouter' ||
-        effFallback === 'none'
-      ) {
-        fallbackName = effFallback;
-      }
-
-      if (acc?.openrouter_model || sysMap.openrouter_model) {
-        openrouterModel = acc?.openrouter_model || sysMap.openrouter_model;
-      }
-      if (acc?.orcarouter_model || sysMap.orcarouter_model) {
-        orcarouterModel = acc?.orcarouter_model || sysMap.orcarouter_model;
-      }
-
-      const effOpenRouterKey = acc?.openrouter_api_key || sysMap.openrouter_api_key;
-      if (effOpenRouterKey) {
+      if (settingsMap.system_feature_routing) {
         try {
-          openrouterKey = decrypt(effOpenRouterKey);
+          featureRouting = JSON.parse(settingsMap.system_feature_routing);
         } catch {
-          // Keep system default if decryption fails
-        }
-      }
-
-      const effOrcaRouterKey = acc?.orcarouter_api_key || sysMap.orcarouter_api_key;
-      if (effOrcaRouterKey) {
-        try {
-          orcarouterKey = decrypt(effOrcaRouterKey);
-        } catch {
-          // Keep system default if decryption fails
+          featureRouting = {};
         }
       }
     }
   } catch (err) {
-    console.warn('[Provider Resolver] Failed to load settings, using fallback defaults:', err);
+    console.warn('[Provider Resolver] Failed to load central settings, using fallback defaults:', err);
   }
 
-  // Override with custom keys/models if passed directly
+  // If primary provider is explicitly disabled by Super Admin, switch to fallback
+  if (primaryName === 'openrouter' && !openrouterEnabled && orcarouterEnabled) {
+    primaryName = 'orcarouter';
+    fallbackName = 'none';
+  } else if (primaryName === 'orcarouter' && !orcarouterEnabled && openrouterEnabled) {
+    primaryName = 'openrouter';
+    fallbackName = 'none';
+  }
+
+  // Apply feature-level model routing if configured by Super Admin
+  const feature = overrides?.feature;
+  if (feature && featureRouting[feature]) {
+    const mappedModel = featureRouting[feature];
+    if (primaryName === 'orcarouter') {
+      orcarouterModel = mappedModel;
+    } else {
+      openrouterModel = mappedModel;
+    }
+  }
+
+  // Override with custom keys/models if passed directly in tests or internal jobs
   if (overrides?.customApiKey) {
     if (primaryName === 'orcarouter') {
       orcarouterKey = overrides.customApiKey;
@@ -198,14 +172,17 @@ export async function resolveAccountAiConfig(
 
   let fallbackConfig: ResolvedProviderConfig['fallback'];
   if (fallbackName !== 'none' && fallbackName !== primaryName) {
-    const fallbackProvider = getProviderInstance(fallbackName);
-    const fallbackKey = fallbackName === 'orcarouter' ? orcarouterKey : openrouterKey;
-    const fallbackModel = fallbackName === 'orcarouter' ? orcarouterModel : openrouterModel;
-    fallbackConfig = {
-      provider: fallbackProvider,
-      apiKey: fallbackKey,
-      model: fallbackModel,
-    };
+    const isFallbackEnabled = fallbackName === 'orcarouter' ? orcarouterEnabled : openrouterEnabled;
+    if (isFallbackEnabled) {
+      const fallbackProvider = getProviderInstance(fallbackName);
+      const fallbackKey = fallbackName === 'orcarouter' ? orcarouterKey : openrouterKey;
+      const fallbackModel = fallbackName === 'orcarouter' ? orcarouterModel : openrouterModel;
+      fallbackConfig = {
+        provider: fallbackProvider,
+        apiKey: fallbackKey,
+        model: fallbackModel,
+      };
+    }
   }
 
   return {
@@ -248,7 +225,7 @@ export async function executeAiCompletionWithFallback({
         model: options?.model || primary.model,
       });
 
-      // Log Usage
+      // Log Usage per tenant workspace
       trackAiUsage({
         workspaceId,
         conversationId,
