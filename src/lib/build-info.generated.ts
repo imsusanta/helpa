@@ -1,8 +1,8 @@
 // Auto-generated compile-time deployment metadata
 export const COMPILED_BUILD_METADATA = {
-  "commit": "3c83f0ef9b0748e72c94498285705b98bd77d752",
+  "commit": "46ca3c57ae1e992c8cb04013ab866e4915a9e9eb",
   "commitSource": "git rev-parse HEAD",
   "deploymentShaStatus": "available",
-  "buildTime": "2026-08-17T05:51:55.241Z",
+  "buildTime": "2026-08-17T05:54:05.807Z",
   "environment": "production"
 } as const;

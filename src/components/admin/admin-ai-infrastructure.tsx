@@ -1905,7 +1905,7 @@ export function AdminAiInfrastructure() {
                       </div>
                     </div>
 
-                    <div className="w-full shrink-0 sm:w-72">
+                    <div className="w-full shrink-0 sm:w-80">
                       <select
                         value={
                           featureRouting[feat.id] || defaultOpenRouterModel
@@ -1917,15 +1917,30 @@ export function AdminAiInfrastructure() {
                           });
                           setHasUnsavedChanges(true);
                         }}
-                        className="border-border bg-card text-foreground h-9 w-full rounded-xl border px-2.5 font-mono text-xs font-semibold shadow-xs focus:border-emerald-500 focus:outline-hidden"
+                        className="border-border bg-card text-foreground h-9.5 w-full rounded-xl border px-2.5 text-xs font-semibold shadow-xs focus:border-emerald-500 focus:outline-hidden"
                       >
-                        {models
-                          .filter((m) => m.enabled)
-                          .map((m) => (
-                            <option key={m.id} value={m.id}>
-                              {m.name} ({m.provider})
-                            </option>
-                          ))}
+                        <optgroup label="⚡ OpenRouter Gateway">
+                          {models
+                            .filter(
+                              (m) => m.enabled && m.provider === 'openrouter'
+                            )
+                            .map((m) => (
+                              <option key={`openrouter-${m.id}`} value={m.id}>
+                                {m.name} ({m.id})
+                              </option>
+                            ))}
+                        </optgroup>
+                        <optgroup label="⚙️ OrcaRouter Engine">
+                          {models
+                            .filter(
+                              (m) => m.enabled && m.provider === 'orcarouter'
+                            )
+                            .map((m) => (
+                              <option key={`orcarouter-${m.id}`} value={m.id}>
+                                {m.name} ({m.id})
+                              </option>
+                            ))}
+                        </optgroup>
                       </select>
                     </div>
                   </div>
