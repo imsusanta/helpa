@@ -158,11 +158,22 @@ export function AiPanel() {
     loadConfig();
   }, []);
 
-  const activeOpenRouterModel = isOpenRouterCustom ? openRouterCustomId : openRouterModel;
-  const activeOrcaRouterModel = isOrcaRouterCustom ? orcaRouterCustomId : orcaRouterModel;
+  const activeOpenRouterModel = isOpenRouterCustom ? openRouterCustomId.trim() : openRouterModel;
+  const activeOrcaRouterModel = isOrcaRouterCustom ? orcaRouterCustomId.trim() : orcaRouterModel;
 
   async function handleSave() {
     if (!canEditSettings) return;
+
+    if (isOpenRouterCustom && !openRouterCustomId.trim()) {
+      toast.error('Please enter a valid custom model identifier for OpenRouter (e.g. deepseek/deepseek-r1)');
+      return;
+    }
+
+    if (isOrcaRouterCustom && !orcaRouterCustomId.trim()) {
+      toast.error('Please enter a valid custom model identifier for OrcaRouter');
+      return;
+    }
+
     setSaving(true);
     setTestResult(null);
 
@@ -212,6 +223,16 @@ export function AiPanel() {
   }
 
   async function handleTestProvider(provider: 'openrouter' | 'orcarouter') {
+    if (provider === 'openrouter' && isOpenRouterCustom && !openRouterCustomId.trim()) {
+      toast.error('Please enter a custom OpenRouter model identifier to test');
+      return;
+    }
+
+    if (provider === 'orcarouter' && isOrcaRouterCustom && !orcaRouterCustomId.trim()) {
+      toast.error('Please enter a custom OrcaRouter model identifier to test');
+      return;
+    }
+
     if (provider === 'openrouter') setTestingOpenRouter(true);
     if (provider === 'orcarouter') setTestingOrcaRouter(true);
     setTestResult(null);
