@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
+import { appwriteAdmin } from '@/lib/appwrite-server-compat';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import {
   checkRateLimit,
@@ -12,6 +13,7 @@ import type { AiProviderName } from '@/core/ai/types';
 export async function POST(request: Request) {
   try {
     const ctx = await requireRole('admin');
+    const db = appwriteAdmin();
 
     const limit = checkRateLimit(
       `admin:ai-test:${ctx.userId}`,
@@ -34,21 +36,35 @@ export async function POST(request: Request) {
         : body?.openrouter_model || body?.model;
 
     // If key is empty/not provided or is a password placeholder, fetch and decrypt from DB
-    if (!api_key || api_key.trim() === '' || api_key.includes('••••')) {
-      const { data: account } = await ctx.appwrite
+    if (!api_key || typeof api_key !== 'string' || api_key.trim() === '' || api_key.includes('••••')) {
+      let account: Record<string, unknown> | null = null;
+
+      let { data: accData, error: accErr } = await db
         .from('accounts')
         .select('openrouter_api_key, openrouter_model, orcarouter_api_key, orcarouter_model')
         .eq('id', ctx.accountId)
         .maybeSingle();
 
+      if (accErr && (accErr.message?.includes('column') || accErr.message?.includes('schema cache'))) {
+        const fallback = await db
+          .from('accounts')
+          .select('openrouter_api_key, openrouter_model')
+          .eq('id', ctx.accountId)
+          .maybeSingle();
+        accData = fallback.data as unknown as typeof accData;
+        accErr = fallback.error;
+      }
+
+      account = accData as Record<string, unknown> | null;
+
       let dbKey =
         providerName === 'orcarouter'
-          ? account?.orcarouter_api_key
-          : account?.openrouter_api_key;
+          ? (account?.orcarouter_api_key as string)
+          : (account?.openrouter_api_key as string);
 
       if (!dbKey) {
-        // Fallback to system_settings mirror
-        const { data: sysRow } = await ctx.appwrite
+        // Fallback to system_settings mirror for tenant-specific key
+        const { data: sysRow } = await db
           .from('system_settings')
           .select('value')
           .eq(
@@ -58,6 +74,21 @@ export async function POST(request: Request) {
           .maybeSingle();
         if (sysRow?.value) {
           dbKey = sysRow.value;
+        }
+      }
+
+      if (!dbKey) {
+        // Fallback to system-level key in system_settings
+        const { data: globalSysRow } = await db
+          .from('system_settings')
+          .select('value')
+          .eq(
+            'key',
+            providerName === 'orcarouter' ? 'system_orcarouter_api_key' : 'system_openrouter_api_key'
+          )
+          .maybeSingle();
+        if (globalSysRow?.value) {
+          dbKey = globalSysRow.value;
         }
       }
 
@@ -96,11 +127,29 @@ export async function POST(request: Request) {
         api_key = envKey;
       }
 
-      if (!model || model.trim() === '') {
-        model =
+      if (!model || typeof model !== 'string' || model.trim() === '') {
+        const savedModel =
           providerName === 'orcarouter'
-            ? account?.orcarouter_model || 'orcarouter/auto'
-            : account?.openrouter_model || 'google/gemini-2.5-flash';
+            ? (account?.orcarouter_model as string)
+            : (account?.openrouter_model as string);
+
+        if (savedModel && savedModel.trim()) {
+          model = savedModel.trim();
+        } else {
+          // Check system_settings for model
+          const { data: sysModelRow } = await db
+            .from('system_settings')
+            .select('value')
+            .eq(
+              'key',
+              `account:${ctx.accountId}:${providerName === 'orcarouter' ? 'orcarouter_model' : 'openrouter_model'}`
+            )
+            .maybeSingle();
+
+          model =
+            sysModelRow?.value ||
+            (providerName === 'orcarouter' ? 'orcarouter/auto' : 'google/gemini-2.5-flash');
+        }
       }
     }
 
