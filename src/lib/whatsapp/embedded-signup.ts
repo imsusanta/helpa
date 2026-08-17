@@ -183,23 +183,30 @@ export function loadFacebookSdk(appId: string): Promise<void> {
   return fbSdkLoadingPromise;
 }
 
+export interface LaunchWhatsAppEmbeddedSignupOptions {
+  appId: string;
+  configId?: string;
+  mode?: 'standard' | 'coexistence';
+}
+
 export interface EmbeddedSignupResult {
   code?: string;
   accessToken?: string;
   wabaId?: string;
   phoneNumberId?: string;
+  mode?: 'standard' | 'coexistence';
+  sessionInfo?: Record<string, unknown>;
 }
 
 /**
  * Launches the Meta WhatsApp Embedded Signup popup.
+ * Supports both standard new number onboarding and existing business coexistence.
  */
 export async function launchWhatsAppEmbeddedSignup({
   appId,
   configId,
-}: {
-  appId: string;
-  configId?: string;
-}): Promise<EmbeddedSignupResult> {
+  mode = 'standard',
+}: LaunchWhatsAppEmbeddedSignupOptions): Promise<EmbeddedSignupResult> {
   await loadFacebookSdk(appId);
 
   if (!window.FB) {
@@ -209,6 +216,7 @@ export async function launchWhatsAppEmbeddedSignup({
   return new Promise<EmbeddedSignupResult>((resolve, reject) => {
     let sessionWabaId: string | undefined;
     let sessionPhoneId: string | undefined;
+    let sessionRawData: Record<string, unknown> | undefined;
 
     // Listen to postMessage events from Meta embedded signup popup
     const messageListener = (event: MessageEvent) => {
@@ -222,6 +230,7 @@ export async function launchWhatsAppEmbeddedSignup({
               ? JSON.parse(event.data)
               : event.data;
           if (data?.type === 'WA_EMBEDDED_SIGNUP') {
+            sessionRawData = data.data || sessionRawData;
             if (data.event === 'FINISH') {
               sessionWabaId = data.data?.waba_id || sessionWabaId;
               sessionPhoneId = data.data?.phone_number_id || sessionPhoneId;
@@ -233,7 +242,7 @@ export async function launchWhatsAppEmbeddedSignup({
       }
     };
 
-    window.addEventListener('message', messageListener);
+    window.addEventListener?.('message', messageListener);
 
     const loginOptions: Parameters<NonNullable<typeof window.FB>['login']>[1] =
       {
@@ -243,7 +252,7 @@ export async function launchWhatsAppEmbeddedSignup({
           feature: 'whatsapp_embedded_signup',
           version: 2,
           sessionInfoVersion: 3,
-          setup: {},
+          setup: mode === 'coexistence' ? { solution: 'coexistence', phone_flow: 'coexistence' } : {},
         },
       };
 
@@ -256,13 +265,13 @@ export async function launchWhatsAppEmbeddedSignup({
 
     const fb = window.FB;
     if (!fb) {
-      window.removeEventListener('message', messageListener);
+      window.removeEventListener?.('message', messageListener);
       reject(new Error('Facebook SDK is not available'));
       return;
     }
 
     fb.login((response) => {
-      window.removeEventListener('message', messageListener);
+      window.removeEventListener?.('message', messageListener);
 
       if (response?.authResponse?.code || response?.authResponse?.accessToken) {
         resolve({
@@ -270,6 +279,8 @@ export async function launchWhatsAppEmbeddedSignup({
           accessToken: response.authResponse.accessToken,
           wabaId: sessionWabaId,
           phoneNumberId: sessionPhoneId,
+          mode,
+          sessionInfo: sessionRawData,
         });
       } else {
         reject(

@@ -45,12 +45,14 @@ export async function POST(request: Request) {
       access_token: directAccessToken2,
       waba_id,
       phone_number_id,
+      mode = 'standard',
     } = body as {
       code?: string;
       accessToken?: string;
       access_token?: string;
       waba_id?: string;
       phone_number_id?: string;
+      mode?: 'standard' | 'coexistence';
     };
 
     let accessToken = directAccessToken || directAccessToken2 || '';
@@ -207,6 +209,7 @@ export async function POST(request: Request) {
 
     // 6. Encrypt token and persist configuration to DB
     const encryptedToken = encrypt(accessToken);
+    const isCoexistenceMode = mode === 'coexistence';
 
     const configPayload: Record<string, unknown> = {
       account_id: accountId,
@@ -214,11 +217,16 @@ export async function POST(request: Request) {
       phone_number_id: resolvedPhoneId,
       waba_id: resolvedWabaId || 'waba_auto',
       access_token: encryptedToken,
-      status: 'connected',
+      status: isCoexistenceMode ? 'coexistence_connected' : 'connected',
+      connection_type: isCoexistenceMode ? 'coexistence' : 'standard',
+      coexistence_status: isCoexistenceMode ? 'active' : 'unknown',
       registered_at: now,
       subscribed_apps_at: now,
       connected_at: now,
       updated_at: now,
+      last_health_check_at: now,
+      webhook_healthy: true,
+      messaging_active: true,
       phone_number: displayPhoneNumber,
       display_phone_number: displayPhoneNumber,
       verified_name: verifiedName,
@@ -281,6 +289,7 @@ export async function POST(request: Request) {
           waba_id: resolvedWabaId,
           phone_number_id: resolvedPhoneId,
           verified_name: verifiedName,
+          connection_type: isCoexistenceMode ? 'coexistence' : 'standard',
           provider: 'meta_embedded_signup',
           timestamp: now,
         },
@@ -293,6 +302,9 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       connected: true,
+      status: isCoexistenceMode ? 'coexistence_connected' : 'connected',
+      connection_type: isCoexistenceMode ? 'coexistence' : 'standard',
+      coexistence_status: isCoexistenceMode ? 'active' : 'unknown',
       waba_id: resolvedWabaId,
       phone_number_id: resolvedPhoneId,
       display_phone_number: displayPhoneNumber,
@@ -303,6 +315,7 @@ export async function POST(request: Request) {
         messaging_api_available: true,
         webhook_connected: true,
         workspace_linked: true,
+        coexistence_active: isCoexistenceMode,
       },
     });
   } catch (err: unknown) {

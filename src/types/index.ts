@@ -226,20 +226,42 @@ export interface MessageReaction {
   created_at: string;
 }
 
+export type WhatsAppConnectionStatus =
+  | 'connected'
+  | 'disconnected'
+  | 'connecting'
+  | 'coexistence_pending'
+  | 'coexistence_connected'
+  | 'action_required'
+  | 'not_eligible'
+  | 'error'
+  | 'reconnect_required';
+
+export type WhatsAppConnectionType = 'coexistence' | 'standard' | 'manual';
+export type WhatsAppCoexistenceStatus = 'eligible' | 'active' | 'pending' | 'not_eligible' | 'unknown';
+
 export interface WhatsAppConfig {
   id: string;
   user_id: string;
+  account_id?: string;
   phone_number_id: string;
   waba_id?: string;
   access_token: string;
   verify_token?: string;
-  status: 'connected' | 'disconnected';
+  status: WhatsAppConnectionStatus;
+  connection_type?: WhatsAppConnectionType;
+  coexistence_status?: WhatsAppCoexistenceStatus;
   connected_at?: string;
   phone_number?: string;
   display_phone_number?: string;
   verified_name?: string;
   business_name?: string;
   coexistence_eligible?: boolean;
+  platform_type?: string;
+  quality_rating?: string;
+  last_health_check_at?: string;
+  webhook_healthy?: boolean;
+  messaging_active?: boolean;
   /**
    * Set when POST /{phone_number_id}/register last succeeded. NULL
    * means the number was saved but never actually subscribed for
