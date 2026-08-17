@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json.schemastore.org/mcp-config.json",
+  "mcpServers": {
+    "meta-devtools": {
+      "url": "https://mcp.facebook.com/devtools",
+      "description": "Official Meta Developer Tools MCP Server for Meta Apps, WhatsApp Business API, Webhooks, and App Review."
+    }
+  }
+}
