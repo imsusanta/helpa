@@ -9,6 +9,9 @@ next-env.d.ts
 package-lock.json
 .turbo
 
+# Dynamic Agent Rules
+AGENTS.md
+
 # SQL & Database Migrations
 *.sql
 supabase/migrations
@@ -38,13 +41,10 @@ playwright-report
 test-results
 .playwright
 walkthrough.md
-analysis_results.md
 implementation_plan.md
+docs
 
-# Generated Files
-src/lib/build-info.json
-src/lib/build-metadata.json
-src/lib/build-info.ts
+# Generated build files
 src/lib/build-info.generated.ts
-*.generated.ts
-*.generated.*
+src/lib/build-metadata.json
+src/lib/build-info.json

@@ -115,16 +115,22 @@ export function AdminAiInfrastructure() {
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [isTestingCurrent, setIsTestingCurrent] = useState(false);
-  const [testStatus, setTestStatus] = useState<'success' | 'error' | null>(null);
+  const [testStatus, setTestStatus] = useState<'success' | 'error' | null>(
+    null
+  );
 
   // Form states
-  const [selectedProvider, setSelectedProvider] = useState<'openrouter' | 'orcarouter'>('openrouter');
+  const [selectedProvider, setSelectedProvider] = useState<
+    'openrouter' | 'orcarouter'
+  >('openrouter');
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
   const [selectedModel, setSelectedModel] = useState('google/gemini-2.5-flash');
 
   // Stored state from server
-  const [savedSettings, setSavedSettings] = useState<Record<string, unknown>>({});
+  const [savedSettings, setSavedSettings] = useState<Record<string, unknown>>(
+    {}
+  );
   const [customModels, setCustomModels] = useState<ModelItem[]>([]);
   const [isLiveHealthy, setIsLiveHealthy] = useState<boolean | null>(null);
 
@@ -143,21 +149,32 @@ export function AdminAiInfrastructure() {
       const data = await res.json();
       setSavedSettings(data);
 
-      const activeProvider = (data.system_ai_provider === 'orcarouter' ? 'orcarouter' : 'openrouter') as 'openrouter' | 'orcarouter';
+      const activeProvider = (
+        data.system_ai_provider === 'orcarouter' ? 'orcarouter' : 'openrouter'
+      ) as 'openrouter' | 'orcarouter';
       setSelectedProvider(activeProvider);
 
       if (activeProvider === 'orcarouter') {
-        setSelectedModel(String(data.system_orcarouter_model || 'orcarouter/auto'));
+        setSelectedModel(
+          String(data.system_orcarouter_model || 'orcarouter/auto')
+        );
       } else {
-        setSelectedModel(String(data.system_openrouter_model || 'google/gemini-2.5-flash'));
+        setSelectedModel(
+          String(data.system_openrouter_model || 'google/gemini-2.5-flash')
+        );
       }
 
       // Load custom models if present
       if (data.available_models) {
         try {
-          const parsed = typeof data.available_models === 'string' ? JSON.parse(data.available_models) : data.available_models;
+          const parsed =
+            typeof data.available_models === 'string'
+              ? JSON.parse(data.available_models)
+              : data.available_models;
           if (Array.isArray(parsed)) {
-            setCustomModels(parsed.filter((m: ModelItem) => m && m.id && m.name));
+            setCustomModels(
+              parsed.filter((m: ModelItem) => m && m.id && m.name)
+            );
           }
         } catch {
           // ignore parse errors
@@ -175,11 +192,18 @@ export function AdminAiInfrastructure() {
       const res = await fetch('/api/admin/ai/health');
       if (!res.ok) return;
       const data = await res.json();
-      const currentProv = (savedSettings.system_ai_provider === 'orcarouter' ? 'orcarouter' : 'openrouter') as 'openrouter' | 'orcarouter';
+      const currentProv = (
+        savedSettings.system_ai_provider === 'orcarouter'
+          ? 'orcarouter'
+          : 'openrouter'
+      ) as 'openrouter' | 'orcarouter';
       const provHealth = data?.[currentProv];
       if (provHealth?.status === 'healthy') {
         setIsLiveHealthy(true);
-      } else if (provHealth?.status === 'unhealthy' || provHealth?.status === 'unreachable') {
+      } else if (
+        provHealth?.status === 'unhealthy' ||
+        provHealth?.status === 'unreachable'
+      ) {
         setIsLiveHealthy(false);
       }
     } catch {
@@ -199,7 +223,10 @@ export function AdminAiInfrastructure() {
 
   // Combine default and custom models for selected provider
   const availableProviderModels = useMemo(() => {
-    const defaultList = selectedProvider === 'orcarouter' ? DEFAULT_ORCAROUTER_MODELS : DEFAULT_OPENROUTER_MODELS;
+    const defaultList =
+      selectedProvider === 'orcarouter'
+        ? DEFAULT_ORCAROUTER_MODELS
+        : DEFAULT_OPENROUTER_MODELS;
     const customs = customModels.filter((m) => m.provider === selectedProvider);
 
     const merged = [...defaultList];
@@ -219,10 +246,14 @@ export function AdminAiInfrastructure() {
     setApiKeyInput('');
 
     if (newProvider === 'orcarouter') {
-      const currentModel = String(savedSettings.system_orcarouter_model || 'orcarouter/auto');
+      const currentModel = String(
+        savedSettings.system_orcarouter_model || 'orcarouter/auto'
+      );
       setSelectedModel(currentModel);
     } else {
-      const currentModel = String(savedSettings.system_openrouter_model || 'google/gemini-2.5-flash');
+      const currentModel = String(
+        savedSettings.system_openrouter_model || 'google/gemini-2.5-flash'
+      );
       setSelectedModel(currentModel);
     }
   };
@@ -235,7 +266,11 @@ export function AdminAiInfrastructure() {
   );
 
   // Active (Current AI) summary info
-  const activeProvider = (savedSettings.system_ai_provider === 'orcarouter' ? 'orcarouter' : 'openrouter') as 'openrouter' | 'orcarouter';
+  const activeProvider = (
+    savedSettings.system_ai_provider === 'orcarouter'
+      ? 'orcarouter'
+      : 'openrouter'
+  ) as 'openrouter' | 'orcarouter';
   const activeModelId = String(
     activeProvider === 'orcarouter'
       ? savedSettings.system_orcarouter_model || 'orcarouter/auto'
@@ -243,7 +278,11 @@ export function AdminAiInfrastructure() {
   );
 
   const activeModelObj = useMemo(() => {
-    const all = [...DEFAULT_OPENROUTER_MODELS, ...DEFAULT_ORCAROUTER_MODELS, ...customModels];
+    const all = [
+      ...DEFAULT_OPENROUTER_MODELS,
+      ...DEFAULT_ORCAROUTER_MODELS,
+      ...customModels,
+    ];
     return all.find((m) => m.id === activeModelId);
   }, [activeModelId, customModels]);
 
@@ -269,14 +308,20 @@ export function AdminAiInfrastructure() {
       const data = await res.json();
       if (res.ok && data.success) {
         setIsLiveHealthy(true);
-        toast.success('Connection successful! Your AI service is ready to use.');
+        toast.success(
+          'Connection successful! Your AI service is ready to use.'
+        );
       } else {
         setIsLiveHealthy(false);
-        toast.error('Connection failed. Please check your API key and try again.');
+        toast.error(
+          'Connection failed. Please check your API key and try again.'
+        );
       }
     } catch {
       setIsLiveHealthy(false);
-      toast.error('Connection failed. Please check your API key and try again.');
+      toast.error(
+        'Connection failed. Please check your API key and try again.'
+      );
     } finally {
       setIsTestingCurrent(false);
     }
@@ -396,15 +441,15 @@ export function AdminAiInfrastructure() {
     return (
       <div className="space-y-6">
         <AdminNav />
-        <div className="flex items-center justify-center min-h-[300px]">
-          <Loader2 className="w-6 h-6 animate-spin text-neutral-400" />
+        <div className="flex min-h-[300px] items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-neutral-400" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto pb-12">
+    <div className="mx-auto max-w-2xl space-y-6 pb-12">
       <AdminNav />
 
       {/* Header */}
@@ -418,49 +463,54 @@ export function AdminAiInfrastructure() {
       </div>
 
       {/* Current AI Status Card */}
-      <Card className="border border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/50 shadow-sm">
+      <Card className="border border-neutral-200/80 bg-neutral-50/50 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/50">
         <CardContent className="p-5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                <span className="text-xs font-semibold tracking-wider text-neutral-500 uppercase">
                   Current AI
                 </span>
                 {isLiveHealthy === true ? (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2 py-0.5 rounded-full border border-emerald-200/50 dark:border-emerald-900/50">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200/50 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:border-emerald-900/50 dark:bg-emerald-950/50 dark:text-emerald-400">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
                     Connected
                   </span>
                 ) : hasCurrentConfig ? (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/50 px-2 py-0.5 rounded-full border border-blue-200/50 dark:border-blue-900/50">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-200/50 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-600 dark:border-blue-900/50 dark:bg-blue-950/50 dark:text-blue-400">
                     <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
                     Configured
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-neutral-500 bg-neutral-100 dark:bg-neutral-800 px-2 py-0.5 rounded-full">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-500 dark:bg-neutral-800">
                     <span className="h-1.5 w-1.5 rounded-full bg-neutral-400" />
                     Not Configured
                   </span>
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-6 mt-3">
+              <div className="mt-3 grid grid-cols-2 gap-6">
                 <div>
                   <div className="text-xs text-neutral-500">Provider</div>
                   <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-                    {activeProvider === 'orcarouter' ? 'OrcaRouter' : 'OpenRouter'}
+                    {activeProvider === 'orcarouter'
+                      ? 'OrcaRouter'
+                      : 'OpenRouter'}
                   </div>
                 </div>
                 <div>
                   <div className="text-xs text-neutral-500">Model</div>
-                  <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100 truncate max-w-[200px]" title={activeModelId}>
+                  <div
+                    className="max-w-[200px] truncate text-sm font-semibold text-neutral-900 dark:text-neutral-100"
+                    title={activeModelId}
+                  >
                     {activeModelName}
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 self-start sm:self-center pt-2 sm:pt-0">
+            <div className="flex items-center gap-2 self-start pt-2 sm:self-center sm:pt-0">
               <Button
                 variant="outline"
                 size="sm"
@@ -469,9 +519,9 @@ export function AdminAiInfrastructure() {
                 className="h-8 text-xs font-medium"
               >
                 {isTestingCurrent ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                 ) : (
-                  <Sparkles className="w-3.5 h-3.5 mr-1.5 text-neutral-400" />
+                  <Sparkles className="mr-1.5 h-3.5 w-3.5 text-neutral-400" />
                 )}
                 Test Connection
               </Button>
@@ -481,8 +531,8 @@ export function AdminAiInfrastructure() {
       </Card>
 
       {/* Main Setup Form */}
-      <Card className="border border-neutral-200 dark:border-neutral-800 shadow-sm bg-white dark:bg-neutral-950">
-        <CardContent className="p-6 space-y-6">
+      <Card className="border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-950">
+        <CardContent className="space-y-6 p-6">
           {/* STEP 1 — AI PROVIDER */}
           <div className="space-y-2">
             <Label className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
@@ -496,7 +546,7 @@ export function AdminAiInfrastructure() {
                 }
               }}
             >
-              <SelectTrigger className="w-full h-11 text-sm bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800">
+              <SelectTrigger className="h-11 w-full border-neutral-200 bg-white text-sm dark:border-neutral-800 dark:bg-neutral-900">
                 <SelectValue placeholder="Select AI Provider" />
               </SelectTrigger>
               <SelectContent>
@@ -514,25 +564,31 @@ export function AdminAiInfrastructure() {
             <div className="relative">
               <Input
                 type={showApiKey ? 'text' : 'password'}
-                placeholder={hasStoredKey ? '••••••••••••••••••••••••' : 'Enter API Key'}
+                placeholder={
+                  hasStoredKey ? '••••••••••••••••••••••••' : 'Enter API Key'
+                }
                 value={apiKeyInput}
                 onChange={(e) => {
                   setApiKeyInput(e.target.value);
                   setTestStatus(null);
                 }}
-                className="pr-10 h-11 font-mono text-sm bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800"
+                className="h-11 border-neutral-200 bg-white pr-10 font-mono text-sm dark:border-neutral-800 dark:bg-neutral-900"
               />
               <button
                 type="button"
                 onClick={() => setShowApiKey(!showApiKey)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors p-1"
+                className="absolute top-1/2 right-3 -translate-y-1/2 p-1 text-neutral-400 transition-colors hover:text-neutral-600 dark:hover:text-neutral-200"
                 aria-label={showApiKey ? 'Hide API key' : 'Show API key'}
               >
-                {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {showApiKey ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
               </button>
             </div>
-            <p className="text-xs text-neutral-500 dark:text-neutral-400 flex items-center gap-1.5 pt-0.5">
-              <Shield className="w-3.5 h-3.5 text-neutral-400 shrink-0" />
+            <p className="flex items-center gap-1.5 pt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+              <Shield className="h-3.5 w-3.5 shrink-0 text-neutral-400" />
               Your API key is securely stored.
             </p>
           </div>
@@ -551,15 +607,19 @@ export function AdminAiInfrastructure() {
                 }
               }}
             >
-              <SelectTrigger className="w-full h-11 text-sm bg-white dark:bg-neutral-900 border-neutral-200 dark:border-neutral-800">
+              <SelectTrigger className="h-11 w-full border-neutral-200 bg-white text-sm dark:border-neutral-800 dark:bg-neutral-900">
                 <SelectValue placeholder="Select AI Model" />
               </SelectTrigger>
               <SelectContent>
                 {availableProviderModels.map((m) => (
                   <SelectItem key={m.id} value={m.id}>
-                    <div className="flex items-center justify-between w-full gap-4">
-                      <span className="font-medium text-neutral-900 dark:text-neutral-100">{m.name}</span>
-                      <span className="text-xs text-neutral-400 font-mono">{m.id}</span>
+                    <div className="flex w-full items-center justify-between gap-4">
+                      <span className="font-medium text-neutral-900 dark:text-neutral-100">
+                        {m.name}
+                      </span>
+                      <span className="font-mono text-xs text-neutral-400">
+                        {m.id}
+                      </span>
                     </div>
                   </SelectItem>
                 ))}
@@ -574,26 +634,26 @@ export function AdminAiInfrastructure() {
                   setCustomModelError('');
                   setIsCustomModelOpen(true);
                 }}
-                className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 font-medium inline-flex items-center gap-1 hover:underline"
+                className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline dark:text-blue-400"
               >
-                <Plus className="w-3.5 h-3.5" />
+                <Plus className="h-3.5 w-3.5" />
                 Add Custom Model
               </button>
             </div>
           </div>
 
           {/* STEP 5 — TEST CONNECTION */}
-          <div className="pt-2 space-y-3">
+          <div className="space-y-3 pt-2">
             <Button
               type="button"
               variant="outline"
               onClick={handleTestConnection}
               disabled={isTesting}
-              className="h-10 text-xs font-medium w-full sm:w-auto"
+              className="h-10 w-full text-xs font-medium sm:w-auto"
             >
               {isTesting ? (
                 <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" />
+                  <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
                   Testing connection...
                 </>
               ) : (
@@ -602,13 +662,13 @@ export function AdminAiInfrastructure() {
             </Button>
 
             {testStatus === 'success' && (
-              <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 rounded-lg flex items-start gap-2.5 text-emerald-900 dark:text-emerald-200 text-sm animate-in fade-in">
-                <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
+              <div className="animate-in fade-in flex items-start gap-2.5 rounded-lg border border-emerald-200 bg-emerald-50 p-3.5 text-sm text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200">
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
                 <div>
                   <div className="font-semibold text-emerald-800 dark:text-emerald-300">
                     Connection successful
                   </div>
-                  <div className="text-xs text-emerald-700/90 dark:text-emerald-400 mt-0.5">
+                  <div className="mt-0.5 text-xs text-emerald-700/90 dark:text-emerald-400">
                     Your AI service is ready to use.
                   </div>
                 </div>
@@ -616,13 +676,15 @@ export function AdminAiInfrastructure() {
             )}
 
             {testStatus === 'error' && (
-              <div className="p-3.5 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded-lg flex items-start gap-2.5 text-red-900 dark:text-red-200 text-sm animate-in fade-in">
-                <span className="text-red-600 dark:text-red-400 font-bold shrink-0 text-base leading-none mt-0.5">✕</span>
+              <div className="animate-in fade-in flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 p-3.5 text-sm text-red-900 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200">
+                <span className="mt-0.5 shrink-0 text-base leading-none font-bold text-red-600 dark:text-red-400">
+                  ✕
+                </span>
                 <div>
                   <div className="font-semibold text-red-800 dark:text-red-300">
                     Connection failed
                   </div>
-                  <div className="text-xs text-red-700/90 dark:text-red-400 mt-0.5">
+                  <div className="mt-0.5 text-xs text-red-700/90 dark:text-red-400">
                     Please check your API key and try again.
                   </div>
                 </div>
@@ -631,16 +693,16 @@ export function AdminAiInfrastructure() {
           </div>
 
           {/* STEP 6 — SAVE SETTINGS */}
-          <div className="border-t border-neutral-100 dark:border-neutral-800/80 pt-5 flex justify-end">
+          <div className="flex justify-end border-t border-neutral-100 pt-5 dark:border-neutral-800/80">
             <Button
               type="button"
               onClick={handleSave}
               disabled={isSaving}
-              className="bg-neutral-900 hover:bg-neutral-800 text-white dark:bg-neutral-100 dark:hover:bg-neutral-200 dark:text-neutral-900 font-medium h-11 px-6 text-sm"
+              className="h-11 bg-neutral-900 px-6 text-sm font-medium text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200"
             >
               {isSaving ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Saving...
                 </>
               ) : (
@@ -657,12 +719,16 @@ export function AdminAiInfrastructure() {
           <DialogHeader>
             <DialogTitle>Add Custom Model</DialogTitle>
             <DialogDescription>
-              Add a custom AI model for {selectedProvider === 'openrouter' ? 'OpenRouter' : 'OrcaRouter'}.
+              Add a custom AI model for{' '}
+              {selectedProvider === 'openrouter' ? 'OpenRouter' : 'OrcaRouter'}.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-3">
             <div className="space-y-1.5">
-              <Label htmlFor="custom-model-name" className="text-xs font-semibold">
+              <Label
+                htmlFor="custom-model-name"
+                className="text-xs font-semibold"
+              >
                 Model Name
               </Label>
               <Input
@@ -674,7 +740,10 @@ export function AdminAiInfrastructure() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="custom-model-id" className="text-xs font-semibold">
+              <Label
+                htmlFor="custom-model-id"
+                className="text-xs font-semibold"
+              >
                 Model ID
               </Label>
               <Input
@@ -689,7 +758,9 @@ export function AdminAiInfrastructure() {
                 className="h-10 font-mono text-sm"
               />
               {customModelError && (
-                <p className="text-xs text-red-500 font-medium pt-1">{customModelError}</p>
+                <p className="pt-1 text-xs font-medium text-red-500">
+                  {customModelError}
+                </p>
               )}
             </div>
           </div>
