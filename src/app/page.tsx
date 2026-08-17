@@ -16,15 +16,10 @@ export default function LandingPage() {
 
   useEffect(() => {
     // Check if user is authenticated via /api/auth/me
-    fetch('/api/auth/me')
-      .then((res) => {
-        if (res.ok) {
-          return res.json();
-        }
-        return null;
-      })
+    fetch('/api/auth/me', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data?.authenticated && data?.user) {
+        if ((data?.success || data?.authenticated) && data?.user) {
           setIsAuthenticated(true);
         }
       })

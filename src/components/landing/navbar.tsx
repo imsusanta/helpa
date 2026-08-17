@@ -17,6 +17,7 @@ import {
   BookOpen,
   Scissors,
   Building2,
+  ArrowRight,
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -291,21 +292,35 @@ export function LandingNavbar({ isAuthenticated }: NavbarProps) {
 
           {/* Right Action Buttons */}
           <div className="hidden items-center gap-3 md:flex">
-            <Link
-              href={isAuthenticated ? '/dashboard' : '/login'}
-              className="px-4 py-2 text-sm font-semibold text-[#110E3D] transition-colors hover:text-[#0866FF]"
-            >
-              {isAuthenticated ? 'Dashboard' : 'Log in'}
-            </Link>
+            {isAuthenticated ? (
+              <Link href="/dashboard">
+                <button
+                  type="button"
+                  className="flex items-center gap-2 rounded-full bg-[#110E3D] px-6 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:bg-[#1a1654] hover:shadow-lg active:scale-95 cursor-pointer"
+                >
+                  <span>Go to Dashboard</span>
+                  <ArrowRight className="h-4 w-4 text-[#B4F73C]" />
+                </button>
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="px-4 py-2 text-sm font-semibold text-[#110E3D] transition-colors hover:text-[#0866FF]"
+                >
+                  Log in
+                </Link>
 
-            <Link href={isAuthenticated ? '/dashboard' : '/signup'}>
-              <button
-                type="button"
-                className="rounded-full bg-[#110E3D] px-5 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:bg-[#1a1654] hover:shadow-lg active:scale-95"
-              >
-                {isAuthenticated ? 'Open Helpa' : 'Start Free Trial'}
-              </button>
-            </Link>
+                <Link href="/signup">
+                  <button
+                    type="button"
+                    className="rounded-full bg-[#110E3D] px-5 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:bg-[#1a1654] hover:shadow-lg active:scale-95 cursor-pointer"
+                  >
+                    Start Free Trial
+                  </button>
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -363,22 +378,36 @@ export function LandingNavbar({ isAuthenticated }: NavbarProps) {
               Security
             </Link>
             <div className="flex flex-col gap-2 border-t border-slate-100 pt-3">
-              <Link href={isAuthenticated ? '/dashboard' : '/login'}>
-                <button
-                  type="button"
-                  className="w-full rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-[#110E3D]"
-                >
-                  {isAuthenticated ? 'Open Dashboard' : 'Log in'}
-                </button>
-              </Link>
-              <Link href={isAuthenticated ? '/dashboard' : '/signup'}>
-                <button
-                  type="button"
-                  className="w-full rounded-xl bg-[#110E3D] py-2.5 text-sm font-semibold text-white"
-                >
-                  Start Free Trial
-                </button>
-              </Link>
+              {isAuthenticated ? (
+                <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#110E3D] py-3 text-sm font-semibold text-white shadow-sm cursor-pointer"
+                  >
+                    <span>Go to Dashboard</span>
+                    <ArrowRight className="h-4 w-4 text-[#B4F73C]" />
+                  </button>
+                </Link>
+              ) : (
+                <>
+                  <Link href="/login" onClick={() => setMobileMenuOpen(false)}>
+                    <button
+                      type="button"
+                      className="w-full rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-[#110E3D]"
+                    >
+                      Log in
+                    </button>
+                  </Link>
+                  <Link href="/signup" onClick={() => setMobileMenuOpen(false)}>
+                    <button
+                      type="button"
+                      className="w-full rounded-xl bg-[#110E3D] py-2.5 text-sm font-semibold text-white"
+                    >
+                      Start Free Trial
+                    </button>
+                  </Link>
+                </>
+              )}
             </div>
           </motion.div>
         )}
