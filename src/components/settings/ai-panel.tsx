@@ -431,20 +431,40 @@ export function AiPanel() {
               </select>
 
               {isOpenRouterCustom && (
-                <div className="pt-2 animate-in fade-in space-y-1">
+                <div className="pt-2 animate-in fade-in space-y-1.5">
                   <Label className="text-muted-foreground text-[10px] font-bold tracking-wider uppercase">
-                    Custom OpenRouter Model ID
+                    Custom OpenRouter Model Identifier
                   </Label>
                   <Input
                     type="text"
-                    placeholder="e.g. deepseek/deepseek-r1 or qwen/qwen-2.5-72b-instruct"
+                    placeholder="e.g. deepseek/deepseek-r1 or cohere/north-mini-code:free"
                     value={openRouterCustomId}
-                    onChange={(e) => setOpenRouterCustomId(e.target.value.trim())}
+                    onChange={(e) => setOpenRouterCustomId(e.target.value.replace(/['"]/g, '').trimStart())}
                     disabled={!canEditSettings}
                     className="bg-muted/40 border-border text-foreground h-9 font-mono text-xs focus-visible:ring-emerald-500"
                   />
+                  {/* Quick-suggest pills */}
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                    <span className="text-muted-foreground text-[10px]">Suggestions:</span>
+                    {[
+                      'deepseek/deepseek-r1',
+                      'cohere/north-mini-code:free',
+                      'google/gemini-2.0-flash-thinking-exp:free',
+                      'meta-llama/llama-3.3-70b-instruct:free',
+                      'qwen/qwen-2.5-72b-instruct',
+                    ].map((sug) => (
+                      <button
+                        key={sug}
+                        type="button"
+                        onClick={() => setOpenRouterCustomId(sug)}
+                        className="rounded border border-border/70 bg-muted/60 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground hover:bg-emerald-500/10 hover:text-emerald-600 hover:border-emerald-500/40 transition-colors"
+                      >
+                        {sug}
+                      </button>
+                    ))}
+                  </div>
                   <p className="text-muted-foreground text-[10px] italic">
-                    Active: <code className="font-mono text-emerald-600 dark:text-emerald-400">{activeOpenRouterModel || 'None specified'}</code>
+                    Active Model: <code className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{activeOpenRouterModel || 'None specified'}</code>
                   </p>
                 </div>
               )}
@@ -535,20 +555,39 @@ export function AiPanel() {
               </select>
 
               {isOrcaRouterCustom && (
-                <div className="pt-2 animate-in fade-in space-y-1">
+                <div className="pt-2 animate-in fade-in space-y-1.5">
                   <Label className="text-muted-foreground text-[10px] font-bold tracking-wider uppercase">
-                    Custom OrcaRouter Model ID
+                    Custom OrcaRouter Model Identifier
                   </Label>
                   <Input
                     type="text"
                     placeholder="e.g. anthropic/claude-3-5-sonnet or custom-llm-id"
                     value={orcaRouterCustomId}
-                    onChange={(e) => setOrcaRouterCustomId(e.target.value.trim())}
+                    onChange={(e) => setOrcaRouterCustomId(e.target.value.replace(/['"]/g, '').trimStart())}
                     disabled={!canEditSettings}
                     className="bg-muted/40 border-border text-foreground h-9 font-mono text-xs focus-visible:ring-emerald-500"
                   />
+                  {/* Quick-suggest pills */}
+                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                    <span className="text-muted-foreground text-[10px]">Suggestions:</span>
+                    {[
+                      'openai/gpt-4o-mini',
+                      'anthropic/claude-3-5-sonnet',
+                      'deepseek/deepseek-chat',
+                      'meta-llama/llama-3.3-70b',
+                    ].map((sug) => (
+                      <button
+                        key={sug}
+                        type="button"
+                        onClick={() => setOrcaRouterCustomId(sug)}
+                        className="rounded border border-border/70 bg-muted/60 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground hover:bg-emerald-500/10 hover:text-emerald-600 hover:border-emerald-500/40 transition-colors"
+                      >
+                        {sug}
+                      </button>
+                    ))}
+                  </div>
                   <p className="text-muted-foreground text-[10px] italic">
-                    Active: <code className="font-mono text-emerald-600 dark:text-emerald-400">{activeOrcaRouterModel || 'None specified'}</code>
+                    Active Model: <code className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{activeOrcaRouterModel || 'None specified'}</code>
                   </p>
                 </div>
               )}
