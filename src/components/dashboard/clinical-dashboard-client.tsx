@@ -346,7 +346,7 @@ export function ClinicalDashboardClient() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
               <span>Clinic Assistant Active</span>
             </div>
             <h1 className="text-foreground text-2xl font-bold tracking-tight sm:text-3xl">
@@ -369,50 +369,83 @@ export function ClinicalDashboardClient() {
       </section>
 
       {/* What needs your attention section */}
-      {(stats.pendingAppointments > 0 || stats.todayFollowups > 0 || stats.unreadWhatsAppChats > 0 || stats.reportsAwaitingCollection > 0) && (
-        <section className="border-amber-500/30 bg-amber-500/5 dark:bg-amber-500/10 rounded-xl border p-4 shadow-sm space-y-2">
-          <div className="flex items-center gap-2 mb-2">
+      {(stats.pendingAppointments > 0 ||
+        stats.todayFollowups > 0 ||
+        stats.unreadWhatsAppChats > 0 ||
+        stats.reportsAwaitingCollection > 0) && (
+        <section className="space-y-2 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 shadow-sm dark:bg-amber-500/10">
+          <div className="mb-2 flex items-center gap-2">
             <CircleAlert className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-            <h2 className="text-xs font-semibold text-amber-900 dark:text-amber-200 uppercase tracking-wider">
+            <h2 className="text-xs font-semibold tracking-wider text-amber-900 uppercase dark:text-amber-200">
               Needs Your Attention
             </h2>
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
             {stats.pendingAppointments > 0 && (
-              <div className="flex items-center justify-between gap-3 bg-background/80 dark:bg-background/40 p-2.5 rounded-lg border border-amber-500/20 text-xs">
-                <span>{stats.pendingAppointments} appointment{stats.pendingAppointments > 1 ? 's' : ''} waiting for confirmation</span>
+              <div className="bg-background/80 dark:bg-background/40 flex items-center justify-between gap-3 rounded-lg border border-amber-500/20 p-2.5 text-xs">
+                <span>
+                  {stats.pendingAppointments} appointment
+                  {stats.pendingAppointments > 1 ? 's' : ''} waiting for
+                  confirmation
+                </span>
                 <Link href="/appointments">
-                  <Button size="sm" variant="outline" className="h-6 text-[11px] font-medium">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 text-[11px] font-medium"
+                  >
                     Review
                   </Button>
                 </Link>
               </div>
             )}
             {stats.unreadWhatsAppChats > 0 && (
-              <div className="flex items-center justify-between gap-3 bg-background/80 dark:bg-background/40 p-2.5 rounded-lg border border-amber-500/20 text-xs">
-                <span>{stats.unreadWhatsAppChats} unread patient message{stats.unreadWhatsAppChats > 1 ? 's' : ''}</span>
+              <div className="bg-background/80 dark:bg-background/40 flex items-center justify-between gap-3 rounded-lg border border-amber-500/20 p-2.5 text-xs">
+                <span>
+                  {stats.unreadWhatsAppChats} unread patient message
+                  {stats.unreadWhatsAppChats > 1 ? 's' : ''}
+                </span>
                 <Link href="/inbox">
-                  <Button size="sm" variant="outline" className="h-6 text-[11px] font-medium">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 text-[11px] font-medium"
+                  >
                     Reply
                   </Button>
                 </Link>
               </div>
             )}
             {stats.todayFollowups > 0 && (
-              <div className="flex items-center justify-between gap-3 bg-background/80 dark:bg-background/40 p-2.5 rounded-lg border border-amber-500/20 text-xs">
-                <span>{stats.todayFollowups} patient follow-up{stats.todayFollowups > 1 ? 's' : ''} due today</span>
+              <div className="bg-background/80 dark:bg-background/40 flex items-center justify-between gap-3 rounded-lg border border-amber-500/20 p-2.5 text-xs">
+                <span>
+                  {stats.todayFollowups} patient follow-up
+                  {stats.todayFollowups > 1 ? 's' : ''} due today
+                </span>
                 <Link href="/follow-ups">
-                  <Button size="sm" variant="outline" className="h-6 text-[11px] font-medium">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 text-[11px] font-medium"
+                  >
                     Open
                   </Button>
                 </Link>
               </div>
             )}
             {stats.reportsAwaitingCollection > 0 && (
-              <div className="flex items-center justify-between gap-3 bg-background/80 dark:bg-background/40 p-2.5 rounded-lg border border-amber-500/20 text-xs">
-                <span>{stats.reportsAwaitingCollection} lab report{stats.reportsAwaitingCollection > 1 ? 's' : ''} ready for delivery</span>
+              <div className="bg-background/80 dark:bg-background/40 flex items-center justify-between gap-3 rounded-lg border border-amber-500/20 p-2.5 text-xs">
+                <span>
+                  {stats.reportsAwaitingCollection} lab report
+                  {stats.reportsAwaitingCollection > 1 ? 's' : ''} ready for
+                  delivery
+                </span>
                 <Link href="/lab-reports">
-                  <Button size="sm" variant="outline" className="h-6 text-[11px] font-medium">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 text-[11px] font-medium"
+                  >
                     View
                   </Button>
                 </Link>

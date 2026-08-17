@@ -130,7 +130,8 @@ export function KbPanel() {
   const categoryMap = getCategoryMap(activeModule.id);
 
   const panelTitle = 'Knowledge';
-  const panelDesc = 'Tell Helpa about your business so it can answer customer questions accurately.';
+  const panelDesc =
+    'Tell Helpa about your business so it can answer customer questions accurately.';
 
   const [entries, setEntries] = useState<KbEntry[]>([]);
   const [loading, setLoading] = useState(true);

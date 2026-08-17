@@ -48,7 +48,8 @@ export function GenericDashboardClient() {
   const [metrics, setMetrics] = useState<Record<string, number>>({});
 
   const activeModule = getIndustryModule(account?.industry);
-  const userName = profile?.full_name?.split(' ')[0] || account?.name || 'there';
+  const userName =
+    profile?.full_name?.split(' ')[0] || account?.name || 'there';
 
   useEffect(() => {
     const hr = new Date().getHours();
@@ -98,13 +99,31 @@ export function GenericDashboardClient() {
   }
 
   // Determine industry-specific primary entity and quick actions
-  const primaryEntityHref = activeModule.sidebar.find((s) => s.href !== '/dashboard' && s.href !== '/inbox')?.href || '/contacts';
-  const primaryEntityLabel = activeModule.sidebar.find((s) => s.href === primaryEntityHref)?.label || 'People';
+  const primaryEntityHref =
+    activeModule.sidebar.find(
+      (s) => s.href !== '/dashboard' && s.href !== '/inbox'
+    )?.href || '/contacts';
+  const primaryEntityLabel =
+    activeModule.sidebar.find((s) => s.href === primaryEntityHref)?.label ||
+    'People';
 
   // Build actionable attention items
-  const attentionItems: Array<{ id: string; text: string; href: string; actionLabel: string }> = [];
-  const unreadCount = metrics.unread_messages || metrics.new_messages || metrics.conversations || 0;
-  const pendingCount = metrics.pending_appointments || metrics.pending_bookings || metrics.pending_enquiries || 0;
+  const attentionItems: Array<{
+    id: string;
+    text: string;
+    href: string;
+    actionLabel: string;
+  }> = [];
+  const unreadCount =
+    metrics.unread_messages ||
+    metrics.new_messages ||
+    metrics.conversations ||
+    0;
+  const pendingCount =
+    metrics.pending_appointments ||
+    metrics.pending_bookings ||
+    metrics.pending_enquiries ||
+    0;
   const followupsCount = metrics.followups_due || metrics.follow_ups || 0;
 
   if (pendingCount > 0) {
@@ -135,11 +154,11 @@ export function GenericDashboardClient() {
   }
 
   return (
-    <div className="space-y-7 max-w-6xl mx-auto pb-10">
+    <div className="mx-auto max-w-6xl space-y-7 pb-10">
       {/* 1. Header Greeting */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-foreground text-2xl font-bold tracking-tight sm:text-3xl flex items-center gap-2">
+          <h1 className="text-foreground flex items-center gap-2 text-2xl font-bold tracking-tight sm:text-3xl">
             {greeting}, {userName} 👋
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
@@ -148,17 +167,17 @@ export function GenericDashboardClient() {
         </div>
 
         {/* AI Status Badge */}
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-xs font-medium self-start sm:self-auto">
-          <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+        <div className="inline-flex items-center gap-2 self-start rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-600 sm:self-auto dark:text-emerald-400">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
           <span>AI Assistant is active</span>
         </div>
       </div>
 
       {/* 2. What Needs Your Attention? (Conditional Alert Card) */}
       {attentionItems.length > 0 && (
-        <Card className="border-amber-500/30 bg-amber-500/5 dark:bg-amber-500/10 shadow-sm overflow-hidden">
+        <Card className="overflow-hidden border-amber-500/30 bg-amber-500/5 shadow-sm dark:bg-amber-500/10">
           <CardContent className="p-4 sm:p-5">
-            <div className="flex items-center gap-2 mb-3">
+            <div className="mb-3 flex items-center gap-2">
               <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
               <h2 className="text-sm font-semibold text-amber-900 dark:text-amber-200">
                 Needs your attention
@@ -168,11 +187,15 @@ export function GenericDashboardClient() {
               {attentionItems.map((item) => (
                 <div
                   key={item.id}
-                  className="flex items-center justify-between gap-3 bg-background/80 dark:bg-background/40 p-2.5 rounded-lg border border-amber-500/20 text-xs text-foreground"
+                  className="bg-background/80 dark:bg-background/40 text-foreground flex items-center justify-between gap-3 rounded-lg border border-amber-500/20 p-2.5 text-xs"
                 >
                   <span>{item.text}</span>
                   <Link href={item.href}>
-                    <Button size="sm" variant="outline" className="h-7 text-xs font-medium">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs font-medium"
+                    >
                       {item.actionLabel}
                     </Button>
                   </Link>
@@ -185,7 +208,7 @@ export function GenericDashboardClient() {
 
       {/* 3. Today's Overview (4–6 Summary Cards) */}
       <div>
-        <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+        <h2 className="text-muted-foreground mb-3 text-xs font-semibold tracking-wider uppercase">
           Today&apos;s Overview
         </h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -196,7 +219,7 @@ export function GenericDashboardClient() {
             return (
               <Card
                 key={widget.key}
-                className="border-border bg-card shadow-sm hover:shadow-md transition-shadow"
+                className="border-border bg-card shadow-sm transition-shadow hover:shadow-md"
               >
                 <CardContent className="p-5">
                   <div className="flex items-center justify-between">
@@ -222,40 +245,53 @@ export function GenericDashboardClient() {
       {/* 4. Quick Actions & Direct Tasks */}
       <div className="grid gap-6 md:grid-cols-3">
         {/* Left 2 Cols: Primary Business Shortcuts */}
-        <Card className="md:col-span-2 border-border shadow-sm">
-          <CardContent className="p-6 space-y-4">
-            <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-primary" />
+        <Card className="border-border shadow-sm md:col-span-2">
+          <CardContent className="space-y-4 p-6">
+            <h2 className="text-foreground flex items-center gap-2 text-base font-semibold">
+              <Sparkles className="text-primary h-4 w-4" />
               Quick Actions
             </h2>
             <p className="text-muted-foreground text-xs">
-              Fast shortcuts to manage {activeModule.name.toLowerCase()} operations.
+              Fast shortcuts to manage {activeModule.name.toLowerCase()}{' '}
+              operations.
             </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+            <div className="grid grid-cols-1 gap-3 pt-2 sm:grid-cols-2">
               <Link href={primaryEntityHref}>
-                <Button variant="outline" className="w-full justify-start h-12 text-xs font-medium border-border">
-                  <Plus className="mr-2 h-4 w-4 text-primary" />
+                <Button
+                  variant="outline"
+                  className="border-border h-12 w-full justify-start text-xs font-medium"
+                >
+                  <Plus className="text-primary mr-2 h-4 w-4" />
                   Add {primaryEntityLabel.slice(0, -1) || 'Entry'}
                 </Button>
               </Link>
 
               <Link href="/inbox">
-                <Button variant="outline" className="w-full justify-start h-12 text-xs font-medium border-border">
+                <Button
+                  variant="outline"
+                  className="border-border h-12 w-full justify-start text-xs font-medium"
+                >
                   <MessageSquare className="mr-2 h-4 w-4 text-emerald-500" />
                   Open Messages
                 </Button>
               </Link>
 
               <Link href="/broadcasts">
-                <Button variant="outline" className="w-full justify-start h-12 text-xs font-medium border-border">
+                <Button
+                  variant="outline"
+                  className="border-border h-12 w-full justify-start text-xs font-medium"
+                >
                   <Megaphone className="mr-2 h-4 w-4 text-blue-500" />
                   Send Campaign
                 </Button>
               </Link>
 
               <Link href="/knowledge-base">
-                <Button variant="outline" className="w-full justify-start h-12 text-xs font-medium border-border">
+                <Button
+                  variant="outline"
+                  className="border-border h-12 w-full justify-start text-xs font-medium"
+                >
                   <FileText className="mr-2 h-4 w-4 text-violet-500" />
                   Update Knowledge
                 </Button>
@@ -265,20 +301,25 @@ export function GenericDashboardClient() {
         </Card>
 
         {/* Right Col: AI Business Assistant Card */}
-        <Card className="border-border shadow-sm bg-gradient-to-b from-primary/5 to-transparent">
-          <CardContent className="p-6 space-y-4">
+        <Card className="border-border from-primary/5 bg-gradient-to-b to-transparent shadow-sm">
+          <CardContent className="space-y-4 p-6">
             <div className="flex items-center gap-2">
-              <div className="bg-primary/10 text-primary p-2 rounded-lg">
+              <div className="bg-primary/10 text-primary rounded-lg p-2">
                 <Bot className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="text-sm font-semibold text-foreground">AI Assistant</h2>
-                <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">Ready to reply</span>
+                <h2 className="text-foreground text-sm font-semibold">
+                  AI Assistant
+                </h2>
+                <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                  Ready to reply
+                </span>
               </div>
             </div>
 
             <p className="text-muted-foreground text-xs leading-relaxed">
-              Helpa automatically replies to repetitive customer inquiries on WhatsApp using your business knowledge.
+              Helpa automatically replies to repetitive customer inquiries on
+              WhatsApp using your business knowledge.
             </p>
 
             <div className="pt-2">
