@@ -95,9 +95,11 @@ export function LandingHero({ isAuthenticated }: HeroProps) {
           <Link href={isAuthenticated ? '/dashboard' : '/signup'}>
             <button
               type="button"
-              className="flex items-center gap-2 rounded-full bg-gradient-to-r from-[#C4F135] via-[#7EE69D] to-[#4EE3C2] px-8 py-3.5 text-base font-bold text-[#110E3D] shadow-md transition-all hover:scale-105 hover:shadow-lg active:scale-98 cursor-pointer"
+              className="flex cursor-pointer items-center gap-2 rounded-full bg-gradient-to-r from-[#C4F135] via-[#7EE69D] to-[#4EE3C2] px-8 py-3.5 text-base font-bold text-[#110E3D] shadow-md transition-all hover:scale-105 hover:shadow-lg active:scale-98"
             >
-              <span>{isAuthenticated ? 'Go to Dashboard' : 'Start Free Trial'}</span>
+              <span>
+                {isAuthenticated ? 'Go to Dashboard' : 'Start Free Trial'}
+              </span>
               <Sparkles className="h-4 w-4 text-[#110E3D]" />
             </button>
           </Link>

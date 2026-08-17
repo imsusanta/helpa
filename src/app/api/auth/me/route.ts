@@ -47,7 +47,12 @@ export async function GET() {
     }
 
     return NextResponse.json(
-      { success: false, authenticated: false, user: null, error: 'No active session' },
+      {
+        success: false,
+        authenticated: false,
+        user: null,
+        error: 'No active session',
+      },
       { status: 401 }
     );
   } catch (err: unknown) {

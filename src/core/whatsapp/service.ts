@@ -229,7 +229,10 @@ export async function sendWhatsAppMessage(
     }
 
     if (options.headerText && !interactiveObj.header) {
-      interactiveObj.header = { type: 'text', text: options.headerText.slice(0, 60) };
+      interactiveObj.header = {
+        type: 'text',
+        text: options.headerText.slice(0, 60),
+      };
     }
     if (options.footerText && !interactiveObj.footer) {
       interactiveObj.footer = { text: options.footerText.slice(0, 60) };

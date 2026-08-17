@@ -296,7 +296,7 @@ export function LandingNavbar({ isAuthenticated }: NavbarProps) {
               <Link href="/dashboard">
                 <button
                   type="button"
-                  className="flex items-center gap-2 rounded-full bg-[#110E3D] px-6 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:bg-[#1a1654] hover:shadow-lg active:scale-95 cursor-pointer"
+                  className="flex cursor-pointer items-center gap-2 rounded-full bg-[#110E3D] px-6 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:bg-[#1a1654] hover:shadow-lg active:scale-95"
                 >
                   <span>Go to Dashboard</span>
                   <ArrowRight className="h-4 w-4 text-[#B4F73C]" />
@@ -314,7 +314,7 @@ export function LandingNavbar({ isAuthenticated }: NavbarProps) {
                 <Link href="/signup">
                   <button
                     type="button"
-                    className="rounded-full bg-[#110E3D] px-5 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:bg-[#1a1654] hover:shadow-lg active:scale-95 cursor-pointer"
+                    className="cursor-pointer rounded-full bg-[#110E3D] px-5 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:bg-[#1a1654] hover:shadow-lg active:scale-95"
                   >
                     Start Free Trial
                   </button>
@@ -379,10 +379,13 @@ export function LandingNavbar({ isAuthenticated }: NavbarProps) {
             </Link>
             <div className="flex flex-col gap-2 border-t border-slate-100 pt-3">
               {isAuthenticated ? (
-                <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>
+                <Link
+                  href="/dashboard"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
                   <button
                     type="button"
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#110E3D] py-3 text-sm font-semibold text-white shadow-sm cursor-pointer"
+                    className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#110E3D] py-3 text-sm font-semibold text-white shadow-sm"
                   >
                     <span>Go to Dashboard</span>
                     <ArrowRight className="h-4 w-4 text-[#B4F73C]" />

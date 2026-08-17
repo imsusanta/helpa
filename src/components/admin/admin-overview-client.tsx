@@ -310,8 +310,8 @@ export function AdminOverviewClient() {
           {/* Quick Navigation Cards */}
           <div className="grid gap-4 sm:grid-cols-3">
             <Link href="/admin/tenants" className="group">
-              <Card className="bg-card border-border hover:bg-muted/30 transition-colors shadow-none">
-                <CardContent className="p-4 flex items-center justify-between">
+              <Card className="bg-card border-border hover:bg-muted/30 shadow-none transition-colors">
+                <CardContent className="flex items-center justify-between p-4">
                   <div className="flex items-center gap-3">
                     <div className="bg-muted flex h-9 w-9 items-center justify-center rounded-lg">
                       <Users className="text-foreground h-4 w-4" />
@@ -331,8 +331,8 @@ export function AdminOverviewClient() {
             </Link>
 
             <Link href="/admin/plans" className="group">
-              <Card className="bg-card border-border hover:bg-muted/30 transition-colors shadow-none">
-                <CardContent className="p-4 flex items-center justify-between">
+              <Card className="bg-card border-border hover:bg-muted/30 shadow-none transition-colors">
+                <CardContent className="flex items-center justify-between p-4">
                   <div className="flex items-center gap-3">
                     <div className="bg-muted flex h-9 w-9 items-center justify-center rounded-lg">
                       <CreditCard className="text-foreground h-4 w-4" />
@@ -352,8 +352,8 @@ export function AdminOverviewClient() {
             </Link>
 
             <Link href="/admin/ai" className="group">
-              <Card className="bg-card border-border hover:bg-muted/30 transition-colors shadow-none">
-                <CardContent className="p-4 flex items-center justify-between">
+              <Card className="bg-card border-border hover:bg-muted/30 shadow-none transition-colors">
+                <CardContent className="flex items-center justify-between p-4">
                   <div className="flex items-center gap-3">
                     <div className="bg-muted flex h-9 w-9 items-center justify-center rounded-lg">
                       <Brain className="text-foreground h-4 w-4" />

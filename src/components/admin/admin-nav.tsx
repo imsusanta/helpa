@@ -48,7 +48,8 @@ export function AdminNav({ onRefresh, loading }: AdminNavProps) {
             </h1>
           </div>
           <p className="text-muted-foreground mt-1 text-sm">
-            Platform governance, multi-tenant diagnostics, billing tiers, and AI configuration.
+            Platform governance, multi-tenant diagnostics, billing tiers, and AI
+            configuration.
           </p>
         </div>
         {onRefresh && (

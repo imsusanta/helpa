@@ -96,83 +96,108 @@ export function AdminSettingsClient() {
             System Diagnostics & Governance
           </h3>
           <p className="text-muted-foreground text-xs">
-            Global platform parameters, default workspace quotas, and core infrastructure health
+            Global platform parameters, default workspace quotas, and core
+            infrastructure health
           </p>
         </div>
 
         {/* System Health Grid */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Card className="bg-card border-border shadow-none">
-            <CardContent className="p-4 flex items-center justify-between">
+            <CardContent className="flex items-center justify-between p-4">
               <div className="flex items-center gap-3">
                 <div className="bg-muted flex h-8 w-8 items-center justify-center rounded-lg">
                   <Database className="text-muted-foreground h-4 w-4" />
                 </div>
                 <div>
-                  <span className="text-muted-foreground text-xs">Database (Appwrite)</span>
-                  <p className="text-foreground text-xs font-semibold flex items-center gap-1 mt-0.5">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> Connected
+                  <span className="text-muted-foreground text-xs">
+                    Database (Appwrite)
+                  </span>
+                  <p className="text-foreground mt-0.5 flex items-center gap-1 text-xs font-semibold">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />{' '}
+                    Connected
                   </p>
                 </div>
               </div>
-              <Badge variant="outline" className="border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[10px]">
+              <Badge
+                variant="outline"
+                className="border-emerald-500/30 text-[10px] text-emerald-600 dark:text-emerald-400"
+              >
                 Active
               </Badge>
             </CardContent>
           </Card>
 
           <Card className="bg-card border-border shadow-none">
-            <CardContent className="p-4 flex items-center justify-between">
+            <CardContent className="flex items-center justify-between p-4">
               <div className="flex items-center gap-3">
                 <div className="bg-muted flex h-8 w-8 items-center justify-center rounded-lg">
                   <Zap className="text-muted-foreground h-4 w-4" />
                 </div>
                 <div>
-                  <span className="text-muted-foreground text-xs">Meta Cloud API</span>
-                  <p className="text-foreground text-xs font-semibold flex items-center gap-1 mt-0.5">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> Operational
+                  <span className="text-muted-foreground text-xs">
+                    Meta Cloud API
+                  </span>
+                  <p className="text-foreground mt-0.5 flex items-center gap-1 text-xs font-semibold">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />{' '}
+                    Operational
                   </p>
                 </div>
               </div>
-              <Badge variant="outline" className="border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[10px]">
+              <Badge
+                variant="outline"
+                className="border-emerald-500/30 text-[10px] text-emerald-600 dark:text-emerald-400"
+              >
                 v21.0
               </Badge>
             </CardContent>
           </Card>
 
           <Card className="bg-card border-border shadow-none">
-            <CardContent className="p-4 flex items-center justify-between">
+            <CardContent className="flex items-center justify-between p-4">
               <div className="flex items-center gap-3">
                 <div className="bg-muted flex h-8 w-8 items-center justify-center rounded-lg">
                   <Cpu className="text-muted-foreground h-4 w-4" />
                 </div>
                 <div>
-                  <span className="text-muted-foreground text-xs">AI Routing Engine</span>
-                  <p className="text-foreground text-xs font-semibold flex items-center gap-1 mt-0.5">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> Ready
+                  <span className="text-muted-foreground text-xs">
+                    AI Routing Engine
+                  </span>
+                  <p className="text-foreground mt-0.5 flex items-center gap-1 text-xs font-semibold">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />{' '}
+                    Ready
                   </p>
                 </div>
               </div>
-              <Badge variant="outline" className="border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[10px]">
+              <Badge
+                variant="outline"
+                className="border-emerald-500/30 text-[10px] text-emerald-600 dark:text-emerald-400"
+              >
                 Multi-Model
               </Badge>
             </CardContent>
           </Card>
 
           <Card className="bg-card border-border shadow-none">
-            <CardContent className="p-4 flex items-center justify-between">
+            <CardContent className="flex items-center justify-between p-4">
               <div className="flex items-center gap-3">
                 <div className="bg-muted flex h-8 w-8 items-center justify-center rounded-lg">
                   <Lock className="text-muted-foreground h-4 w-4" />
                 </div>
                 <div>
-                  <span className="text-muted-foreground text-xs">Secret Encryption</span>
-                  <p className="text-foreground text-xs font-semibold flex items-center gap-1 mt-0.5">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> AES-256-GCM
+                  <span className="text-muted-foreground text-xs">
+                    Secret Encryption
+                  </span>
+                  <p className="text-foreground mt-0.5 flex items-center gap-1 text-xs font-semibold">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />{' '}
+                    AES-256-GCM
                   </p>
                 </div>
               </div>
-              <Badge variant="outline" className="border-blue-500/30 text-blue-600 dark:text-blue-400 text-[10px]">
+              <Badge
+                variant="outline"
+                className="border-blue-500/30 text-[10px] text-blue-600 dark:text-blue-400"
+              >
                 Secured
               </Badge>
             </CardContent>
@@ -186,7 +211,8 @@ export function AdminSettingsClient() {
               Default Workspace Defaults & Limits
             </CardTitle>
             <CardDescription className="text-muted-foreground text-xs">
-              Default configuration applied to newly provisioned tenant workspaces
+              Default configuration applied to newly provisioned tenant
+              workspaces
             </CardDescription>
           </CardHeader>
           <CardContent className="p-5 pt-0">
@@ -256,11 +282,12 @@ export function AdminSettingsClient() {
                 </div>
               </div>
 
-              <div className="border-border border-t pt-3 flex items-center justify-between">
+              <div className="border-border flex items-center justify-between border-t pt-3">
                 <div className="flex items-center gap-2">
-                  <Shield className="h-4 w-4 text-muted-foreground" />
+                  <Shield className="text-muted-foreground h-4 w-4" />
                   <span className="text-muted-foreground text-xs">
-                    Platform Owner: <strong className="text-foreground">Susanta Lohar</strong>
+                    Platform Owner:{' '}
+                    <strong className="text-foreground">Susanta Lohar</strong>
                   </span>
                 </div>
 
@@ -270,7 +297,9 @@ export function AdminSettingsClient() {
                   disabled={saving}
                   className="h-8 text-xs font-medium"
                 >
-                  {saving && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />}
+                  {saving && (
+                    <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                  )}
                   Save Quotas
                 </Button>
               </div>

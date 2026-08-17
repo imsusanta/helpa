@@ -395,7 +395,9 @@ export function AdminTenantsClient() {
                   <SelectItem value="trial">Trial</SelectItem>
                   <SelectItem value="active">Active (Paid)</SelectItem>
                   <SelectItem value="expired">Expired</SelectItem>
-                  <SelectItem value="cancelled">Suspended / Cancelled</SelectItem>
+                  <SelectItem value="cancelled">
+                    Suspended / Cancelled
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>

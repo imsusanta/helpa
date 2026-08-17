@@ -3,12 +3,7 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Plus, Edit, Trash2, Loader2 } from 'lucide-react';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -198,7 +193,8 @@ export function AdminPlansClient() {
               Billing Plans & Pricing
             </h3>
             <p className="text-muted-foreground text-xs">
-              Configure usage limits, feature access, and pricing for subscription tiers
+              Configure usage limits, feature access, and pricing for
+              subscription tiers
             </p>
           </div>
           <Button
@@ -263,7 +259,11 @@ export function AdminPlansClient() {
                       <span className="text-muted-foreground text-xs">/mo</span>
                       {p.yearly_price ? (
                         <span className="text-muted-foreground ml-1.5 text-xs">
-                          (₹{Math.round(p.yearly_price / 12).toLocaleString('en-IN')}/mo billed yearly)
+                          (₹
+                          {Math.round(p.yearly_price / 12).toLocaleString(
+                            'en-IN'
+                          )}
+                          /mo billed yearly)
                         </span>
                       ) : null}
                     </div>
@@ -279,7 +279,9 @@ export function AdminPlansClient() {
                       <div>
                         Contacts:{' '}
                         <span className="text-foreground font-medium">
-                          {p.max_contacts >= 99999 ? '∞' : p.max_contacts.toLocaleString()}
+                          {p.max_contacts >= 99999
+                            ? '∞'
+                            : p.max_contacts.toLocaleString()}
                         </span>
                       </div>
                       <div>
