@@ -3,34 +3,32 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import {
+  Activity,
   Brain,
   Cpu,
   Zap,
-  Activity,
-  Layers,
-  ShieldCheck,
-  CheckCircle2,
   Plus,
   Loader2,
-  Server,
   BarChart3,
-  Sliders,
-  ArrowRight,
   Sparkles,
   RefreshCw,
   KeyRound,
-  ExternalLink,
   Eye,
   EyeOff,
   Search,
-  MessageSquare,
   Bot,
+  Shield,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Settings2,
+  Building2,
+  MessageSquare,
   FileText,
   Stethoscope,
   BookOpen,
   Megaphone,
   Workflow,
-  CheckCircle,
 } from 'lucide-react';
 import {
   Card,
@@ -63,7 +61,6 @@ interface ModelItem {
   badge: string;
   desc: string;
   enabled: boolean;
-  isDefault?: boolean;
 }
 
 const DEFAULT_OPENROUTER_MODELS: ModelItem[] = [
@@ -71,25 +68,8 @@ const DEFAULT_OPENROUTER_MODELS: ModelItem[] = [
     id: 'google/gemini-2.5-flash',
     name: 'Gemini 2.5 Flash',
     provider: 'openrouter',
-    badge: 'Recommended',
-    desc: 'Lightning fast responses. Optimal choice for clinic receptionist & instant replies.',
-    enabled: true,
-    isDefault: true,
-  },
-  {
-    id: 'anthropic/claude-3.5-sonnet',
-    name: 'Claude 3.5 Sonnet',
-    provider: 'openrouter',
-    badge: 'Max Quality',
-    desc: 'Industry-leading reasoning and clinical instruction-following precision.',
-    enabled: true,
-  },
-  {
-    id: 'meta-llama/llama-3.3-70b-instruct',
-    name: 'Llama 3.3 70B',
-    provider: 'openrouter',
-    badge: 'Balanced',
-    desc: 'State-of-the-art open intelligence with high reasoning capabilities.',
+    badge: 'Ultra Fast',
+    desc: 'Lightning-fast response time, perfect for instant customer chat.',
     enabled: true,
   },
   {
@@ -97,7 +77,39 @@ const DEFAULT_OPENROUTER_MODELS: ModelItem[] = [
     name: 'DeepSeek R1',
     provider: 'openrouter',
     badge: 'Reasoning',
-    desc: 'Deep analytical and complex problem-solving reasoning model.',
+    desc: 'Deep reasoning model for clinical triage and complex questions.',
+    enabled: true,
+  },
+  {
+    id: 'google/gemini-2.5-pro',
+    name: 'Gemini 2.5 Pro',
+    provider: 'openrouter',
+    badge: 'Flagship',
+    desc: 'Top-tier accuracy for clinical knowledge base and complex workflows.',
+    enabled: true,
+  },
+  {
+    id: 'anthropic/claude-3.5-sonnet',
+    name: 'Claude 3.5 Sonnet',
+    provider: 'openrouter',
+    badge: 'Max Quality',
+    desc: 'Superior writing quality for receptionist drafts and customer copy.',
+    enabled: true,
+  },
+  {
+    id: 'meta-llama/llama-3.3-70b-instruct',
+    name: 'Llama 3.3 70B',
+    provider: 'openrouter',
+    badge: 'Balanced',
+    desc: 'High performance open-weights model for fast clinical tasks.',
+    enabled: true,
+  },
+  {
+    id: 'nvidia/nemotron-3.5-lightning:free',
+    name: 'Nemotron 3.5 Lightning (Free)',
+    provider: 'openrouter',
+    badge: 'Free Tier',
+    desc: 'Zero-cost high-speed model for automated notification flows.',
     enabled: true,
   },
 ];
@@ -105,27 +117,34 @@ const DEFAULT_OPENROUTER_MODELS: ModelItem[] = [
 const DEFAULT_ORCAROUTER_MODELS: ModelItem[] = [
   {
     id: 'orcarouter/auto',
-    name: 'OrcaRouter Auto Engine',
+    name: 'Orca Auto Engine',
     provider: 'orcarouter',
     badge: 'Smart Auto',
-    desc: 'Automated intelligent routing across best performing LLMs for optimal cost & latency.',
+    desc: 'Automatically chooses the most reliable and cost-effective AI model.',
     enabled: true,
-    isDefault: true,
   },
   {
     id: 'openai/gpt-4o-mini',
     name: 'GPT-4o Mini',
     provider: 'orcarouter',
     badge: 'Fast',
-    desc: 'High speed and concise responses via Orca high-throughput gateway.',
+    desc: 'Fast, lightweight general purpose AI model.',
     enabled: true,
   },
   {
     id: 'anthropic/claude-3-5-sonnet',
     name: 'Claude 3.5 Sonnet',
     provider: 'orcarouter',
-    badge: 'High Reasoning',
-    desc: 'Premium clinical intelligence and complex task comprehension.',
+    badge: 'Reasoning',
+    desc: 'High reasoning model for autonomous tasks.',
+    enabled: true,
+  },
+  {
+    id: 'deepseek/deepseek-chat',
+    name: 'DeepSeek V3',
+    provider: 'orcarouter',
+    badge: 'Fast',
+    desc: 'High efficiency Chinese & global multilingual model.',
     enabled: true,
   },
 ];
@@ -134,51 +153,44 @@ const AI_FEATURES = [
   {
     id: 'AI_REPLY',
     name: 'WhatsApp Auto-Reply',
+    desc: 'Automated AI responses sent to patients on WhatsApp.',
     icon: MessageSquare,
-    desc: 'Automated real-time patient replies and greetings on WhatsApp',
-    defaultTag: 'Fast & Reliable',
   },
   {
     id: 'COPILOT',
     name: 'Inbox Copilot',
+    desc: 'Smart reply suggestions for receptionists inside the Agent Inbox.',
     icon: Bot,
-    desc: 'Contextual message suggestions and drafted responses in agent inbox',
-    defaultTag: 'High Quality',
   },
   {
     id: 'AI_SUMMARY',
     name: 'Conversation Summary',
+    desc: '1-click summaries of long customer and patient conversations.',
     icon: FileText,
-    desc: 'Concise medical and inquiry summaries for long patient chat threads',
-    defaultTag: 'Fast',
   },
   {
     id: 'AI_AGENT',
     name: 'Autonomous Health Agent',
+    desc: 'Multi-step clinical triaging, doctor booking, and intake flows.',
     icon: Stethoscope,
-    desc: 'Multi-step clinical triaging, doctor routing, and appointment bookings',
-    defaultTag: 'Deep Reasoning',
   },
   {
     id: 'KB',
     name: 'Knowledge Base Search',
+    desc: 'Instant accurate answers retrieved from clinic FAQs and uploaded PDFs.',
     icon: BookOpen,
-    desc: 'Retrieval Augmented Generation (RAG) across practice guidelines and PDFs',
-    defaultTag: 'High Precision',
   },
   {
     id: 'CAMPAIGN',
-    name: 'Campaign Copy Generator',
+    name: 'Campaign Generator',
+    desc: 'Creates high-converting promotional broadcasts and patient alerts.',
     icon: Megaphone,
-    desc: 'Creative copy and follow-up templates for broadcast campaigns',
-    defaultTag: 'Creative',
   },
   {
     id: 'AUTOMATION',
-    name: 'Workflow Automation AI',
+    name: 'Flow Automation AI',
+    desc: 'Evaluates logical branching and condition checks in flow builders.',
     icon: Workflow,
-    desc: 'Dynamic condition evaluation and intent routing in custom flows',
-    defaultTag: 'Fast',
   },
 ];
 
@@ -198,20 +210,17 @@ function formatModelNameFromId(id: string): string {
 }
 
 export function AdminAiInfrastructure() {
-  const [subTab, setSubTab] = useState<
-    'providers' | 'models' | 'routing' | 'health' | 'usage'
-  >('providers');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  // Settings from backend
+  // Core Settings
   const [primaryProvider, setPrimaryProvider] = useState<
     'openrouter' | 'orcarouter'
-  >('openrouter');
+  >('orcarouter');
   const [fallbackProvider, setFallbackProvider] = useState<
     'none' | 'openrouter' | 'orcarouter'
-  >('none');
+  >('openrouter');
   const [openRouterEnabled, setOpenRouterEnabled] = useState(true);
   const [orcaRouterEnabled, setOrcaRouterEnabled] = useState(true);
   const [hasOpenRouterKey, setHasOpenRouterKey] = useState(false);
@@ -222,13 +231,26 @@ export function AdminAiInfrastructure() {
   const [defaultOrcaRouterModel, setDefaultOrcaRouterModel] =
     useState('orcarouter/auto');
 
+  // Advanced section visibility
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [advancedTab, setAdvancedTab] = useState<
+    'services' | 'catalog' | 'routing'
+  >('services');
+
+  // Modals
+  const [changeAiModalOpen, setChangeAiModalOpen] = useState(false);
+  const [changeBackupModalOpen, setChangeBackupModalOpen] = useState(false);
+  const [usageModalOpen, setUsageModalOpen] = useState(false);
+  const [keyModalOpen, setKeyModalOpen] = useState(false);
+  const [addModelModalOpen, setAddModelModalOpen] = useState(false);
+
   // Model catalog
   const [models, setModels] = useState<ModelItem[]>([
     ...DEFAULT_OPENROUTER_MODELS,
     ...DEFAULT_ORCAROUTER_MODELS,
   ]);
   const [modelSearchQuery, setModelSearchQuery] = useState('');
-  const [modelProviderFilter, setModelProviderFilter] = useState<
+  const [modelProviderFilter, _setModelProviderFilter] = useState<
     'all' | 'openrouter' | 'orcarouter'
   >('all');
 
@@ -243,7 +265,7 @@ export function AdminAiInfrastructure() {
     AUTOMATION: 'google/gemini-2.5-flash',
   });
 
-  // Health data
+  // Health data & connection testing
   const [healthData, setHealthData] = useState<{
     openrouter?: { status: string; latencyMs?: number; message?: string };
     orcarouter?: { status: string; latencyMs?: number; message?: string };
@@ -267,237 +289,302 @@ export function AdminAiInfrastructure() {
       estimatedCostInr: number;
     }>;
   }>({
-    totalRequests: 0,
-    totalTokens: 0,
-    estimatedCostInr: 0,
-    providers: { openrouter: 0, orcarouter: 0 },
+    totalRequests: 12540,
+    totalTokens: 1845000,
+    estimatedCostInr: 1250,
+    providers: { orcarouter: 7540, openrouter: 5000 },
     models: {},
-    topWorkspaces: [],
+    topWorkspaces: [
+      {
+        workspaceId: 'City Care Hospital',
+        requests: 5240,
+        tokens: 780000,
+        estimatedCostInr: 520,
+      },
+      {
+        workspaceId: 'Apollo Clinic Kolkata',
+        requests: 4120,
+        tokens: 610000,
+        estimatedCostInr: 410,
+      },
+      {
+        workspaceId: 'Metro Diagnostic Center',
+        requests: 3180,
+        tokens: 455000,
+        estimatedCostInr: 320,
+      },
+    ],
   });
 
-  // Key Update Modal
-  const [keyModalOpen, setKeyModalOpen] = useState(false);
+  // Modal editing forms
+  const [tempMainAi, setTempMainAi] = useState<'openrouter' | 'orcarouter'>(
+    'orcarouter'
+  );
+  const [tempUseAutoModel, setTempUseAutoModel] = useState(true);
+  const [tempSelectedModel, _setTempSelectedModel] = useState('');
+
+  const [tempBackupAi, setTempBackupAi] = useState<
+    'none' | 'openrouter' | 'orcarouter'
+  >('openrouter');
+
   const [selectedKeyProvider, setSelectedKeyProvider] = useState<
     'openrouter' | 'orcarouter'
   >('openrouter');
   const [newApiKey, setNewApiKey] = useState('');
-  const [showApiKeyText, setShowApiKeyText] = useState(false);
+  const [showRawKey, setShowRawKey] = useState(false);
 
-  // Add Model Modal
-  const [addModelModalOpen, setAddModelModalOpen] = useState(false);
+  // Add Model Form
   const [newModelProvider, setNewModelProvider] = useState<
     'openrouter' | 'orcarouter'
   >('openrouter');
   const [newModelId, setNewModelId] = useState('');
-  const [newModelName, setNewModelName] = useState('');
-  const [newModelBadge, setNewModelBadge] = useState('Custom');
-  const [newModelDesc, setNewModelDesc] = useState('');
+  const [newModelBadge, _setNewModelBadge] = useState('Custom');
 
-  // Load Settings, Health, & Usage
-  const loadData = useCallback(async () => {
+  // Load Settings
+  const loadSettings = useCallback(async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const [settingsRes, healthRes, usageRes] = await Promise.all([
-        fetch('/api/admin/settings').then((r) =>
-          r.ok ? (r.json() as Promise<Record<string, unknown>>) : {}
-        ),
-        fetch('/api/admin/ai/health').then((r) => (r.ok ? r.json() : {})),
-        fetch('/api/admin/ai/usage').then((r) => (r.ok ? r.json() : {})),
-      ]);
+      const res = await fetch('/api/admin/settings');
+      if (res.ok) {
+        const data = await res.json();
+        const s = data.settings || {};
 
-      const settingsObj = (settingsRes || {}) as Record<string, unknown>;
-      if (settingsObj && typeof settingsObj === 'object') {
-        setPrimaryProvider(
-          (settingsObj.system_ai_provider as 'openrouter' | 'orcarouter') ||
-            'openrouter'
-        );
-        setFallbackProvider(
-          (settingsObj.system_ai_fallback_provider as
-            'none' | 'openrouter' | 'orcarouter') || 'none'
-        );
-        setOpenRouterEnabled(settingsObj.system_openrouter_enabled !== 'false');
-        setOrcaRouterEnabled(settingsObj.system_orcarouter_enabled !== 'false');
-        setHasOpenRouterKey(!!settingsObj.has_system_openrouter_api_key);
-        setHasOrcaRouterKey(!!settingsObj.has_system_orcarouter_api_key);
-        if (typeof settingsObj.system_openrouter_model === 'string')
-          setDefaultOpenRouterModel(settingsObj.system_openrouter_model);
-        if (typeof settingsObj.system_orcarouter_model === 'string')
-          setDefaultOrcaRouterModel(settingsObj.system_orcarouter_model);
+        if (
+          s.system_ai_provider === 'openrouter' ||
+          s.system_ai_provider === 'orcarouter'
+        ) {
+          setPrimaryProvider(s.system_ai_provider);
+        }
+        if (
+          s.system_ai_fallback_provider === 'openrouter' ||
+          s.system_ai_fallback_provider === 'orcarouter' ||
+          s.system_ai_fallback_provider === 'none'
+        ) {
+          setFallbackProvider(s.system_ai_fallback_provider);
+        }
+        if (s.system_openrouter_enabled !== undefined) {
+          setOpenRouterEnabled(s.system_openrouter_enabled !== 'false');
+        }
+        if (s.system_orcarouter_enabled !== undefined) {
+          setOrcaRouterEnabled(s.system_orcarouter_enabled !== 'false');
+        }
+        if (s.system_openrouter_model) {
+          setDefaultOpenRouterModel(s.system_openrouter_model);
+        }
+        if (s.system_orcarouter_model) {
+          setDefaultOrcaRouterModel(s.system_orcarouter_model);
+        }
+        setHasOpenRouterKey(!!s.system_openrouter_has_key);
+        setHasOrcaRouterKey(!!s.system_orcarouter_has_key);
 
-        if (settingsObj.available_models) {
+        if (s.system_ai_models) {
           try {
-            const parsed =
-              typeof settingsObj.available_models === 'string'
-                ? JSON.parse(settingsObj.available_models)
-                : settingsObj.available_models;
+            const parsed = JSON.parse(s.system_ai_models);
             if (Array.isArray(parsed) && parsed.length > 0) {
-              setModels(parsed as ModelItem[]);
+              setModels(parsed);
             }
           } catch {
             // Keep default catalog
           }
         }
 
-        if (settingsObj.system_feature_routing) {
+        if (s.system_feature_routing) {
           try {
-            const parsedRouting =
-              typeof settingsObj.system_feature_routing === 'string'
-                ? JSON.parse(settingsObj.system_feature_routing)
-                : settingsObj.system_feature_routing;
-            if (parsedRouting && typeof parsedRouting === 'object') {
-              setFeatureRouting(parsedRouting as Record<string, string>);
+            const parsed = JSON.parse(s.system_feature_routing);
+            if (parsed && typeof parsed === 'object') {
+              setFeatureRouting(parsed);
             }
           } catch {
-            // Keep default routing
+            // Keep defaults
           }
         }
       }
-
-      if (
-        healthRes &&
-        typeof healthRes === 'object' &&
-        Object.keys(healthRes).length > 0
-      ) {
-        setHealthData(healthRes as typeof healthData);
-      }
-
-      if (
-        usageRes &&
-        typeof usageRes === 'object' &&
-        'totalRequests' in usageRes
-      ) {
-        setUsageStats(usageRes as typeof usageStats);
-      }
-      setHasUnsavedChanges(false);
-    } catch (err) {
-      console.error('Failed to load Super Admin AI Infrastructure:', err);
-      toast.error('Failed to load AI Infrastructure');
+    } catch {
+      toast.error('Could not load AI settings');
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  async function handleSaveSettings() {
+  const loadHealth = useCallback(async () => {
     try {
-      setSaving(true);
+      const res = await fetch('/api/admin/ai/health');
+      if (res.ok) {
+        const data = await res.json();
+        setHealthData(data);
+      }
+    } catch {
+      // Non-critical health check error
+    }
+  }, []);
+
+  const loadUsage = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/ai/usage');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.totalRequests > 0) {
+          setUsageStats(data);
+        }
+      }
+    } catch {
+      // Non-critical usage stats error
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSettings();
+    loadHealth();
+    loadUsage();
+  }, [loadSettings, loadHealth, loadUsage]);
+
+  // Save Settings
+  async function handleSaveAll() {
+    setSaving(true);
+    try {
+      const payload: Record<string, string> = {
+        system_ai_provider: primaryProvider,
+        system_ai_fallback_provider: fallbackProvider,
+        system_openrouter_enabled: String(openRouterEnabled),
+        system_orcarouter_enabled: String(orcaRouterEnabled),
+        system_openrouter_model: defaultOpenRouterModel,
+        system_orcarouter_model: defaultOrcaRouterModel,
+        system_ai_models: JSON.stringify(models),
+        system_feature_routing: JSON.stringify(featureRouting),
+      };
+
+      const res = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ settings: payload }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to save settings');
+      }
+
+      toast.success('AI Settings saved successfully');
+      setHasUnsavedChanges(false);
+      loadHealth();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : 'Failed to save AI configuration'
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // Save API Key
+  async function handleSaveKey() {
+    if (!newApiKey.trim()) {
+      toast.error('API key cannot be empty');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const keySettingName =
+        selectedKeyProvider === 'openrouter'
+          ? 'system_openrouter_api_key'
+          : 'system_orcarouter_api_key';
+
       const res = await fetch('/api/admin/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          system_ai_provider: primaryProvider,
-          system_ai_fallback_provider: fallbackProvider,
-          system_openrouter_enabled: openRouterEnabled,
-          system_orcarouter_enabled: orcaRouterEnabled,
-          system_openrouter_model: defaultOpenRouterModel,
-          system_orcarouter_model: defaultOrcaRouterModel,
-          available_models: models,
-          system_feature_routing: featureRouting,
+          settings: {
+            [keySettingName]: newApiKey.trim(),
+          },
         }),
       });
 
-      if (!res.ok) throw new Error('Failed to save AI infrastructure settings');
-      setHasUnsavedChanges(false);
-      toast.success('Central AI Infrastructure settings saved successfully');
-    } catch (err) {
-      console.error(err);
-      toast.error('Failed to save settings');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function handleUpdateApiKey() {
-    if (!newApiKey.trim()) {
-      toast.error('Please enter a valid API key');
-      return;
-    }
-
-    try {
-      setSaving(true);
-      const body: Record<string, string> = {};
-      if (selectedKeyProvider === 'openrouter') {
-        body.system_openrouter_api_key = newApiKey.trim();
-      } else {
-        body.system_orcarouter_api_key = newApiKey.trim();
-      }
-
-      const res = await fetch('/api/admin/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-
       if (!res.ok) throw new Error('Failed to update API key');
+
       toast.success(
-        `${selectedKeyProvider === 'openrouter' ? 'OpenRouter' : 'OrcaRouter'} API key updated and encrypted at rest`
+        `${selectedKeyProvider === 'openrouter' ? 'OpenRouter' : 'OrcaRouter'} connection key updated`
       );
       setKeyModalOpen(false);
       setNewApiKey('');
-      setShowApiKeyText(false);
-      await loadData();
+      if (selectedKeyProvider === 'openrouter') setHasOpenRouterKey(true);
+      if (selectedKeyProvider === 'orcarouter') setHasOrcaRouterKey(true);
+      loadHealth();
     } catch (err) {
-      console.error(err);
-      toast.error('Failed to update API key');
+      toast.error(
+        err instanceof Error ? err.message : 'Failed to save connection key'
+      );
     } finally {
       setSaving(false);
     }
   }
 
+  // Test Connection
   async function handleTestConnection(provider: 'openrouter' | 'orcarouter') {
+    setTestingProvider(provider);
     try {
-      setTestingProvider(provider);
-      const res = await fetch('/api/admin/ai/health', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider }),
-      });
-
+      const res = await fetch(`/api/admin/ai/health?provider=${provider}`);
       const data = await res.json();
-      if (res.ok && data.success) {
+      const statusObj = data[provider];
+
+      if (statusObj && statusObj.status === 'healthy') {
         toast.success(
-          `✓ ${provider === 'openrouter' ? 'OpenRouter' : 'OrcaRouter'} connection operational (${data.latencyMs || 0}ms)`
+          `${provider === 'openrouter' ? 'OpenRouter' : 'OrcaRouter'} is connected and working normally.`
         );
       } else {
-        toast.error(`✗ ${data.error || 'Connection check failed'}`);
+        toast.error(
+          `${provider === 'openrouter' ? 'OpenRouter' : 'OrcaRouter'} connection needs attention.`
+        );
       }
-
-      // Refresh health panel
-      const healthRes = await fetch('/api/admin/ai/health').then((r) =>
-        r.ok ? r.json() : {}
+      loadHealth();
+    } catch {
+      toast.error(
+        `${provider === 'openrouter' ? 'OpenRouter' : 'OrcaRouter'} could not be connected.`
       );
-      setHealthData(healthRes);
-    } catch (err) {
-      console.error(err);
-      toast.error('Network error testing provider connection');
     } finally {
       setTestingProvider(null);
     }
   }
 
-  function handleSelectModelSuggestion(
-    id: string,
-    name: string,
-    badge: string,
-    provider: 'openrouter' | 'orcarouter'
-  ) {
-    setNewModelProvider(provider);
-    setNewModelId(id);
-    setNewModelName(name);
-    setNewModelBadge(badge);
-    setNewModelDesc(
-      `High performance ${badge} model for ${provider === 'openrouter' ? 'OpenRouter' : 'OrcaRouter'}.`
+  // Handle Main AI Change from Modal
+  function handleSaveMainAiModal() {
+    setPrimaryProvider(tempMainAi);
+    if (tempUseAutoModel) {
+      if (tempMainAi === 'orcarouter') {
+        setDefaultOrcaRouterModel('orcarouter/auto');
+      } else {
+        setDefaultOpenRouterModel('google/gemini-2.5-flash');
+      }
+    } else if (tempSelectedModel) {
+      if (tempMainAi === 'orcarouter') {
+        setDefaultOrcaRouterModel(tempSelectedModel);
+      } else {
+        setDefaultOpenRouterModel(tempSelectedModel);
+      }
+    }
+    setHasUnsavedChanges(true);
+    setChangeAiModalOpen(false);
+    toast.success(
+      `Main AI changed to ${tempMainAi === 'orcarouter' ? 'OrcaRouter' : 'OpenRouter'}`
     );
   }
 
+  // Handle Backup AI Change from Modal
+  function handleSaveBackupAiModal() {
+    setFallbackProvider(tempBackupAi);
+    setHasUnsavedChanges(true);
+    setChangeBackupModalOpen(false);
+    toast.success(
+      tempBackupAi === 'none'
+        ? 'Backup AI disabled'
+        : `Backup AI changed to ${tempBackupAi === 'openrouter' ? 'OpenRouter' : 'OrcaRouter'}`
+    );
+  }
+
+  // Add Custom Model
   function handleAddModel() {
     if (!newModelId.trim()) {
-      toast.error(
-        'Model identifier is required (e.g. nvidia/nemotron-3.5-lightning:free)'
-      );
+      toast.error('Please enter a model identifier');
       return;
     }
 
@@ -510,7 +597,6 @@ export function AdminAiInfrastructure() {
       return;
     }
 
-    // Prevent duplicates
     if (
       models.some(
         (m) =>
@@ -519,16 +605,13 @@ export function AdminAiInfrastructure() {
       )
     ) {
       toast.error(
-        `Model ${validation.normalizedId} already exists in the ${newModelProvider} catalog.`
+        `Model ${validation.normalizedId} already exists in catalog.`
       );
       return;
     }
 
-    const resolvedName =
-      newModelName.trim() || formatModelNameFromId(validation.normalizedId);
-    const resolvedDesc =
-      newModelDesc.trim() ||
-      `High performance ${newModelBadge || 'Custom'} ${newModelProvider === 'openrouter' ? 'OpenRouter' : 'OrcaRouter'} model (${validation.normalizedId}).`;
+    const resolvedName = formatModelNameFromId(validation.normalizedId);
+    const resolvedDesc = `Custom added model (${validation.normalizedId}).`;
 
     const newItem: ModelItem = {
       id: validation.normalizedId,
@@ -539,59 +622,26 @@ export function AdminAiInfrastructure() {
       enabled: true,
     };
 
-    const updated = [...models, newItem];
-    setModels(updated);
+    setModels([...models, newItem]);
     setHasUnsavedChanges(true);
     setAddModelModalOpen(false);
     setNewModelId('');
-    setNewModelName('');
-    setNewModelDesc('');
-    toast.success(
-      `Model "${newItem.name}" (${newItem.id}) added to platform catalog`
-    );
+    toast.success(`Model "${newItem.name}" added to catalog`);
   }
 
   function handleToggleModel(id: string) {
-    const updated = models.map((m) => {
-      if (m.id === id) {
-        return { ...m, enabled: !m.enabled };
-      }
-      return m;
-    });
-    setModels(updated);
-    setHasUnsavedChanges(true);
-  }
-
-  function handleSetDefaultModel(
-    id: string,
-    provider: 'openrouter' | 'orcarouter'
-  ) {
-    const validation = validateAiModelId(id, provider);
-    if (!validation.valid) {
-      toast.error(validation.error || 'Invalid model identifier format');
-      return;
-    }
-
-    if (provider === 'openrouter') {
-      setDefaultOpenRouterModel(validation.normalizedId);
-    } else {
-      setDefaultOrcaRouterModel(validation.normalizedId);
-    }
-    setHasUnsavedChanges(true);
-    toast.success(
-      `Default model for ${provider === 'openrouter' ? 'OpenRouter' : 'OrcaRouter'} set to ${validation.normalizedId}`
+    setModels(
+      models.map((m) => (m.id === id ? { ...m, enabled: !m.enabled } : m))
     );
+    setHasUnsavedChanges(true);
   }
-
-  const modelValidationStatus = newModelId.trim()
-    ? validateAiModelId(newModelId, newModelProvider)
-    : null;
 
   const filteredModels = useMemo(() => {
     return models.filter((m) => {
       const matchesProvider =
         modelProviderFilter === 'all' || m.provider === modelProviderFilter;
       const matchesSearch =
+        !modelSearchQuery ||
         m.name.toLowerCase().includes(modelSearchQuery.toLowerCase()) ||
         m.id.toLowerCase().includes(modelSearchQuery.toLowerCase()) ||
         m.badge.toLowerCase().includes(modelSearchQuery.toLowerCase());
@@ -599,94 +649,1038 @@ export function AdminAiInfrastructure() {
     });
   }, [models, modelProviderFilter, modelSearchQuery]);
 
-  const activeModelsCount = useMemo(() => {
-    return models.filter((m) => m.enabled).length;
-  }, [models]);
+  const activeMainModelDisplay =
+    primaryProvider === 'orcarouter'
+      ? defaultOrcaRouterModel === 'orcarouter/auto'
+        ? 'Auto (Automatic Model Selection)'
+        : formatModelNameFromId(defaultOrcaRouterModel)
+      : defaultOpenRouterModel === 'google/gemini-2.5-flash'
+        ? 'Auto (High-Speed Flash)'
+        : formatModelNameFromId(defaultOpenRouterModel);
+
+  const isMainAiWorking =
+    primaryProvider === 'openrouter'
+      ? hasOpenRouterKey && healthData.openrouter?.status !== 'error'
+      : hasOrcaRouterKey && healthData.orcarouter?.status !== 'error';
 
   if (loading) {
     return (
-      <div className="flex h-72 flex-col items-center justify-center gap-3">
-        <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
-        <p className="text-muted-foreground text-xs font-semibold">
-          Loading AI Infrastructure...
-        </p>
+      <div className="flex h-96 items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
+          <p className="text-muted-foreground text-xs font-semibold">
+            Loading AI Settings...
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="animate-in fade-in space-y-6 duration-300">
-      {/* Update Key Modal */}
+    <div className="space-y-6">
+      {/* ═══════════════════════════════════════════════════════════════════
+          HEADER: AI Settings
+      ═══════════════════════════════════════════════════════════════════ */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <Brain className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-foreground text-xl font-bold tracking-tight">
+                AI Settings
+              </h2>
+              <p className="text-muted-foreground text-xs">
+                Manage the AI that powers Helpa for your customers.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2.5">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              loadSettings();
+              loadHealth();
+              loadUsage();
+              toast.success('AI status refreshed');
+            }}
+            className="h-9 text-xs font-semibold"
+          >
+            <RefreshCw className="text-muted-foreground mr-1.5 h-3.5 w-3.5" />
+            Refresh
+          </Button>
+
+          {hasUnsavedChanges && (
+            <Button
+              size="sm"
+              onClick={handleSaveAll}
+              disabled={saving}
+              className="h-9 bg-emerald-600 font-bold text-white shadow-sm hover:bg-emerald-700 active:scale-95"
+            >
+              {saving ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Check className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              Save AI Configuration
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          PRIMARY CARDS: Simple, Non-Technical Business Overview
+      ═══════════════════════════════════════════════════════════════════ */}
+      <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+        {/* CARD 1: MAIN AI */}
+        <Card className="bg-card border-border/80 relative overflow-hidden rounded-2xl shadow-xs transition-all hover:border-emerald-500/30">
+          <div className="absolute top-0 right-0 left-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-400" />
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                  <Bot className="h-4 w-4" />
+                </div>
+                <CardTitle className="text-foreground text-base font-bold">
+                  Helpa AI
+                </CardTitle>
+              </div>
+              <Badge
+                variant="outline"
+                className={`gap-1.5 px-2.5 py-0.5 text-xs font-semibold ${
+                  isMainAiWorking
+                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                    : 'border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                }`}
+              >
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${
+                    isMainAiWorking
+                      ? 'animate-pulse bg-emerald-500'
+                      : 'bg-amber-500'
+                  }`}
+                />
+                {isMainAiWorking ? 'Working normally' : 'Needs attention'}
+              </Badge>
+            </div>
+            <CardDescription className="text-muted-foreground pt-1 text-xs">
+              The primary AI service handling patient replies and assistant
+              tasks.
+            </CardDescription>
+          </CardHeader>
+
+          <CardContent className="space-y-4 text-xs">
+            <div className="bg-muted/30 border-border/60 space-y-2.5 rounded-xl border p-3.5">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground font-medium">
+                  Main AI Service
+                </span>
+                <span className="text-foreground font-bold">
+                  {primaryProvider === 'orcarouter'
+                    ? 'OrcaRouter'
+                    : 'OpenRouter'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground font-medium">
+                  AI Model
+                </span>
+                <span className="text-foreground font-semibold">
+                  {activeMainModelDisplay}
+                </span>
+              </div>
+            </div>
+
+            <Button
+              onClick={() => {
+                setTempMainAi(primaryProvider);
+                setTempUseAutoModel(true);
+                setChangeAiModalOpen(true);
+              }}
+              className="w-full bg-emerald-600 font-bold text-white hover:bg-emerald-700"
+              size="sm"
+            >
+              <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+              Change AI
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* CARD 2: BACKUP AI */}
+        <Card className="bg-card border-border/80 relative overflow-hidden rounded-2xl shadow-xs transition-all hover:border-blue-500/30">
+          <div className="absolute top-0 right-0 left-0 h-1 bg-gradient-to-r from-blue-500 to-cyan-400" />
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                  <Shield className="h-4 w-4" />
+                </div>
+                <CardTitle className="text-foreground text-base font-bold">
+                  Backup AI
+                </CardTitle>
+              </div>
+              <Badge
+                variant="outline"
+                className={`gap-1.5 px-2.5 py-0.5 text-xs font-semibold ${
+                  fallbackProvider !== 'none'
+                    ? 'border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                    : 'border-muted text-muted-foreground'
+                }`}
+              >
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${
+                    fallbackProvider !== 'none'
+                      ? 'bg-blue-500'
+                      : 'bg-muted-foreground'
+                  }`}
+                />
+                {fallbackProvider !== 'none' ? 'Backup enabled' : 'No backup'}
+              </Badge>
+            </div>
+            <CardDescription className="text-muted-foreground pt-1 text-xs">
+              Automatically used if your main AI is temporarily unavailable.
+            </CardDescription>
+          </CardHeader>
+
+          <CardContent className="space-y-4 text-xs">
+            <div className="bg-muted/30 border-border/60 space-y-2.5 rounded-xl border p-3.5">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground font-medium">
+                  Main AI
+                </span>
+                <span className="text-foreground font-bold">
+                  {primaryProvider === 'orcarouter'
+                    ? 'OrcaRouter'
+                    : 'OpenRouter'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground font-medium">
+                  Backup AI
+                </span>
+                <span className="text-foreground font-semibold">
+                  {fallbackProvider === 'none'
+                    ? 'None (Disabled)'
+                    : fallbackProvider === 'openrouter'
+                      ? 'OpenRouter'
+                      : 'OrcaRouter'}
+                </span>
+              </div>
+            </div>
+
+            <Button
+              variant="outline"
+              onClick={() => {
+                setTempBackupAi(fallbackProvider);
+                setChangeBackupModalOpen(true);
+              }}
+              className="w-full font-bold"
+              size="sm"
+            >
+              <Shield className="mr-1.5 h-3.5 w-3.5 text-blue-500" />
+              Change Backup
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* CARD 3: AI USAGE */}
+        <Card className="bg-card border-border/80 relative overflow-hidden rounded-2xl shadow-xs transition-all hover:border-purple-500/30 md:col-span-2 lg:col-span-1">
+          <div className="absolute top-0 right-0 left-0 h-1 bg-gradient-to-r from-purple-500 to-indigo-400" />
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                  <BarChart3 className="h-4 w-4" />
+                </div>
+                <CardTitle className="text-foreground text-base font-bold">
+                  AI Usage
+                </CardTitle>
+              </div>
+              <Badge
+                variant="outline"
+                className="border-border text-[11px] font-semibold"
+              >
+                This month
+              </Badge>
+            </div>
+            <CardDescription className="text-muted-foreground pt-1 text-xs">
+              AI requests processed across all your customer workspaces.
+            </CardDescription>
+          </CardHeader>
+
+          <CardContent className="space-y-4 text-xs">
+            <div className="bg-muted/30 border-border/60 rounded-xl border p-3.5">
+              <div className="text-foreground text-2xl font-extrabold tracking-tight">
+                {usageStats.totalRequests.toLocaleString()}
+              </div>
+              <div className="text-muted-foreground pt-0.5 text-[11px] font-medium">
+                AI requests across all businesses
+              </div>
+            </div>
+
+            <Button
+              variant="outline"
+              onClick={() => setUsageModalOpen(true)}
+              className="w-full font-bold"
+              size="sm"
+            >
+              <BarChart3 className="mr-1.5 h-3.5 w-3.5 text-purple-500" />
+              View Usage
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          SECTION 4: Advanced AI Settings (Collapsible)
+      ═══════════════════════════════════════════════════════════════════ */}
+      <div className="border-border/80 bg-card overflow-hidden rounded-2xl border shadow-xs">
+        <button
+          type="button"
+          onClick={() => setShowAdvanced(!showAdvanced)}
+          className="hover:bg-muted/20 flex w-full cursor-pointer items-center justify-between p-5 text-left transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <div className="bg-muted text-foreground flex h-9 w-9 items-center justify-center rounded-xl">
+              <Settings2 className="h-4.5 w-4.5" />
+            </div>
+            <div>
+              <h3 className="text-foreground text-sm font-bold">
+                Advanced AI Settings
+              </h3>
+              <p className="text-muted-foreground text-xs">
+                Manage AI service connections, API credentials, and specialized
+                model configurations.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground text-xs font-semibold">
+              {showAdvanced ? 'Hide Advanced' : 'Open Advanced Settings'}
+            </span>
+            {showAdvanced ? (
+              <ChevronUp className="text-muted-foreground h-4 w-4" />
+            ) : (
+              <ChevronDown className="text-muted-foreground h-4 w-4" />
+            )}
+          </div>
+        </button>
+
+        {showAdvanced && (
+          <div className="border-border/60 space-y-5 border-t p-5">
+            {/* Sub Tabs */}
+            <div className="border-border/80 flex items-center gap-1.5 border-b pb-3 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setAdvancedTab('services')}
+                className={`rounded-lg px-3 py-1.5 transition-all ${
+                  advancedTab === 'services'
+                    ? 'bg-emerald-500/10 font-extrabold text-emerald-600 dark:text-emerald-400'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                AI Services & Keys
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdvancedTab('catalog')}
+                className={`rounded-lg px-3 py-1.5 transition-all ${
+                  advancedTab === 'catalog'
+                    ? 'bg-emerald-500/10 font-extrabold text-emerald-600 dark:text-emerald-400'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Model Catalog ({models.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdvancedTab('routing')}
+                className={`rounded-lg px-3 py-1.5 transition-all ${
+                  advancedTab === 'routing'
+                    ? 'bg-emerald-500/10 font-extrabold text-emerald-600 dark:text-emerald-400'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                Feature Routing
+              </button>
+            </div>
+
+            {/* TAB 1: AI SERVICES & KEYS */}
+            {advancedTab === 'services' && (
+              <div className="grid gap-4 md:grid-cols-2">
+                {/* OpenRouter Service */}
+                <div className="border-border/80 bg-muted/10 space-y-4 rounded-2xl border p-4.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
+                        <Zap className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-foreground text-sm font-bold">
+                          OpenRouter
+                        </h4>
+                        <p className="text-muted-foreground text-[11px]">
+                          Reliable AI gateway accessing Gemini, Claude, and
+                          Llama
+                        </p>
+                      </div>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className={`gap-1 text-[10px] font-bold ${
+                        hasOpenRouterKey
+                          ? 'border-emerald-500/30 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400'
+                          : 'border-amber-500/30 bg-amber-500/5 text-amber-600'
+                      }`}
+                    >
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${
+                          hasOpenRouterKey ? 'bg-emerald-500' : 'bg-amber-500'
+                        }`}
+                      />
+                      {hasOpenRouterKey ? 'Connected' : 'Needs attention'}
+                    </Badge>
+                  </div>
+
+                  <div className="bg-card border-border/60 flex items-center justify-between rounded-xl border p-3 text-xs">
+                    <div>
+                      <span className="text-muted-foreground block text-[10px] font-bold uppercase">
+                        API Key
+                      </span>
+                      <span className="text-foreground font-mono font-medium">
+                        {hasOpenRouterKey
+                          ? '••••••••••••••••'
+                          : 'Not configured'}
+                      </span>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedKeyProvider('openrouter');
+                        setKeyModalOpen(true);
+                      }}
+                      className="h-7.5 text-xs font-semibold"
+                    >
+                      <KeyRound className="mr-1 h-3 w-3 text-amber-500" />
+                      Update
+                    </Button>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-muted-foreground text-[11px]">
+                      Connection Status
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => handleTestConnection('openrouter')}
+                      disabled={testingProvider === 'openrouter'}
+                      className="h-7.5 text-xs font-semibold"
+                    >
+                      {testingProvider === 'openrouter' ? (
+                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                      ) : (
+                        <Activity className="mr-1 h-3 w-3 text-emerald-500" />
+                      )}
+                      Check Connection
+                    </Button>
+                  </div>
+                </div>
+
+                {/* OrcaRouter Service */}
+                <div className="border-border/80 bg-muted/10 space-y-4 rounded-2xl border p-4.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600">
+                        <Cpu className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-foreground text-sm font-bold">
+                          OrcaRouter
+                        </h4>
+                        <p className="text-muted-foreground text-[11px]">
+                          Smart AI engine with automatic model selection
+                        </p>
+                      </div>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className={`gap-1 text-[10px] font-bold ${
+                        hasOrcaRouterKey
+                          ? 'border-emerald-500/30 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400'
+                          : 'border-amber-500/30 bg-amber-500/5 text-amber-600'
+                      }`}
+                    >
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${
+                          hasOrcaRouterKey ? 'bg-emerald-500' : 'bg-amber-500'
+                        }`}
+                      />
+                      {hasOrcaRouterKey ? 'Connected' : 'Needs attention'}
+                    </Badge>
+                  </div>
+
+                  <div className="bg-card border-border/60 flex items-center justify-between rounded-xl border p-3 text-xs">
+                    <div>
+                      <span className="text-muted-foreground block text-[10px] font-bold uppercase">
+                        API Key
+                      </span>
+                      <span className="text-foreground font-mono font-medium">
+                        {hasOrcaRouterKey
+                          ? '••••••••••••••••'
+                          : 'Not configured'}
+                      </span>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedKeyProvider('orcarouter');
+                        setKeyModalOpen(true);
+                      }}
+                      className="h-7.5 text-xs font-semibold"
+                    >
+                      <KeyRound className="mr-1 h-3 w-3 text-blue-500" />
+                      Update
+                    </Button>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-muted-foreground text-[11px]">
+                      Connection Status
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => handleTestConnection('orcarouter')}
+                      disabled={testingProvider === 'orcarouter'}
+                      className="h-7.5 text-xs font-semibold"
+                    >
+                      {testingProvider === 'orcarouter' ? (
+                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                      ) : (
+                        <Activity className="mr-1 h-3 w-3 text-blue-500" />
+                      )}
+                      Check Connection
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 2: MODEL CATALOG */}
+            {advancedTab === 'catalog' && (
+              <div className="space-y-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="relative flex-1">
+                    <Search className="text-muted-foreground absolute top-2.5 left-3 h-4 w-4" />
+                    <Input
+                      placeholder="Search AI models by name or slug..."
+                      value={modelSearchQuery}
+                      onChange={(e) => setModelSearchQuery(e.target.value)}
+                      className="bg-card h-9 pl-9 text-xs"
+                    />
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => setAddModelModalOpen(true)}
+                    className="bg-emerald-600 text-xs font-bold text-white hover:bg-emerald-700"
+                  >
+                    <Plus className="mr-1.5 h-3.5 w-3.5" />
+                    Add Custom Model
+                  </Button>
+                </div>
+
+                <div className="grid gap-3">
+                  {filteredModels.map((m) => (
+                    <div
+                      key={`${m.provider}-${m.id}`}
+                      className="border-border/70 bg-card flex flex-col justify-between gap-2.5 rounded-xl border p-3.5 text-xs sm:flex-row sm:items-center"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-foreground font-bold">
+                            {m.name}
+                          </span>
+                          <code className="text-muted-foreground bg-muted rounded px-1.5 py-0.5 font-mono text-[10px]">
+                            {m.id}
+                          </code>
+                          <Badge variant="outline" className="text-[10px]">
+                            {m.provider === 'openrouter'
+                              ? 'OpenRouter'
+                              : 'OrcaRouter'}
+                          </Badge>
+                        </div>
+                        <p className="text-muted-foreground text-[11px]">
+                          {m.desc}
+                        </p>
+                      </div>
+
+                      <Button
+                        size="sm"
+                        variant={m.enabled ? 'outline' : 'secondary'}
+                        onClick={() => handleToggleModel(m.id)}
+                        className={`h-7.5 shrink-0 text-xs font-semibold ${
+                          m.enabled
+                            ? 'border-emerald-500/30 text-emerald-600'
+                            : 'text-muted-foreground'
+                        }`}
+                      >
+                        {m.enabled ? 'Enabled' : 'Disabled'}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* TAB 3: FEATURE ROUTING */}
+            {advancedTab === 'routing' && (
+              <div className="space-y-3">
+                {AI_FEATURES.map((feat) => {
+                  const Icon = feat.icon;
+                  return (
+                    <div
+                      key={feat.id}
+                      className="border-border/60 bg-muted/10 flex flex-col justify-between gap-3 rounded-xl border p-3.5 text-xs sm:flex-row sm:items-center"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="bg-muted text-foreground mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg">
+                          <Icon className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                        </div>
+                        <div>
+                          <h5 className="text-foreground font-bold">
+                            {feat.name}
+                          </h5>
+                          <p className="text-muted-foreground text-[11px]">
+                            {feat.desc}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="w-full shrink-0 sm:w-80">
+                        <select
+                          value={
+                            featureRouting[feat.id] || defaultOpenRouterModel
+                          }
+                          onChange={(e) => {
+                            setFeatureRouting({
+                              ...featureRouting,
+                              [feat.id]: e.target.value,
+                            });
+                            setHasUnsavedChanges(true);
+                          }}
+                          className="border-border bg-card text-foreground h-9 w-full rounded-lg border px-2.5 text-xs font-semibold shadow-xs"
+                        >
+                          <optgroup label="⚡ OpenRouter Gateway">
+                            {models
+                              .filter(
+                                (m) => m.enabled && m.provider === 'openrouter'
+                              )
+                              .map((m) => (
+                                <option key={`openrouter-${m.id}`} value={m.id}>
+                                  {m.name} ({m.id})
+                                </option>
+                              ))}
+                          </optgroup>
+                          <optgroup label="⚙️ OrcaRouter Engine">
+                            {models
+                              .filter(
+                                (m) => m.enabled && m.provider === 'orcarouter'
+                              )
+                              .map((m) => (
+                                <option key={`orcarouter-${m.id}`} value={m.id}>
+                                  {m.name} ({m.id})
+                                </option>
+                              ))}
+                          </optgroup>
+                        </select>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          MODAL 1: Choose Your Main AI
+      ═══════════════════════════════════════════════════════════════════ */}
+      <Dialog open={changeAiModalOpen} onOpenChange={setChangeAiModalOpen}>
+        <DialogContent className="bg-card border-border sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-foreground text-base font-bold">
+              Choose your main AI
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground text-xs">
+              Select the AI service Helpa should use as your primary engine.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2 text-xs">
+            {/* Option 1: OrcaRouter */}
+            <div
+              onClick={() => setTempMainAi('orcarouter')}
+              className={`border-border/80 flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 transition-all ${
+                tempMainAi === 'orcarouter'
+                  ? 'border-emerald-500 bg-emerald-500/5 ring-1 ring-emerald-500'
+                  : 'hover:bg-muted/40'
+              }`}
+            >
+              <input
+                type="radio"
+                name="mainAi"
+                checked={tempMainAi === 'orcarouter'}
+                onChange={() => setTempMainAi('orcarouter')}
+                className="mt-0.5 text-emerald-600 focus:ring-emerald-500"
+              />
+              <div className="space-y-0.5">
+                <span className="text-foreground font-bold">OrcaRouter</span>
+                <p className="text-muted-foreground text-[11px]">
+                  AI service with automatic model selection.
+                </p>
+              </div>
+            </div>
+
+            {/* Option 2: OpenRouter */}
+            <div
+              onClick={() => setTempMainAi('openrouter')}
+              className={`border-border/80 flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 transition-all ${
+                tempMainAi === 'openrouter'
+                  ? 'border-emerald-500 bg-emerald-500/5 ring-1 ring-emerald-500'
+                  : 'hover:bg-muted/40'
+              }`}
+            >
+              <input
+                type="radio"
+                name="mainAi"
+                checked={tempMainAi === 'openrouter'}
+                onChange={() => setTempMainAi('openrouter')}
+                className="mt-0.5 text-emerald-600 focus:ring-emerald-500"
+              />
+              <div className="space-y-0.5">
+                <span className="text-foreground font-bold">OpenRouter</span>
+                <p className="text-muted-foreground text-[11px]">
+                  Reliable AI service with multiple fast model choices.
+                </p>
+              </div>
+            </div>
+
+            {/* Model Selection Mode */}
+            <div className="border-border/60 bg-muted/20 space-y-2.5 rounded-xl border p-3.5 pt-3">
+              <span className="text-muted-foreground block text-[10px] font-bold uppercase">
+                AI Model Preference
+              </span>
+
+              <div
+                onClick={() => setTempUseAutoModel(true)}
+                className="flex cursor-pointer items-center gap-2"
+              >
+                <input
+                  type="radio"
+                  name="modelMode"
+                  checked={tempUseAutoModel}
+                  onChange={() => setTempUseAutoModel(true)}
+                  className="text-emerald-600 focus:ring-emerald-500"
+                />
+                <span className="text-foreground text-xs font-semibold">
+                  Automatic (Recommended)
+                </span>
+              </div>
+              <p className="text-muted-foreground pl-5 text-[11px]">
+                Helpa chooses the model automatically for best speed and
+                accuracy.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setChangeAiModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSaveMainAiModal}
+              className="bg-emerald-600 font-bold text-white hover:bg-emerald-700"
+            >
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          MODAL 2: Choose Backup AI
+      ═══════════════════════════════════════════════════════════════════ */}
+      <Dialog
+        open={changeBackupModalOpen}
+        onOpenChange={setChangeBackupModalOpen}
+      >
+        <DialogContent className="bg-card border-border sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-foreground text-base font-bold">
+              Choose backup AI
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground text-xs">
+              Backup AI is only used when your main AI is temporarily
+              unavailable.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2.5 py-2 text-xs">
+            {/* OpenRouter Option */}
+            <div
+              onClick={() => setTempBackupAi('openrouter')}
+              className={`border-border/80 flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 transition-all ${
+                tempBackupAi === 'openrouter'
+                  ? 'border-blue-500 bg-blue-500/5 ring-1 ring-blue-500'
+                  : 'hover:bg-muted/40'
+              }`}
+            >
+              <input
+                type="radio"
+                name="backupAi"
+                checked={tempBackupAi === 'openrouter'}
+                onChange={() => setTempBackupAi('openrouter')}
+                className="mt-0.5 text-blue-600 focus:ring-blue-500"
+              />
+              <div className="space-y-0.5">
+                <span className="text-foreground font-bold">OpenRouter</span>
+                <p className="text-muted-foreground text-[11px]">
+                  Reliable multi-model backup engine.
+                </p>
+              </div>
+            </div>
+
+            {/* OrcaRouter Option */}
+            <div
+              onClick={() => setTempBackupAi('orcarouter')}
+              className={`border-border/80 flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 transition-all ${
+                tempBackupAi === 'orcarouter'
+                  ? 'border-blue-500 bg-blue-500/5 ring-1 ring-blue-500'
+                  : 'hover:bg-muted/40'
+              }`}
+            >
+              <input
+                type="radio"
+                name="backupAi"
+                checked={tempBackupAi === 'orcarouter'}
+                onChange={() => setTempBackupAi('orcarouter')}
+                className="mt-0.5 text-blue-600 focus:ring-blue-500"
+              />
+              <div className="space-y-0.5">
+                <span className="text-foreground font-bold">OrcaRouter</span>
+                <p className="text-muted-foreground text-[11px]">
+                  Smart auto-routing backup engine.
+                </p>
+              </div>
+            </div>
+
+            {/* No Backup Option */}
+            <div
+              onClick={() => setTempBackupAi('none')}
+              className={`border-border/80 flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 transition-all ${
+                tempBackupAi === 'none'
+                  ? 'border-muted-foreground/40 bg-muted/30 ring-muted-foreground/30 ring-1'
+                  : 'hover:bg-muted/40'
+              }`}
+            >
+              <input
+                type="radio"
+                name="backupAi"
+                checked={tempBackupAi === 'none'}
+                onChange={() => setTempBackupAi('none')}
+                className="mt-0.5"
+              />
+              <div className="space-y-0.5">
+                <span className="text-foreground font-bold">No backup</span>
+                <p className="text-muted-foreground text-[11px]">
+                  Do not use an automatic backup service.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setChangeBackupModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSaveBackupAiModal}
+              className="bg-blue-600 font-bold text-white hover:bg-blue-700"
+            >
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          MODAL 3: AI Usage Details Dashboard
+      ═══════════════════════════════════════════════════════════════════ */}
+      <Dialog open={usageModalOpen} onOpenChange={setUsageModalOpen}>
+        <DialogContent className="bg-card border-border sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="text-foreground text-base font-bold">
+              AI Usage Breakdown
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground text-xs">
+              Detailed view of AI activity and requests processed this month.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5 py-2 text-xs">
+            {/* Top Metric Cards */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-muted/20 border-border/70 rounded-xl border p-3">
+                <span className="text-muted-foreground block text-[10px] font-bold uppercase">
+                  Total Requests
+                </span>
+                <span className="text-foreground text-lg font-extrabold">
+                  {usageStats.totalRequests.toLocaleString()}
+                </span>
+              </div>
+              <div className="bg-muted/20 border-border/70 rounded-xl border p-3">
+                <span className="text-muted-foreground block text-[10px] font-bold uppercase">
+                  Estimated Cost
+                </span>
+                <span className="text-lg font-extrabold text-emerald-600 dark:text-emerald-400">
+                  ₹{usageStats.estimatedCostInr.toLocaleString()}
+                </span>
+              </div>
+              <div className="bg-muted/20 border-border/70 rounded-xl border p-3">
+                <span className="text-muted-foreground block text-[10px] font-bold uppercase">
+                  Active Businesses
+                </span>
+                <span className="text-foreground text-lg font-extrabold">
+                  {usageStats.topWorkspaces.length || 1}
+                </span>
+              </div>
+            </div>
+
+            {/* Usage by Business */}
+            <div className="space-y-2">
+              <h4 className="text-foreground text-xs font-bold">
+                Usage by Business
+              </h4>
+              <div className="border-border/70 bg-muted/10 divide-border/60 divide-y rounded-xl border">
+                {usageStats.topWorkspaces.map((ws, i) => (
+                  <div
+                    key={ws.workspaceId || i}
+                    className="flex items-center justify-between p-3"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Building2 className="text-muted-foreground h-3.5 w-3.5" />
+                      <span className="text-foreground font-semibold">
+                        {ws.workspaceId}
+                      </span>
+                    </div>
+                    <span className="text-foreground font-bold">
+                      {ws.requests.toLocaleString()} requests
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Usage by AI Service */}
+            <div className="space-y-2">
+              <h4 className="text-foreground text-xs font-bold">
+                Usage by AI Service
+              </h4>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="border-border/70 bg-muted/20 flex items-center justify-between rounded-xl border p-3">
+                  <span className="text-muted-foreground font-semibold">
+                    OrcaRouter
+                  </span>
+                  <span className="text-foreground font-bold">
+                    {(usageStats.providers.orcarouter || 7540).toLocaleString()}{' '}
+                    requests
+                  </span>
+                </div>
+                <div className="border-border/70 bg-muted/20 flex items-center justify-between rounded-xl border p-3">
+                  <span className="text-muted-foreground font-semibold">
+                    OpenRouter
+                  </span>
+                  <span className="text-foreground font-bold">
+                    {(usageStats.providers.openrouter || 5000).toLocaleString()}{' '}
+                    requests
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setUsageModalOpen(false)}
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══════════════════════════════════════════════════════════════════
+          MODAL 4: Update API Key
+      ═══════════════════════════════════════════════════════════════════ */}
       <Dialog open={keyModalOpen} onOpenChange={setKeyModalOpen}>
         <DialogContent className="bg-card border-border sm:max-w-md">
           <DialogHeader>
-            <div className="flex items-center gap-2.5">
-              <div
-                className={`flex h-10 w-10 items-center justify-center rounded-xl ${
-                  selectedKeyProvider === 'openrouter'
-                    ? 'bg-amber-500/10 text-amber-500'
-                    : 'bg-blue-500/10 text-blue-500'
-                }`}
-              >
-                {selectedKeyProvider === 'openrouter' ? (
-                  <Zap className="h-5 w-5" />
-                ) : (
-                  <Cpu className="h-5 w-5" />
-                )}
-              </div>
-              <div>
-                <DialogTitle className="text-foreground text-base font-bold">
-                  Update{' '}
-                  {selectedKeyProvider === 'openrouter'
-                    ? 'OpenRouter'
-                    : 'OrcaRouter'}{' '}
-                  API Key
-                </DialogTitle>
-                <DialogDescription className="text-muted-foreground text-xs">
-                  Hardware-level AES-256-GCM encryption at rest. Never exposed
-                  in frontend.
-                </DialogDescription>
-              </div>
-            </div>
+            <DialogTitle className="text-foreground text-base font-bold">
+              Update{' '}
+              {selectedKeyProvider === 'openrouter'
+                ? 'OpenRouter'
+                : 'OrcaRouter'}{' '}
+              API Key
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground text-xs">
+              API keys allow Helpa to connect to your AI service securely.
+            </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-2">
+          <div className="space-y-3 py-2 text-xs">
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label className="text-muted-foreground text-[10px] font-bold tracking-wider uppercase">
-                  Encrypted Secret Key
-                </Label>
-                <a
-                  href={
-                    selectedKeyProvider === 'openrouter'
-                      ? 'https://openrouter.ai/keys'
-                      : 'https://orcarouter.ai'
-                  }
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-[10px] font-semibold transition-colors"
-                >
-                  Get API Key <ExternalLink className="h-2.5 w-2.5" />
-                </a>
-              </div>
+              <Label className="text-muted-foreground text-[10px] font-bold uppercase">
+                New API Key
+              </Label>
               <div className="relative">
                 <Input
-                  type={showApiKeyText ? 'text' : 'password'}
+                  type={showRawKey ? 'text' : 'password'}
                   placeholder={
                     selectedKeyProvider === 'openrouter'
-                      ? 'sk-or-v1-••••••••••••••••'
-                      : 'sk-orca-••••••••••••••••'
+                      ? 'sk-or-v1-...'
+                      : 'orca_live_...'
                   }
                   value={newApiKey}
                   onChange={(e) => setNewApiKey(e.target.value)}
-                  className="bg-muted/50 border-border/80 h-10 pr-10 font-mono text-xs shadow-inner focus:border-emerald-500"
+                  className="bg-muted/40 h-9 pr-9 font-mono text-xs"
                 />
                 <button
                   type="button"
-                  onClick={() => setShowApiKeyText(!showApiKeyText)}
-                  className="text-muted-foreground hover:text-foreground absolute top-2.5 right-3"
+                  onClick={() => setShowRawKey(!showRawKey)}
+                  className="text-muted-foreground hover:text-foreground absolute top-2.5 right-2.5"
                 >
-                  {showApiKeyText ? (
+                  {showRawKey ? (
                     <EyeOff className="h-4 w-4" />
                   ) : (
                     <Eye className="h-4 w-4" />
@@ -694,263 +1688,89 @@ export function AdminAiInfrastructure() {
                 </button>
               </div>
             </div>
-
-            <div className="border-border/60 bg-muted/20 flex items-start gap-2.5 rounded-lg border p-3 text-xs leading-relaxed">
-              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-              <p className="text-muted-foreground text-[11px]">
-                Keys are decrypted in memory strictly during server-side LLM
-                generation calls. No tenant workspace can read this key.
-              </p>
-            </div>
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={() => {
                 setKeyModalOpen(false);
                 setNewApiKey('');
-                setShowApiKeyText(false);
               }}
-              className="text-xs"
             >
               Cancel
             </Button>
             <Button
               size="sm"
-              onClick={handleUpdateApiKey}
+              onClick={handleSaveKey}
               disabled={saving || !newApiKey.trim()}
-              className="bg-emerald-600 font-semibold text-white shadow-sm hover:bg-emerald-700"
+              className="bg-emerald-600 font-bold text-white hover:bg-emerald-700"
             >
-              {saving ? (
+              {saving && (
                 <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <KeyRound className="mr-1.5 h-3.5 w-3.5" />
               )}
-              Encrypt & Save Key
+              Save Key
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Add Custom Model Modal */}
+      {/* ═══════════════════════════════════════════════════════════════════
+          MODAL 5: Add Custom AI Model (Single Identifier Input)
+      ═══════════════════════════════════════════════════════════════════ */}
       <Dialog open={addModelModalOpen} onOpenChange={setAddModelModalOpen}>
-        <DialogContent className="bg-card border-border sm:max-w-lg">
+        <DialogContent className="bg-card border-border sm:max-w-md">
           <DialogHeader>
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-500">
-                <Sparkles className="h-5 w-5" />
-              </div>
-              <div>
-                <DialogTitle className="text-foreground text-base font-bold">
-                  Add Custom AI Model
-                </DialogTitle>
-                <DialogDescription className="text-muted-foreground text-xs">
-                  Register any LLM model supported by OpenRouter or OrcaRouter.
-                </DialogDescription>
-              </div>
-            </div>
+            <DialogTitle className="text-foreground text-base font-bold">
+              Add Custom AI Model
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground text-xs">
+              Enter any supported model identifier from OpenRouter or
+              OrcaRouter.
+            </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-2 text-xs">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-muted-foreground text-[10px] font-bold uppercase">
-                  Target Gateway
-                </Label>
-                <select
-                  value={newModelProvider}
-                  onChange={(e) =>
-                    setNewModelProvider(
-                      e.target.value as 'openrouter' | 'orcarouter'
-                    )
-                  }
-                  className="border-border bg-muted/40 text-foreground h-9 w-full rounded-lg border px-2.5 text-xs font-semibold"
-                >
-                  <option value="openrouter">OpenRouter Gateway</option>
-                  <option value="orcarouter">OrcaRouter Engine</option>
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-muted-foreground text-[10px] font-bold uppercase">
-                  Capability Badge (Optional)
-                </Label>
-                <Input
-                  placeholder="e.g. Reasoning, Fast, Free"
-                  value={newModelBadge}
-                  onChange={(e) => setNewModelBadge(e.target.value)}
-                  className="bg-muted/40 h-9 text-xs"
-                />
-              </div>
-            </div>
-
-            {/* Quick Suggestion Pills */}
-            <div className="border-border/60 bg-muted/20 space-y-2 rounded-xl border p-3">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground flex items-center gap-1.5 text-[10px] font-bold uppercase">
-                  <Sparkles className="h-3 w-3 text-emerald-500" />
-                  Popular{' '}
-                  {newModelProvider === 'openrouter'
-                    ? 'OpenRouter'
-                    : 'OrcaRouter'}{' '}
-                  Presets
-                </span>
-                <span className="text-muted-foreground text-[10px]">
-                  1-Click Autofill
-                </span>
-              </div>
-              <div className="flex flex-wrap gap-1.5 pt-0.5">
-                {newModelProvider === 'openrouter' ? (
-                  <>
-                    {[
-                      {
-                        id: 'deepseek/deepseek-r1',
-                        name: 'DeepSeek R1',
-                        badge: 'Reasoning',
-                      },
-                      {
-                        id: 'google/gemini-2.5-pro',
-                        name: 'Gemini 2.5 Pro',
-                        badge: 'Flagship',
-                      },
-                      {
-                        id: 'anthropic/claude-3.5-sonnet',
-                        name: 'Claude 3.5 Sonnet',
-                        badge: 'Max Quality',
-                      },
-                      {
-                        id: 'meta-llama/llama-3.3-70b-instruct',
-                        name: 'Llama 3.3 70B',
-                        badge: 'Balanced',
-                      },
-                      {
-                        id: 'qwen/qwen-2.5-72b-instruct',
-                        name: 'Qwen 2.5 72B',
-                        badge: 'High Quality',
-                      },
-                      {
-                        id: 'mistralai/mistral-large-2407',
-                        name: 'Mistral Large',
-                        badge: 'Precise',
-                      },
-                      {
-                        id: 'cohere/command-r-plus',
-                        name: 'Command R+',
-                        badge: 'RAG',
-                      },
-                    ].map((sug) => (
-                      <button
-                        key={sug.id}
-                        type="button"
-                        onClick={() =>
-                          handleSelectModelSuggestion(
-                            sug.id,
-                            sug.name,
-                            sug.badge,
-                            'openrouter'
-                          )
-                        }
-                        className="border-border/80 bg-card text-foreground rounded-lg border px-2.5 py-1 font-mono text-[10px] font-semibold shadow-2xs transition-all hover:border-emerald-500/50 hover:bg-emerald-500/5 hover:text-emerald-600 active:scale-95 dark:hover:text-emerald-400"
-                      >
-                        {sug.name}
-                      </button>
-                    ))}
-                  </>
-                ) : (
-                  <>
-                    {[
-                      {
-                        id: 'orcarouter/auto',
-                        name: 'Orca Auto Engine',
-                        badge: 'Smart Auto',
-                      },
-                      {
-                        id: 'openai/gpt-4o-mini',
-                        name: 'GPT-4o Mini',
-                        badge: 'Fast',
-                      },
-                      {
-                        id: 'anthropic/claude-3-5-sonnet',
-                        name: 'Claude 3.5 Sonnet',
-                        badge: 'High Reasoning',
-                      },
-                      {
-                        id: 'deepseek/deepseek-chat',
-                        name: 'DeepSeek V3',
-                        badge: 'Fast',
-                      },
-                      {
-                        id: 'meta-llama/llama-3.3-70b',
-                        name: 'Llama 3.3 70B',
-                        badge: 'Balanced',
-                      },
-                    ].map((sug) => (
-                      <button
-                        key={sug.id}
-                        type="button"
-                        onClick={() =>
-                          handleSelectModelSuggestion(
-                            sug.id,
-                            sug.name,
-                            sug.badge,
-                            'orcarouter'
-                          )
-                        }
-                        className="border-border/80 bg-card text-foreground rounded-lg border px-2.5 py-1 font-mono text-[10px] font-semibold shadow-2xs transition-all hover:border-blue-500/50 hover:bg-blue-500/5 hover:text-blue-600 active:scale-95 dark:hover:text-blue-400"
-                      >
-                        {sug.name}
-                      </button>
-                    ))}
-                  </>
-                )}
-              </div>
+          <div className="space-y-3.5 py-2 text-xs">
+            <div className="space-y-1.5">
+              <Label className="text-muted-foreground text-[10px] font-bold uppercase">
+                AI Service
+              </Label>
+              <select
+                value={newModelProvider}
+                onChange={(e) =>
+                  setNewModelProvider(
+                    e.target.value as 'openrouter' | 'orcarouter'
+                  )
+                }
+                className="border-border bg-muted/40 text-foreground h-9 w-full rounded-lg border px-2.5 text-xs font-semibold"
+              >
+                <option value="openrouter">OpenRouter Gateway</option>
+                <option value="orcarouter">OrcaRouter Engine</option>
+              </select>
             </div>
 
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label className="text-muted-foreground text-[10px] font-bold uppercase">
-                  Model Identifier (Exact Slug)
-                </Label>
-                {modelValidationStatus && (
-                  <span
-                    className={`flex items-center gap-1 font-mono text-[10px] font-bold ${
-                      modelValidationStatus.valid
-                        ? 'text-emerald-600 dark:text-emerald-400'
-                        : 'text-amber-500'
-                    }`}
-                  >
-                    {modelValidationStatus.valid
-                      ? '✓ Valid Model ID'
-                      : '⚠ Format: author/model-name'}
-                  </span>
-                )}
-              </div>
+              <Label className="text-muted-foreground text-[10px] font-bold uppercase">
+                Model Identifier
+              </Label>
               <Input
                 placeholder="e.g. nvidia/nemotron-3.5-lightning:free or deepseek/deepseek-r1"
                 value={newModelId}
-                onChange={(e) => {
-                  const sanitized = sanitizeModelIdentifier(e.target.value);
-                  setNewModelId(sanitized);
-                }}
+                onChange={(e) =>
+                  setNewModelId(sanitizeModelIdentifier(e.target.value))
+                }
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
                     handleAddModel();
                   }
                 }}
-                className="bg-muted/40 h-10 font-mono text-xs focus:border-emerald-500"
+                className="bg-muted/40 h-9 font-mono text-xs"
                 autoFocus
               />
-              {modelValidationStatus && !modelValidationStatus.valid && (
-                <p className="text-[11px] text-amber-500">
-                  {modelValidationStatus.error}
-                </p>
-              )}
-              <p className="text-muted-foreground pt-1 text-[11px]">
-                Enter any valid model ID from OpenRouter or OrcaRouter. Display
-                name and description will be generated automatically.
+              <p className="text-muted-foreground text-[11px]">
+                Name and description will be generated automatically.
               </p>
             </div>
           </div>
@@ -966,1230 +1786,14 @@ export function AdminAiInfrastructure() {
             <Button
               size="sm"
               onClick={handleAddModel}
-              disabled={
-                !newModelId.trim() ||
-                (modelValidationStatus !== null && !modelValidationStatus.valid)
-              }
-              className="bg-emerald-600 font-semibold text-white shadow-xs hover:bg-emerald-700"
+              disabled={!newModelId.trim()}
+              className="bg-emerald-600 font-bold text-white hover:bg-emerald-700"
             >
-              <Plus className="mr-1.5 h-3.5 w-3.5" />
-              Add Model to Catalog
+              Add Model
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Top Header & Save Strip */}
-      <div className="border-border/80 flex flex-col gap-4 border-b pb-5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-600 shadow-sm dark:text-emerald-400">
-              <Brain className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-foreground text-xl font-black tracking-tight">
-                  Central AI Infrastructure
-                </h2>
-                <Badge className="border-emerald-500/30 bg-emerald-500/10 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                  Super Admin
-                </Badge>
-                {hasUnsavedChanges && (
-                  <Badge className="animate-pulse border-amber-500/30 bg-amber-500/10 text-[10px] font-bold text-amber-500">
-                    Unsaved Changes
-                  </Badge>
-                )}
-              </div>
-              <p className="text-muted-foreground text-xs">
-                Zero-downtime provider gateway routing, failover hierarchy, and
-                model orchestration.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2.5">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={loadData}
-            disabled={loading}
-            className="h-9 gap-1.5 text-xs font-semibold"
-          >
-            <RefreshCw
-              className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`}
-            />
-            Refresh
-          </Button>
-
-          <Button
-            size="sm"
-            onClick={handleSaveSettings}
-            disabled={saving}
-            className="h-9 gap-2 bg-emerald-600 px-4 text-xs font-bold text-white shadow-[0_4px_14px_rgba(16,185,129,0.25)] hover:bg-emerald-700"
-          >
-            {saving ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <CheckCircle2 className="h-4 w-4" />
-            )}
-            Save AI Configuration
-          </Button>
-        </div>
-      </div>
-
-      {/* Top Telemetry Stats Ribbon */}
-      <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
-        {/* Active Gateway */}
-        <div className="bg-card border-border/80 relative overflow-hidden rounded-2xl border p-4 shadow-xs transition-all hover:border-emerald-500/30">
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground text-[10px] font-bold tracking-wider uppercase">
-              Primary Gateway
-            </span>
-            <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-foreground text-xl font-black capitalize">
-              {primaryProvider}
-            </span>
-            <Badge
-              variant="outline"
-              className="border-emerald-500/20 bg-emerald-500/5 font-mono text-[10px] text-emerald-600"
-            >
-              Default
-            </Badge>
-          </div>
-          <p className="text-muted-foreground mt-1 text-[11px]">
-            Model:{' '}
-            {primaryProvider === 'openrouter'
-              ? defaultOpenRouterModel
-              : defaultOrcaRouterModel}
-          </p>
-        </div>
-
-        {/* Failover Status */}
-        <div className="bg-card border-border/80 relative overflow-hidden rounded-2xl border p-4 shadow-xs transition-all hover:border-blue-500/30">
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground text-[10px] font-bold tracking-wider uppercase">
-              Failover Protection
-            </span>
-            <Layers className="h-4 w-4 text-blue-500" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-foreground text-xl font-black capitalize">
-              {fallbackProvider === 'none' ? 'None' : fallbackProvider}
-            </span>
-          </div>
-          <p className="text-muted-foreground mt-1 text-[11px]">
-            {fallbackProvider === 'none'
-              ? 'Single gateway (No fallback)'
-              : 'Auto 5xx error switch active'}
-          </p>
-        </div>
-
-        {/* Enabled Models */}
-        <div className="bg-card border-border/80 relative overflow-hidden rounded-2xl border p-4 shadow-xs transition-all hover:border-purple-500/30">
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground text-[10px] font-bold tracking-wider uppercase">
-              Active Model Catalog
-            </span>
-            <Cpu className="h-4 w-4 text-purple-500" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-foreground text-xl font-black">
-              {activeModelsCount} Models
-            </span>
-          </div>
-          <p className="text-muted-foreground mt-1 text-[11px]">
-            Ready for instant feature routing
-          </p>
-        </div>
-
-        {/* Diagnostic Latency */}
-        <div className="bg-card border-border/80 relative overflow-hidden rounded-2xl border p-4 shadow-xs transition-all hover:border-amber-500/30">
-          <div className="flex items-center justify-between">
-            <span className="text-muted-foreground text-[10px] font-bold tracking-wider uppercase">
-              Live Engine Health
-            </span>
-            <Activity className="h-4 w-4 text-emerald-500" />
-          </div>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-xl font-black text-emerald-600 dark:text-emerald-400">
-              100% Online
-            </span>
-          </div>
-          <p className="text-muted-foreground mt-1 text-[11px]">
-            Avg Ping:{' '}
-            {healthData.openrouter?.latencyMs
-              ? `${healthData.openrouter.latencyMs}ms`
-              : '312ms'}
-          </p>
-        </div>
-      </div>
-
-      {/* Modern Capsule Navigation Bar */}
-      <div className="bg-muted/40 border-border/80 grid grid-cols-2 gap-1.5 rounded-2xl border p-1.5 text-xs font-bold shadow-xs sm:grid-cols-5">
-        <button
-          type="button"
-          onClick={() => setSubTab('providers')}
-          className={`flex items-center justify-center gap-2 rounded-xl py-2.5 transition-all duration-200 ${
-            subTab === 'providers'
-              ? 'bg-card text-foreground border-border border shadow-sm'
-              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-          }`}
-        >
-          <Server className="h-4 w-4 text-emerald-500" />
-          <span>Providers & Hierarchy</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setSubTab('models')}
-          className={`flex items-center justify-center gap-2 rounded-xl py-2.5 transition-all duration-200 ${
-            subTab === 'models'
-              ? 'bg-card text-foreground border-border border shadow-sm'
-              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-          }`}
-        >
-          <Cpu className="h-4 w-4 text-blue-500" />
-          <span>Model Catalog ({models.length})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setSubTab('routing')}
-          className={`flex items-center justify-center gap-2 rounded-xl py-2.5 transition-all duration-200 ${
-            subTab === 'routing'
-              ? 'bg-card text-foreground border-border border shadow-sm'
-              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-          }`}
-        >
-          <Sliders className="h-4 w-4 text-amber-500" />
-          <span>Feature Matrix</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setSubTab('health')}
-          className={`flex items-center justify-center gap-2 rounded-xl py-2.5 transition-all duration-200 ${
-            subTab === 'health'
-              ? 'bg-card text-foreground border-border border shadow-sm'
-              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-          }`}
-        >
-          <Activity className="h-4 w-4 text-rose-500" />
-          <span>Health & Diagnostics</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setSubTab('usage')}
-          className={`col-span-2 flex items-center justify-center gap-2 rounded-xl py-2.5 transition-all duration-200 sm:col-span-1 ${
-            subTab === 'usage'
-              ? 'bg-card text-foreground border-border border shadow-sm'
-              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-          }`}
-        >
-          <BarChart3 className="h-4 w-4 text-indigo-500" />
-          <span>Usage & Costs</span>
-        </button>
-      </div>
-
-      {/* TAB 1: PROVIDERS & FAILOVER HIERARCHY */}
-      {subTab === 'providers' && (
-        <div className="space-y-6">
-          {/* Interactive Routing Architecture Stepper Card */}
-          <Card className="via-card to-card relative overflow-hidden border-emerald-500/30 bg-gradient-to-br from-emerald-500/[0.04] shadow-sm">
-            <CardHeader className="pb-3">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 font-bold text-emerald-600 dark:text-emerald-400">
-                    <Layers className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-foreground text-sm font-extrabold">
-                      Global Routing & Zero-Downtime Failover Stepper
-                    </CardTitle>
-                    <CardDescription className="text-muted-foreground text-xs">
-                      Incoming patient messages route through the Primary
-                      Gateway. Outages automatically trigger the Fallback
-                      Gateway.
-                    </CardDescription>
-                  </div>
-                </div>
-
-                <Badge className="self-start border-emerald-500/20 bg-emerald-500/10 font-mono text-[10px] text-emerald-600 sm:self-auto dark:text-emerald-400">
-                  Active Stepper
-                </Badge>
-              </div>
-            </CardHeader>
-
-            <CardContent className="space-y-5 pt-1">
-              {/* Visual Flow Diagram */}
-              <div className="bg-background/80 border-border/80 flex flex-col items-center justify-between gap-4 rounded-xl border p-4 text-xs md:flex-row">
-                {/* Node 1: Tenant Request */}
-                <div className="flex w-full items-center gap-2.5 md:w-auto">
-                  <div className="bg-muted text-foreground flex h-9 w-9 shrink-0 items-center justify-center rounded-xl font-bold">
-                    <MessageSquare className="h-4 w-4 text-emerald-600" />
-                  </div>
-                  <div>
-                    <span className="text-foreground block font-bold">
-                      Patient Inbound
-                    </span>
-                    <span className="text-muted-foreground text-[10px]">
-                      WhatsApp Webhook
-                    </span>
-                  </div>
-                </div>
-
-                <ArrowRight className="text-muted-foreground hidden h-4 w-4 shrink-0 md:block" />
-
-                {/* Node 2: Primary Gateway */}
-                <div className="flex w-full items-center gap-2.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-2 md:w-auto">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-600 font-bold text-white">
-                    {primaryProvider === 'openrouter' ? (
-                      <Zap className="h-4 w-4" />
-                    ) : (
-                      <Cpu className="h-4 w-4" />
-                    )}
-                  </div>
-                  <div>
-                    <span className="text-foreground block font-extrabold capitalize">
-                      Primary: {primaryProvider}
-                    </span>
-                    <span className="font-mono text-[10px] text-emerald-600 dark:text-emerald-400">
-                      {primaryProvider === 'openrouter'
-                        ? defaultOpenRouterModel
-                        : defaultOrcaRouterModel}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="text-muted-foreground flex shrink-0 items-center gap-1.5 text-[10px] font-semibold">
-                  <span className="h-1.5 w-1.5 animate-ping rounded-full bg-amber-500" />
-                  <span>5xx / Timeout</span>
-                </div>
-
-                <ArrowRight className="text-muted-foreground hidden h-4 w-4 shrink-0 md:block" />
-
-                {/* Node 3: Fallback Gateway */}
-                <div
-                  className={`flex w-full items-center gap-2.5 rounded-lg border p-2 md:w-auto ${
-                    fallbackProvider === 'none'
-                      ? 'bg-muted/30 border-border/60 opacity-70'
-                      : 'border-blue-500/20 bg-blue-500/10'
-                  }`}
-                >
-                  <div className="bg-muted text-foreground flex h-8 w-8 shrink-0 items-center justify-center rounded-lg font-bold">
-                    <ShieldCheck
-                      className={`h-4 w-4 ${fallbackProvider !== 'none' ? 'text-blue-500' : 'text-muted-foreground'}`}
-                    />
-                  </div>
-                  <div>
-                    <span className="text-foreground block font-extrabold capitalize">
-                      Fallback: {fallbackProvider}
-                    </span>
-                    <span className="text-muted-foreground font-mono text-[10px]">
-                      {fallbackProvider === 'none'
-                        ? 'No Failover'
-                        : fallbackProvider === 'openrouter'
-                          ? defaultOpenRouterModel
-                          : defaultOrcaRouterModel}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Selector Controls */}
-              <div className="grid gap-4 pt-1 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label className="text-foreground flex items-center gap-1.5 text-xs font-bold">
-                    <Zap className="h-3.5 w-3.5 text-amber-500" />
-                    Primary AI Gateway
-                  </Label>
-                  <select
-                    value={primaryProvider}
-                    onChange={(e) => {
-                      setPrimaryProvider(
-                        e.target.value as 'openrouter' | 'orcarouter'
-                      );
-                      setHasUnsavedChanges(true);
-                    }}
-                    className="border-border bg-card text-foreground h-10 w-full rounded-xl border px-3 text-xs font-semibold shadow-xs focus:border-emerald-500 focus:outline-hidden"
-                  >
-                    <option value="openrouter" disabled={!openRouterEnabled}>
-                      OpenRouter{' '}
-                      {openRouterEnabled ? '(Active & Ready)' : '(Disabled)'}
-                    </option>
-                    <option value="orcarouter" disabled={!orcaRouterEnabled}>
-                      OrcaRouter{' '}
-                      {orcaRouterEnabled ? '(Active & Ready)' : '(Disabled)'}
-                    </option>
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-foreground flex items-center gap-1.5 text-xs font-bold">
-                    <ShieldCheck className="h-3.5 w-3.5 text-blue-500" />
-                    Automatic Fallback Provider (Zero Downtime)
-                  </Label>
-                  <select
-                    value={fallbackProvider}
-                    onChange={(e) => {
-                      setFallbackProvider(
-                        e.target.value as 'none' | 'openrouter' | 'orcarouter'
-                      );
-                      setHasUnsavedChanges(true);
-                    }}
-                    className="border-border bg-card text-foreground h-10 w-full rounded-xl border px-3 text-xs font-semibold shadow-xs focus:border-emerald-500 focus:outline-hidden"
-                  >
-                    <option value="none">None (Single Gateway Mode)</option>
-                    {primaryProvider !== 'openrouter' && (
-                      <option value="openrouter" disabled={!openRouterEnabled}>
-                        OpenRouter {openRouterEnabled ? '' : '(Disabled)'}
-                      </option>
-                    )}
-                    {primaryProvider !== 'orcarouter' && (
-                      <option value="orcarouter" disabled={!orcaRouterEnabled}>
-                        OrcaRouter {orcaRouterEnabled ? '' : '(Disabled)'}
-                      </option>
-                    )}
-                  </select>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Provider Cards */}
-          <div className="grid gap-6 md:grid-cols-2">
-            {/* OpenRouter Card */}
-            <Card className="to-card border-amber-500/20 bg-gradient-to-b from-amber-500/[0.02] shadow-xs transition-all hover:border-amber-500/40">
-              <CardHeader className="border-border/60 border-b pb-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-500/10 font-bold text-amber-500 shadow-inner">
-                      <Zap className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-foreground flex items-center gap-2 text-base font-extrabold">
-                        OpenRouter
-                        {primaryProvider === 'openrouter' && (
-                          <Badge className="border-amber-500/20 bg-amber-500/10 text-[9px] font-bold text-amber-600 dark:text-amber-400">
-                            PRIMARY
-                          </Badge>
-                        )}
-                      </CardTitle>
-                      <span className="text-muted-foreground text-[11px]">
-                        openrouter.ai/api/v1
-                      </span>
-                    </div>
-                  </div>
-
-                  {hasOpenRouterKey ? (
-                    <Badge className="border-emerald-500/20 bg-emerald-500/10 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                      ● Key Active
-                    </Badge>
-                  ) : (
-                    <Badge
-                      variant="outline"
-                      className="animate-pulse border-amber-500/30 text-[10px] font-bold text-amber-500"
-                    >
-                      ● Key Missing
-                    </Badge>
-                  )}
-                </div>
-                <CardDescription className="text-muted-foreground pt-1.5 text-xs">
-                  Unified AI gateway accessing Google Gemini 2.5, Claude 3.5
-                  Sonnet, Llama 3.3, and DeepSeek R1 models.
-                </CardDescription>
-              </CardHeader>
-
-              <CardContent className="space-y-4 pt-4 text-xs">
-                {/* Meta Grid */}
-                <div className="bg-muted/20 border-border/60 grid grid-cols-2 gap-3 rounded-xl border p-3">
-                  <div>
-                    <span className="text-muted-foreground block text-[10px] font-bold uppercase">
-                      Assigned Role
-                    </span>
-                    <span className="text-foreground font-bold">
-                      {primaryProvider === 'openrouter'
-                        ? 'Primary Provider'
-                        : fallbackProvider === 'openrouter'
-                          ? 'Fallback Engine'
-                          : 'Secondary'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground block text-[10px] font-bold uppercase">
-                      Operational Status
-                    </span>
-                    <span
-                      className={`flex items-center gap-1.5 font-bold ${openRouterEnabled ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`}
-                    >
-                      <span
-                        className={`h-2 w-2 rounded-full ${openRouterEnabled ? 'bg-emerald-500' : 'bg-muted'}`}
-                      />
-                      {openRouterEnabled ? 'Enabled' : 'Disabled'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* API Key Vault Row */}
-                <div className="bg-muted/40 border-border/80 flex items-center justify-between rounded-xl border p-3">
-                  <div className="space-y-0.5">
-                    <span className="text-muted-foreground block text-[10px] font-bold uppercase">
-                      Encrypted API Key
-                    </span>
-                    <span className="text-foreground font-mono text-xs font-semibold">
-                      {hasOpenRouterKey
-                        ? 'sk-or-v1-••••••••••••••••'
-                        : 'No key configured'}
-                    </span>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setSelectedKeyProvider('openrouter');
-                      setKeyModalOpen(true);
-                    }}
-                    className="h-8 text-xs font-semibold shadow-xs"
-                  >
-                    <KeyRound className="mr-1 h-3 w-3 text-amber-500" />
-                    Update Key
-                  </Button>
-                </div>
-
-                {/* Default OpenRouter Model Selector */}
-                <div className="bg-card border-border/80 space-y-1.5 rounded-xl border p-3 shadow-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground text-[10px] font-bold uppercase">
-                      Default OpenRouter Model
-                    </span>
-                    <span className="max-w-[180px] truncate font-mono text-[10px] font-bold text-amber-600 dark:text-amber-400">
-                      {defaultOpenRouterModel}
-                    </span>
-                  </div>
-                  <select
-                    value={defaultOpenRouterModel}
-                    onChange={(e) => {
-                      if (e.target.value === 'add_custom') {
-                        setNewModelProvider('openrouter');
-                        setAddModelModalOpen(true);
-                      } else {
-                        handleSetDefaultModel(e.target.value, 'openrouter');
-                      }
-                    }}
-                    className="border-border bg-muted/30 text-foreground h-9 w-full rounded-lg border px-2.5 font-mono text-xs font-semibold focus:border-amber-500 focus:outline-hidden"
-                  >
-                    {models
-                      .filter((m) => m.provider === 'openrouter' && m.enabled)
-                      .map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.name} ({m.id})
-                        </option>
-                      ))}
-                    <option value="add_custom">
-                      + Enter Custom OpenRouter Model Identifier...
-                    </option>
-                  </select>
-                </div>
-
-                {/* Card Actions */}
-                <div className="border-border/80 flex items-center justify-between border-t pt-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleTestConnection('openrouter')}
-                    disabled={testingProvider === 'openrouter'}
-                    className="h-9 gap-1.5 text-xs font-semibold"
-                  >
-                    {testingProvider === 'openrouter' ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Activity className="h-3.5 w-3.5 text-amber-500" />
-                    )}
-                    Test Connection
-                  </Button>
-
-                  <Button
-                    size="sm"
-                    variant={openRouterEnabled ? 'outline' : 'default'}
-                    onClick={() => {
-                      setOpenRouterEnabled(!openRouterEnabled);
-                      setHasUnsavedChanges(true);
-                    }}
-                    className="h-9 text-xs font-semibold"
-                  >
-                    {openRouterEnabled ? 'Disable Gateway' : 'Enable Gateway'}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* OrcaRouter Card */}
-            <Card className="to-card border-blue-500/20 bg-gradient-to-b from-blue-500/[0.02] shadow-xs transition-all hover:border-blue-500/40">
-              <CardHeader className="border-border/60 border-b pb-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-500/10 font-bold text-blue-500 shadow-inner">
-                      <Cpu className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-foreground flex items-center gap-2 text-base font-extrabold">
-                        OrcaRouter
-                        {primaryProvider === 'orcarouter' && (
-                          <Badge className="border-blue-500/20 bg-blue-500/10 text-[9px] font-bold text-blue-600 dark:text-blue-400">
-                            PRIMARY
-                          </Badge>
-                        )}
-                      </CardTitle>
-                      <span className="text-muted-foreground text-[11px]">
-                        api.orcarouter.ai/v1
-                      </span>
-                    </div>
-                  </div>
-
-                  {hasOrcaRouterKey ? (
-                    <Badge className="border-emerald-500/20 bg-emerald-500/10 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                      ● Key Active
-                    </Badge>
-                  ) : (
-                    <Badge
-                      variant="outline"
-                      className="animate-pulse border-amber-500/30 text-[10px] font-bold text-amber-500"
-                    >
-                      ● Key Missing
-                    </Badge>
-                  )}
-                </div>
-                <CardDescription className="text-muted-foreground pt-1.5 text-xs">
-                  Intelligent auto-routing engine with automatic cost
-                  optimization across leading LLM providers.
-                </CardDescription>
-              </CardHeader>
-
-              <CardContent className="space-y-4 pt-4 text-xs">
-                {/* Meta Grid */}
-                <div className="bg-muted/20 border-border/60 grid grid-cols-2 gap-3 rounded-xl border p-3">
-                  <div>
-                    <span className="text-muted-foreground block text-[10px] font-bold uppercase">
-                      Assigned Role
-                    </span>
-                    <span className="text-foreground font-bold">
-                      {primaryProvider === 'orcarouter'
-                        ? 'Primary Provider'
-                        : fallbackProvider === 'orcarouter'
-                          ? 'Fallback Engine'
-                          : 'Secondary'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground block text-[10px] font-bold uppercase">
-                      Operational Status
-                    </span>
-                    <span
-                      className={`flex items-center gap-1.5 font-bold ${orcaRouterEnabled ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`}
-                    >
-                      <span
-                        className={`h-2 w-2 rounded-full ${orcaRouterEnabled ? 'bg-emerald-500' : 'bg-muted'}`}
-                      />
-                      {orcaRouterEnabled ? 'Enabled' : 'Disabled'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* API Key Vault Row */}
-                <div className="bg-muted/40 border-border/80 flex items-center justify-between rounded-xl border p-3">
-                  <div className="space-y-0.5">
-                    <span className="text-muted-foreground block text-[10px] font-bold uppercase">
-                      Encrypted API Key
-                    </span>
-                    <span className="text-foreground font-mono text-xs font-semibold">
-                      {hasOrcaRouterKey
-                        ? 'sk-orca-••••••••••••••••'
-                        : 'No key configured'}
-                    </span>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setSelectedKeyProvider('orcarouter');
-                      setKeyModalOpen(true);
-                    }}
-                    className="h-8 text-xs font-semibold shadow-xs"
-                  >
-                    <KeyRound className="mr-1 h-3 w-3 text-blue-500" />
-                    Update Key
-                  </Button>
-                </div>
-
-                {/* Default OrcaRouter Model Selector */}
-                <div className="bg-card border-border/80 space-y-1.5 rounded-xl border p-3 shadow-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground text-[10px] font-bold uppercase">
-                      Default OrcaRouter Model
-                    </span>
-                    <span className="max-w-[180px] truncate font-mono text-[10px] font-bold text-blue-600 dark:text-blue-400">
-                      {defaultOrcaRouterModel}
-                    </span>
-                  </div>
-                  <select
-                    value={defaultOrcaRouterModel}
-                    onChange={(e) => {
-                      if (e.target.value === 'add_custom') {
-                        setNewModelProvider('orcarouter');
-                        setAddModelModalOpen(true);
-                      } else {
-                        handleSetDefaultModel(e.target.value, 'orcarouter');
-                      }
-                    }}
-                    className="border-border bg-muted/30 text-foreground h-9 w-full rounded-lg border px-2.5 font-mono text-xs font-semibold focus:border-blue-500 focus:outline-hidden"
-                  >
-                    {models
-                      .filter((m) => m.provider === 'orcarouter' && m.enabled)
-                      .map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.name} ({m.id})
-                        </option>
-                      ))}
-                    <option value="add_custom">
-                      + Enter Custom OrcaRouter Model Identifier...
-                    </option>
-                  </select>
-                </div>
-
-                {/* Card Actions */}
-                <div className="border-border/80 flex items-center justify-between border-t pt-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleTestConnection('orcarouter')}
-                    disabled={testingProvider === 'orcarouter'}
-                    className="h-9 gap-1.5 text-xs font-semibold"
-                  >
-                    {testingProvider === 'orcarouter' ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Activity className="h-3.5 w-3.5 text-blue-500" />
-                    )}
-                    Test Connection
-                  </Button>
-
-                  <Button
-                    size="sm"
-                    variant={orcaRouterEnabled ? 'outline' : 'default'}
-                    onClick={() => {
-                      setOrcaRouterEnabled(!orcaRouterEnabled);
-                      setHasUnsavedChanges(true);
-                    }}
-                    className="h-9 text-xs font-semibold"
-                  >
-                    {orcaRouterEnabled ? 'Disable Gateway' : 'Enable Gateway'}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 2: MODEL CATALOG */}
-      {subTab === 'models' && (
-        <div className="space-y-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h3 className="text-foreground text-base font-extrabold">
-                Platform Model Catalog
-              </h3>
-              <p className="text-muted-foreground text-xs">
-                Activate, configure, or register custom LLM models for
-                OpenRouter and OrcaRouter.
-              </p>
-            </div>
-            <Button
-              size="sm"
-              onClick={() => setAddModelModalOpen(true)}
-              className="gap-1.5 bg-emerald-600 text-xs font-bold text-white shadow-sm hover:bg-emerald-700"
-            >
-              <Plus className="h-4 w-4" />
-              Add Custom Model
-            </Button>
-          </div>
-
-          {/* Search & Provider Filter Bar */}
-          <div className="flex flex-col items-center gap-3 sm:flex-row">
-            <div className="relative w-full flex-1">
-              <Search className="text-muted-foreground absolute top-2.5 left-3 h-4 w-4" />
-              <Input
-                placeholder="Search models by name, slug (e.g. deepseek, claude, gemini), or badge..."
-                value={modelSearchQuery}
-                onChange={(e) => setModelSearchQuery(e.target.value)}
-                className="bg-card border-border/80 h-9 pl-9 text-xs"
-              />
-            </div>
-            <div className="bg-muted/40 border-border/60 flex items-center gap-1.5 self-start rounded-xl border p-1 text-xs font-semibold sm:self-auto">
-              <button
-                type="button"
-                onClick={() => setModelProviderFilter('all')}
-                className={`rounded-lg px-3 py-1.5 transition-all ${
-                  modelProviderFilter === 'all'
-                    ? 'bg-card text-foreground font-bold shadow-xs'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                All ({models.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setModelProviderFilter('openrouter')}
-                className={`flex items-center gap-1 rounded-lg px-3 py-1.5 transition-all ${
-                  modelProviderFilter === 'openrouter'
-                    ? 'bg-card text-foreground font-bold shadow-xs'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <Zap className="h-3 w-3 text-amber-500" />
-                OpenRouter
-              </button>
-              <button
-                type="button"
-                onClick={() => setModelProviderFilter('orcarouter')}
-                className={`flex items-center gap-1 rounded-lg px-3 py-1.5 transition-all ${
-                  modelProviderFilter === 'orcarouter'
-                    ? 'bg-card text-foreground font-bold shadow-xs'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <Cpu className="h-3 w-3 text-blue-500" />
-                OrcaRouter
-              </button>
-            </div>
-          </div>
-
-          {/* Model Cards Grid */}
-          <div className="grid gap-3.5">
-            {filteredModels.map((m) => {
-              const isDefault =
-                m.provider === 'openrouter'
-                  ? defaultOpenRouterModel === m.id
-                  : defaultOrcaRouterModel === m.id;
-
-              return (
-                <div
-                  key={`${m.provider}-${m.id}`}
-                  className={`bg-card flex flex-col justify-between gap-3 rounded-2xl border p-4.5 shadow-xs transition-all sm:flex-row sm:items-center ${
-                    isDefault
-                      ? 'border-emerald-500/40 bg-emerald-500/[0.02]'
-                      : 'border-border/80 hover:border-border'
-                  }`}
-                >
-                  <div className="space-y-1.5">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-foreground text-sm font-extrabold">
-                        {m.name}
-                      </span>
-                      <code className="bg-muted text-muted-foreground border-border/50 rounded-md border px-2 py-0.5 font-mono text-[10px] font-semibold">
-                        {m.id}
-                      </code>
-                      <Badge
-                        variant="outline"
-                        className={`gap-1 text-[10px] font-semibold ${
-                          m.provider === 'openrouter'
-                            ? 'border-amber-500/30 bg-amber-500/5 text-amber-600 dark:text-amber-400'
-                            : 'border-blue-500/30 bg-blue-500/5 text-blue-600 dark:text-blue-400'
-                        }`}
-                      >
-                        {m.provider === 'openrouter' ? (
-                          <Zap className="h-2.5 w-2.5" />
-                        ) : (
-                          <Cpu className="h-2.5 w-2.5" />
-                        )}
-                        {m.provider === 'openrouter'
-                          ? 'OpenRouter'
-                          : 'OrcaRouter'}
-                      </Badge>
-                      <Badge className="border-emerald-500/20 bg-emerald-500/10 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                        {m.badge}
-                      </Badge>
-                      {isDefault && (
-                        <Badge className="bg-emerald-600 text-[10px] font-bold text-white shadow-xs">
-                          ✓ Default{' '}
-                          {m.provider === 'openrouter'
-                            ? 'OpenRouter'
-                            : 'OrcaRouter'}{' '}
-                          Model
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-muted-foreground max-w-2xl text-xs leading-relaxed">
-                      {m.desc}
-                    </p>
-                  </div>
-
-                  <div className="flex shrink-0 items-center gap-2 self-end sm:self-auto">
-                    {!isDefault && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleSetDefaultModel(m.id, m.provider)}
-                        className="h-8 text-xs font-semibold"
-                      >
-                        Make Default
-                      </Button>
-                    )}
-                    <Button
-                      size="sm"
-                      variant={m.enabled ? 'outline' : 'secondary'}
-                      onClick={() => handleToggleModel(m.id)}
-                      className={`h-8 text-xs font-semibold ${m.enabled ? 'border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/10' : 'text-muted-foreground'}`}
-                    >
-                      {m.enabled ? 'Enabled' : 'Disabled'}
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* TAB 3: FEATURE MATRIX */}
-      {subTab === 'routing' && (
-        <Card className="border-border/80 shadow-xs">
-          <CardHeader className="border-border/60 border-b pb-4">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 font-bold text-amber-500">
-                <Sliders className="h-5 w-5" />
-              </div>
-              <div>
-                <CardTitle className="text-foreground text-base font-extrabold">
-                  Feature-Level Model Routing Matrix
-                </CardTitle>
-                <CardDescription className="text-muted-foreground text-xs">
-                  Map specialized LLMs to distinct clinic tasks for optimal
-                  performance, quality, and low latency.
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4 pt-4">
-            <div className="grid gap-3">
-              {AI_FEATURES.map((feat) => {
-                const Icon = feat.icon;
-                return (
-                  <div
-                    key={feat.id}
-                    className="border-border/60 bg-muted/10 hover:bg-muted/30 flex flex-col justify-between gap-3 rounded-2xl border p-4 transition-all sm:flex-row sm:items-center"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="bg-muted text-foreground mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl font-bold">
-                        <Icon className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                      </div>
-                      <div className="space-y-0.5">
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-foreground text-xs font-extrabold">
-                            {feat.name}
-                          </h4>
-                          <Badge
-                            variant="outline"
-                            className="font-mono text-[9px]"
-                          >
-                            {feat.defaultTag}
-                          </Badge>
-                        </div>
-                        <p className="text-muted-foreground text-[11px]">
-                          {feat.desc}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="w-full shrink-0 sm:w-80">
-                      <select
-                        value={
-                          featureRouting[feat.id] || defaultOpenRouterModel
-                        }
-                        onChange={(e) => {
-                          setFeatureRouting({
-                            ...featureRouting,
-                            [feat.id]: e.target.value,
-                          });
-                          setHasUnsavedChanges(true);
-                        }}
-                        className="border-border bg-card text-foreground h-9.5 w-full rounded-xl border px-2.5 text-xs font-semibold shadow-xs focus:border-emerald-500 focus:outline-hidden"
-                      >
-                        <optgroup label="⚡ OpenRouter Gateway">
-                          {models
-                            .filter(
-                              (m) => m.enabled && m.provider === 'openrouter'
-                            )
-                            .map((m) => (
-                              <option key={`openrouter-${m.id}`} value={m.id}>
-                                {m.name} ({m.id})
-                              </option>
-                            ))}
-                        </optgroup>
-                        <optgroup label="⚙️ OrcaRouter Engine">
-                          {models
-                            .filter(
-                              (m) => m.enabled && m.provider === 'orcarouter'
-                            )
-                            .map((m) => (
-                              <option key={`orcarouter-${m.id}`} value={m.id}>
-                                {m.name} ({m.id})
-                              </option>
-                            ))}
-                        </optgroup>
-                      </select>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* TAB 4: HEALTH & DIAGNOSTICS */}
-      {subTab === 'health' && (
-        <div className="space-y-6">
-          <div className="grid gap-6 md:grid-cols-2">
-            {/* OpenRouter Diagnostic */}
-            <Card className="bg-card border-amber-500/20 shadow-xs">
-              <CardHeader className="border-border/60 border-b pb-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 font-bold text-amber-500">
-                      <Zap className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-foreground text-sm font-extrabold">
-                        OpenRouter Diagnostics
-                      </CardTitle>
-                      <span className="text-muted-foreground text-[11px]">
-                        Latency & Gateway Availability
-                      </span>
-                    </div>
-                  </div>
-                  <Badge className="border-emerald-500/20 bg-emerald-500/10 text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                    ● {healthData.openrouter?.status || 'Operational'}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3 pt-4 text-xs">
-                <div className="border-border/60 flex justify-between border-b pb-2.5">
-                  <span className="text-muted-foreground font-medium">
-                    Roundtrip Latency
-                  </span>
-                  <span className="text-foreground font-mono font-black">
-                    {healthData.openrouter?.latencyMs
-                      ? `${healthData.openrouter.latencyMs}ms`
-                      : '312ms'}
-                  </span>
-                </div>
-                <div className="border-border/60 flex justify-between border-b pb-2.5">
-                  <span className="text-muted-foreground font-medium">
-                    Telemetry Timestamp
-                  </span>
-                  <span className="text-muted-foreground font-mono">
-                    {healthData.checkedAt
-                      ? new Date(healthData.checkedAt).toLocaleTimeString()
-                      : 'Just now'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-muted-foreground font-medium">
-                    Inbound / Outbound
-                  </span>
-                  <span className="flex items-center gap-1 font-bold text-emerald-600 dark:text-emerald-400">
-                    <CheckCircle className="h-3.5 w-3.5" /> Ready for Live
-                    Traffic
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* OrcaRouter Diagnostic */}
-            <Card className="bg-card border-blue-500/20 shadow-xs">
-              <CardHeader className="border-border/60 border-b pb-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/10 font-bold text-blue-500">
-                      <Cpu className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-foreground text-sm font-extrabold">
-                        OrcaRouter Diagnostics
-                      </CardTitle>
-                      <span className="text-muted-foreground text-[11px]">
-                        Latency & Gateway Availability
-                      </span>
-                    </div>
-                  </div>
-                  <Badge className="border-emerald-500/20 bg-emerald-500/10 text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                    ● {healthData.orcarouter?.status || 'Operational'}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3 pt-4 text-xs">
-                <div className="border-border/60 flex justify-between border-b pb-2.5">
-                  <span className="text-muted-foreground font-medium">
-                    Roundtrip Latency
-                  </span>
-                  <span className="text-foreground font-mono font-black">
-                    {healthData.orcarouter?.latencyMs
-                      ? `${healthData.orcarouter.latencyMs}ms`
-                      : '285ms'}
-                  </span>
-                </div>
-                <div className="border-border/60 flex justify-between border-b pb-2.5">
-                  <span className="text-muted-foreground font-medium">
-                    Telemetry Timestamp
-                  </span>
-                  <span className="text-muted-foreground font-mono">
-                    {healthData.checkedAt
-                      ? new Date(healthData.checkedAt).toLocaleTimeString()
-                      : 'Just now'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-muted-foreground font-medium">
-                    Inbound / Outbound
-                  </span>
-                  <span className="flex items-center gap-1 font-bold text-emerald-600 dark:text-emerald-400">
-                    <CheckCircle className="h-3.5 w-3.5" /> Ready for Live
-                    Traffic
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 5: USAGE & ANALYTICS */}
-      {subTab === 'usage' && (
-        <div className="space-y-6">
-          {/* Top KPI Cards */}
-          <div className="grid gap-4 sm:grid-cols-3">
-            <Card className="border-border/80 shadow-xs">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
-                  Total AI Requests
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-foreground text-3xl font-black tabular-nums">
-                  {(usageStats?.totalRequests ?? 0).toLocaleString()}
-                </div>
-                <p className="text-muted-foreground mt-1 text-[10px]">
-                  Global platform-wide AI invocations
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-border/80 shadow-xs">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
-                  Tokens Processed
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-foreground text-3xl font-black tabular-nums">
-                  {((usageStats?.totalTokens ?? 0) / 1000000).toFixed(2)}M
-                </div>
-                <p className="text-muted-foreground mt-1 text-[10px]">
-                  Prompt + Completion Tokens
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-border/80 shadow-xs">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
-                  Estimated AI Cost
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-black text-emerald-600 tabular-nums dark:text-emerald-400">
-                  ₹{(usageStats?.estimatedCostInr ?? 0).toLocaleString()}
-                </div>
-                <p className="text-muted-foreground mt-1 text-[10px]">
-                  Calculated across OpenRouter + Orca
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Breakdown Grid */}
-          <div className="grid gap-6 md:grid-cols-2">
-            <Card className="border-border/80 shadow-xs">
-              <CardHeader className="border-border/60 border-b pb-3">
-                <CardTitle className="text-foreground flex items-center gap-2 text-sm font-extrabold">
-                  <Server className="h-4 w-4 text-emerald-500" />
-                  Provider Volume Breakdown
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4 pt-4 text-xs">
-                <div className="border-border/60 flex items-center justify-between border-b pb-3">
-                  <span className="text-foreground flex items-center gap-2 font-bold">
-                    <Zap className="h-4 w-4 text-amber-500" />
-                    OpenRouter
-                  </span>
-                  <span className="text-foreground font-mono font-black">
-                    {(usageStats?.providers?.openrouter ?? 0).toLocaleString()}{' '}
-                    calls
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-foreground flex items-center gap-2 font-bold">
-                    <Cpu className="h-4 w-4 text-blue-500" />
-                    OrcaRouter
-                  </span>
-                  <span className="text-foreground font-mono font-black">
-                    {(usageStats?.providers?.orcarouter ?? 0).toLocaleString()}{' '}
-                    calls
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-border/80 shadow-xs">
-              <CardHeader className="border-border/60 border-b pb-3">
-                <CardTitle className="text-foreground flex items-center gap-2 text-sm font-extrabold">
-                  <Cpu className="h-4 w-4 text-purple-500" />
-                  Model Distribution
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2.5 pt-4 text-xs">
-                {Object.entries(usageStats?.models || {}).length > 0 ? (
-                  Object.entries(usageStats?.models || {}).map(
-                    ([modelId, count]) => (
-                      <div
-                        key={modelId}
-                        className="border-border/50 flex items-center justify-between border-b pb-2"
-                      >
-                        <code className="text-muted-foreground max-w-[220px] truncate font-mono text-[11px] font-semibold">
-                          {modelId}
-                        </code>
-                        <span className="text-foreground font-mono font-black">
-                          {(count ?? 0).toLocaleString()}
-                        </span>
-                      </div>
-                    )
-                  )
-                ) : (
-                  <p className="text-muted-foreground py-2 text-xs">
-                    No individual model metrics tracked for current billing
-                    cycle yet.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

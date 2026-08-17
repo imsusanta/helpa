@@ -518,7 +518,7 @@ export function AdminDashboardClient() {
           { key: 'overview', label: 'Overview', icon: LayoutDashboard },
           { key: 'tenants', label: 'Tenants', icon: Users },
           { key: 'plans', label: 'Plans & Pricing', icon: CreditCard },
-          { key: 'ai', label: 'AI Infrastructure', icon: Brain, isBadge: true },
+          { key: 'ai', label: 'AI Settings', icon: Brain, isBadge: true },
           { key: 'landing', label: 'Landing Page', icon: Globe },
         ].map(({ key, label, icon: Icon, isBadge }) => {
           const isActive = activeTab === key;
