@@ -187,6 +187,61 @@ export async function sendWhatsAppMessage(
         filename: options.mediaFilename || 'document.pdf',
       },
     };
+  } else if (
+    type === 'interactive' ||
+    options.ctaUrl ||
+    (options.buttons && options.buttons.length > 0) ||
+    options.interactive
+  ) {
+    let interactiveObj: Record<string, unknown>;
+
+    if (options.ctaUrl) {
+      interactiveObj = {
+        type: 'cta_url',
+        body: { text: text || 'Please click the link below:' },
+        action: {
+          name: 'cta_url',
+          parameters: {
+            display_text: options.ctaUrl.displayText.trim(),
+            url: options.ctaUrl.url.trim(),
+          },
+        },
+      };
+    } else if (options.buttons && options.buttons.length > 0) {
+      interactiveObj = {
+        type: 'button',
+        body: { text: text || 'Please choose an option:' },
+        action: {
+          buttons: options.buttons.slice(0, 3).map((b) => ({
+            type: 'reply',
+            reply: { id: b.id, title: b.title.slice(0, 20) },
+          })),
+        },
+      };
+    } else if (options.interactive && typeof options.interactive === 'object') {
+      interactiveObj = options.interactive as Record<string, unknown>;
+    } else {
+      interactiveObj = {
+        type: 'button',
+        body: { text: text || '' },
+        action: { buttons: [] },
+      };
+    }
+
+    if (options.headerText && !interactiveObj.header) {
+      interactiveObj.header = { type: 'text', text: options.headerText.slice(0, 60) };
+    }
+    if (options.footerText && !interactiveObj.footer) {
+      interactiveObj.footer = { text: options.footerText.slice(0, 60) };
+    }
+
+    payload = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: cleanRecipient,
+      type: 'interactive',
+      interactive: interactiveObj,
+    };
   } else {
     payload = {
       messaging_product: 'whatsapp',

@@ -47,6 +47,10 @@ export interface WhatsAppSendOptions {
     | 'video'
     | 'interactive';
   text?: string;
+  headerText?: string;
+  footerText?: string;
+  buttons?: Array<{ id: string; title: string }>;
+  ctaUrl?: { displayText: string; url: string };
   mediaUrl?: string;
   mediaCaption?: string;
   mediaFilename?: string;

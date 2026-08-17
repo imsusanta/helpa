@@ -138,6 +138,26 @@ export async function bookSalonAppointment(
     timestamp: new Date().toISOString(),
   });
 
+  // 5. Send WhatsApp interactive button message
+  try {
+    const { sendWhatsAppMessage } = await import('@/core/whatsapp');
+    await sendWhatsAppMessage({
+      tenantId: input.accountId,
+      to: customer.phone,
+      type: 'interactive',
+      headerText: 'Salon Booking Confirmed',
+      text: `Hello ${customer.name},\nYour appointment for ${serviceName} with ${staffName} is confirmed.\n\n📅 Date: ${input.appointmentDate}\n⏰ Time: ${input.appointmentTime}\n🎟 Code: ${appointmentCode}\n💳 Amount: ₹${price}`,
+      footerText: 'Helpa Salon Assistant • Reply STOP to opt out',
+      buttons: [
+        { id: 'btn_confirm', title: 'Confirm' },
+        { id: 'btn_reschedule', title: 'Reschedule' },
+        { id: 'btn_help', title: 'Need Help?' },
+      ],
+    }).catch(() => {});
+  } catch {
+    // Non-blocking
+  }
+
   return {
     id: created.id,
     accountId: created.account_id,

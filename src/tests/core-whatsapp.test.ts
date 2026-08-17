@@ -320,5 +320,68 @@ describe('Helpa Core WhatsApp Integration', () => {
       expect(result.success).toBe(false);
       expect(result.error).toContain('No WhatsApp configuration found');
     });
+
+    it('sends interactive button message with header, buttons, and footer', async () => {
+      const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          messages: [{ id: 'wamid.interactive.btn.123' }],
+        }),
+      } as Response);
+
+      const result = await sendWhatsAppMessage({
+        tenantId: tenantA.id,
+        to: '+919999888877',
+        type: 'interactive',
+        headerText: 'Appointment Confirmed',
+        text: 'Hello Patient, your appointment is confirmed.',
+        footerText: 'Helpa Health',
+        buttons: [
+          { id: 'btn_confirm', title: 'Confirm' },
+          { id: 'btn_reschedule', title: 'Reschedule' },
+        ],
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.metaMessageId).toBe('wamid.interactive.btn.123');
+
+      expect(fetchSpy).toHaveBeenCalledWith(
+        `https://graph.facebook.com/v21.0/${tenantA.phoneNumberId}/messages`,
+        expect.objectContaining({
+          body: expect.stringContaining('"type":"interactive"'),
+        })
+      );
+    });
+
+    it('sends interactive CTA URL message with external action button', async () => {
+      const fetchSpy = vi.spyOn(global, 'fetch').mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          messages: [{ id: 'wamid.interactive.cta.456' }],
+        }),
+      } as Response);
+
+      const result = await sendWhatsAppMessage({
+        tenantId: tenantA.id,
+        to: '+919999888877',
+        headerText: 'Special Offer',
+        text: 'Click below to view details:',
+        footerText: 'Reply STOP to opt out',
+        ctaUrl: {
+          displayText: 'Click Now',
+          url: 'https://helpa.studio/offer',
+        },
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.metaMessageId).toBe('wamid.interactive.cta.456');
+
+      expect(fetchSpy).toHaveBeenCalledWith(
+        `https://graph.facebook.com/v21.0/${tenantA.phoneNumberId}/messages`,
+        expect.objectContaining({
+          body: expect.stringContaining('"name":"cta_url"'),
+        })
+      );
+    });
   });
 });

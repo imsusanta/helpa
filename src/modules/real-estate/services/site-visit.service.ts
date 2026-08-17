@@ -117,6 +117,26 @@ export async function scheduleSiteVisit(
     timestamp: new Date().toISOString(),
   });
 
+  // 4. Send WhatsApp interactive button message
+  try {
+    const { sendWhatsAppMessage } = await import('@/core/whatsapp');
+    await sendWhatsAppMessage({
+      tenantId: input.accountId,
+      to: lead.phone,
+      type: 'interactive',
+      headerText: 'Site Visit Scheduled',
+      text: `Hello ${lead.name},\nYour site visit for ${input.propertyTitle} with property agent ${agentName} is confirmed.\n\n📅 Date: ${input.visitDate}\n⏰ Time: ${input.visitTime}\n📍 Location: ${meetingLocation}\n🎟 Code: ${visitCode}`,
+      footerText: 'Helpa Real Estate Assistant • Reply STOP to opt out',
+      buttons: [
+        { id: 'btn_confirm', title: 'Confirm Visit' },
+        { id: 'btn_reschedule', title: 'Reschedule' },
+        { id: 'btn_help', title: 'Call Agent' },
+      ],
+    }).catch(() => {});
+  } catch {
+    // Non-blocking
+  }
+
   return {
     id: created.id,
     accountId: created.account_id,

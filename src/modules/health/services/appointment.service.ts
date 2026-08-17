@@ -190,6 +190,28 @@ export async function bookHealthAppointment(
     timestamp: new Date().toISOString(),
   });
 
+  // 7. Send WhatsApp interactive button message
+  try {
+    const { sendWhatsAppMessage } = await import('@/core/whatsapp');
+    await sendWhatsAppMessage({
+      tenantId: input.accountId,
+      to: patient.phone,
+      type: 'interactive',
+      headerText: 'Appointment Confirmed',
+      text: `Hello ${patient.name},\nYour appointment with Dr. ${doctorName} (${department}) is confirmed.\n\n📅 Date: ${input.appointmentDate}\n⏰ Time: ${input.appointmentTime}\n🎟 Token: ${tokenNumber}\n💳 Fee: ₹${fee}`,
+      footerText: 'Helpa Health Assistant • Reply STOP to opt out',
+      buttons: [
+        { id: 'btn_confirm', title: 'Confirm' },
+        { id: 'btn_reschedule', title: 'Reschedule' },
+        { id: 'btn_help', title: 'Need Help?' },
+      ],
+    }).catch(() => {
+      // Non-blocking if WhatsApp is not connected in this environment
+    });
+  } catch {
+    // Non-blocking
+  }
+
   return {
     appointmentId: created.id,
     patientId: patient.patientId,
