@@ -14,6 +14,10 @@ import {
   Loader2,
   RefreshCw,
   TrendingUp,
+  LayoutDashboard,
+  CreditCard,
+  Brain,
+  Globe,
 } from 'lucide-react';
 import {
   Card,
@@ -509,26 +513,34 @@ export function AdminDashboardClient() {
       </div>
 
       {/* Modernized Tab selection triggers */}
-      <div className="border-border flex gap-2 overflow-x-auto border-b">
-        {['overview', 'tenants', 'plans', 'ai', 'landing'].map((tab) => {
-          const isActive = activeTab === tab;
-          const label =
-            tab === 'landing'
-              ? 'landing page'
-              : tab === 'ai'
-                ? 'AI Infrastructure'
-                : tab;
+      <div className="border-border/80 flex gap-1 overflow-x-auto border-b">
+        {[
+          { key: 'overview', label: 'Overview', icon: LayoutDashboard },
+          { key: 'tenants', label: 'Tenants', icon: Users },
+          { key: 'plans', label: 'Plans & Pricing', icon: CreditCard },
+          { key: 'ai', label: 'AI Infrastructure', icon: Brain, isBadge: true },
+          { key: 'landing', label: 'Landing Page', icon: Globe },
+        ].map(({ key, label, icon: Icon, isBadge }) => {
+          const isActive = activeTab === key;
           return (
             <button
-              key={tab}
-              onClick={() => setActiveTab(tab as typeof activeTab)}
-              className={`cursor-pointer border-b-2 px-5 py-3 text-xs font-bold tracking-wider whitespace-nowrap uppercase transition-all ${
+              key={key}
+              onClick={() => setActiveTab(key as typeof activeTab)}
+              className={`flex cursor-pointer items-center gap-2 border-b-2 px-4 py-3 text-xs font-bold tracking-wide whitespace-nowrap transition-all ${
                 isActive
-                  ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400'
+                  ? 'border-emerald-500 font-extrabold text-emerald-600 dark:text-emerald-400'
                   : 'text-muted-foreground hover:text-foreground border-transparent'
               }`}
             >
-              {label}
+              <Icon
+                className={`h-4 w-4 ${isActive ? 'text-emerald-500' : 'text-muted-foreground'}`}
+              />
+              <span>{label}</span>
+              {isBadge && (
+                <span className="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
+                  Live
+                </span>
+              )}
             </button>
           );
         })}
