@@ -95,8 +95,17 @@ export async function POST(req: Request) {
       body.provider === 'orcarouter' ? 'orcarouter' : 'openrouter';
 
     const creds = await resolveAdminProviderCredentials(providerName);
+    const testApiKey =
+      typeof body.apiKey === 'string' && body.apiKey.trim()
+        ? body.apiKey.trim()
+        : creds.apiKey;
+    const testModel =
+      typeof body.model === 'string' && body.model.trim()
+        ? body.model.trim()
+        : creds.model;
+
     const provider = getProviderInstance(providerName);
-    const health = await provider.healthCheck(creds.apiKey, creds.model);
+    const health = await provider.healthCheck(testApiKey, testModel);
 
     if (health.status === 'healthy') {
       return NextResponse.json({
