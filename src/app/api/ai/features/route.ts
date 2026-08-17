@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/appwrite-server-compat';
-import { decrypt } from '@/lib/whatsapp/encryption';
 import { resolveSystemPrompt } from '@/modules/registry';
 import { applyAiSafety } from '@/lib/ai/safety';
+import { executeAiCompletionWithFallback } from '@/core/ai/resolver';
 
 export async function POST(request: Request) {
   try {
@@ -42,38 +42,12 @@ export async function POST(request: Request) {
       );
     }
 
-    // Fetch OpenRouter configuration from accounts
-    const { data: account, error: accError } = await appwrite
+    // Fetch account settings
+    const { data: account } = await appwrite
       .from('accounts')
-      .select(
-        'openrouter_api_key, openrouter_model, ai_system_prompt, industry'
-      )
+      .select('ai_system_prompt, industry')
       .eq('id', accountId)
       .single();
-
-    if (accError || !account?.openrouter_api_key) {
-      return NextResponse.json(
-        { error: 'AI Assistant (OpenRouter) is not configured.' },
-        { status: 400 }
-      );
-    }
-
-    // Decrypt API key
-    let apiKey: string;
-    try {
-      apiKey = decrypt(account.openrouter_api_key);
-    } catch (err) {
-      console.error('[AI API] Failed to decrypt OpenRouter API Key:', err);
-      return NextResponse.json(
-        {
-          error:
-            'Saved OpenRouter API Key cannot be decrypted. Please re-configure and save it under Settings -> AI Agent.',
-        },
-        { status: 400 }
-      );
-    }
-
-    const model = account.openrouter_model || 'google/gemini-2.5-flash';
 
     if (action === 'suggest') {
       const { conversationId } = body;
@@ -101,7 +75,7 @@ export async function POST(request: Request) {
       // Fetch Knowledge Base
       const { data: kbEntries } = await appwrite
         .from('knowledge_base')
-        .select('title, content, category')
+        .select('question_title, answer_content, category')
         .eq('account_id', accountId);
 
       let kbContext = '';
@@ -111,7 +85,7 @@ export async function POST(request: Request) {
           kbEntries
             .map(
               (entry) =>
-                `Category: ${entry.category}\nTitle: ${entry.title}\nContent: ${entry.content}`
+                `Category: ${entry.category}\nTitle: ${entry.question_title}\nContent: ${entry.answer_content}`
             )
             .join('\n\n');
       }
@@ -155,8 +129,8 @@ export async function POST(request: Request) {
 
       // Formulate prompt messages
       const basePrompt = resolveSystemPrompt(
-        account.industry,
-        account.ai_system_prompt
+        account?.industry,
+        account?.ai_system_prompt
       );
 
       let systemPromptContent = basePrompt;
@@ -177,41 +151,23 @@ export async function POST(request: Request) {
               content = `[${m.content_type}]`;
             }
             return {
-              role: m.sender_type === 'customer' ? 'user' : 'assistant',
+              role: (m.sender_type === 'customer' ? 'user' : 'assistant') as 'user' | 'assistant',
               content: content,
             };
           })
           .filter((m) => m.content !== ''),
       ];
 
-      const response = await fetch(
-        'https://openrouter.ai/api/v1/chat/completions',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${apiKey}`,
-            'HTTP-Referer': 'https://wacrm.tech',
-            'X-Title': 'wacrm',
-          },
-          body: JSON.stringify({
-            model,
-            messages: apiMessages,
-          }),
-        }
-      );
+      const res = await executeAiCompletionWithFallback({
+        messages: apiMessages,
+        resolutionParams: {
+          accountId,
+          feature: 'AI_SUGGESTED_REPLY',
+          conversationId,
+        },
+      });
 
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(
-          `OpenRouter API error (status ${response.status}): ${errText}`
-        );
-      }
-
-      const resJson = await response.json();
-      const aiResponse = resJson.choices?.[0]?.message?.content?.trim();
-
-      return NextResponse.json({ result: aiResponse });
+      return NextResponse.json({ result: res.content.trim() });
     } else if (action === 'rewrite') {
       const { text, tone } = body;
       if (!text) {
@@ -227,34 +183,15 @@ Respond ONLY with the rewritten text. Do not add quotes, do not add comments, an
 Text to rewrite:
 "${text}"`;
 
-      const response = await fetch(
-        'https://openrouter.ai/api/v1/chat/completions',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${apiKey}`,
-            'HTTP-Referer': 'https://wacrm.tech',
-            'X-Title': 'wacrm',
-          },
-          body: JSON.stringify({
-            model,
-            messages: [{ role: 'user', content: promptContent }],
-          }),
-        }
-      );
+      const res = await executeAiCompletionWithFallback({
+        messages: [{ role: 'user', content: promptContent }],
+        resolutionParams: {
+          accountId,
+          feature: 'AI_AGENT',
+        },
+      });
 
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(
-          `OpenRouter API error (status ${response.status}): ${errText}`
-        );
-      }
-
-      const resJson = await response.json();
-      const aiResponse = resJson.choices?.[0]?.message?.content?.trim();
-
-      return NextResponse.json({ result: aiResponse });
+      return NextResponse.json({ result: res.content.trim() });
     } else if (action === 'translate') {
       const { text, targetLanguage } = body;
       if (!text || !targetLanguage) {
@@ -272,34 +209,15 @@ Respond ONLY with the exact translation. Do not add explanations, quotes, or oth
 Text to translate:
 "${text}"`;
 
-      const response = await fetch(
-        'https://openrouter.ai/api/v1/chat/completions',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${apiKey}`,
-            'HTTP-Referer': 'https://wacrm.tech',
-            'X-Title': 'wacrm',
-          },
-          body: JSON.stringify({
-            model,
-            messages: [{ role: 'user', content: promptContent }],
-          }),
-        }
-      );
+      const res = await executeAiCompletionWithFallback({
+        messages: [{ role: 'user', content: promptContent }],
+        resolutionParams: {
+          accountId,
+          feature: 'AI_AGENT',
+        },
+      });
 
-      if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(
-          `OpenRouter API error (status ${response.status}): ${errText}`
-        );
-      }
-
-      const resJson = await response.json();
-      const aiResponse = resJson.choices?.[0]?.message?.content?.trim();
-
-      return NextResponse.json({ result: aiResponse });
+      return NextResponse.json({ result: res.content.trim() });
     } else {
       return NextResponse.json(
         { error: `Invalid action: ${action}` },

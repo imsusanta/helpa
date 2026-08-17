@@ -8,7 +8,11 @@
 
 export * from './types';
 export * from './provider';
+export * from './errors';
+export * from './usage-tracker';
+export * from './resolver';
 export * from './memory';
 export * from './tools';
 export * from './context-builder';
 export * from './engine';
+

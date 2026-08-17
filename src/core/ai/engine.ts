@@ -7,7 +7,8 @@
 
 import { getIndustryModule } from '@/modules/registry';
 import { coreEvents } from '@/core/events';
-import { getAiProvider, type AiMessage } from './provider';
+import { type AiMessage } from './provider';
+import { executeAiCompletionWithFallback } from './resolver';
 import { buildAiContextBundle } from './context-builder';
 import { aiToolRegistry } from './tools';
 import type {
@@ -67,20 +68,27 @@ export async function executeAiPipeline({
     };
   }
 
-  // 3. Assemble Messages for OpenRouter
+  // 3. Assemble Messages
   const conversationMessages: AiMessage[] = [
     { role: 'system', content: bundle.systemPrompt },
     ...bundle.messages,
     { role: 'user', content: userMessage },
   ];
 
-  // 4. Generate AI Completion
-  const provider = getAiProvider();
-  const completion = await provider.generateCompletion(conversationMessages, {
-    apiKey: customApiKey,
-    model: customModel,
-    temperature: 0.3,
-    maxTokens: 800,
+  // 4. Generate AI Completion via Provider Resolver (Primary + Fallback)
+  const completion = await executeAiCompletionWithFallback({
+    messages: conversationMessages,
+    options: {
+      temperature: 0.3,
+      maxTokens: 800,
+    },
+    resolutionParams: {
+      accountId: context.accountId,
+      customApiKey,
+      customModel,
+      feature: 'AI_REPLY',
+      conversationId: context.conversationId,
+    },
   });
 
   let replyText = completion.content.trim();
@@ -150,7 +158,7 @@ export async function executeAiPipeline({
     replyText,
     role: bundle.role,
     model: completion.model,
-    provider: provider.name,
+    provider: completion.provider,
     tokensUsed: {
       promptTokens: completion.promptTokens,
       completionTokens: completion.completionTokens,
@@ -188,10 +196,18 @@ export async function generateConversationSummary({
     ...bundle.messages,
   ];
 
-  const res = await getAiProvider().generateCompletion(promptMessages, {
-    apiKey: customApiKey,
-    temperature: 0.2,
-    maxTokens: 250,
+  const res = await executeAiCompletionWithFallback({
+    messages: promptMessages,
+    options: {
+      temperature: 0.2,
+      maxTokens: 250,
+    },
+    resolutionParams: {
+      accountId: context.accountId,
+      customApiKey,
+      feature: 'AI_SUMMARY',
+      conversationId: context.conversationId,
+    },
   });
 
   return res.content.trim();
@@ -237,10 +253,19 @@ ${bundle.knowledgeSnippets.join('\n')}
   ];
 
   try {
-    const res = await getAiProvider().generateCompletion(promptMessages, {
-      apiKey: customApiKey,
-      temperature: 0.2,
-      maxTokens: 400,
+    const res = await executeAiCompletionWithFallback({
+      messages: promptMessages,
+      options: {
+        temperature: 0.2,
+        maxTokens: 400,
+        responseFormat: { type: 'json_object' },
+      },
+      resolutionParams: {
+        accountId: context.accountId,
+        customApiKey,
+        feature: 'AI_COPILOT',
+        conversationId: context.conversationId,
+      },
     });
 
     const jsonMatch = res.content.match(/\{[\s\S]*\}/);
@@ -270,3 +295,4 @@ ${bundle.knowledgeSnippets.join('\n')}
     confidence: 0.85,
   };
 }
+

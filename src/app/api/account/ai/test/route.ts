@@ -6,6 +6,8 @@ import {
   rateLimitResponse,
   RATE_LIMITS,
 } from '@/lib/rate-limit';
+import { getProviderInstance } from '@/core/ai/provider';
+import type { AiProviderName } from '@/core/ai/types';
 
 export async function POST(request: Request) {
   try {
@@ -18,14 +20,24 @@ export async function POST(request: Request) {
     if (!limit.success) return rateLimitResponse(limit);
 
     const body = await request.json().catch(() => null);
-    let api_key = body?.openrouter_api_key;
-    let model = body?.openrouter_model;
+    const providerName: AiProviderName =
+      body?.provider === 'orcarouter' ? 'orcarouter' : 'openrouter';
+
+    let api_key =
+      providerName === 'orcarouter'
+        ? body?.orcarouter_api_key || body?.api_key
+        : body?.openrouter_api_key || body?.api_key;
+
+    let model =
+      providerName === 'orcarouter'
+        ? body?.orcarouter_model || body?.model
+        : body?.openrouter_model || body?.model;
 
     // If key is empty/not provided or is a password placeholder, fetch and decrypt from DB
     if (!api_key || api_key.trim() === '' || api_key.includes('••••')) {
       const { data: account, error } = await ctx.appwrite
         .from('accounts')
-        .select('openrouter_api_key')
+        .select('openrouter_api_key, openrouter_model, orcarouter_api_key, orcarouter_model')
         .eq('id', ctx.accountId)
         .single();
 
@@ -37,90 +49,74 @@ export async function POST(request: Request) {
         );
       }
 
-      if (!account?.openrouter_api_key) {
+      const dbKey =
+        providerName === 'orcarouter'
+          ? account?.orcarouter_api_key
+          : account?.openrouter_api_key;
+
+      const envKey =
+        providerName === 'orcarouter'
+          ? process.env.ORCAROUTER_API_KEY
+          : process.env.OPENROUTER_API_KEY;
+
+      if (!dbKey && !envKey) {
         return NextResponse.json(
-          { error: 'OpenRouter API Key is not configured' },
+          {
+            error: `${providerName === 'orcarouter' ? 'OrcaRouter' : 'OpenRouter'} API Key is not configured`,
+          },
           { status: 400 }
         );
       }
 
-      try {
-        api_key = decrypt(account.openrouter_api_key);
-      } catch (err) {
-        console.error('[POST /api/account/ai/test] decryption error:', err);
-        if (process.env.OPENROUTER_API_KEY) {
-          api_key = process.env.OPENROUTER_API_KEY;
-        } else {
-          return NextResponse.json(
-            {
-              error:
-                'Saved API Key cannot be decrypted with the current ENCRYPTION_KEY. Please enter your OpenRouter API Key in the field above and click "Save AI Configuration".',
-            },
-            { status: 400 }
-          );
+      if (dbKey) {
+        try {
+          api_key = decrypt(dbKey);
+        } catch (err) {
+          console.error('[POST /api/account/ai/test] decryption error:', err);
+          if (envKey) {
+            api_key = envKey;
+          } else {
+            return NextResponse.json(
+              {
+                error:
+                  'Saved API Key cannot be decrypted. Please re-enter your API key and click Save.',
+              },
+              { status: 400 }
+            );
+          }
         }
+      } else {
+        api_key = envKey;
+      }
+
+      if (!model || model.trim() === '') {
+        model =
+          providerName === 'orcarouter'
+            ? account?.orcarouter_model || 'orcarouter/auto'
+            : account?.openrouter_model || 'google/gemini-2.5-flash';
       }
     }
 
-    if (!model || model.trim() === '') {
-      const { data: account } = await ctx.appwrite
-        .from('accounts')
-        .select('openrouter_model')
-        .eq('id', ctx.accountId)
-        .single();
-      model = account?.openrouter_model || 'google/gemini-2.5-flash';
+    const provider = getProviderInstance(providerName);
+    const health = await provider.healthCheck(api_key, model);
+
+    if (health.status === 'healthy') {
+      return NextResponse.json({
+        success: true,
+        provider: providerName,
+        message: health.message || 'Connected successfully',
+        latencyMs: health.latencyMs,
+      });
     }
 
-    // Call OpenRouter completions endpoint with a simple confirmation prompt
-    const response = await fetch(
-      'https://openrouter.ai/api/v1/chat/completions',
+    return NextResponse.json(
       {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${api_key.trim()}`,
-          'HTTP-Referer': 'https://wacrm.tech',
-          'X-Title': 'wacrm',
-        },
-        body: JSON.stringify({
-          model,
-          messages: [
-            {
-              role: 'user',
-              content:
-                'Respond with a single word confirming this is a test: "Success"',
-            },
-          ],
-        }),
-      }
+        success: false,
+        provider: providerName,
+        error: health.message || `${providerName} connection check failed`,
+      },
+      { status: 400 }
     );
-
-    if (!response.ok) {
-      const errText = await response.text();
-      let errorDetail = errText;
-      try {
-        const errJson = JSON.parse(errText);
-        errorDetail = errJson.error?.message || errJson.message || errText;
-      } catch {
-        // ignore json parse errors
-      }
-      return NextResponse.json(
-        { error: `OpenRouter API Error: ${errorDetail}` },
-        { status: response.status }
-      );
-    }
-
-    const resJson = await response.json();
-    const aiText = resJson.choices?.[0]?.message?.content?.trim();
-
-    if (!aiText) {
-      return NextResponse.json(
-        { error: 'Received empty response from OpenRouter' },
-        { status: 502 }
-      );
-    }
-
-    return NextResponse.json({ success: true, message: aiText });
   } catch (err) {
     return toErrorResponse(err);
   }

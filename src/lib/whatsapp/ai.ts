@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { decrypt } from '@/lib/whatsapp/encryption';
 import {
   isEmergencyQuery,
   isDiagnosticRequest,
@@ -16,6 +15,8 @@ import {
 import { checkPlanLimits, incrementUsage } from '@/lib/saas/subscription';
 import { getIndustryModule, resolveSystemPrompt } from '@/modules/registry';
 import { parseAiResponse } from '@/lib/whatsapp/ai-response';
+
+import { executeAiCompletionWithFallback } from '@/core/ai/resolver';
 
 interface TriggerAiResponseArgs {
   accountId: string;
@@ -46,7 +47,7 @@ export async function triggerAiResponse(
     db
       .from('accounts')
       .select(
-        'openrouter_api_key, openrouter_model, ai_system_prompt, welcome_message, industry, name'
+        'ai_provider, ai_fallback_provider, openrouter_api_key, openrouter_model, orcarouter_api_key, orcarouter_model, ai_system_prompt, welcome_message, industry, name'
       )
       .eq('id', accountId)
       .single(),
@@ -63,8 +64,12 @@ export async function triggerAiResponse(
   ]);
 
   interface AccountSettings {
+    ai_provider?: string | null;
+    ai_fallback_provider?: string | null;
     openrouter_api_key?: string | null;
     openrouter_model?: string | null;
+    orcarouter_api_key?: string | null;
+    orcarouter_model?: string | null;
     ai_system_prompt?: string | null;
     welcome_message?: string | null;
     industry?: string | null;
@@ -78,9 +83,9 @@ export async function triggerAiResponse(
 
   if (
     accError &&
-    (accError.message?.includes('welcome_message') || accError.code === '42703')
+    (accError.message?.includes('welcome_message') || accError.code === '42703' || accError.message?.includes('ai_provider'))
   ) {
-    // Fallback if welcome_message column is missing in database table
+    // Fallback if columns are not yet in DB schema cache
     const fallback = await db
       .from('accounts')
       .select(
@@ -93,46 +98,21 @@ export async function triggerAiResponse(
 
   account = accData;
 
-  if (!account?.openrouter_api_key) {
-    if (process.env.OPENROUTER_API_KEY) {
-      account = account || {};
-      account.openrouter_api_key = process.env.OPENROUTER_API_KEY;
-    } else {
-      console.warn(
-        '[AI Assistant] OpenRouter credentials not configured for account:',
-        accountId,
-        accError?.message || ''
-      );
-      return;
-    }
+  const hasAnyKey =
+    account?.openrouter_api_key ||
+    account?.orcarouter_api_key ||
+    process.env.OPENROUTER_API_KEY ||
+    process.env.ORCAROUTER_API_KEY;
+
+  if (!hasAnyKey) {
+    console.warn(
+      '[AI Assistant] Neither OpenRouter nor OrcaRouter API credentials configured for account:',
+      accountId,
+      accError?.message || ''
+    );
+    return;
   }
 
-  // 2. Decrypt API key
-  let apiKey: string;
-  try {
-    apiKey = decrypt(account.openrouter_api_key);
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    if (process.env.OPENROUTER_API_KEY) {
-      console.warn(
-        '[AI Assistant] Saved OpenRouter key decryption failed, falling back to process.env.OPENROUTER_API_KEY:',
-        message
-      );
-      apiKey = process.env.OPENROUTER_API_KEY;
-    } else {
-      console.error(
-        `[AI Assistant] Failed to decrypt saved OpenRouter API Key for account ${accountId}:`,
-        message,
-        'Please re-save OpenRouter API key under Settings → AI Configuration.'
-      );
-      return;
-    }
-  }
-
-  let model = account.openrouter_model || 'google/gemini-2.5-flash';
-  if (model === 'google/gemini-2.0-flash') {
-    model = 'google/gemini-2.0-flash-001';
-  }
 
   // 3. Use pre-fetched messages
   const messages = messagesRes.data;
@@ -505,11 +485,11 @@ export async function triggerAiResponse(
 
   // 4. Formulate prompt messages
   const basePrompt = resolveSystemPrompt(
-    account.industry,
-    account.ai_system_prompt
+    account?.industry,
+    account?.ai_system_prompt
   );
 
-  const businessName = account.name || 'our Business';
+  const businessName = account?.name || 'our Business';
 
   // Inject system-level rules override to ensure database values override conversation history for patient profiles and actions
   const overrideRules = `
@@ -525,7 +505,7 @@ export async function triggerAiResponse(
 
   let systemPromptContent = basePrompt + overrideRules;
 
-  if (account.welcome_message && account.welcome_message.trim().length > 0) {
+  if (account?.welcome_message && account.welcome_message.trim().length > 0) {
     systemPromptContent += `\n\n[MANDATORY CUSTOM WELCOME GREETING TEMPLATE]:\nWhen greeting a new patient/customer or starting a new conversation, you MUST incorporate this custom welcome message:\n"${account.welcome_message.trim()}"\nFollowed by answering their query or guiding them through the registration/booking process using real-time database records.\n`;
   }
 
@@ -695,82 +675,34 @@ Note:
       .filter((m: { content: string }) => m.content !== ''),
   ];
 
-  // 5. Send request to OpenRouter (Optimized for quick reply)
-  let response;
+  // 5. Send request via Helpa AI Engine (Primary + Fallback Provider routing)
+  let completion;
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15-second timeout
-
-    response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-        'HTTP-Referer': 'https://helpa.studio',
-        'X-Title': 'Helpa Health',
-      },
-      body: JSON.stringify({
-        model,
-        messages: apiMessages,
+    completion = await executeAiCompletionWithFallback({
+      messages: apiMessages,
+      options: {
         temperature: 0.3,
-        max_tokens: 450,
-        response_format: { type: 'json_object' },
-      }),
-      signal: controller.signal,
+        maxTokens: 450,
+        responseFormat: { type: 'json_object' },
+      },
+      resolutionParams: {
+        accountId,
+        feature: 'AI_REPLY',
+        conversationId,
+      },
     });
-    clearTimeout(timeoutId);
   } catch (err) {
-    console.warn(
-      `[AI Assistant] Request with model ${model} failed or timed out. Trying fast fallback model 'google/gemini-2.5-flash'...`,
-      err
-    );
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
+    console.error('[AI Assistant] AI completion failed:', err);
+    return;
+  }
 
-      response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-          'HTTP-Referer': 'https://helpa.studio',
-          'X-Title': businessName || 'Helpa Studio',
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          messages: apiMessages,
-          temperature: 0.3,
-          max_tokens: 450,
-          response_format: { type: 'json_object' },
-        }),
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-    } catch (fallbackErr) {
-      console.error(
-        '[AI Assistant] Both primary model and fallback model failed:',
-        fallbackErr
-      );
-      return;
-    }
+  const aiText = completion.content.trim();
+  if (!aiText) {
+    console.warn('[AI Assistant] AI Engine returned empty response');
+    return;
   }
 
   try {
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(
-        `OpenRouter API error (status ${response.status}): ${errText}`
-      );
-    }
-
-    const resJson = await response.json();
-    const aiText = resJson.choices?.[0]?.message?.content?.trim();
-
-    if (!aiText) {
-      console.warn('[AI Assistant] OpenRouter returned empty response');
-      return;
-    }
-
     const parsedResponse = parseAiResponse(aiText);
     let reply =
       parsedResponse.reply ||
@@ -1926,9 +1858,6 @@ Please arrive 15 minutes before your time slot. Thank you!`;
     // 7. Track successful AI request usage
     await incrementUsage(accountId, 'ai_requests');
   } catch (err) {
-    console.error(
-      '[AI Assistant] Error calling OpenRouter completions API:',
-      err
-    );
+    console.error('[AI Assistant] Error handling AI response:', err);
   }
 }

@@ -47,13 +47,13 @@ export async function GET() {
     let { data, error } = await db
       .from('accounts')
       .select(
-        'name, openrouter_model, openrouter_api_key, ai_system_prompt, welcome_message, industry'
+        'name, ai_provider, ai_fallback_provider, openrouter_model, openrouter_api_key, orcarouter_model, orcarouter_api_key, ai_system_prompt, welcome_message, industry'
       )
       .eq('id', ctx.accountId)
       .single();
 
-    if (error && error.message?.includes('welcome_message')) {
-      // Fallback query if welcome_message column is not yet in schema cache
+    if (error && (error.message?.includes('ai_provider') || error.message?.includes('welcome_message'))) {
+      // Fallback query if columns are not yet in Appwrite schema cache
       const fallback = await db
         .from('accounts')
         .select(
@@ -75,10 +75,19 @@ export async function GET() {
 
     account = data as Record<string, unknown>;
 
+    const hasOpenRouterKey = !!account?.openrouter_api_key || !!process.env.OPENROUTER_API_KEY;
+    const hasOrcaRouterKey = !!account?.orcarouter_api_key || !!process.env.ORCAROUTER_API_KEY;
+    const primaryProvider = (account?.ai_provider as string) || 'openrouter';
+
     return NextResponse.json({
       account_name: (account?.name as string) || '',
-      openrouter_model: (account?.openrouter_model as string) || '',
-      has_api_key: !!account?.openrouter_api_key,
+      ai_provider: primaryProvider,
+      ai_fallback_provider: (account?.ai_fallback_provider as string) || 'none',
+      openrouter_model: (account?.openrouter_model as string) || 'google/gemini-2.5-flash',
+      orcarouter_model: (account?.orcarouter_model as string) || 'orcarouter/auto',
+      has_openrouter_key: hasOpenRouterKey,
+      has_orcarouter_key: hasOrcaRouterKey,
+      has_api_key: primaryProvider === 'orcarouter' ? hasOrcaRouterKey : hasOpenRouterKey,
       ai_system_prompt: resolveSystemPrompt(
         account?.industry as string,
         account?.ai_system_prompt as string
@@ -136,15 +145,31 @@ export async function PATCH(request: Request) {
     if (!limit.success) return rateLimitResponse(limit);
 
     const body = await request.json().catch(() => null);
+    const ai_provider = body?.ai_provider;
+    const ai_fallback_provider = body?.ai_fallback_provider;
     const openrouter_api_key = body?.openrouter_api_key;
     const openrouter_model = body?.openrouter_model;
+    const orcarouter_api_key = body?.orcarouter_api_key;
+    const orcarouter_model = body?.orcarouter_model;
     const ai_system_prompt = body?.ai_system_prompt;
     const welcome_message = body?.welcome_message;
 
     const updates: Record<string, unknown> = {};
 
+    if (typeof ai_provider === 'string' && ['openrouter', 'orcarouter'].includes(ai_provider)) {
+      updates.ai_provider = ai_provider;
+    }
+
+    if (typeof ai_fallback_provider === 'string' && ['openrouter', 'orcarouter', 'none'].includes(ai_fallback_provider)) {
+      updates.ai_fallback_provider = ai_fallback_provider;
+    }
+
     if (typeof openrouter_model === 'string') {
       updates.openrouter_model = openrouter_model.trim();
+    }
+
+    if (typeof orcarouter_model === 'string') {
+      updates.orcarouter_model = orcarouter_model.trim();
     }
 
     if (typeof openrouter_api_key === 'string') {
@@ -153,6 +178,15 @@ export async function PATCH(request: Request) {
         updates.openrouter_api_key = encrypt(keyTrimmed);
       } else if (openrouter_api_key === '') {
         updates.openrouter_api_key = null;
+      }
+    }
+
+    if (typeof orcarouter_api_key === 'string') {
+      const keyTrimmed = orcarouter_api_key.trim();
+      if (keyTrimmed.length > 0) {
+        updates.orcarouter_api_key = encrypt(keyTrimmed);
+      } else if (orcarouter_api_key === '') {
+        updates.orcarouter_api_key = null;
       }
     }
 
@@ -176,17 +210,21 @@ export async function PATCH(request: Request) {
       .update(updates)
       .eq('id', ctx.accountId)
       .select(
-        'name, openrouter_model, openrouter_api_key, ai_system_prompt, welcome_message, industry'
+        'name, ai_provider, ai_fallback_provider, openrouter_model, openrouter_api_key, orcarouter_model, orcarouter_api_key, ai_system_prompt, welcome_message, industry'
       )
       .single();
 
-    // If welcome_message is not in Appwrite schema cache yet, retry without welcome_message
+    // If new columns are not in Appwrite schema cache yet, remove them and retry safely
     if (
       error &&
-      (error.message?.includes('welcome_message') ||
-        error.message?.includes('schema cache'))
+      (error.message?.includes('schema cache') || error.message?.includes('column'))
     ) {
+      delete updates.ai_provider;
+      delete updates.ai_fallback_provider;
+      delete updates.orcarouter_model;
+      delete updates.orcarouter_api_key;
       delete updates.welcome_message;
+
       if (Object.keys(updates).length > 0) {
         const retry = await db
           .from('accounts')
@@ -212,10 +250,19 @@ export async function PATCH(request: Request) {
     }
 
     const resData = data as Record<string, unknown>;
+    const hasOpenRouterKey = !!resData?.openrouter_api_key || !!process.env.OPENROUTER_API_KEY;
+    const hasOrcaRouterKey = !!resData?.orcarouter_api_key || !!process.env.ORCAROUTER_API_KEY;
+    const primary = (resData?.ai_provider as string) || 'openrouter';
+
     return NextResponse.json({
       account_name: (resData?.name as string) || '',
-      openrouter_model: (resData?.openrouter_model as string) || '',
-      has_api_key: !!resData?.openrouter_api_key,
+      ai_provider: primary,
+      ai_fallback_provider: (resData?.ai_fallback_provider as string) || 'none',
+      openrouter_model: (resData?.openrouter_model as string) || 'google/gemini-2.5-flash',
+      orcarouter_model: (resData?.orcarouter_model as string) || 'orcarouter/auto',
+      has_openrouter_key: hasOpenRouterKey,
+      has_orcarouter_key: hasOrcaRouterKey,
+      has_api_key: primary === 'orcarouter' ? hasOrcaRouterKey : hasOpenRouterKey,
       ai_system_prompt: resolveSystemPrompt(
         resData?.industry as string,
         resData?.ai_system_prompt as string

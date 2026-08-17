@@ -98,3 +98,45 @@ export interface CopilotSuggestions {
   };
   confidence: number;
 }
+
+export type AiProviderName = 'openrouter' | 'orcarouter';
+
+export type AiFeatureType =
+  | 'AI_REPLY'
+  | 'AI_AGENT'
+  | 'AI_COPILOT'
+  | 'AI_SUMMARY'
+  | 'AI_SUGGESTED_REPLY'
+  | 'AI_SUGGESTED_ACTION'
+  | 'KNOWLEDGE_BASE'
+  | 'AUTOMATION'
+  | 'CAMPAIGN';
+
+export interface AiProviderCapabilities {
+  supportsStreaming: boolean;
+  supportsToolCalling: boolean;
+  supportsStructuredOutput: boolean;
+  supportsVision: boolean;
+}
+
+export interface AiProviderHealth {
+  provider: AiProviderName;
+  status: 'healthy' | 'unavailable' | 'error';
+  latencyMs?: number;
+  message?: string;
+  checkedAt: string;
+}
+
+export interface AiAccountConfig {
+  ai_provider?: AiProviderName | null;
+  ai_fallback_provider?: AiProviderName | 'none' | null;
+  openrouter_api_key?: string | null;
+  openrouter_model?: string | null;
+  orcarouter_api_key?: string | null;
+  orcarouter_model?: string | null;
+  ai_system_prompt?: string | null;
+  welcome_message?: string | null;
+  industry?: string | null;
+  name?: string | null;
+}
+
