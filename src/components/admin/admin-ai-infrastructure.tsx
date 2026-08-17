@@ -182,6 +182,21 @@ const AI_FEATURES = [
   },
 ];
 
+function formatModelNameFromId(id: string): string {
+  if (!id) return '';
+  const parts = id.split('/');
+  const modelPart = parts.length > 1 ? parts[1] : parts[0];
+  return modelPart
+    .split(/[-_:]/)
+    .filter(Boolean)
+    .map((word) => {
+      if (/^(gpt|ai|llm|rag|opd)$/i.test(word)) return word.toUpperCase();
+      if (/^\d+(\.\d+)?(b|k|m)?$/i.test(word)) return word.toUpperCase();
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    })
+    .join(' ');
+}
+
 export function AdminAiInfrastructure() {
   const [subTab, setSubTab] = useState<
     'providers' | 'models' | 'routing' | 'health' | 'usage'
@@ -479,14 +494,19 @@ export function AdminAiInfrastructure() {
   }
 
   function handleAddModel() {
-    if (!newModelId.trim() || !newModelName.trim()) {
-      toast.error('Model identifier and display name are required');
+    if (!newModelId.trim()) {
+      toast.error(
+        'Model identifier is required (e.g. nvidia/nemotron-3.5-lightning:free)'
+      );
       return;
     }
 
     const validation = validateAiModelId(newModelId, newModelProvider);
     if (!validation.valid) {
-      toast.error(validation.error || 'Invalid model identifier format');
+      toast.error(
+        validation.error ||
+          'Invalid model identifier format (author/model-name)'
+      );
       return;
     }
 
@@ -504,12 +524,18 @@ export function AdminAiInfrastructure() {
       return;
     }
 
+    const resolvedName =
+      newModelName.trim() || formatModelNameFromId(validation.normalizedId);
+    const resolvedDesc =
+      newModelDesc.trim() ||
+      `High performance ${newModelBadge || 'Custom'} ${newModelProvider === 'openrouter' ? 'OpenRouter' : 'OrcaRouter'} model (${validation.normalizedId}).`;
+
     const newItem: ModelItem = {
       id: validation.normalizedId,
-      name: newModelName.trim(),
+      name: resolvedName,
       provider: newModelProvider,
       badge: newModelBadge.trim() || 'Custom',
-      desc: newModelDesc.trim() || 'Custom added LLM model.',
+      desc: resolvedDesc,
       enabled: true,
     };
 
@@ -749,10 +775,10 @@ export function AdminAiInfrastructure() {
 
               <div className="space-y-1.5">
                 <Label className="text-muted-foreground text-[10px] font-bold uppercase">
-                  Capability Badge
+                  Capability Badge (Optional)
                 </Label>
                 <Input
-                  placeholder="e.g. Reasoning, High Speed, Clinical"
+                  placeholder="e.g. Reasoning, Fast, Free"
                   value={newModelBadge}
                   onChange={(e) => setNewModelBadge(e.target.value)}
                   className="bg-muted/40 h-9 text-xs"
@@ -902,42 +928,30 @@ export function AdminAiInfrastructure() {
                 )}
               </div>
               <Input
-                placeholder="e.g. deepseek/deepseek-r1 or meta-llama/llama-3.3-70b-instruct"
+                placeholder="e.g. nvidia/nemotron-3.5-lightning:free or deepseek/deepseek-r1"
                 value={newModelId}
-                onChange={(e) =>
-                  setNewModelId(sanitizeModelIdentifier(e.target.value))
-                }
-                className="bg-muted/40 h-9 font-mono text-xs"
+                onChange={(e) => {
+                  const sanitized = sanitizeModelIdentifier(e.target.value);
+                  setNewModelId(sanitized);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddModel();
+                  }
+                }}
+                className="bg-muted/40 h-10 font-mono text-xs focus:border-emerald-500"
+                autoFocus
               />
               {modelValidationStatus && !modelValidationStatus.valid && (
                 <p className="text-[11px] text-amber-500">
                   {modelValidationStatus.error}
                 </p>
               )}
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-muted-foreground text-[10px] font-bold uppercase">
-                Display Name
-              </Label>
-              <Input
-                placeholder="e.g. DeepSeek R1 (Reasoning)"
-                value={newModelName}
-                onChange={(e) => setNewModelName(e.target.value)}
-                className="bg-muted/40 h-9 text-xs"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-muted-foreground text-[10px] font-bold uppercase">
-                Short Description
-              </Label>
-              <Input
-                placeholder="e.g. Optimized for clinical triage and complex diagnoses."
-                value={newModelDesc}
-                onChange={(e) => setNewModelDesc(e.target.value)}
-                className="bg-muted/40 h-9 text-xs"
-              />
+              <p className="text-muted-foreground pt-1 text-[11px]">
+                Enter any valid model ID from OpenRouter or OrcaRouter. Display
+                name and description will be generated automatically.
+              </p>
             </div>
           </div>
 
@@ -956,7 +970,7 @@ export function AdminAiInfrastructure() {
                 !newModelId.trim() ||
                 (modelValidationStatus !== null && !modelValidationStatus.valid)
               }
-              className="bg-emerald-600 font-semibold text-white hover:bg-emerald-700"
+              className="bg-emerald-600 font-semibold text-white shadow-xs hover:bg-emerald-700"
             >
               <Plus className="mr-1.5 h-3.5 w-3.5" />
               Add Model to Catalog

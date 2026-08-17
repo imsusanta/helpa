@@ -34,6 +34,7 @@ describe('Custom AI Model Selection, Validation & Sanitization (#490, #202)', ()
         'google/gemini-2.5-pro',
         'anthropic/claude-3.5-sonnet',
         'meta-llama/llama-3.3-70b-instruct',
+        'nvidia/nemotron-3.5-lightning:free',
         'qwen/qwen-2.5-72b-instruct:free',
         'mistralai/mistral-large-2407',
         'cohere/command-r-plus',
