@@ -23,7 +23,7 @@ export function AdminNav({ onRefresh, loading }: AdminNavProps) {
 
   const navItems = [
     { href: '/admin', label: 'Overview', icon: LayoutDashboard, exact: true },
-    { href: '/admin/tenants', label: 'Subscribers', icon: Users },
+    { href: '/admin/subscribers', label: 'Subscribers', icon: Users },
     { href: '/admin/plans', label: 'Plans & Pricing', icon: CreditCard },
     { href: '/admin/ai', label: 'AI Setup', icon: Brain },
     { href: '/admin/settings', label: 'Settings', icon: Settings },

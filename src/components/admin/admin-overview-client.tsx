@@ -309,7 +309,7 @@ export function AdminOverviewClient() {
 
           {/* Quick Navigation Cards */}
           <div className="grid gap-4 sm:grid-cols-3">
-            <Link href="/admin/tenants" className="group">
+            <Link href="/admin/subscribers" className="group">
               <Card className="bg-card border-border hover:bg-muted/30 shadow-none transition-colors">
                 <CardContent className="flex items-center justify-between p-4">
                   <div className="flex items-center gap-3">

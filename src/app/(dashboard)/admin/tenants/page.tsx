@@ -1,15 +1,5 @@
-import { requireSuperAdmin } from '@/lib/auth/admin';
-import { AdminTenantsClient } from '@/components/admin/admin-tenants-client';
+import { redirect } from 'next/navigation';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-
-export const metadata = {
-  title: 'Super Admin Subscribers - Helpa Studio',
-};
-
-export default async function AdminTenantsPage() {
-  await requireSuperAdmin();
-
-  return <AdminTenantsClient />;
+export default function AdminTenantsRedirectPage() {
+  redirect('/admin/subscribers');
 }
