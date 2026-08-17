@@ -117,36 +117,57 @@ export async function resolveAccountAiConfig(
         .eq('id', accountId)
         .maybeSingle();
 
-      if (acc) {
-        if (acc.ai_provider === 'openrouter' || acc.ai_provider === 'orcarouter') {
-          primaryName = acc.ai_provider;
-        }
-        if (
-          acc.ai_fallback_provider === 'openrouter' ||
-          acc.ai_fallback_provider === 'orcarouter' ||
-          acc.ai_fallback_provider === 'none'
-        ) {
-          fallbackName = acc.ai_fallback_provider;
-        }
-        if (acc.openrouter_model) {
-          openrouterModel = acc.openrouter_model;
-        }
-        if (acc.orcarouter_model) {
-          orcarouterModel = acc.orcarouter_model;
-        }
-        if (acc.openrouter_api_key) {
-          try {
-            openrouterKey = decrypt(acc.openrouter_api_key);
-          } catch {
-            // Keep system default if decryption fails
+      const { data: sysRows } = await db
+        .from('system_settings')
+        .select('key, value')
+        .ilike('key', `account:${accountId}:%`);
+
+      const sysMap: Record<string, string> = {};
+      if (sysRows && Array.isArray(sysRows)) {
+        sysRows.forEach((r: { key?: string; value?: string }) => {
+          if (r.key && r.value) {
+            const fieldName = r.key.replace(`account:${accountId}:`, '');
+            sysMap[fieldName] = r.value;
           }
+        });
+      }
+
+      const effAiProvider = acc?.ai_provider || sysMap.ai_provider;
+      if (effAiProvider === 'openrouter' || effAiProvider === 'orcarouter') {
+        primaryName = effAiProvider;
+      }
+
+      const effFallback = acc?.ai_fallback_provider || sysMap.ai_fallback_provider;
+      if (
+        effFallback === 'openrouter' ||
+        effFallback === 'orcarouter' ||
+        effFallback === 'none'
+      ) {
+        fallbackName = effFallback;
+      }
+
+      if (acc?.openrouter_model || sysMap.openrouter_model) {
+        openrouterModel = acc?.openrouter_model || sysMap.openrouter_model;
+      }
+      if (acc?.orcarouter_model || sysMap.orcarouter_model) {
+        orcarouterModel = acc?.orcarouter_model || sysMap.orcarouter_model;
+      }
+
+      const effOpenRouterKey = acc?.openrouter_api_key || sysMap.openrouter_api_key;
+      if (effOpenRouterKey) {
+        try {
+          openrouterKey = decrypt(effOpenRouterKey);
+        } catch {
+          // Keep system default if decryption fails
         }
-        if (acc.orcarouter_api_key) {
-          try {
-            orcarouterKey = decrypt(acc.orcarouter_api_key);
-          } catch {
-            // Keep system default if decryption fails
-          }
+      }
+
+      const effOrcaRouterKey = acc?.orcarouter_api_key || sysMap.orcarouter_api_key;
+      if (effOrcaRouterKey) {
+        try {
+          orcarouterKey = decrypt(effOrcaRouterKey);
+        } catch {
+          // Keep system default if decryption fails
         }
       }
     }

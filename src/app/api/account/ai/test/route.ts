@@ -35,24 +35,31 @@ export async function POST(request: Request) {
 
     // If key is empty/not provided or is a password placeholder, fetch and decrypt from DB
     if (!api_key || api_key.trim() === '' || api_key.includes('••••')) {
-      const { data: account, error } = await ctx.appwrite
+      const { data: account } = await ctx.appwrite
         .from('accounts')
         .select('openrouter_api_key, openrouter_model, orcarouter_api_key, orcarouter_model')
         .eq('id', ctx.accountId)
-        .single();
+        .maybeSingle();
 
-      if (error) {
-        console.error('[POST /api/account/ai/test] db fetch error:', error);
-        return NextResponse.json(
-          { error: 'Failed to fetch saved API credentials' },
-          { status: 500 }
-        );
-      }
-
-      const dbKey =
+      let dbKey =
         providerName === 'orcarouter'
           ? account?.orcarouter_api_key
           : account?.openrouter_api_key;
+
+      if (!dbKey) {
+        // Fallback to system_settings mirror
+        const { data: sysRow } = await ctx.appwrite
+          .from('system_settings')
+          .select('value')
+          .eq(
+            'key',
+            `account:${ctx.accountId}:${providerName === 'orcarouter' ? 'orcarouter_api_key' : 'openrouter_api_key'}`
+          )
+          .maybeSingle();
+        if (sysRow?.value) {
+          dbKey = sysRow.value;
+        }
+      }
 
       const envKey =
         providerName === 'orcarouter'
