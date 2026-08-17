@@ -14,7 +14,13 @@ import {
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { SettingsPanelHead } from './settings-panel-head';
 
@@ -40,8 +46,10 @@ export function AiPanel() {
           setSystemPrompt(data.ai_system_prompt || '');
           setWelcomeMessage(data.welcome_message || '');
           setAccountName(data.account_name || '');
-          if (data.usage_requests !== undefined) setUsageRequests(data.usage_requests);
-          if (data.max_requests !== undefined) setMaxRequests(data.max_requests);
+          if (data.usage_requests !== undefined)
+            setUsageRequests(data.usage_requests);
+          if (data.max_requests !== undefined)
+            setMaxRequests(data.max_requests);
         }
       } catch (err) {
         console.error('Failed to load AI config:', err);
@@ -99,7 +107,10 @@ export function AiPanel() {
     );
   }
 
-  const usagePercent = Math.min(100, Math.round((usageRequests / (maxRequests || 1)) * 100));
+  const usagePercent = Math.min(
+    100,
+    Math.round((usageRequests / (maxRequests || 1)) * 100)
+  );
 
   return (
     <section className="animate-in fade-in space-y-6 duration-300">
@@ -118,36 +129,40 @@ export function AiPanel() {
               </div>
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-foreground text-base font-bold">Helpa AI Engine</h3>
-                  <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 text-xs font-bold">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 mr-1 animate-pulse" />
+                  <h3 className="text-foreground text-base font-bold">
+                    Helpa AI Engine
+                  </h3>
+                  <Badge className="border-emerald-500/20 bg-emerald-500/10 text-xs font-bold text-emerald-600">
+                    <span className="mr-1 h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
                     Available
                   </Badge>
                 </div>
-                <p className="text-muted-foreground text-xs leading-relaxed max-w-lg">
-                  AI is managed centrally by Helpa. You don&apos;t need to provide an AI API key or configure language models.
+                <p className="text-muted-foreground max-w-lg text-xs leading-relaxed">
+                  AI is managed centrally by Helpa. You don&apos;t need to
+                  provide an AI API key or configure language models.
                 </p>
               </div>
             </div>
 
             {/* Monthly Usage Meter */}
-            <div className="bg-card border-border/80 min-w-[200px] rounded-xl border p-3.5 shadow-sm space-y-2">
+            <div className="bg-card border-border/80 min-w-[200px] space-y-2 rounded-xl border p-3.5 shadow-sm">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground font-semibold flex items-center gap-1">
+                <span className="text-muted-foreground flex items-center gap-1 font-semibold">
                   <BarChart2 className="h-3.5 w-3.5 text-emerald-600" />
                   Monthly Quota
                 </span>
-                <span className="font-mono font-bold text-foreground">
-                  {(usageRequests ?? 0).toLocaleString()} / {(maxRequests ?? 0).toLocaleString()}
+                <span className="text-foreground font-mono font-bold">
+                  {(usageRequests ?? 0).toLocaleString()} /{' '}
+                  {(maxRequests ?? 0).toLocaleString()}
                 </span>
               </div>
               <div className="bg-muted h-2 w-full overflow-hidden rounded-full">
                 <div
-                  className="bg-emerald-500 h-full transition-all duration-500"
+                  className="h-full bg-emerald-500 transition-all duration-500"
                   style={{ width: `${usagePercent}%` }}
                 />
               </div>
-              <p className="text-muted-foreground text-[10px] text-right">
+              <p className="text-muted-foreground text-right text-[10px]">
                 {usagePercent}% utilized this billing cycle
               </p>
             </div>
@@ -167,8 +182,9 @@ export function AiPanel() {
               Practice Instructions & Receptionist Persona
             </h3>
           </div>
-          <p className="text-muted-foreground text-xs leading-relaxed max-w-xl">
-            Instruct your AI Receptionist on how to greet patients, clinic operating hours, available doctor specialties, and triage rules.
+          <p className="text-muted-foreground max-w-xl text-xs leading-relaxed">
+            Instruct your AI Receptionist on how to greet patients, clinic
+            operating hours, available doctor specialties, and triage rules.
           </p>
           <div className="space-y-3">
             <Textarea
@@ -194,8 +210,9 @@ export function AiPanel() {
               Automated First Message / Welcome Greeting
             </h3>
           </div>
-          <p className="text-muted-foreground text-xs leading-relaxed max-w-xl">
-            Initial greeting sent automatically when a new patient contacts your WhatsApp Business number.
+          <p className="text-muted-foreground max-w-xl text-xs leading-relaxed">
+            Initial greeting sent automatically when a new patient contacts your
+            WhatsApp Business number.
           </p>
           <Textarea
             id="welcomeMessage"
@@ -214,16 +231,19 @@ export function AiPanel() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <BookOpen className="h-5 w-5 text-blue-500" />
-                <CardTitle className="text-foreground text-sm font-bold">Practice Knowledge Base</CardTitle>
+                <CardTitle className="text-foreground text-sm font-bold">
+                  Practice Knowledge Base
+                </CardTitle>
               </div>
               <Link href="/settings?tab=kb">
-                <Button size="sm" variant="outline" className="text-xs h-8">
+                <Button size="sm" variant="outline" className="h-8 text-xs">
                   Manage Knowledge Base →
                 </Button>
               </Link>
             </div>
             <CardDescription className="text-muted-foreground text-xs">
-              Upload doctor bios, service rate cards, treatment FAQs, and PDF documents for intelligent AI search.
+              Upload doctor bios, service rate cards, treatment FAQs, and PDF
+              documents for intelligent AI search.
             </CardDescription>
           </CardHeader>
         </Card>

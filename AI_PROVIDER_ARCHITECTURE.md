@@ -61,12 +61,14 @@ Capabilities are declared per-provider without assuming every model supports eve
 ## 2. Integrated Providers
 
 ### OpenRouter (`openrouter`)
+
 - **API Base**: `https://openrouter.ai/api/v1/chat/completions`
 - **Default Model**: `google/gemini-2.5-flash`
 - **Supported Models**: `anthropic/claude-3.5-sonnet`, `meta-llama/llama-3.3-70b-instruct`, custom identifiers.
 - **Environment Variable**: `OPENROUTER_API_KEY`
 
 ### OrcaRouter (`orcarouter`)
+
 - **API Base**: `https://api.orcarouter.ai/v1/chat/completions`
 - **Default Model**: `orcarouter/auto`
 - **Environment Variable**: `ORCAROUTER_API_KEY`

@@ -26,7 +26,8 @@ export async function GET() {
         features: p.features,
         max_users: p.usageLimits.teamMembers,
         max_contacts: p.usageLimits.contacts,
-        max_whatsapp_numbers: p.slug === 'pro' ? 5 : p.slug === 'growth' ? 2 : 1,
+        max_whatsapp_numbers:
+          p.slug === 'pro' ? 5 : p.slug === 'growth' ? 2 : 1,
         max_ai_requests: p.usageLimits.aiMessages,
         max_whatsapp_messages: p.usageLimits.whatsappMessages,
         limits: p.usageLimits,

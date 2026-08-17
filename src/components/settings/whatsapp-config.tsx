@@ -43,7 +43,11 @@ import {
   AccordionTrigger,
   AccordionContent,
 } from '@/components/ui/accordion';
-import type { WhatsAppConfig as WhatsAppConfigType, WhatsAppConnectionStatus, WhatsAppConnectionType } from '@/types';
+import type {
+  WhatsAppConfig as WhatsAppConfigType,
+  WhatsAppConnectionStatus,
+  WhatsAppConnectionType,
+} from '@/types';
 
 const MASKED_TOKEN = '••••••••••••••••';
 
@@ -58,8 +62,10 @@ export function WhatsAppConfig() {
   const [resetting, setResetting] = useState(false);
   const [showToken, setShowToken] = useState(false);
   const [config, setConfig] = useState<WhatsAppConfigType | null>(null);
-  const [connectionStatus, setConnectionStatus] = useState<WhatsAppConnectionStatus>('disconnected');
-  const [connectionType, setConnectionType] = useState<WhatsAppConnectionType>('coexistence');
+  const [connectionStatus, setConnectionStatus] =
+    useState<WhatsAppConnectionStatus>('disconnected');
+  const [connectionType, setConnectionType] =
+    useState<WhatsAppConnectionType>('coexistence');
   const [resetReason, setResetReason] = useState<ResetReason>(null);
   const [statusMessage, setStatusMessage] = useState<string>('');
   const [lastCheckedAt, setLastCheckedAt] = useState<string>('Just now');
@@ -73,7 +79,9 @@ export function WhatsAppConfig() {
   const [verifyToken, setVerifyToken] = useState('');
   const [pin, setPin] = useState('');
   const [tokenEdited, setTokenEdited] = useState(false);
-  const [activeMethod, setActiveMethod] = useState<'coexistence' | 'standard' | 'manual'>('coexistence');
+  const [activeMethod, setActiveMethod] = useState<
+    'coexistence' | 'standard' | 'manual'
+  >('coexistence');
   const [connectingEmbedded, setConnectingEmbedded] = useState(false);
 
   const isRegistered = Boolean(config?.registered_at);
@@ -88,7 +96,8 @@ export function WhatsAppConfig() {
     registered_at?: string | null;
     subscribed_apps_at?: string | null;
   };
-  const [registrationProbe, setRegistrationProbe] = useState<RegistrationProbe | null>(null);
+  const [registrationProbe, setRegistrationProbe] =
+    useState<RegistrationProbe | null>(null);
 
   const webhookUrl =
     typeof window !== 'undefined'
@@ -103,7 +112,8 @@ export function WhatsAppConfig() {
       const payload = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        const errorMsg = payload.error || payload.message || 'Failed to fetch configuration';
+        const errorMsg =
+          payload.error || payload.message || 'Failed to fetch configuration';
         setStatusMessage(errorMsg);
         setConnectionStatus('disconnected');
         toast.error(errorMsg);
@@ -112,13 +122,19 @@ export function WhatsAppConfig() {
 
       if (payload.config) {
         setConfig(payload.config);
-        setPhoneNumberId(payload.config.phone_number_id || payload.config.phoneNumberId || '');
+        setPhoneNumberId(
+          payload.config.phone_number_id || payload.config.phoneNumberId || ''
+        );
         setWabaId(payload.config.waba_id || payload.config.wabaId || '');
         setAccessToken(MASKED_TOKEN);
         setVerifyToken('');
         setPin('');
         setTokenEdited(false);
-        setConnectionType(payload.config.connection_type || payload.connection_type || 'coexistence');
+        setConnectionType(
+          payload.config.connection_type ||
+            payload.connection_type ||
+            'coexistence'
+        );
       } else {
         setConfig(null);
         setPhoneNumberId('');
@@ -130,7 +146,9 @@ export function WhatsAppConfig() {
       }
 
       if (payload.connected) {
-        const isCoex = payload.status === 'coexistence_connected' || payload.connection_type === 'coexistence';
+        const isCoex =
+          payload.status === 'coexistence_connected' ||
+          payload.connection_type === 'coexistence';
         setConnectionStatus(isCoex ? 'coexistence_connected' : 'connected');
         setResetReason(null);
         setStatusMessage('');
@@ -243,7 +261,9 @@ export function WhatsAppConfig() {
       const payload = await res.json();
 
       if (payload.connected) {
-        const isCoex = payload.status === 'coexistence_connected' || payload.connection_type === 'coexistence';
+        const isCoex =
+          payload.status === 'coexistence_connected' ||
+          payload.connection_type === 'coexistence';
         setConnectionStatus(isCoex ? 'coexistence_connected' : 'connected');
         setResetReason(null);
         setStatusMessage('');
@@ -361,7 +381,9 @@ export function WhatsAppConfig() {
 
         const data = await res.json();
         if (!res.ok) {
-          throw new Error(data.error || 'Failed to complete WhatsApp Embedded Signup');
+          throw new Error(
+            data.error || 'Failed to complete WhatsApp Embedded Signup'
+          );
         }
 
         toast.success(
@@ -388,13 +410,20 @@ export function WhatsAppConfig() {
     [fetchConfig]
   );
 
-  async function handleLaunchEmbeddedSignup(mode: 'standard' | 'coexistence' = 'coexistence') {
+  async function handleLaunchEmbeddedSignup(
+    mode: 'standard' | 'coexistence' = 'coexistence'
+  ) {
     setConnectingEmbedded(true);
     setConnectionStatus('connecting');
     try {
       const appId = process.env.NEXT_PUBLIC_META_APP_ID || '1461038582135406';
-      const configId = process.env.NEXT_PUBLIC_META_CONFIG_ID || '4607476386162686';
-      const result = await launchWhatsAppEmbeddedSignup({ appId, configId, mode });
+      const configId =
+        process.env.NEXT_PUBLIC_META_CONFIG_ID || '4607476386162686';
+      const result = await launchWhatsAppEmbeddedSignup({
+        appId,
+        configId,
+        mode,
+      });
       await handleMetaAuthResponse({ ...result, mode });
     } catch (err: unknown) {
       console.error('Embedded Signup error:', err);
@@ -420,8 +449,12 @@ export function WhatsAppConfig() {
     );
   }
 
-  const isConnected = connectionStatus === 'connected' || connectionStatus === 'coexistence_connected';
-  const isCoexistenceConnected = connectionStatus === 'coexistence_connected' || connectionType === 'coexistence';
+  const isConnected =
+    connectionStatus === 'connected' ||
+    connectionStatus === 'coexistence_connected';
+  const isCoexistenceConnected =
+    connectionStatus === 'coexistence_connected' ||
+    connectionType === 'coexistence';
 
   return (
     <section className="animate-in fade-in-50 space-y-6 duration-200">
@@ -432,30 +465,43 @@ export function WhatsAppConfig() {
 
       {/* Disconnect Confirmation Modal */}
       {showDisconnectModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-card border-border w-full max-w-md space-y-5 rounded-2xl border p-6 shadow-2xl animate-in zoom-in-95">
+        <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="bg-card border-border animate-in zoom-in-95 w-full max-w-md space-y-5 rounded-2xl border p-6 shadow-2xl">
             <div className="flex items-center gap-3 text-red-600 dark:text-red-400">
               <div className="rounded-xl bg-red-100 p-2.5 dark:bg-red-950/50">
                 <AlertTriangle className="h-6 w-6" />
               </div>
               <div>
-                <h3 className="text-foreground text-base font-bold">Disconnect WhatsApp Connection?</h3>
-                <p className="text-muted-foreground text-xs">This action only disconnects Helpa.</p>
+                <h3 className="text-foreground text-base font-bold">
+                  Disconnect WhatsApp Connection?
+                </h3>
+                <p className="text-muted-foreground text-xs">
+                  This action only disconnects Helpa.
+                </p>
               </div>
             </div>
 
             <div className="border-border bg-muted/30 space-y-2 rounded-xl border p-3.5 text-xs">
-              <div className="flex items-start gap-2 text-foreground">
+              <div className="text-foreground flex items-start gap-2">
                 <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-                <span>Your existing WhatsApp Business account & mobile app remain active.</span>
+                <span>
+                  Your existing WhatsApp Business account & mobile app remain
+                  active.
+                </span>
               </div>
-              <div className="flex items-start gap-2 text-foreground">
+              <div className="text-foreground flex items-start gap-2">
                 <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-                <span>Your business phone number will <strong>NOT</strong> be deleted.</span>
+                <span>
+                  Your business phone number will <strong>NOT</strong> be
+                  deleted.
+                </span>
               </div>
-              <div className="flex items-start gap-2 text-foreground">
+              <div className="text-foreground flex items-start gap-2">
                 <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-                <span>Existing contacts and conversation history in Helpa are safely preserved.</span>
+                <span>
+                  Existing contacts and conversation history in Helpa are safely
+                  preserved.
+                </span>
               </div>
             </div>
 
@@ -474,9 +520,11 @@ export function WhatsAppConfig() {
                 size="sm"
                 onClick={handleDisconnectConfirm}
                 disabled={resetting}
-                className="bg-red-600 hover:bg-red-700 text-white text-xs font-semibold"
+                className="bg-red-600 text-xs font-semibold text-white hover:bg-red-700"
               >
-                {resetting ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : null}
+                {resetting ? (
+                  <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                ) : null}
                 Confirm Disconnect
               </Button>
             </div>
@@ -532,9 +580,14 @@ export function WhatsAppConfig() {
                       </span>
                     </div>
                     <p className="text-muted-foreground mt-0.5 text-xs">
-                      {config.verified_name || config.business_name || 'Verified WhatsApp Business'} •{' '}
-                      <span className="font-mono font-medium text-foreground">
-                        {config.display_phone_number || config.phone_number || phoneNumberId}
+                      {config.verified_name ||
+                        config.business_name ||
+                        'Verified WhatsApp Business'}{' '}
+                      •{' '}
+                      <span className="text-foreground font-mono font-medium">
+                        {config.display_phone_number ||
+                          config.phone_number ||
+                          phoneNumberId}
                       </span>
                     </p>
                   </div>
@@ -544,7 +597,7 @@ export function WhatsAppConfig() {
                   <Link href="/inbox">
                     <Button
                       size="sm"
-                      className="gap-1.5 bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 font-semibold"
+                      className="gap-1.5 bg-emerald-600 font-semibold text-white shadow-sm hover:bg-emerald-700"
                     >
                       <MessageSquare className="h-4 w-4" />
                       Open Inbox
@@ -557,17 +610,29 @@ export function WhatsAppConfig() {
                     disabled={testing}
                     className="border-border text-foreground hover:bg-muted gap-1.5 text-xs font-semibold"
                   >
-                    {testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Activity className="h-3.5 w-3.5 text-emerald-600" />}
+                    {testing ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Activity className="h-3.5 w-3.5 text-emerald-600" />
+                    )}
                     Test Connection
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => handleLaunchEmbeddedSignup(isCoexistenceConnected ? 'coexistence' : 'standard')}
+                    onClick={() =>
+                      handleLaunchEmbeddedSignup(
+                        isCoexistenceConnected ? 'coexistence' : 'standard'
+                      )
+                    }
                     disabled={connectingEmbedded}
                     className="border-border text-foreground hover:bg-muted gap-1.5 text-xs font-semibold"
                   >
-                    {connectingEmbedded ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
+                    {connectingEmbedded ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <RotateCcw className="h-3.5 w-3.5" />
+                    )}
                     Reconnect
                   </Button>
                   <Button
@@ -575,7 +640,7 @@ export function WhatsAppConfig() {
                     variant="outline"
                     onClick={() => setShowDisconnectModal(true)}
                     disabled={resetting}
-                    className="border-red-500/30 text-red-500 hover:bg-red-500/10 text-xs font-semibold"
+                    className="border-red-500/30 text-xs font-semibold text-red-500 hover:bg-red-500/10"
                   >
                     Disconnect
                   </Button>
@@ -583,9 +648,11 @@ export function WhatsAppConfig() {
               </div>
 
               {/* Health Grid */}
-              <div className="grid grid-cols-2 gap-3 border-t border-emerald-500/20 pt-4 sm:grid-cols-4 text-xs">
+              <div className="grid grid-cols-2 gap-3 border-t border-emerald-500/20 pt-4 text-xs sm:grid-cols-4">
                 <div className="space-y-1">
-                  <span className="text-muted-foreground block text-[11px] font-medium">WhatsApp Status</span>
+                  <span className="text-muted-foreground block text-[11px] font-medium">
+                    WhatsApp Status
+                  </span>
                   <span className="flex items-center gap-1.5 font-bold text-emerald-600 dark:text-emerald-400">
                     <span className="h-2 w-2 rounded-full bg-emerald-500" />
                     Connected
@@ -593,14 +660,20 @@ export function WhatsAppConfig() {
                 </div>
 
                 <div className="space-y-1">
-                  <span className="text-muted-foreground block text-[11px] font-medium">Connection Type</span>
-                  <span className="font-semibold text-foreground">
-                    {isCoexistenceConnected ? 'Existing Business / Coexistence' : 'Direct Cloud API'}
+                  <span className="text-muted-foreground block text-[11px] font-medium">
+                    Connection Type
+                  </span>
+                  <span className="text-foreground font-semibold">
+                    {isCoexistenceConnected
+                      ? 'Existing Business / Coexistence'
+                      : 'Direct Cloud API'}
                   </span>
                 </div>
 
                 <div className="space-y-1">
-                  <span className="text-muted-foreground block text-[11px] font-medium">Webhook Status</span>
+                  <span className="text-muted-foreground block text-[11px] font-medium">
+                    Webhook Status
+                  </span>
                   <span className="flex items-center gap-1.5 font-bold text-emerald-600 dark:text-emerald-400">
                     <span className="h-2 w-2 rounded-full bg-emerald-500" />
                     Healthy
@@ -608,8 +681,12 @@ export function WhatsAppConfig() {
                 </div>
 
                 <div className="space-y-1">
-                  <span className="text-muted-foreground block text-[11px] font-medium">Last Checked</span>
-                  <span className="text-muted-foreground font-medium">{lastCheckedAt}</span>
+                  <span className="text-muted-foreground block text-[11px] font-medium">
+                    Last Checked
+                  </span>
+                  <span className="text-muted-foreground font-medium">
+                    {lastCheckedAt}
+                  </span>
                 </div>
               </div>
             </div>
@@ -624,7 +701,7 @@ export function WhatsAppConfig() {
               WhatsApp Not Connected
             </AlertTitle>
           </div>
-          <AlertDescription className="text-muted-foreground text-xs mt-1">
+          <AlertDescription className="text-muted-foreground mt-1 text-xs">
             {statusMessage ||
               'Connect your WhatsApp Business account below to keep your existing number, receive inbound messages, and automate replies with Helpa AI.'}
           </AlertDescription>
@@ -649,7 +726,7 @@ export function WhatsAppConfig() {
               )}
               <AlertTitle
                 className={
-                  'mb-0 font-bold text-xs ' +
+                  'mb-0 text-xs font-bold ' +
                   (isRegistered ? 'text-emerald-200' : 'text-amber-200')
                 }
               >
@@ -678,16 +755,25 @@ export function WhatsAppConfig() {
             {isRegistered ? (
               <>
                 Subscribed since{' '}
-                {config.registered_at ? new Date(config.registered_at).toLocaleString() : 'unknown'}.
-                Click <strong>Verify with Meta</strong> if message delivery stops.
+                {config.registered_at
+                  ? new Date(config.registered_at).toLocaleString()
+                  : 'unknown'}
+                . Click <strong>Verify with Meta</strong> if message delivery
+                stops.
               </>
             ) : lastRegistrationError ? (
               <>
-                Last attempt error: <span className="text-red-300 font-mono">&quot;{lastRegistrationError}&quot;</span>.
+                Last attempt error:{' '}
+                <span className="font-mono text-red-300">
+                  &quot;{lastRegistrationError}&quot;
+                </span>
+                .
               </>
             ) : (
               <>
-                Your WhatsApp number is registered for messaging. Click <strong>Verify with Meta</strong> to probe live webhook subscription.
+                Your WhatsApp number is registered for messaging. Click{' '}
+                <strong>Verify with Meta</strong> to probe live webhook
+                subscription.
               </>
             )}
           </AlertDescription>
@@ -696,7 +782,13 @@ export function WhatsAppConfig() {
             <div className="border-border bg-card/60 mt-3 space-y-1.5 rounded-lg border px-3 py-2 text-[11px]">
               <p className="text-foreground font-medium">
                 Diagnostic — last run:{' '}
-                <span className={registrationProbe.live ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'}>
+                <span
+                  className={
+                    registrationProbe.live
+                      ? 'font-bold text-emerald-400'
+                      : 'font-bold text-amber-400'
+                  }
+                >
                   {registrationProbe.live ? 'LIVE (Healthy)' : 'INCOMPLETE'}
                 </span>
               </p>
@@ -773,8 +865,9 @@ export function WhatsAppConfig() {
                   Connect your existing WhatsApp Business
                 </CardTitle>
               </div>
-              <CardDescription className="text-muted-foreground text-xs leading-relaxed mt-1">
-                Keep your existing WhatsApp Business number and connect it to Helpa to manage conversations, automate replies, and use AI.
+              <CardDescription className="text-muted-foreground mt-1 text-xs leading-relaxed">
+                Keep your existing WhatsApp Business number and connect it to
+                Helpa to manage conversations, automate replies, and use AI.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -783,9 +876,14 @@ export function WhatsAppConfig() {
                 <div className="flex items-start gap-3">
                   <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
                   <div>
-                    <h4 className="text-foreground font-bold">Existing Number Protection</h4>
+                    <h4 className="text-foreground font-bold">
+                      Existing Number Protection
+                    </h4>
                     <p className="text-muted-foreground mt-0.5 leading-relaxed">
-                      Your existing WhatsApp Business number will be kept where Meta&apos;s supported Coexistence setup is available. You will <strong>NOT</strong> need to delete your existing WhatsApp Business app or purchase a new phone number.
+                      Your existing WhatsApp Business number will be kept where
+                      Meta&apos;s supported Coexistence setup is available. You
+                      will <strong>NOT</strong> need to delete your existing
+                      WhatsApp Business app or purchase a new phone number.
                     </p>
                   </div>
                 </div>
@@ -793,9 +891,13 @@ export function WhatsAppConfig() {
                 <div className="flex items-start gap-3">
                   <Layers className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
                   <div>
-                    <h4 className="text-foreground font-bold">WhatsApp Business App + Helpa Coexistence</h4>
+                    <h4 className="text-foreground font-bold">
+                      WhatsApp Business App + Helpa Coexistence
+                    </h4>
                     <p className="text-muted-foreground mt-0.5 leading-relaxed">
-                      Continue chatting with patients on your mobile phone while Helpa simultaneously manages automated AI responses, conversation memory, and inbox workflows.
+                      Continue chatting with patients on your mobile phone while
+                      Helpa simultaneously manages automated AI responses,
+                      conversation memory, and inbox workflows.
                     </p>
                   </div>
                 </div>
@@ -825,10 +927,13 @@ export function WhatsAppConfig() {
               </div>
 
               {/* Help Text / Meta Eligibility Disclaimer */}
-              <div className="flex items-start gap-2 border-t border-border pt-3 text-[11px] text-muted-foreground">
-                <HelpCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/80" />
+              <div className="border-border text-muted-foreground flex items-start gap-2 border-t pt-3 text-[11px]">
+                <HelpCircle className="text-muted-foreground/80 mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <p className="leading-relaxed">
-                  Helpa uses Meta&apos;s official WhatsApp integration. Whether your existing WhatsApp Business account can be connected without changing your current setup depends on Meta&apos;s eligibility and supported Coexistence configuration.
+                  Helpa uses Meta&apos;s official WhatsApp integration. Whether
+                  your existing WhatsApp Business account can be connected
+                  without changing your current setup depends on Meta&apos;s
+                  eligibility and supported Coexistence configuration.
                 </p>
               </div>
             </CardContent>
@@ -841,20 +946,25 @@ export function WhatsAppConfig() {
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
                 <Sparkles className="h-5 w-5" />
-                <CardTitle className="text-foreground text-base">Connect WhatsApp</CardTitle>
+                <CardTitle className="text-foreground text-base">
+                  Connect WhatsApp
+                </CardTitle>
               </div>
               <CardDescription className="text-muted-foreground text-xs">
-                Use WhatsApp with Helpa using a direct Meta Cloud API setup or new business number.
+                Use WhatsApp with Helpa using a direct Meta Cloud API setup or
+                new business number.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="border-border bg-card space-y-2 rounded-xl border p-4 text-xs">
-                <div className="flex items-center gap-2 text-foreground font-semibold">
+                <div className="text-foreground flex items-center gap-2 font-semibold">
                   <CheckCircle2 className="h-4 w-4 text-blue-500" />
                   <span>Instant 1-Click Meta Embedded Setup</span>
                 </div>
                 <p className="text-muted-foreground text-xs leading-relaxed">
-                  Authenticates your Meta Business Manager, registers a dedicated Cloud API phone number, and configures webhooks automatically.
+                  Authenticates your Meta Business Manager, registers a
+                  dedicated Cloud API phone number, and configures webhooks
+                  automatically.
                 </p>
               </div>
 
@@ -888,14 +998,16 @@ export function WhatsAppConfig() {
           <div className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle className="text-foreground text-sm font-bold">API Credentials</CardTitle>
+                <CardTitle className="text-foreground text-sm font-bold">
+                  API Credentials
+                </CardTitle>
                 <CardDescription className="text-muted-foreground text-xs">
                   Enter your Meta WhatsApp Business API credentials manually.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-muted-foreground text-xs font-bold uppercase tracking-wider">
+                  <Label className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
                     Phone Number ID
                   </Label>
                   <Input
@@ -907,7 +1019,7 @@ export function WhatsAppConfig() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-muted-foreground text-xs font-bold uppercase tracking-wider">
+                  <Label className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
                     WhatsApp Business Account ID
                   </Label>
                   <Input
@@ -919,7 +1031,7 @@ export function WhatsAppConfig() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-muted-foreground text-xs font-bold uppercase tracking-wider">
+                  <Label className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
                     Permanent Access Token
                   </Label>
                   <div className="relative">
@@ -944,13 +1056,17 @@ export function WhatsAppConfig() {
                       onClick={() => setShowToken(!showToken)}
                       className="text-muted-foreground hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2"
                     >
-                      {showToken ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                      {showToken ? (
+                        <EyeOff className="size-4" />
+                      ) : (
+                        <Eye className="size-4" />
+                      )}
                     </button>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-muted-foreground text-xs font-bold uppercase tracking-wider">
+                  <Label className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
                     Webhook Verify Token
                   </Label>
                   <Input
@@ -962,7 +1078,7 @@ export function WhatsAppConfig() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-muted-foreground text-xs font-bold uppercase tracking-wider">
+                  <Label className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
                     Two-step PIN (Optional)
                   </Label>
                   <Input
@@ -971,8 +1087,10 @@ export function WhatsAppConfig() {
                     maxLength={6}
                     placeholder="6-digit PIN from Meta WhatsApp Manager"
                     value={pin}
-                    onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    className="bg-muted border-border text-foreground tracking-widest font-mono text-xs"
+                    onChange={(e) =>
+                      setPin(e.target.value.replace(/\D/g, '').slice(0, 6))
+                    }
+                    className="bg-muted border-border text-foreground font-mono text-xs tracking-widest"
                   />
                 </div>
 
@@ -980,9 +1098,11 @@ export function WhatsAppConfig() {
                   <Button
                     onClick={handleSave}
                     disabled={saving}
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold"
                   >
-                    {saving ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : null}
+                    {saving ? (
+                      <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                    ) : null}
                     Save Configuration
                   </Button>
                 </div>
@@ -992,9 +1112,12 @@ export function WhatsAppConfig() {
             {/* Webhook URL Card */}
             <Card>
               <CardHeader>
-                <CardTitle className="text-foreground text-sm font-bold">Webhook Configuration</CardTitle>
+                <CardTitle className="text-foreground text-sm font-bold">
+                  Webhook Configuration
+                </CardTitle>
                 <CardDescription className="text-muted-foreground text-xs">
-                  Copy this URL into your Meta App Dashboard Webhook callback settings.
+                  Copy this URL into your Meta App Dashboard Webhook callback
+                  settings.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -1022,7 +1145,9 @@ export function WhatsAppConfig() {
       {/* Setup Instructions Accordion */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-foreground text-sm font-bold">Setup Instructions</CardTitle>
+          <CardTitle className="text-foreground text-sm font-bold">
+            Setup Instructions
+          </CardTitle>
           <CardDescription className="text-muted-foreground text-xs">
             Overview of Meta WhatsApp Business Platform connection steps.
           </CardDescription>
@@ -1039,10 +1164,19 @@ export function WhatsAppConfig() {
                 </span>
               </AccordionTrigger>
               <AccordionContent className="text-muted-foreground text-xs leading-relaxed">
-                <ul className="list-disc list-inside space-y-1">
-                  <li>Your phone number must be currently active on the official WhatsApp Business mobile app.</li>
-                  <li>Click <strong>Connect Existing WhatsApp Business</strong> and complete the Meta authorization popup.</li>
-                  <li>Meta will automatically connect the Cloud API without deleting your mobile app registration.</li>
+                <ul className="list-inside list-disc space-y-1">
+                  <li>
+                    Your phone number must be currently active on the official
+                    WhatsApp Business mobile app.
+                  </li>
+                  <li>
+                    Click <strong>Connect Existing WhatsApp Business</strong>{' '}
+                    and complete the Meta authorization popup.
+                  </li>
+                  <li>
+                    Meta will automatically connect the Cloud API without
+                    deleting your mobile app registration.
+                  </li>
                 </ul>
               </AccordionContent>
             </AccordionItem>
@@ -1058,7 +1192,10 @@ export function WhatsAppConfig() {
               </AccordionTrigger>
               <AccordionContent className="text-muted-foreground text-xs leading-relaxed">
                 <p>
-                  Helpa automatically subscribes your WABA to the Meta webhook endpoint upon Embedded Signup completion. All incoming patient chats are strictly routed to your tenant account with zero cross-tenant leakage.
+                  Helpa automatically subscribes your WABA to the Meta webhook
+                  endpoint upon Embedded Signup completion. All incoming patient
+                  chats are strictly routed to your tenant account with zero
+                  cross-tenant leakage.
                 </p>
               </AccordionContent>
             </AccordionItem>
@@ -1069,7 +1206,7 @@ export function WhatsAppConfig() {
               href="https://developers.facebook.com/docs/whatsapp/cloud-api/get-started"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-primary hover:text-primary/80 inline-flex items-center gap-1.5 text-xs transition-colors font-medium"
+              className="text-primary hover:text-primary/80 inline-flex items-center gap-1.5 text-xs font-medium transition-colors"
             >
               <ExternalLink className="size-3.5" />
               Official Meta WhatsApp Business Platform Documentation

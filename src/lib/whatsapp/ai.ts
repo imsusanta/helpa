@@ -83,7 +83,9 @@ export async function triggerAiResponse(
 
   if (
     accError &&
-    (accError.message?.includes('welcome_message') || accError.code === '42703' || accError.message?.includes('ai_provider'))
+    (accError.message?.includes('welcome_message') ||
+      accError.code === '42703' ||
+      accError.message?.includes('ai_provider'))
   ) {
     // Fallback if columns are not yet in DB schema cache
     const fallback = await db
@@ -112,7 +114,6 @@ export async function triggerAiResponse(
     );
     return;
   }
-
 
   // 3. Use pre-fetched messages
   const messages = messagesRes.data;

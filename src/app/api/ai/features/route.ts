@@ -151,7 +151,8 @@ export async function POST(request: Request) {
               content = `[${m.content_type}]`;
             }
             return {
-              role: (m.sender_type === 'customer' ? 'user' : 'assistant') as 'user' | 'assistant',
+              role: (m.sender_type === 'customer' ? 'user' : 'assistant') as
+                'user' | 'assistant',
               content: content,
             };
           })

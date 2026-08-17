@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import { resolveAccountAiConfig } from '@/core/ai/resolver';
 
 describe('Centralized Super Admin AI Routing & Feature-Level Model Assignment', () => {
-
   it('resolves centralized primary provider when set to OrcaRouter', async () => {
     const config = await resolveAccountAiConfig(undefined, {
       primaryProvider: 'orcarouter',

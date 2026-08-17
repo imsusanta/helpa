@@ -2,7 +2,10 @@ import { NextResponse } from 'next/server';
 import { getCurrentAccount, toErrorResponse } from '@/lib/auth/account';
 import { getAdminClient } from '@/lib/appwrite-server-compat';
 import { getPlanBySlug } from '@/core/billing/plans';
-import { checkPlanLimits, getWorkspaceSubscription } from '@/lib/saas/subscription';
+import {
+  checkPlanLimits,
+  getWorkspaceSubscription,
+} from '@/lib/saas/subscription';
 
 export async function POST(request: Request) {
   try {
@@ -18,18 +21,27 @@ export async function POST(request: Request) {
       confirmDowngrade?: boolean;
     } | null;
 
-    const requestedSlug = (body?.planSlug || body?.planName || body?.planId || 'growth')
+    const requestedSlug = (
+      body?.planSlug ||
+      body?.planName ||
+      body?.planId ||
+      'growth'
+    )
       .toLowerCase()
       .replace(/[^a-z]/g, '');
 
     const targetPlan = await getPlanBySlug(requestedSlug);
-    const { subscription: currentSub, plan: currentPlan } = await getWorkspaceSubscription(ctx.accountId);
+    const { subscription: currentSub, plan: currentPlan } =
+      await getWorkspaceSubscription(ctx.accountId);
 
     const isDowngrade = targetPlan.monthlyPrice < currentPlan.monthlyPrice;
 
     // Check usage limits if downgrading
     if (isDowngrade && !body?.confirmDowngrade) {
-      const contactsCheck = await checkPlanLimits(ctx.accountId, 'max_contacts');
+      const contactsCheck = await checkPlanLimits(
+        ctx.accountId,
+        'max_contacts'
+      );
       const usersCheck = await checkPlanLimits(ctx.accountId, 'max_users');
 
       const warnings: string[] = [];
@@ -47,7 +59,8 @@ export async function POST(request: Request) {
       if (warnings.length > 0) {
         return NextResponse.json(
           {
-            warning: 'Your current usage exceeds the limits of the selected plan.',
+            warning:
+              'Your current usage exceeds the limits of the selected plan.',
             details: warnings,
             requiresConfirmation: true,
           },

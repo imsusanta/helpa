@@ -1,6 +1,7 @@
 # WHATSAPP EXISTING BUSINESS CONNECTION & COEXISTENCE REPORT
 
 ## 1. Existing Implementation Found
+
 - Helpa previously supported Meta Embedded Signup for onboarding WhatsApp Business accounts using the Meta JavaScript SDK (`FB.login`).
 - However, the onboarding flow treated all setups identically, lacking explicit support and messaging for **WhatsApp Business App + Cloud API Coexistence**.
 - The UI presented a single generic button without distinguishing between connecting an active mobile WhatsApp Business number and provisioning a new dedicated Cloud API number.
@@ -9,6 +10,7 @@
 ---
 
 ## 2. Root Cause of Previous Issues
+
 - **Missing Coexistence Intent in Meta SDK**: The client-side `FB.login` configuration didn't pass `{ solution: 'coexistence', phone_flow: 'coexistence' }` in `extras.setup` when the user intended to preserve their existing WhatsApp Business mobile app.
 - **Ambiguous UI Guidance**: Users were concerned that connecting to Helpa might overwrite or migrate their mobile phone number away from their physical WhatsApp Business App.
 - **Inadequate Eligibility Handling**: When an account did not qualify for Coexistence, generic failure messages caused confusion.
@@ -17,7 +19,9 @@
 ---
 
 ## 3. Meta Flow Implemented
+
 We implemented the official **Meta WhatsApp Embedded Signup Flow (SDK v2 / Session Info v3)**:
+
 1. **User Initiation**: User navigates to `Settings → WhatsApp` and selects **Existing WhatsApp Business (Coexistence)**.
 2. **Launch Meta Popup**: `launchWhatsAppEmbeddedSignup({ appId, configId, mode: 'coexistence' })` launches `FB.login` with:
    ```js
@@ -36,6 +40,7 @@ We implemented the official **Meta WhatsApp Embedded Signup Flow (SDK v2 / Sessi
 ---
 
 ## 4. Coexistence Implementation & Behavior
+
 - **Number Preservation**: The existing phone number remains registered on the business's physical WhatsApp Business mobile app while simultaneously receiving and sending messages via Helpa's Cloud API webhook infrastructure.
 - **Non-Destructive Routing**: Inbound customer messages delivered via Meta webhooks are ingested by Helpa, triggering AI copilot/autopilot responses, and synced to Helpa Inbox without interfering with mobile app access.
 - **No Unofficial Tools**: 100% compliant with Meta WhatsApp Business Platform policies. Zero web scrapers, zero unofficial QR daemons.
@@ -43,7 +48,9 @@ We implemented the official **Meta WhatsApp Embedded Signup Flow (SDK v2 / Sessi
 ---
 
 ## 5. Database & Schema Changes
+
 In `whatsapp_config` / `whatsapp_configs`:
+
 - `connection_type`: `'coexistence' | 'standard' | 'manual'`
 - `coexistence_status`: `'eligible' | 'active' | 'pending' | 'not_eligible' | 'unknown'`
 - `status`: Extended to support `'connected' | 'disconnected' | 'connecting' | 'coexistence_pending' | 'coexistence_connected' | 'action_required' | 'not_eligible' | 'error' | 'reconnect_required'`
@@ -56,9 +63,10 @@ In `whatsapp_config` / `whatsapp_configs`:
 ---
 
 ## 6. UI Changes in Settings → WhatsApp
+
 1. **Two Clear Onboarding Options**:
-   - **Option 1**: **Existing WhatsApp Business (Coexistence)** $\rightarrow$ *`Connect Existing WhatsApp Business`*
-   - **Option 2**: **Connect WhatsApp (New Number / Direct API)** $\rightarrow$ *`Connect with Meta`*
+   - **Option 1**: **Existing WhatsApp Business (Coexistence)** $\rightarrow$ _`Connect Existing WhatsApp Business`_
+   - **Option 2**: **Connect WhatsApp (New Number / Direct API)** $\rightarrow$ _`Connect with Meta`_
    - **Option 3**: **Developer / Manual Setup**
 2. **Official Copy & Reassurance**:
    - **Title**: `Connect your existing WhatsApp Business`
@@ -77,6 +85,7 @@ In `whatsapp_config` / `whatsapp_configs`:
 ---
 
 ## 7. Security & Tenant Isolation
+
 - **Encryption at Rest**: Access tokens and webhook verify tokens are encrypted using AES-256-GCM via `encrypt()` before saving to Appwrite/PostgreSQL.
 - **Tenant Isolation**: Each config row is strictly indexed and queried by `account_id`. A single phone number ID cannot be claimed by multiple tenant workspaces.
 - **Zero Client Credential Exposure**: Tokens are masked as `••••••••••••••••` and never returned in API payloads to the browser.
@@ -85,6 +94,7 @@ In `whatsapp_config` / `whatsapp_configs`:
 ---
 
 ## 8. Webhook & Messaging Verification
+
 - **Inbound Event Pipeline**:
   `WhatsApp Mobile / Customer` $\rightarrow$ `Meta Graph API` $\rightarrow$ `Helpa Webhook (/api/whatsapp/webhook)` $\rightarrow$ `Tenant Account Context` $\rightarrow$ `Conversation Record` $\rightarrow$ `AI Autopilot / Inbox`.
 - **Outbound Message Pipeline**:
@@ -93,6 +103,7 @@ In `whatsapp_config` / `whatsapp_configs`:
 ---
 
 ## 9. Automated Test Results
+
 - **Coexistence Test Suite**: `npx vitest run src/tests/whatsapp/existing-business-coexistence.test.ts` $\rightarrow$ **5 / 5 PASSED**
 - **Full Test Suite**: `npm test` $\rightarrow$ **89 / 89 test suites PASSED, 800 / 800 tests PASSED**
 - **TypeScript Type Check**: `npx tsc --noEmit` $\rightarrow$ **0 errors**
@@ -102,6 +113,7 @@ In `whatsapp_config` / `whatsapp_configs`:
 ---
 
 ## 10. Manual Testing Instructions (With a Real Meta Business Account)
+
 1. Navigate to **Settings → WhatsApp** in Helpa.
 2. Select the **Existing WhatsApp Business (Coexistence)** card.
 3. Click **Connect Existing WhatsApp Business**.
@@ -119,7 +131,9 @@ In `whatsapp_config` / `whatsapp_configs`:
 ---
 
 ## 11. Meta Configuration Required in App Dashboard
+
 To use Meta Embedded Signup in production:
+
 1. Go to **developers.facebook.com → My Apps → [Your App]**.
 2. Under **Facebook Login for Business → Settings**:
    - Ensure **Login with the JavaScript SDK** is set to **Yes**.
@@ -130,6 +144,7 @@ To use Meta Embedded Signup in production:
 ---
 
 ## 12. Known Meta Eligibility Limitations
+
 - **Phone Number Tier**: Phone numbers currently in restricted or unverified status in Meta Business Manager may require business verification before Meta enables Coexistence.
 - **Landlines & Interactive IVRs**: Fixed-line numbers that cannot receive SMS/voice OTPs directly must complete Meta manual verification.
 - **Regional Rollout**: Meta Coexistence availability is determined dynamically by Meta for Developers based on country and WABA account tier. If ineligible, Helpa displays a non-destructive informational message without prompting users to delete their accounts.

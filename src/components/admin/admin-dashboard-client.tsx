@@ -650,7 +650,8 @@ export function AdminDashboardClient() {
                     Growth Premium ($29/mo)
                   </span>
                   <span className="text-foreground rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 font-bold text-emerald-600 dark:text-emerald-400">
-                    {metrics?.subscriptions?.planBreakdown?.['Growth'] || 0} active
+                    {metrics?.subscriptions?.planBreakdown?.['Growth'] || 0}{' '}
+                    active
                   </span>
                 </div>
                 <div className="bg-muted/20 border-border/50 hover:bg-muted/30 flex items-center justify-between rounded-lg border p-2 text-xs transition-all duration-200 hover:scale-[1.02]">
@@ -707,7 +708,8 @@ export function AdminDashboardClient() {
                     WhatsApp Messages Sent
                   </span>
                   <span className="text-foreground font-bold">
-                    {(metrics?.usage?.whatsappMessages ?? 0).toLocaleString()} msgs
+                    {(metrics?.usage?.whatsappMessages ?? 0).toLocaleString()}{' '}
+                    msgs
                   </span>
                 </div>
                 <div className="border-border flex items-center justify-between border-t pt-3 text-sm font-bold">
@@ -902,9 +904,10 @@ export function AdminDashboardClient() {
                       </span>
                       <span className="text-muted-foreground ml-2 text-[10px] font-semibold">
                         (₹
-                        {(p.yearly_price ? Math.round(p.yearly_price / 12) : 0).toLocaleString(
-                          'en-IN'
-                        )}
+                        {(p.yearly_price
+                          ? Math.round(p.yearly_price / 12)
+                          : 0
+                        ).toLocaleString('en-IN')}
                         /mo billed yearly)
                       </span>
                     </div>
@@ -1087,7 +1090,8 @@ export function AdminDashboardClient() {
                 <SelectContent className="bg-popover text-popover-foreground border-border">
                   {plans.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
-                      {p.name} (₹{(p.monthly_price ?? 0).toLocaleString('en-IN')}/mo)
+                      {p.name} (₹
+                      {(p.monthly_price ?? 0).toLocaleString('en-IN')}/mo)
                     </SelectItem>
                   ))}
                 </SelectContent>

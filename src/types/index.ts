@@ -238,7 +238,8 @@ export type WhatsAppConnectionStatus =
   | 'reconnect_required';
 
 export type WhatsAppConnectionType = 'coexistence' | 'standard' | 'manual';
-export type WhatsAppCoexistenceStatus = 'eligible' | 'active' | 'pending' | 'not_eligible' | 'unknown';
+export type WhatsAppCoexistenceStatus =
+  'eligible' | 'active' | 'pending' | 'not_eligible' | 'unknown';
 
 export interface WhatsAppConfig {
   id: string;

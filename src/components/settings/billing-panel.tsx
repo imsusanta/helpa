@@ -142,7 +142,9 @@ export function BillingPanel() {
   const [invoices, setInvoices] = useState<InvoiceItem[]>([]);
 
   const [manageModalOpen, setManageModalOpen] = useState(false);
-  const [selectedPlanModal, setSelectedPlanModal] = useState<PlanOffer | null>(null);
+  const [selectedPlanModal, setSelectedPlanModal] = useState<PlanOffer | null>(
+    null
+  );
   const [downgradeWarning, setDowngradeWarning] = useState<string | null>(null);
 
   const [usage, setUsage] = useState({
@@ -237,9 +239,13 @@ export function BillingPanel() {
   }, [loadBillingData]);
 
   const activePlanOffer =
-    AVAILABLE_PLANS.find((p) => p.slug === activePlanSlug) || AVAILABLE_PLANS[1];
+    AVAILABLE_PLANS.find((p) => p.slug === activePlanSlug) ||
+    AVAILABLE_PLANS[1];
 
-  const handleExecuteUpgrade = async (plan: PlanOffer, confirmDowngrade: boolean = false) => {
+  const handleExecuteUpgrade = async (
+    plan: PlanOffer,
+    confirmDowngrade: boolean = false
+  ) => {
     setUpgrading(true);
     setDowngradeWarning(null);
 
@@ -267,7 +273,9 @@ export function BillingPanel() {
       setSelectedPlanModal(null);
       await loadBillingData();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Plan update request failed');
+      toast.error(
+        err instanceof Error ? err.message : 'Plan update request failed'
+      );
     } finally {
       setUpgrading(false);
     }
@@ -288,9 +296,20 @@ export function BillingPanel() {
   }
 
   const planLimits = {
-    max_contacts: activePlanSlug === 'pro' ? 50000 : activePlanSlug === 'growth' ? 10000 : 1500,
-    max_users: activePlanSlug === 'pro' ? 25 : activePlanSlug === 'growth' ? 10 : 3,
-    max_ai_requests: activePlanSlug === 'pro' ? 25000 : activePlanSlug === 'growth' ? 5000 : 1500,
+    max_contacts:
+      activePlanSlug === 'pro'
+        ? 50000
+        : activePlanSlug === 'growth'
+          ? 10000
+          : 1500,
+    max_users:
+      activePlanSlug === 'pro' ? 25 : activePlanSlug === 'growth' ? 10 : 3,
+    max_ai_requests:
+      activePlanSlug === 'pro'
+        ? 25000
+        : activePlanSlug === 'growth'
+          ? 5000
+          : 1500,
   };
 
   const getPercent = (value: number, max: number) => {
@@ -343,7 +362,9 @@ export function BillingPanel() {
                         month: 'short',
                         day: 'numeric',
                       })
-                    : new Date(Date.now() + 30 * 86400 * 1000).toLocaleDateString(undefined, {
+                    : new Date(
+                        Date.now() + 30 * 86400 * 1000
+                      ).toLocaleDateString(undefined, {
                         year: 'numeric',
                         month: 'short',
                         day: 'numeric',
@@ -354,21 +375,29 @@ export function BillingPanel() {
 
             <div className="bg-muted/40 border-border rounded-xl border p-3 text-xs leading-relaxed">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">One-time Setup Fee</span>
+                <span className="text-muted-foreground">
+                  One-time Setup Fee
+                </span>
                 <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                  ₹{setupFeeAmount.toLocaleString()} ({setupFeePaid ? 'Paid' : 'Pending'})
+                  ₹{setupFeeAmount.toLocaleString()} (
+                  {setupFeePaid ? 'Paid' : 'Pending'})
                 </span>
               </div>
               <div className="mt-1 flex justify-between">
-                <span className="text-muted-foreground">Monthly Recurring Subscription</span>
-                <span className="font-semibold text-foreground">
+                <span className="text-muted-foreground">
+                  Monthly Recurring Subscription
+                </span>
+                <span className="text-foreground font-semibold">
                   ₹{monthlyAmount.toLocaleString()} / month
                 </span>
               </div>
             </div>
 
             <div className="border-border flex flex-wrap gap-3 border-t pt-4">
-              <Button onClick={() => setManageModalOpen(true)} className="flex-1 sm:flex-initial font-bold">
+              <Button
+                onClick={() => setManageModalOpen(true)}
+                className="flex-1 font-bold sm:flex-initial"
+              >
                 Manage Subscription
               </Button>
               <Button
@@ -477,7 +506,8 @@ export function BillingPanel() {
                 AI Requests
               </span>
               <span className="text-foreground font-semibold">
-                {usage.aiRequests} / {planLimits.max_ai_requests.toLocaleString()}
+                {usage.aiRequests} /{' '}
+                {planLimits.max_ai_requests.toLocaleString()}
               </span>
             </div>
             <div className="bg-muted h-2 w-full overflow-hidden rounded-full">
@@ -511,7 +541,7 @@ export function BillingPanel() {
                 key={plan.id}
                 className={`flex flex-col justify-between transition-all ${
                   isCurrent
-                    ? 'border-emerald-500 ring-emerald-500 shadow-lg ring-1'
+                    ? 'border-emerald-500 shadow-lg ring-1 ring-emerald-500'
                     : plan.isRecommended
                       ? 'border-emerald-500/40 shadow-md'
                       : 'border-border hover:border-muted-foreground/30'
@@ -524,11 +554,11 @@ export function BillingPanel() {
                         {plan.name}
                       </span>
                       {isCurrent ? (
-                        <span className="bg-emerald-100 border-emerald-300 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800/30 dark:text-emerald-300 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase">
+                        <span className="rounded-full border border-emerald-300 bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800 uppercase dark:border-emerald-800/30 dark:bg-emerald-950/40 dark:text-emerald-300">
                           Current Plan
                         </span>
                       ) : plan.isRecommended ? (
-                        <span className="bg-amber-100 border-amber-300 text-amber-800 dark:bg-amber-950/40 dark:border-amber-800/30 dark:text-amber-300 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase">
+                        <span className="rounded-full border border-amber-300 bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800 uppercase dark:border-amber-800/30 dark:bg-amber-950/40 dark:text-amber-300">
                           Recommended
                         </span>
                       ) : null}
@@ -546,15 +576,15 @@ export function BillingPanel() {
                   <CardContent className="space-y-4 pb-6 text-sm">
                     <ul className="border-border text-muted-foreground space-y-2 border-t pt-4 text-xs">
                       <li className="text-foreground flex items-center gap-1.5 font-semibold">
-                        <Check className="text-emerald-500 size-3 shrink-0" />
+                        <Check className="size-3 shrink-0 text-emerald-500" />
                         {plan.maxUsers}
                       </li>
                       <li className="text-foreground flex items-center gap-1.5 font-semibold">
-                        <Check className="text-emerald-500 size-3 shrink-0" />
+                        <Check className="size-3 shrink-0 text-emerald-500" />
                         {plan.maxContacts}
                       </li>
                       <li className="text-foreground flex items-center gap-1.5 font-semibold">
-                        <Check className="text-emerald-500 size-3 shrink-0" />
+                        <Check className="size-3 shrink-0 text-emerald-500" />
                         {plan.maxAi}
                       </li>
                       {plan.features.map((feat, idx) => (
@@ -569,7 +599,13 @@ export function BillingPanel() {
 
                 <div className="p-6 pt-0">
                   <Button
-                    variant={isCurrent ? 'outline' : plan.isRecommended ? 'default' : 'secondary'}
+                    variant={
+                      isCurrent
+                        ? 'outline'
+                        : plan.isRecommended
+                          ? 'default'
+                          : 'secondary'
+                    }
                     className="w-full font-bold"
                     disabled={isCurrent}
                     onClick={() => setSelectedPlanModal(plan)}
@@ -590,7 +626,8 @@ export function BillingPanel() {
             <span>Billing History & Invoices</span>
           </CardTitle>
           <CardDescription className="text-muted-foreground">
-            View receipts for initial setup fees and recurring subscription payments.
+            View receipts for initial setup fees and recurring subscription
+            payments.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -601,10 +638,14 @@ export function BillingPanel() {
                 className="border-border flex flex-col justify-between rounded-xl border p-4 text-xs sm:flex-row sm:items-center"
               >
                 <div>
-                  <p className="text-foreground font-bold">{inv.invoice_number}</p>
+                  <p className="text-foreground font-bold">
+                    {inv.invoice_number}
+                  </p>
                   <p className="text-muted-foreground">{inv.description}</p>
                   <p className="text-muted-foreground text-[10px]">
-                    {new Date(inv.created_at || Date.now()).toLocaleDateString()}
+                    {new Date(
+                      inv.created_at || Date.now()
+                    ).toLocaleDateString()}
                   </p>
                 </div>
                 <div className="mt-2 flex items-center gap-4 sm:mt-0">
@@ -612,7 +653,7 @@ export function BillingPanel() {
                     <p className="text-foreground font-bold">
                       ₹{Number(inv.amount || 0).toLocaleString()}
                     </p>
-                    <span className="text-emerald-500 font-semibold uppercase text-[10px]">
+                    <span className="text-[10px] font-semibold text-emerald-500 uppercase">
                       {inv.status || 'Paid'}
                     </span>
                   </div>
@@ -620,7 +661,9 @@ export function BillingPanel() {
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      toast.success(`Downloading Invoice ${inv.invoice_number}`);
+                      toast.success(
+                        `Downloading Invoice ${inv.invoice_number}`
+                      );
                     }}
                   >
                     <Download className="mr-1 size-3" /> PDF
@@ -649,21 +692,26 @@ export function BillingPanel() {
             <div className="bg-muted/50 space-y-2 rounded-lg border p-4 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Current Plan</span>
-                <span className="text-foreground font-bold">{activePlanOffer.name}</span>
+                <span className="text-foreground font-bold">
+                  {activePlanOffer.name}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Billing Email</span>
-                <span className="text-foreground font-medium">{email || 'Primary Account Admin'}</span>
+                <span className="text-foreground font-medium">
+                  {email || 'Primary Account Admin'}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Setup Fee Paid</span>
-                <span className="font-semibold text-emerald-500 uppercase text-xs">
-                  ₹{setupFeeAmount.toLocaleString()} ({setupFeePaid ? 'Paid' : 'Pending'})
+                <span className="text-xs font-semibold text-emerald-500 uppercase">
+                  ₹{setupFeeAmount.toLocaleString()} (
+                  {setupFeePaid ? 'Paid' : 'Pending'})
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Monthly Recurring</span>
-                <span className="font-semibold text-foreground text-xs">
+                <span className="text-foreground text-xs font-semibold">
                   ₹{monthlyAmount.toLocaleString()} / month
                 </span>
               </div>
@@ -676,7 +724,8 @@ export function BillingPanel() {
                 onClick={() => {
                   setManageModalOpen(false);
                   setSelectedPlanModal(
-                    AVAILABLE_PLANS.find((p) => p.slug === 'pro') || AVAILABLE_PLANS[2]
+                    AVAILABLE_PLANS.find((p) => p.slug === 'pro') ||
+                      AVAILABLE_PLANS[2]
                   );
                 }}
               >
@@ -707,7 +756,10 @@ export function BillingPanel() {
           </div>
 
           <DialogFooter>
-            <Button variant="secondary" onClick={() => setManageModalOpen(false)}>
+            <Button
+              variant="secondary"
+              onClick={() => setManageModalOpen(false)}
+            >
               Close
             </Button>
           </DialogFooter>
@@ -731,7 +783,8 @@ export function BillingPanel() {
               Confirm {selectedPlanModal?.name} Plan
             </DialogTitle>
             <DialogDescription>
-              Switch your account subscription to the {selectedPlanModal?.name} plan tier.
+              Switch your account subscription to the {selectedPlanModal?.name}{' '}
+              plan tier.
             </DialogDescription>
           </DialogHeader>
 
@@ -740,17 +793,20 @@ export function BillingPanel() {
               <div className="bg-primary/5 border-primary/20 space-y-2 rounded-lg border p-4 text-sm">
                 <p className="text-foreground text-lg font-bold">
                   ₹{selectedPlanModal.monthlyPrice.toLocaleString()}{' '}
-                  <span className="text-muted-foreground text-xs font-normal">/ month</span>
+                  <span className="text-muted-foreground text-xs font-normal">
+                    / month
+                  </span>
                 </p>
                 <p className="text-muted-foreground text-xs">
-                  + ₹{selectedPlanModal.setupFee.toLocaleString()} One-time Setup Fee
+                  + ₹{selectedPlanModal.setupFee.toLocaleString()} One-time
+                  Setup Fee
                 </p>
               </div>
 
               {downgradeWarning && (
-                <div className="border-amber-500/30 bg-amber-50 dark:bg-amber-950/20 text-amber-900 dark:text-amber-200 rounded-lg border p-3 text-xs leading-relaxed">
+                <div className="rounded-lg border border-amber-500/30 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900 dark:bg-amber-950/20 dark:text-amber-200">
                   <div className="flex items-start gap-2">
-                    <AlertTriangle className="size-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+                    <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
                     <div>
                       <p className="font-bold">Usage Warning</p>
                       <p>{downgradeWarning}</p>
@@ -774,7 +830,11 @@ export function BillingPanel() {
             </Button>
             <Button
               onClick={() =>
-                selectedPlanModal && handleExecuteUpgrade(selectedPlanModal, Boolean(downgradeWarning))
+                selectedPlanModal &&
+                handleExecuteUpgrade(
+                  selectedPlanModal,
+                  Boolean(downgradeWarning)
+                )
               }
               disabled={upgrading}
             >

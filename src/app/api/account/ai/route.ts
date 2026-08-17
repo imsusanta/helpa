@@ -77,8 +77,10 @@ export async function GET() {
       });
     }
 
-    const aiSystemPrompt = (account?.ai_system_prompt as string) || sysMap.ai_system_prompt;
-    const welcomeMessage = (account?.welcome_message as string) || sysMap.welcome_message || '';
+    const aiSystemPrompt =
+      (account?.ai_system_prompt as string) || sysMap.ai_system_prompt;
+    const welcomeMessage =
+      (account?.welcome_message as string) || sysMap.welcome_message || '';
 
     // Calculate usage requests for this workspace
     const { data: usageLogs } = await db
@@ -162,13 +164,19 @@ export async function PATCH(request: Request) {
     if (typeof ai_system_prompt === 'string') {
       const val = ai_system_prompt.trim();
       updates.ai_system_prompt = val;
-      sysUpserts.push({ key: `account:${ctx.accountId}:ai_system_prompt`, value: val });
+      sysUpserts.push({
+        key: `account:${ctx.accountId}:ai_system_prompt`,
+        value: val,
+      });
     }
 
     if (typeof welcome_message === 'string') {
       const val = welcome_message.trim();
       updates.welcome_message = val;
-      sysUpserts.push({ key: `account:${ctx.accountId}:welcome_message`, value: val });
+      sysUpserts.push({
+        key: `account:${ctx.accountId}:welcome_message`,
+        value: val,
+      });
     }
 
     if (Object.keys(updates).length === 0) {
@@ -181,7 +189,9 @@ export async function PATCH(request: Request) {
     // Persist to system_settings mirror
     if (sysUpserts.length > 0) {
       try {
-        await db.from('system_settings').upsert(sysUpserts, { onConflict: 'key' });
+        await db
+          .from('system_settings')
+          .upsert(sysUpserts, { onConflict: 'key' });
       } catch (sysErr) {
         console.warn('[PATCH /api/account/ai] system_settings note:', sysErr);
       }
@@ -194,7 +204,11 @@ export async function PATCH(request: Request) {
       .select('name, ai_system_prompt, welcome_message, industry')
       .single();
 
-    if (error && !error.message?.includes('column') && !error.message?.includes('schema cache')) {
+    if (
+      error &&
+      !error.message?.includes('column') &&
+      !error.message?.includes('schema cache')
+    ) {
       console.error('[PATCH /api/account/ai] update error:', error);
       return NextResponse.json(
         { error: 'Failed to update AI configuration: ' + error.message },
@@ -209,9 +223,13 @@ export async function PATCH(request: Request) {
       ai_available: true,
       ai_system_prompt: resolveSystemPrompt(
         resData?.industry as string,
-        (resData?.ai_system_prompt as string) || (updates.ai_system_prompt as string)
+        (resData?.ai_system_prompt as string) ||
+          (updates.ai_system_prompt as string)
       ),
-      welcome_message: (resData?.welcome_message as string) || (updates.welcome_message as string) || '',
+      welcome_message:
+        (resData?.welcome_message as string) ||
+        (updates.welcome_message as string) ||
+        '',
     });
   } catch (err: unknown) {
     console.error('[PATCH /api/account/ai] exception:', err);

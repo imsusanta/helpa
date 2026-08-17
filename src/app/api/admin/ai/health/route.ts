@@ -4,7 +4,9 @@ import { appwriteAdmin } from '@/lib/appwrite-server-compat';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import { getProviderInstance } from '@/core/ai/provider';
 
-async function resolveAdminProviderCredentials(providerName: 'openrouter' | 'orcarouter') {
+async function resolveAdminProviderCredentials(
+  providerName: 'openrouter' | 'orcarouter'
+) {
   const db = appwriteAdmin();
   const { data: sysSettings } = await db
     .from('system_settings')
@@ -89,7 +91,8 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const providerName = body.provider === 'orcarouter' ? 'orcarouter' : 'openrouter';
+    const providerName =
+      body.provider === 'orcarouter' ? 'orcarouter' : 'openrouter';
 
     const creds = await resolveAdminProviderCredentials(providerName);
     const provider = getProviderInstance(providerName);

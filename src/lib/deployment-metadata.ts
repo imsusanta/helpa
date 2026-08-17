@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { COMPILED_BUILD_METADATA } from './build-info.generated';
 
 export type DeploymentShaStatus = 'available' | 'missing' | 'invalid';
 
@@ -62,7 +63,12 @@ function normalizeSource(source: string): string {
     return 'deployment_env';
   if (source === 'SOURCE_VERSION' || source === 'APPWRITE_GIT_COMMIT_SHA')
     return 'appwrite';
-  if (source === 'git rev-parse HEAD' || source === 'git') return 'git';
+  if (
+    source === 'git rev-parse HEAD' ||
+    source === 'git' ||
+    source === 'build-info.generated.ts'
+  )
+    return 'git';
   return source;
 }
 
@@ -73,8 +79,9 @@ function normalizeSource(source: string): string {
  * 3. GITHUB_SHA (GitHub Actions CI/CD)
  * 4. DEPLOYMENT_GIT_SHA (Injected by CI / deployment)
  * 5. SOURCE_VERSION (Appwrite / generic container deployment engine)
- * 6. src/lib/build-metadata.json (Generated during prebuild / next build)
- * 7. NEXT_PUBLIC_COMMIT_SHA (Build-time inlined fallback)
+ * 6. build-info.generated.ts (Compile-time embedded metadata)
+ * 7. src/lib/build-metadata.json (Generated during prebuild / next build)
+ * 8. NEXT_PUBLIC_COMMIT_SHA (Build-time inlined fallback)
  */
 export function getDeploymentMetadata(
   env: NodeJS.ProcessEnv = process.env
@@ -123,12 +130,19 @@ export function getDeploymentMetadata(
     { source: 'GITHUB_SHA', value: env.GITHUB_SHA },
     { source: 'DEPLOYMENT_GIT_SHA', value: env.DEPLOYMENT_GIT_SHA },
     { source: 'SOURCE_VERSION', value: env.SOURCE_VERSION },
+    {
+      source: 'build-info.generated.ts',
+      value: !isExplicitlyCleared ? COMPILED_BUILD_METADATA?.commit : null,
+    },
     { source: 'build-metadata.json', value: buildMeta?.commit },
     { source: 'NEXT_PUBLIC_COMMIT_SHA', value: env.NEXT_PUBLIC_COMMIT_SHA },
   ];
 
   const buildTime =
-    env.BUILD_TIME || buildMeta?.buildTime || new Date().toISOString();
+    env.BUILD_TIME ||
+    COMPILED_BUILD_METADATA?.buildTime ||
+    buildMeta?.buildTime ||
+    new Date().toISOString();
 
   for (const candidate of candidates) {
     if (candidate.value && typeof candidate.value === 'string') {

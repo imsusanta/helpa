@@ -252,7 +252,10 @@ export async function launchWhatsAppEmbeddedSignup({
           feature: 'whatsapp_embedded_signup',
           version: 2,
           sessionInfoVersion: 3,
-          setup: mode === 'coexistence' ? { solution: 'coexistence', phone_flow: 'coexistence' } : {},
+          setup:
+            mode === 'coexistence'
+              ? { solution: 'coexistence', phone_flow: 'coexistence' }
+              : {},
         },
       };
 

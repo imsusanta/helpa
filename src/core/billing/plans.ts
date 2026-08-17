@@ -174,8 +174,14 @@ export async function getAvailablePlans(): Promise<SubscriptionPlan[]> {
     }
 
     return rows.map((r) => {
-      const slug = r.slug || String(r.id || r.name).toLowerCase().replace(/^plan_/, '');
-      const defaultPlan = DEFAULT_PLANS.find((dp) => dp.slug === slug || dp.id === r.id);
+      const slug =
+        r.slug ||
+        String(r.id || r.name)
+          .toLowerCase()
+          .replace(/^plan_/, '');
+      const defaultPlan = DEFAULT_PLANS.find(
+        (dp) => dp.slug === slug || dp.id === r.id
+      );
 
       return {
         id: r.id || defaultPlan?.id || `plan_${slug}`,
@@ -186,7 +192,8 @@ export async function getAvailablePlans(): Promise<SubscriptionPlan[]> {
         monthlyPrice: Number(r.monthly_price ?? defaultPlan?.monthlyPrice ?? 0),
         yearlyPrice: Number(r.yearly_price ?? defaultPlan?.yearlyPrice ?? 0),
         currency: r.currency || 'INR',
-        billingInterval: (r.billing_interval as 'monthly' | 'yearly') || 'monthly',
+        billingInterval:
+          (r.billing_interval as 'monthly' | 'yearly') || 'monthly',
         isRecommended: r.is_recommended ?? defaultPlan?.isRecommended ?? false,
         isActive: r.is_active !== false,
         displayOrder: Number(r.display_order || defaultPlan?.displayOrder || 1),
@@ -196,22 +203,59 @@ export async function getAvailablePlans(): Promise<SubscriptionPlan[]> {
             ? JSON.parse(r.features)
             : defaultPlan?.features || [],
         usageLimits: {
-          aiMessages: Number(r.max_ai_requests ?? r.ai_messages ?? defaultPlan?.usageLimits.aiMessages ?? 5000),
-          whatsappMessages: Number(r.max_whatsapp_numbers ?? r.whatsapp_messages ?? defaultPlan?.usageLimits.whatsappMessages ?? 10000),
-          teamMembers: Number(r.max_users ?? r.team_members ?? defaultPlan?.usageLimits.teamMembers ?? 5),
-          campaignMessages: Number(r.campaign_messages ?? defaultPlan?.usageLimits.campaignMessages ?? 2000),
-          contacts: Number(r.max_contacts ?? r.contacts ?? defaultPlan?.usageLimits.contacts ?? 5000),
-          automations: Number(r.automations ?? defaultPlan?.usageLimits.automations ?? 25),
-          knowledgeBaseMb: Number(r.knowledge_base_mb ?? defaultPlan?.usageLimits.knowledgeBaseMb ?? 100),
-          appointments: Number(r.appointments ?? defaultPlan?.usageLimits.appointments ?? 1000),
-          storageMb: Number(r.storage_mb ?? defaultPlan?.usageLimits.storageMb ?? 2000),
+          aiMessages: Number(
+            r.max_ai_requests ??
+              r.ai_messages ??
+              defaultPlan?.usageLimits.aiMessages ??
+              5000
+          ),
+          whatsappMessages: Number(
+            r.max_whatsapp_numbers ??
+              r.whatsapp_messages ??
+              defaultPlan?.usageLimits.whatsappMessages ??
+              10000
+          ),
+          teamMembers: Number(
+            r.max_users ??
+              r.team_members ??
+              defaultPlan?.usageLimits.teamMembers ??
+              5
+          ),
+          campaignMessages: Number(
+            r.campaign_messages ??
+              defaultPlan?.usageLimits.campaignMessages ??
+              2000
+          ),
+          contacts: Number(
+            r.max_contacts ??
+              r.contacts ??
+              defaultPlan?.usageLimits.contacts ??
+              5000
+          ),
+          automations: Number(
+            r.automations ?? defaultPlan?.usageLimits.automations ?? 25
+          ),
+          knowledgeBaseMb: Number(
+            r.knowledge_base_mb ??
+              defaultPlan?.usageLimits.knowledgeBaseMb ??
+              100
+          ),
+          appointments: Number(
+            r.appointments ?? defaultPlan?.usageLimits.appointments ?? 1000
+          ),
+          storageMb: Number(
+            r.storage_mb ?? defaultPlan?.usageLimits.storageMb ?? 2000
+          ),
         },
         createdAt: r.created_at,
         updatedAt: r.updated_at,
       };
     });
   } catch (err) {
-    console.warn('[getAvailablePlans] DB fetch failed, returning DEFAULT_PLANS:', err);
+    console.warn(
+      '[getAvailablePlans] DB fetch failed, returning DEFAULT_PLANS:',
+      err
+    );
     return DEFAULT_PLANS;
   }
 }
@@ -219,7 +263,9 @@ export async function getAvailablePlans(): Promise<SubscriptionPlan[]> {
 export async function getPlanBySlug(slug: string): Promise<SubscriptionPlan> {
   const plans = await getAvailablePlans();
   const found = plans.find(
-    (p) => p.slug.toLowerCase() === slug.toLowerCase() || p.id.toLowerCase() === slug.toLowerCase()
+    (p) =>
+      p.slug.toLowerCase() === slug.toLowerCase() ||
+      p.id.toLowerCase() === slug.toLowerCase()
   );
   return found || DEFAULT_PLANS[1]; // Default to Growth ⭐
 }

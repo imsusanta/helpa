@@ -52,7 +52,8 @@ export async function resolveAccountAiConfig(
   overrides?: Partial<ProviderResolutionParams>
 ): Promise<ResolvedProviderConfig> {
   let primaryName: AiProviderName = overrides?.primaryProvider || 'openrouter';
-  let fallbackName: AiProviderName | 'none' = overrides?.fallbackProvider ?? 'none';
+  let fallbackName: AiProviderName | 'none' =
+    overrides?.fallbackProvider ?? 'none';
   let openrouterKey: string | undefined = process.env.OPENROUTER_API_KEY;
   let openrouterModel = 'google/gemini-2.5-flash';
   let orcarouterKey: string | undefined = process.env.ORCAROUTER_API_KEY;
@@ -88,7 +89,8 @@ export async function resolveAccountAiConfig(
         settingsMap.system_ai_fallback_provider === 'orcarouter' ||
         settingsMap.system_ai_fallback_provider === 'none'
       ) {
-        fallbackName = settingsMap.system_ai_fallback_provider as AiProviderName | 'none';
+        fallbackName = settingsMap.system_ai_fallback_provider as
+          AiProviderName | 'none';
       }
       if (settingsMap.system_openrouter_model) {
         openrouterModel = settingsMap.system_openrouter_model;
@@ -127,14 +129,21 @@ export async function resolveAccountAiConfig(
       }
     }
   } catch (err) {
-    console.warn('[Provider Resolver] Failed to load central settings, using fallback defaults:', err);
+    console.warn(
+      '[Provider Resolver] Failed to load central settings, using fallback defaults:',
+      err
+    );
   }
 
   // If primary provider is explicitly disabled by Super Admin, switch to fallback
   if (primaryName === 'openrouter' && !openrouterEnabled && orcarouterEnabled) {
     primaryName = 'orcarouter';
     fallbackName = 'none';
-  } else if (primaryName === 'orcarouter' && !orcarouterEnabled && openrouterEnabled) {
+  } else if (
+    primaryName === 'orcarouter' &&
+    !orcarouterEnabled &&
+    openrouterEnabled
+  ) {
     primaryName = 'openrouter';
     fallbackName = 'none';
   }
@@ -171,16 +180,21 @@ export async function resolveAccountAiConfig(
   }
 
   const primaryProvider = getProviderInstance(primaryName);
-  const primaryKey = primaryName === 'orcarouter' ? orcarouterKey : openrouterKey;
-  const primaryModel = primaryName === 'orcarouter' ? orcarouterModel : openrouterModel;
+  const primaryKey =
+    primaryName === 'orcarouter' ? orcarouterKey : openrouterKey;
+  const primaryModel =
+    primaryName === 'orcarouter' ? orcarouterModel : openrouterModel;
 
   let fallbackConfig: ResolvedProviderConfig['fallback'];
   if (fallbackName !== 'none' && fallbackName !== primaryName) {
-    const isFallbackEnabled = fallbackName === 'orcarouter' ? orcarouterEnabled : openrouterEnabled;
+    const isFallbackEnabled =
+      fallbackName === 'orcarouter' ? orcarouterEnabled : openrouterEnabled;
     if (isFallbackEnabled) {
       const fallbackProvider = getProviderInstance(fallbackName);
-      const fallbackKey = fallbackName === 'orcarouter' ? orcarouterKey : openrouterKey;
-      const fallbackModel = fallbackName === 'orcarouter' ? orcarouterModel : openrouterModel;
+      const fallbackKey =
+        fallbackName === 'orcarouter' ? orcarouterKey : openrouterKey;
+      const fallbackModel =
+        fallbackName === 'orcarouter' ? orcarouterModel : openrouterModel;
       fallbackConfig = {
         provider: fallbackProvider,
         apiKey: fallbackKey,
@@ -212,7 +226,10 @@ export async function executeAiCompletionWithFallback({
   options?: AiCompletionOptions;
   resolutionParams?: ProviderResolutionParams;
 }): Promise<AiCompletionResult> {
-  const config = await resolveAccountAiConfig(resolutionParams?.accountId, resolutionParams);
+  const config = await resolveAccountAiConfig(
+    resolutionParams?.accountId,
+    resolutionParams
+  );
   const feature: AiFeatureType = resolutionParams?.feature || 'AI_REPLY';
   const workspaceId = resolutionParams?.accountId || 'system';
   const conversationId = resolutionParams?.conversationId;
@@ -270,7 +287,10 @@ export async function executeAiCompletionWithFallback({
   }
 
   // Record Primary Provider failure
-  const primaryErrNormalized = normalizeAiError(lastError, primary.provider.name);
+  const primaryErrNormalized = normalizeAiError(
+    lastError,
+    primary.provider.name
+  );
   trackAiUsage({
     workspaceId,
     conversationId,
@@ -294,11 +314,14 @@ export async function executeAiCompletionWithFallback({
   );
 
   try {
-    const fallbackResult = await fallback.provider.generateCompletion(messages, {
-      ...options,
-      apiKey: fallback.apiKey,
-      model: fallback.model,
-    });
+    const fallbackResult = await fallback.provider.generateCompletion(
+      messages,
+      {
+        ...options,
+        apiKey: fallback.apiKey,
+        model: fallback.model,
+      }
+    );
 
     trackAiUsage({
       workspaceId,
@@ -315,7 +338,10 @@ export async function executeAiCompletionWithFallback({
 
     return fallbackResult;
   } catch (fallbackErr) {
-    const normalizedFallbackErr = normalizeAiError(fallbackErr, fallback.provider.name);
+    const normalizedFallbackErr = normalizeAiError(
+      fallbackErr,
+      fallback.provider.name
+    );
     trackAiUsage({
       workspaceId,
       conversationId,

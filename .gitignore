@@ -39,7 +39,6 @@ yarn-error.log*
 # Antigravity artifacts
 .antigravity
 .agent
-src/lib/build-info.json
 artifacts
 
 # Appwrite build output
@@ -56,8 +55,5 @@ next-env.d.ts
 
 scratch/
 .vercel
-src/lib/build-info.json
-src/lib/build-info.ts
-src/lib/build-metadata.json
 artifacts/
 supabase/.temp/

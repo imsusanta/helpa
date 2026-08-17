@@ -295,4 +295,3 @@ ${bundle.knowledgeSnippets.join('\n')}
     confidence: 0.85,
   };
 }
-

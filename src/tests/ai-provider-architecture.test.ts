@@ -13,7 +13,6 @@ import { executeAiCompletionWithFallback } from '@/core/ai/resolver';
 import { calculateEstimatedCost } from '@/core/ai/usage-tracker';
 
 describe('AI Provider Architecture & OrcaRouter Integration', () => {
-
   describe('1. Provider Abstraction & Capabilities', () => {
     it('should instantiate OpenRouterProvider with proper capabilities', () => {
       const provider = new OpenRouterProvider();
@@ -41,18 +40,38 @@ describe('AI Provider Architecture & OrcaRouter Integration', () => {
 
   describe('2. Error Normalization & Retryable Classification', () => {
     it('should correctly classify 429 rate limit errors as retryable', () => {
-      const err = new HelpaAiError('Rate limit exceeded', 'AI_RATE_LIMITED', 'orcarouter', 429);
+      const err = new HelpaAiError(
+        'Rate limit exceeded',
+        'AI_RATE_LIMITED',
+        'orcarouter',
+        429
+      );
       expect(isRetryableAiError(err)).toBe(true);
     });
 
     it('should correctly classify 500/503 server errors as retryable', () => {
-      const err = new HelpaAiError('Server error', 'AI_PROVIDER_UNAVAILABLE', 'orcarouter', 503);
+      const err = new HelpaAiError(
+        'Server error',
+        'AI_PROVIDER_UNAVAILABLE',
+        'orcarouter',
+        503
+      );
       expect(isRetryableAiError(err)).toBe(true);
     });
 
     it('should NOT classify 401 auth or 400 bad request errors as retryable', () => {
-      const authErr = new HelpaAiError('Invalid API key', 'AI_AUTHENTICATION_FAILED', 'orcarouter', 401);
-      const reqErr = new HelpaAiError('Invalid request parameter', 'AI_INVALID_REQUEST', 'orcarouter', 400);
+      const authErr = new HelpaAiError(
+        'Invalid API key',
+        'AI_AUTHENTICATION_FAILED',
+        'orcarouter',
+        401
+      );
+      const reqErr = new HelpaAiError(
+        'Invalid request parameter',
+        'AI_INVALID_REQUEST',
+        'orcarouter',
+        400
+      );
 
       expect(isRetryableAiError(authErr)).toBe(false);
       expect(isRetryableAiError(reqErr)).toBe(false);
@@ -69,15 +88,30 @@ describe('AI Provider Architecture & OrcaRouter Integration', () => {
 
   describe('3. Cost Tracker', () => {
     it('should calculate estimated cost for known models', () => {
-      const costGemini = calculateEstimatedCost('openrouter', 'google/gemini-2.5-flash', 1000, 500);
+      const costGemini = calculateEstimatedCost(
+        'openrouter',
+        'google/gemini-2.5-flash',
+        1000,
+        500
+      );
       expect(costGemini).toBeGreaterThan(0);
 
-      const costOrcaAuto = calculateEstimatedCost('orcarouter', 'orcarouter/auto', 1000, 500);
+      const costOrcaAuto = calculateEstimatedCost(
+        'orcarouter',
+        'orcarouter/auto',
+        1000,
+        500
+      );
       expect(costOrcaAuto).toBeGreaterThan(0);
     });
 
     it('should return undefined for unknown models without inventing arbitrary cost', () => {
-      const costUnknown = calculateEstimatedCost('openrouter', 'unknown-model-xyz', 1000, 500);
+      const costUnknown = calculateEstimatedCost(
+        'openrouter',
+        'unknown-model-xyz',
+        1000,
+        500
+      );
       expect(costUnknown).toBeUndefined();
     });
   });
@@ -99,19 +133,24 @@ describe('AI Provider Architecture & OrcaRouter Integration', () => {
   describe('5. Provider Selection & Fallback Routing', () => {
     it('should execute primary provider when request succeeds', async () => {
       const openrouter = getProviderInstance('openrouter');
-      const spy = vi.spyOn(openrouter, 'generateCompletion').mockResolvedValueOnce({
-        content: 'Response from primary provider',
-        model: 'google/gemini-2.5-flash',
-        provider: 'openrouter',
-        promptTokens: 10,
-        completionTokens: 5,
-        totalTokens: 15,
-        latencyMs: 100,
-      });
+      const spy = vi
+        .spyOn(openrouter, 'generateCompletion')
+        .mockResolvedValueOnce({
+          content: 'Response from primary provider',
+          model: 'google/gemini-2.5-flash',
+          provider: 'openrouter',
+          promptTokens: 10,
+          completionTokens: 5,
+          totalTokens: 15,
+          latencyMs: 100,
+        });
 
       const res = await executeAiCompletionWithFallback({
         messages: [{ role: 'user', content: 'Test prompt' }],
-        resolutionParams: { primaryProvider: 'openrouter', fallbackProvider: 'orcarouter' },
+        resolutionParams: {
+          primaryProvider: 'openrouter',
+          fallbackProvider: 'orcarouter',
+        },
       });
 
       expect(res.content).toBe('Response from primary provider');
@@ -123,23 +162,35 @@ describe('AI Provider Architecture & OrcaRouter Integration', () => {
       const openrouter = getProviderInstance('openrouter');
       const orcarouter = getProviderInstance('orcarouter');
 
-      const spyPrimary = vi.spyOn(openrouter, 'generateCompletion').mockRejectedValue(
-        new HelpaAiError('503 Service Unavailable', 'AI_PROVIDER_UNAVAILABLE', 'openrouter', 503)
-      );
+      const spyPrimary = vi
+        .spyOn(openrouter, 'generateCompletion')
+        .mockRejectedValue(
+          new HelpaAiError(
+            '503 Service Unavailable',
+            'AI_PROVIDER_UNAVAILABLE',
+            'openrouter',
+            503
+          )
+        );
 
-      const spyFallback = vi.spyOn(orcarouter, 'generateCompletion').mockResolvedValueOnce({
-        content: 'Fallback response from OrcaRouter',
-        model: 'orcarouter/auto',
-        provider: 'orcarouter',
-        promptTokens: 12,
-        completionTokens: 6,
-        totalTokens: 18,
-        latencyMs: 120,
-      });
+      const spyFallback = vi
+        .spyOn(orcarouter, 'generateCompletion')
+        .mockResolvedValueOnce({
+          content: 'Fallback response from OrcaRouter',
+          model: 'orcarouter/auto',
+          provider: 'orcarouter',
+          promptTokens: 12,
+          completionTokens: 6,
+          totalTokens: 18,
+          latencyMs: 120,
+        });
 
       const res = await executeAiCompletionWithFallback({
         messages: [{ role: 'user', content: 'Test prompt' }],
-        resolutionParams: { primaryProvider: 'openrouter', fallbackProvider: 'orcarouter' },
+        resolutionParams: {
+          primaryProvider: 'openrouter',
+          fallbackProvider: 'orcarouter',
+        },
       });
 
       expect(res.content).toBe('Fallback response from OrcaRouter');
@@ -153,16 +204,26 @@ describe('AI Provider Architecture & OrcaRouter Integration', () => {
       const openrouter = getProviderInstance('openrouter');
       const orcarouter = getProviderInstance('orcarouter');
 
-      const spyPrimary = vi.spyOn(openrouter, 'generateCompletion').mockRejectedValue(
-        new HelpaAiError('401 Unauthorized API Key', 'AI_AUTHENTICATION_FAILED', 'openrouter', 401)
-      );
+      const spyPrimary = vi
+        .spyOn(openrouter, 'generateCompletion')
+        .mockRejectedValue(
+          new HelpaAiError(
+            '401 Unauthorized API Key',
+            'AI_AUTHENTICATION_FAILED',
+            'openrouter',
+            401
+          )
+        );
 
       const spyFallback = vi.spyOn(orcarouter, 'generateCompletion');
 
       await expect(
         executeAiCompletionWithFallback({
           messages: [{ role: 'user', content: 'Test prompt' }],
-          resolutionParams: { primaryProvider: 'openrouter', fallbackProvider: 'orcarouter' },
+          resolutionParams: {
+            primaryProvider: 'openrouter',
+            fallbackProvider: 'orcarouter',
+          },
         })
       ).rejects.toThrow('401 Unauthorized API Key');
 

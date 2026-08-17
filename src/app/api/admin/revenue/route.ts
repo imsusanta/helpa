@@ -43,17 +43,27 @@ export async function GET() {
 
     subscriptions.forEach((s) => {
       const status = String(s.status || '').toUpperCase();
-      const planSlug = String(s.plan_slug || s.plan_id || 'growth').toLowerCase().replace(/^plan_/, '');
-      const setupFee = Number(s.setup_fee_amount || (planSlug === 'pro' ? 19999 : planSlug === 'growth' ? 11999 : 7999));
-      const monthlyPrice = Number(s.monthly_amount || (planSlug === 'pro' ? 7999 : planSlug === 'growth' ? 4999 : 3499));
+      const planSlug = String(s.plan_slug || s.plan_id || 'growth')
+        .toLowerCase()
+        .replace(/^plan_/, '');
+      const setupFee = Number(
+        s.setup_fee_amount ||
+          (planSlug === 'pro' ? 19999 : planSlug === 'growth' ? 11999 : 7999)
+      );
+      const monthlyPrice = Number(
+        s.monthly_amount ||
+          (planSlug === 'pro' ? 7999 : planSlug === 'growth' ? 4999 : 3499)
+      );
 
       if (status === 'ACTIVE') {
         activeSubscriptionsCount++;
         setupFeeRevenue += setupFee;
         recurringRevenue += monthlyPrice;
 
-        customerCountByPlan[planSlug] = (customerCountByPlan[planSlug] || 0) + 1;
-        revenueByPlan[planSlug] = (revenueByPlan[planSlug] || 0) + setupFee + monthlyPrice;
+        customerCountByPlan[planSlug] =
+          (customerCountByPlan[planSlug] || 0) + 1;
+        revenueByPlan[planSlug] =
+          (revenueByPlan[planSlug] || 0) + setupFee + monthlyPrice;
       } else if (status === 'TRIAL' || status === 'TRIALING') {
         trialCustomersCount++;
       } else if (status === 'PAST_DUE') {
@@ -70,7 +80,9 @@ export async function GET() {
     totalRevenue = setupFeeRevenue + recurringRevenue;
     const totalCustomers = subscriptions.length || 1;
     const upgradeRate = Math.round((totalUpgrades / totalCustomers) * 100);
-    const cancellationRate = Math.round((cancelledCount / totalCustomers) * 100);
+    const cancellationRate = Math.round(
+      (cancelledCount / totalCustomers) * 100
+    );
 
     const analytics: RevenueAnalytics = {
       totalRevenue,

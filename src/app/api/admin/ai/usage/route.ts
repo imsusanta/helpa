@@ -37,7 +37,10 @@ export async function GET() {
     };
 
     const modelCounts: Record<string, number> = {};
-    const workspaceUsage: Record<string, { requests: number; tokens: number; cost: number }> = {};
+    const workspaceUsage: Record<
+      string,
+      { requests: number; tokens: number; cost: number }
+    > = {};
 
     entries.forEach((log: Record<string, unknown>) => {
       const meta = (log.metadata || {}) as Record<string, unknown>;
@@ -45,7 +48,9 @@ export async function GET() {
       const model = String(meta.model || 'unknown');
       const tokens = Number(meta.total_tokens || meta.tokens || 0);
       const cost = Number(meta.estimated_cost || 0);
-      const workspaceId = String(meta.workspace_id || log.account_id || 'unknown');
+      const workspaceId = String(
+        meta.workspace_id || log.account_id || 'unknown'
+      );
 
       totalTokens += tokens;
       estimatedCostUsd += cost;

@@ -37,19 +37,22 @@ export function calculateEstimatedCost(
 
   if (provider === 'orcarouter' && normModel.includes('auto')) {
     // OrcaRouter auto routing estimated average
-    return ((promptTokens * 0.00015) + (completionTokens * 0.0006)) / 1000;
+    return (promptTokens * 0.00015 + completionTokens * 0.0006) / 1000;
   }
 
-  if (normModel.includes('gemini-2.5-flash') || normModel.includes('gemini-2.0-flash')) {
-    return ((promptTokens * 0.000075) + (completionTokens * 0.0003)) / 1000;
+  if (
+    normModel.includes('gemini-2.5-flash') ||
+    normModel.includes('gemini-2.0-flash')
+  ) {
+    return (promptTokens * 0.000075 + completionTokens * 0.0003) / 1000;
   }
 
   if (normModel.includes('claude-3.5-sonnet')) {
-    return ((promptTokens * 0.003) + (completionTokens * 0.015)) / 1000;
+    return (promptTokens * 0.003 + completionTokens * 0.015) / 1000;
   }
 
   if (normModel.includes('llama-3.3-70b')) {
-    return ((promptTokens * 0.0004) + (completionTokens * 0.0004)) / 1000;
+    return (promptTokens * 0.0004 + completionTokens * 0.0004) / 1000;
   }
 
   return undefined;
@@ -95,6 +98,9 @@ export async function trackAiUsage(record: AiUsageRecord): Promise<void> {
     });
   } catch (err) {
     // Non-blocking logger error fallback
-    console.warn('[AI Usage Tracker] Log failed:', err instanceof Error ? err.message : err);
+    console.warn(
+      '[AI Usage Tracker] Log failed:',
+      err instanceof Error ? err.message : err
+    );
   }
 }

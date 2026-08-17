@@ -3,7 +3,6 @@ import { isPlatformOwnerEmail, PLATFORM_OWNER_EMAIL } from '@/lib/auth/admin';
 import { encrypt, decrypt } from '@/lib/whatsapp/encryption';
 
 describe('Super Admin AI Infrastructure Authorization & Key Encryption', () => {
-
   describe('1. Super Admin Role Verification', () => {
     it('verifies that the platform owner email matches susantalohr@gmail.com', () => {
       expect(PLATFORM_OWNER_EMAIL).toBe('susantalohr@gmail.com');

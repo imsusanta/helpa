@@ -139,4 +139,3 @@ export interface AiAccountConfig {
   industry?: string | null;
   name?: string | null;
 }
-

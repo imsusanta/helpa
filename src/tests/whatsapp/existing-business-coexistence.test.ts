@@ -3,7 +3,6 @@ import { launchWhatsAppEmbeddedSignup } from '@/lib/whatsapp/embedded-signup';
 import type { WhatsAppConfig, WhatsAppConnectionStatus } from '@/types';
 
 describe('Existing WhatsApp Business Connection & Coexistence Architecture', () => {
-
   describe('1. WhatsApp Config Types & Connection States', () => {
     it('supports all required coexistence and connection states', () => {
       const validStatuses: WhatsAppConnectionStatus[] = [
@@ -51,7 +50,10 @@ describe('Existing WhatsApp Business Connection & Coexistence Architecture', () 
         FB: {
           init: () => {},
           AppEvents: { logPageView: () => {} },
-          login: (cb: (res: unknown) => void, options: Record<string, unknown>) => {
+          login: (
+            cb: (res: unknown) => void,
+            options: Record<string, unknown>
+          ) => {
             capturedLoginOptions = options;
             cb({
               authResponse: {
@@ -72,10 +74,14 @@ describe('Existing WhatsApp Business Connection & Coexistence Architecture', () 
       expect(result.mode).toBe('coexistence');
       expect(capturedLoginOptions).toBeDefined();
 
-      const extras = (capturedLoginOptions as unknown as { extras?: Record<string, unknown> })?.extras;
+      const extras = (
+        capturedLoginOptions as unknown as { extras?: Record<string, unknown> }
+      )?.extras;
       expect(extras?.feature).toBe('whatsapp_embedded_signup');
       expect(extras?.sessionInfoVersion).toBe(3);
-      expect((extras?.setup as { solution?: string })?.solution).toBe('coexistence');
+      expect((extras?.setup as { solution?: string })?.solution).toBe(
+        'coexistence'
+      );
     });
 
     it('sets standard setup payload for standard mode', async () => {
@@ -86,7 +92,10 @@ describe('Existing WhatsApp Business Connection & Coexistence Architecture', () 
         FB: {
           init: () => {},
           AppEvents: { logPageView: () => {} },
-          login: (cb: (res: unknown) => void, options: Record<string, unknown>) => {
+          login: (
+            cb: (res: unknown) => void,
+            options: Record<string, unknown>
+          ) => {
             capturedLoginOptions = options;
             cb({
               authResponse: {
@@ -104,7 +113,9 @@ describe('Existing WhatsApp Business Connection & Coexistence Architecture', () 
 
       expect(result.code).toBe('mock_standard_auth_code_456');
       expect(result.mode).toBe('standard');
-      const extras = (capturedLoginOptions as unknown as { extras?: Record<string, unknown> })?.extras;
+      const extras = (
+        capturedLoginOptions as unknown as { extras?: Record<string, unknown> }
+      )?.extras;
       expect(extras?.setup).toEqual({});
     });
   });
@@ -137,18 +148,27 @@ describe('Existing WhatsApp Business Connection & Coexistence Architecture', () 
         { account_id: 'tenant_clinic_alpha', phone_number_id: 'phone_999888' },
       ];
 
-      function canClaimPhoneNumber(requestAccountId: string, phoneNumberId: string) {
+      function canClaimPhoneNumber(
+        requestAccountId: string,
+        phoneNumberId: string
+      ) {
         const conflict = existingConfigs.find(
-          (c) => c.phone_number_id === phoneNumberId && c.account_id !== requestAccountId
+          (c) =>
+            c.phone_number_id === phoneNumberId &&
+            c.account_id !== requestAccountId
         );
         return !conflict;
       }
 
       // Tenant Alpha reclaiming its own number -> Allowed
-      expect(canClaimPhoneNumber('tenant_clinic_alpha', 'phone_999888')).toBe(true);
+      expect(canClaimPhoneNumber('tenant_clinic_alpha', 'phone_999888')).toBe(
+        true
+      );
 
       // Tenant Beta attempting to claim Alpha's number -> Forbidden
-      expect(canClaimPhoneNumber('tenant_clinic_beta', 'phone_999888')).toBe(false);
+      expect(canClaimPhoneNumber('tenant_clinic_beta', 'phone_999888')).toBe(
+        false
+      );
     });
   });
 });

@@ -183,8 +183,12 @@ export function LandingPricingSection() {
                     </div>
 
                     <div className="flex items-center gap-1.5 pt-1 text-xs">
-                      <Zap className={`h-3.5 w-3.5 ${isRecommended ? 'text-[#B4F73C]' : 'text-emerald-600'}`} />
-                      <span className={`font-semibold ${isRecommended ? 'text-emerald-300' : 'text-emerald-700'}`}>
+                      <Zap
+                        className={`h-3.5 w-3.5 ${isRecommended ? 'text-[#B4F73C]' : 'text-emerald-600'}`}
+                      />
+                      <span
+                        className={`font-semibold ${isRecommended ? 'text-emerald-300' : 'text-emerald-700'}`}
+                      >
                         {p.currencySymbol}
                         {p.setupFee.toLocaleString()} One-time Setup Fee
                       </span>
@@ -200,7 +204,9 @@ export function LandingPricingSection() {
                       <div key={i} className="flex items-start gap-2.5">
                         <Check
                           className={`mt-0.5 h-4 w-4 shrink-0 ${
-                            isRecommended ? 'text-[#B4F73C]' : 'text-emerald-600'
+                            isRecommended
+                              ? 'text-[#B4F73C]'
+                              : 'text-emerald-600'
                           }`}
                         />
                         <span>{f}</span>

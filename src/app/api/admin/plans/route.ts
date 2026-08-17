@@ -36,13 +36,25 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => null);
 
     const name = body?.name;
-    const slug = body?.slug || String(name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const slug =
+      body?.slug ||
+      String(name || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '');
     const setup_fee = Number(body?.setup_fee ?? body?.setupFee ?? 0);
-    const monthly_price = Number(body?.monthly_price ?? body?.monthlyPrice ?? 0);
-    const yearly_price = Number(body?.yearly_price ?? body?.yearlyPrice ?? monthly_price * 10);
-    const is_recommended = Boolean(body?.is_recommended ?? body?.isRecommended ?? false);
+    const monthly_price = Number(
+      body?.monthly_price ?? body?.monthlyPrice ?? 0
+    );
+    const yearly_price = Number(
+      body?.yearly_price ?? body?.yearlyPrice ?? monthly_price * 10
+    );
+    const is_recommended = Boolean(
+      body?.is_recommended ?? body?.isRecommended ?? false
+    );
     const is_active = Boolean(body?.is_active ?? body?.isActive ?? true);
-    const display_order = Number(body?.display_order ?? body?.displayOrder ?? 1);
+    const display_order = Number(
+      body?.display_order ?? body?.displayOrder ?? 1
+    );
     const features = body?.features ?? [];
     const limits = body?.limits || body?.usageLimits || {};
 
@@ -125,22 +137,38 @@ export async function PATCH(request: Request) {
       updates.yearly_price = Number(body.yearly_price ?? body.yearlyPrice);
     }
     if (body.is_recommended !== undefined || body.isRecommended !== undefined) {
-      updates.is_recommended = Boolean(body.is_recommended ?? body.isRecommended);
+      updates.is_recommended = Boolean(
+        body.is_recommended ?? body.isRecommended
+      );
     }
     if (body.is_active !== undefined || body.isActive !== undefined) {
       updates.is_active = Boolean(body.is_active ?? body.isActive);
     }
     if (body.features !== undefined) {
-      updates.features = typeof body.features === 'string' ? body.features : JSON.stringify(body.features);
+      updates.features =
+        typeof body.features === 'string'
+          ? body.features
+          : JSON.stringify(body.features);
     }
-    if (body.max_users !== undefined || body.limits?.teamMembers !== undefined) {
+    if (
+      body.max_users !== undefined ||
+      body.limits?.teamMembers !== undefined
+    ) {
       updates.max_users = Number(body.limits?.teamMembers ?? body.max_users);
     }
-    if (body.max_contacts !== undefined || body.limits?.contacts !== undefined) {
+    if (
+      body.max_contacts !== undefined ||
+      body.limits?.contacts !== undefined
+    ) {
       updates.max_contacts = Number(body.limits?.contacts ?? body.max_contacts);
     }
-    if (body.max_ai_requests !== undefined || body.limits?.aiMessages !== undefined) {
-      updates.max_ai_requests = Number(body.limits?.aiMessages ?? body.max_ai_requests);
+    if (
+      body.max_ai_requests !== undefined ||
+      body.limits?.aiMessages !== undefined
+    ) {
+      updates.max_ai_requests = Number(
+        body.limits?.aiMessages ?? body.max_ai_requests
+      );
     }
 
     const { data, error } = await db

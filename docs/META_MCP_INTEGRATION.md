@@ -26,9 +26,11 @@ We have configured `mcp.json` and `.mcp.json` at the root of the project:
 ## 2. Client Setup Options
 
 ### Option A: Direct Remote MCP Connection (Recommended)
+
 If your MCP client supports SSE remote transport, add `https://mcp.facebook.com/devtools` directly to your client config.
 
 ### Option B: Local Stdio Bridge (`mcp-remote`)
+
 For MCP clients requiring local `stdio` process execution, use the `mcp-remote` bridge:
 
 ```json
@@ -36,11 +38,7 @@ For MCP clients requiring local `stdio` process execution, use the `mcp-remote` 
   "mcpServers": {
     "meta-devtools": {
       "command": "npx",
-      "args": [
-        "-y",
-        "mcp-remote",
-        "https://mcp.facebook.com/devtools"
-      ]
+      "args": ["-y", "mcp-remote", "https://mcp.facebook.com/devtools"]
     }
   }
 }

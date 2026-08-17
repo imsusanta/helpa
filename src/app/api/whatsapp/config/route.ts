@@ -224,10 +224,23 @@ export async function GET() {
       );
     }
 
-    const connectionType = String(config.connection_type || config.connectionType || 'standard');
-    const coexistenceStatus = String(config.coexistence_status || config.coexistenceStatus || (connectionType === 'coexistence' ? 'active' : 'unknown'));
-    const currentStatus = String(config.status || (connectionType === 'coexistence' ? 'coexistence_connected' : 'connected'));
-    const isCoexistence = connectionType === 'coexistence' || currentStatus === 'coexistence_connected';
+    const connectionType = String(
+      config.connection_type || config.connectionType || 'standard'
+    );
+    const coexistenceStatus = String(
+      config.coexistence_status ||
+        config.coexistenceStatus ||
+        (connectionType === 'coexistence' ? 'active' : 'unknown')
+    );
+    const currentStatus = String(
+      config.status ||
+        (connectionType === 'coexistence'
+          ? 'coexistence_connected'
+          : 'connected')
+    );
+    const isCoexistence =
+      connectionType === 'coexistence' ||
+      currentStatus === 'coexistence_connected';
 
     return NextResponse.json(
       {
@@ -248,9 +261,21 @@ export async function GET() {
           registered_at: registeredAt,
           last_registration_error: lastRegistrationError,
           subscribed_apps_at: subscribedAppsAt,
-          phone_number: String(config.phone_number || config.display_phone_number || phoneInfo?.display_phone_number || ''),
-          display_phone_number: String(config.display_phone_number || config.phone_number || phoneInfo?.display_phone_number || ''),
-          verified_name: String(config.verified_name || phoneInfo?.verified_name || ''),
+          phone_number: String(
+            config.phone_number ||
+              config.display_phone_number ||
+              phoneInfo?.display_phone_number ||
+              ''
+          ),
+          display_phone_number: String(
+            config.display_phone_number ||
+              config.phone_number ||
+              phoneInfo?.display_phone_number ||
+              ''
+          ),
+          verified_name: String(
+            config.verified_name || phoneInfo?.verified_name || ''
+          ),
           business_name: String(config.business_name || ''),
           webhook_healthy: true,
           messaging_active: true,
@@ -259,7 +284,9 @@ export async function GET() {
         phone_info: phoneInfo,
         health: {
           whatsapp: 'connected',
-          connection_type: isCoexistence ? 'Existing WhatsApp Business / Coexistence' : 'Meta Cloud API Direct',
+          connection_type: isCoexistence
+            ? 'Existing WhatsApp Business / Coexistence'
+            : 'Meta Cloud API Direct',
           webhook: 'healthy',
           messaging: 'active',
           last_checked: new Date().toISOString(),

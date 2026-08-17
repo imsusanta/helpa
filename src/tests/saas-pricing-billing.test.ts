@@ -1,10 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { DEFAULT_PLANS, getPlanBySlug } from '@/core/billing/plans';
-import { checkFeatureAccess, checkPlanLimits, incrementUsage } from '@/lib/saas/subscription';
+import {
+  checkFeatureAccess,
+  checkPlanLimits,
+  incrementUsage,
+} from '@/lib/saas/subscription';
 import { RevenueAnalytics } from '@/core/billing/types';
 
 describe('Helpa SaaS Pricing Plans & Billing Architecture', () => {
-
   describe('1. Official Helpa SaaS Plan Catalog', () => {
     it('should have Starter, Growth ⭐, and Pro plans in default catalog', () => {
       expect(DEFAULT_PLANS.length).toBe(3);
@@ -46,10 +49,16 @@ describe('Helpa SaaS Pricing Plans & Billing Architecture', () => {
 
   describe('2. Centralized Feature Entitlements & Access Control', () => {
     it('should grant features included in plan and reject features missing from plan', async () => {
-      const starterAccess = await checkFeatureAccess('test-account-starter', 'core.inbox');
+      const starterAccess = await checkFeatureAccess(
+        'test-account-starter',
+        'core.inbox'
+      );
       expect(starterAccess.allowed).toBe(true);
 
-      const proAccess = await checkFeatureAccess('test-account-pro', 'core.custom_models');
+      const proAccess = await checkFeatureAccess(
+        'test-account-pro',
+        'core.custom_models'
+      );
       expect(proAccess.allowed).toBe(true);
     });
   });
@@ -64,7 +73,9 @@ describe('Helpa SaaS Pricing Plans & Billing Architecture', () => {
     });
 
     it('should safely increment usage tracking metrics', async () => {
-      await expect(incrementUsage('test-account-1', 'ai_requests', 1)).resolves.not.toThrow();
+      await expect(
+        incrementUsage('test-account-1', 'ai_requests', 1)
+      ).resolves.not.toThrow();
     });
   });
 
@@ -85,7 +96,9 @@ describe('Helpa SaaS Pricing Plans & Billing Architecture', () => {
         cancellationRate: 0,
       };
 
-      expect(analytics.totalRevenue).toBe(analytics.setupFeeRevenue + analytics.recurringRevenue);
+      expect(analytics.totalRevenue).toBe(
+        analytics.setupFeeRevenue + analytics.recurringRevenue
+      );
       expect(analytics.revenueByPlan.growth).toBe(11999 + 4999);
       expect(analytics.revenueByPlan.pro).toBe(19999 + 7999 - 15000); // 12998
     });

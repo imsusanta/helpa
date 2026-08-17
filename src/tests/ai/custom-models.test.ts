@@ -1,16 +1,28 @@
 import { describe, it, expect } from 'vitest';
 import { resolveAccountAiConfig } from '@/core/ai/resolver';
-import { sanitizeModelIdentifier, validateAiModelId } from '@/core/ai/validation';
+import {
+  sanitizeModelIdentifier,
+  validateAiModelId,
+} from '@/core/ai/validation';
 
 describe('Custom AI Model Selection, Validation & Sanitization (#490, #202)', () => {
-
   describe('1. Model Identifier Sanitization', () => {
     it('strips quotes, backticks, spaces, and leading/trailing slashes', () => {
-      expect(sanitizeModelIdentifier('"deepseek/deepseek-r1"')).toBe('deepseek/deepseek-r1');
-      expect(sanitizeModelIdentifier("'google/gemini-2.5-pro'")).toBe('google/gemini-2.5-pro');
-      expect(sanitizeModelIdentifier('`anthropic/claude-3.5-sonnet`')).toBe('anthropic/claude-3.5-sonnet');
-      expect(sanitizeModelIdentifier('  /meta-llama/llama-3.3-70b-instruct/  ')).toBe('meta-llama/llama-3.3-70b-instruct');
-      expect(sanitizeModelIdentifier('deepseek / deepseek - r1')).toBe('deepseek/deepseek-r1');
+      expect(sanitizeModelIdentifier('"deepseek/deepseek-r1"')).toBe(
+        'deepseek/deepseek-r1'
+      );
+      expect(sanitizeModelIdentifier("'google/gemini-2.5-pro'")).toBe(
+        'google/gemini-2.5-pro'
+      );
+      expect(sanitizeModelIdentifier('`anthropic/claude-3.5-sonnet`')).toBe(
+        'anthropic/claude-3.5-sonnet'
+      );
+      expect(
+        sanitizeModelIdentifier('  /meta-llama/llama-3.3-70b-instruct/  ')
+      ).toBe('meta-llama/llama-3.3-70b-instruct');
+      expect(sanitizeModelIdentifier('deepseek / deepseek - r1')).toBe(
+        'deepseek/deepseek-r1'
+      );
       expect(sanitizeModelIdentifier('')).toBe('');
     });
   });
@@ -36,7 +48,13 @@ describe('Custom AI Model Selection, Validation & Sanitization (#490, #202)', ()
     });
 
     it('rejects invalid OpenRouter formats missing organization', () => {
-      const invalid = ['gemini-2.5-flash', 'claude-3.5-sonnet', '', '  ', 'invalid$$/model'];
+      const invalid = [
+        'gemini-2.5-flash',
+        'claude-3.5-sonnet',
+        '',
+        '  ',
+        'invalid$$/model',
+      ];
       invalid.forEach((m) => {
         const res = validateAiModelId(m, 'openrouter');
         expect(res.valid).toBe(false);

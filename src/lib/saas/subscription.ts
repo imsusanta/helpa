@@ -26,7 +26,9 @@ export async function getWorkspaceSubscription(
   } else if (subData?.plan?.slug) {
     planSlug = subData.plan.slug;
   } else if (subData?.plan?.name) {
-    planSlug = String(subData.plan.name).toLowerCase().replace(/[^a-z]/g, '');
+    planSlug = String(subData.plan.name)
+      .toLowerCase()
+      .replace(/[^a-z]/g, '');
   } else if (accountId?.toLowerCase().includes('pro')) {
     planSlug = 'pro';
   } else if (accountId?.toLowerCase().includes('starter')) {
@@ -41,14 +43,19 @@ export async function getWorkspaceSubscription(
     workspaceId: accountId,
     planId: plan.id,
     planSlug: plan.slug,
-    status: (subData?.status as unknown as WorkspaceSubscription['status']) || 'ACTIVE',
+    status:
+      (subData?.status as unknown as WorkspaceSubscription['status']) ||
+      'ACTIVE',
     billingCycle: 'monthly',
     setupFeePaid: subData?.setup_fee_paid ?? true,
     setupFeeAmount: subData?.setup_fee_amount ?? plan.setupFee,
     monthlyAmount: subData?.monthly_amount ?? plan.monthlyPrice,
     currency: plan.currency,
     currentPeriodStart: subData?.current_period_start || now,
-    currentPeriodEnd: subData?.end_date || subData?.current_period_end || new Date(Date.now() + 30 * 86400 * 1000).toISOString(),
+    currentPeriodEnd:
+      subData?.end_date ||
+      subData?.current_period_end ||
+      new Date(Date.now() + 30 * 86400 * 1000).toISOString(),
     cancelAtPeriodEnd: subData?.cancel_at_period_end ?? false,
     cancelledAt: subData?.cancelled_at,
     paymentProvider: subData?.payment_provider || 'helpa_billing',
@@ -66,7 +73,10 @@ export async function checkFeatureAccess(
   try {
     const { subscription, plan } = await getWorkspaceSubscription(accountId);
 
-    if (subscription.status === 'EXPIRED' || subscription.status === 'CANCELLED') {
+    if (
+      subscription.status === 'EXPIRED' ||
+      subscription.status === 'CANCELLED'
+    ) {
       return {
         allowed: false,
         featureKey,
@@ -98,7 +108,12 @@ export async function checkFeatureAccess(
 
 export async function checkPlanLimits(
   accountId: string,
-  limitKey: 'max_users' | 'max_contacts' | 'max_ai_requests' | 'whatsapp_messages' | 'automations'
+  limitKey:
+    | 'max_users'
+    | 'max_contacts'
+    | 'max_ai_requests'
+    | 'whatsapp_messages'
+    | 'automations'
 ): Promise<UsageLimitCheckResult> {
   try {
     const db = getAdminClient();
@@ -150,7 +165,8 @@ export async function checkPlanLimits(
     }
 
     const remaining = Math.max(0, limit - currentUsage);
-    const percentageUsed = limit > 0 ? Math.min(100, Math.round((currentUsage / limit) * 100)) : 0;
+    const percentageUsed =
+      limit > 0 ? Math.min(100, Math.round((currentUsage / limit) * 100)) : 0;
     const allowed = currentUsage < limit;
 
     let warningLevel: '80%' | '90%' | '100%' | undefined;
@@ -198,7 +214,8 @@ export async function incrementUsage(
       .maybeSingle();
 
     if (existing) {
-      const field = metric === 'ai_requests' ? 'ai_requests' : 'whatsapp_messages';
+      const field =
+        metric === 'ai_requests' ? 'ai_requests' : 'whatsapp_messages';
       const newVal = (Number(existing[field]) || 0) + quantity;
 
       await db

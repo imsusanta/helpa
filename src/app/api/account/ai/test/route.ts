@@ -36,16 +36,27 @@ export async function POST(request: Request) {
         : body?.openrouter_model || body?.model;
 
     // If key is empty/not provided or is a password placeholder, fetch and decrypt from DB
-    if (!api_key || typeof api_key !== 'string' || api_key.trim() === '' || api_key.includes('••••')) {
+    if (
+      !api_key ||
+      typeof api_key !== 'string' ||
+      api_key.trim() === '' ||
+      api_key.includes('••••')
+    ) {
       let account: Record<string, unknown> | null = null;
 
       let { data: accData, error: accErr } = await db
         .from('accounts')
-        .select('openrouter_api_key, openrouter_model, orcarouter_api_key, orcarouter_model')
+        .select(
+          'openrouter_api_key, openrouter_model, orcarouter_api_key, orcarouter_model'
+        )
         .eq('id', ctx.accountId)
         .maybeSingle();
 
-      if (accErr && (accErr.message?.includes('column') || accErr.message?.includes('schema cache'))) {
+      if (
+        accErr &&
+        (accErr.message?.includes('column') ||
+          accErr.message?.includes('schema cache'))
+      ) {
         const fallback = await db
           .from('accounts')
           .select('openrouter_api_key, openrouter_model')
@@ -84,7 +95,9 @@ export async function POST(request: Request) {
           .select('value')
           .eq(
             'key',
-            providerName === 'orcarouter' ? 'system_orcarouter_api_key' : 'system_openrouter_api_key'
+            providerName === 'orcarouter'
+              ? 'system_orcarouter_api_key'
+              : 'system_openrouter_api_key'
           )
           .maybeSingle();
         if (globalSysRow?.value) {
@@ -148,7 +161,9 @@ export async function POST(request: Request) {
 
           model =
             sysModelRow?.value ||
-            (providerName === 'orcarouter' ? 'orcarouter/auto' : 'google/gemini-2.5-flash');
+            (providerName === 'orcarouter'
+              ? 'orcarouter/auto'
+              : 'google/gemini-2.5-flash');
         }
       }
     }
