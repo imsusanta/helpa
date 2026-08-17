@@ -3,6 +3,7 @@ import { checkSuperAdmin } from '@/lib/auth/admin';
 import { getCurrentAccount } from '@/lib/auth/account';
 import { appwriteAdmin } from '@/lib/appwrite-server-compat';
 import { encrypt } from '@/lib/whatsapp/encryption';
+import { validateAiModelId } from '@/core/ai/validation';
 
 export async function GET() {
   try {
@@ -106,13 +107,21 @@ export async function POST(req: Request) {
       auditActions.push('AI_FALLBACK_PROVIDER_CHANGED');
     }
 
-    if (typeof system_openrouter_model === 'string') {
-      upserts.push({ key: 'system_openrouter_model', value: system_openrouter_model.trim() });
+    if (typeof system_openrouter_model === 'string' && system_openrouter_model.trim()) {
+      const val = validateAiModelId(system_openrouter_model, 'openrouter');
+      if (!val.valid) {
+        return NextResponse.json({ error: val.error }, { status: 400 });
+      }
+      upserts.push({ key: 'system_openrouter_model', value: val.normalizedId });
       auditActions.push('AI_DEFAULT_MODEL_CHANGED');
     }
 
-    if (typeof system_orcarouter_model === 'string') {
-      upserts.push({ key: 'system_orcarouter_model', value: system_orcarouter_model.trim() });
+    if (typeof system_orcarouter_model === 'string' && system_orcarouter_model.trim()) {
+      const val = validateAiModelId(system_orcarouter_model, 'orcarouter');
+      if (!val.valid) {
+        return NextResponse.json({ error: val.error }, { status: 400 });
+      }
+      upserts.push({ key: 'system_orcarouter_model', value: val.normalizedId });
       auditActions.push('AI_DEFAULT_MODEL_CHANGED');
     }
 

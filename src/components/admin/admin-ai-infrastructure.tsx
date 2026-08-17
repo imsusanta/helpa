@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { validateAiModelId, sanitizeModelIdentifier } from '@/core/ai/validation';
 import {
   Dialog,
   DialogContent,
@@ -342,14 +343,39 @@ export function AdminAiInfrastructure() {
     }
   }
 
+  function handleSelectModelSuggestion(
+    id: string,
+    name: string,
+    badge: string,
+    provider: 'openrouter' | 'orcarouter'
+  ) {
+    setNewModelProvider(provider);
+    setNewModelId(id);
+    setNewModelName(name);
+    setNewModelBadge(badge);
+    setNewModelDesc(`High performance ${badge} model for ${provider === 'openrouter' ? 'OpenRouter' : 'OrcaRouter'}.`);
+  }
+
   function handleAddModel() {
     if (!newModelId.trim() || !newModelName.trim()) {
       toast.error('Model identifier and display name are required');
       return;
     }
 
+    const validation = validateAiModelId(newModelId, newModelProvider);
+    if (!validation.valid) {
+      toast.error(validation.error || 'Invalid model identifier format');
+      return;
+    }
+
+    // Prevent duplicates
+    if (models.some((m) => m.id.toLowerCase() === validation.normalizedId.toLowerCase() && m.provider === newModelProvider)) {
+      toast.error(`Model ${validation.normalizedId} already exists in the ${newModelProvider} catalog.`);
+      return;
+    }
+
     const newItem: ModelItem = {
-      id: newModelId.trim(),
+      id: validation.normalizedId,
       name: newModelName.trim(),
       provider: newModelProvider,
       badge: newModelBadge.trim() || 'Custom',
@@ -363,7 +389,7 @@ export function AdminAiInfrastructure() {
     setNewModelId('');
     setNewModelName('');
     setNewModelDesc('');
-    toast.success(`Model ${newItem.name} added to catalog`);
+    toast.success(`Model "${newItem.name}" (${newItem.id}) added to platform catalog`);
   }
 
   function handleToggleModel(id: string) {
@@ -377,13 +403,23 @@ export function AdminAiInfrastructure() {
   }
 
   function handleSetDefaultModel(id: string, provider: 'openrouter' | 'orcarouter') {
-    if (provider === 'openrouter') {
-      setDefaultOpenRouterModel(id);
-    } else {
-      setDefaultOrcaRouterModel(id);
+    const validation = validateAiModelId(id, provider);
+    if (!validation.valid) {
+      toast.error(validation.error || 'Invalid model identifier format');
+      return;
     }
-    toast.success(`Default model for ${provider === 'openrouter' ? 'OpenRouter' : 'OrcaRouter'} set to ${id}`);
+
+    if (provider === 'openrouter') {
+      setDefaultOpenRouterModel(validation.normalizedId);
+    } else {
+      setDefaultOrcaRouterModel(validation.normalizedId);
+    }
+    toast.success(`Default model for ${provider === 'openrouter' ? 'OpenRouter' : 'OrcaRouter'} set to ${validation.normalizedId}`);
   }
+
+  const modelValidationStatus = newModelId.trim()
+    ? validateAiModelId(newModelId, newModelProvider)
+    : null;
 
   if (loading) {
     return (
@@ -434,64 +470,153 @@ export function AdminAiInfrastructure() {
         </DialogContent>
       </Dialog>
 
-      {/* Add Model Modal */}
+      {/* Enhanced Add Model Modal */}
       <Dialog open={addModelModalOpen} onOpenChange={setAddModelModalOpen}>
-        <DialogContent className="sm:max-w-md bg-card border-border">
+        <DialogContent className="sm:max-w-lg bg-card border-border">
           <DialogHeader>
             <DialogTitle className="text-foreground text-base font-bold flex items-center gap-2">
               <Plus className="h-5 w-5 text-emerald-600" />
-              Add AI Model to Platform
+              Add AI Model to Platform Catalog
             </DialogTitle>
             <DialogDescription className="text-muted-foreground text-xs">
-              Add a new LLM model to the platform catalog for Super Admin routing.
+              Configure and validate custom model IDs for platform-wide Super Admin routing.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3 py-2 text-xs">
-            <div className="space-y-1">
-              <Label className="text-muted-foreground font-bold uppercase text-[10px]">Provider</Label>
-              <select
-                value={newModelProvider}
-                onChange={(e) => setNewModelProvider(e.target.value as 'openrouter' | 'orcarouter')}
-                className="w-full h-9 rounded-lg border border-border bg-muted/50 px-2.5 text-xs text-foreground"
-              >
-                <option value="openrouter">OpenRouter</option>
-                <option value="orcarouter">OrcaRouter</option>
-              </select>
+
+          <div className="space-y-4 py-2 text-xs">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-muted-foreground font-bold uppercase text-[10px]">Provider</Label>
+                <select
+                  value={newModelProvider}
+                  onChange={(e) => setNewModelProvider(e.target.value as 'openrouter' | 'orcarouter')}
+                  className="w-full h-9 rounded-lg border border-border bg-muted/50 px-2.5 text-xs text-foreground font-semibold"
+                >
+                  <option value="openrouter">OpenRouter</option>
+                  <option value="orcarouter">OrcaRouter</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-muted-foreground font-bold uppercase text-[10px]">Capability Badge</Label>
+                <Input
+                  placeholder="e.g. Reasoning, High Speed, Clinical"
+                  value={newModelBadge}
+                  onChange={(e) => setNewModelBadge(e.target.value)}
+                  className="text-xs bg-muted/50 h-9"
+                />
+              </div>
             </div>
-            <div className="space-y-1">
-              <Label className="text-muted-foreground font-bold uppercase text-[10px]">Model Identifier</Label>
+
+            {/* Quick Suggestion Pills */}
+            <div className="space-y-1.5 rounded-lg border border-border/70 bg-muted/30 p-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase text-muted-foreground">
+                  Popular {newModelProvider === 'openrouter' ? 'OpenRouter' : 'OrcaRouter'} Models:
+                </span>
+                <span className="text-[9px] text-muted-foreground">Click to autofill</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {newModelProvider === 'openrouter' ? (
+                  <>
+                    {[
+                      { id: 'deepseek/deepseek-r1', name: 'DeepSeek R1', badge: 'Reasoning' },
+                      { id: 'google/gemini-2.5-pro', name: 'Gemini 2.5 Pro', badge: 'Flagship' },
+                      { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', badge: 'Max Quality' },
+                      { id: 'meta-llama/llama-3.3-70b-instruct', name: 'Llama 3.3 70B', badge: 'Balanced' },
+                      { id: 'qwen/qwen-2.5-72b-instruct', name: 'Qwen 2.5 72B', badge: 'High Quality' },
+                      { id: 'mistralai/mistral-large-2407', name: 'Mistral Large', badge: 'Precise' },
+                      { id: 'cohere/command-r-plus', name: 'Command R+', badge: 'RAG' },
+                    ].map((sug) => (
+                      <button
+                        key={sug.id}
+                        type="button"
+                        onClick={() => handleSelectModelSuggestion(sug.id, sug.name, sug.badge, 'openrouter')}
+                        className="rounded-md border border-border/80 bg-card px-2 py-1 text-[10px] font-mono text-foreground hover:border-emerald-500 hover:text-emerald-600 transition-colors shadow-xs"
+                      >
+                        {sug.name}
+                      </button>
+                    ))}
+                  </>
+                ) : (
+                  <>
+                    {[
+                      { id: 'orcarouter/auto', name: 'Orca Auto Engine', badge: 'Smart Auto' },
+                      { id: 'openai/gpt-4o-mini', name: 'GPT-4o Mini', badge: 'Fast' },
+                      { id: 'anthropic/claude-3-5-sonnet', name: 'Claude 3.5 Sonnet', badge: 'High Reasoning' },
+                      { id: 'deepseek/deepseek-chat', name: 'DeepSeek V3', badge: 'Fast' },
+                      { id: 'meta-llama/llama-3.3-70b', name: 'Llama 3.3 70B', badge: 'Balanced' },
+                    ].map((sug) => (
+                      <button
+                        key={sug.id}
+                        type="button"
+                        onClick={() => handleSelectModelSuggestion(sug.id, sug.name, sug.badge, 'orcarouter')}
+                        className="rounded-md border border-border/80 bg-card px-2 py-1 text-[10px] font-mono text-foreground hover:border-emerald-500 hover:text-emerald-600 transition-colors shadow-xs"
+                      >
+                        {sug.name}
+                      </button>
+                    ))}
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-muted-foreground font-bold uppercase text-[10px]">Model Identifier</Label>
+                {modelValidationStatus && (
+                  <span
+                    className={`text-[10px] font-semibold flex items-center gap-1 ${
+                      modelValidationStatus.valid ? 'text-emerald-600' : 'text-amber-500'
+                    }`}
+                  >
+                    {modelValidationStatus.valid ? '✓ Valid Model ID' : '⚠ Format: author/model-name'}
+                  </span>
+                )}
+              </div>
               <Input
-                placeholder="e.g. deepseek/deepseek-r1 or openai/gpt-4o-mini"
+                placeholder="e.g. deepseek/deepseek-r1 or meta-llama/llama-3.3-70b-instruct"
                 value={newModelId}
-                onChange={(e) => setNewModelId(e.target.value)}
-                className="font-mono text-xs bg-muted/50"
+                onChange={(e) => setNewModelId(sanitizeModelIdentifier(e.target.value))}
+                className="font-mono text-xs bg-muted/50 h-9"
               />
+              {modelValidationStatus && !modelValidationStatus.valid && (
+                <p className="text-[11px] text-amber-500">{modelValidationStatus.error}</p>
+              )}
             </div>
+
             <div className="space-y-1">
               <Label className="text-muted-foreground font-bold uppercase text-[10px]">Display Name</Label>
               <Input
                 placeholder="e.g. DeepSeek R1"
                 value={newModelName}
                 onChange={(e) => setNewModelName(e.target.value)}
-                className="text-xs bg-muted/50"
+                className="text-xs bg-muted/50 h-9"
               />
             </div>
+
             <div className="space-y-1">
-              <Label className="text-muted-foreground font-bold uppercase text-[10px]">Capability Badge</Label>
+              <Label className="text-muted-foreground font-bold uppercase text-[10px]">Description</Label>
               <Input
-                placeholder="e.g. Reasoning, High Speed, Clinical"
-                value={newModelBadge}
-                onChange={(e) => setNewModelBadge(e.target.value)}
-                className="text-xs bg-muted/50"
+                placeholder="e.g. Deep analytical reasoning model."
+                value={newModelDesc}
+                onChange={(e) => setNewModelDesc(e.target.value)}
+                className="text-xs bg-muted/50 h-9"
               />
             </div>
           </div>
+
           <DialogFooter className="gap-2">
             <Button variant="outline" size="sm" onClick={() => setAddModelModalOpen(false)}>
               Cancel
             </Button>
-            <Button size="sm" onClick={handleAddModel} className="bg-emerald-600 text-white font-semibold hover:bg-emerald-700">
-              Add Model
+            <Button
+              size="sm"
+              onClick={handleAddModel}
+              disabled={!newModelId.trim() || (modelValidationStatus !== null && !modelValidationStatus.valid)}
+              className="bg-emerald-600 text-white font-semibold hover:bg-emerald-700"
+            >
+              Add Model to Catalog
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -696,6 +821,35 @@ export function AdminAiInfrastructure() {
                   </Button>
                 </div>
 
+                {/* Default OpenRouter Model Selector */}
+                <div className="space-y-1.5 border-t border-border pt-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground text-[10px] font-bold uppercase">Default OpenRouter Model</span>
+                    <span className="font-mono text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold truncate max-w-[180px]">
+                      {defaultOpenRouterModel}
+                    </span>
+                  </div>
+                  <select
+                    value={defaultOpenRouterModel}
+                    onChange={(e) => {
+                      if (e.target.value === 'add_custom') {
+                        setNewModelProvider('openrouter');
+                        setAddModelModalOpen(true);
+                      } else {
+                        handleSetDefaultModel(e.target.value, 'openrouter');
+                      }
+                    }}
+                    className="w-full h-8 rounded-lg border border-border bg-muted/40 px-2 text-xs font-mono text-foreground"
+                  >
+                    {models.filter((m) => m.provider === 'openrouter' && m.enabled).map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name} ({m.id})
+                      </option>
+                    ))}
+                    <option value="add_custom">+ Enter Custom OpenRouter Model Identifier...</option>
+                  </select>
+                </div>
+
                 <div className="flex items-center justify-between pt-2 border-t border-border">
                   <Button
                     size="sm"
@@ -776,6 +930,35 @@ export function AdminAiInfrastructure() {
                   >
                     Update Key
                   </Button>
+                </div>
+
+                {/* Default OrcaRouter Model Selector */}
+                <div className="space-y-1.5 border-t border-border pt-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground text-[10px] font-bold uppercase">Default OrcaRouter Model</span>
+                    <span className="font-mono text-[10px] text-blue-600 dark:text-blue-400 font-semibold truncate max-w-[180px]">
+                      {defaultOrcaRouterModel}
+                    </span>
+                  </div>
+                  <select
+                    value={defaultOrcaRouterModel}
+                    onChange={(e) => {
+                      if (e.target.value === 'add_custom') {
+                        setNewModelProvider('orcarouter');
+                        setAddModelModalOpen(true);
+                      } else {
+                        handleSetDefaultModel(e.target.value, 'orcarouter');
+                      }
+                    }}
+                    className="w-full h-8 rounded-lg border border-border bg-muted/40 px-2 text-xs font-mono text-foreground"
+                  >
+                    {models.filter((m) => m.provider === 'orcarouter' && m.enabled).map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name} ({m.id})
+                      </option>
+                    ))}
+                    <option value="add_custom">+ Enter Custom OrcaRouter Model Identifier...</option>
+                  </select>
                 </div>
 
                 <div className="flex items-center justify-between pt-2 border-t border-border">

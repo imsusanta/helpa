@@ -10,6 +10,7 @@
 import { decrypt } from '@/lib/whatsapp/encryption';
 import { appwriteAdmin } from '@/lib/appwrite-server-compat';
 import { isRetryableAiError, HelpaAiError, normalizeAiError } from './errors';
+import { sanitizeModelIdentifier } from './validation';
 import {
   getProviderInstance,
   type AiCompletionOptions,
@@ -159,10 +160,13 @@ export async function resolveAccountAiConfig(
   }
 
   if (overrides?.customModel) {
-    if (primaryName === 'orcarouter') {
-      orcarouterModel = overrides.customModel;
-    } else {
-      openrouterModel = overrides.customModel;
+    const cleanCustom = sanitizeModelIdentifier(overrides.customModel);
+    if (cleanCustom) {
+      if (primaryName === 'orcarouter') {
+        orcarouterModel = cleanCustom;
+      } else {
+        openrouterModel = cleanCustom;
+      }
     }
   }
 
