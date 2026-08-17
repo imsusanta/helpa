@@ -1,20 +1,50 @@
+# Dependencies & Build
 node_modules
 .next
 out
 build
+dist
 coverage
 next-env.d.ts
 package-lock.json
+.turbo
+
+# SQL & Database Migrations
+*.sql
+supabase/migrations
+docs/legacy-postgres-migrations
+docs/rollbacks
 appwrite/migrations
-public/opus
+scripts/*.sql
+
+# Static Assets & Media
+public
+*.svg
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.ico
+*.webp
+*.mp3
+*.ogg
+*.wav
+
+# Temp, Reports & Artifacts
 scratch
 .temp
+artifacts
 playwright-report
 test-results
 .playwright
 walkthrough.md
 analysis_results.md
+implementation_plan.md
+
+# Generated Files
 src/lib/build-info.json
 src/lib/build-metadata.json
 src/lib/build-info.ts
-artifacts
+src/lib/build-info.generated.ts
+*.generated.ts
+*.generated.*
