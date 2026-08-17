@@ -40,6 +40,13 @@ const OPENROUTER_MODELS = [
     badge: 'Balanced',
     desc: 'Open-source intelligence with high reasoning capabilities.',
   },
+  {
+    id: 'custom',
+    name: '✏️ Enter Custom Model Identifier...',
+    provider: 'Custom LLM',
+    badge: 'Custom',
+    desc: 'Enter any valid OpenRouter model string (e.g. deepseek/deepseek-r1).',
+  },
 ];
 
 const ORCAROUTER_MODELS = [
@@ -57,6 +64,13 @@ const ORCAROUTER_MODELS = [
     badge: 'Fast',
     desc: 'High speed and concise responses.',
   },
+  {
+    id: 'custom',
+    name: '✏️ Enter Custom Model Identifier...',
+    provider: 'Custom LLM',
+    badge: 'Custom',
+    desc: 'Enter any custom model identifier supported by OrcaRouter.',
+  },
 ];
 
 export function AiPanel() {
@@ -68,11 +82,15 @@ export function AiPanel() {
 
   // OpenRouter state
   const [openRouterModel, setOpenRouterModel] = useState('google/gemini-2.5-flash');
+  const [isOpenRouterCustom, setIsOpenRouterCustom] = useState(false);
+  const [openRouterCustomId, setOpenRouterCustomId] = useState('');
   const [openRouterApiKey, setOpenRouterApiKey] = useState('');
   const [hasOpenRouterKey, setHasOpenRouterKey] = useState(false);
 
   // OrcaRouter state
   const [orcaRouterModel, setOrcaRouterModel] = useState('orcarouter/auto');
+  const [isOrcaRouterCustom, setIsOrcaRouterCustom] = useState(false);
+  const [orcaRouterCustomId, setOrcaRouterCustomId] = useState('');
   const [orcaRouterApiKey, setOrcaRouterApiKey] = useState('');
   const [hasOrcaRouterKey, setHasOrcaRouterKey] = useState(false);
 
@@ -100,8 +118,30 @@ export function AiPanel() {
           const data = await response.json();
           setPrimaryProvider(data.ai_provider || 'openrouter');
           setFallbackProvider(data.ai_fallback_provider || 'none');
-          setOpenRouterModel(data.openrouter_model || 'google/gemini-2.5-flash');
-          setOrcaRouterModel(data.orcarouter_model || 'orcarouter/auto');
+
+          const dbOpenRouterModel = data.openrouter_model || 'google/gemini-2.5-flash';
+          const dbOrcaRouterModel = data.orcarouter_model || 'orcarouter/auto';
+
+          const openRouterMatched = OPENROUTER_MODELS.some((m) => m.id === dbOpenRouterModel && m.id !== 'custom');
+          if (openRouterMatched) {
+            setOpenRouterModel(dbOpenRouterModel);
+            setIsOpenRouterCustom(false);
+          } else {
+            setIsOpenRouterCustom(true);
+            setOpenRouterCustomId(dbOpenRouterModel);
+            setOpenRouterModel('custom');
+          }
+
+          const orcaRouterMatched = ORCAROUTER_MODELS.some((m) => m.id === dbOrcaRouterModel && m.id !== 'custom');
+          if (orcaRouterMatched) {
+            setOrcaRouterModel(dbOrcaRouterModel);
+            setIsOrcaRouterCustom(false);
+          } else {
+            setIsOrcaRouterCustom(true);
+            setOrcaRouterCustomId(dbOrcaRouterModel);
+            setOrcaRouterModel('custom');
+          }
+
           setHasOpenRouterKey(!!data.has_openrouter_key);
           setHasOrcaRouterKey(!!data.has_orcarouter_key);
           setSystemPrompt(data.ai_system_prompt || '');
@@ -118,6 +158,9 @@ export function AiPanel() {
     loadConfig();
   }, []);
 
+  const activeOpenRouterModel = isOpenRouterCustom ? openRouterCustomId : openRouterModel;
+  const activeOrcaRouterModel = isOrcaRouterCustom ? orcaRouterCustomId : orcaRouterModel;
+
   async function handleSave() {
     if (!canEditSettings) return;
     setSaving(true);
@@ -132,8 +175,8 @@ export function AiPanel() {
         body: JSON.stringify({
           ai_provider: primaryProvider,
           ai_fallback_provider: fallbackProvider,
-          openrouter_model: openRouterModel,
-          orcarouter_model: orcaRouterModel,
+          openrouter_model: activeOpenRouterModel,
+          orcarouter_model: activeOrcaRouterModel,
           ai_system_prompt: systemPrompt,
           welcome_message: welcomeMessage,
           ...(openRouterApiKey.trim() ? { openrouter_api_key: openRouterApiKey } : {}),
@@ -157,8 +200,8 @@ export function AiPanel() {
       const data = await response.json();
       setHasOpenRouterKey(!!data.has_openrouter_key);
       setHasOrcaRouterKey(!!data.has_orcarouter_key);
-      setOpenRouterApiKey(''); // clear key input after saving
-      setOrcaRouterApiKey(''); // clear key input after saving
+      setOpenRouterApiKey('');
+      setOrcaRouterApiKey('');
       toast.success('AI Provider & Autopilot configuration saved');
     } catch (err: unknown) {
       toast.error((err as Error).message || 'Failed to save AI configuration');
@@ -173,6 +216,8 @@ export function AiPanel() {
     if (provider === 'orcarouter') setTestingOrcaRouter(true);
     setTestResult(null);
 
+    const modelToTest = provider === 'openrouter' ? activeOpenRouterModel : activeOrcaRouterModel;
+
     try {
       const response = await fetch('/api/account/ai/test', {
         method: 'POST',
@@ -182,7 +227,7 @@ export function AiPanel() {
         body: JSON.stringify({
           provider,
           api_key: provider === 'openrouter' ? openRouterApiKey : orcaRouterApiKey,
-          model: provider === 'openrouter' ? openRouterModel : orcaRouterModel,
+          model: modelToTest,
         }),
       });
 
@@ -193,7 +238,7 @@ export function AiPanel() {
         setTestResult({
           provider: pLabel,
           success: true,
-          message: `Successfully connected to ${pLabel}! Latency: ${data.latencyMs || 0}ms. Message: "${data.message}"`,
+          message: `Successfully connected to ${pLabel} (${modelToTest})! Latency: ${data.latencyMs || 0}ms. Message: "${data.message}"`,
         });
         toast.success(`${pLabel} connection check succeeded`);
       } else {
@@ -241,7 +286,7 @@ export function AiPanel() {
             </span>
           </h2>
           <p className="text-muted-foreground mt-1 max-w-xl text-xs leading-relaxed">
-            Configure first-class AI Providers (OpenRouter and OrcaRouter) with primary and fallback routing, health monitoring, and AI Autopilot instructions.
+            Configure first-class AI Providers (OpenRouter and OrcaRouter) with primary/fallback routing, custom model IDs, health monitoring, and AI Autopilot instructions.
           </p>
         </div>
       </div>
@@ -345,17 +390,43 @@ export function AiPanel() {
                 OpenRouter Default Model
               </Label>
               <select
-                value={openRouterModel}
-                onChange={(e) => setOpenRouterModel(e.target.value)}
+                value={isOpenRouterCustom ? 'custom' : openRouterModel}
+                onChange={(e) => {
+                  if (e.target.value === 'custom') {
+                    setIsOpenRouterCustom(true);
+                  } else {
+                    setIsOpenRouterCustom(false);
+                    setOpenRouterModel(e.target.value);
+                  }
+                }}
                 disabled={!canEditSettings}
                 className="border-border bg-muted/40 text-foreground h-9 w-full rounded-lg border px-2.5 text-sm outline-none focus:border-emerald-500"
               >
                 {OPENROUTER_MODELS.map((m) => (
                   <option key={m.id} value={m.id}>
-                    {m.name} ({m.provider})
+                    {m.name} {m.provider !== 'Custom LLM' ? `(${m.provider})` : ''}
                   </option>
                 ))}
               </select>
+
+              {isOpenRouterCustom && (
+                <div className="pt-2 animate-in fade-in space-y-1">
+                  <Label className="text-muted-foreground text-[10px] font-bold tracking-wider uppercase">
+                    Custom OpenRouter Model ID
+                  </Label>
+                  <Input
+                    type="text"
+                    placeholder="e.g. deepseek/deepseek-r1 or qwen/qwen-2.5-72b-instruct"
+                    value={openRouterCustomId}
+                    onChange={(e) => setOpenRouterCustomId(e.target.value.trim())}
+                    disabled={!canEditSettings}
+                    className="bg-muted/40 border-border text-foreground h-9 font-mono text-xs focus-visible:ring-emerald-500"
+                  />
+                  <p className="text-muted-foreground text-[10px] italic">
+                    Active: <code className="font-mono text-emerald-600 dark:text-emerald-400">{activeOpenRouterModel || 'None specified'}</code>
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -423,8 +494,15 @@ export function AiPanel() {
                 OrcaRouter Default Model
               </Label>
               <select
-                value={orcaRouterModel}
-                onChange={(e) => setOrcaRouterModel(e.target.value)}
+                value={isOrcaRouterCustom ? 'custom' : orcaRouterModel}
+                onChange={(e) => {
+                  if (e.target.value === 'custom') {
+                    setIsOrcaRouterCustom(true);
+                  } else {
+                    setIsOrcaRouterCustom(false);
+                    setOrcaRouterModel(e.target.value);
+                  }
+                }}
                 disabled={!canEditSettings}
                 className="border-border bg-muted/40 text-foreground h-9 w-full rounded-lg border px-2.5 text-sm outline-none focus:border-emerald-500"
               >
@@ -434,6 +512,25 @@ export function AiPanel() {
                   </option>
                 ))}
               </select>
+
+              {isOrcaRouterCustom && (
+                <div className="pt-2 animate-in fade-in space-y-1">
+                  <Label className="text-muted-foreground text-[10px] font-bold tracking-wider uppercase">
+                    Custom OrcaRouter Model ID
+                  </Label>
+                  <Input
+                    type="text"
+                    placeholder="e.g. anthropic/claude-3-5-sonnet or custom-llm-id"
+                    value={orcaRouterCustomId}
+                    onChange={(e) => setOrcaRouterCustomId(e.target.value.trim())}
+                    disabled={!canEditSettings}
+                    className="bg-muted/40 border-border text-foreground h-9 font-mono text-xs focus-visible:ring-emerald-500"
+                  />
+                  <p className="text-muted-foreground text-[10px] italic">
+                    Active: <code className="font-mono text-emerald-600 dark:text-emerald-400">{activeOrcaRouterModel || 'None specified'}</code>
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
