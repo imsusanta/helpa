@@ -104,7 +104,7 @@ export function AdminOverviewClient() {
               <CardContent className="p-5">
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground text-xs font-medium">
-                    Active Tenants
+                    Active Subscribers
                   </span>
                   <div className="bg-muted flex h-8 w-8 items-center justify-center rounded-lg">
                     <Layers className="text-muted-foreground h-4 w-4" />
@@ -318,10 +318,10 @@ export function AdminOverviewClient() {
                     </div>
                     <div>
                       <span className="text-foreground text-xs font-semibold">
-                        Tenants Directory
+                        Subscribers Directory
                       </span>
                       <p className="text-muted-foreground text-[11px]">
-                        Inspect and manage workspace accounts
+                        Inspect and manage subscriber accounts
                       </p>
                     </div>
                   </div>

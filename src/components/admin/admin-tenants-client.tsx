@@ -96,8 +96,8 @@ export function AdminTenantsClient() {
         setPlans(Array.isArray(pData) ? pData : []);
       }
     } catch (err) {
-      console.error('Failed to load tenants:', err);
-      toast.error('Failed to load tenants');
+      console.error('Failed to load subscribers:', err);
+      toast.error('Failed to load subscribers');
     } finally {
       setLoading(false);
     }
@@ -110,7 +110,7 @@ export function AdminTenantsClient() {
   async function handleSubSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedTenant) {
-      toast.error('No tenant selected');
+      toast.error('No subscriber selected');
       return;
     }
 
@@ -226,7 +226,7 @@ export function AdminTenantsClient() {
           <div className="relative max-w-sm flex-1">
             <Search className="text-muted-foreground absolute top-2.5 left-3 h-4 w-4" />
             <Input
-              placeholder="Search tenants by name, owner, or email..."
+              placeholder="Search subscribers by name, owner, or email..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="bg-card text-foreground border-border h-9 pl-9 text-xs"
@@ -240,7 +240,7 @@ export function AdminTenantsClient() {
               <TableHeader className="bg-muted/30 border-border border-b">
                 <TableRow>
                   <TableHead className="text-muted-foreground text-xs font-semibold">
-                    Company / Tenant
+                    Subscriber / Business
                   </TableHead>
                   <TableHead className="text-muted-foreground text-xs font-semibold">
                     Owner
@@ -278,7 +278,7 @@ export function AdminTenantsClient() {
                       colSpan={8}
                       className="text-muted-foreground py-8 text-center"
                     >
-                      No tenants match your search query.
+                      No subscribers match your search query.
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -337,7 +337,7 @@ export function AdminTenantsClient() {
         <DialogContent className="bg-popover text-popover-foreground border-border max-w-md">
           <DialogHeader>
             <DialogTitle className="text-foreground text-base font-semibold">
-              Manage Tenant Subscription
+              Manage Subscriber
             </DialogTitle>
             <DialogDescription className="text-muted-foreground text-xs">
               Modify the subscription tier and billing dates for{' '}
