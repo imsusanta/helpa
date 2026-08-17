@@ -7,7 +7,10 @@
 
 import { redirect } from 'next/navigation';
 import { getCurrentAccount } from '@/lib/auth/account';
-import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
+import {
+  createClient as createSupabaseServerClient,
+  getAdminClient as getSupabaseAdminClient,
+} from '@/lib/supabase/server';
 
 export const PLATFORM_OWNER_EMAIL = 'susantalohr@gmail.com';
 
@@ -28,21 +31,36 @@ export async function checkSuperAdmin(userEmail?: string): Promise<boolean> {
   }
 
   try {
+    // 1. Direct Supabase Auth session check
+    try {
+      const supabase = await createSupabaseServerClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user) {
+        if (isPlatformOwnerEmail(user.email)) return true;
+
+        const admin = getSupabaseAdminClient();
+        const { data: profile } = await admin
+          .from('profiles')
+          .select('is_super_admin, email')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (profile) {
+          if (isPlatformOwnerEmail(profile.email)) return true;
+          if (Boolean(profile.is_super_admin)) return true;
+        }
+      }
+    } catch {
+      // Continue to next check
+    }
+
+    // 2. Account context check
     const ctx = await getCurrentAccount();
     if (ctx?.email && isPlatformOwnerEmail(ctx.email)) {
       return true;
-    }
-
-    const admin = getSupabaseAdminClient();
-    const { data: profile } = await admin
-      .from('profiles')
-      .select('is_super_admin, email')
-      .eq('user_id', ctx.userId)
-      .maybeSingle();
-
-    if (profile) {
-      if (isPlatformOwnerEmail(profile.email)) return true;
-      return Boolean(profile.is_super_admin);
     }
 
     return false;
@@ -56,14 +74,22 @@ export async function checkSuperAdmin(userEmail?: string): Promise<boolean> {
  */
 export async function requireSuperAdmin() {
   try {
-    const ctx = await getCurrentAccount();
     const isSuper = await checkSuperAdmin();
 
     if (!isSuper) {
       redirect('/dashboard');
     }
 
-    return { id: ctx.userId, accountId: ctx.accountId, role: ctx.role };
+    try {
+      const ctx = await getCurrentAccount();
+      return { id: ctx.userId, accountId: ctx.accountId, role: ctx.role };
+    } catch {
+      return {
+        id: 'super_admin',
+        accountId: 'default_account',
+        role: 'owner' as const,
+      };
+    }
   } catch (error) {
     if (error && typeof error === 'object' && 'digest' in error) {
       throw error;

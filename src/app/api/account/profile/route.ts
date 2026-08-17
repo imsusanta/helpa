@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentAccount, toErrorResponse } from '@/lib/auth/account';
+import { isPlatformOwnerEmail } from '@/lib/auth/admin';
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
 
 export async function GET() {
@@ -46,6 +47,11 @@ export async function GET() {
       };
     }
 
+    const isSuper =
+      isPlatformOwnerEmail(dbProfile?.email) ||
+      isPlatformOwnerEmail(ctx.email) ||
+      Boolean(dbProfile?.is_super_admin);
+
     if (pErr || !dbProfile) {
       return NextResponse.json({
         success: true,
@@ -53,12 +59,12 @@ export async function GET() {
           id: ctx.userId,
           user_id: ctx.userId,
           full_name: 'User',
-          email: '',
+          email: ctx.email || '',
           avatar_url: null,
           role: ctx.role,
           account_id: ctx.accountId,
           account_role: ctx.role,
-          is_super_admin: false,
+          is_super_admin: isSuper,
         },
         account: accountData,
       });
@@ -75,7 +81,7 @@ export async function GET() {
         role: dbProfile.role || ctx.role || 'owner',
         account_id: dbProfile.account_id || ctx.accountId,
         account_role: dbProfile.account_role || ctx.role || 'owner',
-        is_super_admin: Boolean(dbProfile.is_super_admin),
+        is_super_admin: isSuper,
       },
       account: accountData,
     });
