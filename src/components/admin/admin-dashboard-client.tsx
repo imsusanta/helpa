@@ -554,7 +554,7 @@ export function AdminDashboardClient() {
               </div>
               <div className="mt-4 flex items-baseline gap-2">
                 <span className="text-foreground text-3xl font-black tracking-tight tabular-nums">
-                  {metrics.totalAccounts}
+                  {metrics?.totalAccounts ?? 0}
                 </span>
               </div>
               <p className="text-muted-foreground mt-2 text-[10px] font-medium">
@@ -577,7 +577,7 @@ export function AdminDashboardClient() {
               </div>
               <div className="mt-4 flex items-baseline gap-2">
                 <span className="text-foreground text-3xl font-black tracking-tight tabular-nums">
-                  {metrics.totalUsers}
+                  {metrics?.totalUsers ?? 0}
                 </span>
               </div>
               <p className="text-muted-foreground mt-2 text-[10px] font-medium">
@@ -600,7 +600,7 @@ export function AdminDashboardClient() {
               </div>
               <div className="mt-4 flex items-baseline gap-2">
                 <span className="text-foreground text-3xl font-black tracking-tight tabular-nums">
-                  {metrics.usage.aiRequests}
+                  {metrics?.usage?.aiRequests ?? 0}
                 </span>
               </div>
               <p className="text-muted-foreground mt-2 text-[10px] font-medium">
@@ -623,7 +623,7 @@ export function AdminDashboardClient() {
               </div>
               <div className="mt-4 flex items-baseline gap-2">
                 <span className="text-foreground text-3xl font-black tracking-tight tabular-nums">
-                  {metrics.totalContacts}
+                  {metrics?.totalContacts ?? 0}
                 </span>
               </div>
               <p className="text-muted-foreground mt-2 text-[10px] font-medium">
@@ -650,7 +650,7 @@ export function AdminDashboardClient() {
                     Growth Premium ($29/mo)
                   </span>
                   <span className="text-foreground rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 font-bold text-emerald-600 dark:text-emerald-400">
-                    {metrics.subscriptions.planBreakdown['Growth'] || 0} active
+                    {metrics?.subscriptions?.planBreakdown?.['Growth'] || 0} active
                   </span>
                 </div>
                 <div className="bg-muted/20 border-border/50 hover:bg-muted/30 flex items-center justify-between rounded-lg border p-2 text-xs transition-all duration-200 hover:scale-[1.02]">
@@ -658,7 +658,7 @@ export function AdminDashboardClient() {
                     Enterprise custom plans
                   </span>
                   <span className="text-foreground rounded border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 font-bold text-blue-600 dark:text-blue-400">
-                    {metrics.subscriptions.planBreakdown['Enterprise'] || 0}{' '}
+                    {metrics?.subscriptions?.planBreakdown?.['Enterprise'] || 0}{' '}
                     active
                   </span>
                 </div>
@@ -667,7 +667,7 @@ export function AdminDashboardClient() {
                     14-Day Free Trials
                   </span>
                   <span className="text-foreground rounded border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 font-bold text-amber-600 dark:text-amber-400">
-                    {metrics.subscriptions.planBreakdown['Free Trial'] || 0}{' '}
+                    {metrics?.subscriptions?.planBreakdown?.['Free Trial'] || 0}{' '}
                     trial
                   </span>
                 </div>
@@ -676,7 +676,7 @@ export function AdminDashboardClient() {
                     Total Active Contracts
                   </span>
                   <span className="text-emerald-600 dark:text-emerald-400">
-                    {metrics.subscriptions.total}
+                    {metrics?.subscriptions?.total ?? 0}
                   </span>
                 </div>
               </div>
@@ -699,7 +699,7 @@ export function AdminDashboardClient() {
                     AI Requests Sum
                   </span>
                   <span className="text-foreground font-bold">
-                    {metrics.usage.aiRequests.toLocaleString()} calls
+                    {(metrics?.usage?.aiRequests ?? 0).toLocaleString()} calls
                   </span>
                 </div>
                 <div className="bg-muted/20 border-border/50 hover:bg-muted/30 flex items-center justify-between rounded-lg border p-2 text-xs transition-all duration-200 hover:scale-[1.02]">
@@ -707,13 +707,13 @@ export function AdminDashboardClient() {
                     WhatsApp Messages Sent
                   </span>
                   <span className="text-foreground font-bold">
-                    {metrics.usage.whatsappMessages.toLocaleString()} msgs
+                    {(metrics?.usage?.whatsappMessages ?? 0).toLocaleString()} msgs
                   </span>
                 </div>
                 <div className="border-border flex items-center justify-between border-t pt-3 text-sm font-bold">
                   <span className="text-foreground">Billing Month</span>
                   <span className="text-muted-foreground text-xs font-semibold">
-                    {metrics.usage.month}
+                    {metrics?.usage?.month || 'Current Month'}
                   </span>
                 </div>
               </div>
@@ -895,14 +895,14 @@ export function AdminDashboardClient() {
                     </div>
                     <div className="mt-2 flex items-baseline gap-1">
                       <span className="text-foreground text-2xl font-black">
-                        ₹{p.monthly_price.toLocaleString('en-IN')}
+                        ₹{(p.monthly_price ?? 0).toLocaleString('en-IN')}
                       </span>
                       <span className="text-muted-foreground text-xs font-semibold">
                         /mo
                       </span>
                       <span className="text-muted-foreground ml-2 text-[10px] font-semibold">
                         (₹
-                        {Math.round(p.yearly_price / 12).toLocaleString(
+                        {(p.yearly_price ? Math.round(p.yearly_price / 12) : 0).toLocaleString(
                           'en-IN'
                         )}
                         /mo billed yearly)
@@ -1087,7 +1087,7 @@ export function AdminDashboardClient() {
                 <SelectContent className="bg-popover text-popover-foreground border-border">
                   {plans.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
-                      {p.name} (₹{p.monthly_price.toLocaleString('en-IN')}/mo)
+                      {p.name} (₹{(p.monthly_price ?? 0).toLocaleString('en-IN')}/mo)
                     </SelectItem>
                   ))}
                 </SelectContent>

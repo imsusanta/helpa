@@ -29,23 +29,8 @@ export async function checkSuperAdmin(userEmail?: string): Promise<boolean> {
 
   try {
     const ctx = await getCurrentAccount();
-    if (
-      (ctx.role as string) === 'owner' ||
-      (ctx.role as string) === 'super_admin' ||
-      ctx.role === 'admin'
-    ) {
-      // Check if profile belongs to platform owner or has is_super_admin flag
-      const admin = getSupabaseAdminClient();
-      const { data: profile } = await admin
-        .from('profiles')
-        .select('is_super_admin, email')
-        .eq('user_id', ctx.userId)
-        .maybeSingle();
-
-      if (profile) {
-        if (isPlatformOwnerEmail(profile.email)) return true;
-        if (Boolean(profile.is_super_admin)) return true;
-      }
+    if (ctx?.email && isPlatformOwnerEmail(ctx.email)) {
+      return true;
     }
 
     const admin = getSupabaseAdminClient();

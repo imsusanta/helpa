@@ -1193,7 +1193,7 @@ export function AdminAiInfrastructure() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-foreground">
-                  {usageStats.totalRequests.toLocaleString()}
+                  {(usageStats?.totalRequests ?? 0).toLocaleString()}
                 </div>
                 <p className="text-muted-foreground text-[10px] mt-1">Platform-wide total requests</p>
               </CardContent>
@@ -1205,7 +1205,7 @@ export function AdminAiInfrastructure() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-foreground">
-                  {(usageStats.totalTokens / 1000000).toFixed(2)}M
+                  {((usageStats?.totalTokens ?? 0) / 1000000).toFixed(2)}M
                 </div>
                 <p className="text-muted-foreground text-[10px] mt-1">Prompt + Completion Tokens</p>
               </CardContent>
@@ -1217,7 +1217,7 @@ export function AdminAiInfrastructure() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-                  ₹{usageStats.estimatedCostInr.toLocaleString()}
+                  ₹{(usageStats?.estimatedCostInr ?? 0).toLocaleString()}
                 </div>
                 <p className="text-muted-foreground text-[10px] mt-1">Calculated across OpenRouter + Orca</p>
               </CardContent>
@@ -1237,7 +1237,7 @@ export function AdminAiInfrastructure() {
                     OpenRouter
                   </span>
                   <span className="font-mono font-bold text-foreground">
-                    {usageStats.providers.openrouter.toLocaleString()} requests
+                    {(usageStats?.providers?.openrouter ?? 0).toLocaleString()} requests
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -1246,7 +1246,7 @@ export function AdminAiInfrastructure() {
                     OrcaRouter
                   </span>
                   <span className="font-mono font-bold text-foreground">
-                    {usageStats.providers.orcarouter.toLocaleString()} requests
+                    {(usageStats?.providers?.orcarouter ?? 0).toLocaleString()} requests
                   </span>
                 </div>
               </CardContent>
@@ -1257,12 +1257,12 @@ export function AdminAiInfrastructure() {
                 <CardTitle className="text-foreground text-sm font-bold">Model Distribution</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2 text-xs">
-                {Object.entries(usageStats.models).map(([modelId, count]) => (
+                {Object.entries(usageStats?.models || {}).map(([modelId, count]) => (
                   <div key={modelId} className="flex justify-between items-center border-b border-border/50 pb-1.5">
                     <code className="font-mono text-muted-foreground text-[11px] truncate max-w-[200px]">
                       {modelId}
                     </code>
-                    <span className="font-mono font-bold text-foreground">{count.toLocaleString()}</span>
+                    <span className="font-mono font-bold text-foreground">{(count ?? 0).toLocaleString()}</span>
                   </div>
                 ))}
               </CardContent>

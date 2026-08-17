@@ -138,7 +138,7 @@ export function AiPanel() {
                   Monthly Quota
                 </span>
                 <span className="font-mono font-bold text-foreground">
-                  {usageRequests.toLocaleString()} / {maxRequests.toLocaleString()}
+                  {(usageRequests ?? 0).toLocaleString()} / {(maxRequests ?? 0).toLocaleString()}
                 </span>
               </div>
               <div className="bg-muted h-2 w-full overflow-hidden rounded-full">
