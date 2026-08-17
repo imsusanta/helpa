@@ -21,13 +21,15 @@ import { AdminNav } from './admin-nav';
 interface Plan {
   id: string;
   name: string;
-  monthly_price: number;
-  yearly_price: number;
-  max_users: number;
-  max_contacts: number;
-  max_whatsapp_numbers: number;
-  max_ai_requests: number;
-  features: string | string[];
+  monthly_price?: number;
+  monthlyPrice?: number;
+  yearly_price?: number;
+  yearlyPrice?: number;
+  max_users?: number;
+  max_contacts?: number;
+  max_whatsapp_numbers?: number;
+  max_ai_requests?: number;
+  features?: string | string[];
 }
 
 export function AdminPlansClient() {
@@ -139,14 +141,21 @@ export function AdminPlansClient() {
       parsedFeatures = [];
     }
 
+    const monthlyPrice = plan.monthly_price ?? plan.monthlyPrice ?? 0;
+    const yearlyPrice = plan.yearly_price ?? plan.yearlyPrice ?? 0;
+    const maxUsers = plan.max_users ?? 5;
+    const maxContacts = plan.max_contacts ?? 500;
+    const maxWhatsapp = plan.max_whatsapp_numbers ?? 1;
+    const maxAi = plan.max_ai_requests ?? 100;
+
     setPlanForm({
       name: plan.name,
-      monthly_price: plan.monthly_price,
-      yearly_price: plan.yearly_price,
-      max_users: plan.max_users,
-      max_contacts: plan.max_contacts,
-      max_whatsapp_numbers: plan.max_whatsapp_numbers,
-      max_ai_requests: plan.max_ai_requests,
+      monthly_price: monthlyPrice,
+      yearly_price: yearlyPrice,
+      max_users: maxUsers,
+      max_contacts: maxContacts,
+      max_whatsapp_numbers: maxWhatsapp,
+      max_ai_requests: maxAi,
       features: parsedFeatures,
     });
     setPlanDialogOpen(true);
@@ -218,10 +227,19 @@ export function AdminPlansClient() {
                 featsArray =
                   typeof p.features === 'string'
                     ? JSON.parse(p.features)
-                    : p.features || [];
+                    : Array.isArray(p.features)
+                      ? p.features
+                      : [];
               } catch {
                 featsArray = [];
               }
+
+              const monthlyPrice = p.monthly_price ?? p.monthlyPrice ?? 0;
+              const yearlyPrice = p.yearly_price ?? p.yearlyPrice ?? 0;
+              const maxUsers = p.max_users ?? 5;
+              const maxContacts = p.max_contacts ?? 500;
+              const maxWhatsapp = p.max_whatsapp_numbers ?? 1;
+              const maxAi = p.max_ai_requests ?? 100;
 
               return (
                 <Card
@@ -254,15 +272,13 @@ export function AdminPlansClient() {
                     </div>
                     <div className="mt-2 flex items-baseline gap-1">
                       <span className="text-foreground text-xl font-semibold">
-                        ₹{(p.monthly_price ?? 0).toLocaleString('en-IN')}
+                        ₹{monthlyPrice.toLocaleString('en-IN')}
                       </span>
                       <span className="text-muted-foreground text-xs">/mo</span>
-                      {p.yearly_price ? (
+                      {yearlyPrice ? (
                         <span className="text-muted-foreground ml-1.5 text-xs">
                           (₹
-                          {Math.round(p.yearly_price / 12).toLocaleString(
-                            'en-IN'
-                          )}
+                          {Math.round(yearlyPrice / 12).toLocaleString('en-IN')}
                           /mo billed yearly)
                         </span>
                       ) : null}
@@ -273,27 +289,27 @@ export function AdminPlansClient() {
                       <div>
                         Users:{' '}
                         <span className="text-foreground font-medium">
-                          {p.max_users >= 999 ? '∞' : p.max_users}
+                          {maxUsers >= 999 ? '∞' : maxUsers}
                         </span>
                       </div>
                       <div>
                         Contacts:{' '}
                         <span className="text-foreground font-medium">
-                          {p.max_contacts >= 99999
+                          {maxContacts >= 99999
                             ? '∞'
-                            : p.max_contacts.toLocaleString()}
+                            : maxContacts.toLocaleString()}
                         </span>
                       </div>
                       <div>
                         AI Autopilot:{' '}
                         <span className="text-foreground font-medium">
-                          {p.max_ai_requests.toLocaleString()}
+                          {maxAi.toLocaleString()}
                         </span>
                       </div>
                       <div>
                         WhatsApp:{' '}
                         <span className="text-foreground font-medium">
-                          {p.max_whatsapp_numbers}
+                          {maxWhatsapp}
                         </span>
                       </div>
                     </div>

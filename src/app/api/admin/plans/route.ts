@@ -14,7 +14,22 @@ export async function GET() {
     }
 
     const plans = await getAvailablePlans();
-    return NextResponse.json(plans);
+    const normalized = (plans || []).map((p) => {
+      const usage = p.usageLimits || {};
+      return {
+        ...p,
+        monthly_price: Number(p.monthlyPrice ?? 0),
+        yearly_price: Number(p.yearlyPrice ?? 0),
+        monthlyPrice: Number(p.monthlyPrice ?? 0),
+        yearlyPrice: Number(p.yearlyPrice ?? 0),
+        max_users: Number(usage.teamMembers ?? 5),
+        max_contacts: Number(usage.contacts ?? 500),
+        max_whatsapp_numbers: 1,
+        max_ai_requests: Number(usage.aiMessages ?? 100),
+        features: p.features ?? [],
+      };
+    });
+    return NextResponse.json(normalized);
   } catch (err: unknown) {
     console.error('[GET /api/admin/plans] error:', err);
     const msg = err instanceof Error ? err.message : 'Internal Server Error';
