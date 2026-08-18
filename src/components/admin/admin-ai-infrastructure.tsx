@@ -118,6 +118,7 @@ export function AdminAiInfrastructure() {
   const [testStatus, setTestStatus] = useState<'success' | 'error' | null>(
     null
   );
+  const [testErrorMessage, setTestErrorMessage] = useState<string | null>(null);
 
   // Form states
   const [selectedProvider, setSelectedProvider] = useState<
@@ -313,15 +314,19 @@ export function AdminAiInfrastructure() {
         );
       } else {
         setIsLiveHealthy(false);
-        toast.error(
-          'Connection failed. Please check your API key and try again.'
-        );
+        const errorMsg =
+          data.error ||
+          data.message ||
+          'Please check your API key and try again.';
+        toast.error(`Connection failed: ${errorMsg}`);
       }
-    } catch {
+    } catch (err) {
       setIsLiveHealthy(false);
-      toast.error(
-        'Connection failed. Please check your API key and try again.'
-      );
+      const errorMsg =
+        err instanceof Error
+          ? err.message
+          : 'Please check your API key and try again.';
+      toast.error(`Connection failed: ${errorMsg}`);
     } finally {
       setIsTestingCurrent(false);
     }
@@ -331,6 +336,7 @@ export function AdminAiInfrastructure() {
   const handleTestConnection = async () => {
     setIsTesting(true);
     setTestStatus(null);
+    setTestErrorMessage(null);
 
     try {
       const res = await fetch('/api/admin/ai/health', {
@@ -346,11 +352,22 @@ export function AdminAiInfrastructure() {
       const data = await res.json();
       if (res.ok && data.success) {
         setTestStatus('success');
+        setTestErrorMessage(null);
       } else {
         setTestStatus('error');
+        setTestErrorMessage(
+          data.error ||
+            data.message ||
+            'Please check your API key and try again.'
+        );
       }
-    } catch {
+    } catch (err) {
       setTestStatus('error');
+      setTestErrorMessage(
+        err instanceof Error
+          ? err.message
+          : 'Please check your API key and try again.'
+      );
     } finally {
       setIsTesting(false);
     }
@@ -685,7 +702,8 @@ export function AdminAiInfrastructure() {
                     Connection failed
                   </div>
                   <div className="mt-0.5 text-xs text-red-700/90 dark:text-red-400">
-                    Please check your API key and try again.
+                    {testErrorMessage ||
+                      'Please check your API key and try again.'}
                   </div>
                 </div>
               </div>
