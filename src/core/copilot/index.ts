@@ -38,7 +38,7 @@ export async function generateCopilotAssistance(
 Analyze the conversation messages and produce a JSON response with:
 - "summary": A brief 1-2 sentence overview of what the customer is asking.
 - "intent": The primary user intent (e.g. "Booking Inquiry", "Pricing Question", "Support").
-- "suggestedReply": A courteous, ready-to-send reply addressing their question based on the Knowledge Base.
+- "suggestedReply": A courteous, ready-to-send reply addressing their question based on the Knowledge Base. You MUST write this in the EXACT SAME LANGUAGE and script/dialect used by the customer in their latest message (e.g. Bengali for Bengali, Hindi/Hinglish for Hindi/Hinglish, English for English). Never switch to English if the customer messaged in another language.
 - "keyDetails": An object containing extracted details like date, preference, service, or contact info.
 
 Knowledge Base Context:

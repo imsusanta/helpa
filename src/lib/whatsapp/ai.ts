@@ -570,11 +570,19 @@ AI RULES & STUDENT PROFILE UPDATES:
 `;
   }
 
-  // Always enforce that the AI responds in the language of the latest customer message
-  systemPromptContent += `\n\nCRITICAL LANGUAGE RULE: Always respond in the EXACT same language that the customer used in their latest message (e.g., if they message in Bengali, respond in Bengali; if in Hindi, respond in Hindi; if in English, respond in English). Under no circumstances should you reply in English if the customer's latest message is in another language.`;
+  // Always enforce that the AI responds in the exact language of the customer's conversation
+  systemPromptContent += `\n\n═══════════════════════════════════════════════════════════════════════════
+CRITICAL MANDATORY MULTILINGUAL RULE:
+1. You MUST ALWAYS reply in the EXACT SAME LANGUAGE, SCRIPT, and DIALECT that the customer used in their latest message.
+2. If the customer messages in Bengali (বাংলা or phonetic/Banglish like "ami doctor dekhte chai"), you MUST reply in natural, fluent Bengali (বাংলা or matching Banglish).
+3. If the customer messages in Hindi (हिंदी or Hinglish like "mujhe appointment book karna hai"), you MUST reply in natural, fluent Hindi/Hinglish.
+4. If the customer messages in English, reply in English.
+5. If the customer messages in any other regional/international language (e.g. Marathi, Tamil, Telugu, Gujarati, Spanish, Arabic, Urdu, French), reply in that exact language.
+6. UNDER NO CIRCUMSTANCES should you default or switch to English when the customer is speaking in another language.
+═══════════════════════════════════════════════════════════════════════════`;
 
   if (latestMessage && latestMessage.content_text) {
-    systemPromptContent += `\n\nLanguage Instruction: The customer's latest message is: "${latestMessage.content_text}". You must write your "reply" in the EXACT same language as this message.`;
+    systemPromptContent += `\n\n[CUSTOMER'S LATEST MESSAGE]: "${latestMessage.content_text}"\n-> DIRECTIVE: Detect the language of this message and write your "reply" field in the EXACT SAME LANGUAGE.`;
   }
 
   // Enforce organized and beautiful formatting with WhatsApp markdown support

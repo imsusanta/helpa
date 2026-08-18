@@ -138,7 +138,11 @@ export async function POST(request: Request) {
         systemPromptContent += `\n\n${kbContext}`;
       }
 
-      systemPromptContent += `\n\nLanguage Instruction: The customer's latest message is: "${latestMessage.content_text || ''}". You must write the reply in the EXACT same language as this latest message.`;
+      systemPromptContent += `\n\n═══════════════════════════════════════════════════════════════════════════
+CRITICAL MANDATORY MULTILINGUAL RULE:
+The customer's latest message is: "${latestMessage.content_text || ''}".
+You MUST detect the language and write the suggested reply in the EXACT SAME LANGUAGE and script/dialect as this message (e.g. if Bengali/Banglish, reply in Bengali; if Hindi/Hinglish, reply in Hindi/Hinglish; if English, reply in English; if another regional or world language, reply in that exact language). Never default to English when the customer messaged in another language.
+═══════════════════════════════════════════════════════════════════════════`;
 
       systemPromptContent += `\n\nCRITICAL INSTRUCTION: You are suggesting a reply to the customer for a human agent to send. Respond ONLY with the direct text of the suggestion. Do not wrap in quotes, do not output any explanations or labels, and do not use JSON. Write it in an organized format with line breaks and friendly emojis.`;
 
