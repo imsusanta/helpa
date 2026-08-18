@@ -16,7 +16,10 @@ import { checkPlanLimits, incrementUsage } from '@/lib/saas/subscription';
 import { getIndustryModule, resolveSystemPrompt } from '@/modules/registry';
 import { parseAiResponse } from '@/lib/whatsapp/ai-response';
 
-import { executeAiCompletionWithFallback } from '@/core/ai/resolver';
+import {
+  executeAiCompletionWithFallback,
+  resolveAccountAiConfig,
+} from '@/core/ai/resolver';
 
 interface TriggerAiResponseArgs {
   accountId: string;
@@ -100,17 +103,17 @@ export async function triggerAiResponse(
 
   account = accData;
 
-  const hasAnyKey =
-    account?.openrouter_api_key ||
-    account?.orcarouter_api_key ||
-    process.env.OPENROUTER_API_KEY ||
-    process.env.ORCAROUTER_API_KEY;
+  const aiResolved = await resolveAccountAiConfig(accountId, {
+    feature: 'AI_REPLY',
+  });
+  const hasValidKey = Boolean(
+    aiResolved.primary.apiKey || aiResolved.fallback?.apiKey
+  );
 
-  if (!hasAnyKey) {
+  if (!hasValidKey) {
     console.warn(
-      '[AI Assistant] Neither OpenRouter nor OrcaRouter API credentials configured for account:',
-      accountId,
-      accError?.message || ''
+      '[AI Assistant] Neither OpenRouter nor OrcaRouter API credentials configured in Super Admin settings, environment, or account for account:',
+      accountId
     );
     return;
   }

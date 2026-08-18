@@ -24,6 +24,7 @@ import {
 import { decrypt } from '@/lib/whatsapp/encryption';
 import { checkPlanLimits, incrementUsage } from '@/lib/saas/subscription';
 import { resolveSystemPrompt } from '@/modules/registry';
+import { resolveAccountAiConfig } from '@/core/ai/resolver';
 
 type Related<T> = T | T[] | null | undefined;
 
@@ -274,7 +275,21 @@ export async function POST(request: Request) {
 
     let fallback = buildFallbackCopilotSnapshot(context);
 
-    if (!accountData.openrouter_api_key) {
+    const aiConfig = await resolveAccountAiConfig(ctx.accountId, {
+      feature: 'AI_COPILOT',
+    });
+    const apiKey =
+      aiConfig.primary.apiKey ||
+      aiConfig.fallback?.apiKey ||
+      (accountData.openrouter_api_key
+        ? decrypt(accountData.openrouter_api_key)
+        : undefined);
+    const model =
+      aiConfig.primary.model ||
+      accountData.openrouter_model ||
+      'google/gemini-2.5-flash';
+
+    if (!apiKey) {
       fallback = {
         ...fallback,
         warning:
@@ -285,10 +300,9 @@ export async function POST(request: Request) {
 
     try {
       await checkPlanLimits(ctx.accountId, 'max_ai_requests');
-      const apiKey = decrypt(accountData.openrouter_api_key);
       const snapshot = await generateOpenRouterCopilotSnapshot({
         apiKey,
-        model: accountData.openrouter_model || 'google/gemini-2.5-flash',
+        model,
         systemPrompt: resolveSystemPrompt(
           accountData.industry,
           accountData.ai_system_prompt
