@@ -19,7 +19,6 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
   const isInbox = pathname === '/inbox';
-  const isSuperAdmin = pathname === '/admin' || pathname.startsWith('/admin/');
 
   useEffect(() => {
     if (!loading && !user && typeof window !== 'undefined')
@@ -58,17 +57,15 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="bg-background flex h-screen overflow-hidden">
-      {!isSuperAdmin && <Sidebar open={sidebarOpen} onClose={closeSidebar} />}
+      <Sidebar open={sidebarOpen} onClose={closeSidebar} />
       <div className="flex flex-1 flex-col overflow-hidden">
-        {!isSuperAdmin && <Header onOpenSidebar={() => setSidebarOpen(true)} />}
+        <Header onOpenSidebar={() => setSidebarOpen(true)} />
         <main
           className={cn(
             'min-h-0 flex-1',
-            isSuperAdmin
-              ? 'admin-page overflow-y-auto p-4 sm:p-6'
-              : isInbox
-                ? 'flex flex-col overflow-hidden p-0 sm:p-0'
-                : 'overflow-y-auto p-4 sm:p-6'
+            isInbox
+              ? 'flex flex-col overflow-hidden p-0 sm:p-0'
+              : 'overflow-y-auto p-4 sm:p-6'
           )}
         >
           <DashboardErrorBoundary onLogin={() => router.push('/login')}>
@@ -76,11 +73,6 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
           </DashboardErrorBoundary>
         </main>
       </div>
-      <style jsx global>{`
-        .admin-page > div:first-child {
-          padding-left: 0 !important;
-        }
-      `}</style>
     </div>
   );
 }
