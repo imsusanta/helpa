@@ -118,11 +118,34 @@ export async function triggerAiResponse(
     return;
   }
 
-  // 3. Use pre-fetched messages
-  const messages = messagesRes.data;
+  // 3. Normalize pre-fetched messages with fallback if empty or error
+  let rawMessages = messagesRes.data as Array<Record<string, unknown>> | null;
   const msgError = messagesRes.error;
 
-  if (msgError || !messages || messages.length === 0) {
+  if (msgError || !rawMessages || rawMessages.length === 0) {
+    try {
+      const fallbackMsg = await db
+        .from('messages')
+        .select('*')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: false })
+        .limit(15);
+      if (fallbackMsg.data && fallbackMsg.data.length > 0) {
+        rawMessages = fallbackMsg.data as Array<Record<string, unknown>>;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  const messages = (rawMessages || []).map((m) => ({
+    sender_type: String(m.sender_type || m.senderType || 'customer'),
+    content_type: String(m.content_type || m.contentType || 'text'),
+    content_text: String(m.content_text || m.contentText || ''),
+    created_at: String(m.created_at || m.createdAt || new Date().toISOString()),
+  }));
+
+  if (messages.length === 0) {
     console.error(
       '[AI Assistant] Failed to fetch message history or no messages found:',
       msgError
@@ -661,7 +684,7 @@ Note:
 - Set "sales_signal" to true if you detect genuine buying intent, service inquiry, quotation request, booking intent, or any strong sales signal from the customer.
 - Under "extracted_lead_info", populate only the fields mentioned by the customer. Use null for any details not mentioned or unknown.`;
 
-  const systemPrompt = {
+  const systemPrompt: { role: 'system'; content: string } = {
     role: 'system',
     content: systemPromptContent,
   };
@@ -680,7 +703,8 @@ Note:
             content = `[${m.content_type}]`;
           }
           return {
-            role: m.sender_type === 'customer' ? 'user' : 'assistant',
+            role: (m.sender_type === 'customer' ? 'user' : 'assistant') as
+              'user' | 'assistant',
             content: content,
           };
         }
@@ -695,7 +719,7 @@ Note:
       messages: apiMessages,
       options: {
         temperature: 0.2,
-        maxTokens: 320,
+        maxTokens: 1200,
         responseFormat: { type: 'json_object' },
       },
       resolutionParams: {
@@ -719,9 +743,8 @@ Note:
     const parsedResponse = parseAiResponse(aiText);
     let reply =
       parsedResponse.reply ||
-      (parsedResponse.isStructured
-        ? 'Sorry, I could not process that response. Please try again.'
-        : aiText);
+      (!parsedResponse.isStructured ? aiText : '') ||
+      aiText;
     let intent = 'other';
     let lead_score = 'cold';
     let sentiment = 'neutral';
@@ -1842,19 +1865,34 @@ Please arrive 15 minutes before your time slot. Thank you!`;
 
     // 6. Send the generated text back to the customer via WhatsApp and insert it into the DB
     if (isHospitalEnabled && intent === 'booking') {
-      const { engineSendButtons } = await import('@/lib/automations/meta-send');
-      await engineSendButtons({
-        accountId,
-        userId,
-        conversationId,
-        contactId,
-        bodyText: reply,
-        buttons: [
-          { id: 'hospital_btn_book', title: '📅 Book Now' },
-          { id: 'hospital_btn_docs', title: '👨‍⚕️ View Doctors' },
-          { id: 'hospital_btn_branches', title: '📍 Clinic Sites' },
-        ],
-      });
+      try {
+        const { engineSendButtons } =
+          await import('@/lib/automations/meta-send');
+        await engineSendButtons({
+          accountId,
+          userId,
+          conversationId,
+          contactId,
+          bodyText: reply.substring(0, 1024),
+          buttons: [
+            { id: 'hospital_btn_book', title: '📅 Book Now' },
+            { id: 'hospital_btn_docs', title: '👨‍⚕️ View Doctors' },
+            { id: 'hospital_btn_branches', title: '📍 Clinic Sites' },
+          ],
+        });
+      } catch (btnErr) {
+        console.warn(
+          '[AI Assistant] Button dispatch failed, falling back to text:',
+          btnErr
+        );
+        await engineSendText({
+          accountId,
+          userId,
+          conversationId,
+          contactId,
+          text: reply,
+        });
+      }
     } else {
       await engineSendText({
         accountId,

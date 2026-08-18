@@ -133,11 +133,20 @@ async function resolveCredentialsAndPhone(
     try {
       const { data: conv } = await db
         .from('conversations')
-        .select('contact:contacts(phone)')
+        .select('contact_id, contact:contacts(phone)')
         .eq('id', conversationId)
         .maybeSingle();
       const contactObj = conv?.contact as { phone?: string } | null;
-      if (contactObj?.phone) phone = String(contactObj.phone);
+      if (contactObj?.phone) {
+        phone = String(contactObj.phone);
+      } else if (conv?.contact_id) {
+        const { data: c } = await db
+          .from('contacts')
+          .select('phone')
+          .eq('id', conv.contact_id)
+          .maybeSingle();
+        if (c?.phone) phone = String(c.phone);
+      }
     } catch {
       // ignore
     }
