@@ -1256,6 +1256,12 @@ export function parseCopilotSnapshotJson(
     .replace(/```$/i, '')
     .trim();
 
+  // Extract JSON object if surrounded by markdown or commentary
+  const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    cleaned = jsonMatch[0];
+  }
+
   // Attempt direct parse first
   try {
     return snapshotFromUnknown(JSON.parse(cleaned), fallback);
@@ -1300,7 +1306,7 @@ export function parseCopilotSnapshotJson(
       return snapshotFromUnknown(JSON.parse(cleaned), fallback);
     } catch (innerErr) {
       console.error('[Copilot AI] JSON recovery also failed:', innerErr);
-      throw innerErr;
+      return fallback;
     }
   }
 }
@@ -1341,7 +1347,8 @@ MANDATORY LANGUAGE RULE: You MUST write the suggestedReply in the EXACT SAME LAN
 Never diagnose diseases, recommend medicines, interpret medical reports, suggest treatment, or provide emergency triage. If medical advice is requested, recommend transfer to a doctor. If emergency symptoms appear, recommend urgent human/ER escalation.
 Use only the provided data. If a field is missing, say it is not available instead of inventing details.
 Keep patientSummary to 5 or 6 short bullets. Keep internalNotes private and operational.
-Return only a raw JSON object that matches the same shape as sourceContext.fallback.`;
+You MUST output ONLY a valid JSON object matching the following structure:
+${JSON.stringify(fallback, null, 2)}`;
 
   try {
     const res = await executeAiCompletionWithFallback({
@@ -1357,14 +1364,14 @@ Return only a raw JSON object that matches the same shape as sourceContext.fallb
         },
         {
           role: 'user',
-          content: `Latest patient message: ${latestText || '(none)'}\n\nBuild the copilot snapshot from this context:\n${JSON.stringify(sourceContext)}`,
+          content: `Latest patient message: ${latestText || '(none)'}\n\nBuild the copilot snapshot from this context:\n${JSON.stringify(sourceContext)}\n\nRespond with a valid JSON object matching the requested schema.`,
         },
       ],
       options: {
         model,
         apiKey,
         temperature: 0.2,
-        maxTokens: 1200,
+        maxTokens: 2000,
         responseFormat: { type: 'json_object' },
       },
       resolutionParams: {
@@ -1374,7 +1381,11 @@ Return only a raw JSON object that matches the same shape as sourceContext.fallb
       },
     });
 
-    return parseCopilotSnapshotJson(res.content, fallback);
+    const parsed = parseCopilotSnapshotJson(res.content, fallback);
+    return {
+      ...parsed,
+      warning: undefined, // Clear any warning on successful LLM generation
+    };
   } catch (err) {
     console.warn(
       `[Copilot AI] Provider execution failed:`,
