@@ -82,9 +82,22 @@ async function resolveCredentialsAndPhone(
         .from('whatsapp_config')
         .select('*')
         .eq('account_id', accountId)
-        .limit(1)
-        .maybeSingle();
-      if (data) config = data as Record<string, unknown>;
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (data && data.length > 0) config = data[0] as Record<string, unknown>;
+    } catch {
+      // ignore
+    }
+  }
+
+  if (!config) {
+    try {
+      const { data } = await db
+        .from('whatsapp_config')
+        .select('*')
+        .eq('accountId', accountId)
+        .limit(1);
+      if (data && data.length > 0) config = data[0] as Record<string, unknown>;
     } catch {
       // ignore
     }
@@ -93,10 +106,11 @@ async function resolveCredentialsAndPhone(
   if (!config) return null;
 
   const rawPhoneNumberId = String(
-    config.phone_number_id || config.phoneNumberId || ''
+    config.phone_number_id || config.phoneNumberId || config.phone_number || ''
   );
   const rawEncryptedToken = String(
     config.access_token_encrypted ||
+      config.encrypted_access_token ||
       config.accessTokenEncrypted ||
       config.access_token ||
       config.accessToken ||

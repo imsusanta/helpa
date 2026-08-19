@@ -130,6 +130,59 @@ export async function resolveAccountAiConfig(
         }
       }
     }
+
+    // 2. Check tenant workspace settings in accounts table if accountId is provided
+    if (accountId && accountId !== 'system') {
+      try {
+        const { data: acc } = await db
+          .from('accounts')
+          .select(
+            'ai_provider, ai_fallback_provider, openrouter_api_key, openrouter_model, orcarouter_api_key, orcarouter_model'
+          )
+          .eq('id', accountId)
+          .maybeSingle();
+
+        if (acc) {
+          if (
+            !overrides?.primaryProvider &&
+            (acc.ai_provider === 'openrouter' ||
+              acc.ai_provider === 'orcarouter')
+          ) {
+            primaryName = acc.ai_provider;
+          }
+          if (
+            overrides?.fallbackProvider === undefined &&
+            (acc.ai_fallback_provider === 'openrouter' ||
+              acc.ai_fallback_provider === 'orcarouter' ||
+              acc.ai_fallback_provider === 'none')
+          ) {
+            fallbackName = acc.ai_fallback_provider as AiProviderName | 'none';
+          }
+          if (acc.openrouter_model && !overrides?.primaryProvider) {
+            openrouterModel = acc.openrouter_model;
+          }
+          if (acc.orcarouter_model && !overrides?.primaryProvider) {
+            orcarouterModel = acc.orcarouter_model;
+          }
+          if (acc.openrouter_api_key) {
+            try {
+              openrouterKey = decrypt(acc.openrouter_api_key);
+            } catch {
+              openrouterKey = acc.openrouter_api_key;
+            }
+          }
+          if (acc.orcarouter_api_key) {
+            try {
+              orcarouterKey = decrypt(acc.orcarouter_api_key);
+            } catch {
+              orcarouterKey = acc.orcarouter_api_key;
+            }
+          }
+        }
+      } catch {
+        // ignore account query error
+      }
+    }
   } catch (err) {
     console.warn(
       '[Provider Resolver] Failed to load central settings, using fallback defaults:',
