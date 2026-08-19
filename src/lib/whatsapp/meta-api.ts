@@ -63,11 +63,39 @@ export interface VerifyPhoneNumberArgs {
 export async function verifyPhoneNumber(
   args: VerifyPhoneNumberArgs
 ): Promise<MetaPhoneInfo> {
-  const { phoneNumberId, accessToken } = args;
-  const url = `${META_API_BASE}/${phoneNumberId}?fields=id,display_phone_number,verified_name,quality_rating`;
-  const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+  const phoneNumberId = args.phoneNumberId?.trim();
+  const accessToken = args.accessToken?.trim();
+
+  if (!phoneNumberId) {
+    throw new Error('Phone number ID is missing or invalid.');
+  }
+  if (!accessToken) {
+    throw new Error('Access Token is missing or invalid.');
+  }
+
+  const url = `${META_API_BASE}/${encodeURIComponent(phoneNumberId)}?fields=id,display_phone_number,verified_name,quality_rating`;
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      signal: AbortSignal.timeout(15000),
+    });
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    if (
+      errorMsg.includes('timeout') ||
+      errorMsg.includes('abort') ||
+      errorMsg.includes('TimeoutError')
+    ) {
+      throw new Error(
+        'Meta Graph API request timed out (15s). Please check your network connection.'
+      );
+    }
+    throw new Error(
+      `Unable to reach Meta Graph API (${errorMsg}). Please verify that your Phone Number ID and Access Token are valid.`
+    );
+  }
+
   if (!response.ok) {
     await throwMetaError(response, `Meta API error: ${response.status}`);
   }
