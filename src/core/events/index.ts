@@ -11,6 +11,13 @@ export type CoreEventType =
   | 'message.sent'
   | 'contact.created'
   | 'contact.updated'
+  | 'contact.tag_added'
+  | 'contact.tag_removed'
+  | 'deal.created'
+  | 'deal.updated'
+  | 'deal.stage_changed'
+  | 'deal.won'
+  | 'deal.lost'
   | 'campaign.created'
   | 'campaign.completed'
   | 'automation.triggered'
@@ -26,6 +33,33 @@ export interface CoreEvent<T = Record<string, unknown>> {
   accountId: string;
   timestamp: string;
   payload: T;
+}
+
+export interface CrmEventDispatchParams {
+  accountId: string;
+  eventType:
+    | 'deal.created'
+    | 'deal.updated'
+    | 'deal.stage_changed'
+    | 'deal.won'
+    | 'deal.lost'
+    | 'contact.created'
+    | 'contact.updated'
+    | 'contact.tag_added'
+    | 'contact.tag_removed';
+  dealId?: string;
+  contactId?: string;
+  payload: Record<string, unknown>;
+}
+
+export async function dispatchCrmEvent(
+  params: CrmEventDispatchParams
+): Promise<void> {
+  return coreEvents.emit(params.eventType, params.accountId, {
+    dealId: params.dealId,
+    contactId: params.contactId,
+    ...params.payload,
+  });
 }
 
 export type EventHandler<T = Record<string, unknown>> = (

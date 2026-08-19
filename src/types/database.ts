@@ -1116,6 +1116,669 @@ export interface Database {
           },
         ];
       };
+      tags: {
+        Row: {
+          id: string;
+          account_id: string;
+          name: string;
+          color: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          account_id: string;
+          name: string;
+          color?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          name?: string;
+          color?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      contact_tags: {
+        Row: {
+          account_id: string;
+          contact_id: string;
+          tag_id: string;
+          created_at: string;
+        };
+        Insert: {
+          account_id: string;
+          contact_id: string;
+          tag_id: string;
+          created_at?: string;
+        };
+        Update: {
+          account_id?: string;
+          contact_id?: string;
+          tag_id?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      custom_fields: {
+        Row: {
+          id: string;
+          account_id: string;
+          name: string;
+          key: string;
+          field_type:
+            | 'text'
+            | 'number'
+            | 'email'
+            | 'phone'
+            | 'date'
+            | 'dropdown'
+            | 'multiselect'
+            | 'boolean';
+          options: Json;
+          required: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          account_id: string;
+          name: string;
+          key: string;
+          field_type:
+            | 'text'
+            | 'number'
+            | 'email'
+            | 'phone'
+            | 'date'
+            | 'dropdown'
+            | 'multiselect'
+            | 'boolean';
+          options?: Json;
+          required?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          name?: string;
+          key?: string;
+          field_type?:
+            | 'text'
+            | 'number'
+            | 'email'
+            | 'phone'
+            | 'date'
+            | 'dropdown'
+            | 'multiselect'
+            | 'boolean';
+          options?: Json;
+          required?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      custom_field_values: {
+        Row: {
+          id: string;
+          account_id: string;
+          contact_id: string;
+          custom_field_id: string;
+          value_text: string | null;
+          value_number: number | null;
+          value_date: string | null;
+          value_json: Json | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          account_id: string;
+          contact_id: string;
+          custom_field_id: string;
+          value_text?: string | null;
+          value_number?: number | null;
+          value_date?: string | null;
+          value_json?: Json | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          contact_id?: string;
+          custom_field_id?: string;
+          value_text?: string | null;
+          value_number?: number | null;
+          value_date?: string | null;
+          value_json?: Json | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      pipelines: {
+        Row: {
+          id: string;
+          account_id: string;
+          name: string;
+          is_default: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          account_id: string;
+          name: string;
+          is_default?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          name?: string;
+          is_default?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      pipeline_stages: {
+        Row: {
+          id: string;
+          account_id: string;
+          pipeline_id: string;
+          name: string;
+          order_index: number;
+          color: string;
+          icon: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          account_id: string;
+          pipeline_id: string;
+          name: string;
+          order_index?: number;
+          color?: string;
+          icon?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          pipeline_id?: string;
+          name?: string;
+          order_index?: number;
+          color?: string;
+          icon?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      deals: {
+        Row: {
+          id: string;
+          account_id: string;
+          pipeline_id: string;
+          stage_id: string;
+          contact_id: string | null;
+          assigned_user_id: string | null;
+          name: string;
+          value: number;
+          currency: string;
+          probability: number;
+          expected_close_date: string | null;
+          source: string | null;
+          notes: string | null;
+          status: 'open' | 'won' | 'lost' | 'abandoned';
+          lost_reason: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          account_id: string;
+          pipeline_id: string;
+          stage_id: string;
+          contact_id?: string | null;
+          assigned_user_id?: string | null;
+          name: string;
+          value?: number;
+          currency?: string;
+          probability?: number;
+          expected_close_date?: string | null;
+          source?: string | null;
+          notes?: string | null;
+          status?: 'open' | 'won' | 'lost' | 'abandoned';
+          lost_reason?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          pipeline_id?: string;
+          stage_id?: string;
+          contact_id?: string | null;
+          assigned_user_id?: string | null;
+          name?: string;
+          value?: number;
+          currency?: string;
+          probability?: number;
+          expected_close_date?: string | null;
+          source?: string | null;
+          notes?: string | null;
+          status?: 'open' | 'won' | 'lost' | 'abandoned';
+          lost_reason?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      deal_activities: {
+        Row: {
+          id: string;
+          account_id: string;
+          deal_id: string;
+          actor_user_id: string | null;
+          activity_type: string;
+          title: string;
+          description: string | null;
+          metadata: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          account_id: string;
+          deal_id: string;
+          actor_user_id?: string | null;
+          activity_type?: string;
+          title: string;
+          description?: string | null;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          deal_id?: string;
+          actor_user_id?: string | null;
+          activity_type?: string;
+          title?: string;
+          description?: string | null;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      automations: {
+        Row: {
+          id: string;
+          account_id: string;
+          name: string;
+          description: string | null;
+          trigger_type: string;
+          trigger_config: Json;
+          is_active: boolean;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          account_id: string;
+          name: string;
+          description?: string | null;
+          trigger_type: string;
+          trigger_config?: Json;
+          is_active?: boolean;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          name?: string;
+          description?: string | null;
+          trigger_type?: string;
+          trigger_config?: Json;
+          is_active?: boolean;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      automation_nodes: {
+        Row: {
+          id: string;
+          account_id: string;
+          automation_id: string;
+          node_id: string;
+          node_type: string;
+          label: string;
+          config: Json;
+          position_x: number;
+          position_y: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          account_id: string;
+          automation_id: string;
+          node_id: string;
+          node_type: string;
+          label?: string;
+          config?: Json;
+          position_x?: number;
+          position_y?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          automation_id?: string;
+          node_id?: string;
+          node_type?: string;
+          label?: string;
+          config?: Json;
+          position_x?: number;
+          position_y?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      automation_edges: {
+        Row: {
+          id: string;
+          account_id: string;
+          automation_id: string;
+          edge_id: string;
+          source_node_id: string;
+          target_node_id: string;
+          source_handle: string | null;
+          target_handle: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          account_id: string;
+          automation_id: string;
+          edge_id: string;
+          source_node_id: string;
+          target_node_id: string;
+          source_handle?: string | null;
+          target_handle?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          automation_id?: string;
+          edge_id?: string;
+          source_node_id?: string;
+          target_node_id?: string;
+          source_handle?: string | null;
+          target_handle?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      automation_executions: {
+        Row: {
+          id: string;
+          account_id: string;
+          automation_id: string;
+          trigger_data: Json;
+          status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+          current_node_id: string | null;
+          started_at: string;
+          completed_at: string | null;
+          error_message: string | null;
+          retry_count: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          account_id: string;
+          automation_id: string;
+          trigger_data?: Json;
+          status?: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+          current_node_id?: string | null;
+          started_at?: string;
+          completed_at?: string | null;
+          error_message?: string | null;
+          retry_count?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          automation_id?: string;
+          trigger_data?: Json;
+          status?: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+          current_node_id?: string | null;
+          started_at?: string;
+          completed_at?: string | null;
+          error_message?: string | null;
+          retry_count?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      automation_execution_logs: {
+        Row: {
+          id: string;
+          account_id: string;
+          execution_id: string;
+          node_id: string;
+          node_type: string;
+          status: 'success' | 'failed' | 'skipped';
+          input_data: Json | null;
+          output_data: Json | null;
+          error_message: string | null;
+          executed_at: string;
+        };
+        Insert: {
+          id?: string;
+          account_id: string;
+          execution_id: string;
+          node_id: string;
+          node_type: string;
+          status?: 'success' | 'failed' | 'skipped';
+          input_data?: Json | null;
+          output_data?: Json | null;
+          error_message?: string | null;
+          executed_at?: string;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          execution_id?: string;
+          node_id?: string;
+          node_type?: string;
+          status?: 'success' | 'failed' | 'skipped';
+          input_data?: Json | null;
+          output_data?: Json | null;
+          error_message?: string | null;
+          executed_at?: string;
+        };
+        Relationships: [];
+      };
+      conversation_flows: {
+        Row: {
+          id: string;
+          account_id: string;
+          name: string;
+          description: string | null;
+          is_active: boolean;
+          trigger_keywords: string[] | null;
+          is_default: boolean;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          account_id: string;
+          name: string;
+          description?: string | null;
+          is_active?: boolean;
+          trigger_keywords?: string[] | null;
+          is_default?: boolean;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          name?: string;
+          description?: string | null;
+          is_active?: boolean;
+          trigger_keywords?: string[] | null;
+          is_default?: boolean;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      flow_nodes: {
+        Row: {
+          id: string;
+          account_id: string;
+          flow_id: string;
+          node_id: string;
+          node_type: string;
+          label: string;
+          content: Json;
+          position_x: number;
+          position_y: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          account_id: string;
+          flow_id: string;
+          node_id: string;
+          node_type: string;
+          label?: string;
+          content?: Json;
+          position_x?: number;
+          position_y?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          flow_id?: string;
+          node_id?: string;
+          node_type?: string;
+          label?: string;
+          content?: Json;
+          position_x?: number;
+          position_y?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      flow_edges: {
+        Row: {
+          id: string;
+          account_id: string;
+          flow_id: string;
+          edge_id: string;
+          source_node_id: string;
+          target_node_id: string;
+          source_handle: string | null;
+          target_handle: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          account_id: string;
+          flow_id: string;
+          edge_id: string;
+          source_node_id: string;
+          target_node_id: string;
+          source_handle?: string | null;
+          target_handle?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          flow_id?: string;
+          edge_id?: string;
+          source_node_id?: string;
+          target_node_id?: string;
+          source_handle?: string | null;
+          target_handle?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      flow_executions: {
+        Row: {
+          id: string;
+          account_id: string;
+          flow_id: string;
+          conversation_id: string;
+          contact_id: string | null;
+          current_node_id: string | null;
+          status: 'active' | 'paused' | 'completed' | 'cancelled';
+          variables: Json;
+          started_at: string;
+          completed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          account_id: string;
+          flow_id: string;
+          conversation_id: string;
+          contact_id?: string | null;
+          current_node_id?: string | null;
+          status?: 'active' | 'paused' | 'completed' | 'cancelled';
+          variables?: Json;
+          started_at?: string;
+          completed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          flow_id?: string;
+          conversation_id?: string;
+          contact_id?: string | null;
+          current_node_id?: string | null;
+          status?: 'active' | 'paused' | 'completed' | 'cancelled';
+          variables?: Json;
+          started_at?: string;
+          completed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

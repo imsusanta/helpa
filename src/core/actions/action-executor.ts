@@ -1,6 +1,7 @@
 import { leadsRepository } from '@/infrastructure/appwrite/repositories/leads.repository';
 import { appointmentsRepository } from '@/infrastructure/appwrite/repositories/appointments.repository';
 import { auditLogsRepository } from '@/infrastructure/appwrite/repositories/audit_logs.repository';
+import { getAdminClient } from '@/lib/appwrite-server-compat';
 import { DefaultCalendlyProvider } from '../providers/calendly/calendly-provider';
 import { LeadStageType } from '../types';
 
@@ -131,20 +132,39 @@ export class TrustedActionExecutor {
     }
   }
 
-  // 3. Human Handoff (Pause AI & Alert Clinic Staff)
+  // 3. Human Handoff (Pause AI & Alert Staff / Agent)
   async handoffToHuman(params: {
     conversationId: string;
     reason: string;
     leadId?: string;
+    assignedAgentId?: string;
   }): Promise<ActionResult> {
     try {
+      const updateData: Record<string, unknown> = {
+        ai_chat_enabled: false,
+        updated_at: new Date().toISOString(),
+      };
+      if (params.assignedAgentId) {
+        updateData.assigned_agent_id = params.assignedAgentId;
+      }
+
+      await getAdminClient()
+        .from('conversations')
+        .update(updateData)
+        .eq('id', params.conversationId)
+        .eq('account_id', this.context.accountId);
+
       await auditLogsRepository.createAuditLog(
         this.context.accountId,
         this.context.actorId,
         'conversation.human_handoff',
         'conversations',
         params.conversationId,
-        { reason: params.reason, leadId: params.leadId }
+        {
+          reason: params.reason,
+          leadId: params.leadId,
+          assignedAgentId: params.assignedAgentId,
+        }
       );
 
       return {
