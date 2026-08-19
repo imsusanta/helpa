@@ -177,11 +177,51 @@ export async function resolveAccountAiConfig(
 
   // Override with custom keys/models if passed directly in tests or internal jobs
   if (overrides?.customApiKey) {
-    if (primaryName === 'orcarouter') {
-      orcarouterKey = overrides.customApiKey;
+    const rawKey = overrides.customApiKey.trim();
+    if (rawKey.startsWith('sk-or-') || rawKey.startsWith('sk-openrouter')) {
+      openrouterKey = rawKey;
+      if (
+        !overrides.primaryProvider &&
+        (!orcarouterKey || !orcarouterKey.trim())
+      ) {
+        primaryName = 'openrouter';
+      }
+    } else if (rawKey.startsWith('sk-orca-') || rawKey.startsWith('orca-')) {
+      orcarouterKey = rawKey;
+      if (
+        !overrides.primaryProvider &&
+        (!openrouterKey || !openrouterKey.trim())
+      ) {
+        primaryName = 'orcarouter';
+      }
     } else {
-      openrouterKey = overrides.customApiKey;
+      if (primaryName === 'orcarouter') {
+        orcarouterKey = rawKey;
+      } else {
+        openrouterKey = rawKey;
+      }
     }
+  }
+
+  // Automatic smart failover if primary provider has no API key configured but fallback does
+  if (
+    !overrides?.primaryProvider &&
+    primaryName === 'orcarouter' &&
+    (!orcarouterKey || !orcarouterKey.trim()) &&
+    openrouterKey &&
+    openrouterKey.trim()
+  ) {
+    primaryName = 'openrouter';
+    fallbackName = 'none';
+  } else if (
+    !overrides?.primaryProvider &&
+    primaryName === 'openrouter' &&
+    (!openrouterKey || !openrouterKey.trim()) &&
+    orcarouterKey &&
+    orcarouterKey.trim()
+  ) {
+    primaryName = 'orcarouter';
+    fallbackName = 'none';
   }
 
   if (overrides?.customModel) {
@@ -258,7 +298,7 @@ export async function executeAiCompletionWithFallback({
     try {
       const result = await primary.provider.generateCompletion(messages, {
         ...options,
-        apiKey: options?.apiKey || primary.apiKey,
+        apiKey: primary.apiKey || options?.apiKey,
         model: options?.model || primary.model,
       });
 

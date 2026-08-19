@@ -1351,35 +1351,71 @@ You MUST output ONLY a valid JSON object matching the following structure:
 ${JSON.stringify(fallback, null, 2)}`;
 
   try {
-    const res = await executeAiCompletionWithFallback({
-      messages: [
-        {
-          role: 'system',
-          content: [
-            routeSafety,
-            systemPrompt ? `Tenant AI policy:\n${systemPrompt}` : '',
-          ]
-            .filter(Boolean)
-            .join('\n\n'),
+    let res;
+    try {
+      res = await executeAiCompletionWithFallback({
+        messages: [
+          {
+            role: 'system',
+            content: [
+              routeSafety,
+              systemPrompt ? `Tenant AI policy:\n${systemPrompt}` : '',
+            ]
+              .filter(Boolean)
+              .join('\n\n'),
+          },
+          {
+            role: 'user',
+            content: `Latest patient message: ${latestText || '(none)'}\n\nBuild the copilot snapshot from this context:\n${JSON.stringify(sourceContext)}\n\nRespond with a valid JSON object matching the requested schema.`,
+          },
+        ],
+        options: {
+          model,
+          apiKey,
+          temperature: 0.2,
+          maxTokens: 2000,
+          responseFormat: { type: 'json_object' },
         },
-        {
-          role: 'user',
-          content: `Latest patient message: ${latestText || '(none)'}\n\nBuild the copilot snapshot from this context:\n${JSON.stringify(sourceContext)}\n\nRespond with a valid JSON object matching the requested schema.`,
+        resolutionParams: {
+          feature: 'AI_COPILOT',
+          customApiKey: apiKey,
+          customModel: model,
         },
-      ],
-      options: {
-        model,
-        apiKey,
-        temperature: 0.2,
-        maxTokens: 2000,
-        responseFormat: { type: 'json_object' },
-      },
-      resolutionParams: {
-        feature: 'AI_COPILOT',
-        customApiKey: apiKey,
-        customModel: model,
-      },
-    });
+      });
+    } catch (firstErr) {
+      console.warn(
+        '[Copilot AI] Structured json_object attempt failed, retrying with raw completion:',
+        firstErr
+      );
+      res = await executeAiCompletionWithFallback({
+        messages: [
+          {
+            role: 'system',
+            content: [
+              routeSafety,
+              systemPrompt ? `Tenant AI policy:\n${systemPrompt}` : '',
+            ]
+              .filter(Boolean)
+              .join('\n\n'),
+          },
+          {
+            role: 'user',
+            content: `Latest patient message: ${latestText || '(none)'}\n\nBuild the copilot snapshot from this context:\n${JSON.stringify(sourceContext)}\n\nRespond with ONLY a raw JSON object matching the requested schema.`,
+          },
+        ],
+        options: {
+          model,
+          apiKey,
+          temperature: 0.2,
+          maxTokens: 2000,
+        },
+        resolutionParams: {
+          feature: 'AI_COPILOT',
+          customApiKey: apiKey,
+          customModel: model,
+        },
+      });
+    }
 
     const parsed = parseCopilotSnapshotJson(res.content, fallback);
     return {
