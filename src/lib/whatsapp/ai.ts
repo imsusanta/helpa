@@ -35,11 +35,18 @@ export async function triggerAiResponse(
 
   // Check SaaS subscription limits before running any AI requests
   try {
-    await checkPlanLimits(accountId, 'max_ai_requests');
+    const limitCheck = await checkPlanLimits(accountId, 'max_ai_requests');
+    if (!limitCheck.allowed) {
+      console.warn(
+        '[AI Assistant] Limit check reached for account:',
+        accountId,
+        limitCheck.reason
+      );
+      return;
+    }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.warn('[AI Assistant] Limit check failed, skipping response:', msg);
-    return;
+    console.warn('[AI Assistant] Limit check warning, continuing:', msg);
   }
 
   const db = appwriteAdmin();
@@ -729,8 +736,30 @@ Note:
       },
     });
   } catch (err) {
-    console.error('[AI Assistant] AI completion failed:', err);
-    return;
+    console.warn(
+      '[AI Assistant] Structured JSON completion failed, retrying with raw text completion:',
+      err
+    );
+    try {
+      completion = await executeAiCompletionWithFallback({
+        messages: apiMessages,
+        options: {
+          temperature: 0.2,
+          maxTokens: 1200,
+        },
+        resolutionParams: {
+          accountId,
+          feature: 'AI_REPLY',
+          conversationId,
+        },
+      });
+    } catch (rawErr) {
+      console.error(
+        '[AI Assistant] Both structured and raw AI completion failed:',
+        rawErr
+      );
+      return;
+    }
   }
 
   const aiText = completion.content.trim();
@@ -745,6 +774,15 @@ Note:
       parsedResponse.reply ||
       (!parsedResponse.isStructured ? aiText : '') ||
       aiText;
+
+    if (reply.startsWith('{') && reply.endsWith('}')) {
+      try {
+        const j = JSON.parse(reply);
+        if (j.reply) reply = String(j.reply);
+      } catch {
+        // keep as is
+      }
+    }
     let intent = 'other';
     let lead_score = 'cold';
     let sentiment = 'neutral';

@@ -199,7 +199,22 @@ async function loadActiveRunForContact(
     return null;
   }
   const rows = (data as FlowRunRow[] | null) ?? [];
-  return rows[0] ?? null;
+  const run = rows[0] ?? null;
+  if (!run) return null;
+
+  // Stale run TTL check (1 hour) — if a flow run was started >1 hour ago,
+  // expire it so it doesn't block ongoing customer inquiries or AI auto-replies.
+  const startedAt = new Date(run.started_at).getTime();
+  const now = Date.now();
+  if (!isNaN(startedAt) && now - startedAt > 60 * 60 * 1000) {
+    console.log(
+      `[flows] Auto-expiring stale active flow run ${run.id} for contact ${contactId}`
+    );
+    await endRun(db, run.id, 'timed_out', 'stale_flow_timeout');
+    return null;
+  }
+
+  return run;
 }
 
 async function loadFlow(
