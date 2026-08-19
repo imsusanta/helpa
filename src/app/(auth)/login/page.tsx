@@ -79,6 +79,7 @@ function LoginPageInner() {
         }
       }
 
+      router.refresh();
       if (inviteToken) {
         router.push(`/join/${encodeURIComponent(inviteToken)}`);
       } else {

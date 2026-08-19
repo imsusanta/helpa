@@ -84,6 +84,7 @@ function SignupPageInner() {
       }
 
       if (data.redirect === '/dashboard') {
+        router.refresh();
         if (inviteToken) {
           router.push(`/join/${encodeURIComponent(inviteToken)}`);
         } else {
