@@ -11,7 +11,6 @@ import {
   Shield,
   Sparkles,
 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -466,59 +465,51 @@ export function AdminAiInfrastructure() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6 pb-12">
+    <div className="space-y-6">
       <AdminNav />
 
-      {/* Header */}
-      <div className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100">
-          AI Setup
-        </h1>
-        <p className="text-sm text-neutral-500 dark:text-neutral-400">
-          Connect your AI service and choose the model Helpa will use.
-        </p>
-      </div>
-
-      {/* Current AI Status Card */}
-      <Card className="border border-neutral-200/80 bg-neutral-50/50 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/50">
-        <CardContent className="p-5">
+      <div className="mx-auto max-w-3xl space-y-6">
+        {/* Current AI Status Card */}
+        <div className="border-border/60 bg-card/80 relative overflow-hidden rounded-[1.35rem] border p-5 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.45)]">
           <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-            <div className="space-y-1">
+            <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold tracking-wider text-neutral-500 uppercase">
-                  Current AI
+                <span className="text-muted-foreground text-[10px] font-bold tracking-[0.16em] uppercase">
+                  Active Platform Engine
                 </span>
                 {isLiveHealthy === true ? (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200/50 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:border-emerald-900/50 dark:bg-emerald-950/50 dark:text-emerald-400">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
                     <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-                    Connected
+                    Connected & Live
                   </span>
                 ) : hasCurrentConfig ? (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-200/50 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-600 dark:border-blue-900/50 dark:bg-blue-950/50 dark:text-blue-400">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-xs font-semibold text-blue-600 dark:text-blue-400">
                     <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
                     Configured
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-500 dark:bg-neutral-800">
-                    <span className="h-1.5 w-1.5 rounded-full bg-neutral-400" />
+                  <span className="border-border bg-muted/60 text-muted-foreground inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-semibold">
+                    <span className="bg-muted-foreground h-1.5 w-1.5 rounded-full" />
                     Not Configured
                   </span>
                 )}
               </div>
 
-              <div className="mt-3 grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-2 gap-6 pt-1">
                 <div>
-                  <div className="text-xs text-neutral-500">Provider</div>
-                  <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                  <div className="text-muted-foreground text-[11px]">
+                    Provider
+                  </div>
+                  <div className="text-foreground text-sm font-semibold">
                     {activeProvider === 'orcarouter'
                       ? 'OrcaRouter'
                       : 'OpenRouter'}
                   </div>
                 </div>
                 <div>
-                  <div className="text-xs text-neutral-500">Model</div>
+                  <div className="text-muted-foreground text-[11px]">Model</div>
                   <div
-                    className="max-w-[200px] truncate text-sm font-semibold text-neutral-900 dark:text-neutral-100"
+                    className="text-foreground max-w-[200px] truncate text-sm font-semibold"
                     title={activeModelId}
                   >
                     {activeModelName}
@@ -527,280 +518,298 @@ export function AdminAiInfrastructure() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2 self-start pt-2 sm:self-center sm:pt-0">
+            <div className="flex items-center gap-2 self-start sm:self-center">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={testCurrentConnection}
                 disabled={isTestingCurrent}
-                className="h-8 text-xs font-medium"
+                className="h-8 rounded-lg text-xs font-medium"
               >
                 {isTestingCurrent ? (
-                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  <Loader2 className="text-primary mr-1.5 h-3.5 w-3.5 animate-spin" />
                 ) : (
-                  <Sparkles className="mr-1.5 h-3.5 w-3.5 text-neutral-400" />
+                  <Sparkles className="text-primary mr-1.5 h-3.5 w-3.5" />
                 )}
                 Test Connection
               </Button>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Main Setup Form */}
-      <Card className="border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-950">
-        <CardContent className="space-y-6 p-6">
-          {/* STEP 1 — AI PROVIDER */}
-          <div className="space-y-2">
-            <Label className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-              AI Provider
-            </Label>
-            <Select
-              value={selectedProvider}
-              onValueChange={(val) => {
-                if (val === 'openrouter' || val === 'orcarouter') {
-                  handleProviderChange(val);
-                }
-              }}
-            >
-              <SelectTrigger className="h-11 w-full border-neutral-200 bg-white text-sm dark:border-neutral-800 dark:bg-neutral-900">
-                <SelectValue placeholder="Select AI Provider" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="openrouter">OpenRouter</SelectItem>
-                <SelectItem value="orcarouter">OrcaRouter</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* STEP 2 — API KEY */}
-          <div className="space-y-2">
-            <Label className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-              API Key
-            </Label>
-            <div className="relative">
-              <Input
-                type={showApiKey ? 'text' : 'password'}
-                placeholder={
-                  hasStoredKey ? '••••••••••••••••••••••••' : 'Enter API Key'
-                }
-                value={apiKeyInput}
-                onChange={(e) => {
-                  setApiKeyInput(e.target.value);
-                  setTestStatus(null);
+        {/* Main Setup Form */}
+        <div className="border-border/60 bg-card/80 rounded-[1.35rem] border p-6 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.45)]">
+          <div className="space-y-6">
+            {/* STEP 1 — AI PROVIDER */}
+            <div className="space-y-1.5">
+              <Label className="text-foreground text-xs font-semibold">
+                AI Provider
+              </Label>
+              <Select
+                value={selectedProvider}
+                onValueChange={(val) => {
+                  if (val === 'openrouter' || val === 'orcarouter') {
+                    handleProviderChange(val);
+                  }
                 }}
-                className="h-11 border-neutral-200 bg-white pr-10 font-mono text-sm dark:border-neutral-800 dark:bg-neutral-900"
-              />
-              <button
-                type="button"
-                onClick={() => setShowApiKey(!showApiKey)}
-                className="absolute top-1/2 right-3 -translate-y-1/2 p-1 text-neutral-400 transition-colors hover:text-neutral-600 dark:hover:text-neutral-200"
-                aria-label={showApiKey ? 'Hide API key' : 'Show API key'}
               >
-                {showApiKey ? (
-                  <EyeOff className="h-4 w-4" />
-                ) : (
-                  <Eye className="h-4 w-4" />
-                )}
-              </button>
-            </div>
-            <p className="flex items-center gap-1.5 pt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
-              <Shield className="h-3.5 w-3.5 shrink-0 text-neutral-400" />
-              Your API key is securely stored.
-            </p>
-          </div>
-
-          {/* STEP 3 — AI MODEL */}
-          <div className="space-y-2">
-            <Label className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-              AI Model
-            </Label>
-            <Select
-              value={selectedModel}
-              onValueChange={(val) => {
-                if (typeof val === 'string' && val) {
-                  setSelectedModel(val);
-                  setTestStatus(null);
-                }
-              }}
-            >
-              <SelectTrigger className="h-11 w-full border-neutral-200 bg-white text-sm dark:border-neutral-800 dark:bg-neutral-900">
-                <SelectValue placeholder="Select AI Model" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableProviderModels.map((m) => (
-                  <SelectItem key={m.id} value={m.id}>
-                    <div className="flex w-full items-center justify-between gap-4">
-                      <span className="font-medium text-neutral-900 dark:text-neutral-100">
-                        {m.name}
-                      </span>
-                      <span className="font-mono text-xs text-neutral-400">
-                        {m.id}
-                      </span>
-                    </div>
+                <SelectTrigger className="border-border/80 h-10 w-full rounded-xl text-xs">
+                  <SelectValue placeholder="Select AI Provider" />
+                </SelectTrigger>
+                <SelectContent className="border-border/80 rounded-xl">
+                  <SelectItem value="openrouter" className="text-xs">
+                    OpenRouter
                   </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                  <SelectItem value="orcarouter" className="text-xs">
+                    OrcaRouter
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-            {/* 4. ADD CUSTOM MODEL TRIGGER */}
-            <div className="pt-1.5">
-              <button
-                type="button"
-                onClick={() => {
-                  setCustomModelError('');
-                  setIsCustomModelOpen(true);
+            {/* STEP 2 — API KEY */}
+            <div className="space-y-1.5">
+              <Label className="text-foreground text-xs font-semibold">
+                API Key
+              </Label>
+              <div className="relative">
+                <Input
+                  type={showApiKey ? 'text' : 'password'}
+                  placeholder={
+                    hasStoredKey ? '••••••••••••••••••••••••' : 'Enter API Key'
+                  }
+                  value={apiKeyInput}
+                  onChange={(e) => {
+                    setApiKeyInput(e.target.value);
+                    setTestStatus(null);
+                  }}
+                  className="border-border/80 h-10 rounded-xl pr-10 font-mono text-xs"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowApiKey(!showApiKey)}
+                  className="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2 p-1 transition-colors"
+                  aria-label={showApiKey ? 'Hide API key' : 'Show API key'}
+                >
+                  {showApiKey ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+              <p className="text-muted-foreground flex items-center gap-1.5 pt-0.5 text-xs">
+                <Shield className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
+                Your API key is encrypted and stored securely with AES-256-GCM.
+              </p>
+            </div>
+
+            {/* STEP 3 — AI MODEL */}
+            <div className="space-y-1.5">
+              <Label className="text-foreground text-xs font-semibold">
+                AI Model
+              </Label>
+              <Select
+                value={selectedModel}
+                onValueChange={(val) => {
+                  if (typeof val === 'string' && val) {
+                    setSelectedModel(val);
+                    setTestStatus(null);
+                  }
                 }}
-                className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline dark:text-blue-400"
               >
-                <Plus className="h-3.5 w-3.5" />
+                <SelectTrigger className="border-border/80 h-10 w-full rounded-xl text-xs">
+                  <SelectValue placeholder="Select AI Model" />
+                </SelectTrigger>
+                <SelectContent className="border-border/80 rounded-xl">
+                  {availableProviderModels.map((m) => (
+                    <SelectItem key={m.id} value={m.id} className="text-xs">
+                      <div className="flex w-full items-center justify-between gap-4">
+                        <span className="text-foreground font-medium">
+                          {m.name}
+                        </span>
+                        <span className="text-muted-foreground font-mono text-[11px]">
+                          {m.id}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* 4. ADD CUSTOM MODEL TRIGGER */}
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomModelError('');
+                    setIsCustomModelOpen(true);
+                  }}
+                  className="text-primary inline-flex items-center gap-1 text-xs font-medium hover:underline"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Add Custom Model
+                </button>
+              </div>
+            </div>
+
+            {/* STEP 5 — TEST CONNECTION */}
+            <div className="space-y-3 pt-1">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleTestConnection}
+                disabled={isTesting}
+                className="h-9 w-full rounded-xl text-xs font-medium sm:w-auto"
+              >
+                {isTesting ? (
+                  <>
+                    <Loader2 className="text-primary mr-2 h-3.5 w-3.5 animate-spin" />
+                    Testing connection...
+                  </>
+                ) : (
+                  'Test Connection'
+                )}
+              </Button>
+
+              {testStatus === 'success' && (
+                <div className="flex items-start gap-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-xs text-emerald-900 dark:text-emerald-200">
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                  <div>
+                    <div className="font-semibold text-emerald-800 dark:text-emerald-300">
+                      Connection successful
+                    </div>
+                    <div className="mt-0.5 text-emerald-700/90 dark:text-emerald-400">
+                      Your AI service is operational and ready to process
+                      requests.
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {testStatus === 'error' && (
+                <div className="border-destructive/30 bg-destructive/10 text-destructive flex items-start gap-2.5 rounded-xl border p-3.5 text-xs">
+                  <span className="text-destructive mt-0.5 shrink-0 text-base leading-none font-bold">
+                    ✕
+                  </span>
+                  <div>
+                    <div className="font-semibold">Connection failed</div>
+                    <div className="mt-0.5 opacity-90">
+                      {testErrorMessage ||
+                        'Please check your API key and try again.'}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* STEP 6 — SAVE SETTINGS */}
+            <div className="border-border flex justify-end border-t pt-4">
+              <Button
+                type="button"
+                onClick={handleSave}
+                disabled={isSaving}
+                className="h-9 rounded-xl px-6 text-xs font-semibold"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save AI Configuration'
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Add Custom Model Dialog */}
+        <Dialog open={isCustomModelOpen} onOpenChange={setIsCustomModelOpen}>
+          <DialogContent className="border-border/60 bg-card rounded-2xl border p-6 shadow-xl sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-foreground text-base font-semibold">
                 Add Custom Model
-              </button>
-            </div>
-          </div>
-
-          {/* STEP 5 — TEST CONNECTION */}
-          <div className="space-y-3 pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleTestConnection}
-              disabled={isTesting}
-              className="h-10 w-full text-xs font-medium sm:w-auto"
-            >
-              {isTesting ? (
-                <>
-                  <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                  Testing connection...
-                </>
-              ) : (
-                'Test Connection'
-              )}
-            </Button>
-
-            {testStatus === 'success' && (
-              <div className="animate-in fade-in flex items-start gap-2.5 rounded-lg border border-emerald-200 bg-emerald-50 p-3.5 text-sm text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200">
-                <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                <div>
-                  <div className="font-semibold text-emerald-800 dark:text-emerald-300">
-                    Connection successful
-                  </div>
-                  <div className="mt-0.5 text-xs text-emerald-700/90 dark:text-emerald-400">
-                    Your AI service is ready to use.
-                  </div>
-                </div>
+              </DialogTitle>
+              <DialogDescription className="text-muted-foreground text-xs">
+                Add a custom AI model identifier for{' '}
+                {selectedProvider === 'openrouter'
+                  ? 'OpenRouter'
+                  : 'OrcaRouter'}
+                .
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-1.5">
+                <Label
+                  htmlFor="custom-model-name"
+                  className="text-foreground text-xs font-medium"
+                >
+                  Model Display Name
+                </Label>
+                <Input
+                  id="custom-model-name"
+                  placeholder="e.g. Gemini 2.5 Flash Thinking"
+                  value={customModelName}
+                  onChange={(e) => {
+                    setCustomModelName(e.target.value);
+                    setCustomModelError('');
+                  }}
+                  className="border-border/80 h-9 rounded-xl text-xs"
+                />
               </div>
-            )}
 
-            {testStatus === 'error' && (
-              <div className="animate-in fade-in flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 p-3.5 text-sm text-red-900 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200">
-                <span className="mt-0.5 shrink-0 text-base leading-none font-bold text-red-600 dark:text-red-400">
-                  ✕
-                </span>
-                <div>
-                  <div className="font-semibold text-red-800 dark:text-red-300">
-                    Connection failed
-                  </div>
-                  <div className="mt-0.5 text-xs text-red-700/90 dark:text-red-400">
-                    {testErrorMessage ||
-                      'Please check your API key and try again.'}
-                  </div>
-                </div>
+              <div className="space-y-1.5">
+                <Label
+                  htmlFor="custom-model-id"
+                  className="text-foreground text-xs font-medium"
+                >
+                  Model ID / Path
+                </Label>
+                <Input
+                  id="custom-model-id"
+                  placeholder={
+                    selectedProvider === 'openrouter'
+                      ? 'e.g. google/gemini-2.5-flash-preview'
+                      : 'e.g. openai/gpt-4o'
+                  }
+                  value={customModelId}
+                  onChange={(e) => {
+                    setCustomModelId(e.target.value);
+                    setCustomModelError('');
+                  }}
+                  className="border-border/80 h-9 rounded-xl font-mono text-xs"
+                />
+                {customModelError && (
+                  <p className="text-destructive text-xs font-medium">
+                    {customModelError}
+                  </p>
+                )}
               </div>
-            )}
-          </div>
-
-          {/* STEP 6 — SAVE SETTINGS */}
-          <div className="flex justify-end border-t border-neutral-100 pt-5 dark:border-neutral-800/80">
-            <Button
-              type="button"
-              onClick={handleSave}
-              disabled={isSaving}
-              className="h-11 bg-neutral-900 px-6 text-sm font-medium text-white hover:bg-neutral-800 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-200"
-            >
-              {isSaving ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                'Save AI Settings'
-              )}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Add Custom Model Dialog */}
-      <Dialog open={isCustomModelOpen} onOpenChange={setIsCustomModelOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Add Custom Model</DialogTitle>
-            <DialogDescription>
-              Add a custom AI model for{' '}
-              {selectedProvider === 'openrouter' ? 'OpenRouter' : 'OrcaRouter'}.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-3">
-            <div className="space-y-1.5">
-              <Label
-                htmlFor="custom-model-name"
-                className="text-xs font-semibold"
-              >
-                Model Name
-              </Label>
-              <Input
-                id="custom-model-name"
-                placeholder="e.g. My Model"
-                value={customModelName}
-                onChange={(e) => setCustomModelName(e.target.value)}
-                className="h-10"
-              />
             </div>
-            <div className="space-y-1.5">
-              <Label
-                htmlFor="custom-model-id"
-                className="text-xs font-semibold"
+
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsCustomModelOpen(false)}
+                className="h-8 rounded-lg text-xs"
               >
-                Model ID
-              </Label>
-              <Input
-                id="custom-model-id"
-                placeholder={
-                  selectedProvider === 'openrouter'
-                    ? 'provider/model-name'
-                    : 'model-identifier'
-                }
-                value={customModelId}
-                onChange={(e) => setCustomModelId(e.target.value)}
-                className="h-10 font-mono text-sm"
-              />
-              {customModelError && (
-                <p className="pt-1 text-xs font-medium text-red-500">
-                  {customModelError}
-                </p>
-              )}
-            </div>
-          </div>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setIsCustomModelOpen(false);
-                setCustomModelName('');
-                setCustomModelId('');
-                setCustomModelError('');
-              }}
-            >
-              Cancel
-            </Button>
-            <Button type="button" onClick={handleAddCustomModel}>
-              Add Model
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleAddCustomModel}
+                className="h-8 rounded-lg text-xs"
+              >
+                Add Model
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   );
 }

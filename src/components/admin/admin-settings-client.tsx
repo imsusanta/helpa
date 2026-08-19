@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import {
-  Shield,
   Loader2,
   Database,
   Zap,
@@ -11,18 +10,12 @@ import {
   Lock,
   CheckCircle2,
   AlertCircle,
+  Sliders,
 } from 'lucide-react';
 import { AdminNav } from './admin-nav';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
 interface PlatformConfig {
@@ -103,14 +96,14 @@ export function AdminSettingsClient() {
       <AdminNav onRefresh={fetchSettings} loading={loading} />
 
       {error ? (
-        <div className="border-destructive/20 bg-destructive/10 text-destructive flex items-center gap-3 rounded-xl border p-4 text-xs">
+        <div className="border-destructive/20 bg-destructive/10 text-destructive flex items-center gap-3 rounded-2xl border p-4 text-xs">
           <AlertCircle className="h-4 w-4 shrink-0" />
           <span>{error}</span>
           <Button
             size="sm"
             variant="outline"
             onClick={fetchSettings}
-            className="ml-auto h-7 text-xs"
+            className="ml-auto h-7 rounded-lg text-xs"
           >
             Retry
           </Button>
@@ -123,209 +116,190 @@ export function AdminSettingsClient() {
         <div className="space-y-6">
           {/* Infrastructure Health & Platform Readiness Status */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Card className="border-border bg-card shadow-none">
-              <CardContent className="flex items-center justify-between p-4">
-                <div className="flex items-center gap-3">
-                  <div className="bg-muted flex h-8 w-8 items-center justify-center rounded-lg">
-                    <Database className="text-muted-foreground h-4 w-4" />
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground text-xs">
-                      Database Platform
-                    </span>
-                    <p className="text-foreground mt-0.5 flex items-center gap-1 text-xs font-semibold">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />{' '}
-                      Connected
-                    </p>
-                  </div>
+            <div className="border-border/60 bg-card/80 flex items-center justify-between rounded-2xl border p-3.5 shadow-xs">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                  <Database className="h-4 w-4" />
                 </div>
-                <Badge
-                  variant="outline"
-                  className="border-emerald-500/30 text-[10px] text-emerald-600 dark:text-emerald-400"
-                >
-                  Active
-                </Badge>
-              </CardContent>
-            </Card>
+                <div>
+                  <span className="text-muted-foreground text-[11px]">
+                    Database Platform
+                  </span>
+                  <p className="text-foreground flex items-center gap-1 text-xs font-semibold">
+                    <CheckCircle2 className="h-3 w-3 text-emerald-500" />{' '}
+                    Connected
+                  </p>
+                </div>
+              </div>
+              <Badge
+                variant="outline"
+                className="border-emerald-500/20 bg-emerald-500/10 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400"
+              >
+                Active
+              </Badge>
+            </div>
 
-            <Card className="border-border bg-card shadow-none">
-              <CardContent className="flex items-center justify-between p-4">
-                <div className="flex items-center gap-3">
-                  <div className="bg-muted flex h-8 w-8 items-center justify-center rounded-lg">
-                    <Zap className="text-muted-foreground h-4 w-4" />
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground text-xs">
-                      Meta Cloud API
-                    </span>
-                    <p className="text-foreground mt-0.5 flex items-center gap-1 text-xs font-semibold">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />{' '}
-                      Operational
-                    </p>
-                  </div>
+            <div className="border-border/60 bg-card/80 flex items-center justify-between rounded-2xl border p-3.5 shadow-xs">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                  <Zap className="h-4 w-4" />
                 </div>
-                <Badge
-                  variant="outline"
-                  className="border-emerald-500/30 text-[10px] text-emerald-600 dark:text-emerald-400"
-                >
-                  v21.0
-                </Badge>
-              </CardContent>
-            </Card>
+                <div>
+                  <span className="text-muted-foreground text-[11px]">
+                    WhatsApp Cloud API
+                  </span>
+                  <p className="text-foreground flex items-center gap-1 text-xs font-semibold">
+                    <CheckCircle2 className="h-3 w-3 text-emerald-500" />{' '}
+                    Operational
+                  </p>
+                </div>
+              </div>
+              <Badge
+                variant="outline"
+                className="border-emerald-500/20 bg-emerald-500/10 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400"
+              >
+                v21.0
+              </Badge>
+            </div>
 
-            <Card className="border-border bg-card shadow-none">
-              <CardContent className="flex items-center justify-between p-4">
-                <div className="flex items-center gap-3">
-                  <div className="bg-muted flex h-8 w-8 items-center justify-center rounded-lg">
-                    <Cpu className="text-muted-foreground h-4 w-4" />
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground text-xs">
-                      AI Routing Engine
-                    </span>
-                    <p className="text-foreground mt-0.5 flex items-center gap-1 text-xs font-semibold">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />{' '}
-                      Ready
-                    </p>
-                  </div>
+            <div className="border-border/60 bg-card/80 flex items-center justify-between rounded-2xl border p-3.5 shadow-xs">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                  <Cpu className="h-4 w-4" />
                 </div>
-                <Badge
-                  variant="outline"
-                  className="border-emerald-500/30 text-[10px] text-emerald-600 dark:text-emerald-400"
-                >
-                  Multi-Model
-                </Badge>
-              </CardContent>
-            </Card>
+                <div>
+                  <span className="text-muted-foreground text-[11px]">
+                    AI Routing Engine
+                  </span>
+                  <p className="text-foreground flex items-center gap-1 text-xs font-semibold">
+                    <CheckCircle2 className="h-3 w-3 text-emerald-500" /> Ready
+                  </p>
+                </div>
+              </div>
+              <Badge
+                variant="outline"
+                className="border-purple-500/20 bg-purple-500/10 text-[10px] font-semibold text-purple-600 dark:text-purple-400"
+              >
+                Multi-Model
+              </Badge>
+            </div>
 
-            <Card className="border-border bg-card shadow-none">
-              <CardContent className="flex items-center justify-between p-4">
-                <div className="flex items-center gap-3">
-                  <div className="bg-muted flex h-8 w-8 items-center justify-center rounded-lg">
-                    <Lock className="text-muted-foreground h-4 w-4" />
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground text-xs">
-                      Secret Encryption
-                    </span>
-                    <p className="text-foreground mt-0.5 flex items-center gap-1 text-xs font-semibold">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />{' '}
-                      AES-256-GCM
-                    </p>
-                  </div>
+            <div className="border-border/60 bg-card/80 flex items-center justify-between rounded-2xl border p-3.5 shadow-xs">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                  <Lock className="h-4 w-4" />
                 </div>
-                <Badge
-                  variant="outline"
-                  className="border-blue-500/30 text-[10px] text-blue-600 dark:text-blue-400"
-                >
-                  Secured
-                </Badge>
-              </CardContent>
-            </Card>
+                <div>
+                  <span className="text-muted-foreground text-[11px]">
+                    Secret Encryption
+                  </span>
+                  <p className="text-foreground flex items-center gap-1 text-xs font-semibold">
+                    <CheckCircle2 className="h-3 w-3 text-emerald-500" />{' '}
+                    AES-256-GCM
+                  </p>
+                </div>
+              </div>
+              <Badge
+                variant="outline"
+                className="border-blue-500/20 bg-blue-500/10 text-[10px] font-semibold text-blue-600 dark:text-blue-400"
+              >
+                Secured
+              </Badge>
+            </div>
           </div>
 
-          {/* Global Workspace Quotas & Settings */}
-          <Card className="border-border bg-card max-w-2xl shadow-none">
-            <CardHeader className="p-5 pb-3">
-              <CardTitle className="text-foreground text-sm font-semibold">
-                Default Workspace Defaults & Limits
-              </CardTitle>
-              <CardDescription className="text-muted-foreground text-xs">
-                Default configuration automatically applied to newly provisioned
-                subscriber workspaces
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-5 pt-0">
-              <form onSubmit={handleSaveConfig} className="space-y-4">
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                  <div className="grid gap-1.5">
-                    <Label
-                      htmlFor="trialDays"
-                      className="text-muted-foreground text-xs font-medium"
-                    >
-                      Default Trial Days
-                    </Label>
-                    <Input
-                      id="trialDays"
-                      type="number"
-                      value={platformConfig.default_trial_days}
-                      onChange={(e) =>
-                        setPlatformConfig((prev) => ({
-                          ...prev,
-                          default_trial_days: e.target.value,
-                        }))
-                      }
-                      className="border-border bg-background text-foreground text-xs"
-                    />
-                  </div>
+          {/* Platform Defaults & Quotas Settings Form */}
+          <div className="border-border/60 bg-card/80 mx-auto max-w-2xl rounded-[1.35rem] border p-6 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.45)]">
+            <div className="space-y-1 pb-4">
+              <div className="flex items-center gap-2">
+                <Sliders className="text-primary h-4 w-4" />
+                <h3 className="text-foreground text-sm font-semibold">
+                  Global Tenant Quotas & Defaults
+                </h3>
+              </div>
+              <p className="text-muted-foreground text-xs">
+                Set baseline quotas for new subscriber workspaces and trial
+                duration.
+              </p>
+            </div>
 
-                  <div className="grid gap-1.5">
-                    <Label
-                      htmlFor="defaultUsers"
-                      className="text-muted-foreground text-xs font-medium"
-                    >
-                      Default Max Members
-                    </Label>
-                    <Input
-                      id="defaultUsers"
-                      type="number"
-                      value={platformConfig.max_workspace_users_default}
-                      onChange={(e) =>
-                        setPlatformConfig((prev) => ({
-                          ...prev,
-                          max_workspace_users_default: e.target.value,
-                        }))
-                      }
-                      className="border-border bg-background text-foreground text-xs"
-                    />
-                  </div>
+            <form onSubmit={handleSaveConfig} className="space-y-5">
+              <div className="space-y-1.5">
+                <Label className="text-foreground text-xs font-medium">
+                  Default Trial Period (Days)
+                </Label>
+                <Input
+                  type="number"
+                  value={platformConfig.default_trial_days}
+                  onChange={(e) =>
+                    setPlatformConfig((prev) => ({
+                      ...prev,
+                      default_trial_days: e.target.value,
+                    }))
+                  }
+                  className="border-border/80 h-9 rounded-xl text-xs"
+                />
+                <p className="text-muted-foreground text-[11px]">
+                  Number of days allocated to new signups before requiring a
+                  paid plan.
+                </p>
+              </div>
 
-                  <div className="grid gap-1.5">
-                    <Label
-                      htmlFor="defaultContacts"
-                      className="text-muted-foreground text-xs font-medium"
-                    >
-                      Default Max Contacts
-                    </Label>
-                    <Input
-                      id="defaultContacts"
-                      type="number"
-                      value={platformConfig.max_workspace_contacts_default}
-                      onChange={(e) =>
-                        setPlatformConfig((prev) => ({
-                          ...prev,
-                          max_workspace_contacts_default: e.target.value,
-                        }))
-                      }
-                      className="border-border bg-background text-foreground text-xs"
-                    />
-                  </div>
-                </div>
+              <div className="space-y-1.5">
+                <Label className="text-foreground text-xs font-medium">
+                  Default Workspace Max Members
+                </Label>
+                <Input
+                  type="number"
+                  value={platformConfig.max_workspace_users_default}
+                  onChange={(e) =>
+                    setPlatformConfig((prev) => ({
+                      ...prev,
+                      max_workspace_users_default: e.target.value,
+                    }))
+                  }
+                  className="border-border/80 h-9 rounded-xl text-xs"
+                />
+                <p className="text-muted-foreground text-[11px]">
+                  Maximum team members a trial account can invite.
+                </p>
+              </div>
 
-                <div className="border-border flex items-center justify-between border-t pt-3">
-                  <div className="flex items-center gap-2">
-                    <Shield className="text-muted-foreground h-4 w-4" />
-                    <span className="text-muted-foreground text-xs">
-                      Platform Owner:{' '}
-                      <strong className="text-foreground">Susanta Lohar</strong>
-                    </span>
-                  </div>
+              <div className="space-y-1.5">
+                <Label className="text-foreground text-xs font-medium">
+                  Default Workspace Max Contacts
+                </Label>
+                <Input
+                  type="number"
+                  value={platformConfig.max_workspace_contacts_default}
+                  onChange={(e) =>
+                    setPlatformConfig((prev) => ({
+                      ...prev,
+                      max_workspace_contacts_default: e.target.value,
+                    }))
+                  }
+                  className="border-border/80 h-9 rounded-xl text-xs"
+                />
+                <p className="text-muted-foreground text-[11px]">
+                  Maximum CRM contacts stored before tier upgrade is prompted.
+                </p>
+              </div>
 
-                  <Button
-                    type="submit"
-                    size="sm"
-                    disabled={saving}
-                    className="h-8 text-xs font-medium"
-                  >
-                    {saving && (
-                      <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
-                    )}
-                    Save Quotas
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
+              <div className="border-border flex justify-end border-t pt-4">
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={saving}
+                  className="h-9 rounded-xl px-5 text-xs font-semibold"
+                >
+                  {saving && (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  )}
+                  Save Platform Defaults
+                </Button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

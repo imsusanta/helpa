@@ -182,7 +182,7 @@ export function AdminTenantsClient() {
         return (
           <Badge
             variant="outline"
-            className="border-emerald-500/30 bg-emerald-500/10 text-xs font-medium text-emerald-600 dark:text-emerald-400"
+            className="border-emerald-500/30 bg-emerald-500/10 text-xs font-semibold text-emerald-600 dark:text-emerald-400"
           >
             Active
           </Badge>
@@ -191,7 +191,7 @@ export function AdminTenantsClient() {
         return (
           <Badge
             variant="outline"
-            className="border-blue-500/30 bg-blue-500/10 text-xs font-medium text-blue-600 dark:text-blue-400"
+            className="border-blue-500/30 bg-blue-500/10 text-xs font-semibold text-blue-600 dark:text-blue-400"
           >
             Trial
           </Badge>
@@ -200,16 +200,25 @@ export function AdminTenantsClient() {
         return (
           <Badge
             variant="outline"
-            className="bg-muted text-muted-foreground border-border text-xs font-medium"
+            className="border-border bg-muted/60 text-muted-foreground text-xs font-semibold"
           >
             Suspended
+          </Badge>
+        );
+      case 'expired':
+        return (
+          <Badge
+            variant="outline"
+            className="border-rose-500/30 bg-rose-500/10 text-xs font-semibold text-rose-600 dark:text-rose-400"
+          >
+            Expired
           </Badge>
         );
       default:
         return (
           <Badge
             variant="outline"
-            className="border-emerald-500/30 bg-emerald-500/10 text-xs font-medium text-emerald-600 dark:text-emerald-400"
+            className="border-emerald-500/30 bg-emerald-500/10 text-xs font-semibold text-emerald-600 dark:text-emerald-400"
           >
             Active
           </Badge>
@@ -222,105 +231,134 @@ export function AdminTenantsClient() {
       <AdminNav onRefresh={loadData} loading={loading} />
 
       <div className="space-y-4">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative max-w-sm flex-1">
             <Search className="text-muted-foreground absolute top-2.5 left-3 h-4 w-4" />
             <Input
-              placeholder="Search subscribers by name, owner, or email..."
+              placeholder="Search subscribers by name or email..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-card text-foreground border-border h-9 pl-9 text-xs"
+              className="border-border/80 bg-card text-foreground placeholder:text-muted-foreground focus-visible:border-primary h-9 rounded-xl pl-9 text-xs shadow-xs"
             />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground text-xs font-medium">
+              Total Subscribers:{' '}
+              <strong className="text-foreground">
+                {filteredTenants.length}
+              </strong>
+            </span>
           </div>
         </div>
 
-        <div className="bg-card border-border overflow-hidden rounded-xl border">
+        <div className="border-border/60 bg-card/80 overflow-hidden rounded-[1.35rem] border shadow-[0_18px_50px_-30px_rgba(15,23,42,0.45)]">
           <div className="overflow-x-auto">
             <Table>
-              <TableHeader className="bg-muted/30 border-border border-b">
+              <TableHeader className="border-border/60 bg-muted/30 border-b">
                 <TableRow>
-                  <TableHead className="text-muted-foreground text-xs font-semibold">
+                  <TableHead className="text-muted-foreground text-[10px] font-bold tracking-[0.12em] uppercase">
                     Subscriber / Business
                   </TableHead>
-                  <TableHead className="text-muted-foreground text-xs font-semibold">
+                  <TableHead className="text-muted-foreground text-[10px] font-bold tracking-[0.12em] uppercase">
                     Owner
                   </TableHead>
-                  <TableHead className="text-muted-foreground text-xs font-semibold">
+                  <TableHead className="text-muted-foreground text-[10px] font-bold tracking-[0.12em] uppercase">
                     Plan
                   </TableHead>
-                  <TableHead className="text-muted-foreground text-xs font-semibold">
+                  <TableHead className="text-muted-foreground text-[10px] font-bold tracking-[0.12em] uppercase">
                     Status
                   </TableHead>
-                  <TableHead className="text-muted-foreground text-center text-xs font-semibold">
+                  <TableHead className="text-muted-foreground text-center text-[10px] font-bold tracking-[0.12em] uppercase">
                     Contacts
                   </TableHead>
-                  <TableHead className="text-muted-foreground text-center text-xs font-semibold">
+                  <TableHead className="text-muted-foreground text-center text-[10px] font-bold tracking-[0.12em] uppercase">
                     Members
                   </TableHead>
-                  <TableHead className="text-muted-foreground text-center text-xs font-semibold">
-                    AI Requests
+                  <TableHead className="text-muted-foreground text-center text-[10px] font-bold tracking-[0.12em] uppercase">
+                    AI Calls
                   </TableHead>
-                  <TableHead className="text-muted-foreground text-right text-xs font-semibold">
-                    Actions
+                  <TableHead className="text-muted-foreground text-right text-[10px] font-bold tracking-[0.12em] uppercase">
+                    Action
                   </TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody className="text-xs">
+              <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="py-8 text-center">
-                      <Loader2 className="text-muted-foreground mx-auto h-5 w-5 animate-spin" />
+                    <TableCell colSpan={8} className="h-32 text-center">
+                      <div className="text-muted-foreground flex items-center justify-center gap-2 text-xs">
+                        <Loader2 className="text-primary h-4 w-4 animate-spin" />
+                        Loading subscribers...
+                      </div>
                     </TableCell>
                   </TableRow>
                 ) : filteredTenants.length === 0 ? (
                   <TableRow>
                     <TableCell
                       colSpan={8}
-                      className="text-muted-foreground py-8 text-center"
+                      className="text-muted-foreground h-32 text-center text-xs"
                     >
-                      No subscribers match your search query.
+                      No subscribers found matching your search.
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredTenants.map((t) => (
                     <TableRow
                       key={t.id}
-                      className="hover:bg-muted/40 transition-colors"
+                      className="border-border/40 hover:bg-muted/30 border-b transition-colors"
                     >
-                      <TableCell className="text-foreground font-medium">
-                        {t.name}
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2.5">
+                          <div className="bg-primary/10 text-primary flex h-8 w-8 items-center justify-center rounded-xl text-xs font-bold">
+                            {t.name?.charAt(0)?.toUpperCase() || 'B'}
+                          </div>
+                          <div>
+                            <div className="text-foreground text-xs font-semibold">
+                              {t.name}
+                            </div>
+                            <div className="text-muted-foreground text-[10px]">
+                              Joined{' '}
+                              {t.created_at
+                                ? new Date(t.created_at).toLocaleDateString()
+                                : 'Recent'}
+                            </div>
+                          </div>
+                        </div>
                       </TableCell>
                       <TableCell>
-                        <div className="text-foreground font-medium">
-                          {t.owner?.full_name || 'Unassigned'}
+                        <div className="text-foreground text-xs font-medium">
+                          {t.owner?.full_name || 'Admin'}
                         </div>
-                        <div className="text-muted-foreground text-xs">
-                          {t.owner?.email || '-'}
+                        <div className="text-muted-foreground text-[11px]">
+                          {t.owner?.email || 'N/A'}
                         </div>
-                      </TableCell>
-                      <TableCell className="text-foreground">
-                        {t.subscription?.plan?.name || 'Growth Plan'}
                       </TableCell>
                       <TableCell>
-                        {getSubStatusBadge(t.subscription?.status || 'active')}
+                        <span className="text-foreground text-xs font-semibold">
+                          {t.subscription?.plan?.name || 'Growth Premium'}
+                        </span>
                       </TableCell>
-                      <TableCell className="text-center font-medium">
-                        {t.contactsCount}
+                      <TableCell>
+                        {getSubStatusBadge(t.subscription?.status)}
                       </TableCell>
-                      <TableCell className="text-center font-medium">
-                        {t.membersCount}
+                      <TableCell className="text-foreground text-center text-xs font-medium tabular-nums">
+                        {t.contactsCount ?? 0}
                       </TableCell>
-                      <TableCell className="text-center font-medium">
-                        {t.usage?.aiRequests ?? 0}
+                      <TableCell className="text-foreground text-center text-xs font-medium tabular-nums">
+                        {t.membersCount ?? 0}
+                      </TableCell>
+                      <TableCell className="text-foreground text-center text-xs font-medium tabular-nums">
+                        {(t.usage?.aiRequests ?? 0).toLocaleString()}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button
-                          size="sm"
                           variant="outline"
-                          className="h-7 text-xs font-medium"
+                          size="sm"
                           onClick={() => handleOpenSubDialog(t)}
+                          className="border-border/80 hover:bg-muted/80 h-7 rounded-lg text-[11px] font-medium"
                         >
-                          Manage
+                          Edit Tier
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -332,113 +370,104 @@ export function AdminTenantsClient() {
         </div>
       </div>
 
-      {/* Edit Subscription Dialog */}
+      {/* Subscription Tier Editor Modal */}
       <Dialog open={subDialogOpen} onOpenChange={setSubDialogOpen}>
-        <DialogContent className="bg-popover text-popover-foreground border-border max-w-md">
+        <DialogContent className="border-border/60 bg-card rounded-2xl border p-6 shadow-xl sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-foreground text-base font-semibold">
-              Manage Subscriber
+              Edit Subscription — {selectedTenant?.name}
             </DialogTitle>
             <DialogDescription className="text-muted-foreground text-xs">
-              Modify the subscription tier and billing dates for{' '}
-              {selectedTenant?.name}.
+              Adjust plan tier, status, and expiration date for this business
+              account.
             </DialogDescription>
           </DialogHeader>
-
-          <form onSubmit={handleSubSubmit} className="space-y-4 py-2">
-            <div className="grid gap-1.5">
-              <Label
-                htmlFor="planSelect"
-                className="text-muted-foreground text-xs font-medium"
-              >
-                Billing Plan
+          <form onSubmit={handleSubSubmit} className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label className="text-foreground text-xs font-medium">
+                Pricing Plan
               </Label>
               <Select
                 value={editPlanId}
                 onValueChange={(val) => setEditPlanId(val || '')}
               >
-                <SelectTrigger
-                  id="planSelect"
-                  className="bg-background text-foreground border-border"
-                >
+                <SelectTrigger className="border-border/80 h-9 rounded-xl text-xs">
                   <SelectValue placeholder="Select Plan" />
                 </SelectTrigger>
-                <SelectContent className="bg-popover text-popover-foreground border-border">
+                <SelectContent className="border-border/80 rounded-xl">
                   {plans.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name} (₹
-                      {(p.monthly_price ?? 0).toLocaleString('en-IN')}/mo)
+                    <SelectItem key={p.id} value={p.id} className="text-xs">
+                      {p.name} (₹{p.monthly_price || 0}/mo)
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
-            <div className="grid gap-1.5">
-              <Label
-                htmlFor="statusSelect"
-                className="text-muted-foreground text-xs font-medium"
-              >
-                Subscription Status
+            <div className="space-y-1.5">
+              <Label className="text-foreground text-xs font-medium">
+                Status
               </Label>
               <Select
                 value={editStatus}
-                onValueChange={(val) => setEditStatus(val as typeof editStatus)}
+                onValueChange={(val) =>
+                  setEditStatus(
+                    val as 'trial' | 'active' | 'expired' | 'cancelled'
+                  )
+                }
               >
-                <SelectTrigger
-                  id="statusSelect"
-                  className="bg-background text-foreground border-border"
-                >
+                <SelectTrigger className="border-border/80 h-9 rounded-xl text-xs">
                   <SelectValue placeholder="Select Status" />
                 </SelectTrigger>
-                <SelectContent className="bg-popover text-popover-foreground border-border">
-                  <SelectItem value="trial">Trial</SelectItem>
-                  <SelectItem value="active">Active (Paid)</SelectItem>
-                  <SelectItem value="expired">Expired</SelectItem>
-                  <SelectItem value="cancelled">
+                <SelectContent className="border-border/80 rounded-xl">
+                  <SelectItem value="trial" className="text-xs">
+                    Trial (14-day)
+                  </SelectItem>
+                  <SelectItem value="active" className="text-xs">
+                    Active (Paid)
+                  </SelectItem>
+                  <SelectItem value="expired" className="text-xs">
+                    Expired
+                  </SelectItem>
+                  <SelectItem value="cancelled" className="text-xs">
                     Suspended / Cancelled
                   </SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            <div className="grid gap-1.5">
-              <Label
-                htmlFor="endDateInput"
-                className="text-muted-foreground text-xs font-medium"
-              >
-                Contract Expiration Date
+            <div className="space-y-1.5">
+              <Label className="text-foreground text-xs font-medium">
+                Billing / Trial End Date
               </Label>
               <Input
-                id="endDateInput"
                 type="date"
                 value={editEndDate}
                 onChange={(e) => setEditEndDate(e.target.value)}
-                className="bg-background text-foreground border-border text-xs"
+                className="border-border/80 h-9 rounded-xl text-xs"
               />
             </div>
 
-            <DialogFooter className="mt-4 gap-2">
+            <DialogFooter className="pt-2">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-8 text-xs"
                 onClick={() => setSubDialogOpen(false)}
-                disabled={submittingSub}
+                className="h-8 rounded-lg text-xs"
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
                 size="sm"
-                className="h-8 text-xs font-medium"
                 disabled={submittingSub}
+                className="h-8 rounded-lg text-xs"
               >
                 {submittingSub && (
-                  <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                 )}
-                Apply Subscription
+                Save Changes
               </Button>
             </DialogFooter>
           </form>
