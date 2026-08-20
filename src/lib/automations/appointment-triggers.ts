@@ -134,10 +134,7 @@ export async function cancelPendingAppointmentReminders(
     .eq('status', 'pending')
     .filter('context->>appointment_id', 'eq', appointmentId);
   if (error) {
-    console.error(
-      '[automations] cancelling pending reminders failed:',
-      error
-    );
+    console.error('[automations] cancelling pending reminders failed:', error);
   }
 }
 
