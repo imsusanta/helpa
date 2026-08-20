@@ -10,6 +10,7 @@ import {
   validateStepsForActivation,
   validateTriggerForActivation,
 } from '@/lib/automations/validate';
+import { checkPlanLimits } from '@/lib/saas/subscription';
 
 export async function GET() {
   const appwrite = await createClient();
@@ -48,6 +49,22 @@ export async function POST(request: Request) {
   if (!accountId) {
     return NextResponse.json(
       { error: 'Your profile is not linked to an account.' },
+      { status: 403 }
+    );
+  }
+
+  const autoLimit = await checkPlanLimits(accountId, 'automations');
+  if (!autoLimit.allowed) {
+    return NextResponse.json(
+      {
+        code: 'PLAN_LIMIT_REACHED',
+        error:
+          autoLimit.reason || 'Automation limit reached for your current plan.',
+        feature: 'automations',
+        current: autoLimit.currentUsage,
+        limit: autoLimit.limit,
+        upgrade_required: true,
+      },
       { status: 403 }
     );
   }

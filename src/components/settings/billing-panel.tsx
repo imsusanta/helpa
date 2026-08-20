@@ -129,7 +129,7 @@ interface InvoiceItem {
 }
 
 export function BillingPanel() {
-  const { accountId, profile, user } = useAuth();
+  const { accountId, profile, user, account } = useAuth();
   const email = profile?.email || user?.email || '';
   const [loading, setLoading] = useState(true);
   const [upgrading, setUpgrading] = useState(false);
@@ -250,6 +250,68 @@ export function BillingPanel() {
     setDowngradeWarning(null);
 
     try {
+      // 1. Attempt Razorpay live order flow
+      const orderRes = await fetch('/api/billing/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planSlug: plan.slug }),
+      });
+      const orderData = await orderRes.json().catch(() => ({}));
+
+      if (orderRes.ok && orderData.orderId && orderData.keyId) {
+        // Load script dynamically
+        let hasScript =
+          typeof window !== 'undefined' &&
+          Boolean((window as unknown as { Razorpay?: unknown }).Razorpay);
+        if (!hasScript && typeof document !== 'undefined') {
+          await new Promise<void>((resolve) => {
+            const script = document.createElement('script');
+            script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+            script.onload = () => {
+              hasScript = true;
+              resolve();
+            };
+            script.onerror = () => resolve();
+            document.body.appendChild(script);
+          });
+        }
+
+        const RazorpayGlobal = (
+          window as unknown as {
+            Razorpay?: new (opts: Record<string, unknown>) => {
+              open: () => void;
+            };
+          }
+        ).Razorpay;
+
+        if (hasScript && RazorpayGlobal) {
+          const rzp = new RazorpayGlobal({
+            key: orderData.keyId,
+            amount: orderData.amount,
+            currency: orderData.currency || 'INR',
+            name: 'Helpa Studio',
+            description: `${plan.name} Subscription`,
+            order_id: orderData.orderId,
+            handler: async () => {
+              toast.success(
+                'Payment completed! Activating your subscription...'
+              );
+              setSelectedPlanModal(null);
+              setTimeout(() => loadBillingData(), 1500);
+            },
+            prefill: {
+              email: profile?.email || '',
+              name: profile?.full_name || account?.name || '',
+            },
+            theme: { color: '#10b981' },
+          });
+          rzp.open();
+          setUpgrading(false);
+          return;
+        }
+      }
+
+      // 2. Direct upgrade endpoint for free downgrades or simulated direct payments
       const res = await fetch('/api/account/upgrade', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

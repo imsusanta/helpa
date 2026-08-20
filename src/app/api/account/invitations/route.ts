@@ -32,6 +32,7 @@ import {
   rateLimitResponse,
   RATE_LIMITS,
 } from '@/lib/rate-limit';
+import { checkPlanLimits } from '@/lib/saas/subscription';
 
 // Resolve the base URL we publish invite links under.
 //
@@ -177,6 +178,21 @@ export async function POST(request: Request) {
       RATE_LIMITS.adminAction
     );
     if (!limit.success) return rateLimitResponse(limit);
+
+    const userLimit = await checkPlanLimits(ctx.accountId, 'max_users');
+    if (!userLimit.allowed) {
+      return NextResponse.json(
+        {
+          code: 'PLAN_LIMIT_REACHED',
+          error: userLimit.reason || 'Team member limit reached for your plan.',
+          feature: 'team_members',
+          current: userLimit.currentUsage,
+          limit: userLimit.limit,
+          upgrade_required: true,
+        },
+        { status: 403 }
+      );
+    }
 
     const body = (await request.json().catch(() => null)) as {
       role?: unknown;

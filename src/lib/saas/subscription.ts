@@ -75,13 +75,14 @@ export async function checkFeatureAccess(
 
     if (
       subscription.status === 'EXPIRED' ||
-      subscription.status === 'CANCELLED'
+      subscription.status === 'CANCELLED' ||
+      subscription.status === 'TRIAL_EXPIRED'
     ) {
       return {
         allowed: false,
         featureKey,
         requiredPlan: plan.name,
-        reason: `Your subscription is ${subscription.status.toLowerCase()}. Please renew your plan to access this feature.`,
+        reason: `Your subscription is ${subscription.status.toLowerCase().replace(/_/g, ' ')}. Please activate or renew your plan to access this feature.`,
       };
     }
 
@@ -117,7 +118,23 @@ export async function checkPlanLimits(
 ): Promise<UsageLimitCheckResult> {
   try {
     const db = getAdminClient();
-    const { plan } = await getWorkspaceSubscription(accountId);
+    const { subscription, plan } = await getWorkspaceSubscription(accountId);
+
+    if (
+      subscription.status === 'EXPIRED' ||
+      subscription.status === 'TRIAL_EXPIRED'
+    ) {
+      return {
+        allowed: false,
+        currentUsage: 0,
+        limit: 0,
+        remaining: 0,
+        percentageUsed: 100,
+        warningLevel: '100%',
+        reason: `Your trial or subscription has expired. Please upgrade to continue adding ${limitKey.replace(/_/g, ' ')}.`,
+      };
+    }
+
     const currentMonth = new Date().toISOString().substring(0, 7) + '-01';
 
     let currentUsage = 0;
@@ -234,5 +251,59 @@ export async function incrementUsage(
     }
   } catch (err) {
     console.error('[incrementUsage] error tracking usage:', err);
+  }
+}
+
+/**
+ * Transition expired trials to TRIAL_EXPIRED and past-due subscriptions to EXPIRED.
+ */
+export async function expireStaleTrials(): Promise<{
+  expiredTrialsCount: number;
+  expiredSubsCount: number;
+}> {
+  try {
+    const db = getAdminClient();
+    const now = new Date().toISOString();
+
+    // 1. Expire stale trials where trial_end < NOW()
+    const { data: staleTrials } = await db
+      .from('subscriptions')
+      .select('id, account_id')
+      .in('status', ['TRIAL', 'TRIALING'])
+      .lt('trial_end', now);
+
+    let expiredTrialsCount = 0;
+    if (staleTrials && staleTrials.length > 0) {
+      for (const trial of staleTrials) {
+        await db
+          .from('subscriptions')
+          .update({ status: 'TRIAL_EXPIRED', updated_at: now })
+          .eq('id', trial.id);
+        expiredTrialsCount++;
+      }
+    }
+
+    // 2. Expire past due subscriptions where end_date < NOW()
+    const { data: pastDueSubs } = await db
+      .from('subscriptions')
+      .select('id, account_id')
+      .eq('status', 'PAST_DUE')
+      .lt('end_date', now);
+
+    let expiredSubsCount = 0;
+    if (pastDueSubs && pastDueSubs.length > 0) {
+      for (const sub of pastDueSubs) {
+        await db
+          .from('subscriptions')
+          .update({ status: 'EXPIRED', updated_at: now })
+          .eq('id', sub.id);
+        expiredSubsCount++;
+      }
+    }
+
+    return { expiredTrialsCount, expiredSubsCount };
+  } catch (err) {
+    console.error('[expireStaleTrials] error:', err);
+    return { expiredTrialsCount: 0, expiredSubsCount: 0 };
   }
 }

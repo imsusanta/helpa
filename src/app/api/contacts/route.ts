@@ -5,6 +5,7 @@ import {
   requireRole,
 } from '@/lib/auth/account';
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
+import { checkPlanLimits } from '@/lib/saas/subscription';
 
 const PRIVATE_HEADERS = {
   'Cache-Control': 'private, no-store, no-cache, must-revalidate',
@@ -134,6 +135,26 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     if (!name || !phone) {
       return errorResponse(400, 'NAME_AND_PHONE_REQUIRED', correlationId);
+    }
+
+    const limitCheck = await checkPlanLimits(context.accountId, 'max_contacts');
+    if (!limitCheck.allowed) {
+      return NextResponse.json(
+        {
+          code: 'PLAN_LIMIT_REACHED',
+          message:
+            limitCheck.reason || 'You have reached your contact plan limit.',
+          feature: 'contacts',
+          current: limitCheck.currentUsage,
+          limit: limitCheck.limit,
+          upgrade_required: true,
+          requestId: correlationId,
+        },
+        {
+          status: 403,
+          headers: { ...PRIVATE_HEADERS, 'X-Request-Id': correlationId },
+        }
+      );
     }
 
     const { data: newContact, error: insertErr } = await supabase
