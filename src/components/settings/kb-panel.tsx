@@ -13,6 +13,7 @@ import {
   Briefcase,
   HelpCircle,
   ShieldAlert,
+  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { getIndustryModule } from '@/modules/registry';
@@ -70,55 +71,80 @@ function getCategoryMap(industryId?: string) {
 
   return {
     faq: {
-      label: 'FAQ',
+      label: 'Common Questions (FAQs)',
+      shortLabel: 'FAQs',
       icon: HelpCircle,
       color: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+      description: 'Frequently asked customer questions and standard answers.',
+      emptyMessage:
+        'No common questions added yet. Add the questions your customers ask most often so your AI can answer them instantly.',
+      cta: 'Add Question',
     },
     service: {
       label: isHospital
-        ? 'Services'
+        ? 'Doctor Consultations & Services'
         : isTravel
           ? 'Tour Packages & Services'
           : isCoaching
-            ? 'Courses & Programs'
+            ? 'Courses & Batches'
             : isRealEstate
-              ? 'Properties & Services'
-              : 'Services',
+              ? 'Properties & Units'
+              : 'Services & Products',
+      shortLabel: 'Services',
       icon: Briefcase,
       color: 'bg-green-500/10 text-green-400 border-green-500/20',
+      description: 'Descriptions of what you offer to clients and customers.',
+      emptyMessage:
+        'No services added yet. Add your services and offerings so your AI can explain them to customers.',
+      cta: 'Add Service',
     },
     pricing: {
       label: isHospital
-        ? 'Fees & Charges'
+        ? 'Consultation Fees & Rate Card'
         : isTravel
-          ? 'Pricing & Rates'
+          ? 'Tour Package Prices'
           : isCoaching
-            ? 'Tuition & Fees'
-            : 'Pricing & Cost',
+            ? 'Tuition & Batch Fees'
+            : 'Pricing & Rates',
+      shortLabel: 'Pricing',
       icon: DollarSign,
       color: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
+      description: 'Official fees and rates in ₹ for your services.',
+      emptyMessage:
+        'No pricing rates added yet. Add your fees and rates so your AI receptionist can provide instant quotes.',
+      cta: 'Add Pricing',
     },
     policy: {
       label: isHospital
-        ? 'Hospital Policies'
+        ? 'Clinic Policies & Appointments'
         : isTravel
-          ? 'Cancellation & Terms'
+          ? 'Cancellation & Booking Terms'
           : isCoaching
-            ? 'Admission Rules'
-            : 'Policies & Terms',
+            ? 'Admission & Batch Rules'
+            : 'Policies & Booking Terms',
+      shortLabel: 'Policies',
       icon: ShieldAlert,
       color: 'bg-red-500/10 text-red-400 border-red-500/20',
+      description: 'Appointment rules, refund policies, and payment terms.',
+      emptyMessage:
+        'No policies added yet. Add your appointment guidelines or payment terms for customers.',
+      cta: 'Add Policy',
     },
     company: {
       label: isHospital
-        ? 'Hospital Profile'
+        ? 'Clinic & Practice Information'
         : isTravel
-          ? 'Agency Profile'
+          ? 'Agency Information'
           : isCoaching
-            ? 'Institute Profile'
-            : 'Company Profile',
+            ? 'Institute Information'
+            : 'Business Information',
+      shortLabel: 'Business Info',
       icon: FileText,
       color: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+      description: 'General information, address, location, and background.',
+      emptyMessage:
+        'Complete your business information so Helpa can give customers accurate location and contact details.',
+      cta: 'Complete Business Info',
     },
   };
 }
@@ -126,7 +152,6 @@ function getCategoryMap(industryId?: string) {
 export function KbPanel() {
   const { canSendMessages, account } = useAuth();
   const activeModule = getIndustryModule(account?.industry);
-  const isHospital = activeModule.id === 'hospital_clinic';
   const categoryMap = getCategoryMap(activeModule.id);
 
   const panelTitle = 'Business Info & FAQs';
@@ -140,7 +165,7 @@ export function KbPanel() {
   const [editingEntry, setEditingEntry] = useState<KbEntry | null>(null);
 
   // Form State
-  const [category, setCategory] = useState<KbEntry['category']>('faq');
+  const [category, setCategory] = useState<KbEntry['category']>('service');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -172,15 +197,18 @@ export function KbPanel() {
     loadEntries();
   }, []);
 
-  function handleOpenAddDialog() {
+  function handleOpenAddDialog(defaultCat?: KbEntry['category']) {
     setEditingEntry(null);
-    setCategory('faq');
+    setCategory(
+      defaultCat ||
+        (activeTab !== 'all' ? (activeTab as KbEntry['category']) : 'service')
+    );
     setTitle('');
     setContent('');
     setDialogOpen(true);
   }
 
-  function handleOpenEditDialog(entry: KbEntry) {
+  function handleEdit(entry: KbEntry) {
     setEditingEntry(entry);
     setCategory(entry.category);
     setTitle(entry.question_title);
@@ -191,42 +219,45 @@ export function KbPanel() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim() || !content.trim()) {
-      toast.error('Title and Content are required');
+      toast.error('Please fill in both the title and content');
       return;
     }
 
     setSubmitting(true);
     try {
-      const url = '/api/account/kb';
-      const method = editingEntry ? 'PATCH' : 'POST';
-      const body = {
+      const payload = {
         category,
         question_title: title.trim(),
         answer_content: content.trim(),
-        ...(editingEntry ? { id: editingEntry.id } : {}),
       };
+
+      const url = editingEntry
+        ? `/api/account/kb?id=${editingEntry.id}`
+        : '/api/account/kb';
+      const method = editingEntry ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify(payload),
       });
 
       if (response.ok) {
+        const catName = categoryMap[category]?.shortLabel || 'Entry';
         toast.success(
           editingEntry
-            ? 'Knowledge Base entry updated successfully'
-            : 'Knowledge Base entry created successfully'
+            ? `${catName} updated successfully`
+            : `${catName} added successfully`
         );
         setDialogOpen(false);
         loadEntries();
       } else {
         const data = await response.json();
-        toast.error(data.error || 'Failed to save entry');
+        toast.error(data.error || 'Failed to save information');
       }
     } catch (err) {
       console.error(err);
-      toast.error('Error saving Knowledge Base entry');
+      toast.error('Error saving business information');
     } finally {
       setSubmitting(false);
     }
@@ -235,7 +266,7 @@ export function KbPanel() {
   async function handleDelete(id: string) {
     if (
       !confirm(
-        'Are you sure you want to delete this entry? This action cannot be undone.'
+        'Are you sure you want to delete this entry? Your AI will no longer use it to answer questions.'
       )
     ) {
       return;
@@ -245,7 +276,6 @@ export function KbPanel() {
       const response = await fetch(`/api/account/kb?id=${id}`, {
         method: 'DELETE',
       });
-
       if (response.ok) {
         toast.success('Entry deleted successfully');
         loadEntries();
@@ -268,138 +298,180 @@ export function KbPanel() {
       <section className="animate-in fade-in-50 max-w-4xl duration-200">
         <SettingsPanelHead title={panelTitle} description={panelDesc} />
         <Card className="flex h-64 items-center justify-center">
-          <Loader2 className="text-muted-foreground size-6 animate-spin" />
+          <Loader2 className="text-muted-foreground size-6 animate-spin text-emerald-500" />
         </Card>
       </section>
     );
   }
 
+  const activeCategoryMeta =
+    activeTab !== 'all' ? categoryMap[activeTab as KbEntry['category']] : null;
+
   return (
-    <section className="animate-in fade-in-50 max-w-4xl duration-200">
-      <div className="flex items-center justify-between">
+    <section className="animate-in fade-in-50 max-w-4xl space-y-6 duration-200">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <SettingsPanelHead title={panelTitle} description={panelDesc} />
         {canSendMessages && (
           <Button
-            onClick={handleOpenAddDialog}
-            className="flex shrink-0 items-center gap-1.5"
+            onClick={() => handleOpenAddDialog()}
+            className="flex shrink-0 items-center gap-1.5 bg-emerald-600 text-xs font-bold text-white hover:bg-emerald-700"
           >
             <Plus className="size-4" />
-            Add Service / FAQ
+            Add Service or FAQ
           </Button>
         )}
       </div>
 
-      {/* Tabs Filter */}
-      <div className="border-border mb-6 flex gap-2 overflow-x-auto border-b">
-        {['all', 'faq', 'service', 'pricing', 'policy', 'company'].map(
-          (tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`border-b-2 px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors ${
-                activeTab === tab
-                  ? 'border-primary text-primary'
-                  : 'text-muted-foreground hover:text-foreground border-transparent'
-              }`}
-            >
-              {tab === 'all'
-                ? 'All Categories'
-                : categoryMap[tab as KbEntry['category']].label}
-            </button>
-          )
+      {/* Structured Category Tabs */}
+      <div className="border-border flex gap-2 overflow-x-auto border-b pb-0.5">
+        <button
+          onClick={() => setActiveTab('all')}
+          className={`border-b-2 px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-colors ${
+            activeTab === 'all'
+              ? 'border-emerald-500 text-emerald-400'
+              : 'text-muted-foreground hover:text-foreground border-transparent'
+          }`}
+        >
+          All Items ({entries.length})
+        </button>
+        {(['service', 'pricing', 'faq', 'company', 'policy'] as const).map(
+          (tab) => {
+            const count = entries.filter((e) => e.category === tab).length;
+            const meta = categoryMap[tab];
+            const Icon = meta.icon;
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`flex items-center gap-1.5 border-b-2 px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-colors ${
+                  activeTab === tab
+                    ? 'border-emerald-500 text-emerald-400'
+                    : 'text-muted-foreground hover:text-foreground border-transparent'
+                }`}
+              >
+                <Icon className="size-3.5" />
+                {meta.shortLabel} ({count})
+              </button>
+            );
+          }
         )}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-foreground flex items-center gap-2">
-            <Database className="text-primary size-4" />
-            {isHospital ? 'Hospital Info Context' : 'Knowledge Context'} (
-            {filteredEntries.length})
-          </CardTitle>
-          <CardDescription className="text-muted-foreground">
-            Keep your knowledge context concise and factual. The AI works best
-            when given explicit Q&A formats or structured guides.
+      {/* Main Content List Card */}
+      <Card className="border-border shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-foreground flex items-center gap-2 text-sm font-bold">
+              <Sparkles className="size-4 text-emerald-500" />
+              {activeCategoryMeta
+                ? activeCategoryMeta.label
+                : 'All Business Knowledge & FAQs'}{' '}
+              ({filteredEntries.length})
+            </CardTitle>
+            <Badge
+              variant="outline"
+              className="border-emerald-500/20 text-[10px] text-emerald-400"
+            >
+              Synced with AI
+            </Badge>
+          </div>
+          <CardDescription className="text-muted-foreground text-xs">
+            {activeCategoryMeta
+              ? activeCategoryMeta.description
+              : 'Your AI receptionist references all entries below to answer customer questions accurately.'}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {filteredEntries.length === 0 ? (
-            <div className="border-border rounded-lg border border-dashed py-12 text-center">
-              <Database className="text-muted-foreground mx-auto mb-2 size-8 opacity-50" />
-              <p className="text-muted-foreground text-sm">
-                No entries found in this category.
+            <div className="border-border bg-muted/10 rounded-xl border border-dashed p-6 py-12 text-center">
+              <Database className="text-muted-foreground mx-auto mb-2 size-8 text-emerald-500 opacity-40" />
+              <p className="text-foreground text-sm font-semibold">
+                {activeCategoryMeta
+                  ? activeCategoryMeta.emptyMessage
+                  : 'No business entries added yet.'}
+              </p>
+              <p className="text-muted-foreground mx-auto mt-1 max-w-md text-xs">
+                Add your consultation fees, operating details, or frequent
+                questions so your AI receptionist is fully equipped.
               </p>
               {canSendMessages && (
                 <Button
-                  variant="link"
-                  onClick={handleOpenAddDialog}
-                  className="text-primary mt-2"
+                  onClick={() => handleOpenAddDialog()}
+                  className="mt-4 bg-emerald-600 text-xs font-bold text-white hover:bg-emerald-700"
                 >
-                  Create your first entry
+                  <Plus className="mr-1.5 size-3.5" />
+                  {activeCategoryMeta
+                    ? activeCategoryMeta.cta
+                    : 'Add First Entry'}
                 </Button>
               )}
             </div>
           ) : (
-            <div className="border-border overflow-hidden rounded-lg border">
+            <div className="border-border overflow-hidden rounded-xl border">
               <Table>
                 <TableHeader className="bg-muted/40">
                   <TableRow>
-                    <TableHead className="w-[120px]">Category</TableHead>
-                    <TableHead className="w-[260px]">
-                      Title / Question
+                    <TableHead className="w-[130px] text-xs">
+                      Category
                     </TableHead>
-                    <TableHead>Content / Answer</TableHead>
-                    {canSendMessages && (
-                      <TableHead className="w-[100px] text-right">
-                        Actions
-                      </TableHead>
-                    )}
+                    <TableHead className="w-[240px] text-xs">
+                      Service / Question
+                    </TableHead>
+                    <TableHead className="text-xs">Details & Rates</TableHead>
+                    <TableHead className="w-[100px] text-right text-xs">
+                      Actions
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredEntries.map((entry) => {
-                    const catMeta =
-                      categoryMap[entry.category] || categoryMap.faq;
-                    const CatIcon = catMeta.icon;
+                    const meta = categoryMap[entry.category] || categoryMap.faq;
+                    const Icon = meta.icon;
                     return (
                       <TableRow key={entry.id} className="hover:bg-muted/30">
-                        <TableCell>
+                        <TableCell className="py-3">
                           <Badge
                             variant="outline"
-                            className={`${catMeta.color} flex w-fit items-center gap-1`}
+                            className={`flex w-fit items-center gap-1 text-[10px] font-semibold ${meta.color}`}
                           >
-                            <CatIcon className="size-3" />
-                            {catMeta.label}
+                            <Icon className="size-3" />
+                            {meta.shortLabel}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-foreground align-top font-semibold">
+                        <TableCell className="text-foreground py-3 text-xs font-semibold">
                           {entry.question_title}
                         </TableCell>
-                        <TableCell className="text-muted-foreground max-w-sm truncate text-sm whitespace-pre-wrap lg:max-w-none">
-                          {entry.answer_content}
+                        <TableCell className="text-muted-foreground max-w-md py-3 text-xs">
+                          <p className="line-clamp-2 leading-relaxed whitespace-pre-wrap">
+                            {entry.answer_content}
+                          </p>
                         </TableCell>
-                        {canSendMessages && (
-                          <TableCell className="text-right align-middle">
-                            <div className="flex items-center justify-end gap-1">
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="size-8"
-                                onClick={() => handleOpenEditDialog(entry)}
-                              >
-                                <Edit className="text-muted-foreground hover:text-foreground size-3.5" />
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="size-8"
-                                onClick={() => handleDelete(entry.id)}
-                              >
-                                <Trash2 className="size-3.5 text-red-500 hover:text-red-400" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        )}
+                        <TableCell className="py-3 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            {canSendMessages && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleEdit(entry)}
+                                  className="text-muted-foreground hover:text-foreground h-7 w-7 p-0"
+                                  title="Edit entry"
+                                >
+                                  <Edit className="size-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDelete(entry.id)}
+                                  className="text-muted-foreground h-7 w-7 p-0 hover:text-red-400"
+                                  title="Delete entry"
+                                >
+                                  <Trash2 className="size-3.5" />
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
                       </TableRow>
                     );
                   })}
@@ -412,88 +484,128 @@ export function KbPanel() {
 
       {/* Add / Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="bg-popover text-popover-foreground max-w-lg">
+        <DialogContent className="bg-popover text-popover-foreground border-border max-w-lg">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="text-base font-bold">
               {editingEntry
                 ? 'Edit Business Info / FAQ'
                 : 'Add New Service or FAQ'}
             </DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              Add factual information, services, pricing, or FAQs so your AI
-              receptionist can answer customers accurately.
+            <DialogDescription className="text-muted-foreground text-xs">
+              Add factual information, service rate cards, fees, or FAQs so your
+              AI receptionist can answer customers accurately.
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-4 py-2">
             <div className="grid gap-2">
-              <Label htmlFor="category">Category</Label>
+              <Label htmlFor="category" className="text-xs font-semibold">
+                Category
+              </Label>
               <Select
                 value={category}
                 onValueChange={(val) => setCategory(val as KbEntry['category'])}
               >
-                <SelectTrigger id="category" className="w-full">
+                <SelectTrigger
+                  id="category"
+                  className="bg-muted/40 border-border w-full text-xs"
+                >
                   <SelectValue placeholder="Select Category" />
                 </SelectTrigger>
-                <SelectContent className="bg-popover text-popover-foreground border-border">
-                  <SelectItem value="faq">{categoryMap.faq.label}</SelectItem>
+                <SelectContent className="bg-popover text-popover-foreground border-border text-xs">
                   <SelectItem value="service">
                     {categoryMap.service.label}
                   </SelectItem>
                   <SelectItem value="pricing">
                     {categoryMap.pricing.label}
                   </SelectItem>
-                  <SelectItem value="policy">
-                    {categoryMap.policy.label}
-                  </SelectItem>
+                  <SelectItem value="faq">{categoryMap.faq.label}</SelectItem>
                   <SelectItem value="company">
                     {categoryMap.company.label}
+                  </SelectItem>
+                  <SelectItem value="policy">
+                    {categoryMap.policy.label}
                   </SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="title">Title or Question</Label>
+              <Label htmlFor="title" className="text-xs font-semibold">
+                {category === 'faq'
+                  ? 'Question'
+                  : category === 'service' || category === 'pricing'
+                    ? 'Service or Package Name'
+                    : 'Topic Title'}
+              </Label>
               <Input
                 id="title"
+                placeholder={
+                  category === 'faq'
+                    ? 'e.g. Do I need an appointment before visiting?'
+                    : category === 'service'
+                      ? 'e.g. Doctor Consultation'
+                      : category === 'pricing'
+                        ? 'e.g. General OPD Fee'
+                        : 'e.g. Clinic Location & Parking'
+                }
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder={
-                  isHospital
-                    ? 'e.g., Consultation Hours or Blood Test Cost'
-                    : 'e.g., Cancellation Policy or Tour Package Details'
-                }
-                className="bg-background text-foreground"
+                disabled={submitting}
+                className="bg-muted/40 border-border text-foreground text-xs"
               />
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="content">Content or Answer</Label>
+              <Label htmlFor="content" className="text-xs font-semibold">
+                {category === 'faq'
+                  ? 'Answer'
+                  : category === 'pricing'
+                    ? 'Price & Details (e.g. ₹500 for 30-min consultation)'
+                    : 'Details & Description'}
+              </Label>
               <Textarea
                 id="content"
                 rows={5}
+                placeholder={
+                  category === 'faq'
+                    ? 'e.g. Yes, appointments are recommended to avoid waiting. Walk-ins are also accepted based on doctor availability.'
+                    : category === 'pricing'
+                      ? 'e.g. ₹500 per visit. Includes general checkup and vital checks.'
+                      : 'e.g. Comprehensive healthcare consultation with experienced specialist doctors.'
+                }
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                placeholder="e.g., We offer free shipping on all orders above ₹999. For orders below that, we charge a flat fee of ₹50."
-                className="bg-background text-foreground whitespace-pre-wrap"
+                disabled={submitting}
+                className="bg-muted/40 border-border text-foreground text-xs leading-relaxed"
               />
             </div>
 
-            <DialogFooter className="mt-6">
+            <DialogFooter className="pt-2">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setDialogOpen(false)}
                 disabled={submitting}
+                className="text-xs"
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={submitting}>
-                {submitting && (
-                  <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+              <Button
+                type="submit"
+                disabled={submitting || !title.trim() || !content.trim()}
+                className="bg-emerald-600 text-xs font-bold text-white hover:bg-emerald-700"
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                    Saving...
+                  </>
+                ) : editingEntry ? (
+                  'Update Entry'
+                ) : (
+                  'Save Entry'
                 )}
-                {editingEntry ? 'Save Changes' : 'Create Entry'}
               </Button>
             </DialogFooter>
           </form>
