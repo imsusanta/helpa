@@ -180,7 +180,7 @@ export async function POST(request: Request) {
   // Block activation of a clearly broken automation up-front instead of
   // letting every trigger silently produce a failed log row. Drafts
   // (is_active=false) are allowed to be incomplete so users can save
-  // progress mid-build.
+  // progress mid-builder.
   if (is_active) {
     const issues = [
       ...validateTriggerForActivation(
