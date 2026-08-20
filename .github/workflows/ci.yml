@@ -3,6 +3,8 @@ name: Prettier Extract
 on:
   push:
     branches: [tmp/prettier-pr69]
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: read
