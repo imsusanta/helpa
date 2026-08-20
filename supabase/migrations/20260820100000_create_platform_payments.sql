@@ -5,6 +5,17 @@
 
 begin;
 
+-- Helper function in case it doesn't exist yet
+create or replace function public.is_active_account_member(target_account_id uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.account_members
+    where account_id = target_account_id and user_id = auth.uid() and active
+  );
+$$;
+grant execute on function public.is_active_account_member(uuid) to authenticated;
+grant execute on function public.is_active_account_member(uuid) to service_role;
+
 create table if not exists public.platform_payments (
   id uuid primary key default gen_random_uuid(),
   account_id uuid not null references public.accounts(id) on delete restrict,
@@ -29,20 +40,23 @@ create table if not exists public.platform_payments (
   constraint uq_platform_payments_order_id unique (razorpay_order_id)
 );
 
--- Indexes for fast query performance and tenant isolation
 create index if not exists idx_platform_payments_account_id on public.platform_payments(account_id);
 create index if not exists idx_platform_payments_created_at on public.platform_payments(created_at desc);
 create index if not exists idx_platform_payments_status on public.platform_payments(status);
 
--- Enable Row Level Security (RLS)
 alter table public.platform_payments enable row level security;
 
--- 1. Tenant users can read their own organization's payment receipts & history
+drop policy if exists "Tenant members can view own account payments" on public.platform_payments;
 create policy "Tenant members can view own account payments"
   on public.platform_payments
   for select
   using (
-    public.is_active_account_member(account_id)
+    exists (
+      select 1 from public.account_members
+      where account_members.account_id = platform_payments.account_id
+      and account_members.user_id = auth.uid()
+      and account_members.active = true
+    )
     or exists (
       select 1 from public.profiles
       where profiles.user_id = auth.uid()
@@ -50,7 +64,7 @@ create policy "Tenant members can view own account payments"
     )
   );
 
--- 2. Only trusted server-side Service Role and Super Admins can write payment records
+drop policy if exists "Service role and Super Admins manage platform payments" on public.platform_payments;
 create policy "Service role and Super Admins manage platform payments"
   on public.platform_payments
   for all
