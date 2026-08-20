@@ -129,9 +129,9 @@ export function KbPanel() {
   const isHospital = activeModule.id === 'hospital_clinic';
   const categoryMap = getCategoryMap(activeModule.id);
 
-  const panelTitle = 'Knowledge';
+  const panelTitle = 'Business Info & FAQs';
   const panelDesc =
-    'Tell Helpa about your business so it can answer customer questions accurately.';
+    'Give your AI receptionist the exact answers, services, pricing, and business policies needed to answer customer inquiries 24/7.';
 
   const [entries, setEntries] = useState<KbEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -284,7 +284,7 @@ export function KbPanel() {
             className="flex shrink-0 items-center gap-1.5"
           >
             <Plus className="size-4" />
-            Add Knowledge
+            Add Service / FAQ
           </Button>
         )}
       </div>
@@ -415,10 +415,13 @@ export function KbPanel() {
         <DialogContent className="bg-popover text-popover-foreground max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {editingEntry ? 'Edit Knowledge Entry' : 'Add Knowledge Entry'}
+              {editingEntry
+                ? 'Edit Business Info / FAQ'
+                : 'Add New Service or FAQ'}
             </DialogTitle>
             <DialogDescription className="text-muted-foreground">
-              Define a factual topic or FAQ. Be descriptive and accurate.
+              Add factual information, services, pricing, or FAQs so your AI
+              receptionist can answer customers accurately.
             </DialogDescription>
           </DialogHeader>
 

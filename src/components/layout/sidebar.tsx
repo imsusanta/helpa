@@ -47,40 +47,6 @@ import {
   Sparkles,
   type LucideIcon,
 } from 'lucide-react';
-
-// Per-role chip metadata used in the sidebar's account strip + the
-// Members tab roster. Keeping this near both consumers in a single
-// place avoids drift between the two surfaces — when a designer
-// wants to recolour "agent" rows, this is the one diff.
-const ROLE_CHIP: Record<
-  AccountRole,
-  { icon: typeof Crown; label: string; className: string }
-> = {
-  owner: {
-    icon: Crown,
-    label: 'Owner',
-    // Amber: scarce, immutable, "the boss" — gets visual emphasis.
-    className: 'border-amber-500/40 bg-amber-500/10 text-amber-300',
-  },
-  admin: {
-    icon: Shield,
-    label: 'Admin',
-    // Primary-tinted: significant but not as scarce as owner.
-    className: 'border-primary/40 bg-primary/10 text-primary',
-  },
-  agent: {
-    icon: UserCog,
-    label: 'Agent',
-    // Neutral slate: the operational default.
-    className: 'border-border bg-muted text-foreground',
-  },
-  viewer: {
-    icon: User,
-    label: 'Viewer',
-    // Muted slate: read-only role; visually quieter than agent.
-    className: 'border-border bg-card text-muted-foreground',
-  },
-};
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
@@ -90,18 +56,46 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
+const ROLE_CHIP: Record<
+  AccountRole,
+  { icon: typeof Crown; label: string; className: string }
+> = {
+  owner: {
+    icon: Crown,
+    label: 'Owner',
+    className: 'border-amber-500/40 bg-amber-500/10 text-amber-300',
+  },
+  admin: {
+    icon: Shield,
+    label: 'Admin',
+    className: 'border-primary/40 bg-primary/10 text-primary',
+  },
+  agent: {
+    icon: UserCog,
+    label: 'Agent',
+    className: 'border-border bg-muted text-foreground',
+  },
+  viewer: {
+    icon: User,
+    label: 'Viewer',
+    className: 'border-border bg-card text-muted-foreground',
+  },
+};
+
 interface NavItem {
   href: string;
   label: string;
-  icon: typeof LayoutDashboard;
-  /**
-   * When true, the nav row renders a small "Beta" chip after the label.
-   * Purely informational — doesn't affect routing or access.
-   */
+  icon: LucideIcon;
   beta?: boolean;
+  roleMin?: AccountRole;
 }
 
-/** Maps industry IDs to a Lucide icon for the sidebar logo. */
+interface NavGroup {
+  id: string;
+  title: string;
+  items: NavItem[];
+}
+
 const INDUSTRY_ICON: Record<string, LucideIcon> = {
   hospital_clinic: Hospital,
   coaching: GraduationCap,
@@ -115,7 +109,6 @@ const INDUSTRY_ICON: Record<string, LucideIcon> = {
 };
 
 interface SidebarProps {
-  /** Controlled on mobile by the Header's hamburger button. Ignored on lg+. */
   open?: boolean;
   onClose?: () => void;
 }
@@ -167,42 +160,159 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
 
   const activeModule = getIndustryModule(account?.industry);
 
-  const activeNavItems: NavItem[] = activeModule.sidebar
-    .filter((item) => {
-      if (
-        item.roleMin &&
-        (!accountRole || !hasMinRole(accountRole, item.roleMin))
-      ) {
-        return false;
-      }
-      return true;
-    })
-    .map((item) => ({
-      href: item.href,
-      label: item.label,
-      icon: ICON_COMPONENTS[item.iconName] || FileText,
-    }));
-  // Only surface the account-name strip when it actually carries
-  // information. A solo user's personal account is named after them
-  // (the 017 signup trigger seeds it from `full_name`), so showing it
-  // here would just duplicate the user name in the footer below. Once
-  // the account is renamed or the user joins a shared account, the
-  // name diverges and the strip becomes meaningful — that's the signal
-  // we gate on. Wait for the profile fetch to settle first, otherwise
-  // the strip flashes in once the row resolves (a layout jump).
+  // 1. Identify primary contact entity
+  const contactItem = activeModule.sidebar.find((item) =>
+    [
+      '/patients',
+      '/customers',
+      '/students',
+      '/members',
+      '/leads',
+      '/contacts',
+    ].includes(item.href)
+  ) || { href: '/contacts', label: 'Contacts', iconName: 'Users' };
+
+  // 2. Identify primary booking/appointment entity
+  const appointmentItem = activeModule.sidebar.find((item) =>
+    [
+      '/appointments',
+      '/bookings',
+      '/site-visits',
+      '/reservations',
+      '/admissions',
+    ].includes(item.href)
+  ) || { href: '/appointments', label: 'Appointments', iconName: 'Calendar' };
+
+  // 3. Extract secondary catalog & business records
+  const secondaryBusinessItems = activeModule.sidebar.filter(
+    (item) =>
+      ![
+        '/dashboard',
+        '/inbox',
+        '/contacts',
+        '/patients',
+        '/customers',
+        '/students',
+        '/members',
+        '/leads',
+        '/appointments',
+        '/bookings',
+        '/site-visits',
+        '/reservations',
+        '/admissions',
+        '/broadcasts',
+        '/knowledge-base',
+        '/settings',
+        '/billing',
+        '/automations',
+        '/pipelines',
+      ].includes(item.href)
+  );
+
+  const groups: NavGroup[] = [
+    {
+      id: 'main',
+      title: 'MAIN',
+      items: [
+        { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+        { href: '/inbox', label: 'Messages', icon: MessageSquare },
+        {
+          href: contactItem.href,
+          label: contactItem.label,
+          icon: ICON_COMPONENTS[contactItem.iconName] || Users,
+        },
+      ],
+    },
+    {
+      id: 'business',
+      title: 'BUSINESS',
+      items: [
+        { href: '/pipelines', label: 'Inquiries & CRM', icon: GitBranch },
+        {
+          href: appointmentItem.href,
+          label: appointmentItem.label,
+          icon: ICON_COMPONENTS[appointmentItem.iconName] || Calendar,
+        },
+        ...secondaryBusinessItems.map((item) => ({
+          href: item.href,
+          label: item.label,
+          icon: ICON_COMPONENTS[item.iconName] || FileText,
+          roleMin: item.roleMin,
+        })),
+      ],
+    },
+    {
+      id: 'ai_automation',
+      title: 'AI & AUTOMATION',
+      items: [
+        {
+          href: '/settings?tab=ai',
+          label: 'AI Receptionist',
+          icon: Bot,
+          roleMin: 'admin',
+        },
+        {
+          href: '/knowledge-base',
+          label: 'Business Info & FAQs',
+          icon: BookOpen,
+        },
+        {
+          href: '/automations',
+          label: 'Auto-Reminders',
+          icon: Zap,
+          roleMin: 'admin',
+        },
+      ],
+    },
+    {
+      id: 'team_account',
+      title: 'TEAM & ACCOUNT',
+      items: [
+        {
+          href: '/settings?tab=members',
+          label: 'Staff & Team',
+          icon: UsersRound,
+          roleMin: 'admin',
+        },
+        {
+          href: '/settings?tab=billing',
+          label: 'Subscription & Billing',
+          icon: CreditCard,
+          roleMin: 'admin',
+        },
+        {
+          href: '/settings',
+          label: 'Settings',
+          icon: Settings,
+          roleMin: 'admin',
+        },
+      ],
+    },
+  ];
+
+  const visibleGroups = groups
+    .map((g) => ({
+      ...g,
+      items: g.items.filter((item) => {
+        if (
+          item.roleMin &&
+          (!accountRole || !hasMinRole(accountRole, item.roleMin))
+        ) {
+          return false;
+        }
+        return true;
+      }),
+    }))
+    .filter((g) => g.items.length > 0);
+
   const showAccountStrip =
     !profileLoading && !!account?.name && account.name !== profile?.full_name;
 
-  // Close the drawer when route changes — users opened it to navigate,
-  // so once they pick a destination the drawer should get out of the way.
   useEffect(() => {
     onClose?.();
-    // Only pathname drives this — onClose identity doesn't need to re-run it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
-  // Lock body scroll and allow Escape to close while the drawer is open on
-  // mobile. No-ops on desktop because the sidebar isn't positioned there.
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
@@ -217,11 +327,33 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
     };
   }, [open, onClose]);
 
+  const isItemActive = (href: string) => {
+    if (href.includes('?tab=')) {
+      const tab = href.split('?tab=')[1];
+      return (
+        pathname === '/settings' &&
+        typeof window !== 'undefined' &&
+        new URLSearchParams(window.location.search).get('tab') === tab
+      );
+    }
+    if (href === '/settings') {
+      return (
+        pathname === '/settings' &&
+        (typeof window === 'undefined' ||
+          !new URLSearchParams(window.location.search).get('tab') ||
+          ['profile', 'whatsapp'].includes(
+            new URLSearchParams(window.location.search).get('tab') || ''
+          ))
+      );
+    }
+    if (href === '/dashboard') {
+      return pathname === '/dashboard';
+    }
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
+
   return (
     <>
-      {/* Backdrop — only exists on mobile and only when open. Clicking
-          it closes the drawer. Hidden from lg+ since the sidebar is
-          part of the main flex row there. */}
       <button
         type="button"
         aria-label="Close menu"
@@ -236,17 +368,14 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
 
       <aside
         className={cn(
-          // Mobile: fixed drawer that slides in from the left.
           'border-border bg-card fixed inset-y-0 left-0 z-40 flex h-full w-64 flex-col border-r',
           'transition-transform duration-200 ease-out will-change-transform',
           open ? 'translate-x-0' : '-translate-x-full',
-          // Desktop: static, always visible — reset all the mobile framing.
           'lg:static lg:z-0 lg:w-60 lg:translate-x-0 lg:transition-none'
         )}
         aria-label="Primary"
       >
-        {/* Logo row. On mobile we put a close button here; on desktop the
-            close button is hidden since the sidebar is always-visible. */}
+        {/* Logo row */}
         <div className="border-border flex h-14 shrink-0 items-center justify-between gap-2 border-b px-4">
           <Link
             href="/dashboard"
@@ -279,53 +408,58 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           </button>
         </div>
 
-        {/* Main navigation */}
+        {/* Grouped navigation */}
         <nav className="flex-1 overflow-y-auto px-3 py-4">
-          <ul className="flex flex-col gap-1">
-            {activeNavItems.map((item) => {
-              const isActive =
-                pathname === item.href ||
-                (item.href !== '/dashboard' && pathname.startsWith(item.href));
+          <div className="space-y-4">
+            {visibleGroups.map((group) => (
+              <div key={group.id} className="space-y-1">
+                <p className="text-muted-foreground/70 px-3 text-[10px] font-bold tracking-wider uppercase">
+                  {group.title}
+                </p>
+                <ul className="flex flex-col gap-0.5">
+                  {group.items.map((item) => {
+                    const active = isItemActive(item.href);
+                    const showUnreadDot =
+                      item.href === '/inbox' && totalUnread > 0 && !active;
 
-              const showUnreadDot =
-                item.href === '/inbox' && totalUnread > 0 && !isActive;
-
-              return (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    className={cn(
-                      // Taller on mobile so fingers can hit the row reliably (≥44px).
-                      'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2',
-                      isActive
-                        ? 'bg-primary/10 text-primary'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                    )}
-                  >
-                    <item.icon className="h-4 w-4" />
-                    <span className="flex-1">{item.label}</span>
-                    {item.beta && (
-                      <span
-                        aria-label="Beta feature"
-                        className="rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold tracking-wider text-amber-300 uppercase"
-                      >
-                        Beta
-                      </span>
-                    )}
-                    {showUnreadDot && (
-                      <span
-                        aria-label={`${totalUnread} unread conversation${totalUnread === 1 ? '' : 's'}`}
-                        className="relative flex h-2 w-2"
-                      >
-                        <span className="bg-primary absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" />
-                        <span className="bg-primary relative inline-flex h-2 w-2 rounded-full" />
-                      </span>
-                    )}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+                    return (
+                      <li key={item.href}>
+                        <Link
+                          href={item.href}
+                          className={cn(
+                            'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2',
+                            active
+                              ? 'bg-primary/10 text-primary font-semibold'
+                              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                          )}
+                        >
+                          <item.icon className="h-4 w-4 shrink-0" />
+                          <span className="flex-1 truncate">{item.label}</span>
+                          {item.beta && (
+                            <span
+                              aria-label="Beta feature"
+                              className="rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold tracking-wider text-amber-300 uppercase"
+                            >
+                              Beta
+                            </span>
+                          )}
+                          {showUnreadDot && (
+                            <span
+                              aria-label={`${totalUnread} unread conversation${totalUnread === 1 ? '' : 's'}`}
+                              className="relative flex h-2 w-2"
+                            >
+                              <span className="bg-primary absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" />
+                              <span className="bg-primary relative inline-flex h-2 w-2 rounded-full" />
+                            </span>
+                          )}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
+          </div>
 
           {isSuperAdmin && (
             <>
@@ -337,7 +471,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                     className={cn(
                       'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2',
                       pathname.startsWith('/admin')
-                        ? 'bg-primary/10 text-primary'
+                        ? 'bg-primary/10 text-primary font-semibold'
                         : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                     )}
                   >
@@ -350,29 +484,16 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           )}
         </nav>
 
-        {/* User section */}
+        {/* User footer section */}
         <div className="border-border shrink-0 border-t p-3">
-          {/* Account name display — surfaced only when the account
-              name differs from the user's own name (see
-              `showAccountStrip`). For a default solo account the two
-              match, so we hide it to avoid duplicating the user name
-              below; for renamed or shared accounts it tells the user
-              which account they're acting in. */}
           {showAccountStrip && account?.name ? (
             <div className="text-muted-foreground mb-2 flex items-center gap-2 px-3 text-xs">
               <UsersRound className="size-3.5 shrink-0" />
-              {/* `title=` exposes the full name on hover when it
-                  gets truncated (long account names + narrow
-                  sidebars). Cheap a11y win. */}
               <span className="truncate" title={account.name}>
                 {account.name}
               </span>
               {accountRole
-                ? // Always render the chip — owners used to be
-                  // invisible here, which made them indistinguishable
-                  // from admins at a glance. Now everyone sees their
-                  // role (with a colour cue) regardless of tier.
-                  (() => {
+                ? (() => {
                     const meta = ROLE_CHIP[accountRole];
                     const Icon = meta.icon;
                     return (

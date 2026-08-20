@@ -125,16 +125,12 @@ describe('Helpa Client Onboarding Suite (Phase 2A)', () => {
             }),
           }),
           insert: vi.fn().mockResolvedValue({ error: null }),
-          update: vi
-            .fn()
-            .mockReturnValue({
-              eq: vi.fn().mockResolvedValue({ error: null }),
-            }),
-          delete: vi
-            .fn()
-            .mockReturnValue({
-              in: vi.fn().mockResolvedValue({ error: null }),
-            }),
+          update: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ error: null }),
+          }),
+          delete: vi.fn().mockReturnValue({
+            in: vi.fn().mockResolvedValue({ error: null }),
+          }),
         };
       }
 

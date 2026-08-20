@@ -171,7 +171,7 @@ export function AiPanel() {
       </Card>
 
       <div className="space-y-6">
-        {/* Section 1: AI Instructions & System Prompt */}
+        {/* Section 1: AI Instructions & Behavior */}
         <div className="bg-card border-border space-y-4 rounded-2xl border p-6 shadow-md transition-all duration-300 hover:border-emerald-500/20">
           <div className="flex items-center gap-2">
             <span className="flex h-6 w-6 items-center justify-center rounded-full border border-emerald-200 bg-emerald-100 text-xs font-bold text-emerald-700 dark:border-emerald-800/30 dark:bg-emerald-950/40 dark:text-emerald-300">
@@ -179,17 +179,18 @@ export function AiPanel() {
             </span>
             <h3 className="text-foreground flex items-center gap-1.5 text-sm font-bold">
               <Sparkles className="size-4 text-emerald-600 dark:text-emerald-400" />
-              Practice Instructions & Receptionist Persona
+              AI Receptionist Instructions & Behavior
             </h3>
           </div>
           <p className="text-muted-foreground max-w-xl text-xs leading-relaxed">
-            Instruct your AI Receptionist on how to greet patients, clinic
-            operating hours, available doctor specialties, and triage rules.
+            Instruct your AI Receptionist on how to greet customers, operating
+            hours, available services, and when to transfer chats to human
+            staff.
           </p>
           <div className="space-y-3">
             <Textarea
               id="systemPrompt"
-              placeholder="You are an AI receptionist for City Hospital. Greet patients, schedule consultations, answer FAQs. NEVER diagnose diseases..."
+              placeholder="You are an AI receptionist for our business. Greet customers politely, answer questions, schedule appointments, and transfer complex inquiries to staff..."
               value={systemPrompt}
               onChange={(e) => setSystemPrompt(e.target.value)}
               disabled={!canEditSettings}
@@ -199,7 +200,7 @@ export function AiPanel() {
           </div>
         </div>
 
-        {/* Section 2: Automated Welcome Greeting */}
+        {/* Section 2: Automated First Message / Welcome Greeting */}
         <div className="bg-card border-border space-y-4 rounded-2xl border p-6 shadow-md transition-all duration-300 hover:border-emerald-500/20">
           <div className="flex items-center gap-2">
             <span className="flex h-6 w-6 items-center justify-center rounded-full border border-emerald-200 bg-emerald-100 text-xs font-bold text-emerald-700 dark:border-emerald-800/30 dark:bg-emerald-950/40 dark:text-emerald-300">
@@ -211,12 +212,12 @@ export function AiPanel() {
             </h3>
           </div>
           <p className="text-muted-foreground max-w-xl text-xs leading-relaxed">
-            Initial greeting sent automatically when a new patient contacts your
-            WhatsApp Business number.
+            Initial greeting sent automatically when a new customer contacts
+            your WhatsApp Business number.
           </p>
           <Textarea
             id="welcomeMessage"
-            placeholder={`👋 Hello! Welcome to ${accountName || 'our practice'}. How can we assist you today?`}
+            placeholder={`👋 Hello! Welcome to ${accountName || 'our business'}. How can we assist you today?`}
             value={welcomeMessage}
             onChange={(e) => setWelcomeMessage(e.target.value)}
             disabled={!canEditSettings}
@@ -225,25 +226,25 @@ export function AiPanel() {
           />
         </div>
 
-        {/* Section 3: Knowledge Base Quick Link */}
+        {/* Section 3: Business Info & FAQs Quick Link */}
         <Card className="border-border">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <BookOpen className="h-5 w-5 text-blue-500" />
                 <CardTitle className="text-foreground text-sm font-bold">
-                  Practice Knowledge Base
+                  Business Info & FAQs
                 </CardTitle>
               </div>
-              <Link href="/settings?tab=kb">
+              <Link href="/knowledge-base">
                 <Button size="sm" variant="outline" className="h-8 text-xs">
-                  Manage Knowledge Base →
+                  Manage Business Info & FAQs →
                 </Button>
               </Link>
             </div>
             <CardDescription className="text-muted-foreground text-xs">
-              Upload doctor bios, service rate cards, treatment FAQs, and PDF
-              documents for intelligent AI search.
+              Manage service rate cards, doctor consultation fees, FAQs, and
+              business policies.
             </CardDescription>
           </CardHeader>
         </Card>

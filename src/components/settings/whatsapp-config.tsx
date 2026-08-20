@@ -1008,7 +1008,7 @@ export function WhatsAppConfig() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
-                    Phone Number ID
+                    WhatsApp Registered Number ID (Phone Number ID)
                   </Label>
                   <Input
                     placeholder="e.g. 100234567890123"
@@ -1020,7 +1020,7 @@ export function WhatsAppConfig() {
 
                 <div className="space-y-2">
                   <Label className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
-                    WhatsApp Business Account ID
+                    WhatsApp Business Account ID (WABA ID)
                   </Label>
                   <Input
                     placeholder="e.g. 100234567890456"
@@ -1032,7 +1032,7 @@ export function WhatsAppConfig() {
 
                 <div className="space-y-2">
                   <Label className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
-                    Permanent Access Token
+                    Meta Security Key (Permanent Access Token)
                   </Label>
                   <div className="relative">
                     <Input

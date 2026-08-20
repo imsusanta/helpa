@@ -173,9 +173,12 @@ export default function AutomationsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-foreground text-2xl font-bold">Automations</h1>
+          <h1 className="text-foreground text-2xl font-bold">
+            Auto-Reminders & Follow-ups
+          </h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Build workflows that react to WhatsApp® events automatically.
+            Set up automatic WhatsApp messages, appointment reminders, and
+            customer follow-up rules.
           </p>
         </div>
         <GatedButton
@@ -185,7 +188,7 @@ export default function AutomationsPage() {
           className="bg-primary text-primary-foreground hover:bg-primary/90"
         >
           <Plus className="h-4 w-4" />
-          Create Automation
+          Create Auto-Rule
         </GatedButton>
       </div>
 
@@ -226,10 +229,11 @@ export default function AutomationsPage() {
             <Zap className="text-primary h-6 w-6" />
           </div>
           <p className="text-foreground mt-3 text-sm font-medium">
-            No automations yet
+            No auto-rules or follow-ups yet
           </p>
           <p className="text-muted-foreground mt-1 text-xs">
-            Pick a template above or create one from scratch.
+            Pick a ready-made template above to automatically greet customers or
+            send reminders.
           </p>
         </div>
       ) : (
