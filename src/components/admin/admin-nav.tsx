@@ -8,6 +8,7 @@ import {
   Building2,
   CreditCard,
   Receipt,
+  IndianRupee,
   Bot,
   Settings,
   RefreshCw,
@@ -72,6 +73,11 @@ const NAV_GROUPS: NavGroup[] = [
         label: 'Subscriptions',
         icon: Receipt,
       },
+      {
+        href: '/admin/payments',
+        label: 'Payments',
+        icon: IndianRupee,
+      },
     ],
   },
   {
@@ -118,6 +124,10 @@ const ROUTE_DESCRIPTIONS: Record<
   '/admin/subscriptions': {
     title: 'Subscriptions',
     description: 'Manage business subscriptions, renewals and payment status.',
+  },
+  '/admin/payments': {
+    title: 'Payments',
+    description: 'Track payments received from businesses using Helpa.',
   },
   '/admin/ai': {
     title: 'AI Settings',
