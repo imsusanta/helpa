@@ -23,17 +23,13 @@ export async function PUT(
     const body = await request.json();
     const { data: existing, error: existingError } = await supabase
       .from('appointments')
-      .select(
-        'id, patient_id, appointment_date, appointment_time, status'
-      )
+      .select('id, patient_id, appointment_date, appointment_time, status')
       .eq('id', id)
       .eq('account_id', context.accountId)
       .single();
     if (existingError || !existing) {
       return NextResponse.json(
-        {
-          error: existingError?.message || 'Appointment not found',
-        },
+        { error: existingError?.message || 'Appointment not found' },
         {
           status: existingError ? 500 : 404,
           headers: PRIVATE_HEADERS,
