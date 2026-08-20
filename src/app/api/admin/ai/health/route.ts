@@ -2,11 +2,10 @@ import { NextResponse } from 'next/server';
 import { checkSuperAdmin } from '@/lib/auth/admin';
 import { appwriteAdmin } from '@/lib/appwrite-server-compat';
 import { decrypt } from '@/lib/whatsapp/encryption';
-import { getProviderInstance } from '@/core/ai/provider';
+import { getProviderInstance, CloudflareAiProvider } from '@/core/ai/provider';
+import type { AiProviderName } from '@/core/ai/types';
 
-async function resolveAdminProviderCredentials(
-  providerName: 'openrouter' | 'orcarouter'
-) {
+async function resolveAdminProviderCredentials(providerName: AiProviderName) {
   const db = appwriteAdmin();
   const { data: sysSettings } = await db
     .from('system_settings')
@@ -19,30 +18,47 @@ async function resolveAdminProviderCredentials(
     }
   });
 
-  let apiKey =
-    providerName === 'orcarouter'
-      ? process.env.ORCAROUTER_API_KEY
-      : process.env.OPENROUTER_API_KEY;
+  let apiKey: string | undefined = undefined;
+  let accountId: string | undefined = undefined;
+  let model: string = 'google/gemini-2.5-flash';
 
-  const encKey =
-    providerName === 'orcarouter'
-      ? settingsMap.system_orcarouter_api_key
-      : settingsMap.system_openrouter_api_key;
-
-  if (encKey) {
-    try {
-      apiKey = decrypt(encKey);
-    } catch {
-      // Fallback to env
+  if (providerName === 'orcarouter') {
+    apiKey = process.env.ORCAROUTER_API_KEY;
+    if (settingsMap.system_orcarouter_api_key) {
+      try {
+        apiKey = decrypt(settingsMap.system_orcarouter_api_key);
+      } catch {
+        // Fallback to env
+      }
     }
+    model = settingsMap.system_orcarouter_model || 'orcarouter/auto';
+  } else if (providerName === 'cloudflare') {
+    apiKey = process.env.CLOUDFLARE_API_TOKEN;
+    accountId =
+      settingsMap.system_cloudflare_account_id ||
+      process.env.CLOUDFLARE_ACCOUNT_ID;
+    if (settingsMap.system_cloudflare_api_token) {
+      try {
+        apiKey = decrypt(settingsMap.system_cloudflare_api_token);
+      } catch {
+        // Fallback to env
+      }
+    }
+    model =
+      settingsMap.system_cloudflare_model || '@cf/meta/llama-3.1-8b-instruct';
+  } else {
+    apiKey = process.env.OPENROUTER_API_KEY;
+    if (settingsMap.system_openrouter_api_key) {
+      try {
+        apiKey = decrypt(settingsMap.system_openrouter_api_key);
+      } catch {
+        // Fallback to env
+      }
+    }
+    model = settingsMap.system_openrouter_model || 'google/gemini-2.5-flash';
   }
 
-  const model =
-    providerName === 'orcarouter'
-      ? settingsMap.system_orcarouter_model || 'orcarouter/auto'
-      : settingsMap.system_openrouter_model || 'google/gemini-2.5-flash';
-
-  return { apiKey, model };
+  return { apiKey, accountId, model };
 }
 
 export async function GET() {
@@ -55,22 +71,32 @@ export async function GET() {
       );
     }
 
-    const [openCreds, orcaCreds] = await Promise.all([
+    const [openCreds, orcaCreds, cfCreds] = await Promise.all([
       resolveAdminProviderCredentials('openrouter'),
       resolveAdminProviderCredentials('orcarouter'),
+      resolveAdminProviderCredentials('cloudflare'),
     ]);
 
     const openRouter = getProviderInstance('openrouter');
     const orcaRouter = getProviderInstance('orcarouter');
+    const cloudflareProvider = getProviderInstance(
+      'cloudflare'
+    ) as CloudflareAiProvider;
 
-    const [openHealth, orcaHealth] = await Promise.all([
+    const [openHealth, orcaHealth, cfHealth] = await Promise.all([
       openRouter.healthCheck(openCreds.apiKey, openCreds.model),
       orcaRouter.healthCheck(orcaCreds.apiKey, orcaCreds.model),
+      cloudflareProvider.healthCheck(
+        cfCreds.apiKey,
+        cfCreds.model,
+        cfCreds.accountId
+      ),
     ]);
 
     return NextResponse.json({
       openrouter: openHealth,
       orcarouter: orcaHealth,
+      cloudflare: cfHealth,
       checkedAt: new Date().toISOString(),
     });
   } catch (err: unknown) {
@@ -91,37 +117,68 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const providerName =
-      body.provider === 'orcarouter' ? 'orcarouter' : 'openrouter';
+    const rawProvider = String(body.provider || 'openrouter').toLowerCase();
+    const providerName: AiProviderName =
+      rawProvider === 'orcarouter'
+        ? 'orcarouter'
+        : rawProvider === 'cloudflare'
+          ? 'cloudflare'
+          : 'openrouter';
 
     const creds = await resolveAdminProviderCredentials(providerName);
     const testApiKey =
       typeof body.apiKey === 'string' && body.apiKey.trim()
         ? body.apiKey.trim()
-        : creds.apiKey;
+        : typeof body.apiToken === 'string' && body.apiToken.trim()
+          ? body.apiToken.trim()
+          : creds.apiKey;
+    const testAccountId =
+      typeof body.accountId === 'string' && body.accountId.trim()
+        ? body.accountId.trim()
+        : creds.accountId;
     const testModel =
       typeof body.model === 'string' && body.model.trim()
         ? body.model.trim()
         : creds.model;
 
     const provider = getProviderInstance(providerName);
-    const health = await provider.healthCheck(testApiKey, testModel);
+    let health;
+
+    if (providerName === 'cloudflare') {
+      health = await (provider as CloudflareAiProvider).healthCheck(
+        testApiKey,
+        testModel,
+        testAccountId
+      );
+    } else {
+      health = await provider.healthCheck(testApiKey, testModel);
+    }
 
     if (health.status === 'healthy') {
+      const successMsg =
+        providerName === 'cloudflare'
+          ? 'Cloudflare AI is connected and ready to use.'
+          : health.message || 'Connected and healthy';
+
       return NextResponse.json({
         success: true,
         provider: providerName,
-        message: health.message || 'Connected and healthy',
+        message: successMsg,
         latencyMs: health.latencyMs,
         checkedAt: new Date().toISOString(),
       });
     }
 
+    const failMsg =
+      providerName === 'cloudflare'
+        ? 'Cloudflare AI could not be connected. Please check your credentials and model.'
+        : health.message || 'Connection test failed';
+
     return NextResponse.json(
       {
         success: false,
         provider: providerName,
-        error: health.message || 'Connection test failed',
+        error: failMsg,
         latencyMs: health.latencyMs,
         checkedAt: new Date().toISOString(),
       },

@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import {
   OpenRouterProvider,
   OrcaRouterProvider,
+  CloudflareAiProvider,
   getProviderInstance,
 } from '@/core/ai/provider';
 import {
@@ -30,11 +31,20 @@ describe('AI Provider Architecture & OrcaRouter Integration', () => {
       expect(provider.capabilities.supportsStructuredOutput).toBe(true);
     });
 
+    it('should instantiate CloudflareAiProvider with proper capabilities', () => {
+      const provider = new CloudflareAiProvider();
+      expect(provider.name).toBe('cloudflare');
+      expect(provider.capabilities.supportsStreaming).toBe(true);
+      expect(provider.capabilities.supportsStructuredOutput).toBe(true);
+    });
+
     it('should retrieve correct provider instance from registry', () => {
       const openrouter = getProviderInstance('openrouter');
       const orcarouter = getProviderInstance('orcarouter');
+      const cloudflare = getProviderInstance('cloudflare');
       expect(openrouter).toBeInstanceOf(OpenRouterProvider);
       expect(orcarouter).toBeInstanceOf(OrcaRouterProvider);
+      expect(cloudflare).toBeInstanceOf(CloudflareAiProvider);
     });
   });
 
@@ -117,20 +127,50 @@ describe('AI Provider Architecture & OrcaRouter Integration', () => {
   });
 
   describe('4. Provider Health Checks', () => {
-    it('should return unavailable status when API key is missing', async () => {
-      const provider = new OrcaRouterProvider();
-      const origKey = process.env.ORCAROUTER_API_KEY;
-      delete process.env.ORCAROUTER_API_KEY;
+    it('should return unavailable status when Cloudflare credentials are missing', async () => {
+      const provider = new CloudflareAiProvider();
+      const origToken = process.env.CLOUDFLARE_API_TOKEN;
+      const origAcc = process.env.CLOUDFLARE_ACCOUNT_ID;
+      delete process.env.CLOUDFLARE_API_TOKEN;
+      delete process.env.CLOUDFLARE_ACCOUNT_ID;
 
       const health = await provider.healthCheck('');
       expect(health.status).toBe('unavailable');
-      expect(health.provider).toBe('orcarouter');
+      expect(health.provider).toBe('cloudflare');
 
-      if (origKey) process.env.ORCAROUTER_API_KEY = origKey;
+      if (origToken) process.env.CLOUDFLARE_API_TOKEN = origToken;
+      if (origAcc) process.env.CLOUDFLARE_ACCOUNT_ID = origAcc;
     });
   });
 
   describe('5. Provider Selection & Fallback Routing', () => {
+    it('should execute Cloudflare provider when selected as primary', async () => {
+      const cloudflare = getProviderInstance('cloudflare');
+      const spy = vi
+        .spyOn(cloudflare, 'generateCompletion')
+        .mockResolvedValueOnce({
+          content: 'Response from Cloudflare Workers AI',
+          model: '@cf/meta/llama-3.1-8b-instruct',
+          provider: 'cloudflare',
+          promptTokens: 8,
+          completionTokens: 4,
+          totalTokens: 12,
+          latencyMs: 90,
+        });
+
+      const res = await executeAiCompletionWithFallback({
+        messages: [{ role: 'user', content: 'Test prompt' }],
+        resolutionParams: {
+          primaryProvider: 'cloudflare',
+          fallbackProvider: 'openrouter',
+        },
+      });
+
+      expect(res.content).toBe('Response from Cloudflare Workers AI');
+      expect(res.provider).toBe('cloudflare');
+      spy.mockRestore();
+    });
+
     it('should execute primary provider when request succeeds', async () => {
       const openrouter = getProviderInstance('openrouter');
       const spy = vi

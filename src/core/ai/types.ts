@@ -99,7 +99,7 @@ export interface CopilotSuggestions {
   confidence: number;
 }
 
-export type AiProviderName = 'openrouter' | 'orcarouter';
+export type AiProviderName = 'openrouter' | 'orcarouter' | 'cloudflare';
 
 export type AiFeatureType =
   | 'AI_REPLY'
@@ -134,6 +134,9 @@ export interface AiAccountConfig {
   openrouter_model?: string | null;
   orcarouter_api_key?: string | null;
   orcarouter_model?: string | null;
+  cloudflare_account_id?: string | null;
+  cloudflare_api_token?: string | null;
+  cloudflare_model?: string | null;
   ai_system_prompt?: string | null;
   welcome_message?: string | null;
   industry?: string | null;

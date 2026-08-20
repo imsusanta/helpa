@@ -24,11 +24,11 @@ export function sanitizeModelIdentifier(raw: string): string {
 }
 
 /**
- * Validates model identifier against OpenRouter or OrcaRouter specifications.
+ * Validates model identifier against OpenRouter, OrcaRouter, or Cloudflare specifications.
  */
 export function validateAiModelId(
   raw: string,
-  provider: 'openrouter' | 'orcarouter' = 'openrouter'
+  provider: 'openrouter' | 'orcarouter' | 'cloudflare' = 'openrouter'
 ): ModelValidationResult {
   const normalized = sanitizeModelIdentifier(raw);
 
@@ -71,6 +71,20 @@ export function validateAiModelId(
         normalizedId: normalized,
         error:
           'Invalid OrcaRouter model format. Expected format: "orcarouter/auto" or "provider/model-name".',
+      };
+    }
+  }
+
+  // Cloudflare format: '@cf/meta/llama-3.1-8b-instruct' or standard model paths
+  if (provider === 'cloudflare') {
+    const cfPattern =
+      /^(@[a-zA-Z0-9_-]+\/)?[a-zA-Z0-9_.-]+(\/[a-zA-Z0-9_.:-]+)*$/;
+    if (!cfPattern.test(normalized)) {
+      return {
+        valid: false,
+        normalizedId: normalized,
+        error:
+          'Invalid Cloudflare model format. Expected format: "@cf/organization/model-name" (e.g., @cf/meta/llama-3.1-8b-instruct).',
       };
     }
   }

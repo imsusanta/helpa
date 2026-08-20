@@ -35,11 +35,13 @@ export interface ResolvedProviderConfig {
   primary: {
     provider: AiProvider;
     apiKey?: string;
+    accountId?: string;
     model: string;
   };
   fallback?: {
     provider: AiProvider;
     apiKey?: string;
+    accountId?: string;
     model: string;
   };
 }
@@ -58,8 +60,14 @@ export async function resolveAccountAiConfig(
   let openrouterModel = 'google/gemini-2.5-flash';
   let orcarouterKey: string | undefined = process.env.ORCAROUTER_API_KEY;
   let orcarouterModel = 'orcarouter/auto';
+  let cloudflareToken: string | undefined = process.env.CLOUDFLARE_API_TOKEN;
+  let cloudflareAccountId: string | undefined =
+    process.env.CLOUDFLARE_ACCOUNT_ID;
+  let cloudflareModel = '@cf/meta/llama-3.1-8b-instruct';
+
   let openrouterEnabled = true;
   let orcarouterEnabled = true;
+  let cloudflareEnabled = true;
   let featureRouting: Record<string, string> = {};
 
   try {
@@ -81,14 +89,16 @@ export async function resolveAccountAiConfig(
       if (
         !overrides?.primaryProvider &&
         (settingsMap.system_ai_provider === 'openrouter' ||
-          settingsMap.system_ai_provider === 'orcarouter')
+          settingsMap.system_ai_provider === 'orcarouter' ||
+          settingsMap.system_ai_provider === 'cloudflare')
       ) {
-        primaryName = settingsMap.system_ai_provider;
+        primaryName = settingsMap.system_ai_provider as AiProviderName;
       }
       if (
         overrides?.fallbackProvider === undefined &&
         (settingsMap.system_ai_fallback_provider === 'openrouter' ||
           settingsMap.system_ai_fallback_provider === 'orcarouter' ||
+          settingsMap.system_ai_fallback_provider === 'cloudflare' ||
           settingsMap.system_ai_fallback_provider === 'none')
       ) {
         fallbackName = settingsMap.system_ai_fallback_provider as
@@ -100,11 +110,20 @@ export async function resolveAccountAiConfig(
       if (settingsMap.system_orcarouter_model && !overrides?.primaryProvider) {
         orcarouterModel = settingsMap.system_orcarouter_model;
       }
+      if (settingsMap.system_cloudflare_model && !overrides?.primaryProvider) {
+        cloudflareModel = settingsMap.system_cloudflare_model;
+      }
+      if (settingsMap.system_cloudflare_account_id) {
+        cloudflareAccountId = settingsMap.system_cloudflare_account_id;
+      }
       if (settingsMap.system_openrouter_enabled !== undefined) {
         openrouterEnabled = settingsMap.system_openrouter_enabled !== 'false';
       }
       if (settingsMap.system_orcarouter_enabled !== undefined) {
         orcarouterEnabled = settingsMap.system_orcarouter_enabled !== 'false';
+      }
+      if (settingsMap.system_cloudflare_enabled !== undefined) {
+        cloudflareEnabled = settingsMap.system_cloudflare_enabled !== 'false';
       }
 
       if (settingsMap.system_openrouter_api_key) {
@@ -119,6 +138,13 @@ export async function resolveAccountAiConfig(
           orcarouterKey = decrypt(settingsMap.system_orcarouter_api_key);
         } catch {
           orcarouterKey = process.env.ORCAROUTER_API_KEY;
+        }
+      }
+      if (settingsMap.system_cloudflare_api_token) {
+        try {
+          cloudflareToken = decrypt(settingsMap.system_cloudflare_api_token);
+        } catch {
+          cloudflareToken = process.env.CLOUDFLARE_API_TOKEN;
         }
       }
 
@@ -137,7 +163,7 @@ export async function resolveAccountAiConfig(
         const { data: acc } = await db
           .from('accounts')
           .select(
-            'ai_provider, ai_fallback_provider, openrouter_api_key, openrouter_model, orcarouter_api_key, orcarouter_model'
+            'ai_provider, ai_fallback_provider, openrouter_api_key, openrouter_model, orcarouter_api_key, orcarouter_model, cloudflare_account_id, cloudflare_api_token, cloudflare_model'
           )
           .eq('id', accountId)
           .maybeSingle();
@@ -146,14 +172,16 @@ export async function resolveAccountAiConfig(
           if (
             !overrides?.primaryProvider &&
             (acc.ai_provider === 'openrouter' ||
-              acc.ai_provider === 'orcarouter')
+              acc.ai_provider === 'orcarouter' ||
+              acc.ai_provider === 'cloudflare')
           ) {
-            primaryName = acc.ai_provider;
+            primaryName = acc.ai_provider as AiProviderName;
           }
           if (
             overrides?.fallbackProvider === undefined &&
             (acc.ai_fallback_provider === 'openrouter' ||
               acc.ai_fallback_provider === 'orcarouter' ||
+              acc.ai_fallback_provider === 'cloudflare' ||
               acc.ai_fallback_provider === 'none')
           ) {
             fallbackName = acc.ai_fallback_provider as AiProviderName | 'none';
@@ -163,6 +191,12 @@ export async function resolveAccountAiConfig(
           }
           if (acc.orcarouter_model && !overrides?.primaryProvider) {
             orcarouterModel = acc.orcarouter_model;
+          }
+          if (acc.cloudflare_model && !overrides?.primaryProvider) {
+            cloudflareModel = acc.cloudflare_model;
+          }
+          if (acc.cloudflare_account_id) {
+            cloudflareAccountId = acc.cloudflare_account_id;
           }
           if (acc.openrouter_api_key) {
             try {
@@ -176,6 +210,13 @@ export async function resolveAccountAiConfig(
               orcarouterKey = decrypt(acc.orcarouter_api_key);
             } catch {
               orcarouterKey = acc.orcarouter_api_key;
+            }
+          }
+          if (acc.cloudflare_api_token) {
+            try {
+              cloudflareToken = decrypt(acc.cloudflare_api_token);
+            } catch {
+              cloudflareToken = acc.cloudflare_api_token;
             }
           }
         }
@@ -202,19 +243,33 @@ export async function resolveAccountAiConfig(
   if (
     !overrides?.primaryProvider &&
     primaryName === 'openrouter' &&
-    !openrouterEnabled &&
-    orcarouterEnabled
+    !openrouterEnabled
   ) {
-    primaryName = 'orcarouter';
-    fallbackName = 'none';
+    primaryName = orcarouterEnabled
+      ? 'orcarouter'
+      : cloudflareEnabled
+        ? 'cloudflare'
+        : 'openrouter';
   } else if (
     !overrides?.primaryProvider &&
     primaryName === 'orcarouter' &&
-    !orcarouterEnabled &&
-    openrouterEnabled
+    !orcarouterEnabled
   ) {
-    primaryName = 'openrouter';
-    fallbackName = 'none';
+    primaryName = openrouterEnabled
+      ? 'openrouter'
+      : cloudflareEnabled
+        ? 'cloudflare'
+        : 'orcarouter';
+  } else if (
+    !overrides?.primaryProvider &&
+    primaryName === 'cloudflare' &&
+    !cloudflareEnabled
+  ) {
+    primaryName = openrouterEnabled
+      ? 'openrouter'
+      : orcarouterEnabled
+        ? 'orcarouter'
+        : 'cloudflare';
   }
 
   // Apply feature-level model routing if configured by Super Admin
@@ -223,6 +278,8 @@ export async function resolveAccountAiConfig(
     const mappedModel = featureRouting[feature];
     if (primaryName === 'orcarouter') {
       orcarouterModel = mappedModel;
+    } else if (primaryName === 'cloudflare') {
+      cloudflareModel = mappedModel;
     } else {
       openrouterModel = mappedModel;
     }
@@ -247,9 +304,18 @@ export async function resolveAccountAiConfig(
       ) {
         primaryName = 'orcarouter';
       }
+    } else if (rawKey.includes(':')) {
+      const parts = rawKey.split(':');
+      cloudflareAccountId = parts[0];
+      cloudflareToken = parts.slice(1).join(':');
+      if (!overrides.primaryProvider) {
+        primaryName = 'cloudflare';
+      }
     } else {
       if (primaryName === 'orcarouter') {
         orcarouterKey = rawKey;
+      } else if (primaryName === 'cloudflare') {
+        cloudflareToken = rawKey;
       } else {
         openrouterKey = rawKey;
       }
@@ -282,6 +348,8 @@ export async function resolveAccountAiConfig(
     if (cleanCustom) {
       if (primaryName === 'orcarouter') {
         orcarouterModel = cleanCustom;
+      } else if (primaryName === 'cloudflare') {
+        cloudflareModel = cleanCustom;
       } else {
         openrouterModel = cleanCustom;
       }
@@ -289,24 +357,47 @@ export async function resolveAccountAiConfig(
   }
 
   const primaryProvider = getProviderInstance(primaryName);
-  const primaryKey =
-    primaryName === 'orcarouter' ? orcarouterKey : openrouterKey;
-  const primaryModel =
-    primaryName === 'orcarouter' ? orcarouterModel : openrouterModel;
+  let primaryKey = openrouterKey;
+  let primaryModel = openrouterModel;
+  let primaryAccountId: string | undefined = undefined;
+
+  if (primaryName === 'orcarouter') {
+    primaryKey = orcarouterKey;
+    primaryModel = orcarouterModel;
+  } else if (primaryName === 'cloudflare') {
+    primaryKey = cloudflareToken;
+    primaryModel = cloudflareModel;
+    primaryAccountId = cloudflareAccountId;
+  }
 
   let fallbackConfig: ResolvedProviderConfig['fallback'];
   if (fallbackName !== 'none' && fallbackName !== primaryName) {
     const isFallbackEnabled =
-      fallbackName === 'orcarouter' ? orcarouterEnabled : openrouterEnabled;
+      fallbackName === 'orcarouter'
+        ? orcarouterEnabled
+        : fallbackName === 'cloudflare'
+          ? cloudflareEnabled
+          : openrouterEnabled;
+
     if (isFallbackEnabled) {
       const fallbackProvider = getProviderInstance(fallbackName);
-      const fallbackKey =
-        fallbackName === 'orcarouter' ? orcarouterKey : openrouterKey;
-      const fallbackModel =
-        fallbackName === 'orcarouter' ? orcarouterModel : openrouterModel;
+      let fallbackKey = openrouterKey;
+      let fallbackModel = openrouterModel;
+      let fallbackAccountId: string | undefined = undefined;
+
+      if (fallbackName === 'orcarouter') {
+        fallbackKey = orcarouterKey;
+        fallbackModel = orcarouterModel;
+      } else if (fallbackName === 'cloudflare') {
+        fallbackKey = cloudflareToken;
+        fallbackModel = cloudflareModel;
+        fallbackAccountId = cloudflareAccountId;
+      }
+
       fallbackConfig = {
         provider: fallbackProvider,
         apiKey: fallbackKey,
+        accountId: fallbackAccountId,
         model: fallbackModel,
       };
     }
@@ -316,6 +407,7 @@ export async function resolveAccountAiConfig(
     primary: {
       provider: primaryProvider,
       apiKey: primaryKey,
+      accountId: primaryAccountId,
       model: primaryModel,
     },
     fallback: fallbackConfig,
@@ -352,6 +444,7 @@ export async function executeAiCompletionWithFallback({
       const result = await primary.provider.generateCompletion(messages, {
         ...options,
         apiKey: primary.apiKey || options?.apiKey,
+        accountId: primary.accountId || options?.accountId,
         model: options?.model || primary.model,
       });
 
@@ -428,6 +521,7 @@ export async function executeAiCompletionWithFallback({
       {
         ...options,
         apiKey: fallback.apiKey,
+        accountId: fallback.accountId || options?.accountId,
         model: fallback.model,
       }
     );

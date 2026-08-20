@@ -26,7 +26,7 @@ export async function GET() {
     const settings: Record<string, unknown> = {};
     data?.forEach((row: Record<string, unknown>) => {
       if (typeof row.key === 'string') {
-        if (row.key.includes('api_key')) {
+        if (row.key.includes('api_key') || row.key.includes('api_token')) {
           // Never return raw secret keys in responses
           settings[`has_${row.key}`] = !!row.value;
         } else {
@@ -44,10 +44,19 @@ export async function GET() {
       settings.system_openrouter_model = 'google/gemini-2.5-flash';
     if (!settings.system_orcarouter_model)
       settings.system_orcarouter_model = 'orcarouter/auto';
+    if (!settings.system_cloudflare_model)
+      settings.system_cloudflare_model = '@cf/meta/llama-3.1-8b-instruct';
+    if (
+      !settings.system_cloudflare_account_id &&
+      process.env.CLOUDFLARE_ACCOUNT_ID
+    )
+      settings.system_cloudflare_account_id = process.env.CLOUDFLARE_ACCOUNT_ID;
     if (settings.system_openrouter_enabled === undefined)
       settings.system_openrouter_enabled = 'true';
     if (settings.system_orcarouter_enabled === undefined)
       settings.system_orcarouter_enabled = 'true';
+    if (settings.system_cloudflare_enabled === undefined)
+      settings.system_cloudflare_enabled = 'true';
 
     // Environment fallback visibility flags
     if (
@@ -61,6 +70,13 @@ export async function GET() {
       settings.has_system_orcarouter_api_key === false
     ) {
       settings.has_system_orcarouter_api_key = !!process.env.ORCAROUTER_API_KEY;
+    }
+    if (
+      settings.has_system_cloudflare_api_token === undefined ||
+      settings.has_system_cloudflare_api_token === false
+    ) {
+      settings.has_system_cloudflare_api_token =
+        !!process.env.CLOUDFLARE_API_TOKEN;
     }
 
     return NextResponse.json(settings);
@@ -88,12 +104,16 @@ export async function POST(req: Request) {
       landing_action_video_url,
       system_openrouter_api_key,
       system_orcarouter_api_key,
+      system_cloudflare_account_id,
+      system_cloudflare_api_token,
       system_ai_provider,
       system_ai_fallback_provider,
       system_openrouter_model,
       system_orcarouter_model,
+      system_cloudflare_model,
       system_openrouter_enabled,
       system_orcarouter_enabled,
+      system_cloudflare_enabled,
       available_models,
       system_feature_routing,
     } = body;
@@ -117,7 +137,7 @@ export async function POST(req: Request) {
 
     if (
       typeof system_ai_provider === 'string' &&
-      ['openrouter', 'orcarouter'].includes(system_ai_provider)
+      ['openrouter', 'orcarouter', 'cloudflare'].includes(system_ai_provider)
     ) {
       upserts.push({ key: 'system_ai_provider', value: system_ai_provider });
       auditActions.push('AI_PRIMARY_PROVIDER_CHANGED');
@@ -125,7 +145,9 @@ export async function POST(req: Request) {
 
     if (
       typeof system_ai_fallback_provider === 'string' &&
-      ['openrouter', 'orcarouter', 'none'].includes(system_ai_fallback_provider)
+      ['openrouter', 'orcarouter', 'cloudflare', 'none'].includes(
+        system_ai_fallback_provider
+      )
     ) {
       upserts.push({
         key: 'system_ai_fallback_provider',
@@ -159,6 +181,26 @@ export async function POST(req: Request) {
     }
 
     if (
+      typeof system_cloudflare_model === 'string' &&
+      system_cloudflare_model.trim()
+    ) {
+      const val = validateAiModelId(system_cloudflare_model, 'cloudflare');
+      if (!val.valid) {
+        return NextResponse.json({ error: val.error }, { status: 400 });
+      }
+      upserts.push({ key: 'system_cloudflare_model', value: val.normalizedId });
+      auditActions.push('AI_DEFAULT_MODEL_CHANGED');
+    }
+
+    if (typeof system_cloudflare_account_id === 'string') {
+      upserts.push({
+        key: 'system_cloudflare_account_id',
+        value: system_cloudflare_account_id.trim(),
+      });
+      auditActions.push('AI_CLOUDFLARE_ACCOUNT_UPDATED');
+    }
+
+    if (
       typeof system_openrouter_enabled === 'string' ||
       typeof system_openrouter_enabled === 'boolean'
     ) {
@@ -176,6 +218,17 @@ export async function POST(req: Request) {
       upserts.push({
         key: 'system_orcarouter_enabled',
         value: String(system_orcarouter_enabled),
+      });
+      auditActions.push('AI_PROVIDER_STATUS_CHANGED');
+    }
+
+    if (
+      typeof system_cloudflare_enabled === 'string' ||
+      typeof system_cloudflare_enabled === 'boolean'
+    ) {
+      upserts.push({
+        key: 'system_cloudflare_enabled',
+        value: String(system_cloudflare_enabled),
       });
       auditActions.push('AI_PROVIDER_STATUS_CHANGED');
     }
@@ -231,6 +284,24 @@ export async function POST(req: Request) {
           .eq('key', 'system_orcarouter_api_key')
           .catch(() => {});
         auditActions.push('AI_API_KEY_CLEARED');
+      }
+    }
+
+    if (typeof system_cloudflare_api_token === 'string') {
+      const trimmed = system_cloudflare_api_token.trim();
+      if (trimmed.length > 0) {
+        upserts.push({
+          key: 'system_cloudflare_api_token',
+          value: encrypt(trimmed),
+        });
+        auditActions.push('AI_API_TOKEN_UPDATED');
+      } else if (system_cloudflare_api_token === '') {
+        await db
+          .from('system_settings')
+          .delete()
+          .eq('key', 'system_cloudflare_api_token')
+          .catch(() => {});
+        auditActions.push('AI_API_TOKEN_CLEARED');
       }
     }
 

@@ -39,7 +39,7 @@ import { AdminNav } from './admin-nav';
 interface ModelItem {
   id: string;
   name: string;
-  provider: 'openrouter' | 'orcarouter';
+  provider: 'openrouter' | 'orcarouter' | 'cloudflare';
   enabled: boolean;
 }
 
@@ -109,6 +109,45 @@ const DEFAULT_ORCAROUTER_MODELS: ModelItem[] = [
   },
 ];
 
+const DEFAULT_CLOUDFLARE_MODELS: ModelItem[] = [
+  {
+    id: '@cf/meta/llama-3.1-8b-instruct',
+    name: 'Llama 3.1 8B Instruct',
+    provider: 'cloudflare',
+    enabled: true,
+  },
+  {
+    id: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+    name: 'Llama 3.3 70B Fast',
+    provider: 'cloudflare',
+    enabled: true,
+  },
+  {
+    id: '@cf/meta/llama-3-8b-instruct',
+    name: 'Llama 3 8B Instruct',
+    provider: 'cloudflare',
+    enabled: true,
+  },
+  {
+    id: '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b',
+    name: 'DeepSeek R1 Distill Qwen 32B',
+    provider: 'cloudflare',
+    enabled: true,
+  },
+  {
+    id: '@cf/mistral/mistral-7b-instruct-v0.2',
+    name: 'Mistral 7B Instruct',
+    provider: 'cloudflare',
+    enabled: true,
+  },
+  {
+    id: '@cf/qwen/qwen2.5-7b-instruct',
+    name: 'Qwen 2.5 7B Instruct',
+    provider: 'cloudflare',
+    enabled: true,
+  },
+];
+
 export function AdminAiInfrastructure() {
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -121,9 +160,10 @@ export function AdminAiInfrastructure() {
 
   // Form states
   const [selectedProvider, setSelectedProvider] = useState<
-    'openrouter' | 'orcarouter'
+    'openrouter' | 'orcarouter' | 'cloudflare'
   >('openrouter');
   const [apiKeyInput, setApiKeyInput] = useState('');
+  const [cloudflareAccountIdInput, setCloudflareAccountIdInput] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
   const [selectedModel, setSelectedModel] = useState('google/gemini-2.5-flash');
 
@@ -150,14 +190,29 @@ export function AdminAiInfrastructure() {
       setSavedSettings(data);
 
       const activeProvider = (
-        data.system_ai_provider === 'orcarouter' ? 'orcarouter' : 'openrouter'
-      ) as 'openrouter' | 'orcarouter';
+        data.system_ai_provider === 'orcarouter'
+          ? 'orcarouter'
+          : data.system_ai_provider === 'cloudflare'
+            ? 'cloudflare'
+            : 'openrouter'
+      ) as 'openrouter' | 'orcarouter' | 'cloudflare';
       setSelectedProvider(activeProvider);
 
       if (activeProvider === 'orcarouter') {
         setSelectedModel(
           String(data.system_orcarouter_model || 'orcarouter/auto')
         );
+      } else if (activeProvider === 'cloudflare') {
+        setSelectedModel(
+          String(
+            data.system_cloudflare_model || '@cf/meta/llama-3.1-8b-instruct'
+          )
+        );
+        if (data.system_cloudflare_account_id) {
+          setCloudflareAccountIdInput(
+            String(data.system_cloudflare_account_id)
+          );
+        }
       } else {
         setSelectedModel(
           String(data.system_openrouter_model || 'google/gemini-2.5-flash')
@@ -195,14 +250,17 @@ export function AdminAiInfrastructure() {
       const currentProv = (
         savedSettings.system_ai_provider === 'orcarouter'
           ? 'orcarouter'
-          : 'openrouter'
-      ) as 'openrouter' | 'orcarouter';
+          : savedSettings.system_ai_provider === 'cloudflare'
+            ? 'cloudflare'
+            : 'openrouter'
+      ) as 'openrouter' | 'orcarouter' | 'cloudflare';
       const provHealth = data?.[currentProv];
       if (provHealth?.status === 'healthy') {
         setIsLiveHealthy(true);
       } else if (
         provHealth?.status === 'unhealthy' ||
-        provHealth?.status === 'unreachable'
+        provHealth?.status === 'unreachable' ||
+        provHealth?.status === 'error'
       ) {
         setIsLiveHealthy(false);
       }
@@ -226,7 +284,9 @@ export function AdminAiInfrastructure() {
     const defaultList =
       selectedProvider === 'orcarouter'
         ? DEFAULT_ORCAROUTER_MODELS
-        : DEFAULT_OPENROUTER_MODELS;
+        : selectedProvider === 'cloudflare'
+          ? DEFAULT_CLOUDFLARE_MODELS
+          : DEFAULT_OPENROUTER_MODELS;
     const customs = customModels.filter((m) => m.provider === selectedProvider);
 
     const merged = [...defaultList];
@@ -240,7 +300,9 @@ export function AdminAiInfrastructure() {
   }, [selectedProvider, customModels]);
 
   // Handle provider switch
-  const handleProviderChange = (newProvider: 'openrouter' | 'orcarouter') => {
+  const handleProviderChange = (
+    newProvider: 'openrouter' | 'orcarouter' | 'cloudflare'
+  ) => {
     setSelectedProvider(newProvider);
     setTestStatus(null);
     setApiKeyInput('');
@@ -250,6 +312,17 @@ export function AdminAiInfrastructure() {
         savedSettings.system_orcarouter_model || 'orcarouter/auto'
       );
       setSelectedModel(currentModel);
+    } else if (newProvider === 'cloudflare') {
+      const currentModel = String(
+        savedSettings.system_cloudflare_model ||
+          '@cf/meta/llama-3.1-8b-instruct'
+      );
+      setSelectedModel(currentModel);
+      if (savedSettings.system_cloudflare_account_id) {
+        setCloudflareAccountIdInput(
+          String(savedSettings.system_cloudflare_account_id)
+        );
+      }
     } else {
       const currentModel = String(
         savedSettings.system_openrouter_model || 'google/gemini-2.5-flash'
@@ -262,25 +335,34 @@ export function AdminAiInfrastructure() {
   const hasStoredKey = Boolean(
     selectedProvider === 'orcarouter'
       ? savedSettings.has_system_orcarouter_api_key
-      : savedSettings.has_system_openrouter_api_key
+      : selectedProvider === 'cloudflare'
+        ? savedSettings.has_system_cloudflare_api_token
+        : savedSettings.has_system_openrouter_api_key
   );
 
   // Active (Current AI) summary info
   const activeProvider = (
     savedSettings.system_ai_provider === 'orcarouter'
       ? 'orcarouter'
-      : 'openrouter'
-  ) as 'openrouter' | 'orcarouter';
+      : savedSettings.system_ai_provider === 'cloudflare'
+        ? 'cloudflare'
+        : 'openrouter'
+  ) as 'openrouter' | 'orcarouter' | 'cloudflare';
+
   const activeModelId = String(
     activeProvider === 'orcarouter'
       ? savedSettings.system_orcarouter_model || 'orcarouter/auto'
-      : savedSettings.system_openrouter_model || 'google/gemini-2.5-flash'
+      : activeProvider === 'cloudflare'
+        ? savedSettings.system_cloudflare_model ||
+          '@cf/meta/llama-3.1-8b-instruct'
+        : savedSettings.system_openrouter_model || 'google/gemini-2.5-flash'
   );
 
   const activeModelObj = useMemo(() => {
     const all = [
       ...DEFAULT_OPENROUTER_MODELS,
       ...DEFAULT_ORCAROUTER_MODELS,
+      ...DEFAULT_CLOUDFLARE_MODELS,
       ...customModels,
     ];
     return all.find((m) => m.id === activeModelId);
@@ -290,7 +372,9 @@ export function AdminAiInfrastructure() {
   const hasCurrentConfig = Boolean(
     activeProvider === 'orcarouter'
       ? savedSettings.has_system_orcarouter_api_key
-      : savedSettings.has_system_openrouter_api_key
+      : activeProvider === 'cloudflare'
+        ? savedSettings.has_system_cloudflare_api_token
+        : savedSettings.has_system_openrouter_api_key
   );
 
   // Test current connection (from top card)
@@ -308,23 +392,29 @@ export function AdminAiInfrastructure() {
       const data = await res.json();
       if (res.ok && data.success) {
         setIsLiveHealthy(true);
-        toast.success(
-          'Connection successful! Your AI service is ready to use.'
-        );
+        const successMsg =
+          activeProvider === 'cloudflare'
+            ? 'Cloudflare AI is connected and ready to use.'
+            : 'Connection successful! Your AI service is ready to use.';
+        toast.success(successMsg);
       } else {
         setIsLiveHealthy(false);
         const errorMsg =
-          data.error ||
-          data.message ||
-          'Please check your API key and try again.';
+          activeProvider === 'cloudflare'
+            ? 'Cloudflare AI could not be connected. Please check your credentials and model.'
+            : data.error ||
+              data.message ||
+              'Please check your API key and try again.';
         toast.error(`Connection failed: ${errorMsg}`);
       }
     } catch (err) {
       setIsLiveHealthy(false);
       const errorMsg =
-        err instanceof Error
-          ? err.message
-          : 'Please check your API key and try again.';
+        activeProvider === 'cloudflare'
+          ? 'Cloudflare AI could not be connected. Please check your credentials and model.'
+          : err instanceof Error
+            ? err.message
+            : 'Please check your credentials and try again.';
       toast.error(`Connection failed: ${errorMsg}`);
     } finally {
       setIsTestingCurrent(false);
@@ -344,6 +434,10 @@ export function AdminAiInfrastructure() {
         body: JSON.stringify({
           provider: selectedProvider,
           apiKey: apiKeyInput.trim() || undefined,
+          accountId:
+            selectedProvider === 'cloudflare'
+              ? cloudflareAccountIdInput.trim() || undefined
+              : undefined,
           model: selectedModel,
         }),
       });
@@ -354,19 +448,31 @@ export function AdminAiInfrastructure() {
         setTestErrorMessage(null);
       } else {
         setTestStatus('error');
-        setTestErrorMessage(
-          data.error ||
-            data.message ||
-            'Please check your API key and try again.'
-        );
+        if (selectedProvider === 'cloudflare') {
+          setTestErrorMessage(
+            'Cloudflare AI could not be connected. Please check your credentials and model.'
+          );
+        } else {
+          setTestErrorMessage(
+            data.error ||
+              data.message ||
+              'Please check your API key and try again.'
+          );
+        }
       }
     } catch (err) {
       setTestStatus('error');
-      setTestErrorMessage(
-        err instanceof Error
-          ? err.message
-          : 'Please check your API key and try again.'
-      );
+      if (selectedProvider === 'cloudflare') {
+        setTestErrorMessage(
+          'Cloudflare AI could not be connected. Please check your credentials and model.'
+        );
+      } else {
+        setTestErrorMessage(
+          err instanceof Error
+            ? err.message
+            : 'Please check your API key and try again.'
+        );
+      }
     } finally {
       setIsTesting(false);
     }
@@ -421,6 +527,15 @@ export function AdminAiInfrastructure() {
         if (apiKeyInput.trim()) {
           payload.system_openrouter_api_key = apiKeyInput.trim();
         }
+      } else if (selectedProvider === 'cloudflare') {
+        payload.system_cloudflare_model = selectedModel;
+        if (cloudflareAccountIdInput.trim()) {
+          payload.system_cloudflare_account_id =
+            cloudflareAccountIdInput.trim();
+        }
+        if (apiKeyInput.trim()) {
+          payload.system_cloudflare_api_token = apiKeyInput.trim();
+        }
       } else {
         payload.system_orcarouter_model = selectedModel;
         if (apiKeyInput.trim()) {
@@ -463,6 +578,12 @@ export function AdminAiInfrastructure() {
     );
   }
 
+  const providerDisplayMap = {
+    openrouter: 'OpenRouter',
+    orcarouter: 'OrcaRouter',
+    cloudflare: 'Cloudflare',
+  };
+
   return (
     <AdminNav>
       <div className="mx-auto max-w-3xl space-y-6">
@@ -498,9 +619,7 @@ export function AdminAiInfrastructure() {
                     Provider
                   </div>
                   <div className="text-foreground text-sm font-semibold">
-                    {activeProvider === 'orcarouter'
-                      ? 'OrcaRouter'
-                      : 'OpenRouter'}
+                    {providerDisplayMap[activeProvider]}
                   </div>
                 </div>
                 <div>
@@ -545,7 +664,11 @@ export function AdminAiInfrastructure() {
               <Select
                 value={selectedProvider}
                 onValueChange={(val) => {
-                  if (val === 'openrouter' || val === 'orcarouter') {
+                  if (
+                    val === 'openrouter' ||
+                    val === 'orcarouter' ||
+                    val === 'cloudflare'
+                  ) {
                     handleProviderChange(val);
                   }
                 }}
@@ -560,46 +683,120 @@ export function AdminAiInfrastructure() {
                   <SelectItem value="orcarouter" className="text-xs">
                     OrcaRouter
                   </SelectItem>
+                  <SelectItem value="cloudflare" className="text-xs">
+                    Cloudflare
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            {/* STEP 2 — API KEY */}
-            <div className="space-y-1.5">
-              <Label className="text-foreground text-xs font-semibold">
-                API Key
-              </Label>
-              <div className="relative">
-                <Input
-                  type={showApiKey ? 'text' : 'password'}
-                  placeholder={
-                    hasStoredKey ? '••••••••••••••••••••••••' : 'Enter API Key'
-                  }
-                  value={apiKeyInput}
-                  onChange={(e) => {
-                    setApiKeyInput(e.target.value);
-                    setTestStatus(null);
-                  }}
-                  className="border-border/80 h-10 rounded-xl pr-10 font-mono text-xs"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowApiKey(!showApiKey)}
-                  className="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2 p-1 transition-colors"
-                  aria-label={showApiKey ? 'Hide API key' : 'Show API key'}
-                >
-                  {showApiKey ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
+            {/* STEP 2 — CREDENTIALS */}
+            {selectedProvider === 'cloudflare' ? (
+              <div className="space-y-4">
+                {/* Cloudflare Account ID */}
+                <div className="space-y-1.5">
+                  <Label className="text-foreground text-xs font-semibold">
+                    Cloudflare Account ID
+                  </Label>
+                  <Input
+                    placeholder={
+                      savedSettings.system_cloudflare_account_id
+                        ? String(savedSettings.system_cloudflare_account_id)
+                        : 'Enter Cloudflare Account ID'
+                    }
+                    value={cloudflareAccountIdInput}
+                    onChange={(e) => {
+                      setCloudflareAccountIdInput(e.target.value);
+                      setTestStatus(null);
+                    }}
+                    className="border-border/80 h-10 rounded-xl font-mono text-xs"
+                  />
+                </div>
+
+                {/* Cloudflare API Token */}
+                <div className="space-y-1.5">
+                  <Label className="text-foreground text-xs font-semibold">
+                    Cloudflare API Token
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      type={showApiKey ? 'text' : 'password'}
+                      placeholder={
+                        hasStoredKey
+                          ? '••••••••••••••••••••••••'
+                          : 'Enter Cloudflare API Token'
+                      }
+                      value={apiKeyInput}
+                      onChange={(e) => {
+                        setApiKeyInput(e.target.value);
+                        setTestStatus(null);
+                      }}
+                      className="border-border/80 h-10 rounded-xl pr-10 font-mono text-xs"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowApiKey(!showApiKey)}
+                      className="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2 p-1 transition-colors"
+                      aria-label={
+                        showApiKey
+                          ? 'Hide Cloudflare API token'
+                          : 'Show Cloudflare API token'
+                      }
+                    >
+                      {showApiKey ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                  <p className="text-muted-foreground flex items-center gap-1.5 pt-0.5 text-xs">
+                    <Shield className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
+                    Your Cloudflare credentials are securely stored and are only
+                    used by Helpa to connect to Cloudflare AI.
+                  </p>
+                </div>
               </div>
-              <p className="text-muted-foreground flex items-center gap-1.5 pt-0.5 text-xs">
-                <Shield className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
-                Your API key is encrypted and stored securely with AES-256-GCM.
-              </p>
-            </div>
+            ) : (
+              <div className="space-y-1.5">
+                <Label className="text-foreground text-xs font-semibold">
+                  API Key
+                </Label>
+                <div className="relative">
+                  <Input
+                    type={showApiKey ? 'text' : 'password'}
+                    placeholder={
+                      hasStoredKey
+                        ? '••••••••••••••••••••••••'
+                        : 'Enter API Key'
+                    }
+                    value={apiKeyInput}
+                    onChange={(e) => {
+                      setApiKeyInput(e.target.value);
+                      setTestStatus(null);
+                    }}
+                    className="border-border/80 h-10 rounded-xl pr-10 font-mono text-xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    className="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2 p-1 transition-colors"
+                    aria-label={showApiKey ? 'Hide API key' : 'Show API key'}
+                  >
+                    {showApiKey ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+                <p className="text-muted-foreground flex items-center gap-1.5 pt-0.5 text-xs">
+                  <Shield className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
+                  Your API key is encrypted and stored securely with
+                  AES-256-GCM.
+                </p>
+              </div>
+            )}
 
             {/* STEP 3 — AI MODEL */}
             <div className="space-y-1.5">
@@ -677,8 +874,9 @@ export function AdminAiInfrastructure() {
                       Connection successful
                     </div>
                     <div className="mt-0.5 text-emerald-700/90 dark:text-emerald-400">
-                      Your AI service is operational and ready to process
-                      requests.
+                      {selectedProvider === 'cloudflare'
+                        ? 'Cloudflare AI is connected and ready to use.'
+                        : 'Your AI service is operational and ready to process requests.'}
                     </div>
                   </div>
                 </div>
@@ -693,7 +891,9 @@ export function AdminAiInfrastructure() {
                     <div className="font-semibold">Connection failed</div>
                     <div className="mt-0.5 opacity-90">
                       {testErrorMessage ||
-                        'Please check your API key and try again.'}
+                        (selectedProvider === 'cloudflare'
+                          ? 'Cloudflare AI could not be connected. Please check your credentials and model.'
+                          : 'Please check your API key and try again.')}
                     </div>
                   </div>
                 </div>
@@ -714,7 +914,7 @@ export function AdminAiInfrastructure() {
                     Saving...
                   </>
                 ) : (
-                  'Save AI Configuration'
+                  'Save AI Settings'
                 )}
               </Button>
             </div>
@@ -730,10 +930,7 @@ export function AdminAiInfrastructure() {
               </DialogTitle>
               <DialogDescription className="text-muted-foreground text-xs">
                 Add a custom AI model identifier for{' '}
-                {selectedProvider === 'openrouter'
-                  ? 'OpenRouter'
-                  : 'OrcaRouter'}
-                .
+                {providerDisplayMap[selectedProvider]}.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-2">
@@ -746,7 +943,7 @@ export function AdminAiInfrastructure() {
                 </Label>
                 <Input
                   id="custom-model-name"
-                  placeholder="e.g. Gemini 2.5 Flash Thinking"
+                  placeholder="e.g. Llama 3.1 70B Custom"
                   value={customModelName}
                   onChange={(e) => {
                     setCustomModelName(e.target.value);
@@ -768,7 +965,9 @@ export function AdminAiInfrastructure() {
                   placeholder={
                     selectedProvider === 'openrouter'
                       ? 'e.g. google/gemini-2.5-flash-preview'
-                      : 'e.g. openai/gpt-4o'
+                      : selectedProvider === 'cloudflare'
+                        ? 'e.g. @cf/meta/llama-3.1-8b-instruct'
+                        : 'e.g. openai/gpt-4o'
                   }
                   value={customModelId}
                   onChange={(e) => {
