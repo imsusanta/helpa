@@ -6,7 +6,7 @@
  * and reconnect.
  */
 
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/supabase/server';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import { normalizePhone } from '@/lib/whatsapp/phone-utils';
 import { coreEvents } from '@/core/events';
@@ -75,9 +75,6 @@ export async function getWhatsAppConnection(
   };
 }
 
-/**
- * Sends a WhatsApp message via Meta Cloud API with multi-tenant isolation.
- */
 export async function sendWhatsAppMessage(
   options: WhatsAppSendOptions
 ): Promise<WhatsAppSendResult> {
@@ -99,7 +96,6 @@ export async function sendWhatsAppMessage(
       timestamp: new Date().toISOString(),
     };
   }
-
   if (!to) {
     return {
       success: false,
@@ -118,7 +114,7 @@ export async function sendWhatsAppMessage(
   if (configErr || !rows || rows.length === 0) {
     return {
       success: false,
-      error: `No WhatsApp configuration found for tenant ${tenantId}`,
+      error: 'No WhatsApp configuration found for this workspace',
       timestamp: new Date().toISOString(),
     };
   }
@@ -148,8 +144,6 @@ export async function sendWhatsAppMessage(
   }
 
   const cleanRecipient = normalizePhone(to).replace(/^\+/, '');
-
-  // Construct Meta payload
   let payload: Record<string, unknown>;
 
   if (type === 'template' && templateName) {
@@ -170,10 +164,7 @@ export async function sendWhatsAppMessage(
       recipient_type: 'individual',
       to: cleanRecipient,
       type: 'image',
-      image: {
-        link: mediaUrl,
-        caption: options.mediaCaption || undefined,
-      },
+      image: { link: mediaUrl, caption: options.mediaCaption || undefined },
     };
   } else if (type === 'document' && mediaUrl) {
     payload = {
@@ -194,7 +185,6 @@ export async function sendWhatsAppMessage(
     options.interactive
   ) {
     let interactiveObj: Record<string, unknown>;
-
     if (options.ctaUrl) {
       interactiveObj = {
         type: 'cta_url',
@@ -227,17 +217,12 @@ export async function sendWhatsAppMessage(
         action: { buttons: [] },
       };
     }
-
     if (options.headerText && !interactiveObj.header) {
-      interactiveObj.header = {
-        type: 'text',
-        text: options.headerText.slice(0, 60),
-      };
+      interactiveObj.header = { type: 'text', text: options.headerText.slice(0, 60) };
     }
     if (options.footerText && !interactiveObj.footer) {
       interactiveObj.footer = { text: options.footerText.slice(0, 60) };
     }
-
     payload = {
       messaging_product: 'whatsapp',
       recipient_type: 'individual',
@@ -251,10 +236,7 @@ export async function sendWhatsAppMessage(
       recipient_type: 'individual',
       to: cleanRecipient,
       type: 'text',
-      text: {
-        preview_url: true,
-        body: text || '',
-      },
+      text: { preview_url: true, body: text || '' },
     };
   }
 
@@ -267,7 +249,6 @@ export async function sendWhatsAppMessage(
       },
       body: JSON.stringify(payload),
     });
-
     const metaData = await metaRes.json().catch(() => null);
 
     if (!metaRes.ok || !metaData?.messages?.[0]?.id) {
@@ -275,16 +256,10 @@ export async function sendWhatsAppMessage(
         metaData?.error?.message ||
         `Meta API error: ${metaRes.status} ${metaRes.statusText}`;
       console.error('[Core WhatsApp Service] Send failed:', metaData);
-      return {
-        success: false,
-        error: errorMsg,
-        timestamp: new Date().toISOString(),
-      };
+      return { success: false, error: errorMsg, timestamp: new Date().toISOString() };
     }
 
     const metaMessageId = metaData.messages[0].id as string;
-
-    // Record message in database if conversationId is provided
     let createdMessageId: string | undefined;
     if (options.conversationId) {
       const { data: msgRow } = await db
@@ -300,10 +275,7 @@ export async function sendWhatsAppMessage(
         })
         .select('id')
         .single();
-
       createdMessageId = msgRow?.id;
-
-      // Update conversation last message timestamp
       await db
         .from('conversations')
         .update({
@@ -314,7 +286,6 @@ export async function sendWhatsAppMessage(
         .eq('account_id', tenantId);
     }
 
-    // Emit core event for observability and audit logging
     coreEvents.emit('message.sent', tenantId, {
       tenantId,
       conversationId: options.conversationId || '',
@@ -333,23 +304,15 @@ export async function sendWhatsAppMessage(
   } catch (netErr) {
     const errorMsg = netErr instanceof Error ? netErr.message : 'Network error';
     console.error('[Core WhatsApp Service] Network error during send:', netErr);
-    return {
-      success: false,
-      error: errorMsg,
-      timestamp: new Date().toISOString(),
-    };
+    return { success: false, error: errorMsg, timestamp: new Date().toISOString() };
   }
 }
 
-/**
- * Checks WhatsApp connection health for a tenant.
- */
 export async function getWhatsAppHealth(
   tenantId: string
 ): Promise<WhatsAppHealthReport> {
   const conn = await getWhatsAppConnection(tenantId);
   const now = new Date().toISOString();
-
   if (!conn || conn.connectionStatus === 'NOT_CONNECTED') {
     return {
       connected: false,
@@ -365,22 +328,18 @@ export async function getWhatsAppHealth(
   const issues: string[] = [];
   let apiStatus: WhatsAppHealthReport['apiStatus'] = 'healthy';
   let webhookStatus: WhatsAppHealthReport['webhookStatus'] = 'healthy';
-
   if (!conn.phoneNumberId) {
     issues.push('Phone Number ID is missing.');
     apiStatus = 'error';
   }
-
   if (!conn.wabaId) {
     issues.push('WABA ID is missing.');
     apiStatus = 'degraded';
   }
-
   if (conn.connectionStatus === 'PENDING_VERIFICATION') {
     webhookStatus = 'unregistered';
     issues.push('Webhook event delivery is pending two-step registration.');
   }
-
   return {
     connected: conn.connectionStatus === 'CONNECTED',
     status: conn.connectionStatus,
@@ -395,40 +354,24 @@ export async function getWhatsAppHealth(
   };
 }
 
-/**
- * Cleanly disconnects WhatsApp from Helpa workspace.
- * Non-destructive: preserves conversation history and does not delete customer's Meta WABA.
- */
 export async function disconnectWhatsApp(
   tenantId: string
 ): Promise<{ success: boolean; message: string }> {
-  if (!tenantId) {
-    return { success: false, message: 'Tenant ID is required' };
-  }
-
+  if (!tenantId) return { success: false, message: 'Tenant ID is required' };
   const db = getAdminClient();
   const { error } = await db
     .from('whatsapp_config')
     .delete()
     .eq('account_id', tenantId);
-
   if (error) {
-    return {
-      success: false,
-      message: `Failed to disconnect WhatsApp: ${error.message}`,
-    };
+    return { success: false, message: 'Failed to disconnect WhatsApp' };
   }
-
   return {
     success: true,
-    message:
-      'WhatsApp has been disconnected cleanly. Conversation history was preserved.',
+    message: 'WhatsApp has been disconnected cleanly. Conversation history was preserved.',
   };
 }
 
-/**
- * Reconnects or refreshes the tenant's WhatsApp registration.
- */
 export async function reconnectWhatsApp(
   tenantId: string
 ): Promise<{ success: boolean; message: string }> {
@@ -436,13 +379,8 @@ export async function reconnectWhatsApp(
   if (!health.connected) {
     return {
       success: false,
-      message:
-        'WhatsApp is not connected. Please click Connect WhatsApp to link with Meta.',
+      message: 'WhatsApp is not connected. Please click Connect WhatsApp to link with Meta.',
     };
   }
-
-  return {
-    success: true,
-    message: 'WhatsApp connection is active and healthy.',
-  };
+  return { success: true, message: 'WhatsApp connection is active and healthy.' };
 }
