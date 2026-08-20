@@ -141,8 +141,7 @@ export async function POST(request: Request) {
       effectiveName = effectiveName ?? t.name;
       effectiveDescription = effectiveDescription ?? t.description;
       effectiveTriggerType = effectiveTriggerType ?? t.trigger_type;
-      effectiveTriggerConfig =
-        effectiveTriggerConfig ?? t.trigger_config;
+      effectiveTriggerConfig = effectiveTriggerConfig ?? t.trigger_config;
       effectiveSteps = t.steps as unknown as BuilderStepInput[];
     }
   }
