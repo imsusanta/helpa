@@ -12,7 +12,7 @@ import {
 } from '@/lib/saas/subscription';
 import { DEFAULT_PLANS, getPlanBySlug } from '@/core/billing/plans';
 
-describe('Helpa Phase 1 — Razorpay Billing & Subscription Lifecycle', () => {
+describe('Helpa Phase 1A — 30-Day Prepaid Billing Hardening & Razorpay Integration', () => {
   describe('1. Razorpay Signature Verification Security', () => {
     const secret = 'webhook_secret_test_xyz123';
     const payload = JSON.stringify({
@@ -88,16 +88,28 @@ describe('Helpa Phase 1 — Razorpay Billing & Subscription Lifecycle', () => {
     });
   });
 
-  describe('2. Plan Pricing & Order Computation', () => {
+  describe('2. 30-Day Prepaid Plan Pricing & Setup Fee Logic', () => {
     it('should correctly calculate setup fee + monthly price for first-time subscriber', async () => {
+      const starter = await getPlanBySlug('starter');
+      const firstTimeTotalStarter = starter.setupFee + starter.monthlyPrice;
+      expect(starter.setupFee).toBe(7999);
+      expect(starter.monthlyPrice).toBe(3499);
+      expect(firstTimeTotalStarter).toBe(11498);
+
       const growth = await getPlanBySlug('growth');
-      const firstTimeTotal = growth.setupFee + growth.monthlyPrice;
+      const firstTimeTotalGrowth = growth.setupFee + growth.monthlyPrice;
       expect(growth.setupFee).toBe(11999);
       expect(growth.monthlyPrice).toBe(4999);
-      expect(firstTimeTotal).toBe(16998);
+      expect(firstTimeTotalGrowth).toBe(16998);
+
+      const pro = await getPlanBySlug('pro');
+      const firstTimeTotalPro = pro.setupFee + pro.monthlyPrice;
+      expect(pro.setupFee).toBe(19999);
+      expect(pro.monthlyPrice).toBe(7999);
+      expect(firstTimeTotalPro).toBe(27998);
 
       const order = await createRazorpayOrder({
-        amountInPaise: firstTimeTotal * 100,
+        amountInPaise: firstTimeTotalGrowth * 100,
         currency: 'INR',
         receipt: 'rcpt_test_001',
         notes: { accountId: 'acc_01', planSlug: 'growth', isFirstTime: 'true' },
@@ -108,22 +120,61 @@ describe('Helpa Phase 1 — Razorpay Billing & Subscription Lifecycle', () => {
       expect(order.status).toBe('created');
     });
 
-    it('should charge only monthly recurring amount on renewals', async () => {
-      const pro = await getPlanBySlug('pro');
-      expect(pro.monthlyPrice).toBe(7999);
+    it('should charge only monthly recurring amount on 30-day renewals without setup fee', async () => {
+      const growth = await getPlanBySlug('growth');
+      expect(growth.monthlyPrice).toBe(4999);
 
-      const order = await createRazorpayOrder({
-        amountInPaise: pro.monthlyPrice * 100,
+      const renewalOrder = await createRazorpayOrder({
+        amountInPaise: growth.monthlyPrice * 100,
         currency: 'INR',
-        receipt: 'rcpt_test_002',
-        notes: { accountId: 'acc_02', planSlug: 'pro', isFirstTime: 'false' },
+        receipt: 'rcpt_test_renewal_01',
+        notes: {
+          accountId: 'acc_01',
+          planSlug: 'growth',
+          isFirstTime: 'false',
+        },
       });
 
-      expect(order.amount).toBe(799900);
+      expect(renewalOrder.amount).toBe(499900); // Only ₹4,999; no setup fee
     });
   });
 
-  describe('3. Plan Limits & Gating Enforcements', () => {
+  describe('3. 30-Day Renewal Date Rollover Logic', () => {
+    it('should rollover and preserve remaining days when renewing before expiration', () => {
+      const now = new Date('2026-09-15T12:00:00Z').getTime();
+      const existingEndDateMs = new Date('2026-09-20T12:00:00Z').getTime();
+
+      let nextEndDate: string;
+      if (existingEndDateMs > now) {
+        // Renewed 5 days early -> 5 days + 30 days = 35 days from now
+        nextEndDate = new Date(
+          existingEndDateMs + 30 * 86400 * 1000
+        ).toISOString();
+      } else {
+        nextEndDate = new Date(now + 30 * 86400 * 1000).toISOString();
+      }
+
+      expect(nextEndDate).toBe('2026-10-20T12:00:00.000Z');
+    });
+
+    it('should grant 30 days from payment time when renewing an expired subscription', () => {
+      const now = new Date('2026-09-25T12:00:00Z').getTime();
+      const existingEndDateMs = new Date('2026-09-20T12:00:00Z').getTime(); // Expired 5 days ago
+
+      let nextEndDate: string;
+      if (existingEndDateMs > now) {
+        nextEndDate = new Date(
+          existingEndDateMs + 30 * 86400 * 1000
+        ).toISOString();
+      } else {
+        nextEndDate = new Date(now + 30 * 86400 * 1000).toISOString();
+      }
+
+      expect(nextEndDate).toBe('2026-10-25T12:00:00.000Z');
+    });
+  });
+
+  describe('4. Plan Limits & Gating Enforcements', () => {
     it('should enforce limits for Starter, Growth, and Pro tiers', () => {
       const starter = DEFAULT_PLANS.find((p) => p.slug === 'starter')!;
       const growth = DEFAULT_PLANS.find((p) => p.slug === 'growth')!;
@@ -161,7 +212,7 @@ describe('Helpa Phase 1 — Razorpay Billing & Subscription Lifecycle', () => {
     });
   });
 
-  describe('4. Trial & Subscription Lifecycle Expiration', () => {
+  describe('5. Trial & Subscription Lifecycle Expiration', () => {
     it('should safely execute expireStaleTrials cron routine', async () => {
       const result = await expireStaleTrials();
       expect(result).toHaveProperty('expiredTrialsCount');

@@ -204,28 +204,67 @@ export function BillingPanel() {
         whatsappMessages: usageData?.whatsapp_messages ?? 0,
       });
 
-      // 5. Fetch Invoices / Payment History
-      const { data: paymentsData } = await appwrite
-        .from('payments')
+      // 5. Fetch Invoices / Payment History from platform_payments
+      const { data: platformPayments } = await appwrite
+        .from('platform_payments')
         .select('*')
         .eq('account_id', accountId)
         .order('created_at', { ascending: false });
 
-      if (paymentsData && paymentsData.length > 0) {
-        setInvoices(paymentsData as unknown as InvoiceItem[]);
+      if (platformPayments && platformPayments.length > 0) {
+        const mappedInvoices = (
+          platformPayments as Array<{
+            id: string;
+            razorpay_order_id?: string;
+            razorpay_payment_id: string;
+            payment_type: string;
+            plan_slug: string;
+            amount: number;
+            setup_fee_amount?: number;
+            monthly_recurring_amount?: number;
+            status: string;
+            created_at: string;
+          }>
+        ).map((p) => ({
+          id: p.id,
+          invoice_number:
+            p.razorpay_order_id ||
+            p.razorpay_payment_id ||
+            `INV-${p.id.slice(0, 8)}`,
+          description:
+            p.payment_type === 'setup_and_first_month'
+              ? `Setup Fee & 1st Month (${p.plan_slug.toUpperCase()})`
+              : `Monthly 30-Day Renewal (${p.plan_slug.toUpperCase()})`,
+          amount: Number(p.amount),
+          setup_fee: Number(p.setup_fee_amount || 0),
+          monthly_subscription: Number(p.monthly_recurring_amount || p.amount),
+          status: p.status === 'captured' ? 'Paid' : p.status,
+          created_at: p.created_at,
+        }));
+        setInvoices(mappedInvoices);
       } else {
-        setInvoices([
-          {
-            id: 'inv_init',
-            invoice_number: `INV-2026-${Date.now().toString().slice(-4)}`,
-            description: 'Helpa Initial Setup Fee & Subscription',
-            amount: setupFeeAmount + monthlyAmount,
-            setup_fee: setupFeeAmount,
-            monthly_subscription: monthlyAmount,
-            status: 'Paid',
-            created_at: new Date().toISOString(),
-          },
-        ]);
+        const { data: paymentsData } = await appwrite
+          .from('payments')
+          .select('*')
+          .eq('account_id', accountId)
+          .order('created_at', { ascending: false });
+
+        if (paymentsData && paymentsData.length > 0) {
+          setInvoices(paymentsData as unknown as InvoiceItem[]);
+        } else {
+          setInvoices([
+            {
+              id: 'inv_init',
+              invoice_number: `INV-2026-${Date.now().toString().slice(-4)}`,
+              description: 'Helpa Initial Setup Fee & Subscription',
+              amount: setupFeeAmount + monthlyAmount,
+              setup_fee: setupFeeAmount,
+              monthly_subscription: monthlyAmount,
+              status: 'Paid',
+              created_at: new Date().toISOString(),
+            },
+          ]);
+        }
       }
     } catch {
       /* safe fallback */
@@ -379,12 +418,75 @@ export function BillingPanel() {
     return Math.min(Math.round((value / max) * 100), 100);
   };
 
+  const now = Date.now();
+  const endMs = endDate ? new Date(endDate).getTime() : now + 30 * 86400 * 1000;
+  const daysRemaining = Math.max(0, Math.ceil((endMs - now) / (86400 * 1000)));
+  const isExpiringSoon = daysRemaining <= 7 && subStatus === 'ACTIVE';
+  const isExpired =
+    subStatus === 'EXPIRED' ||
+    subStatus === 'TRIAL_EXPIRED' ||
+    subStatus === 'PAST_DUE';
+
   return (
     <section className="animate-in fade-in-50 max-w-4xl space-y-6 duration-200">
       <SettingsPanelHead
         title="Billing & Plans"
         description="Monitor your account limits and manage your official Helpa subscription."
       />
+
+      {/* 30-Day Renewal / Expiration Banner */}
+      {isExpired ? (
+        <div className="flex flex-col justify-between gap-4 rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-rose-700 sm:flex-row sm:items-center dark:text-rose-300">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="size-5 shrink-0 text-rose-600 dark:text-rose-400" />
+            <div>
+              <p className="text-sm font-semibold">
+                Your Helpa subscription has expired
+              </p>
+              <p className="text-xs opacity-90">
+                Renew your {activePlanOffer.name} plan now to restore AI
+                responses and WhatsApp automation.
+              </p>
+            </div>
+          </div>
+          <Button
+            onClick={() => handleExecuteUpgrade(activePlanOffer)}
+            disabled={upgrading}
+            className="shrink-0 bg-rose-600 font-bold text-white hover:bg-rose-700"
+          >
+            {upgrading ? (
+              <Loader2 className="mr-1.5 size-4 animate-spin" />
+            ) : null}
+            Renew Now for ₹{monthlyAmount.toLocaleString()}
+          </Button>
+        </div>
+      ) : isExpiringSoon ? (
+        <div className="flex flex-col justify-between gap-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-amber-700 sm:flex-row sm:items-center dark:text-amber-300">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="size-5 shrink-0 text-amber-600 dark:text-amber-400" />
+            <div>
+              <p className="text-sm font-semibold">
+                Your {activePlanOffer.name} plan expires in {daysRemaining} day
+                {daysRemaining === 1 ? '' : 's'}
+              </p>
+              <p className="text-xs opacity-90">
+                Renew early to avoid interruption. Remaining days will
+                automatically roll over (+30 days).
+              </p>
+            </div>
+          </div>
+          <Button
+            onClick={() => handleExecuteUpgrade(activePlanOffer)}
+            disabled={upgrading}
+            className="shrink-0 bg-amber-600 font-bold text-white hover:bg-amber-700"
+          >
+            {upgrading ? (
+              <Loader2 className="mr-1.5 size-4 animate-spin" />
+            ) : null}
+            Renew for ₹{monthlyAmount.toLocaleString()}
+          </Button>
+        </div>
+      ) : null}
 
       {/* Subscription Info Card */}
       <div className="grid gap-6 md:grid-cols-3">

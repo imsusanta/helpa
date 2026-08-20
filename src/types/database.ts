@@ -1779,6 +1779,87 @@ export interface Database {
         };
         Relationships: [];
       };
+      platform_payments: {
+        Row: {
+          id: string;
+          account_id: string;
+          subscription_id: string | null;
+          razorpay_order_id: string;
+          razorpay_payment_id: string;
+          razorpay_signature: string | null;
+          amount: number;
+          currency: string;
+          plan_slug: string;
+          payment_type:
+            | 'setup_and_first_month'
+            | 'monthly_renewal'
+            | 'upgrade'
+            | 'downgrade'
+            | 'manual_adjustment';
+          status: 'captured' | 'failed' | 'refunded' | 'pending';
+          is_setup_fee_included: boolean;
+          setup_fee_amount: number;
+          monthly_recurring_amount: number;
+          period_start: string;
+          period_end: string;
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          account_id: string;
+          subscription_id?: string | null;
+          razorpay_order_id: string;
+          razorpay_payment_id: string;
+          razorpay_signature?: string | null;
+          amount: number;
+          currency?: string;
+          plan_slug: string;
+          payment_type:
+            | 'setup_and_first_month'
+            | 'monthly_renewal'
+            | 'upgrade'
+            | 'downgrade'
+            | 'manual_adjustment';
+          status: 'captured' | 'failed' | 'refunded' | 'pending';
+          is_setup_fee_included?: boolean;
+          setup_fee_amount?: number;
+          monthly_recurring_amount?: number;
+          period_start?: string;
+          period_end: string;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          subscription_id?: string | null;
+          razorpay_order_id?: string;
+          razorpay_payment_id?: string;
+          razorpay_signature?: string | null;
+          amount?: number;
+          currency?: string;
+          plan_slug?: string;
+          payment_type?:
+            | 'setup_and_first_month'
+            | 'monthly_renewal'
+            | 'upgrade'
+            | 'downgrade'
+            | 'manual_adjustment';
+          status?: 'captured' | 'failed' | 'refunded' | 'pending';
+          is_setup_fee_included?: boolean;
+          setup_fee_amount?: number;
+          monthly_recurring_amount?: number;
+          period_start?: string;
+          period_end?: string;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

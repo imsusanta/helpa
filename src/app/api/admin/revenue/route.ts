@@ -107,7 +107,17 @@ export async function GET() {
       cancellationRate,
     };
 
-    return NextResponse.json(analytics);
+    // Fetch recent platform payment transactions
+    const { data: recentPayments } = await db
+      .from('platform_payments')
+      .select('*, account:accounts(id, name)')
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    return NextResponse.json({
+      ...analytics,
+      recentPayments: recentPayments || [],
+    });
   } catch (err: unknown) {
     console.error('[GET /api/admin/revenue] error:', err);
     const msg = err instanceof Error ? err.message : 'Internal Server Error';
