@@ -14,6 +14,13 @@ export async function POST(request: Request) {
       reset,
       name: workspaceName,
       logo,
+      location,
+      city,
+      workingDays,
+      openingTime,
+      closingTime,
+      welcomeMessage,
+      services,
       timezone: _timezone,
       country: _country,
     } = body || {};
@@ -44,14 +51,30 @@ export async function POST(request: Request) {
     const config = getIndustryModule(industry);
     const validIndustryId = config.id;
 
-    // 1. Update Accounts table columns (industry, name, logo, ai_system_prompt)
+    // Construct tailored system prompt with location & business hours
+    const effectiveLocation = location || city || '';
+    let tailoredPrompt = config.systemPrompt;
+    if (effectiveLocation || (openingTime && closingTime)) {
+      const hoursText =
+        openingTime && closingTime
+          ? `${workingDays || 'Monday - Saturday'}: ${openingTime} to ${closingTime}`
+          : 'Standard operating hours';
+      const locText = effectiveLocation
+        ? `Location / City: ${effectiveLocation}`
+        : '';
+      tailoredPrompt = `${tailoredPrompt}\n\nBUSINESS PROFILE & OPERATING HOURS:\nBusiness Name: ${workspaceName || 'Our Business'}\n${locText}\nOperating Hours: ${hoursText}\nAlways quote official prices accurately and direct customers politely.`;
+    }
+
+    // 1. Update Accounts table columns (industry, name, logo, ai_system_prompt, welcome_message, status)
     const updates: Record<string, unknown> = {
       industry: validIndustryId,
-      ai_system_prompt: config.systemPrompt,
+      ai_system_prompt: tailoredPrompt,
+      status: 'active',
       updated_at: new Date().toISOString(),
     };
     if (workspaceName) updates.name = workspaceName;
     if (logo) updates.logo = logo;
+    if (welcomeMessage) updates.welcome_message = welcomeMessage;
 
     const { error: accErr } = await admin
       .from('accounts')
@@ -188,21 +211,66 @@ export async function POST(request: Request) {
       }
     }
 
-    // 4. Pre-seed Knowledge Base entries
+    // 4. Pre-seed Knowledge Base entries (Custom services + Industry templates)
     try {
       await admin
         .from('knowledge_base')
         .delete()
         .eq('account_id', ctx.accountId);
 
-      if (config.kbTemplates && config.kbTemplates.length > 0) {
-        const kbToInsert = config.kbTemplates.map((kb) => ({
-          account_id: ctx.accountId,
-          category: kb.category,
-          question_title: kb.questionTitle,
-          answer_content: kb.answerContent,
-        }));
+      const kbToInsert: Array<{
+        account_id: string;
+        category: 'faq' | 'service' | 'pricing' | 'policy' | 'company';
+        question_title: string;
+        answer_content: string;
+      }> = [];
 
+      // Add Company Hours & Location FAQ if provided
+      if (effectiveLocation || (openingTime && closingTime)) {
+        kbToInsert.push({
+          account_id: ctx.accountId,
+          category: 'company',
+          question_title: `Where are you located and what are your business hours?`,
+          answer_content: `We are located at ${effectiveLocation || 'our main location'}. Our working hours are ${workingDays || 'Monday to Saturday'} from ${openingTime || '9:00 AM'} to ${closingTime || '8:00 PM'}.`,
+        });
+      }
+
+      // Add custom services provided by the user
+      if (Array.isArray(services) && services.length > 0) {
+        for (const s of services) {
+          if (s?.name && s?.price !== undefined) {
+            const priceFormatted = `₹${Number(s.price).toLocaleString()}`;
+            const desc = s.description ? ` Details: ${s.description}` : '';
+            kbToInsert.push({
+              account_id: ctx.accountId,
+              category: 'pricing',
+              question_title: `How much does ${s.name} cost?`,
+              answer_content: `The price for ${s.name} is ${priceFormatted}.${desc}`,
+            });
+            kbToInsert.push({
+              account_id: ctx.accountId,
+              category: 'service',
+              question_title: `Do you provide ${s.name}?`,
+              answer_content: `Yes! We offer ${s.name} at ${priceFormatted}.${desc}`,
+            });
+          }
+        }
+      }
+
+      // Add standard industry template FAQs
+      if (config.kbTemplates && config.kbTemplates.length > 0) {
+        config.kbTemplates.forEach((kb) => {
+          kbToInsert.push({
+            account_id: ctx.accountId,
+            category: kb.category as
+              'faq' | 'service' | 'pricing' | 'policy' | 'company',
+            question_title: kb.questionTitle,
+            answer_content: kb.answerContent,
+          });
+        });
+      }
+
+      if (kbToInsert.length > 0) {
         await admin.from('knowledge_base').insert(kbToInsert);
       }
     } catch (kbErr) {

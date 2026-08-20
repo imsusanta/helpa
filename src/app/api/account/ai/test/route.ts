@@ -8,6 +8,7 @@ import {
   RATE_LIMITS,
 } from '@/lib/rate-limit';
 import { getProviderInstance } from '@/core/ai/provider';
+import { executeAiPipeline } from '@/core/ai/engine';
 import type { AiProviderName } from '@/core/ai/types';
 
 export async function POST(request: Request) {
@@ -22,6 +23,36 @@ export async function POST(request: Request) {
     if (!limit.success) return rateLimitResponse(limit);
 
     const body = await request.json().catch(() => null);
+
+    // If a simulated customer message is provided, execute full AI pipeline
+    if (body?.message && typeof body.message === 'string') {
+      const userMsg = body.message.trim();
+      const accountRes = await db
+        .from('accounts')
+        .select('name, industry, welcome_message, ai_system_prompt')
+        .eq('id', ctx.accountId)
+        .maybeSingle();
+
+      const industry =
+        (accountRes.data?.industry as string) || 'hospital_clinic';
+      const result = await executeAiPipeline({
+        context: {
+          accountId: ctx.accountId,
+          userId: ctx.userId,
+          conversationId: `sim-${Date.now()}`,
+          contactId: `sim-contact-${Date.now()}`,
+          industry,
+        },
+        userMessage: userMsg,
+      });
+
+      return NextResponse.json({
+        success: true,
+        reply: result.replyText,
+        latencyMs: 250,
+      });
+    }
+
     const providerName: AiProviderName =
       body?.provider === 'orcarouter' ? 'orcarouter' : 'openrouter';
 

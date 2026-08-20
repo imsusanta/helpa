@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import Link from 'next/link';
 import { createClient } from '@/lib/appwrite-compat';
 import { toast } from 'sonner';
 import type { Contact, Tag, ContactTag } from '@/types';
@@ -634,15 +635,25 @@ export default function ContactsPage() {
                         : `No ${entityLabelPlural.toLowerCase()} yet.`}
                     </p>
                     {!search && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={openAddForm}
-                        className="border-border text-muted-foreground hover:bg-muted mt-2"
-                      >
-                        <Plus className="size-3.5" />
-                        Add your first {entityLabel.toLowerCase()}
-                      </Button>
+                      <div className="mt-2 flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={openAddForm}
+                          className="border-border text-muted-foreground hover:bg-muted"
+                        >
+                          <Plus className="mr-1 size-3.5" />
+                          Add your first {entityLabel.toLowerCase()}
+                        </Button>
+                        <Link href="/settings/whatsapp">
+                          <Button
+                            size="sm"
+                            className="bg-emerald-600 font-medium text-white hover:bg-emerald-700"
+                          >
+                            Connect WhatsApp
+                          </Button>
+                        </Link>
+                      </div>
                     )}
                   </div>
                 </TableCell>

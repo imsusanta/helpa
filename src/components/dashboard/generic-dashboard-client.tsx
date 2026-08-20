@@ -23,6 +23,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { SkeletonCard } from '@/components/dashboard/skeleton';
+import { DashboardSetupChecklist } from '@/components/dashboard/dashboard-setup-checklist';
 
 const ICON_COMPONENTS: Record<
   string,
@@ -172,6 +173,9 @@ export function GenericDashboardClient() {
           <span>AI Assistant is active</span>
         </div>
       </div>
+
+      {/* Setup Onboarding Checklist */}
+      <DashboardSetupChecklist />
 
       {/* 2. What Needs Your Attention? (Conditional Alert Card) */}
       {attentionItems.length > 0 && (

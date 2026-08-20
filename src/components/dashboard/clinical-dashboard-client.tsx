@@ -24,6 +24,7 @@ import {
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { SkeletonCard } from '@/components/dashboard/skeleton';
+import { DashboardSetupChecklist } from '@/components/dashboard/dashboard-setup-checklist';
 import { toast } from 'sonner';
 
 interface AppointmentRow {
@@ -367,6 +368,9 @@ export function ClinicalDashboardClient() {
           </div>
         </div>
       </section>
+
+      {/* Setup Onboarding Checklist */}
+      <DashboardSetupChecklist />
 
       {/* What needs your attention section */}
       {(stats.pendingAppointments > 0 ||
