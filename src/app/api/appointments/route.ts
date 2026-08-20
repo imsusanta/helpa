@@ -84,7 +84,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         notes: notes || null,
       })
       .select(
-        'id, booking_id, appointment_date, appointment_time, status, notes, department, token_number, queue_position, created_at, patient:contacts(id, name, phone), doctor:hospital_doctors(id, name, specialization, department)'
+        'id, patient_id, booking_id, appointment_date, appointment_time, status, notes, department, token_number, queue_position, created_at, patient:contacts(id, name, phone), doctor:hospital_doctors(id, name, specialization, department)'
       )
       .single();
 
@@ -95,14 +95,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    if (data?.patient?.id) {
+    if (data?.patient_id) {
       // Confirmation automations run immediately after the appointment exists.
       // These are fire-and-forget so a notification failure never rolls back
       // an otherwise successful appointment booking.
       void runAutomationsForTrigger({
         accountId: context.accountId,
         triggerType: 'appointment_created' as AutomationTriggerType,
-        contactId: data.patient.id,
+        contactId: data.patient_id,
         context: {
           conversation_id: undefined,
           vars: {
@@ -119,7 +119,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       void scheduleAppointmentReminders({
         accountId: context.accountId,
         userId: context.userId,
-        contactId: data.patient.id,
+        contactId: data.patient_id,
         appointmentId: data.id,
         appointmentDate: data.appointment_date,
         appointmentTime: data.appointment_time,
