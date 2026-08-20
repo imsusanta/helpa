@@ -107,8 +107,7 @@ export async function POST(request: Request) {
       {
         code: 'PLAN_LIMIT_REACHED',
         error:
-          autoLimit.reason ||
-          'Automation limit reached for your current plan.',
+          autoLimit.reason || 'Automation limit reached for your current plan.',
         feature: 'automations',
         current: autoLimit.currentUsage,
         limit: autoLimit.limit,
@@ -172,8 +171,7 @@ export async function POST(request: Request) {
     if (!Number.isFinite(beforeMinutes) || beforeMinutes <= 0) {
       return NextResponse.json(
         {
-          error:
-            'appointment_reminder requires before_minutes greater than 0',
+          error: 'appointment_reminder requires before_minutes greater than 0',
         },
         { status: 400 }
       );
