@@ -595,40 +595,61 @@ export async function processMessage(
     if (isFirstInboundMessage)
       automationTriggers.unshift('first_inbound_message');
 
-    const automationPromise = (async () => {
-      for (const triggerType of automationTriggers) {
-        try {
-          await runAutomationsForTrigger({
-            accountId,
-            triggerType,
-            contactId: contactRecord.id,
-            context: {
-              message_text: inboundText,
-              conversation_id: convId,
-            },
-          });
-        } catch (err) {
-          console.error('[automations] dispatch failed:', err);
-        }
-      }
-    })();
+    let automationDetected = false;
+    let automationReplied = false;
 
-    const aiPromise = (async () => {
-      if (conversation.ai_chat_enabled !== false && !flowConsumed) {
-        try {
-          await triggerAiResponse({
-            accountId,
-            userId: configOwnerUserId,
-            conversationId: convId,
-            contactId: contactRecord.id,
-          });
-        } catch (err) {
-          console.error('[AI Assistant] trigger error:', err);
+    for (const triggerType of automationTriggers) {
+      try {
+        const autoRes = await runAutomationsForTrigger({
+          accountId,
+          triggerType,
+          contactId: contactRecord.id,
+          context: {
+            message_text: inboundText,
+            conversation_id: convId,
+          },
+        });
+        if (autoRes?.executedCount > 0) {
+          automationDetected = true;
         }
+        if (autoRes?.replied) {
+          automationReplied = true;
+        }
+      } catch (err) {
+        console.error('[automations] dispatch failed:', err);
       }
-    })();
+    }
 
-    await Promise.all([automationPromise, aiPromise]);
+    const assignedAgent = Boolean(
+      conversation.assigned_agent_id || conversation.assignedAgentId
+    );
+    const aiDisabledOnConv =
+      conversation.ai_chat_enabled === false ||
+      conversation.ai_autoreply_disabled === true ||
+      conversation.is_ai_enabled === false;
+
+    const shouldTriggerAi =
+      !flowConsumed &&
+      !automationReplied &&
+      !assignedAgent &&
+      !aiDisabledOnConv;
+
+    console.log(
+      `[AI AUTO REPLY] accountId=${accountId} conversationId=${convId} autoReplyEnabled=${!aiDisabledOnConv} automationDetected=${automationDetected} automationActuallyReplied=${automationReplied} flowConsumed=${flowConsumed} assignedAgent=${assignedAgent} aiDisabled=${aiDisabledOnConv} decision=${shouldTriggerAi ? 'GENERATE_AI_REPLY' : 'SKIP_AI_REPLY'}`
+    );
+
+    if (shouldTriggerAi) {
+      try {
+        await triggerAiResponse({
+          accountId,
+          userId: configOwnerUserId,
+          conversationId: convId,
+          contactId: contactRecord.id,
+        });
+      } catch (err) {
+        console.error('[AI Assistant] trigger error:', err);
+      }
+    }
   } catch (backgroundErr) {
     console.error('[Webhook Background execution] error:', backgroundErr);
   }

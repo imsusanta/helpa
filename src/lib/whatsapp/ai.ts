@@ -52,7 +52,7 @@ export async function triggerAiResponse(
   const db = appwriteAdmin();
 
   // ═══════ PHASE 1: Parallel fetch all independent data in one shot ═══════
-  const [contactRes, accRes, messagesRes, kbRes] = await Promise.all([
+  const [contactRes, accRes, convRes, messagesRes, kbRes] = await Promise.all([
     db.from('contacts').select('*').eq('id', contactId).maybeSingle(),
     db
       .from('accounts')
@@ -61,6 +61,7 @@ export async function triggerAiResponse(
       )
       .eq('id', accountId)
       .single(),
+    db.from('conversations').select('*').eq('id', conversationId).maybeSingle(),
     db
       .from('messages')
       .select('sender_type, content_type, content_text, created_at')
@@ -72,6 +73,40 @@ export async function triggerAiResponse(
       .select('category, question_title, answer_content')
       .eq('account_id', accountId),
   ]);
+
+  const conversation = convRes.data as Record<string, unknown> | null;
+  if (conversation) {
+    const assignedAgentId =
+      conversation.assigned_agent_id || conversation.assignedAgentId;
+    if (assignedAgentId) {
+      console.log(
+        `[AI Assistant] Conversation ${conversationId} is assigned to human agent ${assignedAgentId}. Skipping AI response.`
+      );
+      return;
+    }
+
+    if (
+      conversation.ai_chat_enabled === false ||
+      conversation.ai_autoreply_disabled === true ||
+      conversation.is_ai_enabled === false
+    ) {
+      console.log(
+        `[AI Assistant] AI auto-reply is disabled for conversation ${conversationId}. Skipping AI response.`
+      );
+      return;
+    }
+
+    const aiReplyCount = Number(
+      conversation.ai_reply_count || conversation.aiReplyCount || 0
+    );
+    const maxAiRepliesPerConv = 100;
+    if (aiReplyCount >= maxAiRepliesPerConv) {
+      console.warn(
+        `[AI Assistant] Conversation ${conversationId} reached AI reply cap (${aiReplyCount}/${maxAiRepliesPerConv}). Skipping AI response.`
+      );
+      return;
+    }
+  }
 
   interface AccountSettings {
     ai_provider?: string | null;
@@ -257,7 +292,9 @@ export async function triggerAiResponse(
         .from('contacts')
         .select('id')
         .in('phone', phoneVariants);
-      siblingContacts = res.data as { id: string }[] | null;
+      siblingContacts = Array.isArray(res.data)
+        ? (res.data as { id: string }[])
+        : [];
     } catch {
       // ignore
     }
@@ -267,7 +304,9 @@ export async function triggerAiResponse(
     new Set(
       [
         contactId,
-        ...(siblingContacts || []).map((c: { id: string }) => c.id),
+        ...(Array.isArray(siblingContacts) ? siblingContacts : []).map(
+          (c: { id: string }) => c.id
+        ),
       ].filter(Boolean)
     )
   );
@@ -762,7 +801,11 @@ Note:
     }
   }
 
-  const aiText = completion.content.trim();
+  const aiText = (
+    completion.content ||
+    (completion as unknown as { text?: string }).text ||
+    ''
+  ).trim();
   if (!aiText) {
     console.warn('[AI Assistant] AI Engine returned empty response');
     return;

@@ -56,7 +56,9 @@ export interface DispatchInput {
  */
 export async function runAutomationsForTrigger(
   input: DispatchInput
-): Promise<void> {
+): Promise<{ replied: boolean; executedCount: number }> {
+  let replied = false;
+  let executedCount = 0;
   try {
     const db = appwriteAdmin();
 
@@ -76,14 +78,14 @@ export async function runAutomationsForTrigger(
         .maybeSingle();
       if (ownErr) {
         console.error('[automations] contact ownership check failed:', ownErr);
-        return;
+        return { replied: false, executedCount: 0 };
       }
       if (!owned) {
         console.warn(
           '[automations] contact not in account, refusing dispatch',
           input.contactId
         );
-        return;
+        return { replied: false, executedCount: 0 };
       }
     }
 
@@ -96,14 +98,20 @@ export async function runAutomationsForTrigger(
 
     if (error) {
       console.error('[automations] fetch failed:', error);
-      return;
+      return { replied: false, executedCount: 0 };
     }
-    if (!automations || automations.length === 0) return;
+    if (!automations || automations.length === 0) {
+      return { replied: false, executedCount: 0 };
+    }
 
     for (const automation of automations as Automation[]) {
       if (!triggerMatches(automation, input.context)) continue;
       try {
-        await executeAutomation(automation, input);
+        const res = await executeAutomation(automation, input);
+        executedCount++;
+        if (res?.replied) {
+          replied = true;
+        }
       } catch (err) {
         console.error('[automations] execute failed:', automation.id, err);
       }
@@ -111,6 +119,7 @@ export async function runAutomationsForTrigger(
   } catch (err) {
     console.error('[automations] dispatch failed:', err);
   }
+  return { replied, executedCount };
 }
 
 /**
@@ -172,7 +181,10 @@ export async function resumePendingExecution(pending: {
 // Internal execution
 // ------------------------------------------------------------
 
-async function executeAutomation(automation: Automation, input: DispatchInput) {
+async function executeAutomation(
+  automation: Automation,
+  input: DispatchInput
+): Promise<{ replied: boolean }> {
   const db = appwriteAdmin();
 
   const { data: log, error: logErr } = await db
@@ -195,10 +207,10 @@ async function executeAutomation(automation: Automation, input: DispatchInput) {
 
   if (logErr || !log) {
     console.error('[automations] cannot create log:', logErr);
-    return;
+    return { replied: false };
   }
 
-  await executeStepsFrom({
+  const { replied } = await executeStepsFrom({
     automation,
     contactId: input.contactId ?? null,
     context: input.context ?? {},
@@ -222,6 +234,8 @@ async function executeAutomation(automation: Automation, input: DispatchInput) {
   if (rpcErr) {
     console.error('[automations] increment counter failed:', rpcErr);
   }
+
+  return { replied };
 }
 
 interface ExecuteArgs {
@@ -235,7 +249,10 @@ interface ExecuteArgs {
   triggerEvent: string;
 }
 
-async function executeStepsFrom(args: ExecuteArgs): Promise<void> {
+async function executeStepsFrom(
+  args: ExecuteArgs
+): Promise<{ replied: boolean }> {
+  let replied = false;
   const db = appwriteAdmin();
 
   const baseQuery = db
@@ -256,13 +273,13 @@ async function executeStepsFrom(args: ExecuteArgs): Promise<void> {
 
   if (stepsErr) {
     await finalizeLog(args.logId, 'failed', stepsErr.message);
-    return;
+    return { replied: false };
   }
   if (!steps || steps.length === 0) {
     if (args.parentStepId === null && args.logId) {
       await finalizeLog(args.logId, 'success', null);
     }
-    return;
+    return { replied: false };
   }
 
   const results: AutomationLogStepResult[] = [];
@@ -297,7 +314,7 @@ async function executeStepsFrom(args: ExecuteArgs): Promise<void> {
       });
       status = 'partial';
       await appendResults(args.logId, results, status, errorMessage);
-      return;
+      return { replied };
     }
 
     try {
@@ -312,17 +329,26 @@ async function executeStepsFrom(args: ExecuteArgs): Promise<void> {
         });
         // Recurse into the chosen branch at position 0 (children use their
         // own ordering within the branch scope).
-        await executeStepsFrom({
+        const branchRes = await executeStepsFrom({
           ...args,
           parentStepId: step.id,
           branch: taken ? 'yes' : 'no',
           startPosition: 0,
           logId: args.logId,
         });
+        if (branchRes?.replied) {
+          replied = true;
+        }
         continue;
       }
 
       const detail = await runStep(step, args);
+      if (
+        step.step_type === 'send_message' ||
+        step.step_type === 'send_template'
+      ) {
+        replied = true;
+      }
       results.push({
         step_id: step.id,
         step_type: step.step_type,
@@ -349,6 +375,8 @@ async function executeStepsFrom(args: ExecuteArgs): Promise<void> {
     // Nested branch — just append results; parent scope decides final status.
     await appendResults(args.logId, results, null, errorMessage);
   }
+
+  return { replied };
 }
 
 async function runStep(
