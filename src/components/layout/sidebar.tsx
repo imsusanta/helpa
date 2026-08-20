@@ -2,581 +2,284 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect } from 'react';
-import { cn } from '@/lib/utils';
-import { useAuth } from '@/hooks/use-auth';
-import { useTotalUnread } from '@/hooks/use-total-unread';
-import { hasMinRole, type AccountRole } from '@/lib/auth/roles';
-import { getIndustryModule } from '@/modules/registry';
+import { useEffect, useMemo, useState } from 'react';
 import {
-  Crown,
+  Activity,
+  Bot,
+  Boxes,
+  Building2,
+  ChevronDown,
+  ChevronRight,
+  CircleDollarSign,
+  ContactRound,
+  FileText,
   GitBranch,
   LayoutDashboard,
-  LogOut,
-  MessageSquare,
-  Radio,
   Megaphone,
+  MessageSquare,
+  PanelLeftClose,
   Settings,
-  Shield,
-  User,
-  UserCog,
+  ShieldCheck,
+  Sparkles,
+  Tags,
   Users,
-  UsersRound,
-  Workflow,
+  Wallet,
+  Webhook,
   X,
   Zap,
-  Brain,
-  Hospital,
-  Calendar,
-  Clock,
-  UserCheck,
-  FileText,
-  CreditCard,
-  Home,
-  Compass,
-  GraduationCap,
-  Utensils,
-  Dumbbell,
-  ShoppingBag,
-  Bot,
-  BarChart3,
-  Building2,
-  Plane,
-  BookOpen,
-  BookOpenCheck,
-  Sparkles,
-  type LucideIcon,
 } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-
-const ROLE_CHIP: Record<
-  AccountRole,
-  { icon: typeof Crown; label: string; className: string }
-> = {
-  owner: {
-    icon: Crown,
-    label: 'Owner',
-    className: 'border-amber-500/40 bg-amber-500/10 text-amber-300',
-  },
-  admin: {
-    icon: Shield,
-    label: 'Admin',
-    className: 'border-primary/40 bg-primary/10 text-primary',
-  },
-  agent: {
-    icon: UserCog,
-    label: 'Agent',
-    className: 'border-border bg-muted text-foreground',
-  },
-  viewer: {
-    icon: User,
-    label: 'Viewer',
-    className: 'border-border bg-card text-muted-foreground',
-  },
-};
-
-interface NavItem {
-  href: string;
-  label: string;
-  icon: LucideIcon;
-  beta?: boolean;
-  roleMin?: AccountRole;
-}
-
-interface NavGroup {
-  id: string;
-  title: string;
-  items: NavItem[];
-}
-
-const INDUSTRY_ICON: Record<string, LucideIcon> = {
-  hospital_clinic: Hospital,
-  coaching: GraduationCap,
-  real_estate: Building2,
-  travel: Plane,
-  gym: Dumbbell,
-  restaurant: Utensils,
-  solo_teacher: BookOpenCheck,
-  salon: Sparkles,
-  general: Bot,
-};
+import { cn } from '@/lib/utils';
 
 interface SidebarProps {
   open?: boolean;
   onClose?: () => void;
 }
 
-const ICON_COMPONENTS: Record<string, LucideIcon> = {
-  LayoutDashboard,
-  MessageSquare,
-  Users,
-  UserCheck,
-  Calendar,
-  Clock,
-  FileText,
-  Megaphone,
-  Brain,
-  Settings,
-  Hospital,
-  Home,
-  Compass,
-  GraduationCap,
-  Utensils,
-  Dumbbell,
-  ShoppingBag,
-  Bot,
-  BarChart3,
-  Building2,
-  Plane,
-  BookOpen,
-  CreditCard,
-  Radio,
-  GitBranch,
-  Zap,
-  Workflow,
-  BookOpenCheck,
-  UsersRound,
-  Sparkles,
+type NavItem = {
+  label: string;
+  href?: string;
+  icon: React.ElementType;
+  children?: { label: string; href: string }[];
 };
+
+const NAV: NavItem[] = [
+  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  {
+    label: 'Sales',
+    icon: Activity,
+    children: [
+      { label: 'Leads', href: '/contacts' },
+      { label: 'Customers', href: '/customers' },
+      { label: 'Deals', href: '/pipelines' },
+      { label: 'Quotations', href: '/quotations' },
+    ],
+  },
+  {
+    label: 'Conversations',
+    icon: MessageSquare,
+    children: [
+      { label: 'Inbox', href: '/inbox' },
+      { label: 'Follow-ups', href: '/follow-ups' },
+      { label: 'Appointments', href: '/appointments' },
+    ],
+  },
+  {
+    label: 'Marketing',
+    icon: Megaphone,
+    children: [
+      { label: 'Campaigns', href: '/broadcasts' },
+      { label: 'Lead Forms', href: '/forms' },
+      { label: 'Media Library', href: '/media' },
+    ],
+  },
+  {
+    label: 'WhatsApp',
+    icon: MessageSquare,
+    children: [
+      { label: 'Templates', href: '/templates' },
+      { label: 'Forms', href: '/forms' },
+      { label: 'Broadcast Logs', href: '/broadcasts' },
+      { label: 'WhatsApp API', href: '/settings?tab=whatsapp' },
+      { label: 'API Docs', href: '/api-docs' },
+    ],
+  },
+  {
+    label: 'Automation & AI',
+    icon: Bot,
+    children: [
+      { label: 'Chatbot', href: '/chatbot' },
+      { label: 'FAQ Bot', href: '/faq-bot' },
+      { label: 'AI Assistant', href: '/ai-assistant' },
+      { label: 'Automations', href: '/automations' },
+    ],
+  },
+  { label: 'Products / Services', href: '/services', icon: Boxes },
+  {
+    label: 'Billing',
+    icon: Wallet,
+    children: [
+      { label: 'Invoices', href: '/billing/invoices' },
+      { label: 'Reports', href: '/billing/reports' },
+      { label: 'Reminders', href: '/billing/reminders' },
+      { label: 'Billing Settings', href: '/billing/settings' },
+    ],
+  },
+  {
+    label: 'Manage',
+    icon: ContactRound,
+    children: [
+      { label: 'Tags', href: '/settings?tab=tags' },
+      { label: 'Columns', href: '/settings?tab=columns' },
+      { label: 'Opt-in / Opt-out', href: '/settings?tab=consent' },
+      { label: 'Webhook Events', href: '/settings?tab=webhooks' },
+    ],
+  },
+  { label: 'Integrations', href: '/integrations', icon: GitBranch },
+  {
+    label: 'Developers',
+    icon: Webhook,
+    children: [
+      { label: 'Connection Key', href: '/settings?tab=api' },
+      { label: 'API Docs', href: '/api-docs' },
+      { label: 'Webhooks', href: '/settings?tab=webhooks' },
+    ],
+  },
+  {
+    label: 'Settings',
+    icon: Settings,
+    children: [
+      { label: 'Profile', href: '/settings?tab=profile' },
+      { label: 'Roles & Permissions', href: '/settings?tab=roles' },
+      { label: 'Team Members', href: '/settings?tab=team' },
+      { label: 'Organization', href: '/settings?tab=organization' },
+    ],
+  },
+];
+
+function pathIsActive(pathname: string, href?: string) {
+  if (!href) return false;
+  const clean = href.split('?')[0];
+  return pathname === clean || (clean !== '/dashboard' && pathname.startsWith(`${clean}/`));
+}
 
 export function Sidebar({ open = false, onClose }: SidebarProps) {
   const pathname = usePathname();
-  const {
-    profile,
-    profileLoading,
-    account,
-    accountRole,
-    signOut,
-    isSuperAdmin,
-  } = useAuth();
-  const totalUnread = useTotalUnread();
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({
+    Sales: true,
+    Conversations: true,
+    Marketing: false,
+    WhatsApp: false,
+    'Automation & AI': false,
+    Billing: false,
+    Manage: false,
+    Developers: false,
+    Settings: false,
+  });
 
-  const activeModule = getIndustryModule(account?.industry);
-
-  // 1. Identify primary contact entity
-  const contactItem = activeModule.sidebar.find((item) =>
-    [
-      '/patients',
-      '/customers',
-      '/students',
-      '/members',
-      '/leads',
-      '/contacts',
-    ].includes(item.href)
-  ) || { href: '/contacts', label: 'Contacts', iconName: 'Users' };
-
-  // 2. Identify primary booking/appointment entity
-  const appointmentItem = activeModule.sidebar.find((item) =>
-    [
-      '/appointments',
-      '/bookings',
-      '/site-visits',
-      '/reservations',
-      '/admissions',
-    ].includes(item.href)
-  ) || { href: '/appointments', label: 'Appointments', iconName: 'Calendar' };
-
-  // 3. Extract secondary catalog & business records
-  const secondaryBusinessItems = activeModule.sidebar.filter(
-    (item) =>
-      ![
-        '/dashboard',
-        '/inbox',
-        '/contacts',
-        '/patients',
-        '/customers',
-        '/students',
-        '/members',
-        '/leads',
-        '/appointments',
-        '/bookings',
-        '/site-visits',
-        '/reservations',
-        '/admissions',
-        '/broadcasts',
-        '/knowledge-base',
-        '/settings',
-        '/billing',
-        '/automations',
-        '/pipelines',
-      ].includes(item.href)
-  );
-
-  const groups: NavGroup[] = [
-    {
-      id: 'main',
-      title: 'MAIN',
-      items: [
-        { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        { href: '/inbox', label: 'Messages', icon: MessageSquare },
-        {
-          href: contactItem.href,
-          label: contactItem.label,
-          icon: ICON_COMPONENTS[contactItem.iconName] || Users,
-        },
-      ],
-    },
-    {
-      id: 'business',
-      title: 'BUSINESS',
-      items: [
-        { href: '/pipelines', label: 'Inquiries & CRM', icon: GitBranch },
-        {
-          href: appointmentItem.href,
-          label: appointmentItem.label,
-          icon: ICON_COMPONENTS[appointmentItem.iconName] || Calendar,
-        },
-        ...secondaryBusinessItems.map((item) => ({
-          href: item.href,
-          label: item.label,
-          icon: ICON_COMPONENTS[item.iconName] || FileText,
-          roleMin: item.roleMin,
-        })),
-      ],
-    },
-    {
-      id: 'ai_automation',
-      title: 'AI & AUTOMATION',
-      items: [
-        {
-          href: '/settings?tab=ai',
-          label: 'AI Receptionist',
-          icon: Bot,
-          roleMin: 'admin',
-        },
-        {
-          href: '/knowledge-base',
-          label:
-            account?.industry === 'hospital_clinic' ||
-            account?.industry === 'health' ||
-            account?.industry === 'clinic'
-              ? 'Hospital Info & FAQs'
-              : 'Business Info & FAQs',
-          icon: BookOpen,
-        },
-        {
-          href: '/automations',
-          label: 'Auto-Reminders',
-          icon: Zap,
-          roleMin: 'admin',
-        },
-      ],
-    },
-    {
-      id: 'team_account',
-      title: 'TEAM & ACCOUNT',
-      items: [
-        {
-          href: '/settings?tab=members',
-          label: 'Staff & Team',
-          icon: UsersRound,
-          roleMin: 'admin',
-        },
-        {
-          href: '/settings?tab=billing',
-          label: 'Subscription & Billing',
-          icon: CreditCard,
-          roleMin: 'admin',
-        },
-        {
-          href: '/settings',
-          label: 'Settings',
-          icon: Settings,
-          roleMin: 'admin',
-        },
-      ],
-    },
-  ];
-
-  const visibleGroups = groups
-    .map((g) => ({
-      ...g,
-      items: g.items.filter((item) => {
-        if (
-          item.roleMin &&
-          (!accountRole || !hasMinRole(accountRole, item.roleMin))
-        ) {
-          return false;
-        }
-        return true;
-      }),
-    }))
-    .filter((g) => g.items.length > 0);
-
-  const showAccountStrip =
-    !profileLoading && !!account?.name && account.name !== profile?.full_name;
-
-  useEffect(() => {
-    onClose?.();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  const activeParent = useMemo(() => {
+    for (const item of NAV) {
+      if (item.children?.some((child) => pathIsActive(pathname, child.href))) return item.label;
+    }
+    return NAV.find((item) => pathIsActive(pathname, item.href))?.label || 'Dashboard';
   }, [pathname]);
 
   useEffect(() => {
-    if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose?.();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => {
-      document.body.style.overflow = prev;
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [open, onClose]);
+    if (activeParent) setExpanded((prev) => ({ ...prev, [activeParent]: true }));
+  }, [activeParent]);
 
-  const isItemActive = (href: string) => {
-    if (href.includes('?tab=')) {
-      const tab = href.split('?tab=')[1];
-      return (
-        pathname === '/settings' &&
-        typeof window !== 'undefined' &&
-        new URLSearchParams(window.location.search).get('tab') === tab
-      );
-    }
-    if (href === '/settings') {
-      return (
-        pathname === '/settings' &&
-        (typeof window === 'undefined' ||
-          !new URLSearchParams(window.location.search).get('tab') ||
-          ['profile', 'whatsapp'].includes(
-            new URLSearchParams(window.location.search).get('tab') || ''
-          ))
-      );
-    }
-    if (href === '/dashboard') {
-      return pathname === '/dashboard';
-    }
-    return pathname === href || pathname.startsWith(`${href}/`);
-  };
+  const toggle = (label: string) => setExpanded((prev) => ({ ...prev, [label]: !prev[label] }));
 
   return (
     <>
-      <button
-        type="button"
-        aria-label="Close menu"
-        onClick={onClose}
+      <div
         className={cn(
-          'bg-background/70 fixed inset-0 z-30 backdrop-blur-sm transition-opacity lg:hidden',
-          open
-            ? 'pointer-events-auto opacity-100'
-            : 'pointer-events-none opacity-0'
+          'fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-[1px] transition-opacity lg:hidden',
+          open ? 'opacity-100' : 'pointer-events-none opacity-0'
         )}
+        onClick={onClose}
       />
 
       <aside
         className={cn(
-          'border-border bg-card fixed inset-y-0 left-0 z-40 flex h-full w-64 flex-col border-r',
-          'transition-transform duration-200 ease-out will-change-transform',
-          open ? 'translate-x-0' : '-translate-x-full',
-          'lg:static lg:z-0 lg:w-60 lg:translate-x-0 lg:transition-none'
+          'fixed inset-y-0 left-0 z-50 flex w-[276px] shrink-0 flex-col bg-[#0d1729] text-white shadow-2xl transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0 lg:shadow-none',
+          open ? 'translate-x-0' : '-translate-x-full'
         )}
-        aria-label="Primary"
       >
-        {/* Logo row */}
-        <div className="border-border flex h-14 shrink-0 items-center justify-between gap-2 border-b px-4">
-          <Link
-            href="/dashboard"
-            className="flex min-w-0 flex-1 items-center gap-2.5"
-          >
-            {(() => {
-              const LogoIcon = INDUSTRY_ICON[activeModule.id] || Bot;
-              return (
-                <div className="bg-primary text-primary-foreground flex h-8 w-8 shrink-0 items-center justify-center rounded-lg shadow-xs">
-                  <LogoIcon className="h-4 w-4" />
-                </div>
-              );
-            })()}
-            <div className="min-w-0 flex-1">
-              <p className="text-foreground truncate text-sm leading-tight font-bold">
-                {activeModule.name}
-              </p>
-              <p className="text-muted-foreground mt-0.5 truncate text-[10px] leading-none font-medium">
-                Helpa Studio
-              </p>
+        <div className="flex h-[80px] items-center justify-between border-b border-white/8 px-5">
+          <Link href="/dashboard" className="flex items-center gap-3" onClick={onClose}>
+            <img src="/helpa-logo.svg" alt="Helpa" className="h-10 w-10 rounded-xl" />
+            <div className="leading-tight">
+              <div className="text-[19px] font-extrabold tracking-tight text-white">Helpa</div>
+              <div className="text-[12px] font-medium text-slate-400">WhatsApp CRM</div>
             </div>
           </Link>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close menu"
-            className="text-muted-foreground hover:bg-muted hover:text-foreground flex h-9 w-9 items-center justify-center rounded-md lg:hidden"
-          >
+          <button className="rounded-lg p-2 text-slate-400 hover:bg-white/5 hover:text-white lg:hidden" onClick={onClose}>
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Grouped navigation */}
-        <nav className="flex-1 overflow-y-auto px-3 py-4">
-          <div className="space-y-4">
-            {visibleGroups.map((group) => (
-              <div key={group.id} className="space-y-1">
-                <p className="text-muted-foreground/70 px-3 text-[10px] font-bold tracking-wider uppercase">
-                  {group.title}
-                </p>
-                <ul className="flex flex-col gap-0.5">
-                  {group.items.map((item) => {
-                    const active = isItemActive(item.href);
-                    const showUnreadDot =
-                      item.href === '/inbox' && totalUnread > 0 && !active;
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4 [scrollbar-color:#334155_transparent]">
+          <nav className="space-y-1">
+            {NAV.map((item) => {
+              const Icon = item.icon;
+              const isParentActive = activeParent === item.label;
+              const isExpanded = expanded[item.label];
+              const hasChildren = Boolean(item.children?.length);
+              const activeDirect = pathIsActive(pathname, item.href);
 
-                    return (
-                      <li key={item.href}>
-                        <Link
-                          href={item.href}
-                          className={cn(
-                            'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2',
-                            active
-                              ? 'bg-primary/10 text-primary font-semibold'
-                              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                          )}
-                        >
-                          <item.icon className="h-4 w-4 shrink-0" />
-                          <span className="flex-1 truncate">{item.label}</span>
-                          {item.beta && (
-                            <span
-                              aria-label="Beta feature"
-                              className="rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold tracking-wider text-amber-300 uppercase"
-                            >
-                              Beta
-                            </span>
-                          )}
-                          {showUnreadDot && (
-                            <span
-                              aria-label={`${totalUnread} unread conversation${totalUnread === 1 ? '' : 's'}`}
-                              className="relative flex h-2 w-2"
-                            >
-                              <span className="bg-primary absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" />
-                              <span className="bg-primary relative inline-flex h-2 w-2 rounded-full" />
-                            </span>
-                          )}
-                        </Link>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            ))}
-          </div>
-
-          {isSuperAdmin && (
-            <>
-              <div className="border-border my-4 border-t" />
-              <ul className="flex flex-col gap-1">
-                <li>
+              if (!hasChildren && item.href) {
+                return (
                   <Link
-                    href="/admin"
+                    key={item.label}
+                    href={item.href}
+                    onClick={onClose}
                     className={cn(
-                      'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2',
-                      pathname.startsWith('/admin')
-                        ? 'bg-primary/10 text-primary font-semibold'
-                        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                      'group flex h-11 items-center gap-3 rounded-xl px-3.5 text-[14px] font-semibold transition-colors',
+                      activeDirect
+                        ? 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-400/15'
+                        : 'text-slate-300 hover:bg-white/5 hover:text-white'
                     )}
                   >
-                    <Shield className="h-4 w-4" />
-                    Super Admin
+                    <Icon className={cn('h-[18px] w-[18px]', activeDirect ? 'text-emerald-400' : 'text-slate-400 group-hover:text-slate-200')} />
+                    <span>{item.label}</span>
                   </Link>
-                </li>
-              </ul>
-            </>
-          )}
-        </nav>
+                );
+              }
 
-        {/* User footer section */}
-        <div className="border-border shrink-0 border-t p-3">
-          {showAccountStrip && account?.name ? (
-            <div className="text-muted-foreground mb-2 flex items-center gap-2 px-3 text-xs">
-              <UsersRound className="size-3.5 shrink-0" />
-              <span className="truncate" title={account.name}>
-                {account.name}
-              </span>
-              {accountRole
-                ? (() => {
-                    const meta = ROLE_CHIP[accountRole];
-                    const Icon = meta.icon;
-                    return (
-                      <span
-                        className={`ml-auto inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium tracking-wider uppercase ${meta.className}`}
-                      >
-                        <Icon className="size-3" />
-                        {meta.label}
-                      </span>
-                    );
-                  })()
-                : null}
+              return (
+                <div key={item.label}>
+                  <button
+                    type="button"
+                    onClick={() => toggle(item.label)}
+                    className={cn(
+                      'group flex h-11 w-full items-center gap-3 rounded-xl px-3.5 text-left text-[14px] font-semibold transition-colors',
+                      isParentActive
+                        ? 'bg-slate-800/80 text-white ring-1 ring-white/5'
+                        : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                    )}
+                  >
+                    <Icon className={cn('h-[18px] w-[18px]', isParentActive ? 'text-emerald-400' : 'text-slate-400 group-hover:text-slate-200')} />
+                    <span className="flex-1">{item.label}</span>
+                    {isExpanded ? <ChevronDown className="h-4 w-4 text-slate-500" /> : <ChevronRight className="h-4 w-4 text-slate-500" />}
+                  </button>
+
+                  {isExpanded && item.children && (
+                    <div className="ml-4 border-l border-white/8 pl-3 py-1">
+                      {item.children.map((child) => {
+                        const active = pathIsActive(pathname, child.href);
+                        return (
+                          <Link
+                            key={child.label}
+                            href={child.href}
+                            onClick={onClose}
+                            className={cn(
+                              'flex h-9 items-center rounded-lg px-3 text-[13px] font-medium transition-colors',
+                              active ? 'bg-white/8 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-slate-100'
+                            )}
+                          >
+                            {child.label}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </nav>
+        </div>
+
+        <div className="border-t border-white/8 bg-[#0b1424] p-4">
+          <Link href="/settings?tab=profile" className="flex items-center gap-3 rounded-xl px-1 py-2 hover:bg-white/5">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-xs font-extrabold text-white">
+              SU
             </div>
-          ) : null}
-          <DropdownMenu>
-            <DropdownMenuTrigger className="hover:bg-muted/60 focus:bg-muted/60 data-popup-open:bg-muted/60 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors focus:outline-none">
-              <Avatar className="size-8 shrink-0">
-                {profile?.avatar_url ? (
-                  <AvatarImage
-                    src={profile.avatar_url}
-                    alt={profile.full_name ?? 'Avatar'}
-                  />
-                ) : null}
-                <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
-                  {profile?.full_name?.charAt(0)?.toUpperCase() ??
-                    profile?.email?.charAt(0)?.toUpperCase() ??
-                    'U'}
-                </AvatarFallback>
-              </Avatar>
-              <div className="min-w-0 flex-1">
-                <p className="text-foreground truncate text-sm font-medium">
-                  {profile?.full_name ?? 'User'}
-                </p>
-                <p className="text-muted-foreground truncate text-xs">
-                  {profile?.email ?? ''}
-                </p>
-              </div>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              side="top"
-              sideOffset={6}
-              className="bg-popover text-popover-foreground ring-border min-w-56"
-            >
-              <DropdownMenuItem
-                render={
-                  <Link
-                    href="/settings?tab=profile"
-                    onClick={onClose}
-                    className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
-                  />
-                }
-              >
-                <User className="size-4" />
-                Profile
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                render={
-                  <Link
-                    href="/settings?tab=whatsapp"
-                    onClick={onClose}
-                    className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
-                  />
-                }
-              >
-                <Settings className="size-4" />
-                Settings
-              </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-border" />
-              <DropdownMenuItem
-                onClick={signOut}
-                className="text-popover-foreground focus:bg-accent focus:text-accent-foreground"
-              >
-                <LogOut className="size-4" />
-                Sign out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-bold text-white">Helpa Admin</div>
+              <div className="text-xs text-slate-400">Administrator</div>
+            </div>
+            <PanelLeftClose className="h-4 w-4 text-slate-500" />
+          </Link>
         </div>
       </aside>
     </>
