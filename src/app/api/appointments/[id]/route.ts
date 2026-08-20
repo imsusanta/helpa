@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
+import { scheduleAppointmentReminders } from '@/lib/automations/appointment-triggers';
+import type { AutomationTriggerType } from '@/types';
+import { runAutomationsForTrigger } from '@/lib/automations/engine';
 
 const PRIVATE_HEADERS = {
   'Cache-Control': 'private, no-store, no-cache, must-revalidate',
@@ -15,6 +18,20 @@ export async function PUT(
     const context = await requireRole('agent');
     const supabase = getSupabaseAdminClient();
     const body = await request.json();
+
+    const { data: existing, error: existingError } = await supabase
+      .from('appointments')
+      .select('id, account_id, patient_id, appointment_date, appointment_time, status')
+      .eq('id', id)
+      .eq('account_id', context.accountId)
+      .single();
+
+    if (existingError || !existing) {
+      return NextResponse.json(
+        { error: existingError?.message || 'Appointment not found' },
+        { status: existingError ? 500 : 404, headers: PRIVATE_HEADERS }
+      );
+    }
 
     const updatePayload: Record<string, unknown> = {};
     if (body.status !== undefined) updatePayload.status = body.status;
@@ -45,6 +62,43 @@ export async function PUT(
         { error: error.message },
         { status: 500, headers: PRIVATE_HEADERS }
       );
+    }
+
+    if (data?.patient?.id) {
+      const appointmentChanged =
+        existing.appointment_date !== data.appointment_date ||
+        existing.appointment_time !== data.appointment_time;
+      const wasCancelled = String(existing.status).toLowerCase() === 'cancelled';
+      const isCancelled = String(data.status).toLowerCase() === 'cancelled';
+
+      // A reschedule creates the new reminder after the appointment time changes.
+      // The scheduler is idempotent, so repeated PUTs cannot queue duplicates.
+      if (appointmentChanged && !isCancelled) {
+        void scheduleAppointmentReminders({
+          accountId: context.accountId,
+          userId: context.userId,
+          contactId: data.patient.id,
+          appointmentId: data.id,
+          appointmentDate: data.appointment_date,
+          appointmentTime: data.appointment_time,
+        });
+      }
+
+      if (!wasCancelled && isCancelled) {
+        void runAutomationsForTrigger({
+          accountId: context.accountId,
+          triggerType: 'appointment_cancelled' as AutomationTriggerType,
+          contactId: data.patient.id,
+          context: {
+            vars: {
+              appointment_id: data.id,
+              appointment_date: data.appointment_date,
+              appointment_time: data.appointment_time,
+              booking_id: data.booking_id,
+            },
+          },
+        });
+      }
     }
 
     return NextResponse.json({ data }, { headers: PRIVATE_HEADERS });
