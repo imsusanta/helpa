@@ -54,8 +54,26 @@ export async function scheduleAppointmentReminders(
       continue;
     }
 
-    // Last-minute bookings are sent immediately rather than silently missed.
     const effectiveRunAt = runAt.getTime() <= Date.now() ? new Date() : runAt;
+
+    // Idempotency guard: if the same appointment was already scheduled for
+    // this automation, do not enqueue another pending reminder.
+    const { data: existingPending, error: existingError } = await db
+      .from('automation_pending_executions')
+      .select('id')
+      .eq('automation_id', automation.id)
+      .eq('status', 'pending')
+      .filter('context->>appointment_id', 'eq', input.appointmentId)
+      .limit(1);
+
+    if (existingError) {
+      console.error('[automations] duplicate reminder lookup failed:', existingError);
+      continue;
+    }
+    if (existingPending && existingPending.length > 0) {
+      console.info('[automations] reminder already scheduled:', automation.id, input.appointmentId);
+      continue;
+    }
 
     const { data: log, error: logError } = await db
       .from('automation_logs')
@@ -104,7 +122,7 @@ export async function scheduleAppointmentReminders(
 }
 
 /** Convert business-local appointment date/time to UTC and subtract N minutes. */
-function appointmentLocalToUtc(
+export function appointmentLocalToUtc(
   date: string,
   time: string,
   timeZone: string,
