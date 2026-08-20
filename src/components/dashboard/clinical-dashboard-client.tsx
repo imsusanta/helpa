@@ -25,6 +25,8 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { SkeletonCard } from '@/components/dashboard/skeleton';
 import { DashboardSetupChecklist } from '@/components/dashboard/dashboard-setup-checklist';
+import { DashboardWhatsAppStatus } from '@/components/dashboard/dashboard-whatsapp-status';
+import { DashboardAutoReminders } from '@/components/dashboard/dashboard-auto-reminders';
 import { toast } from 'sonner';
 
 interface AppointmentRow {
@@ -343,6 +345,9 @@ export function ClinicalDashboardClient() {
 
   return (
     <div className="animate-in fade-in space-y-7 duration-500">
+      {/* WhatsApp Connection Health Status */}
+      <DashboardWhatsAppStatus />
+
       <section className="border-border bg-card relative overflow-hidden rounded-2xl border p-6 shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -508,6 +513,9 @@ export function ClinicalDashboardClient() {
           href="/follow-ups"
         />
       </section>
+
+      {/* Auto-Reminders Ready-Made Templates */}
+      <DashboardAutoReminders />
 
       <section className="grid gap-5 lg:grid-cols-[1.35fr_0.65fr]">
         <div className="border-border/60 bg-card/80 rounded-[1.5rem] border p-5 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.45)] sm:p-6">

@@ -483,11 +483,11 @@ export function ConversationList({
                 </div>
                 <div>
                   <p className="text-foreground text-sm font-semibold">
-                    No conversations yet
+                    No customer conversations yet
                   </p>
                   <p className="text-muted-foreground mx-auto mt-1 max-w-[210px] text-xs leading-relaxed">
-                    Start a new conversation with a contact, or incoming
-                    WhatsApp messages will appear here.
+                    Once someone messages your WhatsApp number, their
+                    conversation will appear here.
                   </p>
                 </div>
                 <Button

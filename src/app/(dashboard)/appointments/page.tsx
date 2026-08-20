@@ -857,13 +857,21 @@ export default function AppointmentsPage() {
       {/* Grid listing */}
       {displayAppointments.length === 0 ? (
         <div className="border-border bg-card mx-auto max-w-2xl rounded-2xl border border-dashed p-12 text-center">
-          <CalendarIcon className="text-muted-foreground mx-auto mb-4 h-12 w-12" />
-          <h3 className="text-foreground text-lg font-bold">
-            No appointments found
+          <CalendarIcon className="mx-auto mb-4 h-12 w-12 text-emerald-500/60" />
+          <h3 className="text-foreground text-base font-bold">
+            No appointments yet
           </h3>
-          <p className="text-muted-foreground mt-1 text-sm">
-            There are no consultations matching this filter.
+          <p className="text-muted-foreground mx-auto mt-1 max-w-md text-xs leading-relaxed">
+            Appointments booked by your AI receptionist or staff will appear
+            here.
           </p>
+          <Button
+            onClick={() => setShowAddForm(true)}
+            className="mt-4 bg-emerald-600 text-xs font-bold text-white hover:bg-emerald-700"
+          >
+            <Plus className="mr-1.5 size-3.5" />
+            Book Appointment
+          </Button>
         </div>
       ) : (
         <div className="bg-card border-border overflow-hidden rounded-2xl border shadow-sm">

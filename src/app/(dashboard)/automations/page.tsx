@@ -185,17 +185,17 @@ export default function AutomationsPage() {
           canAct={canCreate}
           gateReason="create automations"
           onClick={() => router.push('/automations/new')}
-          className="bg-primary text-primary-foreground hover:bg-primary/90"
+          className="bg-emerald-600 text-xs font-bold text-white hover:bg-emerald-700"
         >
-          <Plus className="h-4 w-4" />
-          Create Auto-Rule
+          <Plus className="mr-1.5 h-4 w-4" />
+          Custom Automation
         </GatedButton>
       </div>
 
       {showTemplates && (
         <section>
-          <h2 className="text-muted-foreground mb-3 text-sm font-semibold">
-            Quick-start templates
+          <h2 className="text-muted-foreground mb-3 text-xs font-semibold tracking-wider uppercase">
+            Recommended for your business
           </h2>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
             {TEMPLATE_ORDER.map((slug) => {
@@ -205,9 +205,9 @@ export default function AutomationsPage() {
                 <button
                   key={slug}
                   onClick={() => startFromTemplate(slug)}
-                  className="group border-border bg-card hover:border-primary/50 hover:bg-card/80 flex flex-col items-start rounded-xl border p-4 text-left transition-colors"
+                  className="group border-border bg-card hover:bg-card/80 flex flex-col items-start rounded-xl border p-4 text-left transition-colors hover:border-emerald-500/50"
                 >
-                  <div className="bg-primary/10 text-primary group-hover:bg-primary/15 mb-3 flex h-9 w-9 items-center justify-center rounded-lg">
+                  <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-500 group-hover:bg-emerald-500/20">
                     <Icon className="h-5 w-5" />
                   </div>
                   <div className="text-foreground text-sm font-semibold">
@@ -224,16 +224,16 @@ export default function AutomationsPage() {
       )}
 
       {automations.length === 0 ? (
-        <div className="border-border bg-card/40 flex h-48 flex-col items-center justify-center rounded-xl border border-dashed">
-          <div className="bg-primary/10 flex h-12 w-12 items-center justify-center rounded-xl">
-            <Zap className="text-primary h-6 w-6" />
+        <div className="border-border bg-card/40 flex h-48 flex-col items-center justify-center rounded-xl border border-dashed p-6 text-center">
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-500">
+            <Zap className="h-6 w-6" />
           </div>
-          <p className="text-foreground mt-3 text-sm font-medium">
-            No auto-rules or follow-ups yet
+          <p className="text-foreground text-sm font-bold">
+            Let Helpa handle repetitive follow-ups
           </p>
-          <p className="text-muted-foreground mt-1 text-xs">
-            Pick a ready-made template above to automatically greet customers or
-            send reminders.
+          <p className="text-muted-foreground mt-1 max-w-md text-xs">
+            Choose a ready-made reminder or follow-up for your business above.
+            You can turn it on in one click.
           </p>
         </div>
       ) : (

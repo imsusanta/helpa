@@ -24,6 +24,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { SkeletonCard } from '@/components/dashboard/skeleton';
 import { DashboardSetupChecklist } from '@/components/dashboard/dashboard-setup-checklist';
+import { DashboardWhatsAppStatus } from '@/components/dashboard/dashboard-whatsapp-status';
+import { DashboardAutoReminders } from '@/components/dashboard/dashboard-auto-reminders';
 
 const ICON_COMPONENTS: Record<
   string,
@@ -156,6 +158,9 @@ export function GenericDashboardClient() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-7 pb-10">
+      {/* 0. WhatsApp Connection Health Status */}
+      <DashboardWhatsAppStatus />
+
       {/* 1. Header Greeting */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -245,6 +250,9 @@ export function GenericDashboardClient() {
           })}
         </div>
       </div>
+
+      {/* Auto-Reminders Ready-Made Templates */}
+      <DashboardAutoReminders />
 
       {/* 4. Quick Actions & Direct Tasks */}
       <div className="grid gap-6 md:grid-cols-3">

@@ -37,6 +37,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { MessageBubble } from './message-bubble';
 import { MessageActions } from './message-actions';
 import {
@@ -220,6 +228,7 @@ export function MessageThread({
     }, 700);
   }, [isRefreshing, onRefresh]);
   const [replyTo, setReplyTo] = useState<ReplyDraft | null>(null);
+  const [aiToggleDialogOpen, setAiToggleDialogOpen] = useState(false);
 
   // Profiles are bounded by RLS to rows the current user is allowed to
   // see — today that's just the current user, but the dropdown keeps the
@@ -1231,6 +1240,42 @@ export function MessageThread({
         )}
       </div>
 
+      {/* AI vs Staff Status Banner */}
+      <div className="border-border/70 bg-card/95 flex items-center justify-between gap-3 border-t px-4 py-2 text-xs">
+        <div className="flex items-center gap-2">
+          {conversation.ai_chat_enabled ? (
+            <>
+              <span className="flex size-2 animate-pulse rounded-full bg-emerald-500" />
+              <span className="font-semibold text-emerald-400">
+                AI Receptionist is replying
+              </span>
+              <span className="text-muted-foreground hidden text-[11px] sm:inline">
+                — New customer messages will be answered automatically.
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="flex size-2 rounded-full bg-blue-500" />
+              <span className="font-semibold text-blue-400">
+                Staff is replying
+              </span>
+              <span className="text-muted-foreground hidden text-[11px] sm:inline">
+                — AI automatic replies are paused for this conversation.
+              </span>
+            </>
+          )}
+        </div>
+
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setAiToggleDialogOpen(true)}
+          className="border-border hover:bg-muted h-6 px-2 text-[11px] font-medium"
+        >
+          {conversation.ai_chat_enabled ? 'Pause AI' : 'Resume AI'}
+        </Button>
+      </div>
+
       {/* Composer */}
       <MessageComposer
         conversationId={conversation.id}
@@ -1248,6 +1293,51 @@ export function MessageThread({
         onOpenChange={setTemplateModalOpen}
         onSelect={handleSendTemplate}
       />
+
+      {/* AI Pause / Resume Confirmation Dialog */}
+      <Dialog open={aiToggleDialogOpen} onOpenChange={setAiToggleDialogOpen}>
+        <DialogContent className="bg-popover text-popover-foreground border-border max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base font-bold">
+              <Sparkles className="size-4 text-emerald-500" />
+              {conversation.ai_chat_enabled
+                ? 'Pause AI replies for this conversation?'
+                : 'Resume AI replies?'}
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground pt-1 text-xs leading-relaxed">
+              {conversation.ai_chat_enabled
+                ? 'When paused, staff can reply manually without the AI responding to new messages from this customer.'
+                : 'Helpa will automatically answer new customer messages again based on your business info and services.'}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setAiToggleDialogOpen(false)}
+              className="text-xs"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => {
+                setAiToggleDialogOpen(false);
+                void handleToggleAiChat();
+              }}
+              className={`text-xs font-bold text-white ${
+                conversation.ai_chat_enabled
+                  ? 'bg-amber-600 hover:bg-amber-700'
+                  : 'bg-emerald-600 hover:bg-emerald-700'
+              }`}
+            >
+              {conversation.ai_chat_enabled ? 'Pause AI' : 'Resume AI'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -627,28 +627,33 @@ export default function ContactsPage() {
                   colSpan={8 + Math.min(2, customFields.length)}
                   className="py-12 text-center"
                 >
-                  <div className="flex flex-col items-center gap-2">
-                    <Users className="text-muted-foreground size-8" />
-                    <p className="text-muted-foreground text-sm">
+                  <div className="mx-auto flex max-w-md flex-col items-center gap-2">
+                    <Users className="text-muted-foreground size-8 text-emerald-500/60" />
+                    <p className="text-foreground text-sm font-semibold">
                       {search
                         ? `No ${entityLabelPlural.toLowerCase()} match your search.`
-                        : `No ${entityLabelPlural.toLowerCase()} yet.`}
+                        : `Your ${entityLabelPlural.toLowerCase()} will appear here automatically.`}
+                    </p>
+                    <p className="text-muted-foreground text-xs leading-relaxed">
+                      {search
+                        ? 'Try adjusting your search filters.'
+                        : `Every person who messages your WhatsApp can be saved with their conversation history.`}
                     </p>
                     {!search && (
-                      <div className="mt-2 flex items-center gap-2">
+                      <div className="mt-3 flex items-center gap-2">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={openAddForm}
-                          className="border-border text-muted-foreground hover:bg-muted"
+                          className="border-border text-muted-foreground hover:bg-muted text-xs"
                         >
                           <Plus className="mr-1 size-3.5" />
-                          Add your first {entityLabel.toLowerCase()}
+                          Add {entityLabel}
                         </Button>
-                        <Link href="/settings/whatsapp">
+                        <Link href="/settings?tab=whatsapp">
                           <Button
                             size="sm"
-                            className="bg-emerald-600 font-medium text-white hover:bg-emerald-700"
+                            className="bg-emerald-600 text-xs font-medium text-white hover:bg-emerald-700"
                           >
                             Connect WhatsApp
                           </Button>
