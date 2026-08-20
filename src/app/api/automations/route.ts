@@ -17,7 +17,8 @@ function normalizeAppointmentTrigger(
   triggerType: unknown,
   triggerConfig: unknown
 ): { triggerType: string; triggerConfig: Record<string, unknown> } {
-  const normalizedName = typeof name === 'string' ? name.trim().toLowerCase() : '';
+  const normalizedName =
+    typeof name === 'string' ? name.trim().toLowerCase() : '';
   const config =
     triggerConfig && typeof triggerConfig === 'object'
       ? { ...(triggerConfig as Record<string, unknown>) }
@@ -103,7 +104,8 @@ export async function POST(request: Request) {
       {
         code: 'PLAN_LIMIT_REACHED',
         error:
-          autoLimit.reason || 'Automation limit reached for your current plan.',
+          autoLimit.reason ||
+          'Automation limit reached for your current plan.',
         feature: 'automations',
         current: autoLimit.currentUsage,
         limit: autoLimit.limit,
@@ -139,7 +141,8 @@ export async function POST(request: Request) {
       effectiveName = effectiveName ?? t.name;
       effectiveDescription = effectiveDescription ?? t.description;
       effectiveTriggerType = effectiveTriggerType ?? t.trigger_type;
-      effectiveTriggerConfig = effectiveTriggerConfig ?? t.trigger_config;
+      effectiveTriggerConfig =
+        effectiveTriggerConfig ?? t.trigger_config;
       effectiveSteps = t.steps as unknown as BuilderStepInput[];
     }
   }
@@ -166,7 +169,8 @@ export async function POST(request: Request) {
     if (!Number.isFinite(beforeMinutes) || beforeMinutes <= 0) {
       return NextResponse.json(
         {
-          error: 'appointment_reminder requires before_minutes greater than 0',
+          error:
+            'appointment_reminder requires before_minutes greater than 0',
         },
         { status: 400 }
       );
