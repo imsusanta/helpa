@@ -6,8 +6,8 @@ import type { AutomationTriggerType } from '@/types';
 // Activating a broken automation (e.g. an add_tag step with tag_id="")
 // used to succeed silently — every trigger then produced a failed log
 // row with a cryptic "add_tag needs contact + tag_id" message, and
-// users often didn't notice until reviewing logs. This module lets
-// the API refuse activation with a useful 400 response instead.
+// users often didn't notice until reviewing logs. This module lets the
+// API refuse activation with a useful 400 response instead.
 //
 // The rules here mirror the runtime checks in engine.ts's runStep;
 // they're the same invariants, enforced one step earlier so failures
@@ -220,6 +220,21 @@ export function validateTriggerForActivation(
   } else if (triggerType === 'tag_added') {
     if (!nonEmpty(cfg.tag_id)) {
       issues.push({ path: 'trigger.tag_id', message: 'tag is required' });
+    }
+  } else if (triggerType === 'appointment_reminder') {
+    const beforeMinutes = Number(cfg.before_minutes);
+    if (!Number.isFinite(beforeMinutes) || beforeMinutes <= 0) {
+      issues.push({
+        path: 'trigger.before_minutes',
+        message:
+          'appointment reminder must specify before_minutes greater than 0',
+      });
+    }
+    if (cfg.timezone !== undefined && !nonEmpty(cfg.timezone)) {
+      issues.push({
+        path: 'trigger.timezone',
+        message: 'timezone must be a non-empty IANA timezone when provided',
+      });
     }
   }
 

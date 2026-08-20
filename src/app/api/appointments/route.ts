@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
+import { runAutomationsForTrigger } from '@/lib/automations/engine';
+import { scheduleAppointmentReminders } from '@/lib/automations/appointment-triggers';
+import type { AutomationTriggerType } from '@/types';
 
 const PRIVATE_HEADERS = {
   'Cache-Control': 'private, no-store, no-cache, must-revalidate',
@@ -81,7 +84,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         notes: notes || null,
       })
       .select(
-        'id, booking_id, appointment_date, appointment_time, status, notes, department, token_number, queue_position, created_at, patient:contacts(id, name, phone), doctor:hospital_doctors(id, name, specialization, department)'
+        'id, patient_id, booking_id, appointment_date, appointment_time, status, notes, department, token_number, queue_position, created_at, patient:contacts(id, name, phone), doctor:hospital_doctors(id, name, specialization, department)'
       )
       .single();
 
@@ -90,6 +93,37 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         { error: error.message },
         { status: 500, headers: PRIVATE_HEADERS }
       );
+    }
+
+    if (data?.patient_id) {
+      // Confirmation automations run immediately after the appointment exists.
+      // These are fire-and-forget so a notification failure never rolls back
+      // an otherwise successful appointment booking.
+      void runAutomationsForTrigger({
+        accountId: context.accountId,
+        triggerType: 'appointment_created' as AutomationTriggerType,
+        contactId: data.patient_id,
+        context: {
+          conversation_id: undefined,
+          vars: {
+            appointment_id: data.id,
+            appointment_date: data.appointment_date,
+            appointment_time: data.appointment_time,
+            booking_id: data.booking_id,
+          },
+        },
+      });
+
+      // Appointment reminders are scheduled against the actual appointment
+      // time, not against the booking/message time.
+      void scheduleAppointmentReminders({
+        accountId: context.accountId,
+        userId: context.userId,
+        contactId: data.patient_id,
+        appointmentId: data.id,
+        appointmentDate: data.appointment_date,
+        appointmentTime: data.appointment_time,
+      });
     }
 
     return NextResponse.json(
