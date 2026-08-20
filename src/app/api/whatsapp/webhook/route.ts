@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/supabase/server';
 import { verifyMetaWebhookSignature } from '@/lib/whatsapp/webhook-signature';
 import {
   handleTemplateWebhookChange,
@@ -11,12 +11,10 @@ import { handleStatusUpdate } from './process-status';
 import { processMessage } from './process-message';
 import type { WhatsAppWebhookEntry } from './types';
 
-// GET - Meta challenge verification
 export async function GET(request: Request) {
   return handleWebhookGet(request);
 }
 
-// POST - Receive webhook events with strict fail-closed signature verification
 export async function POST(request: Request) {
   const rawBody = await request.text();
   const signature = request.headers.get('x-hub-signature-256');
@@ -43,8 +41,10 @@ export async function POST(request: Request) {
   try {
     await processWebhook(body);
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error('Error processing webhook:', message);
+    console.error(
+      'Error processing webhook:',
+      error instanceof Error ? error.message : 'Unknown error'
+    );
     return NextResponse.json(
       { error: 'Webhook processing failed' },
       {
@@ -62,13 +62,14 @@ export async function POST(request: Request) {
 
 async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
   if (!body.entry) return;
+  const db = getAdminClient();
 
   for (const entry of body.entry) {
     for (const change of entry.changes) {
       if (isTemplateWebhookField(change.field)) {
         await handleTemplateWebhookChange(
           { field: change.field, value: change.value as unknown },
-          getAdminClient()
+          db
         );
         continue;
       }
@@ -86,23 +87,15 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
       const phoneNumberId = value.metadata?.phone_number_id;
       if (!phoneNumberId) continue;
 
-      // Strict multi-tenant resolution by Phone Number ID
       const tenantContext = await resolveTenantByPhoneNumberId(phoneNumberId);
       if (!tenantContext) {
-        throw new Error(
-          `No WhatsApp configuration found for phone_number_id ${phoneNumberId}`
-        );
+        throw new Error('No WhatsApp configuration found for this phone number');
       }
 
-      // Update last_webhook_at timestamp for tenant health tracking
-      try {
-        await getAdminClient()
-          .from('whatsapp_config')
-          .update({ last_webhook_at: new Date().toISOString() })
-          .eq('phone_number_id', phoneNumberId);
-      } catch {
-        // Non-critical timestamp update failure
-      }
+      await db
+        .from('whatsapp_config')
+        .update({ last_webhook_at: new Date().toISOString() })
+        .eq('phone_number_id', phoneNumberId);
 
       for (let i = 0; i < value.messages.length; i++) {
         const message = value.messages[i];
