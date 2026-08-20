@@ -10,6 +10,7 @@ import {
   Receipt,
   IndianRupee,
   Bot,
+  MessageSquare,
   Settings,
   RefreshCw,
   Sparkles,
@@ -88,6 +89,11 @@ const NAV_GROUPS: NavGroup[] = [
         label: 'AI Settings',
         icon: Bot,
       },
+      {
+        href: '/admin/whatsapp',
+        label: 'WhatsApp Accounts',
+        icon: MessageSquare,
+      },
     ],
   },
   {
@@ -133,6 +139,10 @@ const ROUTE_DESCRIPTIONS: Record<
     title: 'AI Settings',
     description:
       'Configure global AI providers, model endpoints, rate limits, and fallback routing.',
+  },
+  '/admin/whatsapp': {
+    title: 'WhatsApp Accounts',
+    description: 'Monitor WhatsApp connections for businesses using Helpa.',
   },
   '/admin/settings': {
     title: 'Settings',
