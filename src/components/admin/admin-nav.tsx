@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   Building2,
   CreditCard,
+  Receipt,
   Bot,
   Settings,
   RefreshCw,
@@ -66,6 +67,11 @@ const NAV_GROUPS: NavGroup[] = [
         label: 'Plans & Pricing',
         icon: CreditCard,
       },
+      {
+        href: '/admin/subscriptions',
+        label: 'Subscriptions',
+        icon: Receipt,
+      },
     ],
   },
   {
@@ -108,6 +114,10 @@ const ROUTE_DESCRIPTIONS: Record<
     title: 'Plans & Pricing',
     description:
       'Configure subscription tiers, setup fees, usage limits, and commercial feature flags.',
+  },
+  '/admin/subscriptions': {
+    title: 'Subscriptions',
+    description: 'Manage business subscriptions, renewals and payment status.',
   },
   '/admin/ai': {
     title: 'AI Settings',
