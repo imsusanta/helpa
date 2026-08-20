@@ -1,9 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import {
-  ArrowRight,
   Calendar,
   ChevronDown,
   FileText,
@@ -12,23 +11,21 @@ import {
   MessageSquare,
   Plus,
   ReceiptText,
-  RefreshCw,
   Send,
   Users,
   WalletCards,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
-import { getIndustryModule } from '@/modules/registry';
 
 const metricCards = [
-  { key: 'leads', label: 'TOTAL LEADS', tone: 'blue', icon: Users, keys: ['leads_total', 'total_leads', 'contacts_total', 'active_patients', 'active_members'] },
-  { key: 'customers', label: 'TOTAL CUSTOMERS', tone: 'indigo', icon: Users, keys: ['customers_total', 'total_customers', 'active_patients', 'active_members'] },
-  { key: 'quotations', label: 'QUOTATIONS', tone: 'teal', icon: FileText, keys: ['quotations_total', 'quotations', 'pending_enquiries'] },
-  { key: 'invoices', label: 'INVOICES', tone: 'green', icon: ReceiptText, keys: ['invoices_total', 'invoices'] },
-  { key: 'campaigns', label: 'CAMPAIGNS', tone: 'purple', icon: Megaphone, keys: ['campaigns_total'] },
-  { key: 'sent', label: 'MESSAGES SENT', tone: 'teal', icon: Send, keys: ['messages_sent', 'sent_messages'] },
-  { key: 'received', label: 'MESSAGES RECEIVED', tone: 'blue', icon: Inbox, keys: ['messages_received', 'received_messages', 'unread_chats', 'conversations_active'] },
-  { key: 'wallet', label: 'WALLET BALANCE', tone: 'orange', icon: WalletCards, keys: ['wallet_balance', 'balance'] },
+  { key: 'leads', label: 'TOTAL LEADS', filter: 'All Time', tone: 'blue', icon: Users, keys: ['leads_total', 'total_leads', 'contacts_total', 'active_patients', 'active_members'] },
+  { key: 'customers', label: 'TOTAL CUSTOMERS', filter: 'All Time', tone: 'indigo', icon: Users, keys: ['customers_total', 'total_customers', 'active_patients', 'active_members'] },
+  { key: 'quotations', label: 'QUOTATIONS', filter: 'This Month', tone: 'teal', icon: FileText, keys: ['quotations_total', 'quotations', 'pending_enquiries'] },
+  { key: 'invoices', label: 'INVOICES', filter: 'This Month', tone: 'green', icon: ReceiptText, keys: ['invoices_total', 'invoices'] },
+  { key: 'campaigns', label: 'CAMPAIGNS', filter: '', tone: 'purple', icon: Megaphone, keys: ['campaigns_total'] },
+  { key: 'sent', label: 'MESSAGES SENT', filter: '', tone: 'teal', icon: Send, keys: ['messages_sent', 'sent_messages'] },
+  { key: 'received', label: 'MESSAGES RECEIVED', filter: '', tone: 'blue', icon: Inbox, keys: ['messages_received', 'received_messages', 'unread_chats', 'conversations_active'] },
+  { key: 'wallet', label: 'WALLET BALANCE', filter: '', tone: 'orange', icon: WalletCards, keys: ['wallet_balance', 'balance'] },
 ] as const;
 
 const toneClasses: Record<string, string> = {
@@ -52,16 +49,17 @@ function formatValue(value: number, currency = false) {
   return value.toLocaleString('en-IN');
 }
 
-function FilterPill({ children }: { children: React.ReactNode }) {
+function FilterPill({ children }: { children: ReactNode }) {
+  if (!children) return null;
   return (
-    <button className="inline-flex h-9 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-600 shadow-sm hover:bg-slate-50">
+    <button className="inline-flex h-8 items-center gap-1 rounded-full border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-600 shadow-sm hover:bg-slate-50">
       {children}
-      <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+      <ChevronDown className="h-3 w-3 text-slate-400" />
     </button>
   );
 }
 
-function Panel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+function Panel({ children, className = '' }: { children: ReactNode; className?: string }) {
   return <section className={`overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_1px_3px_rgba(15,23,42,0.05)] ${className}`}>{children}</section>;
 }
 
@@ -70,8 +68,6 @@ export function GenericDashboardClient() {
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState<Record<string, number>>({});
   const [greeting, setGreeting] = useState('Welcome back');
-
-  const activeModule = getIndustryModule(account?.industry);
   const userName = profile?.full_name?.split(' ')[0] || account?.name || 'there';
 
   useEffect(() => {
@@ -121,7 +117,6 @@ export function GenericDashboardClient() {
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-4 pb-8">
-      {/* Page heading */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h1 className="text-[28px] font-extrabold tracking-tight text-[#0f172a] sm:text-[30px]">
@@ -135,7 +130,6 @@ export function GenericDashboardClient() {
         </button>
       </div>
 
-      {/* KPI grid */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {metricCards.map((card) => {
           const Icon = card.icon;
@@ -144,10 +138,10 @@ export function GenericDashboardClient() {
           return (
             <Panel key={card.key} className="min-h-[142px] p-5">
               <div className="flex items-start justify-between">
-                <div>
+                <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="text-[13px] font-bold tracking-[0.08em] text-slate-500">{card.label}</p>
-                    <FilterPill>{card.key === 'leads' || card.key === 'customers' ? 'All Time' : card.key === 'campaigns' || card.key === 'sent' || card.key === 'received' ? 'This Month' : ''}</FilterPill>
+                    <p className="truncate text-[13px] font-bold tracking-[0.08em] text-slate-500">{card.label}</p>
+                    <FilterPill>{card.filter}</FilterPill>
                   </div>
                   <div className="mt-5 text-[34px] font-extrabold leading-none tracking-tight text-[#0f172a]">
                     {formatValue(value, isWallet)}
@@ -159,7 +153,7 @@ export function GenericDashboardClient() {
                     </div>
                   )}
                 </div>
-                <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl shadow-lg ${toneClasses[card.tone]}`}>
+                <div className={`ml-3 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl shadow-lg ${toneClasses[card.tone]}`}>
                   <Icon className="h-5 w-5" />
                 </div>
               </div>
@@ -168,7 +162,6 @@ export function GenericDashboardClient() {
         })}
       </div>
 
-      {/* Lower dashboard */}
       <div className="grid gap-4 xl:grid-cols-[1.05fr_1fr_1fr]">
         <Panel className="min-h-[330px]">
           <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
@@ -234,7 +227,6 @@ export function GenericDashboardClient() {
         </Panel>
       </div>
 
-      {/* Small utility strip */}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-3 shadow-sm">
         <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
           <span className="h-2 w-2 rounded-full bg-emerald-500" />
