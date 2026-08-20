@@ -82,10 +82,7 @@ export async function PUT(
       );
 
       if (appointmentChanged || isCancelled) {
-        await cancelPendingAppointmentReminders(
-          context.accountId,
-          data.id
-        );
+        await cancelPendingAppointmentReminders(context.accountId, data.id);
       }
       if (appointmentChanged && !isCancelled) {
         void scheduleAppointmentReminders({
@@ -139,10 +136,7 @@ export async function DELETE(
         { status: 500, headers: PRIVATE_HEADERS }
       );
     }
-    return NextResponse.json(
-      { success: true },
-      { headers: PRIVATE_HEADERS }
-    );
+    return NextResponse.json({ success: true }, { headers: PRIVATE_HEADERS });
   } catch (err) {
     return toErrorResponse(err);
   }
