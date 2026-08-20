@@ -9,22 +9,18 @@ export class RuntimeConfigurationError extends Error {
   }
 }
 
-const DEFAULT_SUPABASE_URL = 'https://tmqlzsyqlprioeoowmtk.supabase.co';
-const DEFAULT_SUPABASE_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtcWx6c3lxbHByaW9lb293bXRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2OTQwNTcsImV4cCI6MjEwMjI3MDA1N30.NuZjQH0j5nBcR3AQLPa9SALiVO5RSO6GVPvnzS0-RDc';
-const DEFAULT_SUPABASE_SERVICE_ROLE_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRtcWx6c3lxbHByaW9lb293bXRrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjY5NDA1NywiZXhwIjoyMTAyMjcwMDU3fQ.60b4HW1g3Th6psld5vgi_Aw1l-10R-KOzq-HWXmHHQ0';
-
 function enumValue<T extends string>(
   value: string | undefined,
   allowed: readonly T[],
   name: string,
   isProduction: boolean
 ): T {
-  if (value && (allowed as readonly string[]).includes(value))
+  if (value && (allowed as readonly string[]).includes(value)) {
     return value as T;
-  if (isProduction && !value)
+  }
+  if (isProduction && !value) {
     throw new RuntimeConfigurationError(`INVALID_${name}`);
+  }
   return allowed[0];
 }
 
@@ -67,16 +63,22 @@ export function getRuntimeConfig(env: NodeJS.ProcessEnv = process.env) {
 export function requireSupabasePublicConfig(
   env: NodeJS.ProcessEnv = process.env
 ) {
-  const url = env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-  const publishableKey =
-    env.NEXT_PUBLIC_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
+  const url = env.NEXT_PUBLIC_SUPABASE_URL;
+  const publishableKey = env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!url || !publishableKey) {
+    throw new RuntimeConfigurationError('SUPABASE_PUBLIC_CONFIG_MISSING');
+  }
+
   return { url, publishableKey };
 }
 
 export function requireSupabaseServiceRole(
   env: NodeJS.ProcessEnv = process.env
 ) {
-  const serviceRoleKey =
-    env.SUPABASE_SERVICE_ROLE_KEY || DEFAULT_SUPABASE_SERVICE_ROLE_KEY;
+  const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceRoleKey) {
+    throw new RuntimeConfigurationError('SUPABASE_SERVICE_ROLE_KEY_MISSING');
+  }
   return serviceRoleKey;
 }
