@@ -62,15 +62,17 @@ export async function GET() {
   const {
     data: { user },
   } = await appwrite.auth.getUser();
-  if (!user)
+  if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
   const { data, error } = await appwrite
     .from('automations')
     .select('*')
     .order('created_at', { ascending: false });
-  if (error)
+  if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
   return NextResponse.json({ automations: data ?? [] });
 }
 
@@ -79,8 +81,9 @@ export async function POST(request: Request) {
   const {
     data: { user },
   } = await appwrite.auth.getUser();
-  if (!user)
+  if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
   // Resolve the caller's account_id — `automations.account_id` is NOT
   // NULL post-017, so an INSERT without it trips the not-null constraint
@@ -116,8 +119,9 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => null);
-  if (!body)
+  if (!body) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
 
   const {
     name,
