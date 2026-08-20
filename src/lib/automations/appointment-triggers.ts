@@ -34,8 +34,8 @@ export async function scheduleAppointmentReminders(
   }
 
   for (const automation of automations ?? []) {
-    const config =
-      (automation.trigger_config ?? {}) as AppointmentReminderConfig;
+    const config = (automation.trigger_config ??
+      {}) as AppointmentReminderConfig;
     const beforeMinutes = Number(config.before_minutes);
     if (!Number.isFinite(beforeMinutes) || beforeMinutes <= 0) continue;
 
@@ -52,8 +52,7 @@ export async function scheduleAppointmentReminders(
       continue;
     }
 
-    const effectiveRunAt =
-      runAt.getTime() <= Date.now() ? new Date() : runAt;
+    const effectiveRunAt = runAt.getTime() <= Date.now() ? new Date() : runAt;
 
     // Prevent duplicate scheduling when an appointment is saved twice or a
     // retry repeats the same booking event. Rescheduled appointments cancel
@@ -113,10 +112,7 @@ export async function scheduleAppointmentReminders(
       });
 
     if (pendingError) {
-      console.error(
-        '[automations] reminder scheduling failed:',
-        pendingError
-      );
+      console.error('[automations] reminder scheduling failed:', pendingError);
     }
   }
 }
@@ -179,9 +175,7 @@ function getTimezoneOffsetMinutes(date: Date, timeZone: string): number {
     hourCycle: 'h23',
   }).formatToParts(date);
   const values = Object.fromEntries(
-    parts
-      .filter((p) => p.type !== 'literal')
-      .map((p) => [p.type, p.value])
+    parts.filter((p) => p.type !== 'literal').map((p) => [p.type, p.value])
   );
   const asUtc = Date.UTC(
     Number(values.year),
