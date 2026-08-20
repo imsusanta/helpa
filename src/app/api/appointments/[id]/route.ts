@@ -60,7 +60,7 @@ export async function PUT(
       .eq('id', id)
       .eq('account_id', context.accountId)
       .select(
-        'id, booking_id, appointment_date, appointment_time, status, notes, department, token_number, queue_position, created_at, patient:contacts(id, name, phone), doctor:hospital_doctors(id, name, specialization, department)'
+        'id, patient_id, booking_id, appointment_date, appointment_time, status, notes, department, token_number, queue_position, created_at, patient:contacts(id, name, phone), doctor:hospital_doctors(id, name, specialization, department)'
       )
       .single();
     if (error) {
@@ -70,7 +70,7 @@ export async function PUT(
       );
     }
 
-    if (data?.patient?.id) {
+    if (data?.patient_id) {
       const appointmentChanged =
         existing.appointment_date !== data.appointment_date ||
         existing.appointment_time !== data.appointment_time;
@@ -88,7 +88,7 @@ export async function PUT(
         void scheduleAppointmentReminders({
           accountId: context.accountId,
           userId: context.userId,
-          contactId: data.patient.id,
+          contactId: data.patient_id,
           appointmentId: data.id,
           appointmentDate: data.appointment_date,
           appointmentTime: data.appointment_time,
@@ -98,7 +98,7 @@ export async function PUT(
         void runAutomationsForTrigger({
           accountId: context.accountId,
           triggerType: 'appointment_cancelled' as AutomationTriggerType,
-          contactId: data.patient.id,
+          contactId: data.patient_id,
           context: {
             vars: {
               appointment_id: data.id,
