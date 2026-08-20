@@ -144,9 +144,7 @@ export function AdminOverviewClient() {
   };
 
   return (
-    <div className="space-y-6">
-      <AdminNav onRefresh={fetchOverviewData} loading={loading} />
-
+    <AdminNav onRefresh={fetchOverviewData} loading={loading}>
       {error ? (
         <div className="border-destructive/20 bg-destructive/10 text-destructive flex items-center gap-3 rounded-2xl border p-4 text-xs">
           <AlertCircle className="h-4 w-4 shrink-0" />
@@ -506,6 +504,6 @@ export function AdminOverviewClient() {
           </div>
         </div>
       )}
-    </div>
+    </AdminNav>
   );
 }

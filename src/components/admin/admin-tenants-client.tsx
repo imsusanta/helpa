@@ -227,9 +227,7 @@ export function AdminTenantsClient() {
   };
 
   return (
-    <div className="space-y-6">
-      <AdminNav onRefresh={loadData} loading={loading} />
-
+    <AdminNav onRefresh={loadData} loading={loading}>
       <div className="space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative max-w-sm flex-1">
@@ -473,6 +471,6 @@ export function AdminTenantsClient() {
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+    </AdminNav>
   );
 }

@@ -455,19 +455,16 @@ export function AdminAiInfrastructure() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <AdminNav />
+      <AdminNav>
         <div className="flex min-h-[300px] items-center justify-center">
           <Loader2 className="h-6 w-6 animate-spin text-neutral-400" />
         </div>
-      </div>
+      </AdminNav>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <AdminNav />
-
+    <AdminNav>
       <div className="mx-auto max-w-3xl space-y-6">
         {/* Current AI Status Card */}
         <div className="border-border/60 bg-card/80 relative overflow-hidden rounded-[1.35rem] border p-5 shadow-[0_18px_50px_-30px_rgba(15,23,42,0.45)]">
@@ -810,6 +807,6 @@ export function AdminAiInfrastructure() {
           </DialogContent>
         </Dialog>
       </div>
-    </div>
+    </AdminNav>
   );
 }

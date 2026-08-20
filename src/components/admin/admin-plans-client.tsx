@@ -179,9 +179,7 @@ export function AdminPlansClient() {
   }
 
   return (
-    <div className="space-y-6">
-      <AdminNav onRefresh={loadData} loading={loading} />
-
+    <AdminNav onRefresh={loadData} loading={loading}>
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
@@ -518,6 +516,6 @@ export function AdminPlansClient() {
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+    </AdminNav>
   );
 }
