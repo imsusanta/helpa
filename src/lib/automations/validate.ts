@@ -2,9 +2,20 @@ import type { AutomationTriggerType } from '@/types';
 
 // ------------------------------------------------------------
 // Pre-flight config validation for automations about to be activated.
+//
+// Activating a broken automation (e.g. an add_tag step with tag_id="")
+// used to succeed silently — every trigger then produced a failed log
+// row with a cryptic "add_tag needs contact + tag_id" message, and
+// users often didn't notice until reviewing logs. This module lets the
+// API refuse activation with a useful 400 response instead.
+//
+// The rules here mirror the runtime checks in engine.ts's runStep;
+// they're the same invariants, enforced one step earlier so failures
+// surface at save time.
 // ------------------------------------------------------------
 
 export interface ValidationIssue {
+  /** Dot-path for the UI to highlight; stable enough to build a table. */
   path: string;
   message: string;
 }
@@ -54,7 +65,10 @@ function validateOne(
   switch (step.step_type) {
     case 'send_message':
       if (!nonEmpty(c.text)) {
-        issues.push({ path: `${path}.text`, message: 'message text is required' });
+        issues.push({
+          path: `${path}.text`,
+          message: 'message text is required',
+        });
       }
       break;
     case 'send_template':
@@ -81,15 +95,24 @@ function validateOne(
       break;
     case 'update_contact_field':
       if (!nonEmpty(c.field)) {
-        issues.push({ path: `${path}.field`, message: 'field name is required' });
+        issues.push({
+          path: `${path}.field`,
+          message: 'field name is required',
+        });
       }
       if (c.value === undefined || c.value === null || c.value === '') {
-        issues.push({ path: `${path}.value`, message: 'field value is required' });
+        issues.push({
+          path: `${path}.value`,
+          message: 'field value is required',
+        });
       }
       break;
     case 'create_deal':
       if (!nonEmpty(c.pipeline_id)) {
-        issues.push({ path: `${path}.pipeline_id`, message: 'pipeline is required' });
+        issues.push({
+          path: `${path}.pipeline_id`,
+          message: 'pipeline is required',
+        });
       }
       if (!nonEmpty(c.stage_id)) {
         issues.push({ path: `${path}.stage_id`, message: 'stage is required' });
@@ -132,7 +155,10 @@ function validateOne(
       break;
     case 'send_webhook':
       if (!nonEmpty(c.url)) {
-        issues.push({ path: `${path}.url`, message: 'webhook URL is required' });
+        issues.push({
+          path: `${path}.url`,
+          message: 'webhook URL is required',
+        });
         break;
       }
       try {
@@ -151,6 +177,7 @@ function validateOne(
       }
       break;
     case 'close_conversation':
+      // No config required.
       break;
     default:
       issues.push({ path, message: `unknown step type: ${step.step_type}` });
@@ -185,7 +212,10 @@ export function validateTriggerForActivation(
     }
   } else if (triggerType === 'time_based') {
     if (!nonEmpty(cfg.schedule)) {
-      issues.push({ path: 'trigger.schedule', message: 'schedule is required' });
+      issues.push({
+        path: 'trigger.schedule',
+        message: 'schedule is required',
+      });
     }
   } else if (triggerType === 'tag_added') {
     if (!nonEmpty(cfg.tag_id)) {
@@ -196,7 +226,8 @@ export function validateTriggerForActivation(
     if (!Number.isFinite(beforeMinutes) || beforeMinutes <= 0) {
       issues.push({
         path: 'trigger.before_minutes',
-        message: 'appointment reminder must specify before_minutes greater than 0',
+        message:
+          'appointment reminder must specify before_minutes greater than 0',
       });
     }
     if (cfg.timezone !== undefined && !nonEmpty(cfg.timezone)) {
