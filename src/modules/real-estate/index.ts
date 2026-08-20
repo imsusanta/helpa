@@ -38,6 +38,7 @@ export const realEstateModule: IndustryModule = {
     '/inbox',
     '/leads',
     '/contacts',
+    '/pipelines',
     '/properties',
     '/agents',
     '/site-visits',

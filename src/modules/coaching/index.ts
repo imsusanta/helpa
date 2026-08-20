@@ -39,6 +39,7 @@ export const coachingModule: IndustryModule = {
     '/inbox',
     '/students',
     '/contacts',
+    '/pipelines',
     '/teachers',
     '/courses',
     '/admissions',

@@ -57,6 +57,7 @@ export const healthManifest: IndustryModule = {
     '/inbox',
     '/patients',
     '/contacts',
+    '/pipelines',
     '/doctors',
     '/appointments',
     '/follow-ups',

@@ -82,6 +82,7 @@ describe('Phase 2: Dynamic Industry Workspace Manifests', () => {
     expect(health.allowedRoutes).toContain('/patients');
     expect(health.allowedRoutes).toContain('/doctors');
     expect(health.allowedRoutes).toContain('/appointments');
+    expect(health.allowedRoutes).toContain('/pipelines');
     expect(health.allowedRoutes).toContain('/admin');
     expect(health.allowedRoutes).not.toContain('/properties');
     expect(health.allowedRoutes).not.toContain('/services');
@@ -90,6 +91,7 @@ describe('Phase 2: Dynamic Industry Workspace Manifests', () => {
     expect(salon.allowedRoutes).toContain('/customers');
     expect(salon.allowedRoutes).toContain('/services');
     expect(salon.allowedRoutes).toContain('/staff');
+    expect(salon.allowedRoutes).toContain('/pipelines');
     expect(salon.allowedRoutes).toContain('/admin');
     expect(salon.allowedRoutes).not.toContain('/patients');
     expect(salon.allowedRoutes).not.toContain('/doctors');
@@ -99,6 +101,7 @@ describe('Phase 2: Dynamic Industry Workspace Manifests', () => {
     expect(realEstate.allowedRoutes).toContain('/properties');
     expect(realEstate.allowedRoutes).toContain('/agents');
     expect(realEstate.allowedRoutes).toContain('/site-visits');
+    expect(realEstate.allowedRoutes).toContain('/pipelines');
     expect(realEstate.allowedRoutes).toContain('/admin');
     expect(realEstate.allowedRoutes).not.toContain('/patients');
     expect(realEstate.allowedRoutes).not.toContain('/courses');

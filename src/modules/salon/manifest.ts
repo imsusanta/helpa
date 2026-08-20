@@ -38,6 +38,7 @@ export const salonManifest: IndustryModule = {
     '/inbox',
     '/customers',
     '/contacts',
+    '/pipelines',
     '/services',
     '/staff',
     '/appointments',

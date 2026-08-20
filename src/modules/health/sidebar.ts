@@ -4,6 +4,7 @@ export const sidebarConfig: ModuleNavItem[] = [
   { href: '/dashboard', label: 'Home', iconName: 'LayoutDashboard' },
   { href: '/inbox', label: 'Messages', iconName: 'MessageSquare' },
   { href: '/patients', label: 'Patients', iconName: 'Users' },
+  { href: '/pipelines', label: 'Inquiries & CRM', iconName: 'GitBranch' },
   { href: '/doctors', label: 'Doctors', iconName: 'UserCheck' },
   { href: '/appointments', label: 'Appointments', iconName: 'Calendar' },
   { href: '/follow-ups', label: 'Follow-ups', iconName: 'Clock' },

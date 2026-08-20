@@ -253,7 +253,12 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         },
         {
           href: '/knowledge-base',
-          label: 'Business Info & FAQs',
+          label:
+            account?.industry === 'hospital_clinic' ||
+            account?.industry === 'health' ||
+            account?.industry === 'clinic'
+              ? 'Hospital Info & FAQs'
+              : 'Business Info & FAQs',
           icon: BookOpen,
         },
         {

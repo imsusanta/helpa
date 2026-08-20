@@ -38,6 +38,7 @@ export const soloTeacherModule: IndustryModule = {
     '/inbox',
     '/students',
     '/contacts',
+    '/pipelines',
     '/courses',
     '/classes',
     '/broadcasts',
