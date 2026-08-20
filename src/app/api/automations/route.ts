@@ -12,6 +12,50 @@ import {
 } from '@/lib/automations/validate';
 import { checkPlanLimits } from '@/lib/saas/subscription';
 
+function normalizeAppointmentTrigger(
+  name: unknown,
+  triggerType: unknown,
+  triggerConfig: unknown
+): { triggerType: string; triggerConfig: Record<string, unknown> } {
+  const normalizedName = typeof name === 'string' ? name.trim().toLowerCase() : '';
+  const config =
+    triggerConfig && typeof triggerConfig === 'object'
+      ? { ...(triggerConfig as Record<string, unknown>) }
+      : {};
+
+  // Dashboard templates created before the trigger hardening release used
+  // `new_message_received` for appointment reminders. Normalize those legacy
+  // payloads at the API boundary so existing clients cannot create an
+  // automation that claims to be time-based but actually waits for a message.
+  if (
+    normalizedName === 'appointment reminder' ||
+    normalizedName === 'reservation reminder' ||
+    normalizedName === 'site visit reminder'
+  ) {
+    const beforeMinutes =
+      normalizedName === 'reservation reminder' ? 120 : 1440;
+    return {
+      triggerType: 'appointment_reminder',
+      triggerConfig: {
+        before_minutes:
+          Number.isFinite(Number(config.before_minutes)) &&
+          Number(config.before_minutes) > 0
+            ? Number(config.before_minutes)
+            : beforeMinutes,
+        timezone:
+          typeof config.timezone === 'string' && config.timezone.trim()
+            ? config.timezone
+            : process.env.DEFAULT_TIMEZONE || 'Asia/Kolkata',
+      },
+    };
+  }
+
+  return {
+    triggerType: String(triggerType ?? ''),
+    triggerConfig: config,
+  };
+}
+
 export async function GET() {
   const appwrite = await createClient();
   const {
@@ -100,11 +144,33 @@ export async function POST(request: Request) {
     }
   }
 
+  const normalized = normalizeAppointmentTrigger(
+    effectiveName,
+    effectiveTriggerType,
+    effectiveTriggerConfig
+  );
+  effectiveTriggerType = normalized.triggerType;
+  effectiveTriggerConfig = normalized.triggerConfig;
+
   if (!effectiveName || !effectiveTriggerType) {
     return NextResponse.json(
       { error: 'name and trigger_type are required' },
       { status: 400 }
     );
+  }
+
+  if (effectiveTriggerType === 'appointment_reminder') {
+    const beforeMinutes = Number(
+      (effectiveTriggerConfig as Record<string, unknown>).before_minutes
+    );
+    if (!Number.isFinite(beforeMinutes) || beforeMinutes <= 0) {
+      return NextResponse.json(
+        {
+          error: 'appointment_reminder requires before_minutes greater than 0',
+        },
+        { status: 400 }
+      );
+    }
   }
 
   // Block activation of a clearly broken automation up-front instead of
