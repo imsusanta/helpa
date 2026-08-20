@@ -25,10 +25,6 @@ jobs:
       NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-test-supabase-anon-key
       SUPABASE_SERVICE_ROLE_KEY: ci-test-supabase-service-role-key
-      NEXT_PUBLIC_APPWRITE_ENDPOINT: https://cloud.appwrite.io/v1
-      NEXT_PUBLIC_APPWRITE_PROJECT_ID: wacrm_ci_test
-      APPWRITE_API_KEY: ci-dummy-appwrite-api-key
-      APPWRITE_DATABASE_ID: wacrm_ci_test
       ENCRYPTION_KEY: '0000000000000000000000000000000000000000000000000000000000000000'
       META_APP_SECRET: 'ci-dummy-meta-secret'
     steps:
@@ -55,14 +51,6 @@ jobs:
       - name: Format Check (Prettier)
         run: npm run format:check
 
-      - name: Hardcoded Pattern Secret Scanning
-        run: |
-          if git grep -nE "standard_[0-9a-f]{128}" ; then
-            echo "❌ Hardcoded Appwrite API key detected in tracked repository files!"
-            exit 1
-          fi
-          echo "✅ Secret scanning passed cleanly across all tracked files."
-
       - name: Emit Lint Diagnostics
         run: |
           npx eslint . --format json --output-file /tmp/eslint.json || true
@@ -77,11 +65,11 @@ jobs:
       - name: Unit & Integration Tests (Vitest)
         run: npm test
 
+      - name: Tenant isolation integration tests
+        run: npm run test:integration
+
       - name: Supabase migration manifest validation
         run: npm run supabase:validate
-
-      - name: Legacy Appwrite Tenant Isolation Tests (rollback coverage only)
-        run: npm run test:integration
 
       - name: Next.js Production Build
         run: npm run build
