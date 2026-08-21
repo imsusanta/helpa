@@ -1,5 +1,5 @@
 import { getAdminClient } from '@/lib/appwrite-server-compat';
-import { getAvailablePlans, getPlanBySlug } from '@/core/billing/plans';
+import { getPlanBySlug } from '@/core/billing/plans';
 import {
   FeatureAccessResult,
   SubscriptionPlan,
@@ -7,55 +7,88 @@ import {
   WorkspaceSubscription,
 } from '@/core/billing/types';
 
+const ACCESSIBLE_STATUSES = new Set<WorkspaceSubscription['status']>([
+  'ACTIVE',
+  'TRIAL',
+  'TRIALING',
+  'PAST_DUE',
+]);
+
+function requireAccountId(accountId: string): string {
+  const normalized = accountId?.trim();
+  if (!normalized) throw new Error('ACCOUNT_ID_REQUIRED');
+  return normalized;
+}
+
+function throwOnDatabaseError(error: unknown, operation: string): void {
+  if (!error) return;
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === 'object' && error && 'message' in error
+        ? String(error.message)
+        : String(error);
+  throw new Error(`${operation}: ${message}`);
+}
+
 export async function getWorkspaceSubscription(
-  accountId: string
+  rawAccountId: string
 ): Promise<{ subscription: WorkspaceSubscription; plan: SubscriptionPlan }> {
+  const accountId = requireAccountId(rawAccountId);
   const db = getAdminClient();
 
-  const { data: subData } = await db
+  const { data: subData, error: subscriptionError } = await db
     .from('subscriptions')
     .select('*, plan:plans(*)')
     .eq('account_id', accountId)
     .maybeSingle();
+  throwOnDatabaseError(subscriptionError, 'SUBSCRIPTION_LOOKUP_FAILED');
 
-  const availablePlans = await getAvailablePlans();
+  const { data: accountData, error: accountError } = await db
+    .from('accounts')
+    .select('id, subscription_plan, subscription_status')
+    .eq('id', accountId)
+    .maybeSingle();
+  throwOnDatabaseError(accountError, 'ACCOUNT_SUBSCRIPTION_LOOKUP_FAILED');
 
-  let planSlug = 'growth';
-  if (subData?.plan_slug) {
-    planSlug = subData.plan_slug;
-  } else if (subData?.plan?.slug) {
-    planSlug = subData.plan.slug;
-  } else if (subData?.plan?.name) {
-    planSlug = String(subData.plan.name)
-      .toLowerCase()
-      .replace(/[^a-z]/g, '');
-  } else if (accountId?.toLowerCase().includes('pro')) {
-    planSlug = 'pro';
-  } else if (accountId?.toLowerCase().includes('starter')) {
-    planSlug = 'starter';
-  }
+  const persistedPlanId =
+    subData?.plan_slug ||
+    subData?.plan?.slug ||
+    subData?.plan?.id ||
+    (subData?.plan?.name
+      ? String(subData.plan.name)
+          .toLowerCase()
+          .replace(/[^a-z]/g, '')
+      : undefined) ||
+    accountData?.subscription_plan;
 
-  const plan = (await getPlanBySlug(planSlug)) || availablePlans[1];
+  // Starter is used only as a safe display shape. A missing persisted
+  // subscription receives INCOMPLETE status and is denied by all gates.
+  const plan = await getPlanBySlug(persistedPlanId || 'starter');
+  if (!plan.isActive) throw new Error('SUBSCRIPTION_PLAN_INACTIVE');
 
   const now = new Date().toISOString();
+  const status =
+    (subData?.status as WorkspaceSubscription['status'] | undefined) ||
+    (accountData?.subscription_status as
+      | WorkspaceSubscription['status']
+      | undefined) ||
+    'INCOMPLETE';
+
   const subscription: WorkspaceSubscription = {
     id: subData?.id || `sub_${accountId}`,
     workspaceId: accountId,
     planId: plan.id,
     planSlug: plan.slug,
-    status:
-      (subData?.status as unknown as WorkspaceSubscription['status']) ||
-      'ACTIVE',
+    status,
     billingCycle: 'monthly',
-    setupFeePaid: subData?.setup_fee_paid ?? true,
+    setupFeePaid: subData?.setup_fee_paid ?? false,
     setupFeeAmount: subData?.setup_fee_amount ?? plan.setupFee,
     monthlyAmount: subData?.monthly_amount ?? plan.monthlyPrice,
     currency: plan.currency,
     currentPeriodStart: subData?.current_period_start || now,
     currentPeriodEnd:
-      subData?.end_date ||
-      subData?.current_period_end ||
-      new Date(Date.now() + 30 * 86400 * 1000).toISOString(),
+      subData?.end_date || subData?.current_period_end || now,
     cancelAtPeriodEnd: subData?.cancel_at_period_end ?? false,
     cancelledAt: subData?.cancelled_at,
     paymentProvider: subData?.payment_provider || 'helpa_billing',
@@ -73,11 +106,7 @@ export async function checkFeatureAccess(
   try {
     const { subscription, plan } = await getWorkspaceSubscription(accountId);
 
-    if (
-      subscription.status === 'EXPIRED' ||
-      subscription.status === 'CANCELLED' ||
-      subscription.status === 'TRIAL_EXPIRED'
-    ) {
+    if (!ACCESSIBLE_STATUSES.has(subscription.status)) {
       return {
         allowed: false,
         featureKey,
@@ -86,10 +115,12 @@ export async function checkFeatureAccess(
       };
     }
 
+    const [featureDomain] = featureKey.split('.');
     const hasAccess =
       plan.features.includes(featureKey) ||
-      plan.features.includes('all') ||
-      plan.slug === 'pro';
+      plan.features.includes(`${featureDomain}.*`) ||
+      plan.features.includes('*') ||
+      plan.features.includes('all');
 
     if (!hasAccess) {
       return {
@@ -101,14 +132,18 @@ export async function checkFeatureAccess(
     }
 
     return { allowed: true, featureKey };
-  } catch (err) {
-    console.error('[checkFeatureAccess] error:', err);
-    return { allowed: true, featureKey };
+  } catch (error) {
+    console.error('[checkFeatureAccess] denied after lookup failure:', error);
+    return {
+      allowed: false,
+      featureKey,
+      reason: 'Feature entitlement could not be verified. Please try again.',
+    };
   }
 }
 
 export async function checkPlanLimits(
-  accountId: string,
+  rawAccountId: string,
   limitKey:
     | 'max_users'
     | 'max_contacts'
@@ -117,13 +152,11 @@ export async function checkPlanLimits(
     | 'automations'
 ): Promise<UsageLimitCheckResult> {
   try {
+    const accountId = requireAccountId(rawAccountId);
     const db = getAdminClient();
     const { subscription, plan } = await getWorkspaceSubscription(accountId);
 
-    if (
-      subscription.status === 'EXPIRED' ||
-      subscription.status === 'TRIAL_EXPIRED'
-    ) {
+    if (!ACCESSIBLE_STATUSES.has(subscription.status)) {
       return {
         allowed: false,
         currentUsage: 0,
@@ -131,59 +164,76 @@ export async function checkPlanLimits(
         remaining: 0,
         percentageUsed: 100,
         warningLevel: '100%',
-        reason: `Your trial or subscription has expired. Please upgrade to continue adding ${limitKey.replace(/_/g, ' ')}.`,
+        reason: `Your subscription is ${subscription.status.toLowerCase().replace(/_/g, ' ')}. Please activate or renew it before using ${limitKey.replace(/_/g, ' ')}.`,
       };
     }
 
     const currentMonth = new Date().toISOString().substring(0, 7) + '-01';
 
-    let currentUsage = 0;
-    let limit = 99999;
+    let currentUsage: number;
+    let limit: number;
 
     if (limitKey === 'max_users') {
       limit = plan.usageLimits.teamMembers;
-      const { count } = await db
+      const { count, error } = await db
         .from('profiles')
         .select('id', { count: 'exact', head: true })
         .eq('account_id', accountId);
+      throwOnDatabaseError(error, 'TEAM_USAGE_LOOKUP_FAILED');
       currentUsage = count ?? 0;
     } else if (limitKey === 'max_contacts') {
       limit = plan.usageLimits.contacts;
-      const { count } = await db
+      const { count, error } = await db
         .from('contacts')
         .select('id', { count: 'exact', head: true })
         .eq('account_id', accountId);
+      throwOnDatabaseError(error, 'CONTACT_USAGE_LOOKUP_FAILED');
       currentUsage = count ?? 0;
     } else if (limitKey === 'max_ai_requests') {
       limit = plan.usageLimits.aiMessages;
-      const { data } = await db
+      const { data, error } = await db
         .from('usage_tracking')
         .select('ai_requests')
         .eq('account_id', accountId)
         .eq('month', currentMonth)
         .maybeSingle();
+      throwOnDatabaseError(error, 'AI_USAGE_LOOKUP_FAILED');
       currentUsage = data?.ai_requests ?? 0;
     } else if (limitKey === 'whatsapp_messages') {
       limit = plan.usageLimits.whatsappMessages;
-      const { data } = await db
+      const { data, error } = await db
         .from('usage_tracking')
         .select('whatsapp_messages')
         .eq('account_id', accountId)
         .eq('month', currentMonth)
         .maybeSingle();
+      throwOnDatabaseError(error, 'WHATSAPP_USAGE_LOOKUP_FAILED');
       currentUsage = data?.whatsapp_messages ?? 0;
-    } else if (limitKey === 'automations') {
-      limit = plan.usageLimits.automations || 25;
-      const { count } = await db
+    } else {
+      limit = plan.usageLimits.automations ?? 0;
+      const { count, error } = await db
         .from('automations')
         .select('id', { count: 'exact', head: true })
         .eq('account_id', accountId);
+      throwOnDatabaseError(error, 'AUTOMATION_USAGE_LOOKUP_FAILED');
       currentUsage = count ?? 0;
     }
 
+    if (limit === 0) {
+      return {
+        allowed: true,
+        currentUsage,
+        limit,
+        remaining: Infinity,
+        percentageUsed: 0,
+      };
+    }
+
     const remaining = Math.max(0, limit - currentUsage);
-    const percentageUsed =
-      limit > 0 ? Math.min(100, Math.round((currentUsage / limit) * 100)) : 0;
+    const percentageUsed = Math.min(
+      100,
+      Math.round((currentUsage / limit) * 100)
+    );
     const allowed = currentUsage < limit;
 
     let warningLevel: '80%' | '90%' | '100%' | undefined;
@@ -200,47 +250,57 @@ export async function checkPlanLimits(
       warningLevel,
       reason: allowed
         ? undefined
-        : `Your monthly ${limitKey.replace(/_/g, ' ')} limit (${limit}) has been reached. Please upgrade your plan to continue unlimited usage.`,
+        : `Your monthly ${limitKey.replace(/_/g, ' ')} limit (${limit}) has been reached. Please upgrade your plan to continue.`,
     };
-  } catch (err) {
-    console.error('[checkPlanLimits] error:', err);
+  } catch (error) {
+    console.error('[checkPlanLimits] denied after lookup failure:', error);
     return {
-      allowed: true,
+      allowed: false,
       currentUsage: 0,
-      limit: 99999,
-      remaining: 99999,
-      percentageUsed: 0,
+      limit: 0,
+      remaining: 0,
+      percentageUsed: 100,
+      warningLevel: '100%',
+      reason: 'Usage entitlement could not be verified. Please try again.',
     };
   }
 }
 
 export async function incrementUsage(
-  accountId: string,
+  rawAccountId: string,
   metric: 'ai_requests' | 'whatsapp_messages',
   quantity: number = 1
 ): Promise<void> {
+  const accountId = requireAccountId(rawAccountId);
+  if (!Number.isFinite(quantity) || quantity <= 0) {
+    throw new Error('USAGE_QUANTITY_MUST_BE_POSITIVE');
+  }
+
   try {
     const db = getAdminClient();
     const currentMonth = new Date().toISOString().substring(0, 7) + '-01';
 
-    const { data: existing } = await db
+    const { data: existing, error: lookupError } = await db
       .from('usage_tracking')
       .select('id, ai_requests, whatsapp_messages')
       .eq('account_id', accountId)
       .eq('month', currentMonth)
       .maybeSingle();
+    throwOnDatabaseError(lookupError, 'USAGE_LOOKUP_FAILED');
 
     if (existing) {
       const field =
         metric === 'ai_requests' ? 'ai_requests' : 'whatsapp_messages';
-      const newVal = (Number(existing[field]) || 0) + quantity;
+      const newValue = (Number(existing[field]) || 0) + quantity;
 
-      await db
+      const { error } = await db
         .from('usage_tracking')
-        .update({ [field]: newVal, updated_at: new Date().toISOString() })
-        .eq('id', existing.id);
+        .update({ [field]: newValue, updated_at: new Date().toISOString() })
+        .eq('id', existing.id)
+        .eq('account_id', accountId);
+      throwOnDatabaseError(error, 'USAGE_UPDATE_FAILED');
     } else {
-      await db.from('usage_tracking').insert({
+      const { error } = await db.from('usage_tracking').insert({
         account_id: accountId,
         month: currentMonth,
         ai_requests: metric === 'ai_requests' ? quantity : 0,
@@ -248,9 +308,11 @@ export async function incrementUsage(
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       });
+      throwOnDatabaseError(error, 'USAGE_INSERT_FAILED');
     }
-  } catch (err) {
-    console.error('[incrementUsage] error tracking usage:', err);
+  } catch (error) {
+    console.error('[incrementUsage] usage was not recorded:', error);
+    throw error;
   }
 }
 
@@ -265,45 +327,49 @@ export async function expireStaleTrials(): Promise<{
     const db = getAdminClient();
     const now = new Date().toISOString();
 
-    // 1. Expire stale trials where trial_end < NOW()
-    const { data: staleTrials } = await db
+    const { data: staleTrials, error: trialLookupError } = await db
       .from('subscriptions')
       .select('id, account_id')
       .in('status', ['TRIAL', 'TRIALING'])
       .lt('trial_end', now);
+    throwOnDatabaseError(trialLookupError, 'STALE_TRIAL_LOOKUP_FAILED');
 
     let expiredTrialsCount = 0;
     if (staleTrials && staleTrials.length > 0) {
       for (const trial of staleTrials) {
-        await db
+        const { error } = await db
           .from('subscriptions')
           .update({ status: 'TRIAL_EXPIRED', updated_at: now })
-          .eq('id', trial.id);
+          .eq('id', trial.id)
+          .eq('account_id', trial.account_id);
+        throwOnDatabaseError(error, 'TRIAL_EXPIRATION_FAILED');
         expiredTrialsCount++;
       }
     }
 
-    // 2. Expire past due subscriptions where end_date < NOW()
-    const { data: pastDueSubs } = await db
+    const { data: pastDueSubs, error: pastDueLookupError } = await db
       .from('subscriptions')
       .select('id, account_id')
       .eq('status', 'PAST_DUE')
       .lt('end_date', now);
+    throwOnDatabaseError(pastDueLookupError, 'PAST_DUE_LOOKUP_FAILED');
 
     let expiredSubsCount = 0;
     if (pastDueSubs && pastDueSubs.length > 0) {
-      for (const sub of pastDueSubs) {
-        await db
+      for (const subscription of pastDueSubs) {
+        const { error } = await db
           .from('subscriptions')
           .update({ status: 'EXPIRED', updated_at: now })
-          .eq('id', sub.id);
+          .eq('id', subscription.id)
+          .eq('account_id', subscription.account_id);
+        throwOnDatabaseError(error, 'SUBSCRIPTION_EXPIRATION_FAILED');
         expiredSubsCount++;
       }
     }
 
     return { expiredTrialsCount, expiredSubsCount };
-  } catch (err) {
-    console.error('[expireStaleTrials] error:', err);
-    return { expiredTrialsCount: 0, expiredSubsCount: 0 };
+  } catch (error) {
+    console.error('[expireStaleTrials] expiration job failed:', error);
+    throw error;
   }
 }
