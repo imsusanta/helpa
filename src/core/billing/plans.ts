@@ -244,18 +244,14 @@ export async function getAvailablePlans(): Promise<SubscriptionPlan[]> {
         slug: slug as 'starter' | 'growth' | 'pro',
         description: r.description || defaultPlan?.description || '',
         setupFee: Number(r.setup_fee ?? defaultPlan?.setupFee ?? 0),
-        monthlyPrice: Number(
-          r.monthly_price ?? defaultPlan?.monthlyPrice ?? 0
-        ),
+        monthlyPrice: Number(r.monthly_price ?? defaultPlan?.monthlyPrice ?? 0),
         yearlyPrice: Number(r.yearly_price ?? defaultPlan?.yearlyPrice ?? 0),
         currency: r.currency || 'INR',
         billingInterval:
           (r.billing_interval as 'monthly' | 'yearly') || 'monthly',
         isRecommended: r.is_recommended ?? defaultPlan?.isRecommended ?? false,
         isActive: r.is_active !== false,
-        displayOrder: Number(
-          r.display_order || defaultPlan?.displayOrder || 1
-        ),
+        displayOrder: Number(r.display_order || defaultPlan?.displayOrder || 1),
         features: parseFeatures(r.features, defaultPlan?.features || []),
         usageLimits: {
           aiMessages: Number(

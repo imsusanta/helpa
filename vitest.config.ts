@@ -26,5 +26,26 @@ export default defineConfig({
     },
     clearMocks: true,
     setupFiles: ['./src/tests/setup.ts'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      include: [
+        'src/lib/auth/**',
+        'src/lib/whatsapp/encryption.ts',
+        'src/lib/whatsapp/oauth-state.ts',
+        'src/lib/whatsapp/webhook-verifier.ts',
+        'src/lib/whatsapp/outbox-service.ts',
+        'src/lib/whatsapp/meta-service.ts',
+        'src/lib/billing/**',
+        'src/lib/rate-limit.ts',
+        'src/lib/csv-utils.ts',
+      ],
+      thresholds: {
+        statements: 70,
+        branches: 60,
+        functions: 70,
+        lines: 70,
+      },
+    },
   },
 });
