@@ -1,19 +1,18 @@
+/**
+ * Supabase table and Storage bucket mappings.
+ *
+ * The historical export name is retained temporarily so repository imports can
+ * be renamed incrementally. It contains no Appwrite endpoint, project, key, or
+ * provider switch and cannot restore an Appwrite runtime.
+ */
 export const APPWRITE_CONFIG = {
-  endpoint: 'https://sgp.cloud.appwrite.io/v1',
-  projectId: '6a79822b003adde92f63',
-  apiKey: process.env.APPWRITE_API_KEY || '',
-  databaseId:
-    process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID ||
-    process.env.APPWRITE_DATABASE_ID ||
-    'helpa_main',
+  databaseId: 'supabase',
   buckets: {
-    avatars: process.env.APPWRITE_BUCKET_AVATARS || 'avatars',
-    chatMedia: process.env.APPWRITE_BUCKET_CHAT_MEDIA || 'chat-media',
-    voiceTranscripts:
-      process.env.APPWRITE_BUCKET_VOICE_TRANSCRIPTS || 'voice-transcripts',
-    webhookPayloads:
-      process.env.APPWRITE_BUCKET_WEBHOOK_PAYLOADS || 'webhook-payloads',
-    pdfTickets: process.env.APPWRITE_BUCKET_PDF_TICKETS || 'pdf-tickets',
+    avatars: 'avatars',
+    chatMedia: 'chat-media',
+    voiceTranscripts: 'voice-transcripts',
+    webhookPayloads: 'webhook-payloads',
+    pdfTickets: 'pdf-tickets',
   },
   collections: {
     accounts: 'accounts',

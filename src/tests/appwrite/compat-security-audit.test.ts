@@ -7,6 +7,7 @@ describe('Supabase cutover security audit', () => {
     const sources = [
       'src/lib/appwrite-compat.ts',
       'src/lib/appwrite-server-compat.ts',
+      'src/infrastructure/appwrite/config.ts',
       'src/infrastructure/appwrite/server.ts',
       'src/lib/supabase/server.ts',
     ].map((file) => fs.readFileSync(path.join(process.cwd(), file), 'utf8'));
