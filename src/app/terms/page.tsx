@@ -2,51 +2,40 @@
 
 import Link from 'next/link';
 import {
-  MessageSquare,
-  ArrowLeft,
-  Shield,
   FileCheck,
+  Shield,
   Scale,
+  ArrowLeft,
+  Mail,
+  CreditCard,
+  Ban,
 } from 'lucide-react';
-import { useTheme } from '@/hooks/use-theme';
-import { Sun, Moon } from 'lucide-react';
 
 export default function TermsOfServicePage() {
-  const { mode, toggleMode } = useTheme();
-
   return (
-    <div className="bg-background text-foreground relative min-h-screen overflow-x-hidden font-sans antialiased transition-colors duration-300 selection:bg-indigo-600 selection:text-white">
-      {/* Background Aurora Glows */}
-      <div className="bg-primary/5 pointer-events-none absolute top-1/4 left-1/4 h-96 w-96 -translate-x-1/2 -translate-y-1/2 rounded-full blur-[120px]" />
-      <div className="pointer-events-none absolute right-1/4 bottom-1/4 h-96 w-96 translate-x-1/2 translate-y-1/2 rounded-full bg-indigo-500/5 blur-[120px]" />
+    <div className="relative min-h-screen overflow-x-hidden bg-[#F8FAFC] font-sans text-slate-900 antialiased selection:bg-emerald-500 selection:text-white">
+      {/* Background Decorative Gradient */}
+      <div className="pointer-events-none absolute top-0 left-1/2 h-[500px] w-full max-w-7xl -translate-x-1/2 bg-gradient-to-b from-blue-50/60 via-slate-50/30 to-transparent" />
 
       {/* Header */}
-      <header className="border-border/80 bg-background/80 sticky top-0 z-50 border-b backdrop-blur-md transition-all duration-300">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
-              <MessageSquare className="h-4 w-4 text-white" />
-            </div>
-            <span className="text-foreground text-lg font-semibold tracking-tight">
-              Helpa
+      <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3.5 sm:px-6">
+          <Link href="/" className="group flex items-center gap-2.5">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/helpa-logo.png?v=2"
+              alt="Helpa Logo"
+              className="h-9 w-9 rounded-xl object-contain shadow-xs transition-transform group-hover:scale-105"
+            />
+            <span className="text-2xl font-extrabold tracking-tight text-[#110E3D]">
+              helpa<span className="text-emerald-500">.</span>
             </span>
           </Link>
 
           <div className="flex items-center gap-4">
-            <button
-              onClick={toggleMode}
-              className="border-border bg-card hover:bg-accent text-foreground cursor-pointer rounded-full border p-2 transition-colors duration-200"
-              aria-label="Toggle theme"
-            >
-              {mode === 'dark' ? (
-                <Sun className="h-4 w-4 text-amber-500" />
-              ) : (
-                <Moon className="h-4 w-4 text-indigo-600" />
-              )}
-            </button>
             <Link
               href="/"
-              className="text-muted-foreground hover:text-foreground flex items-center gap-1.5 text-sm font-semibold transition-colors"
+              className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-1.5 text-sm font-semibold text-slate-700 shadow-xs transition-colors hover:bg-slate-50 hover:text-slate-900"
             >
               <ArrowLeft className="h-4 w-4" /> Back to Home
             </Link>
@@ -54,189 +43,238 @@ export default function TermsOfServicePage() {
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="relative z-10 mx-auto max-w-3xl px-6 py-16 md:py-24">
+      {/* Main Container */}
+      <main className="relative z-10 mx-auto max-w-4xl px-4 py-12 sm:px-6 md:py-16">
         {/* Title Block */}
-        <div className="mb-16 space-y-4 text-center md:text-left">
-          <div className="mb-2 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400">
-            <Shield className="h-6 w-6" />
+        <div className="mb-12 border-b border-slate-200 pb-8">
+          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-800">
+            <Scale className="h-3.5 w-3.5 text-blue-600" />
+            <span>Official Terms of Service</span>
           </div>
-          <h1 className="text-foreground text-4xl font-extrabold tracking-tight sm:text-5xl">
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-950 sm:text-4xl">
             Terms of Service
           </h1>
-          <p className="text-muted-foreground text-sm">
-            Last updated: July 10, 2026
+          <p className="mt-2 text-sm text-slate-500">
+            Effective Date: January 1, 2026 • Last Updated: August 21, 2026
           </p>
-          <p className="text-muted-foreground max-w-2xl text-base leading-relaxed">
+          <p className="mt-4 text-base leading-relaxed text-slate-600">
             Please read these Terms of Service (&quot;Terms&quot;) carefully
-            before using the Helpa Studio website, CRM application, and AI
-            receptionist features (collectively, the &quot;Services&quot;).
+            before using the Helpa Studio CRM platform, AI Receptionist engine,
+            and website at{' '}
+            <a
+              href="https://www.helpa.studio"
+              className="font-semibold text-emerald-600 underline"
+            >
+              https://www.helpa.studio
+            </a>{' '}
+            (the &quot;Service&quot;), operated by Helpa Studio (&quot;we&quot;,
+            &quot;us&quot;, or &quot;our&quot;).
           </p>
         </div>
 
-        {/* Highlight Cards */}
-        <div className="mb-16 grid gap-4 sm:grid-cols-3">
-          <div className="border-border bg-card/50 space-y-3 rounded-2xl border p-5 backdrop-blur-sm">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400">
+        {/* Highlight Summary Cards */}
+        <div className="mb-12 grid gap-4 sm:grid-cols-3">
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
+            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
               <FileCheck className="h-5 w-5" />
             </div>
-            <h3 className="text-foreground text-sm font-bold">
-              Clear Agreement
+            <h3 className="text-sm font-bold text-slate-900">
+              Authorized Usage
             </h3>
-            <p className="text-muted-foreground text-xs leading-relaxed">
-              Straightforward terms covering subscription rights, service level
-              expectations, and usage guidelines.
+            <p className="mt-1 text-xs leading-relaxed text-slate-600">
+              Your license grants full operational rights to automate your
+              business communications and patient/customer records.
             </p>
           </div>
 
-          <div className="border-border bg-card/50 space-y-3 rounded-2xl border p-5 backdrop-blur-sm">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400">
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
+            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
               <Shield className="h-5 w-5" />
             </div>
-            <h3 className="text-foreground text-sm font-bold">Data Privacy</h3>
-            <p className="text-muted-foreground text-xs leading-relaxed">
-              Your patient/customer data remains yours. We never sell your
-              records or contact lists.
+            <h3 className="text-sm font-bold text-slate-900">Data Ownership</h3>
+            <p className="mt-1 text-xs leading-relaxed text-slate-600">
+              You retain 100% intellectual property and ownership over your
+              patient lists, client contacts, and business documents.
             </p>
           </div>
 
-          <div className="border-border bg-card/50 space-y-3 rounded-2xl border p-5 backdrop-blur-sm">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400">
-              <Scale className="h-5 w-5" />
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
+            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+              <Ban className="h-5 w-5" />
             </div>
-            <h3 className="text-foreground text-sm font-bold">
-              Fair Compliance
+            <h3 className="text-sm font-bold text-slate-900">
+              Anti-Spam Policy
             </h3>
-            <p className="text-muted-foreground text-xs leading-relaxed">
-              Designed to align with Meta Business Messaging APIs and privacy
-              regulations.
+            <p className="mt-1 text-xs leading-relaxed text-slate-600">
+              Strict prohibition against bulk unsolicited messaging or violating
+              WhatsApp Business Messaging policies.
             </p>
           </div>
         </div>
 
-        {/* Detailed Terms Content */}
-        <div className="border-border bg-card/30 space-y-10 rounded-3xl border p-8 backdrop-blur-sm md:p-12">
-          <section className="space-y-4">
-            <h2 className="text-foreground flex items-center gap-2 text-xl font-bold">
-              <span className="text-indigo-600">1.</span> Service Scope
+        {/* Terms Body */}
+        <div className="prose prose-slate max-w-none space-y-10 text-slate-700">
+          {/* Section 1 */}
+          <section className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs sm:p-8">
+            <h2 className="flex items-center gap-2.5 text-xl font-bold text-slate-900">
+              <FileCheck className="h-5 w-5 text-blue-600" />
+              1. Acceptance of Terms & Eligibility
             </h2>
-            <p className="text-muted-foreground text-sm leading-relaxed">
-              Helpa Studio provides a multi-tenant WhatsApp CRM platform, AI
-              copilot agents, automated appointment scheduling, broadcast tools,
-              and team inbox capabilities. We reserve the right to enhance,
-              modify, or update features to improve service quality.
+            <p className="mt-3 text-sm leading-relaxed text-slate-600">
+              By creating an account, accessing the Helpa dashboard, or
+              connecting your WhatsApp Business account, you agree to be bound
+              by these Terms and our Privacy Policy. You represent that you have
+              the legal authority to bind your clinic, hospital, coaching
+              center, salon, or commercial business entity to these Terms.
             </p>
           </section>
 
-          <section className="space-y-4">
-            <h2 className="text-foreground flex items-center gap-2 text-xl font-bold">
-              <span className="text-indigo-600">2.</span> Account Registration &
-              Security
+          {/* Section 2 */}
+          <section className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs sm:p-8">
+            <h2 className="flex items-center gap-2.5 text-xl font-bold text-slate-900">
+              <Shield className="h-5 w-5 text-blue-600" />
+              2. Meta Platform & WhatsApp Business Compliance
             </h2>
-            <p className="text-muted-foreground text-sm leading-relaxed">
-              You must provide accurate account information upon registration.
-              You are responsible for maintaining the confidentiality of your
-              login credentials and for all activities that occur under your
-              account.
+            <p className="mt-3 text-sm leading-relaxed text-slate-600">
+              Helpa interfaces directly with the Meta WhatsApp Business Cloud
+              API. When utilizing our WhatsApp AI Receptionist, Broadcast, or
+              Inbox services, you agree to:
+            </p>
+            <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-relaxed text-slate-600">
+              <li>
+                Comply with the official{' '}
+                <strong>WhatsApp Business Messaging Policy</strong> and{' '}
+                <strong>Commerce Policy</strong> at all times.
+              </li>
+              <li>
+                Obtain explicit, documented opt-in consent from your customers
+                or patients prior to sending outbound marketing or notification
+                templates.
+              </li>
+              <li>
+                Refrain from sending spam, fraudulent content, unlawful medical
+                advice, or unsolicited bulk promotional broadcasts.
+              </li>
+            </ul>
+          </section>
+
+          {/* Section 3 */}
+          <section className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs sm:p-8">
+            <h2 className="flex items-center gap-2.5 text-xl font-bold text-slate-900">
+              <CreditCard className="h-5 w-5 text-blue-600" />
+              3. Subscriptions, Billing & Cancellation
+            </h2>
+            <p className="mt-3 text-sm leading-relaxed text-slate-600">
+              Helpa offers subscription plans (Starter, Growth, Clinic Pro) and
+              conversation-based utility services:
+            </p>
+            <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-relaxed text-slate-600">
+              <li>
+                <strong>Free Trial:</strong> New workspaces receive a 14-day
+                evaluation trial with complete feature access.
+              </li>
+              <li>
+                <strong>Subscription Renewal:</strong> Subscriptions renew
+                automatically at the beginning of each billing cycle unless
+                cancelled through your dashboard settings prior to the renewal
+                date.
+              </li>
+              <li>
+                <strong>Refund Policy:</strong> If you are unsatisfied with the
+                Service, you may request a refund within 7 days of initial
+                subscription payment by emailing{' '}
+                <a
+                  href="mailto:support@helpa.studio"
+                  className="font-semibold text-emerald-600 underline"
+                >
+                  support@helpa.studio
+                </a>
+                .
+              </li>
+            </ul>
+          </section>
+
+          {/* Section 4 */}
+          <section className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs sm:p-8">
+            <h2 className="flex items-center gap-2.5 text-xl font-bold text-slate-900">
+              <Scale className="h-5 w-5 text-blue-600" />
+              4. Service Availability & Limitations
+            </h2>
+            <p className="mt-3 text-sm leading-relaxed text-slate-600">
+              While we strive to provide 99.9% platform uptime, Helpa shall not
+              be held liable for temporary interruptions caused by Meta WhatsApp
+              API outages, telecommunication provider downtime, or third-party
+              AI model latency.
             </p>
           </section>
 
-          <section className="space-y-4">
-            <h2 className="text-foreground flex items-center gap-2 text-xl font-bold">
-              <span className="text-indigo-600">3.</span> Acceptable Use &
-              Anti-Spam Compliance
+          {/* Section 5 */}
+          <section className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs sm:p-8">
+            <h2 className="flex items-center gap-2.5 text-xl font-bold text-slate-900">
+              <Mail className="h-5 w-5 text-blue-600" />
+              5. Contact Us
             </h2>
-            <p className="text-muted-foreground text-sm leading-relaxed">
-              Helpa Studio connects to WhatsApp via Meta Business API channels.
-              You agree to strictly follow Meta&apos;s Developer Terms. You must
-              not use Helpa to broadcast unsolicited spam, fraudulent
-              promotions, or offensive messages. Violating Meta terms may result
-              in your WhatsApp number being suspended by Meta, for which Helpa
-              Studio holds no liability.
+            <p className="mt-3 text-sm leading-relaxed text-slate-600">
+              For questions regarding these Terms or legal notices:
             </p>
-          </section>
-
-          <section className="space-y-4">
-            <h2 className="text-foreground flex items-center gap-2 text-xl font-bold">
-              <span className="text-indigo-600">4.</span> Billing, Renewals &
-              Upgrades
-            </h2>
-            <p className="text-muted-foreground text-sm leading-relaxed">
-              Subscriptions are billed on a recurring monthly or annual basis.
-              You can cancel your subscription anytime. Upgrades to multi-number
-              capacities or volume tiers will be billed immediately on a
-              pro-rata basis. Refund requests are handled at our discretion.
-            </p>
-          </section>
-
-          <section className="space-y-4">
-            <h2 className="text-foreground flex items-center gap-2 text-xl font-bold">
-              <span className="text-indigo-600">5.</span> Disclaimers &
-              Limitation of Liability
-            </h2>
-            <p className="text-muted-foreground text-sm leading-relaxed">
-              Our Services are provided &quot;as is&quot; without warranties of
-              any kind. Helpa Studio does not guarantee uninterrupted service in
-              the event of third-party API disruptions (such as Meta platform
-              downtime). In no event shall Helpa Studio be liable for any loss
-              of profits, data, or business opportunities resulting from your
-              use of the Services.
-            </p>
-          </section>
-
-          <section className="space-y-4">
-            <h2 className="text-foreground flex items-center gap-2 text-xl font-bold">
-              <span className="text-indigo-600">6.</span> Contact Us
-            </h2>
-            <p className="text-muted-foreground text-sm leading-relaxed">
-              If you have any questions or require clarifications regarding
-              these Terms of Service, contact our team at{' '}
-              <a
-                href="mailto:support@helpa.studio"
-                className="text-indigo-600 hover:underline"
-              >
-                support@helpa.studio
-              </a>
-              .
-            </p>
+            <div className="mt-3 text-sm text-slate-700">
+              <p>
+                <strong>Helpa Studio</strong>
+              </p>
+              <p>
+                Legal & Support Team:{' '}
+                <a
+                  href="mailto:support@helpa.studio"
+                  className="text-emerald-600 hover:underline"
+                >
+                  support@helpa.studio
+                </a>
+              </p>
+              <p>
+                Website:{' '}
+                <a
+                  href="https://www.helpa.studio"
+                  className="text-emerald-600 hover:underline"
+                >
+                  https://www.helpa.studio
+                </a>
+              </p>
+            </div>
           </section>
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="border-border bg-card border-t px-6 py-10 transition-colors duration-300">
-        <div className="mx-auto flex max-w-5xl flex-col items-center justify-between gap-4 sm:flex-row">
-          <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600">
-              <MessageSquare className="h-3.5 w-3.5 text-white" />
-            </div>
-            <span className="text-foreground font-semibold">Helpa</span>
+      <footer className="border-t border-slate-200 bg-white px-4 py-8 sm:px-6">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 sm:flex-row">
+          <div className="flex items-center gap-2.5">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/helpa-logo.png?v=2"
+              alt="Helpa"
+              className="h-6 w-6 rounded-lg object-contain"
+            />
+            <span className="font-bold text-slate-900">Helpa Studio</span>
           </div>
-          <div className="text-muted-foreground flex flex-wrap justify-center gap-6 text-sm font-medium">
-            <Link href="/" className="hover:text-foreground transition-colors">
+          <div className="flex flex-wrap items-center gap-6 text-xs font-semibold text-slate-600">
+            <Link href="/" className="hover:text-slate-900">
               Home
             </Link>
-            <Link
-              href="/privacy"
-              className="hover:text-foreground transition-colors"
-            >
+            <Link href="/privacy" className="hover:text-slate-900">
               Privacy Policy
             </Link>
-            <Link
-              href="/terms"
-              className="hover:text-foreground transition-colors"
-            >
+            <Link href="/terms" className="font-bold text-blue-600">
               Terms of Service
             </Link>
             <a
-              href="mailto:hello@helpa.studio"
-              className="hover:text-foreground transition-colors"
+              href="mailto:support@helpa.studio"
+              className="hover:text-slate-900"
             >
-              Contact
+              Contact Support
             </a>
           </div>
-          <p className="text-muted-foreground text-sm">
-            © {new Date().getFullYear()} Helpa Studio
+          <p className="text-xs text-slate-400">
+            © {new Date().getFullYear()} Helpa Studio. All rights reserved.
           </p>
         </div>
       </footer>
