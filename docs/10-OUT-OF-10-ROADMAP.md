@@ -40,7 +40,7 @@ Helpa reaches the target when every item below has objective, reproducible evide
 
 - [ ] Define service-level indicators for API availability, webhook processing, message delivery, appointment booking, and background jobs.
 - [ ] Set service-level objectives and alert thresholds.
-- [ ] Add correlation IDs across inbound webhooks, outbox records, provider calls, and reconciliation workers.
+- [x] Add correlation IDs across inbound webhooks, outbox records, provider calls, and reconciliation workers.
 - [ ] Add dashboards for queue depth, delivery latency, provider errors, tenant-scoped failures, and reconciliation backlog.
 - [ ] Run backup-restore, provider-outage, and duplicate-webhook game days.
 
