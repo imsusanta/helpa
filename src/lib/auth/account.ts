@@ -50,11 +50,8 @@ export interface AccountContext {
   appwrite?: import('@/lib/appwrite-server-compat').AppwriteCompatClient;
 }
 
-type ResolvedAccountContext = AccountContext & {
-  appwrite: import('@/lib/appwrite-server-compat').AppwriteCompatClient;
-};
-
-export async function getCurrentAccount(): Promise<ResolvedAccountContext> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function getCurrentAccount(): Promise<any> {
   try {
     const supabase = await createSupabaseServerClient();
     const {
@@ -154,9 +151,8 @@ export async function getCurrentAccount(): Promise<ResolvedAccountContext> {
   }
 }
 
-export async function requireRole(
-  min: AccountRole
-): Promise<ResolvedAccountContext> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function requireRole(min: AccountRole): Promise<any> {
   const ctx = await getCurrentAccount();
   if (!hasMinRole(ctx.role, min)) {
     throw new ForbiddenError(
