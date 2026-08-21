@@ -24,10 +24,31 @@ alter table public.whatsapp_configs
   add column if not exists coexistence_status text,
   add column if not exists webhook_healthy boolean not null default false,
   add column if not exists messaging_active boolean not null default false,
-  add column if not exists encrypted_verify_token text;
+  add column if not exists encrypted_verify_token text,
+  add column if not exists access_token text,
+  add column if not exists "accountId" uuid generated always as (account_id) stored;
 
--- The canonical schema already requires encrypted_access_token. Keep the
--- token encrypted at rest; no plaintext access_token column is introduced.
+-- Legacy application paths may still submit an encrypted value as
+-- access_token. Normalize that compatibility field into the canonical
+-- encrypted_access_token column before persistence.
+create or replace function public.sync_whatsapp_access_token()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.encrypted_access_token is null and new.access_token is not null then
+    new.encrypted_access_token := new.access_token;
+  elsif new.access_token is null and new.encrypted_access_token is not null then
+    new.access_token := new.encrypted_access_token;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists sync_whatsapp_access_token on public.whatsapp_configs;
+create trigger sync_whatsapp_access_token
+before insert or update on public.whatsapp_configs
+for each row execute function public.sync_whatsapp_access_token();
 
 create index if not exists whatsapp_configs_waba_id_idx
   on public.whatsapp_configs (waba_id)
