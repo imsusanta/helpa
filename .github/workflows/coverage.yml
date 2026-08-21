@@ -30,10 +30,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Install pinned coverage provider
-        run: npm install --no-save --no-package-lock @vitest/coverage-v8@4.1.10
-      - name: Generate coverage
-        run: npx vitest run --coverage --exclude='**/src/tests/integration/**'
+      - name: Generate coverage with pinned tooling
+        run: npx --yes --package=vitest@4.1.10 --package=@vitest/coverage-v8@4.1.10 vitest run --coverage --exclude='**/src/tests/integration/**'
       - name: Upload HTML and machine-readable reports
         if: always()
         uses: actions/upload-artifact@v7
