@@ -40,10 +40,13 @@ jobs:
           run_check "npm ci" npm ci
           if grep -q '^exit_code=0$' /tmp/cutover-diagnostics.txt; then
             run_check "format" npm run format:check
+            run_check "prettier write" npx prettier --write src/infrastructure/appwrite/server.ts src/proxy.ts src/tests/appwrite/compat-security-audit.test.ts
+            echo "\n## exact formatting patch" >> /tmp/cutover-diagnostics.txt
+            git diff -- src/infrastructure/appwrite/server.ts src/proxy.ts src/tests/appwrite/compat-security-audit.test.ts >> /tmp/cutover-diagnostics.txt
             run_check "typecheck" npm run typecheck
             run_check "targeted cutover tests" npx vitest run src/lib/runtime-config.test.ts src/tests/appwrite
           fi
-          tail -c 12000 /tmp/cutover-diagnostics.txt > /tmp/cutover-diagnostics-tail.txt
+          tail -c 30000 /tmp/cutover-diagnostics.txt > /tmp/cutover-diagnostics-tail.txt
           exit 0
       - name: Post diagnostic summary
         if: always()
