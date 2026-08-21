@@ -12,9 +12,9 @@ export function LandingFooter() {
             <Link href="/" className="flex items-center gap-2.5">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/helpa-logo.png"
+                src="/helpa-logo.png?v=2"
                 alt="Helpa"
-                className="h-8 w-8 rounded-xl object-contain shadow-xs"
+                className="h-10 w-10 rounded-xl object-contain shadow-xs"
               />
               <span className="text-xl font-extrabold tracking-tight text-[#110E3D]">
                 helpa<span className="text-[#0866FF]">.</span>

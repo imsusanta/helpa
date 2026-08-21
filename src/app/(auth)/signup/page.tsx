@@ -230,9 +230,9 @@ function SignupPageInner() {
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src="/helpa-logo.png"
+                      src="/helpa-logo.png?v=2"
                       alt="Helpa"
-                      className="h-full w-full object-contain"
+                      className="h-10 w-10 rounded-xl object-contain shadow-xs"
                     />
                   </motion.div>
 
