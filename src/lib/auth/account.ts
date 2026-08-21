@@ -5,7 +5,6 @@ import {
   createClient as createSupabaseServerClient,
   getAdminClient as getSupabaseAdminClient,
 } from '@/lib/supabase/server';
-import { getRuntimeConfig } from '@/lib/runtime-config';
 
 export class UnauthorizedError extends Error {
   readonly status = 401 as const;
@@ -47,21 +46,12 @@ export interface AccountContext {
   role: AccountRole;
   email?: string;
   account: { id: string; name: string };
-  /** Appwrite / data adapter used by routes being migrated to repositories. */
-  appwrite?: import('@/lib/appwrite-compat').AppwriteCompatClient;
+  /** Supabase data adapter retained under the historical property name. */
+  appwrite: import('@/lib/appwrite-server-compat').AppwriteCompatClient;
 }
 
 export async function getCurrentAccount(): Promise<AccountContext> {
   try {
-    const runtime = getRuntimeConfig();
-    if (runtime.authProvider !== 'supabase') {
-      if (runtime.migrationMode !== 'rollback') {
-        throw new UnauthorizedError('Canonical authentication is unavailable');
-      }
-      throw new UnauthorizedError(
-        'Appwrite rollback authentication is not enabled'
-      );
-    }
     const supabase = await createSupabaseServerClient();
     const {
       data: { user },
@@ -75,7 +65,6 @@ export async function getCurrentAccount(): Promise<AccountContext> {
 
     const admin = getSupabaseAdminClient();
 
-    // 1. Check explicit active memberships from canonical account_members table
     const { data: memberships } = await admin
       .from('account_members')
       .select('account_id, role, active')
@@ -90,7 +79,6 @@ export async function getCurrentAccount(): Promise<AccountContext> {
       accountId = activeMember.account_id;
       role = (activeMember.role as AccountRole) || 'viewer';
     } else {
-      // 2. Check legacy profile link if member record is yet to be populated
       const { data: profile } = await admin
         .from('profiles')
         .select('id, account_id, role, account_role')
@@ -111,7 +99,6 @@ export async function getCurrentAccount(): Promise<AccountContext> {
             (profile.role as AccountRole) ||
             'viewer';
 
-          // Sync explicit membership record
           await admin.from('account_members').upsert(
             {
               account_id: accountId,
@@ -126,7 +113,6 @@ export async function getCurrentAccount(): Promise<AccountContext> {
       }
     }
 
-    // Strict Fail-Closed: If user has no explicit verified membership, reject access!
     if (!accountId) {
       throw new ForbiddenError('Account membership is required');
     }
