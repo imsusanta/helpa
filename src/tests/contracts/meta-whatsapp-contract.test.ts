@@ -7,10 +7,10 @@ import {
 import { sendTextMessage } from '@/lib/whatsapp/meta-api';
 
 describe('Meta WhatsApp Graph API v21.0 Boundary Contract Tests', () => {
-  let fetchSpy: ReturnType<typeof vi.spyOn>;
+  let fetchSpy: any;
 
   beforeEach(() => {
-    fetchSpy = vi.spyOn(global, 'fetch');
+    fetchSpy = vi.spyOn(globalThis, 'fetch') as any;
   });
 
   afterEach(() => {

@@ -7,11 +7,11 @@ import {
 import crypto from 'crypto';
 
 describe('Razorpay Payment Provider Boundary Contract Tests', () => {
-  let fetchSpy: ReturnType<typeof vi.spyOn>;
+  let fetchSpy: any;
   const originalEnv = { ...process.env };
 
   beforeEach(() => {
-    fetchSpy = vi.spyOn(global, 'fetch');
+    fetchSpy = vi.spyOn(globalThis, 'fetch') as any;
     process.env.RAZORPAY_KEY_ID = 'rzp_live_test123';
     process.env.RAZORPAY_KEY_SECRET = 'secret_test_456';
     process.env.RAZORPAY_WEBHOOK_SECRET = 'webhook_secret_789';
