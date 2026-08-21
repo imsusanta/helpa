@@ -2,7 +2,7 @@
 import { createClient as createSupabaseClient } from '@/lib/supabase/client';
 
 /** @deprecated Use `@/lib/supabase/client` directly. */
-export function getAppwriteClient() {
+export function getAppwriteClient(): any {
   const supabase = createSupabaseClient();
 
   const subscribe = (channels: string[], callback: (event: any) => void) => {
