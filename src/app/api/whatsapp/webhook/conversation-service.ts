@@ -1,4 +1,4 @@
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/supabase/server';
 
 /**
  * Finds an existing conversation or creates one for the account and contact.

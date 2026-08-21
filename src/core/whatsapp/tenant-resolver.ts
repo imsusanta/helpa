@@ -9,7 +9,7 @@
  * does not match an active configuration.
  */
 
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/supabase/server';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import { normalizePhone } from '@/lib/whatsapp/phone-utils';
 import type { ResolvedTenantContext } from './types';
@@ -29,14 +29,29 @@ export async function resolveTenantByPhoneNumberId(
   const db = getAdminClient();
 
   try {
-    // Primary query on canonical whatsapp_config table
-    const { data: rows, error } = await db
-      .from('whatsapp_config')
+    // Primary query on canonical whatsapp_configs table
+    let rows: Record<string, unknown>[] | null = null;
+    const { data, error } = await db
+      .from('whatsapp_configs')
       .select('*')
       .eq('phone_number_id', cleanPhoneId)
       .limit(1);
 
-    if (error || !rows || rows.length === 0) {
+    if (!error && data && data.length > 0) {
+      rows = data as Record<string, unknown>[];
+    } else {
+      // Fallback query on legacy whatsapp_config table
+      const { data: legacyData } = await db
+        .from('whatsapp_config')
+        .select('*')
+        .eq('phone_number_id', cleanPhoneId)
+        .limit(1);
+      if (legacyData && legacyData.length > 0) {
+        rows = legacyData as Record<string, unknown>[];
+      }
+    }
+
+    if (!rows || rows.length === 0) {
       return null;
     }
 
@@ -45,13 +60,17 @@ export async function resolveTenantByPhoneNumberId(
     const userId = String(config.user_id || config.userId || '');
     const wabaId = String(config.waba_id || config.wabaId || '');
     const displayPhoneNumber =
-      config.display_phone_number || config.phone_number || undefined;
+      (config.display_phone_number as string) ||
+      (config.phone_number as string) ||
+      undefined;
     const businessName =
-      config.verified_name || config.business_name || undefined;
+      (config.verified_name as string) ||
+      (config.business_name as string) ||
+      undefined;
 
     const encToken = String(
-      config.access_token_encrypted ||
-        config.encrypted_access_token ||
+      config.encrypted_access_token ||
+        config.access_token_encrypted ||
         config.encryptedAccessToken ||
         config.access_token ||
         config.accessToken ||

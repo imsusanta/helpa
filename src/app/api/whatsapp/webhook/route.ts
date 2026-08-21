@@ -1,5 +1,6 @@
+import crypto from 'node:crypto';
 import { NextResponse } from 'next/server';
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/supabase/server';
 import { verifyMetaWebhookSignature } from '@/lib/whatsapp/webhook-signature';
 import {
   handleTemplateWebhookChange,
@@ -62,13 +63,14 @@ export async function POST(request: Request) {
 
 async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
   if (!body.entry) return;
+  const db = getAdminClient();
 
   for (const entry of body.entry) {
     for (const change of entry.changes) {
       if (isTemplateWebhookField(change.field)) {
         await handleTemplateWebhookChange(
           { field: change.field, value: change.value as unknown },
-          getAdminClient()
+          db
         );
         continue;
       }
@@ -95,11 +97,19 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
       }
 
       // Update last_webhook_at timestamp for tenant health tracking
+      const nowIso = new Date().toISOString();
       try {
-        await getAdminClient()
-          .from('whatsapp_config')
-          .update({ last_webhook_at: new Date().toISOString() })
+        const { error: confErr } = await db
+          .from('whatsapp_configs')
+          .update({ last_webhook_at: nowIso, updated_at: nowIso })
           .eq('phone_number_id', phoneNumberId);
+
+        if (confErr) {
+          await db
+            .from('whatsapp_config')
+            .update({ last_webhook_at: nowIso })
+            .eq('phone_number_id', phoneNumberId);
+        }
       } catch {
         // Non-critical timestamp update failure
       }
@@ -108,13 +118,70 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
         const message = value.messages[i];
         const contact = value.contacts[i] || value.contacts[0];
 
-        await processMessage(
-          message,
-          contact,
-          tenantContext.tenantId,
-          tenantContext.userId,
-          tenantContext.accessToken
-        );
+        // Idempotency check using webhook_events table in Supabase
+        if (message?.id) {
+          const payloadHash = crypto
+            .createHash('sha256')
+            .update(JSON.stringify(message))
+            .digest('hex');
+
+          const { error: eventInsertError } = await db
+            .from('webhook_events')
+            .insert({
+              account_id: tenantContext.tenantId,
+              provider: 'whatsapp',
+              provider_event_id: message.id,
+              status: 'processing',
+              payload_hash: payloadHash,
+              attempt_count: 1,
+              received_at: nowIso,
+            });
+
+          if (eventInsertError) {
+            // Duplicate event detected — unique constraint on (provider, provider_event_id)
+            console.warn(
+              `[Webhook Idempotency] Duplicate event ${message.id} skipped for tenant ${tenantContext.tenantId}`
+            );
+            continue;
+          }
+        }
+
+        try {
+          await processMessage(
+            message,
+            contact,
+            tenantContext.tenantId,
+            tenantContext.userId,
+            tenantContext.accessToken
+          );
+
+          if (message?.id) {
+            await db
+              .from('webhook_events')
+              .update({
+                status: 'processed',
+                processed_at: new Date().toISOString(),
+              })
+              .eq('provider', 'whatsapp')
+              .eq('provider_event_id', message.id);
+          }
+        } catch (msgErr) {
+          console.error(
+            `[Webhook] Error processing message ${message.id}:`,
+            msgErr
+          );
+          if (message?.id) {
+            await db
+              .from('webhook_events')
+              .update({
+                status: 'retrying',
+                processed_at: new Date().toISOString(),
+              })
+              .eq('provider', 'whatsapp')
+              .eq('provider_event_id', message.id);
+          }
+          throw msgErr;
+        }
       }
     }
   }
