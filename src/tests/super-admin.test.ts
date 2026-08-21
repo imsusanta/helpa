@@ -19,16 +19,6 @@ vi.mock('@/lib/supabase/server', () => ({
   })),
 }));
 
-vi.mock('@/lib/appwrite-server-compat', () => ({
-  getAdminClient: vi.fn(() => ({
-    from: () => ({
-      select: () => ({
-        eq: () => ({ maybeSingle: mocks.profileMaybeSingle }),
-      }),
-    }),
-  })),
-}));
-
 vi.mock('@/lib/auth/account', () => ({
   getCurrentAccount: mocks.getCurrentAccount,
 }));
@@ -58,8 +48,8 @@ describe('Super Admin server-side authorization', () => {
     });
 
     expect(isPlatformOwnerEmail('normal@example.com')).toBe(false);
-    expect(isPlatformOwnerEmail('susantalohr@gmail.com')).toBe(true);
-    await expect(checkSuperAdmin('susantalohr@gmail.com')).resolves.toBe(true);
+    await expect(checkSuperAdmin('normal@example.com')).resolves.toBe(false);
+    await expect(checkSuperAdmin('attacker@example.com')).resolves.toBe(false);
   });
 
   it('grants access only when the authenticated profile has the role', async () => {
@@ -78,6 +68,7 @@ describe('Super Admin server-side authorization', () => {
     });
 
     await expect(checkSuperAdmin()).resolves.toBe(true);
+    await expect(checkSuperAdmin('admin@example.com')).resolves.toBe(true);
   });
 
   it('fails closed when profile lookup fails', async () => {

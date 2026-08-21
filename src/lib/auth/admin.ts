@@ -12,14 +12,11 @@ import {
   getAdminClient,
 } from '@/lib/supabase/server';
 
-/**
- * Platform owner email bootstrap configuration.
- */
+/** Informational bootstrap configuration; never use it to grant access. */
 export const PLATFORM_OWNER_EMAIL =
-  process.env.HELPA_PLATFORM_OWNER_EMAIL?.trim().toLowerCase() ||
-  'susantalohr@gmail.com';
+  process.env.HELPA_PLATFORM_OWNER_EMAIL?.trim().toLowerCase() || '';
 
-/** Checks if an email is the configured platform owner email. */
+/** @deprecated Email matching is informational only, not authorization. */
 export function isPlatformOwnerEmail(email?: string | null): boolean {
   if (!email || !PLATFORM_OWNER_EMAIL) return false;
   return email.trim().toLowerCase() === PLATFORM_OWNER_EMAIL;
@@ -44,15 +41,11 @@ async function hasPersistedSuperAdminRole(userId: string): Promise<boolean> {
 }
 
 /**
- * Verifies if the user or session has Super Admin role.
+ * Verifies the current authenticated session has a persisted Super Admin role.
+ * When supplied, `expectedEmail` only verifies the caller refers to the current
+ * session; it can never grant access by itself.
  */
-export async function checkSuperAdmin(
-  expectedEmail?: string
-): Promise<boolean> {
-  if (expectedEmail) {
-    return isPlatformOwnerEmail(expectedEmail);
-  }
-
+export async function checkSuperAdmin(expectedEmail?: string): Promise<boolean> {
   try {
     try {
       const supabase = await createSupabaseServerClient();
@@ -62,7 +55,13 @@ export async function checkSuperAdmin(
       } = await supabase.auth.getUser();
 
       if (!error && user) {
-        if (isPlatformOwnerEmail(user.email)) return true;
+        if (
+          expectedEmail &&
+          user.email?.trim().toLowerCase() !== expectedEmail.trim().toLowerCase()
+        ) {
+          return false;
+        }
+
         return await hasPersistedSuperAdminRole(user.id);
       }
     } catch {
@@ -70,7 +69,12 @@ export async function checkSuperAdmin(
     }
 
     const context = await getCurrentAccount();
-    if (context.email && isPlatformOwnerEmail(context.email)) return true;
+    if (
+      expectedEmail &&
+      context.email?.trim().toLowerCase() !== expectedEmail.trim().toLowerCase()
+    ) {
+      return false;
+    }
     return await hasPersistedSuperAdminRole(context.userId);
   } catch {
     return false;
