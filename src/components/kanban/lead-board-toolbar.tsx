@@ -17,6 +17,8 @@ export interface LeadFilterState {
   channel: string;
   service: string;
   score: string;
+  assignment?: string;
+  stage?: string;
 }
 
 interface LeadBoardToolbarProps {
@@ -42,7 +44,9 @@ export function LeadBoardToolbar({
     (filters.search ? 1 : 0) +
     (filters.channel !== 'all' ? 1 : 0) +
     (filters.service !== 'all' ? 1 : 0) +
-    (filters.score !== 'all' ? 1 : 0);
+    (filters.score !== 'all' ? 1 : 0) +
+    (filters.assignment && filters.assignment !== 'everyone' ? 1 : 0) +
+    (filters.stage && filters.stage !== 'all' ? 1 : 0);
 
   return (
     <div className="bg-card border-border space-y-3 rounded-xl border p-4 shadow-2xs">
@@ -53,7 +57,7 @@ export function LeadBoardToolbar({
           <Input
             value={filters.search}
             onChange={(e) => onFilterChange('search', e.target.value)}
-            placeholder="Search leads by patient name, phone, or service..."
+            placeholder="Search leads by name, phone, or service..."
             className="bg-background border-border pl-9 text-sm"
           />
           {filters.search && (
@@ -68,43 +72,44 @@ export function LeadBoardToolbar({
 
         {/* Filter Dropdowns */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Channel Select */}
+          {/* Stage Select */}
           <Select
-            value={filters.channel}
-            onValueChange={(val) => onFilterChange('channel', val ?? 'all')}
+            value={filters.stage || 'all'}
+            onValueChange={(val) => onFilterChange('stage', val ?? 'all')}
+          >
+            <SelectTrigger className="bg-background border-border h-9 w-[125px] text-xs">
+              <SelectValue placeholder="Stage" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Stages</SelectItem>
+              <SelectItem value="NEW">New</SelectItem>
+              <SelectItem value="QUALIFYING">Qualifying</SelectItem>
+              <SelectItem value="QUALIFIED">Qualified</SelectItem>
+              <SelectItem value="BOOKED">Booked</SelectItem>
+              <SelectItem value="FOLLOW_UP">Follow-up</SelectItem>
+              <SelectItem value="CONVERTED">Won / Converted</SelectItem>
+              <SelectItem value="LOST">Lost</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Assignment Select */}
+          <Select
+            value={filters.assignment || 'everyone'}
+            onValueChange={(val) =>
+              onFilterChange('assignment', val ?? 'everyone')
+            }
           >
             <SelectTrigger className="bg-background border-border h-9 w-[130px] text-xs">
-              <SelectValue placeholder="Channel" />
+              <SelectValue placeholder="Assignment" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Channels</SelectItem>
-              <SelectItem value="whatsapp">WhatsApp</SelectItem>
-              <SelectItem value="sms">SMS</SelectItem>
-              <SelectItem value="voice">Voice</SelectItem>
+              <SelectItem value="everyone">All Teammates</SelectItem>
+              <SelectItem value="me">Assigned to Me</SelectItem>
+              <SelectItem value="unassigned">Unassigned</SelectItem>
             </SelectContent>
           </Select>
 
-          {/* Service Select */}
-          <Select
-            value={filters.service}
-            onValueChange={(val) => onFilterChange('service', val ?? 'all')}
-          >
-            <SelectTrigger className="bg-background border-border h-9 w-[140px] text-xs">
-              <SelectValue placeholder="Service" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Services</SelectItem>
-              <SelectItem value="General OPD">General OPD</SelectItem>
-              <SelectItem value="Dental / Invisalign">
-                Dental / Invisalign
-              </SelectItem>
-              <SelectItem value="Cardiology">Cardiology</SelectItem>
-              <SelectItem value="Orthopedics">Orthopedics</SelectItem>
-              <SelectItem value="Dermatology">Dermatology</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* Score Select */}
+          {/* Score / Temperature Select */}
           <Select
             value={filters.score}
             onValueChange={(val) => onFilterChange('score', val ?? 'all')}
@@ -115,8 +120,26 @@ export function LeadBoardToolbar({
             <SelectContent>
               <SelectItem value="all">All Scores</SelectItem>
               <SelectItem value="hot">Hot 🔥</SelectItem>
-              <SelectItem value="warm">Warm 🌤</SelectItem>
-              <SelectItem value="cold">Cold ❄️</SelectItem>
+              <SelectItem value="warm">Warm 🟡</SelectItem>
+              <SelectItem value="cold">Cold 🔵</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Channel / Source Select */}
+          <Select
+            value={filters.channel}
+            onValueChange={(val) => onFilterChange('channel', val ?? 'all')}
+          >
+            <SelectTrigger className="bg-background border-border h-9 w-[125px] text-xs">
+              <SelectValue placeholder="Source" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Sources</SelectItem>
+              <SelectItem value="whatsapp">WhatsApp</SelectItem>
+              <SelectItem value="website">Website</SelectItem>
+              <SelectItem value="manual">Manual</SelectItem>
+              <SelectItem value="sms">SMS</SelectItem>
+              <SelectItem value="voice">Voice</SelectItem>
             </SelectContent>
           </Select>
 
@@ -126,7 +149,7 @@ export function LeadBoardToolbar({
             size="sm"
             onClick={onRefresh}
             disabled={isLoading}
-            className="border-border bg-background text-muted-foreground hover:text-foreground h-9"
+            className="border-border bg-background text-muted-foreground hover:text-foreground h-9 text-xs"
           >
             <RefreshCw
               className={`mr-1 h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`}

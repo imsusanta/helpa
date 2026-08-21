@@ -67,7 +67,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     if (search) {
       query = query.or(
-        `name.ilike.%${search}%,phone.ilike.%${search}%,email.ilike.%${search}%`
+        `name.ilike.%${search}%,phone.ilike.%${search}%,email.ilike.%${search}%,company.ilike.%${search}%`
       );
     }
 
@@ -94,8 +94,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           name: contact.name,
           phone: contact.phone,
           email: contact.email,
+          company: contact.company,
           address: contact.address,
           metadata: contact.metadata,
+          assigned_user_id: contact.assigned_user_id,
           consentStatus: contact.consent_status || 'pending',
           created_at: contact.created_at,
           updated_at: contact.updated_at,

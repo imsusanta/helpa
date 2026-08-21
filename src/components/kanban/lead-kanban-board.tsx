@@ -23,6 +23,15 @@ import { toast } from 'sonner';
 import { getAppwriteClient } from '@/infrastructure/appwrite/client';
 import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
 import { SavedFilterBar } from '@/components/crm/saved-filter-bar';
+import { useAuth } from '@/hooks/use-auth';
+import {
+  Users,
+  Flame,
+  Clock,
+  AlertTriangle,
+  CheckCircle2,
+  TrendingUp,
+} from 'lucide-react';
 
 export const CANONICAL_STAGES: StageColumnDef[] = [
   { id: 'NEW', label: 'New Leads', color: '#3b82f6' },
@@ -129,6 +138,63 @@ export function LeadKanbanBoard({
     };
   }, [initialLeads.length, loadRealLeads]);
 
+  const { user } = useAuth();
+
+  // Summary Metrics
+  const totalLeadsCount = leads.length;
+  const hotLeadsCount = useMemo(
+    () =>
+      leads.filter(
+        (l) =>
+          l.score === 'hot' || (typeof l.score === 'number' && l.score >= 70)
+      ).length,
+    [leads]
+  );
+  const newLeadsCount = useMemo(
+    () => leads.filter((l) => l.stage === 'NEW').length,
+    [leads]
+  );
+  const needsFollowupCount = useMemo(
+    () =>
+      leads.filter((l) => l.stage === 'FOLLOW_UP' || l.attentionRequired)
+        .length,
+    [leads]
+  );
+
+  // Real-data Attention Issues
+  const attentionItems = useMemo(() => {
+    const items: string[] = [];
+    const hotNoFollowup = leads.filter(
+      (l) =>
+        (l.score === 'hot' || (typeof l.score === 'number' && l.score >= 70)) &&
+        !l.nextAppointmentAt
+    ).length;
+    if (hotNoFollowup > 0) {
+      items.push(
+        `${hotNoFollowup} hot ${hotNoFollowup === 1 ? 'lead has' : 'leads have'} no follow-up scheduled`
+      );
+    }
+
+    const uncontactedNew = leads.filter(
+      (l) =>
+        l.stage === 'NEW' &&
+        (!l.lastActivityAt || l.lastActivityAt === 'Recent')
+    ).length;
+    if (uncontactedNew > 0) {
+      items.push(
+        `${uncontactedNew} new ${uncontactedNew === 1 ? 'lead has' : 'leads have'} not been contacted yet`
+      );
+    }
+
+    const attentionReq = leads.filter((l) => l.attentionRequired).length;
+    if (attentionReq > 0) {
+      items.push(
+        `${attentionReq} ${attentionReq === 1 ? 'lead requires' : 'leads require'} immediate attention`
+      );
+    }
+    return items;
+  }, [leads]);
+
   // DND Sensors
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -157,13 +223,50 @@ export function LeadKanbanBoard({
         return false;
       }
 
-      if (filters.score !== 'all' && lead.score !== filters.score) {
+      if (filters.score !== 'all') {
+        const isHot =
+          lead.score === 'hot' ||
+          (typeof lead.score === 'number' && lead.score >= 70);
+        const isWarm =
+          lead.score === 'warm' ||
+          (typeof lead.score === 'number' &&
+            lead.score >= 40 &&
+            lead.score < 70);
+        const isCold =
+          lead.score === 'cold' ||
+          (typeof lead.score === 'number' && lead.score < 40);
+
+        if (filters.score === 'hot' && !isHot) return false;
+        if (filters.score === 'warm' && !isWarm) return false;
+        if (filters.score === 'cold' && !isCold) return false;
+      }
+
+      if (
+        filters.stage &&
+        filters.stage !== 'all' &&
+        lead.stage !== filters.stage
+      ) {
         return false;
+      }
+
+      if (filters.assignment && filters.assignment !== 'everyone') {
+        if (
+          filters.assignment === 'me' &&
+          lead.assignedOwner?.name !== user?.name
+        ) {
+          return false;
+        }
+        if (
+          filters.assignment === 'unassigned' &&
+          Boolean(lead.assignedOwner)
+        ) {
+          return false;
+        }
       }
 
       return true;
     });
-  }, [leads, filters]);
+  }, [leads, filters, user?.name]);
 
   const handleCardClick = useCallback(
     (lead: LeadCardModel) => {
@@ -278,6 +381,8 @@ export function LeadKanbanBoard({
       channel: 'all',
       service: 'all',
       score: 'all',
+      assignment: 'everyone',
+      stage: 'all',
     });
   }
 
@@ -287,6 +392,76 @@ export function LeadKanbanBoard({
 
   return (
     <div className="space-y-5">
+      {/* Overview Metrics Cards */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="bg-card border-border rounded-xl border p-3.5 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground text-xs font-medium">
+              Total Leads
+            </span>
+            <Users className="text-primary size-4" />
+          </div>
+          <p className="text-foreground mt-1 text-2xl font-bold">
+            {totalLeadsCount}
+          </p>
+        </div>
+        <div className="bg-card border-border rounded-xl border p-3.5 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground text-xs font-medium">
+              Hot Leads
+            </span>
+            <Flame className="size-4 text-red-500" />
+          </div>
+          <p className="text-foreground mt-1 text-2xl font-bold">
+            {hotLeadsCount}
+          </p>
+        </div>
+        <div className="bg-card border-border rounded-xl border p-3.5 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground text-xs font-medium">
+              New Leads
+            </span>
+            <TrendingUp className="size-4 text-blue-500" />
+          </div>
+          <p className="text-foreground mt-1 text-2xl font-bold">
+            {newLeadsCount}
+          </p>
+        </div>
+        <div className="bg-card border-border rounded-xl border p-3.5 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground text-xs font-medium">
+              Needs Follow-up
+            </span>
+            <Clock className="size-4 text-amber-500" />
+          </div>
+          <p className="text-foreground mt-1 text-2xl font-bold">
+            {needsFollowupCount}
+          </p>
+        </div>
+      </div>
+
+      {/* Needs Your Attention Section */}
+      {attentionItems.length > 0 ? (
+        <div className="space-y-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 shadow-2xs">
+          <div className="flex items-center gap-2 text-xs font-bold text-amber-600 dark:text-amber-400">
+            <AlertTriangle className="size-4" />
+            <span>Needs Your Attention</span>
+          </div>
+          <ul className="text-foreground/90 list-inside list-disc space-y-1 text-xs">
+            {attentionItems.map((item, idx) => (
+              <li key={idx} className="font-medium">
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-xs font-medium text-emerald-600 shadow-2xs dark:text-emerald-400">
+          <CheckCircle2 className="size-4" />
+          <span>✓ Everything is up to date</span>
+        </div>
+      )}
+
       <LeadBoardToolbar
         filters={filters}
         onFilterChange={handleFilterChange}

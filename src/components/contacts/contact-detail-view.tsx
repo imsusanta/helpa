@@ -46,6 +46,7 @@ import {
   UserCheck,
   Clock,
   FileText,
+  Sparkles,
 } from 'lucide-react';
 import { SendOutboundModal } from '@/components/contacts/send-outbound-modal';
 import { UploadPatientPdfModal } from '@/components/contacts/upload-patient-pdf-modal';
@@ -707,6 +708,59 @@ export function ContactDetailView({
                 className="flex-1 overflow-y-auto px-4 py-3"
               >
                 <div className="space-y-3 pb-4">
+                  {/* AI Summary Banner (if AI metadata exists) */}
+                  {Boolean(
+                    editMetadata.ai_summary ||
+                    editMetadata.ai_intent ||
+                    editMetadata.ai_lead_score ||
+                    editMetadata.ai_recommended_action
+                  ) && (
+                    <div className="border-primary/20 bg-primary/5 space-y-1.5 rounded-lg border p-3 shadow-2xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-primary flex items-center gap-1.5 text-xs font-bold">
+                          <Sparkles className="size-3.5" />
+                          AI Summary
+                        </span>
+                        {Boolean(editMetadata.ai_lead_score) && (
+                          <Badge
+                            variant="outline"
+                            className="border-primary/30 text-primary text-[10px] font-bold"
+                          >
+                            {Number(editMetadata.ai_lead_score) >= 70 ||
+                            String(editMetadata.ai_lead_score).toLowerCase() ===
+                              'hot'
+                              ? '🔥 Hot'
+                              : Number(editMetadata.ai_lead_score) >= 40 ||
+                                  String(
+                                    editMetadata.ai_lead_score
+                                  ).toLowerCase() === 'warm'
+                                ? '🟡 Warm'
+                                : '🔵 Cold'}
+                          </Badge>
+                        )}
+                      </div>
+                      {Boolean(editMetadata.ai_summary) && (
+                        <p className="text-foreground/90 text-xs leading-relaxed font-medium">
+                          {String(editMetadata.ai_summary)}
+                        </p>
+                      )}
+                      {Boolean(editMetadata.ai_intent) && (
+                        <p className="text-muted-foreground text-[11px]">
+                          Intent:{' '}
+                          <span className="text-foreground font-semibold">
+                            {String(editMetadata.ai_intent)}
+                          </span>
+                        </p>
+                      )}
+                      {Boolean(editMetadata.ai_recommended_action) && (
+                        <p className="text-primary/90 text-[11px] font-semibold">
+                          Recommended next action:{' '}
+                          {String(editMetadata.ai_recommended_action)}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
                   {/* Permanent Unique Patient ID Field */}
                   <div className="space-y-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-2.5">
                     <Label className="flex items-center justify-between text-xs font-bold text-emerald-700 dark:text-emerald-300">

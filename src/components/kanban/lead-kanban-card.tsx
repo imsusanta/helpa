@@ -3,9 +3,19 @@
 import { useDraggable } from '@dnd-kit/core';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MessageSquare, Phone, Calendar, Clock } from 'lucide-react';
+import {
+  MessageSquare,
+  Phone,
+  Calendar,
+  Clock,
+  Flame,
+  Eye,
+  CheckSquare,
+} from 'lucide-react';
 import { LeadStageType } from '@/core/types';
+import { useRouter } from 'next/navigation';
 
 export interface LeadCardModel {
   id: string;
@@ -13,8 +23,10 @@ export interface LeadCardModel {
   phone?: string;
   service: string;
   stage: LeadStageType;
-  channel: 'whatsapp' | 'sms' | 'voice';
+  channel: 'whatsapp' | 'sms' | 'voice' | 'website' | 'manual';
   score?: 'hot' | 'warm' | 'cold' | number;
+  value?: number;
+  currency?: string;
   assignedOwner?: {
     name: string;
     avatarUrl?: string;
@@ -35,34 +47,42 @@ export function LeadKanbanCard({
   onClick,
   isOverlay = false,
 }: LeadKanbanCardProps) {
+  const router = useRouter();
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: lead.id,
   });
 
   const getScoreBadge = () => {
-    if (
+    const isHot =
       lead.score === 'hot' ||
-      (typeof lead.score === 'number' && lead.score >= 80)
-    ) {
+      (typeof lead.score === 'number' && lead.score >= 70);
+    const isWarm =
+      lead.score === 'warm' ||
+      (typeof lead.score === 'number' && lead.score >= 40 && lead.score < 70);
+
+    if (isHot) {
       return (
-        <Badge className="border border-red-200 bg-red-500/10 text-[10px] font-bold text-red-600 dark:text-red-400">
-          Hot 🔥
+        <Badge className="gap-0.5 border border-red-500/30 bg-red-500/10 text-[10px] font-bold text-red-600 dark:text-red-400">
+          <Flame className="size-2.5" />
+          HOT {typeof lead.score === 'number' ? `(${lead.score})` : ''}
         </Badge>
       );
     }
-    if (
-      lead.score === 'warm' ||
-      (typeof lead.score === 'number' && lead.score >= 50)
-    ) {
+    if (isWarm) {
       return (
-        <Badge className="border border-amber-200 bg-amber-500/10 text-[10px] font-bold text-amber-600 dark:text-amber-400">
-          Warm 🌤
+        <Badge className="gap-0.5 border border-amber-500/30 bg-amber-500/10 text-[10px] font-bold text-amber-600 dark:text-amber-400">
+          <span>🟡</span>
+          WARM {typeof lead.score === 'number' ? `(${lead.score})` : ''}
         </Badge>
       );
     }
     return (
-      <Badge className="border border-blue-200 bg-blue-500/10 text-[10px] font-bold text-blue-600 dark:text-blue-400">
-        Cold ❄️
+      <Badge className="gap-0.5 border border-blue-500/30 bg-blue-500/10 text-[10px] font-bold text-blue-600 dark:text-blue-400">
+        <span>🔵</span>
+        COLD{' '}
+        {typeof lead.score === 'number' && lead.score > 0
+          ? `(${lead.score})`
+          : ''}
       </Badge>
     );
   };
@@ -123,9 +143,17 @@ export function LeadKanbanCard({
         </CardHeader>
 
         <CardContent className="space-y-2 p-0 text-xs">
-          <p className="text-muted-foreground truncate font-medium">
-            {lead.service}
-          </p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-muted-foreground truncate font-medium">
+              {lead.service}
+            </p>
+            {lead.value !== undefined && lead.value > 0 && (
+              <span className="text-foreground shrink-0 font-mono text-xs font-bold">
+                {lead.currency === 'INR' || !lead.currency ? '₹' : '$'}
+                {lead.value.toLocaleString()}
+              </span>
+            )}
+          </div>
 
           {/* Appointment / Next follow-up info */}
           {lead.nextAppointmentAt && (
@@ -149,7 +177,7 @@ export function LeadKanbanCard({
 
             <div className="flex items-center gap-2">
               {lead.assignedOwner && (
-                <Avatar className="h-5 w-5">
+                <Avatar className="h-5 w-5" title={lead.assignedOwner.name}>
                   <AvatarImage src={lead.assignedOwner.avatarUrl} />
                   <AvatarFallback className="text-[9px] font-bold">
                     {lead.assignedOwner.name.slice(0, 2).toUpperCase()}
@@ -161,6 +189,49 @@ export function LeadKanbanCard({
                 {lead.lastActivityAt}
               </span>
             </div>
+          </div>
+
+          {/* Quick Actions Bar */}
+          <div
+            className="flex items-center justify-end gap-1 pt-1 opacity-80 transition-opacity group-hover:opacity-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="h-6 w-6 text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-700"
+              title="Open WhatsApp"
+              onClick={(e) => {
+                e.stopPropagation();
+                router.push(`/inbox?contactId=${lead.id}`);
+              }}
+            >
+              <MessageSquare className="size-3" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="h-6 w-6 text-indigo-600 hover:bg-indigo-500/10 hover:text-indigo-700"
+              title="Schedule Task"
+              onClick={(e) => {
+                e.stopPropagation();
+                router.push(`/tasks?patientId=${lead.id}`);
+              }}
+            >
+              <CheckSquare className="size-3" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="text-muted-foreground hover:bg-muted hover:text-foreground h-6 w-6"
+              title="View Details"
+              onClick={(e) => {
+                e.stopPropagation();
+                onClick(lead);
+              }}
+            >
+              <Eye className="size-3" />
+            </Button>
           </div>
         </CardContent>
       </Card>
