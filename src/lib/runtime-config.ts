@@ -7,6 +7,13 @@ export class RuntimeConfigurationError extends Error {
 
 type EnvMap = Record<string, string | undefined>;
 
+export interface RuntimeConfig {
+  authProvider: 'supabase' | 'appwrite';
+  databaseProvider: 'supabase' | 'appwrite';
+  migrationMode: 'complete' | 'rollback';
+  production: boolean;
+}
+
 function requireEnvironmentValue(env: EnvMap, name: string): string {
   const value = env[name]?.trim();
   if (!value) throw new RuntimeConfigurationError(`MISSING_${name}`);
@@ -16,11 +23,11 @@ function requireEnvironmentValue(env: EnvMap, name: string): string {
 /** Authentication and persistence are permanently Supabase-only. */
 export function getRuntimeConfig(
   env: EnvMap = process.env as unknown as EnvMap
-) {
+): RuntimeConfig {
   return {
-    authProvider: 'supabase' as const,
-    databaseProvider: 'supabase' as const,
-    migrationMode: 'complete' as const,
+    authProvider: 'supabase',
+    databaseProvider: 'supabase',
+    migrationMode: 'complete',
     production: env.NODE_ENV === 'production',
   };
 }
