@@ -19,6 +19,8 @@ jobs:
           fetch-depth: 0
       - name: Capture merge conflicts
         run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch origin main
           set +e
           git merge --no-commit --no-ff origin/main > /tmp/merge.log 2>&1
@@ -33,8 +35,6 @@ jobs:
           git merge --abort || true
           mkdir -p diagnostics/ci
           cp /tmp/merge-conflicts.txt diagnostics/ci/merge-conflicts.txt
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add diagnostics/ci/merge-conflicts.txt
           git commit -m "chore: capture latest main merge conflicts"
           git push origin HEAD:improve/product-readiness-9
