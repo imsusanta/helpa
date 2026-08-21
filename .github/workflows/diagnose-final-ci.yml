@@ -1,0 +1,48 @@
+name: Diagnose final CI failure
+
+on:
+  push:
+    branches: [improve/product-readiness-9]
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      AUTH_PROVIDER: supabase
+      DATABASE_PROVIDER: supabase
+      MIGRATION_MODE: cutover
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-test-supabase-anon-key
+      SUPABASE_SERVICE_ROLE_KEY: ci-test-supabase-service-role-key
+      ENCRYPTION_KEY: '0000000000000000000000000000000000000000000000000000000000000000'
+      META_APP_SECRET: ci-dummy-meta-secret
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: improve/product-readiness-9
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Capture authorization diagnostics
+        shell: bash
+        run: |
+          mkdir -p diagnostics/ci
+          set +e
+          npx vitest run src/tests/security > diagnostics/ci/authorization.log 2>&1
+          npx vitest run --coverage --exclude='**/src/tests/integration/**' > diagnostics/ci/coverage.log 2>&1
+          exit 0
+      - name: Commit diagnostics
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add diagnostics/ci
+          git commit -m "chore: capture final CI diagnostics"
+          git push origin HEAD:improve/product-readiness-9
