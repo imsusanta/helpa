@@ -121,6 +121,64 @@ export function WhatsAppConfig() {
       return;
     }
     fetchConfig();
+
+    if (typeof window !== 'undefined') {
+      const searchParams = new URLSearchParams(window.location.search);
+      const metaCode = searchParams.get('meta_code');
+      const metaState = searchParams.get('meta_state');
+      const metaError = searchParams.get('error');
+
+      if (metaError) {
+        toast.error(`Meta Connection: ${metaError}`);
+        window.history.replaceState(
+          {},
+          document.title,
+          window.location.pathname + '?tab=whatsapp'
+        );
+        return;
+      }
+
+      if (metaCode) {
+        window.history.replaceState(
+          {},
+          document.title,
+          window.location.pathname + '?tab=whatsapp'
+        );
+        setConnectingEmbedded(true);
+        fetch('/api/whatsapp/embedded-signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            code: metaCode,
+            state: metaState || undefined,
+            mode: 'coexistence',
+          }),
+        })
+          .then((res) => res.json())
+          .then((resData) => {
+            if (resData.success) {
+              toast.success(
+                resData.status === 'coexistence_connected'
+                  ? '🟢 WhatsApp Connected with Coexistence Active!'
+                  : '🟢 WhatsApp Connected Successfully!'
+              );
+              fetchConfig();
+            } else {
+              toast.error(
+                resData.error || 'Failed to exchange Meta authorization code'
+              );
+            }
+          })
+          .catch((err) => {
+            toast.error(
+              `Meta exchange error: ${err instanceof Error ? err.message : 'Unknown'}`
+            );
+          })
+          .finally(() => {
+            setConnectingEmbedded(false);
+          });
+      }
+    }
   }, [authLoading, profileLoading, user, accountId, fetchConfig]);
 
   async function handleTestConnection() {
