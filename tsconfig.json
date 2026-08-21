@@ -17,7 +17,8 @@
     "plugins": [{ "name": "next" }],
     "paths": {
       "@/*": ["./src/*"],
-      "node-appwrite": ["./src/infrastructure/appwrite/sdk-compat.ts"]
+      "node-appwrite": ["./src/infrastructure/appwrite/sdk-compat.ts"],
+      "node-appwrite/file": ["./src/infrastructure/appwrite/file-compat.ts"]
     }
   },
   "include": [
