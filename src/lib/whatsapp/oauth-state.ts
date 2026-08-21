@@ -13,9 +13,70 @@ export interface OAuthStateResult {
   expiresAt: string;
 }
 
+function getSigningSecret(): string {
+  return (
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.META_APP_SECRET ||
+    process.env.NEXTAUTH_SECRET ||
+    process.env.APPWRITE_API_KEY ||
+    'helpa-oauth-state-secret-fallback-key-32b'
+  );
+}
+
+function signHmacState(payload: {
+  accountId: string;
+  userId: string;
+  provider: string;
+  exp: number;
+  rand: string;
+}): string {
+  const data = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const hmac = crypto
+    .createHmac('sha256', getSigningSecret())
+    .update(data)
+    .digest('base64url');
+  return `hmac.${data}.${hmac}`;
+}
+
+function verifyHmacState(token: string): {
+  accountId: string;
+  userId: string;
+  provider: string;
+  exp: number;
+  rand: string;
+} | null {
+  if (!token || !token.startsWith('hmac.')) return null;
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
+  const [, data, sig] = parts;
+  if (!data || !sig) return null;
+
+  const expectedSig = crypto
+    .createHmac('sha256', getSigningSecret())
+    .update(data)
+    .digest('base64url');
+
+  try {
+    const sigBuf = Buffer.from(sig);
+    const expBuf = Buffer.from(expectedSig);
+    if (
+      sigBuf.length !== expBuf.length ||
+      !crypto.timingSafeEqual(sigBuf, expBuf)
+    ) {
+      return null;
+    }
+    const payload = JSON.parse(Buffer.from(data, 'base64url').toString('utf8'));
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Generates a cryptographically secure OAuth state, stores it in Supabase,
  * and binds it strictly to the tenant (accountId) and user (userId).
+ * If the `oauth_states` table is pending in PostgREST schema cache,
+ * securely falls back to a signed cryptographic HMAC state token.
  */
 export async function generateOAuthState({
   accountId,
@@ -29,25 +90,62 @@ export async function generateOAuthState({
     );
   }
 
-  const state = crypto.randomBytes(32).toString('hex');
   const now = Date.now();
   const expiresAt = new Date(now + expiresInSeconds * 1000).toISOString();
+  const rawState = crypto.randomBytes(32).toString('hex');
 
-  const supabase = getAdminClient();
+  try {
+    const supabase = getAdminClient();
+    const { error } = await supabase.from('oauth_states').insert({
+      account_id: accountId,
+      user_id: userId,
+      provider,
+      state: rawState,
+      expires_at: expiresAt,
+    });
 
-  const { error } = await supabase.from('oauth_states').insert({
-    account_id: accountId,
-    user_id: userId,
-    provider,
-    state,
-    expires_at: expiresAt,
-  });
+    if (error) {
+      const isMissingTable =
+        error.message?.includes('oauth_states') ||
+        error.message?.includes('schema cache') ||
+        error.code === 'PGRST205' ||
+        error.code === '42P01';
 
-  if (error) {
-    throw new Error(`Failed to persist OAuth state: ${error.message}`);
+      if (isMissingTable) {
+        console.warn(
+          '[oauth-state] `public.oauth_states` table missing in schema cache. Using cryptographic HMAC state fallback.'
+        );
+        const signedState = signHmacState({
+          accountId,
+          userId,
+          provider,
+          exp: now + expiresInSeconds * 1000,
+          rand: rawState,
+        });
+        return { state: signedState, expiresAt };
+      }
+
+      throw new Error(`Failed to persist OAuth state: ${error.message}`);
+    }
+
+    return { state: rawState, expiresAt };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.includes('oauth_states') || message.includes('schema cache')) {
+      console.warn(
+        '[oauth-state] Falling back to signed HMAC state token due to schema cache.'
+      );
+      const signedState = signHmacState({
+        accountId,
+        userId,
+        provider,
+        exp: now + expiresInSeconds * 1000,
+        rand: rawState,
+      });
+      return { state: signedState, expiresAt };
+    }
+    throw err;
   }
-
-  return { state, expiresAt };
 }
 
 export interface ValidateOAuthStateOptions {
@@ -81,6 +179,40 @@ export async function validateAndConsumeOAuthState({
   }
 
   const cleanState = state.trim();
+
+  // 1. Check if this is a signed HMAC fallback token
+  if (cleanState.startsWith('hmac.')) {
+    const payload = verifyHmacState(cleanState);
+    if (!payload) {
+      throw new Error('Invalid or forged OAuth state signature');
+    }
+
+    if (Date.now() > payload.exp) {
+      throw new Error('OAuth state has expired. Please try connecting again.');
+    }
+
+    if (payload.accountId !== accountId) {
+      throw new Error('OAuth state tenant mismatch (unauthorized workspace)');
+    }
+
+    if (payload.userId !== userId) {
+      throw new Error('OAuth state user mismatch (unauthorized user)');
+    }
+
+    if (payload.provider !== provider) {
+      throw new Error('OAuth state provider mismatch');
+    }
+
+    return {
+      id: 'hmac-verified-state',
+      accountId: payload.accountId,
+      userId: payload.userId,
+      state: cleanState,
+      createdAt: new Date(payload.exp - 900000).toISOString(),
+    };
+  }
+
+  // 2. Query database for persistent table row
   const supabase = getAdminClient();
 
   const { data: row, error } = await supabase
@@ -92,7 +224,13 @@ export async function validateAndConsumeOAuthState({
     .eq('provider', provider)
     .maybeSingle();
 
-  if (error || !row) {
+  if (error) {
+    throw new Error(
+      `Invalid or unknown OAuth state parameter: ${error.message}`
+    );
+  }
+
+  if (!row) {
     throw new Error('Invalid or unknown OAuth state parameter');
   }
 
