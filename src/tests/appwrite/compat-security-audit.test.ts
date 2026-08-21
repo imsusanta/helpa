@@ -15,6 +15,8 @@ describe('Supabase cutover security audit', () => {
     expect(combined).not.toContain('cloud.appwrite.io');
     expect(combined).not.toContain('X-Appwrite-Key');
     expect(combined).not.toContain('APPWRITE_API_KEY');
-    expect(combined).not.toMatch(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/);
+    expect(combined).not.toMatch(
+      /eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/
+    );
   });
 });

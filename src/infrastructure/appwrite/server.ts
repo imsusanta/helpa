@@ -137,7 +137,9 @@ function storageAdapter() {
       return { $id: fileId, name: input.filename || fileId };
     },
     async getFileDownload(bucket: string, fileId: string) {
-      const { data, error } = await client.storage.from(bucket).download(fileId);
+      const { data, error } = await client.storage
+        .from(bucket)
+        .download(fileId);
       if (error) throw error;
       return data.arrayBuffer();
     },

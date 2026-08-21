@@ -38,9 +38,7 @@ function isPublicRoute(pathname: string): boolean {
   if (PUBLIC_EXACT_PATHS.has(pathname)) return true;
   if (PUBLIC_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix)))
     return true;
-  return (
-    pathname.startsWith('/api/appointments/') && pathname.endsWith('/pdf')
-  );
+  return pathname.startsWith('/api/appointments/') && pathname.endsWith('/pdf');
 }
 
 export async function proxy(request: NextRequest) {
@@ -54,7 +52,9 @@ export async function proxy(request: NextRequest) {
       cookies: {
         getAll: () => request.cookies.getAll(),
         setAll: (cookies) => {
-          cookies.forEach(({ name, value }) => request.cookies.set(name, value));
+          cookies.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          );
           response = NextResponse.next({ request });
           cookies.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options)
