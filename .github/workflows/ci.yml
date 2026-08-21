@@ -24,8 +24,37 @@ env:
   META_APP_SECRET: 'ci-dummy-meta-secret'
 
 jobs:
+  changes:
+    name: Classify changed files
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.scope.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: scope
+        name: Detect runtime code changes
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          elif git diff --quiet "$BASE_SHA"...HEAD -- \
+            src e2e scripts supabase public \
+            package.json package-lock.json \
+            next.config.ts tsconfig.json vitest.config.ts \
+            playwright.config.ts postcss.config.mjs vercel.json; then
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          fi
+
   quality:
     name: Formatting, lint, and types
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -37,18 +66,20 @@ jobs:
       - run: npm ci
       - name: Format check
         run: npm run format:check
+      - name: Strict lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
       - name: Emit lint diagnostics
         if: failure()
         run: |
           npx eslint . --format json --output-file /tmp/eslint.json || true
           node scripts/ci-lint-diagnostics.mjs /tmp/eslint.json
-      - name: Strict lint
-        run: npm run lint
-      - name: Typecheck
-        run: npm run typecheck
 
   tests:
     name: Unit, integration, and migration tests
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -87,7 +118,13 @@ jobs:
 
   build:
     name: Production build
-    needs: [quality, tests, security]
+    needs: [changes, quality, tests, security]
+    if: |
+      always() &&
+      needs.changes.outputs.code == 'true' &&
+      needs.quality.result == 'success' &&
+      needs.tests.result == 'success' &&
+      needs.security.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -101,7 +138,11 @@ jobs:
 
   e2e:
     name: Critical-path browser tests
-    needs: [build]
+    needs: [changes, build]
+    if: |
+      always() &&
+      needs.changes.outputs.code == 'true' &&
+      needs.build.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
