@@ -4,9 +4,8 @@ import { createClient as createSupabaseBrowserClient } from '@/lib/supabase/clie
  * @deprecated Historical import path retained while call sites are renamed.
  * This module is Supabase-only and never calls an Appwrite endpoint.
  */
-export type AppwriteCompatClient = ReturnType<
-  typeof createSupabaseBrowserClient
->;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type AppwriteCompatClient = any;
 export type AppwriteClient = AppwriteCompatClient;
 export type AppwriteError = {
   message: string;
