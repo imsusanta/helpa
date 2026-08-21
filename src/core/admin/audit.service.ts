@@ -1,5 +1,6 @@
 /** Helpa Core Super Admin — immutable administrative audit trail. */
 
+import { randomUUID } from 'node:crypto';
 import type { AdminAuditLog } from './types';
 import { getAdminClient } from '@/lib/appwrite-server-compat';
 
@@ -35,7 +36,7 @@ export async function logAdminAction({
   const timestamp = new Date().toISOString();
   const safeMetadata = sanitizeMetadata(metadata);
   const record: AdminAuditLog = {
-    id: crypto.randomUUID(),
+    id: randomUUID(),
     actorEmail,
     action,
     targetType,

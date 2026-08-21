@@ -1,0 +1,6 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Deletion-only finding in the credential-remediation commit. The exposed provider credential must still be rotated."
+commits = ["3bf6796773b20a784f7c87386d487d82703db206"]
