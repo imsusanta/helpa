@@ -97,9 +97,9 @@ jobs:
         run: npm run supabase:validate
 
   security:
-    name: Secrets and dependency security
+    name: Security regression and dependency gates
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -113,6 +113,16 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Security regression tests
+        run: |
+          npx vitest run \
+            src/tests/security \
+            src/tests/security-hardening.test.ts \
+            src/tests/tenant-isolation.test.ts \
+            src/tests/whatsapp/outbox-service.test.ts \
+            src/tests/whatsapp/webhook-idempotency.test.ts \
+            src/tests/whatsapp/oauth-state.test.ts \
+            src/tests/reminders/appointment-reminders.test.ts
       - name: Block high-severity dependency vulnerabilities
         run: npm audit --audit-level=high
 
