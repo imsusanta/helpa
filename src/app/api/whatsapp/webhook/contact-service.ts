@@ -1,4 +1,4 @@
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/supabase/server';
 import { findExistingContact, isUniqueViolation } from '@/lib/contacts/dedupe';
 import type { Contact } from '@/types';
 

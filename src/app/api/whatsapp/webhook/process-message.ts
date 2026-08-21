@@ -1,4 +1,4 @@
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/supabase/server';
 import type { Database } from '@/types/database';
 import { normalizePhone } from '@/lib/whatsapp/phone-utils';
 import { runAutomationsForTrigger } from '@/lib/automations/engine';

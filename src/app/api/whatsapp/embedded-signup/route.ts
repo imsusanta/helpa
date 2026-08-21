@@ -1,17 +1,24 @@
 /**
  * src/app/api/whatsapp/embedded-signup/route.ts
  *
- * Handles OAuth callback from Meta WhatsApp Embedded Signup.
- * Exchanges authorization code for a long-lived access token,
- * verifies/subscribes the WABA, fetches phone number info, and persists
- * encrypted configuration to the active account.
+ * Handles OAuth callback and token exchange from Meta WhatsApp Embedded Signup.
+ * Validates cryptographic OAuth state, exchanges code for a long-lived access token,
+ * discovers WABA and Phone Number IDs, verifies phone metadata, subscribes webhooks,
+ * encrypts credentials with AES-256-GCM, and persists to Supabase whatsapp_configs.
  */
 
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth/account';
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/supabase/server';
 import { encrypt } from '@/lib/whatsapp/encryption';
-import { subscribeWabaToApp, verifyPhoneNumber } from '@/lib/whatsapp/meta-api';
+import { validateAndConsumeOAuthState } from '@/lib/whatsapp/oauth-state';
+import {
+  exchangeAuthorizationCode,
+  debugAccessToken,
+  getWabaPhoneNumbers,
+  getPhoneNumberDetails,
+  subscribeWabaWebhook,
+} from '@/lib/whatsapp/meta-service';
 import {
   checkRateLimit,
   rateLimitResponse,
@@ -22,9 +29,10 @@ export async function POST(request: Request) {
   try {
     const ctx = await requireRole('admin');
     const accountId = ctx.accountId;
+    const userId = ctx.userId;
 
     const rateLimit = checkRateLimit(
-      `embedded_signup_${ctx.userId}`,
+      `embedded_signup_${userId}`,
       RATE_LIMITS.adminAction
     );
     if (!rateLimit.success) {
@@ -41,6 +49,7 @@ export async function POST(request: Request) {
 
     const {
       code,
+      state,
       accessToken: directAccessToken,
       access_token: directAccessToken2,
       waba_id,
@@ -48,6 +57,7 @@ export async function POST(request: Request) {
       mode = 'standard',
     } = body as {
       code?: string;
+      state?: string;
       accessToken?: string;
       access_token?: string;
       waba_id?: string;
@@ -55,8 +65,30 @@ export async function POST(request: Request) {
       mode?: 'standard' | 'coexistence';
     };
 
-    let accessToken = directAccessToken || directAccessToken2 || '';
+    // 1. Validate OAuth state if supplied (required for production browser flows)
+    if (state && typeof state === 'string') {
+      try {
+        await validateAndConsumeOAuthState({
+          state,
+          accountId,
+          userId,
+        });
+      } catch (stateErr: unknown) {
+        const msg =
+          stateErr instanceof Error ? stateErr.message : 'Invalid OAuth state';
+        return NextResponse.json(
+          { error: msg, code: 'INVALID_OAUTH_STATE' },
+          { status: 400 }
+        );
+      }
+    }
 
+    let accessToken = directAccessToken || directAccessToken2 || '';
+    const appId =
+      process.env.META_APP_ID || process.env.NEXT_PUBLIC_META_APP_ID || '';
+    const appSecret = process.env.META_APP_SECRET || '';
+
+    // 2. Exchange authorization code if access token is not already supplied
     if (!accessToken) {
       if (!code || typeof code !== 'string' || !code.trim()) {
         return NextResponse.json(
@@ -64,12 +96,6 @@ export async function POST(request: Request) {
           { status: 400 }
         );
       }
-
-      const appId =
-        process.env.META_APP_ID ||
-        process.env.NEXT_PUBLIC_META_APP_ID ||
-        '1461038582135406';
-      const appSecret = process.env.META_APP_SECRET;
 
       if (!appSecret) {
         return NextResponse.json(
@@ -81,71 +107,58 @@ export async function POST(request: Request) {
         );
       }
 
-      // 1. Exchange OAuth code for Meta Access Token
-      const tokenUrl = new URL(
-        'https://graph.facebook.com/v21.0/oauth/access_token'
-      );
-      tokenUrl.searchParams.set('client_id', appId);
-      tokenUrl.searchParams.set('client_secret', appSecret);
-      tokenUrl.searchParams.set('code', code.trim());
-
-      const tokenRes = await fetch(tokenUrl.toString(), { method: 'GET' });
-      const tokenData = await tokenRes.json().catch(() => null);
-
-      if (!tokenRes.ok || !tokenData?.access_token) {
-        const errorMsg =
-          tokenData?.error?.message ||
-          'Failed to exchange authorization code for Meta access token.';
-        console.error('[Embedded Signup Token Exchange Error]:', tokenData);
-        return NextResponse.json({ error: errorMsg }, { status: 400 });
+      try {
+        const exchangeRes = await exchangeAuthorizationCode({
+          code: code.trim(),
+          appId,
+          appSecret,
+        });
+        accessToken = exchangeRes.accessToken;
+      } catch (exchangeErr: unknown) {
+        const msg =
+          exchangeErr instanceof Error
+            ? exchangeErr.message
+            : 'Failed to exchange authorization code for Meta access token.';
+        console.error('[Embedded Signup Token Exchange Error]:', msg);
+        return NextResponse.json({ error: msg }, { status: 400 });
       }
-
-      accessToken = tokenData.access_token as string;
     }
-
-    const appId =
-      process.env.META_APP_ID ||
-      process.env.NEXT_PUBLIC_META_APP_ID ||
-      '1461038582135406';
-    const appSecret = process.env.META_APP_SECRET;
 
     let resolvedWabaId = typeof waba_id === 'string' ? waba_id.trim() : '';
     let resolvedPhoneId =
       typeof phone_number_id === 'string' ? phone_number_id.trim() : '';
 
-    // 2. If WABA or Phone Number ID were not passed in postMessage, discover them from Graph API
-    if (!resolvedWabaId || !resolvedPhoneId) {
+    // 3. Auto-discover WABA ID if missing
+    if (!resolvedWabaId && appId && appSecret) {
       try {
-        const debugRes = await fetch(
-          `https://graph.facebook.com/v21.0/debug_token?input_token=${accessToken}&access_token=${appId}|${appSecret}`
-        );
-        const debugData = await debugRes.json().catch(() => null);
-        const granularScopes = debugData?.data?.granular_scopes || [];
-
-        for (const scope of granularScopes) {
-          if (
-            scope.scope === 'whatsapp_business_management' &&
-            scope.target_ids
-          ) {
-            resolvedWabaId = resolvedWabaId || scope.target_ids[0];
-          }
+        const debugInfo = await debugAccessToken({
+          accessToken,
+          appId,
+          appSecret,
+        });
+        if (debugInfo.wabaId) {
+          resolvedWabaId = debugInfo.wabaId;
         }
-      } catch (err) {
-        console.warn('[Embedded Signup] Debug token discovery error:', err);
+      } catch (debugErr) {
+        console.warn(
+          '[Embedded Signup] Debug token discovery error:',
+          debugErr
+        );
       }
     }
 
+    // 4. Auto-discover Phone Number ID if missing
     if (resolvedWabaId && !resolvedPhoneId) {
       try {
-        const phoneListRes = await fetch(
-          `https://graph.facebook.com/v21.0/${resolvedWabaId}/phone_numbers?access_token=${accessToken}`
-        );
-        const phoneListData = await phoneListRes.json().catch(() => null);
-        if (phoneListData?.data?.[0]?.id) {
-          resolvedPhoneId = phoneListData.data[0].id;
+        const phoneList = await getWabaPhoneNumbers({
+          wabaId: resolvedWabaId,
+          accessToken,
+        });
+        if (phoneList && phoneList.length > 0 && phoneList[0].id) {
+          resolvedPhoneId = phoneList[0].id;
         }
-      } catch (err) {
-        console.warn('[Embedded Signup] Phone discovery error:', err);
+      } catch (phoneErr) {
+        console.warn('[Embedded Signup] Phone discovery error:', phoneErr);
       }
     }
 
@@ -159,12 +172,12 @@ export async function POST(request: Request) {
       );
     }
 
-    // 3. Duplicate Connection Protection: Ensure phone number is not attached to another workspace
-    const db = appwriteAdmin();
+    // 5. Tenant Isolation / Conflict Protection: Ensure phone number is not bound to another workspace
+    const supabase = getAdminClient();
     const now = new Date().toISOString();
 
-    const { data: existingConflict } = await db
-      .from('whatsapp_config')
+    const { data: existingConflict } = await supabase
+      .from('whatsapp_configs')
       .select('id, account_id')
       .eq('phone_number_id', resolvedPhoneId)
       .neq('account_id', accountId)
@@ -181,111 +194,101 @@ export async function POST(request: Request) {
       );
     }
 
-    // 4. Subscribe WABA to webhooks if WABA ID is known
+    // 6. Subscribe WABA to webhooks if WABA ID is known
     if (resolvedWabaId) {
       try {
-        await subscribeWabaToApp({
+        await subscribeWabaWebhook({
           wabaId: resolvedWabaId,
           accessToken,
         });
-      } catch (err) {
-        console.warn('[Embedded Signup] Subscribed apps warning:', err);
+      } catch (subErr) {
+        console.warn('[Embedded Signup] Subscribed apps warning:', subErr);
       }
     }
 
-    // 5. Verify Phone Number details from Meta
+    // 7. Verify Phone Number details from Meta
     let verifiedName: string | null = null;
     let displayPhoneNumber: string | null = null;
     try {
-      const phoneInfo = await verifyPhoneNumber({
+      const phoneInfo = await getPhoneNumberDetails({
         phoneNumberId: resolvedPhoneId,
         accessToken,
       });
       verifiedName = phoneInfo.verified_name || null;
       displayPhoneNumber = phoneInfo.display_phone_number || null;
-    } catch (err) {
-      console.warn('[Embedded Signup] Phone info fetch warning:', err);
+    } catch (phoneInfoErr) {
+      console.warn('[Embedded Signup] Phone info fetch warning:', phoneInfoErr);
     }
 
-    // 6. Encrypt token and persist configuration to DB
+    // 8. Encrypt access token with AES-256-GCM
     const encryptedToken = encrypt(accessToken);
     const isCoexistenceMode = mode === 'coexistence';
 
-    const configPayload: Record<string, unknown> = {
+    // 9. Upsert connection record into Supabase whatsapp_configs
+    const { data: existingConfig } = await supabase
+      .from('whatsapp_configs')
+      .select('id')
+      .eq('account_id', accountId)
+      .maybeSingle();
+
+    const isReconnection = Boolean(existingConfig?.id);
+
+    const configPayload = {
       account_id: accountId,
-      user_id: ctx.userId,
       phone_number_id: resolvedPhoneId,
-      waba_id: resolvedWabaId || 'waba_auto',
-      access_token: encryptedToken,
+      waba_id: resolvedWabaId || null,
+      encrypted_access_token: encryptedToken,
+      provider: 'meta_embedded_signup',
+      display_phone_number: displayPhoneNumber,
+      phone_number: displayPhoneNumber,
+      verified_name: verifiedName,
+      business_name: verifiedName,
       status: isCoexistenceMode ? 'coexistence_connected' : 'connected',
       connection_type: isCoexistenceMode ? 'coexistence' : 'standard',
       coexistence_status: isCoexistenceMode ? 'active' : 'unknown',
       registered_at: now,
       subscribed_apps_at: now,
       connected_at: now,
-      updated_at: now,
+      disconnected_at: null,
+      connection_error: null,
       last_health_check_at: now,
-      webhook_healthy: true,
-      messaging_active: true,
-      phone_number: displayPhoneNumber,
-      display_phone_number: displayPhoneNumber,
-      verified_name: verifiedName,
-      coexistence_eligible: true,
+      updated_at: now,
     };
 
-    // Update existing or create new config record
-    let existingId: string | null = null;
-    try {
-      const { data: existing } = await db
-        .from('whatsapp_config')
-        .select('id')
-        .eq('account_id', accountId)
-        .maybeSingle();
-      if (existing?.id) existingId = existing.id;
-    } catch {
-      // Fallback
-    }
-
-    if (!existingId) {
-      try {
-        const { data: existing } = await db
-          .from('whatsapp_configs')
-          .select('id')
-          .eq('account_id', accountId)
-          .maybeSingle();
-        if (existing?.id) existingId = existing.id;
-      } catch {
-        // Ignore
-      }
-    }
-
-    const isReconnection = Boolean(existingId);
-
-    if (existingId) {
-      const res = await db
-        .from('whatsapp_config')
+    if (existingConfig?.id) {
+      const { error: updateErr } = await supabase
+        .from('whatsapp_configs')
         .update(configPayload)
-        .eq('id', existingId);
-      if (res.error) {
-        await db
-          .from('whatsapp_configs')
-          .update(configPayload)
-          .eq('id', existingId);
+        .eq('id', existingConfig.id);
+
+      if (updateErr) {
+        throw new Error(
+          `Failed to update WhatsApp configuration: ${updateErr.message}`
+        );
       }
     } else {
-      configPayload.created_at = now;
-      const res = await db.from('whatsapp_config').insert(configPayload);
-      if (res.error) {
-        await db.from('whatsapp_configs').insert(configPayload);
+      const { error: insertErr } = await supabase
+        .from('whatsapp_configs')
+        .insert({
+          ...configPayload,
+          created_at: now,
+        });
+
+      if (insertErr) {
+        throw new Error(
+          `Failed to save WhatsApp configuration: ${insertErr.message}`
+        );
       }
     }
 
-    // 7. Audit Log sanitized event
+    // 10. Audit Log sanitized event
     try {
-      await db.from('audit_logs').insert({
+      await supabase.from('audit_logs').insert({
         account_id: accountId,
+        actor_user_id: userId,
         action: isReconnection ? 'WHATSAPP_RECONNECTED' : 'WHATSAPP_CONNECTED',
-        details: {
+        target_type: 'whatsapp_config',
+        metadata: {
           waba_id: resolvedWabaId,
           phone_number_id: resolvedPhoneId,
           verified_name: verifiedName,

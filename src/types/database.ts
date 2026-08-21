@@ -293,6 +293,133 @@ export interface Database {
           },
         ];
       };
+      whatsapp_configs: {
+        Row: {
+          id: string;
+          account_id: string;
+          phone_number_id: string;
+          waba_id: string | null;
+          encrypted_access_token: string;
+          access_token?: string;
+          provider: string;
+          phone_number: string | null;
+          display_phone_number: string | null;
+          verified_name: string | null;
+          business_name: string | null;
+          connection_error: string | null;
+          last_health_check_at: string | null;
+          last_webhook_at: string | null;
+          registered_at: string | null;
+          subscribed_apps_at: string | null;
+          connected_at: string | null;
+          disconnected_at: string | null;
+          connection_type: string | null;
+          coexistence_status: string | null;
+          status: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          account_id: string;
+          phone_number_id: string;
+          waba_id?: string | null;
+          encrypted_access_token?: string;
+          access_token?: string;
+          provider?: string;
+          phone_number?: string | null;
+          display_phone_number?: string | null;
+          verified_name?: string | null;
+          business_name?: string | null;
+          connection_error?: string | null;
+          last_health_check_at?: string | null;
+          last_webhook_at?: string | null;
+          registered_at?: string | null;
+          subscribed_apps_at?: string | null;
+          connected_at?: string | null;
+          disconnected_at?: string | null;
+          connection_type?: string | null;
+          coexistence_status?: string | null;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          phone_number_id?: string;
+          waba_id?: string | null;
+          encrypted_access_token?: string;
+          access_token?: string;
+          provider?: string;
+          phone_number?: string | null;
+          display_phone_number?: string | null;
+          verified_name?: string | null;
+          business_name?: string | null;
+          connection_error?: string | null;
+          last_health_check_at?: string | null;
+          last_webhook_at?: string | null;
+          registered_at?: string | null;
+          subscribed_apps_at?: string | null;
+          connected_at?: string | null;
+          disconnected_at?: string | null;
+          connection_type?: string | null;
+          coexistence_status?: string | null;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'whatsapp_configs_account_id_fkey';
+            columns: ['account_id'];
+            isOneToOne: true;
+            referencedRelation: 'accounts';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      oauth_states: {
+        Row: {
+          id: string;
+          account_id: string;
+          user_id: string;
+          provider: string;
+          state: string;
+          expires_at: string;
+          used_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          account_id: string;
+          user_id: string;
+          provider?: string;
+          state: string;
+          expires_at: string;
+          used_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          user_id?: string;
+          provider?: string;
+          state?: string;
+          expires_at?: string;
+          used_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'oauth_states_account_id_fkey';
+            columns: ['account_id'];
+            isOneToOne: false;
+            referencedRelation: 'accounts';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       whatsapp_config: {
         Row: {
           id: string;
