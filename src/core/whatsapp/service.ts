@@ -164,7 +164,10 @@ export async function sendWhatsAppMessage(
       recipient_type: 'individual',
       to: cleanRecipient,
       type: 'image',
-      image: { link: mediaUrl, caption: options.mediaCaption || undefined },
+      image: {
+        link: mediaUrl,
+        caption: options.mediaCaption || undefined,
+      },
     };
   } else if (type === 'document' && mediaUrl) {
     payload = {
@@ -218,7 +221,10 @@ export async function sendWhatsAppMessage(
       };
     }
     if (options.headerText && !interactiveObj.header) {
-      interactiveObj.header = { type: 'text', text: options.headerText.slice(0, 60) };
+      interactiveObj.header = {
+        type: 'text',
+        text: options.headerText.slice(0, 60),
+      };
     }
     if (options.footerText && !interactiveObj.footer) {
       interactiveObj.footer = { text: options.footerText.slice(0, 60) };
@@ -256,7 +262,11 @@ export async function sendWhatsAppMessage(
         metaData?.error?.message ||
         `Meta API error: ${metaRes.status} ${metaRes.statusText}`;
       console.error('[Core WhatsApp Service] Send failed:', metaData);
-      return { success: false, error: errorMsg, timestamp: new Date().toISOString() };
+      return {
+        success: false,
+        error: errorMsg,
+        timestamp: new Date().toISOString(),
+      };
     }
 
     const metaMessageId = metaData.messages[0].id as string;
@@ -304,7 +314,11 @@ export async function sendWhatsAppMessage(
   } catch (netErr) {
     const errorMsg = netErr instanceof Error ? netErr.message : 'Network error';
     console.error('[Core WhatsApp Service] Network error during send:', netErr);
-    return { success: false, error: errorMsg, timestamp: new Date().toISOString() };
+    return {
+      success: false,
+      error: errorMsg,
+      timestamp: new Date().toISOString(),
+    };
   }
 }
 
@@ -368,7 +382,8 @@ export async function disconnectWhatsApp(
   }
   return {
     success: true,
-    message: 'WhatsApp has been disconnected cleanly. Conversation history was preserved.',
+    message:
+      'WhatsApp has been disconnected cleanly. Conversation history was preserved.',
   };
 }
 
@@ -379,7 +394,8 @@ export async function reconnectWhatsApp(
   if (!health.connected) {
     return {
       success: false,
-      message: 'WhatsApp is not connected. Please click Connect WhatsApp to link with Meta.',
+      message:
+        'WhatsApp is not connected. Please click Connect WhatsApp to link with Meta.',
     };
   }
   return { success: true, message: 'WhatsApp connection is active and healthy.' };
