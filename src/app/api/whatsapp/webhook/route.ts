@@ -87,9 +87,7 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
       const phoneNumberId = value.metadata?.phone_number_id;
       if (!phoneNumberId) continue;
 
-      const tenantContext = await resolveTenantByPhoneNumberId(
-        phoneNumberId
-      );
+      const tenantContext = await resolveTenantByPhoneNumberId(phoneNumberId);
       if (!tenantContext) {
         throw new Error(
           'No WhatsApp configuration found for this phone number'
