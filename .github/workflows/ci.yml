@@ -63,7 +63,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: bash scripts/ci-install-dependencies.sh
       - name: Format check
         run: npm run format:check
       - name: Strict lint
@@ -88,7 +88,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: bash scripts/ci-install-dependencies.sh
       - name: Unit tests
         run: npm test
       - name: Tenant isolation tests
@@ -113,7 +113,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: bash scripts/ci-install-dependencies.sh
       - name: Block high-severity dependency vulnerabilities
         run: npm audit --audit-level=high
 
@@ -142,7 +142,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: bash scripts/ci-install-dependencies.sh
       - name: Run ${{ matrix.name }} tests
         run: npx vitest run ${{ matrix.paths }}
 
@@ -164,7 +164,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: bash scripts/ci-install-dependencies.sh
       - run: npm run build
 
   e2e:
@@ -182,7 +182,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: bash scripts/ci-install-dependencies.sh
       - name: Build application for Playwright
         run: npm run build
       - name: Install Chromium and system dependencies
