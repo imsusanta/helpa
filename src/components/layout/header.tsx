@@ -1,10 +1,10 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
 import {
   AlertCircle,
-  Bell,
   Gift,
   LogOut,
   Menu,
@@ -25,6 +25,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { NotificationCenter } from '@/components/notifications/notification-center';
+import { CommandSearch } from '@/components/ui/command-search';
 
 interface HeaderProps {
   onOpenSidebar?: () => void;
@@ -32,6 +34,7 @@ interface HeaderProps {
 
 export function Header({ onOpenSidebar }: HeaderProps) {
   const { profile, signOut } = useAuth();
+  const [searchOpen, setSearchOpen] = useState(false);
   const initial =
     profile?.full_name?.charAt(0)?.toUpperCase() ||
     profile?.email?.charAt(0)?.toUpperCase() ||
@@ -61,12 +64,16 @@ export function Header({ onOpenSidebar }: HeaderProps) {
         </button>
 
         {/* Search Input Box */}
-        <div className="relative hidden w-[285px] sm:block">
+        <div
+          onClick={() => setSearchOpen(true)}
+          className="relative hidden w-[285px] cursor-pointer sm:block"
+        >
           <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
+            readOnly
             aria-label="Search"
             placeholder="Search leads, contacts, acc..."
-            className="h-10 w-full rounded-xl border border-slate-200 bg-white pr-16 pl-9 text-xs font-medium text-slate-800 shadow-2xs placeholder:text-slate-400 focus:border-slate-300 focus:ring-2 focus:ring-emerald-500/10 focus:outline-none"
+            className="h-10 w-full cursor-pointer rounded-xl border border-slate-200 bg-white pr-16 pl-9 text-xs font-medium text-slate-800 shadow-2xs placeholder:text-slate-400 focus:border-slate-300 focus:ring-2 focus:ring-emerald-500/10 focus:outline-none"
           />
           <span className="absolute top-1/2 right-2.5 -translate-y-1/2 rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-semibold text-slate-400">
             Ctrl+K
@@ -146,14 +153,8 @@ export function Header({ onOpenSidebar }: HeaderProps) {
           <RotateCw className="h-4 w-4" />
         </button>
 
-        {/* Notification Bell */}
-        <button
-          type="button"
-          aria-label="Notifications"
-          className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100"
-        >
-          <Bell className="h-[18px] w-[18px]" />
-        </button>
+        {/* Live Notification Center */}
+        <NotificationCenter />
 
         {/* User Avatar & Dropdown */}
         <DropdownMenu>
@@ -192,6 +193,8 @@ export function Header({ onOpenSidebar }: HeaderProps) {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+
+      <CommandSearch open={searchOpen} onOpenChange={setSearchOpen} />
     </header>
   );
 }

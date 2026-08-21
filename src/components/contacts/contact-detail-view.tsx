@@ -3,10 +3,19 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/appwrite-compat';
 import { useAuth } from '@/hooks/use-auth';
+import { useWorkspace } from '@/hooks/use-workspace';
 import { getIndustryModule } from '@/modules/registry';
 import { formatCurrency } from '@/lib/currency';
 import { toast } from 'sonner';
-import type { Contact, Tag, ContactNote, CustomField, Deal } from '@/types';
+import { useRouter } from 'next/navigation';
+import type {
+  Contact,
+  Tag,
+  ContactNote,
+  CustomField,
+  Deal,
+  Profile,
+} from '@/types';
 import {
   Sheet,
   SheetContent,
@@ -34,9 +43,14 @@ import {
   DollarSign,
   MessageSquare,
   FileUp,
+  UserCheck,
+  Clock,
+  FileText,
 } from 'lucide-react';
 import { SendOutboundModal } from '@/components/contacts/send-outbound-modal';
 import { UploadPatientPdfModal } from '@/components/contacts/upload-patient-pdf-modal';
+import { ContactActivityTimeline } from '@/components/contacts/contact-activity-timeline';
+import { ContactTasksTab } from '@/components/contacts/contact-tasks-tab';
 import { getOrGeneratePatientId } from '@/lib/patients/id-generator';
 
 interface ContactDetailViewProps {
@@ -52,9 +66,12 @@ export function ContactDetailView({
   contactId,
   onUpdated,
 }: ContactDetailViewProps) {
+  const router = useRouter();
   const appwrite = createClient();
   const { accountId, defaultCurrency, account } = useAuth();
+  const { terminology } = useWorkspace();
 
+  const [activeTab, setActiveTab] = useState('timeline');
   const [contact, setContact] = useState<Contact | null>(null);
   const [patientSeqId, setPatientSeqId] = useState<string>('');
   const [loading, setLoading] = useState(false);
@@ -69,6 +86,8 @@ export function ContactDetailView({
   const [editCompany, setEditCompany] = useState('');
   const [editAddress, setEditAddress] = useState('');
   const [editNotes, setEditNotes] = useState('');
+  const [editAssignedUserId, setEditAssignedUserId] = useState('');
+  const [teamProfiles, setTeamProfiles] = useState<Profile[]>([]);
   const [editMetadata, setEditMetadata] = useState<Record<string, unknown>>({});
   const [savingDetails, setSavingDetails] = useState(false);
 
@@ -203,6 +222,7 @@ export function ContactDetailView({
         setEditCompany(data.company ?? '');
         setEditAddress(data.address ?? '');
         setEditNotes(data.notes ?? '');
+        setEditAssignedUserId(data.assigned_user_id ?? '');
 
         const seq = getOrGeneratePatientId(data, pData?.patient_seq_id);
         setPatientSeqId(seq);
@@ -300,6 +320,16 @@ export function ContactDetailView({
       fetchNotes();
       fetchCustomFields();
       fetchDeals();
+
+      // Fetch team members for assignment
+      appwrite
+        .from('profiles')
+        .select('*')
+        .order('full_name')
+        .then((res) => {
+          if (res.data) setTeamProfiles(res.data);
+        })
+        .catch(() => {});
     }
   }, [
     open,
@@ -309,6 +339,7 @@ export function ContactDetailView({
     fetchNotes,
     fetchCustomFields,
     fetchDeals,
+    appwrite,
   ]);
 
   async function copyPhone() {
@@ -359,6 +390,7 @@ export function ContactDetailView({
         company: editCompany.trim() || null,
         address: editAddress.trim() || null,
         notes: editNotes.trim() || null,
+        assigned_user_id: editAssignedUserId || null,
         metadata: {
           ...editMetadata,
           patient_id: patientSeqId,
@@ -525,7 +557,7 @@ export function ContactDetailView({
                     )}
                   </div>
                   <SheetDescription className="text-muted-foreground mt-0.5 text-xs">
-                    Patient Profile Details
+                    {terminology.contact || 'Customer'} Profile 360°
                   </SheetDescription>
                   <div className="text-muted-foreground mt-1.5 flex flex-wrap items-center gap-3 text-xs">
                     <button
@@ -555,66 +587,119 @@ export function ContactDetailView({
                   </div>
                 </div>
 
-                <div className="flex shrink-0 items-center gap-1.5">
+                <div className="flex shrink-0 flex-wrap items-center gap-1.5">
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => setUploadPdfOpen(true)}
+                    onClick={() => {
+                      onOpenChange(false);
+                      router.push(`/inbox?contactId=${contact.id}`);
+                    }}
                     className="cursor-pointer gap-1 border-emerald-500/40 bg-emerald-500/10 text-xs font-semibold text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400"
-                  >
-                    <FileUp className="size-3.5" />
-                    Upload PDF
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setOutboundOpen(true)}
-                    className="border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer gap-1 text-xs font-semibold"
+                    title="Open Conversation in Inbox"
                   >
                     <MessageSquare className="size-3.5" />
-                    Send WhatsApp
+                    WhatsApp
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setActiveTab('tasks')}
+                    className="border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer gap-1 text-xs font-semibold"
+                  >
+                    <Clock className="size-3.5" />
+                    Add Task
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setActiveTab('notes')}
+                    className="cursor-pointer gap-1 border-amber-500/40 bg-amber-500/10 text-xs font-semibold text-amber-600 hover:bg-amber-500/20"
+                  >
+                    <FileText className="size-3.5" />
+                    Add Note
+                  </Button>
+                  {patientSeqId && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setUploadPdfOpen(true)}
+                      className="border-muted-foreground/30 hover:bg-muted cursor-pointer gap-1 text-xs font-semibold"
+                    >
+                      <FileUp className="size-3.5" />
+                      PDF
+                    </Button>
+                  )}
                 </div>
               </div>
             </SheetHeader>
 
             {/* Tabs */}
             <Tabs
-              defaultValue="details"
+              value={activeTab}
+              onValueChange={setActiveTab}
               className="flex min-h-0 flex-1 flex-col"
             >
-              <TabsList className="bg-muted/50 border-border mx-4 mt-3 border-b">
+              <TabsList className="bg-muted/50 border-border mx-4 mt-3 h-auto flex-wrap gap-1 border-b">
+                <TabsTrigger
+                  value="timeline"
+                  className="data-active:bg-muted data-active:text-primary text-muted-foreground text-xs"
+                >
+                  Timeline
+                </TabsTrigger>
+                <TabsTrigger
+                  value="tasks"
+                  className="data-active:bg-muted data-active:text-primary text-muted-foreground text-xs"
+                >
+                  Tasks
+                </TabsTrigger>
                 <TabsTrigger
                   value="details"
-                  className="data-active:bg-muted data-active:text-primary text-muted-foreground"
+                  className="data-active:bg-muted data-active:text-primary text-muted-foreground text-xs"
                 >
                   Details
                 </TabsTrigger>
                 <TabsTrigger
                   value="tags"
-                  className="data-active:bg-muted data-active:text-primary text-muted-foreground"
+                  className="data-active:bg-muted data-active:text-primary text-muted-foreground text-xs"
                 >
                   Tags
                 </TabsTrigger>
                 <TabsTrigger
                   value="notes"
-                  className="data-active:bg-muted data-active:text-primary text-muted-foreground"
+                  className="data-active:bg-muted data-active:text-primary text-muted-foreground text-xs"
                 >
                   Notes
                 </TabsTrigger>
                 <TabsTrigger
                   value="custom"
-                  className="data-active:bg-muted data-active:text-primary text-muted-foreground"
+                  className="data-active:bg-muted data-active:text-primary text-muted-foreground text-xs"
                 >
                   Custom Fields
                 </TabsTrigger>
                 <TabsTrigger
                   value="deals"
-                  className="data-active:bg-muted data-active:text-primary text-muted-foreground"
+                  className="data-active:bg-muted data-active:text-primary text-muted-foreground text-xs"
                 >
                   Deals
                 </TabsTrigger>
               </TabsList>
+
+              {/* Timeline Tab */}
+              <TabsContent
+                value="timeline"
+                className="flex-1 overflow-hidden p-0"
+              >
+                <ContactActivityTimeline contactId={contact.id} />
+              </TabsContent>
+
+              {/* Tasks Tab */}
+              <TabsContent value="tasks" className="flex-1 overflow-hidden p-0">
+                <ContactTasksTab
+                  contactId={contact.id}
+                  contactName={contact.name}
+                />
+              </TabsContent>
 
               {/* Details Tab */}
               <TabsContent
@@ -698,6 +783,28 @@ export function ContactDetailView({
                       onChange={(e) => setEditAddress(e.target.value)}
                       className="bg-muted border-border text-foreground h-8 text-sm"
                     />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                      <UserCheck className="text-primary size-3.5" />
+                      Assigned Team Member
+                    </Label>
+                    <select
+                      value={editAssignedUserId}
+                      onChange={(e) => setEditAssignedUserId(e.target.value)}
+                      className="bg-muted border-border text-foreground focus:ring-primary h-8 w-full rounded-md px-2 text-xs focus:ring-1"
+                    >
+                      <option value="">Unassigned</option>
+                      {teamProfiles.map((p) => (
+                        <option
+                          key={p.id || p.user_id}
+                          value={p.id || p.user_id}
+                        >
+                          {p.full_name || p.email} ({p.role || 'Member'})
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   {/* Industry Dynamic Custom Fields */}

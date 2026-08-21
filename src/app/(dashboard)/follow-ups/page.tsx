@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useMemo } from 'react';
+import { useWorkspace } from '@/hooks/use-workspace';
 import { getOrGeneratePatientId } from '@/lib/patients/id-generator';
 import {
   Clock,
@@ -13,6 +14,8 @@ import {
   RefreshCw,
   Send,
   Stethoscope,
+  Check,
+  Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -66,6 +69,7 @@ interface FollowupItem {
 }
 
 export default function FollowupsPage() {
+  const { terminology, currentIndustry } = useWorkspace();
   const [followups, setFollowups] = useState<FollowupItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<
@@ -80,7 +84,7 @@ export default function FollowupsPage() {
   const [doctors, setDoctors] = useState<DoctorRef[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState('');
   const [selectedDoctorId, setSelectedDoctorId] = useState('');
-  const [followupType, setFollowupType] = useState('Diabetes Review');
+  const [followupType, setFollowupType] = useState('Follow-up Review');
   const [dueDate, setDueDate] = useState('');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -89,17 +93,65 @@ export default function FollowupsPage() {
   const [outboundOpen, setOutboundOpen] = useState(false);
   const [outboundTarget, _setOutboundTarget] = useState<Contact | null>(null);
 
-  const PRESET_TYPES = [
-    'Diabetes Review',
-    'BP & Hypertension Review',
-    'Vaccination Schedule',
-    'Dental Cleaning & Check-up',
-    'Eye Examination',
-    'Physiotherapy Session',
-    'Pregnancy ANC Check-up',
-    'Post-Op Surgical Review',
-    'General Health Follow-up',
-  ];
+  const PRESET_TYPES = useMemo(() => {
+    switch (currentIndustry) {
+      case 'real-estate':
+        return [
+          'Property Inquiry Follow-up',
+          'Site Visit Scheduling',
+          'Quotation & Pricing Review',
+          'Agreement Discussion',
+          'Payment Follow-up',
+          'General Client Call',
+        ];
+      case 'salon':
+        return [
+          'Post-Service Check-in',
+          'Product Recommendation',
+          'Appointment Rebooking',
+          'Membership Renewal',
+          'Special Offer Follow-up',
+          'General Follow-up',
+        ];
+      case 'coaching':
+      case 'solo-teacher':
+        return [
+          'Assignment Review',
+          'Batch Enrollment Follow-up',
+          'Parent Discussion',
+          'Fee Reminder',
+          'Doubt Clearing Session',
+          'Course Feedback',
+        ];
+      case 'restaurant':
+        return [
+          'Catering Reservation Follow-up',
+          'Special Event Planning',
+          'VIP Feedback Check-in',
+          'Table Booking Confirmation',
+        ];
+      case 'travel':
+        return [
+          'Itinerary Review',
+          'Flight & Hotel Confirmation',
+          'Visa & Documents Follow-up',
+          'Payment Installment Reminder',
+          'Trip Feedback',
+        ];
+      default:
+        return [
+          'General Health Follow-up',
+          'Diabetes Review',
+          'BP & Hypertension Review',
+          'Vaccination Schedule',
+          'Dental Cleaning & Check-up',
+          'Eye Examination',
+          'Physiotherapy Session',
+          'Pregnancy ANC Check-up',
+          'Post-Op Surgical Review',
+        ];
+    }
+  }, [currentIndustry]);
 
   const fetchFollowups = useCallback(async () => {
     setLoading(true);
@@ -153,9 +205,39 @@ export default function FollowupsPage() {
     }
   }
 
+  async function handleCompleteTask(id: string) {
+    try {
+      const res = await fetch('/api/followups', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: 'completed' }),
+      });
+      if (!res.ok) throw new Error('Failed to complete task');
+      toast.success('Task marked as completed');
+      fetchFollowups();
+    } catch (err: unknown) {
+      toast.error((err as Error).message || 'Failed to complete task');
+    }
+  }
+
+  async function handleDeleteTask(id: string) {
+    try {
+      const res = await fetch(`/api/followups?id=${id}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) throw new Error('Failed to delete task');
+      toast.success('Task deleted');
+      fetchFollowups();
+    } catch (err: unknown) {
+      toast.error((err as Error).message || 'Failed to delete task');
+    }
+  }
+
   async function handleCreateFollowup() {
     if (!selectedPatientId || !dueDate) {
-      toast.error('Patient and Due Date are required');
+      toast.error(
+        `${terminology.contact || 'Customer'} and Due Date are required`
+      );
       return;
     }
     setSubmitting(true);
@@ -226,11 +308,12 @@ export default function FollowupsPage() {
         <div>
           <h1 className="text-foreground flex items-center gap-2 text-2xl font-bold">
             <Clock className="text-primary size-6" />
-            Patient Follow-ups & Care Reviews
+            {terminology.contact || 'Patient'} Tasks & Follow-ups
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Automate clinic follow-up care, chronic condition reviews, and
-            WhatsApp reminders.
+            Automate follow-up care, chronic condition reviews, and WhatsApp
+            reminders across your{' '}
+            {terminology.contacts?.toLowerCase() || 'contacts'}.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -336,7 +419,7 @@ export default function FollowupsPage() {
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by patient, phone, type..."
+            placeholder={`Search by ${terminology.contact?.toLowerCase() || 'patient'}, phone, type...`}
             className="bg-card border-border pl-8 text-xs"
           />
         </div>
@@ -347,10 +430,12 @@ export default function FollowupsPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/30 border-border">
-              <TableHead className="w-28">Patient ID</TableHead>
-              <TableHead>Patient Details</TableHead>
-              <TableHead>Follow-up Type</TableHead>
-              <TableHead>Consulting Doctor</TableHead>
+              <TableHead className="w-28">
+                {terminology.contact || 'Patient'} ID
+              </TableHead>
+              <TableHead>{terminology.contact || 'Patient'} Details</TableHead>
+              <TableHead>Task / Follow-up</TableHead>
+              <TableHead>Assigned / {terminology.staff || 'Doctor'}</TableHead>
               <TableHead>Due Date</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -374,8 +459,9 @@ export default function FollowupsPage() {
                     No follow-ups found
                   </p>
                   <p className="text-muted-foreground mt-1 text-xs">
-                    Schedule a follow-up review to keep track of patient
-                    recovery and reminders.
+                    Schedule a follow-up review to keep track of{' '}
+                    {terminology.contact?.toLowerCase() || 'patient'} reminders
+                    and tasks.
                   </p>
                 </TableCell>
               </TableRow>
@@ -397,7 +483,8 @@ export default function FollowupsPage() {
                     </TableCell>
                     <TableCell>
                       <p className="text-foreground text-sm font-semibold">
-                        {item.patient?.name || 'Unknown Patient'}
+                        {item.patient?.name ||
+                          `Unknown ${terminology.contact || 'Patient'}`}
                       </p>
                       <p className="text-muted-foreground font-mono text-xs">
                         {item.patient?.phone}
@@ -415,9 +502,7 @@ export default function FollowupsPage() {
                       )}
                     </TableCell>
                     <TableCell className="text-muted-foreground text-xs">
-                      {item.doctor
-                        ? `Dr. ${item.doctor.name}`
-                        : 'General Clinic'}
+                      {item.doctor ? `${item.doctor.name}` : 'General Team'}
                     </TableCell>
                     <TableCell>
                       <p className="text-foreground text-xs font-semibold">
@@ -458,18 +543,38 @@ export default function FollowupsPage() {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1.5">
+                      <div className="flex items-center justify-end gap-1">
+                        {item.status !== 'completed' && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleCompleteTask(item.id)}
+                            className="h-7 cursor-pointer gap-1 px-2 text-xs font-semibold text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-700"
+                            title="Complete Task"
+                          >
+                            <Check className="size-3.5" />
+                            Complete
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           variant="outline"
                           disabled={remindingId === item.id}
                           onClick={() => handleSendReminder(item.id)}
-                          className="gap-1 border-emerald-500/40 bg-emerald-500/10 text-xs font-semibold text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400"
+                          className="h-7 cursor-pointer gap-1 border-emerald-500/40 bg-emerald-500/10 px-2 text-xs font-semibold text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400"
+                          title="Remind on WhatsApp"
                         >
                           <Bell className="size-3.5" />
-                          {remindingId === item.id
-                            ? 'Sending...'
-                            : 'Remind WhatsApp'}
+                          {remindingId === item.id ? '...' : 'Remind'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDeleteTask(item.id)}
+                          className="text-muted-foreground h-7 cursor-pointer px-1.5 text-xs hover:bg-rose-500/10 hover:text-rose-600"
+                          title="Delete Task"
+                        >
+                          <Trash2 className="size-3.5" />
                         </Button>
                       </div>
                     </TableCell>
@@ -487,21 +592,23 @@ export default function FollowupsPage() {
           <DialogHeader>
             <DialogTitle className="text-foreground flex items-center gap-2 text-lg font-bold">
               <Clock className="text-primary size-5" />
-              Schedule Patient Follow-up
+              Schedule {terminology.contact || 'Patient'} Task / Follow-up
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2 text-xs">
             <div>
               <Label className="text-foreground font-semibold">
-                Select Patient *
+                Select {terminology.contact || 'Patient'} *
               </Label>
               <select
                 value={selectedPatientId}
                 onChange={(e) => setSelectedPatientId(e.target.value)}
                 className="bg-background border-border text-foreground focus:ring-primary mt-1.5 w-full rounded-lg border p-2.5 text-xs focus:ring-1 focus:outline-none"
               >
-                <option value="">-- Choose Patient --</option>
+                <option value="">
+                  -- Choose {terminology.contact || 'Patient'} --
+                </option>
                 {patients.map((p) => {
                   const seq = p.metadata?.patient_id
                     ? `[${p.metadata.patient_id}] `
@@ -518,7 +625,7 @@ export default function FollowupsPage() {
 
             <div>
               <Label className="text-foreground font-semibold">
-                Follow-up Review Type *
+                Task / Follow-up Type *
               </Label>
               <select
                 value={followupType}
@@ -535,17 +642,17 @@ export default function FollowupsPage() {
 
             <div>
               <Label className="text-foreground font-semibold">
-                Consulting Doctor (Optional)
+                Assigned {terminology.staff || 'Staff / Doctor'} (Optional)
               </Label>
               <select
                 value={selectedDoctorId}
                 onChange={(e) => setSelectedDoctorId(e.target.value)}
                 className="bg-background border-border text-foreground focus:ring-primary mt-1.5 w-full rounded-lg border p-2.5 text-xs focus:ring-1 focus:outline-none"
               >
-                <option value="">-- Clinic General --</option>
+                <option value="">-- General Team --</option>
                 {doctors.map((d) => (
                   <option key={d.id} value={d.id}>
-                    Dr. {d.name} ({d.department || 'General'})
+                    {d.name} ({d.department || 'General'})
                   </option>
                 ))}
               </select>

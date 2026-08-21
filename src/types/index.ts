@@ -110,6 +110,8 @@ export interface Contact {
   industry?: string;
   entity_type?: string;
   metadata?: Record<string, unknown>;
+  assigned_user_id?: string | null;
+  assigned_user?: Profile | null;
   created_at: string;
   updated_at: string;
 }
@@ -606,4 +608,77 @@ export interface AutomationLog {
   error_message?: string | null;
   created_at: string;
   contact?: Contact;
+}
+
+// ============================================================
+// CRM Gap Features: Saved Filters, Notifications, Activities, Tasks
+// ============================================================
+
+export interface SavedFilter {
+  id: string;
+  account_id: string;
+  user_id?: string | null;
+  entity_type: 'contacts' | 'leads' | 'deals' | 'tasks' | 'appointments';
+  name: string;
+  filters: Record<string, unknown>;
+  is_shared: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InAppNotification {
+  id: string;
+  account_id: string;
+  user_id: string;
+  title: string;
+  body: string;
+  type:
+    | 'general'
+    | 'whatsapp'
+    | 'lead'
+    | 'task'
+    | 'appointment'
+    | 'ai_handoff'
+    | 'payment';
+  link_url?: string | null;
+  is_read: boolean;
+  metadata?: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface ActivityItem {
+  id: string;
+  type:
+    | 'whatsapp_inbound'
+    | 'whatsapp_outbound'
+    | 'note'
+    | 'appointment'
+    | 'deal_stage'
+    | 'task'
+    | 'ai_interaction'
+    | 'call'
+    | 'system';
+  title: string;
+  description: string;
+  actor_name?: string;
+  created_at: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface CRMTask {
+  id: string;
+  account_id: string;
+  contact_id?: string | null;
+  patient_id?: string | null;
+  doctor_id?: string | null;
+  title: string;
+  task_type: string;
+  due_date: string;
+  status: 'scheduled' | 'reminder_sent' | 'completed' | 'cancelled';
+  priority?: 'low' | 'medium' | 'high';
+  notes?: string;
+  assigned_user_id?: string | null;
+  assigned_user?: Profile | null;
+  contact?: Contact | null;
+  created_at: string;
 }

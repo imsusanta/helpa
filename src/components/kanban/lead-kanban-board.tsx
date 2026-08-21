@@ -22,6 +22,7 @@ import { LeadDetailsDrawer } from './lead-details-drawer';
 import { toast } from 'sonner';
 import { getAppwriteClient } from '@/infrastructure/appwrite/client';
 import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
+import { SavedFilterBar } from '@/components/crm/saved-filter-bar';
 
 export const CANONICAL_STAGES: StageColumnDef[] = [
   { id: 'NEW', label: 'New Leads', color: '#3b82f6' },
@@ -53,6 +54,7 @@ export function LeadKanbanBoard({
     service: 'all',
     score: 'all',
   });
+  const [activeFilterId, setActiveFilterId] = useState<string | null>(null);
 
   // Selected Lead for Details Drawer (Synced with URL ?leadId=...)
   const selectedLeadIdFromUrl = searchParams.get('leadId');
@@ -293,6 +295,23 @@ export function LeadKanbanBoard({
         isLoading={loading}
         totalLeadsCount={leads.length}
         filteredLeadsCount={filteredLeads.length}
+      />
+
+      <SavedFilterBar
+        entityType="leads"
+        currentFilters={filters as unknown as Record<string, unknown>}
+        activeFilterId={activeFilterId}
+        onSelectFilter={(filterId, savedFilters) => {
+          setActiveFilterId(filterId);
+          if (savedFilters) {
+            setFilters((prev) => ({
+              ...prev,
+              ...(savedFilters as unknown as LeadFilterState),
+            }));
+          } else if (filterId === null) {
+            handleClearFilters();
+          }
+        }}
       />
 
       <DndContext

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/appwrite-compat';
 import { toast } from 'sonner';
-import type { Contact, Tag, ContactTag } from '@/types';
+import type { Contact, Tag, ContactTag, Profile } from '@/types';
 import { useAuth } from '@/hooks/use-auth';
 import { getIndustryModule } from '@/modules/registry';
 import { Button } from '@/components/ui/button';
@@ -45,6 +45,11 @@ import {
   ChevronRight,
   SlidersHorizontal,
   MessageSquare,
+  Download,
+  Tag as TagIcon,
+  UserCheck,
+  Clock,
+  TrendingUp,
 } from 'lucide-react';
 import { SendOutboundModal } from '@/components/contacts/send-outbound-modal';
 import { ContactForm } from '@/components/contacts/contact-form';
@@ -55,6 +60,7 @@ import { CustomFieldsManager } from '@/components/contacts/custom-fields-manager
 import { useCan } from '@/hooks/use-can';
 import { GatedButton } from '@/components/ui/gated-button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { SavedFilterBar } from '@/components/crm/saved-filter-bar';
 import { getOrGeneratePatientId } from '@/lib/patients/id-generator';
 
 const PAGE_SIZE = 25;
@@ -100,9 +106,27 @@ export default function ContactsPage() {
   const [deleteTarget, setDeleteTarget] = useState<Contact | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Bulk selection (page-scoped — only the loaded rows are selectable)
+  // Bulk selection & actions state
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkTagOpen, setBulkTagOpen] = useState(false);
+  const [bulkRemoveTagOpen, setBulkRemoveTagOpen] = useState(false);
+  const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
+  const [bulkStageOpen, setBulkStageOpen] = useState(false);
+  const [bulkFollowupOpen, setBulkFollowupOpen] = useState(false);
+
+  const [bulkTagId, setBulkTagId] = useState('');
+  const [bulkRemoveTagId, setBulkRemoveTagId] = useState('');
+  const [bulkAssignUserId, setBulkAssignUserId] = useState('');
+  const [bulkStage, setBulkStage] = useState('NEW');
+  const [bulkTaskTitle, setBulkTaskTitle] = useState('Follow-up Call');
+  const [bulkTaskDueDate, setBulkTaskDueDate] = useState('');
+  const [bulkTaskUserId, setBulkTaskUserId] = useState('');
+  const [bulkTaskNotes, setBulkTaskNotes] = useState('');
+
+  const [allAvailableTags, setAllAvailableTags] = useState<Tag[]>([]);
+  const [allProfiles, setAllProfiles] = useState<Profile[]>([]);
+  const [activeFilterId, setActiveFilterId] = useState<string | null>(null);
 
   // All tags for display
   const [tagsMap, setTagsMap] = useState<Record<string, Tag>>({});
@@ -116,6 +140,7 @@ export default function ContactsPage() {
     try {
       const { data } = await appwrite.from('tags').select('*');
       if (data) {
+        setAllAvailableTags(data);
         const map: Record<string, Tag> = {};
         data.forEach((t) => (map[t.id] = t));
         setTagsMap(map);
@@ -124,6 +149,162 @@ export default function ContactsPage() {
       console.warn('[ContactsPage] Failed to load tags:', err);
     }
   }, [appwrite]);
+
+  const fetchProfiles = useCallback(async () => {
+    try {
+      const { data } = await appwrite
+        .from('profiles')
+        .select('*')
+        .order('full_name');
+      if (data) setAllProfiles(data);
+    } catch (err) {
+      console.warn('[ContactsPage] Failed to load profiles:', err);
+    }
+  }, [appwrite]);
+
+  const handleExportCsv = (selectedOnly = false) => {
+    const url =
+      selectedOnly && selected.size > 0
+        ? `/api/contacts/export?ids=${[...selected].join(',')}`
+        : `/api/contacts/export?search=${encodeURIComponent(search)}`;
+    window.open(url, '_blank');
+    toast.success('Downloading contacts export CSV...');
+  };
+
+  const handleBulkAssign = async () => {
+    if (!bulkAssignUserId) {
+      toast.error('Please select a team member');
+      return;
+    }
+    const ids = [...selected];
+    try {
+      const res = await fetch('/api/contacts/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'assign',
+          contact_ids: ids,
+          payload: { assigned_user_id: bulkAssignUserId },
+        }),
+      });
+      if (!res.ok) throw new Error('Bulk assign failed');
+      toast.success(`Assigned ${ids.length} contacts`);
+      setSelected(new Set());
+      setBulkAssignOpen(false);
+      fetchContacts();
+    } catch {
+      toast.error('Failed to assign contacts');
+    }
+  };
+
+  const handleBulkTag = async () => {
+    if (!bulkTagId) {
+      toast.error('Please select a tag');
+      return;
+    }
+    const ids = [...selected];
+    try {
+      const res = await fetch('/api/contacts/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'add_tag',
+          contact_ids: ids,
+          payload: { tag_id: bulkTagId },
+        }),
+      });
+      if (!res.ok) throw new Error('Bulk tagging failed');
+      toast.success(`Tagged ${ids.length} contacts`);
+      setSelected(new Set());
+      setBulkTagOpen(false);
+      fetchContacts();
+    } catch {
+      toast.error('Failed to tag contacts');
+    }
+  };
+
+  const handleBulkRemoveTag = async () => {
+    if (!bulkRemoveTagId) {
+      toast.error('Please select a tag to remove');
+      return;
+    }
+    const ids = [...selected];
+    try {
+      const res = await fetch('/api/contacts/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'remove_tag',
+          contact_ids: ids,
+          payload: { tag_id: bulkRemoveTagId },
+        }),
+      });
+      if (!res.ok) throw new Error('Bulk tag removal failed');
+      toast.success(`Removed tag from ${ids.length} contacts`);
+      setSelected(new Set());
+      setBulkRemoveTagOpen(false);
+      fetchContacts();
+    } catch {
+      toast.error('Failed to remove tag');
+    }
+  };
+
+  const handleBulkMoveStage = async () => {
+    if (!bulkStage) {
+      toast.error('Please select a stage');
+      return;
+    }
+    const ids = [...selected];
+    try {
+      const res = await fetch('/api/contacts/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'move_stage',
+          contact_ids: ids,
+          payload: { stage: bulkStage },
+        }),
+      });
+      if (!res.ok) throw new Error('Bulk stage update failed');
+      toast.success(`Moved ${ids.length} contacts to stage "${bulkStage}"`);
+      setSelected(new Set());
+      setBulkStageOpen(false);
+      fetchContacts();
+    } catch {
+      toast.error('Failed to update stage');
+    }
+  };
+
+  const handleBulkCreateFollowup = async () => {
+    if (!bulkTaskDueDate) {
+      toast.error('Please select a due date');
+      return;
+    }
+    const ids = [...selected];
+    try {
+      const res = await fetch('/api/contacts/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'create_followup',
+          contact_ids: ids,
+          payload: {
+            followup_type: bulkTaskTitle || 'Follow-up Task',
+            due_date: bulkTaskDueDate,
+            notes: bulkTaskNotes || null,
+            assigned_user_id: bulkTaskUserId || null,
+          },
+        }),
+      });
+      if (!res.ok) throw new Error('Bulk task creation failed');
+      toast.success(`Created follow-up tasks for ${ids.length} contacts`);
+      setSelected(new Set());
+      setBulkFollowupOpen(false);
+      fetchContacts();
+    } catch {
+      toast.error('Failed to create follow-up tasks');
+    }
+  };
 
   const fetchContacts = useCallback(async () => {
     requestAbortRef.current?.abort();
@@ -259,7 +440,8 @@ export default function ContactsPage() {
   // warns about doesn't apply here.
   useEffect(() => {
     fetchTags();
-  }, [fetchTags]);
+    fetchProfiles();
+  }, [fetchTags, fetchProfiles]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void fetchContacts(), 250);
@@ -476,6 +658,15 @@ export default function ContactsPage() {
           </GatedButton>
           <Button
             variant="outline"
+            onClick={() => handleExportCsv(false)}
+            className="border-border text-muted-foreground hover:bg-muted gap-1.5"
+          >
+            <Download className="size-4" />
+            Export CSV
+          </Button>
+
+          <Button
+            variant="outline"
             onClick={() => {
               setSelectedOutboundContact(null);
               setOutboundModalOpen(true);
@@ -498,35 +689,104 @@ export default function ContactsPage() {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-sm">
-        <Search className="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
-        <Input
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            // Reset pagination when the query changes — the result
-            // set shrinks/grows, page N may no longer be valid.
+      {/* Search & Saved Filters Bar */}
+      <div className="space-y-2">
+        <div className="relative max-w-sm">
+          <Search className="text-muted-foreground absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
+          <Input
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(0);
+            }}
+            placeholder={`Search by name, phone, or email...`}
+            className="bg-card border-border text-foreground placeholder:text-muted-foreground pl-8"
+          />
+        </div>
+
+        <SavedFilterBar
+          entityType="contacts"
+          currentFilters={{ search }}
+          activeFilterId={activeFilterId}
+          onSelectFilter={(filterId, filters) => {
+            setActiveFilterId(filterId);
+            if (filters && typeof filters.search === 'string') {
+              setSearch(filters.search);
+            } else if (filterId === null) {
+              setSearch('');
+            }
             setPage(0);
           }}
-          placeholder={`Search by name, phone, or email...`}
-          className="bg-card border-border text-foreground placeholder:text-muted-foreground pl-8"
         />
       </div>
 
       {/* Bulk action bar */}
       {selected.size > 0 && (
-        <div className="border-border bg-muted/40 flex items-center justify-between gap-4 rounded-lg border px-4 py-2">
+        <div className="border-border bg-muted/40 flex flex-wrap items-center justify-between gap-3 rounded-lg border px-4 py-2">
           <p className="text-foreground text-sm">
             <span className="font-medium">{selected.size}</span>{' '}
             {selected.size === 1 ? 'contact' : 'contacts'} selected
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setBulkAssignOpen(true)}
+              className="gap-1 text-xs"
+            >
+              <UserCheck className="text-primary size-3.5" />
+              Assign
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setBulkTagOpen(true)}
+              className="gap-1 text-xs"
+            >
+              <TagIcon className="text-primary size-3.5" />
+              Add Tag
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setBulkRemoveTagOpen(true)}
+              className="gap-1 text-xs"
+            >
+              <TagIcon className="size-3.5 text-amber-500" />
+              Remove Tag
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setBulkStageOpen(true)}
+              className="gap-1 text-xs"
+            >
+              <TrendingUp className="size-3.5 text-blue-500" />
+              Move Stage
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setBulkFollowupOpen(true)}
+              className="gap-1 text-xs"
+            >
+              <Clock className="size-3.5 text-indigo-500" />
+              Create Follow-up
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleExportCsv(true)}
+              className="gap-1 text-xs"
+            >
+              <Download className="size-3.5" />
+              Export
+            </Button>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setSelected(new Set())}
-              className="text-muted-foreground hover:text-foreground"
+              className="text-muted-foreground hover:text-foreground text-xs"
             >
               Clear
             </Button>
@@ -537,8 +797,8 @@ export default function ContactsPage() {
               gateReason="delete contacts"
               onClick={() => setBulkDeleteOpen(true)}
             >
-              <Trash2 className="size-4" />
-              Delete selected
+              <Trash2 className="size-3.5" />
+              Delete
             </GatedButton>
           </div>
         </div>
@@ -973,6 +1233,253 @@ export default function ContactsPage() {
             >
               {deleting && <Loader2 className="size-4 animate-spin" />}
               Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Assign Dialog */}
+      <Dialog open={bulkAssignOpen} onOpenChange={setBulkAssignOpen}>
+        <DialogContent className="bg-popover border-border text-popover-foreground sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-popover-foreground">
+              Assign {selected.size}{' '}
+              {selected.size === 1 ? 'Contact' : 'Contacts'}
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Select a team member to assign the selected contacts to.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-3">
+            <select
+              value={bulkAssignUserId}
+              onChange={(e) => setBulkAssignUserId(e.target.value)}
+              className="border-input bg-background focus:ring-primary w-full rounded-md border px-3 py-2 text-xs focus:ring-1"
+            >
+              <option value="">Select Team Member...</option>
+              {allProfiles.map((p) => (
+                <option key={p.id || p.user_id} value={p.id || p.user_id}>
+                  {p.full_name || p.email} ({p.role || 'Member'})
+                </option>
+              ))}
+            </select>
+          </div>
+          <DialogFooter className="bg-popover border-border">
+            <Button
+              variant="outline"
+              onClick={() => setBulkAssignOpen(false)}
+              className="border-border text-muted-foreground hover:bg-muted"
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleBulkAssign} disabled={!bulkAssignUserId}>
+              Assign Contacts
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Tag Dialog */}
+      <Dialog open={bulkTagOpen} onOpenChange={setBulkTagOpen}>
+        <DialogContent className="bg-popover border-border text-popover-foreground sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-popover-foreground">
+              Add Tag to {selected.size}{' '}
+              {selected.size === 1 ? 'Contact' : 'Contacts'}
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Choose a tag to apply to all selected contacts.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-3">
+            <select
+              value={bulkTagId}
+              onChange={(e) => setBulkTagId(e.target.value)}
+              className="border-input bg-background focus:ring-primary w-full rounded-md border px-3 py-2 text-xs focus:ring-1"
+            >
+              <option value="">Select a tag...</option>
+              {allAvailableTags.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <DialogFooter className="bg-popover border-border">
+            <Button
+              variant="outline"
+              onClick={() => setBulkTagOpen(false)}
+              className="border-border text-muted-foreground hover:bg-muted"
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleBulkTag} disabled={!bulkTagId}>
+              Apply Tag
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Remove Tag Dialog */}
+      <Dialog open={bulkRemoveTagOpen} onOpenChange={setBulkRemoveTagOpen}>
+        <DialogContent className="bg-popover border-border text-popover-foreground sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-popover-foreground">
+              Remove Tag from {selected.size}{' '}
+              {selected.size === 1 ? 'Contact' : 'Contacts'}
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Choose a tag to remove from all selected contacts.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-3">
+            <select
+              value={bulkRemoveTagId}
+              onChange={(e) => setBulkRemoveTagId(e.target.value)}
+              className="border-input bg-background focus:ring-primary w-full rounded-md border px-3 py-2 text-xs focus:ring-1"
+            >
+              <option value="">Select a tag to remove...</option>
+              {allAvailableTags.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <DialogFooter className="bg-popover border-border">
+            <Button
+              variant="outline"
+              onClick={() => setBulkRemoveTagOpen(false)}
+              className="border-border text-muted-foreground hover:bg-muted"
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleBulkRemoveTag} disabled={!bulkRemoveTagId}>
+              Remove Tag
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Move Stage Dialog */}
+      <Dialog open={bulkStageOpen} onOpenChange={setBulkStageOpen}>
+        <DialogContent className="bg-popover border-border text-popover-foreground sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-popover-foreground">
+              Move {selected.size}{' '}
+              {selected.size === 1 ? 'Contact' : 'Contacts'} to Stage
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Select the pipeline stage to apply to the selected contacts.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-3">
+            <select
+              value={bulkStage}
+              onChange={(e) => setBulkStage(e.target.value)}
+              className="border-input bg-background focus:ring-primary w-full rounded-md border px-3 py-2 text-xs focus:ring-1"
+            >
+              <option value="NEW">New Lead</option>
+              <option value="QUALIFYING">Qualifying</option>
+              <option value="QUALIFIED">Qualified</option>
+              <option value="BOOKED">Booked</option>
+              <option value="FOLLOW_UP">Follow-up</option>
+              <option value="CONVERTED">Converted</option>
+              <option value="LOST">Lost</option>
+            </select>
+          </div>
+          <DialogFooter className="bg-popover border-border">
+            <Button
+              variant="outline"
+              onClick={() => setBulkStageOpen(false)}
+              className="border-border text-muted-foreground hover:bg-muted"
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleBulkMoveStage} disabled={!bulkStage}>
+              Update Stage
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Create Follow-up Dialog */}
+      <Dialog open={bulkFollowupOpen} onOpenChange={setBulkFollowupOpen}>
+        <DialogContent className="bg-popover border-border text-popover-foreground sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-popover-foreground">
+              Create Follow-up for {selected.size}{' '}
+              {selected.size === 1 ? 'Contact' : 'Contacts'}
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Schedule a task or reminder for all selected contacts.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <label className="text-muted-foreground mb-1 block text-xs font-medium">
+                Task / Follow-up Title
+              </label>
+              <Input
+                value={bulkTaskTitle}
+                onChange={(e) => setBulkTaskTitle(e.target.value)}
+                placeholder="e.g. Follow-up Call, Review, Payment Reminder"
+                className="text-xs"
+              />
+            </div>
+            <div>
+              <label className="text-muted-foreground mb-1 block text-xs font-medium">
+                Due Date
+              </label>
+              <Input
+                type="date"
+                value={bulkTaskDueDate}
+                onChange={(e) => setBulkTaskDueDate(e.target.value)}
+                className="text-xs"
+              />
+            </div>
+            <div>
+              <label className="text-muted-foreground mb-1 block text-xs font-medium">
+                Assign to Teammate (Optional)
+              </label>
+              <select
+                value={bulkTaskUserId}
+                onChange={(e) => setBulkTaskUserId(e.target.value)}
+                className="border-input bg-background focus:ring-primary w-full rounded-md border px-3 py-2 text-xs focus:ring-1"
+              >
+                <option value="">Unassigned</option>
+                {allProfiles.map((p) => (
+                  <option key={p.id || p.user_id} value={p.id || p.user_id}>
+                    {p.full_name || p.email} ({p.role || 'Member'})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-muted-foreground mb-1 block text-xs font-medium">
+                Notes (Optional)
+              </label>
+              <Input
+                value={bulkTaskNotes}
+                onChange={(e) => setBulkTaskNotes(e.target.value)}
+                placeholder="Additional instructions..."
+                className="text-xs"
+              />
+            </div>
+          </div>
+          <DialogFooter className="bg-popover border-border">
+            <Button
+              variant="outline"
+              onClick={() => setBulkFollowupOpen(false)}
+              className="border-border text-muted-foreground hover:bg-muted"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleBulkCreateFollowup}
+              disabled={!bulkTaskDueDate}
+            >
+              Schedule Follow-ups
             </Button>
           </DialogFooter>
         </DialogContent>
