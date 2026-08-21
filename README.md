@@ -133,6 +133,15 @@ npm run build            # Next.js 16 production compilation
 
 ---
 
+## 📚 Documentation & Roadmap
+
+- **Engineering Roadmap**: [**Helpa 10/10 Engineering Roadmap**](docs/10-OUT-OF-10-ROADMAP.md) — The canonical improvement and operational maturity plan.
+- **Historical Audits**: [**`docs/audits/`**](docs/audits/README.md) — Archive of past architecture assessments and readiness audits.
+- **Embedded Signup Guide**: [**WhatsApp Embedded Signup Setup**](docs/WHATSAPP_EMBEDDED_SIGNUP.md)
+- **Deployment Guide**: [**Canonical Production Deployment**](docs/canonical-production-deployment.md)
+
+---
+
 ## 📖 Upstream Attribution
 
 Helpa is developed by **Helpa Studio** and is based on the MIT-licensed [wacrm](https://github.com/ArnasDon/wacrm) project by [ArnasDon](https://github.com/ArnasDon). It extends the core architecture with multi-industry modules, 1-click Meta Embedded Signup, Super Admin control center, SaaS billing, security hardening, and clinical healthcare workflows.

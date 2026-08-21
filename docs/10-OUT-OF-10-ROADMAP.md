@@ -29,10 +29,10 @@ Helpa reaches the target when every item below has objective, reproducible evide
 ## P1 — Maintainability and test confidence
 
 - [ ] Refactor dashboard pages larger than 400 lines into feature components, hooks, and service modules.
-- [ ] Add coverage reporting with minimum thresholds for authentication, tenant guards, webhook verification, billing, outbox, and encryption modules.
-- [ ] Add contract tests for Meta WhatsApp and payment-provider boundaries.
+- [x] Add coverage reporting with minimum thresholds for authentication, tenant guards, webhook verification, billing, outbox, and encryption modules.
+- [x] Add contract tests for Meta WhatsApp and payment-provider boundaries.
 - [ ] Add migration rollback tests and restore drills.
-- [ ] Consolidate overlapping audit documents under `docs/audits/` and maintain one current readiness report.
+- [x] Consolidate overlapping audit documents under `docs/audits/` and maintain one current readiness report.
 
 **Exit evidence:** enforced coverage thresholds, no oversized route components without an exception, and a tested rollback procedure.
 
