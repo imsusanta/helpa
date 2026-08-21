@@ -1,138 +1,104 @@
-# Helpa — AI Business Communication Platform & CRM
+# Helpa — WhatsApp AI receptionist for clinics
 
-> **Helpa** by Helpa Studio is a production-grade, multi-tenant AI business communication platform and CRM. Built for clinics, doctors, coaching institutes, solo tutors, beauty salons, real estate agencies, and modern service businesses. Automate 24/7 customer & patient conversations, book appointments, generate signed digital OPD slips, manage multi-industry pipelines, and orchestrate omnichannel messaging via official Meta WhatsApp Business Cloud API.
+> Turn patient messages into confirmed appointments while keeping clinic staff in control.
+
+[![CI](https://github.com/imsusanta/helpa/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/imsusanta/helpa/actions/workflows/ci.yml)
+[![Coverage](https://github.com/imsusanta/helpa/actions/workflows/coverage.yml/badge.svg?branch=main)](https://github.com/imsusanta/helpa/actions/workflows/coverage.yml)
+[![CodeQL](https://github.com/imsusanta/helpa/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/imsusanta/helpa/actions/workflows/codeql.yml)
+[![Production verification](https://github.com/imsusanta/helpa/actions/workflows/post-deploy.yml/badge.svg?branch=main)](https://github.com/imsusanta/helpa/actions/workflows/post-deploy.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](./LICENSE)
 
 <p align="center">
-  <img src="./public/assets/helpa-hero.svg" alt="Helpa — AI Business Communication Platform" width="850">
+  <img src="./public/assets/helpa-hero.svg" alt="Helpa clinic communication platform" width="850">
 </p>
 
-<p align="center">
-  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-emerald.svg" alt="License: MIT"></a>
-  <a href="https://github.com/imsusanta/helpa/releases"><img src="https://img.shields.io/badge/Release-v0.3.0--production-blue.svg" alt="Release: v0.3.0"></a>
-  <a href="https://github.com/imsusanta/helpa/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/imsusanta/helpa/ci.yml?branch=main&label=CI" alt="CI Status"></a>
-  <a href="https://nextjs.org"><img src="https://img.shields.io/badge/Next.js-16.3-black?logo=nextdotjs" alt="Next.js 16.3"></a>
-  <a href="https://supabase.com"><img src="https://img.shields.io/badge/Supabase-PostgreSQL%20%26%20Auth-3ECF8E?logo=supabase" alt="Supabase PostgreSQL"></a>
-  <a href="https://www.typescriptlang.org"><img src="https://img.shields.io/badge/TypeScript-5.0+-blue?logo=typescript" alt="TypeScript Strict"></a>
-</p>
+## Clinic workflow
 
----
+Helpa is focused first on independent clinics and outpatient teams in India that manage patient enquiries through WhatsApp.
 
-## 📐 System Architecture
+1. A patient asks a clinic-approved question on WhatsApp.
+2. Helpa answers supported intents and checks real doctor availability.
+3. The patient chooses a slot and receives confirmation and reminders.
+4. Staff can review, assign, or take over the conversation at any time.
+5. OPD slips, reports, and follow-up activity remain connected to the patient journey.
+
+## Product proof
+
+- [90-second demo storyboard and seven-shot capture list](./docs/PRODUCT_DEMO.md)
+- [Outcome definitions and publication rules](./docs/PRODUCT_METRICS.md)
+- [Public roadmap](./ROADMAP.md)
+
+The walkthrough and real authenticated-product screenshots are tracked in [issue #84](https://github.com/imsusanta/helpa/issues/84). They will be added only after a staging capture with fictional patient data; synthetic mockups are not presented as product screenshots.
+
+Production outcomes are not fabricated. Response time, bookings handled, automation success, and patient return rate will be published after instrumentation, validation, consent, and a complete observation window, tracked in [issue #83](https://github.com/imsusanta/helpa/issues/83).
+
+## Security posture
+
+Current safeguards include:
+
+- Meta WhatsApp Cloud API webhook signature verification and idempotency.
+- Supabase authentication, PostgreSQL row-level security, and server-side tenant guards.
+- Authenticated encryption for sensitive integration credentials.
+- Signed, time-limited document access.
+- Private no-store caching for authenticated and clinical routes.
+- CI secret detection, dependency auditing, security regression tests, and CodeQL analysis.
+
+These are engineering controls, **not a compliance certification**. See the [external security review brief](./docs/EXTERNAL_SECURITY_REVIEW_BRIEF.md) and [issue #81](https://github.com/imsusanta/helpa/issues/81). Helpa should not claim HIPAA, DPDP, or equivalent compliance until independent technical and legal reviews are complete.
+
+## Architecture
 
 ```mermaid
-graph TD
-    Client["Customer / Patient / Lead"] -->|WhatsApp Cloud API| Webhook["POST /api/whatsapp/webhook"]
-    User["Staff / Doctor / Agent"] -->|Browser Auth| WebApp["Next.js 16 Appwrite/Supabase SSR"]
-
-    subgraph Security Boundary
-        Webhook -->|HMAC-SHA256 Signature| WebhookVerifier["Webhook Verifier & Idempotency"]
-        WebhookVerifier -->|AI Natural Language| Receptionist["Dual AI Engine & Copilot"]
-        WebApp -->|Session Verification| Guard["Tenant Isolation & RBAC Guard"]
-    end
-
-    subgraph Multi-Tenant Database Layer
-        Receptionist -->|Supabase Client / Pooler| DB[("PostgreSQL Database (Supabase)")]
-        Guard -->|Tenant Scoped RLS| DB
-    end
-
-    subgraph Business & Clinical Workflows
-        Receptionist -->|Signed Token Engine| OPD["OPD Ticket / Invoice PDF Engine"]
-        Receptionist -->|Automations| Flows["Visual Automation Engine"]
-        OPD -->|Cache-Control: private, no-store| PDF["Signed Digital Slip with QR"]
-    end
+graph LR
+  Patient[Patient on WhatsApp] --> Meta[Meta Cloud API]
+  Meta --> Webhook[Verified webhook]
+  Webhook --> AI[Clinic-approved AI workflow]
+  AI --> DB[(Supabase PostgreSQL + RLS)]
+  Staff[Clinic staff] --> Web[Next.js dashboard]
+  Web --> Guard[Session + tenant guard]
+  Guard --> DB
 ```
 
----
+- **Application:** Next.js 16, React 19, TypeScript
+- **Data and authentication:** Supabase PostgreSQL, SSR auth, RLS
+- **Messaging:** Official Meta WhatsApp Business Cloud API
+- **Testing:** Vitest and Playwright
+- **Deployment verification:** Commit-aware post-deployment health checks
 
-## 🏢 Supported Industry Modules
+The remaining Appwrite compatibility layer is rollback-only migration code. Its removal requires a dedicated verified cutover and is tracked in [issue #82](https://github.com/imsusanta/helpa/issues/82); deleting it inside an unrelated marketing change would create avoidable data and rollback risk.
 
-Helpa provides dynamically customized terminology, navigation, AI tools, and workflows for 5 major verticals:
-
-1. **🏥 Health & Clinic Module**:
-   - Sequential Patient IDs (`PT-XXXXXX`), doctor schedules, real-time slot conflict prevention.
-   - HMAC-signed OPD consultation slip generation with embedded QR codes.
-   - Pathology lab report dispatch & automated WhatsApp follow-up reminders.
-2. **🎓 Coaching Institute Module**:
-   - 10-stage admission pipeline from `New Enquiry` to `Enrolled`.
-   - Course catalog, batch capacity management, automated fee payment alerts.
-3. **📚 Solo Tutor / Private Teacher Module**:
-   - Focused workspace for independent educators with multi-child parent ambiguity resolution.
-   - 24h & 2h class reminder notifications, homework assignments & doubt tracking.
-4. **💇 Salon & Beauty Module**:
-   - Beauty treatment menus, real-time stylist availability, one-click rescheduling.
-   - 30-day retention follow-ups to maximize repeat bookings.
-5. **🏢 Real Estate Module**:
-   - Sequential Lead IDs (`LEAD-XXXXXX`), budget and property requirement matching.
-   - Site visit appointment bookings with automated agent assignments.
-
----
-
-## 🔒 Security & Data Protection Architecture
-
-1. **Fail-Closed Webhook Verification**: Inbound WhatsApp webhooks on `POST /api/whatsapp/webhook` enforce constant-time HMAC-SHA256 signature verification with `WHATSAPP_APP_SECRET`.
-2. **Encrypted Credentials at Rest**: Meta Cloud API tokens and third-party keys are encrypted using **AES-256-GCM** authenticated encryption with NIST-approved 16-byte authentication tags.
-3. **Strict Multi-Tenant Isolation**: Server-side tenant guards verify that every database mutation is scoped strictly to the authenticated `account_id`. Foreign resource access attempts are denied with `403 Forbidden` and logged.
-4. **Signed Document Access**: Appointment slips, invoices, and lab reports are protected by short-lived HMAC-SHA256 tokens with configurable expiration timestamps.
-5. **PII & PHI Redaction**: The structured logger automatically sanitizes patient names, medical notes, phone numbers (`+91******1234`), passwords, and bearer tokens from telemetry.
-6. **Strict No-Store Cache Policy**: Authenticated dashboard and clinical routes enforce `Cache-Control: private, no-store` to prevent public CDN or edge caching.
-
-> [!NOTE]
-> **Compliance Notice**: Helpa is engineered to support compliance-readiness (including India DPDP Act and HIPAA technical safeguards when deployed within appropriate HIPAA Business Associate / DPDP compliant infrastructure). Independent clinical legal audit is recommended prior to healthcare production deployment.
-
----
-
-## 🗄️ Database & Provider Architecture
-
-- **Active Production Database**: **Supabase (PostgreSQL 15+)** with deterministic SQL migrations, row-level security (RLS), and JWT session verification.
-- **Provider Abstraction**: A unified server compatibility layer (`src/lib/appwrite-server-compat.ts`) abstracts data operations, allowing seamless cutover with legacy Appwrite rollback capabilities.
-
----
-
-## 🚀 Quick Start & Development
-
-### 1. Clone & Install
+## Local development
 
 ```bash
 git clone https://github.com/imsusanta/helpa.git
 cd helpa
 npm ci
-```
-
-### 2. Configure Environment
-
-Copy `.env.local.example` to `.env.local` and configure your API keys:
-
-```bash
 cp .env.local.example .env.local
+npm run dev
 ```
 
-Key environment variables:
-
-```env
-AUTH_PROVIDER="supabase"
-DATABASE_PROVIDER="supabase"
-MIGRATION_MODE="cutover"
-NEXT_PUBLIC_SUPABASE_URL="https://your-project.supabase.co"
-NEXT_PUBLIC_SUPABASE_ANON_KEY="your-supabase-anon-key"
-SUPABASE_SERVICE_ROLE_KEY="your-supabase-service-role-key"
-ENCRYPTION_KEY="32_byte_hex_key"
-WHATSAPP_APP_SECRET="your_meta_app_secret"
-```
-
-### 3. Run Quality Gates
+## Quality gates
 
 ```bash
-npm run format:check     # Prettier formatting verification
-npm run lint             # Strict ESLint check (0 warnings allowed)
-npm run typecheck        # TypeScript strict type validation
-npm test                 # Vitest unit & regression suites
-npm run test:integration # Tenant-isolation & security tests
-npm run supabase:validate# Validate database migrations manifest
-npm run build            # Next.js 16 production compilation
+npm run format:check
+npm run lint
+npm run typecheck
+npm test
+npm run test:integration
+npm run supabase:validate
+npm run build
+npm run test:e2e
 ```
 
----
+CI also produces a downloadable HTML coverage report, blocks high-severity dependency vulnerabilities, scans for secrets, runs CodeQL, and verifies the deployed commit after changes reach `main`.
 
-## 📖 Upstream Attribution
+## Responsible deployment
 
-Helpa is developed by **Helpa Studio** and is based on the MIT-licensed [wacrm](https://github.com/ArnasDon/wacrm) project by [ArnasDon](https://github.com/ArnasDon). It extends the core architecture with multi-industry modules, 1-click Meta Embedded Signup, Super Admin control center, SaaS billing, security hardening, and clinical healthcare workflows.
+Do not use production patient data in demos or tests. Before a healthcare production rollout, complete the external review, data-protection assessment, vendor agreements, retention policy, incident-response process, backup/restore testing, and jurisdiction-specific legal review.
+
+## Attribution
+
+Helpa is developed by **Helpa Studio** and is based on the MIT-licensed [wacrm](https://github.com/ArnasDon/wacrm) project by ArnasDon.
+
+## License
+
+[MIT](./LICENSE)
