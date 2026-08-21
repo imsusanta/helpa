@@ -170,4 +170,49 @@ describe('OAuth State Security & Single-Use Verification', () => {
       })
     ).rejects.toThrow(/Invalid or unknown OAuth state/i);
   });
+
+  it('gracefully handles missing schema cache via HMAC fallback', async () => {
+    // Simulate PostgREST schema cache error
+    vi.spyOn(supabaseServer, 'getAdminClient').mockReturnValue({
+      from: () => ({
+        insert: () =>
+          Promise.resolve({
+            data: null,
+            error: {
+              message:
+                "Could not find the table 'public.oauth_states' in the schema cache",
+              code: 'PGRST205',
+            },
+          }),
+      }),
+    } as unknown as ReturnType<typeof supabaseServer.getAdminClient>);
+
+    const { state, expiresAt } = await generateOAuthState({
+      accountId: tenantA.id,
+      userId: tenantA.userId,
+    });
+
+    expect(state).toMatch(/^hmac\./);
+    expect(expiresAt).toBeDefined();
+
+    // Validating the HMAC fallback state
+    const validated = await validateAndConsumeOAuthState({
+      state,
+      accountId: tenantA.id,
+      userId: tenantA.userId,
+    });
+
+    expect(validated.accountId).toBe(tenantA.id);
+    expect(validated.userId).toBe(tenantA.userId);
+    expect(validated.state).toBe(state);
+
+    // Tenant mismatch with HMAC state
+    await expect(
+      validateAndConsumeOAuthState({
+        state,
+        accountId: tenantB.id,
+        userId: tenantB.userId,
+      })
+    ).rejects.toThrow(/tenant mismatch/i);
+  });
 });

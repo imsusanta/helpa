@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import {
+  BadgeDollarSign,
   Bot,
   ChevronsUpDown,
   ChevronDown,
@@ -16,7 +17,6 @@ import {
   MessageCircle,
   MessageSquare,
   Package,
-  Receipt,
   Settings,
   Settings2,
   X,
@@ -90,7 +90,7 @@ const NAV: NavItem[] = [
   { label: 'Products / Services', href: '/services', icon: Package },
   {
     label: 'Billing',
-    icon: Receipt,
+    icon: BadgeDollarSign,
     children: [
       { label: 'Invoices', href: '/billing/invoices' },
       { label: 'Reports', href: '/billing/reports' },

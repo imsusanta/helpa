@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
 import {
   AlertCircle,
@@ -178,10 +179,10 @@ export function Header({ onOpenSidebar }: HeaderProps) {
               </p>
             </div>
             <DropdownMenuSeparator />
-            <DropdownMenuItem render={<a href="/settings?tab=profile" />}>
+            <DropdownMenuItem render={<Link href="/settings?tab=profile" />}>
               <User className="h-4 w-4" /> Profile
             </DropdownMenuItem>
-            <DropdownMenuItem render={<a href="/settings" />}>
+            <DropdownMenuItem render={<Link href="/settings" />}>
               <SettingsIcon className="h-4 w-4" /> Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator />
