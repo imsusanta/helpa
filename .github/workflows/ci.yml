@@ -64,8 +64,22 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Format check
+      - id: format
+        name: Format check
         run: npm run format:check
+      - name: Emit formatting diagnostics
+        if: steps.format.outcome == 'failure'
+        run: |
+          npx prettier --list-different \
+            "src/**/*.{ts,tsx,js,jsx,json,css}" \
+            "scripts/**/*.{ts,js,mjs}" \
+            "*.{json,ts,mjs,js}" > /tmp/prettier-files.txt || true
+          while IFS= read -r file; do
+            if [ -n "$file" ]; then
+              echo "::error file=$file,title=Formatting required::Run npm run format"
+            fi
+          done < /tmp/prettier-files.txt
+          exit 1
       - name: Strict lint
         run: npm run lint
       - name: Typecheck
@@ -89,8 +103,21 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Unit tests
-        run: npm test
+      - id: unit_tests
+        name: Unit tests
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee /tmp/unit-tests.log
+      - name: Emit unit-test diagnostics
+        if: steps.unit_tests.outcome == 'failure'
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const lines = fs.readFileSync('/tmp/unit-tests.log', 'utf8').trim().split('\n').slice(-80);
+          const message = lines.join('\n').replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
+          console.log(`::error title=Unit tests failed::${message}`);
+          NODE
+          exit 1
       - name: Tenant isolation tests
         run: npm run test:integration
       - name: Validate Supabase migrations
@@ -113,8 +140,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Security regression tests
+      - id: security_tests
+        name: Security regression tests
         run: |
+          set -o pipefail
           npx vitest run \
             src/tests/security \
             src/tests/security-hardening.test.ts \
@@ -122,7 +151,18 @@ jobs:
             src/tests/whatsapp/outbox-service.test.ts \
             src/tests/whatsapp/webhook-idempotency.test.ts \
             src/tests/whatsapp/oauth-state.test.ts \
-            src/tests/reminders/appointment-reminders.test.ts
+            src/tests/reminders/appointment-reminders.test.ts \
+            2>&1 | tee /tmp/security-tests.log
+      - name: Emit security-test diagnostics
+        if: steps.security_tests.outcome == 'failure'
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const lines = fs.readFileSync('/tmp/security-tests.log', 'utf8').trim().split('\n').slice(-80);
+          const message = lines.join('\n').replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
+          console.log(`::error title=Security tests failed::${message}`);
+          NODE
+          exit 1
       - name: Block high-severity dependency vulnerabilities
         run: npm audit --audit-level=high
 

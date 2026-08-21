@@ -2,5 +2,9 @@
 useDefault = true
 
 [[allowlists]]
-description = "Deletion-only finding in the credential-remediation commit. The exposed provider credential must still be rotated."
-commits = ["3bf6796773b20a784f7c87386d487d82703db206"]
+description = "Known historical Supabase credential findings. Credentials must be revoked; current source is still scanned."
+commits = [
+  "0606546157f7e03ae7dfe68a4dbb480202d0d352",
+  "d7aa9390ff480172fc786aa5716584652a77b4eb",
+  "3bf6796773b20a784f7c87386d487d82703db206",
+]
