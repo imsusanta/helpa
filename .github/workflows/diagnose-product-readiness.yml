@@ -1,4 +1,4 @@
-name: Repair remaining PR failures
+name: Apply landing formatting repair
 
 on:
   push:
@@ -8,10 +8,10 @@ permissions:
   contents: write
 
 jobs:
-  repair:
+  repair-formatting:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
@@ -22,22 +22,13 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Apply code-controlled repairs
+      - run: npm run format
+      - run: npm run format:check
+      - name: Commit formatting repair
         run: |
-          npm run format
-          npm install --save-dev --save-exact @vitest/coverage-v8@4.1.10
           rm -rf diagnostics/ci
-          npm run format:check
-          npm run lint
-          npm run typecheck
-          npx vitest run --coverage --exclude='**/src/tests/integration/**'
-      - name: Commit repairs
-        run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package.json package-lock.json src diagnostics/ci
-          if git diff --cached --quiet; then
-            exit 0
-          fi
-          git commit -m "fix(ci): format landing page and install coverage provider"
+          git add src diagnostics/ci
+          git commit -m "fix(ci): format landing page components"
           git push origin HEAD:improve/product-readiness-9
