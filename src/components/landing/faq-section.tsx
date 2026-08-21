@@ -2,28 +2,28 @@
 
 import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 
 const FAQS = [
   {
-    q: 'Can I keep my existing WhatsApp Business number?',
-    a: 'Yes! Helpa supports official Meta WhatsApp Business App + Cloud API coexistence for eligible accounts. You can continue using your mobile WhatsApp Business app while simultaneously powering Helpa AI receptionist, automations, and team inbox.',
+    q: 'Can our clinic keep its existing WhatsApp Business number?',
+    a: 'Eligible Meta accounts can use supported WhatsApp Business App and Cloud API coexistence. Availability depends on Meta’s account and region requirements, which Helpa checks during onboarding.',
   },
   {
-    q: 'Do I need technical skills or developer experience to connect?',
-    a: 'Not at all. With Helpa 1-Click Embedded Signup, you simply click "Continue with Meta", select your business account, and Meta automatically configures webhooks and credentials without copy-pasting API keys.',
+    q: 'Does our receptionist need technical skills?',
+    a: 'No developer setup is expected for normal onboarding. An authorized clinic administrator connects the Meta business account, then configures clinic hours, doctors, services, approved answers, and handoff rules.',
   },
   {
-    q: 'How does Helpa AI learn about my business?',
-    a: 'You can upload your price lists, doctor schedules, course fees, treatment menus, and FAQs directly to your Knowledge Base. Helpa AI uses this private knowledge base to answer customer questions accurately without hallucinating.',
+    q: 'Can Helpa make medical decisions?',
+    a: 'No. Helpa is designed for administrative communication such as approved FAQs, availability, booking, reminders, and staff handoff. Diagnosis, prescribing, triage, and clinical decisions must remain with qualified professionals.',
   },
   {
-    q: 'Can multiple staff members use the same WhatsApp number?',
-    a: 'Yes. Helpa includes a Unified Multi-Agent Inbox where doctors, receptionists, teachers, stylists, and agents can collaborate on chats, assign leads, and see live customer timelines.',
+    q: 'Can multiple clinic staff use the same number?',
+    a: 'Yes. The shared inbox supports assignments and staff takeover so receptionists and authorized team members can work from the same clinic number with a conversation history.',
   },
   {
-    q: 'Is my customer and patient data secure?',
-    a: 'Absolutely. Helpa enforces strict tenant isolation, role-based access control, and AES-256-GCM encryption for all stored credentials. Tenant A can never access Tenant B data.',
+    q: 'Is Helpa healthcare-compliance certified?',
+    a: 'Not currently. Helpa includes security controls for sensitive workflows, but those controls are not a compliance certification. Independent technical and legal reviews are required before making HIPAA, DPDP, or equivalent claims.',
   },
 ];
 
@@ -34,46 +34,21 @@ export function LandingFaqSection() {
     <section className="bg-[#FAF9FC] py-20">
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
         <div className="mb-12 text-center">
-          <span className="mb-2 inline-flex items-center rounded-full bg-purple-50 px-3 py-1 text-xs font-bold text-purple-700">
-            Frequently Asked Questions
-          </span>
-          <h2 className="text-3xl font-extrabold text-[#110E3D]">
-            Everything you need to know
-          </h2>
+          <span className="mb-2 inline-flex items-center rounded-full bg-purple-50 px-3 py-1 text-xs font-bold text-purple-700">Clinic FAQ</span>
+          <h2 className="text-3xl font-extrabold text-[#110E3D]">Questions before your clinic starts</h2>
         </div>
-
         <div className="space-y-3">
-          {FAQS.map((faq, idx) => {
-            const isOpen = openIndex === idx;
+          {FAQS.map((faq, index) => {
+            const isOpen = openIndex === index;
             return (
-              <div
-                key={idx}
-                className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xs transition-all"
-              >
-                <button
-                  type="button"
-                  onClick={() => setOpenIndex(isOpen ? null : idx)}
-                  className="flex w-full items-center justify-between gap-4 p-5 text-left"
-                >
-                  <span className="text-sm font-bold text-[#110E3D] sm:text-base">
-                    {faq.q}
-                  </span>
-                  <ChevronDown
-                    className={`h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 ${
-                      isOpen ? 'rotate-180 text-[#110E3D]' : ''
-                    }`}
-                  />
+              <div key={faq.q} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <button type="button" aria-expanded={isOpen} onClick={() => setOpenIndex(isOpen ? null : index)} className="flex min-h-11 w-full items-center justify-between gap-4 p-5 text-left">
+                  <span className="text-sm font-bold text-[#110E3D] sm:text-base">{faq.q}</span>
+                  <ChevronDown className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${isOpen ? 'rotate-180 text-[#110E3D]' : ''}`} />
                 </button>
-
                 <AnimatePresence>
                   {isOpen && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="border-t border-slate-100 px-5 pt-3 pb-5 text-xs leading-relaxed text-slate-600 sm:text-sm"
-                    >
+                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="border-t border-slate-100 px-5 pt-3 pb-5 text-sm leading-relaxed text-slate-600">
                       {faq.a}
                     </motion.div>
                   )}
