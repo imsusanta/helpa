@@ -234,8 +234,10 @@ export async function processMessage(
   contact: { profile: { name: string }; wa_id: string },
   accountId: string,
   configOwnerUserId: string,
-  accessToken: string
+  accessToken: string,
+  correlationId?: string
 ) {
+  void correlationId;
   const senderPhone = normalizePhone(message.from);
   const contactName = contact.profile.name;
 

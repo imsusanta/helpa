@@ -1,4 +1,5 @@
 import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import crypto from 'node:crypto';
 
 export interface OutboxEntryPayload {
   accountId: string;
@@ -8,6 +9,7 @@ export interface OutboxEntryPayload {
   conversationId?: string;
   contactId?: string | null;
   provider?: string;
+  correlationId?: string;
 }
 
 export type OutboxCreateResult =
@@ -35,6 +37,7 @@ export class OutboxService {
   ): Promise<OutboxCreateResult> {
     const dbAdmin = appwriteAdmin();
     const now = new Date().toISOString();
+    const correlationId = payload.correlationId || crypto.randomUUID();
 
     // 1. Check if an existing outbox record already exists for (accountId, idempotencyKey)
     let existingDoc: Record<string, unknown> | null = null;
@@ -113,6 +116,7 @@ export class OutboxService {
         payload: {
           requestHash: payload.requestHash,
           channel: payload.channel || 'whatsapp',
+          correlationId,
         },
         status: 'processing',
         created_at: now,
