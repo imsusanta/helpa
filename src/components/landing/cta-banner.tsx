@@ -16,11 +16,22 @@ export function LandingCtaBanner({ isAuthenticated }: CtaBannerProps) {
             <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-[#B4F73C]">
               <Sparkles className="h-3.5 w-3.5" /> Built for independent clinics
             </span>
-            <h2 className="text-3xl leading-[1.1] font-extrabold tracking-tight sm:text-5xl">Give your front desk a calmer WhatsApp workflow</h2>
-            <p className="mx-auto max-w-xl text-sm text-slate-300 sm:text-base">Start with appointment enquiries, approved FAQs, confirmations, reminders, and safe staff takeover.</p>
+            <h2 className="text-3xl leading-[1.1] font-extrabold tracking-tight sm:text-5xl">
+              Give your front desk a calmer WhatsApp workflow
+            </h2>
+            <p className="mx-auto max-w-xl text-sm text-slate-300 sm:text-base">
+              Start with appointment enquiries, approved FAQs, confirmations,
+              reminders, and safe staff takeover.
+            </p>
             <div className="pt-4">
-              <Link href={isAuthenticated ? '/dashboard' : '/signup'} className="inline-flex min-h-11 items-center gap-2 rounded-full bg-gradient-to-r from-[#C4F135] to-[#4EE3C2] px-8 py-3.5 text-sm font-bold text-[#110E3D] shadow-lg sm:text-base">
-                {isAuthenticated ? 'Open Helpa Dashboard' : 'Start Clinic Trial'} <ArrowRight className="h-4 w-4" />
+              <Link
+                href={isAuthenticated ? '/dashboard' : '/signup'}
+                className="inline-flex min-h-11 items-center gap-2 rounded-full bg-gradient-to-r from-[#C4F135] to-[#4EE3C2] px-8 py-3.5 text-sm font-bold text-[#110E3D] shadow-lg sm:text-base"
+              >
+                {isAuthenticated
+                  ? 'Open Helpa Dashboard'
+                  : 'Start Clinic Trial'}{' '}
+                <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
           </div>

@@ -34,21 +34,42 @@ export function LandingFaqSection() {
     <section className="bg-[#FAF9FC] py-20">
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
         <div className="mb-12 text-center">
-          <span className="mb-2 inline-flex items-center rounded-full bg-purple-50 px-3 py-1 text-xs font-bold text-purple-700">Clinic FAQ</span>
-          <h2 className="text-3xl font-extrabold text-[#110E3D]">Questions before your clinic starts</h2>
+          <span className="mb-2 inline-flex items-center rounded-full bg-purple-50 px-3 py-1 text-xs font-bold text-purple-700">
+            Clinic FAQ
+          </span>
+          <h2 className="text-3xl font-extrabold text-[#110E3D]">
+            Questions before your clinic starts
+          </h2>
         </div>
         <div className="space-y-3">
           {FAQS.map((faq, index) => {
             const isOpen = openIndex === index;
             return (
-              <div key={faq.q} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <button type="button" aria-expanded={isOpen} onClick={() => setOpenIndex(isOpen ? null : index)} className="flex min-h-11 w-full items-center justify-between gap-4 p-5 text-left">
-                  <span className="text-sm font-bold text-[#110E3D] sm:text-base">{faq.q}</span>
-                  <ChevronDown className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${isOpen ? 'rotate-180 text-[#110E3D]' : ''}`} />
+              <div
+                key={faq.q}
+                className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+              >
+                <button
+                  type="button"
+                  aria-expanded={isOpen}
+                  onClick={() => setOpenIndex(isOpen ? null : index)}
+                  className="flex min-h-11 w-full items-center justify-between gap-4 p-5 text-left"
+                >
+                  <span className="text-sm font-bold text-[#110E3D] sm:text-base">
+                    {faq.q}
+                  </span>
+                  <ChevronDown
+                    className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${isOpen ? 'rotate-180 text-[#110E3D]' : ''}`}
+                  />
                 </button>
                 <AnimatePresence>
                   {isOpen && (
-                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="border-t border-slate-100 px-5 pt-3 pb-5 text-sm leading-relaxed text-slate-600">
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="border-t border-slate-100 px-5 pt-3 pb-5 text-sm leading-relaxed text-slate-600"
+                    >
                       {faq.a}
                     </motion.div>
                   )}

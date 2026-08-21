@@ -11,7 +11,8 @@ const CLINIC_WORKFLOW = [
   {
     icon: MessageCircle,
     title: 'Patient asks on WhatsApp',
-    description: 'Helpa handles common questions using clinic-approved information.',
+    description:
+      'Helpa handles common questions using clinic-approved information.',
   },
   {
     icon: CalendarCheck,
@@ -21,12 +22,14 @@ const CLINIC_WORKFLOW = [
   {
     icon: CheckCircle2,
     title: 'Appointment is confirmed',
-    description: 'The patient and clinic receive a clear confirmation and reminder.',
+    description:
+      'The patient and clinic receive a clear confirmation and reminder.',
   },
   {
     icon: FileCheck2,
     title: 'Visit follow-up stays organized',
-    description: 'OPD slips, reports, and approved follow-ups remain connected to the patient record.',
+    description:
+      'OPD slips, reports, and approved follow-ups remain connected to the patient record.',
   },
 ];
 
@@ -42,31 +45,47 @@ export function LandingIndustrySolutions() {
             One patient journey, from first message to follow-up
           </h2>
           <p className="mt-3 text-base text-slate-600">
-            A focused workflow for independent clinics and outpatient teams—not a generic CRM with healthcare labels.
+            A focused workflow for independent clinics and outpatient teams—not
+            a generic CRM with healthcare labels.
           </p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {CLINIC_WORKFLOW.map(({ icon: Icon, title, description }, index) => (
-            <article key={title} className="rounded-2xl border border-slate-200 bg-slate-50 p-6">
+            <article
+              key={title}
+              className="rounded-2xl border border-slate-200 bg-slate-50 p-6"
+            >
               <div className="mb-5 flex items-center justify-between">
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-indigo-700 shadow-sm">
                   <Icon className="h-5 w-5" />
                 </div>
-                <span className="text-xs font-bold text-slate-400">0{index + 1}</span>
+                <span className="text-xs font-bold text-slate-400">
+                  0{index + 1}
+                </span>
               </div>
               <h3 className="text-base font-bold text-[#110E3D]">{title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-slate-600">{description}</p>
+              <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                {description}
+              </p>
             </article>
           ))}
         </div>
 
         <div className="mt-10 rounded-2xl border border-emerald-200 bg-emerald-50 p-6 sm:flex sm:items-center sm:justify-between">
           <div>
-            <h3 className="font-bold text-emerald-950">Designed for accountable automation</h3>
-            <p className="mt-1 text-sm text-emerald-800">Staff can review conversations, take over when needed, and keep clinical decisions with qualified people.</p>
+            <h3 className="font-bold text-emerald-950">
+              Designed for accountable automation
+            </h3>
+            <p className="mt-1 text-sm text-emerald-800">
+              Staff can review conversations, take over when needed, and keep
+              clinical decisions with qualified people.
+            </p>
           </div>
-          <Link href="/signup" className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-full bg-[#110E3D] px-6 py-3 text-sm font-bold text-white sm:mt-0">
+          <Link
+            href="/signup"
+            className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-full bg-[#110E3D] px-6 py-3 text-sm font-bold text-white sm:mt-0"
+          >
             Start clinic workspace <ArrowRight className="h-4 w-4" />
           </Link>
         </div>

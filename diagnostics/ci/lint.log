@@ -1,4 +1,0 @@
-
-> helpa@0.3.0 lint
-> eslint . --max-warnings=0
-

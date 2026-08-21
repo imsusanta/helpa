@@ -75,7 +75,10 @@ export function LandingHero({ isAuthenticated }: HeroProps) {
           className="mx-auto grid max-w-4xl gap-3 text-left sm:grid-cols-3"
         >
           {outcomes.map(({ icon: Icon, label }) => (
-            <div key={label} className="flex items-center gap-3 rounded-xl border border-white/80 bg-white/70 p-4 text-sm font-semibold text-slate-700 shadow-sm">
+            <div
+              key={label}
+              className="flex items-center gap-3 rounded-xl border border-white/80 bg-white/70 p-4 text-sm font-semibold text-slate-700 shadow-sm"
+            >
               <Icon className="h-5 w-5 shrink-0 text-emerald-600" />
               <span>{label}</span>
             </div>
