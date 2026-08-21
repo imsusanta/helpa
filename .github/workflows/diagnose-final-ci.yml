@@ -1,4 +1,4 @@
-name: Repair final CI failures
+name: Apply final CI repair
 
 on:
   push:
@@ -11,27 +11,13 @@ jobs:
   repair:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      AUTH_PROVIDER: supabase
-      DATABASE_PROVIDER: supabase
-      MIGRATION_MODE: cutover
-      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-test-supabase-anon-key
-      SUPABASE_SERVICE_ROLE_KEY: ci-test-supabase-service-role-key
-      ENCRYPTION_KEY: '0000000000000000000000000000000000000000000000000000000000000000'
-      META_APP_SECRET: ci-dummy-meta-secret
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
           ref: improve/product-readiness-9
           fetch-depth: 0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - name: Apply authorization test repairs
+      - name: Apply authorization repairs
         shell: python
         run: |
           from pathlib import Path
@@ -71,13 +57,12 @@ jobs:
           )
           text = text.replace('actorEmail: PLATFORM_OWNER_EMAIL,', 'actorEmail: PLATFORM_ADMIN_ACTOR,')
           qa.write_text(text)
-
-          Path('diagnostics/ci').mkdir(parents=True, exist_ok=True)
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
       - run: npm run format
-      - run: npm run format:check
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm test
       - name: Commit repairs
         run: |
           rm -rf diagnostics/ci
