@@ -18,7 +18,8 @@ vi.mock('@/lib/supabase/server', () => ({
   }),
 }));
 
-import { GET, sanitizeCsvValue } from '@/app/api/contacts/export/route';
+import { GET } from '@/app/api/contacts/export/route';
+import { sanitizeCsvValue } from '@/lib/csv';
 
 describe('CSV Export & Formula Injection Sanitization', () => {
   it('neutralizes spreadsheet formula injection payloads', () => {
@@ -95,7 +96,6 @@ describe('CSV Export & Formula Injection Sanitization', () => {
       );
       expect(text).toContain('"VIP"');
 
-      // Verify that query was filtered by tenant-a
       expect(mockQuery.eq).toHaveBeenCalledWith('account_id', 'tenant-a');
     });
   });

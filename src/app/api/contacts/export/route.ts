@@ -4,25 +4,8 @@ import {
   UnauthorizedError,
   requireRole,
 } from '@/lib/auth/account';
+import { sanitizeCsvValue } from '@/lib/csv';
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
-
-/**
- * Escapes CSV fields to prevent CSV / Formula Injection attacks (CWE-1236).
- * Formulas starting with =, +, -, @, \t, \r are prepended with a single quote.
- */
-function sanitizeCsvValue(value: unknown): string {
-  if (value === null || value === undefined) return '""';
-  let str = String(value).trim();
-
-  // Escape formula triggers
-  if (/^[=+\-@\t\r]/.test(str)) {
-    str = `'${str}`;
-  }
-
-  // Escape double quotes by doubling them
-  str = str.replace(/"/g, '""');
-  return `"${str}"`;
-}
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
@@ -65,7 +48,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Fetch tags for exported contacts
     const contactIds = (contacts || []).map((c) => c.id);
     const contactTagMap: Record<string, string[]> = {};
     if (contactIds.length > 0) {
