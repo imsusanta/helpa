@@ -1,0 +1,78 @@
+name: Cutover diagnostics
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  diagnose:
+    if: github.head_ref == 'migration/supabase-only-v2'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-test-supabase-anon-key
+      SUPABASE_SERVICE_ROLE_KEY: ci-test-supabase-service-role-key
+      ENCRYPTION_KEY: '0000000000000000000000000000000000000000000000000000000000000000'
+      META_APP_SECRET: ci-dummy-meta-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Capture diagnostics
+        id: diagnostics
+        shell: bash
+        run: |
+          set +e
+          : > /tmp/cutover-diagnostics.txt
+          run_check() {
+            echo "\n## $1" >> /tmp/cutover-diagnostics.txt
+            shift
+            "$@" >> /tmp/cutover-diagnostics.txt 2>&1
+            echo "exit_code=$?" >> /tmp/cutover-diagnostics.txt
+          }
+          run_check "npm ci" npm ci
+          if grep -q '^exit_code=0$' /tmp/cutover-diagnostics.txt; then
+            run_check "format" npm run format:check
+            run_check "typecheck" npm run typecheck
+            run_check "targeted cutover tests" npx vitest run src/lib/runtime-config.test.ts src/tests/appwrite
+          fi
+          tail -c 12000 /tmp/cutover-diagnostics.txt > /tmp/cutover-diagnostics-tail.txt
+          exit 0
+      - name: Post diagnostic summary
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const text = fs.readFileSync('/tmp/cutover-diagnostics-tail.txt', 'utf8')
+              .replace(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, '[REDACTED_JWT]');
+            const marker = '<!-- cutover-diagnostics -->';
+            const body = `${marker}\n### Supabase cutover diagnostics\n\n\`\`\`text\n${text}\n\`\`\``;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c => c.body?.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
