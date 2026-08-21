@@ -33,7 +33,7 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npx playwright install --with-deps chromium
-      - name: Capture Playwright failure
+      - name: Capture Playwright failure details
         run: |
           set +e
           npm run test:e2e 2>&1 | tee /tmp/e2e.log
