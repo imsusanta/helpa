@@ -235,6 +235,7 @@ export type WhatsAppConnectionStatus =
   | 'action_required'
   | 'not_eligible'
   | 'error'
+  | 'needs_reconnect'
   | 'reconnect_required';
 
 export type WhatsAppConnectionType = 'coexistence' | 'standard' | 'manual';
