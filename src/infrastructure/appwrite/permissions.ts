@@ -1,11 +1,8 @@
-import { Permission, Role } from 'node-appwrite';
-
-export function createTenantPermissions(accountId: string) {
-  const _teamRole = `team:${accountId}`;
-  return [
-    Permission.read(Role.team(accountId)),
-    Permission.update(Role.team(accountId, 'owner')),
-    Permission.update(Role.team(accountId, 'admin')),
-    Permission.delete(Role.team(accountId, 'owner')),
-  ];
+/**
+ * Supabase authorization is enforced by PostgreSQL RLS, not document-level
+ * permission strings. Kept temporarily so legacy repository signatures remain
+ * source-compatible during the import rename.
+ */
+export function createTenantPermissions(_accountId: string): string[] {
+  return [];
 }

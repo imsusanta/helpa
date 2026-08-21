@@ -1,42 +1,20 @@
-import { Client, Account, Databases, Users } from 'node-appwrite';
+import {
+  createClient as createSupabaseServerClient,
+  getAdminClient as getSupabaseAdminClient,
+} from '@/lib/supabase/server';
 
-import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
-
-const endpoint = APPWRITE_CONFIG.endpoint;
-const projectId = APPWRITE_CONFIG.projectId;
-const apiKey = process.env.APPWRITE_API_KEY || APPWRITE_CONFIG.apiKey;
-
+/** @deprecated Use `getAdminClient` from `@/lib/supabase/server`. */
 export function createAdminClient() {
-  const adminClient = new Client()
-    .setEndpoint(endpoint)
-    .setProject(projectId)
-    .setKey(apiKey);
-
+  const client = getSupabaseAdminClient();
   return {
-    get account() {
-      return new Account(adminClient);
-    },
-    get databases() {
-      return new Databases(adminClient);
-    },
-    get users() {
-      return new Users(adminClient);
-    },
+    account: client.auth.admin,
+    databases: client,
+    users: client.auth.admin,
   };
 }
 
-export function createSessionClient(sessionSecret: string) {
-  const sessionClient = new Client()
-    .setEndpoint(endpoint)
-    .setProject(projectId)
-    .setSession(sessionSecret);
-
-  return {
-    get account() {
-      return new Account(sessionClient);
-    },
-    get databases() {
-      return new Databases(sessionClient);
-    },
-  };
+/** @deprecated Supabase sessions are read from HttpOnly cookies. */
+export async function createSessionClient(_sessionSecret?: string) {
+  const client = await createSupabaseServerClient();
+  return { account: client.auth, databases: client };
 }

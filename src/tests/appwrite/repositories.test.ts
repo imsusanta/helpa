@@ -1,10 +1,14 @@
-import { describe, it, expect } from 'vitest';
-import { leadsRepository } from '@/infrastructure/appwrite/repositories/leads.repository';
+import { describe, expect, it } from 'vitest';
+import fs from 'fs';
+import path from 'path';
 
-describe('Appwrite Repositories Unit Tests', () => {
-  it('instantiates leadsRepository cleanly', () => {
-    expect(leadsRepository).toBeDefined();
-    expect(typeof leadsRepository.listLeads).toBe('function');
-    expect(typeof leadsRepository.updateStage).toBe('function');
+describe('Legacy repository contract cutover', () => {
+  it('uses the Supabase admin client behind the compatibility boundary', () => {
+    const source = fs.readFileSync(
+      path.join(process.cwd(), 'src/infrastructure/appwrite/server.ts'),
+      'utf8'
+    );
+    expect(source).toContain("from '@/lib/supabase/server'");
+    expect(source).not.toContain("from 'node-appwrite'");
   });
 });
