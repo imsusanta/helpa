@@ -1,13 +1,11 @@
 'use client';
 
 import { useAuth } from '@/hooks/use-auth';
-import { OnboardingOverlay } from './onboarding-overlay';
-import { ClinicalDashboardClient } from './clinical-dashboard-client';
 import { GenericDashboardClient } from './generic-dashboard-client';
 import { Loader2 } from 'lucide-react';
 
 export function DashboardDispatcher() {
-  const { account, profileLoading } = useAuth();
+  const { profileLoading } = useAuth();
 
   if (profileLoading) {
     return (
@@ -15,16 +13,6 @@ export function DashboardDispatcher() {
         <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
       </div>
     );
-  }
-
-  // If no industry has been selected, force onboarding wizard overlay
-  if (!account || !account.industry || account.industry === 'general') {
-    return <OnboardingOverlay />;
-  }
-
-  // Dispatch to the matching dashboard client
-  if (account.industry === 'hospital_clinic') {
-    return <ClinicalDashboardClient />;
   }
 
   return <GenericDashboardClient />;

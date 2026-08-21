@@ -1,5 +1,3 @@
-import fs from 'fs';
-import path from 'path';
 import { COMPILED_BUILD_METADATA } from './build-info.generated';
 
 export type DeploymentShaStatus = 'available' | 'missing' | 'invalid';
@@ -35,23 +33,12 @@ interface BuildMetadataFile {
 }
 
 function readBuildMetadata(): BuildMetadataFile | null {
-  try {
-    const paths = [
-      path.join(process.cwd(), 'src', 'lib', 'build-metadata.json'),
-      path.join(process.cwd(), 'src', 'lib', 'build-info.json'),
-    ];
-
-    for (const p of paths) {
-      if (fs.existsSync(p)) {
-        const content = fs.readFileSync(p, 'utf-8');
-        const parsed = JSON.parse(content);
-        if (parsed?.commit && !ZERO_SHA_REGEX.test(parsed.commit)) {
-          return parsed;
-        }
-      }
-    }
-  } catch {
-    // Ignore read errors
+  if (
+    COMPILED_BUILD_METADATA &&
+    COMPILED_BUILD_METADATA.commit &&
+    !ZERO_SHA_REGEX.test(COMPILED_BUILD_METADATA.commit)
+  ) {
+    return COMPILED_BUILD_METADATA as BuildMetadataFile;
   }
   return null;
 }
