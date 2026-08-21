@@ -279,6 +279,7 @@ export async function GET() {
           business_name: String(config.business_name || ''),
           webhook_healthy: true,
           messaging_active: true,
+          is_active: true,
           last_health_check_at: new Date().toISOString(),
         },
         phone_info: phoneInfo,
