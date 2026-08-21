@@ -1,4 +1,12 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeEach,
+  afterEach,
+  type MockInstance,
+} from 'vitest';
 import {
   exchangeAuthorizationCode,
   getPhoneNumberDetails,
@@ -7,10 +15,10 @@ import {
 import { sendTextMessage } from '@/lib/whatsapp/meta-api';
 
 describe('Meta WhatsApp Graph API v21.0 Boundary Contract Tests', () => {
-  let fetchSpy: any;
+  let fetchSpy: MockInstance;
 
   beforeEach(() => {
-    fetchSpy = vi.spyOn(globalThis, 'fetch') as any;
+    fetchSpy = vi.spyOn(globalThis, 'fetch') as unknown as MockInstance;
   });
 
   afterEach(() => {
