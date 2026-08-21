@@ -14,6 +14,7 @@ import {
   Plane,
   UtensilsCrossed,
   Briefcase,
+  Dumbbell,
   Loader2,
   CheckCircle2,
   AlertTriangle,
@@ -210,6 +211,36 @@ const INDUSTRIES: IndustryOption[] = [
       'Can I reserve a table for 4 tonight?',
       'What is the price of your buffet?',
       'Do you offer home delivery?',
+    ],
+  },
+  {
+    id: 'gym',
+    name: 'Fitness / Gym',
+    description: 'Gyms, fitness centers, and personal trainers.',
+    icon: Dumbbell,
+    color: 'text-emerald-400',
+    defaultServices: [
+      {
+        name: 'Monthly Gym Membership',
+        price: 1499,
+        desc: 'Full gym floor & cardio access',
+      },
+      {
+        name: 'Personal Training (10 Sessions)',
+        price: 4999,
+        desc: '1-on-1 personalized trainer coaching',
+      },
+      {
+        name: 'Annual VIP Fitness Pass',
+        price: 11999,
+        desc: 'Unlimited annual access + diet plan',
+      },
+    ],
+    sampleQuestions: [
+      'What are your gym membership fees?',
+      'What are your operating hours?',
+      'Do you provide personal trainers?',
+      'Can I get a free trial pass?',
     ],
   },
   {

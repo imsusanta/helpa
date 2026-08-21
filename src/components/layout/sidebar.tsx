@@ -205,9 +205,9 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/helpa-logo.svg"
+              src="/helpa-logo.png"
               alt="Helpa"
-              className="h-10 w-10 rounded-xl"
+              className="h-10 w-10 rounded-xl object-contain shadow-xs"
             />
             <div className="leading-tight">
               <div className="text-[19px] font-extrabold tracking-tight text-white">

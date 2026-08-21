@@ -20,7 +20,10 @@ export const INDUSTRY_REGISTRY: Record<string, IndustryModule> = {
   salon: salonModule,
 };
 
-const INDUSTRY_ALIASES: Record<string, keyof typeof INDUSTRY_REGISTRY> = {
+export const INDUSTRY_ALIASES: Record<
+  string,
+  keyof typeof INDUSTRY_REGISTRY | 'general'
+> = {
   health: 'hospital_clinic',
   hospital: 'hospital_clinic',
   clinic: 'hospital_clinic',
@@ -32,6 +35,7 @@ const INDUSTRY_ALIASES: Record<string, keyof typeof INDUSTRY_REGISTRY> = {
   pathology: 'hospital_clinic',
   coaching: 'coaching',
   institute: 'coaching',
+  education: 'coaching',
   tutor: 'solo_teacher',
   solo_teacher: 'solo_teacher',
   teacher: 'solo_teacher',
@@ -48,7 +52,94 @@ const INDUSTRY_ALIASES: Record<string, keyof typeof INDUSTRY_REGISTRY> = {
   fitness: 'gym',
   restaurant: 'restaurant',
   cafe: 'restaurant',
+  general: 'general',
+  other: 'general',
+  business_services: 'general',
 };
+
+export interface BusinessTypeOption {
+  id: string;
+  label: string;
+  description: string;
+  emoji: string;
+  iconName: string;
+}
+
+export const BUSINESS_TYPE_OPTIONS: readonly BusinessTypeOption[] = [
+  {
+    id: 'hospital_clinic',
+    label: 'Health',
+    description: 'Clinics, hospitals and healthcare businesses.',
+    emoji: '🏥',
+    iconName: 'Activity',
+  },
+  {
+    id: 'travel',
+    label: 'Travel',
+    description: 'Travel agencies, tour operators and travel businesses.',
+    emoji: '✈️',
+    iconName: 'Plane',
+  },
+  {
+    id: 'restaurant',
+    label: 'Restaurant',
+    description: 'Restaurants, cafes and food businesses.',
+    emoji: '🍽️',
+    iconName: 'UtensilsCrossed',
+  },
+  {
+    id: 'coaching',
+    label: 'Education',
+    description:
+      'Coaching centers, institutes, tutors and education businesses.',
+    emoji: '🎓',
+    iconName: 'GraduationCap',
+  },
+  {
+    id: 'salon',
+    label: 'Salon',
+    description: 'Salons, spas and beauty businesses.',
+    emoji: '💇',
+    iconName: 'Scissors',
+  },
+  {
+    id: 'real_estate',
+    label: 'Real Estate',
+    description: 'Property dealers, brokers and real estate agencies.',
+    emoji: '🏠',
+    iconName: 'Building2',
+  },
+  {
+    id: 'gym',
+    label: 'Fitness',
+    description: 'Gyms, fitness centers and trainers.',
+    emoji: '🏋️',
+    iconName: 'Dumbbell',
+  },
+  {
+    id: 'general',
+    label: 'Other Business',
+    description: 'Other businesses and professional services.',
+    emoji: '💼',
+    iconName: 'Briefcase',
+  },
+] as const;
+
+export function isValidIndustry(industry: unknown): boolean {
+  if (!industry || typeof industry !== 'string') return false;
+  const normalized = industry.trim().toLowerCase();
+  if (normalized === 'general' || normalized === 'other') return true;
+  return Boolean(INDUSTRY_ALIASES[normalized] || INDUSTRY_REGISTRY[normalized]);
+}
+
+export function resolveCanonicalIndustry(industry: string): string {
+  if (!industry || typeof industry !== 'string') return 'general';
+  const normalized = industry.trim().toLowerCase();
+  const alias = INDUSTRY_ALIASES[normalized];
+  if (alias) return alias;
+  if (INDUSTRY_REGISTRY[normalized]) return normalized;
+  return 'general';
+}
 
 // Fallback module definition for 'general' or others
 export const generalModule: IndustryModule = {

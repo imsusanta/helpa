@@ -131,4 +131,69 @@ describe('Phase 2: Dynamic Industry Workspace Manifests', () => {
     const nullIndustry = getIndustryModule(null);
     expect(nullIndustry.id).toBe('general');
   });
+
+  describe('Business Type Canonical Selection & Server Validation', () => {
+    it('provides exactly 8 canonical business type options', async () => {
+      const { BUSINESS_TYPE_OPTIONS } = await import('@/modules/registry');
+      expect(BUSINESS_TYPE_OPTIONS).toHaveLength(8);
+      const ids = BUSINESS_TYPE_OPTIONS.map((opt) => opt.id);
+      expect(ids).toContain('hospital_clinic');
+      expect(ids).toContain('travel');
+      expect(ids).toContain('restaurant');
+      expect(ids).toContain('coaching');
+      expect(ids).toContain('salon');
+      expect(ids).toContain('real_estate');
+      expect(ids).toContain('gym');
+      expect(ids).toContain('general');
+    });
+
+    it('resolves canonical keys for UI labels and aliases correctly', async () => {
+      const { resolveCanonicalIndustry } = await import('@/modules/registry');
+      expect(resolveCanonicalIndustry('health')).toBe('hospital_clinic');
+      expect(resolveCanonicalIndustry('hospital_clinic')).toBe(
+        'hospital_clinic'
+      );
+      expect(resolveCanonicalIndustry('travel')).toBe('travel');
+      expect(resolveCanonicalIndustry('restaurant')).toBe('restaurant');
+      expect(resolveCanonicalIndustry('cafe')).toBe('restaurant');
+      expect(resolveCanonicalIndustry('education')).toBe('coaching');
+      expect(resolveCanonicalIndustry('coaching')).toBe('coaching');
+      expect(resolveCanonicalIndustry('salon')).toBe('salon');
+      expect(resolveCanonicalIndustry('real_estate')).toBe('real_estate');
+      expect(resolveCanonicalIndustry('fitness')).toBe('gym');
+      expect(resolveCanonicalIndustry('gym')).toBe('gym');
+      expect(resolveCanonicalIndustry('other')).toBe('general');
+      expect(resolveCanonicalIndustry('general')).toBe('general');
+    });
+
+    it('validates canonical and alias inputs while rejecting invalid industries', async () => {
+      const { isValidIndustry } = await import('@/modules/registry');
+      expect(isValidIndustry('health')).toBe(true);
+      expect(isValidIndustry('travel')).toBe(true);
+      expect(isValidIndustry('restaurant')).toBe(true);
+      expect(isValidIndustry('education')).toBe(true);
+      expect(isValidIndustry('salon')).toBe(true);
+      expect(isValidIndustry('real_estate')).toBe(true);
+      expect(isValidIndustry('fitness')).toBe(true);
+      expect(isValidIndustry('other')).toBe(true);
+      expect(isValidIndustry('general')).toBe(true);
+
+      // Rejections
+      expect(isValidIndustry('')).toBe(false);
+      expect(isValidIndustry(null)).toBe(false);
+      expect(isValidIndustry(undefined)).toBe(false);
+      expect(isValidIndustry('crypto_trading')).toBe(false);
+      expect(isValidIndustry('arbitrary_slug')).toBe(false);
+    });
+
+    it('validates each business type against getIndustryModule', async () => {
+      const { BUSINESS_TYPE_OPTIONS } = await import('@/modules/registry');
+      for (const opt of BUSINESS_TYPE_OPTIONS) {
+        const mod = getIndustryModule(opt.id);
+        expect(mod).toBeDefined();
+        expect(mod.id).toBeTruthy();
+        expect(mod.sidebar.length).toBeGreaterThan(0);
+      }
+    });
+  });
 });
