@@ -54,7 +54,8 @@ const NAV: NavItem[] = [
     children: [
       { label: 'Inbox', href: '/inbox' },
       { label: 'Follow-ups', href: '/follow-ups' },
-      { label: 'Appointments', href: '/appointments' },
+      { label: 'Meetings', href: '/appointments' },
+      { label: 'Calls', href: '/follow-ups' },
     ],
   },
   {
@@ -62,16 +63,18 @@ const NAV: NavItem[] = [
     icon: Megaphone,
     children: [
       { label: 'Campaigns', href: '/broadcasts' },
+      { label: 'Campaign Reports', href: '/broadcasts' },
       { label: 'Lead Forms', href: '/forms' },
-      { label: 'Media Library', href: '/media' },
     ],
   },
   {
     label: 'WhatsApp',
     icon: MessageCircle,
     children: [
+      { label: 'Inbox', href: '/inbox' },
       { label: 'Templates', href: '/templates' },
       { label: 'Forms', href: '/forms' },
+      { label: 'Broadcasts', href: '/broadcasts' },
       { label: 'Broadcast Logs', href: '/broadcasts' },
       { label: 'WhatsApp API', href: '/settings?tab=whatsapp' },
       { label: 'API Docs', href: '/api-docs' },
@@ -85,6 +88,7 @@ const NAV: NavItem[] = [
       { label: 'FAQ Bot', href: '/faq-bot' },
       { label: 'AI Assistant', href: '/ai-assistant' },
       { label: 'Automations', href: '/automations' },
+      { label: 'AI Knowledge Base', href: '/knowledge-base' },
     ],
   },
   { label: 'Products / Services', href: '/services', icon: Package },
@@ -114,8 +118,9 @@ const NAV: NavItem[] = [
     icon: Code2,
     children: [
       { label: 'Connection Key', href: '/settings?tab=api' },
-      { label: 'API Docs', href: '/api-docs' },
+      { label: 'API', href: '/settings?tab=api' },
       { label: 'Webhooks', href: '/settings?tab=webhooks' },
+      { label: 'API Docs', href: '/api-docs' },
     ],
   },
   {
@@ -200,9 +205,9 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/helpa-logo.svg"
+              src="/helpa-logo.png"
               alt="Helpa"
-              className="h-10 w-10 rounded-xl"
+              className="h-10 w-10 rounded-xl object-contain shadow-xs"
             />
             <div className="leading-tight">
               <div className="text-[19px] font-extrabold tracking-tight text-white">

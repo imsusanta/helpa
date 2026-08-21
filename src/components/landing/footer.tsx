@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { Sparkles } from 'lucide-react';
 
 export function LandingFooter() {
   return (
@@ -10,10 +9,13 @@ export function LandingFooter() {
         <div className="grid grid-cols-2 gap-8 border-b border-slate-200/80 pb-12 sm:grid-cols-2 md:grid-cols-5">
           {/* Brand Col */}
           <div className="col-span-2 space-y-4">
-            <Link href="/" className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#110E3D] text-lg font-bold text-white shadow-sm">
-                <Sparkles className="h-4 w-4 text-[#B4F73C]" />
-              </div>
+            <Link href="/" className="flex items-center gap-2.5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/helpa-logo.png"
+                alt="Helpa"
+                className="h-8 w-8 rounded-xl object-contain shadow-xs"
+              />
               <span className="text-xl font-extrabold tracking-tight text-[#110E3D]">
                 helpa<span className="text-[#0866FF]">.</span>
               </span>
