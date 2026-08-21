@@ -13,8 +13,22 @@
   "bugs": {
     "url": "https://github.com/imsusanta/helpa/issues"
   },
-  "keywords": ["crm","whatsapp","whatsapp-business-api","healthcare","clinic","ai-receptionist","nextjs","supabase","appointment-booking","digital-prescriptions","opd-ticket"],
-  "engines": {"node": ">=20.0.0"},
+  "keywords": [
+    "crm",
+    "whatsapp",
+    "whatsapp-business-api",
+    "healthcare",
+    "clinic",
+    "ai-receptionist",
+    "nextjs",
+    "supabase",
+    "appointment-booking",
+    "digital-prescriptions",
+    "opd-ticket"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "dev": "next dev",
     "prebuild": "node scripts/generate-build-metadata.mjs",
