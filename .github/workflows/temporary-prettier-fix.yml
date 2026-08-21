@@ -1,0 +1,40 @@
+name: Temporary Prettier Fix
+
+on:
+  push:
+    branches:
+      - feat/whatsapp-embedded-signup
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Format repository
+        run: npx prettier --write "src/**/*.{ts,tsx,js,jsx,json,css}" "scripts/**/*.{ts,js,mjs}" "*.{json,ts,mjs,js}"
+
+      - name: Commit formatting fixes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet; then
+            echo "No formatting changes needed."
+            exit 0
+          fi
+          git add src scripts package.json package-lock.json tsconfig.json next.config.* 2>/dev/null || true
+          git commit -m "fix(ci): apply Prettier formatting"
+          git push origin HEAD:feat/whatsapp-embedded-signup
