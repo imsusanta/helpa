@@ -1,0 +1,42 @@
+name: Diagnose remaining PR failures
+
+on:
+  push:
+    branches: [improve/product-readiness-9]
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: improve/product-readiness-9
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Capture diagnostics
+        shell: bash
+        run: |
+          mkdir -p diagnostics/ci
+          set +e
+          npm run format:check > diagnostics/ci/format-check.log 2>&1
+          npm run lint > diagnostics/ci/lint.log 2>&1
+          npm run typecheck > diagnostics/ci/typecheck.log 2>&1
+          npm install --no-save --no-package-lock @vitest/coverage-v8@4.1.10 > diagnostics/ci/coverage-install.log 2>&1
+          npx vitest run --coverage --exclude='**/src/tests/integration/**' > diagnostics/ci/coverage.log 2>&1
+          exit 0
+      - name: Commit diagnostics
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add diagnostics/ci
+          git commit -m "chore: capture remaining CI diagnostics"
+          git push origin HEAD:improve/product-readiness-9
