@@ -1,4 +1,4 @@
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/supabase/server';
 import { lookupInternalIdByMetaId } from './conversation-service';
 import type { WhatsAppMessage } from './types';
 
@@ -26,9 +26,11 @@ export async function handleReaction(
     return;
   }
 
+  const db = getAdminClient();
+
   // Empty emoji = removal
   if (!reaction.emoji) {
-    const { error: delError } = await getAdminClient()
+    const { error: delError } = await db
       .from('message_reactions')
       .delete()
       .eq('message_id', targetInternalId)
@@ -40,18 +42,16 @@ export async function handleReaction(
     return;
   }
 
-  const { error: upsertError } = await getAdminClient()
-    .from('message_reactions')
-    .upsert(
-      {
-        message_id: targetInternalId,
-        conversation_id: conversationId,
-        actor_type: 'customer',
-        actor_id: contactId,
-        emoji: reaction.emoji,
-      },
-      { onConflict: 'message_id,actor_type,actor_id' }
-    );
+  const { error: upsertError } = await db.from('message_reactions').upsert(
+    {
+      message_id: targetInternalId,
+      conversation_id: conversationId,
+      actor_type: 'customer',
+      actor_id: contactId,
+      emoji: reaction.emoji,
+    },
+    { onConflict: 'message_id,actor_type,actor_id' }
+  );
   if (upsertError) {
     console.error('[webhook] reaction upsert failed:', upsertError.message);
   }

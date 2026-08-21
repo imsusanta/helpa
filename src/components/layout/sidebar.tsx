@@ -4,28 +4,31 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Activity,
+  BadgeDollarSign,
   Bot,
-  Boxes,
+  ChevronsUpDown,
   ChevronDown,
   ChevronRight,
-  ContactRound,
-  GitBranch,
-  LayoutDashboard,
+  Code2,
+  Home,
+  LayoutGrid,
+  LineChart,
   Megaphone,
+  MessageCircle,
   MessageSquare,
-  PanelLeftClose,
+  Package,
   Settings,
-  Wallet,
-  Webhook,
+  Settings2,
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/use-auth';
 
 interface SidebarProps {
   open?: boolean;
   onClose?: () => void;
 }
+
 type NavItem = {
   label: string;
   href?: string;
@@ -34,10 +37,10 @@ type NavItem = {
 };
 
 const NAV: NavItem[] = [
-  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { label: 'Dashboard', href: '/dashboard', icon: Home },
   {
     label: 'Sales',
-    icon: Activity,
+    icon: LineChart,
     children: [
       { label: 'Leads', href: '/contacts' },
       { label: 'Customers', href: '/customers' },
@@ -51,7 +54,8 @@ const NAV: NavItem[] = [
     children: [
       { label: 'Inbox', href: '/inbox' },
       { label: 'Follow-ups', href: '/follow-ups' },
-      { label: 'Appointments', href: '/appointments' },
+      { label: 'Meetings', href: '/appointments' },
+      { label: 'Calls', href: '/follow-ups' },
     ],
   },
   {
@@ -59,16 +63,18 @@ const NAV: NavItem[] = [
     icon: Megaphone,
     children: [
       { label: 'Campaigns', href: '/broadcasts' },
+      { label: 'Campaign Reports', href: '/broadcasts' },
       { label: 'Lead Forms', href: '/forms' },
-      { label: 'Media Library', href: '/media' },
     ],
   },
   {
     label: 'WhatsApp',
-    icon: MessageSquare,
+    icon: MessageCircle,
     children: [
+      { label: 'Inbox', href: '/inbox' },
       { label: 'Templates', href: '/templates' },
       { label: 'Forms', href: '/forms' },
+      { label: 'Broadcasts', href: '/broadcasts' },
       { label: 'Broadcast Logs', href: '/broadcasts' },
       { label: 'WhatsApp API', href: '/settings?tab=whatsapp' },
       { label: 'API Docs', href: '/api-docs' },
@@ -82,12 +88,13 @@ const NAV: NavItem[] = [
       { label: 'FAQ Bot', href: '/faq-bot' },
       { label: 'AI Assistant', href: '/ai-assistant' },
       { label: 'Automations', href: '/automations' },
+      { label: 'AI Knowledge Base', href: '/knowledge-base' },
     ],
   },
-  { label: 'Products / Services', href: '/services', icon: Boxes },
+  { label: 'Products / Services', href: '/services', icon: Package },
   {
     label: 'Billing',
-    icon: Wallet,
+    icon: BadgeDollarSign,
     children: [
       { label: 'Invoices', href: '/billing/invoices' },
       { label: 'Reports', href: '/billing/reports' },
@@ -97,7 +104,7 @@ const NAV: NavItem[] = [
   },
   {
     label: 'Manage',
-    icon: ContactRound,
+    icon: Settings2,
     children: [
       { label: 'Tags', href: '/settings?tab=tags' },
       { label: 'Columns', href: '/settings?tab=columns' },
@@ -105,14 +112,15 @@ const NAV: NavItem[] = [
       { label: 'Webhook Events', href: '/settings?tab=webhooks' },
     ],
   },
-  { label: 'Integrations', href: '/integrations', icon: GitBranch },
+  { label: 'Integrations', href: '/integrations', icon: LayoutGrid },
   {
     label: 'Developers',
-    icon: Webhook,
+    icon: Code2,
     children: [
       { label: 'Connection Key', href: '/settings?tab=api' },
-      { label: 'API Docs', href: '/api-docs' },
+      { label: 'API', href: '/settings?tab=api' },
       { label: 'Webhooks', href: '/settings?tab=webhooks' },
+      { label: 'API Docs', href: '/api-docs' },
     ],
   },
   {
@@ -138,9 +146,10 @@ function pathIsActive(pathname: string, href?: string) {
 
 export function Sidebar({ open = false, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const { profile } = useAuth();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
     Sales: true,
-    Conversations: true,
+    Conversations: false,
     Marketing: false,
     WhatsApp: false,
     'Automation & AI': false,
@@ -149,6 +158,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
     Developers: false,
     Settings: false,
   });
+
   const activeParent = useMemo(() => {
     for (const item of NAV)
       if (item.children?.some((child) => pathIsActive(pathname, child.href)))
@@ -158,38 +168,46 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
       'Dashboard'
     );
   }, [pathname]);
+
   useEffect(() => {
-    if (activeParent)
+    if (activeParent && activeParent !== 'Dashboard') {
       setExpanded((prev) => ({ ...prev, [activeParent]: true }));
+    }
   }, [activeParent]);
+
   const toggle = (label: string) =>
     setExpanded((prev) => ({ ...prev, [label]: !prev[label] }));
 
   return (
     <>
+      {/* Mobile Backdrop */}
       <div
         className={cn(
-          'fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-[1px] transition-opacity lg:hidden',
+          'fixed inset-0 z-40 bg-slate-950/50 backdrop-blur-xs transition-opacity lg:hidden',
           open ? 'opacity-100' : 'pointer-events-none opacity-0'
         )}
         onClick={onClose}
       />
+
+      {/* Sidebar Aside */}
       <aside
         className={cn(
           'fixed inset-y-0 left-0 z-50 flex w-[252px] shrink-0 flex-col bg-[#071426] text-white transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0',
           open ? 'translate-x-0' : '-translate-x-full'
         )}
       >
-        <div className="flex h-[82px] items-center justify-between border-b border-white/[0.07] px-[18px]">
+        {/* Top Branding */}
+        <div className="flex h-[76px] items-center justify-between px-5">
           <Link
             href="/dashboard"
-            className="flex items-center gap-3"
+            className="flex items-center gap-3.5"
             onClick={onClose}
           >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/helpa-logo.svg"
+              src="/helpa-logo.png"
               alt="Helpa"
-              className="h-10 w-10 rounded-xl"
+              className="h-10 w-10 rounded-xl object-contain shadow-xs"
             />
             <div className="leading-tight">
               <div className="text-[19px] font-extrabold tracking-tight text-white">
@@ -201,76 +219,88 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
             </div>
           </Link>
           <button
-            className="rounded-lg p-2 text-slate-400 hover:bg-white/5 hover:text-white lg:hidden"
+            type="button"
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-white/5 hover:text-white lg:hidden"
             onClick={onClose}
           >
             <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="min-h-0 flex-1 [scrollbar-color:#334155_transparent] overflow-y-auto px-[10px] py-3">
+
+        {/* Navigation Menu */}
+        <div className="min-h-0 flex-1 [scrollbar-width:thin] [scrollbar-color:#1e293b_transparent] overflow-y-auto px-3 py-2">
           <nav className="space-y-1">
             {NAV.map((item) => {
               const Icon = item.icon;
+              const isDashboard = item.label === 'Dashboard';
+              const activeDirect = pathIsActive(pathname, item.href);
               const isParentActive = activeParent === item.label;
               const isExpanded = expanded[item.label];
               const hasChildren = Boolean(item.children?.length);
-              const activeDirect = pathIsActive(pathname, item.href);
-              if (!hasChildren && item.href)
+
+              if (!hasChildren && item.href) {
                 return (
                   <Link
                     key={item.label}
                     href={item.href}
                     onClick={onClose}
                     className={cn(
-                      'group relative flex h-[48px] items-center gap-3 rounded-xl px-3.5 text-[14px] font-semibold transition-colors',
-                      activeDirect
-                        ? 'bg-emerald-500/15 text-white ring-1 ring-emerald-400/20'
-                        : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                      'group relative flex h-[44px] items-center gap-3 rounded-xl px-3.5 text-[14px] font-medium transition-all',
+                      isDashboard && activeDirect
+                        ? 'bg-emerald-500/15 text-white'
+                        : activeDirect
+                          ? 'bg-white/10 font-semibold text-white'
+                          : 'text-slate-300 hover:bg-white/5 hover:text-white'
                     )}
                   >
-                    {activeDirect && (
-                      <span className="absolute top-2 bottom-2 left-0 w-[3px] rounded-full bg-emerald-500" />
+                    {isDashboard && activeDirect && (
+                      <span className="absolute top-2.5 bottom-2.5 left-0 w-[3.5px] rounded-full bg-[#10b981]" />
                     )}
                     <Icon
                       className={cn(
-                        'h-[18px] w-[18px]',
-                        activeDirect
-                          ? 'text-emerald-400'
-                          : 'text-slate-400 group-hover:text-slate-200'
+                        'h-[18px] w-[18px] shrink-0',
+                        isDashboard && activeDirect
+                          ? 'text-[#10b981]'
+                          : activeDirect
+                            ? 'text-white'
+                            : 'text-slate-400 group-hover:text-slate-200'
                       )}
                     />
                     <span>{item.label}</span>
                   </Link>
                 );
+              }
+
               return (
-                <div key={item.label}>
+                <div key={item.label} className="space-y-0.5">
                   <button
                     type="button"
                     onClick={() => toggle(item.label)}
                     className={cn(
-                      'group flex h-[48px] w-full items-center gap-3 rounded-xl px-3.5 text-left text-[14px] font-semibold transition-colors',
-                      isParentActive
-                        ? 'bg-slate-800/80 text-white ring-1 ring-white/5'
+                      'group flex h-[44px] w-full items-center gap-3 rounded-xl px-3.5 text-left text-[14px] font-medium transition-colors',
+                      isParentActive && !isExpanded
+                        ? 'font-semibold text-white'
                         : 'text-slate-300 hover:bg-white/5 hover:text-white'
                     )}
                   >
                     <Icon
                       className={cn(
-                        'h-[18px] w-[18px]',
+                        'h-[18px] w-[18px] shrink-0',
                         isParentActive
-                          ? 'text-emerald-400'
+                          ? 'text-slate-200'
                           : 'text-slate-400 group-hover:text-slate-200'
                       )}
                     />
                     <span className="flex-1">{item.label}</span>
                     {isExpanded ? (
-                      <ChevronDown className="h-4 w-4 text-slate-500" />
+                      <ChevronDown className="h-4 w-4 text-slate-400" />
                     ) : (
                       <ChevronRight className="h-4 w-4 text-slate-500" />
                     )}
                   </button>
+
                   {isExpanded && item.children && (
-                    <div className="ml-4 border-l border-white/8 py-1 pl-3">
+                    <div className="space-y-0.5 pt-0.5 pr-1 pb-1 pl-9">
                       {item.children.map((child) => {
                         const active = pathIsActive(pathname, child.href);
                         return (
@@ -279,9 +309,9 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                             href={child.href}
                             onClick={onClose}
                             className={cn(
-                              'flex h-9 items-center rounded-lg px-3 text-[13px] font-medium transition-colors',
+                              'flex h-8 items-center rounded-lg px-2.5 text-[13px] font-medium transition-colors',
                               active
-                                ? 'bg-white/8 text-white'
+                                ? 'font-semibold text-white'
                                 : 'text-slate-400 hover:bg-white/5 hover:text-slate-100'
                             )}
                           >
@@ -296,21 +326,32 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
             })}
           </nav>
         </div>
-        <div className="border-t border-white/8 bg-[#061122] p-4">
+
+        {/* Bottom User Profile Section */}
+        <div className="border-t border-white/[0.08] px-4 py-3.5">
           <Link
             href="/settings?tab=profile"
-            className="flex items-center gap-3 rounded-xl px-1 py-2 hover:bg-white/5"
+            className="flex items-center gap-3 rounded-xl px-1.5 py-1 transition-colors hover:bg-white/5"
           >
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-xs font-extrabold text-white">
-              SU
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#10b981] text-xs font-bold text-white">
+              {profile?.full_name
+                ? profile.full_name
+                    .split(' ')
+                    .map((n) => n[0])
+                    .join('')
+                    .slice(0, 2)
+                    .toUpperCase()
+                : 'SU'}
             </div>
             <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-bold text-white">
-                Helpa Admin
+              <div className="truncate text-[13px] font-semibold text-white">
+                {profile?.full_name || 'susanta lohar'}
               </div>
-              <div className="text-xs text-slate-400">Administrator</div>
+              <div className="text-[11px] text-slate-400 capitalize">
+                {profile?.role || 'Admin'}
+              </div>
             </div>
-            <PanelLeftClose className="h-4 w-4 text-slate-500" />
+            <ChevronsUpDown className="h-3.5 w-3.5 text-slate-400" />
           </Link>
         </div>
       </aside>

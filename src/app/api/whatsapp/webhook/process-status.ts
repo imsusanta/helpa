@@ -1,4 +1,4 @@
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/supabase/server';
 import type { Database } from '@/types/database';
 import type { WhatsAppStatusUpdate } from './types';
 
@@ -35,20 +35,26 @@ export function isValidStatusTransition(
 }
 
 export async function handleStatusUpdate(status: WhatsAppStatusUpdate) {
+  const db = getAdminClient();
+
   // 1) Mirror onto messages
-  const { error: msgErr } = await getAdminClient()
+  const { error: msgErr } = await db
     .from('messages')
     .update({ status: status.status as MessageStatus })
-    .eq('messageId', status.id);
+    .eq('provider_message_id', status.id);
 
   if (msgErr) {
-    console.error('Error updating message status:', msgErr);
+    // Fallback to legacy field name if needed
+    await db
+      .from('messages')
+      .update({ status: status.status as MessageStatus })
+      .eq('messageId', status.id);
   }
 
   // 2) Mirror onto broadcast_recipients via whatsapp_message_id
   const tsIso = new Date(parseInt(status.timestamp) * 1000).toISOString();
 
-  const { data: recipient, error: recFetchErr } = await getAdminClient()
+  const { data: recipient, error: recFetchErr } = await db
     .from('broadcast_recipients')
     .select('id, status')
     .eq('whatsapp_message_id', status.id)
@@ -69,7 +75,7 @@ export async function handleStatusUpdate(status: WhatsAppStatusUpdate) {
   if (status.status === 'delivered') update.delivered_at = tsIso;
   if (status.status === 'read') update.read_at = tsIso;
 
-  const { error: recUpdateErr } = await getAdminClient()
+  const { error: recUpdateErr } = await db
     .from('broadcast_recipients')
     .update(update)
     .eq('id', recipient.id);

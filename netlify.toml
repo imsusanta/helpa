@@ -1,0 +1,5 @@
+[build]
+  # Netlify stops the build when this command exits successfully. CI and
+  # documentation-only pull requests do not affect a deployable application,
+  # so avoid producing misleading failed preview checks for those changes.
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- src e2e scripts supabase public package.json package-lock.json next.config.ts tsconfig.json postcss.config.mjs vercel.json"

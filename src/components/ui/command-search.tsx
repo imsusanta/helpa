@@ -14,13 +14,41 @@ import {
   BookOpen,
   Settings,
   X,
+  Loader2,
+  DollarSign,
+  User,
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 
 export interface CommandSearchProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+}
+
+interface SearchEntityResults {
+  contacts: Array<{
+    id: string;
+    name?: string;
+    phone?: string;
+    email?: string;
+    company?: string;
+  }>;
+  deals: Array<{
+    id: string;
+    name: string;
+    value?: number;
+    currency?: string;
+    status?: string;
+  }>;
+  appointments: Array<{
+    id: string;
+    starts_at: string;
+    status: string;
+    notes?: string;
+    contact?: { name?: string; phone?: string };
+  }>;
 }
 
 const COMMAND_NAV_ITEMS = [
@@ -37,16 +65,22 @@ const COMMAND_NAV_ITEMS = [
     category: 'Navigation',
   },
   {
-    label: 'Patients Directory',
-    href: '/patients',
+    label: 'Contacts Directory',
+    href: '/contacts',
     icon: Users,
-    category: 'Clinical',
+    category: 'CRM',
   },
   {
-    label: 'Doctors Roster',
-    href: '/doctors',
+    label: 'Leads Kanban',
+    href: '/leads',
     icon: UserPlus,
-    category: 'Clinical',
+    category: 'Sales',
+  },
+  {
+    label: 'Sales Pipelines & Deals',
+    href: '/pipelines',
+    icon: DollarSign,
+    category: 'Sales',
   },
   {
     label: 'Appointments & OPD Queue',
@@ -55,10 +89,10 @@ const COMMAND_NAV_ITEMS = [
     category: 'Clinical',
   },
   {
-    label: 'Patient Follow-ups',
+    label: 'Tasks & Follow-ups',
     href: '/follow-ups',
     icon: Clock,
-    category: 'Clinical',
+    category: 'CRM',
   },
   {
     label: 'Campaigns & Broadcasts',
@@ -86,6 +120,14 @@ export function CommandSearch({
 }: CommandSearchProps) {
   const [internalOpen, setInternalOpen] = React.useState(false);
   const [query, setQuery] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
+  const [entityResults, setEntityResults] = React.useState<SearchEntityResults>(
+    {
+      contacts: [],
+      deals: [],
+      appointments: [],
+    }
+  );
   const router = useRouter();
 
   const isOpen = externalOpen !== undefined ? externalOpen : internalOpen;
@@ -112,7 +154,37 @@ export function CommandSearch({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, setOpen]);
 
-  const filteredItems = COMMAND_NAV_ITEMS.filter(
+  // Live entity search with debounce
+  React.useEffect(() => {
+    if (!query.trim() || query.trim().length < 2) {
+      setEntityResults({ contacts: [], deals: [], appointments: [] });
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `/api/search/global?q=${encodeURIComponent(query.trim())}`
+        );
+        if (res.ok) {
+          const json = await res.json();
+          setEntityResults(
+            json.data || { contacts: [], deals: [], appointments: [] }
+          );
+        }
+      } catch (err) {
+        console.warn('[CommandSearch] Live search failed:', err);
+      } finally {
+        setLoading(false);
+      }
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  const filteredNavItems = COMMAND_NAV_ITEMS.filter(
     (item) =>
       item.label.toLowerCase().includes(query.toLowerCase()) ||
       item.category.toLowerCase().includes(query.toLowerCase())
@@ -124,19 +196,27 @@ export function CommandSearch({
     router.push(href);
   };
 
+  const hasEntityResults =
+    entityResults.contacts.length > 0 ||
+    entityResults.deals.length > 0 ||
+    entityResults.appointments.length > 0;
+
   return (
     <Dialog open={isOpen} onOpenChange={setOpen}>
-      <DialogContent className="bg-card border-border overflow-hidden p-0 shadow-2xl sm:max-w-[540px]">
+      <DialogContent className="bg-card border-border overflow-hidden p-0 shadow-2xl sm:max-w-[560px]">
         <DialogTitle className="sr-only">Quick Command Search</DialogTitle>
         <div className="border-border flex items-center border-b px-3.5 py-2.5">
           <Search className="text-muted-foreground mr-2.5 h-4 w-4 shrink-0" />
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Type a command or search workspace..."
+            placeholder="Search contacts, deals, appointments, navigation..."
             className="h-8 border-0 bg-transparent p-0 text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
             autoFocus
           />
+          {loading && (
+            <Loader2 className="text-primary mr-2 size-3.5 animate-spin" />
+          )}
           {query && (
             <button
               onClick={() => setQuery('')}
@@ -148,37 +228,139 @@ export function CommandSearch({
           )}
         </div>
 
-        <div className="max-h-[320px] overflow-y-auto p-2">
-          {filteredItems.length === 0 ? (
-            <p className="text-muted-foreground py-8 text-center text-xs">
-              No matching commands or pages found.
-            </p>
-          ) : (
-            <div className="space-y-1">
-              {filteredItems.map((item) => {
-                const Icon = item.icon;
-                return (
+        <div className="max-h-[380px] space-y-3 overflow-y-auto p-2">
+          {/* Entity: Contacts */}
+          {entityResults.contacts.length > 0 && (
+            <div>
+              <span className="text-primary block px-2 py-1 text-[10px] font-bold tracking-wider uppercase">
+                Contacts ({entityResults.contacts.length})
+              </span>
+              <div className="mt-1 space-y-1">
+                {entityResults.contacts.map((c) => (
                   <button
-                    key={item.href}
-                    onClick={() => handleSelect(item.href)}
-                    className="hover:bg-muted/70 focus:bg-muted/70 group flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-xs transition-colors"
+                    key={c.id}
+                    onClick={() =>
+                      handleSelect(
+                        `/contacts?search=${encodeURIComponent(c.phone || c.name || '')}`
+                      )
+                    }
+                    className="hover:bg-muted/70 focus:bg-muted/70 group flex w-full items-center justify-between rounded-md px-3 py-1.5 text-left text-xs transition-colors"
                   >
-                    <div className="text-foreground flex items-center gap-2.5">
-                      <Icon className="text-muted-foreground group-hover:text-primary h-4 w-4 transition-colors" />
-                      <span className="font-medium">{item.label}</span>
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <User className="size-3.5 shrink-0 text-emerald-500" />
+                      <span className="text-foreground truncate font-semibold">
+                        {c.name || 'Unnamed'}
+                      </span>
+                      <span className="text-muted-foreground font-mono text-[11px]">
+                        {c.phone}
+                      </span>
                     </div>
-                    <span className="text-muted-foreground font-mono text-[10px] tracking-wider uppercase">
-                      {item.category}
-                    </span>
+                    {c.company && (
+                      <span className="text-muted-foreground max-w-[120px] truncate text-[10px]">
+                        {c.company}
+                      </span>
+                    )}
                   </button>
-                );
-              })}
+                ))}
+              </div>
             </div>
           )}
+
+          {/* Entity: Deals */}
+          {entityResults.deals.length > 0 && (
+            <div>
+              <span className="text-primary block px-2 py-1 text-[10px] font-bold tracking-wider uppercase">
+                Deals ({entityResults.deals.length})
+              </span>
+              <div className="mt-1 space-y-1">
+                {entityResults.deals.map((d) => (
+                  <button
+                    key={d.id}
+                    onClick={() => handleSelect('/pipelines')}
+                    className="hover:bg-muted/70 focus:bg-muted/70 group flex w-full items-center justify-between rounded-md px-3 py-1.5 text-left text-xs transition-colors"
+                  >
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <DollarSign className="size-3.5 shrink-0 text-emerald-600" />
+                      <span className="text-foreground truncate font-semibold">
+                        {d.name}
+                      </span>
+                    </div>
+                    <Badge variant="outline" className="text-[10px]">
+                      {d.currency || '₹'} {d.value || 0}
+                    </Badge>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Entity: Appointments */}
+          {entityResults.appointments.length > 0 && (
+            <div>
+              <span className="text-primary block px-2 py-1 text-[10px] font-bold tracking-wider uppercase">
+                Appointments ({entityResults.appointments.length})
+              </span>
+              <div className="mt-1 space-y-1">
+                {entityResults.appointments.map((a) => (
+                  <button
+                    key={a.id}
+                    onClick={() => handleSelect('/appointments')}
+                    className="hover:bg-muted/70 focus:bg-muted/70 group flex w-full items-center justify-between rounded-md px-3 py-1.5 text-left text-xs transition-colors"
+                  >
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <Calendar className="size-3.5 shrink-0 text-blue-500" />
+                      <span className="text-foreground truncate font-medium">
+                        {a.contact?.name || 'Appointment'} —{' '}
+                        {a.notes || 'No notes'}
+                      </span>
+                    </div>
+                    <span className="text-muted-foreground font-mono text-[10px]">
+                      {new Date(a.starts_at).toLocaleDateString()}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Navigation Items */}
+          <div>
+            {hasEntityResults && (
+              <span className="text-muted-foreground block px-2 py-1 text-[10px] font-bold tracking-wider uppercase">
+                Pages & Workspaces
+              </span>
+            )}
+            {filteredNavItems.length === 0 && !hasEntityResults ? (
+              <p className="text-muted-foreground py-8 text-center text-xs">
+                No matching records or pages found.
+              </p>
+            ) : (
+              <div className="mt-1 space-y-1">
+                {filteredNavItems.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.href}
+                      onClick={() => handleSelect(item.href)}
+                      className="hover:bg-muted/70 focus:bg-muted/70 group flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-xs transition-colors"
+                    >
+                      <div className="text-foreground flex items-center gap-2.5">
+                        <Icon className="text-muted-foreground group-hover:text-primary h-4 w-4 transition-colors" />
+                        <span className="font-medium">{item.label}</span>
+                      </div>
+                      <span className="text-muted-foreground font-mono text-[10px] tracking-wider uppercase">
+                        {item.category}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="border-border text-muted-foreground bg-muted/30 flex items-center justify-between border-t px-3.5 py-2 text-[11px]">
-          <span>Navigate with mouse or keyboard</span>
+          <span>Search CRM records or navigate with keyboard</span>
           <span className="bg-background border-border rounded border px-1.5 py-0.5 font-mono text-[10px]">
             ESC to close
           </span>

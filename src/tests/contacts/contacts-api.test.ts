@@ -146,7 +146,7 @@ describe('GET /api/contacts', () => {
     expect(mockQuery.eq).toHaveBeenCalledWith('account_id', 'tenant-a');
     expect(mockQuery.range).toHaveBeenCalledWith(50, 74);
     expect(mockQuery.or).toHaveBeenCalledWith(
-      'name.ilike.%Ana%,phone.ilike.%Ana%,email.ilike.%Ana%'
+      'name.ilike.%Ana%,phone.ilike.%Ana%,email.ilike.%Ana%,company.ilike.%Ana%'
     );
   });
 });

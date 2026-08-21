@@ -7,8 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  MessageSquare,
-  UsersRound,
   Loader2,
   KeyRound,
   Mail,
@@ -20,6 +18,7 @@ import {
   CheckCircle2,
   Bot,
   CalendarCheck,
+  UsersRound,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -114,9 +113,12 @@ function LoginPageInner() {
             className="flex items-center justify-between"
           >
             <Link href="/" className="group flex items-center gap-3">
-              <div className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-gradient-to-tr from-emerald-500 to-indigo-600 shadow-[0_0_20px_rgba(16,185,129,0.3)] transition-transform duration-300 group-hover:scale-105">
-                <MessageSquare className="h-5 w-5 text-white" />
-              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/helpa-logo.png"
+                alt="Helpa"
+                className="h-10 w-10 rounded-xl object-contain shadow-[0_0_20px_rgba(16,185,129,0.3)] transition-transform duration-300 group-hover:scale-105"
+              />
               <div className="flex flex-col">
                 <span className="font-heading text-lg font-black tracking-tight text-white">
                   Helpa<span className="text-emerald-400">.studio</span>

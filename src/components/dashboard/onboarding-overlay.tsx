@@ -14,6 +14,7 @@ import {
   Plane,
   UtensilsCrossed,
   Briefcase,
+  Dumbbell,
   Loader2,
   CheckCircle2,
   AlertTriangle,
@@ -213,6 +214,36 @@ const INDUSTRIES: IndustryOption[] = [
     ],
   },
   {
+    id: 'gym',
+    name: 'Fitness / Gym',
+    description: 'Gyms, fitness centers, and personal trainers.',
+    icon: Dumbbell,
+    color: 'text-emerald-400',
+    defaultServices: [
+      {
+        name: 'Monthly Gym Membership',
+        price: 1499,
+        desc: 'Full gym floor & cardio access',
+      },
+      {
+        name: 'Personal Training (10 Sessions)',
+        price: 4999,
+        desc: '1-on-1 personalized trainer coaching',
+      },
+      {
+        name: 'Annual VIP Fitness Pass',
+        price: 11999,
+        desc: 'Unlimited annual access + diet plan',
+      },
+    ],
+    sampleQuestions: [
+      'What are your gym membership fees?',
+      'What are your operating hours?',
+      'Do you provide personal trainers?',
+      'Can I get a free trial pass?',
+    ],
+  },
+  {
     id: 'general',
     name: 'Other Business',
     description: 'Custom services, general business support.',
@@ -367,33 +398,59 @@ export function OnboardingOverlay() {
   const handleLaunchMetaSignup = async () => {
     setConnectingEmbedded(true);
     try {
-      const appId = process.env.NEXT_PUBLIC_META_APP_ID || '1461038582135406';
+      // 1. Create secure connection session on Helpa backend to obtain OAuth state and config
+      const sessionRes = await fetch('/api/whatsapp/oauth/session', {
+        method: 'POST',
+      });
+      const sessionData = await sessionRes.json().catch(() => ({}));
+      if (!sessionRes.ok || !sessionData?.state) {
+        throw new Error(
+          sessionData?.error ||
+            'Failed to initialize WhatsApp connection session'
+        );
+      }
+
+      const appId =
+        sessionData.appId ||
+        process.env.NEXT_PUBLIC_META_APP_ID ||
+        '1461038582135406';
       const configId =
-        process.env.NEXT_PUBLIC_META_CONFIG_ID || '4607476386162686';
+        sessionData.configId ||
+        process.env.NEXT_PUBLIC_META_CONFIG_ID ||
+        '4607476386162686';
+
       const result = await launchWhatsAppEmbeddedSignup({
         appId,
         configId,
-        mode: 'standard',
+        mode: 'coexistence',
       });
-      if (result?.code) {
-        const res = await fetch('/api/whatsapp/oauth/token', {
+
+      if (result?.code || result?.accessToken) {
+        const res = await fetch('/api/whatsapp/embedded-signup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             code: result.code,
+            accessToken: result.accessToken,
+            state: sessionData.state,
             waba_id: result.wabaId,
             phone_number_id: result.phoneNumberId,
+            mode: 'coexistence',
           }),
         });
-        if (res.ok) {
+
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.success) {
           setWhatsappConnected(true);
-          toast.success('WhatsApp connected successfully!');
+          toast.success('🎉 WhatsApp connected successfully!');
         } else {
-          toast.error('Failed to complete WhatsApp connection');
+          toast.error(data.error || 'Failed to complete WhatsApp connection');
         }
       }
-    } catch {
-      toast.error('WhatsApp connection cancelled');
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : 'WhatsApp connection cancelled';
+      toast.error(msg);
     } finally {
       setConnectingEmbedded(false);
     }

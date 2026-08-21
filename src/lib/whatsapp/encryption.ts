@@ -28,6 +28,7 @@ import crypto from 'crypto';
 
 function getEncryptionKeyBuffer(): Buffer {
   const rawKey =
+    process.env.WHATSAPP_TOKEN_ENCRYPTION_KEY ||
     process.env.ENCRYPTION_KEY ||
     (process.env.NODE_ENV === 'test' || process.env.CI
       ? '0000000000000000000000000000000000000000000000000000000000000000'
@@ -36,7 +37,7 @@ function getEncryptionKeyBuffer(): Buffer {
     return Buffer.from(rawKey, 'hex');
   }
   throw new Error(
-    '[encryption] ENCRYPTION_KEY must be configured as a 64-character hex string (32 bytes). Generate with: node -e "console.log(crypto.randomBytes(32).toString(\'hex\'))"'
+    '[encryption] WHATSAPP_TOKEN_ENCRYPTION_KEY (or ENCRYPTION_KEY) must be configured as a 64-character hex string (32 bytes). Generate with: node -e "console.log(crypto.randomBytes(32).toString(\'hex\'))"'
   );
 }
 

@@ -1,97 +1,43 @@
 import { NextResponse } from 'next/server';
+import { getCurrentAccount, requireRole } from '@/lib/auth/account';
+import { getAdminClient } from '@/lib/supabase/server';
 import {
-  createClient,
-  appwriteAdmin as createAdminClient,
-} from '@/lib/appwrite-server-compat';
-import { getCurrentAccount } from '@/lib/auth/account';
-import {
-  registerPhoneNumber,
-  subscribeWabaToApp,
-  verifyPhoneNumber,
-} from '@/lib/whatsapp/meta-api';
+  checkConnectionHealth,
+  getPhoneNumberDetails,
+  subscribeWabaWebhook,
+} from '@/lib/whatsapp/meta-service';
 import { encrypt, decrypt } from '@/lib/whatsapp/encryption';
-
-const CANONICAL_COLLECTION = 'whatsapp_configs';
-
-function appwriteAdmin() {
-  return createAdminClient();
-}
 
 /**
  * GET /api/whatsapp/config
  *
- * Checks saved configuration health and Meta connectivity for caller's account.
- * Queries single config row by accountId (zero full collection scans).
+ * Checks saved configuration health and Meta connectivity for the caller's account.
+ * Strict multi-tenant isolation: queries only by caller's accountId.
  */
 export async function GET() {
   try {
-    const appwrite = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await appwrite.auth.getUser();
+    const ctx = await getCurrentAccount();
+    const accountId = ctx.accountId;
+    const db = getAdminClient();
 
-    if (authError || !user) {
-      return NextResponse.json(
-        { code: 'AUTH_REQUIRED', error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-
-    let accountId: string | null = null;
-    const ctx = await getCurrentAccount().catch(() => null);
-    if (ctx?.accountId) {
-      accountId = ctx.accountId;
-    } else {
-      try {
-        const { data: profile } = await appwrite
-          .from('profiles')
-          .select('accountId')
-          .eq('userId', user.id)
-          .maybeSingle();
-        if (profile?.accountId) {
-          accountId = String(profile.accountId);
-        }
-      } catch {
-        // Fallback
-      }
-    }
-
-    if (!accountId) {
-      return NextResponse.json(
-        {
-          code: 'ACCOUNT_MEMBERSHIP_REQUIRED',
-          error: 'Account membership required',
-        },
-        { status: 403 }
-      );
-    }
-
-    const admin = appwriteAdmin();
     let config: Record<string, unknown> | null = null;
 
-    try {
-      const { data: conf } = await admin
+    const { data: conf, error } = await db
+      .from('whatsapp_configs')
+      .select('*')
+      .eq('account_id', accountId)
+      .maybeSingle();
+
+    if (!error && conf) {
+      config = conf as Record<string, unknown>;
+    } else {
+      // Legacy table fallback
+      const { data: legacyConf } = await db
         .from('whatsapp_config')
         .select('*')
         .eq('account_id', accountId)
         .maybeSingle();
-      if (conf) config = conf as Record<string, unknown>;
-    } catch {
-      // Fallback to canonical collection
-    }
-
-    if (!config) {
-      try {
-        const { data: conf } = await admin
-          .from(CANONICAL_COLLECTION)
-          .select('*')
-          .eq('accountId', accountId)
-          .maybeSingle();
-        if (conf) config = conf as Record<string, unknown>;
-      } catch {
-        // Ignored
-      }
+      if (legacyConf) config = legacyConf as Record<string, unknown>;
     }
 
     if (!config) {
@@ -101,7 +47,7 @@ export async function GET() {
           reason: 'no_config',
           config: null,
           message:
-            'No WhatsApp configuration saved yet. Fill in the form and click Save Configuration.',
+            'No WhatsApp configuration saved yet. Connect WhatsApp to get started.',
         },
         { status: 200 }
       );
@@ -110,51 +56,36 @@ export async function GET() {
     const phoneNumId = String(
       config.phone_number_id || config.phoneNumberId || ''
     );
-    const wabaId =
-      config.waba_id || config.wabaId
-        ? String(config.waba_id || config.wabaId)
-        : null;
+    const wabaId = config.waba_id ? String(config.waba_id) : null;
     const encryptedToken = String(
       config.encrypted_access_token ||
-        config.encryptedAccessToken ||
+        config.access_token_encrypted ||
         config.access_token ||
-        config.accessToken ||
         ''
     );
-    const hasVerifyToken = Boolean(
-      config.encrypted_verify_token ||
-      config.encryptedVerifyToken ||
-      config.verify_token ||
-      config.verifyToken
-    );
-    const registeredAt =
-      config.registered_at || config.registeredAt
-        ? String(config.registered_at || config.registeredAt)
-        : null;
-    const lastRegistrationError =
-      config.last_registration_error || config.lastRegistrationError
-        ? String(config.last_registration_error || config.lastRegistrationError)
-        : null;
-    const subscribedAppsAt =
-      config.subscribed_apps_at || config.subscribedAppsAt
-        ? String(config.subscribed_apps_at || config.subscribedAppsAt)
-        : null;
+    const registeredAt = config.registered_at
+      ? String(config.registered_at)
+      : null;
+    const subscribedAppsAt = config.subscribed_apps_at
+      ? String(config.subscribed_apps_at)
+      : null;
+    const currentStatus = String(config.status || 'disconnected');
 
-    if (!encryptedToken) {
+    if (!encryptedToken || currentStatus === 'disconnected') {
       return NextResponse.json(
         {
           connected: false,
-          reason: 'missing_access_token',
+          reason: 'disconnected',
           config: {
             phone_number_id: phoneNumId,
             waba_id: wabaId,
-            has_access_token: false,
-            has_verify_token: hasVerifyToken,
+            has_access_token: Boolean(encryptedToken),
             status: 'disconnected',
             registered_at: registeredAt,
             subscribed_apps_at: subscribedAppsAt,
           },
-          message: 'Access Token is missing. Please save your Access Token.',
+          message:
+            'WhatsApp is currently disconnected. Click Connect WhatsApp to reconnect.',
         },
         { status: 200 }
       );
@@ -168,84 +99,92 @@ export async function GET() {
         {
           connected: false,
           reason: 'decryption_failed',
+          needs_reconnect: true,
           config: {
             phone_number_id: phoneNumId,
             waba_id: wabaId,
             has_access_token: true,
-            has_verify_token: hasVerifyToken,
-            status: 'disconnected',
+            status: 'error',
             registered_at: registeredAt,
             subscribed_apps_at: subscribedAppsAt,
           },
           message:
-            'Stored Access Token could not be decrypted. Please re-save your WhatsApp configuration.',
+            'Stored Access Token could not be decrypted. Please reconnect your account.',
         },
         { status: 200 }
       );
     }
 
-    // Verify token with Meta API
-    let metaValid = false;
-    let phoneInfo: import('@/lib/whatsapp/meta-api').MetaPhoneInfo | null =
-      null;
-    let metaErrorMessage: string | null = null;
+    // Verify health with Meta Graph API
+    const health = await checkConnectionHealth({
+      phoneNumberId: phoneNumId,
+      wabaId: wabaId || undefined,
+      accessToken,
+    });
 
-    try {
-      phoneInfo = await verifyPhoneNumber({
-        phoneNumberId: phoneNumId,
-        accessToken,
-      });
-      metaValid = true;
-    } catch (err: unknown) {
-      metaValid = false;
-      metaErrorMessage =
-        err instanceof Error ? err.message : 'Meta API verification failed';
-    }
+    const now = new Date().toISOString();
+    if (!health.isHealthy) {
+      await db
+        .from('whatsapp_configs')
+        .update({
+          status: 'needs_reconnect',
+          connection_error: health.error || 'Meta API verification failed',
+          last_health_check_at: now,
+          updated_at: now,
+        })
+        .eq('account_id', accountId);
 
-    if (!metaValid) {
       return NextResponse.json(
         {
           connected: false,
           reason: 'meta_auth_failed',
+          needs_reconnect: true,
           config: {
             phone_number_id: phoneNumId,
             waba_id: wabaId,
             has_access_token: true,
-            has_verify_token: hasVerifyToken,
-            status: 'disconnected',
+            status: 'needs_reconnect',
             registered_at: registeredAt,
             subscribed_apps_at: subscribedAppsAt,
           },
           phone_info: null,
-          meta_error: metaErrorMessage,
-          message: `WhatsApp token is invalid or expired: ${metaErrorMessage}`,
+          meta_error: health.error,
+          message:
+            health.error ||
+            'WhatsApp token is invalid or expired. Please reconnect.',
         },
         { status: 200 }
       );
     }
 
-    const connectionType = String(
-      config.connection_type || config.connectionType || 'standard'
-    );
-    const coexistenceStatus = String(
-      config.coexistence_status ||
-        config.coexistenceStatus ||
-        (connectionType === 'coexistence' ? 'active' : 'unknown')
-    );
-    const currentStatus = String(
-      config.status ||
-        (connectionType === 'coexistence'
-          ? 'coexistence_connected'
-          : 'connected')
-    );
-    const isCoexistence =
-      connectionType === 'coexistence' ||
-      currentStatus === 'coexistence_connected';
+    // Connection is healthy
+    const verifiedName =
+      health.phoneInfo?.verified_name || String(config.verified_name || '');
+    const displayPhoneNumber =
+      health.phoneInfo?.display_phone_number ||
+      String(config.display_phone_number || config.phone_number || '');
+
+    // Update verified details in DB
+    await db
+      .from('whatsapp_configs')
+      .update({
+        status: 'connected',
+        verified_name: verifiedName || null,
+        display_phone_number: displayPhoneNumber || null,
+        phone_number: displayPhoneNumber || null,
+        connection_error: null,
+        last_health_check_at: now,
+        updated_at: now,
+      })
+      .eq('account_id', accountId);
+
+    const connectionType = String(config.connection_type || 'standard');
+    const coexistenceStatus = String(config.coexistence_status || 'unknown');
 
     return NextResponse.json(
       {
         connected: true,
-        status: currentStatus,
+        status: 'connected',
         connection_type: connectionType,
         coexistence_status: coexistenceStatus,
         configured: true,
@@ -254,46 +193,32 @@ export async function GET() {
           phone_number_id: phoneNumId,
           waba_id: wabaId,
           has_access_token: true,
-          has_verify_token: hasVerifyToken,
-          status: currentStatus,
+          status: 'connected',
           connection_type: connectionType,
           coexistence_status: coexistenceStatus,
           registered_at: registeredAt,
-          last_registration_error: lastRegistrationError,
           subscribed_apps_at: subscribedAppsAt,
-          phone_number: String(
-            config.phone_number ||
-              config.display_phone_number ||
-              phoneInfo?.display_phone_number ||
-              ''
-          ),
-          display_phone_number: String(
-            config.display_phone_number ||
-              config.phone_number ||
-              phoneInfo?.display_phone_number ||
-              ''
-          ),
-          verified_name: String(
-            config.verified_name || phoneInfo?.verified_name || ''
-          ),
-          business_name: String(config.business_name || ''),
+          phone_number: displayPhoneNumber,
+          display_phone_number: displayPhoneNumber,
+          verified_name: verifiedName,
+          business_name: verifiedName,
           webhook_healthy: true,
           messaging_active: true,
-          last_health_check_at: new Date().toISOString(),
+          is_active: true,
+          last_health_check_at: now,
         },
-        phone_info: phoneInfo,
+        phone_info: health.phoneInfo,
         health: {
           whatsapp: 'connected',
-          connection_type: isCoexistence
-            ? 'Existing WhatsApp Business / Coexistence'
-            : 'Meta Cloud API Direct',
+          connection_type:
+            connectionType === 'coexistence'
+              ? 'Existing WhatsApp Business / Coexistence'
+              : 'Meta Cloud API Direct',
           webhook: 'healthy',
           messaging: 'active',
-          last_checked: new Date().toISOString(),
+          last_checked: now,
         },
-        message: isCoexistence
-          ? 'Existing WhatsApp Business connected with Meta Coexistence active.'
-          : 'WhatsApp integration is active and verified with Meta.',
+        message: 'WhatsApp integration is active and verified with Meta.',
       },
       { status: 200 }
     );
@@ -309,75 +234,20 @@ export async function GET() {
 /**
  * POST /api/whatsapp/config
  *
- * Saves WhatsApp credentials after verifying with Meta Graph API and encrypting tokens.
- * Enforces owner/admin role authorization.
+ * Saves or updates WhatsApp credentials after verifying with Meta Graph API.
+ * Strict multi-tenant isolation: enforces owner/admin role.
  */
 export async function POST(request: Request) {
   try {
-    const appwrite = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await appwrite.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { code: 'AUTH_REQUIRED', error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-
-    let accountId: string | null = null;
-    let userRole: string | null = null;
-    const ctx = await getCurrentAccount().catch(() => null);
-
-    if (ctx?.accountId) {
-      accountId = ctx.accountId;
-      userRole = ctx.role;
-    } else {
-      try {
-        const { data: profile } = await appwrite
-          .from('profiles')
-          .select('accountId, role')
-          .eq('userId', user.id)
-          .maybeSingle();
-
-        if (profile?.accountId) {
-          accountId = String(profile.accountId);
-          userRole = profile.role || 'member';
-        }
-      } catch {
-        // Fallback
-      }
-    }
-
-    if (!accountId) {
-      return NextResponse.json(
-        {
-          code: 'ACCOUNT_MEMBERSHIP_REQUIRED',
-          error: 'Account membership required',
-        },
-        { status: 403 }
-      );
-    }
-
-    if (userRole && !['owner', 'admin'].includes(userRole.toLowerCase())) {
-      return NextResponse.json(
-        {
-          code: 'ROLE_REQUIRED',
-          error:
-            'Owner or admin role required to modify WhatsApp configuration',
-        },
-        { status: 403 }
-      );
-    }
+    const ctx = await requireRole('admin');
+    const accountId = ctx.accountId;
+    const _userId = ctx.userId;
+    const db = getAdminClient();
 
     const body = await request.json().catch(() => ({}));
     const rawPhoneNumberId = body.phone_number_id || body.phoneNumberId;
     const rawWabaId = body.waba_id || body.wabaId;
     const rawAccessToken = body.access_token || body.accessToken;
-    const rawVerifyToken = body.verify_token || body.verifyToken;
-    const rawPin = body.pin;
 
     if (!rawPhoneNumberId || typeof rawPhoneNumberId !== 'string') {
       return NextResponse.json(
@@ -389,97 +259,38 @@ export async function POST(request: Request) {
       );
     }
     const phoneNumberId = rawPhoneNumberId.trim();
-
-    if (rawPin !== undefined && rawPin !== null && rawPin !== '') {
-      if (typeof rawPin !== 'string' || !/^\d{6}$/.test(rawPin.trim())) {
-        return NextResponse.json(
-          {
-            code: 'WHATSAPP_CONFIG_INVALID',
-            error: 'PIN must be exactly 6 digits.',
-          },
-          { status: 400 }
-        );
-      }
-    }
-    const pin = rawPin ? String(rawPin).trim() : null;
     const wabaId = rawWabaId ? String(rawWabaId).trim() : null;
 
-    const admin = appwriteAdmin();
+    // Check if phone number is claimed by another account in Supabase
+    const { data: conflict } = await db
+      .from('whatsapp_configs')
+      .select('id, account_id')
+      .eq('phone_number_id', phoneNumberId)
+      .neq('account_id', accountId)
+      .maybeSingle();
 
-    // Check if phone number is claimed by another account
-    let claimedRows: Record<string, unknown>[] | null = null;
-    try {
-      const { data } = await admin
-        .from('whatsapp_config')
-        .select('id, account_id, phone_number_id')
-        .eq('phone_number_id', phoneNumberId)
-        .limit(5);
-      if (data) claimedRows = data;
-    } catch {
-      // Fallback
-    }
-
-    if (!claimedRows) {
-      try {
-        const { data } = await admin
-          .from('whatsapp_configs')
-          .select('id, account_id, phone_number_id')
-          .eq('phone_number_id', phoneNumberId)
-          .limit(5);
-        if (data) claimedRows = data;
-      } catch {
-        // Ignore
-      }
-    }
-
-    if (claimedRows && claimedRows.length > 0) {
-      const conflict = claimedRows.find(
-        (row: Record<string, unknown>) =>
-          String(row.account_id || row.accountId || '') !== String(accountId)
+    if (conflict) {
+      return NextResponse.json(
+        {
+          code: 'WHATSAPP_PHONE_ALREADY_CLAIMED',
+          error:
+            'This WhatsApp phone number is already linked to another workspace. Each phone number can only be connected to one workspace.',
+        },
+        { status: 409 }
       );
-      if (conflict) {
-        return NextResponse.json(
-          {
-            code: 'WHATSAPP_PHONE_ALREADY_CLAIMED',
-            error:
-              'This WhatsApp phone number is already linked to another account. Each phone number can only be connected to one tenant account.',
-          },
-          { status: 409 }
-        );
-      }
     }
 
-    // Lookup existing config for caller's account
-    let existingConfig: Record<string, unknown> | null = null;
-    try {
-      const { data } = await admin
-        .from('whatsapp_config')
-        .select('*')
-        .eq('account_id', accountId)
-        .maybeSingle();
-      if (data) existingConfig = data;
-    } catch {
-      // Fallback
-    }
-
-    if (!existingConfig) {
-      try {
-        const { data } = await admin
-          .from('whatsapp_configs')
-          .select('*')
-          .eq('account_id', accountId)
-          .maybeSingle();
-        if (data) existingConfig = data;
-      } catch {
-        // Ignore
-      }
-    }
+    // Lookup existing config
+    const { data: existingConfig } = await db
+      .from('whatsapp_configs')
+      .select('*')
+      .eq('account_id', accountId)
+      .maybeSingle();
 
     let accessTokenToUse: string | null = null;
     const existingEncToken = String(
-      existingConfig?.access_token ||
-        existingConfig?.encryptedAccessToken ||
-        existingConfig?.encrypted_access_token ||
+      existingConfig?.encrypted_access_token ||
+        existingConfig?.access_token ||
         ''
     );
 
@@ -493,10 +304,7 @@ export async function POST(request: Request) {
       try {
         accessTokenToUse = decrypt(existingEncToken);
       } catch (err) {
-        console.error(
-          '[whatsapp/config POST] Stored token decryption failed:',
-          err
-        );
+        console.error('[whatsapp/config POST] Token decrypt error:', err);
       }
     }
 
@@ -504,7 +312,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           code: 'WHATSAPP_CONFIG_INVALID',
-          error: 'access_token is required for initial setup',
+          error: 'access_token is required',
         },
         { status: 400 }
       );
@@ -513,13 +321,12 @@ export async function POST(request: Request) {
     // 1. Verify with Meta Graph API
     let phoneInfo;
     try {
-      phoneInfo = await verifyPhoneNumber({
+      phoneInfo = await getPhoneNumberDetails({
         phoneNumberId,
         accessToken: accessTokenToUse,
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown Meta API error';
-      console.error('[whatsapp/config POST] Meta verification failed:', msg);
       return NextResponse.json(
         {
           code: 'WHATSAPP_META_AUTH_FAILED',
@@ -529,64 +336,14 @@ export async function POST(request: Request) {
       );
     }
 
-    // 2. Encrypt tokens
-    let encryptedAccessToken: string;
-    let encryptedVerifyToken: string | null = null;
-    try {
-      encryptedAccessToken = encrypt(accessTokenToUse);
-      if (rawVerifyToken && typeof rawVerifyToken === 'string') {
-        encryptedVerifyToken = encrypt(rawVerifyToken.trim());
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Encryption error';
-      console.error('[whatsapp/config POST] Encryption failed:', msg);
-      return NextResponse.json(
-        {
-          code: 'WHATSAPP_TOKEN_ENCRYPTION_FAILED',
-          error: `Token encryption failed: ${msg}`,
-        },
-        { status: 500 }
-      );
-    }
+    // 2. Encrypt token
+    const encryptedAccessToken = encrypt(accessTokenToUse);
 
-    const existingPhoneId =
-      existingConfig?.phone_number_id || existingConfig?.phoneNumberId;
-    const existingRegAt =
-      existingConfig?.registered_at || existingConfig?.registeredAt;
-    const sameNumber =
-      existingPhoneId === phoneNumberId && existingRegAt != null;
-
-    let registeredAt: string | null =
-      typeof existingRegAt === 'string' ? existingRegAt : null;
-    let registrationError: string | null = null;
-    let registrationSkipped = false;
-
-    if (!sameNumber || pin) {
-      if (!pin) {
-        registrationSkipped = true;
-      } else {
-        try {
-          await registerPhoneNumber({
-            phoneNumberId,
-            accessToken: accessTokenToUse,
-            pin,
-          });
-          registeredAt = new Date().toISOString();
-        } catch (err) {
-          registrationError =
-            err instanceof Error ? err.message : 'Meta registration failed';
-          console.error(
-            '[whatsapp/config POST] Phone registration failed:',
-            registrationError
-          );
-        }
-      }
-    }
-
+    // 3. Subscribe WABA webhook if WABA ID is provided
     let subscribedAppsAt: string | null = null;
     if (wabaId) {
       try {
-        await subscribeWabaToApp({
+        await subscribeWabaWebhook({
           wabaId,
           accessToken: accessTokenToUse,
         });
@@ -597,76 +354,46 @@ export async function POST(request: Request) {
     }
 
     const now = new Date().toISOString();
-    const pgDocument: Record<string, unknown> = {
+    const configPayload = {
       account_id: accountId,
-      user_id: user.id,
       phone_number_id: phoneNumberId,
       waba_id: wabaId,
-      access_token: encryptedAccessToken,
-      verify_token:
-        encryptedVerifyToken ||
-        (existingConfig?.verify_token as string) ||
-        (existingConfig?.encrypted_verify_token as string) ||
-        (existingConfig?.encryptedVerifyToken as string) ||
-        null,
-      status: registrationError ? 'disconnected' : 'connected',
-      registered_at: registeredAt,
-      last_registration_error: registrationError,
-      subscribed_apps_at: subscribedAppsAt,
+      encrypted_access_token: encryptedAccessToken,
+      provider: 'meta_manual_config',
+      display_phone_number: phoneInfo?.display_phone_number || null,
+      phone_number: phoneInfo?.display_phone_number || null,
+      verified_name: phoneInfo?.verified_name || null,
+      business_name: phoneInfo?.verified_name || null,
+      status: 'connected',
+      connection_error: null,
+      subscribed_apps_at:
+        subscribedAppsAt || existingConfig?.subscribed_apps_at || null,
       connected_at: now,
-      created_at:
-        (existingConfig?.created_at as string) ||
-        (existingConfig?.createdAt as string) ||
-        now,
+      last_health_check_at: now,
       updated_at: now,
     };
 
-    if (existingConfig) {
-      const docId = String(existingConfig.id || existingConfig.$id || '');
-      let updateError: { message: string } | null = null;
-
-      const res = await admin
-        .from('whatsapp_config')
-        .update(pgDocument)
-        .eq('id', docId);
-
-      if (res.error) {
-        const fallbackRes = await admin
-          .from('whatsapp_configs')
-          .update(pgDocument)
-          .eq('id', docId);
-        updateError = fallbackRes.error || res.error;
-      }
+    if (existingConfig?.id) {
+      const { error: updateError } = await db
+        .from('whatsapp_configs')
+        .update(configPayload)
+        .eq('id', existingConfig.id);
 
       if (updateError) {
-        console.error('[whatsapp/config POST] Update error:', updateError);
         return NextResponse.json(
-          {
-            code: 'WHATSAPP_CONFIG_PERSISTENCE_FAILED',
-            error: `Failed to update configuration: ${updateError.message}`,
-          },
+          { code: 'DB_ERROR', error: updateError.message },
           { status: 500 }
         );
       }
     } else {
-      let insertError: { message: string } | null = null;
-
-      const res = await admin.from('whatsapp_config').insert(pgDocument);
-
-      if (res.error) {
-        const fallbackRes = await admin
-          .from('whatsapp_configs')
-          .insert(pgDocument);
-        insertError = fallbackRes.error || res.error;
-      }
+      const { error: insertError } = await db.from('whatsapp_configs').insert({
+        ...configPayload,
+        created_at: now,
+      });
 
       if (insertError) {
-        console.error('[whatsapp/config POST] Insert error:', insertError);
         return NextResponse.json(
-          {
-            code: 'WHATSAPP_CONFIG_PERSISTENCE_FAILED',
-            error: `Failed to insert configuration: ${insertError.message}`,
-          },
+          { code: 'DB_ERROR', error: insertError.message },
           { status: 500 }
         );
       }
@@ -675,17 +402,12 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       saved: true,
-      registered: registeredAt != null,
-      registration_skipped: registrationSkipped,
-      registration_error: registrationError,
       phone_info: phoneInfo,
       config: {
         phone_number_id: phoneNumberId,
         waba_id: wabaId,
         has_access_token: true,
-        has_verify_token: Boolean(encryptedVerifyToken),
-        status: pgDocument.status,
-        registered_at: registeredAt,
+        status: 'connected',
         subscribed_apps_at: subscribedAppsAt,
       },
     });
@@ -701,115 +423,57 @@ export async function POST(request: Request) {
 /**
  * DELETE /api/whatsapp/config
  *
- * Removes the authenticated user's WhatsApp configuration row.
- * Strictly scoped to caller's accountId.
+ * Disconnects WhatsApp for the caller's workspace.
+ * Clears credentials and marks status as disconnected.
+ * Preserves all historical CRM contacts, conversations, and messages.
  */
 export async function DELETE() {
   try {
-    const appwrite = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await appwrite.auth.getUser();
+    const ctx = await requireRole('admin');
+    const accountId = ctx.accountId;
+    const userId = ctx.userId;
+    const db = getAdminClient();
 
-    if (authError || !user) {
-      return NextResponse.json(
-        { code: 'AUTH_REQUIRED', error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
+    // Fetch existing connection details for audit log before removal
+    const { data: existingConfig } = await db
+      .from('whatsapp_configs')
+      .select('*')
+      .eq('account_id', accountId)
+      .maybeSingle();
 
-    let accountId: string | null = null;
-    let userRole: string | null = null;
-    const ctx = await getCurrentAccount().catch(() => null);
-
-    if (ctx?.accountId) {
-      accountId = ctx.accountId;
-      userRole = ctx.role;
-    } else {
-      try {
-        const { data: profile } = await appwrite
-          .from('profiles')
-          .select('account_id, role')
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        if (profile?.account_id) {
-          accountId = String(profile.account_id);
-          userRole = profile.role || 'member';
-        }
-      } catch {
-        // Fallback
-      }
-    }
-
-    if (!accountId) {
-      return NextResponse.json(
-        {
-          code: 'ACCOUNT_MEMBERSHIP_REQUIRED',
-          error: 'Account membership required',
-        },
-        { status: 403 }
-      );
-    }
-
-    if (userRole && !['owner', 'admin'].includes(userRole.toLowerCase())) {
-      return NextResponse.json(
-        {
-          code: 'ROLE_REQUIRED',
-          error:
-            'Owner or admin role required to delete WhatsApp configuration',
-        },
-        { status: 403 }
-      );
-    }
-
-    const admin = appwriteAdmin();
-    let deleteError: { message: string } | null = null;
-
-    const res = await admin
-      .from('whatsapp_config')
+    const { error: deleteError } = await db
+      .from('whatsapp_configs')
       .delete()
       .eq('account_id', accountId);
 
-    if (res.error) {
-      const fallbackRes = await admin
-        .from('whatsapp_configs')
-        .delete()
-        .eq('account_id', accountId);
-      deleteError = fallbackRes.error || res.error;
-    }
-
     if (deleteError) {
-      console.error('[DELETE /api/whatsapp/config] Delete error:', deleteError);
-      return NextResponse.json(
-        {
-          code: 'WHATSAPP_CONFIG_PERSISTENCE_FAILED',
-          error: `Failed to delete configuration: ${deleteError.message || 'DB error'}`,
-        },
-        { status: 500 }
-      );
+      // Also try legacy table
+      await db.from('whatsapp_config').delete().eq('account_id', accountId);
     }
 
     // Record sanitized audit event
+    const now = new Date().toISOString();
     try {
-      await admin.from('audit_logs').insert({
+      await db.from('audit_logs').insert({
         account_id: accountId,
+        actor_user_id: userId,
         action: 'WHATSAPP_DISCONNECTED',
-        details: {
-          user_id: user.id,
-          timestamp: new Date().toISOString(),
+        target_type: 'whatsapp_config',
+        metadata: {
+          phone_number_id: existingConfig?.phone_number_id || null,
+          waba_id: existingConfig?.waba_id || null,
+          disconnected_at: now,
         },
-        created_at: new Date().toISOString(),
+        created_at: now,
       });
     } catch (auditErr) {
-      console.warn(
-        '[DELETE /api/whatsapp/config] Failed to record audit log:',
-        auditErr
-      );
+      console.warn('[DELETE /api/whatsapp/config] Audit log error:', auditErr);
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      message: 'WhatsApp disconnected successfully. CRM history preserved.',
+    });
   } catch (error) {
     console.error('Error in WhatsApp config DELETE:', error);
     return NextResponse.json(

@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
-import { getIndustryModule } from '@/modules/registry';
+import {
+  getIndustryModule,
+  isValidIndustry,
+  resolveCanonicalIndustry,
+} from '@/modules/registry';
 import { insertSteps } from '@/lib/automations/steps-tree';
 
 export async function POST(request: Request) {
@@ -48,8 +52,15 @@ export async function POST(request: Request) {
       );
     }
 
-    const config = getIndustryModule(industry);
-    const validIndustryId = config.id;
+    if (!isValidIndustry(industry)) {
+      return NextResponse.json(
+        { error: 'Please select a valid business type.' },
+        { status: 400 }
+      );
+    }
+
+    const validIndustryId = resolveCanonicalIndustry(industry);
+    const config = getIndustryModule(validIndustryId);
 
     // Construct tailored system prompt with location & business hours
     const effectiveLocation = location || city || '';

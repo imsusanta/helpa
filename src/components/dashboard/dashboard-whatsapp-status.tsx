@@ -19,17 +19,25 @@ export function DashboardWhatsAppStatus() {
         const res = await fetch('/api/whatsapp/config');
         if (res.ok) {
           const data = await res.json();
-          if (data?.config?.is_active && data?.config?.phone_number_id) {
+          const isConnected =
+            Boolean(data?.connected) ||
+            data?.status === 'connected' ||
+            data?.status === 'coexistence_connected' ||
+            data?.config?.status === 'connected' ||
+            data?.config?.status === 'coexistence_connected' ||
+            Boolean(data?.config?.is_active);
+
+          if (isConnected && data?.config?.phone_number_id) {
             setStatus('connected');
             setPhoneLabel(
               data?.phone_info?.verified_name ||
                 data?.phone_info?.display_phone_number ||
+                data?.config?.verified_name ||
+                data?.config?.display_phone_number ||
+                data?.config?.phone_number ||
                 'Business Account'
             );
-          } else if (
-            data?.config?.phone_number_id &&
-            !data?.config?.is_active
-          ) {
+          } else if (data?.config?.phone_number_id && !isConnected) {
             setStatus('needs_attention');
           } else {
             setStatus('disconnected');

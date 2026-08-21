@@ -13,77 +13,162 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  AUTH_PROVIDER: supabase
+  DATABASE_PROVIDER: supabase
+  MIGRATION_MODE: cutover
+  NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-test-supabase-anon-key
+  SUPABASE_SERVICE_ROLE_KEY: ci-test-supabase-service-role-key
+  ENCRYPTION_KEY: '0000000000000000000000000000000000000000000000000000000000000000'
+  META_APP_SECRET: 'ci-dummy-meta-secret'
+
 jobs:
-  check:
-    name: Production Quality & Security Gates
+  changes:
+    name: Classify changed files
     runs-on: ubuntu-latest
-    timeout-minutes: 25
-    env:
-      AUTH_PROVIDER: supabase
-      DATABASE_PROVIDER: supabase
-      MIGRATION_MODE: cutover
-      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-test-supabase-anon-key
-      SUPABASE_SERVICE_ROLE_KEY: ci-test-supabase-service-role-key
-      ENCRYPTION_KEY: '0000000000000000000000000000000000000000000000000000000000000000'
-      META_APP_SECRET: 'ci-dummy-meta-secret'
+    outputs:
+      code: ${{ steps.scope.outputs.code }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Gitleaks Secret Detection
-        uses: gitleaks/gitleaks-action@v3
+      - id: scope
+        name: Detect runtime code changes
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: true
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          elif git diff --quiet "$BASE_SHA"...HEAD -- \
+            src e2e scripts supabase public \
+            package.json package-lock.json \
+            next.config.ts tsconfig.json vitest.config.ts \
+            playwright.config.ts postcss.config.mjs vercel.json; then
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Set up Node.js runtime
-        uses: actions/setup-node@v4
+  quality:
+    name: Formatting, lint, and types
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Format Check (Prettier)
+      - run: npm ci
+      - name: Format check
         run: npm run format:check
-
-      - name: Emit Lint Diagnostics
+      - name: Strict lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Emit lint diagnostics
+        if: failure()
         run: |
           npx eslint . --format json --output-file /tmp/eslint.json || true
           node scripts/ci-lint-diagnostics.mjs /tmp/eslint.json
 
-      - name: Strict Lint (ESLint --max-warnings=0)
-        run: npm run lint
-
-      - name: Typecheck (tsc --noEmit)
-        run: npm run typecheck
-
-      - name: Unit & Integration Tests (Vitest)
+  tests:
+    name: Unit, integration, and migration tests
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Unit tests
         run: npm test
-
-      - name: Tenant isolation integration tests
+      - name: Tenant isolation tests
         run: npm run test:integration
-
-      - name: Supabase migration manifest validation
+      - name: Validate Supabase migrations
         run: npm run supabase:validate
 
-      - name: Next.js Production Build
-        run: npm run build
-
-      - name: Security Dependency Audit
+  security:
+    name: Security regression and dependency gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Gitleaks secret detection
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Security regression tests
+        run: |
+          npx vitest run \
+            src/tests/security \
+            src/tests/security-hardening.test.ts \
+            src/tests/tenant-isolation.test.ts \
+            src/tests/whatsapp/outbox-service.test.ts \
+            src/tests/whatsapp/webhook-idempotency.test.ts \
+            src/tests/whatsapp/oauth-state.test.ts \
+            src/tests/reminders/appointment-reminders.test.ts
+      - name: Block high-severity dependency vulnerabilities
         run: npm audit --audit-level=high
 
-      - name: Install Playwright Chromium & System Dependencies
+  build:
+    name: Production build
+    needs: [changes, quality, tests, security]
+    if: |
+      always() &&
+      needs.changes.outputs.code == 'true' &&
+      needs.quality.result == 'success' &&
+      needs.tests.result == 'success' &&
+      needs.security.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+  e2e:
+    name: Critical-path browser tests
+    needs: [changes, build]
+    if: |
+      always() &&
+      needs.changes.outputs.code == 'true' &&
+      needs.build.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build application for Playwright
+        run: npm run build
+      - name: Install Chromium and system dependencies
         run: npx playwright install --with-deps chromium
-
-      - name: Playwright Critical Path E2E Tests
+      - name: Run Playwright critical paths
         run: npm run test:e2e
-
-      - name: Upload Playwright Artifacts
+      - name: Upload Playwright artifacts
         if: always()
         uses: actions/upload-artifact@v7
         with:

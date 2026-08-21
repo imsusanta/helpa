@@ -276,12 +276,18 @@ export async function resolveAccountAiConfig(
   const feature = overrides?.feature;
   if (feature && featureRouting[feature]) {
     const mappedModel = featureRouting[feature];
-    if (primaryName === 'orcarouter') {
-      orcarouterModel = mappedModel;
-    } else if (primaryName === 'cloudflare') {
-      cloudflareModel = mappedModel;
-    } else {
-      openrouterModel = mappedModel;
+    if (primaryName === 'cloudflare') {
+      if (mappedModel.startsWith('@cf/')) {
+        cloudflareModel = mappedModel;
+      }
+    } else if (primaryName === 'orcarouter') {
+      if (!mappedModel.startsWith('@cf/')) {
+        orcarouterModel = mappedModel;
+      }
+    } else if (primaryName === 'openrouter') {
+      if (!mappedModel.startsWith('@cf/')) {
+        openrouterModel = mappedModel;
+      }
     }
   }
 
