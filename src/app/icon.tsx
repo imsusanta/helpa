@@ -13,7 +13,6 @@ export default function Icon() {
   const base64 = `data:image/png;base64,${iconBuffer.toString('base64')}`;
 
   return new ImageResponse(
-    // eslint-disable-next-line @next/next/no-img-element
     <img
       src={base64}
       alt="Helpa logo"

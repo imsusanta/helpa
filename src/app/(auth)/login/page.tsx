@@ -7,8 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  MessageSquare,
-  UsersRound,
   Loader2,
   KeyRound,
   Mail,
@@ -20,6 +18,7 @@ import {
   CheckCircle2,
   Bot,
   CalendarCheck,
+  UsersRound,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 

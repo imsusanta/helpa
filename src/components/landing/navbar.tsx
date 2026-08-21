@@ -7,7 +7,6 @@ import {
   ChevronDown,
   Menu,
   X,
-  Sparkles,
   MessageSquare,
   Bot,
   Kanban,

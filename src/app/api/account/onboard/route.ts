@@ -45,11 +45,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, reset: true });
     }
 
-    if (
-      !industry ||
-      typeof industry !== 'string' ||
-      !isValidIndustry(industry)
-    ) {
+    if (!industry || typeof industry !== 'string') {
+      return NextResponse.json(
+        { error: 'Industry selection is required.' },
+        { status: 400 }
+      );
+    }
+
+    if (!isValidIndustry(industry)) {
       return NextResponse.json(
         { error: 'Please select a valid business type.' },
         { status: 400 }
