@@ -39,7 +39,8 @@ export function ConnectWhatsApp() {
 
       let data: Record<string, unknown> | null = null;
       try {
-        data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        data =
+          typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
       } catch {
         return;
       }
@@ -81,7 +82,9 @@ export function ConnectWhatsApp() {
           const code = response.authResponse?.code;
           if (!code) {
             setLoading(false);
-            setError('Meta did not return an authorization code. Please try again.');
+            setError(
+              'Meta did not return an authorization code. Please try again.'
+            );
             return;
           }
 
@@ -182,7 +185,11 @@ export function ConnectWhatsApp() {
               {loading ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : null}
-              {loading ? 'Connecting…' : sdkReady ? 'Connect WhatsApp' : 'Loading Meta…'}
+              {loading
+                ? 'Connecting…'
+                : sdkReady
+                  ? 'Connect WhatsApp'
+                  : 'Loading Meta…'}
             </Button>
           </div>
         )}
