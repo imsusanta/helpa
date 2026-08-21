@@ -166,12 +166,10 @@ export async function sendWhatsAppMessage(
         type: 'button',
         body: { text: text || 'Please choose an option:' },
         action: {
-          buttons: options.buttons
-            .slice(0, 3)
-            .map((b) => ({
-              type: 'reply',
-              reply: { id: b.id, title: b.title.slice(0, 20) },
-            })),
+          buttons: options.buttons.slice(0, 3).map((b) => ({
+            type: 'reply',
+            reply: { id: b.id, title: b.title.slice(0, 20) },
+          })),
         },
       };
     else if (options.interactive && typeof options.interactive === 'object')
