@@ -95,7 +95,7 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
       }
 
       await db
-        .from('whatsapp_config')
+        .from('whatsapp_configs')
         .update({ last_webhook_at: new Date().toISOString() })
         .eq('phone_number_id', phoneNumberId);
 
