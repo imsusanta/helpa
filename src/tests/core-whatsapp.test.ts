@@ -21,6 +21,7 @@ import {
   sendWhatsAppMessage,
 } from '@/core/whatsapp';
 import * as appwriteCompat from '@/lib/appwrite-server-compat';
+import * as supabaseServer from '@/lib/supabase/server';
 import * as encryption from '@/lib/whatsapp/encryption';
 import { coreEvents } from '@/core/events';
 
@@ -93,11 +94,11 @@ describe('Helpa Core WhatsApp Integration', () => {
     });
 
     // Mock DB client
-    vi.spyOn(appwriteCompat, 'getAdminClient').mockReturnValue({
+    const mockDb = {
       from: (table: string) => {
         const store =
           (mockDatabase as Record<string, Array<Record<string, unknown>>>)[
-            table
+            table === 'whatsapp_configs' ? 'whatsapp_config' : table
           ] || [];
         return {
           select: () => {
@@ -116,6 +117,10 @@ describe('Helpa Core WhatsApp Integration', () => {
               single: async () => ({
                 data: filtered[0] || null,
                 error: filtered[0] ? null : { message: 'Row not found' },
+              }),
+              maybeSingle: async () => ({
+                data: filtered[0] || null,
+                error: null,
               }),
               then: (
                 resolve: (res: { data: unknown[]; error: null }) => void
@@ -161,7 +166,10 @@ describe('Helpa Core WhatsApp Integration', () => {
           }),
         };
       },
-    } as unknown as ReturnType<typeof appwriteCompat.getAdminClient>);
+    };
+
+    vi.spyOn(appwriteCompat, 'getAdminClient').mockReturnValue(mockDb as never);
+    vi.spyOn(supabaseServer, 'getAdminClient').mockReturnValue(mockDb as never);
   });
 
   describe('Strict Tenant Resolution', () => {
