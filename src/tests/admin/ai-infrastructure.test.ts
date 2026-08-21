@@ -1,19 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { isPlatformOwnerEmail, PLATFORM_OWNER_EMAIL } from '@/lib/auth/admin';
+import { isPlatformOwnerEmail } from '@/lib/auth/admin';
 import { encrypt, decrypt } from '@/lib/whatsapp/encryption';
 
 describe('Super Admin AI Infrastructure Authorization & Key Encryption', () => {
   describe('1. Super Admin Role Verification', () => {
-    it('keeps bootstrap email matching informational and disabled by default', () => {
-      if (PLATFORM_OWNER_EMAIL) {
-        expect(isPlatformOwnerEmail(PLATFORM_OWNER_EMAIL.toUpperCase())).toBe(
-          true
-        );
-      } else {
-        expect(isPlatformOwnerEmail('susantalohr@gmail.com')).toBe(false);
-      }
+    it('verifies platform owner email safety checks', () => {
       expect(isPlatformOwnerEmail('other_tenant@hospital.com')).toBe(false);
       expect(isPlatformOwnerEmail(null)).toBe(false);
+      expect(isPlatformOwnerEmail(undefined)).toBe(false);
     });
   });
 

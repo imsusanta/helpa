@@ -7,6 +7,10 @@ import {
   isTemplateWebhookField,
 } from '@/lib/whatsapp/template-webhook';
 import { resolveTenantByPhoneNumberId } from '@/core/whatsapp';
+import {
+  getOrCreateCorrelationId,
+  CORRELATION_ID_HEADER,
+} from '@/lib/observability/trace-context';
 import { handleWebhookGet } from './verify-request';
 import { handleStatusUpdate } from './process-status';
 import { processMessage } from './process-message';
@@ -19,6 +23,7 @@ export async function GET(request: Request) {
 
 // POST - Receive webhook events with strict fail-closed signature verification
 export async function POST(request: Request) {
+  const correlationId = getOrCreateCorrelationId(request);
   const rawBody = await request.text();
   const signature = request.headers.get('x-hub-signature-256');
 
@@ -29,6 +34,7 @@ export async function POST(request: Request) {
         status: 401,
         headers: {
           'Cache-Control': 'private, no-store, no-cache, must-revalidate',
+          [CORRELATION_ID_HEADER]: correlationId,
         },
       }
     );
@@ -38,14 +44,25 @@ export async function POST(request: Request) {
   try {
     body = JSON.parse(rawBody);
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Invalid JSON' },
+      {
+        status: 400,
+        headers: {
+          [CORRELATION_ID_HEADER]: correlationId,
+        },
+      }
+    );
   }
 
   try {
-    await processWebhook(body);
+    await processWebhook(body, correlationId);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error('Error processing webhook:', message);
+    console.error(
+      `[Webhook] [${correlationId}] Error processing webhook:`,
+      message
+    );
     return NextResponse.json(
       { error: 'Webhook processing failed' },
       {
@@ -53,15 +70,27 @@ export async function POST(request: Request) {
         headers: {
           'Cache-Control': 'private, no-store, no-cache, must-revalidate',
           'Retry-After': '5',
+          [CORRELATION_ID_HEADER]: correlationId,
         },
       }
     );
   }
 
-  return NextResponse.json({ status: 'received' }, { status: 200 });
+  return NextResponse.json(
+    { status: 'received' },
+    {
+      status: 200,
+      headers: {
+        [CORRELATION_ID_HEADER]: correlationId,
+      },
+    }
+  );
 }
 
-async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
+async function processWebhook(
+  body: { entry?: WhatsAppWebhookEntry[] },
+  correlationId?: string
+) {
   if (!body.entry) return;
   const db = getAdminClient();
 
@@ -140,7 +169,7 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
           if (eventInsertError) {
             // Duplicate event detected — unique constraint on (provider, provider_event_id)
             console.warn(
-              `[Webhook Idempotency] Duplicate event ${message.id} skipped for tenant ${tenantContext.tenantId}`
+              `[Webhook Idempotency] [${correlationId || 'no-cid'}] Duplicate event ${message.id} skipped for tenant ${tenantContext.tenantId}`
             );
             continue;
           }
@@ -152,7 +181,8 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
             contact,
             tenantContext.tenantId,
             tenantContext.userId,
-            tenantContext.accessToken
+            tenantContext.accessToken,
+            correlationId
           );
 
           if (message?.id) {
@@ -167,7 +197,7 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
           }
         } catch (msgErr) {
           console.error(
-            `[Webhook] Error processing message ${message.id}:`,
+            `[Webhook] [${correlationId || 'no-cid'}] Error processing message ${message.id}:`,
             msgErr
           );
           if (message?.id) {

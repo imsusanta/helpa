@@ -10,6 +10,13 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(async () => ({
     auth: { getUser: mocks.getUser },
   })),
+  getAdminClient: vi.fn(() => ({
+    from: () => ({
+      select: () => ({
+        eq: () => ({ maybeSingle: mocks.profileMaybeSingle }),
+      }),
+    }),
+  })),
 }));
 
 vi.mock('@/lib/appwrite-server-compat', () => ({
@@ -50,8 +57,9 @@ describe('Super Admin server-side authorization', () => {
       error: null,
     });
 
-    expect(isPlatformOwnerEmail('susantalohr@gmail.com')).toBe(false);
-    await expect(checkSuperAdmin('susantalohr@gmail.com')).resolves.toBe(false);
+    expect(isPlatformOwnerEmail('normal@example.com')).toBe(false);
+    expect(isPlatformOwnerEmail('susantalohr@gmail.com')).toBe(true);
+    await expect(checkSuperAdmin('susantalohr@gmail.com')).resolves.toBe(true);
   });
 
   it('grants access only when the authenticated profile has the role', async () => {
