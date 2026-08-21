@@ -223,7 +223,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         </div>
 
         {/* Navigation Menu */}
-        <div className="min-h-0 flex-1 [scrollbar-width:thin] [scrollbar-color:#1e293b_transparent] overflow-y-auto px-3 py-2">
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2 [scrollbar-color:#1e293b_transparent] [scrollbar-width:thin]">
           <nav className="space-y-1">
             {NAV.map((item) => {
               const Icon = item.icon;

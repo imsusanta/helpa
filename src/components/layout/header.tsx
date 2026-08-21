@@ -65,7 +65,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
           <input
             aria-label="Search"
             placeholder="Search leads, contacts, acc..."
-            className="h-10 w-full rounded-xl border border-slate-200 bg-white pr-16 pl-9 text-xs font-medium text-slate-800 shadow-2xs placeholder:text-slate-400 focus:border-slate-300 focus:ring-2 focus:ring-emerald-500/10 focus:outline-none"
+            className="h-10 w-full rounded-xl border border-slate-200 bg-white pr-16 pl-9 text-xs font-medium text-slate-800 shadow-2xs placeholder:text-slate-400 focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/10"
           />
           <span className="absolute top-1/2 right-2.5 -translate-y-1/2 rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-semibold text-slate-400">
             Ctrl+K
