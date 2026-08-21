@@ -46,7 +46,9 @@ async function hasPersistedSuperAdminRole(userId: string): Promise<boolean> {
  * If `expectedEmail` is supplied, it is only used to verify that the caller is
  * referring to the current session; it never grants access by itself.
  */
-export async function checkSuperAdmin(expectedEmail?: string): Promise<boolean> {
+export async function checkSuperAdmin(
+  expectedEmail?: string
+): Promise<boolean> {
   try {
     try {
       const supabase = await createSupabaseServerClient();
@@ -58,7 +60,8 @@ export async function checkSuperAdmin(expectedEmail?: string): Promise<boolean> 
       if (!error && user) {
         if (
           expectedEmail &&
-          user.email?.trim().toLowerCase() !== expectedEmail.trim().toLowerCase()
+          user.email?.trim().toLowerCase() !==
+            expectedEmail.trim().toLowerCase()
         ) {
           return false;
         }

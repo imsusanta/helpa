@@ -24,10 +24,9 @@ function enumValue<T extends string>(
   return allowed[0];
 }
 
-function requireEnvironmentValue(
-  env: NodeJS.ProcessEnv,
-  name: string
-): string {
+type EnvMap = Record<string, string | undefined>;
+
+function requireEnvironmentValue(env: EnvMap, name: string): string {
   const value = env[name]?.trim();
   if (!value) {
     throw new RuntimeConfigurationError(`MISSING_${name}`);
@@ -36,23 +35,25 @@ function requireEnvironmentValue(
 }
 
 /** Server-only provider selection. No request may infer or override this. */
-export function getRuntimeConfig(env: NodeJS.ProcessEnv = process.env) {
+export function getRuntimeConfig(
+  env: EnvMap = process.env as unknown as EnvMap
+) {
   const production = env.NODE_ENV === 'production';
   const authProvider = enumValue(
-    env.AUTH_PROVIDER || (env === process.env ? 'supabase' : undefined),
+    env.AUTH_PROVIDER || (env === (process.env as unknown) ? 'supabase' : undefined),
     ['supabase', 'appwrite'] as const,
     'AUTH_PROVIDER',
     production
   );
   const databaseProvider = enumValue(
-    env.DATABASE_PROVIDER || (env === process.env ? 'supabase' : undefined),
+    env.DATABASE_PROVIDER || (env === (process.env as unknown) ? 'supabase' : undefined),
     ['supabase', 'appwrite'] as const,
     'DATABASE_PROVIDER',
     production
   );
   const migrationMode = enumValue(
     env.MIGRATION_MODE ||
-      (env === process.env ? 'cutover' : production ? undefined : 'off'),
+      (env === (process.env as unknown) ? 'cutover' : production ? undefined : 'off'),
     ['cutover', 'shadow', 'off', 'rollback'] as const,
     'MIGRATION_MODE',
     production
@@ -72,7 +73,7 @@ export function getRuntimeConfig(env: NodeJS.ProcessEnv = process.env) {
 }
 
 export function requireSupabasePublicConfig(
-  env: NodeJS.ProcessEnv = process.env
+  env: EnvMap = process.env as unknown as EnvMap
 ) {
   const url = requireEnvironmentValue(env, 'NEXT_PUBLIC_SUPABASE_URL');
   const publishableKey = requireEnvironmentValue(
@@ -83,7 +84,7 @@ export function requireSupabasePublicConfig(
 }
 
 export function requireSupabaseServiceRole(
-  env: NodeJS.ProcessEnv = process.env
+  env: EnvMap = process.env as unknown as EnvMap
 ) {
   return requireEnvironmentValue(env, 'SUPABASE_SERVICE_ROLE_KEY');
 }
