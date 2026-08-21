@@ -1,0 +1,10 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Known historical Supabase credential findings. Credentials must be revoked; current source is still scanned."
+commits = [
+  "0606546157f7e03ae7dfe68a4dbb480202d0d352",
+  "d7aa9390ff480172fc786aa5716584652a77b4eb",
+  "75a381dced483868f9e7b2edd5cd50e55fc3ecd0",
+]
