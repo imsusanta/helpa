@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
-import { getPlanBySlug } from '@/core/billing/plans';
+import { findPlanBySlug } from '@/core/billing/plans';
 import { getWorkspaceSubscription } from '@/lib/saas/subscription';
 import {
   createRazorpayOrder,
@@ -15,15 +15,22 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       planId?: string;
     };
 
-    const rawSlug = body?.planSlug || body?.planId || 'growth';
+    const rawSlug = body?.planSlug || body?.planId;
+    if (!rawSlug) {
+      return NextResponse.json(
+        { error: 'A planSlug or planId is required' },
+        { status: 400 }
+      );
+    }
+
     const planSlug = String(rawSlug)
       .toLowerCase()
-      .replace(/[^a-z0-9]/g, '');
+      .replace(/[^a-z0-9_]/g, '');
 
-    const targetPlan = await getPlanBySlug(planSlug);
-    if (!targetPlan) {
+    const targetPlan = await findPlanBySlug(planSlug);
+    if (!targetPlan || !targetPlan.isActive) {
       return NextResponse.json(
-        { error: `Plan '${planSlug}' not found` },
+        { error: `Plan '${planSlug}' not found or inactive` },
         { status: 404 }
       );
     }
