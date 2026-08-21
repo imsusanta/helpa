@@ -96,10 +96,10 @@ jobs:
       - name: Validate Supabase migrations
         run: npm run supabase:validate
 
-  security:
-    name: Security regression and dependency gates
+  security_supply_chain:
+    name: Secrets and dependency security
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
@@ -113,28 +113,48 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Security regression tests
-        run: |
-          npx vitest run \
-            src/tests/security \
-            src/tests/security-hardening.test.ts \
-            src/tests/tenant-isolation.test.ts \
-            src/tests/whatsapp/outbox-service.test.ts \
-            src/tests/whatsapp/webhook-idempotency.test.ts \
-            src/tests/whatsapp/oauth-state.test.ts \
-            src/tests/reminders/appointment-reminders.test.ts
       - name: Block high-severity dependency vulnerabilities
         run: npm audit --audit-level=high
 
+  security_tests:
+    name: Security regression — ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: authorization and privacy
+            paths: src/tests/security
+          - name: WhatsApp integrity
+            paths: >-
+              src/tests/whatsapp/outbox-service.test.ts
+              src/tests/whatsapp/webhook-idempotency.test.ts
+              src/tests/whatsapp/oauth-state.test.ts
+          - name: persistence safety
+            paths: >-
+              src/tests/tenant-isolation.test.ts
+              src/tests/reminders/appointment-reminders.test.ts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Run ${{ matrix.name }} tests
+        run: npx vitest run ${{ matrix.paths }}
+
   build:
     name: Production build
-    needs: [changes, quality, tests, security]
+    needs: [changes, quality, tests, security_supply_chain, security_tests]
     if: |
       always() &&
       needs.changes.outputs.code == 'true' &&
       needs.quality.result == 'success' &&
       needs.tests.result == 'success' &&
-      needs.security.result == 'success'
+      needs.security_supply_chain.result == 'success' &&
+      needs.security_tests.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
