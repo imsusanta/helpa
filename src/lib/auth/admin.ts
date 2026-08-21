@@ -7,8 +7,10 @@
 
 import { redirect } from 'next/navigation';
 import { getCurrentAccount } from '@/lib/auth/account';
-import { getAdminClient } from '@/lib/appwrite-server-compat';
-import { createClient as createSupabaseServerClient } from '@/lib/supabase/server';
+import {
+  createClient as createSupabaseServerClient,
+  getAdminClient,
+} from '@/lib/supabase/server';
 
 /**
  * Optional display/bootstrap configuration retained for backwards-compatible

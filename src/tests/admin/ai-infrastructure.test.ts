@@ -4,10 +4,14 @@ import { encrypt, decrypt } from '@/lib/whatsapp/encryption';
 
 describe('Super Admin AI Infrastructure Authorization & Key Encryption', () => {
   describe('1. Super Admin Role Verification', () => {
-    it('verifies that the platform owner email matches susantalohr@gmail.com', () => {
-      expect(PLATFORM_OWNER_EMAIL).toBe('susantalohr@gmail.com');
-      expect(isPlatformOwnerEmail('susantalohr@gmail.com')).toBe(true);
-      expect(isPlatformOwnerEmail('SUSANTALOHR@GMAIL.COM')).toBe(true);
+    it('keeps bootstrap email matching informational and disabled by default', () => {
+      if (PLATFORM_OWNER_EMAIL) {
+        expect(isPlatformOwnerEmail(PLATFORM_OWNER_EMAIL.toUpperCase())).toBe(
+          true
+        );
+      } else {
+        expect(isPlatformOwnerEmail('susantalohr@gmail.com')).toBe(false);
+      }
       expect(isPlatformOwnerEmail('other_tenant@hospital.com')).toBe(false);
       expect(isPlatformOwnerEmail(null)).toBe(false);
     });

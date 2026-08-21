@@ -40,20 +40,26 @@ export function getRuntimeConfig(
 ) {
   const production = env.NODE_ENV === 'production';
   const authProvider = enumValue(
-    env.AUTH_PROVIDER || (env === (process.env as unknown) ? 'supabase' : undefined),
+    env.AUTH_PROVIDER ||
+      (env === (process.env as unknown) ? 'supabase' : undefined),
     ['supabase', 'appwrite'] as const,
     'AUTH_PROVIDER',
     production
   );
   const databaseProvider = enumValue(
-    env.DATABASE_PROVIDER || (env === (process.env as unknown) ? 'supabase' : undefined),
+    env.DATABASE_PROVIDER ||
+      (env === (process.env as unknown) ? 'supabase' : undefined),
     ['supabase', 'appwrite'] as const,
     'DATABASE_PROVIDER',
     production
   );
   const migrationMode = enumValue(
     env.MIGRATION_MODE ||
-      (env === (process.env as unknown) ? 'cutover' : production ? undefined : 'off'),
+      (env === (process.env as unknown)
+        ? 'cutover'
+        : production
+          ? undefined
+          : 'off'),
     ['cutover', 'shadow', 'off', 'rollback'] as const,
     'MIGRATION_MODE',
     production

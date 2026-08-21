@@ -26,10 +26,7 @@ vi.mock('@/lib/auth/account', () => ({
   getCurrentAccount: mocks.getCurrentAccount,
 }));
 
-import {
-  checkSuperAdmin,
-  isPlatformOwnerEmail,
-} from '@/lib/auth/admin';
+import { checkSuperAdmin, isPlatformOwnerEmail } from '@/lib/auth/admin';
 
 describe('Super Admin server-side authorization', () => {
   beforeEach(() => {

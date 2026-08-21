@@ -142,9 +142,9 @@ describe('Helpa Multi-Tenant Security & Security Hardening', () => {
       expect(sanitized.action).toBe('user_login');
       expect(sanitized.password).toBe('[REDACTED]');
       expect(sanitized.apiKey).toBe('[REDACTED]');
-      expect(
-        (sanitized.nested as Record<string, unknown>).access_token
-      ).toBe('[REDACTED]');
+      expect((sanitized.nested as Record<string, unknown>).access_token).toBe(
+        '[REDACTED]'
+      );
     });
   });
 
