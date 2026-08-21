@@ -48,8 +48,13 @@ function databaseAdapter() {
       let offset = 0;
       for (const descriptor of descriptors) {
         const field = descriptor.field ? snakeCase(descriptor.field) : '';
-        if (descriptor.kind === 'equal')
-          query = query.eq(field, descriptor.value);
+        if (descriptor.kind === 'equal') {
+          query = Array.isArray(descriptor.value)
+            ? query.in(field, descriptor.value)
+            : query.eq(field, descriptor.value);
+        }
+        if (descriptor.kind === 'lessThan')
+          query = query.lt(field, descriptor.value);
         if (descriptor.kind === 'search')
           query = query.ilike(field, `%${String(descriptor.value || '')}%`);
         if (descriptor.kind === 'order')
@@ -117,13 +122,39 @@ function databaseAdapter() {
   };
 }
 
+function storageAdapter() {
+  const client = getAdminClient();
+  return {
+    async createFile(
+      bucket: string,
+      fileId: string,
+      input: { data: Buffer | Uint8Array; filename?: string }
+    ) {
+      const { error } = await client.storage
+        .from(bucket)
+        .upload(fileId, input.data, { upsert: false });
+      if (error) throw error;
+      return { $id: fileId, name: input.filename || fileId };
+    },
+    async getFileDownload(bucket: string, fileId: string) {
+      const { data, error } = await client.storage.from(bucket).download(fileId);
+      if (error) throw error;
+      return data.arrayBuffer();
+    },
+    async deleteFile(bucket: string, fileId: string) {
+      const { error } = await client.storage.from(bucket).remove([fileId]);
+      if (error) throw error;
+    },
+  };
+}
+
 export function getAppwriteAdminClient() {
   const supabase = getAdminClient();
   return {
     client: supabase,
     account: supabase.auth.admin,
     databases: databaseAdapter(),
-    storage: supabase.storage,
+    storage: storageAdapter(),
     users: supabase.auth.admin,
     teams: {
       create: async (id: string, name: string) => ({ $id: id, name }),
