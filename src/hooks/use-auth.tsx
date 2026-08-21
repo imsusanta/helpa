@@ -9,6 +9,7 @@ import {
   useMemo,
   type ReactNode,
 } from 'react';
+import { useRouter } from 'next/navigation';
 import { DEFAULT_CURRENCY } from '@/lib/currency';
 import {
   canEditSettings as canEditSettingsFor,
@@ -66,6 +67,7 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [account, setAccount] = useState<AccountSummary | null>(null);
@@ -148,9 +150,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       setProfile(null);
       setAccount(null);
-      window.location.href = `${window.location.origin}/login`;
+      router.replace('/login');
     }
-  }, []);
+  }, [router]);
 
   const refreshProfile = useCallback(async () => {
     if (user?.id) await fetchProfile(user.id);
