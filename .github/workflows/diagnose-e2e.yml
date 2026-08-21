@@ -1,0 +1,48 @@
+name: Diagnose browser failure
+
+on:
+  push:
+    branches: [improve/product-readiness-9]
+
+permissions:
+  contents: write
+
+jobs:
+  diagnose:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      AUTH_PROVIDER: supabase
+      DATABASE_PROVIDER: supabase
+      MIGRATION_MODE: cutover
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-test-supabase-anon-key
+      SUPABASE_SERVICE_ROLE_KEY: ci-test-supabase-service-role-key
+      ENCRYPTION_KEY: '0000000000000000000000000000000000000000000000000000000000000000'
+      META_APP_SECRET: ci-dummy-meta-secret
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: improve/product-readiness-9
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Capture Playwright failure
+        run: |
+          set +e
+          npm run test:e2e 2>&1 | tee /tmp/e2e.log
+          code=${PIPESTATUS[0]}
+          mkdir -p diagnostics/ci
+          cp /tmp/e2e.log diagnostics/ci/e2e.log
+          echo "exit_code=$code" >> diagnostics/ci/e2e.log
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add diagnostics/ci/e2e.log
+          git commit -m "chore: capture browser failure diagnostics"
+          git push origin HEAD:improve/product-readiness-9
