@@ -278,7 +278,22 @@ function isSection(value: string | null): value is SettingsSection {
  * Overview landing.
  */
 export function resolveSection(raw: string | null): SettingsSection {
-  if (raw === 'tags' || raw === 'custom-fields') return 'fields';
+  if (!raw) return DEFAULT_SECTION;
+  const clean = raw.toLowerCase().replace(/-/g, '_');
+  if (
+    clean === 'tags' ||
+    clean === 'custom_fields' ||
+    clean === 'columns' ||
+    clean === 'consent'
+  )
+    return 'fields';
+  if (clean === 'team') return 'members';
+  if (clean === 'roles' || clean === 'api' || clean === 'webhooks')
+    return 'security';
+  if (clean === 'organization') return 'profile';
+  if (clean === 'faq' || clean === 'knowledge_base') return 'kb';
+  if (clean === 'booking' || clean === 'booking_form') return 'booking_form';
+  if (isSection(clean)) return clean;
   if (isSection(raw)) return raw;
   return DEFAULT_SECTION;
 }
