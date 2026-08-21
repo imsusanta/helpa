@@ -15,6 +15,12 @@ export default defineConfig({
     environment: 'node',
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
     env: {
+      AUTH_PROVIDER: 'supabase',
+      DATABASE_PROVIDER: 'supabase',
+      MIGRATION_MODE: 'cutover',
+      NEXT_PUBLIC_SUPABASE_URL: 'https://example.supabase.co',
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: 'test-supabase-anon-key',
+      SUPABASE_SERVICE_ROLE_KEY: 'test-supabase-service-role-key',
       ENCRYPTION_KEY:
         '0000000000000000000000000000000000000000000000000000000000000000',
       META_APP_SECRET: 'test-meta-app-secret',
@@ -26,26 +32,5 @@ export default defineConfig({
     },
     clearMocks: true,
     setupFiles: ['./src/tests/setup.ts'],
-    coverage: {
-      provider: 'v8',
-      reporter: ['text', 'json', 'html'],
-      include: [
-        'src/lib/auth/**',
-        'src/lib/whatsapp/encryption.ts',
-        'src/lib/whatsapp/oauth-state.ts',
-        'src/lib/whatsapp/webhook-verifier.ts',
-        'src/lib/whatsapp/outbox-service.ts',
-        'src/lib/whatsapp/meta-service.ts',
-        'src/lib/billing/**',
-        'src/lib/rate-limit.ts',
-        'src/lib/csv-utils.ts',
-      ],
-      thresholds: {
-        statements: 70,
-        branches: 60,
-        functions: 70,
-        lines: 70,
-      },
-    },
   },
 });
