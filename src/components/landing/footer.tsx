@@ -21,9 +21,9 @@ export function LandingFooter() {
               </span>
             </Link>
             <p className="max-w-sm text-xs leading-relaxed text-slate-500">
-              Multi-tenant, multi-industry AI business communication platform.
-              Automating customer conversations, appointments, and workflows on
-              WhatsApp.
+              The 24/7 AI communication platform for clinics, coaching classes,
+              tutors, salons, and real estate. Automate client replies,
+              bookings, and reminders on WhatsApp.
             </p>
             <div className="text-[11px] text-slate-400">
               Built with ❤️ by{' '}

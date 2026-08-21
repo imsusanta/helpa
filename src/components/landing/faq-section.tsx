@@ -6,24 +6,28 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const FAQS = [
   {
-    q: 'Can I keep my existing WhatsApp Business number?',
-    a: 'Yes! Helpa supports official Meta WhatsApp Business App + Cloud API coexistence for eligible accounts. You can continue using your mobile WhatsApp Business app while simultaneously powering Helpa AI receptionist, automations, and team inbox.',
+    q: 'Can I keep my current WhatsApp number?',
+    a: 'Yes, absolutely! You do not need a new SIM or phone number. You can keep using your existing WhatsApp number and mobile app, while Helpa handles automated replies, bookings, and reminders in the background.',
   },
   {
-    q: 'Do I need technical skills or developer experience to connect?',
-    a: 'Not at all. With Helpa 1-Click Embedded Signup, you simply click "Continue with Meta", select your business account, and Meta automatically configures webhooks and credentials without copy-pasting API keys.',
+    q: 'Do I need any technical skills or coding knowledge?',
+    a: 'None at all! Connecting your WhatsApp takes less than 2 minutes. You simply click "Continue with Meta", select your business page, and everything is set up automatically. No developer required.',
   },
   {
-    q: 'How does Helpa AI learn about my business?',
-    a: 'You can upload your price lists, doctor schedules, course fees, treatment menus, and FAQs directly to your Knowledge Base. Helpa AI uses this private knowledge base to answer customer questions accurately without hallucinating.',
+    q: 'How does the AI know what to reply to my clients?',
+    a: 'You can simply type or upload your service menu, doctor timings, course fees, treatment prices, and FAQs. Helpa AI reads your information and answers customer questions accurately, just like a well-trained front-desk staff.',
   },
   {
-    q: 'Can multiple staff members use the same WhatsApp number?',
-    a: 'Yes. Helpa includes a Unified Multi-Agent Inbox where doctors, receptionists, teachers, stylists, and agents can collaborate on chats, assign leads, and see live customer timelines.',
+    q: 'Can my staff members use this together on different devices?',
+    a: 'Yes! Your entire team — doctors, receptionists, teachers, stylists, or assistants — can log in from their computers or phones to view chats, reply to clients, and manage appointments together.',
   },
   {
-    q: 'Is my customer and patient data secure?',
-    a: 'Absolutely. Helpa enforces strict tenant isolation, role-based access control, and AES-256-GCM encryption for all stored credentials. Tenant A can never access Tenant B data.',
+    q: 'What happens if a customer wants to talk to a real person?',
+    a: 'Whenever a client asks for human assistance or a complex question comes up, the AI steps aside and notifies your team. You or your staff can jump into the chat and reply at any time.',
+  },
+  {
+    q: 'Is my customer and patient data safe and private?',
+    a: '100% private. Your patient records, student details, and chat conversations are encrypted with bank-grade security and are strictly private to your business.',
   },
 ];
 

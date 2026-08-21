@@ -6,27 +6,27 @@ export function LandingSecurityBadges() {
   const securityFeatures = [
     {
       icon: ShieldCheck,
-      title: 'Official Meta Cloud API',
+      title: 'Official Meta Partnership',
       description:
-        'Zero unofficial scrapers or reverse-engineered APIs. 100% compliant with Meta Business Policies.',
+        'Built directly on official WhatsApp Cloud APIs. Zero risk of banned numbers or unofficial scrapers.',
     },
     {
       icon: Lock,
-      title: 'Strict Multi-Tenant Isolation',
+      title: '100% Private to Your Business',
       description:
-        'Tenant A can never read, see, or mutate Tenant B data. Rigorously verified by server-side authorization guards.',
+        'Your patient notes, customer chats, and student lists are strictly private. No one outside your team can ever see them.',
     },
     {
       icon: KeyRound,
-      title: 'AES-256-GCM Encryption',
+      title: 'Bank-Grade Data Protection',
       description:
-        'All WhatsApp tokens and API credentials are encrypted at rest with NIST-approved cryptographic authentication tags.',
+        'All logins, client phone numbers, and WhatsApp tokens are protected with industry-standard AES-256 encryption.',
     },
     {
       icon: Server,
-      title: 'Enterprise High-Availability',
+      title: 'Always Online & Reliable',
       description:
-        'Idempotent webhooks, Redis-grade memory caching, automatic rate limiting, and 99.9% uptime architecture.',
+        'Runs 24/7 in the cloud so you never miss a client message, even when your phone is turned off or you are asleep.',
     },
   ];
 
@@ -35,14 +35,14 @@ export function LandingSecurityBadges() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto mb-12 max-w-2xl text-center">
           <span className="mb-2 inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
-            Security & Trust
+            Safety & Privacy
           </span>
           <h2 className="text-2xl font-extrabold text-[#110E3D] sm:text-3xl">
-            Enterprise-grade security by default
+            Your customer data is 100% safe & private
           </h2>
           <p className="mt-2 text-xs text-slate-500 sm:text-sm">
-            Your patient records, student details, customer conversations, and
-            business data are protected by defense-in-depth security.
+            We treat your patient records, student details, and business
+            conversations with the highest standard of privacy.
           </p>
         </div>
 

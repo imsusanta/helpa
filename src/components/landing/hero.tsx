@@ -81,8 +81,9 @@ export function LandingHero({ isAuthenticated }: HeroProps) {
           transition={{ duration: 0.5, delay: 0.2 }}
           className="mx-auto mb-8 max-w-2xl text-base leading-relaxed font-normal text-[#55527C] sm:text-xl"
         >
-          All-in-one AI CRM to automate WhatsApp, customer conversations,
-          appointments, and workflows.
+          Your 24/7 WhatsApp AI receptionist that answers client questions,
+          books appointments, and organizes leads automatically — no tech skills
+          needed.
         </motion.p>
 
         {/* Glowing Gradient Pill CTA Button */}
@@ -98,7 +99,9 @@ export function LandingHero({ isAuthenticated }: HeroProps) {
               className="flex cursor-pointer items-center gap-2 rounded-full bg-gradient-to-r from-[#C4F135] via-[#7EE69D] to-[#4EE3C2] px-8 py-3.5 text-base font-bold text-[#110E3D] shadow-md transition-all hover:scale-105 hover:shadow-lg active:scale-98"
             >
               <span>
-                {isAuthenticated ? 'Go to Dashboard' : 'Start Free Trial'}
+                {isAuthenticated
+                  ? 'Go to Dashboard'
+                  : 'Start 14-Day Free Trial'}
               </span>
               <Sparkles className="h-4 w-4 text-[#110E3D]" />
             </button>
@@ -120,8 +123,8 @@ export function LandingHero({ isAuthenticated }: HeroProps) {
             >
               <path d="M12 2.04c-5.5 0-10 4.49-10 10.02 0 5 3.66 9.15 8.44 9.9v-7H7.9v-2.9h2.54V9.85c0-2.51 1.49-3.89 3.78-3.89 1.09 0 2.23.19 2.23.19v2.47h-1.26c-1.24 0-1.63.77-1.63 1.56v1.88h2.78l-.45 2.9h-2.33v7a10 10 0 0 0 8.44-9.9c0-5.53-4.5-10.02-10-10.02z" />
             </svg>
-            <span className="font-semibold text-slate-700">Meta</span>
-            <span>Business Partner</span>
+            <span className="font-semibold text-slate-700">Official Meta</span>
+            <span>Cloud Partner</span>
           </div>
 
           <div className="flex items-center gap-1.5">
@@ -129,7 +132,7 @@ export function LandingHero({ isAuthenticated }: HeroProps) {
               <Star className="h-3.5 w-3.5 fill-current" />
             </div>
             <span className="font-bold text-slate-700">4.9/5</span>
-            <span>STARS RATING</span>
+            <span>RATED BY BUSINESSES</span>
           </div>
         </motion.div>
       </div>
