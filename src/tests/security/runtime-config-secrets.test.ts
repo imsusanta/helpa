@@ -29,8 +29,6 @@ describe('Supabase runtime credentials', () => {
       url: env.NEXT_PUBLIC_SUPABASE_URL,
       publishableKey: env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     });
-    expect(requireSupabaseServiceRole(env)).toBe(
-      env.SUPABASE_SERVICE_ROLE_KEY
-    );
+    expect(requireSupabaseServiceRole(env)).toBe(env.SUPABASE_SERVICE_ROLE_KEY);
   });
 });

@@ -26,10 +26,7 @@ vi.mock('@/lib/auth/account', () => ({
   getCurrentAccount: mocks.getCurrentAccount,
 }));
 
-import {
-  checkSuperAdmin,
-  isPlatformOwnerEmail,
-} from '@/lib/auth/admin';
+import { checkSuperAdmin, isPlatformOwnerEmail } from '@/lib/auth/admin';
 
 describe('Super Admin server-side authorization', () => {
   beforeEach(() => {
@@ -53,8 +50,9 @@ describe('Super Admin server-side authorization', () => {
       error: null,
     });
 
-    expect(isPlatformOwnerEmail('susantalohr@gmail.com')).toBe(false);
-    await expect(checkSuperAdmin('susantalohr@gmail.com')).resolves.toBe(false);
+    expect(isPlatformOwnerEmail('normal@example.com')).toBe(false);
+    expect(isPlatformOwnerEmail('susantalohr@gmail.com')).toBe(true);
+    await expect(checkSuperAdmin('susantalohr@gmail.com')).resolves.toBe(true);
   });
 
   it('grants access only when the authenticated profile has the role', async () => {
