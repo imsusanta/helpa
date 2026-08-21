@@ -1,16 +1,13 @@
-merge_exit_code=128
-Committer identity unknown
-
-*** Please tell me who you are.
-
-Run
-
-  git config --global user.email "you@example.com"
-  git config --global user.name "Your Name"
-
-to set your account's default identity.
-Omit --global to set the identity only in this repository.
-
-fatal: empty ident name (for <runner@runnervm76f27.2fvbbrm5ht2erfgp2g5ajppu1b.phxx.internal.cloudapp.net>) not allowed
+merge_exit_code=1
+Auto-merging README.md
+CONFLICT (content): Merge conflict in README.md
+Auto-merging package.json
+Auto-merging src/lib/auth/admin.ts
+Auto-merging src/tests/admin/ai-infrastructure.test.ts
+CONFLICT (content): Merge conflict in src/tests/admin/ai-infrastructure.test.ts
+Auto-merging src/tests/super-admin.test.ts
+Automatic merge failed; fix conflicts and then commit the result.
 
 unmerged_paths:
+README.md
+src/tests/admin/ai-infrastructure.test.ts
