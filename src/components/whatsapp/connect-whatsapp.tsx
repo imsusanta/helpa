@@ -26,29 +26,38 @@ export function ConnectWhatsApp() {
   const [error, setError] = useState<string | null>(null);
   const [sdkReady, setSdkReady] = useState(false);
   const appId = process.env.NEXT_PUBLIC_META_APP_ID;
+  const configId = process.env.NEXT_PUBLIC_META_EMBEDDED_SIGNUP_CONFIG_ID;
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-      if (event.origin !== 'https://www.facebook.com' && event.origin !== 'https://web.facebook.com') return;
+      if (
+        event.origin !== 'https://www.facebook.com' &&
+        event.origin !== 'https://web.facebook.com'
+      ) {
+        return;
+      }
+
       let data: Record<string, unknown> | null = null;
       try {
         data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
       } catch {
         return;
       }
+
       if (data?.type !== 'WA_EMBEDDED_SIGNUP') return;
       if (data.event === 'CANCEL' || data.event === 'ERROR') {
         setLoading(false);
         setError('WhatsApp setup was cancelled or could not be completed.');
       }
     };
+
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
   }, []);
 
   const connect = async () => {
     setError(null);
-    if (!appId || !process.env.NEXT_PUBLIC_META_EMBEDDED_SIGNUP_CONFIG_ID) {
+    if (!appId || !configId) {
       setError('WhatsApp setup is not configured yet.');
       return;
     }
@@ -59,9 +68,13 @@ export function ConnectWhatsApp() {
 
     setLoading(true);
     try {
-      const stateResponse = await fetch('/api/whatsapp/embedded-signup/state', { cache: 'no-store' });
+      const stateResponse = await fetch('/api/whatsapp/embedded-signup/state', {
+        cache: 'no-store',
+      });
       const stateData = await stateResponse.json();
-      if (!stateResponse.ok || !stateData.state) throw new Error('Could not start secure WhatsApp connection');
+      if (!stateResponse.ok || !stateData.state) {
+        throw new Error('Could not start secure WhatsApp connection');
+      }
 
       window.FB.login(
         async (response) => {
@@ -73,22 +86,31 @@ export function ConnectWhatsApp() {
           }
 
           try {
-            const completeResponse = await fetch('/api/whatsapp/embedded-signup/complete', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ code, state: stateData.state }),
-            });
+            const completeResponse = await fetch(
+              '/api/whatsapp/embedded-signup/complete',
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code, state: stateData.state }),
+              }
+            );
             const result = await completeResponse.json();
-            if (!completeResponse.ok) throw new Error(result.error || 'WhatsApp connection failed');
+            if (!completeResponse.ok) {
+              throw new Error(result.error || 'WhatsApp connection failed');
+            }
             setConnected(true);
           } catch (completionError) {
-            setError(completionError instanceof Error ? completionError.message : 'WhatsApp connection failed');
+            setError(
+              completionError instanceof Error
+                ? completionError.message
+                : 'WhatsApp connection failed'
+            );
           } finally {
             setLoading(false);
           }
         },
         {
-          config_id: process.env.NEXT_PUBLIC_META_EMBEDDED_SIGNUP_CONFIG_ID,
+          config_id: configId,
           response_type: 'code',
           override_default_response_type: true,
           extras: { sessionInfoVersion: 3 },
@@ -96,7 +118,11 @@ export function ConnectWhatsApp() {
       );
     } catch (connectError) {
       setLoading(false);
-      setError(connectError instanceof Error ? connectError.message : 'Unable to connect WhatsApp');
+      setError(
+        connectError instanceof Error
+          ? connectError.message
+          : 'Unable to connect WhatsApp'
+      );
     }
   };
 
@@ -108,10 +134,15 @@ export function ConnectWhatsApp() {
         strategy="afterInteractive"
         onLoad={() => {
           if (window.FB && appId) {
-            // Meta Embedded Signup uses the Facebook SDK login surface.
-            // The SDK is initialized once and never receives secrets.
-            const fb = window.FB as unknown as { init?: (options: Record<string, unknown>) => void };
-            fb.init?.({ appId, cookie: true, xfbml: false, version: 'v21.0' });
+            const fb = window.FB as unknown as {
+              init?: (options: Record<string, unknown>) => void;
+            };
+            fb.init?.({
+              appId,
+              cookie: true,
+              xfbml: false,
+              version: 'v21.0',
+            });
             setSdkReady(true);
           }
         }}
@@ -123,7 +154,9 @@ export function ConnectWhatsApp() {
             <CheckCircle2 className="mt-0.5 h-6 w-6 text-emerald-500" />
             <div>
               <h3 className="font-semibold">WhatsApp connected</h3>
-              <p className="mt-1 text-sm text-muted-foreground">Your WhatsApp Business account is now connected to Helpa.</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Your WhatsApp Business account is now connected to Helpa.
+              </p>
             </div>
           </div>
         ) : (
@@ -134,12 +167,21 @@ export function ConnectWhatsApp() {
                 <h3 className="font-semibold">Connect WhatsApp</h3>
               </div>
               <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-                Connect your WhatsApp Business account securely through Meta. No Phone Number ID, WABA ID, or access token is required.
+                Connect your WhatsApp Business account securely through Meta. No
+                Phone Number ID, WABA ID, or access token is required.
               </p>
-              {error ? <p className="mt-2 text-sm text-destructive">{error}</p> : null}
+              {error ? (
+                <p className="mt-2 text-sm text-destructive">{error}</p>
+              ) : null}
             </div>
-            <Button onClick={connect} disabled={loading || !sdkReady} className="shrink-0">
-              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            <Button
+              onClick={connect}
+              disabled={loading || !sdkReady}
+              className="shrink-0"
+            >
+              {loading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
               {loading ? 'Connecting…' : sdkReady ? 'Connect WhatsApp' : 'Loading Meta…'}
             </Button>
           </div>
