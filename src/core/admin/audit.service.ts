@@ -1,16 +1,21 @@
-/**
- * Helpa Core Super Admin — Audit Logging Service
- *
- * Immutable, secure audit trail of all platform-level administrative actions.
- * Ensures zero secret credential leakage.
- */
+/** Helpa Core Super Admin — immutable administrative audit trail. */
 
-import { AdminAuditLog } from './types';
+import type { AdminAuditLog } from './types';
 import { getAdminClient } from '@/lib/appwrite-server-compat';
 
-/**
- * Logs an administrative action to the platform audit trail.
- */
+function sanitizeMetadata(
+  metadata: Record<string, unknown> | undefined
+): Record<string, unknown> {
+  const safe: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(metadata || {})) {
+    const normalized = key.toLowerCase();
+    if (!/(token|secret|password|api.?key|credential|signature)/i.test(normalized)) {
+      safe[key] = value;
+    }
+  }
+  return safe;
+}
+
 export async function logAdminAction({
   actorEmail,
   action,
@@ -26,27 +31,11 @@ export async function logAdminAction({
   workspaceId?: string;
   metadata?: Record<string, unknown>;
 }): Promise<AdminAuditLog> {
-  const db = getAdminClient();
+  const database = getAdminClient();
   const timestamp = new Date().toISOString();
-
-  // Strip any accidental sensitive tokens or credentials from metadata
-  const safeMetadata: Record<string, unknown> = {};
-  if (metadata) {
-    for (const [k, v] of Object.entries(metadata)) {
-      const lower = k.toLowerCase();
-      if (
-        !lower.includes('token') &&
-        !lower.includes('secret') &&
-        !lower.includes('password') &&
-        !lower.includes('key')
-      ) {
-        safeMetadata[k] = v;
-      }
-    }
-  }
-
+  const safeMetadata = sanitizeMetadata(metadata);
   const record: AdminAuditLog = {
-    id: `audit-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    id: crypto.randomUUID(),
     actorEmail,
     action,
     targetType,
@@ -56,55 +45,59 @@ export async function logAdminAction({
     metadata: safeMetadata,
   };
 
-  await db.from('audit_logs').insert({
-    account_id: workspaceId || 'platform_admin',
+  const { error } = await database.from('audit_logs').insert({
+    account_id: workspaceId || null,
     action: `admin:${action}`,
-    details: {
-      id: record.id,
-      actorEmail,
-      targetType,
-      targetId,
-      metadata: safeMetadata,
-      timestamp,
+    target_type: targetType,
+    target_id: targetId,
+    metadata: {
+      audit_id: record.id,
+      actor_email: actorEmail,
+      ...safeMetadata,
     },
     created_at: timestamp,
   });
-
+  if (error) throw new Error(`ADMIN_AUDIT_WRITE_FAILED: ${error.message}`);
   return record;
 }
 
-/**
- * Retrieves platform administrative audit logs with optional filters.
- */
 export async function listAdminAuditLogs(filter?: {
   action?: string;
   targetType?: string;
   workspaceId?: string;
   limit?: number;
 }): Promise<AdminAuditLog[]> {
-  const db = getAdminClient();
-  const { data: rows } = await db
+  const database = getAdminClient();
+  let query = database
     .from('audit_logs')
     .select('*')
     .ilike('action', 'admin:%')
     .order('created_at', { ascending: false })
-    .limit(filter?.limit || 50);
+    .limit(Math.min(Math.max(filter?.limit || 50, 1), 200));
 
-  if (!rows || rows.length === 0) {
-    return [];
-  }
+  if (filter?.workspaceId) query = query.eq('account_id', filter.workspaceId);
+  if (filter?.action) query = query.eq('action', `admin:${filter.action}`);
+  if (filter?.targetType) query = query.eq('target_type', filter.targetType);
 
-  return rows.map((r) => {
-    const d = (r.details as Record<string, unknown>) || {};
+  const { data: rows, error } = await query;
+  if (error) throw new Error(`ADMIN_AUDIT_READ_FAILED: ${error.message}`);
+
+  return (rows || []).map((row) => {
+    const metadata =
+      (row.metadata as Record<string, unknown> | null) ||
+      (row.details as Record<string, unknown> | null) ||
+      {};
     return {
-      id: String(d.id || r.id),
-      actorEmail: String(d.actorEmail || 'susantalohr@gmail.com'),
-      action: String(r.action).replace(/^admin:/, ''),
-      targetType: (d.targetType as AdminAuditLog['targetType']) || 'system',
-      targetId: String(d.targetId || r.account_id),
-      workspaceId: r.account_id,
-      timestamp: String(d.timestamp || r.created_at),
-      metadata: d.metadata as Record<string, unknown>,
+      id: String(metadata.audit_id || metadata.id || row.id),
+      actorEmail: String(metadata.actor_email || metadata.actorEmail || ''),
+      action: String(row.action || '').replace(/^admin:/, ''),
+      targetType: (row.target_type ||
+        metadata.targetType ||
+        'system') as AdminAuditLog['targetType'],
+      targetId: String(row.target_id || metadata.targetId || ''),
+      workspaceId: row.account_id ? String(row.account_id) : undefined,
+      timestamp: String(row.created_at || metadata.timestamp || ''),
+      metadata,
     };
   });
 }
