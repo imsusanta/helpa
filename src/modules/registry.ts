@@ -1,4 +1,4 @@
-import { IndustryModule } from './types';
+import type { IndustryModule } from './types';
 import { healthModule } from './health';
 import { coachingModule } from './coaching';
 import { realEstateModule } from './real-estate';
@@ -132,7 +132,9 @@ export function isValidIndustry(industry: unknown): boolean {
   return Boolean(INDUSTRY_ALIASES[normalized] || INDUSTRY_REGISTRY[normalized]);
 }
 
-export function resolveCanonicalIndustry(industry: string): string {
+export function resolveCanonicalIndustry(
+  industry: string | null | undefined
+): string {
   if (!industry || typeof industry !== 'string') return 'general';
   const normalized = industry.trim().toLowerCase();
   const alias = INDUSTRY_ALIASES[normalized];
@@ -141,13 +143,11 @@ export function resolveCanonicalIndustry(industry: string): string {
   return 'general';
 }
 
-// Fallback module definition for 'general' or others
 export const generalModule: IndustryModule = {
   id: 'general',
   name: 'General CRM',
   description: 'AI General Assistant',
   status: 'ACTIVE',
-
   sidebar: [
     { href: '/dashboard', label: 'Dashboard', iconName: 'LayoutDashboard' },
     { href: '/inbox', label: 'WhatsApp Chats', iconName: 'MessageSquare' },
@@ -161,7 +161,6 @@ export const generalModule: IndustryModule = {
     { href: '/knowledge-base', label: 'Knowledge', iconName: 'FileText' },
     { href: '/settings', label: 'Settings', iconName: 'Settings' },
   ],
-
   dashboardMetrics: [
     {
       key: 'conversations_active',
@@ -171,10 +170,8 @@ export const generalModule: IndustryModule = {
       queryType: 'count',
     },
   ],
-
   systemPrompt:
     'You are acting as a helpful and polite AI Assistant. Assist the client with generic details and hand off to human agents when requested.',
-
   kbTemplates: [
     {
       category: 'faq',
@@ -182,7 +179,6 @@ export const generalModule: IndustryModule = {
       answerContent: 'We are open Monday to Friday from 9:00 AM to 6:00 PM.',
     },
   ],
-
   campaignTemplates: [
     {
       name: 'General Offer Newsletter',
@@ -192,12 +188,10 @@ export const generalModule: IndustryModule = {
       ctaType: 'none',
     },
   ],
-
   copilotConfig: {
     summaryFields: ['status'],
     quickActions: [],
   },
-
   pipelineStages: [
     { name: 'New Lead', position: 1, color: '#3b82f6' },
     { name: 'Won', position: 2, color: '#10b981' },
@@ -217,15 +211,10 @@ export const generalModule: IndustryModule = {
 export function getIndustryModule(
   industry: string | null | undefined
 ): IndustryModule {
-  if (!industry) return generalModule;
-  const industryKey = INDUSTRY_ALIASES[industry] || industry;
+  const industryKey = resolveCanonicalIndustry(industry);
   return INDUSTRY_REGISTRY[industryKey] || generalModule;
 }
 
-/**
- * A workspace may override its default industry instructions. Empty or
- * missing overrides must still resolve to the appropriate industry prompt.
- */
 export function resolveSystemPrompt(
   industry: string | null | undefined,
   customPrompt: string | null | undefined
@@ -233,5 +222,5 @@ export function resolveSystemPrompt(
   const prompt = customPrompt?.trim();
   return prompt || getIndustryModule(industry).systemPrompt;
 }
+
 export * from './types';
-export * from './registry';

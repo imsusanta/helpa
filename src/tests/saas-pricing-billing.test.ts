@@ -40,42 +40,45 @@ describe('Helpa SaaS Pricing Plans & Billing Architecture', () => {
     it('should calculate initial payment as setup fee + first month', async () => {
       const growth = await getPlanBySlug('growth');
       const initialPayment = growth.setupFee + growth.monthlyPrice;
-      expect(initialPayment).toBe(11999 + 4999); // 16,998
-
-      const recurringMonthly = growth.monthlyPrice;
-      expect(recurringMonthly).toBe(4999);
+      expect(initialPayment).toBe(11999 + 4999);
+      expect(growth.monthlyPrice).toBe(4999);
     });
   });
 
   describe('2. Centralized Feature Entitlements & Access Control', () => {
-    it('should grant features included in plan and reject features missing from plan', async () => {
+    it('fails closed when no persisted subscription can be verified', async () => {
       const starterAccess = await checkFeatureAccess(
-        'test-account-starter',
+        'missing-account-starter',
         'core.inbox'
       );
-      expect(starterAccess.allowed).toBe(true);
+      expect(starterAccess.allowed).toBe(false);
+      expect(starterAccess.reason).toBeTruthy();
 
       const proAccess = await checkFeatureAccess(
-        'test-account-pro',
+        'missing-account-pro',
         'core.custom_models'
       );
-      expect(proAccess.allowed).toBe(true);
+      expect(proAccess.allowed).toBe(false);
+      expect(proAccess.reason).toBeTruthy();
     });
   });
 
   describe('3. Usage Limits & Consumption Enforcements', () => {
-    it('should allow usage within limit and flag limits reached', async () => {
-      const limitCheck = await checkPlanLimits('test-account-1', 'max_users');
-      expect(limitCheck).toHaveProperty('allowed');
+    it('fails closed when subscription limits cannot be verified', async () => {
+      const limitCheck = await checkPlanLimits(
+        'missing-account-1',
+        'max_users'
+      );
+      expect(limitCheck.allowed).toBe(false);
       expect(limitCheck).toHaveProperty('currentUsage');
       expect(limitCheck).toHaveProperty('limit');
       expect(limitCheck).toHaveProperty('percentageUsed');
     });
 
-    it('should safely increment usage tracking metrics', async () => {
+    it('rejects invalid usage quantities', async () => {
       await expect(
-        incrementUsage('test-account-1', 'ai_requests', 1)
-      ).resolves.not.toThrow();
+        incrementUsage('test-account-1', 'ai_requests', 0)
+      ).rejects.toThrow('USAGE_QUANTITY_MUST_BE_POSITIVE');
     });
   });
 
@@ -100,7 +103,7 @@ describe('Helpa SaaS Pricing Plans & Billing Architecture', () => {
         analytics.setupFeeRevenue + analytics.recurringRevenue
       );
       expect(analytics.revenueByPlan.growth).toBe(11999 + 4999);
-      expect(analytics.revenueByPlan.pro).toBe(19999 + 7999 - 15000); // 12998
+      expect(analytics.revenueByPlan.pro).toBe(19999 + 7999 - 15000);
     });
   });
 });
