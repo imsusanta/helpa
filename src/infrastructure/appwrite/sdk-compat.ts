@@ -1,5 +1,5 @@
 type QueryDescriptor = {
-  kind: 'equal' | 'order' | 'limit' | 'offset' | 'search';
+  kind: 'equal' | 'lessThan' | 'order' | 'limit' | 'offset' | 'search';
   field?: string;
   value?: unknown;
   ascending?: boolean;
@@ -12,6 +12,11 @@ export const ID = {
 export const Query = {
   equal: (field: string, value: unknown): QueryDescriptor => ({
     kind: 'equal',
+    field,
+    value,
+  }),
+  lessThan: (field: string, value: unknown): QueryDescriptor => ({
+    kind: 'lessThan',
     field,
     value,
   }),
