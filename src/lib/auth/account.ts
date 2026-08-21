@@ -47,10 +47,14 @@ export interface AccountContext {
   email?: string;
   account: { id: string; name: string };
   /** Supabase data adapter retained under the historical property name. */
-  appwrite: import('@/lib/appwrite-server-compat').AppwriteCompatClient;
+  appwrite?: import('@/lib/appwrite-server-compat').AppwriteCompatClient;
 }
 
-export async function getCurrentAccount(): Promise<AccountContext> {
+type ResolvedAccountContext = AccountContext & {
+  appwrite: import('@/lib/appwrite-server-compat').AppwriteCompatClient;
+};
+
+export async function getCurrentAccount(): Promise<ResolvedAccountContext> {
   try {
     const supabase = await createSupabaseServerClient();
     const {
@@ -150,7 +154,9 @@ export async function getCurrentAccount(): Promise<AccountContext> {
   }
 }
 
-export async function requireRole(min: AccountRole): Promise<AccountContext> {
+export async function requireRole(
+  min: AccountRole
+): Promise<ResolvedAccountContext> {
   const ctx = await getCurrentAccount();
   if (!hasMinRole(ctx.role, min)) {
     throw new ForbiddenError(
