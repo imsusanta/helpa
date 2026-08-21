@@ -81,6 +81,8 @@ export function useWorkspace(): WorkspaceContextValue {
         pathname.startsWith('/billing/') ||
         pathname === '/automations' ||
         pathname.startsWith('/automations/') ||
+        pathname === '/integrations' ||
+        pathname.startsWith('/integrations/') ||
         pathname === '/pipelines' ||
         pathname.startsWith('/pipelines/')
       ) {
