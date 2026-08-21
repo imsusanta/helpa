@@ -1,4 +1,4 @@
-name: Diagnose latest main conflicts
+name: Resolve latest main conflicts
 
 on:
   push:
@@ -8,7 +8,7 @@ permissions:
   contents: write
 
 jobs:
-  diagnose:
+  resolve:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -17,24 +17,24 @@ jobs:
         with:
           ref: improve/product-readiness-9
           fetch-depth: 0
-      - name: Capture merge conflicts
+      - name: Merge latest main with reviewed resolutions
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch origin main
-          set +e
-          git merge --no-commit --no-ff origin/main > /tmp/merge.log 2>&1
-          merge_code=$?
-          {
-            echo "merge_exit_code=$merge_code"
-            cat /tmp/merge.log
-            echo
-            echo "unmerged_paths:"
-            git diff --name-only --diff-filter=U
-          } > /tmp/merge-conflicts.txt
-          git merge --abort || true
-          mkdir -p diagnostics/ci
-          cp /tmp/merge-conflicts.txt diagnostics/ci/merge-conflicts.txt
-          git add diagnostics/ci/merge-conflicts.txt
-          git commit -m "chore: capture latest main merge conflicts"
+          git merge --no-commit --no-ff origin/main || true
+          conflicts="$(git diff --name-only --diff-filter=U)"
+          expected=$'README.md\nsrc/tests/admin/ai-infrastructure.test.ts'
+          if [ "$conflicts" != "$expected" ]; then
+            echo "Unexpected conflict set:"
+            printf '%s\n' "$conflicts"
+            exit 1
+          fi
+          git checkout --ours README.md
+          git checkout --theirs src/tests/admin/ai-infrastructure.test.ts
+          git add README.md src/tests/admin/ai-infrastructure.test.ts
+          rm -rf diagnostics/ci
+          rm .github/workflows/resolve-main-conflicts.yml
+          git add -A
+          git commit -m "merge: sync latest main and resolve product-readiness conflicts"
           git push origin HEAD:improve/product-readiness-9
