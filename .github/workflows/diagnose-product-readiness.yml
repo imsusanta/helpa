@@ -1,4 +1,4 @@
-name: Diagnose remaining PR failures
+name: Repair remaining PR failures
 
 on:
   push:
@@ -8,7 +8,7 @@ permissions:
   contents: write
 
 jobs:
-  diagnose:
+  repair:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -22,21 +22,22 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Capture diagnostics
-        shell: bash
+      - name: Apply code-controlled repairs
         run: |
-          mkdir -p diagnostics/ci
-          set +e
-          npm run format:check > diagnostics/ci/format-check.log 2>&1
-          npm run lint > diagnostics/ci/lint.log 2>&1
-          npm run typecheck > diagnostics/ci/typecheck.log 2>&1
-          npm install --no-save --no-package-lock @vitest/coverage-v8@4.1.10 > diagnostics/ci/coverage-install.log 2>&1
-          npx vitest run --coverage --exclude='**/src/tests/integration/**' > diagnostics/ci/coverage.log 2>&1
-          exit 0
-      - name: Commit diagnostics
+          npm run format
+          npm install --save-dev --save-exact @vitest/coverage-v8@4.1.10
+          rm -rf diagnostics/ci
+          npm run format:check
+          npm run lint
+          npm run typecheck
+          npx vitest run --coverage --exclude='**/src/tests/integration/**'
+      - name: Commit repairs
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add diagnostics/ci
-          git commit -m "chore: capture remaining CI diagnostics"
+          git add package.json package-lock.json src diagnostics/ci
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "fix(ci): format landing page and install coverage provider"
           git push origin HEAD:improve/product-readiness-9
