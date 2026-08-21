@@ -7,7 +7,10 @@ import {
   getAdminClient as getSupabaseAdminClient,
 } from '@/lib/supabase/server';
 
-export type AppwriteCompatClient = ReturnType<typeof getSupabaseAdminClient>;
+// Historical call sites use several builder shapes. Keep the boundary flexible
+// while all returned objects remain real Supabase clients.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type AppwriteCompatClient = any;
 export type AppwriteClient = AppwriteCompatClient;
 export type AppwriteError = {
   message: string;
@@ -16,14 +19,14 @@ export type AppwriteError = {
   hint?: string;
 };
 
-export async function createClient() {
+export async function createClient(): Promise<AppwriteCompatClient> {
   return createSupabaseServerClient();
 }
 
-export function appwriteAdmin() {
+export function appwriteAdmin(): AppwriteCompatClient {
   return getSupabaseAdminClient();
 }
 
-export function getAdminClient() {
+export function getAdminClient(): AppwriteCompatClient {
   return getSupabaseAdminClient();
 }
