@@ -18,7 +18,8 @@ vi.mock('@/lib/supabase/server', () => ({
   }),
 }));
 
-import { GET, sanitizeCsvValue } from '@/app/api/contacts/export/route';
+import { GET } from '@/app/api/contacts/export/route';
+import { sanitizeCsvValue } from '@/lib/csv-utils';
 
 describe('CSV Export & Formula Injection Sanitization', () => {
   it('neutralizes spreadsheet formula injection payloads', () => {
