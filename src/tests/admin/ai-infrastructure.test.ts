@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isPlatformOwnerEmail, PLATFORM_OWNER_EMAIL } from '@/lib/auth/admin';
+import { isPlatformOwnerEmail } from '@/lib/auth/admin';
 import { encrypt, decrypt } from '@/lib/whatsapp/encryption';
 
 describe('Super Admin AI Infrastructure Authorization & Key Encryption', () => {
