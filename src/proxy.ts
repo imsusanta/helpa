@@ -1,16 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
-import {
-  getRuntimeConfig,
-  requireSupabasePublicConfig,
-} from '@/lib/runtime-config';
-
-/**
- * Default-Deny Route Protection Proxy (Next.js 16 Proxy Convention)
- *
- * All application routes and API endpoints require authentication by default,
- * except explicitly listed public routes (auth, landing, legal, webhooks, health, static assets).
- */
+import { requireSupabasePublicConfig } from '@/lib/runtime-config';
 
 const PUBLIC_EXACT_PATHS = new Set([
   '/',
@@ -48,51 +38,38 @@ function isPublicRoute(pathname: string): boolean {
   if (PUBLIC_EXACT_PATHS.has(pathname)) return true;
   if (PUBLIC_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix)))
     return true;
-  if (pathname.startsWith('/api/appointments/') && pathname.endsWith('/pdf'))
-    return true;
-  return false;
+  return (
+    pathname.startsWith('/api/appointments/') && pathname.endsWith('/pdf')
+  );
 }
 
 export async function proxy(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
   let user: { id: string; email?: string } | null = null;
+  let response = NextResponse.next({ request });
+
   try {
-    const runtime = getRuntimeConfig();
-    if (runtime.authProvider === 'supabase') {
-      const { url, publishableKey } = requireSupabasePublicConfig();
-      let response = NextResponse.next({ request });
-      const supabase = createServerClient(url, publishableKey, {
-        cookies: {
-          getAll: () => request.cookies.getAll(),
-          setAll: (cookies) => {
-            cookies.forEach(({ name, value }) =>
-              request.cookies.set(name, value)
-            );
-            response = NextResponse.next({ request });
-            cookies.forEach(({ name, value, options }) =>
-              response.cookies.set(name, value, options)
-            );
-          },
+    const { url, publishableKey } = requireSupabasePublicConfig();
+    const supabase = createServerClient(url, publishableKey, {
+      cookies: {
+        getAll: () => request.cookies.getAll(),
+        setAll: (cookies) => {
+          cookies.forEach(({ name, value }) => request.cookies.set(name, value));
+          response = NextResponse.next({ request });
+          cookies.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          );
         },
-      });
-      const {
-        data: { user: authUser },
-      } = await supabase.auth.getUser();
-      if (authUser?.id) {
-        user = {
-          id: authUser.id,
-          email: authUser.email,
-        };
-      }
-      // The refreshed cookie response is used below for authenticated requests.
-      if (user && !isPublicRoute(request.nextUrl.pathname)) return response;
-    }
+      },
+    });
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser();
+    if (authUser?.id) user = { id: authUser.id, email: authUser.email };
   } catch {
-    // Missing/invalid runtime configuration fails closed for protected routes.
+    // Missing/invalid Supabase configuration fails closed below.
   }
 
-  const pathname = request.nextUrl.pathname;
-
-  // Auth pages - redirect to dashboard if already logged in.
   if (
     user &&
     (pathname === '/login' ||
@@ -111,7 +88,6 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Default-Deny: Unauthenticated access to non-public paths
   if (!user && !isPublicRoute(pathname)) {
     if (pathname.startsWith('/api/')) {
       return NextResponse.json(
@@ -124,7 +100,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  return NextResponse.next({ request });
+  return response;
 }
 
 export const config = {

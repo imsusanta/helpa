@@ -9,7 +9,6 @@ import {
   useMemo,
   type ReactNode,
 } from 'react';
-import { getAppwriteClient } from '@/infrastructure/appwrite/client';
 import { DEFAULT_CURRENCY } from '@/lib/currency';
 import {
   canEditSettings as canEditSettingsFor,
@@ -18,7 +17,7 @@ import {
   type AccountRole,
 } from '@/lib/auth/roles';
 
-export interface AppwriteUser {
+export interface AuthUser {
   id: string;
   email: string;
   name?: string;
@@ -45,7 +44,7 @@ interface AccountSummary {
 }
 
 interface AuthContextValue {
-  user: AppwriteUser | null;
+  user: AuthUser | null;
   profile: Profile | null;
   loading: boolean;
   profileLoading: boolean;
@@ -67,11 +66,10 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AppwriteUser | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [account, setAccount] = useState<AccountSummary | null>(null);
   const [enabledModuleKeys, setEnabledModuleKeys] = useState<string[]>([]);
-
   const [loading, setLoading] = useState(true);
   const [profileLoading, setProfileLoading] = useState(true);
   const [modulesLoading, setModulesLoading] = useState(false);
@@ -79,32 +77,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchProfile = useCallback(async (_userId: string) => {
     setProfileLoading(true);
     try {
-      try {
-        const res = await fetch('/api/account/profile').catch(() => null);
-        if (res && res.ok) {
-          const data = await res.json().catch(() => null);
-          if (data?.success && data?.profile) {
-            setProfile(data.profile);
-            setAccount(
-              data.account || {
-                id: data.profile.account_id || null,
-                name: 'Clinic Account',
-                default_currency: DEFAULT_CURRENCY,
-                industry: 'hospital_clinic',
-              }
-            );
-            return;
+      const response = await fetch('/api/account/profile').catch(() => null);
+      const data = response?.ok
+        ? await response.json().catch(() => null)
+        : null;
+      if (data?.success && data?.profile) {
+        setProfile(data.profile);
+        setAccount(
+          data.account || {
+            id: data.profile.account_id || null,
+            name: 'Clinic Account',
+            default_currency: DEFAULT_CURRENCY,
+            industry: 'hospital_clinic',
           }
-        }
-      } catch {
-        // Ignore profile fetch errors
+        );
+      } else {
+        setProfile(null);
+        setAccount(null);
       }
-
-      setProfile(null);
-      setAccount(null);
-    } catch {
-      setProfile(null);
-      setAccount(null);
     } finally {
       setProfileLoading(false);
     }
@@ -121,40 +111,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
-
-    const init = async () => {
+    const initialize = async () => {
       try {
-        // 1. Check server-side HTTP-only session via /api/auth/me
-        const res = await fetch('/api/auth/me').catch(() => null);
-        if (res && res.ok) {
-          const data = await res.json().catch(() => null);
-          if (mounted && data?.success && data?.user) {
-            setUser(data.user);
-            fetchProfile(data.user.id);
-            return;
-          }
-        }
-
-        // 2. Fallback to client-side Appwrite SDK
-        try {
-          const { account: appwriteAccount } = getAppwriteClient();
-          const appwriteUser = await appwriteAccount.get();
-          if (mounted && appwriteUser) {
-            const userObj: AppwriteUser = {
-              id: appwriteUser.$id,
-              email: appwriteUser.email,
-              name: appwriteUser.name,
-              created_at: appwriteUser.$createdAt,
-            };
-            setUser(userObj);
-            fetchProfile(userObj.id);
-            return;
-          }
-        } catch {
-          // Appwrite session not found
-        }
-
-        if (mounted) {
+        const response = await fetch('/api/auth/me').catch(() => null);
+        const data = response?.ok
+          ? await response.json().catch(() => null)
+          : null;
+        if (mounted && data?.success && data?.user) {
+          setUser(data.user);
+          void fetchProfile(data.user.id);
+        } else if (mounted) {
+          setUser(null);
           setProfileLoading(false);
         }
       } catch {
@@ -168,9 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (mounted) setLoading(false);
       }
     };
-
-    init();
-
+    void initialize();
     return () => {
       mounted = false;
     };
@@ -179,48 +144,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
-      try {
-        const { account: appwriteAccount } = getAppwriteClient();
-        await appwriteAccount.deleteSession('current').catch(() => {});
-      } catch {
-        // ignore
-      }
-    } catch {
-      // ignore
     } finally {
       setUser(null);
       setProfile(null);
       setAccount(null);
-      window.location.href = window.location.origin + '/login';
+      window.location.href = `${window.location.origin}/login`;
     }
   }, []);
 
   const refreshProfile = useCallback(async () => {
-    if (!user?.id) return;
-    await fetchProfile(user.id);
+    if (user?.id) await fetchProfile(user.id);
   }, [user?.id, fetchProfile]);
 
   const refreshModules = useCallback(async () => {
-    if (!profile?.account_id) return;
-    await fetchModules(profile.account_id);
+    if (profile?.account_id) await fetchModules(profile.account_id);
   }, [profile?.account_id, fetchModules]);
 
   const derived = useMemo(() => {
     const role = profile?.account_role ?? null;
-    const resolvedAccountId = profile?.account_id || account?.id || '';
     return {
       canManageMembers: role ? canManageMembersFor(role) : false,
       canEditSettings: role ? canEditSettingsFor(role) : false,
       canSendMessages: role ? canSendMessagesFor(role) : false,
       accountRole: role,
-      isSuperAdmin:
-        Boolean(profile?.is_super_admin) ||
-        profile?.email?.toLowerCase() === 'susantalohr@gmail.com' ||
-        user?.email?.toLowerCase() === 'susantalohr@gmail.com',
-      accountId: resolvedAccountId,
+      isSuperAdmin: Boolean(profile?.is_super_admin),
+      accountId: profile?.account_id || account?.id || '',
       defaultCurrency: account?.default_currency || DEFAULT_CURRENCY,
     };
-  }, [profile, account, user]);
+  }, [profile, account]);
 
   const value = useMemo(
     () => ({
@@ -256,8 +207,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 }
