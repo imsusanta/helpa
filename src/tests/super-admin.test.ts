@@ -10,6 +10,13 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(async () => ({
     auth: { getUser: mocks.getUser },
   })),
+  getAdminClient: vi.fn(() => ({
+    from: () => ({
+      select: () => ({
+        eq: () => ({ maybeSingle: mocks.profileMaybeSingle }),
+      }),
+    }),
+  })),
 }));
 
 vi.mock('@/lib/appwrite-server-compat', () => ({
