@@ -29,7 +29,7 @@
     "test:watch": "vitest --exclude='**/src/tests/integration/**'",
     "test:integration": "vitest run src/tests/tenant-isolation.test.ts",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:ui": "playwright --ui",
     "test:e2e:report": "playwright show-report",
     "voice:smoke": "tsx scripts/voice-smoke-test.ts",
     "verify:whatsapp-live": "node scripts/verify-whatsapp-live.mjs",
@@ -90,7 +90,7 @@
     "hono": "^4.12.34",
     "@hono/node-server": "^2.1.0",
     "dompurify": "^3.4.13",
-    "brace-expansion": "^2.3.1",
+    "brace-expansion": "^2.1.4",
     "@babel/core": "^7.29.6"
   }
 }
