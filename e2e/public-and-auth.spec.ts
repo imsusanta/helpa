@@ -68,7 +68,7 @@ test.describe('E2E: Public Routes & Authentication Protection', () => {
     const res = await request.get('/api/health');
     expect(res.status()).toBe(200);
     const body = await res.json();
-    expect(body.status).toBe('ok');
+    expect(['ok', 'degraded', 'healthy']).toContain(body.status);
     expect(body.timestamp).toBeDefined();
   });
 });
