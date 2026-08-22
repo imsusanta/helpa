@@ -105,7 +105,7 @@ export async function POST(
       );
     }
 
-    // 1. Try atomic PostgreSQL RPC execution first
+    // Call atomic PostgreSQL RPC execution
     const { data: rpcResult, error: rpcError } = await supabase.rpc(
       'record_invoice_payment',
       {
@@ -118,51 +118,15 @@ export async function POST(
       }
     );
 
-    if (
-      !rpcError &&
-      rpcResult &&
-      (rpcResult as { success?: boolean }).success
-    ) {
-      const { data: updatedInvoice } = await supabase
-        .from('invoices')
-        .select(
-          '*, contacts(id, name, phone, email), invoice_items(*), invoice_payments(*)'
-        )
-        .eq('id', invoiceId)
-        .eq('account_id', ctx.accountId)
-        .single();
-
-      try {
-        await dispatchCrmEvent({
-          accountId: ctx.accountId,
-          eventType: 'deal.updated',
-          payload: {
-            invoiceId,
-            paymentId: (rpcResult as { payment_id?: string }).payment_id,
-            amount: paymentAmount,
-            newStatus: (rpcResult as { status?: string }).status,
-          },
-        });
-      } catch {
-        // ignore
-      }
-
-      return NextResponse.json(
-        {
-          success: true,
-          data: updatedInvoice,
-          message: `Payment of ${(rpcResult as { currency?: string }).currency || 'INR'} ${paymentAmount} recorded successfully.`,
-          requestId: correlationId,
-        },
-        {
-          status: 201,
-          headers: { ...PRIVATE_HEADERS, 'X-Request-Id': correlationId },
-        }
-      );
-    }
-
     if (rpcError) {
+      console.error('[invoice payment]', {
+        requestId: correlationId,
+        code: rpcError.code,
+        message: rpcError.message,
+      });
+
       const msg = rpcError.message || '';
+
       if (msg.includes('OVERPAYMENT_NOT_ALLOWED')) {
         return errorResponse(
           400,
@@ -183,79 +147,25 @@ export async function POST(
       if (msg.includes('INSUFFICIENT_PERMISSIONS')) {
         return errorResponse(403, 'AGENT_PERMISSION_REQUIRED', correlationId);
       }
-    }
+      if (rpcError.code === '42883' || msg.includes('record_invoice_payment')) {
+        return errorResponse(
+          503,
+          'SALES_SCHEMA_NOT_READY',
+          correlationId,
+          'Sales database migration is not available.'
+        );
+      }
 
-    // 2. Resilient fallback
-    const { data: invoice, error: invErr } = await supabase
-      .from('invoices')
-      .select('*')
-      .eq('id', invoiceId)
-      .eq('account_id', ctx.accountId)
-      .maybeSingle();
-
-    if (invErr || !invoice) {
-      return errorResponse(404, 'INVOICE_NOT_FOUND', correlationId);
-    }
-
-    if (
-      (Number(invoice.amount_paid) || 0) + paymentAmount >
-      Number(invoice.total)
-    ) {
-      return errorResponse(
-        400,
-        'OVERPAYMENT_NOT_ALLOWED',
-        correlationId,
-        `Payment exceeds remaining balance of ${(Number(invoice.total) - (Number(invoice.amount_paid) || 0)).toFixed(2)}.`
-      );
-    }
-
-    const { data: newPayment, error: payErr } = await supabase
-      .from('invoice_payments')
-      .insert({
-        account_id: ctx.accountId,
-        invoice_id: invoiceId,
-        amount: paymentAmount,
-        currency: invoice.currency,
-        payment_method: String(payment_method),
-        transaction_reference: transaction_reference || null,
-        reference_note: notes || null,
-        created_by: ctx.userId,
-        payment_date: new Date().toISOString().split('T')[0],
-      })
-      .select()
-      .single();
-
-    if (payErr || !newPayment) {
-      return errorResponse(
-        500,
-        'PAYMENT_RECORD_FAILED',
-        correlationId,
-        payErr?.message
-      );
-    }
-
-    const newAmountPaid = (Number(invoice.amount_paid) || 0) + paymentAmount;
-    const newBalanceDue = Math.max(0, Number(invoice.total) - newAmountPaid);
-    let newStatus = invoice.status;
-    if (newBalanceDue === 0 || newAmountPaid >= Number(invoice.total)) {
-      newStatus = 'paid';
-    } else if (newAmountPaid > 0) {
-      newStatus = 'partially_paid';
+      return errorResponse(500, 'PAYMENT_RECORD_FAILED', correlationId);
     }
 
     const { data: updatedInvoice } = await supabase
       .from('invoices')
-      .update({
-        amount_paid: newAmountPaid,
-        balance_due: newBalanceDue,
-        status: newStatus,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', invoiceId)
-      .eq('account_id', ctx.accountId)
       .select(
         '*, contacts(id, name, phone, email), invoice_items(*), invoice_payments(*)'
       )
+      .eq('id', invoiceId)
+      .eq('account_id', ctx.accountId)
       .single();
 
     try {
@@ -264,9 +174,9 @@ export async function POST(
         eventType: 'deal.updated',
         payload: {
           invoiceId,
-          paymentId: newPayment.id,
+          paymentId: (rpcResult as { payment_id?: string }).payment_id,
           amount: paymentAmount,
-          newStatus,
+          newStatus: (rpcResult as { status?: string }).status,
         },
       });
     } catch {
@@ -277,8 +187,7 @@ export async function POST(
       {
         success: true,
         data: updatedInvoice,
-        payment: newPayment,
-        message: `Payment of ${invoice.currency} ${paymentAmount} recorded successfully.`,
+        message: `Payment of ${(rpcResult as { currency?: string }).currency || 'INR'} ${paymentAmount} recorded successfully.`,
         requestId: correlationId,
       },
       {
