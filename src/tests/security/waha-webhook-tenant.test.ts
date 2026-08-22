@@ -13,9 +13,9 @@ describe('Security: WAHA webhook tenant attribution', () => {
       expect(extractValidAccountId({ account_id: VALID_UUID })).toBe(
         VALID_UUID
       );
-      expect(
-        extractValidAccountId({ account_id: `  ${VALID_UUID}  ` })
-      ).toBe(VALID_UUID);
+      expect(extractValidAccountId({ account_id: `  ${VALID_UUID}  ` })).toBe(
+        VALID_UUID
+      );
     });
 
     it('rejects missing or non-string identifiers', () => {
@@ -26,7 +26,9 @@ describe('Security: WAHA webhook tenant attribution', () => {
 
     it('rejects malformed UUID-like values instead of coercing them', () => {
       expect(extractValidAccountId({ account_id: 'not-a-uuid' })).toBeNull();
-      expect(extractValidAccountId({ account_id: ZERO_UUID.slice(1) })).toBeNull();
+      expect(
+        extractValidAccountId({ account_id: ZERO_UUID.slice(1) })
+      ).toBeNull();
       expect(extractValidAccountId({ account_id: '' })).toBeNull();
     });
   });
