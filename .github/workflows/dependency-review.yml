@@ -24,7 +24,7 @@ jobs:
         run: npm audit --omit=dev --audit-level=moderate
       - name: Review dependency diff
         continue-on-error: true
-        uses: actions/dependency-review-action@v4
+        uses: actions/dependency-review-action@v5
         with:
           fail-on-severity: moderate
           comment-summary-in-pr: always
