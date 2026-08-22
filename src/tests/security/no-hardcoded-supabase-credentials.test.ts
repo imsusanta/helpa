@@ -9,7 +9,9 @@ describe('Supabase credential safety', () => {
   );
 
   it('does not embed JWTs or project-specific fallback hosts', () => {
-    expect(source).not.toMatch(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/);
+    expect(source).not.toMatch(
+      /eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/
+    );
     expect(source).not.toMatch(/https:\/\/[a-z0-9]+\.supabase\.co/);
   });
 
