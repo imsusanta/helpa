@@ -50,6 +50,11 @@ vi.mock('@/lib/supabase/server', () => ({
         }),
       }),
       upsert: () => Promise.resolve({ data: null, error: null }),
+      insert: () => ({
+        select: () => ({
+          maybeSingle: () => Promise.resolve({ data: null, error: null }),
+        }),
+      }),
     }),
   }),
 }));

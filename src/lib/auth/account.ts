@@ -126,7 +126,102 @@ export async function getCurrentAccount(): Promise<AccountContext> {
       }
     }
 
-    // Strict Fail-Closed: If user has no explicit verified membership, reject access!
+    // 3. Check if user is the direct owner of an existing account
+    if (!accountId) {
+      const { data: ownedAccount } = await admin
+        .from('accounts')
+        .select('id, name')
+        .eq('owner_user_id', userId)
+        .maybeSingle();
+
+      if (ownedAccount) {
+        accountId = ownedAccount.id;
+        role = 'owner';
+
+        // Auto-heal: Populate explicit membership record and profile
+        await admin.from('account_members').upsert(
+          {
+            account_id: accountId,
+            user_id: userId,
+            role: 'owner',
+            active: true,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'account_id, user_id' }
+        );
+
+        await admin.from('profiles').upsert(
+          {
+            user_id: userId,
+            account_id: accountId,
+            email: user.email || '',
+            full_name:
+              user.user_metadata?.full_name ||
+              user.email?.split('@')[0] ||
+              'User',
+            role: 'owner',
+            account_role: 'owner',
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'user_id' }
+        );
+      }
+    }
+
+    // 4. Auto-provision personal workspace for authenticated user if none exists
+    if (!accountId) {
+      const defaultName =
+        user.user_metadata?.business_name ||
+        user.user_metadata?.full_name ||
+        (user.email
+          ? `${user.email.split('@')[0]}'s Workspace`
+          : 'My Workspace');
+      const defaultIndustry = user.user_metadata?.industry || 'health';
+
+      const { data: newAccount } = await admin
+        .from('accounts')
+        .insert({
+          name: defaultName,
+          owner_user_id: userId,
+          industry: defaultIndustry,
+        })
+        .select('id, name')
+        .maybeSingle();
+
+      if (newAccount) {
+        accountId = newAccount.id;
+        role = 'owner';
+
+        await admin.from('account_members').upsert(
+          {
+            account_id: accountId,
+            user_id: userId,
+            role: 'owner',
+            active: true,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'account_id, user_id' }
+        );
+
+        await admin.from('profiles').upsert(
+          {
+            user_id: userId,
+            account_id: accountId,
+            email: user.email || '',
+            full_name:
+              user.user_metadata?.full_name ||
+              user.email?.split('@')[0] ||
+              'User',
+            role: 'owner',
+            account_role: 'owner',
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'user_id' }
+        );
+      }
+    }
+
+    // Strict Fail-Closed: If user still has no account, reject access!
     if (!accountId) {
       throw new ForbiddenError('Account membership is required');
     }
