@@ -62,18 +62,46 @@ async function resolveCredentialsAndPhone(
 ): Promise<ResolvedCredentials | null> {
   const db = appwriteAdmin();
 
-  // 1. Fetch active WhatsApp configuration
+  // 1. Fetch active WhatsApp configuration from the canonical table first.
   let config: Record<string, unknown> | null = null;
   try {
     const { data } = await db
-      .from('whatsapp_config')
+      .from('whatsapp_configs')
       .select('*')
       .eq('account_id', accountId)
       .eq('status', 'connected')
       .maybeSingle();
     if (data) config = data as Record<string, unknown>;
   } catch {
-    // fallback
+    // Fall through to the legacy compatibility table.
+  }
+
+  if (!config) {
+    try {
+      const { data } = await db
+        .from('whatsapp_configs')
+        .select('*')
+        .eq('account_id', accountId)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (data && data.length > 0) config = data[0] as Record<string, unknown>;
+    } catch {
+      // Fall through to the legacy compatibility table.
+    }
+  }
+
+  if (!config) {
+    try {
+      const { data } = await db
+        .from('whatsapp_config')
+        .select('*')
+        .eq('account_id', accountId)
+        .eq('status', 'connected')
+        .maybeSingle();
+      if (data) config = data as Record<string, unknown>;
+    } catch {
+      // fallback
+    }
   }
 
   if (!config) {
@@ -232,30 +260,42 @@ export async function engineSendText(
     args.conversationId
   );
 
+  if (!creds) {
+    throw new Error(
+      '[meta-send] Cannot send text: WhatsApp credentials or recipient phone are unavailable.'
+    );
+  }
+
   let metaMessageId: string | null = null;
+  let lastSendError: Error | null = null;
+  const sanitized = sanitizePhoneForMeta(creds.phone);
+  const variants = phoneVariants(sanitized);
 
-  if (creds) {
-    const sanitized = sanitizePhoneForMeta(creds.phone);
-    const variants = phoneVariants(sanitized);
-
-    for (const variant of variants) {
-      try {
-        const result = await sendTextMessage({
-          phoneNumberId: creds.phoneNumberId,
-          accessToken: creds.accessToken,
-          to: variant,
-          text: args.text,
-        });
-        metaMessageId = result.messageId;
+  for (const variant of variants) {
+    try {
+      const result = await sendTextMessage({
+        phoneNumberId: creds.phoneNumberId,
+        accessToken: creds.accessToken,
+        to: variant,
+        text: args.text,
+      });
+      metaMessageId = result.messageId;
+      break;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      lastSendError = err instanceof Error ? err : new Error(msg);
+      if (!isRecipientNotAllowedError(msg)) {
+        console.warn('[meta-send] sendTextMessage error:', msg);
         break;
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (!isRecipientNotAllowedError(msg)) {
-          console.warn('[meta-send] sendTextMessage error:', msg);
-          break;
-        }
       }
     }
+  }
+
+  if (!metaMessageId) {
+    throw (
+      lastSendError ||
+      new Error('[meta-send] Meta did not return a WhatsApp message ID.')
+    );
   }
 
   const recordedId = await recordSentMessage(
