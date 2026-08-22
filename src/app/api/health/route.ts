@@ -49,13 +49,23 @@ export async function GET(request: Request) {
       if (runtime.databaseProvider === 'supabase') {
         const admin = getSupabaseAdminClient();
         const { error } = await admin
-          .from('accounts')
-          .select('id', { head: true, count: 'exact' })
+          .from('profiles')
+          .select('id')
           .limit(1)
-          .abortSignal(AbortSignal.timeout(4000));
+          .abortSignal(AbortSignal.timeout(2000));
         if (!error) {
           supabaseReachable = true;
           databaseHealthy = true;
+        } else {
+          const { error: accErr } = await admin
+            .from('accounts')
+            .select('id')
+            .limit(1)
+            .abortSignal(AbortSignal.timeout(2000));
+          if (!accErr) {
+            supabaseReachable = true;
+            databaseHealthy = true;
+          }
         }
         try {
           const { data: migrations } = await admin
