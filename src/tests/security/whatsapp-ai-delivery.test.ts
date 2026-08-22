@@ -9,9 +9,7 @@ const metaSendSource = fs.readFileSync(
 
 describe('WhatsApp AI reply delivery invariants', () => {
   it('resolves outbound credentials from the canonical config table first', () => {
-    const canonicalLookup = metaSendSource.indexOf(
-      ".from('whatsapp_configs')"
-    );
+    const canonicalLookup = metaSendSource.indexOf(".from('whatsapp_configs')");
     const legacyLookup = metaSendSource.indexOf(".from('whatsapp_config')");
 
     expect(canonicalLookup).toBeGreaterThan(-1);
