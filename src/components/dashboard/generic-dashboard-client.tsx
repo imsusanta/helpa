@@ -5,7 +5,6 @@ import Link from 'next/link';
 import {
   Calendar,
   CheckCircle2,
-  ChevronDown,
   Clock,
   FileText,
   Inbox,
@@ -21,7 +20,8 @@ const metricCards = [
   {
     key: 'leads',
     label: 'TOTAL LEADS',
-    filter: 'All Time',
+    filter: 'Leads Kanban',
+    href: '/leads',
     tone: 'blue',
     icon: Users,
     keys: [
@@ -35,7 +35,8 @@ const metricCards = [
   {
     key: 'customers',
     label: 'TOTAL CUSTOMERS',
-    filter: 'All Time',
+    filter: 'CRM Accounts',
+    href: '/customers',
     tone: 'indigo',
     icon: Users,
     keys: [
@@ -48,7 +49,8 @@ const metricCards = [
   {
     key: 'quotations',
     label: 'QUOTATIONS',
-    filter: 'This Month',
+    filter: 'Estimates',
+    href: '/quotations',
     tone: 'teal',
     icon: FileText,
     keys: ['quotations_total', 'quotations', 'pending_enquiries'],
@@ -56,7 +58,8 @@ const metricCards = [
   {
     key: 'invoices',
     label: 'INVOICES',
-    filter: 'This Month',
+    filter: 'Billing',
+    href: '/invoices',
     tone: 'green',
     icon: Receipt,
     keys: ['invoices_total', 'invoices'],
@@ -64,7 +67,8 @@ const metricCards = [
   {
     key: 'campaigns',
     label: 'CAMPAIGNS',
-    filter: '',
+    filter: 'Broadcasts',
+    href: '/campaigns',
     tone: 'purple',
     icon: Megaphone,
     keys: ['campaigns_total'],
@@ -72,7 +76,8 @@ const metricCards = [
   {
     key: 'sent',
     label: 'MESSAGES SENT',
-    filter: '',
+    filter: 'Outbound',
+    href: '/inbox',
     tone: 'emerald',
     icon: Send,
     keys: ['messages_sent', 'sent_messages'],
@@ -80,7 +85,8 @@ const metricCards = [
   {
     key: 'received',
     label: 'MESSAGES RECEIVED',
-    filter: '',
+    filter: 'Inbound',
+    href: '/inbox',
     tone: 'sky',
     icon: Inbox,
     keys: [
@@ -92,11 +98,12 @@ const metricCards = [
   },
   {
     key: 'wallet',
-    label: 'WALLET BALANCE',
-    filter: '',
+    label: 'COLLECTED REVENUE',
+    filter: 'Collections',
+    href: '/invoices',
     tone: 'orange',
     icon: Wallet,
-    keys: ['wallet_balance', 'balance'],
+    keys: ['collected_revenue', 'wallet_balance', 'balance'],
   },
 ] as const;
 
@@ -126,13 +133,9 @@ function formatValue(value: number, currency = false) {
 function FilterPill({ children }: { children: ReactNode }) {
   if (!children) return null;
   return (
-    <button
-      type="button"
-      className="inline-flex h-8 shrink-0 items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.03)] transition-colors hover:bg-slate-50"
-    >
+    <span className="inline-flex h-7 items-center rounded-xl border border-slate-200 bg-slate-50 px-2.5 text-[11px] font-semibold text-slate-600">
       {children}
-      <ChevronDown className="h-3 w-3 text-slate-400" />
-    </button>
+    </span>
   );
 }
 
@@ -140,6 +143,7 @@ export function GenericDashboardClient() {
   const { account, accountId, profile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState<Record<string, number>>({});
+  const [range, setRange] = useState('30d');
   const userName =
     profile?.full_name?.split(' ')[0] || account?.name || 'susanta';
 
@@ -149,7 +153,7 @@ export function GenericDashboardClient() {
     fetch('/api/dashboard/metrics', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ industry: account?.industry }),
+      body: JSON.stringify({ industry: account?.industry, range }),
     })
       .then(async (res) => {
         const data = await res.json();
@@ -163,7 +167,7 @@ export function GenericDashboardClient() {
     return () => {
       cancelled = true;
     };
-  }, [accountId, account?.industry]);
+  }, [accountId, account?.industry, range]);
 
   const totalPipeline = useMemo(
     () =>
@@ -204,9 +208,19 @@ export function GenericDashboardClient() {
             Here&apos;s what&apos;s happening with your business today.
           </p>
         </div>
-        <div className="inline-flex h-11 items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-4 text-[13px] font-semibold text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)]">
-          <Calendar className="h-4 w-4 text-slate-500" />
-          <span>Aug 16, 2026 – Aug 22, 2026</span>
+        <div className="flex items-center gap-2">
+          <select
+            value={range}
+            onChange={(e) => setRange(e.target.value)}
+            className="h-11 rounded-xl border border-slate-200 bg-white px-4 text-[13px] font-semibold text-slate-700 shadow-[0_2px_8px_rgba(15,23,42,0.05)] focus:outline-none"
+          >
+            <option value="today">Today</option>
+            <option value="7d">Last 7 Days</option>
+            <option value="30d">Last 30 Days</option>
+            <option value="this_month">This Month</option>
+            <option value="this_year">This Year</option>
+            <option value="all_time">All Time</option>
+          </select>
         </div>
       </div>
 
@@ -217,39 +231,34 @@ export function GenericDashboardClient() {
           const isWallet = card.key === 'wallet';
           const isTopRow = index < 4;
           return (
-            <div
+            <Link
               key={card.key}
-              className={`relative flex flex-col justify-between rounded-2xl border border-slate-200/90 bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.04)] ${isTopRow ? 'h-[148px]' : 'h-[180px]'}`}
+              href={card.href}
+              className={`group relative flex flex-col justify-between rounded-2xl border border-slate-200/90 bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.04)] transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg ${isTopRow ? 'h-[148px]' : 'h-[180px]'}`}
             >
               <div className="flex items-start justify-between gap-2">
-                <span className="text-[12px] font-bold tracking-[0.055em] text-[#64748b] uppercase">
+                <span className="text-[12px] font-bold tracking-[0.055em] text-[#64748b] uppercase group-hover:text-slate-900">
                   {card.label}
                 </span>
-                {card.filter && <FilterPill>{card.filter}</FilterPill>}
+                {card.filter && (
+                  <span className="inline-flex h-6 items-center rounded-lg bg-slate-50 px-2 text-[10px] font-bold text-slate-500">
+                    {card.filter}
+                  </span>
+                )}
               </div>
 
               <div>
                 <div className="text-[34px] leading-none font-extrabold tracking-[-0.03em] text-[#0f172a]">
                   {formatValue(value, isWallet)}
                 </div>
-                {isWallet && (
-                  <div className="mt-3.5 flex items-center gap-2">
-                    <span className="rounded-md bg-[#eff6ff] px-2.5 py-1 text-[11px] font-bold text-[#2563eb]">
-                      Normal: ₹0.00
-                    </span>
-                    <span className="rounded-md bg-[#faf5ff] px-2.5 py-1 text-[11px] font-bold text-[#9333ea]">
-                      Offer: ₹0.00
-                    </span>
-                  </div>
-                )}
               </div>
 
               <div
-                className={`absolute right-5 ${isTopRow ? 'bottom-5' : 'top-5'} flex h-12 w-12 items-center justify-center rounded-xl shadow-[0_4px_10px_rgba(15,23,42,0.10)] ${iconBgClasses[card.tone]}`}
+                className={`absolute right-5 ${isTopRow ? 'bottom-5' : 'top-5'} flex h-12 w-12 items-center justify-center rounded-xl shadow-[0_4px_10px_rgba(15,23,42,0.10)] transition-transform group-hover:scale-105 ${iconBgClasses[card.tone]}`}
               >
                 <Icon className="h-5 w-5" />
               </div>
-            </div>
+            </Link>
           );
         })}
       </div>

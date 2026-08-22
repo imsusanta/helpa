@@ -2,6 +2,25 @@ import crypto from 'crypto';
 import { WhatsAppProvider } from './whatsapp-provider.interface';
 import { MessageEvent } from '../../types';
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * CRITICAL SECURITY INVARIANT:
+ * The client-supplied `account_id` must be a structurally valid UUID.
+ * A missing or malformed identifier must never be coerced into a
+ * placeholder/fallback tenant. Database existence of the account is
+ * verified separately by the webhook route before any persistence.
+ */
+export function extractValidAccountId(
+  payload: Record<string, unknown>
+): string | null {
+  const raw = payload.account_id;
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  return UUID_PATTERN.test(trimmed) ? trimmed : null;
+}
+
 export class WahaWhatsAppProvider implements WhatsAppProvider {
   readonly providerName = 'waha';
 
@@ -36,10 +55,12 @@ export class WahaWhatsAppProvider implements WhatsAppProvider {
   ): Promise<MessageEvent[]> {
     const event = (payload.event as string) || '';
     const payloadData = (payload.payload as Record<string, unknown>) || payload;
-    const accountId =
-      (payload.account_id as string) || '00000000-0000-0000-0000-000000000000';
+    const accountId = extractValidAccountId(payload);
 
     if (!event.startsWith('message')) return [];
+
+    // Never emit events attributed to an unverified tenant
+    if (!accountId) return [];
 
     const msgId = String(payloadData.id || `waha_${Date.now()}`);
     const from = String(payloadData.from || '');

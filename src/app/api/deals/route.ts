@@ -85,15 +85,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       stage_id,
       contact_id,
       name,
+      title,
       value = 0,
-      currency = 'USD',
+      currency = 'INR',
       probability = 50,
       expected_close_date,
       source,
       notes,
+      assigned_user_id,
+      assigned_to,
     } = body;
 
-    if (!pipeline_id || !stage_id || !name || !String(name).trim()) {
+    const dealName = name || title;
+
+    if (!pipeline_id || !stage_id || !dealName || !String(dealName).trim()) {
       return errorResponse(
         400,
         'NAME_PIPELINE_AND_STAGE_REQUIRED',
@@ -108,10 +113,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         pipeline_id,
         stage_id,
         contact_id: contact_id || null,
-        assigned_user_id: context.userId,
-        name: String(name).trim(),
+        assigned_user_id: assigned_user_id || assigned_to || context.userId,
+        name: String(dealName).trim(),
         value: Number(value) || 0,
-        currency: currency || 'USD',
+        currency: currency || 'INR',
         probability: Number(probability) || 50,
         expected_close_date: expected_close_date || null,
         source: source || null,

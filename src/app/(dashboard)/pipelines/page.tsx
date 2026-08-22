@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { createClient } from '@/lib/appwrite-compat';
+import { useState, useEffect, useCallback } from 'react';
 import type { Pipeline, PipelineStage, Deal } from '@/types';
 import { PipelineBoard } from '@/components/pipelines/pipeline-board';
 import { PipelineSettings } from '@/components/pipelines/pipeline-settings';
@@ -27,29 +26,12 @@ import { Label } from '@/components/ui/label';
 import { GitBranch, Plus, ChevronDown, Settings } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCan } from '@/hooks/use-can';
-import { useAuth } from '@/hooks/use-auth';
 import { GatedButton } from '@/components/ui/gated-button';
-
-// Pipeline creation is admin-class (settings-tier write under
-// the new RLS); deal creation is operational and only requires
-// agent+. The two CTAs gate on different `useCan` capabilities,
-// not on different copy.
-
-const SPEC_DEFAULT_STAGES = [
-  { name: 'New Inquiry', color: '#3b82f6', position: 0 },
-  { name: 'Appointment Requested', color: '#f59e0b', position: 1 },
-  { name: 'Appointment Confirmed', color: '#8b5cf6', position: 2 },
-  { name: 'Visited', color: '#6366f1', position: 3 },
-  { name: 'Treatment Ongoing', color: '#ec4899', position: 4 },
-  { name: 'Follow-up', color: '#14b8a6', position: 5 },
-  { name: 'Completed', color: '#10b981', position: 6 },
-];
+import { salesApi } from '@/lib/sales/api-client';
 
 export default function PipelinesPage() {
-  const appwrite = createClient();
   const canEditSettings = useCan('edit-settings');
   const canCreateDeals = useCan('send-messages');
-  const { accountId } = useAuth();
 
   const [pipelines, setPipelines] = useState<Pipeline[]>([]);
   const [selectedPipelineId, setSelectedPipelineId] = useState<string>('');
@@ -63,102 +45,54 @@ export default function PipelinesPage() {
   const [creating, setCreating] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // Deal form state is lifted here so both the top-bar "Add Deal" and
-  // the per-column "+" trigger the same Sheet.
+  // Deal form state
   const [dealFormOpen, setDealFormOpen] = useState(false);
   const [editingDeal, setEditingDeal] = useState<Deal | null>(null);
   const [defaultStageId, setDefaultStageId] = useState<string>('');
 
-  // Guard against double-seeding (React StrictMode double-effect in dev).
-  const seedAttempted = useRef(false);
-
   const loadPipelines = useCallback(async () => {
-    const { data, error } = await appwrite
-      .from('pipelines')
-      .select('*')
-      .order('created_at');
-    if (error) {
-      console.error('Failed to load pipelines:', error.message);
+    try {
+      const data = await salesApi<Pipeline[]>('/api/pipelines');
+      return Array.isArray(data) ? data : [];
+    } catch (err: unknown) {
+      console.error('Failed to load pipelines:', err);
       return [];
     }
-    return data ?? [];
-  }, [appwrite]);
+  }, []);
 
-  const loadStages = useCallback(
-    async (pipelineId: string) => {
-      const { data } = await appwrite
-        .from('pipeline_stages')
-        .select('*')
-        .eq('pipeline_id', pipelineId)
-        .order('position');
-      return data ?? [];
-    },
-    [appwrite]
-  );
+  const loadStages = useCallback(async (pipelineId: string) => {
+    try {
+      const pipe = await salesApi<Pipeline>(`/api/pipelines/${pipelineId}`);
+      const st = pipe?.pipeline_stages || [];
+      return [...st].sort(
+        (a, b) =>
+          (a.order_index ?? a.position ?? 0) -
+          (b.order_index ?? b.position ?? 0)
+      );
+    } catch (err: unknown) {
+      console.error('Failed to load stages:', err);
+      return [];
+    }
+  }, []);
 
-  const loadDeals = useCallback(
-    async (pipelineId: string) => {
-      const { data } = await appwrite
-        .from('deals')
-        .select(
-          '*, contact:contacts(*), assignee:profiles!deals_assigned_to_fkey(*)'
-        )
-        .eq('pipeline_id', pipelineId)
-        .order('created_at', { ascending: false });
-      return (data ?? []) as Deal[];
-    },
-    [appwrite]
-  );
+  const loadDeals = useCallback(async (pipelineId: string) => {
+    try {
+      const data = await salesApi<Deal[]>(
+        `/api/deals?pipeline_id=${pipelineId}`
+      );
+      return Array.isArray(data) ? data : [];
+    } catch (err: unknown) {
+      console.error('Failed to load deals:', err);
+      return [];
+    }
+  }, []);
 
-  const seedDefaultPipeline =
-    useCallback(async (): Promise<Pipeline | null> => {
-      const {
-        data: { session },
-      } = await appwrite.auth.getSession();
-      const user = session?.user;
-      if (!user) return null;
-      // pipelines.account_id is NOT NULL post-017 with no DB default.
-      if (!accountId) return null;
-
-      const { data: pipeline, error } = await appwrite
-        .from('pipelines')
-        .insert({
-          user_id: user.id,
-          account_id: accountId,
-          name: 'Patient Care Pipeline',
-        })
-        .select()
-        .single();
-
-      if (error || !pipeline) {
-        console.error('Failed to seed pipeline:', error?.message);
-        return null;
-      }
-
-      const stagesPayload = SPEC_DEFAULT_STAGES.map((s) => ({
-        pipeline_id: pipeline.id,
-        name: s.name,
-        color: s.color,
-        position: s.position,
-      }));
-      await appwrite.from('pipeline_stages').insert(stagesPayload);
-
-      return pipeline as Pipeline;
-    }, [appwrite, accountId]);
-
-  // Initial load + seed-if-empty
+  // Initial load
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      let list = await loadPipelines();
-
-      if (list.length === 0 && !seedAttempted.current) {
-        seedAttempted.current = true;
-        const seeded = await seedDefaultPipeline();
-        if (seeded) list = await loadPipelines();
-      }
-
+      const list = await loadPipelines();
       if (cancelled) return;
       setPipelines(list);
       if (list.length > 0) {
@@ -173,12 +107,9 @@ export default function PipelinesPage() {
     return () => {
       cancelled = true;
     };
-  }, [loadPipelines, seedDefaultPipeline]);
+  }, [loadPipelines]);
 
-  // Load stages + deals whenever selected pipeline changes.
-  // Clearing on no-selection is a legitimate sync with URL/prop
-  // state; the load completion uses async setters inside promise
-  // callbacks (not synchronous in the effect body).
+  // Load stages + deals whenever selected pipeline changes
   useEffect(() => {
     if (!selectedPipelineId) {
       setStages([]);
@@ -220,20 +151,21 @@ export default function PipelinesPage() {
 
   const handleDealMoved = useCallback(
     async (dealId: string, newStageId: string) => {
-      // Optimistic update — board already animated; just persist.
+      // Optimistic update
       setDeals((prev) =>
         prev.map((d) => (d.id === dealId ? { ...d, stage_id: newStageId } : d))
       );
-      const { error } = await appwrite
-        .from('deals')
-        .update({ stage_id: newStageId })
-        .eq('id', dealId);
-      if (error) {
-        toast.error('Failed to move deal');
+      try {
+        await salesApi(`/api/deals/${dealId}`, {
+          method: 'PUT',
+          body: JSON.stringify({ stage_id: newStageId }),
+        });
+      } catch (err: unknown) {
+        toast.error((err as Error).message || 'Failed to move deal');
         refreshDeals();
       }
     },
-    [appwrite, refreshDeals]
+    [refreshDeals]
   );
 
   const handleAddDeal = useCallback(
@@ -256,47 +188,24 @@ export default function PipelinesPage() {
     if (!name) return;
     setCreating(true);
 
-    const {
-      data: { session },
-    } = await appwrite.auth.getSession();
-    const user = session?.user;
-    if (!user) {
+    try {
+      const newPipe = await salesApi<Pipeline>('/api/pipelines', {
+        method: 'POST',
+        body: JSON.stringify({ name }),
+      });
+
+      setNewPipelineName('');
+      setNewPipelineOpen(false);
+      if (newPipe?.id) {
+        setSelectedPipelineId(newPipe.id);
+      }
+      await refreshPipelines();
+      toast.success('Pipeline created');
+    } catch (err: unknown) {
+      toast.error((err as Error).message || 'Failed to create pipeline');
+    } finally {
       setCreating(false);
-      return;
     }
-    // pipelines.account_id is NOT NULL post-017 with no DB default.
-    if (!accountId) {
-      toast.error('Your profile is not linked to an account.');
-      setCreating(false);
-      return;
-    }
-
-    const { data: pipeline, error } = await appwrite
-      .from('pipelines')
-      .insert({ user_id: user.id, account_id: accountId, name })
-      .select()
-      .single();
-
-    if (error || !pipeline) {
-      toast.error('Failed to create pipeline');
-      setCreating(false);
-      return;
-    }
-
-    const stagesPayload = SPEC_DEFAULT_STAGES.map((s) => ({
-      pipeline_id: pipeline.id,
-      name: s.name,
-      color: s.color,
-      position: s.position,
-    }));
-    await appwrite.from('pipeline_stages').insert(stagesPayload);
-
-    setNewPipelineName('');
-    setNewPipelineOpen(false);
-    setSelectedPipelineId(pipeline.id);
-    await refreshPipelines();
-    setCreating(false);
-    toast.success('Pipeline created');
   }
 
   const selectedPipeline = pipelines.find((p) => p.id === selectedPipelineId);
@@ -327,11 +236,9 @@ export default function PipelinesPage() {
         <div className="flex items-center gap-3">
           {/* Pipeline selector dropdown */}
           <DropdownMenu>
-            <DropdownMenuTrigger className="border-border bg-card text-foreground hover:bg-muted data-[popup-open]:bg-muted inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors">
+            <DropdownMenuTrigger className="border-border bg-card text-foreground hover:bg-muted inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors">
               <GitBranch className="text-primary h-4 w-4" />
-              <span className="font-semibold">
-                {selectedPipeline?.name ?? 'Select Pipeline'}
-              </span>
+              <span>{selectedPipeline?.name ?? 'Select Pipeline'}</span>
               <ChevronDown className="text-muted-foreground h-4 w-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent
@@ -349,7 +256,7 @@ export default function PipelinesPage() {
                   onClick={() => setSelectedPipelineId(p.id)}
                   className={
                     p.id === selectedPipelineId
-                      ? 'text-primary'
+                      ? 'text-primary font-bold'
                       : 'text-popover-foreground'
                   }
                 >
@@ -384,13 +291,13 @@ export default function PipelinesPage() {
           </GatedButton>
           <GatedButton
             canAct={canCreateDeals}
-            gateReason="create inquiries"
+            gateReason="create deals"
             disabled={!selectedPipelineId || stages.length === 0}
             onClick={() => handleAddDeal()}
             className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             <Plus className="mr-1 h-4 w-4" />
-            Add Inquiry / Lead
+            Add Deal / Journey
           </GatedButton>
         </div>
       </div>
@@ -400,10 +307,10 @@ export default function PipelinesPage() {
         <div className="border-border flex flex-col items-center justify-center rounded-xl border border-dashed py-20">
           <GitBranch className="text-muted-foreground h-12 w-12" />
           <h3 className="text-foreground mt-4 text-lg font-medium">
-            No patient pipelines yet
+            No sales pipelines yet
           </h3>
           <p className="text-muted-foreground mt-2 text-sm">
-            Create a pipeline to start tracking patient journeys
+            Create a pipeline to start tracking deals and stages.
           </p>
           <GatedButton
             canAct={canEditSettings}
@@ -448,8 +355,7 @@ export default function PipelinesPage() {
               }}
             />
             <p className="text-muted-foreground mt-2 text-xs">
-              Default stages (New Inquiry → Completed) will be created
-              automatically.
+              Default stages will be created automatically.
             </p>
           </div>
           <DialogFooter className="bg-popover/50 border-border">

@@ -4,6 +4,8 @@
  * Enforces tenant boundary verification on database records and requests.
  */
 
+import { ForbiddenError } from '@/lib/auth/account';
+
 export function assertTenantMatch(
   recordAccountId: string,
   authenticatedAccountId: string,
@@ -14,7 +16,7 @@ export function assertTenantMatch(
     !authenticatedAccountId ||
     recordAccountId !== authenticatedAccountId
   ) {
-    throw new Error(
+    throw new ForbiddenError(
       `Tenant Isolation Violation: ${entityName} does not belong to the active workspace.`
     );
   }

@@ -42,10 +42,11 @@ const NAV: NavItem[] = [
     label: 'Sales',
     icon: LineChart,
     children: [
-      { label: 'Leads', href: '/contacts' },
+      { label: 'Leads', href: '/leads' },
       { label: 'Customers', href: '/customers' },
       { label: 'Deals', href: '/pipelines' },
       { label: 'Quotations', href: '/quotations' },
+      { label: 'Invoices', href: '/invoices' },
     ],
   },
   {
@@ -96,7 +97,7 @@ const NAV: NavItem[] = [
     label: 'Billing',
     icon: BadgeDollarSign,
     children: [
-      { label: 'Invoices', href: '/billing/invoices' },
+      { label: 'Invoices', href: '/invoices' },
       { label: 'Reports', href: '/billing/reports' },
       { label: 'Reminders', href: '/billing/reminders' },
       { label: 'Billing Settings', href: '/billing/settings' },

@@ -328,45 +328,58 @@ export interface MessageTemplate {
 
 export interface Pipeline {
   id: string;
-  user_id: string;
+  account_id?: string;
+  user_id?: string;
   name: string;
+  is_default?: boolean;
+  pipeline_stages?: PipelineStage[];
   created_at: string;
+  updated_at?: string;
 }
 
 export interface PipelineStage {
   id: string;
+  account_id?: string;
   pipeline_id: string;
   name: string;
-  position: number;
+  order_index?: number;
+  position?: number;
   color: string;
+  icon?: string | null;
   created_at: string;
+  updated_at?: string;
 }
 
-export type DealStatus = 'open' | 'won' | 'lost';
+export type DealStatus = 'open' | 'won' | 'lost' | 'abandoned';
 
 export interface Deal {
   id: string;
-  user_id: string;
+  account_id?: string;
+  user_id?: string;
   pipeline_id: string;
   stage_id: string;
-  /**
-   * Nullable after migration 004 — becomes NULL when the referenced
-   * contact is deleted (ON DELETE SET NULL). History preserved.
-   */
   contact_id: string | null;
   conversation_id?: string;
+  assigned_user_id?: string | null;
   assigned_to?: string;
-  title: string;
+  name: string;
+  title?: string;
   value: number;
   currency?: string;
-  notes?: string;
-  expected_close_date?: string;
-  status?: DealStatus;
+  probability?: number;
+  expected_close_date?: string | null;
+  source?: string | null;
+  notes?: string | null;
+  status: DealStatus;
+  lost_reason?: string | null;
   created_at: string;
   updated_at?: string;
-  contact?: Contact;
-  stage?: PipelineStage;
-  assignee?: Profile;
+  contact?: Contact | null;
+  contacts?: Contact | null;
+  stage?: PipelineStage | null;
+  pipeline_stages?: PipelineStage | null;
+  assignee?: Profile | null;
+  deal_activities?: DealActivity[];
   ai_lead_score?: string;
   ai_buying_intent?: string;
   ai_budget?: string;
@@ -374,6 +387,191 @@ export interface Deal {
   ai_summary?: string;
   ai_next_action?: string;
   ai_product_service?: string;
+}
+
+export interface DealActivity {
+  id: string;
+  account_id: string;
+  deal_id: string;
+  actor_user_id: string | null;
+  activity_type: string;
+  title: string;
+  description: string | null;
+  metadata?: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface Lead {
+  id: string;
+  account_id: string;
+  contact_id?: string | null;
+  name: string;
+  phone?: string | null;
+  email?: string | null;
+  service?: string | null;
+  stage: string;
+  source?: string | null;
+  channel?: string | null;
+  lead_score?: string | null;
+  score?: string | null;
+  value: number;
+  currency: string;
+  assigned_user_id?: string | null;
+  lost_reason?: string | null;
+  next_follow_up_at?: string | null;
+  attention_required: boolean;
+  notes?: string | null;
+  metadata?: Record<string, unknown>;
+  converted_at?: string | null;
+  converted_contact_id?: string | null;
+  converted_deal_id?: string | null;
+  created_at: string;
+  updated_at: string;
+  contact?: Contact | null;
+  assignee?: Profile | null;
+}
+
+export interface LeadActivity {
+  id: string;
+  account_id: string;
+  lead_id: string;
+  actor_user_id?: string | null;
+  activity_type: string;
+  previous_stage?: string | null;
+  next_stage?: string | null;
+  reason?: string | null;
+  notes?: string | null;
+  metadata?: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface LeadNote {
+  id: string;
+  account_id: string;
+  lead_id: string;
+  author_id?: string | null;
+  note_text: string;
+  created_at: string;
+  author?: Profile | null;
+}
+
+export interface Task {
+  id: string;
+  account_id: string;
+  contact_id?: string | null;
+  lead_id?: string | null;
+  deal_id?: string | null;
+  title: string;
+  description?: string | null;
+  due_at: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  assigned_user_id?: string | null;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+  contact?: Contact | null;
+  lead?: Lead | null;
+  deal?: Deal | null;
+}
+
+export type QuotationStatus =
+  'draft' | 'sent' | 'accepted' | 'rejected' | 'expired' | 'converted';
+
+export interface Quotation {
+  id: string;
+  account_id: string;
+  contact_id?: string | null;
+  deal_id?: string | null;
+  quotation_number: string;
+  status: QuotationStatus;
+  issue_date: string;
+  valid_until?: string | null;
+  currency: string;
+  subtotal: number;
+  discount_total: number;
+  tax_total: number;
+  total: number;
+  notes?: string | null;
+  terms?: string | null;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+  items?: QuotationItem[];
+  contact?: Contact | null;
+  deal?: Deal | null;
+}
+
+export interface QuotationItem {
+  id: string;
+  account_id: string;
+  quotation_id: string;
+  description: string;
+  quantity: number;
+  unit_price: number;
+  discount: number;
+  tax_rate: number;
+  line_total: number;
+  position: number;
+  created_at: string;
+}
+
+export type InvoiceStatus =
+  'draft' | 'sent' | 'partially_paid' | 'paid' | 'overdue' | 'void';
+
+export interface Invoice {
+  id: string;
+  account_id: string;
+  contact_id?: string | null;
+  quotation_id?: string | null;
+  deal_id?: string | null;
+  invoice_number: string;
+  status: InvoiceStatus;
+  issue_date: string;
+  due_date?: string | null;
+  currency: string;
+  subtotal: number;
+  discount_total: number;
+  tax_total: number;
+  total: number;
+  amount_paid: number;
+  balance_due: number;
+  notes?: string | null;
+  terms?: string | null;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+  items?: InvoiceItem[];
+  payments?: InvoicePayment[];
+  contact?: Contact | null;
+  quotation?: Quotation | null;
+  deal?: Deal | null;
+}
+
+export interface InvoiceItem {
+  id: string;
+  account_id: string;
+  invoice_id: string;
+  description: string;
+  quantity: number;
+  unit_price: number;
+  discount: number;
+  tax_rate: number;
+  line_total: number;
+  position: number;
+  created_at: string;
+}
+
+export interface InvoicePayment {
+  id: string;
+  account_id: string;
+  invoice_id: string;
+  amount: number;
+  payment_date: string;
+  payment_method: string;
+  reference_note?: string | null;
+  created_by?: string | null;
+  created_at: string;
 }
 
 export type BroadcastStatus =

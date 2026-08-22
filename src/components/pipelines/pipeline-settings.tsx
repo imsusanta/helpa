@@ -16,7 +16,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { createClient } from '@/lib/appwrite-compat';
+import { salesApi } from '@/lib/sales/api-client';
 import type { Pipeline, PipelineStage } from '@/types';
 import {
   Dialog,
@@ -63,8 +63,6 @@ export function PipelineSettings({
   onStagesChanged,
   onCreateNewPipeline,
 }: PipelineSettingsProps) {
-  const appwrite = createClient();
-
   const [name, setName] = useState(pipeline.name);
   const [localStages, setLocalStages] = useState<PipelineStage[]>(stages);
   const [newStageName, setNewStageName] = useState('');
@@ -74,11 +72,16 @@ export function PipelineSettings({
   const [deleting, setDeleting] = useState(false);
 
   // Reset form state when the dialog opens or its prop inputs change
-  // — legitimate prop-driven sync.
   useEffect(() => {
     if (!open) return;
     setName(pipeline.name);
-    setLocalStages([...stages].sort((a, b) => a.position - b.position));
+    setLocalStages(
+      [...stages].sort(
+        (a, b) =>
+          (a.order_index ?? a.position ?? 0) -
+          (b.order_index ?? b.position ?? 0)
+      )
+    );
     setShowDeleteConfirm(false);
   }, [open, pipeline, stages]);
 
@@ -97,99 +100,90 @@ export function PipelineSettings({
 
   async function handleSave() {
     setSaving(true);
+    try {
+      await Promise.all([
+        salesApi(`/api/pipelines/${pipeline.id}`, {
+          method: 'PUT',
+          body: JSON.stringify({ name: name.trim() }),
+        }),
+        salesApi(`/api/pipelines/${pipeline.id}/stages`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            stages: localStages.map((s, i) => ({
+              id: s.id,
+              name: s.name,
+              color: s.color,
+              order_index: i,
+            })),
+          }),
+        }),
+      ]);
 
-    // One upsert for all stages — batches N stage writes into a single
-    // round-trip. Previous implementation did N sequential UPDATEs which
-    // latency-scaled linearly with stage count.
-    const stageRows = localStages.map((s, i) => ({
-      id: s.id,
-      pipeline_id: s.pipeline_id,
-      name: s.name,
-      color: s.color,
-      position: i,
-    }));
-
-    const [renameRes, stagesRes] = await Promise.all([
-      appwrite
-        .from('pipelines')
-        .update({ name: name.trim() })
-        .eq('id', pipeline.id),
-      appwrite.from('pipeline_stages').upsert(stageRows, { onConflict: 'id' }),
-    ]);
-
-    setSaving(false);
-
-    if (renameRes.error || stagesRes.error) {
-      toast.error('Failed to save pipeline');
-      return;
+      setSaving(false);
+      onOpenChange(false);
+      onPipelinesChanged();
+      onStagesChanged();
+      toast.success('Pipeline saved');
+    } catch (err: unknown) {
+      setSaving(false);
+      toast.error((err as Error).message || 'Failed to save pipeline');
     }
-
-    onOpenChange(false);
-    onPipelinesChanged();
-    onStagesChanged();
-    toast.success('Pipeline saved');
   }
 
   async function handleAddStage() {
     const trimmed = newStageName.trim();
     if (!trimmed) return;
-    const { data, error } = await appwrite
-      .from('pipeline_stages')
-      .insert({
-        pipeline_id: pipeline.id,
-        name: trimmed,
-        color: newStageColor,
-        position: localStages.length,
-      })
-      .select()
-      .single();
-    if (error || !data) {
-      toast.error('Failed to add stage');
-      return;
+    try {
+      const newStage = await salesApi<PipelineStage>(
+        `/api/pipelines/${pipeline.id}/stages`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            name: trimmed,
+            color: newStageColor,
+            order_index: localStages.length,
+          }),
+        }
+      );
+
+      if (newStage) {
+        setLocalStages([...localStages, newStage]);
+        setNewStageName('');
+        setNewStageColor(
+          STAGE_COLORS[(localStages.length + 1) % STAGE_COLORS.length]
+        );
+      }
+    } catch (err: unknown) {
+      toast.error((err as Error).message || 'Failed to add stage');
     }
-    setLocalStages([...localStages, data as PipelineStage]);
-    setNewStageName('');
-    setNewStageColor(
-      STAGE_COLORS[(localStages.length + 1) % STAGE_COLORS.length]
-    );
   }
 
   async function handleRemoveStage(stageId: string) {
-    // Refuse to delete if deals still reference the stage (FK would fail).
-    const { count } = await appwrite
-      .from('deals')
-      .select('id', { count: 'exact', head: true })
-      .eq('stage_id', stageId);
-    if (count && count > 0) {
-      toast.error('Move or delete deals in this stage first');
-      return;
+    try {
+      await salesApi(`/api/pipelines/${pipeline.id}/stages/${stageId}`, {
+        method: 'DELETE',
+      });
+      setLocalStages(localStages.filter((s) => s.id !== stageId));
+      toast.success('Stage removed');
+    } catch (err: unknown) {
+      toast.error((err as Error).message || 'Failed to delete stage');
     }
-    const { error } = await appwrite
-      .from('pipeline_stages')
-      .delete()
-      .eq('id', stageId);
-    if (error) {
-      toast.error('Failed to delete stage');
-      return;
-    }
-    setLocalStages(localStages.filter((s) => s.id !== stageId));
   }
 
   async function handleDeletePipeline() {
     setDeleting(true);
-    // ON DELETE CASCADE handles deals + stages.
-    const { error } = await appwrite
-      .from('pipelines')
-      .delete()
-      .eq('id', pipeline.id);
-    setDeleting(false);
-    if (error) {
-      toast.error('Failed to delete pipeline');
-      return;
+    try {
+      await salesApi(`/api/pipelines/${pipeline.id}`, {
+        method: 'DELETE',
+      });
+      setDeleting(false);
+      onOpenChange(false);
+      onPipelinesChanged();
+      toast.success('Pipeline deleted');
+    } catch (err: unknown) {
+      setDeleting(false);
+      toast.error((err as Error).message || 'Failed to delete pipeline');
     }
-    onOpenChange(false);
-    onPipelinesChanged();
-    toast.success('Pipeline deleted');
   }
 
   return (

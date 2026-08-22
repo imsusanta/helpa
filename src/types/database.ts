@@ -1987,6 +1987,486 @@ export interface Database {
         };
         Relationships: [];
       };
+      leads: {
+        Row: {
+          id: string;
+          account_id: string;
+          contact_id: string | null;
+          name: string;
+          phone: string | null;
+          email: string | null;
+          service: string | null;
+          stage: string;
+          source: string | null;
+          channel: string | null;
+          lead_score: string | null;
+          score: string | null;
+          value: number;
+          currency: string;
+          assigned_user_id: string | null;
+          lost_reason: string | null;
+          next_follow_up_at: string | null;
+          attention_required: boolean;
+          notes: string | null;
+          metadata: Json | null;
+          converted_at: string | null;
+          converted_contact_id: string | null;
+          converted_deal_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          account_id: string;
+          contact_id?: string | null;
+          name: string;
+          phone?: string | null;
+          email?: string | null;
+          service?: string | null;
+          stage?: string;
+          source?: string | null;
+          channel?: string | null;
+          lead_score?: string | null;
+          score?: string | null;
+          value?: number;
+          currency?: string;
+          assigned_user_id?: string | null;
+          lost_reason?: string | null;
+          next_follow_up_at?: string | null;
+          attention_required?: boolean;
+          notes?: string | null;
+          metadata?: Json | null;
+          converted_at?: string | null;
+          converted_contact_id?: string | null;
+          converted_deal_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          contact_id?: string | null;
+          name?: string;
+          phone?: string | null;
+          email?: string | null;
+          service?: string | null;
+          stage?: string;
+          source?: string | null;
+          channel?: string | null;
+          lead_score?: string | null;
+          score?: string | null;
+          value?: number;
+          currency?: string;
+          assigned_user_id?: string | null;
+          lost_reason?: string | null;
+          next_follow_up_at?: string | null;
+          attention_required?: boolean;
+          notes?: string | null;
+          metadata?: Json | null;
+          converted_at?: string | null;
+          converted_contact_id?: string | null;
+          converted_deal_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      lead_activities: {
+        Row: {
+          id: string;
+          account_id: string;
+          lead_id: string;
+          actor_user_id: string | null;
+          activity_type: string;
+          previous_stage: string | null;
+          next_stage: string | null;
+          reason: string | null;
+          notes: string | null;
+          metadata: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          account_id: string;
+          lead_id: string;
+          actor_user_id?: string | null;
+          activity_type: string;
+          previous_stage?: string | null;
+          next_stage?: string | null;
+          reason?: string | null;
+          notes?: string | null;
+          metadata?: Json | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          lead_id?: string;
+          actor_user_id?: string | null;
+          activity_type?: string;
+          previous_stage?: string | null;
+          next_stage?: string | null;
+          reason?: string | null;
+          notes?: string | null;
+          metadata?: Json | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      lead_notes: {
+        Row: {
+          id: string;
+          account_id: string;
+          lead_id: string;
+          author_id: string | null;
+          note_text: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          account_id: string;
+          lead_id: string;
+          author_id?: string | null;
+          note_text: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          lead_id?: string;
+          author_id?: string | null;
+          note_text?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      tasks: {
+        Row: {
+          id: string;
+          account_id: string;
+          contact_id: string | null;
+          lead_id: string | null;
+          deal_id: string | null;
+          title: string;
+          description: string | null;
+          due_at: string;
+          status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+          priority: 'low' | 'medium' | 'high' | 'urgent';
+          assigned_user_id: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          account_id: string;
+          contact_id?: string | null;
+          lead_id?: string | null;
+          deal_id?: string | null;
+          title: string;
+          description?: string | null;
+          due_at?: string;
+          status?: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+          priority?: 'low' | 'medium' | 'high' | 'urgent';
+          assigned_user_id?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          contact_id?: string | null;
+          lead_id?: string | null;
+          deal_id?: string | null;
+          title?: string;
+          description?: string | null;
+          due_at?: string;
+          status?: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+          priority?: 'low' | 'medium' | 'high' | 'urgent';
+          assigned_user_id?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      quotations: {
+        Row: {
+          id: string;
+          account_id: string;
+          contact_id: string | null;
+          deal_id: string | null;
+          quotation_number: string;
+          status:
+            | 'draft'
+            | 'sent'
+            | 'accepted'
+            | 'rejected'
+            | 'expired'
+            | 'converted';
+          issue_date: string;
+          valid_until: string | null;
+          currency: string;
+          subtotal: number;
+          discount_total: number;
+          tax_total: number;
+          total: number;
+          notes: string | null;
+          terms: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          account_id: string;
+          contact_id?: string | null;
+          deal_id?: string | null;
+          quotation_number: string;
+          status?:
+            | 'draft'
+            | 'sent'
+            | 'accepted'
+            | 'rejected'
+            | 'expired'
+            | 'converted';
+          issue_date?: string;
+          valid_until?: string | null;
+          currency?: string;
+          subtotal?: number;
+          discount_total?: number;
+          tax_total?: number;
+          total?: number;
+          notes?: string | null;
+          terms?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          contact_id?: string | null;
+          deal_id?: string | null;
+          quotation_number?: string;
+          status?:
+            | 'draft'
+            | 'sent'
+            | 'accepted'
+            | 'rejected'
+            | 'expired'
+            | 'converted';
+          issue_date?: string;
+          valid_until?: string | null;
+          currency?: string;
+          subtotal?: number;
+          discount_total?: number;
+          tax_total?: number;
+          total?: number;
+          notes?: string | null;
+          terms?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      quotation_items: {
+        Row: {
+          id: string;
+          account_id: string;
+          quotation_id: string;
+          description: string;
+          quantity: number;
+          unit_price: number;
+          discount: number;
+          tax_rate: number;
+          line_total: number;
+          position: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          account_id: string;
+          quotation_id: string;
+          description: string;
+          quantity?: number;
+          unit_price?: number;
+          discount?: number;
+          tax_rate?: number;
+          line_total?: number;
+          position?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          quotation_id?: string;
+          description?: string;
+          quantity?: number;
+          unit_price?: number;
+          discount?: number;
+          tax_rate?: number;
+          line_total?: number;
+          position?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      invoices: {
+        Row: {
+          id: string;
+          account_id: string;
+          contact_id: string | null;
+          quotation_id: string | null;
+          deal_id: string | null;
+          invoice_number: string;
+          status:
+            'draft' | 'sent' | 'partially_paid' | 'paid' | 'overdue' | 'void';
+          issue_date: string;
+          due_date: string | null;
+          currency: string;
+          subtotal: number;
+          discount_total: number;
+          tax_total: number;
+          total: number;
+          amount_paid: number;
+          balance_due: number;
+          notes: string | null;
+          terms: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          account_id: string;
+          contact_id?: string | null;
+          quotation_id?: string | null;
+          deal_id?: string | null;
+          invoice_number: string;
+          status?:
+            'draft' | 'sent' | 'partially_paid' | 'paid' | 'overdue' | 'void';
+          issue_date?: string;
+          due_date?: string | null;
+          currency?: string;
+          subtotal?: number;
+          discount_total?: number;
+          tax_total?: number;
+          total?: number;
+          amount_paid?: number;
+          balance_due?: number;
+          notes?: string | null;
+          terms?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          contact_id?: string | null;
+          quotation_id?: string | null;
+          deal_id?: string | null;
+          invoice_number?: string;
+          status?:
+            'draft' | 'sent' | 'partially_paid' | 'paid' | 'overdue' | 'void';
+          issue_date?: string;
+          due_date?: string | null;
+          currency?: string;
+          subtotal?: number;
+          discount_total?: number;
+          tax_total?: number;
+          total?: number;
+          amount_paid?: number;
+          balance_due?: number;
+          notes?: string | null;
+          terms?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      invoice_items: {
+        Row: {
+          id: string;
+          account_id: string;
+          invoice_id: string;
+          description: string;
+          quantity: number;
+          unit_price: number;
+          discount: number;
+          tax_rate: number;
+          line_total: number;
+          position: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          account_id: string;
+          invoice_id: string;
+          description: string;
+          quantity?: number;
+          unit_price?: number;
+          discount?: number;
+          tax_rate?: number;
+          line_total?: number;
+          position?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          invoice_id?: string;
+          description?: string;
+          quantity?: number;
+          unit_price?: number;
+          discount?: number;
+          tax_rate?: number;
+          line_total?: number;
+          position?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      invoice_payments: {
+        Row: {
+          id: string;
+          account_id: string;
+          invoice_id: string;
+          amount: number;
+          payment_date: string;
+          payment_method: string;
+          reference_note: string | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          account_id: string;
+          invoice_id: string;
+          amount: number;
+          payment_date?: string;
+          payment_method?: string;
+          reference_note?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          account_id?: string;
+          invoice_id?: string;
+          amount?: number;
+          payment_date?: string;
+          payment_method?: string;
+          reference_note?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

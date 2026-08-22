@@ -95,6 +95,14 @@ describe('Phase 3: Core Platform Architecture', () => {
       expect(() => {
         assertTenantMatch('acc_1', 'acc_2', 'Patient');
       }).toThrowError(/Tenant Isolation Violation/);
+
+      // Error contract: authorization failures must surface as 403
+      try {
+        assertTenantMatch('acc_1', 'acc_2', 'Patient');
+      } catch (err) {
+        expect((err as { name?: string }).name).toBe('ForbiddenError');
+        expect((err as { status?: number }).status).toBe(403);
+      }
     });
 
     it('injects authenticated tenant ID into payloads safely', () => {
