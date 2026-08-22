@@ -1,0 +1,25 @@
+merge_exit_code=1
+Auto-merging src/components/landing/cta-banner.tsx
+CONFLICT (content): Merge conflict in src/components/landing/cta-banner.tsx
+Auto-merging src/components/landing/faq-section.tsx
+CONFLICT (content): Merge conflict in src/components/landing/faq-section.tsx
+Auto-merging src/components/landing/hero.tsx
+CONFLICT (content): Merge conflict in src/components/landing/hero.tsx
+Auto-merging src/components/landing/industry-solutions.tsx
+CONFLICT (content): Merge conflict in src/components/landing/industry-solutions.tsx
+Auto-merging src/components/landing/navbar.tsx
+CONFLICT (content): Merge conflict in src/components/landing/navbar.tsx
+Auto-merging src/components/landing/pricing-section.tsx
+CONFLICT (content): Merge conflict in src/components/landing/pricing-section.tsx
+Auto-merging src/components/landing/security-badges.tsx
+CONFLICT (content): Merge conflict in src/components/landing/security-badges.tsx
+Automatic merge failed; fix conflicts and then commit the result.
+
+unmerged_paths:
+src/components/landing/cta-banner.tsx
+src/components/landing/faq-section.tsx
+src/components/landing/hero.tsx
+src/components/landing/industry-solutions.tsx
+src/components/landing/navbar.tsx
+src/components/landing/pricing-section.tsx
+src/components/landing/security-badges.tsx
