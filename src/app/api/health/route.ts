@@ -47,8 +47,12 @@ export async function GET(request: Request) {
     } else {
       const runtime = getRuntimeConfig();
       if (runtime.databaseProvider === 'supabase') {
-        const admin = getSupabaseAdminClient();
-        const { error } = await admin
+        const { url: supabaseUrl, publishableKey: supabaseAnonKey } =
+          requireSupabasePublicConfig();
+        const client = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
+          auth: { persistSession: false, autoRefreshToken: false },
+        });
+        const { error } = await client
           .from('profiles')
           .select('id')
           .limit(1)
@@ -57,24 +61,27 @@ export async function GET(request: Request) {
           supabaseReachable = true;
           databaseHealthy = true;
         } else {
-          const { error: accErr } = await admin
-            .from('accounts')
-            .select('id')
-            .limit(1)
-            .abortSignal(AbortSignal.timeout(2000));
-          if (!accErr) {
-            supabaseReachable = true;
-            databaseHealthy = true;
-          }
+          try {
+            const admin = getSupabaseAdminClient();
+            const { error: adminErr } = await admin
+              .from('profiles')
+              .select('id')
+              .limit(1)
+              .abortSignal(AbortSignal.timeout(2000));
+            if (!adminErr) {
+              supabaseReachable = true;
+              databaseHealthy = true;
+            }
+          } catch {}
         }
         try {
-          const { data: migrations } = await admin
+          const { data: migrations } = await client
             .schema('supabase_migrations')
             .from('schema_migrations')
             .select('version')
             .order('version', { ascending: false })
             .limit(1)
-            .abortSignal(AbortSignal.timeout(2000));
+            .abortSignal(AbortSignal.timeout(1000));
           migrationVersion = migrations?.[0]?.version ?? '20260814000000';
         } catch {
           migrationVersion = '20260814000000';
