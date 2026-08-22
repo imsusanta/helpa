@@ -111,16 +111,16 @@ export async function getCurrentAccount(): Promise<AccountContext> {
             (profile.role as AccountRole) ||
             'viewer';
 
-          // Sync explicit membership record
-          await admin.from('account_members').upsert(
+          // Sync explicit profile record
+          await admin.from('profiles').upsert(
             {
-              account_id: accountId,
               user_id: userId,
+              account_id: accountId,
               role,
-              active: true,
+              account_role: role,
               updated_at: new Date().toISOString(),
             },
-            { onConflict: 'account_id, user_id' }
+            { onConflict: 'user_id' }
           );
         }
       }
@@ -138,18 +138,7 @@ export async function getCurrentAccount(): Promise<AccountContext> {
         accountId = ownedAccount.id;
         role = 'owner';
 
-        // Auto-heal: Populate explicit membership record and profile
-        await admin.from('account_members').upsert(
-          {
-            account_id: accountId,
-            user_id: userId,
-            role: 'owner',
-            active: true,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'account_id, user_id' }
-        );
-
+        // Auto-heal: Populate explicit profile record
         await admin.from('profiles').upsert(
           {
             user_id: userId,
@@ -191,17 +180,6 @@ export async function getCurrentAccount(): Promise<AccountContext> {
       if (newAccount) {
         accountId = newAccount.id;
         role = 'owner';
-
-        await admin.from('account_members').upsert(
-          {
-            account_id: accountId,
-            user_id: userId,
-            role: 'owner',
-            active: true,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'account_id, user_id' }
-        );
 
         await admin.from('profiles').upsert(
           {
