@@ -53,7 +53,12 @@ export async function GET(
       .maybeSingle();
 
     if (error || !invoice) {
-      return errorResponse(404, 'INVOICE_NOT_FOUND', correlationId);
+      return errorResponse(
+        404,
+        'INVOICE_NOT_FOUND',
+        correlationId,
+        'Invoice not found.'
+      );
     }
 
     return NextResponse.json(
@@ -67,7 +72,16 @@ export async function GET(
     if (err instanceof ForbiddenError) {
       return errorResponse(403, 'ACCOUNT_MEMBERSHIP_REQUIRED', correlationId);
     }
-    return errorResponse(500, 'INVOICE_FETCH_FAILED', correlationId);
+    console.error('[invoices] GET by id error:', {
+      requestId: correlationId,
+      error: err,
+    });
+    return errorResponse(
+      500,
+      'INVOICE_FETCH_FAILED',
+      correlationId,
+      'Unable to load invoice.'
+    );
   }
 }
 
@@ -90,16 +104,25 @@ export async function DELETE(
       .eq('account_id', ctx.accountId);
 
     if (error) {
+      console.error('[invoices] DELETE error:', {
+        requestId: correlationId,
+        code: error.code,
+        message: error.message,
+      });
       return errorResponse(
         500,
         'INVOICE_DELETE_FAILED',
         correlationId,
-        error.message
+        'Unable to delete invoice.'
       );
     }
 
     return NextResponse.json(
-      { success: true, message: 'Invoice deleted', requestId: correlationId },
+      {
+        success: true,
+        message: 'Invoice deleted successfully',
+        requestId: correlationId,
+      },
       { headers: { ...PRIVATE_HEADERS, 'X-Request-Id': correlationId } }
     );
   } catch (err: unknown) {
@@ -109,6 +132,15 @@ export async function DELETE(
     if (err instanceof ForbiddenError) {
       return errorResponse(403, 'ADMIN_PERMISSION_REQUIRED', correlationId);
     }
-    return errorResponse(500, 'INVOICE_DELETE_FAILED', correlationId);
+    console.error('[invoices] DELETE unhandled error:', {
+      requestId: correlationId,
+      error: err,
+    });
+    return errorResponse(
+      500,
+      'INVOICE_DELETE_FAILED',
+      correlationId,
+      'Unable to delete invoice.'
+    );
   }
 }

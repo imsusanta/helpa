@@ -108,11 +108,16 @@ export async function POST(
       .single();
 
     if (updateErr || !updatedLead) {
+      console.error('[leads] stage update error:', {
+        requestId: correlationId,
+        code: updateErr?.code,
+        message: updateErr?.message,
+      });
       return errorResponse(
         500,
         'STAGE_UPDATE_FAILED',
         correlationId,
-        updateErr?.message
+        'Unable to update lead stage.'
       );
     }
 
@@ -138,15 +143,18 @@ export async function POST(
           leadId: lead.id,
           previousStage,
           newStage: normalizedStage,
-          lostReason: effectiveLostReason,
         },
       });
     } catch (eventErr) {
-      console.warn('[leads] Stage update event dispatch failed:', eventErr);
+      console.warn('[leads] Stage change event dispatch failed:', eventErr);
     }
 
     return NextResponse.json(
-      { success: true, data: updatedLead, requestId: correlationId },
+      {
+        success: true,
+        data: updatedLead,
+        requestId: correlationId,
+      },
       { headers: { ...PRIVATE_HEADERS, 'X-Request-Id': correlationId } }
     );
   } catch (err: unknown) {
@@ -156,6 +164,15 @@ export async function POST(
     if (err instanceof ForbiddenError) {
       return errorResponse(403, 'AGENT_PERMISSION_REQUIRED', correlationId);
     }
-    return errorResponse(500, 'STAGE_UPDATE_FAILED', correlationId);
+    console.error('[leads] stage update unhandled error:', {
+      requestId: correlationId,
+      error: err,
+    });
+    return errorResponse(
+      500,
+      'STAGE_UPDATE_FAILED',
+      correlationId,
+      'Unable to update lead stage.'
+    );
   }
 }

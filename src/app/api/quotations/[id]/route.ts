@@ -53,7 +53,12 @@ export async function GET(
       .maybeSingle();
 
     if (error || !quotation) {
-      return errorResponse(404, 'QUOTATION_NOT_FOUND', correlationId);
+      return errorResponse(
+        404,
+        'QUOTATION_NOT_FOUND',
+        correlationId,
+        'Quotation not found.'
+      );
     }
 
     return NextResponse.json(
@@ -67,7 +72,16 @@ export async function GET(
     if (err instanceof ForbiddenError) {
       return errorResponse(403, 'ACCOUNT_MEMBERSHIP_REQUIRED', correlationId);
     }
-    return errorResponse(500, 'QUOTATION_FETCH_FAILED', correlationId);
+    console.error('[quotations] GET by id error:', {
+      requestId: correlationId,
+      error: err,
+    });
+    return errorResponse(
+      500,
+      'QUOTATION_FETCH_FAILED',
+      correlationId,
+      'Unable to load quotation.'
+    );
   }
 }
 
@@ -90,16 +104,25 @@ export async function DELETE(
       .eq('account_id', ctx.accountId);
 
     if (error) {
+      console.error('[quotations] DELETE error:', {
+        requestId: correlationId,
+        code: error.code,
+        message: error.message,
+      });
       return errorResponse(
         500,
         'QUOTATION_DELETE_FAILED',
         correlationId,
-        error.message
+        'Unable to delete quotation.'
       );
     }
 
     return NextResponse.json(
-      { success: true, message: 'Quotation deleted', requestId: correlationId },
+      {
+        success: true,
+        message: 'Quotation deleted successfully',
+        requestId: correlationId,
+      },
       { headers: { ...PRIVATE_HEADERS, 'X-Request-Id': correlationId } }
     );
   } catch (err: unknown) {
@@ -109,6 +132,15 @@ export async function DELETE(
     if (err instanceof ForbiddenError) {
       return errorResponse(403, 'ADMIN_PERMISSION_REQUIRED', correlationId);
     }
-    return errorResponse(500, 'QUOTATION_DELETE_FAILED', correlationId);
+    console.error('[quotations] DELETE unhandled error:', {
+      requestId: correlationId,
+      error: err,
+    });
+    return errorResponse(
+      500,
+      'QUOTATION_DELETE_FAILED',
+      correlationId,
+      'Unable to delete quotation.'
+    );
   }
 }

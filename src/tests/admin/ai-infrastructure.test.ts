@@ -1,13 +1,16 @@
 import { describe, it, expect } from 'vitest';
-import { isPlatformOwnerEmail } from '@/lib/auth/admin';
+import * as adminAuth from '@/lib/auth/admin';
 import { encrypt, decrypt } from '@/lib/whatsapp/encryption';
 
 describe('Super Admin AI Infrastructure Authorization & Key Encryption', () => {
   describe('1. Super Admin Role Verification', () => {
-    it('verifies platform owner email safety checks', () => {
-      expect(isPlatformOwnerEmail('other_tenant@hospital.com')).toBe(false);
-      expect(isPlatformOwnerEmail(null)).toBe(false);
-      expect(isPlatformOwnerEmail(undefined)).toBe(false);
+    it('exposes no email-based authorization helper', () => {
+      // Regression guard: `isPlatformOwnerEmail` / `PLATFORM_OWNER_EMAIL` used
+      // to let a hardcoded address stand in for the super-admin role. The role
+      // is now decided solely by profiles.is_super_admin, so neither symbol
+      // should come back.
+      expect('isPlatformOwnerEmail' in adminAuth).toBe(false);
+      expect('PLATFORM_OWNER_EMAIL' in adminAuth).toBe(false);
     });
   });
 

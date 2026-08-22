@@ -74,11 +74,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       .range(offset, offset + limit - 1);
 
     if (error) {
+      console.error('[customers fetch]', {
+        requestId: correlationId,
+        code: error.code,
+        message: error.message,
+      });
       return errorResponse(
         500,
         'CUSTOMERS_FETCH_FAILED',
         correlationId,
-        error.message
+        'Unable to load customers.'
       );
     }
 
@@ -99,23 +104,46 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           status: string;
         }>) || [];
 
-      const totalRevenue = invoicesList
-        .filter(
-          (inv) => inv.status === 'paid' || inv.status === 'partially_paid'
-        )
-        .reduce((sum, inv) => sum + (Number(inv.amount_paid) || 0), 0);
+      const totalDeals = dealsList.length;
+      const dealsValue = dealsList.reduce(
+        (sum, d) => sum + (Number(d.value) || 0),
+        0
+      );
+      const totalInvoiced = invoicesList.reduce(
+        (sum, inv) => sum + (Number(inv.total) || 0),
+        0
+      );
+      const totalPaid = invoicesList.reduce(
+        (sum, inv) => sum + (Number(inv.amount_paid) || 0),
+        0
+      );
+      const outstandingBalance = Math.max(0, totalInvoiced - totalPaid);
 
-      const openDealsValue = dealsList
-        .filter((d) => d.status === 'open')
-        .reduce((sum, d) => sum + (Number(d.value) || 0), 0);
+      let computedStatus = 'Lead';
+      if (invoicesList.some((inv) => inv.status === 'paid')) {
+        computedStatus = 'Active Customer';
+      } else if (invoicesList.length > 0 || dealsList.length > 0) {
+        computedStatus = 'Prospect';
+      }
 
       return {
-        ...c,
-        dealsCount: dealsList.length,
-        invoicesCount: invoicesList.length,
-        quotationsCount: quotationsList.length,
-        totalRevenue,
-        openDealsValue,
+        id: c.id,
+        account_id: c.account_id,
+        name: c.name,
+        phone: c.phone,
+        email: c.email,
+        tags: c.tags || [],
+        metadata: c.metadata || {},
+        created_at: c.created_at,
+        updated_at: c.updated_at,
+        total_deals: totalDeals,
+        total_deals_value: dealsValue,
+        total_invoices: invoicesList.length,
+        total_invoiced: totalInvoiced,
+        total_paid: totalPaid,
+        outstanding_balance: outstandingBalance,
+        total_quotations: quotationsList.length,
+        status: computedStatus,
       };
     });
 
@@ -137,7 +165,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     if (err instanceof ForbiddenError) {
       return errorResponse(403, 'ACCOUNT_MEMBERSHIP_REQUIRED', correlationId);
     }
-    return errorResponse(500, 'CUSTOMERS_FETCH_FAILED', correlationId);
+    console.error('[customers fetch unhandled error]', {
+      requestId: correlationId,
+      error: err,
+    });
+    return errorResponse(
+      500,
+      'CUSTOMERS_FETCH_FAILED',
+      correlationId,
+      'Unable to load customers.'
+    );
   }
 }
 
@@ -188,11 +225,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       .single();
 
     if (insertErr || !newCustomer) {
+      console.error('[customer create]', {
+        requestId: correlationId,
+        code: insertErr?.code,
+        message: insertErr?.message,
+      });
       return errorResponse(
         500,
         'CUSTOMER_CREATE_FAILED',
         correlationId,
-        insertErr?.message
+        'Unable to create customer.'
       );
     }
 
@@ -210,6 +252,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (err instanceof ForbiddenError) {
       return errorResponse(403, 'AGENT_PERMISSION_REQUIRED', correlationId);
     }
-    return errorResponse(500, 'CUSTOMER_CREATE_FAILED', correlationId);
+    console.error('[customer create unhandled error]', {
+      requestId: correlationId,
+      error: err,
+    });
+    return errorResponse(
+      500,
+      'CUSTOMER_CREATE_FAILED',
+      correlationId,
+      'Unable to create customer.'
+    );
   }
 }

@@ -77,11 +77,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       .range(offset, offset + limit - 1);
 
     if (error) {
+      console.error('[invoices] GET error:', {
+        requestId: correlationId,
+        code: error.code,
+        message: error.message,
+      });
       return errorResponse(
         500,
         'INVOICES_FETCH_FAILED',
         correlationId,
-        error.message
+        'Unable to load invoices.'
       );
     }
 
@@ -103,7 +108,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     if (err instanceof ForbiddenError) {
       return errorResponse(403, 'ACCOUNT_MEMBERSHIP_REQUIRED', correlationId);
     }
-    return errorResponse(500, 'INVOICES_FETCH_FAILED', correlationId);
+    console.error('[invoices] GET unhandled error:', {
+      requestId: correlationId,
+      error: err,
+    });
+    return errorResponse(
+      500,
+      'INVOICES_FETCH_FAILED',
+      correlationId,
+      'Unable to load invoices.'
+    );
   }
 }
 
@@ -213,11 +227,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       .single();
 
     if (insertErr || !newInvoice) {
+      console.error('[invoices] POST insert error:', {
+        requestId: correlationId,
+        code: insertErr?.code,
+        message: insertErr?.message,
+      });
       return errorResponse(
         500,
         'INVOICE_CREATE_FAILED',
         correlationId,
-        insertErr?.message
+        'Unable to create invoice.'
       );
     }
 
@@ -254,6 +273,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (err instanceof ForbiddenError) {
       return errorResponse(403, 'AGENT_PERMISSION_REQUIRED', correlationId);
     }
-    return errorResponse(500, 'INVOICE_CREATE_FAILED', correlationId);
+    console.error('[invoices] POST unhandled error:', {
+      requestId: correlationId,
+      error: err,
+    });
+    return errorResponse(
+      500,
+      'INVOICE_CREATE_FAILED',
+      correlationId,
+      'Unable to create invoice.'
+    );
   }
 }

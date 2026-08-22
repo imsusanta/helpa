@@ -69,11 +69,16 @@ export async function POST(
       .single();
 
     if (error || !updated) {
+      console.error('[quotations] status update error:', {
+        requestId: correlationId,
+        code: error?.code,
+        message: error?.message,
+      });
       return errorResponse(
         500,
         'STATUS_UPDATE_FAILED',
         correlationId,
-        error?.message
+        'Unable to update quotation status.'
       );
     }
 
@@ -102,6 +107,15 @@ export async function POST(
     if (err instanceof ForbiddenError) {
       return errorResponse(403, 'AGENT_PERMISSION_REQUIRED', correlationId);
     }
-    return errorResponse(500, 'STATUS_UPDATE_FAILED', correlationId);
+    console.error('[quotations] status update unhandled error:', {
+      requestId: correlationId,
+      error: err,
+    });
+    return errorResponse(
+      500,
+      'STATUS_UPDATE_FAILED',
+      correlationId,
+      'Unable to update quotation status.'
+    );
   }
 }

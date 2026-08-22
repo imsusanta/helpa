@@ -70,7 +70,16 @@ export async function GET(
     if (err instanceof ForbiddenError) {
       return errorResponse(403, 'ACCOUNT_MEMBERSHIP_REQUIRED', correlationId);
     }
-    return errorResponse(500, 'LEAD_FETCH_FAILED', correlationId);
+    console.error('[leads] GET ID error:', {
+      requestId: correlationId,
+      error: err,
+    });
+    return errorResponse(
+      500,
+      'LEAD_FETCH_FAILED',
+      correlationId,
+      'Unable to load lead.'
+    );
   }
 }
 
@@ -158,12 +167,16 @@ export async function PUT(
       .single();
 
     if (updateError || !updatedLead) {
-      console.error('[leads] PUT update error:', updateError);
+      console.error('[leads] PUT update error:', {
+        requestId: correlationId,
+        code: updateError?.code,
+        message: updateError?.message,
+      });
       return errorResponse(
         500,
         'LEAD_UPDATE_FAILED',
         correlationId,
-        updateError?.message
+        'Unable to update lead.'
       );
     }
 
@@ -192,7 +205,16 @@ export async function PUT(
     if (err instanceof ForbiddenError) {
       return errorResponse(403, 'AGENT_PERMISSION_REQUIRED', correlationId);
     }
-    return errorResponse(500, 'LEAD_UPDATE_FAILED', correlationId);
+    console.error('[leads] PUT unhandled error:', {
+      requestId: correlationId,
+      error: err,
+    });
+    return errorResponse(
+      500,
+      'LEAD_UPDATE_FAILED',
+      correlationId,
+      'Unable to update lead.'
+    );
   }
 }
 
@@ -222,11 +244,16 @@ export async function DELETE(
       .eq('account_id', ctx.accountId);
 
     if (delError) {
+      console.error('[leads] DELETE error:', {
+        requestId: correlationId,
+        code: delError.code,
+        message: delError.message,
+      });
       return errorResponse(
         500,
         'LEAD_DELETE_FAILED',
         correlationId,
-        delError.message
+        'Unable to delete lead.'
       );
     }
 
@@ -245,6 +272,15 @@ export async function DELETE(
     if (err instanceof ForbiddenError) {
       return errorResponse(403, 'ADMIN_PERMISSION_REQUIRED', correlationId);
     }
-    return errorResponse(500, 'LEAD_DELETE_FAILED', correlationId);
+    console.error('[leads] DELETE unhandled error:', {
+      requestId: correlationId,
+      error: err,
+    });
+    return errorResponse(
+      500,
+      'LEAD_DELETE_FAILED',
+      correlationId,
+      'Unable to delete lead.'
+    );
   }
 }

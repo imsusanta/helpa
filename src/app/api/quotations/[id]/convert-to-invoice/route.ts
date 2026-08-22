@@ -73,11 +73,21 @@ export async function POST(
       }
 
       if (message.includes('QUOTATION_NOT_FOUND')) {
-        return errorResponse(404, 'QUOTATION_NOT_FOUND', correlationId);
+        return errorResponse(
+          404,
+          'QUOTATION_NOT_FOUND',
+          correlationId,
+          'Quotation not found.'
+        );
       }
 
       if (message.includes('INSUFFICIENT_PERMISSIONS')) {
-        return errorResponse(403, 'AGENT_PERMISSION_REQUIRED', correlationId);
+        return errorResponse(
+          403,
+          'AGENT_PERMISSION_REQUIRED',
+          correlationId,
+          'Agent permission is required.'
+        );
       }
 
       if (
@@ -92,20 +102,59 @@ export async function POST(
         );
       }
 
-      return errorResponse(500, 'QUOTATION_CONVERSION_FAILED', correlationId);
+      return errorResponse(
+        500,
+        'QUOTATION_CONVERSION_FAILED',
+        correlationId,
+        'Unable to convert quotation.'
+      );
     }
 
     const invoiceId = (rpcResult as { invoice_id?: string })?.invoice_id;
     if (!invoiceId) {
-      return errorResponse(500, 'QUOTATION_CONVERSION_FAILED', correlationId);
+      return errorResponse(
+        500,
+        'QUOTATION_CONVERSION_FAILED',
+        correlationId,
+        'Unable to convert quotation.'
+      );
     }
 
-    const { data: newInvoice } = await supabase
+    const { data: newInvoice, error: hydrationError } = await supabase
       .from('invoices')
       .select('*, contacts(id, name, phone, email), invoice_items(*)')
       .eq('id', invoiceId)
       .eq('account_id', ctx.accountId)
       .single();
+
+    if (hydrationError || !newInvoice) {
+      console.error('[quotation conversion hydration]', {
+        requestId: correlationId,
+        invoiceId,
+        code: hydrationError?.code,
+        message: hydrationError?.message,
+      });
+
+      return NextResponse.json(
+        {
+          success: true,
+          data: {
+            id: invoiceId,
+            invoice_number: (rpcResult as { invoice_number?: string })
+              .invoice_number,
+          },
+          warning: 'INVOICE_DETAILS_REFRESH_REQUIRED',
+          requestId: correlationId,
+        },
+        {
+          status: 201,
+          headers: {
+            ...PRIVATE_HEADERS,
+            'X-Request-Id': correlationId,
+          },
+        }
+      );
+    }
 
     try {
       await dispatchCrmEvent({
@@ -141,6 +190,15 @@ export async function POST(
     if (err instanceof ForbiddenError) {
       return errorResponse(403, 'AGENT_PERMISSION_REQUIRED', correlationId);
     }
-    return errorResponse(500, 'QUOTATION_CONVERSION_FAILED', correlationId);
+    console.error('[quotation conversion unhandled error]', {
+      requestId: correlationId,
+      error: err,
+    });
+    return errorResponse(
+      500,
+      'QUOTATION_CONVERSION_FAILED',
+      correlationId,
+      'Unable to convert quotation.'
+    );
   }
 }

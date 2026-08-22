@@ -70,7 +70,16 @@ export async function GET(
     if (err instanceof ForbiddenError) {
       return errorResponse(403, 'ACCOUNT_MEMBERSHIP_REQUIRED', correlationId);
     }
-    return errorResponse(500, 'TASK_FETCH_FAILED', correlationId);
+    console.error('[tasks] GET by id error:', {
+      requestId: correlationId,
+      error: err,
+    });
+    return errorResponse(
+      500,
+      'TASK_FETCH_FAILED',
+      correlationId,
+      'Unable to load task.'
+    );
   }
 }
 
@@ -111,11 +120,16 @@ export async function PUT(
       .single();
 
     if (updateError || !updatedTask) {
+      console.error('[tasks] PUT update error:', {
+        requestId: correlationId,
+        code: updateError?.code,
+        message: updateError?.message,
+      });
       return errorResponse(
         500,
         'TASK_UPDATE_FAILED',
         correlationId,
-        updateError?.message
+        'Unable to update task.'
       );
     }
 
@@ -130,7 +144,16 @@ export async function PUT(
     if (err instanceof ForbiddenError) {
       return errorResponse(403, 'AGENT_PERMISSION_REQUIRED', correlationId);
     }
-    return errorResponse(500, 'TASK_UPDATE_FAILED', correlationId);
+    console.error('[tasks] PUT unhandled error:', {
+      requestId: correlationId,
+      error: err,
+    });
+    return errorResponse(
+      500,
+      'TASK_UPDATE_FAILED',
+      correlationId,
+      'Unable to update task.'
+    );
   }
 }
 
@@ -153,11 +176,16 @@ export async function DELETE(
       .eq('account_id', ctx.accountId);
 
     if (delErr) {
+      console.error('[tasks] DELETE error:', {
+        requestId: correlationId,
+        code: delErr.code,
+        message: delErr.message,
+      });
       return errorResponse(
         500,
         'TASK_DELETE_FAILED',
         correlationId,
-        delErr.message
+        'Unable to delete task.'
       );
     }
 
@@ -176,6 +204,15 @@ export async function DELETE(
     if (err instanceof ForbiddenError) {
       return errorResponse(403, 'ADMIN_PERMISSION_REQUIRED', correlationId);
     }
-    return errorResponse(500, 'TASK_DELETE_FAILED', correlationId);
+    console.error('[tasks] DELETE unhandled error:', {
+      requestId: correlationId,
+      error: err,
+    });
+    return errorResponse(
+      500,
+      'TASK_DELETE_FAILED',
+      correlationId,
+      'Unable to delete task.'
+    );
   }
 }

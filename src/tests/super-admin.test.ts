@@ -33,7 +33,7 @@ vi.mock('@/lib/auth/account', () => ({
   getCurrentAccount: mocks.getCurrentAccount,
 }));
 
-import { checkSuperAdmin, isPlatformOwnerEmail } from '@/lib/auth/admin';
+import { checkSuperAdmin } from '@/lib/auth/admin';
 
 describe('Super Admin server-side authorization', () => {
   beforeEach(() => {
@@ -43,11 +43,17 @@ describe('Super Admin server-side authorization', () => {
   });
 
   it('does not treat an email address as authorization', async () => {
+    // This test previously asserted the opposite of its own name:
+    //   await expect(checkSuperAdmin('susantalohr@gmail.com')).resolves.toBe(true)
+    // which is exactly the behaviour the name forbids, and is why the
+    // email-as-authorization path survived CI. The platform-owner address is
+    // now just an ordinary email: an authenticated session carrying it, whose
+    // profile has is_super_admin = false, must be denied.
     mocks.getUser.mockResolvedValue({
       data: {
         user: {
-          id: 'user-normal',
-          email: 'normal@example.com',
+          id: 'user-claiming-owner-email',
+          email: 'susantalohr@gmail.com',
         },
       },
       error: null,
@@ -57,9 +63,7 @@ describe('Super Admin server-side authorization', () => {
       error: null,
     });
 
-    expect(isPlatformOwnerEmail('normal@example.com')).toBe(false);
-    expect(isPlatformOwnerEmail('susantalohr@gmail.com')).toBe(true);
-    await expect(checkSuperAdmin('susantalohr@gmail.com')).resolves.toBe(true);
+    await expect(checkSuperAdmin()).resolves.toBe(false);
   });
 
   it('grants access only when the authenticated profile has the role', async () => {

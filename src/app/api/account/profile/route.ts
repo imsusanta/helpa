@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { getCurrentAccount, toErrorResponse } from '@/lib/auth/account';
-import { isPlatformOwnerEmail } from '@/lib/auth/admin';
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
 
 export async function GET() {
@@ -47,10 +46,11 @@ export async function GET() {
       };
     }
 
-    const isSuper =
-      isPlatformOwnerEmail(dbProfile?.email) ||
-      isPlatformOwnerEmail(ctx.email) ||
-      Boolean(dbProfile?.is_super_admin);
+    // Super-admin is a persisted role, never an email comparison. This used
+    // to OR in `isPlatformOwnerEmail(...)` on both the profile row and the
+    // session, which meant changing your profile email could grant you the
+    // platform admin UI.
+    const isSuper = Boolean(dbProfile?.is_super_admin);
 
     if (pErr || !dbProfile) {
       return NextResponse.json({

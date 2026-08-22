@@ -1,8 +1,17 @@
 /**
  * Helpa Core Platform — Super Admin Authorization
  *
- * Super Admin access is granted only by a persisted `profiles.is_super_admin`
- * role for the authenticated user. Email addresses are never authorization.
+ * Super Admin access is granted *only* by the persisted
+ * `profiles.is_super_admin` flag for the authenticated user.
+ *
+ * Email addresses are never an authorization input. An email is a routable
+ * identifier, not a credential: a user can change it, an unverified signup
+ * can claim it, and — because this module used to compare it against a
+ * hardcoded constant — "register that address" was equivalent to "become
+ * platform owner". The address that previously acted as a fallback is now
+ * seeded into `profiles.is_super_admin` exactly once, by migration
+ * `20260822160000_deemail_super_admin_authorization.sql`, and every
+ * request-time decision reads the database column instead.
  */
 
 import { redirect } from 'next/navigation';
@@ -11,19 +20,6 @@ import {
   createClient as createSupabaseServerClient,
   getAdminClient,
 } from '@/lib/supabase/server';
-
-/**
- * Platform owner email bootstrap configuration.
- */
-export const PLATFORM_OWNER_EMAIL =
-  process.env.HELPA_PLATFORM_OWNER_EMAIL?.trim().toLowerCase() ||
-  'susantalohr@gmail.com';
-
-/** Checks if an email is the configured platform owner email. */
-export function isPlatformOwnerEmail(email?: string | null): boolean {
-  if (!email || !PLATFORM_OWNER_EMAIL) return false;
-  return email.trim().toLowerCase() === PLATFORM_OWNER_EMAIL;
-}
 
 async function hasPersistedSuperAdminRole(userId: string): Promise<boolean> {
   if (!userId) return false;
@@ -36,6 +32,7 @@ async function hasPersistedSuperAdminRole(userId: string): Promise<boolean> {
     .maybeSingle();
 
   if (error) {
+    // Fail closed — an unreadable role is not a granted role.
     console.error('[checkSuperAdmin] profile lookup failed:', error);
     return false;
   }
@@ -44,15 +41,16 @@ async function hasPersistedSuperAdminRole(userId: string): Promise<boolean> {
 }
 
 /**
- * Verifies if the user or session has Super Admin role.
+ * Resolves whether the *currently authenticated* caller holds the platform
+ * super-admin role.
+ *
+ * Deliberately takes no arguments. The previous signature accepted an
+ * `expectedEmail` and, when passed, returned whether that string equalled
+ * the platform-owner constant — short-circuiting before any session was
+ * checked. Any caller holding a string could mint a `true` from it, so the
+ * parameter is gone rather than merely discouraged.
  */
-export async function checkSuperAdmin(
-  expectedEmail?: string
-): Promise<boolean> {
-  if (expectedEmail) {
-    return isPlatformOwnerEmail(expectedEmail);
-  }
-
+export async function checkSuperAdmin(): Promise<boolean> {
   try {
     try {
       const supabase = await createSupabaseServerClient();
@@ -62,15 +60,14 @@ export async function checkSuperAdmin(
       } = await supabase.auth.getUser();
 
       if (!error && user) {
-        if (isPlatformOwnerEmail(user.email)) return true;
         return await hasPersistedSuperAdminRole(user.id);
       }
     } catch {
-      // Rollback mode may not have a Supabase session; use verified account context.
+      // Rollback mode may not have a Supabase session; fall through to the
+      // verified account context below.
     }
 
     const context = await getCurrentAccount();
-    if (context.email && isPlatformOwnerEmail(context.email)) return true;
     return await hasPersistedSuperAdminRole(context.userId);
   } catch {
     return false;

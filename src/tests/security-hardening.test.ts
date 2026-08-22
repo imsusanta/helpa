@@ -103,8 +103,14 @@ describe('Helpa Multi-Tenant Security & Security Hardening', () => {
   });
 
   describe('Super Admin Server-Side Authorization', () => {
-    it('does not grant access from a supplied email address', async () => {
-      await expect(checkSuperAdmin('attacker@evil.com')).resolves.toBe(false);
+    it('exposes no email channel into the authorization decision', async () => {
+      // checkSuperAdmin() deliberately accepts zero arguments. The previous
+      // `checkSuperAdmin(expectedEmail)` overload returned true whenever the
+      // supplied string equalled the platform-owner constant, short-circuiting
+      // before any session was verified — so a caller holding a string could
+      // mint a `true`. Asserting the arity keeps that channel from returning.
+      expect(checkSuperAdmin.length).toBe(0);
+      await expect(checkSuperAdmin()).resolves.toBe(false);
     });
   });
 
