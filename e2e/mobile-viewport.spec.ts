@@ -9,7 +9,7 @@ test.describe('E2E: Mobile Viewport & Responsive Accessibility', () => {
     await page.goto('/');
     await expect(page).toHaveTitle(/Helpa/i);
 
-    // Verify the clinic-focused hero CTA is visible and interactive on mobile
+    // Verify the clinic-focused hero CTA is visible, named, and interactive on mobile
     const primaryCta = page
       .getByRole('link', { name: /start clinic trial|go to dashboard/i })
       .first();
