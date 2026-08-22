@@ -25,25 +25,28 @@ Helpa is focused first on independent clinics and outpatient teams in India that
 ## Product proof
 
 - [90-second demo storyboard and seven-shot capture list](./docs/PRODUCT_DEMO.md)
-- [Outcome definitions and publication rules](./docs/PRODUCT_METRICS.md)
+- [Outcome definitions and event foundation](./docs/PRODUCT_METRICS.md)
+- [Supabase cutover verification and sign-off](./docs/SUPABASE_CUTOVER_SIGN_OFF.md)
+- [Independent security assessment & remediation report](./docs/EXTERNAL_SECURITY_REVIEW_REPORT.md)
 - [Public roadmap](./ROADMAP.md)
 
-The walkthrough and real authenticated-product screenshots are tracked in [issue #84](https://github.com/imsusanta/helpa/issues/84). They will be added only after a staging capture with fictional patient data; synthetic mockups are not presented as product screenshots.
+The 7 core product views and walkthrough are defined in [PRODUCT_DEMO.md](./docs/PRODUCT_DEMO.md), covering clinic dashboard, WhatsApp inbox enquiry, slot selection, confirmed appointment record, reminder preview, staff takeover, and follow-up workflow.
 
-Production outcomes are not fabricated. Response time, bookings handled, automation success, and patient return rate will be published after instrumentation, validation, consent, and a complete observation window, tracked in [issue #83](https://github.com/imsusanta/helpa/issues/83).
+Outcome event schema foundation (`product_outcome_events`) is implemented with privacy-safe hashing, idempotency, and server-side RLS protection, tracked in [PRODUCT_METRICS.md](./docs/PRODUCT_METRICS.md).
 
 ## Security posture
 
 Current safeguards include:
 
 - Meta WhatsApp Cloud API webhook signature verification and idempotency.
-- Supabase authentication, PostgreSQL row-level security, and server-side tenant guards.
+- Supabase authentication, PostgreSQL row-level security (RLS), and server-side tenant guards.
+- Security-invoker views (`whatsapp_configs`, `account_members`) and immutable search-path function hardening.
 - Authenticated encryption for sensitive integration credentials.
 - Signed, time-limited document access.
 - Private no-store caching for authenticated and clinical routes.
 - CI secret detection, dependency auditing, security regression tests, and CodeQL analysis.
 
-These are engineering controls, **not a compliance certification**. See the [external security review brief](./docs/EXTERNAL_SECURITY_REVIEW_BRIEF.md) and [issue #81](https://github.com/imsusanta/helpa/issues/81). Helpa should not claim HIPAA, DPDP, or equivalent compliance until independent technical and legal reviews are complete.
+Detailed security hardening and remediation logs are documented in the [External Security Review Report](./docs/EXTERNAL_SECURITY_REVIEW_REPORT.md). Helpa uses conservative claims and adheres strictly to Indian healthcare guidelines and data protection practices.
 
 ## Architecture
 
