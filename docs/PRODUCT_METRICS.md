@@ -11,6 +11,14 @@ Helpa publishes outcomes only when they can be computed from production events. 
 | Automation success rate | Eligible conversations completed without staff takeover or error | automation completed / eligible automation started | Rolling 30 days |
 | Patient return rate | Patients with another completed visit within 90 days | completed appointments, deduplicated by patient | Rolling cohort |
 
+## Versioned event contract
+
+Migration `20260822131500_product_outcome_events.sql` defines the first privacy-safe event contract. It records only allowlisted event names, an explicit schema version, an opaque idempotency identifier, synthetic/test flags, and optional one-way subject hashes.
+
+Raw events are server-only. Anonymous and authenticated clients cannot read or write the table. Attributes reject common direct-identifier keys, but producers must still avoid patient content and use opaque source identifiers.
+
+The contract is measurement infrastructure, not outcome evidence. Publication remains blocked until producers are connected, calculations are validated against the manual sample, consent is recorded, and 30 complete production days are available.
+
 ## Publication rules
 
 1. Exclude test tenants, synthetic traffic, retries, and duplicate webhooks.
@@ -31,8 +39,8 @@ Targets are goals, not current results:
 
 ## Launch checklist
 
-- [ ] Instrument and version the four source events.
-- [ ] Add test-tenant and synthetic-traffic flags.
+- [x] Define and test the versioned, de-identified source-event contract.
+- [ ] Connect production event producers without patient content.
 - [ ] Validate calculations against a manual 100-conversation sample.
 - [ ] Obtain clinic consent for anonymized aggregate reporting.
 - [ ] Publish the first dated scorecard after 30 complete production days.
