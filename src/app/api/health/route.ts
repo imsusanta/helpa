@@ -63,7 +63,8 @@ export async function GET(request: Request) {
             .from('schema_migrations')
             .select('version')
             .order('version', { ascending: false })
-            .limit(1);
+            .limit(1)
+            .abortSignal(AbortSignal.timeout(2000));
           migrationVersion = migrations?.[0]?.version ?? '20260814000000';
         } catch {
           migrationVersion = '20260814000000';
