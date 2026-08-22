@@ -2,7 +2,10 @@ import { NextResponse } from 'next/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { getDeploymentMetadata } from '@/lib/deployment-metadata';
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
-import { getRuntimeConfig, requireSupabasePublicConfig } from '@/lib/runtime-config';
+import {
+  getRuntimeConfig,
+  requireSupabasePublicConfig,
+} from '@/lib/runtime-config';
 
 export async function GET(request: Request) {
   const timestamp = new Date().toISOString();
@@ -31,6 +34,8 @@ export async function GET(request: Request) {
   let supabaseReachable = false;
   let databaseHealthy = false;
   let migrationVersion: string | null = null;
+  let databaseMigrationStatus: 'verified' | 'unavailable' | 'unknown' =
+    'unknown';
   let latencyMs = 0;
 
   const isMockCiDb =
@@ -44,7 +49,8 @@ export async function GET(request: Request) {
     if (isMockCiDb) {
       supabaseReachable = true;
       databaseHealthy = true;
-      migrationVersion = '20260817000000';
+      migrationVersion = '20260814000000';
+      databaseMigrationStatus = 'verified';
     } else {
       const runtime = getRuntimeConfig();
       if (runtime.databaseProvider === 'supabase') {
@@ -76,16 +82,29 @@ export async function GET(request: Request) {
           } catch {}
         }
         try {
-          const { data: migrations } = await client
+          const { data: migrations, error: migError } = await client
             .schema('supabase_migrations')
             .from('schema_migrations')
             .select('version')
             .order('version', { ascending: false })
             .limit(1)
             .abortSignal(AbortSignal.timeout(1000));
-          migrationVersion = migrations?.[0]?.version ?? '20260814000000';
+
+          if (
+            !migError &&
+            migrations &&
+            migrations.length > 0 &&
+            migrations[0]?.version
+          ) {
+            migrationVersion = String(migrations[0].version);
+            databaseMigrationStatus = 'verified';
+          } else {
+            migrationVersion = null;
+            databaseMigrationStatus = 'unavailable';
+          }
         } catch {
-          migrationVersion = '20260814000000';
+          migrationVersion = null;
+          databaseMigrationStatus = 'unavailable';
         }
       }
     }
@@ -93,6 +112,7 @@ export async function GET(request: Request) {
     latencyMs = Date.now() - startTime;
   } catch {
     latencyMs = Date.now() - startTime;
+    databaseMigrationStatus = 'unavailable';
   }
 
   const isHealthy = isMockCiDb || (supabaseReachable && databaseHealthy);
@@ -104,6 +124,9 @@ export async function GET(request: Request) {
   const twilioConfigured = Boolean(process.env.TWILIO_AUTH_TOKEN);
   const calendlyConfigured = Boolean(process.env.CALENDLY_CLIENT_SECRET);
 
+  const isReadyRoute = pathname.endsWith('/ready');
+  const httpStatus = isReadyRoute ? (isHealthy ? 200 : 503) : 200;
+
   return NextResponse.json(
     {
       status: overallStatus,
@@ -114,8 +137,9 @@ export async function GET(request: Request) {
       environment: deploymentMeta.environment,
       buildTime: deploymentMeta.buildTime,
       primaryDatabase: 'supabase',
-      databaseMigrationStatus: migrationVersion ? 'verified' : 'missing',
+      databaseMigrationStatus,
       canonicalDeploymentProvider: 'vercel',
+      ...(isReadyRoute ? { ready: isHealthy } : {}),
       checks: {
         supabase: supabaseReachable ? 'healthy' : 'unreachable',
         database: databaseHealthy ? 'healthy' : 'unreachable',
@@ -141,7 +165,7 @@ export async function GET(request: Request) {
       timestamp,
     },
     {
-      status: 200,
+      status: httpStatus,
       headers: {
         'Cache-Control': 'no-store, private',
         'Content-Type': 'application/json',
