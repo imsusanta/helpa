@@ -32,7 +32,7 @@ jobs:
       - run: npm ci
       - name: Generate coverage
         run: npx vitest run --coverage --exclude='**/src/tests/integration/**'
-      # Keep reviewable HTML and machine-readable reports for two weeks.
+      # Retain reviewable HTML and machine-readable reports for two weeks.
       - name: Upload HTML and machine-readable reports
         if: always()
         uses: actions/upload-artifact@v7
