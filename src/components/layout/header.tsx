@@ -15,6 +15,8 @@ import {
   Settings as SettingsIcon,
   TrendingUp,
   User,
+  Users,
+  Receipt,
   Zap,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -80,11 +82,87 @@ export function Header({ onOpenSidebar }: HeaderProps) {
           </span>
         </div>
 
-        {/* Quick Create Button */}
-        <button className="flex h-10 shrink-0 items-center gap-1.5 rounded-xl bg-[#00b074] px-3.5 text-xs font-bold text-white shadow-2xs transition hover:bg-[#009b66]">
-          <Plus className="h-4 w-4 stroke-[2.5]" />
-          <span>Quick Create</span>
-        </button>
+        {/* Quick Create Dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <button className="flex h-10 shrink-0 items-center gap-1.5 rounded-xl bg-[#00b074] px-3.5 text-xs font-bold text-white shadow-2xs transition hover:bg-[#009b66]">
+                <Plus className="h-4 w-4 stroke-[2.5]" />
+                <span>Quick Create</span>
+              </button>
+            }
+          />
+          <DropdownMenuContent align="start" className="w-52 p-1 text-xs">
+            <DropdownMenuItem
+              render={
+                <Link
+                  href="/leads"
+                  className="flex items-center gap-2 font-medium"
+                />
+              }
+            >
+              <User className="h-4 w-4 text-blue-500" />
+              New Lead
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              render={
+                <Link
+                  href="/customers"
+                  className="flex items-center gap-2 font-medium"
+                />
+              }
+            >
+              <Users className="h-4 w-4 text-indigo-500" />
+              New Customer
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              render={
+                <Link
+                  href="/pipelines"
+                  className="flex items-center gap-2 font-medium"
+                />
+              }
+            >
+              <TrendingUp className="h-4 w-4 text-purple-500" />
+              New Deal / Pipeline
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              render={
+                <Link
+                  href="/quotations"
+                  className="flex items-center gap-2 font-medium"
+                />
+              }
+            >
+              <Receipt className="h-4 w-4 text-teal-500" />
+              New Quotation
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              render={
+                <Link
+                  href="/invoices"
+                  className="flex items-center gap-2 font-medium"
+                />
+              }
+            >
+              <Receipt className="h-4 w-4 text-emerald-500" />
+              New Invoice
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              render={
+                <Link
+                  href="/inbox"
+                  className="flex items-center gap-2 font-medium"
+                />
+              }
+            >
+              <Zap className="h-4 w-4 text-amber-500" />
+              New Message
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Center-Right: Usage/Balance Capsule & Action Icons */}

@@ -20,8 +20,7 @@ import { LeadKanbanColumn, StageColumnDef } from './lead-kanban-column';
 import { LeadCardModel, LeadKanbanCard } from './lead-kanban-card';
 import { LeadDetailsDrawer } from './lead-details-drawer';
 import { toast } from 'sonner';
-import { getAppwriteClient } from '@/infrastructure/appwrite/client';
-import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
+import { salesApi } from '@/lib/sales/api-client';
 import { SavedFilterBar } from '@/components/crm/saved-filter-bar';
 import { useAuth } from '@/hooks/use-auth';
 import {
@@ -81,36 +80,37 @@ export function LeadKanbanBoard({
     }
   }, [searchParams]);
 
-  // Load real leads from Appwrite API endpoint
+  // Load real leads from Supabase API endpoint
   const loadRealLeads = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/leads');
-      const json = await res.json();
-
-      if (json.success && Array.isArray(json.data)) {
-        const mapped: LeadCardModel[] = json.data.map((d: any) => ({
-          id: d.$id || d.id,
-          patientName: d.name || 'Patient Inquiry',
-          phone: d.phone,
-          service: d.service || 'General OPD',
+      const data = await salesApi<any[]>('/api/leads');
+      if (Array.isArray(data)) {
+        const mapped: LeadCardModel[] = data.map((d: any) => ({
+          id: d.id || d.$id,
+          patientName: d.name || d.contacts?.name || 'Lead Inquiry',
+          phone: d.phone || d.contacts?.phone,
+          service: d.service || 'General Inquiry',
           stage: (d.stage as LeadStageType) || 'NEW',
-          channel: 'whatsapp',
-          score: 'warm',
-          assignedOwner: d.assignedAgentId
-            ? { name: d.assignedAgentId }
+          channel: (d.channel as any) || 'whatsapp',
+          score: d.score || d.lead_score || 'warm',
+          value: d.value || 0,
+          currency: d.currency || 'INR',
+          assignedOwner: d.assigned_user_id
+            ? { name: 'Assigned Agent' }
             : undefined,
-          lastActivityAt: d.updatedAt
-            ? new Date(d.updatedAt).toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit',
-              })
-            : 'Recent',
+          lastActivityAt:
+            d.updated_at || d.created_at
+              ? new Date(d.updated_at || d.created_at).toLocaleTimeString([], {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })
+              : 'Recent',
         }));
         setLeads(mapped);
       }
     } catch (err: unknown) {
-      console.error('Failed to load leads from Appwrite:', err);
+      console.error('Failed to load leads from Supabase:', err);
     } finally {
       setLoading(false);
     }
@@ -120,22 +120,6 @@ export function LeadKanbanBoard({
     if (initialLeads.length === 0) {
       loadRealLeads();
     }
-
-    let unsubscribe: (() => void) | undefined;
-
-    try {
-      const { client } = getAppwriteClient();
-      const channel = `databases.${APPWRITE_CONFIG.databaseId}.collections.${APPWRITE_CONFIG.collections.leads}.documents`;
-      unsubscribe = client.subscribe([channel], () => {
-        loadRealLeads();
-      });
-    } catch {
-      // ignore
-    }
-
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
   }, [initialLeads.length, loadRealLeads]);
 
   const { user } = useAuth();
@@ -319,24 +303,15 @@ export function LeadKanbanBoard({
       );
 
       try {
-        const res = await fetch(`/api/leads/${leadId}/stage`, {
+        await salesApi(`/api/leads/${leadId}/stage`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ nextStage: targetStage, reason }),
+          body: JSON.stringify({
+            stage: targetStage,
+            nextStage: targetStage,
+            lost_reason: reason,
+            reason,
+          }),
         });
-
-        const json = await res.json();
-
-        if (!res.ok || !json.success) {
-          // Rollback on failure
-          setLeads((prev) =>
-            prev.map((l) =>
-              l.id === leadId ? { ...l, stage: originalLead.stage } : l
-            )
-          );
-          toast.error(json.error || 'Failed to update lead stage.');
-          return false;
-        }
 
         toast.success(`Stage updated to ${targetStage}`);
         return true;

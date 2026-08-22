@@ -41,6 +41,7 @@ import {
 import { toast } from 'sonner';
 import { LeadStageType } from '@/core/types';
 import { useCan } from '@/hooks/use-can';
+import { salesApi } from '@/lib/sales/api-client';
 
 interface LeadDetailsDrawerProps {
   leadId: string | null;
@@ -119,7 +120,9 @@ interface HydratedLeadDetails {
   followups: Array<{
     id: string;
     status: string;
-    enrolled_at: string;
+    title?: string;
+    due_at?: string;
+    enrolled_at?: string;
     sequence?: { name: string };
   }>;
   role: string;
@@ -150,17 +153,18 @@ export function LeadDetailsDrawer({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [updatingStage, setUpdatingStage] = useState(false);
+  const [newNoteText, setNewNoteText] = useState('');
+  const [savingNote, setSavingNote] = useState(false);
+  const [converting, setConverting] = useState(false);
 
   const loadDetails = useCallback(async (id: string) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/leads/${id}/details`);
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json.error || 'Failed to load lead details.');
-      }
-      setDetails(json.data);
+      const data = await salesApi<HydratedLeadDetails>(
+        `/api/leads/${id}/details`
+      );
+      setDetails(data);
     } catch (err: unknown) {
       setError((err as Error).message || 'Error loading lead details.');
     } finally {
@@ -185,6 +189,41 @@ export function LeadDetailsDrawer({
       loadDetails(leadId);
     }
     setUpdatingStage(false);
+  };
+
+  const handleAddNote = async () => {
+    if (!leadId || !newNoteText.trim() || savingNote) return;
+    setSavingNote(true);
+    try {
+      await salesApi(`/api/leads/${leadId}/notes`, {
+        method: 'POST',
+        body: JSON.stringify({ note_text: newNoteText.trim() }),
+      });
+      toast.success('Note added');
+      setNewNoteText('');
+      loadDetails(leadId);
+    } catch (err: unknown) {
+      toast.error((err as Error).message || 'Failed to add note');
+    } finally {
+      setSavingNote(false);
+    }
+  };
+
+  const handleConvertToCustomer = async () => {
+    if (!leadId || converting) return;
+    setConverting(true);
+    try {
+      await salesApi(`/api/leads/${leadId}/convert`, {
+        method: 'POST',
+        body: JSON.stringify({ createDeal: true }),
+      });
+      toast.success('Lead converted to Customer & Deal successfully!');
+      loadDetails(leadId);
+    } catch (err: unknown) {
+      toast.error((err as Error).message || 'Failed to convert lead');
+    } finally {
+      setConverting(false);
+    }
   };
 
   const handleHumanHandoff = async () => {
@@ -387,6 +426,20 @@ export function LeadDetailsDrawer({
                   Pause AI
                 </Button>
 
+                {/* Convert to Customer & Deal */}
+                <Button
+                  variant="default"
+                  size="sm"
+                  disabled={converting || details.lead.stage === 'CONVERTED'}
+                  onClick={handleConvertToCustomer}
+                  className="h-8 gap-1 bg-emerald-600 text-xs text-white hover:bg-emerald-700"
+                >
+                  <UserCheck className="h-3.5 w-3.5" />
+                  {details.lead.stage === 'CONVERTED'
+                    ? 'Converted'
+                    : 'Convert to Customer'}
+                </Button>
+
                 {/* Change Stage Dropdown */}
                 <DropdownMenu>
                   <DropdownMenuTrigger
@@ -424,6 +477,9 @@ export function LeadDetailsDrawer({
               <TabsList className="border-border h-11 justify-start gap-4 border-b bg-transparent px-4 pt-2">
                 <TabsTrigger value="overview" className="text-xs">
                   Overview
+                </TabsTrigger>
+                <TabsTrigger value="notes" className="text-xs">
+                  Notes ({details.notes.length})
                 </TabsTrigger>
                 <TabsTrigger value="timeline" className="text-xs">
                   Timeline ({details.stageHistory.length})
@@ -558,6 +614,56 @@ export function LeadDetailsDrawer({
                   </div>
                 </TabsContent>
 
+                {/* NOTES TAB */}
+                <TabsContent value="notes" className="m-0 space-y-4">
+                  <div className="space-y-2">
+                    <textarea
+                      value={newNoteText}
+                      onChange={(e) => setNewNoteText(e.target.value)}
+                      placeholder="Add an internal note about this lead..."
+                      rows={3}
+                      className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none"
+                    />
+                    <div className="flex justify-end">
+                      <Button
+                        size="sm"
+                        disabled={!newNoteText.trim() || savingNote}
+                        onClick={handleAddNote}
+                        className="h-8 text-xs"
+                      >
+                        {savingNote ? 'Adding...' : 'Add Note'}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 pt-2">
+                    {details.notes.length === 0 ? (
+                      <p className="text-muted-foreground text-xs">
+                        No notes added yet.
+                      </p>
+                    ) : (
+                      details.notes.map((note) => (
+                        <div
+                          key={note.id}
+                          className="bg-muted/30 border-border space-y-1.5 rounded-xl border p-3 text-xs"
+                        >
+                          <p className="text-foreground whitespace-pre-wrap">
+                            {note.note_text}
+                          </p>
+                          <div className="text-muted-foreground flex items-center justify-between text-[10px]">
+                            <span>
+                              {note.author?.full_name || 'Team Member'}
+                            </span>
+                            <span>
+                              {new Date(note.created_at).toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </TabsContent>
+
                 {/* TIMELINE TAB */}
                 <TabsContent value="timeline" className="m-0 space-y-4">
                   {details.stageHistory.length === 0 ? (
@@ -650,7 +756,11 @@ export function LeadDetailsDrawer({
                               </span>
                               <span className="text-muted-foreground block text-[10px]">
                                 Enrolled:{' '}
-                                {new Date(fol.enrolled_at).toLocaleDateString()}
+                                {fol.enrolled_at
+                                  ? new Date(
+                                      fol.enrolled_at
+                                    ).toLocaleDateString()
+                                  : 'Active'}
                               </span>
                             </div>
                             <Badge

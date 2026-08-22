@@ -18,10 +18,11 @@ function requestId(request: NextRequest): string {
 function errorResponse(
   status: number,
   code: string,
-  correlationId: string
+  correlationId: string,
+  message?: string
 ): NextResponse {
   return NextResponse.json(
-    { error: code, requestId: correlationId },
+    { error: code, message: message || code, requestId: correlationId },
     { status, headers: { ...PRIVATE_HEADERS, 'X-Request-Id': correlationId } }
   );
 }
@@ -91,36 +92,55 @@ export async function PUT(
 
     const {
       name,
+      title,
       value,
       currency,
       probability,
       stage_id,
       status,
       lost_reason,
+      reason,
       expected_close_date,
       source,
       notes,
       assigned_user_id,
+      assigned_to,
     } = body;
+
+    const effectiveLostReason = lost_reason || reason;
+    if (
+      status === 'lost' &&
+      (!effectiveLostReason || !String(effectiveLostReason).trim()) &&
+      !currentDeal.lost_reason
+    ) {
+      return errorResponse(
+        400,
+        'LOST_REASON_REQUIRED',
+        correlationId,
+        'A reason is required when marking a deal as Lost.'
+      );
+    }
 
     const updatePayload: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
     };
 
-    if (name !== undefined) updatePayload.name = String(name).trim();
+    if (name !== undefined || title !== undefined)
+      updatePayload.name = String(name || title).trim();
     if (value !== undefined) updatePayload.value = Number(value);
     if (currency !== undefined) updatePayload.currency = String(currency);
     if (probability !== undefined)
       updatePayload.probability = Number(probability);
     if (stage_id !== undefined) updatePayload.stage_id = stage_id;
     if (status !== undefined) updatePayload.status = status;
-    if (lost_reason !== undefined) updatePayload.lost_reason = lost_reason;
+    if (effectiveLostReason !== undefined)
+      updatePayload.lost_reason = effectiveLostReason;
     if (expected_close_date !== undefined)
       updatePayload.expected_close_date = expected_close_date;
     if (source !== undefined) updatePayload.source = source;
     if (notes !== undefined) updatePayload.notes = notes;
-    if (assigned_user_id !== undefined)
-      updatePayload.assigned_user_id = assigned_user_id;
+    if (assigned_user_id !== undefined || assigned_to !== undefined)
+      updatePayload.assigned_user_id = assigned_user_id || assigned_to;
 
     const { data: updatedDeal, error: updateErr } = await supabase
       .from('deals')

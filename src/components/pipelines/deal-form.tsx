@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { createClient } from '@/lib/appwrite-compat';
+import { salesApi } from '@/lib/sales/api-client';
 import { useAuth } from '@/hooks/use-auth';
 import { CURRENCIES } from '@/lib/currency';
 import type {
@@ -57,8 +57,7 @@ export function DealForm({
   defaultStageId,
   onSaved,
 }: DealFormProps) {
-  const appwrite = createClient();
-  const { accountId, defaultCurrency } = useAuth();
+  const { defaultCurrency } = useAuth();
 
   const [title, setTitle] = useState('');
   const [value, setValue] = useState('');
@@ -80,20 +79,17 @@ export function DealForm({
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Reset the form fields every time the sheet opens or its input
-  // props change. This is a legitimate prop-driven sync; the rule is
-  // over-cautious here, hence the block-level disable.
+  // props change.
   useEffect(() => {
     if (!open) return;
     setConfirmDelete(false);
     if (deal) {
-      setTitle(deal.title);
+      setTitle(deal.name || deal.title || '');
       setValue(String(deal.value ?? ''));
       setCurrency(deal.currency || defaultCurrency);
-      // contact_id is nullable when the contact has been deleted
-      // (migration 004: ON DELETE SET NULL). "" means "no selection".
       setContactId(deal.contact_id ?? '');
       setStageId(deal.stage_id);
-      setAssignedTo(deal.assigned_to ?? '');
+      setAssignedTo(deal.assigned_user_id || deal.assigned_to || '');
       setExpectedCloseDate(deal.expected_close_date ?? '');
       setNotes(deal.notes ?? '');
     } else {
@@ -113,22 +109,24 @@ export function DealForm({
     if (!open) return;
     let cancelled = false;
     (async () => {
-      const [c, p] = await Promise.all([
-        appwrite.from('contacts').select('*').order('name'),
-        appwrite.from('profiles').select('*').order('full_name'),
-      ]);
-      if (cancelled) return;
-      setContacts((c.data ?? []) as Contact[]);
-      setProfiles((p.data ?? []) as Profile[]);
+      try {
+        const [contactsRes, membersRes] = await Promise.all([
+          salesApi<Contact[]>('/api/contacts'),
+          salesApi<Profile[]>('/api/members').catch(() => []),
+        ]);
+        if (cancelled) return;
+        setContacts(Array.isArray(contactsRes) ? contactsRes : []);
+        setProfiles(Array.isArray(membersRes) ? membersRes : []);
+      } catch {
+        // fallback
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [open, appwrite]);
+  }, [open]);
 
   // Fetch linked conversation for the selected contact (newest open one).
-  // Clearing on no-selection is sync with prop state; the populated
-  // case runs setLinkedConversation inside the async fetch callback.
   useEffect(() => {
     if (!open || !contactId) {
       setLinkedConversation(null);
@@ -136,20 +134,22 @@ export function DealForm({
     }
     let cancelled = false;
     (async () => {
-      const { data } = await appwrite
-        .from('conversations')
-        .select('*')
-        .eq('contact_id', contactId)
-        .order('last_message_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (cancelled) return;
-      setLinkedConversation((data as Conversation | null) ?? null);
+      try {
+        const data = await salesApi<Conversation[]>(
+          `/api/inbox/conversations?contact_id=${contactId}`
+        ).catch(() => null);
+        if (cancelled) return;
+        if (Array.isArray(data) && data.length > 0) {
+          setLinkedConversation(data[0]);
+        }
+      } catch {
+        // ignore
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [open, contactId, appwrite]);
+  }, [open, contactId]);
 
   async function handleSave() {
     if (!title.trim() || !contactId || !stageId) {
@@ -159,97 +159,91 @@ export function DealForm({
     setSaving(true);
 
     const payload = {
+      name: title.trim(),
       title: title.trim(),
       value: parseFloat(value) || 0,
       currency,
       contact_id: contactId,
       pipeline_id: pipelineId,
       stage_id: stageId,
+      assigned_user_id: assignedTo || null,
       assigned_to: assignedTo || null,
       notes: notes.trim() || null,
       expected_close_date: expectedCloseDate || null,
     };
 
-    if (deal) {
-      const { error } = await appwrite
-        .from('deals')
-        .update(payload)
-        .eq('id', deal.id);
-      if (error) {
-        toast.error('Failed to save deal');
-        setSaving(false);
-        return;
+    try {
+      if (deal) {
+        await salesApi(`/api/deals/${deal.id}`, {
+          method: 'PUT',
+          body: JSON.stringify(payload),
+        });
+      } else {
+        await salesApi('/api/deals', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
       }
-    } else {
-      const {
-        data: { session },
-      } = await appwrite.auth.getSession();
-      const user = session?.user;
-      if (!user) {
-        toast.error('Not signed in');
-        setSaving(false);
-        return;
-      }
-      if (!accountId) {
-        toast.error('Your profile is not linked to an account.');
-        setSaving(false);
-        return;
-      }
-      const { error } = await appwrite.from('deals').insert({
-        ...payload,
-        user_id: user.id,
-        account_id: accountId,
-        status: 'open',
-      });
-      if (error) {
-        toast.error('Failed to create deal');
-        setSaving(false);
-        return;
-      }
-    }
 
-    setSaving(false);
-    toast.success(deal ? 'Deal updated' : 'Deal created');
-    onOpenChange(false);
-    onSaved();
+      setSaving(false);
+      toast.success(deal ? 'Deal updated' : 'Deal created');
+      onOpenChange(false);
+      onSaved();
+    } catch (err: unknown) {
+      toast.error((err as Error).message || 'Failed to save deal');
+      setSaving(false);
+    }
   }
 
   async function handleStatusChange(status: DealStatus) {
     if (!deal) return;
-    setStatusAction(status);
-    const { error } = await appwrite
-      .from('deals')
-      .update({ status })
-      .eq('id', deal.id);
-    setStatusAction(null);
-    if (error) {
-      toast.error('Failed to update deal status');
-      return;
+    let lostReason: string | undefined;
+    if (status === 'lost') {
+      const userPrompt = window.prompt(
+        'Please provide a reason for marking this deal as LOST:'
+      );
+      if (userPrompt === null) return;
+      lostReason = userPrompt.trim() || 'Marked lost from Deal form';
     }
-    toast.success(
-      status === 'won'
-        ? 'Marked as won'
-        : status === 'lost'
-          ? 'Marked as lost'
-          : 'Deal reopened'
-    );
-    onOpenChange(false);
-    onSaved();
+
+    setStatusAction(status);
+    try {
+      await salesApi(`/api/deals/${deal.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status, lost_reason: lostReason }),
+      });
+      setStatusAction(null);
+      toast.success(
+        status === 'won'
+          ? 'Marked as won'
+          : status === 'lost'
+            ? 'Marked as lost'
+            : 'Deal reopened'
+      );
+      onOpenChange(false);
+      onSaved();
+    } catch (err: unknown) {
+      setStatusAction(null);
+      toast.error((err as Error).message || 'Failed to update deal status');
+    }
   }
 
   async function handleDelete() {
     if (!deal) return;
     setDeleting(true);
-    const { error } = await appwrite.from('deals').delete().eq('id', deal.id);
-    setDeleting(false);
-    if (error) {
-      toast.error('Failed to delete deal');
-      return;
+    try {
+      await salesApi(`/api/deals/${deal.id}`, {
+        method: 'DELETE',
+      });
+      setDeleting(false);
+      toast.success('Deal deleted');
+      setConfirmDelete(false);
+      onOpenChange(false);
+      onSaved();
+    } catch (err: unknown) {
+      setDeleting(false);
+      toast.error((err as Error).message || 'Failed to delete deal');
     }
-    toast.success('Deal deleted');
-    setConfirmDelete(false);
-    onOpenChange(false);
-    onSaved();
   }
 
   return (
