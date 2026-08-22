@@ -1,7 +1,5 @@
 version: 2
 updates:
-  # Runtime + dev dependencies. Weekly on Mondays — keeps the noise
-  # predictable and aligns with a normal review cycle.
   - package-ecosystem: npm
     directory: '/'
     schedule:
@@ -9,15 +7,18 @@ updates:
       day: monday
     open-pull-requests-limit: 5
     reviewers:
-      - ArnasDon
+      - imsusanta
     labels:
       - dependencies
     groups:
-      # Batch related upgrades into one PR so we're not closing six
-      # independent Appwrite-bumps per week.
       appwrite:
         patterns:
           - '@appwrite/*'
+          - appwrite
+          - node-appwrite
+      supabase:
+        patterns:
+          - '@supabase/*'
       types:
         patterns:
           - '@types/*'
@@ -30,16 +31,22 @@ updates:
           - minor
           - patch
     ignore:
-      # Next + React + Tailwind are pinned exactly on purpose. Let
-      # them flow through manual major bumps when we're ready.
       - dependency-name: next
+        update-types:
+          - version-update:semver-major
       - dependency-name: react
+        update-types:
+          - version-update:semver-major
       - dependency-name: react-dom
+        update-types:
+          - version-update:semver-major
       - dependency-name: tailwindcss
+        update-types:
+          - version-update:semver-major
       - dependency-name: eslint-config-next
+        update-types:
+          - version-update:semver-major
 
-  # GitHub Actions in .github/workflows/. Catches setup-node /
-  # checkout version bumps that keep the CI matrix healthy.
   - package-ecosystem: github-actions
     directory: '/'
     schedule:
@@ -47,7 +54,7 @@ updates:
       day: monday
     open-pull-requests-limit: 3
     reviewers:
-      - ArnasDon
+      - imsusanta
     labels:
       - dependencies
       - github-actions
