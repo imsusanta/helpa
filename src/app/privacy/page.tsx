@@ -2,52 +2,42 @@
 
 import Link from 'next/link';
 import {
-  MessageSquare,
-  ArrowLeft,
   Shield,
   Lock,
   Eye,
   FileText,
+  ArrowLeft,
+  Mail,
+  Trash2,
+  Database,
+  Smartphone,
 } from 'lucide-react';
-import { useTheme } from '@/hooks/use-theme';
-import { Sun, Moon } from 'lucide-react';
 
 export default function PrivacyPolicyPage() {
-  const { mode, toggleMode } = useTheme();
-
   return (
-    <div className="bg-background text-foreground relative min-h-screen overflow-x-hidden font-sans antialiased transition-colors duration-300 selection:bg-indigo-600 selection:text-white">
-      {/* Background Aurora Glows */}
-      <div className="bg-primary/5 pointer-events-none absolute top-1/4 left-1/4 h-96 w-96 -translate-x-1/2 -translate-y-1/2 rounded-full blur-[120px]" />
-      <div className="pointer-events-none absolute right-1/4 bottom-1/4 h-96 w-96 translate-x-1/2 translate-y-1/2 rounded-full bg-indigo-500/5 blur-[120px]" />
+    <div className="relative min-h-screen overflow-x-hidden bg-[#F8FAFC] font-sans text-slate-900 antialiased selection:bg-emerald-500 selection:text-white">
+      {/* Background Decorative Gradient */}
+      <div className="pointer-events-none absolute top-0 left-1/2 h-[500px] w-full max-w-7xl -translate-x-1/2 bg-gradient-to-b from-emerald-50/60 via-slate-50/30 to-transparent" />
 
       {/* Header */}
-      <header className="border-border/80 bg-background/80 sticky top-0 z-50 border-b backdrop-blur-md transition-all duration-300">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
-              <MessageSquare className="h-4 w-4 text-white" />
-            </div>
-            <span className="text-foreground text-lg font-semibold tracking-tight">
-              Helpa
+      <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3.5 sm:px-6">
+          <Link href="/" className="group flex items-center gap-2.5">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/helpa-logo.png?v=2"
+              alt="Helpa Logo"
+              className="h-9 w-9 rounded-xl object-contain shadow-xs transition-transform group-hover:scale-105"
+            />
+            <span className="text-2xl font-extrabold tracking-tight text-[#110E3D]">
+              helpa<span className="text-emerald-500">.</span>
             </span>
           </Link>
 
           <div className="flex items-center gap-4">
-            <button
-              onClick={toggleMode}
-              className="border-border bg-card hover:bg-accent text-foreground cursor-pointer rounded-full border p-2 transition-colors duration-200"
-              aria-label="Toggle theme"
-            >
-              {mode === 'dark' ? (
-                <Sun className="h-4 w-4 text-amber-500" />
-              ) : (
-                <Moon className="h-4 w-4 text-indigo-600" />
-              )}
-            </button>
             <Link
               href="/"
-              className="text-muted-foreground hover:text-foreground flex items-center gap-1.5 text-sm font-semibold transition-colors"
+              className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-1.5 text-sm font-semibold text-slate-700 shadow-xs transition-colors hover:bg-slate-50 hover:text-slate-900"
             >
               <ArrowLeft className="h-4 w-4" /> Back to Home
             </Link>
@@ -55,208 +45,300 @@ export default function PrivacyPolicyPage() {
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="relative z-10 mx-auto max-w-3xl px-6 py-16 md:py-24">
+      {/* Main Container */}
+      <main className="relative z-10 mx-auto max-w-4xl px-4 py-12 sm:px-6 md:py-16">
         {/* Title Block */}
-        <div className="mb-16 space-y-4 text-center md:text-left">
-          <div className="mb-2 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400">
-            <Shield className="h-6 w-6" />
+        <div className="mb-12 border-b border-slate-200 pb-8">
+          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
+            <Shield className="h-3.5 w-3.5 text-emerald-600" />
+            <span>Meta & GDPR Compliant Privacy Policy</span>
           </div>
-          <h1 className="text-foreground text-4xl font-extrabold tracking-tight sm:text-5xl">
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-950 sm:text-4xl">
             Privacy Policy
           </h1>
-          <p className="text-muted-foreground text-sm">
-            Last updated: July 10, 2026
+          <p className="mt-2 text-sm text-slate-500">
+            Effective Date: January 1, 2026 • Last Updated: August 21, 2026
           </p>
-          <p className="text-muted-foreground max-w-2xl text-base leading-relaxed">
-            At Helpa Studio (&quot;Helpa&quot;, &quot;we&quot;, &quot;us&quot;,
-            or &quot;our&quot;), we protect your privacy. This Privacy Policy
-            explains how we collect, use, and share information when you use our
-            WhatsApp CRM services, website, and software products.
+          <p className="mt-4 text-base leading-relaxed text-slate-600">
+            Helpa Studio (&quot;Helpa&quot;, &quot;we&quot;, &quot;our&quot;, or
+            &quot;us&quot;) is committed to protecting your privacy and ensuring
+            the security of your business and customer communication data. This
+            Privacy Policy details how we collect, process, store, and safeguard
+            information when you use the Helpa CRM platform, WhatsApp AI
+            Receptionist features, and website at{' '}
+            <a
+              href="https://www.helpa.studio"
+              className="font-semibold text-emerald-600 underline"
+            >
+              https://www.helpa.studio
+            </a>
+            .
           </p>
         </div>
 
-        {/* Highlight Cards */}
-        <div className="mb-16 grid gap-4 sm:grid-cols-3">
-          <div className="border-border bg-card/50 space-y-3 rounded-2xl border p-5 backdrop-blur-sm">
-            <Lock className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-            <h3 className="text-foreground text-sm font-bold">
-              End-to-End Security
+        {/* Highlight Summary Cards */}
+        <div className="mb-12 grid gap-4 sm:grid-cols-3">
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
+            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+              <Lock className="h-5 w-5" />
+            </div>
+            <h3 className="text-sm font-bold text-slate-900">
+              Encrypted & Isolated
             </h3>
-            <p className="text-muted-foreground text-xs">
-              Your chat data, templates, and contact registers are encrypted and
-              secured in isolation.
+            <p className="mt-1 text-xs leading-relaxed text-slate-600">
+              Multi-tenant architecture with AES-256-GCM encryption for all Meta
+              WhatsApp tokens and CRM credentials.
             </p>
           </div>
-          <div className="border-border bg-card/50 space-y-3 rounded-2xl border p-5 backdrop-blur-sm">
-            <Eye className="h-5 w-5 text-emerald-500" />
-            <h3 className="text-foreground text-sm font-bold">
-              No Hidden Tracking
+
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
+            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+              <Eye className="h-5 w-5" />
+            </div>
+            <h3 className="text-sm font-bold text-slate-900">
+              Zero Data Selling
             </h3>
-            <p className="text-muted-foreground text-xs">
-              We never sell, rent, or trade your operational records or
-              patient/client information to any third parties.
+            <p className="mt-1 text-xs leading-relaxed text-slate-600">
+              We never sell, rent, or monetize your patient, student, or
+              customer communication logs to third parties.
             </p>
           </div>
-          <div className="border-border bg-card/50 space-y-3 rounded-2xl border p-5 backdrop-blur-sm">
-            <FileText className="h-5 w-5 text-blue-500" />
-            <h3 className="text-foreground text-sm font-bold">
-              GDPR & GDPR Aligned
+
+          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
+            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
+              <Trash2 className="h-5 w-5" />
+            </div>
+            <h3 className="text-sm font-bold text-slate-900">
+              Full Deletion Rights
             </h3>
-            <p className="text-muted-foreground text-xs">
-              We give you complete ownership and control to request data
-              extraction or permanent deletion anytime.
+            <p className="mt-1 text-xs leading-relaxed text-slate-600">
+              You maintain complete ownership of your data with instant
+              extraction and permanent deletion rights anytime.
             </p>
           </div>
         </div>
 
         {/* Policy Body */}
-        <div className="prose prose-zinc dark:prose-invert max-w-none space-y-10 text-left">
-          <section className="space-y-4">
-            <h2 className="text-foreground flex items-center gap-2 text-xl font-bold">
-              <span className="text-indigo-600">1.</span> Information We Collect
+        <div className="prose prose-slate max-w-none space-y-10 text-slate-700">
+          {/* Section 1 */}
+          <section className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs sm:p-8">
+            <h2 className="flex items-center gap-2.5 text-xl font-bold text-slate-900">
+              <Database className="h-5 w-5 text-emerald-600" />
+              1. Information We Collect
             </h2>
-            <p className="text-muted-foreground text-sm leading-relaxed">
-              We collect information necessary to provide our intelligent
-              communication services:
+            <p className="mt-3 text-sm leading-relaxed text-slate-600">
+              To provide intelligent CRM automation, customer inbox management,
+              and automated booking, we collect the following categories of
+              information:
             </p>
-            <ul className="text-muted-foreground list-disc space-y-2.5 pl-5 text-sm">
+            <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-relaxed text-slate-600">
               <li>
-                <strong>Account Registration Details:</strong> Full name,
-                business email address, billing information, contact number,
-                country, and timezone.
+                <strong>Account & Profile Information:</strong> Full name,
+                business email address, workspace name, industry type, and
+                contact details provided during signup.
               </li>
               <li>
-                <strong>WhatsApp Integration Data:</strong> Meta WhatsApp
-                Business Cloud API access tokens, phone numbers, and WhatsApp
-                message metadata processed through your active channels.
+                <strong>Meta & WhatsApp Integration Data:</strong> When
+                connecting via Meta Embedded Signup or System User access, we
+                receive your WhatsApp Business Account (WABA) ID, Phone Number
+                ID, display phone number, business profile name, and temporary
+                authorization codes to establish official API connectivity.
               </li>
               <li>
-                <strong>Knowledge Base & Files:</strong> Uploaded spreadsheets,
-                diagnostic templates, FAQs, price lists, or hospital files used
-                to train your custom AI Receptionist.
+                <strong>Conversation & Customer Inquiries:</strong> Inbound and
+                outbound WhatsApp messages, timestamps, delivery receipts,
+                customer phone numbers, and names solely for presenting chats in
+                your Inbox and generating AI assistant responses.
+              </li>
+              <li>
+                <strong>Custom Knowledge Base Content:</strong> Business
+                operating hours, service catalogs, appointment rates, doctor
+                schedules, or FAQ documents uploaded to train your AI
+                Receptionist.
               </li>
             </ul>
           </section>
 
-          <section className="space-y-4">
-            <h2 className="text-foreground flex items-center gap-2 text-xl font-bold">
-              <span className="text-indigo-600">2.</span> How We Use Your
-              Information
+          {/* Section 2 */}
+          <section className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs sm:p-8">
+            <h2 className="flex items-center gap-2.5 text-xl font-bold text-slate-900">
+              <Smartphone className="h-5 w-5 text-emerald-600" />
+              2. Meta Platform & WhatsApp Business API Compliance
             </h2>
-            <p className="text-muted-foreground text-sm leading-relaxed">
-              We process data solely to execute requested services:
+            <p className="mt-3 text-sm leading-relaxed text-slate-600">
+              Helpa strictly adheres to Meta’s Developer Platform Terms and
+              WhatsApp Business Policy:
             </p>
-            <ul className="text-muted-foreground list-disc space-y-2.5 pl-5 text-sm">
+            <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-relaxed text-slate-600">
               <li>
-                Configuring and running your industry workspace (Hospital,
-                Coaching, Real Estate, etc.).
+                <strong>Restricted Purpose:</strong> WhatsApp data is processed
+                exclusively on behalf of the registered business tenant to route
+                conversations, generate AI replies, and manage customer records.
               </li>
               <li>
-                Providing instant automatic AI replies, handling appointment
-                scheduling, and synchronizing contacts into your CRM.
+                <strong>No Public Model Training:</strong> Customer message
+                contents and private conversation logs are never used to train
+                public or foundation AI models.
               </li>
               <li>
-                Compiling performance logs, resolve-rate charts, and chat
-                analytics for your account dashboard.
-              </li>
-              <li>
-                Delivering critical account alerts, billing updates, or system
-                notices.
+                <strong>Encrypted Token Storage:</strong> Meta access tokens and
+                system credentials are encrypted using military-grade
+                AES-256-GCM authenticated encryption at rest.
               </li>
             </ul>
           </section>
 
-          <section className="space-y-4">
-            <h2 className="text-foreground flex items-center gap-2 text-xl font-bold">
-              <span className="text-indigo-600">3.</span> Data Protection &
-              Safety
+          {/* Section 3 */}
+          <section className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs sm:p-8">
+            <h2 className="flex items-center gap-2.5 text-xl font-bold text-slate-900">
+              <Trash2 className="h-5 w-5 text-emerald-600" />
+              3. User Data Deletion Instructions
             </h2>
-            <p className="text-muted-foreground text-sm leading-relaxed">
-              We secure your data with industry-leading measures:
+            <p className="mt-3 text-sm leading-relaxed text-slate-600">
+              In accordance with Meta Platform Rules and global privacy
+              regulations (GDPR/CCPA), users and business owners have the right
+              to request full deletion of their personal and communication data
+              at any time:
             </p>
-            <ul className="text-muted-foreground list-disc space-y-2.5 pl-5 text-sm">
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <h4 className="text-sm font-bold text-slate-900">
+                How to request data deletion:
+              </h4>
+              <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-xs leading-relaxed text-slate-600">
+                <li>
+                  <strong>From Settings:</strong> Log in to your Helpa
+                  dashboard, navigate to <em>Settings ➡️ Account</em>, and click{' '}
+                  <em>Delete Workspace Data</em>.
+                </li>
+                <li>
+                  <strong>Via Email:</strong> Send an email to{' '}
+                  <a
+                    href="mailto:privacy@helpa.studio"
+                    className="font-semibold text-emerald-600 underline"
+                  >
+                    privacy@helpa.studio
+                  </a>{' '}
+                  with the subject line &quot;Data Deletion Request&quot;
+                  mentioning your registered business email and WhatsApp phone
+                  number.
+                </li>
+              </ol>
+              <p className="mt-2 text-xs text-slate-500">
+                Upon receiving your request, all chat histories, customer
+                records, and Meta tokens associated with your account will be
+                permanently purged within 30 business days.
+              </p>
+            </div>
+          </section>
+
+          {/* Section 4 */}
+          <section className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs sm:p-8">
+            <h2 className="flex items-center gap-2.5 text-xl font-bold text-slate-900">
+              <FileText className="h-5 w-5 text-emerald-600" />
+              4. Third-Party Sub-processors & Infrastructure
+            </h2>
+            <p className="mt-3 text-sm leading-relaxed text-slate-600">
+              We rely on trusted cloud infrastructure partners to operate our
+              services reliably:
+            </p>
+            <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-relaxed text-slate-600">
               <li>
-                All API communications are encrypted in transit via SSL/TLS.
+                <strong>Meta Platforms, Inc.:</strong> Official WhatsApp Cloud
+                API provider for message delivery and phone number onboarding.
               </li>
               <li>
-                Databases are housed on isolated cloud servers with restricted
-                credential controls.
+                <strong>Supabase / PostgreSQL:</strong> Secure database hosting
+                with Row-Level Security (RLS) tenant isolation.
               </li>
               <li>
-                We strictly enforce human takeover and staff assignment routing
-                parameters to ensure patient or client confidentiality is
-                respected.
+                <strong>Vercel, Inc.:</strong> Production serverless application
+                hosting and SSL/TLS edge networking.
+              </li>
+              <li>
+                <strong>Razorpay:</strong> PCI-DSS certified payment processing
+                for subscription plans (we do not store credit card numbers).
               </li>
             </ul>
           </section>
 
-          <section className="space-y-4">
-            <h2 className="text-foreground flex items-center gap-2 text-xl font-bold">
-              <span className="text-indigo-600">4.</span> Your Rights
+          {/* Section 5 */}
+          <section className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xs sm:p-8">
+            <h2 className="flex items-center gap-2.5 text-xl font-bold text-slate-900">
+              <Mail className="h-5 w-5 text-emerald-600" />
+              5. Contact Information & Data Protection Officer
             </h2>
-            <p className="text-muted-foreground text-sm leading-relaxed">
-              Depending on your location, you have the right to access, edit, or
-              delete your personal details. If you wish to close your Helpa
-              Studio account and purge all associated records permanently,
-              contact our privacy desk at{' '}
-              <a
-                href="mailto:privacy@helpa.studio"
-                className="text-indigo-600 hover:underline"
-              >
-                privacy@helpa.studio
-              </a>
-              .
+            <p className="mt-3 text-sm leading-relaxed text-slate-600">
+              If you have any questions, concerns, or inquiries regarding this
+              Privacy Policy or our security practices, please contact our
+              privacy desk:
             </p>
-          </section>
-
-          <section className="space-y-4">
-            <h2 className="text-foreground flex items-center gap-2 text-xl font-bold">
-              <span className="text-indigo-600">5.</span> Changes to this Policy
-            </h2>
-            <p className="text-muted-foreground text-sm leading-relaxed">
-              We may update this Privacy Policy from time to time. We will
-              notify you of any material changes by posting the new policy on
-              this page and updating the date at the top.
-            </p>
+            <div className="mt-3 text-sm text-slate-700">
+              <p>
+                <strong>Helpa Studio</strong>
+              </p>
+              <p>
+                Privacy & Data Protection Officer:{' '}
+                <a
+                  href="mailto:privacy@helpa.studio"
+                  className="text-emerald-600 hover:underline"
+                >
+                  privacy@helpa.studio
+                </a>
+              </p>
+              <p>
+                General Support:{' '}
+                <a
+                  href="mailto:support@helpa.studio"
+                  className="text-emerald-600 hover:underline"
+                >
+                  support@helpa.studio
+                </a>
+              </p>
+              <p>
+                Website:{' '}
+                <a
+                  href="https://www.helpa.studio"
+                  className="text-emerald-600 hover:underline"
+                >
+                  https://www.helpa.studio
+                </a>
+              </p>
+            </div>
           </section>
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="border-border bg-card border-t px-6 py-10 transition-colors duration-300">
-        <div className="mx-auto flex max-w-5xl flex-col items-center justify-between gap-4 sm:flex-row">
-          <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600">
-              <MessageSquare className="h-3.5 w-3.5 text-white" />
-            </div>
-            <span className="text-foreground font-semibold">Helpa</span>
+      <footer className="border-t border-slate-200 bg-white px-4 py-8 sm:px-6">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 sm:flex-row">
+          <div className="flex items-center gap-2.5">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/helpa-logo.png?v=2"
+              alt="Helpa"
+              className="h-6 w-6 rounded-lg object-contain"
+            />
+            <span className="font-bold text-slate-900">Helpa Studio</span>
           </div>
-          <div className="text-muted-foreground flex flex-wrap justify-center gap-6 text-sm font-medium">
-            <Link href="/" className="hover:text-foreground transition-colors">
+          <div className="flex flex-wrap items-center gap-6 text-xs font-semibold text-slate-600">
+            <Link href="/" className="hover:text-slate-900">
               Home
             </Link>
-            <Link
-              href="/privacy"
-              className="hover:text-foreground transition-colors"
-            >
+            <Link href="/privacy" className="font-bold text-emerald-600">
               Privacy Policy
             </Link>
-            <Link
-              href="/terms"
-              className="hover:text-foreground transition-colors"
-            >
+            <Link href="/terms" className="hover:text-slate-900">
               Terms of Service
             </Link>
             <a
-              href="mailto:hello@helpa.studio"
-              className="hover:text-foreground transition-colors"
+              href="mailto:support@helpa.studio"
+              className="hover:text-slate-900"
             >
-              Contact
+              Contact Support
             </a>
           </div>
-          <p className="text-muted-foreground text-sm">
-            © {new Date().getFullYear()} Helpa Studio
+          <p className="text-xs text-slate-400">
+            © {new Date().getFullYear()} Helpa Studio. All rights reserved.
           </p>
         </div>
       </footer>

@@ -334,3 +334,35 @@ export async function POST(request: Request) {
     );
   }
 }
+
+// GET - Meta-hosted onboarding redirection handler
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const code = url.searchParams.get('code');
+  const state = url.searchParams.get('state');
+  const error =
+    url.searchParams.get('error') || url.searchParams.get('error_reason');
+  const errorDescription = url.searchParams.get('error_description') || error;
+
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL || `${url.protocol}//${url.host}`;
+
+  if (error) {
+    return NextResponse.redirect(
+      `${baseUrl}/settings?tab=whatsapp&error=${encodeURIComponent(
+        errorDescription || 'Meta onboarding was canceled or failed'
+      )}`
+    );
+  }
+
+  if (code) {
+    const params = new URLSearchParams({
+      tab: 'whatsapp',
+      meta_code: code,
+      ...(state ? { meta_state: state } : {}),
+    });
+    return NextResponse.redirect(`${baseUrl}/settings?${params.toString()}`);
+  }
+
+  return NextResponse.redirect(`${baseUrl}/settings?tab=whatsapp`);
+}

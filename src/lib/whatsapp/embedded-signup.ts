@@ -250,7 +250,11 @@ export async function launchWhatsAppEmbeddedSignup({
         override_default_response_type: true,
         extras: {
           feature: 'whatsapp_embedded_signup',
-          version: 2,
+          featureType:
+            mode === 'coexistence'
+              ? 'whatsapp_business_app_onboarding'
+              : 'whatsapp_embedded_signup',
+          version: 'v4',
           sessionInfoVersion: 3,
           setup:
             mode === 'coexistence'
