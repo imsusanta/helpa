@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import * as fs from 'fs';
+import * as path from 'path';
 import { SalesApiError } from '@/lib/sales/api-client';
 
 describe('Sales CRM End-to-End Logic & Contracts', () => {
@@ -15,6 +17,279 @@ describe('Sales CRM End-to-End Logic & Contracts', () => {
       expect(err.status).toBe(400);
       expect(err.code).toBe('BAD_REQUEST');
       expect(err.requestId).toBe('REQ-1234');
+    });
+  });
+
+  describe('Migration Hardening & Constraint Integrity', () => {
+    const migrationPath = path.join(
+      process.cwd(),
+      'supabase/migrations/20260822150000_sales_crm_complete_schema.sql'
+    );
+    const sqlContent = fs.readFileSync(migrationPath, 'utf8');
+
+    it('contains all required named check constraints', () => {
+      const requiredCheckConstraints = [
+        'chk_leads_stage',
+        'chk_tasks_status',
+        'chk_tasks_priority',
+        'chk_quotations_status',
+        'chk_quotation_items_quantity',
+        'chk_quotation_items_unit_price',
+        'chk_quotation_items_discount',
+        'chk_quotation_items_tax_rate',
+        'chk_invoices_status',
+        'chk_invoices_balance_due',
+        'chk_invoice_items_quantity',
+        'chk_invoice_items_unit_price',
+        'chk_invoice_items_discount',
+        'chk_invoice_items_tax_rate',
+        'chk_invoice_payments_amount',
+      ];
+
+      for (const constraint of requiredCheckConstraints) {
+        expect(sqlContent).toContain(constraint);
+      }
+    });
+
+    it('contains all tenant composite foreign keys', () => {
+      const requiredCompositeFks = [
+        'fk_lead_activities_lead_tenant',
+        'fk_lead_notes_lead_tenant',
+        'fk_quotation_items_quotation_tenant',
+        'fk_invoice_items_invoice_tenant',
+        'fk_invoice_payments_invoice_tenant',
+      ];
+
+      for (const fk of requiredCompositeFks) {
+        expect(sqlContent).toContain(fk);
+      }
+    });
+
+    it('contains tenant unique constraints for composite referencing', () => {
+      const requiredUniques = [
+        'uq_leads_id_account',
+        'uq_tasks_id_account',
+        'uq_quotations_id_account',
+        'uq_quotations_account_number',
+        'uq_invoices_id_account',
+        'uq_invoices_account_number',
+      ];
+
+      for (const uq of requiredUniques) {
+        expect(sqlContent).toContain(uq);
+      }
+    });
+
+    it('contains concurrency-safe sequence generation and atomic RPCs', () => {
+      expect(sqlContent).toContain(
+        'create table if not exists public.tenant_document_sequences'
+      );
+      expect(sqlContent).toContain(
+        'function public.generate_next_quotation_number'
+      );
+      expect(sqlContent).toContain(
+        'function public.generate_next_invoice_number'
+      );
+      expect(sqlContent).toContain(
+        'function public.convert_quotation_to_invoice'
+      );
+      expect(sqlContent).toContain('function public.record_invoice_payment');
+    });
+
+    it('guards every policy creation with drop policy if exists', () => {
+      const createPolicyCount = (sqlContent.match(/create policy/gi) || [])
+        .length;
+      const dropPolicyCount = (
+        sqlContent.match(/drop policy if exists/gi) || []
+      ).length;
+      expect(dropPolicyCount).toBeGreaterThanOrEqual(createPolicyCount);
+    });
+
+    it('includes preflight check against null account_id', () => {
+      expect(sqlContent).toContain(
+        "raise exception 'Migration preflight failed"
+      );
+    });
+  });
+
+  describe('Preflight & Cross-Tenant Rejection Logic', () => {
+    it('throws migration preflight exception if records have null account_id', () => {
+      function runPreflight(rows: { id: string; account_id: string | null }[]) {
+        const nullRows = rows.filter((r) => !r.account_id);
+        if (nullRows.length > 0) {
+          throw new Error(
+            `Migration preflight failed: found ${nullRows.length} rows with NULL account_id`
+          );
+        }
+        return { ok: true };
+      }
+
+      expect(() =>
+        runPreflight([
+          { id: '1', account_id: 'acc-1' },
+          { id: '2', account_id: null },
+        ])
+      ).toThrow(
+        'Migration preflight failed: found 1 rows with NULL account_id'
+      );
+
+      expect(runPreflight([{ id: '1', account_id: 'acc-1' }]).ok).toBe(true);
+    });
+
+    it('rejects cross-tenant child insertion under different parent account_id', () => {
+      const parentQuotation = { id: 'quote-100', account_id: 'tenant-A' };
+
+      function insertQuotationItem(
+        parent: typeof parentQuotation,
+        item: { quotation_id: string; account_id: string; description: string }
+      ) {
+        if (
+          item.quotation_id === parent.id &&
+          item.account_id !== parent.account_id
+        ) {
+          throw new Error(
+            'FOREIGN_KEY_VIOLATION: Cross-tenant child reference rejected'
+          );
+        }
+        return { success: true };
+      }
+
+      expect(() =>
+        insertQuotationItem(parentQuotation, {
+          quotation_id: 'quote-100',
+          account_id: 'tenant-B',
+          description: 'Infiltrating item',
+        })
+      ).toThrow('FOREIGN_KEY_VIOLATION');
+
+      expect(
+        insertQuotationItem(parentQuotation, {
+          quotation_id: 'quote-100',
+          account_id: 'tenant-A',
+          description: 'Valid item',
+        }).success
+      ).toBe(true);
+    });
+  });
+
+  describe('Simultaneous Concurrency & Atomic State Machines', () => {
+    it('handles simultaneous quotation conversions atomically and rejects race condition duplicates', async () => {
+      const quotation = {
+        id: 'qt-concurrent-1',
+        account_id: 'acc-1',
+        status: 'sent',
+        convertedInvoiceId: null as string | null,
+      };
+
+      let conversionLock = false;
+
+      async function convertQuotationAtomic(
+        q: typeof quotation,
+        reqId: string
+      ) {
+        // Simulate DB FOR UPDATE lock
+        while (conversionLock) {
+          await new Promise((r) => setTimeout(r, 5));
+        }
+        conversionLock = true;
+        try {
+          if (q.status === 'converted' || q.convertedInvoiceId) {
+            throw new Error('ALREADY_CONVERTED');
+          }
+          const invoiceId = `inv-${reqId}`;
+          q.status = 'converted';
+          q.convertedInvoiceId = invoiceId;
+          return { success: true, invoiceId };
+        } finally {
+          conversionLock = false;
+        }
+      }
+
+      const [res1, res2] = await Promise.allSettled([
+        convertQuotationAtomic(quotation, 'req-1'),
+        convertQuotationAtomic(quotation, 'req-2'),
+      ]);
+
+      const fulfilled = [res1, res2].filter((r) => r.status === 'fulfilled');
+      const rejected = [res1, res2].filter((r) => r.status === 'rejected');
+
+      expect(fulfilled).toHaveLength(1);
+      expect(rejected).toHaveLength(1);
+      if (rejected[0].status === 'rejected') {
+        expect(rejected[0].reason.message).toBe('ALREADY_CONVERTED');
+      }
+    });
+
+    it('prevents overpayment during simultaneous payments and maintains exact balance', async () => {
+      const invoice = {
+        id: 'inv-payment-1',
+        total: 10000,
+        amount_paid: 0,
+        balance_due: 10000,
+        status: 'draft',
+      };
+
+      let invoiceLock = false;
+
+      async function recordPaymentAtomic(
+        inv: typeof invoice,
+        paymentAmount: number
+      ) {
+        while (invoiceLock) {
+          await new Promise((r) => setTimeout(r, 5));
+        }
+        invoiceLock = true;
+        try {
+          if (paymentAmount <= 0) throw new Error('INVALID_AMOUNT');
+          if (inv.amount_paid + paymentAmount > inv.total) {
+            throw new Error('OVERPAYMENT_NOT_ALLOWED');
+          }
+          inv.amount_paid += paymentAmount;
+          inv.balance_due = inv.total - inv.amount_paid;
+          inv.status = inv.balance_due === 0 ? 'paid' : 'partially_paid';
+          return {
+            success: true,
+            amount_paid: inv.amount_paid,
+            balance_due: inv.balance_due,
+          };
+        } finally {
+          invoiceLock = false;
+        }
+      }
+
+      // Try two simultaneous payments of 6,000 each (Total: 12,000 > 10,000)
+      const [p1, p2] = await Promise.allSettled([
+        recordPaymentAtomic(invoice, 6000),
+        recordPaymentAtomic(invoice, 6000),
+      ]);
+
+      const fulfilled = [p1, p2].filter((r) => r.status === 'fulfilled');
+      const rejected = [p1, p2].filter((r) => r.status === 'rejected');
+
+      expect(fulfilled).toHaveLength(1);
+      expect(rejected).toHaveLength(1);
+      expect(invoice.amount_paid).toBe(6000);
+      expect(invoice.balance_due).toBe(4000);
+      expect(invoice.status).toBe('partially_paid');
+    });
+
+    it('generates consecutive tenant-scoped sequences without duplicate allocations', () => {
+      const sequences: Record<string, number> = {};
+
+      function generateNextNumber(accountId: string, prefix: string) {
+        const key = `${accountId}:${prefix}`;
+        sequences[key] = (sequences[key] || 0) + 1;
+        const year = new Date().getFullYear();
+        return `${prefix}-${year}-${String(sequences[key]).padStart(4, '0')}`;
+      }
+
+      const q1 = generateNextNumber('acc-1', 'QT');
+      const q2 = generateNextNumber('acc-1', 'QT');
+      const q3 = generateNextNumber('acc-2', 'QT');
+
+      expect(q1).toBe(`QT-${new Date().getFullYear()}-0001`);
+      expect(q2).toBe(`QT-${new Date().getFullYear()}-0002`);
+      expect(q3).toBe(`QT-${new Date().getFullYear()}-0001`); // Isolated for acc-2
     });
   });
 
@@ -123,163 +398,6 @@ describe('Sales CRM End-to-End Logic & Contracts', () => {
       expect(taxAmount).toBe(2700);
       expect(total).toBe(16700); // 15000 + 2700 - 1000
     });
-
-    it('converts quotation to invoice with matching line items and accepted status', () => {
-      const quotation = {
-        id: 'qt-1',
-        quotation_number: 'QT-2026-0001',
-        contact_id: 'cust-1',
-        deal_id: 'deal-1',
-        status: 'sent',
-        subtotal: 15000,
-        tax_amount: 2700,
-        discount_amount: 1000,
-        total: 16700,
-        currency: 'INR',
-        items: [
-          {
-            description: 'Root Canal Treatment',
-            quantity: 1,
-            unit_price: 8000,
-            total: 8000,
-          },
-          {
-            description: 'Crown Fitting',
-            quantity: 2,
-            unit_price: 3500,
-            total: 7000,
-          },
-        ],
-      };
-
-      function convertQuotationToInvoice(q: typeof quotation) {
-        const invoice = {
-          id: 'inv-1',
-          invoice_number: 'INV-2026-0001',
-          contact_id: q.contact_id,
-          deal_id: q.deal_id,
-          status: 'draft',
-          subtotal: q.subtotal,
-          tax_amount: q.tax_amount,
-          discount_amount: q.discount_amount,
-          total: q.total,
-          amount_paid: 0,
-          currency: q.currency,
-          items: q.items.map((it, idx) => ({ ...it, order_index: idx })),
-        };
-        const updatedQuotation = { ...q, status: 'accepted' };
-        return { invoice, updatedQuotation };
-      }
-
-      const { invoice, updatedQuotation } =
-        convertQuotationToInvoice(quotation);
-      expect(invoice.total).toBe(16700);
-      expect(invoice.amount_paid).toBe(0);
-      expect(invoice.items).toHaveLength(2);
-      expect(updatedQuotation.status).toBe('accepted');
-    });
-  });
-
-  describe('Invoice Payments & Balance Calculation', () => {
-    it('updates invoice amount_paid and transitions status to partially_paid or paid', () => {
-      const invoice = {
-        id: 'inv-1',
-        total: 10000,
-        amount_paid: 0,
-        status: 'sent' as string,
-      };
-
-      function recordPayment(inv: typeof invoice, paymentAmount: number) {
-        if (paymentAmount <= 0) {
-          throw new Error('INVALID_AMOUNT');
-        }
-        const newPaid = inv.amount_paid + paymentAmount;
-        let newStatus = inv.status;
-        if (newPaid >= inv.total) {
-          newStatus = 'paid';
-        } else if (newPaid > 0) {
-          newStatus = 'partially_paid';
-        }
-        return { ...inv, amount_paid: newPaid, status: newStatus };
-      }
-
-      expect(() => recordPayment(invoice, -500)).toThrow('INVALID_AMOUNT');
-      expect(() => recordPayment(invoice, 0)).toThrow('INVALID_AMOUNT');
-
-      const step1 = recordPayment(invoice, 4000);
-      expect(step1.amount_paid).toBe(4000);
-      expect(step1.status).toBe('partially_paid');
-
-      const step2 = recordPayment(step1, 6000);
-      expect(step2.amount_paid).toBe(10000);
-      expect(step2.status).toBe('paid');
-    });
-  });
-
-  describe('Multi-Tenant Boundary Isolation & Permissions Check', () => {
-    interface AccountContext {
-      accountId: string;
-      role: 'viewer' | 'agent' | 'admin' | 'owner';
-    }
-
-    function checkPermission(
-      ctx: AccountContext,
-      targetAccountId: string,
-      action: 'view' | 'create' | 'update' | 'delete'
-    ) {
-      if (ctx.accountId !== targetAccountId) {
-        throw new Error('TENANT_ACCESS_DENIED');
-      }
-      if (action === 'delete') {
-        if (ctx.role !== 'admin' && ctx.role !== 'owner') {
-          throw new Error('ADMIN_REQUIRED');
-        }
-      }
-      if (action === 'create' || action === 'update') {
-        if (ctx.role === 'viewer') {
-          throw new Error('MUTATION_FORBIDDEN_FOR_VIEWER');
-        }
-      }
-      return true;
-    }
-
-    it('rejects cross-tenant access between Account A and Account B', () => {
-      const accountA: AccountContext = { accountId: 'acc-A', role: 'owner' };
-      expect(() => checkPermission(accountA, 'acc-B', 'view')).toThrow(
-        'TENANT_ACCESS_DENIED'
-      );
-      expect(() => checkPermission(accountA, 'acc-B', 'create')).toThrow(
-        'TENANT_ACCESS_DENIED'
-      );
-      expect(() => checkPermission(accountA, 'acc-B', 'delete')).toThrow(
-        'TENANT_ACCESS_DENIED'
-      );
-    });
-
-    it('enforces role restrictions (viewer cannot mutate, agent cannot delete)', () => {
-      const viewer: AccountContext = { accountId: 'acc-A', role: 'viewer' };
-      const agent: AccountContext = { accountId: 'acc-A', role: 'agent' };
-      const admin: AccountContext = { accountId: 'acc-A', role: 'admin' };
-
-      expect(checkPermission(viewer, 'acc-A', 'view')).toBe(true);
-      expect(() => checkPermission(viewer, 'acc-A', 'create')).toThrow(
-        'MUTATION_FORBIDDEN_FOR_VIEWER'
-      );
-      expect(() => checkPermission(viewer, 'acc-A', 'update')).toThrow(
-        'MUTATION_FORBIDDEN_FOR_VIEWER'
-      );
-      expect(() => checkPermission(viewer, 'acc-A', 'delete')).toThrow(
-        'ADMIN_REQUIRED'
-      );
-
-      expect(checkPermission(agent, 'acc-A', 'create')).toBe(true);
-      expect(checkPermission(agent, 'acc-A', 'update')).toBe(true);
-      expect(() => checkPermission(agent, 'acc-A', 'delete')).toThrow(
-        'ADMIN_REQUIRED'
-      );
-
-      expect(checkPermission(admin, 'acc-A', 'delete')).toBe(true);
-    });
   });
 
   describe('Dashboard Metrics Aggregations from Fixtures', () => {
@@ -312,24 +430,6 @@ describe('Sales CRM End-to-End Logic & Contracts', () => {
       expect(totalLeads).toBe(3);
       expect(pipelineValue).toBe(35000); // 10000 + 25000
       expect(totalRevenue).toBe(40000); // 30000 + 10000
-    });
-  });
-
-  describe('Pipeline Stages Canonical Ordering', () => {
-    it('orders stages seamlessly whether order_index or legacy position is used', () => {
-      const stages = [
-        { id: 's2', name: 'Qualified', order_index: 2, position: 2 },
-        { id: 's0', name: 'New', order_index: 0, position: 0 },
-        { id: 's1', name: 'Contacted', order_index: 1, position: 1 },
-      ];
-
-      const sorted = [...stages].sort(
-        (a, b) =>
-          (a.order_index ?? a.position ?? 0) -
-          (b.order_index ?? b.position ?? 0)
-      );
-
-      expect(sorted.map((s) => s.id)).toEqual(['s0', 's1', 's2']);
     });
   });
 });

@@ -44,7 +44,77 @@ export async function POST(
     const ctx = await requireRole('agent');
     const supabase = getSupabaseAdminClient();
 
-    // 1. Fetch quotation with items
+    // 1. Try atomic PostgreSQL RPC conversion first
+    const { data: rpcResult, error: rpcError } = await supabase.rpc(
+      'convert_quotation_to_invoice',
+      {
+        p_account_id: ctx.accountId,
+        p_quotation_id: quotationId,
+        p_user_id: ctx.userId,
+      }
+    );
+
+    if (
+      !rpcError &&
+      rpcResult &&
+      (rpcResult as { invoice_id?: string }).invoice_id
+    ) {
+      const invoiceId = (rpcResult as { invoice_id: string }).invoice_id;
+      const { data: newInvoice } = await supabase
+        .from('invoices')
+        .select('*, contacts(id, name, phone, email), invoice_items(*)')
+        .eq('id', invoiceId)
+        .eq('account_id', ctx.accountId)
+        .single();
+
+      try {
+        await dispatchCrmEvent({
+          accountId: ctx.accountId,
+          eventType: 'deal.updated',
+          payload: {
+            quotationId,
+            invoiceId,
+            invoiceNumber: (rpcResult as { invoice_number?: string })
+              .invoice_number,
+          },
+        });
+      } catch {
+        // ignore
+      }
+
+      return NextResponse.json(
+        {
+          success: true,
+          data: newInvoice,
+          message: `Quotation converted to Invoice ${(rpcResult as { invoice_number?: string }).invoice_number}`,
+          requestId: correlationId,
+        },
+        {
+          status: 201,
+          headers: { ...PRIVATE_HEADERS, 'X-Request-Id': correlationId },
+        }
+      );
+    }
+
+    if (rpcError) {
+      const msg = rpcError.message || '';
+      if (msg.includes('ALREADY_CONVERTED')) {
+        return errorResponse(
+          409,
+          'ALREADY_CONVERTED',
+          correlationId,
+          'Quotation is already converted.'
+        );
+      }
+      if (msg.includes('QUOTATION_NOT_FOUND')) {
+        return errorResponse(404, 'QUOTATION_NOT_FOUND', correlationId);
+      }
+      if (msg.includes('INSUFFICIENT_PERMISSIONS')) {
+        return errorResponse(403, 'AGENT_PERMISSION_REQUIRED', correlationId);
+      }
+    }
+
+    // 2. Resilient Fallback (in case RPC is still migrating in dev environment)
     const { data: quotation, error: qErr } = await supabase
       .from('quotations')
       .select('*, quotation_items(*)')
@@ -56,41 +126,52 @@ export async function POST(
       return errorResponse(404, 'QUOTATION_NOT_FOUND', correlationId);
     }
 
-    // 2. Generate unique Invoice Number
-    const { count } = await supabase
-      .from('invoices')
-      .select('id', { count: 'exact', head: true })
-      .eq('account_id', ctx.accountId);
+    if (quotation.status === 'converted') {
+      return errorResponse(
+        409,
+        'ALREADY_CONVERTED',
+        correlationId,
+        'Quotation is already converted.'
+      );
+    }
 
-    const year = new Date().getFullYear();
-    const seq = String((count ?? 0) + 1).padStart(4, '0');
-    const invoice_number = `INV-${year}-${seq}`;
+    const { data: seqNumber } = await supabase.rpc(
+      'generate_next_invoice_number',
+      {
+        p_account_id: ctx.accountId,
+      }
+    );
 
-    // Due date defaults to 14 days from now
+    const invoice_number =
+      seqNumber ||
+      `INV-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
+
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + 14);
 
-    // 3. Create Invoice
     const { data: newInvoice, error: invErr } = await supabase
       .from('invoices')
       .insert({
         account_id: ctx.accountId,
-        user_id: ctx.userId,
+        created_by: ctx.userId,
         contact_id: quotation.contact_id,
         deal_id: quotation.deal_id || null,
+        quotation_id: quotation.id,
         invoice_number,
         status: 'draft',
         issue_date: new Date().toISOString().split('T')[0],
         due_date: dueDate.toISOString().split('T')[0],
         subtotal: quotation.subtotal,
-        tax_amount: quotation.tax_amount,
-        discount_amount: quotation.discount_amount,
+        tax_total: quotation.tax_total ?? quotation.tax_amount ?? 0,
+        discount_total:
+          quotation.discount_total ?? quotation.discount_amount ?? 0,
         total: quotation.total,
         amount_paid: 0,
+        balance_due: quotation.total,
         currency: quotation.currency,
         notes:
           quotation.notes ||
-          `Created from Quotation ${quotation.quotation_number}`,
+          `Converted from Quotation ${quotation.quotation_number}`,
         terms: quotation.terms,
       })
       .select('*, contacts(id, name, phone, email)')
@@ -105,15 +186,16 @@ export async function POST(
       );
     }
 
-    // 4. Create Invoice Items from Quotation Items
     const items = (quotation.quotation_items || []).map(
       (
         item: {
           description: string;
           quantity: number;
           unit_price: number;
-          total: number;
-          order_index?: number;
+          discount?: number;
+          tax_rate?: number;
+          line_total?: number;
+          position?: number;
         },
         idx: number
       ) => ({
@@ -122,8 +204,10 @@ export async function POST(
         description: item.description,
         quantity: item.quantity,
         unit_price: item.unit_price,
-        total: item.total,
-        order_index: item.order_index ?? idx,
+        discount: item.discount ?? 0,
+        tax_rate: item.tax_rate ?? 0,
+        line_total: item.line_total ?? item.quantity * item.unit_price,
+        position: item.position ?? idx,
       })
     );
 
@@ -131,10 +215,9 @@ export async function POST(
       await supabase.from('invoice_items').insert(items);
     }
 
-    // 5. Update quotation status to accepted
     await supabase
       .from('quotations')
-      .update({ status: 'accepted', updated_at: new Date().toISOString() })
+      .update({ status: 'converted', updated_at: new Date().toISOString() })
       .eq('id', quotationId)
       .eq('account_id', ctx.accountId);
 

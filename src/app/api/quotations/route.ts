@@ -145,15 +145,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Generate unique Quotation Number
-    const { count } = await supabase
-      .from('quotations')
-      .select('id', { count: 'exact', head: true })
-      .eq('account_id', ctx.accountId);
+    // Generate unique Quotation Number via concurrency-safe atomic sequence
+    const { data: seqNumber } = await supabase.rpc(
+      'generate_next_quotation_number',
+      {
+        p_account_id: ctx.accountId,
+      }
+    );
 
-    const year = new Date().getFullYear();
-    const seq = String((count ?? 0) + 1).padStart(4, '0');
-    const quotation_number = `QT-${year}-${seq}`;
+    const quotation_number =
+      seqNumber ||
+      `QT-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
 
     // Calculate totals
     let subtotal = 0;

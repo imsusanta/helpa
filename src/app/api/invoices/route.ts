@@ -145,15 +145,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Generate unique Invoice Number
-    const { count } = await supabase
-      .from('invoices')
-      .select('id', { count: 'exact', head: true })
-      .eq('account_id', ctx.accountId);
+    // Generate unique Invoice Number via concurrency-safe atomic sequence
+    const { data: seqNumber } = await supabase.rpc(
+      'generate_next_invoice_number',
+      {
+        p_account_id: ctx.accountId,
+      }
+    );
 
-    const year = new Date().getFullYear();
-    const seq = String((count ?? 0) + 1).padStart(4, '0');
-    const invoice_number = `INV-${year}-${seq}`;
+    const invoice_number =
+      seqNumber ||
+      `INV-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
 
     // Calculate totals
     let subtotal = 0;

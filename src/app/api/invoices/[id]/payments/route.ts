@@ -90,10 +90,9 @@ export async function POST(
 
     const {
       amount,
-      payment_method = 'upi',
+      payment_method = 'cash',
       transaction_reference,
       notes,
-      payment_date,
     } = body;
 
     const paymentAmount = Number(amount);
@@ -106,7 +105,87 @@ export async function POST(
       );
     }
 
-    // 1. Fetch current invoice
+    // 1. Try atomic PostgreSQL RPC execution first
+    const { data: rpcResult, error: rpcError } = await supabase.rpc(
+      'record_invoice_payment',
+      {
+        p_account_id: ctx.accountId,
+        p_invoice_id: invoiceId,
+        p_amount: paymentAmount,
+        p_payment_method: String(payment_method),
+        p_reference_note: transaction_reference || notes || null,
+        p_user_id: ctx.userId,
+      }
+    );
+
+    if (
+      !rpcError &&
+      rpcResult &&
+      (rpcResult as { success?: boolean }).success
+    ) {
+      const { data: updatedInvoice } = await supabase
+        .from('invoices')
+        .select(
+          '*, contacts(id, name, phone, email), invoice_items(*), invoice_payments(*)'
+        )
+        .eq('id', invoiceId)
+        .eq('account_id', ctx.accountId)
+        .single();
+
+      try {
+        await dispatchCrmEvent({
+          accountId: ctx.accountId,
+          eventType: 'deal.updated',
+          payload: {
+            invoiceId,
+            paymentId: (rpcResult as { payment_id?: string }).payment_id,
+            amount: paymentAmount,
+            newStatus: (rpcResult as { status?: string }).status,
+          },
+        });
+      } catch {
+        // ignore
+      }
+
+      return NextResponse.json(
+        {
+          success: true,
+          data: updatedInvoice,
+          message: `Payment of ${(rpcResult as { currency?: string }).currency || 'INR'} ${paymentAmount} recorded successfully.`,
+          requestId: correlationId,
+        },
+        {
+          status: 201,
+          headers: { ...PRIVATE_HEADERS, 'X-Request-Id': correlationId },
+        }
+      );
+    }
+
+    if (rpcError) {
+      const msg = rpcError.message || '';
+      if (msg.includes('OVERPAYMENT_NOT_ALLOWED')) {
+        return errorResponse(
+          400,
+          'OVERPAYMENT_NOT_ALLOWED',
+          correlationId,
+          msg
+        );
+      }
+      if (
+        msg.includes('INVOICE_VOID') ||
+        msg.includes('INVOICE_ALREADY_PAID')
+      ) {
+        return errorResponse(400, 'INVALID_INVOICE_STATUS', correlationId, msg);
+      }
+      if (msg.includes('INVOICE_NOT_FOUND')) {
+        return errorResponse(404, 'INVOICE_NOT_FOUND', correlationId);
+      }
+      if (msg.includes('INSUFFICIENT_PERMISSIONS')) {
+        return errorResponse(403, 'AGENT_PERMISSION_REQUIRED', correlationId);
+      }
+    }
+
+    // 2. Resilient fallback
     const { data: invoice, error: invErr } = await supabase
       .from('invoices')
       .select('*')
@@ -118,7 +197,18 @@ export async function POST(
       return errorResponse(404, 'INVOICE_NOT_FOUND', correlationId);
     }
 
-    // 2. Insert payment
+    if (
+      (Number(invoice.amount_paid) || 0) + paymentAmount >
+      Number(invoice.total)
+    ) {
+      return errorResponse(
+        400,
+        'OVERPAYMENT_NOT_ALLOWED',
+        correlationId,
+        `Payment exceeds remaining balance of ${(Number(invoice.total) - (Number(invoice.amount_paid) || 0)).toFixed(2)}.`
+      );
+    }
+
     const { data: newPayment, error: payErr } = await supabase
       .from('invoice_payments')
       .insert({
@@ -128,10 +218,9 @@ export async function POST(
         currency: invoice.currency,
         payment_method: String(payment_method),
         transaction_reference: transaction_reference || null,
-        notes: notes || null,
-        payment_date: payment_date
-          ? new Date(payment_date).toISOString()
-          : new Date().toISOString(),
+        reference_note: notes || null,
+        created_by: ctx.userId,
+        payment_date: new Date().toISOString().split('T')[0],
       })
       .select()
       .single();
@@ -145,10 +234,10 @@ export async function POST(
       );
     }
 
-    // 3. Recalculate total paid
     const newAmountPaid = (Number(invoice.amount_paid) || 0) + paymentAmount;
+    const newBalanceDue = Math.max(0, Number(invoice.total) - newAmountPaid);
     let newStatus = invoice.status;
-    if (newAmountPaid >= Number(invoice.total)) {
+    if (newBalanceDue === 0 || newAmountPaid >= Number(invoice.total)) {
       newStatus = 'paid';
     } else if (newAmountPaid > 0) {
       newStatus = 'partially_paid';
@@ -158,6 +247,7 @@ export async function POST(
       .from('invoices')
       .update({
         amount_paid: newAmountPaid,
+        balance_due: newBalanceDue,
         status: newStatus,
         updated_at: new Date().toISOString(),
       })
@@ -168,7 +258,6 @@ export async function POST(
       )
       .single();
 
-    // 4. Dispatch CRM Event
     try {
       await dispatchCrmEvent({
         accountId: ctx.accountId,
