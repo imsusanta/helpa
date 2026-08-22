@@ -16,7 +16,9 @@ describe('product outcome event security contract', () => {
   it('versions events and marks synthetic and test traffic', () => {
     expect(migration).toContain('event_version smallint not null default 1');
     expect(migration).toContain('is_synthetic boolean not null default false');
-    expect(migration).toContain('is_test_tenant boolean not null default false');
+    expect(migration).toContain(
+      'is_test_tenant boolean not null default false'
+    );
     expect(migration).toContain(
       'unique (account_id, event_name, event_version, source_id)'
     );
