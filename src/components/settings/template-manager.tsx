@@ -131,7 +131,7 @@ function emptyButton(type: TemplateButton['type']): TemplateButton {
 
 export function TemplateManager() {
   const appwrite = createClient();
-  const { user, loading: authLoading } = useAuth();
+  const { user, accountId, loading: authLoading } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
@@ -183,22 +183,30 @@ export function TemplateManager() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user) {
+    if (!user && !accountId) {
       setLoading(false);
       return;
     }
-    fetchTemplates(user.id);
+    fetchTemplates(user?.id, accountId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, user?.id]);
+  }, [authLoading, user?.id, accountId]);
 
-  async function fetchTemplates(userId: string) {
+  async function fetchTemplates(userId?: string, accId?: string) {
     try {
       setLoading(true);
-      const { data, error } = await appwrite
-        .from('message_templates')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+      let query = appwrite.from('message_templates').select('*');
+
+      if (accId && userId) {
+        query = query.or(`account_id.eq.${accId},user_id.eq.${userId}`);
+      } else if (accId) {
+        query = query.eq('account_id', accId);
+      } else if (userId) {
+        query = query.eq('user_id', userId);
+      }
+
+      const { data, error } = await query.order('created_at', {
+        ascending: false,
+      });
       if (error) throw error;
       setTemplates(data || []);
     } catch (err) {
@@ -286,7 +294,7 @@ export function TemplateManager() {
       }
       // Refresh first, then close — re-opening the dialog
       // immediately should not show a stale list.
-      if (user) await fetchTemplates(user.id);
+      await fetchTemplates(user?.id, accountId);
       toast.success(
         data.dry_run
           ? isEdit
@@ -344,7 +352,7 @@ export function TemplateManager() {
           { duration: 10000 }
         );
       }
-      await fetchTemplates(user.id);
+      await fetchTemplates(user?.id, accountId);
     } catch (err) {
       console.error('Template sync error:', err);
       toast.error(

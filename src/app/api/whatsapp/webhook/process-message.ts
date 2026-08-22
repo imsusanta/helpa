@@ -231,7 +231,7 @@ export async function handleReportButtonReply(
 
 export async function processMessage(
   message: WhatsAppMessage,
-  contact: { profile: { name: string }; wa_id: string },
+  contact: { profile?: { name?: string }; wa_id?: string },
   accountId: string,
   configOwnerUserId: string,
   accessToken: string,
@@ -239,7 +239,11 @@ export async function processMessage(
 ) {
   void correlationId;
   const senderPhone = normalizePhone(message.from);
-  const contactName = contact.profile.name;
+  const contactName =
+    contact?.profile?.name ||
+    contact?.wa_id ||
+    senderPhone ||
+    'Unknown Contact';
 
   // Find or create contact
   const contactOutcome = await findOrCreateContact(

@@ -112,7 +112,12 @@ async function processWebhook(
         }
       }
 
-      if (!value.messages || !value.contacts) continue;
+      if (
+        !value.messages ||
+        !Array.isArray(value.messages) ||
+        value.messages.length === 0
+      )
+        continue;
 
       const phoneNumberId = value.metadata?.phone_number_id;
       if (!phoneNumberId) continue;
@@ -145,7 +150,12 @@ async function processWebhook(
 
       for (let i = 0; i < value.messages.length; i++) {
         const message = value.messages[i];
-        const contact = value.contacts[i] || value.contacts[0];
+        const rawContact =
+          (value.contacts && (value.contacts[i] || value.contacts[0])) || null;
+        const contact = rawContact || {
+          wa_id: message.from,
+          profile: { name: message.from },
+        };
 
         // Idempotency check using webhook_events table in Supabase
         if (message?.id) {
