@@ -267,16 +267,13 @@ export function MessageThread({
     return { expired: false, remaining: '' };
   }, []);
 
-  // Store latest callback in a ref so fetchMessages doesn't need to
-  // depend on `onMessagesLoaded` — otherwise parent re-renders cause
-  // fetchMessages to change → useEffect re-fires → refetch → realtime
-  // UPDATE on conversations.unread_count → parent re-renders → LOOP.
-  // The ref is written inside an effect so the mutation doesn't happen
-  // during render (React 19 refs rule); consumers only read `.current`
-  // inside the async fetch completion, which runs after the render.
+  // Store latest callback and messages in refs so fetchMessages doesn't need to
+  // depend on `onMessagesLoaded` or trigger redundant re-render loops on poll.
   const onMessagesLoadedRef = useRef(onMessagesLoaded);
+  const messagesRef = useRef(messages);
   useEffect(() => {
     onMessagesLoadedRef.current = onMessagesLoaded;
+    messagesRef.current = messages;
   });
 
   const conversationId = conversation?.id;
@@ -290,6 +287,20 @@ export function MessageThread({
     if (!conversationId) return;
 
     let cancelled = false;
+
+    const areMessagesEqual = (a: Message[], b: Message[]): boolean => {
+      if (a.length !== b.length) return false;
+      for (let i = 0; i < a.length; i++) {
+        if (
+          a[i].id !== b[i].id ||
+          a[i].status !== b[i].status ||
+          a[i].content_text !== b[i].content_text
+        ) {
+          return false;
+        }
+      }
+      return true;
+    };
 
     const fetchMsgs = async (isBackground = false) => {
       if (!isBackground) setLoading(true);
@@ -318,6 +329,12 @@ export function MessageThread({
           const msgs = (
             Array.isArray(json) ? json : (json.messages ?? [])
           ) as Message[];
+
+          if (isBackground && areMessagesEqual(msgs, messagesRef.current)) {
+            // Unchanged message list: skip setState to prevent scroll jumping and re-render lag
+            return;
+          }
+
           onMessagesLoadedRef.current(msgs);
         }
       } catch (err) {
@@ -499,13 +516,46 @@ export function MessageThread({
     });
   }, [conversationId, hasUnread]);
 
-  // Auto-scroll to bottom on new messages
+  const isNearBottomRef = useRef(true);
+  const prevMessagesLengthRef = useRef(messages.length);
+  const prevConvIdRef = useRef<string | undefined>(conversationId);
+  const [showScrollBottomBtn, setShowScrollBottomBtn] = useState(false);
+
+  const handleScroll = useCallback(() => {
+    if (!scrollRef.current) return;
+    const el = scrollRef.current;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const nearBottom = distanceFromBottom < 120;
+    isNearBottomRef.current = nearBottom;
+    setShowScrollBottomBtn(!nearBottom);
+  }, []);
+
+  const scrollToBottom = useCallback((smooth = true) => {
+    if (!scrollRef.current) return;
+    const el = scrollRef.current;
+    el.scrollTo({
+      top: el.scrollHeight,
+      behavior: smooth ? 'smooth' : 'auto',
+    });
+  }, []);
+
+  // Smart Auto-scroll: Only scroll to bottom if newly opened or user was already at bottom
   useEffect(() => {
-    if (scrollRef.current) {
-      const el = scrollRef.current;
-      el.scrollTop = el.scrollHeight;
+    if (!scrollRef.current) return;
+    const isNewConv = prevConvIdRef.current !== conversationId;
+    prevConvIdRef.current = conversationId;
+
+    const msgCountIncreased = messages.length > prevMessagesLengthRef.current;
+    prevMessagesLengthRef.current = messages.length;
+
+    if (isNewConv) {
+      scrollToBottom(false);
+      isNearBottomRef.current = true;
+      setShowScrollBottomBtn(false);
+    } else if (msgCountIncreased && isNearBottomRef.current) {
+      scrollToBottom(true);
     }
-  }, [messages]);
+  }, [messages, conversationId, scrollToBottom]);
 
   const handleSend = useCallback(
     async (text: string, replyToId?: string) => {
@@ -1169,7 +1219,11 @@ export function MessageThread({
       </div>
 
       {/* Messages Area */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto scroll-smooth px-4 py-4"
+      >
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="border-primary h-5 w-5 animate-spin rounded-full border-2 border-t-transparent" />
@@ -1209,11 +1263,14 @@ export function MessageThread({
                     const handlePillToggle = (emoji: string) => {
                       const own = msgReactions?.find(
                         (r) =>
-                          r.actor_type === 'agent' && r.actor_id === user?.id
+                          r.actor_type === 'agent' &&
+                          r.actor_id === (user?.id ?? '') &&
+                          r.emoji === emoji
                       );
                       const next = own?.emoji === emoji ? '' : emoji;
                       void postReaction(msg.id, next);
                     };
+
                     return (
                       <MessageActions
                         key={msg.id}
@@ -1239,6 +1296,17 @@ export function MessageThread({
           </div>
         )}
       </div>
+
+      {showScrollBottomBtn && (
+        <button
+          type="button"
+          onClick={() => scrollToBottom(true)}
+          className="bg-background/95 text-foreground border-border/80 hover:bg-accent absolute right-6 bottom-28 z-30 flex h-9 w-9 items-center justify-center rounded-full border shadow-lg backdrop-blur transition-all duration-200 hover:scale-110"
+          title="Scroll to bottom"
+        >
+          <ChevronDown className="h-5 w-5" />
+        </button>
+      )}
 
       {/* AI vs Staff Status Banner */}
       <div className="border-border/70 bg-card/95 flex items-center justify-between gap-3 border-t px-4 py-2 text-xs">

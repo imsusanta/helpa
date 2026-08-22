@@ -81,15 +81,35 @@ export function ConversationList({
   const [startModalOpen, setStartModalOpen] = useState(false);
   const [retryCounter, setRetryCounter] = useState(0);
 
-  // Keep the latest callback in a ref so the fetch effect below can
-  // have a stable, empty-dep identity.
+  // Keep the latest callback and conversations in refs so the fetch effect below can
+  // have a stable, empty-dep identity and avoid redundant state updates.
   const onConversationsLoadedRef = useRef(onConversationsLoaded);
+  const conversationsRef = useRef(conversations);
   useEffect(() => {
     onConversationsLoadedRef.current = onConversationsLoaded;
+    conversationsRef.current = conversations;
   });
 
   useEffect(() => {
     let cancelled = false;
+
+    const areConvsEqual = (a: Conversation[], b: Conversation[]): boolean => {
+      if (a.length !== b.length) return false;
+      for (let i = 0; i < a.length; i++) {
+        if (
+          a[i].id !== b[i].id ||
+          (a[i].unread_count ?? 0) !== (b[i].unread_count ?? 0) ||
+          a[i].last_message_text !== b[i].last_message_text ||
+          a[i].last_message_at !== b[i].last_message_at ||
+          a[i].status !== b[i].status ||
+          a[i].assigned_agent_id !== b[i].assigned_agent_id ||
+          a[i].ai_chat_enabled !== b[i].ai_chat_enabled
+        ) {
+          return false;
+        }
+      }
+      return true;
+    };
 
     const fetchConvs = async (isBackground = false) => {
       if (!isBackground) setLoading(true);
@@ -116,6 +136,11 @@ export function ConversationList({
         const convs = (
           Array.isArray(json) ? json : (json.conversations ?? [])
         ) as Conversation[];
+
+        if (isBackground && areConvsEqual(convs, conversationsRef.current)) {
+          // No changes detected, skip updating parent state to prevent UI jitter
+          return;
+        }
 
         onConversationsLoadedRef.current(convs);
         setFetchError(null);

@@ -18,6 +18,8 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, ChevronRight, LayoutTemplate, Loader2 } from 'lucide-react';
 import { extractVariableIndices } from '@/lib/whatsapp/template-validators';
 
+import { useAuth } from '@/hooks/use-auth';
+
 export interface TemplateSendValues {
   body: string[];
   headerText?: string;
@@ -73,6 +75,7 @@ export function TemplatePicker({
   onOpenChange,
   onSelect,
 }: TemplatePickerProps) {
+  const { accountId } = useAuth();
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<MessageTemplate | null>(null);
@@ -91,7 +94,7 @@ export function TemplatePicker({
         data: { user },
       } = await appwrite.auth.getUser();
 
-      if (!user) {
+      if (!user && !accountId) {
         if (!cancelled) {
           setTemplates([]);
           setLoading(false);
@@ -99,12 +102,22 @@ export function TemplatePicker({
         return;
       }
 
-      const { data, error } = await appwrite
+      let query = appwrite
         .from('message_templates')
         .select('*')
-        .eq('user_id', user.id)
-        .eq('status', 'APPROVED')
-        .order('created_at', { ascending: false });
+        .eq('status', 'APPROVED');
+
+      if (accountId && user?.id) {
+        query = query.or(`account_id.eq.${accountId},user_id.eq.${user.id}`);
+      } else if (accountId) {
+        query = query.eq('account_id', accountId);
+      } else if (user?.id) {
+        query = query.eq('user_id', user.id);
+      }
+
+      const { data, error } = await query.order('created_at', {
+        ascending: false,
+      });
 
       if (cancelled) return;
       if (error) {
@@ -119,7 +132,7 @@ export function TemplatePicker({
     return () => {
       cancelled = true;
     };
-  }, [open]);
+  }, [open, accountId]);
 
   function resetSelection() {
     setSelected(null);
