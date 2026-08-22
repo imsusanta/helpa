@@ -108,7 +108,6 @@ jobs:
         uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: true
       - uses: actions/setup-node@v4
         with:
           node-version: 22
