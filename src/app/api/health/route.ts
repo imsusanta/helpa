@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { getDeploymentMetadata } from '@/lib/deployment-metadata';
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
-import { getRuntimeConfig } from '@/lib/runtime-config';
+import { getRuntimeConfig, requireSupabasePublicConfig } from '@/lib/runtime-config';
 
 export async function GET(request: Request) {
   const timestamp = new Date().toISOString();
