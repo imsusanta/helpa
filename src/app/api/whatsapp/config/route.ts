@@ -373,16 +373,20 @@ export async function POST(request: Request) {
       updated_at: now,
     };
 
+    let saveSuccess = false;
+
     if (existingConfig?.id) {
       const { error: updateError } = await db
         .from('whatsapp_configs')
         .update(configPayload)
         .eq('id', existingConfig.id);
 
-      if (updateError) {
-        return NextResponse.json(
-          { code: 'DB_ERROR', error: updateError.message },
-          { status: 500 }
+      if (!updateError) {
+        saveSuccess = true;
+      } else {
+        console.warn(
+          '[whatsapp/config POST] Primary update failed, trying whatsapp_config base table:',
+          updateError.message
         );
       }
     } else {
@@ -391,9 +395,42 @@ export async function POST(request: Request) {
         created_at: now,
       });
 
-      if (insertError) {
+      if (!insertError) {
+        saveSuccess = true;
+      } else {
+        console.warn(
+          '[whatsapp/config POST] Primary insert failed, trying whatsapp_config base table:',
+          insertError.message
+        );
+      }
+    }
+
+    if (!saveSuccess) {
+      // Fallback to whatsapp_config table with exact schema compatibility
+      const basePayload = {
+        user_id: _userId || ctx.userId,
+        account_id: accountId,
+        phone_number_id: phoneNumberId,
+        waba_id: wabaId || null,
+        access_token: encryptedAccessToken,
+        status: 'connected',
+        connected_at: now,
+        subscribed_apps_at:
+          subscribedAppsAt || existingConfig?.subscribed_apps_at || null,
+        updated_at: now,
+      };
+
+      const { error: fallbackError } = await db
+        .from('whatsapp_config')
+        .upsert(basePayload, { onConflict: 'account_id' });
+
+      if (fallbackError) {
+        console.error(
+          '[whatsapp/config POST] Fallback save failed:',
+          fallbackError
+        );
         return NextResponse.json(
-          { code: 'DB_ERROR', error: insertError.message },
+          { code: 'DB_ERROR', error: fallbackError.message },
           { status: 500 }
         );
       }

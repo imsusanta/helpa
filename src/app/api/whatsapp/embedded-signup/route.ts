@@ -255,15 +255,20 @@ export async function POST(request: Request) {
       updated_at: now,
     };
 
+    let saveSuccess = false;
+
     if (existingConfig?.id) {
       const { error: updateErr } = await supabase
         .from('whatsapp_configs')
         .update(configPayload)
         .eq('id', existingConfig.id);
 
-      if (updateErr) {
-        throw new Error(
-          `Failed to update WhatsApp configuration: ${updateErr.message}`
+      if (!updateErr) {
+        saveSuccess = true;
+      } else {
+        console.warn(
+          '[Embedded Signup] Primary update failed, trying whatsapp_config base table:',
+          updateErr.message
         );
       }
     } else {
@@ -274,9 +279,37 @@ export async function POST(request: Request) {
           created_at: now,
         });
 
-      if (insertErr) {
+      if (!insertErr) {
+        saveSuccess = true;
+      } else {
+        console.warn(
+          '[Embedded Signup] Primary insert failed, trying whatsapp_config base table:',
+          insertErr.message
+        );
+      }
+    }
+
+    if (!saveSuccess) {
+      const basePayload = {
+        user_id: userId,
+        account_id: accountId,
+        phone_number_id: resolvedPhoneId,
+        waba_id: resolvedWabaId || null,
+        access_token: encryptedToken,
+        status: isCoexistenceMode ? 'coexistence_connected' : 'connected',
+        connected_at: now,
+        subscribed_apps_at: now,
+        registered_at: now,
+        updated_at: now,
+      };
+
+      const { error: fallbackErr } = await supabase
+        .from('whatsapp_config')
+        .upsert(basePayload, { onConflict: 'account_id' });
+
+      if (fallbackErr) {
         throw new Error(
-          `Failed to save WhatsApp configuration: ${insertErr.message}`
+          `Failed to save WhatsApp configuration: ${fallbackErr.message}`
         );
       }
     }
