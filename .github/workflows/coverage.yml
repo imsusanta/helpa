@@ -1,0 +1,42 @@
+name: Test Coverage
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  coverage:
+    name: Vitest coverage report
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      AUTH_PROVIDER: supabase
+      DATABASE_PROVIDER: supabase
+      MIGRATION_MODE: cutover
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-test-supabase-anon-key
+      SUPABASE_SERVICE_ROLE_KEY: ci-test-supabase-service-role-key
+      ENCRYPTION_KEY: '0000000000000000000000000000000000000000000000000000000000000000'
+      META_APP_SECRET: ci-dummy-meta-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Generate coverage
+        run: npx vitest run --coverage --exclude='**/src/tests/integration/**'
+      # Retain reviewable HTML and machine-readable reports for two weeks.
+      - name: Upload HTML and machine-readable reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: vitest-coverage
+          path: coverage/
+          retention-days: 14

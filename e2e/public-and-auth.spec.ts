@@ -7,9 +7,9 @@ test.describe('E2E: Public Routes & Authentication Protection', () => {
     await page.goto('/');
     await expect(page).toHaveTitle(/Helpa/i);
 
-    // Verify main CTA and header links
+    // Verify the clinic-focused hero CTA and header links
     const getStartedLink = page
-      .getByRole('link', { name: /start free|get started|open dashboard/i })
+      .getByRole('link', { name: /start clinic trial|go to dashboard/i })
       .first();
     await expect(getStartedLink).toBeVisible();
 

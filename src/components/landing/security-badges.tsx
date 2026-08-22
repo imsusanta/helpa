@@ -1,32 +1,30 @@
-'use client';
-
-import { ShieldCheck, Lock, KeyRound, Server } from 'lucide-react';
+import { KeyRound, Lock, Server, ShieldCheck } from 'lucide-react';
 
 export function LandingSecurityBadges() {
   const securityFeatures = [
     {
       icon: ShieldCheck,
-      title: 'Official Meta Partnership',
+      title: 'Official Meta Cloud API',
       description:
-        'Built directly on official WhatsApp Cloud APIs. Zero risk of banned numbers or unofficial scrapers.',
+        'Uses Meta’s supported WhatsApp Business integration rather than unofficial scraping tools.',
     },
     {
       icon: Lock,
-      title: '100% Private to Your Business',
+      title: 'Tenant isolation controls',
       description:
-        'Your patient notes, customer chats, and student lists are strictly private. No one outside your team can ever see them.',
+        'Server-side authorization and database policies are designed to keep each clinic’s records separated.',
     },
     {
       icon: KeyRound,
-      title: 'Bank-Grade Data Protection',
+      title: 'Encrypted credentials',
       description:
-        'All logins, client phone numbers, and WhatsApp tokens are protected with industry-standard AES-256 encryption.',
+        'Sensitive integration credentials are protected with authenticated encryption at rest.',
     },
     {
       icon: Server,
-      title: 'Always Online & Reliable',
+      title: 'Operational safeguards',
       description:
-        'Runs 24/7 in the cloud so you never miss a client message, even when your phone is turned off or you are asleep.',
+        'Webhook verification, idempotency, rate limits, and private cache controls reduce common production risks.',
     },
   ];
 
@@ -35,37 +33,32 @@ export function LandingSecurityBadges() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto mb-12 max-w-2xl text-center">
           <span className="mb-2 inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
-            Safety & Privacy
+            Security & Trust
           </span>
           <h2 className="text-2xl font-extrabold text-[#110E3D] sm:text-3xl">
-            Your customer data is 100% safe & private
+            Security controls designed for sensitive workflows
           </h2>
-          <p className="mt-2 text-xs text-slate-500 sm:text-sm">
-            We treat your patient records, student details, and business
-            conversations with the highest standard of privacy.
+          <p className="mt-2 text-sm text-slate-600">
+            These are engineering safeguards, not a certification. Independent
+            security and legal reviews are required before claiming regulatory
+            compliance.
           </p>
         </div>
-
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {securityFeatures.map((item, i) => {
-            const Icon = item.icon;
-            return (
-              <div
-                key={i}
-                className="space-y-2 rounded-2xl border border-slate-100 bg-slate-50/70 p-5 transition-colors hover:bg-slate-50"
-              >
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/60 bg-white text-[#110E3D] shadow-xs">
-                  <Icon className="h-5 w-5 text-indigo-600" />
-                </div>
-                <h3 className="text-sm font-bold text-[#110E3D]">
-                  {item.title}
-                </h3>
-                <p className="text-xs leading-relaxed text-slate-500">
-                  {item.description}
-                </p>
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {securityFeatures.map(({ icon: Icon, title, description }) => (
+            <div
+              key={title}
+              className="space-y-2 rounded-2xl border border-slate-100 bg-slate-50/70 p-5"
+            >
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-indigo-600">
+                <Icon className="h-5 w-5" />
               </div>
-            );
-          })}
+              <h3 className="text-sm font-bold text-[#110E3D]">{title}</h3>
+              <p className="text-xs leading-relaxed text-slate-600">
+                {description}
+              </p>
+            </div>
+          ))}
         </div>
       </div>
     </section>

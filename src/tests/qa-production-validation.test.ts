@@ -12,7 +12,7 @@
  * 5. Solo Tutor Workflow (Parent Ambiguity Resolution, Class Reminders, Assignments)
  * 6. Salon Workflow (Services, Staff Conflicts, Appointment Rescheduling, Retention Follow-ups)
  * 7. Real Estate Workflow (Sequential Lead ID, Structured Matching Engine ranking Prop A over B/C, Site Visits)
- * 8. Super Admin Control Center (Server-Side susantalohr@gmail.com, Platform Metrics, Tenant Suspension/Reactivation, Audit Logs)
+ * 8. Super Admin Control Center (Persisted Role, Platform Metrics, Tenant Suspension/Reactivation, Audit Logs)
  * 9. Security & Cryptography Hardening (AES-256-GCM Auth Tags, Phone Masking, Rate Limiting, Redaction)
  */
 
@@ -26,7 +26,6 @@ import {
   checkRateLimit,
 } from '@/core/security';
 import { encrypt, decrypt } from '@/lib/whatsapp/encryption';
-import { checkSuperAdmin, PLATFORM_OWNER_EMAIL } from '@/lib/auth/admin';
 import { ForbiddenError } from '@/lib/auth/account';
 
 // SaaS Billing & Feature Gating
@@ -78,6 +77,8 @@ import {
 } from '@/modules/real-estate/services';
 
 import * as appwriteCompat from '@/lib/appwrite-server-compat';
+
+const PLATFORM_ADMIN_ACTOR = 'platform-admin@test.invalid';
 
 describe('Helpa Phase 14 — QA & Production Validation Suite', () => {
   const tenants = {
@@ -134,7 +135,7 @@ describe('Helpa Phase 14 — QA & Production Validation Suite', () => {
         {
           id: 'prof-owner',
           user_id: 'usr-owner',
-          email: PLATFORM_OWNER_EMAIL,
+          email: PLATFORM_ADMIN_ACTOR,
           full_name: 'Susanta Lohar',
           is_super_admin: true,
           role: 'owner',
@@ -643,9 +644,6 @@ describe('Helpa Phase 14 — QA & Production Validation Suite', () => {
 
   describe('8. Super Admin & Platform Control Center End-to-End', () => {
     it('executes Super Admin operations with server-side authorization and audit logs', async () => {
-      expect(await checkSuperAdmin(PLATFORM_OWNER_EMAIL)).toBe(true);
-      expect(await checkSuperAdmin('fake@user.com')).toBe(false);
-
       const metrics = await getPlatformMetrics();
       expect(metrics.totalTenants).toBe(5);
       expect(metrics.activeTenants).toBe(5);
@@ -658,21 +656,21 @@ describe('Helpa Phase 14 — QA & Production Validation Suite', () => {
       // Suspend and Reactivate
       expect(
         await suspendTenant({
-          actorEmail: PLATFORM_OWNER_EMAIL,
+          actorEmail: PLATFORM_ADMIN_ACTOR,
           workspaceId: tenants.health.id,
           reason: 'Routine compliance verification',
         })
       ).toBe(true);
       expect(
         await reactivateTenant({
-          actorEmail: PLATFORM_OWNER_EMAIL,
+          actorEmail: PLATFORM_ADMIN_ACTOR,
           workspaceId: tenants.health.id,
         })
       ).toBe(true);
 
       // Audit Log with sanitized secrets
       const log = await logAdminAction({
-        actorEmail: PLATFORM_OWNER_EMAIL,
+        actorEmail: PLATFORM_ADMIN_ACTOR,
         action: 'system:maintenance_check',
         targetType: 'system',
         targetId: 'sys_1',
