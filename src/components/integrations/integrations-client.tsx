@@ -17,6 +17,7 @@ import {
   QrCode,
   ShieldCheck,
   FileSpreadsheet,
+  KeyRound,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -84,7 +85,13 @@ export function IntegrationsClient() {
   const [activeModal, setActiveModal] = useState<
     'whatsapp' | 'instagram' | 'messenger' | 'lead_forms' | null
   >(null);
-  const [whatsAppTab, setWhatsAppTab] = useState<'embedded' | 'qr'>('embedded');
+  const [whatsAppTab, setWhatsAppTab] = useState<'api' | 'qr' | 'embedded'>(
+    'api'
+  );
+  const [directPhoneId, setDirectPhoneId] = useState('');
+  const [directWabaId, setDirectWabaId] = useState('');
+  const [directAccessToken, setDirectAccessToken] = useState('');
+  const [savingDirect, setSavingDirect] = useState(false);
   const [connectingMeta, setConnectingMeta] = useState(false);
   const [metaAppId, setMetaAppId] = useState<string>('');
   const [metaConfigId, setMetaConfigId] = useState<string>('');
@@ -114,6 +121,52 @@ export function IntegrationsClient() {
   useEffect(() => {
     fetchConfigs();
   }, [fetchConfigs]);
+
+  // Handle Direct Meta API Credentials Save
+  const handleSaveDirectCredentials = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!directPhoneId.trim()) {
+      toast.error('Phone Number ID is required');
+      return;
+    }
+    if (!directAccessToken.trim()) {
+      toast.error('Meta Access Token is required');
+      return;
+    }
+
+    try {
+      setSavingDirect(true);
+      const res = await fetch('/api/whatsapp/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone_number_id: directPhoneId.trim(),
+          waba_id: directWabaId.trim() || undefined,
+          access_token: directAccessToken.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(
+          data.error || 'Failed to verify and connect WhatsApp credentials'
+        );
+      }
+
+      toast.success('WhatsApp Business Cloud API connected successfully!');
+      setWhatsAppConnected(true);
+      setActiveModal(null);
+      fetchConfigs();
+    } catch (err: unknown) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : 'Failed to connect WhatsApp credentials'
+      );
+    } finally {
+      setSavingDirect(false);
+    }
+  };
 
   // Handle Meta Embedded Signup Trigger
   const handleLaunchWhatsAppEmbedded = async () => {
@@ -476,45 +529,164 @@ export function IntegrationsClient() {
             </div>
 
             {/* Connection Tabs */}
-            <div className="mb-6 grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1">
+            <div className="mb-6 grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1">
               <button
-                onClick={() => setWhatsAppTab('embedded')}
-                className={`flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-bold transition-all ${
-                  whatsAppTab === 'embedded'
+                type="button"
+                onClick={() => setWhatsAppTab('api')}
+                className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition-all ${
+                  whatsAppTab === 'api'
                     ? 'bg-white text-slate-900 shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                <span>Meta Official API</span>
+                <KeyRound className="h-3.5 w-3.5 text-emerald-600" />
+                <span>API Credentials</span>
               </button>
 
               <button
+                type="button"
                 onClick={() => setWhatsAppTab('qr')}
-                className={`flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-bold transition-all ${
+                className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition-all ${
                   whatsAppTab === 'qr'
                     ? 'bg-white text-slate-900 shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                <QrCode className="h-4 w-4 text-blue-600" />
-                <span>QR Code Scan</span>
+                <QrCode className="h-3.5 w-3.5 text-blue-600" />
+                <span>QR Code</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setWhatsAppTab('embedded')}
+                className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition-all ${
+                  whatsAppTab === 'embedded'
+                    ? 'bg-white text-slate-900 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <ShieldCheck className="h-3.5 w-3.5 text-purple-600" />
+                <span>One-Click (TP)</span>
               </button>
             </div>
 
-            {/* Tab 1: Meta Embedded Signup */}
-            {whatsAppTab === 'embedded' ? (
+            {/* Tab 1: Direct Meta API Credentials */}
+            {whatsAppTab === 'api' && (
+              <form
+                onSubmit={handleSaveDirectCredentials}
+                className="space-y-4"
+              >
+                <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-3 text-xs text-emerald-900">
+                  <div className="flex items-center justify-between font-bold">
+                    <span className="flex items-center gap-1.5">
+                      <Sparkles className="h-4 w-4 text-emerald-600" />
+                      Direct Meta Cloud API (Instant Connect)
+                    </span>
+                    <a
+                      href="https://developers.facebook.com/apps/1461038582135406/whatsapp-business/wa-dev-console/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[11px] text-emerald-700 underline hover:text-emerald-900"
+                    >
+                      <span>Meta Console</span>
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                  <p className="mt-1 text-[11px] text-emerald-800">
+                    Works instantly without needing approved Tech Provider
+                    (BSP/TP) status.
+                  </p>
+                </div>
+
+                <div className="space-y-3 text-xs">
+                  <div>
+                    <label className="mb-1 block font-semibold text-slate-700">
+                      Phone Number ID <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. 108923485729103"
+                      value={directPhoneId}
+                      onChange={(e) => setDirectPhoneId(e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-hidden"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block font-semibold text-slate-700">
+                      WhatsApp Business Account ID (WABA ID)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 104822948572019"
+                      value={directWabaId}
+                      onChange={(e) => setDirectWabaId(e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-hidden"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block font-semibold text-slate-700">
+                      Meta Access Token (System User or Test Token){' '}
+                      <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      placeholder="e.g. EAAPxxxx..."
+                      value={directAccessToken}
+                      onChange={(e) => setDirectAccessToken(e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-hidden"
+                    />
+                  </div>
+                </div>
+
+                <Button
+                  type="submit"
+                  disabled={savingDirect}
+                  className="w-full bg-emerald-600 py-3 text-xs font-bold text-white shadow-sm hover:bg-emerald-700"
+                >
+                  {savingDirect ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Verifying with Meta Cloud API...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="mr-2 h-4 w-4" />
+                      Verify & Connect WhatsApp
+                    </>
+                  )}
+                </Button>
+              </form>
+            )}
+
+            {/* Tab 2: QR Panel */}
+            {whatsAppTab === 'qr' && (
               <div className="space-y-4">
-                <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
-                  <h4 className="flex items-center gap-1.5 text-xs font-bold text-emerald-900">
-                    <Sparkles className="h-4 w-4 text-emerald-600" />
-                    Recommended for Clinics & Growing Businesses
+                <WhatsAppQrPanel
+                  onConnectionSuccess={() => {
+                    setWhatsAppConnected(true);
+                    setActiveModal(null);
+                    fetchConfigs();
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Tab 3: Meta Embedded Signup */}
+            {whatsAppTab === 'embedded' && (
+              <div className="space-y-4">
+                <div className="rounded-xl border border-purple-100 bg-purple-50/50 p-4">
+                  <h4 className="flex items-center gap-1.5 text-xs font-bold text-purple-900">
+                    <ShieldCheck className="h-4 w-4 text-purple-600" />
+                    For Meta-Approved Tech Providers (BSP/TP)
                   </h4>
-                  <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-emerald-800">
-                    <li>Official Meta WhatsApp Business Cloud API</li>
-                    <li>24/7 AI Receptionist auto-replies</li>
-                    <li>High throughput & broadcast messaging support</li>
-                  </ul>
+                  <p className="mt-1 text-xs text-purple-800">
+                    If your Meta Developer App is verified as a Tech Provider,
+                    you can onboard client WABA numbers with Facebook Login.
+                  </p>
                 </div>
 
                 <Button
@@ -534,22 +706,6 @@ export function IntegrationsClient() {
                     </>
                   )}
                 </Button>
-
-                <p className="text-center text-[11px] text-slate-400">
-                  By clicking connect, you authorize Meta WhatsApp Business
-                  integration.
-                </p>
-              </div>
-            ) : (
-              /* Tab 2: QR Panel */
-              <div className="space-y-4">
-                <WhatsAppQrPanel
-                  onConnectionSuccess={() => {
-                    setWhatsAppConnected(true);
-                    setActiveModal(null);
-                    fetchConfigs();
-                  }}
-                />
               </div>
             )}
           </div>
