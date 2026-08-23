@@ -16,20 +16,6 @@ import { handleStatusUpdate } from './process-status';
 import { processMessage } from './process-message';
 import type { WhatsAppWebhookEntry } from './types';
 
-interface WebhookEventRow {
-  status?: string | null;
-  attempt_count?: number | null;
-}
-
-function isUniqueViolation(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false;
-  const candidate = error as { code?: string; message?: string };
-  return (
-    candidate.code === '23505' ||
-    candidate.message?.toLowerCase().includes('duplicate key') === true
-  );
-}
-
 // GET - Meta challenge verification
 export async function GET(request: Request) {
   return handleWebhookGet(request);
@@ -171,9 +157,7 @@ async function processWebhook(
           profile: { name: message.from },
         };
 
-        // Register the event before processing. Only a genuine unique-key
-        // conflict is a duplicate; schema/network errors must fail so Meta
-        // retries instead of silently dropping the inbound message.
+        // Idempotency check using webhook_events table in Supabase
         if (message?.id) {
           const payloadHash = crypto
             .createHash('sha256')
@@ -193,52 +177,11 @@ async function processWebhook(
             });
 
           if (eventInsertError) {
-            if (!isUniqueViolation(eventInsertError)) {
-              console.error(
-                `[Webhook Idempotency] [${correlationId || 'no-cid'}] Failed to register event ${message.id}:`,
-                eventInsertError
-              );
-              throw new Error(
-                `Unable to register inbound webhook event ${message.id}`
-              );
-            }
-
-            const { data: existingEvent, error: existingEventError } = await db
-              .from('webhook_events')
-              .select('status, attempt_count')
-              .eq('provider', 'whatsapp')
-              .eq('provider_event_id', message.id)
-              .maybeSingle();
-
-            if (existingEventError) {
-              throw new Error(
-                `Unable to inspect duplicate webhook event ${message.id}`
-              );
-            }
-
-            const previous = existingEvent as WebhookEventRow | null;
-            if (previous?.status === 'processed') {
-              console.warn(
-                `[Webhook Idempotency] [${correlationId || 'no-cid'}] Processed duplicate event ${message.id} skipped for tenant ${tenantContext.tenantId}`
-              );
-              continue;
-            }
-
-            const { error: retryUpdateError } = await db
-              .from('webhook_events')
-              .update({
-                status: 'processing',
-                attempt_count: (previous?.attempt_count ?? 1) + 1,
-                received_at: nowIso,
-              })
-              .eq('provider', 'whatsapp')
-              .eq('provider_event_id', message.id);
-
-            if (retryUpdateError) {
-              throw new Error(
-                `Unable to prepare webhook retry for event ${message.id}`
-              );
-            }
+            // Duplicate event detected — unique constraint on (provider, provider_event_id)
+            console.warn(
+              `[Webhook Idempotency] [${correlationId || 'no-cid'}] Duplicate event ${message.id} skipped for tenant ${tenantContext.tenantId}`
+            );
+            continue;
           }
         }
 
@@ -253,7 +196,7 @@ async function processWebhook(
           );
 
           if (message?.id) {
-            const { error: processedUpdateError } = await db
+            await db
               .from('webhook_events')
               .update({
                 status: 'processed',
@@ -261,13 +204,6 @@ async function processWebhook(
               })
               .eq('provider', 'whatsapp')
               .eq('provider_event_id', message.id);
-
-            if (processedUpdateError) {
-              console.error(
-                `[Webhook Idempotency] [${correlationId || 'no-cid'}] Failed to mark event ${message.id} processed:`,
-                processedUpdateError
-              );
-            }
           }
         } catch (msgErr) {
           console.error(
