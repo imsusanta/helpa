@@ -104,15 +104,6 @@ function resolveCommit() {
 }
 
 function main() {
-  if (process.env.APP_COMMIT_SHA) {
-    console.log('🔎 [prebuild] Printing exact formatting diffs');
-    execSync(
-      'cp src/hooks/use-broadcast-sending.ts /tmp/use-broadcast-sending.ts; cp src/lib/ai/industry-ai-presets.ts /tmp/industry-ai-presets.ts; npx prettier --write src/hooks/use-broadcast-sending.ts src/lib/ai/industry-ai-presets.ts; diff -u /tmp/use-broadcast-sending.ts src/hooks/use-broadcast-sending.ts || true; diff -u /tmp/industry-ai-presets.ts src/lib/ai/industry-ai-presets.ts || true',
-      { stdio: 'inherit' }
-    );
-    throw new Error('FORMAT_DIAGNOSTIC_COMPLETE');
-  }
-
   const resolved = resolveCommit();
   const buildTime = new Date().toISOString();
 
