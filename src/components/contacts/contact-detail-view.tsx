@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createClient } from '@/lib/appwrite-compat';
 import { useAuth } from '@/hooks/use-auth';
 import { useWorkspace } from '@/hooks/use-workspace';
@@ -68,7 +68,7 @@ export function ContactDetailView({
   onUpdated,
 }: ContactDetailViewProps) {
   const router = useRouter();
-  const appwrite = createClient();
+  const appwrite = useMemo(() => createClient(), []);
   const { accountId, defaultCurrency, account } = useAuth();
   const { terminology } = useWorkspace();
 
@@ -76,6 +76,7 @@ export function ContactDetailView({
   const [contact, setContact] = useState<Contact | null>(null);
   const [patientSeqId, setPatientSeqId] = useState<string>('');
   const [loading, setLoading] = useState(false);
+  const [contactLoadError, setContactLoadError] = useState<string | null>(null);
   const [copiedPhone, setCopiedPhone] = useState(false);
   const [outboundOpen, setOutboundOpen] = useState(false);
   const [uploadPdfOpen, setUploadPdfOpen] = useState(false);
@@ -116,31 +117,24 @@ export function ContactDetailView({
   const fetchContact = useCallback(async () => {
     if (!contactId) return;
     setLoading(true);
+    setContact(null);
+    setContactLoadError(null);
 
     try {
       const [contactRes, patientRes] = await Promise.all([
-        appwrite
-          .from('contacts')
-          .select('*')
-          .eq('id', contactId)
-          .single()
-          .catch((err) => {
-            console.warn('[contact-detail-view] fetch contact failed:', err);
-            return { data: null, error: err };
-          }),
-        appwrite
-          .from('patients')
-          .select('*')
-          .eq('id', contactId)
-          .maybeSingle()
-          .catch((err) => {
-            console.warn('[contact-detail-view] fetch patient failed:', err);
-            return { data: null, error: err };
-          }),
+        appwrite.from('contacts').select('*').eq('id', contactId).single(),
+        appwrite.from('patients').select('*').eq('id', contactId).maybeSingle(),
       ]);
 
       const data = contactRes?.data;
       let pData = patientRes?.data;
+
+      if (!data) {
+        setContactLoadError(
+          `${terminology.person} could not be found or may have been deleted.`
+        );
+        return;
+      }
 
       if (data) {
         // Auto-generate patient_seq_id if missing in patients table
@@ -151,14 +145,7 @@ export function ContactDetailView({
               .select('patient_seq_id')
               .eq('account_id', accountId)
               .limit(1)
-              .maybeSingle()
-              .catch((err) => {
-                console.warn(
-                  '[contact-detail-view] maxPatient query failed:',
-                  err
-                );
-                return { data: null, error: err };
-              });
+              .maybeSingle();
 
             let nextNum = 1;
             if (maxPatient?.patient_seq_id) {
@@ -179,14 +166,7 @@ export function ContactDetailView({
                 status: 'active',
               })
               .select('*')
-              .single()
-              .catch((err) => {
-                console.warn(
-                  '[contact-detail-view] patient insert failed:',
-                  err
-                );
-                return { data: null, error: err };
-              });
+              .single();
 
             if (newP) {
               pData = newP;
@@ -200,14 +180,7 @@ export function ContactDetailView({
                   patient_id: generatedSeqId,
                 },
               })
-              .eq('id', contactId)
-              .catch((err) => {
-                console.warn(
-                  '[contact-detail-view] metadata update failed:',
-                  err
-                );
-                return { error: err };
-              });
+              .eq('id', contactId);
           } catch (pErr) {
             console.warn(
               '[contact-detail-view] patient auto-provisioning exception:',
@@ -243,10 +216,13 @@ export function ContactDetailView({
       }
     } catch (err) {
       console.error('Failed to fetch contact details:', err);
+      setContactLoadError(
+        `Failed to load ${terminology.person.toLowerCase()} details.`
+      );
     } finally {
       setLoading(false);
     }
-  }, [contactId, accountId, appwrite]);
+  }, [contactId, accountId, appwrite, terminology.person]);
 
   const fetchTags = useCallback(async () => {
     if (!contactId) return;
@@ -532,9 +508,23 @@ export function ContactDetailView({
         side="right"
         className="bg-popover border-border text-popover-foreground w-full p-0 sm:max-w-lg"
       >
-        {loading || !contact ? (
+        {loading ? (
           <div className="flex h-full items-center justify-center">
             <Loader2 className="text-primary size-6 animate-spin" />
+          </div>
+        ) : contactLoadError || !contact ? (
+          <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+            <p className="text-foreground text-sm font-semibold">
+              {contactLoadError || `${terminology.person} is unavailable.`}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={fetchContact}>
+                Retry
+              </Button>
+              <Button size="sm" onClick={() => onOpenChange(false)}>
+                Close
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="flex h-full flex-col">

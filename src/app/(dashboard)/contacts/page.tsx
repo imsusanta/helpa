@@ -1252,13 +1252,22 @@ export default function ContactsPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-0.5">
-                        <span className="text-foreground text-sm font-semibold">
-                          {contact.name || (
-                            <span className="text-muted-foreground font-normal italic">
-                              Unnamed
-                            </span>
-                          )}
-                        </span>
+                        {contact.name ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openDetail(contact.id);
+                            }}
+                            className="text-foreground cursor-pointer text-left text-sm font-semibold hover:underline"
+                          >
+                            {contact.name}
+                          </button>
+                        ) : (
+                          <span className="text-muted-foreground text-sm font-normal italic">
+                            Unnamed
+                          </span>
+                        )}
                         <div className="text-muted-foreground flex items-center gap-2 text-xs">
                           <span className="font-mono">{contact.phone}</span>
                           {contact.email && (
@@ -1404,9 +1413,22 @@ export default function ContactsPage() {
               >
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <h3 className="text-foreground text-sm font-bold">
-                      {contact.name || 'Unnamed'}
-                    </h3>
+                    {contact.name ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openDetail(contact.id);
+                        }}
+                        className="text-foreground cursor-pointer text-left text-sm font-bold hover:underline"
+                      >
+                        {contact.name}
+                      </button>
+                    ) : (
+                      <h3 className="text-foreground text-sm font-bold">
+                        Unnamed
+                      </h3>
+                    )}
                     <p className="text-muted-foreground font-mono text-xs">
                       {contact.phone}
                     </p>
