@@ -97,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         : [];
       setEnabledModuleKeys(enabled);
     } catch {
-      // Fail closed: unavailable module configuration grants no module access.
+      // Fail closed when module configuration is unavailable.
       setEnabledModuleKeys([]);
     } finally {
       setModulesLoading(false);
