@@ -6,6 +6,7 @@ import {
   getAdminClient as getSupabaseAdminClient,
 } from '@/lib/supabase/server';
 import { getRuntimeConfig } from '@/lib/runtime-config';
+import type { AppwriteCompatClient } from '@/lib/appwrite-compat';
 
 export class UnauthorizedError extends Error {
   readonly status = 401 as const;
@@ -47,11 +48,15 @@ export interface AccountContext {
   role: AccountRole;
   email?: string;
   account: { id: string; name: string };
-  /** Transitional name; this is always a Supabase service-role client. */
-  appwrite: import('@/lib/appwrite-compat').AppwriteCompatClient;
+  /** Transitional name; when resolved, this is a Supabase service-role client. */
+  appwrite?: AppwriteCompatClient;
 }
 
-export async function getCurrentAccount(): Promise<AccountContext> {
+export type ResolvedAccountContext = AccountContext & {
+  appwrite: AppwriteCompatClient;
+};
+
+export async function getCurrentAccount(): Promise<ResolvedAccountContext> {
   try {
     const runtime = getRuntimeConfig();
     if (runtime.authProvider !== 'supabase') {
@@ -220,7 +225,9 @@ export async function getCurrentAccount(): Promise<AccountContext> {
   }
 }
 
-export async function requireRole(min: AccountRole): Promise<AccountContext> {
+export async function requireRole(
+  min: AccountRole
+): Promise<ResolvedAccountContext> {
   const ctx = await getCurrentAccount();
   if (!hasMinRole(ctx.role, min)) {
     throw new ForbiddenError(
