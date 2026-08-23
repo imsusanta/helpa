@@ -13,6 +13,6 @@ describe('Legacy import facade boundaries', () => {
     expect(source).toContain('getSupabaseAdminClient');
     expect(source).not.toContain('createDataClient');
     expect(source).not.toContain('APPWRITE_CONFIG');
-    expect(source).not.toContain("next/headers");
+    expect(source).not.toContain('next/headers');
   });
 });
