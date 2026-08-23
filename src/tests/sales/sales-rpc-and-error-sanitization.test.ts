@@ -1,10 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
-import { POST as convertQuotationPost } from '@/app/api/quotations/[id]/convert-to-invoice/route';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import {
   GET as paymentsGet,
   POST as paymentsPost,
 } from '@/app/api/invoices/[id]/payments/route';
+import { POST as convertQuotationPost } from '@/app/api/quotations/[id]/convert-to-invoice/route';
 import * as accountAuth from '@/lib/auth/account';
 import * as serverDb from '@/lib/supabase/server';
 import * as fs from 'fs';
@@ -15,19 +16,36 @@ const MOCK_USER_ID = 'uuuuuuuu-uuuu-uuuu-uuuu-uuuuuuuuuuuu';
 const MOCK_QUOTATION_ID = 'qqqqqqqq-qqqq-qqqq-qqqq-qqqqqqqqqqqq';
 const MOCK_INVOICE_ID = 'iiiiiiii-iiii-iiii-iiii-iiiiiiiiiiii';
 
+function mockAgentRole(): void {
+  vi.spyOn(accountAuth, 'requireRole').mockResolvedValue({
+    accountId: MOCK_ACCOUNT_ID,
+    userId: MOCK_USER_ID,
+    role: 'agent',
+  } as unknown as Awaited<ReturnType<typeof accountAuth.requireRole>>);
+}
+
+function paymentRequest(amount = 500): NextRequest {
+  return new NextRequest('http://localhost/api/invoices/inv-1/payments', {
+    method: 'POST',
+    body: JSON.stringify({ amount }),
+  });
+}
+
+function conversionRequest(): NextRequest {
+  return new NextRequest(
+    'http://localhost/api/quotations/quote-1/convert-to-invoice',
+    { method: 'POST' }
+  );
+}
+
 describe('Sales RPC & Error Sanitization Regression Tests', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  describe('1 & 2: Quotation Conversion RPC Error & Fail-Closed Behavior', () => {
-    it('returns 503 SALES_SCHEMA_NOT_READY when RPC is missing (code 42883) and performs no writes', async () => {
-      vi.spyOn(accountAuth, 'requireRole').mockResolvedValue({
-        accountId: MOCK_ACCOUNT_ID,
-        userId: MOCK_USER_ID,
-        role: 'agent',
-      } as unknown as Awaited<ReturnType<typeof accountAuth.requireRole>>);
-
+  describe('quotation conversion fails closed', () => {
+    it('returns 503 when the RPC is missing and performs no writes', async () => {
+      mockAgentRole();
       const rpcMock = vi.fn().mockResolvedValue({
         data: null,
         error: {
@@ -36,27 +54,14 @@ describe('Sales RPC & Error Sanitization Regression Tests', () => {
             'function convert_quotation_to_invoice(uuid, uuid, uuid) does not exist',
         },
       });
-
       const insertMock = vi.fn();
       const updateMock = vi.fn();
-
       vi.spyOn(serverDb, 'getAdminClient').mockReturnValue({
         rpc: rpcMock,
-        from: () => ({
-          insert: insertMock,
-          update: updateMock,
-        }),
+        from: () => ({ insert: insertMock, update: updateMock }),
       } as unknown as ReturnType<typeof serverDb.getAdminClient>);
 
-      const req = new NextRequest(
-        'http://localhost/api/quotations/quote-1/convert-to-invoice',
-        {
-          method: 'POST',
-          headers: { 'x-request-id': 'req-test-503' },
-        }
-      );
-
-      const res = await convertQuotationPost(req, {
+      const res = await convertQuotationPost(conversionRequest(), {
         params: Promise.resolve({ id: MOCK_QUOTATION_ID }),
       });
       const body = await res.json();
@@ -69,36 +74,21 @@ describe('Sales RPC & Error Sanitization Regression Tests', () => {
       expect(rpcMock).toHaveBeenCalledTimes(1);
     });
 
-    it('returns safe 500 without raw DB error text on unknown quotation RPC failure', async () => {
-      vi.spyOn(accountAuth, 'requireRole').mockResolvedValue({
-        accountId: MOCK_ACCOUNT_ID,
-        userId: MOCK_USER_ID,
-        role: 'agent',
-      } as unknown as Awaited<ReturnType<typeof accountAuth.requireRole>>);
-
-      const rpcMock = vi.fn().mockResolvedValue({
-        data: null,
-        error: {
-          code: 'XX000',
-          message: 'internal pg crash: lock acquisition failed at 0xdeadbeef',
-        },
-      });
-
+    it('sanitizes unknown RPC errors', async () => {
+      mockAgentRole();
       const insertMock = vi.fn();
-
       vi.spyOn(serverDb, 'getAdminClient').mockReturnValue({
-        rpc: rpcMock,
+        rpc: vi.fn().mockResolvedValue({
+          data: null,
+          error: {
+            code: 'XX000',
+            message: 'internal pg crash: lock acquisition failed at 0xdeadbeef',
+          },
+        }),
         from: () => ({ insert: insertMock }),
       } as unknown as ReturnType<typeof serverDb.getAdminClient>);
 
-      const req = new NextRequest(
-        'http://localhost/api/quotations/quote-1/convert-to-invoice',
-        {
-          method: 'POST',
-        }
-      );
-
-      const res = await convertQuotationPost(req, {
+      const res = await convertQuotationPost(conversionRequest(), {
         params: Promise.resolve({ id: MOCK_QUOTATION_ID }),
       });
       const body = await res.json();
@@ -112,39 +102,23 @@ describe('Sales RPC & Error Sanitization Regression Tests', () => {
     });
   });
 
-  describe('3 & 4: Invoice Payment RPC Error & Fail-Closed Behavior', () => {
-    it('returns 503 SALES_SCHEMA_NOT_READY when payment RPC is missing and performs no writes', async () => {
-      vi.spyOn(accountAuth, 'requireRole').mockResolvedValue({
-        accountId: MOCK_ACCOUNT_ID,
-        userId: MOCK_USER_ID,
-        role: 'agent',
-      } as unknown as Awaited<ReturnType<typeof accountAuth.requireRole>>);
-
-      const rpcMock = vi.fn().mockResolvedValue({
-        data: null,
-        error: {
-          code: '42883',
-          message: 'function record_invoice_payment does not exist',
-        },
-      });
-
+  describe('invoice payments fail closed', () => {
+    it('returns 503 when the RPC is missing and performs no writes', async () => {
+      mockAgentRole();
       const insertMock = vi.fn();
       const updateMock = vi.fn();
-
       vi.spyOn(serverDb, 'getAdminClient').mockReturnValue({
-        rpc: rpcMock,
+        rpc: vi.fn().mockResolvedValue({
+          data: null,
+          error: {
+            code: '42883',
+            message: 'function record_invoice_payment does not exist',
+          },
+        }),
         from: () => ({ insert: insertMock, update: updateMock }),
       } as unknown as ReturnType<typeof serverDb.getAdminClient>);
 
-      const req = new NextRequest(
-        'http://localhost/api/invoices/inv-1/payments',
-        {
-          method: 'POST',
-          body: JSON.stringify({ amount: 500, payment_method: 'cash' }),
-        }
-      );
-
-      const res = await paymentsPost(req, {
+      const res = await paymentsPost(paymentRequest(), {
         params: Promise.resolve({ id: MOCK_INVOICE_ID }),
       });
       const body = await res.json();
@@ -155,37 +129,21 @@ describe('Sales RPC & Error Sanitization Regression Tests', () => {
       expect(updateMock).not.toHaveBeenCalled();
     });
 
-    it('returns safe 500 without raw DB error text on unknown payment RPC failure', async () => {
-      vi.spyOn(accountAuth, 'requireRole').mockResolvedValue({
-        accountId: MOCK_ACCOUNT_ID,
-        userId: MOCK_USER_ID,
-        role: 'agent',
-      } as unknown as Awaited<ReturnType<typeof accountAuth.requireRole>>);
-
-      const rpcMock = vi.fn().mockResolvedValue({
-        data: null,
-        error: {
-          code: 'XX000',
-          message: 'FATAL: disk full on /var/lib/postgresql/data',
-        },
-      });
-
+    it('sanitizes unknown RPC errors', async () => {
+      mockAgentRole();
       const insertMock = vi.fn();
-
       vi.spyOn(serverDb, 'getAdminClient').mockReturnValue({
-        rpc: rpcMock,
+        rpc: vi.fn().mockResolvedValue({
+          data: null,
+          error: {
+            code: 'XX000',
+            message: 'FATAL: disk full on /var/lib/postgresql/data',
+          },
+        }),
         from: () => ({ insert: insertMock }),
       } as unknown as ReturnType<typeof serverDb.getAdminClient>);
 
-      const req = new NextRequest(
-        'http://localhost/api/invoices/inv-1/payments',
-        {
-          method: 'POST',
-          body: JSON.stringify({ amount: 500 }),
-        }
-      );
-
-      const res = await paymentsPost(req, {
+      const res = await paymentsPost(paymentRequest(), {
         params: Promise.resolve({ id: MOCK_INVOICE_ID }),
       });
       const body = await res.json();
@@ -198,14 +156,9 @@ describe('Sales RPC & Error Sanitization Regression Tests', () => {
     });
   });
 
-  describe('5 & 6: Successful RPC + Hydration Failure Resiliency', () => {
-    it('returns 201 with committed invoice data and warning when conversion hydration query fails', async () => {
-      vi.spyOn(accountAuth, 'requireRole').mockResolvedValue({
-        accountId: MOCK_ACCOUNT_ID,
-        userId: MOCK_USER_ID,
-        role: 'agent',
-      } as unknown as Awaited<ReturnType<typeof accountAuth.requireRole>>);
-
+  describe('post-commit hydration failures', () => {
+    it('returns committed invoice data without retrying the RPC', async () => {
+      mockAgentRole();
       const rpcMock = vi.fn().mockResolvedValue({
         data: {
           success: true,
@@ -215,8 +168,6 @@ describe('Sales RPC & Error Sanitization Regression Tests', () => {
         },
         error: null,
       });
-
-      // Hydration query fails
       const selectMock = vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
@@ -227,20 +178,12 @@ describe('Sales RPC & Error Sanitization Regression Tests', () => {
           }),
         }),
       });
-
       vi.spyOn(serverDb, 'getAdminClient').mockReturnValue({
         rpc: rpcMock,
         from: () => ({ select: selectMock }),
       } as unknown as ReturnType<typeof serverDb.getAdminClient>);
 
-      const req = new NextRequest(
-        'http://localhost/api/quotations/quote-1/convert-to-invoice',
-        {
-          method: 'POST',
-        }
-      );
-
-      const res = await convertQuotationPost(req, {
+      const res = await convertQuotationPost(conversionRequest(), {
         params: Promise.resolve({ id: MOCK_QUOTATION_ID }),
       });
       const body = await res.json();
@@ -253,13 +196,8 @@ describe('Sales RPC & Error Sanitization Regression Tests', () => {
       expect(rpcMock).toHaveBeenCalledTimes(1);
     });
 
-    it('returns 201 with committed payment data and warning when payment hydration query fails', async () => {
-      vi.spyOn(accountAuth, 'requireRole').mockResolvedValue({
-        accountId: MOCK_ACCOUNT_ID,
-        userId: MOCK_USER_ID,
-        role: 'agent',
-      } as unknown as Awaited<ReturnType<typeof accountAuth.requireRole>>);
-
+    it('returns committed payment data without retrying the RPC', async () => {
+      mockAgentRole();
       const rpcMock = vi.fn().mockResolvedValue({
         data: {
           success: true,
@@ -272,8 +210,6 @@ describe('Sales RPC & Error Sanitization Regression Tests', () => {
         },
         error: null,
       });
-
-      // Hydration query fails
       const selectMock = vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
@@ -284,21 +220,12 @@ describe('Sales RPC & Error Sanitization Regression Tests', () => {
           }),
         }),
       });
-
       vi.spyOn(serverDb, 'getAdminClient').mockReturnValue({
         rpc: rpcMock,
         from: () => ({ select: selectMock }),
       } as unknown as ReturnType<typeof serverDb.getAdminClient>);
 
-      const req = new NextRequest(
-        'http://localhost/api/invoices/inv-1/payments',
-        {
-          method: 'POST',
-          body: JSON.stringify({ amount: 2500 }),
-        }
-      );
-
-      const res = await paymentsPost(req, {
+      const res = await paymentsPost(paymentRequest(2500), {
         params: Promise.resolve({ id: MOCK_INVOICE_ID }),
       });
       const body = await res.json();
@@ -314,90 +241,46 @@ describe('Sales RPC & Error Sanitization Regression Tests', () => {
     });
   });
 
-  describe('7: Payment Domain Errors Sanitize Raw DB Errors', () => {
-    it('maps OVERPAYMENT_NOT_ALLOWED to 409 with curated message', async () => {
-      vi.spyOn(accountAuth, 'requireRole').mockResolvedValue({
-        accountId: MOCK_ACCOUNT_ID,
-        userId: MOCK_USER_ID,
-        role: 'agent',
-      } as unknown as Awaited<ReturnType<typeof accountAuth.requireRole>>);
+  describe('payment domain errors', () => {
+    it.each([
+      [
+        'OVERPAYMENT_NOT_ALLOWED: Payment exceeds total balance due of 100.00',
+        'OVERPAYMENT_NOT_ALLOWED',
+        'Payment exceeds the remaining invoice balance.',
+      ],
+      [
+        'INVOICE_VOID: Cannot record payment against a void invoice.',
+        'INVOICE_VOID',
+        'Payments cannot be recorded for a void invoice.',
+      ],
+    ])(
+      'maps %s to a safe conflict response',
+      async (message, code, safeMessage) => {
+        mockAgentRole();
+        vi.spyOn(serverDb, 'getAdminClient').mockReturnValue({
+          rpc: vi.fn().mockResolvedValue({
+            data: null,
+            error: { code: '22023', message },
+          }),
+        } as unknown as ReturnType<typeof serverDb.getAdminClient>);
 
-      vi.spyOn(serverDb, 'getAdminClient').mockReturnValue({
-        rpc: vi.fn().mockResolvedValue({
-          data: null,
-          error: {
-            code: '22023',
-            message:
-              'OVERPAYMENT_NOT_ALLOWED: Payment exceeds total balance due of 100.00',
-          },
-        }),
-      } as unknown as ReturnType<typeof serverDb.getAdminClient>);
+        const res = await paymentsPost(paymentRequest(), {
+          params: Promise.resolve({ id: MOCK_INVOICE_ID }),
+        });
+        const body = await res.json();
 
-      const req = new NextRequest(
-        'http://localhost/api/invoices/inv-1/payments',
-        {
-          method: 'POST',
-          body: JSON.stringify({ amount: 500 }),
-        }
-      );
+        expect(res.status).toBe(409);
+        expect(body.error).toBe(code);
+        expect(body.message).toBe(safeMessage);
+      }
+    );
 
-      const res = await paymentsPost(req, {
-        params: Promise.resolve({ id: MOCK_INVOICE_ID }),
-      });
-      const body = await res.json();
-
-      expect(res.status).toBe(409);
-      expect(body.error).toBe('OVERPAYMENT_NOT_ALLOWED');
-      expect(body.message).toBe(
-        'Payment exceeds the remaining invoice balance.'
-      );
-    });
-
-    it('maps INVOICE_VOID to 409 with curated message', async () => {
-      vi.spyOn(accountAuth, 'requireRole').mockResolvedValue({
-        accountId: MOCK_ACCOUNT_ID,
-        userId: MOCK_USER_ID,
-        role: 'agent',
-      } as unknown as Awaited<ReturnType<typeof accountAuth.requireRole>>);
-
-      vi.spyOn(serverDb, 'getAdminClient').mockReturnValue({
-        rpc: vi.fn().mockResolvedValue({
-          data: null,
-          error: {
-            code: '22023',
-            message:
-              'INVOICE_VOID: Cannot record payment against a void invoice.',
-          },
-        }),
-      } as unknown as ReturnType<typeof serverDb.getAdminClient>);
-
-      const req = new NextRequest(
-        'http://localhost/api/invoices/inv-1/payments',
-        {
-          method: 'POST',
-          body: JSON.stringify({ amount: 500 }),
-        }
-      );
-
-      const res = await paymentsPost(req, {
-        params: Promise.resolve({ id: MOCK_INVOICE_ID }),
-      });
-      const body = await res.json();
-
-      expect(res.status).toBe(409);
-      expect(body.error).toBe('INVOICE_VOID');
-      expect(body.message).toBe(
-        'Payments cannot be recorded for a void invoice.'
-      );
-    });
-
-    it('sanitizes GET /api/invoices/[id]/payments error output', async () => {
+    it('sanitizes payment-list query errors', async () => {
       vi.spyOn(accountAuth, 'requireRole').mockResolvedValue({
         accountId: MOCK_ACCOUNT_ID,
         userId: MOCK_USER_ID,
         role: 'viewer',
       } as unknown as Awaited<ReturnType<typeof accountAuth.requireRole>>);
-
       vi.spyOn(serverDb, 'getAdminClient').mockReturnValue({
         from: () => ({
           select: () => ({
@@ -417,11 +300,8 @@ describe('Sales RPC & Error Sanitization Regression Tests', () => {
 
       const req = new NextRequest(
         'http://localhost/api/invoices/inv-1/payments',
-        {
-          method: 'GET',
-        }
+        { method: 'GET' }
       );
-
       const res = await paymentsGet(req, {
         params: Promise.resolve({ id: MOCK_INVOICE_ID }),
       });
@@ -435,57 +315,52 @@ describe('Sales RPC & Error Sanitization Regression Tests', () => {
     });
   });
 
-  describe('8, 9, 10, 11: Schema Migration RPC Security & Constraints Audit', () => {
+  describe('schema migration RPC security', () => {
     const migrationPath = path.join(
       process.cwd(),
       'supabase/migrations/20260822150000_sales_crm_complete_schema.sql'
     );
     const sqlContent = fs.readFileSync(migrationPath, 'utf8');
 
-    it('declares security definer and search_path on all accounting RPCs', () => {
+    it('uses security definer and a fixed search path', () => {
       const rpcNames = [
         'generate_next_quotation_number',
         'generate_next_invoice_number',
         'convert_quotation_to_invoice',
         'record_invoice_payment',
       ];
-
       for (const rpc of rpcNames) {
         expect(sqlContent).toContain(`function public.${rpc}`);
       }
-
-      const secDefinerCount = (sqlContent.match(/security definer/gi) || [])
-        .length;
-      expect(secDefinerCount).toBeGreaterThanOrEqual(4);
-
-      const searchPathCount = (
-        sqlContent.match(/set search_path = public, pg_temp/gi) || []
-      ).length;
-      expect(searchPathCount).toBeGreaterThanOrEqual(4);
+      expect(
+        (sqlContent.match(/security definer/gi) || []).length
+      ).toBeGreaterThanOrEqual(4);
+      expect(
+        (sqlContent.match(/set search_path = public, pg_temp/gi) || []).length
+      ).toBeGreaterThanOrEqual(4);
     });
 
-    it('revokes execute from public and authenticated, granting only to service_role', () => {
-      const rpcSignatures = [
+    it('grants execution only to the service role', () => {
+      const signatures = [
         'public.generate_next_quotation_number(uuid)',
         'public.generate_next_invoice_number(uuid)',
         'public.convert_quotation_to_invoice(uuid, uuid, uuid)',
         'public.record_invoice_payment(uuid, uuid, numeric, text, text, uuid)',
       ];
-
-      for (const sig of rpcSignatures) {
+      for (const signature of signatures) {
         expect(sqlContent).toContain(
-          `revoke all on function ${sig} from public;`
+          `revoke all on function ${signature} from public;`
         );
         expect(sqlContent).toContain(
-          `revoke all on function ${sig} from authenticated;`
+          `revoke all on function ${signature} from authenticated;`
         );
         expect(sqlContent).toContain(
-          `grant execute on function ${sig} to service_role;`
+          `grant execute on function ${signature} to service_role;`
         );
       }
     });
 
-    it('verifies user membership and account existence inside RPC bodies', () => {
+    it('verifies account existence and user membership', () => {
       expect(sqlContent).toContain(
         'if not exists (select 1 from public.accounts where id = p_account_id)'
       );
