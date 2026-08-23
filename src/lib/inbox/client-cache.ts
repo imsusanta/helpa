@@ -9,7 +9,8 @@ function timestamp(value: string | undefined): number {
 }
 
 function isSameOutgoingMessage(a: Message, b: Message): boolean {
-  if (a.sender_type === 'customer' || b.sender_type === 'customer') return false;
+  if (a.sender_type === 'customer' || b.sender_type === 'customer')
+    return false;
   if (a.conversation_id !== b.conversation_id) return false;
   if (a.content_type !== b.content_type) return false;
   if ((a.content_text ?? '') !== (b.content_text ?? '')) return false;
@@ -48,7 +49,9 @@ export function mergeMessageSnapshots(
       continue;
     }
 
-    if (serverMessages.some((server) => isSameOutgoingMessage(server, local))) {
+    if (
+      serverMessages.some((server) => isSameOutgoingMessage(server, local))
+    ) {
       continue;
     }
 

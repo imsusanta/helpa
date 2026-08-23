@@ -16,7 +16,5 @@ type ConversationListProps = ComponentProps<typeof BaseConversationList>;
 export function ConversationList(props: ConversationListProps) {
   const [stableResyncToken] = useState(props.resyncToken ?? 0);
 
-  return (
-    <BaseConversationList {...props} resyncToken={stableResyncToken} />
-  );
+  return <BaseConversationList {...props} resyncToken={stableResyncToken} />;
 }
