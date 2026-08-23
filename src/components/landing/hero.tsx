@@ -2,7 +2,12 @@
 
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { CalendarCheck, Clock3, MessageCircle, Sparkles, Users } from 'lucide-react';
+import {
+  CalendarCheck,
+  MessageCircle,
+  Sparkles,
+  Users,
+} from 'lucide-react';
 
 interface HeroProps {
   isAuthenticated: boolean;
