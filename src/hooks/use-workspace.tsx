@@ -84,22 +84,7 @@ export function useWorkspace(): WorkspaceContextValue {
         pathname === '/integrations' ||
         pathname.startsWith('/integrations/') ||
         pathname === '/pipelines' ||
-        pathname.startsWith('/pipelines/') ||
-        pathname === '/leads' ||
-        pathname.startsWith('/leads/') ||
-        pathname === '/customers' ||
-        pathname.startsWith('/customers/') ||
-        pathname === '/quotations' ||
-        pathname.startsWith('/quotations/') ||
-        pathname === '/invoices' ||
-        pathname.startsWith('/invoices/') ||
-        // Automation & AI is a core platform capability, available in every
-        // industry workspace alongside /automations and /knowledge-base. Listed
-        // here rather than in each industry manifest's `allowedRoutes` so a new
-        // industry does not have to opt in to get it.
-        pathname === '/chatbot' ||
-        pathname === '/faq-bot' ||
-        pathname === '/ai-assistant'
+        pathname.startsWith('/pipelines/')
       ) {
         return true;
       }

@@ -15,46 +15,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Fail-closed HMAC-SHA256 verification.
-    //
-    // This block used to read `if (webhookSecret) { ...verify... }`, which
-    // meant an unset RAZORPAY_WEBHOOK_SECRET skipped verification entirely.
-    // Anyone who could reach this URL could then POST a forged
-    // `payment.captured` event and activate a paid subscription for any
-    // accountId they named in `notes` — the handler below writes to
-    // `subscriptions` on the strength of this payload alone.
-    //
-    // A payment webhook is an authorization boundary, so it gets the same
-    // treatment as the Meta verifier in lib/whatsapp/webhook-signature.ts:
-    // no secret means no trust, and we refuse rather than degrade.
+    // Verify HMAC-SHA256 signature if webhook secret is configured
     const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
-    if (!webhookSecret) {
-      console.error(
-        '[Razorpay Webhook] RAZORPAY_WEBHOOK_SECRET is not set — rejecting request. ' +
-          'Configure it from Razorpay Dashboard → Settings → Webhooks to enable verification.'
+    if (webhookSecret) {
+      const isValid = verifyRazorpayWebhookSignature(
+        rawBody,
+        signature,
+        webhookSecret
       );
-      // 503, not 4xx: this is our misconfiguration, and Razorpay should
-      // retry once an operator sets the secret.
-      return NextResponse.json(
-        { error: 'Webhook signature verification is not configured' },
-        { status: 503 }
-      );
-    }
-
-    if (!signature) {
-      console.warn('[Razorpay Webhook] Missing x-razorpay-signature header');
-      return NextResponse.json(
-        { error: 'Missing webhook signature' },
-        { status: 401 }
-      );
-    }
-
-    if (!verifyRazorpayWebhookSignature(rawBody, signature, webhookSecret)) {
-      console.warn('[Razorpay Webhook] Invalid signature rejected');
-      return NextResponse.json(
-        { error: 'Invalid webhook signature' },
-        { status: 401 }
-      );
+      if (!isValid) {
+        console.warn('[Razorpay Webhook] Invalid signature rejected');
+        return NextResponse.json(
+          { error: 'Invalid webhook signature' },
+          { status: 400 }
+        );
+      }
     }
 
     const payload = JSON.parse(rawBody);

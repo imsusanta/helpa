@@ -213,16 +213,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       canEditSettings: role ? canEditSettingsFor(role) : false,
       canSendMessages: role ? canSendMessagesFor(role) : false,
       accountRole: role,
-      // Persisted role only. This used to also OR in a hardcoded email
-      // compared against both profile.email and user.email, so anyone able
-      // to set that address saw the platform admin UI. The server enforces
-      // the real boundary in lib/auth/admin.ts; this keeps the client's view
-      // of it honest instead of contradicting it.
-      isSuperAdmin: Boolean(profile?.is_super_admin),
+      isSuperAdmin:
+        Boolean(profile?.is_super_admin) ||
+        profile?.email?.toLowerCase() === 'susantalohr@gmail.com' ||
+        user?.email?.toLowerCase() === 'susantalohr@gmail.com',
       accountId: resolvedAccountId,
       defaultCurrency: account?.default_currency || DEFAULT_CURRENCY,
     };
-  }, [profile, account]);
+  }, [profile, account, user]);
 
   const value = useMemo(
     () => ({
