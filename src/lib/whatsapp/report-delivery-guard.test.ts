@@ -7,13 +7,15 @@ import {
 
 describe('lab report delivery guard', () => {
   it('does not treat doctor booking messages as report requests', () => {
-    expect(isExplicitLabReportRequest('I want to book a doctor appointment')).toBe(
-      false
-    );
+    expect(
+      isExplicitLabReportRequest('I want to book a doctor appointment')
+    ).toBe(false);
     expect(isExplicitLabReportRequest('Doctor appointment status please')).toBe(
       false
     );
-    expect(isExplicitLabReportRequest('appointment booking kore din')).toBe(false);
+    expect(isExplicitLabReportRequest('appointment booking kore din')).toBe(
+      false
+    );
   });
 
   it('recognises explicit report requests in supported languages', () => {
