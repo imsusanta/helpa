@@ -16,6 +16,12 @@ import {
   Users,
   PhoneCall,
   Loader2,
+  CalendarDays,
+  UserPlus,
+  GraduationCap,
+  Building2,
+  BookOpen,
+  UtensilsCrossed,
 } from 'lucide-react';
 
 import { useCan } from '@/hooks/use-can';
@@ -50,6 +56,12 @@ const TEMPLATE_ORDER: TemplateSlug[] = [
   'out_of_office',
   'lead_qualifier',
   'follow_up_reminder',
+  'doctor_booking_enquiry',
+  'new_lead_instant_reply',
+  'admission_enquiry',
+  'property_site_visit',
+  'course_enquiry',
+  'table_booking',
 ];
 
 const TEMPLATE_ICON: Record<TemplateSlug, typeof Zap> = {
@@ -57,6 +69,12 @@ const TEMPLATE_ICON: Record<TemplateSlug, typeof Zap> = {
   out_of_office: Clock,
   lead_qualifier: Users,
   follow_up_reminder: PhoneCall,
+  doctor_booking_enquiry: CalendarDays,
+  new_lead_instant_reply: UserPlus,
+  admission_enquiry: GraduationCap,
+  property_site_visit: Building2,
+  course_enquiry: BookOpen,
+  table_booking: UtensilsCrossed,
 };
 
 export default function AutomationsPage() {
