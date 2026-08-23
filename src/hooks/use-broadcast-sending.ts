@@ -549,18 +549,18 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
             excludeTagIds: payload.audience.excludeTagIds,
             department: payload.audience.department,
             doctorId: payload.audience.doctorId,
-          gender: payload.audience.gender,
-          ageMin: payload.audience.ageMin,
-          ageMax: payload.audience.ageMax,
-          // Audience snapshot for scheduled sends: the client resolver
-          // supports every audience type (tags, custom fields, CSV
-          // upserts), while /api/cron/campaigns only understands the
-          // built-in filters. Freezing the resolved IDs here lets the
-          // cron dispatch exactly this audience without re-resolving.
-          ...(payload.scheduled_at
-            ? { scheduled_contact_ids: contacts.map((c) => c.id) }
-            : {}),
-        },
+            gender: payload.audience.gender,
+            ageMin: payload.audience.ageMin,
+            ageMax: payload.audience.ageMax,
+            // Audience snapshot for scheduled sends: the client resolver
+            // supports every audience type (tags, custom fields, CSV
+            // upserts), while /api/cron/campaigns only understands the
+            // built-in filters. Freezing the resolved IDs here lets the
+            // cron dispatch exactly this audience without re-resolving.
+            ...(payload.scheduled_at
+              ? { scheduled_contact_ids: contacts.map((c) => c.id) }
+              : {}),
+          },
           status: payload.scheduled_at ? ('scheduled' as const) : 'sending',
           scheduled_at: payload.scheduled_at ?? null,
           total_recipients: contacts.length,
