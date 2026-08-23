@@ -63,7 +63,7 @@ export function Sidebar({
   open = false,
   onClose,
   collapsed = false,
-  mobileTriggerRef,
+  mobileTriggerRef: _mobileTriggerRef,
 }: SidebarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -103,9 +103,10 @@ export function Sidebar({
     [
       accountRole,
       currentIndustry,
+      enabledModules,
       isRouteAllowed,
       isSuperAdmin,
-      manifest.sidebar,
+      manifest,
       terminology,
     ]
   );
