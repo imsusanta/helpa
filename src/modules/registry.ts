@@ -7,6 +7,7 @@ import { gymModule } from './gym';
 import { restaurantModule } from './restaurant';
 import { soloTeacherModule } from './solo-teacher';
 import { salonModule } from './salon';
+import { withIntentFulfillmentPolicy } from '@/core/ai/intent-fulfillment';
 import {
   INDUSTRY_ALIASES,
   getIndustryTerminology,
@@ -206,13 +207,16 @@ export function getIndustryModule(
 /**
  * A workspace may override its default industry instructions. Empty or
  * missing overrides must still resolve to the appropriate industry prompt.
+ * Every resolved prompt receives the mandatory intent-fulfillment contract.
  */
 export function resolveSystemPrompt(
   industry: string | null | undefined,
   customPrompt: string | null | undefined
 ): string {
+  const industryModule = getIndustryModule(industry);
   const prompt = customPrompt?.trim();
-  return prompt || getIndustryModule(industry).systemPrompt;
+  const selectedPrompt = prompt || industryModule.systemPrompt;
+  return withIntentFulfillmentPolicy(selectedPrompt, industryModule.id);
 }
 export * from './types';
 export * from './registry';

@@ -87,24 +87,47 @@ describe('INDUSTRY_REGISTRY', () => {
 });
 
 describe('resolveSystemPrompt', () => {
-  it('uses the selected workspace template when no custom prompt is saved', () => {
-    expect(resolveSystemPrompt('hospital_clinic', null)).toBe(
-      getIndustryModule('hospital_clinic').systemPrompt
+  it('keeps the selected workspace template and adds the action contract', () => {
+    const healthPrompt = resolveSystemPrompt('hospital_clinic', null);
+    expect(healthPrompt).toContain(
+      getIndustryModule('hospital_clinic').systemPrompt.trim()
     );
-    expect(resolveSystemPrompt('hospital', null)).toBe(
-      getIndustryModule('hospital_clinic').systemPrompt
+    expect(healthPrompt).toContain('[MANDATORY INTENT FULFILLMENT POLICY]');
+    expect(healthPrompt).toContain('[HEALTHCARE BOOKING BEHAVIOR]');
+
+    const hospitalAliasPrompt = resolveSystemPrompt('hospital', null);
+    expect(hospitalAliasPrompt).toContain('[HEALTHCARE BOOKING BEHAVIOR]');
+
+    const salonPrompt = resolveSystemPrompt('salon', null);
+    expect(salonPrompt).toContain(
+      getIndustryModule('salon').systemPrompt.trim()
     );
-    expect(resolveSystemPrompt('salon', null)).toBe(
-      getIndustryModule('salon').systemPrompt
-    );
-    expect(resolveSystemPrompt('travel', '')).toBe(
-      getIndustryModule('travel').systemPrompt
+    expect(salonPrompt).toContain('[WORKSPACE-SPECIFIC CLIENT BEHAVIOR]');
+
+    const travelPrompt = resolveSystemPrompt('travel', '');
+    expect(travelPrompt).toContain(
+      getIndustryModule('travel').systemPrompt.trim()
     );
   });
 
-  it('keeps a non-empty workspace-specific prompt', () => {
+  it('keeps a non-empty workspace-specific prompt and adds the policy', () => {
+    const prompt = resolveSystemPrompt(
+      'coaching',
+      '  Reply as an admissions guide.  '
+    );
+
+    expect(prompt).toContain('Reply as an admissions guide.');
+    expect(prompt).toContain('[MANDATORY INTENT FULFILLMENT POLICY]');
+    expect(prompt).toContain('[WORKSPACE-SPECIFIC CLIENT BEHAVIOR]');
+  });
+
+  it('does not duplicate the mandatory policy when a resolved prompt is reused', () => {
+    const once = resolveSystemPrompt('hospital_clinic', null);
+    const twice = resolveSystemPrompt('hospital_clinic', once);
+
+    expect(twice).toBe(once);
     expect(
-      resolveSystemPrompt('coaching', '  Reply as an admissions guide.  ')
-    ).toBe('Reply as an admissions guide.');
+      twice.match(/\[MANDATORY INTENT FULFILLMENT POLICY\]/g)
+    ).toHaveLength(1);
   });
 });
