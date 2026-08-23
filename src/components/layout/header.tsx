@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
+import { useWorkspace } from '@/hooks/use-workspace';
 import {
   AlertCircle,
   Gift,
@@ -36,6 +37,7 @@ interface HeaderProps {
 
 export function Header({ onOpenSidebar }: HeaderProps) {
   const { profile, signOut } = useAuth();
+  const { terminology } = useWorkspace();
   const [searchOpen, setSearchOpen] = useState(false);
   const initial =
     profile?.full_name?.charAt(0)?.toUpperCase() ||
@@ -74,7 +76,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
           <input
             readOnly
             aria-label="Search"
-            placeholder="Search leads, contacts, acc..."
+            placeholder={`Search ${terminology.pipelineItems.toLowerCase()}, ${terminology.people.toLowerCase()}...`}
             className="h-10 w-full cursor-pointer rounded-xl border border-slate-200 bg-white pr-16 pl-9 text-xs font-medium text-slate-800 shadow-2xs placeholder:text-slate-400 focus:border-slate-300 focus:ring-2 focus:ring-emerald-500/10 focus:outline-none"
           />
           <span className="absolute top-1/2 right-2.5 -translate-y-1/2 rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-semibold text-slate-400">
@@ -102,7 +104,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
               }
             >
               <User className="h-4 w-4 text-blue-500" />
-              New Lead
+              New {terminology.pipelineItem}
             </DropdownMenuItem>
             <DropdownMenuItem
               render={
@@ -113,7 +115,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
               }
             >
               <Users className="h-4 w-4 text-indigo-500" />
-              New Customer
+              New {terminology.person}
             </DropdownMenuItem>
             <DropdownMenuItem
               render={
@@ -124,7 +126,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
               }
             >
               <TrendingUp className="h-4 w-4 text-purple-500" />
-              New Deal / Pipeline
+              New {terminology.pipelineItem} / {terminology.pipeline}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem

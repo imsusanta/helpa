@@ -25,7 +25,7 @@ export default function PrivacyPolicyPage() {
           <Link href="/" className="group flex items-center gap-2.5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/helpa-logo.png?v=2"
+              src="/helpa-logo.png?v=4"
               alt="Helpa Logo"
               className="h-9 w-9 rounded-xl object-contain shadow-xs transition-transform group-hover:scale-105"
             />
@@ -314,7 +314,7 @@ export default function PrivacyPolicyPage() {
           <div className="flex items-center gap-2.5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/helpa-logo.png?v=2"
+              src="/helpa-logo.png?v=4"
               alt="Helpa"
               className="h-6 w-6 rounded-lg object-contain"
             />

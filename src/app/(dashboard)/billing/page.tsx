@@ -15,6 +15,7 @@ import {
   CheckCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useWorkspace } from '@/hooks/use-workspace';
 
 interface Bill {
   id: string;
@@ -33,6 +34,7 @@ interface Patient {
 
 export default function BillingPage() {
   const { accountId } = useAuth();
+  const { terminology } = useWorkspace();
   const [bills, setBills] = useState<Bill[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,7 +73,7 @@ export default function BillingPage() {
           const contactsList = contactsPayload.data || [];
           const mappedPats = contactsList.map(
             (c: { id: string; name?: string; phone?: string }) => {
-              const name = c.name || 'Patient';
+              const name = c.name || terminology.person;
               const phone = c.phone || '';
               return {
                 id: c.id,
@@ -92,7 +94,7 @@ export default function BillingPage() {
     } finally {
       setLoading(false);
     }
-  }, [accountId]);
+  }, [accountId, terminology.person]);
 
   useEffect(() => {
     loadData();
@@ -101,7 +103,7 @@ export default function BillingPage() {
   const handleCreateBill = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!patientId || !amount || !accountId) {
-      toast.error('Patient and amount are required');
+      toast.error(`${terminology.person} and amount are required`);
       return;
     }
 
@@ -253,14 +255,14 @@ export default function BillingPage() {
           <h3 className="text-foreground font-bold">New Outpatient Invoice</h3>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label>Select Patient *</Label>
+              <Label>Select {terminology.person} *</Label>
               <select
                 value={patientId}
                 onChange={(e) => setPatientId(e.target.value)}
                 required
                 className="border-input bg-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
               >
-                <option value="">-- Select Patient --</option>
+                <option value="">-- Select {terminology.person} --</option>
                 {patients.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
@@ -269,7 +271,7 @@ export default function BillingPage() {
               </select>
             </div>
             <div className="space-y-2">
-              <Label>Service / Item Description *</Label>
+              <Label>{terminology.service} / Item Description *</Label>
               <Input
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -351,7 +353,7 @@ export default function BillingPage() {
               <thead className="bg-muted/50 border-border text-foreground border-b text-xs font-semibold uppercase">
                 <tr>
                   <th className="px-6 py-4">Invoice #</th>
-                  <th className="px-6 py-4">Patient</th>
+                  <th className="px-6 py-4">{terminology.person}</th>
                   <th className="px-6 py-4">Description</th>
                   <th className="px-6 py-4">Amount</th>
                   <th className="px-6 py-4">Status</th>
@@ -369,7 +371,9 @@ export default function BillingPage() {
                     </td>
                     <td className="px-6 py-4 font-semibold">
                       <div>
-                        <div>{b.patient?.name || 'Unknown Patient'}</div>
+                        <div>
+                          {b.patient?.name || `Unknown ${terminology.person}`}
+                        </div>
                         <div className="text-muted-foreground text-xs font-normal">
                           {b.patient?.phone}
                         </div>

@@ -37,6 +37,7 @@ import {
   Target,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useWorkspace } from '@/hooks/use-workspace';
 
 interface DealFormProps {
   open: boolean;
@@ -58,6 +59,7 @@ export function DealForm({
   onSaved,
 }: DealFormProps) {
   const { defaultCurrency } = useAuth();
+  const { terminology } = useWorkspace();
 
   const [title, setTitle] = useState('');
   const [value, setValue] = useState('');
@@ -186,7 +188,9 @@ export function DealForm({
       }
 
       setSaving(false);
-      toast.success(deal ? 'Deal updated' : 'Deal created');
+      toast.success(
+        `${terminology.pipelineItem} ${deal ? 'updated' : 'created'}`
+      );
       onOpenChange(false);
       onSaved();
     } catch (err: unknown) {
@@ -203,7 +207,9 @@ export function DealForm({
         'Please provide a reason for marking this deal as LOST:'
       );
       if (userPrompt === null) return;
-      lostReason = userPrompt.trim() || 'Marked lost from Deal form';
+      lostReason =
+        userPrompt.trim() ||
+        `Marked lost from ${terminology.pipelineItem} form`;
     }
 
     setStatusAction(status);
@@ -218,7 +224,7 @@ export function DealForm({
           ? 'Marked as won'
           : status === 'lost'
             ? 'Marked as lost'
-            : 'Deal reopened'
+            : `${terminology.pipelineItem} reopened`
       );
       onOpenChange(false);
       onSaved();
@@ -236,7 +242,7 @@ export function DealForm({
         method: 'DELETE',
       });
       setDeleting(false);
-      toast.success('Deal deleted');
+      toast.success(`${terminology.pipelineItem} deleted`);
       setConfirmDelete(false);
       onOpenChange(false);
       onSaved();
@@ -255,7 +261,9 @@ export function DealForm({
         <div className="flex h-full flex-col">
           <SheetHeader className="border-border/50 border-b p-4">
             <SheetTitle className="text-popover-foreground">
-              {deal ? 'Edit Patient Journey' : 'New Patient Journey'}
+              {deal
+                ? `Edit ${terminology.pipelineItem}`
+                : `New ${terminology.pipelineItem}`}
             </SheetTitle>
           </SheetHeader>
 
@@ -265,19 +273,23 @@ export function DealForm({
               <Input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Patient care journey / admission title"
+                placeholder={`${terminology.pipelineItem} title`}
                 className="border-border bg-muted text-foreground"
               />
             </div>
 
             <div className="grid gap-2">
-              <Label className="text-muted-foreground">Contact</Label>
+              <Label className="text-muted-foreground">
+                {terminology.person}
+              </Label>
               <select
                 value={contactId}
                 onChange={(e) => setContactId(e.target.value)}
                 className="border-border bg-muted text-foreground focus:border-primary focus:ring-primary h-9 w-full rounded-lg border px-2.5 text-sm outline-none focus:ring-1"
               >
-                <option value="">Select a contact</option>
+                <option value="">
+                  Select a {terminology.person.toLowerCase()}
+                </option>
                 {contacts.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name || c.phone}
@@ -317,7 +329,7 @@ export function DealForm({
                               : 'border-blue-500/20 bg-blue-500/10 text-blue-400'
                         }`}
                       >
-                        {deal.ai_lead_score} Lead
+                        {deal.ai_lead_score} {terminology.pipelineItem}
                       </span>
                     )}
                   </div>
@@ -536,7 +548,11 @@ export function DealForm({
                 disabled={saving || !title.trim() || !contactId || !stageId}
                 className="bg-primary text-primary-foreground hover:bg-primary/90 flex-1"
               >
-                {saving ? 'Saving...' : deal ? 'Save Changes' : 'Create Deal'}
+                {saving
+                  ? 'Saving...'
+                  : deal
+                    ? 'Save Changes'
+                    : `Create ${terminology.pipelineItem}`}
               </Button>
             </div>
 
@@ -570,7 +586,7 @@ export function DealForm({
                   className="mt-3 flex w-full items-center justify-center gap-1 text-xs text-red-400 hover:text-red-300"
                 >
                   <Trash2 className="h-3 w-3" />
-                  Delete Deal
+                  Delete {terminology.pipelineItem}
                 </button>
               ))}
           </div>

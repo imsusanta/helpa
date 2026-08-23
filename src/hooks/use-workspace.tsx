@@ -8,17 +8,13 @@ import type {
   IndustryTerminology,
   IndustryFeatures,
 } from '@/modules/types';
+import {
+  GENERAL_INDUSTRY_TERMINOLOGY,
+  getIndustryTerminology,
+  resolveIndustryAlias,
+} from '@/modules/terminology';
 
-export const DEFAULT_TERMINOLOGY: IndustryTerminology = {
-  contact: 'Contact',
-  contacts: 'Contacts',
-  booking: 'Booking',
-  bookings: 'Bookings',
-  staff: 'Staff Member',
-  staffMembers: 'Staff Members',
-  service: 'Service',
-  services: 'Services',
-};
+export const DEFAULT_TERMINOLOGY = GENERAL_INDUSTRY_TERMINOLOGY;
 
 export interface WorkspaceContextValue {
   currentWorkspace: ReturnType<typeof useAuth>['account'];
@@ -35,15 +31,15 @@ export interface WorkspaceContextValue {
 export function useWorkspace(): WorkspaceContextValue {
   const { account, profileLoading, loading: authLoading } = useAuth();
 
-  const currentIndustry = account?.industry || 'health';
+  const currentIndustry = resolveIndustryAlias(account?.industry);
 
   const manifest = useMemo(() => {
     return getIndustryModule(account?.industry);
   }, [account?.industry]);
 
   const terminology = useMemo<IndustryTerminology>(() => {
-    return manifest.terminology || DEFAULT_TERMINOLOGY;
-  }, [manifest]);
+    return getIndustryTerminology(account?.industry, manifest.terminology);
+  }, [account?.industry, manifest.terminology]);
 
   const features = useMemo<IndustryFeatures>(() => {
     return manifest.features || {};

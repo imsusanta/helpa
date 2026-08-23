@@ -65,6 +65,12 @@ interface BroadcastPayload {
   cta_url?: string;
   recurrence?: 'none' | 'weekly' | 'monthly' | 'yearly';
   ai_suggested?: boolean;
+  /**
+   * ISO timestamp. When set, the broadcast row is created with status
+   * "scheduled" and the client send loop is skipped entirely —
+   * /api/cron/campaigns dispatches it once the time passes.
+   */
+  scheduled_at?: string;
 }
 
 interface UseBroadcastSendingReturn {
@@ -543,11 +549,20 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
             excludeTagIds: payload.audience.excludeTagIds,
             department: payload.audience.department,
             doctorId: payload.audience.doctorId,
-            gender: payload.audience.gender,
-            ageMin: payload.audience.ageMin,
-            ageMax: payload.audience.ageMax,
-          },
-          status: 'sending',
+          gender: payload.audience.gender,
+          ageMin: payload.audience.ageMin,
+          ageMax: payload.audience.ageMax,
+          // Audience snapshot for scheduled sends: the client resolver
+          // supports every audience type (tags, custom fields, CSV
+          // upserts), while /api/cron/campaigns only understands the
+          // built-in filters. Freezing the resolved IDs here lets the
+          // cron dispatch exactly this audience without re-resolving.
+          ...(payload.scheduled_at
+            ? { scheduled_contact_ids: contacts.map((c) => c.id) }
+            : {}),
+        },
+          status: payload.scheduled_at ? ('scheduled' as const) : 'sending',
+          scheduled_at: payload.scheduled_at ?? null,
           total_recipients: contacts.length,
           sent_count: 0,
           delivered_count: 0,
@@ -571,6 +586,16 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
         throw new Error(
           `Failed to create broadcast: ${broadcastError?.message ?? 'unknown error'}`
         );
+      }
+
+      // ── Scheduled broadcasts stop here ────────────────────────────
+      // The audience snapshot above is persisted with the row;
+      // /api/cron/campaigns picks up status="scheduled" once
+      // scheduled_at passes and dispatches to exactly those contacts —
+      // so we must NOT pre-insert recipients or start the send loop.
+      if (payload.scheduled_at) {
+        setProgress(100);
+        return broadcast.id;
       }
 
       // ── Step 3: Insert recipient rows ─────────────────────────────

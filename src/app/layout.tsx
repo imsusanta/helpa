@@ -61,13 +61,13 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: '/helpa-logo.svg?v=3', type: 'image/svg+xml' },
-      { url: '/favicon-32x32.png?v=2', sizes: '32x32', type: 'image/png' },
-      { url: '/favicon.png?v=2', sizes: '192x192', type: 'image/png' },
+      { url: '/helpa-logo.svg?v=4', type: 'image/svg+xml' },
+      { url: '/favicon-32x32.png?v=4', sizes: '32x32', type: 'image/png' },
+      { url: '/favicon.png?v=4', sizes: '192x192', type: 'image/png' },
     ],
-    shortcut: ['/helpa-logo.svg?v=3', '/favicon.png?v=2'],
+    shortcut: ['/helpa-logo.svg?v=4', '/favicon.png?v=4'],
     apple: [
-      { url: '/apple-touch-icon.png?v=2', sizes: '180x180', type: 'image/png' },
+      { url: '/apple-touch-icon.png?v=4', sizes: '180x180', type: 'image/png' },
     ],
   },
   manifest: '/site.webmanifest',

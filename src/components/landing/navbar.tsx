@@ -34,7 +34,7 @@ export function LandingNavbar({ isAuthenticated }: NavbarProps) {
           <Link href="/" className="group flex items-center gap-2.5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/helpa-logo.svg"
+              src="/helpa-logo.svg?v=4"
               alt="Helpa"
               className="h-9 w-9 rounded-xl object-contain shadow-sm transition-transform group-hover:scale-105"
             />

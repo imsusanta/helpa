@@ -27,6 +27,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { salesApi } from '@/lib/sales/api-client';
+import { useWorkspace } from '@/hooks/use-workspace';
 
 interface QuotationItemRow {
   description: string;
@@ -73,6 +74,7 @@ const STATUS_BADGE_VARIANTS: Record<string, string> = {
 };
 
 export default function QuotationsPage() {
+  const { terminology } = useWorkspace();
   const [quotations, setQuotations] = useState<QuotationModel[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -332,7 +334,7 @@ export default function QuotationsPage() {
               <thead className="border-b border-slate-100 bg-slate-50/75 text-[11px] font-bold tracking-wider text-slate-500 uppercase">
                 <tr>
                   <th className="px-5 py-3.5">Quotation #</th>
-                  <th className="px-5 py-3.5">Customer</th>
+                  <th className="px-5 py-3.5">{terminology.person}</th>
                   <th className="px-5 py-3.5">Date</th>
                   <th className="px-5 py-3.5">Status</th>
                   <th className="px-5 py-3.5 text-right">Total Amount</th>
@@ -353,7 +355,7 @@ export default function QuotationsPage() {
                       {q.quotation_number}
                     </td>
                     <td className="px-5 py-4 font-medium text-slate-700">
-                      {q.contacts?.name || 'Customer'}
+                      {q.contacts?.name || terminology.person}
                     </td>
                     <td className="px-5 py-4 text-slate-500">
                       {new Date(q.created_at).toLocaleDateString()}
@@ -406,14 +408,14 @@ export default function QuotationsPage() {
           <form onSubmit={handleCreateQuotation} className="space-y-4 pt-2">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label className="text-xs">Select Customer *</Label>
+                <Label className="text-xs">Select {terminology.person} *</Label>
                 <select
                   value={selectedContactId}
                   onChange={(e) => setSelectedContactId(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-800"
                   required
                 >
-                  <option value="">-- Choose Customer --</option>
+                  <option value="">-- Choose {terminology.person} --</option>
                   {contacts.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name} ({c.phone})
@@ -635,10 +637,10 @@ export default function QuotationsPage() {
                 {/* Client Info */}
                 <div className="space-y-1.5 rounded-xl border border-slate-100 bg-slate-50/50 p-4">
                   <h4 className="text-[11px] font-bold tracking-wider text-slate-800 uppercase">
-                    Customer
+                    {terminology.person}
                   </h4>
                   <p className="font-semibold text-slate-900">
-                    {selectedQuotation.contacts?.name || 'Customer'}
+                    {selectedQuotation.contacts?.name || terminology.person}
                   </p>
                   <p className="text-slate-600">
                     {selectedQuotation.contacts?.phone}

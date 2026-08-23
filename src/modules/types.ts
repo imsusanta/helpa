@@ -82,6 +82,7 @@ export interface WorkflowSeed {
 }
 
 export interface IndustryTerminology {
+  /** Legacy keys retained for compatibility with existing consumers. */
   contact: string;
   contacts: string;
   booking: string;
@@ -90,6 +91,35 @@ export interface IndustryTerminology {
   staffMembers: string;
   service: string;
   services: string;
+  /** Semantic display concepts shared by authenticated workspace UI. */
+  person: string;
+  people: string;
+  conversation: string;
+  conversations: string;
+  message: string;
+  messages: string;
+  bookingAction: string;
+  meeting: string;
+  meetings: string;
+  staffMember: string;
+  provider: string;
+  providers: string;
+  pipeline: string;
+  pipelines: string;
+  pipelineItem: string;
+  pipelineItems: string;
+  primaryRecord: string;
+  primaryRecords: string;
+  followUp: string;
+  followUps: string;
+  report: string;
+  reports: string;
+  campaign: string;
+  campaigns: string;
+  class: string;
+  classes: string;
+  session: string;
+  sessions: string;
 }
 
 export type IndustryStatus = 'ACTIVE' | 'COMING_SOON';
@@ -102,7 +132,7 @@ export interface IndustryModule {
   description: string;
   status: IndustryStatus;
   aiRole?: string;
-  terminology?: IndustryTerminology;
+  terminology?: Partial<IndustryTerminology>;
   features?: IndustryFeatures;
   allowedRoutes?: string[];
   sidebar: ModuleNavItem[];

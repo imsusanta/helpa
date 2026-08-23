@@ -1,11 +1,13 @@
 import { ModuleNavItem } from '../types';
+import { getIndustryTerminology } from '../terminology';
+const terms = getIndustryTerminology('travel');
 
 export const sidebarConfig: ModuleNavItem[] = [
   { href: '/dashboard', label: 'Home', iconName: 'LayoutDashboard' },
   { href: '/inbox', label: 'Messages', iconName: 'MessageSquare' },
-  { href: '/contacts', label: 'Customers', iconName: 'Users' },
-  { href: '/packages', label: 'Tour Packages', iconName: 'FileText' },
-  { href: '/bookings', label: 'Bookings', iconName: 'Calendar' },
+  { href: '/contacts', label: terms.contacts, iconName: 'Users' },
+  { href: '/packages', label: terms.services, iconName: 'FileText' },
+  { href: '/bookings', label: terms.bookings, iconName: 'Calendar' },
   {
     href: '/broadcasts',
     label: 'Campaigns',

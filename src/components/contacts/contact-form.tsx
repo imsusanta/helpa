@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
 import type { Contact, Tag, ContactTag } from '@/types';
 import { getIndustryModule } from '@/modules/registry';
+import { useWorkspace } from '@/hooks/use-workspace';
 import {
   findExistingContact,
   isExactMatch,
@@ -44,12 +45,13 @@ export function ContactForm({
 }: ContactFormProps) {
   const appwrite = createClient();
   const { accountId, account } = useAuth();
+  const { terminology } = useWorkspace();
   const isEdit = !!contact;
 
   // Active industry configuration
   const industryModule = getIndustryModule(account?.industry);
   const contactConfig = industryModule.entityConfigs?.contacts;
-  const entityLabel = contactConfig?.label || 'Contact';
+  const entityLabel = terminology.person;
   const customFields = contactConfig?.fields || [];
   const isHospitalWorkspace = industryModule.id === 'hospital_clinic';
 
@@ -291,7 +293,7 @@ export function ContactForm({
       if (isUniqueViolation(err)) {
         if (isHospitalWorkspace) {
           toast.error(
-            'Could not assign a unique Patient ID. Please try again.'
+            `Could not assign a unique ${entityLabel} ID. Please try again.`
           );
           return;
         }
@@ -373,7 +375,7 @@ export function ContactForm({
                 <div className="space-y-1">
                   <p>
                     {dupMatch.exact && isHospitalWorkspace
-                      ? 'This mobile number is already used by another patient. You can add this patient with a new Patient ID.'
+                      ? `This mobile number is already used by another ${entityLabel.toLowerCase()}. You can add this ${entityLabel.toLowerCase()} with a new ID.`
                       : dupMatch.exact
                         ? `A ${entityLabel.toLowerCase()} with this phone number already exists.`
                         : `A ${entityLabel.toLowerCase()} with a very similar number already exists.`}

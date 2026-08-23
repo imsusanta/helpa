@@ -558,7 +558,7 @@ export function ContactDetailView({
                     )}
                   </div>
                   <SheetDescription className="text-muted-foreground mt-0.5 text-xs">
-                    {terminology.contact || 'Customer'} Profile 360°
+                    {terminology.person} Profile 360°
                   </SheetDescription>
                   <div className="text-muted-foreground mt-1.5 flex flex-wrap items-center gap-3 text-xs">
                     <button
@@ -682,7 +682,7 @@ export function ContactDetailView({
                   value="deals"
                   className="data-active:bg-muted data-active:text-primary text-muted-foreground text-xs"
                 >
-                  Deals
+                  {terminology.pipelineItems}
                 </TabsTrigger>
               </TabsList>
 
@@ -761,10 +761,10 @@ export function ContactDetailView({
                     </div>
                   )}
 
-                  {/* Permanent Unique Patient ID Field */}
+                  {/* Permanent primary-record ID field */}
                   <div className="space-y-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-2.5">
                     <Label className="flex items-center justify-between text-xs font-bold text-emerald-700 dark:text-emerald-300">
-                      <span>Unique Patient ID (Permanent)</span>
+                      <span>Unique {terminology.person} ID (Permanent)</span>
                       <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
                         Auto-Generated & Permanent
                       </span>
@@ -872,7 +872,7 @@ export function ContactDetailView({
                     return (
                       <div className="border-border/50 space-y-3 border-t pt-2">
                         <span className="text-primary block text-[10px] font-bold uppercase">
-                          {contactConfig?.label || 'Contact'} Details
+                          {terminology.person} Details
                         </span>
                         {fields.map((field) => {
                           const val =
@@ -1198,7 +1198,7 @@ export function ContactDetailView({
           onOpenChange={setUploadPdfOpen}
           patientId={patientSeqId || 'PAT-000000'}
           contactId={contact.id}
-          patientName={contact.name || 'Patient'}
+          patientName={contact.name || terminology.person}
           patientPhone={contact.phone}
           onSuccess={() => {}}
         />

@@ -5,6 +5,7 @@ import {
   resolveSystemPrompt,
   INDUSTRY_REGISTRY,
 } from './registry';
+import { getIndustryTerminology } from './terminology';
 
 describe('INDUSTRY_REGISTRY', () => {
   it('registers all core industry modules with valid manifests', () => {
@@ -44,6 +45,35 @@ describe('INDUSTRY_REGISTRY', () => {
     expect(getIndustryModule('gym').id).toBe('gym');
     expect(getIndustryModule('restaurant').id).toBe('restaurant');
     expect(getIndustryModule(null).id).toBe('general');
+  });
+
+  it('provides complete terminology for every registered industry', () => {
+    const keys = Object.keys(getIndustryTerminology('general'));
+    for (const industryModule of Object.values(INDUSTRY_REGISTRY)) {
+      expect(industryModule.terminology).toBeDefined();
+      for (const key of keys) {
+        expect(
+          industryModule.terminology?.[
+            key as keyof NonNullable<typeof industryModule.terminology>
+          ]
+        ).toBeTruthy();
+      }
+    }
+  });
+
+  it('keeps sidebar labels aligned with terminology on shared routes', () => {
+    for (const industryModule of Object.values(INDUSTRY_REGISTRY)) {
+      const terms = industryModule.terminology!;
+      const labelsByRoute = new Map(
+        industryModule.sidebar.map((item) => [item.href, item.label])
+      );
+      if (labelsByRoute.has('/appointments')) {
+        expect(labelsByRoute.get('/appointments')).toBe(terms.meetings);
+      }
+      if (labelsByRoute.has('/contacts')) {
+        expect(labelsByRoute.get('/contacts')).toBe(terms.contacts);
+      }
+    }
   });
 
   it('marks health as ACTIVE and future modules as COMING_SOON', () => {

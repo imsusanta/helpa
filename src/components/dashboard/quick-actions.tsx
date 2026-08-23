@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { UserPlus, Briefcase, Radio, Zap } from 'lucide-react';
 import type { ComponentType } from 'react';
+import { useWorkspace } from '@/hooks/use-workspace';
 
 // Quick-action shortcuts. Each navigates to the page that owns the
 // relevant "create" flow. We deliberately don't try to auto-open any
@@ -43,9 +44,17 @@ const ACTIONS: Action[] = [
 ];
 
 export function QuickActions() {
+  const { terminology } = useWorkspace();
+  const actions = ACTIONS.map((a) =>
+    a.href === '/contacts'
+      ? { ...a, label: `New ${terminology.person}` }
+      : a.href === '/pipelines'
+        ? { ...a, label: `New ${terminology.pipelineItem}` }
+        : a
+  );
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      {ACTIONS.map((a) => {
+      {actions.map((a) => {
         const Icon = a.icon;
         return (
           <Link

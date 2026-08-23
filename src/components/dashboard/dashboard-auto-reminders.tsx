@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Zap, Clock, Send, Loader2, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/use-auth';
+import { resolveIndustryAlias } from '@/modules/terminology';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -257,7 +258,7 @@ const TEMPLATES_BY_INDUSTRY: Record<string, IndustryReminderTemplate[]> = {
 
 export function DashboardAutoReminders() {
   const { account, canEditSettings } = useAuth();
-  const industryKey = account?.industry || 'hospital_clinic';
+  const industryKey = resolveIndustryAlias(account?.industry);
   const templates =
     TEMPLATES_BY_INDUSTRY[industryKey] || TEMPLATES_BY_INDUSTRY.general;
 

@@ -18,6 +18,7 @@ import { SendOutboundModal } from '@/components/contacts/send-outbound-modal';
 import type { InsertedComposerReply } from '@/components/inbox/message-composer';
 import { WifiOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useWorkspace } from '@/hooks/use-workspace';
 
 // Remembers the agent's show/hide choice for the desktop contact panel
 // across reloads and sessions (device-scoped, like the theme prefs).
@@ -26,22 +27,9 @@ const CONTACT_PANEL_STORAGE_KEY = 'wacrm:inbox:contact-panel-open';
 export default function InboxPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { accountId, account } = useAuth();
-
-  const contactLabelSingular =
-    account?.industry === 'hospital_clinic'
-      ? 'Patient'
-      : account?.industry === 'coaching' || account?.industry === 'solo_teacher'
-        ? 'Student'
-        : account?.industry === 'real_estate'
-          ? 'Lead'
-          : account?.industry === 'travel'
-            ? 'Traveler'
-            : account?.industry === 'gym'
-              ? 'Member'
-              : account?.industry === 'restaurant'
-                ? 'Guest'
-                : 'Contact';
+  const { accountId } = useAuth();
+  const { terminology, currentIndustry } = useWorkspace();
+  const contactLabelSingular = terminology.person;
 
   const [rightTab, setRightTab] = useState<'copilot' | 'crm'>('copilot');
   /**
@@ -708,7 +696,8 @@ export default function InboxPage() {
 
             {/* Embed Panel Content */}
             <div className="flex min-h-0 flex-1 flex-col">
-              {rightTab === 'copilot' ? (
+              {rightTab === 'copilot' &&
+              currentIndustry === 'hospital_clinic' ? (
                 <ReceptionistCopilotPanel
                   conversation={activeConversation}
                   contact={activeContact}

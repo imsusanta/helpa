@@ -4,6 +4,7 @@ import { normalizePhone } from '@/lib/whatsapp/phone-utils';
 import { runAutomationsForTrigger } from '@/lib/automations/engine';
 import { dispatchInboundToFlows } from '@/lib/flows/engine';
 import { triggerAiResponse } from '@/lib/whatsapp/ai';
+import { getAccountChatbotSettings } from '@/core/ai/chatbot-settings';
 import { parseMessageContent } from './parse-event';
 import { findOrCreateContact } from './contact-service';
 import {
@@ -634,14 +635,30 @@ export async function processMessage(
       conversation.ai_autoreply_disabled === true ||
       conversation.is_ai_enabled === false;
 
-    const shouldTriggerAi =
+    const shouldTriggerAiBase =
       !flowConsumed &&
       !automationReplied &&
       !assignedAgent &&
       !aiDisabledOnConv;
 
+    // Respect the account-level chatbot master switch. triggerAiResponse also
+    // enforces this (chokepoint), so we only query here when AI would
+    // otherwise fire — avoiding an extra read on every inbound message.
+    let chatbotMasterEnabled = true;
+    if (shouldTriggerAiBase) {
+      try {
+        chatbotMasterEnabled = (await getAccountChatbotSettings(accountId))
+          .enabled;
+      } catch {
+        // On read failure, default to enabled — triggerAiResponse re-checks.
+        chatbotMasterEnabled = true;
+      }
+    }
+
+    const shouldTriggerAi = shouldTriggerAiBase && chatbotMasterEnabled;
+
     console.log(
-      `[AI AUTO REPLY] accountId=${accountId} conversationId=${convId} autoReplyEnabled=${!aiDisabledOnConv} automationDetected=${automationDetected} automationActuallyReplied=${automationReplied} flowConsumed=${flowConsumed} assignedAgent=${assignedAgent} aiDisabled=${aiDisabledOnConv} decision=${shouldTriggerAi ? 'GENERATE_AI_REPLY' : 'SKIP_AI_REPLY'}`
+      `[AI AUTO REPLY] accountId=${accountId} conversationId=${convId} autoReplyEnabled=${!aiDisabledOnConv} chatbotMasterEnabled=${chatbotMasterEnabled} automationDetected=${automationDetected} automationActuallyReplied=${automationReplied} flowConsumed=${flowConsumed} assignedAgent=${assignedAgent} aiDisabled=${aiDisabledOnConv} decision=${shouldTriggerAi ? 'GENERATE_AI_REPLY' : 'SKIP_AI_REPLY'}`
     );
 
     if (shouldTriggerAi) {

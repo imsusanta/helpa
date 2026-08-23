@@ -15,6 +15,10 @@ import {
 import { checkPlanLimits, incrementUsage } from '@/lib/saas/subscription';
 import { getIndustryModule, resolveSystemPrompt } from '@/modules/registry';
 import { parseAiResponse } from '@/lib/whatsapp/ai-response';
+import {
+  getAccountChatbotSettings,
+  getResponseStyleInstruction,
+} from '@/core/ai/chatbot-settings';
 
 import {
   executeAiCompletionWithFallback,
@@ -106,6 +110,18 @@ export async function triggerAiResponse(
       );
       return;
     }
+  }
+
+  // Account-level master switch for the AI chatbot (auto-reply). Stored in
+  // system_settings (see src/core/ai/chatbot-settings.ts); a missing/unset
+  // value defaults to enabled, so existing workspaces are unaffected until
+  // they explicitly turn the bot off from the Chatbot page.
+  const chatbotSettings = await getAccountChatbotSettings(accountId, db);
+  if (!chatbotSettings.enabled) {
+    console.log(
+      `[AI Assistant] Chatbot master switch is OFF for account ${accountId}. Skipping AI response.`
+    );
+    return;
   }
 
   interface AccountSettings {
@@ -577,6 +593,11 @@ export async function triggerAiResponse(
 7. SHARED WHATSAPP NUMBER DISAMBIGUATION: Multiple family members (e.g. Father, Mother, Child) may share the exact same WhatsApp number. Each patient has a unique Patient ID (e.g. PAT-000021, PAT-000022). If multiple registered patients exist under this phone number and you cannot confidently identify which patient the user is asking about or booking for, ask: "I found multiple patient profiles linked to this WhatsApp number. Could you please tell me the patient's name?" Once the user specifies the name, switch to that patient profile and continue.`;
 
   let systemPromptContent = basePrompt + overrideRules;
+
+  // Apply the workspace's configured response style (concise/balanced/detailed).
+  systemPromptContent += `\n\n[RESPONSE STYLE PREFERENCE]: ${getResponseStyleInstruction(
+    chatbotSettings.responseStyle
+  )}`;
 
   if (account?.welcome_message && account.welcome_message.trim().length > 0) {
     systemPromptContent += `\n\n[MANDATORY CUSTOM WELCOME GREETING TEMPLATE]:\nWhen greeting a new patient/customer or starting a new conversation, you MUST incorporate this custom welcome message:\n"${account.welcome_message.trim()}"\nFollowed by answering their query or guiding them through the registration/booking process using real-time database records.\n`;

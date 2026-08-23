@@ -27,6 +27,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { hasMinRole } from '@/lib/auth/roles';
 import { getBroadcastStatus } from '@/lib/broadcast-status';
 import { toast } from 'sonner';
+import { useWorkspace } from '@/hooks/use-workspace';
 
 const POLL_INTERVAL_MS = 5_000;
 
@@ -63,6 +64,7 @@ function RateCell({
 export default function CampaignsPage() {
   const router = useRouter();
   const { accountId, accountRole } = useAuth();
+  const { terminology } = useWorkspace();
 
   const isAdmin = accountRole && hasMinRole(accountRole, 'admin');
 
@@ -457,7 +459,7 @@ export default function CampaignsPage() {
         </div>
         <div className="bg-card border-border/80 rounded-2xl border p-4 shadow-sm transition hover:shadow-md">
           <p className="text-muted-foreground text-[10px] font-bold tracking-wider uppercase">
-            Bookings (Conv. %)
+            {terminology.bookings} (Conv. %)
           </p>
           <p className="mt-2 text-2xl font-black text-indigo-600 tabular-nums dark:text-indigo-400">
             {bookingsCount}{' '}
@@ -479,11 +481,11 @@ export default function CampaignsPage() {
             <div className="border-border/70 bg-muted/20 flex flex-col justify-between rounded-xl border p-4">
               <div>
                 <p className="text-xs font-bold tracking-wide text-indigo-600 uppercase dark:text-indigo-400">
-                  Inactive Patients
+                  Inactive {terminology.people}
                 </p>
                 <p className="text-foreground mt-2 text-sm font-semibold">
-                  {oppStats.inactive} patients have not visited the clinic in
-                  the last 6 months.
+                  {oppStats.inactive} {terminology.people.toLowerCase()} have
+                  not engaged with the business in the last 6 months.
                 </p>
               </div>
               <Button
@@ -493,7 +495,8 @@ export default function CampaignsPage() {
                 variant="outline"
                 className="mt-4 flex w-full items-center justify-center gap-1 rounded-xl border-indigo-500/30 py-1.5 text-xs text-indigo-600 hover:bg-indigo-600/5 dark:text-indigo-400"
               >
-                Promote Health Checkup <ArrowRight className="h-3 w-3" />
+                Promote {terminology.services}{' '}
+                <ArrowRight className="h-3 w-3" />
               </Button>
             </div>
           )}
@@ -502,10 +505,11 @@ export default function CampaignsPage() {
             <div className="border-border/70 bg-muted/20 flex flex-col justify-between rounded-xl border p-4">
               <div>
                 <p className="text-xs font-bold tracking-wide text-amber-600 uppercase dark:text-amber-400">
-                  Missed Appointments
+                  Missed {terminology.meetings}
                 </p>
                 <p className="text-foreground mt-2 text-sm font-semibold">
-                  {oppStats.missed} patients missed or cancelled appointments
+                  {oppStats.missed} {terminology.people.toLowerCase()} missed or
+                  cancelled {terminology.meetings.toLowerCase()}
                   this month.
                 </p>
               </div>
@@ -526,7 +530,8 @@ export default function CampaignsPage() {
                   Follow-ups Due
                 </p>
                 <p className="text-foreground mt-2 text-sm font-semibold">
-                  {oppStats.followup} patients are due for routine follow-up
+                  {oppStats.followup} {terminology.people.toLowerCase()} are due
+                  for routine {terminology.followUp.toLowerCase()}
                   consultations.
                 </p>
               </div>

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { getIndustryModule } from '@/modules/registry';
+import { getIndustryTerminology } from '@/modules/terminology';
 
 describe('Phase 2: Dynamic Industry Workspace Manifests', () => {
   const supportedIndustries = [
@@ -37,44 +38,46 @@ describe('Phase 2: Dynamic Industry Workspace Manifests', () => {
 
   it('resolves correct industry-specific terminology', () => {
     // Health Terminology
-    const health = getIndustryModule('health');
-    expect(health.terminology?.contact).toBe('Patient');
-    expect(health.terminology?.contacts).toBe('Patients');
-    expect(health.terminology?.booking).toBe('Appointment');
-    expect(health.terminology?.staff).toBe('Doctor');
-    expect(health.aiRole).toBe('AI Hospital Receptionist');
+    const health = getIndustryTerminology('health');
+    expect(health.contact).toBe('Patient');
+    expect(health.contacts).toBe('Patients');
+    expect(health.booking).toBe('Appointment');
+    expect(health.staff).toBe('Doctor');
+    expect(getIndustryModule('health').aiRole).toBe('AI Hospital Receptionist');
 
     // Coaching Terminology
-    const coaching = getIndustryModule('coaching');
-    expect(coaching.terminology?.contact).toBe('Student');
-    expect(coaching.terminology?.contacts).toBe('Students');
-    expect(coaching.terminology?.booking).toBe('Admission');
-    expect(coaching.terminology?.staff).toBe('Teacher');
-    expect(coaching.aiRole).toBe('AI Admission Assistant');
+    const coaching = getIndustryTerminology('coaching');
+    expect(coaching.contact).toBe('Student');
+    expect(coaching.contacts).toBe('Students');
+    expect(coaching.booking).toBe('Admission Enquiry');
+    expect(coaching.staff).toBe('Teacher');
+    expect(getIndustryModule('coaching').aiRole).toBe('AI Admission Assistant');
 
     // Tutor Terminology
-    const tutor = getIndustryModule('tutor');
-    expect(tutor.terminology?.contact).toBe('Student');
-    expect(tutor.terminology?.contacts).toBe('Students');
-    expect(tutor.terminology?.booking).toBe('Enrollment');
-    expect(tutor.terminology?.staff).toBe('Teacher');
-    expect(tutor.aiRole).toBe('AI Teaching Assistant');
+    const tutor = getIndustryTerminology('tutor');
+    expect(tutor.contact).toBe('Student');
+    expect(tutor.contacts).toBe('Students');
+    expect(tutor.booking).toBe('Class Booking');
+    expect(tutor.staff).toBe('Teacher');
+    expect(getIndustryModule('tutor').aiRole).toBe('AI Teaching Assistant');
 
     // Salon Terminology
-    const salon = getIndustryModule('salon');
-    expect(salon.terminology?.contact).toBe('Customer');
-    expect(salon.terminology?.contacts).toBe('Customers');
-    expect(salon.terminology?.booking).toBe('Appointment');
-    expect(salon.terminology?.staff).toBe('Staff');
-    expect(salon.aiRole).toBe('AI Salon Receptionist');
+    const salon = getIndustryTerminology('salon');
+    expect(salon.contact).toBe('Client');
+    expect(salon.contacts).toBe('Clients');
+    expect(salon.booking).toBe('Appointment');
+    expect(salon.staff).toBe('Stylist');
+    expect(getIndustryModule('salon').aiRole).toBe('AI Salon Receptionist');
 
     // Real Estate Terminology
-    const realEstate = getIndustryModule('real_estate');
-    expect(realEstate.terminology?.contact).toBe('Lead');
-    expect(realEstate.terminology?.contacts).toBe('Leads');
-    expect(realEstate.terminology?.booking).toBe('Site Visit');
-    expect(realEstate.terminology?.staff).toBe('Agent');
-    expect(realEstate.aiRole).toBe('AI Property Assistant');
+    const realEstate = getIndustryTerminology('real_estate');
+    expect(realEstate.contact).toBe('Lead');
+    expect(realEstate.contacts).toBe('Leads');
+    expect(realEstate.meeting).toBe('Site Visit');
+    expect(realEstate.staff).toBe('Agent');
+    expect(getIndustryModule('real_estate').aiRole).toBe(
+      'AI Property Assistant'
+    );
   });
 
   it('enforces route permissions per industry manifest', () => {

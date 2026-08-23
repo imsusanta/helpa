@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { formatCurrency } from '@/lib/currency';
+import { useWorkspace } from '@/hooks/use-workspace';
 
 interface PipelineBoardProps {
   stages: PipelineStage[];
@@ -205,6 +206,7 @@ function StageColumn({
   onAddDeal: (stageId: string) => void;
   onEditDeal: (deal: Deal) => void;
 }) {
+  const { terminology } = useWorkspace();
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
 
   return (
@@ -242,7 +244,7 @@ function StageColumn({
       >
         {deals.length === 0 ? (
           <div className="border-border text-muted-foreground flex flex-1 items-center justify-center rounded-lg border-2 border-dashed py-10 text-xs">
-            Drop a deal here
+            Drop a {terminology.pipelineItem.toLowerCase()} here
           </div>
         ) : (
           deals.map((deal) => (
@@ -263,7 +265,7 @@ function StageColumn({
         className="border-border text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground mt-3 w-full justify-start border border-dashed bg-transparent"
       >
         <Plus className="mr-1 h-3 w-3" />
-        Add Deal
+        Add {terminology.pipelineItem}
       </Button>
     </div>
   );
