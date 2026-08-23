@@ -430,9 +430,9 @@ async function runStep(
       if (!cfg.template_name)
         throw new Error('send_template needs template_name');
       const conversationId = await resolveConversationId(args);
-      // Meta templates use positional user://2efd635b-6fd1-4ed3-bdab-d48a311e1ab3, 2efd635b-6fd1-4ed3-bdab-d48a311e1ab3, … placeholders, so
-      // we MUST emit params in strict numeric order. Lexicographic sort
-      // of "1", "2", …, "10" yields "1", "10", "2", … which silently
+      // Meta templates use positional numbered placeholders, so we MUST
+      // emit params in strict numeric order. Lexicographic sort of
+      // "1", "2", …, "10" yields "1", "10", "2", … which silently
       // scrambles every template with ≥10 variables.
       const keys = cfg.variables
         ? Object.keys(cfg.variables).sort((a, b) => {
