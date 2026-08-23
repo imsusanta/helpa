@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { NAV } from '@/components/layout/sidebar';
+import { NAV, pathIsActive } from '@/components/layout/sidebar';
+import { NAVIGATION_FEATURE_STATUSES } from '@/components/layout/navigation-registry';
 import {
   buildVisibleNavigation,
   normalizeNavigationDestination,
@@ -22,6 +23,7 @@ const hospitalNavigation = buildVisibleNavigation({
   isSuperAdmin: false,
   isRouteAllowed: (pathname) =>
     isIndustryRouteAllowed(hospitalManifest, pathname),
+  featureStatuses: NAVIGATION_FEATURE_STATUSES,
 });
 
 function visibleChildrenFor(id: string) {
@@ -110,6 +112,7 @@ describe('authenticated sidebar navigation', () => {
         isSuperAdmin: false,
         accountRole,
         routeRoleRequirements: hospitalManifest.sidebar,
+        featureStatuses: NAVIGATION_FEATURE_STATUSES,
         isRouteAllowed: (pathname) =>
           isIndustryRouteAllowed(hospitalManifest, pathname),
       });
@@ -143,6 +146,7 @@ describe('authenticated sidebar navigation', () => {
         isSuperAdmin: false,
         accountRole: null,
         routeRoleRequirements: hospitalManifest.sidebar,
+        featureStatuses: NAVIGATION_FEATURE_STATUSES,
         isRouteAllowed: () => true,
       })
         .find((item) => item.id === 'whatsapp')
@@ -157,6 +161,7 @@ describe('authenticated sidebar navigation', () => {
         isSuperAdmin: true,
         accountRole: null,
         routeRoleRequirements: hospitalManifest.sidebar,
+        featureStatuses: NAVIGATION_FEATURE_STATUSES,
         isRouteAllowed: () => true,
       })
         .find((item) => item.id === 'whatsapp')
@@ -315,6 +320,23 @@ describe('authenticated sidebar navigation', () => {
     expect(normalizeNavigationDestination('/settings?b=2&a=1')).toBe(
       '/settings?a=1&b=2'
     );
+  });
+
+  it('matches only the selected settings query tab', () => {
+    expect(
+      pathIsActive(
+        '/settings',
+        new URLSearchParams('tab=team'),
+        '/settings?tab=team'
+      )
+    ).toBe(true);
+    expect(
+      pathIsActive(
+        '/settings',
+        new URLSearchParams('tab=profile'),
+        '/settings?tab=team'
+      )
+    ).toBe(false);
   });
 
   it('reports final terminology and active-alias collisions clearly', () => {
