@@ -43,7 +43,6 @@ function resolveGitSha() {
             return { sha: refSha.toLowerCase(), source: `.git/${refPath}` };
           }
         }
-        // Also check packed-refs
         const packedRefsPath = path.join(gitDir, 'packed-refs');
         if (fs.existsSync(packedRefsPath)) {
           const lines = fs.readFileSync(packedRefsPath, 'utf-8').split('\n');
@@ -65,7 +64,6 @@ function resolveGitSha() {
 
 function resolveCommit() {
   const env = process.env;
-
   const candidates = [
     { name: 'APP_COMMIT_SHA', val: env.APP_COMMIT_SHA },
     { name: 'VERCEL_GIT_COMMIT_SHA', val: env.VERCEL_GIT_COMMIT_SHA },
@@ -87,11 +85,8 @@ function resolveCommit() {
     }
   }
 
-  // Fallback to git CLI
   const fromGit = resolveGitSha();
-  if (fromGit) {
-    return fromGit;
-  }
+  if (fromGit) return fromGit;
 
   if (process.env.VERCEL) {
     return {
@@ -104,6 +99,13 @@ function resolveCommit() {
 }
 
 function main() {
+  if (process.env.APP_COMMIT_SHA) {
+    console.log('🔎 [prebuild] Running formatting, lint, and type diagnostics');
+    execSync('npm run format:check && npm run lint && npm run typecheck', {
+      stdio: 'inherit',
+    });
+  }
+
   const resolved = resolveCommit();
   const buildTime = new Date().toISOString();
 
