@@ -3,7 +3,6 @@ import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
 import { runAutomationsForTrigger } from '@/lib/automations/engine';
 import { scheduleAppointmentReminders } from '@/lib/automations/appointment-triggers';
-import type { AutomationTriggerType } from '@/types';
 
 const PRIVATE_HEADERS = {
   'Cache-Control': 'private, no-store, no-cache, must-revalidate',
@@ -101,7 +100,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // an otherwise successful appointment booking.
       void runAutomationsForTrigger({
         accountId: context.accountId,
-        triggerType: 'appointment_created' as AutomationTriggerType,
+        triggerType: 'appointment_created',
         contactId: data.patient_id,
         context: {
           conversation_id: undefined,
