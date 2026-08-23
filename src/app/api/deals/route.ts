@@ -18,10 +18,16 @@ function requestId(request: NextRequest): string {
 function errorResponse(
   status: number,
   code: string,
-  correlationId: string
+  correlationId: string,
+  message?: string
 ): NextResponse {
   return NextResponse.json(
-    { error: code, requestId: correlationId },
+    {
+      success: false,
+      error: code,
+      message: message || code,
+      requestId: correlationId,
+    },
     { status, headers: { ...PRIVATE_HEADERS, 'X-Request-Id': correlationId } }
   );
 }
@@ -54,12 +60,21 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     });
 
     if (error) {
-      console.error('[deals] Query failed:', error);
-      return errorResponse(500, error.message, correlationId);
+      console.error('[deals] Query failed:', {
+        requestId: correlationId,
+        code: error.code,
+        message: error.message,
+      });
+      return errorResponse(
+        500,
+        'DEALS_FETCH_FAILED',
+        correlationId,
+        'Unable to load deals.'
+      );
     }
 
     return NextResponse.json(
-      { data: deals || [], requestId: correlationId },
+      { success: true, data: deals || [], requestId: correlationId },
       { headers: { ...PRIVATE_HEADERS, 'X-Request-Id': correlationId } }
     );
   } catch (error) {
@@ -69,7 +84,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     if (error instanceof ForbiddenError) {
       return errorResponse(403, 'ACCOUNT_MEMBERSHIP_REQUIRED', correlationId);
     }
-    return errorResponse(500, 'DEALS_FETCH_FAILED', correlationId);
+    console.error('[deals] GET unhandled error:', {
+      requestId: correlationId,
+      error,
+    });
+    return errorResponse(
+      500,
+      'DEALS_FETCH_FAILED',
+      correlationId,
+      'Unable to load deals.'
+    );
   }
 }
 
@@ -98,11 +122,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const dealName = name || title;
 
-    if (!pipeline_id || !stage_id || !dealName || !String(dealName).trim()) {
+    if (!dealName || !String(dealName).trim()) {
       return errorResponse(
         400,
-        'NAME_PIPELINE_AND_STAGE_REQUIRED',
-        correlationId
+        'NAME_REQUIRED',
+        correlationId,
+        'Deal name is required.'
+      );
+    }
+
+    if (!pipeline_id || !stage_id) {
+      return errorResponse(
+        400,
+        'PIPELINE_AND_STAGE_REQUIRED',
+        correlationId,
+        'Pipeline and stage are required.'
       );
     }
 
@@ -116,7 +150,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         assigned_user_id: assigned_user_id || assigned_to || context.userId,
         name: String(dealName).trim(),
         value: Number(value) || 0,
-        currency: currency || 'INR',
+        currency: String(currency || 'INR').toUpperCase(),
         probability: Number(probability) || 50,
         expected_close_date: expected_close_date || null,
         source: source || null,
@@ -129,11 +163,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       .single();
 
     if (insertErr || !newDeal) {
-      console.error('[deals] Insert failed:', insertErr);
+      console.error('[deals] Insert failed:', {
+        requestId: correlationId,
+        code: insertErr?.code,
+        message: insertErr?.message,
+      });
       return errorResponse(
         500,
-        insertErr ? insertErr.message : 'Insert failed',
-        correlationId
+        'DEAL_CREATE_FAILED',
+        correlationId,
+        'Unable to create deal.'
       );
     }
 
@@ -162,7 +201,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     return NextResponse.json(
-      { data: newDeal, requestId: correlationId },
+      { success: true, data: newDeal, requestId: correlationId },
       {
         status: 201,
         headers: { ...PRIVATE_HEADERS, 'X-Request-Id': correlationId },
@@ -175,6 +214,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (error instanceof ForbiddenError) {
       return errorResponse(403, 'ACCOUNT_MEMBERSHIP_REQUIRED', correlationId);
     }
-    return errorResponse(500, 'DEAL_CREATE_FAILED', correlationId);
+    console.error('[deals] POST unhandled error:', {
+      requestId: correlationId,
+      error,
+    });
+    return errorResponse(
+      500,
+      'DEAL_CREATE_FAILED',
+      correlationId,
+      'Unable to create deal.'
+    );
   }
 }

@@ -66,11 +66,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     });
 
     if (error) {
+      console.error('[tasks] GET error:', {
+        requestId: correlationId,
+        code: error.code,
+        message: error.message,
+      });
       return errorResponse(
         500,
         'TASKS_FETCH_FAILED',
         correlationId,
-        error.message
+        'Unable to load tasks.'
       );
     }
 
@@ -85,7 +90,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     if (err instanceof ForbiddenError) {
       return errorResponse(403, 'ACCOUNT_MEMBERSHIP_REQUIRED', correlationId);
     }
-    return errorResponse(500, 'TASKS_FETCH_FAILED', correlationId);
+    console.error('[tasks] GET unhandled error:', {
+      requestId: correlationId,
+      error: err,
+    });
+    return errorResponse(
+      500,
+      'TASKS_FETCH_FAILED',
+      correlationId,
+      'Unable to load tasks.'
+    );
   }
 }
 
@@ -140,11 +154,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       .single();
 
     if (insertError || !newTask) {
+      console.error('[tasks] POST insert error:', {
+        requestId: correlationId,
+        code: insertError?.code,
+        message: insertError?.message,
+      });
       return errorResponse(
         500,
         'TASK_CREATE_FAILED',
         correlationId,
-        insertError?.message
+        'Unable to create task.'
       );
     }
 
@@ -162,6 +181,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (err instanceof ForbiddenError) {
       return errorResponse(403, 'AGENT_PERMISSION_REQUIRED', correlationId);
     }
-    return errorResponse(500, 'TASK_CREATE_FAILED', correlationId);
+    console.error('[tasks] POST unhandled error:', {
+      requestId: correlationId,
+      error: err,
+    });
+    return errorResponse(
+      500,
+      'TASK_CREATE_FAILED',
+      correlationId,
+      'Unable to create task.'
+    );
   }
 }

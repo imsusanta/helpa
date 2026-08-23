@@ -46,6 +46,19 @@ describe('WhatsApp Webhook & Idempotency Engine', () => {
               mockWebhookEvents.push(row);
               return Promise.resolve({ data: row, error: null });
             },
+            select: () => ({
+              eq: (f1: string, v1: unknown) => ({
+                eq: (f2: string, v2: unknown) => ({
+                  maybeSingle: async () => ({
+                    data:
+                      mockWebhookEvents.find(
+                        (row) => row[f1] === v1 && row[f2] === v2
+                      ) ?? null,
+                    error: null,
+                  }),
+                }),
+              }),
+            }),
             update: (updateData: Record<string, unknown>) => {
               const builder = {
                 eq: (f1: string, v1: unknown) => {

@@ -22,7 +22,12 @@ function errorResponse(
   message?: string
 ): NextResponse {
   return NextResponse.json(
-    { error: code, message: message || code, requestId: correlationId },
+    {
+      success: false,
+      error: code,
+      message: message || code,
+      requestId: correlationId,
+    },
     { status, headers: { ...PRIVATE_HEADERS, 'X-Request-Id': correlationId } }
   );
 }
@@ -47,11 +52,16 @@ export async function GET(
       .maybeSingle();
 
     if (dealErr || !deal) {
-      return errorResponse(404, 'DEAL_NOT_FOUND', correlationId);
+      return errorResponse(
+        404,
+        'DEAL_NOT_FOUND',
+        correlationId,
+        'Deal not found.'
+      );
     }
 
     return NextResponse.json(
-      { data: deal, requestId: correlationId },
+      { success: true, data: deal, requestId: correlationId },
       { headers: { ...PRIVATE_HEADERS, 'X-Request-Id': correlationId } }
     );
   } catch (error) {
@@ -61,7 +71,16 @@ export async function GET(
     if (error instanceof ForbiddenError) {
       return errorResponse(403, 'ACCOUNT_MEMBERSHIP_REQUIRED', correlationId);
     }
-    return errorResponse(500, 'DEAL_FETCH_FAILED', correlationId);
+    console.error('[deals] GET by ID error:', {
+      requestId: correlationId,
+      error,
+    });
+    return errorResponse(
+      500,
+      'DEAL_FETCH_FAILED',
+      correlationId,
+      'Unable to load deal.'
+    );
   }
 }
 
@@ -87,7 +106,12 @@ export async function PUT(
       .single();
 
     if (!currentDeal) {
-      return errorResponse(404, 'DEAL_NOT_FOUND', correlationId);
+      return errorResponse(
+        404,
+        'DEAL_NOT_FOUND',
+        correlationId,
+        'Deal not found.'
+      );
     }
 
     const {
@@ -153,15 +177,20 @@ export async function PUT(
       .single();
 
     if (updateErr || !updatedDeal) {
-      console.error('[deals] Update failed:', updateErr);
+      console.error('[deals] Update failed:', {
+        requestId: correlationId,
+        code: updateErr?.code,
+        message: updateErr?.message,
+      });
       return errorResponse(
         500,
-        updateErr ? updateErr.message : 'Update failed',
-        correlationId
+        'DEAL_UPDATE_FAILED',
+        correlationId,
+        'Unable to update deal.'
       );
     }
 
-    // Check for stage change activity
+    // Handle Stage or Status Change Activity Logs
     if (stage_id && stage_id !== currentDeal.stage_id) {
       await supabase.from('deal_activities').insert({
         account_id: context.accountId,
@@ -169,8 +198,11 @@ export async function PUT(
         actor_user_id: context.userId,
         activity_type: 'stage_change',
         title: 'Stage Changed',
-        description: `Stage moved from previous stage to new stage`,
-        metadata: { from_stage: currentDeal.stage_id, to_stage: stage_id },
+        description: `Deal moved to new stage`,
+        metadata: {
+          previous_stage_id: currentDeal.stage_id,
+          new_stage_id: stage_id,
+        },
       });
 
       await dispatchCrmEvent({
@@ -179,14 +211,13 @@ export async function PUT(
         dealId: id,
         contactId: updatedDeal.contact_id,
         payload: {
-          fromStage: currentDeal.stage_id,
-          toStage: stage_id,
+          previousStageId: currentDeal.stage_id,
+          newStageId: stage_id,
           deal: updatedDeal,
         },
       });
     }
 
-    // Check for Won / Lost status transitions
     if (status && status !== currentDeal.status) {
       if (status === 'won') {
         await supabase.from('deal_activities').insert({
@@ -194,8 +225,8 @@ export async function PUT(
           deal_id: id,
           actor_user_id: context.userId,
           activity_type: 'won',
-          title: 'Deal Won 🎉',
-          description: `Deal marked as WON for value ${updatedDeal.currency} ${updatedDeal.value}`,
+          title: 'Deal Won',
+          description: `Deal marked as WON with value ${updatedDeal.currency} ${updatedDeal.value}`,
           metadata: { value: updatedDeal.value },
         });
 
@@ -213,8 +244,8 @@ export async function PUT(
           actor_user_id: context.userId,
           activity_type: 'lost',
           title: 'Deal Lost',
-          description: `Deal marked as LOST. Reason: ${lost_reason || 'None specified'}`,
-          metadata: { lost_reason },
+          description: `Deal marked as LOST. Reason: ${effectiveLostReason || 'None specified'}`,
+          metadata: { lost_reason: effectiveLostReason },
         });
 
         await dispatchCrmEvent({
@@ -222,13 +253,13 @@ export async function PUT(
           eventType: 'deal.lost',
           dealId: id,
           contactId: updatedDeal.contact_id,
-          payload: { lost_reason, deal: updatedDeal },
+          payload: { lost_reason: effectiveLostReason, deal: updatedDeal },
         });
       }
     }
 
     return NextResponse.json(
-      { data: updatedDeal, requestId: correlationId },
+      { success: true, data: updatedDeal, requestId: correlationId },
       { headers: { ...PRIVATE_HEADERS, 'X-Request-Id': correlationId } }
     );
   } catch (error) {
@@ -238,7 +269,16 @@ export async function PUT(
     if (error instanceof ForbiddenError) {
       return errorResponse(403, 'ACCOUNT_MEMBERSHIP_REQUIRED', correlationId);
     }
-    return errorResponse(500, 'DEAL_UPDATE_FAILED', correlationId);
+    console.error('[deals] PUT error:', {
+      requestId: correlationId,
+      error,
+    });
+    return errorResponse(
+      500,
+      'DEAL_UPDATE_FAILED',
+      correlationId,
+      'Unable to update deal.'
+    );
   }
 }
 
@@ -261,12 +301,25 @@ export async function DELETE(
       .eq('account_id', context.accountId);
 
     if (delErr) {
-      console.error('[deals] Delete failed:', delErr);
-      return errorResponse(500, delErr.message, correlationId);
+      console.error('[deals] Delete failed:', {
+        requestId: correlationId,
+        code: delErr.code,
+        message: delErr.message,
+      });
+      return errorResponse(
+        500,
+        'DEAL_DELETE_FAILED',
+        correlationId,
+        'Unable to delete deal.'
+      );
     }
 
     return NextResponse.json(
-      { success: true, requestId: correlationId },
+      {
+        success: true,
+        message: 'Deal deleted successfully',
+        requestId: correlationId,
+      },
       { headers: { ...PRIVATE_HEADERS, 'X-Request-Id': correlationId } }
     );
   } catch (error) {
@@ -276,6 +329,15 @@ export async function DELETE(
     if (error instanceof ForbiddenError) {
       return errorResponse(403, 'ACCOUNT_MEMBERSHIP_REQUIRED', correlationId);
     }
-    return errorResponse(500, 'DEAL_DELETE_FAILED', correlationId);
+    console.error('[deals] DELETE error:', {
+      requestId: correlationId,
+      error,
+    });
+    return errorResponse(
+      500,
+      'DEAL_DELETE_FAILED',
+      correlationId,
+      'Unable to delete deal.'
+    );
   }
 }

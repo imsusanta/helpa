@@ -16,12 +16,19 @@ import { handleStatusUpdate } from './process-status';
 import { processMessage } from './process-message';
 import type { WhatsAppWebhookEntry } from './types';
 
-// GET - Meta challenge verification
+function isUniqueViolation(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const candidate = error as { code?: string; message?: string };
+  return (
+    candidate.code === '23505' ||
+    candidate.message?.toLowerCase().includes('duplicate key') === true
+  );
+}
+
 export async function GET(request: Request) {
   return handleWebhookGet(request);
 }
 
-// POST - Receive webhook events with strict fail-closed signature verification
 export async function POST(request: Request) {
   const correlationId = getOrCreateCorrelationId(request);
   const rawBody = await request.text();
@@ -46,23 +53,14 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json(
       { error: 'Invalid JSON' },
-      {
-        status: 400,
-        headers: {
-          [CORRELATION_ID_HEADER]: correlationId,
-        },
-      }
+      { status: 400, headers: { [CORRELATION_ID_HEADER]: correlationId } }
     );
   }
 
   try {
     await processWebhook(body, correlationId);
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error(
-      `[Webhook] [${correlationId}] Error processing webhook:`,
-      message
-    );
+  } catch {
+    console.error('[Webhook] Error processing inbound event');
     return NextResponse.json(
       { error: 'Webhook processing failed' },
       {
@@ -78,12 +76,7 @@ export async function POST(request: Request) {
 
   return NextResponse.json(
     { status: 'received' },
-    {
-      status: 200,
-      headers: {
-        [CORRELATION_ID_HEADER]: correlationId,
-      },
-    }
+    { status: 200, headers: { [CORRELATION_ID_HEADER]: correlationId } }
   );
 }
 
@@ -116,21 +109,18 @@ async function processWebhook(
         !value.messages ||
         !Array.isArray(value.messages) ||
         value.messages.length === 0
-      )
+      ) {
         continue;
+      }
 
       const phoneNumberId = value.metadata?.phone_number_id;
       if (!phoneNumberId) continue;
 
-      // Strict multi-tenant resolution by Phone Number ID
       const tenantContext = await resolveTenantByPhoneNumberId(phoneNumberId);
       if (!tenantContext) {
-        throw new Error(
-          `No WhatsApp configuration found for phone_number_id ${phoneNumberId}`
-        );
+        throw new Error('No WhatsApp configuration found for phone number');
       }
 
-      // Update last_webhook_at timestamp for tenant health tracking
       const nowIso = new Date().toISOString();
       try {
         const { error: confErr } = await db
@@ -145,7 +135,7 @@ async function processWebhook(
             .eq('phone_number_id', phoneNumberId);
         }
       } catch {
-        // Non-critical timestamp update failure
+        // Health timestamp is non-critical to inbound persistence.
       }
 
       for (let i = 0; i < value.messages.length; i++) {
@@ -157,7 +147,6 @@ async function processWebhook(
           profile: { name: message.from },
         };
 
-        // Idempotency check using webhook_events table in Supabase
         if (message?.id) {
           const payloadHash = crypto
             .createHash('sha256')
@@ -177,11 +166,13 @@ async function processWebhook(
             });
 
           if (eventInsertError) {
-            // Duplicate event detected — unique constraint on (provider, provider_event_id)
-            console.warn(
-              `[Webhook Idempotency] [${correlationId || 'no-cid'}] Duplicate event ${message.id} skipped for tenant ${tenantContext.tenantId}`
-            );
-            continue;
+            if (isUniqueViolation(eventInsertError)) {
+              console.warn('[Webhook Idempotency] Duplicate event skipped');
+              continue;
+            }
+
+            console.error('[Webhook Idempotency] Event registration failed');
+            throw new Error('Unable to register inbound webhook event');
           }
         }
 
@@ -196,7 +187,7 @@ async function processWebhook(
           );
 
           if (message?.id) {
-            await db
+            const { error: processedUpdateError } = await db
               .from('webhook_events')
               .update({
                 status: 'processed',
@@ -204,12 +195,15 @@ async function processWebhook(
               })
               .eq('provider', 'whatsapp')
               .eq('provider_event_id', message.id);
+
+            if (processedUpdateError) {
+              console.error(
+                '[Webhook Idempotency] Processed status update failed'
+              );
+            }
           }
         } catch (msgErr) {
-          console.error(
-            `[Webhook] [${correlationId || 'no-cid'}] Error processing message ${message.id}:`,
-            msgErr
-          );
+          console.error('[Webhook] Inbound message processing failed');
           if (message?.id) {
             await db
               .from('webhook_events')

@@ -78,11 +78,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       .range(offset, offset + limit - 1);
 
     if (error) {
+      console.error('[quotations] GET query failed:', {
+        requestId: correlationId,
+        code: error.code,
+        message: error.message,
+      });
       return errorResponse(
         500,
         'QUOTATIONS_FETCH_FAILED',
         correlationId,
-        error.message
+        'Unable to load quotations.'
       );
     }
 
@@ -104,7 +109,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     if (err instanceof ForbiddenError) {
       return errorResponse(403, 'ACCOUNT_MEMBERSHIP_REQUIRED', correlationId);
     }
-    return errorResponse(500, 'QUOTATIONS_FETCH_FAILED', correlationId);
+    console.error('[quotations] GET unhandled error:', {
+      requestId: correlationId,
+      error: err,
+    });
+    return errorResponse(
+      500,
+      'QUOTATIONS_FETCH_FAILED',
+      correlationId,
+      'Unable to load quotations.'
+    );
   }
 }
 
@@ -208,11 +222,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       .single();
 
     if (insertErr || !newQuotation) {
+      console.error('[quotations] POST insert failed:', {
+        requestId: correlationId,
+        code: insertErr?.code,
+        message: insertErr?.message,
+      });
       return errorResponse(
         500,
         'QUOTATION_CREATE_FAILED',
         correlationId,
-        insertErr?.message
+        'Unable to create quotation.'
       );
     }
 
@@ -248,6 +267,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (err instanceof ForbiddenError) {
       return errorResponse(403, 'AGENT_PERMISSION_REQUIRED', correlationId);
     }
-    return errorResponse(500, 'QUOTATION_CREATE_FAILED', correlationId);
+    console.error('[quotations] POST unhandled error:', {
+      requestId: correlationId,
+      error: err,
+    });
+    return errorResponse(
+      500,
+      'QUOTATION_CREATE_FAILED',
+      correlationId,
+      'Unable to create quotation.'
+    );
   }
 }

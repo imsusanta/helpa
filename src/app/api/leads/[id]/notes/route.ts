@@ -83,11 +83,16 @@ export async function POST(
       .single();
 
     if (noteErr || !newNote) {
+      console.error('[leads] Add note error:', {
+        requestId: correlationId,
+        code: noteErr?.code,
+        message: noteErr?.message,
+      });
       return errorResponse(
         500,
         'NOTE_CREATE_FAILED',
         correlationId,
-        noteErr?.message
+        'Unable to create lead note.'
       );
     }
 
@@ -118,6 +123,15 @@ export async function POST(
     if (err instanceof ForbiddenError) {
       return errorResponse(403, 'AGENT_PERMISSION_REQUIRED', correlationId);
     }
-    return errorResponse(500, 'NOTE_CREATE_FAILED', correlationId);
+    console.error('[leads] Add note unhandled error:', {
+      requestId: correlationId,
+      error: err,
+    });
+    return errorResponse(
+      500,
+      'NOTE_CREATE_FAILED',
+      correlationId,
+      'Unable to create lead note.'
+    );
   }
 }

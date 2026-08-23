@@ -42,7 +42,12 @@ export async function POST(
 
     const { name, color = '#64748b', order_index, position } = body;
     if (!name || !String(name).trim()) {
-      return errorResponse(400, 'STAGE_NAME_REQUIRED', correlationId);
+      return errorResponse(
+        400,
+        'STAGE_NAME_REQUIRED',
+        correlationId,
+        'Stage name is required.'
+      );
     }
 
     const { data: newStage, error } = await supabase
@@ -63,11 +68,16 @@ export async function POST(
       .single();
 
     if (error || !newStage) {
+      console.error('[pipeline_stages] POST error:', {
+        requestId: correlationId,
+        code: error?.code,
+        message: error?.message,
+      });
       return errorResponse(
         500,
         'STAGE_CREATE_FAILED',
         correlationId,
-        error?.message
+        'Unable to create pipeline stage.'
       );
     }
 
@@ -85,7 +95,16 @@ export async function POST(
     if (err instanceof ForbiddenError) {
       return errorResponse(403, 'ADMIN_PERMISSION_REQUIRED', correlationId);
     }
-    return errorResponse(500, 'STAGE_CREATE_FAILED', correlationId);
+    console.error('[pipeline_stages] POST unhandled error:', {
+      requestId: correlationId,
+      error: err,
+    });
+    return errorResponse(
+      500,
+      'STAGE_CREATE_FAILED',
+      correlationId,
+      'Unable to create pipeline stage.'
+    );
   }
 }
 
@@ -105,7 +124,12 @@ export async function PUT(
 
     const { stages } = body;
     if (!Array.isArray(stages)) {
-      return errorResponse(400, 'STAGES_ARRAY_REQUIRED', correlationId);
+      return errorResponse(
+        400,
+        'STAGES_ARRAY_REQUIRED',
+        correlationId,
+        'Stages must be an array.'
+      );
     }
 
     // Batch update stage order indices
@@ -141,6 +165,15 @@ export async function PUT(
     if (err instanceof ForbiddenError) {
       return errorResponse(403, 'ADMIN_PERMISSION_REQUIRED', correlationId);
     }
-    return errorResponse(500, 'STAGES_REORDER_FAILED', correlationId);
+    console.error('[pipeline_stages] PUT unhandled error:', {
+      requestId: correlationId,
+      error: err,
+    });
+    return errorResponse(
+      500,
+      'STAGES_UPDATE_FAILED',
+      correlationId,
+      'Unable to update pipeline stages.'
+    );
   }
 }

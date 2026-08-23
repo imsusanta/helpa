@@ -95,12 +95,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       .range(offset, offset + limit - 1);
 
     if (error) {
-      console.error('[leads] GET query failed:', error);
+      console.error('[leads] GET query failed:', {
+        requestId: correlationId,
+        code: error.code,
+        message: error.message,
+      });
       return errorResponse(
         500,
         'LEADS_FETCH_FAILED',
         correlationId,
-        error.message
+        'Unable to load leads.'
       );
     }
 
@@ -122,8 +126,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     if (err instanceof ForbiddenError) {
       return errorResponse(403, 'ACCOUNT_MEMBERSHIP_REQUIRED', correlationId);
     }
-    console.error('[leads] GET unhandled error:', err);
-    return errorResponse(500, 'LEADS_FETCH_FAILED', correlationId);
+    console.error('[leads] GET unhandled error:', {
+      requestId: correlationId,
+      error: err,
+    });
+    return errorResponse(
+      500,
+      'LEADS_FETCH_FAILED',
+      correlationId,
+      'Unable to load leads.'
+    );
   }
 }
 
@@ -217,12 +229,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       .single();
 
     if (insertError || !newLead) {
-      console.error('[leads] POST insert failed:', insertError);
+      console.error('[leads] POST insert failed:', {
+        requestId: correlationId,
+        code: insertError?.code,
+        message: insertError?.message,
+      });
       return errorResponse(
         500,
         'LEAD_CREATE_FAILED',
         correlationId,
-        insertError?.message
+        'Unable to create lead.'
       );
     }
 
@@ -272,7 +288,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (err instanceof ForbiddenError) {
       return errorResponse(403, 'AGENT_PERMISSION_REQUIRED', correlationId);
     }
-    console.error('[leads] POST unhandled error:', err);
-    return errorResponse(500, 'LEAD_CREATE_FAILED', correlationId);
+    console.error('[leads] POST unhandled error:', {
+      requestId: correlationId,
+      error: err,
+    });
+    return errorResponse(
+      500,
+      'LEAD_CREATE_FAILED',
+      correlationId,
+      'Unable to create lead.'
+    );
   }
 }

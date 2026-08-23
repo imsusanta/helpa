@@ -944,12 +944,26 @@ declare
   v_invoice_id uuid;
   v_created_invoice record;
 begin
-  -- 1. Verify caller has agent role or service_role
-  if not (is_account_member(p_account_id, 'agent'::account_role_enum) or (select auth.role()) = 'service_role') then
+  -- 1. Check account existence
+  if not exists (select 1 from public.accounts where id = p_account_id) then
+    raise exception 'ACCOUNT_NOT_FOUND' using errcode = 'P0002';
+  end if;
+
+  -- 2. Verify authorization: caller or specified user must have agent role on this account
+  if p_user_id is not null then
+    if not exists (
+      select 1 from public.account_members
+      where account_id = p_account_id
+        and user_id = p_user_id
+        and role in ('owner', 'admin', 'agent')
+    ) then
+      raise exception 'INSUFFICIENT_PERMISSIONS: User is not an authorized agent for this account.' using errcode = '42501';
+    end if;
+  elsif not (is_account_member(p_account_id, 'agent'::account_role_enum) or (select auth.role()) = 'service_role') then
     raise exception 'INSUFFICIENT_PERMISSIONS: Agent role required.' using errcode = '42501';
   end if;
 
-  -- 2. Lock quotation FOR UPDATE to prevent race conditions
+  -- 3. Lock quotation FOR UPDATE to prevent race conditions
   select * into v_quote
   from public.quotations
   where id = p_quotation_id and account_id = p_account_id
@@ -965,11 +979,11 @@ begin
     raise exception 'ALREADY_CONVERTED: This quotation has already been converted to an invoice.' using errcode = '23505';
   end if;
 
-  -- 3. Concurrency-safe invoice number generation
+  -- 4. Concurrency-safe invoice number generation
   v_inv_number := generate_next_invoice_number(p_account_id);
   v_due_date := current_date + interval '14 days';
 
-  -- 4. Insert Invoice
+  -- 5. Insert Invoice
   insert into public.invoices (
     account_id,
     contact_id,
@@ -1012,7 +1026,7 @@ begin
 
   v_invoice_id := v_created_invoice.id;
 
-  -- 5. Copy all line items
+  -- 6. Copy all line items
   insert into public.invoice_items (
     account_id,
     invoice_id,
@@ -1038,7 +1052,7 @@ begin
   where qi.quotation_id = p_quotation_id and qi.account_id = p_account_id
   order by qi.position asc, qi.created_at asc;
 
-  -- 6. Update Quotation status to accepted & converted
+  -- 7. Update Quotation status to accepted & converted
   update public.quotations
   set
     status = 'converted',
@@ -1079,17 +1093,31 @@ declare
   v_new_status text;
   v_updated_inv record;
 begin
-  -- 1. Check permissions
-  if not (is_account_member(p_account_id, 'agent'::account_role_enum) or (select auth.role()) = 'service_role') then
+  -- 1. Check account existence
+  if not exists (select 1 from public.accounts where id = p_account_id) then
+    raise exception 'ACCOUNT_NOT_FOUND' using errcode = 'P0002';
+  end if;
+
+  -- 2. Verify authorization: caller or specified user must have agent role on this account
+  if p_user_id is not null then
+    if not exists (
+      select 1 from public.account_members
+      where account_id = p_account_id
+        and user_id = p_user_id
+        and role in ('owner', 'admin', 'agent')
+    ) then
+      raise exception 'INSUFFICIENT_PERMISSIONS: User is not an authorized agent for this account.' using errcode = '42501';
+    end if;
+  elsif not (is_account_member(p_account_id, 'agent'::account_role_enum) or (select auth.role()) = 'service_role') then
     raise exception 'INSUFFICIENT_PERMISSIONS: Agent role required.' using errcode = '42501';
   end if;
 
-  -- 2. Validate payment amount
+  -- 3. Validate payment amount
   if p_amount is null or p_amount <= 0 then
     raise exception 'INVALID_AMOUNT: Payment amount must be positive.' using errcode = '22003';
   end if;
 
-  -- 3. Lock invoice FOR UPDATE
+  -- 4. Lock invoice FOR UPDATE
   select * into v_inv
   from public.invoices
   where id = p_invoice_id and account_id = p_account_id
@@ -1112,11 +1140,12 @@ begin
     raise exception 'OVERPAYMENT_NOT_ALLOWED: Payment exceeds total balance due of %.', v_inv.balance_due using errcode = '22023';
   end if;
 
-  -- 4. Record payment
+  -- 5. Record payment
   insert into public.invoice_payments (
     account_id,
     invoice_id,
     amount,
+    currency,
     payment_date,
     payment_method,
     reference_note,
@@ -1125,13 +1154,14 @@ begin
     p_account_id,
     p_invoice_id,
     p_amount,
+    v_inv.currency,
     current_date,
     coalesce(p_payment_method, 'cash'),
     p_reference_note,
     p_user_id
   ) returning id into v_payment_id;
 
-  -- 5. Recalculate amounts
+  -- 6. Recalculate amounts
   v_new_paid := v_inv.amount_paid + p_amount;
   v_new_balance := greatest(0, v_inv.total - v_new_paid);
 
@@ -1141,7 +1171,7 @@ begin
     v_new_status := 'partially_paid';
   end if;
 
-  -- 6. Update invoice
+  -- 7. Update invoice
   update public.invoices
   set
     amount_paid = v_new_paid,
@@ -1163,5 +1193,24 @@ begin
   );
 end;
 $$;
+
+-- ============================================================
+-- SECTION 7: RPC SECURITY GRANTS
+-- ============================================================
+revoke all on function public.generate_next_quotation_number(uuid) from public;
+revoke all on function public.generate_next_quotation_number(uuid) from authenticated;
+grant execute on function public.generate_next_quotation_number(uuid) to service_role;
+
+revoke all on function public.generate_next_invoice_number(uuid) from public;
+revoke all on function public.generate_next_invoice_number(uuid) from authenticated;
+grant execute on function public.generate_next_invoice_number(uuid) to service_role;
+
+revoke all on function public.convert_quotation_to_invoice(uuid, uuid, uuid) from public;
+revoke all on function public.convert_quotation_to_invoice(uuid, uuid, uuid) from authenticated;
+grant execute on function public.convert_quotation_to_invoice(uuid, uuid, uuid) to service_role;
+
+revoke all on function public.record_invoice_payment(uuid, uuid, numeric, text, text, uuid) from public;
+revoke all on function public.record_invoice_payment(uuid, uuid, numeric, text, text, uuid) from authenticated;
+grant execute on function public.record_invoice_payment(uuid, uuid, numeric, text, text, uuid) to service_role;
 
 commit;

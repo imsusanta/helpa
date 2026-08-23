@@ -52,11 +52,17 @@ export async function GET(
       .order('payment_date', { ascending: false });
 
     if (error) {
+      console.error('[invoice payments fetch]', {
+        requestId: correlationId,
+        code: error.code,
+        message: error.message,
+      });
+
       return errorResponse(
         500,
         'PAYMENTS_FETCH_FAILED',
         correlationId,
-        error.message
+        'Unable to load invoice payments.'
       );
     }
 
@@ -71,7 +77,16 @@ export async function GET(
     if (err instanceof ForbiddenError) {
       return errorResponse(403, 'ACCOUNT_MEMBERSHIP_REQUIRED', correlationId);
     }
-    return errorResponse(500, 'PAYMENTS_FETCH_FAILED', correlationId);
+    console.error('[invoice payments fetch unhandled error]', {
+      requestId: correlationId,
+      error: err,
+    });
+    return errorResponse(
+      500,
+      'PAYMENTS_FETCH_FAILED',
+      correlationId,
+      'Unable to load invoice payments.'
+    );
   }
 }
 
@@ -99,7 +114,7 @@ export async function POST(
     if (!paymentAmount || paymentAmount <= 0) {
       return errorResponse(
         400,
-        'INVALID_AMOUNT',
+        'INVALID_PAYMENT_AMOUNT',
         correlationId,
         'Payment amount must be greater than 0.'
       );
@@ -129,23 +144,43 @@ export async function POST(
 
       if (msg.includes('OVERPAYMENT_NOT_ALLOWED')) {
         return errorResponse(
-          400,
+          409,
           'OVERPAYMENT_NOT_ALLOWED',
           correlationId,
-          msg
+          'Payment exceeds the remaining invoice balance.'
         );
       }
-      if (
-        msg.includes('INVOICE_VOID') ||
-        msg.includes('INVOICE_ALREADY_PAID')
-      ) {
-        return errorResponse(400, 'INVALID_INVOICE_STATUS', correlationId, msg);
+      if (msg.includes('INVOICE_VOID')) {
+        return errorResponse(
+          409,
+          'INVOICE_VOID',
+          correlationId,
+          'Payments cannot be recorded for a void invoice.'
+        );
+      }
+      if (msg.includes('INVOICE_ALREADY_PAID')) {
+        return errorResponse(
+          409,
+          'INVOICE_ALREADY_PAID',
+          correlationId,
+          'This invoice is already fully paid.'
+        );
       }
       if (msg.includes('INVOICE_NOT_FOUND')) {
-        return errorResponse(404, 'INVOICE_NOT_FOUND', correlationId);
+        return errorResponse(
+          404,
+          'INVOICE_NOT_FOUND',
+          correlationId,
+          'Invoice not found.'
+        );
       }
       if (msg.includes('INSUFFICIENT_PERMISSIONS')) {
-        return errorResponse(403, 'AGENT_PERMISSION_REQUIRED', correlationId);
+        return errorResponse(
+          403,
+          'AGENT_PERMISSION_REQUIRED',
+          correlationId,
+          'Agent permission is required.'
+        );
       }
       if (rpcError.code === '42883' || msg.includes('record_invoice_payment')) {
         return errorResponse(
@@ -156,10 +191,15 @@ export async function POST(
         );
       }
 
-      return errorResponse(500, 'PAYMENT_RECORD_FAILED', correlationId);
+      return errorResponse(
+        500,
+        'PAYMENT_RECORD_FAILED',
+        correlationId,
+        'Unable to record payment.'
+      );
     }
 
-    const { data: updatedInvoice } = await supabase
+    const { data: updatedInvoice, error: hydrationError } = await supabase
       .from('invoices')
       .select(
         '*, contacts(id, name, phone, email), invoice_items(*), invoice_payments(*)'
@@ -167,6 +207,38 @@ export async function POST(
       .eq('id', invoiceId)
       .eq('account_id', ctx.accountId)
       .single();
+
+    if (hydrationError || !updatedInvoice) {
+      console.error('[invoice payment hydration]', {
+        requestId: correlationId,
+        invoiceId,
+        code: hydrationError?.code,
+        message: hydrationError?.message,
+      });
+
+      return NextResponse.json(
+        {
+          success: true,
+          data: {
+            invoice_id: invoiceId,
+            payment_id: (rpcResult as { payment_id?: string }).payment_id,
+            amount_paid: (rpcResult as { amount_paid?: number }).amount_paid,
+            balance_due: (rpcResult as { balance_due?: number }).balance_due,
+            status: (rpcResult as { status?: string }).status,
+            currency: (rpcResult as { currency?: string }).currency,
+          },
+          warning: 'INVOICE_DETAILS_REFRESH_REQUIRED',
+          requestId: correlationId,
+        },
+        {
+          status: 201,
+          headers: {
+            ...PRIVATE_HEADERS,
+            'X-Request-Id': correlationId,
+          },
+        }
+      );
+    }
 
     try {
       await dispatchCrmEvent({
@@ -202,6 +274,15 @@ export async function POST(
     if (err instanceof ForbiddenError) {
       return errorResponse(403, 'AGENT_PERMISSION_REQUIRED', correlationId);
     }
-    return errorResponse(500, 'PAYMENT_RECORD_FAILED', correlationId);
+    console.error('[invoice payment unhandled error]', {
+      requestId: correlationId,
+      error: err,
+    });
+    return errorResponse(
+      500,
+      'PAYMENT_RECORD_FAILED',
+      correlationId,
+      'Unable to record payment.'
+    );
   }
 }

@@ -139,15 +139,16 @@ export async function POST(
           .single();
 
         if (contactErr || !createdContact) {
-          console.error(
-            '[leads] Contact creation during conversion failed:',
-            contactErr
-          );
+          console.error('[leads] Contact creation during conversion failed:', {
+            requestId: correlationId,
+            code: contactErr?.code,
+            message: contactErr?.message,
+          });
           return errorResponse(
             500,
             'CONTACT_CREATE_FAILED',
             correlationId,
-            contactErr?.message
+            'Unable to create customer contact from lead.'
           );
         }
         contact = createdContact;
@@ -226,11 +227,16 @@ export async function POST(
       .single();
 
     if (updateLeadErr || !convertedLead) {
+      console.error('[leads] update to CONVERTED failed:', {
+        requestId: correlationId,
+        code: updateLeadErr?.code,
+        message: updateLeadErr?.message,
+      });
       return errorResponse(
         500,
         'LEAD_CONVERT_FAILED',
         correlationId,
-        updateLeadErr?.message
+        'Unable to convert lead.'
       );
     }
 
@@ -281,6 +287,15 @@ export async function POST(
     if (err instanceof ForbiddenError) {
       return errorResponse(403, 'AGENT_PERMISSION_REQUIRED', correlationId);
     }
-    return errorResponse(500, 'LEAD_CONVERT_FAILED', correlationId);
+    console.error('[leads] convert unhandled error:', {
+      requestId: correlationId,
+      error: err,
+    });
+    return errorResponse(
+      500,
+      'LEAD_CONVERT_FAILED',
+      correlationId,
+      'Unable to convert lead.'
+    );
   }
 }

@@ -46,7 +46,12 @@ export async function GET(
       .maybeSingle();
 
     if (error || !pipeline) {
-      return errorResponse(404, 'PIPELINE_NOT_FOUND', correlationId);
+      return errorResponse(
+        404,
+        'PIPELINE_NOT_FOUND',
+        correlationId,
+        'Pipeline not found.'
+      );
     }
 
     return NextResponse.json(
@@ -60,7 +65,16 @@ export async function GET(
     if (err instanceof ForbiddenError) {
       return errorResponse(403, 'ACCOUNT_MEMBERSHIP_REQUIRED', correlationId);
     }
-    return errorResponse(500, 'PIPELINE_FETCH_FAILED', correlationId);
+    console.error('[pipelines] GET by id unhandled error:', {
+      requestId: correlationId,
+      error: err,
+    });
+    return errorResponse(
+      500,
+      'PIPELINE_FETCH_FAILED',
+      correlationId,
+      'Unable to load pipeline.'
+    );
   }
 }
 
@@ -84,7 +98,12 @@ export async function PUT(
 
     if (name !== undefined) {
       if (!String(name).trim())
-        return errorResponse(400, 'NAME_REQUIRED', correlationId);
+        return errorResponse(
+          400,
+          'NAME_REQUIRED',
+          correlationId,
+          'Pipeline name cannot be empty.'
+        );
       updates.name = String(name).trim();
     }
 
@@ -105,11 +124,16 @@ export async function PUT(
       .single();
 
     if (updateErr || !updatedPipeline) {
+      console.error('[pipelines] PUT update error:', {
+        requestId: correlationId,
+        code: updateErr?.code,
+        message: updateErr?.message,
+      });
       return errorResponse(
         500,
         'PIPELINE_UPDATE_FAILED',
         correlationId,
-        updateErr?.message
+        'Unable to update pipeline.'
       );
     }
 
@@ -124,7 +148,16 @@ export async function PUT(
     if (err instanceof ForbiddenError) {
       return errorResponse(403, 'ADMIN_PERMISSION_REQUIRED', correlationId);
     }
-    return errorResponse(500, 'PIPELINE_UPDATE_FAILED', correlationId);
+    console.error('[pipelines] PUT unhandled error:', {
+      requestId: correlationId,
+      error: err,
+    });
+    return errorResponse(
+      500,
+      'PIPELINE_UPDATE_FAILED',
+      correlationId,
+      'Unable to update pipeline.'
+    );
   }
 }
 
@@ -162,11 +195,16 @@ export async function DELETE(
       .eq('account_id', ctx.accountId);
 
     if (delErr) {
+      console.error('[pipelines] DELETE error:', {
+        requestId: correlationId,
+        code: delErr.code,
+        message: delErr.message,
+      });
       return errorResponse(
         500,
         'PIPELINE_DELETE_FAILED',
         correlationId,
-        delErr.message
+        'Unable to delete pipeline.'
       );
     }
 
@@ -181,6 +219,15 @@ export async function DELETE(
     if (err instanceof ForbiddenError) {
       return errorResponse(403, 'ADMIN_PERMISSION_REQUIRED', correlationId);
     }
-    return errorResponse(500, 'PIPELINE_DELETE_FAILED', correlationId);
+    console.error('[pipelines] DELETE unhandled error:', {
+      requestId: correlationId,
+      error: err,
+    });
+    return errorResponse(
+      500,
+      'PIPELINE_DELETE_FAILED',
+      correlationId,
+      'Unable to delete pipeline.'
+    );
   }
 }

@@ -37,7 +37,8 @@ export async function PUT(
       return errorResponse(
         400,
         'STAGE_AND_PIPELINE_ID_REQUIRED',
-        correlationId
+        correlationId,
+        'Stage ID and Pipeline ID are required.'
       );
 
     const ctx = await requireRole('admin');
@@ -64,11 +65,16 @@ export async function PUT(
       .single();
 
     if (error || !updatedStage) {
+      console.error('[pipeline_stages] PUT stage error:', {
+        requestId: correlationId,
+        code: error?.code,
+        message: error?.message,
+      });
       return errorResponse(
         500,
         'STAGE_UPDATE_FAILED',
         correlationId,
-        error?.message
+        'Unable to update pipeline stage.'
       );
     }
 
@@ -83,7 +89,16 @@ export async function PUT(
     if (err instanceof ForbiddenError) {
       return errorResponse(403, 'ADMIN_PERMISSION_REQUIRED', correlationId);
     }
-    return errorResponse(500, 'STAGE_UPDATE_FAILED', correlationId);
+    console.error('[pipeline_stages] PUT stage unhandled error:', {
+      requestId: correlationId,
+      error: err,
+    });
+    return errorResponse(
+      500,
+      'STAGE_UPDATE_FAILED',
+      correlationId,
+      'Unable to update pipeline stage.'
+    );
   }
 }
 
@@ -98,7 +113,8 @@ export async function DELETE(
       return errorResponse(
         400,
         'STAGE_AND_PIPELINE_ID_REQUIRED',
-        correlationId
+        correlationId,
+        'Stage ID and Pipeline ID are required.'
       );
 
     const ctx = await requireRole('admin');
@@ -112,16 +128,25 @@ export async function DELETE(
       .eq('account_id', ctx.accountId);
 
     if (error) {
+      console.error('[pipeline_stages] DELETE stage error:', {
+        requestId: correlationId,
+        code: error.code,
+        message: error.message,
+      });
       return errorResponse(
         500,
         'STAGE_DELETE_FAILED',
         correlationId,
-        error.message
+        'Unable to delete pipeline stage.'
       );
     }
 
     return NextResponse.json(
-      { success: true, message: 'Stage deleted', requestId: correlationId },
+      {
+        success: true,
+        message: 'Stage deleted successfully',
+        requestId: correlationId,
+      },
       { headers: { ...PRIVATE_HEADERS, 'X-Request-Id': correlationId } }
     );
   } catch (err: unknown) {
@@ -131,6 +156,15 @@ export async function DELETE(
     if (err instanceof ForbiddenError) {
       return errorResponse(403, 'ADMIN_PERMISSION_REQUIRED', correlationId);
     }
-    return errorResponse(500, 'STAGE_DELETE_FAILED', correlationId);
+    console.error('[pipeline_stages] DELETE stage unhandled error:', {
+      requestId: correlationId,
+      error: err,
+    });
+    return errorResponse(
+      500,
+      'STAGE_DELETE_FAILED',
+      correlationId,
+      'Unable to delete pipeline stage.'
+    );
   }
 }
