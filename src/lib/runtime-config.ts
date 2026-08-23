@@ -20,26 +20,32 @@ type EnvMap = Record<string, string | undefined>;
 
 function requireEnvironmentValue(env: EnvMap, name: string): string {
   const value = env[name]?.trim();
-  if (!value) {
-    throw new RuntimeConfigurationError(`MISSING_${name}`);
-  }
+  if (!value) throw new RuntimeConfigurationError(`MISSING_${name}`);
   return value;
 }
 
-/**
- * Helpa has one valid runtime architecture: Supabase provides authentication
- * and application data, while Appwrite Sites is deployment hosting only.
- * The wider union types are retained temporarily so legacy guard branches can
- * be removed incrementally; prohibited values always fail here.
- */
 export function getRuntimeConfig(
   env: EnvMap = process.env as unknown as EnvMap
 ): RuntimeConfig {
-  const authProvider = (env.AUTH_PROVIDER || 'supabase').trim().toLowerCase();
-  const databaseProvider = (env.DATABASE_PROVIDER || 'supabase')
-    .trim()
-    .toLowerCase();
-  const migrationMode = (env.MIGRATION_MODE || 'cutover').trim().toLowerCase();
+  const production = env.NODE_ENV === 'production';
+  const explicitAuth = env.AUTH_PROVIDER?.trim().toLowerCase();
+  const explicitDatabase = env.DATABASE_PROVIDER?.trim().toLowerCase();
+  const explicitMigration = env.MIGRATION_MODE?.trim().toLowerCase();
+
+  if (
+    production &&
+    (explicitAuth !== 'supabase' ||
+      explicitDatabase !== 'supabase' ||
+      explicitMigration !== 'cutover')
+  ) {
+    throw new RuntimeConfigurationError(
+      'PRODUCTION_SUPABASE_CUTOVER_REQUIRED'
+    );
+  }
+
+  const authProvider = explicitAuth || 'supabase';
+  const databaseProvider = explicitDatabase || 'supabase';
+  const migrationMode = explicitMigration || 'cutover';
 
   if (authProvider !== 'supabase') {
     throw new RuntimeConfigurationError('INVALID_AUTH_PROVIDER');
@@ -55,7 +61,7 @@ export function getRuntimeConfig(
     authProvider: 'supabase',
     databaseProvider: 'supabase',
     migrationMode: 'cutover',
-    production: env.NODE_ENV === 'production',
+    production,
   };
 }
 

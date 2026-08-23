@@ -1,6 +1,10 @@
 /**
- * Generates server-only build metadata before Next.js compilation.
+ * scripts/generate-build-metadata.mjs
+ *
+ * Runs during `prebuild` to extract and validate deployment commit metadata,
+ * baking it into a server-only JSON file before `next build` bundles the application.
  */
+
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
@@ -17,9 +21,10 @@ function resolveGitSha() {
       return { sha: gitSha.toLowerCase(), source: 'git rev-parse HEAD' };
     }
   } catch {
-    // Git is optional in deployment builders.
+    // Git not available or not a git repository
   }
 
+  // Fallback: direct filesystem read of .git in case git CLI is absent in builder
   try {
     const gitDir = path.join(process.cwd(), '.git');
     if (fs.existsSync(gitDir)) {
@@ -38,6 +43,7 @@ function resolveGitSha() {
             return { sha: refSha.toLowerCase(), source: `.git/${refPath}` };
           }
         }
+        // Also check packed-refs
         const packedRefsPath = path.join(gitDir, 'packed-refs');
         if (fs.existsSync(packedRefsPath)) {
           const lines = fs.readFileSync(packedRefsPath, 'utf-8').split('\n');
@@ -51,7 +57,7 @@ function resolveGitSha() {
       }
     }
   } catch {
-    // Ignore filesystem fallback errors.
+    // Ignore fallback errors
   }
 
   return null;
@@ -59,6 +65,7 @@ function resolveGitSha() {
 
 function resolveCommit() {
   const env = process.env;
+
   const candidates = [
     { name: 'APP_COMMIT_SHA', val: env.APP_COMMIT_SHA },
     { name: 'VERCEL_GIT_COMMIT_SHA', val: env.VERCEL_GIT_COMMIT_SHA },
@@ -89,22 +96,14 @@ function resolveCommit() {
       source: 'VERCEL_PLATFORM',
     };
   }
+
   return null;
 }
 
 function main() {
-  // Appwrite Sites is the production build environment. Running the same unit
-  // suite here makes failures visible in its deployment logs while GitHub job
-  // logs are unavailable to the repository automation connection.
-  if (process.env.APP_COMMIT_SHA) {
-    console.log('🔎 [prebuild] Running unit tests for deployment diagnostics');
-    execSync("npx vitest run --exclude='**/src/tests/integration/**' --reporter=verbose", {
-      stdio: 'inherit',
-    });
-  }
-
   const resolved = resolveCommit();
   const buildTime = new Date().toISOString();
+
   if (!resolved) {
     console.warn(
       '⚠️ [prebuild] Warning: No commit SHA resolved. Using fallback identifier for build.'
