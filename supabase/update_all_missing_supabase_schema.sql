@@ -157,6 +157,7 @@ CREATE POLICY migration_identity_map_select ON public.migration_identity_map
   FOR SELECT TO authenticated
   USING (public.has_account_role(destination_id, 'admin'::text));
 
+<<<<<<< HEAD
 -- 6. DROP EXISTING FUNCTIONS FIRST TO AVOID 42P13 PARAMETER DEFAULT ERRORS
 DROP FUNCTION IF EXISTS public.convert_quotation_to_invoice(uuid, uuid, uuid);
 DROP FUNCTION IF EXISTS public.convert_quotation_to_invoice;
@@ -168,6 +169,9 @@ DROP FUNCTION IF EXISTS public.generate_next_invoice_number(uuid);
 DROP FUNCTION IF EXISTS public.generate_next_invoice_number;
 
 -- 7. RECREATE ATOMIC SALES CRM ACCOUNTING RPCs
+=======
+-- 6. ATOMIC SALES CRM ACCOUNTING RPCs & SECURITY HARDENING
+>>>>>>> origin/main
 
 -- Sequence generator for quotation numbers
 CREATE OR REPLACE FUNCTION public.generate_next_quotation_number(p_account_id uuid)
@@ -398,7 +402,11 @@ BEGIN
 END;
 $$;
 
+<<<<<<< HEAD
 -- 8. GRANT SERVICE ROLE ACCESS & REVOKE PUBLIC EXECUTE
+=======
+-- 7. GRANT SERVICE ROLE ACCESS & REVOKE PUBLIC EXECUTE
+>>>>>>> origin/main
 REVOKE ALL ON FUNCTION public.generate_next_quotation_number(uuid) FROM public, authenticated;
 GRANT EXECUTE ON FUNCTION public.generate_next_quotation_number(uuid) TO service_role;
 
