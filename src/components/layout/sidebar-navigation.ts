@@ -1,0 +1,230 @@
+import type { IndustryTerminology } from '@/modules/types';
+import { resolveIndustryAlias } from '@/modules/terminology';
+
+export type SidebarNavChild = {
+  id: string;
+  label: string;
+  href: string;
+  hospitalOnly?: boolean;
+  activeHrefs?: string[];
+};
+
+export type SidebarNavItem<TIcon = unknown> = {
+  id: string;
+  label: string;
+  href?: string;
+  icon: TIcon;
+  children?: SidebarNavChild[];
+  superAdminOnly?: boolean;
+};
+
+type BuildVisibleNavigationOptions<TIcon> = {
+  navigation: readonly SidebarNavItem<TIcon>[];
+  terminology: IndustryTerminology;
+  currentIndustry: string;
+  isSuperAdmin: boolean;
+  isRouteAllowed: (pathname: string) => boolean;
+};
+
+export type NavigationValidationIssueCode =
+  | 'duplicate-top-level-id'
+  | 'duplicate-child-id'
+  | 'duplicate-child-destination'
+  | 'duplicate-child-label';
+
+export type NavigationValidationIssue = {
+  code: NavigationValidationIssueCode;
+  parentId?: string;
+  parentLabel?: string;
+  value: string;
+  itemIds: string[];
+  routes: string[];
+  message: string;
+};
+
+function getLabelByHref(terminology: IndustryTerminology) {
+  return new Map<string, string>([
+    ['/leads', terminology.pipelineItems],
+    ['/customers', terminology.people],
+    ['/pipelines', terminology.pipelines],
+    ['/inbox', 'Inbox'],
+    ['/follow-ups', terminology.followUps],
+    ['/appointments', terminology.meetings],
+    ['/broadcasts', terminology.campaigns],
+    ['/forms', `${terminology.pipelineItem} Forms`],
+    ['/services', terminology.services],
+    ['/billing/reports', terminology.reports],
+    ['/settings?tab=team', terminology.staffMembers],
+  ]);
+}
+
+export function getNavigationPathname(href: string) {
+  try {
+    return new URL(href, 'https://navigation.local').pathname;
+  } catch {
+    return href.split(/[?#]/, 1)[0];
+  }
+}
+
+/**
+ * Produces a stable representation of an internal navigation destination.
+ * Query parameter values remain part of the destination, while parameter
+ * ordering does not create false differences.
+ */
+export function normalizeNavigationDestination(href: string) {
+  try {
+    const url = new URL(href, 'https://navigation.local');
+    url.searchParams.sort();
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return href;
+  }
+}
+
+export function buildVisibleNavigation<TIcon>({
+  navigation,
+  terminology,
+  currentIndustry,
+  isSuperAdmin,
+  isRouteAllowed,
+}: BuildVisibleNavigationOptions<TIcon>): SidebarNavItem<TIcon>[] {
+  const isHospitalWorkspace =
+    resolveIndustryAlias(currentIndustry) === 'hospital_clinic';
+  const labelByHref = getLabelByHref(terminology);
+
+  return navigation
+    .filter((item) => !item.superAdminOnly || isSuperAdmin)
+    .map((item) => {
+      const children = item.children
+        ?.filter(
+          (child) =>
+            (!child.hospitalOnly || isHospitalWorkspace) &&
+            isRouteAllowed(getNavigationPathname(child.href))
+        )
+        .map((child) => ({
+          ...child,
+          label: labelByHref.get(child.href) ?? child.label,
+        }));
+
+      return {
+        ...item,
+        label:
+          item.href === '/services'
+            ? terminology.services
+            : item.id === 'conversations'
+              ? terminology.conversations
+              : item.label,
+        children,
+      };
+    })
+    .filter((item) => {
+      if (item.href && !isRouteAllowed(getNavigationPathname(item.href))) {
+        return false;
+      }
+
+      // Do not leave behind an expandable heading with no accessible routes.
+      return Boolean(item.href || !item.children || item.children.length > 0);
+    });
+}
+
+function normalizeLabel(label: string) {
+  return label.trim().replace(/\s+/g, ' ').toLocaleLowerCase();
+}
+
+function duplicateGroups<T>(
+  items: readonly T[],
+  valuesFor: (item: T) => readonly string[]
+) {
+  const grouped = new Map<string, T[]>();
+
+  for (const item of items) {
+    for (const value of new Set(valuesFor(item))) {
+      const existing = grouped.get(value) ?? [];
+      existing.push(item);
+      grouped.set(value, existing);
+    }
+  }
+
+  return [...grouped.entries()].filter(([, matches]) => matches.length > 1);
+}
+
+/**
+ * Reports invalid final navigation without mutating or hiding any item. Tests
+ * are the primary enforcement; callers may log these issues in development.
+ */
+export function validateVisibleNavigation<TIcon>(
+  navigation: readonly SidebarNavItem<TIcon>[]
+): NavigationValidationIssue[] {
+  const issues: NavigationValidationIssue[] = [];
+
+  for (const [id, matches] of duplicateGroups(navigation, (item) => [
+    item.id,
+  ])) {
+    const itemIds = matches.map((item) => item.id);
+    const routes = matches.flatMap((item) => (item.href ? [item.href] : []));
+    issues.push({
+      code: 'duplicate-top-level-id',
+      value: id,
+      itemIds,
+      routes,
+      message: `Top-level navigation has duplicate ID "${id}" (items: ${itemIds.join(', ')}; routes: ${routes.join(', ') || 'none'}).`,
+    });
+  }
+
+  for (const parent of navigation) {
+    const children = parent.children ?? [];
+    const parentDetails = {
+      parentId: parent.id,
+      parentLabel: parent.label,
+    };
+
+    for (const [id, matches] of duplicateGroups(children, (child) => [
+      child.id,
+    ])) {
+      const itemIds = matches.map((child) => child.id);
+      const routes = matches.map((child) => child.href);
+      issues.push({
+        code: 'duplicate-child-id',
+        ...parentDetails,
+        value: id,
+        itemIds,
+        routes,
+        message: `Navigation parent "${parent.label}" (${parent.id}) has duplicate child ID "${id}" (items: ${itemIds.join(', ')}; routes: ${routes.join(', ')}).`,
+      });
+    }
+
+    for (const [destination, matches] of duplicateGroups(children, (child) =>
+      [child.href, ...(child.activeHrefs ?? [])].map(
+        normalizeNavigationDestination
+      )
+    )) {
+      const itemIds = matches.map((child) => child.id);
+      const routes = matches.map((child) => child.href);
+      issues.push({
+        code: 'duplicate-child-destination',
+        ...parentDetails,
+        value: destination,
+        itemIds,
+        routes,
+        message: `Navigation parent "${parent.label}" (${parent.id}) has duplicate destination "${destination}" (items: ${itemIds.join(', ')}; routes: ${routes.join(', ')}).`,
+      });
+    }
+
+    for (const [label, matches] of duplicateGroups(children, (child) => [
+      normalizeLabel(child.label),
+    ])) {
+      const itemIds = matches.map((child) => child.id);
+      const routes = matches.map((child) => child.href);
+      issues.push({
+        code: 'duplicate-child-label',
+        ...parentDetails,
+        value: label,
+        itemIds,
+        routes,
+        message: `Navigation parent "${parent.label}" (${parent.id}) has duplicate final label "${matches[0].label}" (items: ${itemIds.join(', ')}; routes: ${routes.join(', ')}).`,
+      });
+    }
+  }
+
+  return issues;
+}

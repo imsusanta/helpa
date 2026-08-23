@@ -49,9 +49,7 @@ describe('validateSubmissionData', () => {
       name: 'Bot',
     });
     expect(data).toEqual({});
-    expect(violations).toEqual([
-      { key: '_', message: 'Submission rejected' },
-    ]);
+    expect(violations).toEqual([{ key: '_', message: 'Submission rejected' }]);
   });
 
   it('flags missing required fields and keeps optional ones absent', () => {
@@ -92,7 +90,10 @@ describe('validateSubmissionData', () => {
       { key: 'email', message: 'Email is not a valid email' },
       { key: 'phone', message: 'Phone is not a valid phone number' },
       { key: 'guests', message: 'Guests must be a number' },
-      { key: 'reservation_date', message: 'Reservation Date must be a valid date' },
+      {
+        key: 'reservation_date',
+        message: 'Reservation Date must be a valid date',
+      },
     ]);
   });
 

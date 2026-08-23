@@ -52,6 +52,9 @@ describe('authorizeCronRequest', () => {
 
   it('ignores secrets smuggled through the query string', () => {
     process.env.CRON_SECRET = 'expected-secret';
-    expect(get('https://helpa.test/api/cron/campaigns?secret=expected-secret')?.status).toBe(401);
+    expect(
+      get('https://helpa.test/api/cron/campaigns?secret=expected-secret')
+        ?.status
+    ).toBe(401);
   });
 });

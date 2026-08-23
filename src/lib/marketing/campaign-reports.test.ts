@@ -58,10 +58,9 @@ describe('resolveReportRange', () => {
 
   it('resolves "last_7_days" as six days back through now', () => {
     const { from, to } = resolveReportRange('last_7_days')!;
-    expect(Math.round((to.getTime() - from.getTime()) / 86_400_000)).toBeCloseTo(
-      6.99,
-      1
-    );
+    expect(
+      Math.round((to.getTime() - from.getTime()) / 86_400_000)
+    ).toBeCloseTo(6.99, 1);
   });
 
   it('accepts valid custom ranges', () => {
@@ -76,9 +75,7 @@ describe('resolveReportRange', () => {
   it('rejects invalid custom ranges', () => {
     expect(resolveReportRange('custom', '', '')).toBeNull();
     expect(resolveReportRange('custom', 'garbage', '2026-08-01')).toBeNull();
-    expect(
-      resolveReportRange('custom', '2026-08-07', '2026-08-01')
-    ).toBeNull();
+    expect(resolveReportRange('custom', '2026-08-07', '2026-08-01')).toBeNull();
   });
 
   it('rejects unknown presets', () => {
