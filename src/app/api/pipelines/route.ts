@@ -56,15 +56,27 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     // Auto-seed default pipeline if none exists for this tenant
     if (!pipelines || pipelines.length === 0) {
-      const { data: newPipeline } = await supabase
+      const insertData: Record<string, unknown> = {
+        account_id: context.accountId,
+        name: 'Sales Pipeline',
+        is_default: true,
+      };
+
+      let { data: newPipeline, error: pipeErr } = await supabase
         .from('pipelines')
-        .insert({
-          account_id: context.accountId,
-          name: 'Sales Pipeline',
-          is_default: true,
-        })
+        .insert(insertData)
         .select()
         .single();
+
+      if (pipeErr && pipeErr.message?.includes('is_default')) {
+        delete insertData.is_default;
+        const retry = await supabase
+          .from('pipelines')
+          .insert(insertData)
+          .select()
+          .single();
+        newPipeline = retry.data;
+      }
 
       if (newPipeline) {
         const stageRows = DEFAULT_STAGES.map((s) => ({
@@ -74,7 +86,18 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           color: s.color,
           order_index: s.order_index,
         }));
-        await supabase.from('pipeline_stages').insert(stageRows);
+        let { error: stageErr } = await supabase
+          .from('pipeline_stages')
+          .insert(stageRows);
+        if (stageErr && stageErr.message?.includes('order_index')) {
+          const fallbackStages = DEFAULT_STAGES.map((s) => ({
+            pipeline_id: newPipeline.id,
+            name: s.name,
+            color: s.color,
+            position: s.order_index,
+          }));
+          await supabase.from('pipeline_stages').insert(fallbackStages);
+        }
 
         const { data: seeded } = await supabase
           .from('pipelines')
@@ -121,15 +144,28 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         .eq('account_id', context.accountId);
     }
 
-    const { data: newPipeline, error: insertErr } = await supabase
+    const insertPayload: Record<string, unknown> = {
+      account_id: context.accountId,
+      name: name.trim(),
+      is_default: Boolean(is_default),
+    };
+
+    let { data: newPipeline, error: insertErr } = await supabase
       .from('pipelines')
-      .insert({
-        account_id: context.accountId,
-        name: name.trim(),
-        is_default: Boolean(is_default),
-      })
+      .insert(insertPayload)
       .select()
       .single();
+
+    if (insertErr && insertErr.message?.includes('is_default')) {
+      delete insertPayload.is_default;
+      const retry = await supabase
+        .from('pipelines')
+        .insert(insertPayload)
+        .select()
+        .single();
+      newPipeline = retry.data;
+      insertErr = retry.error;
+    }
 
     if (insertErr || !newPipeline) {
       console.error('[pipelines] Create failed:', insertErr);

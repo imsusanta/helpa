@@ -115,13 +115,26 @@ export async function PUT(
       updates.is_default = true;
     }
 
-    const { data: updatedPipeline, error: updateErr } = await supabase
+    let { data: updatedPipeline, error: updateErr } = await supabase
       .from('pipelines')
       .update(updates)
       .eq('id', id)
       .eq('account_id', ctx.accountId)
       .select('*, pipeline_stages(*)')
       .single();
+
+    if (updateErr && updateErr.message?.includes('is_default')) {
+      delete updates.is_default;
+      const retry = await supabase
+        .from('pipelines')
+        .update(updates)
+        .eq('id', id)
+        .eq('account_id', ctx.accountId)
+        .select('*, pipeline_stages(*)')
+        .single();
+      updatedPipeline = retry.data;
+      updateErr = retry.error;
+    }
 
     if (updateErr || !updatedPipeline) {
       console.error('[pipelines] PUT update error:', {
