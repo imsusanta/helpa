@@ -6,7 +6,62 @@
 
 BEGIN;
 
--- 1. WHATSAPP OUTBOX TABLE & INDEXES
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- 1. CORE HELPER FUNCTIONS (REQUIRED FOR RLS POLICIES)
+CREATE OR REPLACE FUNCTION public.is_active_account_member(target_account_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.account_members
+    WHERE account_id = target_account_id AND user_id = auth.uid() AND active
+  );
+$$;
+REVOKE ALL ON FUNCTION public.is_active_account_member(uuid) FROM public;
+GRANT EXECUTE ON FUNCTION public.is_active_account_member(uuid) TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public.has_account_role(target_account_id uuid, minimum_role text)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.account_members
+    WHERE account_id = target_account_id AND user_id = auth.uid() AND active
+      AND CASE role WHEN 'owner' THEN 4 WHEN 'admin' THEN 3 WHEN 'agent' THEN 2 ELSE 1 END
+        >= CASE minimum_role WHEN 'owner' THEN 4 WHEN 'admin' THEN 3 WHEN 'agent' THEN 2 ELSE 1 END
+  );
+$$;
+REVOKE ALL ON FUNCTION public.has_account_role(uuid, text) FROM public;
+GRANT EXECUTE ON FUNCTION public.has_account_role(uuid, text) TO authenticated, service_role;
+
+-- Add super admin flag to profiles if not present
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_super_admin boolean NOT NULL DEFAULT false;
+
+CREATE OR REPLACE FUNCTION public.is_platform_super_admin()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.profiles
+    WHERE user_id = auth.uid()
+      AND is_super_admin = true
+  );
+$$;
+REVOKE ALL ON FUNCTION public.is_platform_super_admin() FROM public;
+GRANT EXECUTE ON FUNCTION public.is_platform_super_admin() TO authenticated, service_role;
+
+-- 2. WHATSAPP OUTBOX TABLE & INDEXES
 CREATE TABLE IF NOT EXISTS public.whatsapp_outbox (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   account_id uuid NOT NULL REFERENCES public.accounts(id) ON DELETE RESTRICT,
@@ -35,7 +90,7 @@ CREATE POLICY whatsapp_outbox_select ON public.whatsapp_outbox
   FOR SELECT TO authenticated
   USING (public.is_active_account_member(account_id));
 
--- 2. WEBHOOK EVENTS TABLE & INDEXES
+-- 3. WEBHOOK EVENTS TABLE & INDEXES
 CREATE TABLE IF NOT EXISTS public.webhook_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   account_id uuid NOT NULL REFERENCES public.accounts(id) ON DELETE RESTRICT,
@@ -60,7 +115,7 @@ CREATE POLICY webhook_events_select ON public.webhook_events
   FOR SELECT TO authenticated
   USING (public.is_active_account_member(account_id));
 
--- 3. REMINDER JOBS TABLE & INDEXES
+-- 4. REMINDER JOBS TABLE & INDEXES
 CREATE TABLE IF NOT EXISTS public.reminder_jobs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   account_id uuid NOT NULL REFERENCES public.accounts(id) ON DELETE RESTRICT,
@@ -84,7 +139,7 @@ CREATE POLICY reminder_jobs_select ON public.reminder_jobs
   FOR SELECT TO authenticated
   USING (public.is_active_account_member(account_id));
 
--- 4. MIGRATION IDENTITY MAP TABLE
+-- 5. MIGRATION IDENTITY MAP TABLE
 CREATE TABLE IF NOT EXISTS public.migration_identity_map (
   source_provider text NOT NULL,
   source_id text NOT NULL,
@@ -102,7 +157,7 @@ CREATE POLICY migration_identity_map_select ON public.migration_identity_map
   FOR SELECT TO authenticated
   USING (public.has_account_role(destination_id, 'admin'));
 
--- 5. ATOMIC SALES CRM ACCOUNTING RPCs & SECURITY HARDENING
+-- 6. ATOMIC SALES CRM ACCOUNTING RPCs & SECURITY HARDENING
 
 -- Sequence generator for quotation numbers
 CREATE OR REPLACE FUNCTION public.generate_next_quotation_number(p_account_id uuid)
@@ -333,7 +388,7 @@ BEGIN
 END;
 $$;
 
--- 6. GRANT SERVICE ROLE ACCESS & REVOKE PUBLIC EXECUTE
+-- 7. GRANT SERVICE ROLE ACCESS & REVOKE PUBLIC EXECUTE
 REVOKE ALL ON FUNCTION public.generate_next_quotation_number(uuid) FROM public, authenticated;
 GRANT EXECUTE ON FUNCTION public.generate_next_quotation_number(uuid) TO service_role;
 
