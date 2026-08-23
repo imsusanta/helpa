@@ -63,7 +63,7 @@ export function Sidebar({
   open = false,
   onClose,
   collapsed = false,
-  mobileTriggerRef,
+  mobileTriggerRef: _mobileTriggerRef,
 }: SidebarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -103,9 +103,10 @@ export function Sidebar({
     [
       accountRole,
       currentIndustry,
+      enabledModules,
       isRouteAllowed,
       isSuperAdmin,
-      manifest.sidebar,
+      manifest,
       terminology,
     ]
   );
@@ -170,7 +171,7 @@ export function Sidebar({
         <div className="flex h-[76px] items-center justify-between px-5">
           <Link
             href="/dashboard"
-            className="flex items-center gap-3.5"
+            className="animate-brand-in flex items-center gap-3.5"
             onClick={onClose}
             aria-label="Open dashboard"
           >
@@ -202,7 +203,7 @@ export function Sidebar({
         {/* Navigation Menu */}
         <div className="min-h-0 flex-1 [scrollbar-width:thin] [scrollbar-color:#1e293b_transparent] overflow-y-auto px-3 py-2">
           <nav className="space-y-1" aria-label="Workspace navigation">
-            {visibleNav.map((item) => {
+            {visibleNav.map((item, index) => {
               const Icon = item.icon;
               const isDashboard = item.id === 'dashboard';
               const activeDirect = pathIsActive(
@@ -220,6 +221,7 @@ export function Sidebar({
                 return (
                   <Link
                     key={item.id}
+                    style={{ ['--i']: index } as React.CSSProperties}
                     data-nav-id={item.id}
                     data-nav-href={item.href}
                     data-nav-source-label={item.sourceLabel}
@@ -228,7 +230,7 @@ export function Sidebar({
                     aria-current={activeDirect ? 'page' : undefined}
                     title={collapsed ? item.label : undefined}
                     className={cn(
-                      'group relative flex h-[44px] items-center gap-3 rounded-xl px-3.5 text-[14px] font-medium transition-all',
+                      'animate-nav-item group relative flex h-[44px] items-center gap-3 rounded-xl px-3.5 text-[14px] font-medium transition-all',
                       isDashboard && activeDirect
                         ? 'bg-emerald-500/15 text-white'
                         : activeDirect
@@ -241,7 +243,7 @@ export function Sidebar({
                     )}
                     <Icon
                       className={cn(
-                        'h-[18px] w-[18px] shrink-0',
+                        'h-[18px] w-[18px] shrink-0 transition-transform duration-200 group-hover:scale-110',
                         isDashboard && activeDirect
                           ? 'text-[#10b981]'
                           : activeDirect
@@ -259,9 +261,10 @@ export function Sidebar({
               return (
                 <div
                   key={item.id}
+                  style={{ ['--i']: index } as React.CSSProperties}
                   data-nav-id={item.id}
                   data-nav-source-label={item.sourceLabel}
-                  className="space-y-0.5"
+                  className="animate-nav-item space-y-0.5"
                 >
                   <button
                     type="button"
@@ -278,7 +281,7 @@ export function Sidebar({
                   >
                     <Icon
                       className={cn(
-                        'h-[18px] w-[18px] shrink-0',
+                        'h-[18px] w-[18px] shrink-0 transition-transform duration-200 group-hover:scale-110',
                         isParentActive
                           ? 'text-slate-200'
                           : 'text-slate-400 group-hover:text-slate-200'

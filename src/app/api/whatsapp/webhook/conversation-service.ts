@@ -6,28 +6,57 @@ import { getAdminClient } from '@/lib/supabase/server';
 export async function findOrCreateConversation(
   accountId: string,
   configOwnerUserId: string,
-  contactId: string
+  contactId: string,
+  channel: 'whatsapp' | 'sms' = 'whatsapp'
 ) {
   const db = getAdminClient();
   let matches: Record<string, unknown>[] | null = null;
 
   try {
-    const { data } = await db
+    const scoped = await db
       .from('conversations')
       .select('*')
       .eq('account_id', accountId)
       .eq('contact_id', contactId)
+      .eq('channel', channel)
       .limit(1);
-    if (data && data.length > 0) matches = data;
+    if (!scoped.error && scoped.data && scoped.data.length > 0) {
+      matches = scoped.data;
+    } else if (scoped.error) {
+      // Databases predating the channel column still need to route inbound
+      // messages. In that legacy shape there is one conversation per contact.
+      const legacyShape = await db
+        .from('conversations')
+        .select('*')
+        .eq('account_id', accountId)
+        .eq('contact_id', contactId)
+        .limit(1);
+      if (legacyShape.data && legacyShape.data.length > 0) {
+        matches = legacyShape.data;
+      }
+    }
   } catch {
     try {
-      const { data } = await db
+      const scoped = await db
         .from('conversations')
         .select('*')
         .eq('accountId', accountId)
         .eq('contactId', contactId)
+        .eq('channel', channel)
         .limit(1);
-      if (data && data.length > 0) matches = data;
+      if (!scoped.error && scoped.data && scoped.data.length > 0) {
+        matches = scoped.data;
+      } else if (scoped.error) {
+        const legacyShape = await db
+          .from('conversations')
+          .select('*')
+          .eq('accountId', accountId)
+          .eq('contactId', contactId)
+          .limit(1);
+        if (legacyShape.data && legacyShape.data.length > 0) {
+          matches = legacyShape.data;
+        }
+      }
     } catch {
       // Ignore
     }
@@ -49,7 +78,7 @@ export async function findOrCreateConversation(
         account_id: accountId,
         user_id: configOwnerUserId || null,
         contact_id: contactId,
-        channel: 'whatsapp',
+        channel,
         status: 'open',
         ai_chat_enabled: true,
         unread_count: 0,

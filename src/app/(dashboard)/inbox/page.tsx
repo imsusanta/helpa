@@ -204,11 +204,32 @@ export default function InboxPage() {
           setMessages((prev) => {
             // Avoid duplicates
             if (prev.some((m) => m.id === newMsg.id)) return prev;
-            // Replace optimistic message if it exists
-            const withoutOptimistic = prev.filter(
-              (m) => !m.id.startsWith('temp-')
+
+            // An inbound reply must not clear pending outbound bubbles. A
+            // customer can answer while our send request is still in flight;
+            // removing every `temp-*` row here made that outbound message
+            // disappear until a later poll (and could leave it missing if the
+            // outbound realtime event was missed). Replace only the matching
+            // optimistic outbound row when this INSERT is itself outbound.
+            if (newMsg.sender_type === 'customer') {
+              return [...prev, newMsg];
+            }
+
+            const optimisticIndex = prev.findIndex(
+              (m) =>
+                m.id.startsWith('temp-') &&
+                m.sender_type !== 'customer' &&
+                m.content_type === newMsg.content_type &&
+                (m.content_text ?? '') === (newMsg.content_text ?? '') &&
+                (m.reply_to_message_id ?? null) ===
+                  (newMsg.reply_to_message_id ?? null)
             );
-            return [...withoutOptimistic, newMsg];
+
+            if (optimisticIndex < 0) return [...prev, newMsg];
+
+            const next = prev.slice();
+            next[optimisticIndex] = newMsg;
+            return next;
           });
         }
 

@@ -914,8 +914,8 @@ function AppointmentReminderConfig({
         </div>
       )}
       <p className="text-muted-foreground text-[11px]">
-        Reminders are scheduled when the appointment is booked and are
-        cancelled automatically if it is cancelled.
+        Reminders are scheduled when the appointment is booked and are cancelled
+        automatically if it is cancelled.
       </p>
     </div>
   );

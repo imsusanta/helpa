@@ -62,11 +62,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         is_default: true,
       };
 
-      let { data: newPipeline, error: pipeErr } = await supabase
+      const { data: initialPipeline, error: pipeErr } = await supabase
         .from('pipelines')
         .insert(insertData)
         .select()
         .single();
+      let newPipeline = initialPipeline;
 
       if (pipeErr && pipeErr.message?.includes('is_default')) {
         delete insertData.is_default;
@@ -86,7 +87,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           color: s.color,
           order_index: s.order_index,
         }));
-        let { error: stageErr } = await supabase
+        const { error: stageErr } = await supabase
           .from('pipeline_stages')
           .insert(stageRows);
         if (stageErr && stageErr.message?.includes('order_index')) {
