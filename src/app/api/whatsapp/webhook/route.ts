@@ -16,6 +16,20 @@ import { handleStatusUpdate } from './process-status';
 import { processMessage } from './process-message';
 import type { WhatsAppWebhookEntry } from './types';
 
+interface WebhookEventRow {
+  status?: string | null;
+  attempt_count?: number | null;
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const candidate = error as { code?: string; message?: string };
+  return (
+    candidate.code === '23505' ||
+    candidate.message?.toLowerCase().includes('duplicate key') === true
+  );
+}
+
 // GET - Meta challenge verification
 export async function GET(request: Request) {
   return handleWebhookGet(request);
@@ -57,12 +71,8 @@ export async function POST(request: Request) {
 
   try {
     await processWebhook(body, correlationId);
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error(
-      `[Webhook] [${correlationId}] Error processing webhook:`,
-      message
-    );
+  } catch {
+    console.error('[Webhook] Error processing inbound event');
     return NextResponse.json(
       { error: 'Webhook processing failed' },
       {
@@ -125,9 +135,7 @@ async function processWebhook(
       // Strict multi-tenant resolution by Phone Number ID
       const tenantContext = await resolveTenantByPhoneNumberId(phoneNumberId);
       if (!tenantContext) {
-        throw new Error(
-          `No WhatsApp configuration found for phone_number_id ${phoneNumberId}`
-        );
+        throw new Error('No WhatsApp configuration found for phone number');
       }
 
       // Update last_webhook_at timestamp for tenant health tracking
@@ -157,7 +165,8 @@ async function processWebhook(
           profile: { name: message.from },
         };
 
-        // Idempotency check using webhook_events table in Supabase
+        // Register before processing. Only a unique-key conflict is a
+        // duplicate; all other failures return 500 so Meta retries.
         if (message?.id) {
           const payloadHash = crypto
             .createHash('sha256')
@@ -177,11 +186,41 @@ async function processWebhook(
             });
 
           if (eventInsertError) {
-            // Duplicate event detected — unique constraint on (provider, provider_event_id)
-            console.warn(
-              `[Webhook Idempotency] [${correlationId || 'no-cid'}] Duplicate event ${message.id} skipped for tenant ${tenantContext.tenantId}`
-            );
-            continue;
+            if (!isUniqueViolation(eventInsertError)) {
+              console.error('[Webhook Idempotency] Event registration failed');
+              throw new Error('Unable to register inbound webhook event');
+            }
+
+            const { data: existingEvent, error: existingEventError } = await db
+              .from('webhook_events')
+              .select('status, attempt_count')
+              .eq('provider', 'whatsapp')
+              .eq('provider_event_id', message.id)
+              .maybeSingle();
+
+            if (existingEventError) {
+              throw new Error('Unable to inspect duplicate webhook event');
+            }
+
+            const previous = existingEvent as WebhookEventRow | null;
+            if (previous?.status === 'processed') {
+              console.warn('[Webhook Idempotency] Processed duplicate skipped');
+              continue;
+            }
+
+            const { error: retryUpdateError } = await db
+              .from('webhook_events')
+              .update({
+                status: 'processing',
+                attempt_count: (previous?.attempt_count ?? 1) + 1,
+                received_at: nowIso,
+              })
+              .eq('provider', 'whatsapp')
+              .eq('provider_event_id', message.id);
+
+            if (retryUpdateError) {
+              throw new Error('Unable to prepare webhook retry');
+            }
           }
         }
 
@@ -196,7 +235,7 @@ async function processWebhook(
           );
 
           if (message?.id) {
-            await db
+            const { error: processedUpdateError } = await db
               .from('webhook_events')
               .update({
                 status: 'processed',
@@ -204,12 +243,15 @@ async function processWebhook(
               })
               .eq('provider', 'whatsapp')
               .eq('provider_event_id', message.id);
+
+            if (processedUpdateError) {
+              console.error(
+                '[Webhook Idempotency] Processed status update failed'
+              );
+            }
           }
         } catch (msgErr) {
-          console.error(
-            `[Webhook] [${correlationId || 'no-cid'}] Error processing message ${message.id}:`,
-            msgErr
-          );
+          console.error('[Webhook] Inbound message processing failed');
           if (message?.id) {
             await db
               .from('webhook_events')
