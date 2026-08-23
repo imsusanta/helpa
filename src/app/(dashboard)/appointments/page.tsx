@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { DEFAULT_BOOKING_FORM_CONFIG } from '@/lib/booking-form/config';
+import { useWorkspace } from '@/hooks/use-workspace';
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Unknown error';
@@ -61,6 +62,8 @@ interface PatientSearchMatch {
 
 export default function AppointmentsPage() {
   const { accountId } = useAuth();
+  const { terminology, manifest } = useWorkspace();
+  const isClinical = manifest.id === 'hospital_clinic';
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [formConfig, setFormConfig] = useState<
@@ -217,7 +220,9 @@ export default function AppointmentsPage() {
     setEmail(p.email || '');
     setEmergencyContact(p.emergency_contact || '');
     setCreateNewFamilyMember(false);
-    toast.info(`Selected patient ${p.name} (${p.patient_seq_id})`);
+    toast.info(
+      `Selected ${terminology.contact.toLowerCase()} ${p.name} (${p.patient_seq_id})`
+    );
   }
 
   const handleCreateAppointment = async (e: React.FormEvent) => {
@@ -225,7 +230,7 @@ export default function AppointmentsPage() {
 
     // Validate mandatory required fields based on formConfig
     if (formConfig.name?.required && !patientName.trim()) {
-      toast.error('Patient Name is required.');
+      toast.error(`${terminology.contact} name is required.`);
       return;
     }
     if (formConfig.phone?.required && !mobileNumber.trim()) {
@@ -233,7 +238,7 @@ export default function AppointmentsPage() {
       return;
     }
     if (formConfig.doctor_id?.required && !doctorId) {
-      toast.error('Preferred Doctor selection is required.');
+      toast.error(`${terminology.provider} selection is required.`);
       return;
     }
     if (formConfig.department?.required && !department && !doctorId) {
@@ -241,11 +246,11 @@ export default function AppointmentsPage() {
       return;
     }
     if (!date) {
-      toast.error('Appointment Date is required.');
+      toast.error(`${terminology.booking} date is required.`);
       return;
     }
     if (!time) {
-      toast.error('Appointment Time is required.');
+      toast.error(`${terminology.booking} time is required.`);
       return;
     }
 
@@ -329,13 +334,15 @@ export default function AppointmentsPage() {
         : '';
       const bookingInfo = newAppt?.booking_id ? ` (${newAppt.booking_id})` : '';
       toast.success(
-        `Appointment booked!${tokenInfo}${bookingInfo} — WhatsApp confirmation sent.`
+        `${terminology.booking} created!${tokenInfo}${bookingInfo} — WhatsApp confirmation sent.`
       );
       resetForm();
       setShowAddForm(false);
       loadAllData();
     } catch (err: unknown) {
-      toast.error('Failed to book appointment: ' + getErrorMessage(err));
+      toast.error(
+        `Failed to create ${terminology.booking.toLowerCase()}: ${getErrorMessage(err)}`
+      );
     } finally {
       setSaving(false);
     }
@@ -354,7 +361,7 @@ export default function AppointmentsPage() {
         throw new Error(errData.error || 'Failed to update appointment status');
       }
 
-      toast.success(`Appointment status updated to ${newStatus}.`);
+      toast.success(`${terminology.booking} status updated to ${newStatus}.`);
       loadAllData();
     } catch (err: unknown) {
       toast.error('Status update failed: ' + getErrorMessage(err));
@@ -409,14 +416,15 @@ export default function AppointmentsPage() {
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
           <h1 className="text-foreground flex items-center gap-2 text-2xl font-extrabold">
-            Appointments & OPD Reception
+            {terminology.meetings}
             <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
               Live Desk
             </span>
           </h1>
           <p className="text-muted-foreground mt-0.5 text-xs font-medium">
-            Schedule and manage patient clinical consultations with
-            auto-generated Patient IDs & WhatsApp confirmations.
+            {isClinical
+              ? `Schedule and manage ${terminology.contact.toLowerCase()} consultations with automatic IDs and WhatsApp confirmations.`
+              : `Schedule and manage ${terminology.meetings.toLowerCase()} with WhatsApp confirmations.`}
           </p>
         </div>
         <Button
@@ -426,7 +434,7 @@ export default function AppointmentsPage() {
           }}
           className="cursor-pointer self-start bg-emerald-700 font-bold text-white shadow-md shadow-emerald-600/10 transition-all hover:bg-emerald-600 sm:self-auto dark:bg-emerald-600 dark:hover:bg-emerald-500"
         >
-          <Plus className="mr-2 h-4 w-4" /> Book Appointment
+          <Plus className="mr-2 h-4 w-4" /> {terminology.bookingAction}
         </Button>
       </div>
 
@@ -439,7 +447,7 @@ export default function AppointmentsPage() {
           <div className="border-border flex items-center justify-between border-b pb-3">
             <h3 className="text-foreground flex items-center gap-2 text-lg font-extrabold">
               <Sparkles className="size-5 text-emerald-500" />
-              Book Clinical Appointment
+              {terminology.bookingAction}
             </h3>
             <Button
               type="button"
@@ -456,7 +464,7 @@ export default function AppointmentsPage() {
           <div className="bg-muted/30 border-border space-y-3 rounded-xl border p-4">
             <Label className="text-foreground flex items-center gap-1.5 text-xs font-bold tracking-wider uppercase">
               <Search className="size-3.5 text-emerald-500" /> Step 1: Enter
-              Mobile Number or Search Existing Patient
+              Mobile Number or Search Existing {terminology.contact}
             </Label>
 
             <div className="flex gap-2">
@@ -485,8 +493,9 @@ export default function AppointmentsPage() {
             {patientMatches.length > 0 && !selectedPatient && (
               <div className="animate-in fade-in space-y-2 pt-2 duration-200">
                 <p className="flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400">
-                  <Users className="size-3.5" /> Multiple patient profiles found
-                  for this mobile number:
+                  <Users className="size-3.5" /> Multiple{' '}
+                  {terminology.contact.toLowerCase()} profiles found for this
+                  mobile number:
                 </p>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {patientMatches.map((p) => (
@@ -537,7 +546,7 @@ export default function AppointmentsPage() {
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="size-4 text-emerald-600 dark:text-emerald-400" />
                   <span>
-                    Selected Existing Patient:{' '}
+                    Selected Existing {terminology.contact}:{' '}
                     <strong>{selectedPatient.name}</strong> (
                     <span className="font-mono font-bold">
                       {selectedPatient.patient_seq_id}
@@ -552,7 +561,7 @@ export default function AppointmentsPage() {
                   onClick={() => setSelectedPatient(null)}
                   className="text-muted-foreground hover:text-foreground h-6 text-[11px]"
                 >
-                  Change Patient
+                  Change {terminology.contact}
                 </Button>
               </div>
             )}
@@ -561,7 +570,7 @@ export default function AppointmentsPage() {
           {/* Step 2: Patient & Clinical Information Fields (Configurable Rendering) */}
           <div className="space-y-4">
             <h4 className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
-              Step 2: Patient & Consultation Details
+              Step 2: {terminology.contact} & {terminology.booking} Details
             </h4>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -569,7 +578,7 @@ export default function AppointmentsPage() {
               {formConfig.name?.show && (
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold">
-                    Patient Name{' '}
+                    {terminology.contact} Name{' '}
                     {formConfig.name?.required && (
                       <span className="text-amber-500">*</span>
                     )}
@@ -577,7 +586,7 @@ export default function AppointmentsPage() {
                   <Input
                     value={patientName}
                     onChange={(e) => setPatientName(e.target.value)}
-                    placeholder="Enter full patient name..."
+                    placeholder={`Enter full ${terminology.contact.toLowerCase()} name...`}
                     required={formConfig.name?.required}
                     className="bg-background text-sm"
                   />
@@ -677,7 +686,7 @@ export default function AppointmentsPage() {
               {formConfig.doctor_id?.show && (
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold">
-                    Attending Doctor{' '}
+                    {terminology.provider}{' '}
                     {formConfig.doctor_id?.required && (
                       <span className="text-amber-500">*</span>
                     )}
@@ -688,7 +697,9 @@ export default function AppointmentsPage() {
                     required={formConfig.doctor_id?.required}
                     className="border-input bg-background focus-visible:ring-ring flex h-9 w-full rounded-md border px-3 py-1 text-sm focus-visible:ring-2 focus-visible:outline-none"
                   >
-                    <option value="">-- Choose Doctor --</option>
+                    <option value="">
+                      -- Choose {terminology.provider} --
+                    </option>
                     {doctors.map((d) => (
                       <option key={d.id} value={d.id}>
                         {d.name} ({d.department})
@@ -758,7 +769,7 @@ export default function AppointmentsPage() {
               {/* Date & Time (Always Visible for Appointment) */}
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">
-                  Appointment Date *
+                  {terminology.booking} Date *
                 </Label>
                 <Input
                   type="date"
@@ -771,7 +782,7 @@ export default function AppointmentsPage() {
 
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">
-                  Appointment Time *
+                  {terminology.booking} Time *
                 </Label>
                 <Input
                   type="time"
@@ -819,7 +830,7 @@ export default function AppointmentsPage() {
               {saving ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Booking Appointment...
+                  Creating {terminology.booking}...
                 </>
               ) : (
                 'Schedule & Generate Token'
@@ -845,7 +856,7 @@ export default function AppointmentsPage() {
               {tab === 'queue'
                 ? 'Live Queue'
                 : tab === 'upcoming'
-                  ? 'Upcoming Appointments'
+                  ? `Upcoming ${terminology.meetings}`
                   : tab === 'completed'
                     ? 'Completed'
                     : 'Cancelled / No Show'}
@@ -859,18 +870,18 @@ export default function AppointmentsPage() {
         <div className="border-border bg-card mx-auto max-w-2xl rounded-2xl border border-dashed p-12 text-center">
           <CalendarIcon className="mx-auto mb-4 h-12 w-12 text-emerald-500/60" />
           <h3 className="text-foreground text-base font-bold">
-            No appointments yet
+            No {terminology.meetings.toLowerCase()} yet
           </h3>
           <p className="text-muted-foreground mx-auto mt-1 max-w-md text-xs leading-relaxed">
-            Appointments booked by your AI receptionist or staff will appear
-            here.
+            {terminology.meetings} created by your AI assistant or{' '}
+            {terminology.staff.toLowerCase()} will appear here.
           </p>
           <Button
             onClick={() => setShowAddForm(true)}
             className="mt-4 bg-emerald-600 text-xs font-bold text-white hover:bg-emerald-700"
           >
             <Plus className="mr-1.5 size-3.5" />
-            Book Appointment
+            {terminology.bookingAction}
           </Button>
         </div>
       ) : (
@@ -879,9 +890,9 @@ export default function AppointmentsPage() {
             <table className="text-muted-foreground w-full text-left text-sm">
               <thead className="bg-muted/50 border-border text-foreground border-b text-xs font-semibold uppercase">
                 <tr>
-                  <th className="px-6 py-4">Patient</th>
+                  <th className="px-6 py-4">{terminology.contact}</th>
                   <th className="px-6 py-4">Booking ID</th>
-                  <th className="px-6 py-4">Doctor</th>
+                  <th className="px-6 py-4">{terminology.provider}</th>
                   <th className="px-6 py-4">Token / Queue</th>
                   <th className="px-6 py-4">Schedule Date/Time</th>
                   <th className="px-6 py-4">Status</th>
@@ -899,7 +910,8 @@ export default function AppointmentsPage() {
                         <User className="h-4.5 w-4.5 text-emerald-500" />
                         <div>
                           <div className="text-foreground font-bold">
-                            {appt.patient?.name || 'Unknown Patient'}
+                            {appt.patient?.name ||
+                              `Unknown ${terminology.contact}`}
                           </div>
                           <div className="text-muted-foreground text-xs font-normal">
                             {appt.patient?.phone}

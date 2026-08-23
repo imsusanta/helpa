@@ -15,6 +15,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
+import { useWorkspace } from '@/hooks/use-workspace';
 
 const metricCards = [
   {
@@ -141,6 +142,7 @@ function FilterPill({ children }: { children: ReactNode }) {
 
 export function GenericDashboardClient() {
   const { account, accountId, profile } = useAuth();
+  const { terminology } = useWorkspace();
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState<Record<string, number>>({});
   const [range, setRange] = useState('30d');
@@ -238,7 +240,11 @@ export function GenericDashboardClient() {
             >
               <div className="flex items-start justify-between gap-2">
                 <span className="text-[12px] font-bold tracking-[0.055em] text-[#64748b] uppercase group-hover:text-slate-900">
-                  {card.label}
+                  {card.key === 'leads'
+                    ? terminology.pipelineItems.toUpperCase()
+                    : card.key === 'customers'
+                      ? terminology.primaryRecords.toUpperCase()
+                      : card.label}
                 </span>
                 {card.filter && (
                   <span className="inline-flex h-6 items-center rounded-lg bg-slate-50 px-2 text-[10px] font-bold text-slate-500">
@@ -267,13 +273,16 @@ export function GenericDashboardClient() {
         <div className="flex h-[364px] flex-col rounded-2xl border border-slate-200/90 bg-white shadow-[0_2px_8px_rgba(15,23,42,0.04)]">
           <div className="border-b border-slate-100 px-5 py-4">
             <h2 className="text-[15px] font-bold text-[#0f172a]">
-              Sales Pipeline Overview
+              {terminology.pipeline} Overview
             </h2>
           </div>
           <div className="flex flex-1 flex-col justify-between p-5">
             <div className="space-y-6 pt-1">
               {[
-                { label: 'New Leads', val: totalPipeline },
+                {
+                  label: `New ${terminology.pipelineItems}`,
+                  val: totalPipeline,
+                },
                 { label: 'Contacted / Assigned', val: 0 },
                 { label: 'Qualified / Won', val: 0 },
               ].map((row) => (
@@ -296,7 +305,7 @@ export function GenericDashboardClient() {
               ))}
             </div>
             <div className="border-t border-slate-100 pt-3 text-right text-[12px] font-semibold text-slate-500">
-              Total Pipeline Leads:{' '}
+              Total {terminology.pipelineItems}:{' '}
               <span className="font-extrabold text-[#0f172a]">
                 {totalPipeline || 1}
               </span>
@@ -307,7 +316,7 @@ export function GenericDashboardClient() {
         <div className="flex h-[364px] flex-col rounded-2xl border border-slate-200/90 bg-white shadow-[0_2px_8px_rgba(15,23,42,0.04)]">
           <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
             <h2 className="text-[15px] font-bold text-[#0f172a]">
-              Top Lead Sources
+              Top {terminology.pipelineItem} Sources
             </h2>
             <FilterPill>This Month</FilterPill>
           </div>
@@ -366,7 +375,8 @@ export function GenericDashboardClient() {
               </div>
             </div>
             <p className="max-w-[245px] text-[13px] leading-relaxed font-medium text-slate-500">
-              No upcoming call or meeting follow-ups for this period
+              No upcoming {terminology.meetings.toLowerCase()} or{' '}
+              {terminology.followUps.toLowerCase()} for this period
             </p>
           </div>
         </div>

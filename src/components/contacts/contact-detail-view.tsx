@@ -872,7 +872,10 @@ export function ContactDetailView({
                     return (
                       <div className="border-border/50 space-y-3 border-t pt-2">
                         <span className="text-primary block text-[10px] font-bold uppercase">
-                          {contactConfig?.label || 'Contact'} Details
+                          {terminology.contact ||
+                            contactConfig?.label ||
+                            'Contact'}{' '}
+                          Details
                         </span>
                         {fields.map((field) => {
                           const val =

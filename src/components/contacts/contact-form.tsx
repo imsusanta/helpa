@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/appwrite-compat';
 import { useAuth } from '@/hooks/use-auth';
+import { useWorkspace } from '@/hooks/use-workspace';
 import { toast } from 'sonner';
 import type { Contact, Tag, ContactTag } from '@/types';
 import { getIndustryModule } from '@/modules/registry';
@@ -44,12 +45,13 @@ export function ContactForm({
 }: ContactFormProps) {
   const appwrite = createClient();
   const { accountId, account } = useAuth();
+  const { terminology } = useWorkspace();
   const isEdit = !!contact;
 
   // Active industry configuration
   const industryModule = getIndustryModule(account?.industry);
   const contactConfig = industryModule.entityConfigs?.contacts;
-  const entityLabel = contactConfig?.label || 'Contact';
+  const entityLabel = terminology.contact || contactConfig?.label || 'Contact';
   const customFields = contactConfig?.fields || [];
   const isHospitalWorkspace = industryModule.id === 'hospital_clinic';
 

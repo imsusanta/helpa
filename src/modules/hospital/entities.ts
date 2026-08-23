@@ -1,4 +1,2 @@
-export const entitiesConfig = {
-  primary: 'patients',
-  tables: ['patients', 'hospital_doctors', 'appointments', 'lab_reports'],
-};
+// Compatibility facade: hospital/clinic is canonically implemented by health.
+export { entitiesConfig } from '../health/entities';

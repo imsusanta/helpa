@@ -14,6 +14,7 @@ import {
   ArrowLeft,
   X,
 } from 'lucide-react';
+import { useWorkspace } from '@/hooks/use-workspace';
 
 type AudienceType = 'all' | 'tags' | 'custom_field' | 'csv';
 type CustomFieldOperator = 'is' | 'is_not' | 'contains';
@@ -83,6 +84,21 @@ export function Step2SelectAudience({
   onNext,
   onBack,
 }: Step2Props) {
+  const { terminology } = useWorkspace();
+  const contextualAudienceOptions = audienceOptions.map((option) =>
+    option.type === 'all'
+      ? {
+          ...option,
+          label: `All ${terminology.people}`,
+          description: `Send to every ${terminology.person.toLowerCase()} in your database`,
+        }
+      : option.type === 'tags'
+        ? {
+            ...option,
+            description: `Target ${terminology.people.toLowerCase()} with specific tags`,
+          }
+        : option
+  );
   const [tags, setTags] = useState<Tag[]>([]);
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [loadingTags, setLoadingTags] = useState(false);
@@ -260,7 +276,7 @@ export function Step2SelectAudience({
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {audienceOptions.map((option) => {
+        {contextualAudienceOptions.map((option) => {
           const isSelected = audience.type === option.type;
           const Icon = option.icon;
           return (

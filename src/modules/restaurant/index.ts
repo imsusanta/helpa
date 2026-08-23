@@ -6,12 +6,15 @@ import { knowledgeTemplateConfig } from './knowledge-template';
 import { campaignTemplateConfig } from './campaign-template';
 import { copilotConfig } from './copilot';
 import { workflowsConfig } from './workflows';
+import { getIndustryTerminology } from '../terminology';
 
 export const restaurantModule: IndustryModule = {
   id: 'restaurant',
   name: 'Restaurant',
   description: 'AI Reservation Assistant',
   status: 'COMING_SOON',
+  aiRole: 'AI Reservation Assistant',
+  terminology: getIndustryTerminology('restaurant'),
   sidebar: sidebarConfig,
   dashboardMetrics: dashboardConfig,
   systemPrompt: systemPromptConfig,
@@ -26,8 +29,8 @@ export const restaurantModule: IndustryModule = {
   entityConfigs: {
     contacts: {
       tableName: 'contacts',
-      label: 'Customer',
-      pluralLabel: 'Customers',
+      label: 'Guest',
+      pluralLabel: 'Guests',
       fields: [
         { key: 'preferred_table', label: 'Preferred Table', type: 'text' },
         {

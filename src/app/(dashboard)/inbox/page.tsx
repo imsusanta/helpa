@@ -10,6 +10,7 @@ import type {
 } from '@/types';
 import { useRealtime } from '@/hooks/use-realtime';
 import { useAuth } from '@/hooks/use-auth';
+import { useWorkspace } from '@/hooks/use-workspace';
 import { ConversationList } from '@/components/inbox/conversation-list';
 import { MessageThread } from '@/components/inbox/message-thread';
 import { ContactSidebar } from '@/components/inbox/contact-sidebar';
@@ -26,22 +27,9 @@ const CONTACT_PANEL_STORAGE_KEY = 'wacrm:inbox:contact-panel-open';
 export default function InboxPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { accountId, account } = useAuth();
-
-  const contactLabelSingular =
-    account?.industry === 'hospital_clinic'
-      ? 'Patient'
-      : account?.industry === 'coaching' || account?.industry === 'solo_teacher'
-        ? 'Student'
-        : account?.industry === 'real_estate'
-          ? 'Lead'
-          : account?.industry === 'travel'
-            ? 'Traveler'
-            : account?.industry === 'gym'
-              ? 'Member'
-              : account?.industry === 'restaurant'
-                ? 'Guest'
-                : 'Contact';
+  const { accountId } = useAuth();
+  const { currentIndustry, terminology } = useWorkspace();
+  const isClinicalWorkspace = currentIndustry === 'hospital_clinic';
 
   const [rightTab, setRightTab] = useState<'copilot' | 'crm'>('copilot');
   /**
@@ -680,18 +668,20 @@ export default function InboxPage() {
           <aside className="border-border bg-card hidden h-full min-h-0 w-80 shrink-0 flex-col border-l lg:flex">
             {/* Premium Tab Bar */}
             <div className="border-border bg-muted/20 flex shrink-0 border-b p-1">
-              <button
-                type="button"
-                onClick={() => setRightTab('copilot')}
-                className={cn(
-                  'flex-1 cursor-pointer rounded-md py-1.5 text-center text-xs font-bold transition-all',
-                  rightTab === 'copilot'
-                    ? 'bg-background border-border/50 border text-emerald-700 shadow-sm dark:text-emerald-400'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                🤖 AI Copilot
-              </button>
+              {isClinicalWorkspace && (
+                <button
+                  type="button"
+                  onClick={() => setRightTab('copilot')}
+                  className={cn(
+                    'flex-1 cursor-pointer rounded-md py-1.5 text-center text-xs font-bold transition-all',
+                    rightTab === 'copilot'
+                      ? 'bg-background border-border/50 border text-emerald-700 shadow-sm dark:text-emerald-400'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  🤖 Clinical Copilot
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setRightTab('crm')}
@@ -702,13 +692,13 @@ export default function InboxPage() {
                     : 'text-muted-foreground hover:text-foreground'
                 )}
               >
-                👤 {contactLabelSingular} Details
+                👤 {terminology.person} Details
               </button>
             </div>
 
             {/* Embed Panel Content */}
             <div className="flex min-h-0 flex-1 flex-col">
-              {rightTab === 'copilot' ? (
+              {isClinicalWorkspace && rightTab === 'copilot' ? (
                 <ReceptionistCopilotPanel
                   conversation={activeConversation}
                   contact={activeContact}

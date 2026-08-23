@@ -6,6 +6,7 @@ import { knowledgeTemplateConfig } from './knowledge-template';
 import { campaignTemplateConfig } from './campaign-template';
 import { copilotConfig } from './copilot';
 import { workflowsConfig } from './workflows';
+import { getIndustryTerminology } from '../terminology';
 
 export const realEstateModule: IndustryModule = {
   id: 'real_estate',
@@ -13,16 +14,7 @@ export const realEstateModule: IndustryModule = {
   description: 'AI Property Assistant for Real Estate Agencies',
   status: 'COMING_SOON',
   aiRole: 'AI Property Assistant',
-  terminology: {
-    contact: 'Lead',
-    contacts: 'Leads',
-    booking: 'Site Visit',
-    bookings: 'Site Visits',
-    staff: 'Agent',
-    staffMembers: 'Agents',
-    service: 'Property',
-    services: 'Properties',
-  },
+  terminology: getIndustryTerminology('real_estate'),
   features: {
     leads: true,
     properties: true,

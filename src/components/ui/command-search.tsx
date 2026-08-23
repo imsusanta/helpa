@@ -21,6 +21,7 @@ import {
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { useWorkspace } from '@/hooks/use-workspace';
 
 export interface CommandSearchProps {
   open?: boolean;
@@ -118,6 +119,7 @@ export function CommandSearch({
   open: externalOpen,
   onOpenChange,
 }: CommandSearchProps) {
+  const { terminology, isRouteAllowed } = useWorkspace();
   const [internalOpen, setInternalOpen] = React.useState(false);
   const [query, setQuery] = React.useState('');
   const [loading, setLoading] = React.useState(false);
@@ -184,7 +186,35 @@ export function CommandSearch({
     return () => clearTimeout(timer);
   }, [query]);
 
-  const filteredNavItems = COMMAND_NAV_ITEMS.filter(
+  const contextualNavItems = COMMAND_NAV_ITEMS.filter((item) =>
+    isRouteAllowed(item.href)
+  ).map((item) => {
+    if (item.href === '/contacts') {
+      return { ...item, label: `${terminology.people} Directory` };
+    }
+    if (item.href === '/leads') {
+      return { ...item, label: `${terminology.pipelineItems} Board` };
+    }
+    if (item.href === '/pipelines') {
+      return {
+        ...item,
+        label: `${terminology.pipelines} & ${terminology.pipelineItems}`,
+      };
+    }
+    if (item.href === '/appointments') {
+      return {
+        ...item,
+        label: terminology.meetings,
+        category: 'Scheduling',
+      };
+    }
+    if (item.href === '/follow-ups') {
+      return { ...item, label: `Tasks & ${terminology.followUps}` };
+    }
+    return item;
+  });
+
+  const filteredNavItems = contextualNavItems.filter(
     (item) =>
       item.label.toLowerCase().includes(query.toLowerCase()) ||
       item.category.toLowerCase().includes(query.toLowerCase())
@@ -210,7 +240,7 @@ export function CommandSearch({
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search contacts, deals, appointments, navigation..."
+            placeholder={`Search ${terminology.people.toLowerCase()}, ${terminology.pipelineItems.toLowerCase()}, ${terminology.meetings.toLowerCase()}, navigation...`}
             className="h-8 border-0 bg-transparent p-0 text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
             autoFocus
           />
@@ -233,7 +263,7 @@ export function CommandSearch({
           {entityResults.contacts.length > 0 && (
             <div>
               <span className="text-primary block px-2 py-1 text-[10px] font-bold tracking-wider uppercase">
-                Contacts ({entityResults.contacts.length})
+                {terminology.people} ({entityResults.contacts.length})
               </span>
               <div className="mt-1 space-y-1">
                 {entityResults.contacts.map((c) => (
@@ -270,7 +300,7 @@ export function CommandSearch({
           {entityResults.deals.length > 0 && (
             <div>
               <span className="text-primary block px-2 py-1 text-[10px] font-bold tracking-wider uppercase">
-                Deals ({entityResults.deals.length})
+                {terminology.pipelineItems} ({entityResults.deals.length})
               </span>
               <div className="mt-1 space-y-1">
                 {entityResults.deals.map((d) => (
@@ -298,7 +328,7 @@ export function CommandSearch({
           {entityResults.appointments.length > 0 && (
             <div>
               <span className="text-primary block px-2 py-1 text-[10px] font-bold tracking-wider uppercase">
-                Appointments ({entityResults.appointments.length})
+                {terminology.meetings} ({entityResults.appointments.length})
               </span>
               <div className="mt-1 space-y-1">
                 {entityResults.appointments.map((a) => (

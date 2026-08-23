@@ -4,6 +4,7 @@ import {
   engineSendText,
   engineSendDocument,
 } from '@/lib/automations/meta-send';
+import { authorizeCronRequest } from '@/lib/cron/security';
 
 // Helper to calculate next recurring date
 function getNextRecurringDate(
@@ -22,13 +23,9 @@ function getNextRecurringDate(
 }
 
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization');
-  const expectedSecret = process.env.CRON_SECRET;
-
-  if (process.env.NODE_ENV === 'production' || expectedSecret) {
-    if (!expectedSecret || authHeader !== `Bearer ${expectedSecret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  const auth = authorizeCronRequest(request);
+  if (!auth.authorized) {
+    return NextResponse.json({ error: auth.message }, { status: auth.status });
   }
 
   console.log('[Cron Campaigns] Executing cron automation triggers...');
@@ -69,22 +66,55 @@ export async function GET(request: Request) {
           >;
           let patientIds: string[] = [];
 
-          // Server-side audience resolution
+          // Server-side audience resolution.
+          // SECURITY: every contact query below MUST be scoped to the
+          // campaign's own account — an unscoped query would leak
+          // cross-tenant contacts into this campaign's recipients.
+          // Opted-out contacts are always excluded (consent policy).
           if (filter.type === 'all') {
-            const { data } = await db.from('contacts').select('id');
+            const { data } = await db
+              .from('contacts')
+              .select('id')
+              .eq('account_id', campaign.account_id)
+              .neq('consent_status', 'opted_out');
             patientIds = (data || []).map((c) => c.id);
+          } else if (filter.type === 'tags') {
+            // Tag-based audiences (wizard default). Resolve contact ids
+            // from contact_tags within this account only.
+            const tagIds = Array.isArray(filter.tagIds)
+              ? (filter.tagIds as string[]).filter(
+                  (t) => typeof t === 'string' && t
+                )
+              : [];
+            if (tagIds.length > 0) {
+              const { data: links } = await db
+                .from('contact_tags')
+                .select('contact_id')
+                .eq('account_id', campaign.account_id)
+                .in('tag_id', tagIds);
+              patientIds = [
+                ...new Set(
+                  (links || []).map((l: { contact_id: string }) =>
+                    String(l.contact_id)
+                  )
+                ),
+              ] as string[];
+            }
           } else if (filter.type === 'new_patients') {
             const thirtyDaysAgo = new Date();
             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
             const { data } = await db
               .from('contacts')
               .select('id')
+              .eq('account_id', campaign.account_id)
+              .neq('consent_status', 'opted_out')
               .gte('created_at', thirtyDaysAgo.toISOString());
             patientIds = (data || []).map((c) => c.id);
           } else if (filter.type === 'returning_patients') {
             const { data: appts } = await db
               .from('appointments')
-              .select('patient_id');
+              .select('patient_id')
+              .eq('account_id', campaign.account_id);
             const counts: Record<string, number> = {};
             appts?.forEach((r) => {
               counts[r.patient_id] = (counts[r.patient_id] || 0) + 1;
@@ -95,6 +125,7 @@ export async function GET(request: Request) {
             const { data: appts } = await db
               .from('appointments')
               .select('patient_id')
+              .eq('account_id', campaign.account_id)
               .gte('appointment_date', todayStr);
             patientIds = [
               ...new Set(
@@ -108,6 +139,7 @@ export async function GET(request: Request) {
             const { data: appts } = await db
               .from('appointments')
               .select('patient_id')
+              .eq('account_id', campaign.account_id)
               .or(
                 `status.eq.no_show,status.eq.Cancelled,and(status.eq.pending,appointment_date.lt.${todayStr})`
               );
@@ -119,29 +151,38 @@ export async function GET(request: Request) {
               ),
             ] as string[];
           } else if (filter.type === 'due_followup') {
-            const { data: pats } = await db.from('patients').select('id');
+            const { data: pats } = await db
+              .from('patients')
+              .select('id')
+              .eq('account_id', campaign.account_id);
             patientIds = (pats || []).map((p) => p.id);
           } else if (filter.type === 'by_department' && filter.department) {
             const { data: pats } = await db
               .from('patients')
               .select('id')
+              .eq('account_id', campaign.account_id)
               .eq('department', filter.department);
             patientIds = (pats || []).map((p) => p.id);
           } else if (filter.type === 'by_doctor' && filter.doctorId) {
             const { data: pats } = await db
               .from('patients')
               .select('id')
+              .eq('account_id', campaign.account_id)
               .eq('assigned_doctor_id', filter.doctorId);
             patientIds = (pats || []).map((p) => p.id);
           } else if (filter.type === 'by_gender' && filter.gender) {
             const { data: pats } = await db
               .from('patients')
               .select('id')
+              .eq('account_id', campaign.account_id)
               .eq('gender', filter.gender);
             patientIds = (pats || []).map((p) => p.id);
           } else if (filter.type === 'by_age') {
             const nowYear = new Date().getFullYear();
-            let query = db.from('patients').select('id');
+            let query = db
+              .from('patients')
+              .select('id')
+              .eq('account_id', campaign.account_id);
             if (filter.ageMin !== undefined) {
               const maxDob = new Date();
               maxDob.setFullYear(nowYear - Number(filter.ageMin));
@@ -170,10 +211,12 @@ export async function GET(request: Request) {
             continue;
           }
 
-          // Fetch recipient contacts
+          // Fetch recipient contacts (tenant-scoped, opted-out excluded)
           const { data: contacts } = await db
             .from('contacts')
             .select('*')
+            .eq('account_id', campaign.account_id)
+            .neq('consent_status', 'opted_out')
             .in('id', patientIds);
           if (!contacts || contacts.length === 0) {
             await db
@@ -244,8 +287,9 @@ export async function GET(request: Request) {
               }
 
               // Send PDF/Image attachment if specified
+              let sendResult: { whatsapp_message_id?: string } | null = null;
               if (campaign.attachment_url) {
-                await engineSendDocument({
+                sendResult = await engineSendDocument({
                   accountId: campaign.account_id,
                   userId: '00000000-0000-0000-0000-000000000000',
                   conversationId: conv.id,
@@ -255,7 +299,7 @@ export async function GET(request: Request) {
                   caption: textBody,
                 });
               } else {
-                await engineSendText({
+                sendResult = await engineSendText({
                   accountId: campaign.account_id,
                   userId: '00000000-0000-0000-0000-000000000000',
                   conversationId: conv.id,
@@ -264,10 +308,17 @@ export async function GET(request: Request) {
                 });
               }
 
-              // Update recipient log
+              // Update recipient log. Persisting the provider message id
+              // is what lets the status webhook mirror delivered/read/
+              // replied back onto this row later.
+              const update: Record<string, unknown> = { status: 'sent' };
+              if (sendResult?.whatsapp_message_id) {
+                update.whatsapp_message_id = sendResult.whatsapp_message_id;
+                update.sent_at = new Date().toISOString();
+              }
               await db
                 .from('broadcast_recipients')
-                .update({ status: 'sent' })
+                .update(update)
                 .eq('broadcast_id', campaign.id)
                 .eq('contact_id', contact.id);
               sentCount++;
@@ -280,16 +331,17 @@ export async function GET(request: Request) {
             }
           }
 
-          // Complete Campaign status
+          // Complete Campaign status. Counters are owned by the
+          // broadcast_recipients aggregate triggers — never write them
+          // here or they will drift from per-recipient reality.
           await db
             .from('broadcasts')
-            .update({
-              status: 'sent',
-              total_recipients: contacts.length,
-              sent_count: sentCount,
-              failed_count: failedCount,
-            })
+            .update({ status: 'sent' })
             .eq('id', campaign.id);
+
+          console.log(
+            `[Cron Campaigns] Campaign "${campaign.name}" dispatched: ${sentCount} sent, ${failedCount} failed.`
+          );
 
           totalDispatched++;
 

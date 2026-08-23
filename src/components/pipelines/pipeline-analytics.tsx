@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/tooltip';
 import { useAuth } from '@/hooks/use-auth';
 import { formatCurrency } from '@/lib/currency';
+import { useWorkspace } from '@/hooks/use-workspace';
 
 interface PipelineAnalyticsProps {
   stages: PipelineStage[];
@@ -47,6 +48,7 @@ function computeStageProbability(
 
 export function PipelineAnalytics({ stages, deals }: PipelineAnalyticsProps) {
   const { defaultCurrency } = useAuth();
+  const { terminology } = useWorkspace();
   const sortedStages = useMemo(
     () =>
       [...stages].sort(
@@ -101,19 +103,19 @@ export function PipelineAnalytics({ stages, deals }: PipelineAnalyticsProps) {
       <div className="border-border bg-card/60 grid grid-cols-2 gap-3 rounded-xl border p-4 sm:grid-cols-3 xl:grid-cols-6">
         <Metric
           icon={<BarChart3 className="text-muted-foreground h-4 w-4" />}
-          label="Total Deals"
+          label={`Total ${terminology.pipelineItems}`}
           value={String(stats.totalCount)}
-          tooltip="Count of every deal in this pipeline that isn't marked as Lost. Won deals are still included."
+          tooltip={`Count of every ${terminology.pipelineItem.toLowerCase()} in this ${terminology.pipeline.toLowerCase()} that is not marked as Lost.`}
         />
         <Metric
           icon={<DollarSign className="text-primary h-4 w-4" />}
-          label="Pipeline Value"
+          label={`${terminology.pipeline} Value`}
           value={formatCurrency(stats.totalValue, defaultCurrency)}
           tooltip="Sum of the dollar values of all deals in this pipeline, excluding deals marked as Lost."
         />
         <Metric
           icon={<Target className="h-4 w-4 text-blue-400" />}
-          label="Avg Deal Size"
+          label={`Avg ${terminology.pipelineItem} Size`}
           value={formatCurrency(stats.avgValue, defaultCurrency)}
           tooltip="Pipeline Value divided by Total Deals — the average value of a single non-lost deal."
         />
@@ -125,13 +127,13 @@ export function PipelineAnalytics({ stages, deals }: PipelineAnalyticsProps) {
         />
         <Metric
           icon={<Trophy className="text-primary h-4 w-4" />}
-          label="Won This Month"
+          label={`Won ${terminology.pipelineItems} This Month`}
           value={String(stats.wonThisMonth)}
           tooltip="Deals marked as Won since the first day of the current month."
         />
         <Metric
           icon={<XCircle className="h-4 w-4 text-red-400" />}
-          label="Lost This Month"
+          label={`Lost ${terminology.pipelineItems} This Month`}
           value={String(stats.lostThisMonth)}
           tooltip="Deals marked as Lost since the first day of the current month."
         />

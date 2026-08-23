@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Search, RefreshCw, X, Filter } from 'lucide-react';
+import { useWorkspace } from '@/hooks/use-workspace';
 
 export interface LeadFilterState {
   search: string;
@@ -40,6 +41,7 @@ export function LeadBoardToolbar({
   totalLeadsCount,
   filteredLeadsCount,
 }: LeadBoardToolbarProps) {
+  const { terminology } = useWorkspace();
   const activeFiltersCount =
     (filters.search ? 1 : 0) +
     (filters.channel !== 'all' ? 1 : 0) +
@@ -57,7 +59,7 @@ export function LeadBoardToolbar({
           <Input
             value={filters.search}
             onChange={(e) => onFilterChange('search', e.target.value)}
-            placeholder="Search leads by name, phone, or service..."
+            placeholder={`Search ${terminology.pipelineItems.toLowerCase()} by name, phone, or ${terminology.service.toLowerCase()}...`}
             className="bg-background border-border pl-9 text-sm"
           />
           {filters.search && (

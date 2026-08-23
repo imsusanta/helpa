@@ -6,6 +6,7 @@ import { knowledgeTemplateConfig } from './knowledge-template';
 import { campaignTemplateConfig } from './campaign-template';
 import { copilotConfig } from './copilot';
 import { workflowsConfig } from './workflows';
+import { getIndustryTerminology } from '../terminology';
 
 export const coachingModule: IndustryModule = {
   id: 'coaching',
@@ -13,16 +14,7 @@ export const coachingModule: IndustryModule = {
   description: 'AI Admission Assistant for Coaching Institutes',
   status: 'COMING_SOON',
   aiRole: 'AI Admission Assistant',
-  terminology: {
-    contact: 'Student',
-    contacts: 'Students',
-    booking: 'Admission',
-    bookings: 'Admissions',
-    staff: 'Teacher',
-    staffMembers: 'Teachers',
-    service: 'Course',
-    services: 'Courses',
-  },
+  terminology: getIndustryTerminology('coaching'),
   features: {
     students: true,
     teachers: true,

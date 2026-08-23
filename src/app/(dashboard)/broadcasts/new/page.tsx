@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/appwrite-compat';
 import { useAuth } from '@/hooks/use-auth';
+import { useWorkspace } from '@/hooks/use-workspace';
 import { toast } from 'sonner';
 import { MessageTemplate } from '@/types';
 import { useBroadcastSending } from '@/hooks/use-broadcast-sending';
@@ -33,6 +34,8 @@ export default function NewCampaignPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { accountId, account } = useAuth();
+  const { currentIndustry, terminology } = useWorkspace();
+  const isClinicalWorkspace = currentIndustry === 'hospital_clinic';
   const { createAndSendBroadcast, isProcessing, progress } =
     useBroadcastSending();
 
@@ -411,10 +414,19 @@ export default function NewCampaignPage() {
         finalVariables = templateVariables;
       }
 
-      const _scheduledAt =
-        scheduleMode === 'scheduled'
+      // Scheduled campaigns are dispatched by the server-side cron
+      // runner; immediate campaigns go through the client send loop.
+      const scheduledAt =
+        scheduleMode === 'scheduled' && scheduledDate && scheduledTime
           ? new Date(`${scheduledDate}T${scheduledTime}`).toISOString()
           : undefined;
+
+      if (scheduleMode === 'scheduled' && !scheduledAt) {
+        toast.error(
+          'Please pick a valid date and time before scheduling the campaign.'
+        );
+        return;
+      }
 
       const broadcastId = await createAndSendBroadcast({
         name,
@@ -439,6 +451,7 @@ export default function NewCampaignPage() {
         cta_url: ctaUrl || undefined,
         recurrence,
         ai_suggested: !!searchParams.get('suggestion'),
+        scheduled_at: scheduledAt,
       } as Parameters<typeof createAndSendBroadcast>[0]);
 
       toast.success(
@@ -537,7 +550,7 @@ export default function NewCampaignPage() {
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Cardiology Free Health Camp July"
+                  placeholder={`e.g. July ${terminology.campaign} Update`}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="border-border bg-background text-foreground h-10 w-full rounded-lg border px-3 text-sm focus:ring-1 focus:ring-indigo-500 focus:outline-none"
@@ -578,9 +591,7 @@ export default function NewCampaignPage() {
             <div className="space-y-4">
               <h2 className="text-foreground flex items-center gap-1.5 text-base font-bold">
                 <Users className="h-4 w-4" />
-                {account?.industry === 'hospital'
-                  ? 'Target Patients Segment'
-                  : 'Target Contacts Segment'}
+                Target {terminology.people} Segment
               </h2>
 
               <div className="space-y-1.5">
@@ -594,7 +605,7 @@ export default function NewCampaignPage() {
                   }
                   className="border-border bg-background text-foreground h-10 w-full rounded-lg border px-3 text-sm focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                 >
-                  {account?.industry === 'hospital' ? (
+                  {isClinicalWorkspace ? (
                     <>
                       <option value="all">All Registered Patients</option>
                       <option value="new_patients">
@@ -627,7 +638,7 @@ export default function NewCampaignPage() {
                     </>
                   ) : (
                     <>
-                      <option value="all">All Contacts</option>
+                      <option value="all">All {terminology.people}</option>
                     </>
                   )}
                   <option value="contact_list">

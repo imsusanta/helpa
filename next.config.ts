@@ -95,6 +95,26 @@ const nextConfig: NextConfig = {
   },
 
   /**
+   * Marketing route aliases — canonical pages live at /broadcasts (campaigns)
+   * and /lead-forms; legacy sidebar URLs redirect without duplicating pages.
+   */
+  async redirects() {
+    return [
+      { source: '/campaigns', destination: '/broadcasts', permanent: false },
+      {
+        source: '/campaigns/new',
+        destination: '/broadcasts/new',
+        permanent: false,
+      },
+      {
+        source: '/forms',
+        destination: '/lead-forms',
+        permanent: false,
+      },
+    ];
+  },
+
+  /**
    * Strict Cache-Control Policy.
    *
    * Protection Rules:
@@ -118,7 +138,7 @@ const nextConfig: NextConfig = {
       },
       {
         source:
-          '/:path(dashboard|inbox|contacts|patients|appointments|bookings|doctors|departments|lab-reports|settings|admin|pipelines|broadcasts|automations|admissions|agents|billing|classes|courses|customers|follow-ups|knowledge-base|leads|members|memberships|orders|packages|properties|reservations|site-visits|students|tables|teachers|trainers)',
+          '/:path(dashboard|inbox|contacts|patients|appointments|bookings|doctors|departments|lab-reports|settings|admin|pipelines|broadcasts|automations|admissions|agents|billing|classes|courses|customers|follow-ups|knowledge-base|leads|members|memberships|orders|packages|properties|reservations|site-visits|students|tables|teachers|trainers|lead-forms|campaign-reports)',
         headers: [
           {
             key: 'Cache-Control',
@@ -128,7 +148,7 @@ const nextConfig: NextConfig = {
       },
       {
         source:
-          '/:path(dashboard|inbox|contacts|patients|appointments|bookings|doctors|departments|lab-reports|settings|admin|pipelines|broadcasts|automations|admissions|agents|billing|classes|courses|customers|follow-ups|knowledge-base|leads|members|memberships|orders|packages|properties|reservations|site-visits|students|tables|teachers|trainers)/:rest*',
+          '/:path(dashboard|inbox|contacts|patients|appointments|bookings|doctors|departments|lab-reports|settings|admin|pipelines|broadcasts|automations|admissions|agents|billing|classes|courses|customers|follow-ups|knowledge-base|leads|members|memberships|orders|packages|properties|reservations|site-visits|students|tables|teachers|trainers|lead-forms|campaign-reports)/:rest*',
         headers: [
           {
             key: 'Cache-Control',

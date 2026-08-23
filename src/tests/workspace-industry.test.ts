@@ -48,7 +48,7 @@ describe('Phase 2: Dynamic Industry Workspace Manifests', () => {
     const coaching = getIndustryModule('coaching');
     expect(coaching.terminology?.contact).toBe('Student');
     expect(coaching.terminology?.contacts).toBe('Students');
-    expect(coaching.terminology?.booking).toBe('Admission');
+    expect(coaching.terminology?.booking).toBe('Admission Enquiry');
     expect(coaching.terminology?.staff).toBe('Teacher');
     expect(coaching.aiRole).toBe('AI Admission Assistant');
 
@@ -56,23 +56,23 @@ describe('Phase 2: Dynamic Industry Workspace Manifests', () => {
     const tutor = getIndustryModule('tutor');
     expect(tutor.terminology?.contact).toBe('Student');
     expect(tutor.terminology?.contacts).toBe('Students');
-    expect(tutor.terminology?.booking).toBe('Enrollment');
+    expect(tutor.terminology?.booking).toBe('Class Booking');
     expect(tutor.terminology?.staff).toBe('Teacher');
     expect(tutor.aiRole).toBe('AI Teaching Assistant');
 
     // Salon Terminology
     const salon = getIndustryModule('salon');
-    expect(salon.terminology?.contact).toBe('Customer');
-    expect(salon.terminology?.contacts).toBe('Customers');
+    expect(salon.terminology?.contact).toBe('Client');
+    expect(salon.terminology?.contacts).toBe('Clients');
     expect(salon.terminology?.booking).toBe('Appointment');
-    expect(salon.terminology?.staff).toBe('Staff');
+    expect(salon.terminology?.staff).toBe('Stylist');
     expect(salon.aiRole).toBe('AI Salon Receptionist');
 
     // Real Estate Terminology
     const realEstate = getIndustryModule('real_estate');
     expect(realEstate.terminology?.contact).toBe('Lead');
     expect(realEstate.terminology?.contacts).toBe('Leads');
-    expect(realEstate.terminology?.booking).toBe('Site Visit');
+    expect(realEstate.terminology?.booking).toBe('Site Visit Booking');
     expect(realEstate.terminology?.staff).toBe('Agent');
     expect(realEstate.aiRole).toBe('AI Property Assistant');
   });

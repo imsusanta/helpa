@@ -5,6 +5,7 @@ import type { PipelineDonutData } from '@/lib/dashboard/types';
 import { formatCurrencyShort } from '@/lib/currency';
 import { EmptyState } from './empty-state';
 import { Skeleton } from './skeleton';
+import { useWorkspace } from '@/hooks/use-workspace';
 
 interface PipelineDonutProps {
   data: PipelineDonutData | null;
@@ -14,14 +15,16 @@ interface PipelineDonutProps {
 }
 
 export function PipelineDonut({ data, loading, currency }: PipelineDonutProps) {
+  const { terminology } = useWorkspace();
+
   return (
     <section className="border-border bg-card flex h-full flex-col rounded-xl border">
       <header className="border-border border-b px-5 py-4">
         <h2 className="text-foreground text-sm font-semibold">
-          Pipeline Value
+          {terminology.pipeline} Value
         </h2>
         <p className="text-muted-foreground mt-0.5 text-xs">
-          Open deals by stage
+          Open {terminology.pipelineItems.toLowerCase()} by stage
         </p>
       </header>
 
@@ -31,8 +34,8 @@ export function PipelineDonut({ data, loading, currency }: PipelineDonutProps) {
         ) : data.stages.length === 0 ? (
           <EmptyState
             icon={GitBranch}
-            title="No open deals yet"
-            hint="Create deals in Pipelines to see stage breakdowns here."
+            title={`No open ${terminology.pipelineItems.toLowerCase()} yet`}
+            hint={`Create ${terminology.pipelineItems.toLowerCase()} in ${terminology.pipelines} to see stage breakdowns here.`}
           />
         ) : (
           <>
@@ -49,7 +52,10 @@ export function PipelineDonut({ data, loading, currency }: PipelineDonutProps) {
                     {s.name}
                   </span>
                   <span className="text-muted-foreground tabular-nums">
-                    {s.dealCount} deal{s.dealCount === 1 ? '' : 's'}
+                    {s.dealCount}{' '}
+                    {s.dealCount === 1
+                      ? terminology.pipelineItem.toLowerCase()
+                      : terminology.pipelineItems.toLowerCase()}
                   </span>
                   <span className="text-muted-foreground w-20 text-right tabular-nums">
                     {formatCurrencyShort(s.totalValue, currency)}

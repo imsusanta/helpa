@@ -6,6 +6,7 @@ import { knowledgeTemplateConfig } from './knowledge-template';
 import { campaignTemplateConfig } from './campaign-template';
 import { copilotConfig } from './copilot';
 import { workflowsConfig } from './workflows';
+import { getIndustryTerminology } from '../terminology';
 
 export const soloTeacherModule: IndustryModule = {
   id: 'solo_teacher',
@@ -13,16 +14,7 @@ export const soloTeacherModule: IndustryModule = {
   description: 'AI Teaching Assistant for Solo Tutors & Educators',
   status: 'COMING_SOON',
   aiRole: 'AI Teaching Assistant',
-  terminology: {
-    contact: 'Student',
-    contacts: 'Students',
-    booking: 'Enrollment',
-    bookings: 'Enrollments',
-    staff: 'Teacher',
-    staffMembers: 'Teachers',
-    service: 'Course',
-    services: 'Courses',
-  },
+  terminology: getIndustryTerminology('solo_teacher'),
   features: {
     students: true,
     courses: true,

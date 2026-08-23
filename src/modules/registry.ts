@@ -7,6 +7,11 @@ import { gymModule } from './gym';
 import { restaurantModule } from './restaurant';
 import { soloTeacherModule } from './solo-teacher';
 import { salonModule } from './salon';
+import {
+  getIndustryTerminology,
+  INDUSTRY_ALIASES,
+  resolveIndustryAlias,
+} from './terminology';
 
 export const INDUSTRY_REGISTRY: Record<string, IndustryModule> = {
   hospital_clinic: healthModule,
@@ -20,42 +25,7 @@ export const INDUSTRY_REGISTRY: Record<string, IndustryModule> = {
   salon: salonModule,
 };
 
-export const INDUSTRY_ALIASES: Record<
-  string,
-  keyof typeof INDUSTRY_REGISTRY | 'general'
-> = {
-  health: 'hospital_clinic',
-  hospital: 'hospital_clinic',
-  clinic: 'hospital_clinic',
-  healthcare: 'hospital_clinic',
-  medical: 'hospital_clinic',
-  hospital_clinic: 'hospital_clinic',
-  hospital_and_clinic: 'hospital_clinic',
-  doctor: 'hospital_clinic',
-  pathology: 'hospital_clinic',
-  coaching: 'coaching',
-  institute: 'coaching',
-  education: 'coaching',
-  tutor: 'solo_teacher',
-  solo_teacher: 'solo_teacher',
-  teacher: 'solo_teacher',
-  educator: 'solo_teacher',
-  salon: 'salon',
-  spa: 'salon',
-  salon_spa: 'salon',
-  beauty: 'salon',
-  real_estate: 'real_estate',
-  realestate: 'real_estate',
-  property: 'real_estate',
-  travel: 'travel',
-  gym: 'gym',
-  fitness: 'gym',
-  restaurant: 'restaurant',
-  cafe: 'restaurant',
-  general: 'general',
-  other: 'general',
-  business_services: 'general',
-};
+export { INDUSTRY_ALIASES };
 
 export interface BusinessTypeOption {
   id: string;
@@ -133,12 +103,7 @@ export function isValidIndustry(industry: unknown): boolean {
 }
 
 export function resolveCanonicalIndustry(industry: string): string {
-  if (!industry || typeof industry !== 'string') return 'general';
-  const normalized = industry.trim().toLowerCase();
-  const alias = INDUSTRY_ALIASES[normalized];
-  if (alias) return alias;
-  if (INDUSTRY_REGISTRY[normalized]) return normalized;
-  return 'general';
+  return resolveIndustryAlias(industry);
 }
 
 // Fallback module definition for 'general' or others
@@ -147,6 +112,7 @@ export const generalModule: IndustryModule = {
   name: 'General CRM',
   description: 'AI General Assistant',
   status: 'ACTIVE',
+  terminology: getIndustryTerminology('general'),
 
   sidebar: [
     { href: '/dashboard', label: 'Dashboard', iconName: 'LayoutDashboard' },
@@ -217,8 +183,7 @@ export const generalModule: IndustryModule = {
 export function getIndustryModule(
   industry: string | null | undefined
 ): IndustryModule {
-  if (!industry) return generalModule;
-  const industryKey = INDUSTRY_ALIASES[industry] || industry;
+  const industryKey = resolveIndustryAlias(industry);
   return INDUSTRY_REGISTRY[industryKey] || generalModule;
 }
 

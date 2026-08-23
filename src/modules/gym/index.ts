@@ -6,12 +6,15 @@ import { knowledgeTemplateConfig } from './knowledge-template';
 import { campaignTemplateConfig } from './campaign-template';
 import { copilotConfig } from './copilot';
 import { workflowsConfig } from './workflows';
+import { getIndustryTerminology } from '../terminology';
 
 export const gymModule: IndustryModule = {
   id: 'gym',
   name: 'Gym & Fitness',
   description: 'AI Membership Assistant',
   status: 'COMING_SOON',
+  aiRole: 'AI Membership Assistant',
+  terminology: getIndustryTerminology('gym'),
   sidebar: sidebarConfig,
   dashboardMetrics: dashboardConfig,
   systemPrompt: systemPromptConfig,

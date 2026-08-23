@@ -6,12 +6,15 @@ import { knowledgeTemplateConfig } from './knowledge-template';
 import { campaignTemplateConfig } from './campaign-template';
 import { copilotConfig } from './copilot';
 import { workflowsConfig } from './workflows';
+import { getIndustryTerminology } from '../terminology';
 
 export const travelModule: IndustryModule = {
   id: 'travel',
   name: 'Travel Agency',
   description: 'AI Travel Assistant',
   status: 'COMING_SOON',
+  aiRole: 'AI Travel Assistant',
+  terminology: getIndustryTerminology('travel'),
   sidebar: sidebarConfig,
   dashboardMetrics: dashboardConfig,
   systemPrompt: systemPromptConfig,
@@ -27,8 +30,8 @@ export const travelModule: IndustryModule = {
   entityConfigs: {
     contacts: {
       tableName: 'contacts',
-      label: 'Customer',
-      pluralLabel: 'Customers',
+      label: 'Traveller',
+      pluralLabel: 'Travellers',
       fields: [
         { key: 'passport_number', label: 'Passport Number', type: 'text' },
         { key: 'nationality', label: 'Nationality', type: 'text' },

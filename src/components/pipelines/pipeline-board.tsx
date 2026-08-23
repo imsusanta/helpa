@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { formatCurrency } from '@/lib/currency';
+import { useWorkspace } from '@/hooks/use-workspace';
 
 interface PipelineBoardProps {
   stages: PipelineStage[];
@@ -37,6 +38,7 @@ export function PipelineBoard({
   onEditDeal,
 }: PipelineBoardProps) {
   const { defaultCurrency } = useAuth();
+  const { terminology } = useWorkspace();
   const [activeDealId, setActiveDealId] = useState<string | null>(null);
 
   const sortedStages = useMemo(
@@ -121,6 +123,7 @@ export function PipelineBoard({
               deals={stageDeals}
               totalValue={totalValue}
               currency={defaultCurrency}
+              pipelineItemLabel={terminology.pipelineItem}
               onAddDeal={onAddDeal}
               onEditDeal={onEditDeal}
             />
@@ -195,6 +198,7 @@ function StageColumn({
   deals,
   totalValue,
   currency,
+  pipelineItemLabel,
   onAddDeal,
   onEditDeal,
 }: {
@@ -202,6 +206,7 @@ function StageColumn({
   deals: Deal[];
   totalValue: number;
   currency: string;
+  pipelineItemLabel: string;
   onAddDeal: (stageId: string) => void;
   onEditDeal: (deal: Deal) => void;
 }) {
@@ -242,7 +247,7 @@ function StageColumn({
       >
         {deals.length === 0 ? (
           <div className="border-border text-muted-foreground flex flex-1 items-center justify-center rounded-lg border-2 border-dashed py-10 text-xs">
-            Drop a deal here
+            Drop a {pipelineItemLabel.toLowerCase()} here
           </div>
         ) : (
           deals.map((deal) => (
@@ -263,7 +268,7 @@ function StageColumn({
         className="border-border text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground mt-3 w-full justify-start border border-dashed bg-transparent"
       >
         <Plus className="mr-1 h-3 w-3" />
-        Add Deal
+        Add {pipelineItemLabel}
       </Button>
     </div>
   );

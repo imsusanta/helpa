@@ -6,6 +6,7 @@ import { knowledgeTemplateConfig } from './knowledge-template';
 import { campaignTemplateConfig } from './campaign-template';
 import { copilotConfig } from './copilot';
 import { workflowsConfig } from './workflows';
+import { getIndustryTerminology } from '../terminology';
 
 export const salonManifest: IndustryModule = {
   id: 'salon',
@@ -13,16 +14,7 @@ export const salonManifest: IndustryModule = {
   description: 'AI Salon Receptionist & Appointment Booking',
   status: 'COMING_SOON',
   aiRole: 'AI Salon Receptionist',
-  terminology: {
-    contact: 'Customer',
-    contacts: 'Customers',
-    booking: 'Appointment',
-    bookings: 'Appointments',
-    staff: 'Staff',
-    staffMembers: 'Staff Members',
-    service: 'Service',
-    services: 'Services & Menu',
-  },
+  terminology: getIndustryTerminology('salon'),
   features: {
     customers: true,
     services: true,

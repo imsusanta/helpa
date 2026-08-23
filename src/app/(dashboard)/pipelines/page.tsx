@@ -28,8 +28,10 @@ import { toast } from 'sonner';
 import { useCan } from '@/hooks/use-can';
 import { GatedButton } from '@/components/ui/gated-button';
 import { salesApi } from '@/lib/sales/api-client';
+import { useWorkspace } from '@/hooks/use-workspace';
 
 export default function PipelinesPage() {
+  const { terminology } = useWorkspace();
   const canEditSettings = useCan('edit-settings');
   const canCreateDeals = useCan('send-messages');
 
@@ -271,7 +273,7 @@ export default function PipelinesPage() {
                   className="text-popover-foreground"
                 >
                   <Settings className="mr-2 h-3.5 w-3.5" />
-                  Manage Pipelines
+                  Manage {terminology.pipelines}
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>
@@ -287,7 +289,7 @@ export default function PipelinesPage() {
             className="border-border bg-card text-foreground hover:bg-muted"
           >
             <Plus className="mr-1 h-4 w-4" />
-            Add Pipeline
+            Add {terminology.pipeline}
           </GatedButton>
           <GatedButton
             canAct={canCreateDeals}
@@ -297,7 +299,7 @@ export default function PipelinesPage() {
             className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             <Plus className="mr-1 h-4 w-4" />
-            Add Deal / Journey
+            Add {terminology.pipelineItem}
           </GatedButton>
         </div>
       </div>
@@ -307,10 +309,11 @@ export default function PipelinesPage() {
         <div className="border-border flex flex-col items-center justify-center rounded-xl border border-dashed py-20">
           <GitBranch className="text-muted-foreground h-12 w-12" />
           <h3 className="text-foreground mt-4 text-lg font-medium">
-            No sales pipelines yet
+            No {terminology.pipelines.toLowerCase()} yet
           </h3>
           <p className="text-muted-foreground mt-2 text-sm">
-            Create a pipeline to start tracking deals and stages.
+            Create a {terminology.pipeline.toLowerCase()} to start tracking{' '}
+            {terminology.pipelineItems.toLowerCase()} and stages.
           </p>
           <GatedButton
             canAct={canEditSettings}
@@ -319,7 +322,7 @@ export default function PipelinesPage() {
             className="bg-primary text-primary-foreground hover:bg-primary/90 mt-4"
           >
             <Plus className="mr-1 h-4 w-4" />
-            Create Pipeline
+            Create {terminology.pipeline}
           </GatedButton>
         </div>
       ) : (
@@ -340,15 +343,17 @@ export default function PipelinesPage() {
         <DialogContent className="bg-popover border-border sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-popover-foreground">
-              New Pipeline
+              New {terminology.pipeline}
             </DialogTitle>
           </DialogHeader>
           <div className="py-2">
-            <Label className="text-muted-foreground">Pipeline Name</Label>
+            <Label className="text-muted-foreground">
+              {terminology.pipeline} Name
+            </Label>
             <Input
               value={newPipelineName}
               onChange={(e) => setNewPipelineName(e.target.value)}
-              placeholder="e.g., Enterprise Sales"
+              placeholder={`e.g., ${terminology.pipelineItems}`}
               className="bg-muted border-border text-foreground mt-2"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleCreatePipeline();
@@ -371,7 +376,7 @@ export default function PipelinesPage() {
               disabled={creating || !newPipelineName.trim()}
               className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
-              {creating ? 'Creating...' : 'Create Pipeline'}
+              {creating ? 'Creating...' : `Create ${terminology.pipeline}`}
             </Button>
           </DialogFooter>
         </DialogContent>

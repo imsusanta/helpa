@@ -19,10 +19,12 @@ import {
   Package,
   Settings,
   Settings2,
+  ShieldCheck,
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
+import { useWorkspace } from '@/hooks/use-workspace';
 
 interface SidebarProps {
   open?: boolean;
@@ -64,8 +66,8 @@ const NAV: NavItem[] = [
     icon: Megaphone,
     children: [
       { label: 'Campaigns', href: '/broadcasts' },
-      { label: 'Campaign Reports', href: '/broadcasts' },
-      { label: 'Lead Forms', href: '/forms' },
+      { label: 'Campaign Reports', href: '/campaign-reports' },
+      { label: 'Lead Forms', href: '/lead-forms' },
     ],
   },
   {
@@ -125,6 +127,20 @@ const NAV: NavItem[] = [
     ],
   },
   {
+    label: 'Admin Panel',
+    icon: ShieldCheck,
+    href: '/admin',
+    children: [
+      { label: 'Overview', href: '/admin' },
+      { label: 'Tenants', href: '/admin/tenants' },
+      { label: 'Subscriptions', href: '/admin/subscriptions' },
+      { label: 'AI Infrastructure', href: '/admin/ai' },
+      { label: 'Payments', href: '/admin/payments' },
+      { label: 'WhatsApp', href: '/admin/whatsapp' },
+      { label: 'System Settings', href: '/admin/settings' },
+    ],
+  },
+  {
     label: 'Settings',
     icon: Settings,
     children: [
@@ -148,6 +164,39 @@ function pathIsActive(pathname: string, href?: string) {
 export function Sidebar({ open = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { profile } = useAuth();
+  const { terminology, isRouteAllowed } = useWorkspace();
+  const contextualNav = useMemo(() => {
+    const replace = (label: string) => {
+      const labels: Record<string, string> = {
+        Leads: terminology.pipelineItems,
+        Customers: terminology.primaryRecords,
+        Contacts: terminology.contacts,
+        Deals: terminology.pipelineItems,
+        Meetings: terminology.meetings,
+        Bookings: terminology.bookings,
+        'Products / Services': terminology.services,
+        Services: terminology.services,
+        Staff: terminology.staffMembers,
+        Reports: terminology.reports,
+        'Campaign Reports': `${terminology.campaign} Reports`,
+      };
+      return labels[label] || label;
+    };
+    return NAV.map((item) => ({
+      ...item,
+      label: replace(item.label),
+      children: item.children
+        ?.filter((child) => isRouteAllowed(child.href))
+        .map((child) => ({
+          ...child,
+          label: replace(child.label),
+        })),
+    })).filter(
+      (item) =>
+        (item.href && isRouteAllowed(item.href)) ||
+        (item.children && item.children.length > 0)
+    );
+  }, [isRouteAllowed, terminology]);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
     Sales: true,
     Conversations: false,
@@ -157,18 +206,19 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
     Billing: false,
     Manage: false,
     Developers: false,
+    'Admin Panel': false,
     Settings: false,
   });
 
   const activeParent = useMemo(() => {
-    for (const item of NAV)
+    for (const item of contextualNav)
       if (item.children?.some((child) => pathIsActive(pathname, child.href)))
         return item.label;
     return (
-      NAV.find((item) => pathIsActive(pathname, item.href))?.label ||
+      contextualNav.find((item) => pathIsActive(pathname, item.href))?.label ||
       'Dashboard'
     );
-  }, [pathname]);
+  }, [contextualNav, pathname]);
 
   useEffect(() => {
     if (activeParent && activeParent !== 'Dashboard') {
@@ -231,7 +281,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         {/* Navigation Menu */}
         <div className="min-h-0 flex-1 [scrollbar-width:thin] [scrollbar-color:#1e293b_transparent] overflow-y-auto px-3 py-2">
           <nav className="space-y-1">
-            {NAV.map((item) => {
+            {contextualNav.map((item) => {
               const Icon = item.icon;
               const isDashboard = item.label === 'Dashboard';
               const activeDirect = pathIsActive(pathname, item.href);

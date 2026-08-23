@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/appwrite-compat';
 import { useAuth } from '@/hooks/use-auth';
+import { useWorkspace } from '@/hooks/use-workspace';
 import { cn } from '@/lib/utils';
 import type { Contact, Deal, ContactNote, Tag, Conversation } from '@/types';
 import {
@@ -59,22 +60,10 @@ export function ContactSidebar({
   conversation,
   isEmbedded = false,
 }: ContactSidebarProps) {
-  const { accountId, account } = useAuth();
-
-  const pipelineTitle =
-    account?.industry === 'hospital_clinic'
-      ? 'Patient Care Cycle'
-      : account?.industry === 'coaching' || account?.industry === 'solo_teacher'
-        ? 'Enrollment Pipeline'
-        : account?.industry === 'real_estate'
-          ? 'Deals / Pipeline'
-          : account?.industry === 'travel'
-            ? 'Trip Bookings'
-            : account?.industry === 'gym'
-              ? 'Membership Stages'
-              : account?.industry === 'restaurant'
-                ? 'Table & Reservation Pipeline'
-                : 'Pipeline & Sales Stage';
+  const { accountId } = useAuth();
+  const { currentIndustry, terminology } = useWorkspace();
+  const isClinicalWorkspace = currentIndustry === 'hospital_clinic';
+  const pipelineTitle = `${terminology.pipeline} Stage`;
 
   const [copied, setCopied] = useState(false);
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -126,8 +115,6 @@ export function ContactSidebar({
     if (!contact) return;
 
     const appwrite = createClient();
-    const isHospital = account?.industry === 'hospital_clinic';
-
     try {
       // 1. Fetch core CRM fields (deals, notes, tags)
       const [dealsRes, notesRes, tagsRes] = await Promise.all([
@@ -160,7 +147,7 @@ export function ContactSidebar({
       }
 
       // 2. Fetch hospital-specific info if active workspace is Hospital & Clinic
-      if (isHospital) {
+      if (isClinicalWorkspace) {
         const [patientRes, apptRes, reportRes] = await Promise.all([
           appwrite
             .from('patients')
@@ -206,7 +193,7 @@ export function ContactSidebar({
     } catch (err) {
       console.error('[ContactSidebar] Error fetching contact details:', err);
     }
-  }, [contact, account?.industry]);
+  }, [contact, isClinicalWorkspace]);
 
   // Lazy-load doctors & branches for hospital booking widget
   useEffect(() => {
@@ -572,7 +559,7 @@ export function ContactSidebar({
           )}
 
         {/* Hospital & Clinic Operations Module Widget */}
-        {account?.industry === 'hospital_clinic' && (
+        {isClinicalWorkspace && (
           <>
             <div className="border-border my-4 border-t" />
             <div className="border-primary/20 bg-muted/20 space-y-3 rounded-xl border p-3">

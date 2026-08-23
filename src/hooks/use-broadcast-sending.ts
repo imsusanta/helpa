@@ -65,6 +65,12 @@ interface BroadcastPayload {
   cta_url?: string;
   recurrence?: 'none' | 'weekly' | 'monthly' | 'yearly';
   ai_suggested?: boolean;
+  /**
+   * When set, the campaign is stored as status='scheduled' with this
+   * timestamp and dispatch is left to the server-side cron runner
+   * (/api/cron/campaigns). No client-side timers are involved.
+   */
+  scheduled_at?: string;
 }
 
 interface UseBroadcastSendingReturn {
@@ -527,6 +533,7 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
 
       // ── Step 2: Create broadcast row ──────────────────────────────
       setProgress(10);
+      const isScheduled = Boolean(payload.scheduled_at);
       const { data: broadcast, error: broadcastError } = await appwrite
         .from('broadcasts')
         .insert({
@@ -547,7 +554,10 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
             ageMin: payload.audience.ageMin,
             ageMax: payload.audience.ageMax,
           },
-          status: 'sending',
+          // Scheduled campaigns are dispatched by the server-side cron
+          // runner — never by browser timers or the client send loop.
+          status: isScheduled ? 'scheduled' : 'sending',
+          scheduled_at: payload.scheduled_at ?? null,
           total_recipients: contacts.length,
           sent_count: 0,
           delivered_count: 0,
@@ -571,6 +581,17 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
         throw new Error(
           `Failed to create broadcast: ${broadcastError?.message ?? 'unknown error'}`
         );
+      }
+
+      // ── Scheduled campaigns stop here ─────────────────────────────
+      // Only the broadcast definition is persisted. The server-side cron
+      // dispatcher (/api/cron/campaigns) resolves the audience at send
+      // time, creates the recipient rows, and owns execution entirely.
+      // Inserting recipients here as well would double the audience when
+      // the cron runs, so scheduled campaigns must not create them.
+      if (isScheduled) {
+        setProgress(100);
+        return broadcast.id;
       }
 
       // ── Step 3: Insert recipient rows ─────────────────────────────

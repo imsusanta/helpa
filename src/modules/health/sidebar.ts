@@ -1,14 +1,17 @@
 import { ModuleNavItem } from '../types';
+import { getIndustryTerminology } from '../terminology';
+
+const terms = getIndustryTerminology('hospital_clinic');
 
 export const sidebarConfig: ModuleNavItem[] = [
   { href: '/dashboard', label: 'Home', iconName: 'LayoutDashboard' },
   { href: '/inbox', label: 'Messages', iconName: 'MessageSquare' },
-  { href: '/patients', label: 'Patients', iconName: 'Users' },
-  { href: '/pipelines', label: 'Inquiries & CRM', iconName: 'GitBranch' },
-  { href: '/doctors', label: 'Doctors', iconName: 'UserCheck' },
-  { href: '/appointments', label: 'Appointments', iconName: 'Calendar' },
-  { href: '/follow-ups', label: 'Follow-ups', iconName: 'Clock' },
-  { href: '/lab-reports', label: 'Reports', iconName: 'FileText' },
+  { href: '/patients', label: terms.contacts, iconName: 'Users' },
+  { href: '/pipelines', label: terms.pipelineItems, iconName: 'GitBranch' },
+  { href: '/doctors', label: terms.staffMembers, iconName: 'UserCheck' },
+  { href: '/appointments', label: terms.meetings, iconName: 'Calendar' },
+  { href: '/follow-ups', label: terms.followUps, iconName: 'Clock' },
+  { href: '/lab-reports', label: terms.reports, iconName: 'FileText' },
   {
     href: '/broadcasts',
     label: 'Campaigns',

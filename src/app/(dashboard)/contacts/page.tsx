@@ -130,8 +130,10 @@ export default function ContactsPage() {
   // Industry-specific entity configurations
   const industryModule = getIndustryModule(account?.industry);
   const contactConfig = industryModule.entityConfigs?.contacts;
-  const entityLabel = contactConfig?.label || 'Contact';
-  const entityLabelPlural = contactConfig?.pluralLabel || 'Contacts';
+  const { terminology } = useWorkspace();
+  const entityLabel = terminology.contact || contactConfig?.label || 'Contact';
+  const entityLabelPlural =
+    terminology.contacts || contactConfig?.pluralLabel || 'Contacts';
   const _customFields = contactConfig?.fields || [];
 
   const [contacts, setContacts] = useState<ContactWithTags[]>([]);
@@ -180,7 +182,6 @@ export default function ContactsPage() {
   const [activeFilterId, setActiveFilterId] = useState<string | null>(null);
 
   // Smart filter states
-  const { terminology: _terminology } = useWorkspace();
   const [statusFilter, setStatusFilter] = useState<
     'all' | 'leads' | 'customers' | 'inactive'
   >('all');
@@ -791,8 +792,9 @@ export default function ContactsPage() {
             {entityLabelPlural}
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Manage your {entityLabelPlural.toLowerCase()}, leads and
-            conversations.
+            Manage your {entityLabelPlural.toLowerCase()},{' '}
+            {terminology.pipelineItems.toLowerCase()}
+            and {terminology.conversations.toLowerCase()}.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -932,8 +934,8 @@ export default function ContactsPage() {
               aria-label="Filter by Status"
             >
               <option value="all">Status: All</option>
-              <option value="leads">Leads Only</option>
-              <option value="customers">Customers</option>
+              <option value="leads">{terminology.pipelineItems} Only</option>
+              <option value="customers">{terminology.primaryRecords}</option>
               <option value="inactive">Inactive</option>
             </select>
 
@@ -960,7 +962,7 @@ export default function ContactsPage() {
                 setTempFilter(e.target.value as 'all' | 'hot' | 'warm' | 'cold')
               }
               className="bg-background border-border text-foreground focus:ring-primary h-9 rounded-md border px-2.5 text-xs focus:ring-1 focus:outline-none"
-              aria-label="Filter by Lead Score"
+              aria-label={`Filter by ${terminology.pipelineItem} Score`}
             >
               <option value="all">Score: All</option>
               <option value="hot">🔥 Hot</option>
@@ -1152,10 +1154,12 @@ export default function ContactsPage() {
                   aria-label={`Select all ${entityLabelPlural.toLowerCase()} on this page`}
                 />
               </TableHead>
-              <TableHead className="text-muted-foreground">Contact</TableHead>
+              <TableHead className="text-muted-foreground">
+                {entityLabel}
+              </TableHead>
               <TableHead className="text-muted-foreground">Status</TableHead>
               <TableHead className="text-muted-foreground">
-                Lead Score
+                {terminology.pipelineItem} Score
               </TableHead>
               <TableHead className="text-muted-foreground">
                 Assigned To
@@ -1164,7 +1168,7 @@ export default function ContactsPage() {
                 Last Activity
               </TableHead>
               <TableHead className="text-muted-foreground">
-                Next Follow-up
+                Next {terminology.followUp}
               </TableHead>
               <TableHead className="text-muted-foreground text-right">
                 Actions
@@ -1206,7 +1210,7 @@ export default function ContactsPage() {
                     <p className="text-muted-foreground text-xs leading-relaxed">
                       {search || statusFilter !== 'all'
                         ? 'Try adjusting your search or active filter pills.'
-                        : `Every person who messages your WhatsApp can be saved with their conversation history.`}
+                        : `Every ${entityLabel.toLowerCase()} who messages your WhatsApp can be saved with their ${terminology.conversation.toLowerCase()} history.`}
                     </p>
                   </div>
                 </TableCell>
@@ -1275,7 +1279,9 @@ export default function ContactsPage() {
                             : 'border-emerald-500/30 bg-emerald-500/10 text-[10px] font-bold text-emerald-600 dark:text-emerald-400'
                         }
                       >
-                        {isLead ? 'Lead' : 'Customer'}
+                        {isLead
+                          ? terminology.pipelineItem
+                          : terminology.primaryRecord}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -1430,7 +1436,7 @@ export default function ContactsPage() {
                   </div>
                   <div>
                     <span className="text-muted-foreground/70 block text-[10px] font-bold uppercase">
-                      Next Follow-up
+                      Next {terminology.followUp}
                     </span>
                     <span className="text-foreground font-medium">
                       {nextFollowup}
