@@ -213,9 +213,10 @@ export function resolveSystemPrompt(
   industry: string | null | undefined,
   customPrompt: string | null | undefined
 ): string {
+  const industryModule = getIndustryModule(industry);
   const prompt = customPrompt?.trim();
-  const selectedPrompt = prompt || getIndustryModule(industry).systemPrompt;
-  return withIntentFulfillmentPolicy(selectedPrompt, industry);
+  const selectedPrompt = prompt || industryModule.systemPrompt;
+  return withIntentFulfillmentPolicy(selectedPrompt, industryModule.id);
 }
 export * from './types';
 export * from './registry';

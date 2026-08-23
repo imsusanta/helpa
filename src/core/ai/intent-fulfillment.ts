@@ -22,15 +22,7 @@ const GENERAL_ACTION_POLICY = `[WORKSPACE-SPECIFIC CLIENT BEHAVIOR]
 
 function isHealthcareIndustry(industry: string | null | undefined): boolean {
   const normalized = industry?.trim().toLowerCase();
-  return (
-    !normalized ||
-    normalized === 'health' ||
-    normalized === 'healthcare' ||
-    normalized === 'hospital' ||
-    normalized === 'clinic' ||
-    normalized === 'hospital_clinic' ||
-    normalized === 'general'
-  );
+  return normalized === 'hospital_clinic' || normalized === 'health';
 }
 
 /**
