@@ -134,7 +134,8 @@ export const AUTOMATION_TEMPLATES: Record<
   doctor_booking_enquiry: {
     slug: 'doctor_booking_enquiry',
     name: 'Doctor Booking Enquiry',
-    description: 'Collect appointment preferences and route the patient to staff.',
+    description:
+      'Collect appointment preferences and route the patient to staff.',
     trigger_type: 'keyword_match',
     trigger_config: {
       keywords: ['doctor', 'appointment', 'book doctor', 'consultation'],
@@ -175,7 +176,8 @@ export const AUTOMATION_TEMPLATES: Record<
   admission_enquiry: {
     slug: 'admission_enquiry',
     name: 'Admission Enquiry',
-    description: 'Capture admission details for schools, colleges, and institutes.',
+    description:
+      'Capture admission details for schools, colleges, and institutes.',
     trigger_type: 'keyword_match',
     trigger_config: {
       keywords: ['admission', 'enrolment', 'enrollment', 'apply'],
