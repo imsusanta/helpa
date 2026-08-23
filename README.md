@@ -22,17 +22,17 @@ Helpa is focused first on independent clinics and outpatient teams in India that
 4. Staff can review, assign, or take over the conversation at any time.
 5. OPD slips, reports, and follow-up activity remain connected to the patient journey.
 
-## Product proof
+## Product proof & verification packages
 
-- [90-second demo storyboard and seven-shot capture list](./docs/PRODUCT_DEMO.md)
-- [Outcome definitions and event foundation](./docs/PRODUCT_METRICS.md)
-- [Supabase cutover verification and sign-off](./docs/SUPABASE_CUTOVER_SIGN_OFF.md)
-- [Independent security assessment & remediation report](./docs/EXTERNAL_SECURITY_REVIEW_REPORT.md)
+- [90-second demo storyboard and seven-shot capture specification](./docs/PRODUCT_DEMO.md) *(Status: Blocked by human capture)*
+- [Outcome definitions, event producers, and aggregation logic](./docs/PRODUCT_METRICS.md) *(Status: Blocked by 30-day observation window)*
+- [Appwrite inventory & Supabase cutover verification gates](./docs/APPWRITE_INVENTORY_AND_CUTOVER.md) *(Status: In rollback-safety window)*
+- [Independent security assessment handover package](./docs/EXTERNAL_SECURITY_REVIEW_PACKAGE.md) *(Status: Blocked by external assessor)*
 - [Public roadmap](./ROADMAP.md)
 
-The 7 core product views and walkthrough are defined in [PRODUCT_DEMO.md](./docs/PRODUCT_DEMO.md), covering clinic dashboard, WhatsApp inbox enquiry, slot selection, confirmed appointment record, reminder preview, staff takeover, and follow-up workflow.
+The 7 core product views and walkthrough specification are defined in [PRODUCT_DEMO.md](./docs/PRODUCT_DEMO.md).
 
-Outcome event schema foundation (`product_outcome_events`) is implemented with privacy-safe hashing, idempotency, and server-side RLS protection, tracked in [PRODUCT_METRICS.md](./docs/PRODUCT_METRICS.md).
+Outcome event producers (`product_outcome_events`) and aggregation calculations are implemented with privacy-safe one-way subject hashing, small cohort suppression, and server-side RLS protection in [src/lib/metrics](./src/lib/metrics), tracked in [PRODUCT_METRICS.md](./docs/PRODUCT_METRICS.md).
 
 ## Security posture
 
@@ -46,7 +46,7 @@ Current safeguards include:
 - Private no-store caching for authenticated and clinical routes.
 - CI secret detection, dependency auditing, security regression tests, and CodeQL analysis.
 
-Detailed security hardening and remediation logs are documented in the [External Security Review Report](./docs/EXTERNAL_SECURITY_REVIEW_REPORT.md). Helpa uses conservative claims and adheres strictly to Indian healthcare guidelines and data protection practices.
+Detailed security hardening controls, test references, and third-party handover materials are documented in the [External Security Review Package](./docs/EXTERNAL_SECURITY_REVIEW_PACKAGE.md). Helpa uses conservative, evidence-based claims and adheres strictly to Indian healthcare guidelines and data protection practices.
 
 ## Architecture
 
