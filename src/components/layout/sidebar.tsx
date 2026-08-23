@@ -32,152 +32,247 @@ interface SidebarProps {
 }
 
 type NavItem = {
+  id: string;
   label: string;
   href?: string;
   icon: React.ElementType;
-  children?: { label: string; href: string }[];
+  children?: NavChild[];
   superAdminOnly?: boolean;
 };
 
-const NAV: NavItem[] = [
-  { label: 'Dashboard', href: '/dashboard', icon: Home },
+type NavChild = {
+  id: string;
+  label: string;
+  href: string;
+  hospitalOnly?: boolean;
+  activeHrefs?: string[];
+};
+
+export const NAV: NavItem[] = [
+  { id: 'dashboard', label: 'Dashboard', href: '/dashboard', icon: Home },
   {
+    id: 'sales',
     label: 'Sales',
     icon: LineChart,
     children: [
-      { label: 'Leads', href: '/leads' },
-      { label: 'Customers', href: '/customers' },
-      { label: 'Deals', href: '/pipelines' },
-      { label: 'Quotations', href: '/quotations' },
-      { label: 'Invoices', href: '/invoices' },
+      { id: 'sales-leads', label: 'Leads', href: '/leads' },
+      { id: 'sales-customers', label: 'Customers', href: '/customers' },
+      { id: 'sales-deals', label: 'Deals', href: '/pipelines' },
+      { id: 'sales-quotations', label: 'Quotations', href: '/quotations' },
     ],
   },
   {
+    id: 'conversations',
     label: 'Conversations',
     icon: MessageSquare,
     children: [
-      { label: 'Inbox', href: '/inbox' },
-      { label: 'Follow-ups', href: '/follow-ups' },
-      { label: 'Meetings', href: '/appointments' },
-      { label: 'Calls', href: '/follow-ups' },
+      { id: 'conversations-inbox', label: 'Inbox', href: '/inbox' },
+      {
+        id: 'conversations-follow-ups',
+        label: 'Follow-ups',
+        href: '/follow-ups',
+      },
+      {
+        id: 'conversations-meetings',
+        label: 'Meetings',
+        href: '/appointments',
+      },
     ],
   },
   {
+    id: 'marketing',
     label: 'Marketing',
     icon: Megaphone,
     children: [
-      { label: 'Campaigns', href: '/broadcasts' },
-      { label: 'Campaign Reports', href: '/campaign-reports' },
-      { label: 'Lead Forms', href: '/lead-forms' },
+      { id: 'marketing-campaigns', label: 'Campaigns', href: '/broadcasts' },
+      {
+        id: 'marketing-reports',
+        label: 'Campaign Reports',
+        href: '/campaign-reports',
+      },
+      { id: 'marketing-lead-forms', label: 'Lead Forms', href: '/lead-forms' },
     ],
   },
   {
+    id: 'whatsapp',
     label: 'WhatsApp',
     icon: MessageCircle,
     children: [
-      { label: 'Inbox', href: '/inbox' },
-      { label: 'Templates', href: '/templates' },
-      { label: 'Forms', href: '/forms' },
-      { label: 'Broadcasts', href: '/broadcasts' },
-      { label: 'Broadcast Logs', href: '/broadcasts' },
-      { label: 'WhatsApp API', href: '/settings?tab=whatsapp' },
-      { label: 'API Docs', href: '/api-docs' },
+      {
+        id: 'whatsapp-patient-list',
+        label: 'Patient List',
+        href: '/patients',
+        hospitalOnly: true,
+        activeHrefs: ['/contacts'],
+      },
+      { id: 'whatsapp-campaigns', label: 'Campaigns', href: '/broadcasts' },
+      {
+        id: 'whatsapp-api',
+        label: 'WhatsApp API',
+        href: '/settings?tab=whatsapp',
+      },
     ],
   },
   {
+    id: 'automation-ai',
     label: 'Automation & AI',
     icon: Bot,
     children: [
-      { label: 'Chatbot', href: '/chatbot' },
-      { label: 'FAQ Bot', href: '/faq-bot' },
-      { label: 'AI Assistant', href: '/ai-assistant' },
-      { label: 'Automations', href: '/automations' },
-      { label: 'AI Knowledge Base', href: '/knowledge-base' },
+      { id: 'automation-chatbot', label: 'Chatbot', href: '/chatbot' },
+      { id: 'automation-faq', label: 'FAQ Bot', href: '/faq-bot' },
+      {
+        id: 'automation-assistant',
+        label: 'AI Assistant',
+        href: '/ai-assistant',
+      },
+      { id: 'automation-rules', label: 'Automations', href: '/automations' },
+      {
+        id: 'automation-knowledge',
+        label: 'AI Knowledge Base',
+        href: '/knowledge-base',
+      },
     ],
   },
-  { label: 'Products / Services', href: '/services', icon: Package },
   {
+    id: 'services',
+    label: 'Products / Services',
+    href: '/services',
+    icon: Package,
+  },
+  {
+    id: 'billing',
     label: 'Billing',
     icon: BadgeDollarSign,
     children: [
-      { label: 'Invoices', href: '/invoices' },
-      { label: 'Reports', href: '/billing/reports' },
-      { label: 'Reminders', href: '/billing/reminders' },
-      { label: 'Billing Settings', href: '/billing/settings' },
+      { id: 'billing-invoices', label: 'Invoices', href: '/invoices' },
+      {
+        id: 'billing-settings',
+        label: 'Billing Settings',
+        href: '/settings?tab=billing',
+      },
     ],
   },
   {
+    id: 'manage',
     label: 'Manage',
     icon: Settings2,
     children: [
-      { label: 'Tags', href: '/settings?tab=tags' },
-      { label: 'Columns', href: '/settings?tab=columns' },
-      { label: 'Opt-in / Opt-out', href: '/settings?tab=consent' },
-      { label: 'Webhook Events', href: '/settings?tab=webhooks' },
+      { id: 'manage-tags', label: 'Tags', href: '/settings?tab=tags' },
+      { id: 'manage-columns', label: 'Columns', href: '/settings?tab=columns' },
+      {
+        id: 'manage-consent',
+        label: 'Opt-in / Opt-out',
+        href: '/settings?tab=consent',
+      },
+      {
+        id: 'manage-webhooks',
+        label: 'Webhook Events',
+        href: '/settings?tab=webhooks',
+      },
     ],
   },
-  { label: 'Integrations', href: '/integrations', icon: LayoutGrid },
   {
+    id: 'integrations',
+    label: 'Integrations',
+    href: '/integrations',
+    icon: LayoutGrid,
+  },
+  {
+    id: 'developers',
     label: 'Developers',
     icon: Code2,
     children: [
-      { label: 'Connection Key', href: '/settings?tab=api' },
-      { label: 'API', href: '/settings?tab=api' },
-      { label: 'Webhooks', href: '/settings?tab=webhooks' },
-      { label: 'API Docs', href: '/api-docs' },
+      {
+        id: 'developers-api',
+        label: 'API & Connection Key',
+        href: '/settings?tab=api',
+      },
     ],
   },
   {
+    id: 'settings',
     label: 'Settings',
     icon: Settings,
     children: [
-      { label: 'Profile', href: '/settings?tab=profile' },
-      { label: 'Roles & Permissions', href: '/settings?tab=roles' },
-      { label: 'Team Members', href: '/settings?tab=team' },
-      { label: 'Organization', href: '/settings?tab=organization' },
+      {
+        id: 'settings-profile',
+        label: 'Profile',
+        href: '/settings?tab=profile',
+      },
+      {
+        id: 'settings-roles',
+        label: 'Roles & Permissions',
+        href: '/settings?tab=roles',
+      },
+      {
+        id: 'settings-team',
+        label: 'Team Members',
+        href: '/settings?tab=team',
+      },
+      {
+        id: 'settings-organization',
+        label: 'Organization',
+        href: '/settings?tab=organization',
+      },
     ],
   },
   {
+    id: 'admin',
     label: 'Admin Panel',
     icon: ShieldCheck,
     href: '/admin',
     superAdminOnly: true,
     children: [
-      { label: 'Overview', href: '/admin' },
-      { label: 'Tenants', href: '/admin/tenants' },
-      { label: 'Subscriptions', href: '/admin/subscriptions' },
-      { label: 'AI Infrastructure', href: '/admin/ai' },
-      { label: 'Payments', href: '/admin/payments' },
-      { label: 'WhatsApp Numbers', href: '/admin/whatsapp' },
-      { label: 'System Settings', href: '/admin/settings' },
+      { id: 'admin-overview', label: 'Overview', href: '/admin' },
+      { id: 'admin-tenants', label: 'Tenants', href: '/admin/tenants' },
+      {
+        id: 'admin-subscriptions',
+        label: 'Subscriptions',
+        href: '/admin/subscriptions',
+      },
+      { id: 'admin-ai', label: 'AI Infrastructure', href: '/admin/ai' },
+      { id: 'admin-payments', label: 'Payments', href: '/admin/payments' },
+      {
+        id: 'admin-whatsapp',
+        label: 'WhatsApp Numbers',
+        href: '/admin/whatsapp',
+      },
+      {
+        id: 'admin-settings',
+        label: 'System Settings',
+        href: '/admin/settings',
+      },
     ],
   },
 ];
 
-function pathIsActive(pathname: string, href?: string) {
+function pathIsActive(pathname: string, href?: string, aliases: string[] = []) {
   if (!href) return false;
-  const clean = href.split('?')[0];
-  return (
-    pathname === clean ||
-    (clean !== '/dashboard' && pathname.startsWith(`${clean}/`))
-  );
+  return [href, ...aliases].some((candidate) => {
+    const clean = candidate.split('?')[0];
+    return (
+      pathname === clean ||
+      (clean !== '/dashboard' && pathname.startsWith(`${clean}/`))
+    );
+  });
 }
 
 export function Sidebar({ open = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { profile, isSuperAdmin } = useAuth();
-  const { terminology, isRouteAllowed } = useWorkspace();
+  const { terminology, currentIndustry, isRouteAllowed } = useWorkspace();
+  const isHospitalWorkspace = currentIndustry === 'hospital_clinic';
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
-    Sales: true,
-    Conversations: false,
-    Marketing: false,
-    WhatsApp: false,
-    'Automation & AI': false,
-    Billing: false,
-    Manage: false,
-    Developers: false,
-    'Admin Panel': false,
-    Settings: false,
+    sales: true,
+    conversations: false,
+    marketing: false,
+    whatsapp: false,
+    'automation-ai': false,
+    billing: false,
+    manage: false,
+    developers: false,
+    admin: false,
+    settings: false,
   });
 
   const visibleNav = useMemo(() => {
@@ -205,7 +300,11 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
               ? terminology.conversations
               : item.label,
         children: item.children
-          ?.filter((child) => isRouteAllowed(child.href.split('?')[0]))
+          ?.filter(
+            (child) =>
+              (!child.hospitalOnly || isHospitalWorkspace) &&
+              isRouteAllowed(child.href.split('?')[0])
+          )
           .map((child) => ({
             ...child,
             label: labelByHref[child.href] || child.label,
@@ -216,26 +315,30 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           item.superAdminOnly ||
           (item.href ? isRouteAllowed(item.href.split('?')[0]) : true)
       );
-  }, [isRouteAllowed, isSuperAdmin, terminology]);
+  }, [isHospitalWorkspace, isRouteAllowed, isSuperAdmin, terminology]);
 
   const activeParent = useMemo(() => {
     for (const item of visibleNav)
-      if (item.children?.some((child) => pathIsActive(pathname, child.href)))
-        return item.label;
+      if (
+        item.children?.some((child) =>
+          pathIsActive(pathname, child.href, child.activeHrefs)
+        )
+      )
+        return item.id;
     return (
-      visibleNav.find((item) => pathIsActive(pathname, item.href))?.label ||
-      'Dashboard'
+      visibleNav.find((item) => pathIsActive(pathname, item.href))?.id ||
+      'dashboard'
     );
   }, [pathname, visibleNav]);
 
   useEffect(() => {
-    if (activeParent && activeParent !== 'Dashboard') {
+    if (activeParent && activeParent !== 'dashboard') {
       setExpanded((prev) => ({ ...prev, [activeParent]: true }));
     }
   }, [activeParent]);
 
-  const toggle = (label: string) =>
-    setExpanded((prev) => ({ ...prev, [label]: !prev[label] }));
+  const toggle = (id: string) =>
+    setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
 
   return (
     <>
@@ -291,16 +394,16 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           <nav className="space-y-1">
             {visibleNav.map((item) => {
               const Icon = item.icon;
-              const isDashboard = item.label === 'Dashboard';
+              const isDashboard = item.id === 'dashboard';
               const activeDirect = pathIsActive(pathname, item.href);
-              const isParentActive = activeParent === item.label;
-              const isExpanded = expanded[item.label];
+              const isParentActive = activeParent === item.id;
+              const isExpanded = expanded[item.id];
               const hasChildren = Boolean(item.children?.length);
 
               if (!hasChildren && item.href) {
                 return (
                   <Link
-                    key={item.label}
+                    key={item.id}
                     href={item.href}
                     onClick={onClose}
                     className={cn(
@@ -331,10 +434,10 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
               }
 
               return (
-                <div key={item.label} className="space-y-0.5">
+                <div key={item.id} className="space-y-0.5">
                   <button
                     type="button"
-                    onClick={() => toggle(item.label)}
+                    onClick={() => toggle(item.id)}
                     className={cn(
                       'group flex h-[44px] w-full items-center gap-3 rounded-xl px-3.5 text-left text-[14px] font-medium transition-colors',
                       isParentActive && !isExpanded
@@ -361,10 +464,14 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                   {isExpanded && item.children && (
                     <div className="space-y-0.5 pt-0.5 pr-1 pb-1 pl-9">
                       {item.children.map((child) => {
-                        const active = pathIsActive(pathname, child.href);
+                        const active = pathIsActive(
+                          pathname,
+                          child.href,
+                          child.activeHrefs
+                        );
                         return (
                           <Link
-                            key={child.label}
+                            key={child.id}
                             href={child.href}
                             onClick={onClose}
                             className={cn(
@@ -397,18 +504,19 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
               <img
                 src={profile.avatar_url}
                 alt={profile.full_name || 'Profile'}
-                className="h-9 w-9 shrink-0 rounded-full object-cover border border-emerald-500/30 shadow-xs"
+                className="h-9 w-9 shrink-0 rounded-full border border-emerald-500/30 object-cover shadow-xs"
                 onError={(e) => {
                   (e.currentTarget as HTMLElement).style.display = 'none';
-                  const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                  const fallback = e.currentTarget
+                    .nextElementSibling as HTMLElement;
                   if (fallback) fallback.style.display = 'flex';
                 }}
               />
             ) : null}
             <div
               className={cn(
-                "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#10b981] text-xs font-bold text-white shadow-xs",
-                profile?.avatar_url && "hidden"
+                'flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#10b981] text-xs font-bold text-white shadow-xs',
+                profile?.avatar_url && 'hidden'
               )}
             >
               {profile?.full_name

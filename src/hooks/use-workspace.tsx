@@ -69,6 +69,10 @@ export function useWorkspace(): WorkspaceContextValue {
         pathname.startsWith('/settings/') ||
         pathname === '/broadcasts' ||
         pathname.startsWith('/broadcasts/') ||
+        pathname === '/campaign-reports' ||
+        pathname.startsWith('/campaign-reports/') ||
+        pathname === '/lead-forms' ||
+        pathname.startsWith('/lead-forms/') ||
         pathname === '/knowledge-base' ||
         pathname.startsWith('/knowledge-base/') ||
         pathname === '/chatbot' ||
