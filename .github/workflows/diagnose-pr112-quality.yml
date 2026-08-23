@@ -1,4 +1,4 @@
-name: Diagnose PR 112 quality
+name: Format PR 112 files
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
   contents: write
 
 jobs:
-  diagnose:
+  format:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,26 +22,24 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Capture quality output
-        shell: bash
+      - name: Format diagnosed files
         run: |
-          set +e
-          {
-            echo '=== FORMAT ==='
-            npm run format:check
-            echo "FORMAT_EXIT=$?"
-            echo '=== LINT ==='
-            npm run lint
-            echo "LINT_EXIT=$?"
-            echo '=== TYPECHECK ==='
-            npm run typecheck
-            echo "TYPECHECK_EXIT=$?"
-          } > pr112-quality.log 2>&1
-      - name: Commit diagnostics
+          npx prettier --write \
+            src/components/automation-ai/ai-assistant-console.tsx \
+            src/components/automation-ai/chatbot-console.tsx \
+            src/components/automation-ai/faq-bot-console.tsx \
+            src/components/layout/sidebar.tsx \
+            src/tests/whatsapp/webhook-idempotency.test.ts
+      - name: Commit formatting
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add pr112-quality.log
-          git commit -m "ci: record final PR 112 quality diagnostics"
+          git add \
+            src/components/automation-ai/ai-assistant-console.tsx \
+            src/components/automation-ai/chatbot-console.tsx \
+            src/components/automation-ai/faq-bot-console.tsx \
+            src/components/layout/sidebar.tsx \
+            src/tests/whatsapp/webhook-idempotency.test.ts
+          git commit -m "style: format remaining PR files"
           git push origin HEAD:feat/complete-existing-ui-features
