@@ -99,7 +99,9 @@ describe('resolveSystemPrompt', () => {
     expect(hospitalAliasPrompt).toContain('[HEALTHCARE BOOKING BEHAVIOR]');
 
     const salonPrompt = resolveSystemPrompt('salon', null);
-    expect(salonPrompt).toContain(getIndustryModule('salon').systemPrompt.trim());
+    expect(salonPrompt).toContain(
+      getIndustryModule('salon').systemPrompt.trim()
+    );
     expect(salonPrompt).toContain('[WORKSPACE-SPECIFIC CLIENT BEHAVIOR]');
 
     const travelPrompt = resolveSystemPrompt('travel', '');
