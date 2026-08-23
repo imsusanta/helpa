@@ -392,7 +392,25 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
             href="/settings?tab=profile"
             className="flex items-center gap-3 rounded-xl px-1.5 py-1 transition-colors hover:bg-white/5"
           >
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#10b981] text-xs font-bold text-white">
+            {profile?.avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={profile.avatar_url}
+                alt={profile.full_name || 'Profile'}
+                className="h-9 w-9 shrink-0 rounded-full object-cover border border-emerald-500/30 shadow-xs"
+                onError={(e) => {
+                  (e.currentTarget as HTMLElement).style.display = 'none';
+                  const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                  if (fallback) fallback.style.display = 'flex';
+                }}
+              />
+            ) : null}
+            <div
+              className={cn(
+                "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#10b981] text-xs font-bold text-white shadow-xs",
+                profile?.avatar_url && "hidden"
+              )}
+            >
               {profile?.full_name
                 ? profile.full_name
                     .split(' ')

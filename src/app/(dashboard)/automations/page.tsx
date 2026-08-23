@@ -18,7 +18,6 @@ import {
   Loader2,
 } from 'lucide-react';
 
-import { createClient } from '@/lib/appwrite-compat';
 import { useCan } from '@/hooks/use-can';
 import type { Automation } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -70,13 +69,18 @@ export default function AutomationsPage() {
 
   async function load() {
     try {
-      const appwrite = createClient();
-      const { data, error: fetchErr } = await appwrite
-        .from('automations')
-        .select('*')
-        .order('created_at', { ascending: false });
-      if (fetchErr) throw fetchErr;
-      setAutomations((data ?? []) as Automation[]);
+      setError(null);
+      const response = await fetch('/api/automations', {
+        credentials: 'include',
+        cache: 'no-store',
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(
+          payload?.message || payload?.error || 'Failed to load automations'
+        );
+      }
+      setAutomations((payload?.automations ?? []) as Automation[]);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Failed to load automations'
