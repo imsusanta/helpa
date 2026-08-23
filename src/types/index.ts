@@ -645,7 +645,18 @@ export type AutomationTriggerType =
   | 'conversation_assigned'
   | 'tag_added'
   | 'time_based'
-  | 'form_submitted';
+  | 'form_submitted'
+  /**
+   * Appointment lifecycle. `appointment_created` / `appointment_cancelled`
+   * are dispatched inline by `/api/appointments`; `appointment_reminder`
+   * is scheduled ahead of time by
+   * `src/lib/automations/appointment-triggers.ts` and delivered by the
+   * minute-ly `/api/automations/cron` job. They shipped in the engine
+   * before they were typed, which is why call sites used to cast.
+   */
+  | 'appointment_created'
+  | 'appointment_reminder'
+  | 'appointment_cancelled';
 
 export interface LeadFormField {
   key: string;
@@ -714,11 +725,27 @@ export interface TimeBasedTriggerConfig {
   timezone?: string;
 }
 
+export interface AppointmentReminderTriggerConfig {
+  /**
+   * How long before the appointment starts the reminder fires, e.g.
+   * 1440 for "one day before". `validate.ts` rejects activation unless
+   * this is a finite number greater than zero.
+   */
+  before_minutes: number;
+  /**
+   * IANA zone used to turn the appointment's local date + time into an
+   * absolute run time. Falls back to `DEFAULT_TIMEZONE`
+   * (`Asia/Kolkata`) when omitted.
+   */
+  timezone?: string;
+}
+
 export type AutomationTriggerConfig =
   | Record<string, never>
   | KeywordMatchTriggerConfig
   | TagTriggerConfig
   | TimeBasedTriggerConfig
+  | AppointmentReminderTriggerConfig
   | Record<string, unknown>;
 
 export interface SendMessageStepConfig {
