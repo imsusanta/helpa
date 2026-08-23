@@ -23,6 +23,7 @@ export interface WorkspaceContextValue {
   manifest: IndustryModule;
   terminology: IndustryTerminology;
   features: IndustryFeatures;
+  enabledModules: string[];
   aiRole: string;
   isFeatureEnabled: (featureKey: string) => boolean;
   isRouteAllowed: (pathname: string) => boolean;
@@ -30,7 +31,12 @@ export interface WorkspaceContextValue {
 }
 
 export function useWorkspace(): WorkspaceContextValue {
-  const { account, profileLoading, loading: authLoading } = useAuth();
+  const {
+    account,
+    profileLoading,
+    loading: authLoading,
+    enabledModuleKeys,
+  } = useAuth();
 
   const currentIndustry = resolveIndustryAlias(account?.industry);
 
@@ -69,6 +75,7 @@ export function useWorkspace(): WorkspaceContextValue {
     manifest,
     terminology,
     features,
+    enabledModules: enabledModuleKeys,
     aiRole,
     isFeatureEnabled,
     isRouteAllowed,
