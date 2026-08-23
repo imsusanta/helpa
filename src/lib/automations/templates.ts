@@ -6,7 +6,16 @@ import type {
 } from '@/types';
 
 export type TemplateSlug =
-  'welcome_message' | 'out_of_office' | 'lead_qualifier' | 'follow_up_reminder';
+  | 'welcome_message'
+  | 'out_of_office'
+  | 'lead_qualifier'
+  | 'follow_up_reminder'
+  | 'doctor_booking_enquiry'
+  | 'new_lead_instant_reply'
+  | 'admission_enquiry'
+  | 'property_site_visit'
+  | 'course_enquiry'
+  | 'table_booking';
 
 export interface TemplateStepSeed {
   step_type: AutomationStepType;
@@ -119,6 +128,135 @@ export const AUTOMATION_TEMPLATES: Record<
         step_config: {
           text: 'Just circling back — did you have any other questions for us? Happy to help!',
         },
+      },
+    ],
+  },
+  doctor_booking_enquiry: {
+    slug: 'doctor_booking_enquiry',
+    name: 'Doctor Booking Enquiry',
+    description: 'Collect appointment preferences and route the patient to staff.',
+    trigger_type: 'keyword_match',
+    trigger_config: {
+      keywords: ['doctor', 'appointment', 'book doctor', 'consultation'],
+      match_type: 'contains',
+    },
+    steps: [
+      {
+        step_type: 'send_message',
+        step_config: {
+          text: "Thanks for contacting us about a doctor appointment. Please share the patient's name, preferred doctor or department, and preferred date and time.",
+        },
+      },
+      {
+        step_type: 'assign_conversation',
+        step_config: { mode: 'round_robin' },
+      },
+    ],
+  },
+  new_lead_instant_reply: {
+    slug: 'new_lead_instant_reply',
+    name: 'New Lead Instant Reply',
+    description: 'Acknowledge every new form lead and assign it to the team.',
+    trigger_type: 'form_submitted',
+    trigger_config: {},
+    steps: [
+      {
+        step_type: 'send_message',
+        step_config: {
+          text: "Thanks for your enquiry! We've received your details. A team member will contact you shortly.",
+        },
+      },
+      {
+        step_type: 'assign_conversation',
+        step_config: { mode: 'round_robin' },
+      },
+    ],
+  },
+  admission_enquiry: {
+    slug: 'admission_enquiry',
+    name: 'Admission Enquiry',
+    description: 'Capture admission details for schools, colleges, and institutes.',
+    trigger_type: 'keyword_match',
+    trigger_config: {
+      keywords: ['admission', 'enrolment', 'enrollment', 'apply'],
+      match_type: 'contains',
+    },
+    steps: [
+      {
+        step_type: 'send_message',
+        step_config: {
+          text: 'Thank you for your admission enquiry. Please share the student name, preferred course or class, and academic year so our admissions team can help.',
+        },
+      },
+      {
+        step_type: 'assign_conversation',
+        step_config: { mode: 'round_robin' },
+      },
+    ],
+  },
+  property_site_visit: {
+    slug: 'property_site_visit',
+    name: 'Property Site Visit',
+    description: 'Collect visit preferences and route property enquiries.',
+    trigger_type: 'keyword_match',
+    trigger_config: {
+      keywords: ['site visit', 'property visit', 'book visit', 'flat'],
+      match_type: 'contains',
+    },
+    steps: [
+      {
+        step_type: 'send_message',
+        step_config: {
+          text: 'Happy to arrange a site visit. Please share the property or location you are interested in, your preferred date and time, and your budget range.',
+        },
+      },
+      {
+        step_type: 'assign_conversation',
+        step_config: { mode: 'round_robin' },
+      },
+    ],
+  },
+  course_enquiry: {
+    slug: 'course_enquiry',
+    name: 'Course Enquiry',
+    description: 'Answer training enquiries and collect course preferences.',
+    trigger_type: 'keyword_match',
+    trigger_config: {
+      keywords: ['course', 'fees', 'training', 'class'],
+      match_type: 'contains',
+    },
+    steps: [
+      {
+        step_type: 'send_message',
+        step_config: {
+          text: 'Thanks for your interest in our courses. Please tell us which course you want, your preferred batch timing, and whether you prefer online or offline classes.',
+        },
+      },
+      {
+        step_type: 'assign_conversation',
+        step_config: { mode: 'round_robin' },
+      },
+    ],
+  },
+  table_booking: {
+    slug: 'table_booking',
+    name: 'Table Booking',
+    description: 'Capture restaurant reservation details automatically.',
+    trigger_type: 'keyword_match',
+    trigger_config: {
+      keywords: ['book table', 'reservation', 'table booking', 'reserve'],
+      match_type: 'contains',
+    },
+    steps: [
+      {
+        step_type: 'send_message',
+        step_config: {
+          text: 'We can help with your table reservation. Please share the date, time, number of guests, and your name.',
+        },
+      },
+      {
+        step_type: 'assign_conversation',
+        step_config: { mode: 'round_robin' },
       },
     ],
   },
