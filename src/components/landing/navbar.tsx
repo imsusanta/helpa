@@ -34,12 +34,12 @@ export function LandingNavbar({ isAuthenticated }: NavbarProps) {
           <Link href="/" className="group flex items-center gap-2.5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/helpa-logo.png"
+              src="/helpa-logo.svg"
               alt="Helpa"
               className="h-9 w-9 rounded-xl object-contain shadow-sm transition-transform group-hover:scale-105"
             />
             <span className="text-2xl font-extrabold tracking-tight text-[#110E3D]">
-              helpa<span className="text-[#0866FF]">.</span>
+              helpa<span className="text-[#16A34A]">.</span>
             </span>
           </Link>
           <nav
@@ -70,7 +70,7 @@ export function LandingNavbar({ isAuthenticated }: NavbarProps) {
             <>
               <Link
                 href="/login"
-                className="px-4 py-2 text-sm font-semibold text-[#110E3D] hover:text-[#0866FF]"
+                className="px-4 py-2 text-sm font-semibold text-[#110E3D] hover:text-[#16A34A]"
               >
                 Log in
               </Link>

@@ -57,23 +57,23 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
     );
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#f8fafc] text-[#0f172a]">
+    <div className="flex h-screen min-w-0 overflow-hidden bg-[#f8fafc] text-[#0f172a]">
       <Sidebar open={sidebarOpen} onClose={closeSidebar} />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Header onOpenSidebar={() => setSidebarOpen(true)} />
         <main
           className={cn(
-            'min-h-0 flex-1 bg-[#f8fafc]',
+            'min-h-0 min-w-0 flex-1 bg-[#f8fafc]',
             isInbox
               ? 'flex flex-col overflow-hidden p-0'
-              : 'overflow-y-auto px-4 py-5 sm:px-6 sm:py-6 lg:px-7 lg:py-6'
+              : 'overflow-x-auto overflow-y-auto px-4 py-5 sm:px-6 sm:py-6 lg:px-7 lg:py-6'
           )}
         >
           <DashboardErrorBoundary onLogin={() => router.push('/login')}>
             {children}
           </DashboardErrorBoundary>
           {!isInbox && (
-            <footer className="mt-8 flex items-center justify-between text-xs text-slate-400">
+            <footer className="mt-8 flex flex-col gap-1 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
               <span>© 2026 Helpa Studio. All rights reserved.</span>
               <span>v1.0.0</span>
             </footer>
