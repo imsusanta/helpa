@@ -41,7 +41,7 @@ $$;
 REVOKE ALL ON FUNCTION public.has_account_role(uuid, text) FROM public;
 GRANT EXECUTE ON FUNCTION public.has_account_role(uuid, text) TO authenticated, service_role;
 
--- Add super admin flag to profiles if not present
+-- Profiles super admin flag & helper
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_super_admin boolean NOT NULL DEFAULT false;
 
 CREATE OR REPLACE FUNCTION public.is_platform_super_admin()
@@ -155,9 +155,19 @@ ALTER TABLE public.migration_identity_map ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS migration_identity_map_select ON public.migration_identity_map;
 CREATE POLICY migration_identity_map_select ON public.migration_identity_map
   FOR SELECT TO authenticated
-  USING (public.has_account_role(destination_id, 'admin'));
+  USING (public.has_account_role(destination_id, 'admin'::text));
 
--- 6. ATOMIC SALES CRM ACCOUNTING RPCs & SECURITY HARDENING
+-- 6. DROP EXISTING FUNCTIONS FIRST TO AVOID 42P13 PARAMETER DEFAULT ERRORS
+DROP FUNCTION IF EXISTS public.convert_quotation_to_invoice(uuid, uuid, uuid);
+DROP FUNCTION IF EXISTS public.convert_quotation_to_invoice;
+DROP FUNCTION IF EXISTS public.record_invoice_payment(uuid, uuid, numeric, text, text, uuid);
+DROP FUNCTION IF EXISTS public.record_invoice_payment;
+DROP FUNCTION IF EXISTS public.generate_next_quotation_number(uuid);
+DROP FUNCTION IF EXISTS public.generate_next_quotation_number;
+DROP FUNCTION IF EXISTS public.generate_next_invoice_number(uuid);
+DROP FUNCTION IF EXISTS public.generate_next_invoice_number;
+
+-- 7. RECREATE ATOMIC SALES CRM ACCOUNTING RPCs
 
 -- Sequence generator for quotation numbers
 CREATE OR REPLACE FUNCTION public.generate_next_quotation_number(p_account_id uuid)
@@ -388,7 +398,7 @@ BEGIN
 END;
 $$;
 
--- 7. GRANT SERVICE ROLE ACCESS & REVOKE PUBLIC EXECUTE
+-- 8. GRANT SERVICE ROLE ACCESS & REVOKE PUBLIC EXECUTE
 REVOKE ALL ON FUNCTION public.generate_next_quotation_number(uuid) FROM public, authenticated;
 GRANT EXECUTE ON FUNCTION public.generate_next_quotation_number(uuid) TO service_role;
 

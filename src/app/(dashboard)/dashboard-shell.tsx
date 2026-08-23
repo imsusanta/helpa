@@ -37,7 +37,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
   if (loading)
     return (
       <div className="flex min-h-screen w-full items-center justify-center bg-[#f8fafc] text-slate-700">
-        <div className="flex flex-col items-center gap-3">
+        <div className="animate-brand-in flex flex-col items-center gap-3">
           <Loader2 className="h-8 w-8 animate-spin text-[#10b981]" />
           <p className="text-xs font-semibold text-slate-500">
             Loading your workspace...
@@ -69,14 +69,20 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
               : 'overflow-x-auto overflow-y-auto px-4 py-5 sm:px-6 sm:py-6 lg:px-7 lg:py-6'
           )}
         >
-          <DashboardErrorBoundary onLogin={() => router.push('/login')}>
-            {children}
-          </DashboardErrorBoundary>
-          {!isInbox && (
-            <footer className="mt-8 flex flex-col gap-1 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
-              <span>© 2026 Helpa Studio. All rights reserved.</span>
-              <span>v1.0.0</span>
-            </footer>
+          {isInbox ? (
+            <DashboardErrorBoundary onLogin={() => router.push('/login')}>
+              {children}
+            </DashboardErrorBoundary>
+          ) : (
+            <div key={pathname} className="animate-page-in">
+              <DashboardErrorBoundary onLogin={() => router.push('/login')}>
+                {children}
+              </DashboardErrorBoundary>
+              <footer className="mt-8 flex flex-col gap-1 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
+                <span>© 2026 Helpa Studio. All rights reserved.</span>
+                <span>v1.0.0</span>
+              </footer>
+            </div>
           )}
         </main>
       </div>

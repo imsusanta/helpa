@@ -430,3 +430,87 @@ input[type='range']::-webkit-slider-thumb:active {
 .animate-orbit {
   animation: orbit var(--duration, 20s) linear infinite;
 }
+
+/* ============================================================
+ * APP CHROME MICRO-INTERACTIONS
+ * Entrance animations for the dashboard shell, sidebar menu,
+ * and top navbar. `backwards` fill (never `both`) so items stay
+ * hidden through their stagger delay, then revert to normal
+ * styles — a lingering transform would create a containing block
+ * that breaks position: sticky/fixed descendants.
+ * ============================================================ */
+@keyframes chrome-fade-down {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes chrome-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes chrome-fade-left {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes chrome-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-header-in {
+  animation: chrome-fade-down 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.animate-page-in {
+  animation: chrome-fade-up 0.42s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.animate-brand-in {
+  animation: chrome-fade 0.6s ease-out backwards;
+}
+
+.animate-nav-item {
+  animation: chrome-fade-left 0.4s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 45ms + 80ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-header-in,
+  .animate-page-in,
+  .animate-brand-in,
+  .animate-nav-item,
+  .animate-marquee,
+  .animate-float-slow,
+  .animate-float-reverse,
+  .animate-pulse-glow,
+  .animate-shimmer,
+  .animate-gradient-text,
+  .animate-border-beam,
+  .animate-orbit {
+    animation: none !important;
+  }
+}
