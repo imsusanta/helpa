@@ -130,8 +130,9 @@ export default function ContactsPage() {
   // Industry-specific entity configurations
   const industryModule = getIndustryModule(account?.industry);
   const contactConfig = industryModule.entityConfigs?.contacts;
-  const entityLabel = contactConfig?.label || 'Contact';
-  const entityLabelPlural = contactConfig?.pluralLabel || 'Contacts';
+  const { terminology } = useWorkspace();
+  const entityLabel = terminology.person;
+  const entityLabelPlural = terminology.people;
   const _customFields = contactConfig?.fields || [];
 
   const [contacts, setContacts] = useState<ContactWithTags[]>([]);
@@ -180,7 +181,6 @@ export default function ContactsPage() {
   const [activeFilterId, setActiveFilterId] = useState<string | null>(null);
 
   // Smart filter states
-  const { terminology: _terminology } = useWorkspace();
   const [statusFilter, setStatusFilter] = useState<
     'all' | 'leads' | 'customers' | 'inactive'
   >('all');
@@ -686,7 +686,7 @@ export default function ContactsPage() {
       if (error) {
         throw error;
       } else {
-        toast.success('Patient profile deleted successfully');
+        toast.success(`${entityLabel} profile deleted successfully`);
         fetchContacts();
       }
     } catch (err: unknown) {
@@ -791,8 +791,8 @@ export default function ContactsPage() {
             {entityLabelPlural}
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Manage your {entityLabelPlural.toLowerCase()}, leads and
-            conversations.
+            Manage your {entityLabelPlural.toLowerCase()},{' '}
+            {terminology.pipelineItems.toLowerCase()} and conversations.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -932,8 +932,8 @@ export default function ContactsPage() {
               aria-label="Filter by Status"
             >
               <option value="all">Status: All</option>
-              <option value="leads">Leads Only</option>
-              <option value="customers">Customers</option>
+              <option value="leads">{terminology.pipelineItems} Only</option>
+              <option value="customers">{terminology.primaryRecords}</option>
               <option value="inactive">Inactive</option>
             </select>
 
@@ -960,7 +960,7 @@ export default function ContactsPage() {
                 setTempFilter(e.target.value as 'all' | 'hot' | 'warm' | 'cold')
               }
               className="bg-background border-border text-foreground focus:ring-primary h-9 rounded-md border px-2.5 text-xs focus:ring-1 focus:outline-none"
-              aria-label="Filter by Lead Score"
+              aria-label={`Filter by ${terminology.pipelineItem} score`}
             >
               <option value="all">Score: All</option>
               <option value="hot">🔥 Hot</option>
@@ -1152,10 +1152,12 @@ export default function ContactsPage() {
                   aria-label={`Select all ${entityLabelPlural.toLowerCase()} on this page`}
                 />
               </TableHead>
-              <TableHead className="text-muted-foreground">Contact</TableHead>
+              <TableHead className="text-muted-foreground">
+                {entityLabel}
+              </TableHead>
               <TableHead className="text-muted-foreground">Status</TableHead>
               <TableHead className="text-muted-foreground">
-                Lead Score
+                {terminology.pipelineItem} Score
               </TableHead>
               <TableHead className="text-muted-foreground">
                 Assigned To
@@ -1187,7 +1189,8 @@ export default function ContactsPage() {
               <TableRow className="border-border">
                 <TableCell colSpan={8} className="py-12 text-center">
                   <p className="text-muted-foreground text-sm">
-                    Contacts could not be loaded. Use Retry to try again.
+                    {entityLabelPlural} could not be loaded. Use Retry to try
+                    again.
                   </p>
                 </TableCell>
               </TableRow>
@@ -1542,7 +1545,7 @@ export default function ContactsPage() {
         <DialogContent className="bg-popover border-border text-popover-foreground sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-popover-foreground">
-              Delete Contact
+              Delete {entityLabel}
             </DialogTitle>
             <DialogDescription className="text-muted-foreground">
               Are you sure you want to delete{' '}
@@ -1578,7 +1581,7 @@ export default function ContactsPage() {
           <DialogHeader>
             <DialogTitle className="text-popover-foreground">
               Delete {selected.size}{' '}
-              {selected.size === 1 ? 'Contact' : 'Contacts'}
+              {selected.size === 1 ? entityLabel : entityLabelPlural}
             </DialogTitle>
             <DialogDescription className="text-muted-foreground">
               Are you sure you want to delete{' '}
@@ -1614,7 +1617,7 @@ export default function ContactsPage() {
           <DialogHeader>
             <DialogTitle className="text-popover-foreground">
               Assign {selected.size}{' '}
-              {selected.size === 1 ? 'Contact' : 'Contacts'}
+              {selected.size === 1 ? entityLabel : entityLabelPlural}
             </DialogTitle>
             <DialogDescription className="text-muted-foreground">
               Select a team member to assign the selected contacts to.
@@ -1643,7 +1646,7 @@ export default function ContactsPage() {
               Cancel
             </Button>
             <Button onClick={handleBulkAssign} disabled={!bulkAssignUserId}>
-              Assign Contacts
+              Assign {entityLabelPlural}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1655,7 +1658,7 @@ export default function ContactsPage() {
           <DialogHeader>
             <DialogTitle className="text-popover-foreground">
               Add Tag to {selected.size}{' '}
-              {selected.size === 1 ? 'Contact' : 'Contacts'}
+              {selected.size === 1 ? entityLabel : entityLabelPlural}
             </DialogTitle>
             <DialogDescription className="text-muted-foreground">
               Choose a tag to apply to all selected contacts.
@@ -1696,7 +1699,7 @@ export default function ContactsPage() {
           <DialogHeader>
             <DialogTitle className="text-popover-foreground">
               Remove Tag from {selected.size}{' '}
-              {selected.size === 1 ? 'Contact' : 'Contacts'}
+              {selected.size === 1 ? entityLabel : entityLabelPlural}
             </DialogTitle>
             <DialogDescription className="text-muted-foreground">
               Choose a tag to remove from all selected contacts.
@@ -1737,7 +1740,7 @@ export default function ContactsPage() {
           <DialogHeader>
             <DialogTitle className="text-popover-foreground">
               Move {selected.size}{' '}
-              {selected.size === 1 ? 'Contact' : 'Contacts'} to Stage
+              {selected.size === 1 ? entityLabel : entityLabelPlural} to Stage
             </DialogTitle>
             <DialogDescription className="text-muted-foreground">
               Select the pipeline stage to apply to the selected contacts.
@@ -1749,7 +1752,7 @@ export default function ContactsPage() {
               onChange={(e) => setBulkStage(e.target.value)}
               className="border-input bg-background focus:ring-primary w-full rounded-md border px-3 py-2 text-xs focus:ring-1"
             >
-              <option value="NEW">New Lead</option>
+              <option value="NEW">New {terminology.pipelineItem}</option>
               <option value="QUALIFYING">Qualifying</option>
               <option value="QUALIFIED">Qualified</option>
               <option value="BOOKED">Booked</option>
@@ -1779,7 +1782,7 @@ export default function ContactsPage() {
           <DialogHeader>
             <DialogTitle className="text-popover-foreground">
               Create Follow-up for {selected.size}{' '}
-              {selected.size === 1 ? 'Contact' : 'Contacts'}
+              {selected.size === 1 ? entityLabel : entityLabelPlural}
             </DialogTitle>
             <DialogDescription className="text-muted-foreground">
               Schedule a task or reminder for all selected contacts.

@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { BellRing, Loader2, Sparkles, Clock, FileText } from 'lucide-react';
 import { toast } from 'sonner';
+import { getIndustryTerminology } from '@/modules/terminology';
 
 /* ------------------------------------------------------------------ */
 /*  Industry-aware context for reminder copy                           */
@@ -130,23 +131,26 @@ const REMINDER_CTX: Record<string, ReminderContext> = {
   },
 };
 
-const DEFAULT_CTX: ReminderContext = {
-  eventType: 'Event',
-  personPlural: 'contacts',
-  templateVars: [
-    { code: '{{ContactName}}', desc: 'Contact Name' },
-    { code: '{{BusinessName}}', desc: 'Business Name' },
-    { code: '{{EventDate}}', desc: 'Event Date' },
-    { code: '{{EventTime}}', desc: 'Event Time' },
-    { code: '{{ReminderTime}}', desc: 'Time Left' },
-  ],
-};
-
 export function ReminderPanel() {
   const { canEditSettings, account } = useAuth();
-  const ctx = useMemo(
-    () => REMINDER_CTX[account?.industry ?? ''] || DEFAULT_CTX,
+  const terminology = useMemo(
+    () => getIndustryTerminology(account?.industry),
     [account?.industry]
+  );
+  const ctx = useMemo(
+    () =>
+      REMINDER_CTX[account?.industry ?? ''] || {
+        eventType: terminology.meeting,
+        personPlural: terminology.people.toLowerCase(),
+        templateVars: [
+          { code: '{{ContactName}}', desc: `${terminology.person} Name` },
+          { code: '{{BusinessName}}', desc: 'Business Name' },
+          { code: '{{EventDate}}', desc: `${terminology.meeting} Date` },
+          { code: '{{EventTime}}', desc: `${terminology.meeting} Time` },
+          { code: '{{ReminderTime}}', desc: 'Time Left' },
+        ],
+      },
+    [account?.industry, terminology]
   );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);

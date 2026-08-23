@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Search, RefreshCw, X, Filter } from 'lucide-react';
+import { useWorkspace } from '@/hooks/use-workspace';
 
 export interface LeadFilterState {
   search: string;
@@ -40,6 +41,7 @@ export function LeadBoardToolbar({
   totalLeadsCount,
   filteredLeadsCount,
 }: LeadBoardToolbarProps) {
+  const { terminology } = useWorkspace();
   const activeFiltersCount =
     (filters.search ? 1 : 0) +
     (filters.channel !== 'all' ? 1 : 0) +
@@ -57,7 +59,7 @@ export function LeadBoardToolbar({
           <Input
             value={filters.search}
             onChange={(e) => onFilterChange('search', e.target.value)}
-            placeholder="Search leads by name, phone, or service..."
+            placeholder={`Search ${terminology.pipelineItems.toLowerCase()} by name, phone, or ${terminology.service.toLowerCase()}...`}
             className="bg-background border-border pl-9 text-sm"
           />
           {filters.search && (
@@ -115,7 +117,7 @@ export function LeadBoardToolbar({
             onValueChange={(val) => onFilterChange('score', val ?? 'all')}
           >
             <SelectTrigger className="bg-background border-border h-9 w-[120px] text-xs">
-              <SelectValue placeholder="Lead Score" />
+              <SelectValue placeholder={`${terminology.pipelineItem} Score`} />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Scores</SelectItem>
@@ -164,7 +166,8 @@ export function LeadBoardToolbar({
         <div className="flex flex-wrap items-center gap-2 pt-1">
           <span className="text-muted-foreground flex items-center text-xs font-medium">
             <Filter className="mr-1 h-3 w-3" />
-            Active Filters ({filteredLeadsCount} of {totalLeadsCount} leads):
+            Active Filters ({filteredLeadsCount} of {totalLeadsCount}{' '}
+            {terminology.pipelineItems.toLowerCase()}):
           </span>
 
           {filters.search && (

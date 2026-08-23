@@ -21,6 +21,7 @@ import {
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { useWorkspace } from '@/hooks/use-workspace';
 
 export interface CommandSearchProps {
   open?: boolean;
@@ -129,6 +130,43 @@ export function CommandSearch({
     }
   );
   const router = useRouter();
+  const { terminology, isRouteAllowed } = useWorkspace();
+
+  const commandNavItems = React.useMemo(
+    () =>
+      COMMAND_NAV_ITEMS.map((item) => {
+        if (item.href === '/contacts')
+          return {
+            ...item,
+            label: `${terminology.people} Directory`,
+            category: 'CRM',
+          };
+        if (item.href === '/leads')
+          return {
+            ...item,
+            label: `${terminology.pipelineItems} Board`,
+            category: 'CRM',
+          };
+        if (item.href === '/pipelines')
+          return {
+            ...item,
+            label: `${terminology.pipelines} & ${terminology.pipelineItems}`,
+            category: 'CRM',
+          };
+        if (item.href === '/appointments')
+          return {
+            ...item,
+            label: terminology.meetings,
+            category: 'Scheduling',
+          };
+        if (item.href === '/follow-ups')
+          return { ...item, label: `Tasks & ${terminology.followUps}` };
+        if (item.href === '/broadcasts')
+          return { ...item, label: `${terminology.campaigns} & Broadcasts` };
+        return item;
+      }).filter((item) => isRouteAllowed(item.href)),
+    [isRouteAllowed, terminology]
+  );
 
   const isOpen = externalOpen !== undefined ? externalOpen : internalOpen;
 
@@ -184,7 +222,7 @@ export function CommandSearch({
     return () => clearTimeout(timer);
   }, [query]);
 
-  const filteredNavItems = COMMAND_NAV_ITEMS.filter(
+  const filteredNavItems = commandNavItems.filter(
     (item) =>
       item.label.toLowerCase().includes(query.toLowerCase()) ||
       item.category.toLowerCase().includes(query.toLowerCase())
@@ -210,7 +248,7 @@ export function CommandSearch({
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search contacts, deals, appointments, navigation..."
+            placeholder={`Search ${terminology.people.toLowerCase()}, ${terminology.pipelineItems.toLowerCase()}, ${terminology.meetings.toLowerCase()}...`}
             className="h-8 border-0 bg-transparent p-0 text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
             autoFocus
           />
@@ -233,7 +271,7 @@ export function CommandSearch({
           {entityResults.contacts.length > 0 && (
             <div>
               <span className="text-primary block px-2 py-1 text-[10px] font-bold tracking-wider uppercase">
-                Contacts ({entityResults.contacts.length})
+                {terminology.people} ({entityResults.contacts.length})
               </span>
               <div className="mt-1 space-y-1">
                 {entityResults.contacts.map((c) => (
@@ -270,7 +308,7 @@ export function CommandSearch({
           {entityResults.deals.length > 0 && (
             <div>
               <span className="text-primary block px-2 py-1 text-[10px] font-bold tracking-wider uppercase">
-                Deals ({entityResults.deals.length})
+                {terminology.pipelineItems} ({entityResults.deals.length})
               </span>
               <div className="mt-1 space-y-1">
                 {entityResults.deals.map((d) => (
@@ -298,7 +336,7 @@ export function CommandSearch({
           {entityResults.appointments.length > 0 && (
             <div>
               <span className="text-primary block px-2 py-1 text-[10px] font-bold tracking-wider uppercase">
-                Appointments ({entityResults.appointments.length})
+                {terminology.meetings} ({entityResults.appointments.length})
               </span>
               <div className="mt-1 space-y-1">
                 {entityResults.appointments.map((a) => (
@@ -310,7 +348,7 @@ export function CommandSearch({
                     <div className="flex min-w-0 items-center gap-2.5">
                       <Calendar className="size-3.5 shrink-0 text-blue-500" />
                       <span className="text-foreground truncate font-medium">
-                        {a.contact?.name || 'Appointment'} —{' '}
+                        {a.contact?.name || terminology.meeting} —{' '}
                         {a.notes || 'No notes'}
                       </span>
                     </div>

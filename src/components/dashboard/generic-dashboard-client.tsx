@@ -15,6 +15,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
+import { useWorkspace } from '@/hooks/use-workspace';
 
 const metricCards = [
   {
@@ -140,6 +141,7 @@ function FilterPill({ children }: { children: ReactNode }) {
 }
 
 export function GenericDashboardClient() {
+  const { terminology } = useWorkspace();
   const { account, accountId, profile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState<Record<string, number>>({});
@@ -179,6 +181,28 @@ export function GenericDashboardClient() {
         'active_members',
       ]),
     [metrics]
+  );
+
+  const contextualMetricCards = useMemo(
+    () =>
+      metricCards.map((card) => {
+        if (card.key === 'leads')
+          return {
+            ...card,
+            label: `TOTAL ${terminology.pipelineItems.toUpperCase()}`,
+            filter: `${terminology.pipelineItems} Board`,
+          };
+        if (card.key === 'customers')
+          return {
+            ...card,
+            label: `TOTAL ${terminology.people.toUpperCase()}`,
+            filter: terminology.primaryRecords,
+          };
+        if (card.key === 'campaigns')
+          return { ...card, label: terminology.campaigns.toUpperCase() };
+        return card;
+      }),
+    [terminology]
   );
 
   if (loading) {
@@ -225,7 +249,7 @@ export function GenericDashboardClient() {
       </div>
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-        {metricCards.map((card, index) => {
+        {contextualMetricCards.map((card, index) => {
           const Icon = card.icon;
           const value = getMetric(metrics, card.keys);
           const isWallet = card.key === 'wallet';
@@ -267,13 +291,16 @@ export function GenericDashboardClient() {
         <div className="flex h-[364px] flex-col rounded-2xl border border-slate-200/90 bg-white shadow-[0_2px_8px_rgba(15,23,42,0.04)]">
           <div className="border-b border-slate-100 px-5 py-4">
             <h2 className="text-[15px] font-bold text-[#0f172a]">
-              Sales Pipeline Overview
+              {terminology.pipeline} Overview
             </h2>
           </div>
           <div className="flex flex-1 flex-col justify-between p-5">
             <div className="space-y-6 pt-1">
               {[
-                { label: 'New Leads', val: totalPipeline },
+                {
+                  label: `New ${terminology.pipelineItems}`,
+                  val: totalPipeline,
+                },
                 { label: 'Contacted / Assigned', val: 0 },
                 { label: 'Qualified / Won', val: 0 },
               ].map((row) => (
@@ -296,7 +323,7 @@ export function GenericDashboardClient() {
               ))}
             </div>
             <div className="border-t border-slate-100 pt-3 text-right text-[12px] font-semibold text-slate-500">
-              Total Pipeline Leads:{' '}
+              Total {terminology.pipelineItems}:{' '}
               <span className="font-extrabold text-[#0f172a]">
                 {totalPipeline || 1}
               </span>
@@ -307,7 +334,7 @@ export function GenericDashboardClient() {
         <div className="flex h-[364px] flex-col rounded-2xl border border-slate-200/90 bg-white shadow-[0_2px_8px_rgba(15,23,42,0.04)]">
           <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
             <h2 className="text-[15px] font-bold text-[#0f172a]">
-              Top Lead Sources
+              Top {terminology.pipelineItem} Sources
             </h2>
             <FilterPill>This Month</FilterPill>
           </div>

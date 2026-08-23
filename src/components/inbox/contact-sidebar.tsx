@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/appwrite-compat';
 import { useAuth } from '@/hooks/use-auth';
+import { useWorkspace } from '@/hooks/use-workspace';
 import { cn } from '@/lib/utils';
 import type { Contact, Deal, ContactNote, Tag, Conversation } from '@/types';
 import {
@@ -59,22 +60,9 @@ export function ContactSidebar({
   conversation,
   isEmbedded = false,
 }: ContactSidebarProps) {
-  const { accountId, account } = useAuth();
-
-  const pipelineTitle =
-    account?.industry === 'hospital_clinic'
-      ? 'Patient Care Cycle'
-      : account?.industry === 'coaching' || account?.industry === 'solo_teacher'
-        ? 'Enrollment Pipeline'
-        : account?.industry === 'real_estate'
-          ? 'Deals / Pipeline'
-          : account?.industry === 'travel'
-            ? 'Trip Bookings'
-            : account?.industry === 'gym'
-              ? 'Membership Stages'
-              : account?.industry === 'restaurant'
-                ? 'Table & Reservation Pipeline'
-                : 'Pipeline & Sales Stage';
+  const { accountId } = useAuth();
+  const { terminology, currentIndustry } = useWorkspace();
+  const pipelineTitle = terminology.pipeline;
 
   const [copied, setCopied] = useState(false);
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -126,7 +114,7 @@ export function ContactSidebar({
     if (!contact) return;
 
     const appwrite = createClient();
-    const isHospital = account?.industry === 'hospital_clinic';
+    const isHospital = currentIndustry === 'hospital_clinic';
 
     try {
       // 1. Fetch core CRM fields (deals, notes, tags)
@@ -206,11 +194,15 @@ export function ContactSidebar({
     } catch (err) {
       console.error('[ContactSidebar] Error fetching contact details:', err);
     }
-  }, [contact, account?.industry]);
+  }, [contact, currentIndustry]);
 
   // Lazy-load doctors & branches for hospital booking widget
   useEffect(() => {
-    if ((showBookForm || showInviteForm) && doctors.length === 0) {
+    if (
+      currentIndustry === 'hospital_clinic' &&
+      (showBookForm || showInviteForm) &&
+      doctors.length === 0
+    ) {
       const appwrite = createClient();
       async function loadDocs() {
         const [dRes, bRes] = await Promise.all([
@@ -229,7 +221,13 @@ export function ContactSidebar({
       }
       loadDocs();
     }
-  }, [showBookForm, showInviteForm, accountId, doctors.length]);
+  }, [
+    showBookForm,
+    showInviteForm,
+    accountId,
+    doctors.length,
+    currentIndustry,
+  ]);
 
   const handleSidebarBook = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -572,7 +570,7 @@ export function ContactSidebar({
           )}
 
         {/* Hospital & Clinic Operations Module Widget */}
-        {account?.industry === 'hospital_clinic' && (
+        {currentIndustry === 'hospital_clinic' && (
           <>
             <div className="border-border my-4 border-t" />
             <div className="border-primary/20 bg-muted/20 space-y-3 rounded-xl border p-3">
@@ -1026,13 +1024,13 @@ export function ContactSidebar({
     >
       {content}
 
-      {contact && (
+      {contact && currentIndustry === 'hospital_clinic' && (
         <UploadPatientPdfModal
           open={uploadPdfOpen}
           onOpenChange={setUploadPdfOpen}
           patientId={getOrGeneratePatientId(contact, patient?.patient_seq_id)}
           contactId={contact.id}
-          patientName={contact.name || 'Patient'}
+          patientName={contact.name || terminology.person}
           patientPhone={contact.phone}
           onSuccess={() => {}}
         />

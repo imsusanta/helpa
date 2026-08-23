@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
+import { useWorkspace } from '@/hooks/use-workspace';
 
 interface SidebarProps {
   open?: boolean;
@@ -165,6 +166,7 @@ function pathIsActive(pathname: string, href?: string) {
 export function Sidebar({ open = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { profile, isSuperAdmin } = useAuth();
+  const { terminology, isRouteAllowed } = useWorkspace();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
     Sales: true,
     Conversations: false,
@@ -178,10 +180,43 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
     Settings: false,
   });
 
-  const visibleNav = useMemo(
-    () => NAV.filter((item) => !item.superAdminOnly || isSuperAdmin),
-    [isSuperAdmin]
-  );
+  const visibleNav = useMemo(() => {
+    const labelByHref: Record<string, string> = {
+      '/leads': terminology.pipelineItems,
+      '/customers': terminology.people,
+      '/pipelines': terminology.pipelines,
+      '/inbox': 'Inbox',
+      '/follow-ups': terminology.followUps,
+      '/appointments': terminology.meetings,
+      '/broadcasts': terminology.campaigns,
+      '/forms': `${terminology.pipelineItem} Forms`,
+      '/services': terminology.services,
+      '/billing/reports': terminology.reports,
+      '/settings?tab=team': terminology.staffMembers,
+    };
+
+    return NAV.filter((item) => !item.superAdminOnly || isSuperAdmin)
+      .map((item) => ({
+        ...item,
+        label:
+          item.href === '/services'
+            ? terminology.services
+            : item.label === 'Conversations'
+              ? terminology.conversations
+              : item.label,
+        children: item.children
+          ?.filter((child) => isRouteAllowed(child.href.split('?')[0]))
+          .map((child) => ({
+            ...child,
+            label: labelByHref[child.href] || child.label,
+          })),
+      }))
+      .filter(
+        (item) =>
+          item.superAdminOnly ||
+          (item.href ? isRouteAllowed(item.href.split('?')[0]) : true)
+      );
+  }, [isRouteAllowed, isSuperAdmin, terminology]);
 
   const activeParent = useMemo(() => {
     for (const item of visibleNav)

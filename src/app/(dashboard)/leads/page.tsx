@@ -1,14 +1,21 @@
+'use client';
+
 import { Suspense } from 'react';
 import { LeadKanbanBoard } from '@/components/kanban/lead-kanban-board';
+import { useWorkspace } from '@/hooks/use-workspace';
 
 export default function LeadsKanbanPage() {
+  const { terminology } = useWorkspace();
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-foreground text-2xl font-bold">Leads</h1>
+          <h1 className="text-foreground text-2xl font-bold">
+            {terminology.pipelineItems}
+          </h1>
           <p className="text-muted-foreground text-sm">
-            Track prospects, manage inquiries and move opportunities forward.
+            Track {terminology.people.toLowerCase()}, manage inquiries and move
+            opportunities forward.
           </p>
         </div>
       </div>

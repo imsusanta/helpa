@@ -1,11 +1,13 @@
 import { ModuleNavItem } from '../types';
+import { getIndustryTerminology } from '../terminology';
+const terms = getIndustryTerminology('solo_teacher');
 
 export const sidebarConfig: ModuleNavItem[] = [
   { href: '/dashboard', label: 'Home', iconName: 'LayoutDashboard' },
   { href: '/inbox', label: 'Messages', iconName: 'MessageSquare' },
-  { href: '/contacts', label: 'Students', iconName: 'Users' },
-  { href: '/courses', label: 'Courses', iconName: 'BookOpen' },
-  { href: '/admissions', label: 'Enrollments', iconName: 'Calendar' },
+  { href: '/contacts', label: terms.contacts, iconName: 'Users' },
+  { href: '/courses', label: terms.services, iconName: 'BookOpen' },
+  { href: '/admissions', label: terms.bookings, iconName: 'Calendar' },
   {
     href: '/broadcasts',
     label: 'Campaigns',

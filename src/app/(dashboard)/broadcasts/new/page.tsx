@@ -22,6 +22,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useWorkspace } from '@/hooks/use-workspace';
 
 interface DoctorOption {
   id: string;
@@ -32,7 +33,9 @@ interface DoctorOption {
 export default function NewCampaignPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { accountId, account } = useAuth();
+  const { accountId } = useAuth();
+  const { terminology, currentIndustry } = useWorkspace();
+  const audienceLabel = terminology.people;
   const { createAndSendBroadcast, isProcessing, progress } =
     useBroadcastSending();
 
@@ -578,9 +581,7 @@ export default function NewCampaignPage() {
             <div className="space-y-4">
               <h2 className="text-foreground flex items-center gap-1.5 text-base font-bold">
                 <Users className="h-4 w-4" />
-                {account?.industry === 'hospital'
-                  ? 'Target Patients Segment'
-                  : 'Target Contacts Segment'}
+                Target {audienceLabel} Segment
               </h2>
 
               <div className="space-y-1.5">
@@ -594,7 +595,7 @@ export default function NewCampaignPage() {
                   }
                   className="border-border bg-background text-foreground h-10 w-full rounded-lg border px-3 text-sm focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                 >
-                  {account?.industry === 'hospital' ? (
+                  {currentIndustry === 'hospital_clinic' ? (
                     <>
                       <option value="all">All Registered Patients</option>
                       <option value="new_patients">
@@ -627,11 +628,11 @@ export default function NewCampaignPage() {
                     </>
                   ) : (
                     <>
-                      <option value="all">All Contacts</option>
+                      <option value="all">All {audienceLabel}</option>
                     </>
                   )}
                   <option value="contact_list">
-                    Contact List (Group / Tag)
+                    {audienceLabel} List (Group / Tag)
                   </option>
                   <option value="csv">Upload CSV / Excel File List</option>
                 </select>

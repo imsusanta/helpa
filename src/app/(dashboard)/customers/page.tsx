@@ -30,6 +30,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { salesApi } from '@/lib/sales/api-client';
+import { useWorkspace } from '@/hooks/use-workspace';
 
 interface CustomerRow {
   id: string;
@@ -47,6 +48,7 @@ interface CustomerRow {
 }
 
 export default function CustomersPage() {
+  const { terminology } = useWorkspace();
   const [customers, setCustomers] = useState<CustomerRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -79,11 +81,14 @@ export default function CustomersPage() {
       );
       setCustomers(Array.isArray(data) ? data : []);
     } catch (err: unknown) {
-      toast.error((err as Error).message || 'Failed to load customers');
+      toast.error(
+        (err as Error).message ||
+          `Failed to load ${terminology.people.toLowerCase()}`
+      );
     } finally {
       setLoading(false);
     }
-  }, [search, selectedTag]);
+  }, [search, selectedTag, terminology.people]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -95,7 +100,7 @@ export default function CustomersPage() {
   const handleCreateCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      toast.error('Customer name is required');
+      toast.error(`${terminology.person} name is required`);
       return;
     }
     setCreating(true);
@@ -104,7 +109,7 @@ export default function CustomersPage() {
         .split(',')
         .map((t) => t.trim())
         .filter(Boolean);
-      if (tags.length === 0) tags.push('Customer');
+      if (tags.length === 0) tags.push(terminology.person);
 
       await salesApi('/api/customers', {
         method: 'POST',
@@ -117,7 +122,7 @@ export default function CustomersPage() {
         }),
       });
 
-      toast.success('Customer added successfully');
+      toast.success(`${terminology.person} added successfully`);
       setCreateOpen(false);
       setName('');
       setPhone('');
@@ -147,7 +152,7 @@ export default function CustomersPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-[#0f172a]">
-            Customers
+            {terminology.people}
           </h1>
           <p className="text-sm font-medium text-slate-500">
             View accounts, linked deals, quotation histories, and invoices in
@@ -159,7 +164,7 @@ export default function CustomersPage() {
           className="h-10 gap-1.5 rounded-xl bg-[#00b074] px-4 text-xs font-bold text-white hover:bg-[#009b66]"
         >
           <Plus className="h-4 w-4" />
-          Add Customer
+          Add {terminology.person}
         </Button>
       </div>
 
@@ -167,7 +172,7 @@ export default function CustomersPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.04)]">
           <span className="text-[12px] font-bold tracking-wider text-slate-500 uppercase">
-            Total Customers
+            Total {terminology.people}
           </span>
           <div className="mt-2 text-2xl font-extrabold text-[#0f172a]">
             {customers.length}
@@ -186,7 +191,7 @@ export default function CustomersPage() {
         </div>
         <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.04)]">
           <span className="text-[12px] font-bold tracking-wider text-slate-500 uppercase">
-            Active Deals Pipeline
+            Active {terminology.pipelineItems} {terminology.pipeline}
           </span>
           <div className="mt-2 text-2xl font-extrabold text-[#2563eb]">
             ₹
@@ -236,7 +241,7 @@ export default function CustomersPage() {
               size="sm"
               className="mt-4 rounded-xl text-xs"
             >
-              Add First Customer
+              Add First {terminology.person}
             </Button>
           </div>
         ) : (
@@ -244,10 +249,12 @@ export default function CustomersPage() {
             <table className="w-full text-left text-xs">
               <thead className="border-b border-slate-100 bg-slate-50/75 text-[11px] font-bold tracking-wider text-slate-500 uppercase">
                 <tr>
-                  <th className="px-5 py-3.5">Customer Name</th>
-                  <th className="px-5 py-3.5">Contact</th>
+                  <th className="px-5 py-3.5">{terminology.person} Name</th>
+                  <th className="px-5 py-3.5">Contact Details</th>
                   <th className="px-5 py-3.5">Tags</th>
-                  <th className="px-5 py-3.5 text-center">Deals</th>
+                  <th className="px-5 py-3.5 text-center">
+                    {terminology.pipelineItems}
+                  </th>
                   <th className="px-5 py-3.5 text-center">Quotations</th>
                   <th className="px-5 py-3.5 text-center">Invoices</th>
                   <th className="px-5 py-3.5 text-right">Total Revenue</th>
@@ -331,7 +338,7 @@ export default function CustomersPage() {
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Add New Customer</DialogTitle>
+            <DialogTitle>Add New {terminology.person}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleCreateCustomer} className="space-y-4 pt-2">
             <div className="space-y-1.5">
@@ -396,7 +403,7 @@ export default function CustomersPage() {
                 disabled={creating}
                 className="bg-[#00b074] text-xs font-bold text-white hover:bg-[#009b66]"
               >
-                {creating ? 'Saving...' : 'Create Customer'}
+                {creating ? 'Saving...' : `Create ${terminology.person}`}
               </Button>
             </DialogFooter>
           </form>
@@ -414,7 +421,7 @@ export default function CustomersPage() {
                 </SheetTitle>
                 <div className="flex items-center gap-2 pt-1">
                   <Badge variant="outline" className="text-[11px]">
-                    Customer
+                    {terminology.person}
                   </Badge>
                   <span className="text-xs text-slate-400">
                     ID: {selectedCustomer.id.slice(0, 8)}
@@ -455,7 +462,7 @@ export default function CustomersPage() {
                   </div>
                   <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-3">
                     <span className="text-[10px] font-bold text-slate-400 uppercase">
-                      Open Pipeline
+                      Open {terminology.pipeline}
                     </span>
                     <p className="mt-1 text-base font-extrabold text-blue-600">
                       ₹
@@ -473,7 +480,8 @@ export default function CustomersPage() {
                     className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-3 transition hover:bg-slate-50"
                   >
                     <span className="font-semibold text-slate-800">
-                      Deals ({selectedCustomer.dealsCount})
+                      {terminology.pipelineItems} ({selectedCustomer.dealsCount}
+                      )
                     </span>
                     <ChevronRight className="h-4 w-4 text-slate-400" />
                   </Link>
