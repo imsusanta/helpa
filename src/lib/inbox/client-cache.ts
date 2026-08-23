@@ -39,7 +39,6 @@ export function mergeMessageSnapshots(
 
   for (const local of localMessages) {
     if (serverIds.has(local.id)) continue;
-
     const isOptimistic = local.id.startsWith(OPTIMISTIC_ID_PREFIX);
     if (
       !isOptimistic &&
@@ -48,13 +47,9 @@ export function mergeMessageSnapshots(
     ) {
       continue;
     }
-
-    if (
-      serverMessages.some((server) => isSameOutgoingMessage(server, local))
-    ) {
+    if (serverMessages.some((server) => isSameOutgoingMessage(server, local))) {
       continue;
     }
-
     merged.push(local);
   }
 

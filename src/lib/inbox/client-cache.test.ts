@@ -18,13 +18,11 @@ function message(overrides: Partial<Message>): Message {
 describe('mergeMessageSnapshots', () => {
   it('keeps an optimistic message while the server snapshot is stale', () => {
     const optimistic = message({ id: 'temp-1', status: 'sending' });
-
     expect(mergeMessageSnapshots([], [optimistic])).toEqual([optimistic]);
   });
 
   it('keeps a failed optimistic message visible for retry', () => {
     const failed = message({ id: 'temp-1', status: 'failed' });
-
     expect(mergeMessageSnapshots([], [failed])).toEqual([failed]);
   });
 
@@ -35,7 +33,6 @@ describe('mergeMessageSnapshots', () => {
       status: 'sent',
       created_at: '2026-08-23T15:00:01.000Z',
     });
-
     expect(mergeMessageSnapshots([confirmed], [optimistic])).toEqual([
       confirmed,
     ]);
@@ -43,7 +40,6 @@ describe('mergeMessageSnapshots', () => {
 
   it('does not duplicate rows that already share the server id', () => {
     const confirmed = message({ id: 'server-1', status: 'delivered' });
-
     expect(mergeMessageSnapshots([confirmed], [confirmed])).toEqual([
       confirmed,
     ]);
@@ -56,7 +52,6 @@ describe('mergeMessageSnapshots', () => {
       content_text: 'Second',
       status: 'sending',
     });
-
     expect(mergeMessageSnapshots([first], [second])).toEqual([first, second]);
   });
 });
