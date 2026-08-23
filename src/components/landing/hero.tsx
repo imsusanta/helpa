@@ -2,7 +2,12 @@
 
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { CalendarCheck, Clock3, MessageCircle, Sparkles } from 'lucide-react';
+import {
+  CalendarCheck,
+  Clock3 as ClockIcon,
+  MessageCircle,
+  Sparkles,
+} from 'lucide-react';
 
 interface HeroProps {
   isAuthenticated: boolean;
@@ -11,7 +16,7 @@ interface HeroProps {
 const outcomes = [
   { icon: MessageCircle, label: 'Answer patient questions 24/7' },
   { icon: CalendarCheck, label: 'Book and confirm appointments' },
-  { icon: Clock3, label: 'Reduce reception follow-up work' },
+  { icon: ClockIcon, label: 'Reduce reception follow-up work' },
 ];
 
 export function LandingHero({ isAuthenticated }: HeroProps) {
