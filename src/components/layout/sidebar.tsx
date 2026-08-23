@@ -397,18 +397,19 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
               <img
                 src={profile.avatar_url}
                 alt={profile.full_name || 'Profile'}
-                className="h-9 w-9 shrink-0 rounded-full object-cover border border-emerald-500/30 shadow-xs"
+                className="h-9 w-9 shrink-0 rounded-full border border-emerald-500/30 object-cover shadow-xs"
                 onError={(e) => {
                   (e.currentTarget as HTMLElement).style.display = 'none';
-                  const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                  const fallback = e.currentTarget
+                    .nextElementSibling as HTMLElement;
                   if (fallback) fallback.style.display = 'flex';
                 }}
               />
             ) : null}
             <div
               className={cn(
-                "flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#10b981] text-xs font-bold text-white shadow-xs",
-                profile?.avatar_url && "hidden"
+                'flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#10b981] text-xs font-bold text-white shadow-xs',
+                profile?.avatar_url && 'hidden'
               )}
             >
               {profile?.full_name
