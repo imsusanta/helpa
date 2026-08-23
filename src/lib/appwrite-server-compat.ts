@@ -1,51 +1,31 @@
-import { cookies } from 'next/headers';
-import {
-  createDataClient,
-  type AppwriteCompatClient,
-  type AppwriteClient,
-  type AppwriteError,
-} from '@/lib/appwrite-compat';
-import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
+/**
+ * Transitional import facade.
+ *
+ * Historical route handlers import this module by name. It now returns only
+ * Supabase clients; no Appwrite database, auth, storage, cookie, or SDK path
+ * exists behind this facade. Callers can be renamed incrementally without a
+ * broad application rewrite.
+ */
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import {
   createClient as createSupabaseServerClient,
   getAdminClient as getSupabaseAdminClient,
 } from '@/lib/supabase/server';
-import { getRuntimeConfig } from '@/lib/runtime-config';
 
-export type { AppwriteCompatClient, AppwriteClient, AppwriteError };
+export type AppwriteCompatClient = SupabaseClient;
+export type AppwriteClient = SupabaseClient;
+export type AppwriteError = PostgrestError;
 
-async function sessionFromRequest(): Promise<string | undefined> {
-  const cookieStore = await cookies();
-  return (
-    cookieStore.get(`a_session_${APPWRITE_CONFIG.projectId}`)?.value ||
-    cookieStore.get('appwrite_session')?.value
-  );
-}
-
-/** User-scoped client for Route Handlers and Server Components. */
+/** User-scoped Supabase client for Route Handlers and Server Components. */
 export async function createClient(): Promise<AppwriteCompatClient> {
-  const config = getRuntimeConfig();
-  if (config.databaseProvider === 'supabase') {
-    return await createSupabaseServerClient();
-  }
-  if (config.migrationMode !== 'rollback') {
-    throw new Error('APPWRITE_DATABASE_ACCESS_DISABLED');
-  }
-  return createDataClient(await sessionFromRequest(), false);
+  return await createSupabaseServerClient();
 }
 
-/** Server API-key / Service-Role client for trusted jobs, webhooks, and workers. */
+/** Supabase service-role client for trusted server-only work. */
 export function appwriteAdmin(): AppwriteCompatClient {
-  const config = getRuntimeConfig();
-  if (config.databaseProvider === 'supabase') {
-    return getSupabaseAdminClient();
-  }
-  if (config.migrationMode !== 'rollback') {
-    throw new Error('APPWRITE_DATABASE_ACCESS_DISABLED');
-  }
-  return createDataClient(undefined, true);
+  return getSupabaseAdminClient();
 }
 
 export function getAdminClient(): AppwriteCompatClient {
-  return appwriteAdmin();
+  return getSupabaseAdminClient();
 }

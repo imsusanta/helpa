@@ -1,27 +1,12 @@
-export type AuthProvider = 'supabase' | 'appwrite';
-export type DatabaseProvider = 'supabase' | 'appwrite';
-export type MigrationMode = 'off' | 'shadow' | 'cutover' | 'rollback';
+export type AuthProvider = 'supabase';
+export type DatabaseProvider = 'supabase';
+export type MigrationMode = 'cutover';
 
 export class RuntimeConfigurationError extends Error {
   constructor(readonly code: string) {
     super(code);
     this.name = 'RuntimeConfigurationError';
   }
-}
-
-function enumValue<T extends string>(
-  value: string | undefined,
-  allowed: readonly T[],
-  name: string,
-  isProduction: boolean
-): T {
-  if (value && (allowed as readonly string[]).includes(value)) {
-    return value as T;
-  }
-  if (isProduction && !value) {
-    throw new RuntimeConfigurationError(`INVALID_${name}`);
-  }
-  return allowed[0];
 }
 
 type EnvMap = Record<string, string | undefined>;
@@ -34,48 +19,35 @@ function requireEnvironmentValue(env: EnvMap, name: string): string {
   return value;
 }
 
-/** Server-only provider selection. No request may infer or override this. */
+/**
+ * Helpa has one runtime architecture: Supabase provides authentication and
+ * application data, while Appwrite Sites is deployment hosting only.
+ */
 export function getRuntimeConfig(
   env: EnvMap = process.env as unknown as EnvMap
 ) {
-  const production = env.NODE_ENV === 'production';
-  const authProvider = enumValue(
-    env.AUTH_PROVIDER ||
-      (env === (process.env as unknown) ? 'supabase' : undefined),
-    ['supabase', 'appwrite'] as const,
-    'AUTH_PROVIDER',
-    production
-  );
-  const databaseProvider = enumValue(
-    env.DATABASE_PROVIDER ||
-      (env === (process.env as unknown) ? 'supabase' : undefined),
-    ['supabase', 'appwrite'] as const,
-    'DATABASE_PROVIDER',
-    production
-  );
-  const migrationMode = enumValue(
-    env.MIGRATION_MODE ||
-      (env === (process.env as unknown)
-        ? 'cutover'
-        : production
-          ? undefined
-          : 'off'),
-    ['cutover', 'shadow', 'off', 'rollback'] as const,
-    'MIGRATION_MODE',
-    production
-  );
+  const authProvider = (env.AUTH_PROVIDER || 'supabase').trim().toLowerCase();
+  const databaseProvider = (env.DATABASE_PROVIDER || 'supabase')
+    .trim()
+    .toLowerCase();
+  const migrationMode = (env.MIGRATION_MODE || 'cutover').trim().toLowerCase();
 
-  if (
-    production &&
-    (authProvider !== 'supabase' || databaseProvider !== 'supabase')
-  ) {
-    throw new RuntimeConfigurationError('PRODUCTION_SUPABASE_CUTOVER_REQUIRED');
+  if (authProvider !== 'supabase') {
+    throw new RuntimeConfigurationError('INVALID_AUTH_PROVIDER');
   }
-  if (production && migrationMode !== 'cutover') {
-    throw new RuntimeConfigurationError('PRODUCTION_CUTOVER_MODE_REQUIRED');
+  if (databaseProvider !== 'supabase') {
+    throw new RuntimeConfigurationError('INVALID_DATABASE_PROVIDER');
+  }
+  if (migrationMode !== 'cutover') {
+    throw new RuntimeConfigurationError('INVALID_MIGRATION_MODE');
   }
 
-  return { authProvider, databaseProvider, migrationMode, production };
+  return {
+    authProvider: 'supabase' as const,
+    databaseProvider: 'supabase' as const,
+    migrationMode: 'cutover' as const,
+    production: env.NODE_ENV === 'production',
+  };
 }
 
 export function requireSupabasePublicConfig(

@@ -9,7 +9,6 @@ import {
   useMemo,
   type ReactNode,
 } from 'react';
-import { getAppwriteClient } from '@/infrastructure/appwrite/client';
 import { DEFAULT_CURRENCY } from '@/lib/currency';
 import {
   canEditSettings as canEditSettingsFor,
@@ -71,51 +70,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [account, setAccount] = useState<AccountSummary | null>(null);
   const [enabledModuleKeys, setEnabledModuleKeys] = useState<string[]>([]);
-
   const [loading, setLoading] = useState(true);
   const [profileLoading, setProfileLoading] = useState(true);
   const [modulesLoading, setModulesLoading] = useState(false);
 
-  const fetchProfile = useCallback(async (_userId: string) => {
-    setProfileLoading(true);
-    try {
-      try {
-        const res = await fetch('/api/account/profile').catch(() => null);
-        if (res && res.ok) {
-          const data = await res.json().catch(() => null);
-          if (data?.success && data?.profile) {
-            setProfile(data.profile);
-            setAccount(
-              data.account || {
-                id: data.profile.account_id || null,
-                name: 'Clinic Account',
-                default_currency: DEFAULT_CURRENCY,
-                industry: 'hospital_clinic',
-              }
-            );
-            return;
-          }
-        }
-      } catch {
-        // Ignore profile fetch errors
-      }
-
-      setProfile(null);
-      setAccount(null);
-    } catch {
-      setProfile(null);
-      setAccount(null);
-    } finally {
-      setProfileLoading(false);
-    }
-  }, []);
-
   const fetchModules = useCallback(async (_accountId: string) => {
     setModulesLoading(true);
     try {
-      setEnabledModuleKeys(['whatsapp', 'appointments', 'crm', 'kanban']);
+      const response = await fetch('/api/account/modules', {
+        cache: 'no-store',
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Failed to load workspace modules');
+      }
+      const enabled = Array.isArray(payload?.modules)
+        ? payload.modules
+            .filter(
+              (module: { enabled?: boolean; module_key?: unknown }) =>
+                module?.enabled === true && typeof module.module_key === 'string'
+            )
+            .map((module: { module_key: string }) => module.module_key)
+        : [];
+      setEnabledModuleKeys(enabled);
+    } catch {
+      // Fail closed: unavailable module configuration grants no module access.
+      setEnabledModuleKeys([]);
     } finally {
       setModulesLoading(false);
+    }
+  }, []);
+
+  const fetchProfile = useCallback(async (_userId: string) => {
+    setProfileLoading(true);
+    try {
+      const response = await fetch('/api/account/profile', {
+        cache: 'no-store',
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.success || !payload?.profile) {
+        throw new Error(payload?.error || 'Failed to load profile');
+      }
+      setProfile(payload.profile);
+      setAccount(
+        payload.account || {
+          id: payload.profile.account_id || '',
+          name: 'Clinic Account',
+          default_currency: DEFAULT_CURRENCY,
+          industry: 'hospital_clinic',
+        }
+      );
+    } catch {
+      setProfile(null);
+      setAccount(null);
+      setEnabledModuleKeys([]);
+    } finally {
+      setProfileLoading(false);
     }
   }, []);
 
@@ -124,44 +134,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const init = async () => {
       try {
-        // 1. Check server-side HTTP-only session via /api/auth/me
-        const res = await fetch('/api/auth/me').catch(() => null);
-        if (res && res.ok) {
-          const data = await res.json().catch(() => null);
-          if (mounted && data?.success && data?.user) {
-            setUser(data.user);
-            fetchProfile(data.user.id);
-            return;
-          }
+        const response = await fetch('/api/auth/me', { cache: 'no-store' });
+        const payload = await response.json().catch(() => null);
+        if (!response.ok || !payload?.success || !payload?.user) {
+          throw new Error('No active Supabase session');
         }
-
-        // 2. Fallback to client-side Appwrite SDK
-        try {
-          const { account: appwriteAccount } = getAppwriteClient();
-          const appwriteUser = await appwriteAccount.get();
-          if (mounted && appwriteUser) {
-            const userObj: AppwriteUser = {
-              id: appwriteUser.$id,
-              email: appwriteUser.email,
-              name: appwriteUser.name,
-              created_at: appwriteUser.$createdAt,
-            };
-            setUser(userObj);
-            fetchProfile(userObj.id);
-            return;
-          }
-        } catch {
-          // Appwrite session not found
-        }
-
         if (mounted) {
-          setProfileLoading(false);
+          setUser(payload.user);
+          await fetchProfile(payload.user.id);
         }
       } catch {
         if (mounted) {
           setUser(null);
           setProfile(null);
           setAccount(null);
+          setEnabledModuleKeys([]);
           setProfileLoading(false);
         }
       } finally {
@@ -169,30 +156,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    init();
-
+    void init();
     return () => {
       mounted = false;
     };
   }, [fetchProfile]);
 
-  const signOut = useCallback(async () => {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-      try {
-        const { account: appwriteAccount } = getAppwriteClient();
-        await appwriteAccount.deleteSession('current').catch(() => {});
-      } catch {
-        // ignore
-      }
-    } catch {
-      // ignore
-    } finally {
-      setUser(null);
-      setProfile(null);
-      setAccount(null);
-      window.location.href = window.location.origin + '/login';
+  useEffect(() => {
+    if (profile?.account_id) {
+      void fetchModules(profile.account_id);
+    } else {
+      setEnabledModuleKeys([]);
     }
+  }, [profile?.account_id, fetchModules]);
+
+  const signOut = useCallback(async () => {
+    const response = await fetch('/api/auth/logout', { method: 'POST' });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok || !payload?.success) {
+      throw new Error(payload?.error || 'Failed to sign out');
+    }
+    setUser(null);
+    setProfile(null);
+    setAccount(null);
+    setEnabledModuleKeys([]);
+    window.location.assign('/login');
   }, []);
 
   const refreshProfile = useCallback(async () => {
@@ -207,20 +195,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const derived = useMemo(() => {
     const role = profile?.account_role ?? null;
-    const resolvedAccountId = profile?.account_id || account?.id || '';
     return {
       canManageMembers: role ? canManageMembersFor(role) : false,
       canEditSettings: role ? canEditSettingsFor(role) : false,
       canSendMessages: role ? canSendMessagesFor(role) : false,
       accountRole: role,
-      isSuperAdmin:
-        Boolean(profile?.is_super_admin) ||
-        profile?.email?.toLowerCase() === 'susantalohr@gmail.com' ||
-        user?.email?.toLowerCase() === 'susantalohr@gmail.com',
-      accountId: resolvedAccountId,
+      isSuperAdmin: Boolean(profile?.is_super_admin),
+      accountId: profile?.account_id || account?.id || '',
       defaultCurrency: account?.default_currency || DEFAULT_CURRENCY,
     };
-  }, [profile, account, user]);
+  }, [profile, account]);
 
   const value = useMemo(
     () => ({
