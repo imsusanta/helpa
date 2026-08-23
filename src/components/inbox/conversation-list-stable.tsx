@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useState } from 'react';
 import type { ComponentProps } from 'react';
 import { ConversationList as BaseConversationList } from './conversation-list';
 
@@ -14,12 +14,9 @@ type ConversationListProps = ComponentProps<typeof BaseConversationList>;
  * checks into a blocking loader and recreated the polling interval.
  */
 export function ConversationList(props: ConversationListProps) {
-  const stableResyncToken = useRef(props.resyncToken ?? 0);
+  const [stableResyncToken] = useState(props.resyncToken ?? 0);
 
   return (
-    <BaseConversationList
-      {...props}
-      resyncToken={stableResyncToken.current}
-    />
+    <BaseConversationList {...props} resyncToken={stableResyncToken} />
   );
 }
