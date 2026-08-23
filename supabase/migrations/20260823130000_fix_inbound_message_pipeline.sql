@@ -14,12 +14,14 @@
 --   touch this table.
 --
 -- Also provisioned here:
---   2. A DB-level uniqueness guard on messages.message_id so a retried
+--   2. Columns the inbound path depends on that no migration declares —
+--      notably conversations.last_message_text (the inbox preview).
+--   3. A DB-level uniqueness guard on messages.message_id so a retried
 --      webhook delivery can never create a duplicate inbox message.
---   3. An atomic conversation-rollup function (preview text, timestamp,
+--   4. An atomic conversation-rollup function (preview text, timestamp,
 --      unread counter, reopen-on-reply) so concurrent replies cannot lose
 --      an unread increment via read-modify-write.
---   4. Realtime replication for `messages` and `conversations` so the
+--   5. Realtime replication for `messages` and `conversations` so the
 --      inbox updates live instead of waiting for the 4s safety-net poll.
 --
 -- SAFE to run multiple times — every statement is idempotent.
@@ -91,14 +93,57 @@ create policy "inbound_webhook_events_delete" on public.inbound_webhook_events
 
 
 -- ────────────────────────────────────────────────────────────
--- 2. messages — columns the inbound path now writes
+-- 2. conversations — columns the inbound path reads and writes
+--
+--    NOTE ON THIS REPO'S MIGRATIONS: they are patches applied against a
+--    live schema, not a complete history. 20260815120000 backfills
+--    `direction` FROM `sender_type` — a column no migration ever creates —
+--    so a database built purely from this directory does not match the one
+--    running in production.
+--
+--    `last_message_text` is in that category: every code path uses it
+--    (conversation-service.ts writes it on create, the inbox list renders
+--    it) but no migration declares it. Section 5 below references it from a
+--    `language sql` function body, which Postgres validates at CREATE time,
+--    so the guard must run first. Every statement is ADD COLUMN IF NOT
+--    EXISTS and therefore a no-op against the live schema.
+-- ────────────────────────────────────────────────────────────
+alter table public.conversations
+  add column if not exists last_message_text text default '';
+
+alter table public.conversations
+  add column if not exists user_id uuid;
+
+
+-- ────────────────────────────────────────────────────────────
+-- 3. messages — columns the inbound path writes
+--
+--    Same rationale as above. The outbound path in /api/whatsapp/send
+--    already writes sender_type, message_id, media_url and template_name
+--    successfully, which is how we know these exist in production; the
+--    guards exist so a freshly-provisioned database also works.
 -- ────────────────────────────────────────────────────────────
 alter table public.messages
   add column if not exists updated_at timestamptz not null default now();
 
+alter table public.messages
+  add column if not exists sender_type text;
+
+alter table public.messages
+  add column if not exists message_id text;
+
+alter table public.messages
+  add column if not exists media_url text;
+
+alter table public.messages
+  add column if not exists reply_to_message_id uuid;
+
+alter table public.messages
+  add column if not exists interactive_reply_id text;
+
 
 -- ────────────────────────────────────────────────────────────
--- 3. Duplicate-proofing on messages.message_id
+-- 4. Duplicate-proofing on messages.message_id
 --
 --    `messages_provider_message_unique (account_id, provider_message_id)`
 --    already exists, but inbound rows historically left
@@ -125,15 +170,17 @@ end $$;
 
 
 -- ────────────────────────────────────────────────────────────
--- 4. Atomic conversation rollup for an inbound message
+-- 5. Atomic conversation rollup for an inbound message
 --
 --    Replaces a read-modify-write in application code that lost unread
 --    increments when two replies landed concurrently. Also reopens a
 --    conversation that had been closed — otherwise a new reply stays
 --    invisible behind the inbox's status filter.
 --
---    Returns the resulting row so the caller can log/verify the applied
---    state without a second round trip.
+--    Returns the resulting state so the change can be inspected from psql
+--    without a second query. The output column names are deliberately NOT
+--    the same as the underlying column names: RETURNS TABLE names act as OUT
+--    parameters and can shadow column references inside the body.
 -- ────────────────────────────────────────────────────────────
 create or replace function public.apply_inbound_message_to_conversation(
   p_conversation_id uuid,
@@ -141,10 +188,10 @@ create or replace function public.apply_inbound_message_to_conversation(
   p_message_at timestamptz
 )
 returns table (
-  id uuid,
-  unread_count integer,
-  status text,
-  last_message_at timestamptz
+  out_conversation_id uuid,
+  out_unread_count integer,
+  out_status text,
+  out_last_message_at timestamptz
 )
 language sql
 volatile
@@ -188,7 +235,7 @@ grant execute on function
 
 
 -- ────────────────────────────────────────────────────────────
--- 5. Realtime replication for the inbox
+-- 6. Realtime replication for the inbox
 --
 --    src/hooks/use-realtime.ts subscribes to postgres_changes on
 --    `messages` and `conversations`, but neither table was ever added to
