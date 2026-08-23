@@ -28,13 +28,11 @@ describe('WhatsApp Webhook & Idempotency Engine', () => {
 
     vi.spyOn(supabaseServer, 'getAdminClient').mockReturnValue({
       from: (table: string) => {
-        if (table === 'webhook_events') {
+        if (table === 'inbound_webhook_events') {
           return {
             insert: (data: Record<string, unknown>) => {
               const duplicate = mockWebhookEvents.find(
-                (e) =>
-                  e.provider === data.provider &&
-                  e.provider_event_id === data.provider_event_id
+                (e) => e.event_id === data.event_id
               );
               if (duplicate) {
                 return Promise.resolve({
@@ -47,29 +45,24 @@ describe('WhatsApp Webhook & Idempotency Engine', () => {
               return Promise.resolve({ data: row, error: null });
             },
             select: () => ({
-              eq: (f1: string, v1: unknown) => ({
-                eq: (f2: string, v2: unknown) => ({
-                  maybeSingle: async () => ({
-                    data:
-                      mockWebhookEvents.find(
-                        (row) => row[f1] === v1 && row[f2] === v2
-                      ) ?? null,
-                    error: null,
-                  }),
+              eq: (field: string, value: unknown) => ({
+                maybeSingle: async () => ({
+                  data:
+                    mockWebhookEvents.find(
+                      (row) => row[field] === value
+                    ) ?? null,
+                  error: null,
                 }),
               }),
             }),
             update: (updateData: Record<string, unknown>) => {
               const builder = {
-                eq: (f1: string, v1: unknown) => {
-                  const m1 = mockWebhookEvents.filter((r) => r[f1] === v1);
-                  return {
-                    eq: (f2: string, v2: unknown) => {
-                      const m2 = m1.filter((r) => r[f2] === v2);
-                      m2.forEach((r) => Object.assign(r, updateData));
-                      return Promise.resolve({ data: m2, error: null });
-                    },
-                  };
+                eq: (field: string, value: unknown) => {
+                  const matched = mockWebhookEvents.filter(
+                    (row) => row[field] === value
+                  );
+                  matched.forEach((row) => Object.assign(row, updateData));
+                  return Promise.resolve({ data: matched, error: null });
                 },
               };
               return builder;
@@ -229,12 +222,12 @@ describe('WhatsApp Webhook & Idempotency Engine', () => {
       const response = await webhookHandler(request);
       expect(response.status).toBe(200);
 
-      // Verify event was saved to Supabase webhook_events
+      // Verify event was saved to the canonical durable inbound table.
       expect(mockWebhookEvents.length).toBe(1);
-      expect(mockWebhookEvents[0].provider_event_id).toBe(
+      expect(mockWebhookEvents[0].event_id).toBe(
         'wamid.HBgNNzk5OTk5OTk5FQIAERgSN0YxM0Q3QjI3RDU4QjM2QkU0AA=='
       );
-      expect(mockWebhookEvents[0].status).toBe('processed');
+      expect(mockWebhookEvents[0].status).toBe('completed');
       expect(processMsgModule.processMessage).toHaveBeenCalledTimes(1);
     });
 
@@ -256,9 +249,8 @@ describe('WhatsApp Webhook & Idempotency Engine', () => {
       mockWebhookEvents.push({
         id: 'event-existing',
         account_id: tenantA.id,
-        provider: 'whatsapp',
-        provider_event_id: messageId,
-        status: 'processed',
+        event_id: messageId,
+        status: 'completed',
       });
 
       const payload = JSON.stringify({
