@@ -23,10 +23,7 @@ export type EnqueueReminderResult =
       retryable: boolean;
     };
 
-/**
- * Appwrite-native appointment reminder enqueueing with fail-closed error handling.
- * Persists directly to the durable Appwrite outbound_outbox collection without Redis/BullMQ.
- */
+/** Persists an idempotent appointment reminder in the Supabase outbox. */
 export async function enqueueAppointmentReminder(
   data: AppointmentReminderJobData
 ): Promise<EnqueueReminderResult> {
@@ -52,13 +49,11 @@ export async function enqueueAppointmentReminder(
       .single();
 
     if (error) {
-      // Check if this was a unique index conflict on idempotencyKey
       const isConflict =
-        error.code === 409 ||
+        String(error.code) === '409' ||
         /duplicate|conflict|unique/i.test(error.message || '');
 
       if (isConflict) {
-        // Load and verify existing reminder record
         const { data: existing, error: fetchErr } = await db
           .from('outbound_outbox')
           .select('id, requestHash')

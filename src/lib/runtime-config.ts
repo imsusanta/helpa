@@ -1,6 +1,13 @@
-export type AuthProvider = 'supabase';
-export type DatabaseProvider = 'supabase';
-export type MigrationMode = 'cutover';
+export type AuthProvider = 'supabase' | 'appwrite';
+export type DatabaseProvider = 'supabase' | 'appwrite';
+export type MigrationMode = 'off' | 'shadow' | 'cutover' | 'rollback';
+
+export interface RuntimeConfig {
+  authProvider: AuthProvider;
+  databaseProvider: DatabaseProvider;
+  migrationMode: MigrationMode;
+  production: boolean;
+}
 
 export class RuntimeConfigurationError extends Error {
   constructor(readonly code: string) {
@@ -20,12 +27,14 @@ function requireEnvironmentValue(env: EnvMap, name: string): string {
 }
 
 /**
- * Helpa has one runtime architecture: Supabase provides authentication and
- * application data, while Appwrite Sites is deployment hosting only.
+ * Helpa has one valid runtime architecture: Supabase provides authentication
+ * and application data, while Appwrite Sites is deployment hosting only.
+ * The wider union types are retained temporarily so legacy guard branches can
+ * be removed incrementally; prohibited values always fail here.
  */
 export function getRuntimeConfig(
   env: EnvMap = process.env as unknown as EnvMap
-) {
+): RuntimeConfig {
   const authProvider = (env.AUTH_PROVIDER || 'supabase').trim().toLowerCase();
   const databaseProvider = (env.DATABASE_PROVIDER || 'supabase')
     .trim()
@@ -43,9 +52,9 @@ export function getRuntimeConfig(
   }
 
   return {
-    authProvider: 'supabase' as const,
-    databaseProvider: 'supabase' as const,
-    migrationMode: 'cutover' as const,
+    authProvider: 'supabase',
+    databaseProvider: 'supabase',
+    migrationMode: 'cutover',
     production: env.NODE_ENV === 'production',
   };
 }

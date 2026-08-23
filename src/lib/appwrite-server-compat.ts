@@ -1,20 +1,20 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Transitional import facade.
  *
  * Historical route handlers import this module by name. It now returns only
  * Supabase clients; no Appwrite database, auth, storage, cookie, or SDK path
- * exists behind this facade. Callers can be renamed incrementally without a
- * broad application rewrite.
+ * exists behind this facade. The temporary `any` alias preserves legacy fluent
+ * typing while routes are migrated incrementally.
  */
-import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import {
   createClient as createSupabaseServerClient,
   getAdminClient as getSupabaseAdminClient,
 } from '@/lib/supabase/server';
 
-export type AppwriteCompatClient = SupabaseClient;
-export type AppwriteClient = SupabaseClient;
-export type AppwriteError = PostgrestError;
+export type AppwriteCompatClient = any;
+export type AppwriteClient = AppwriteCompatClient;
+export type AppwriteError = any;
 
 /** User-scoped Supabase client for Route Handlers and Server Components. */
 export async function createClient(): Promise<AppwriteCompatClient> {

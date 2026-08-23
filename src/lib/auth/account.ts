@@ -47,35 +47,29 @@ export interface AccountContext {
   role: AccountRole;
   email?: string;
   account: { id: string; name: string };
-  /** Appwrite / data adapter used by routes being migrated to repositories. */
-  appwrite?: import('@/lib/appwrite-compat').AppwriteCompatClient;
+  /** Transitional name; this is always a Supabase service-role client. */
+  appwrite: import('@/lib/appwrite-compat').AppwriteCompatClient;
 }
 
 export async function getCurrentAccount(): Promise<AccountContext> {
   try {
     const runtime = getRuntimeConfig();
     if (runtime.authProvider !== 'supabase') {
-      if (runtime.migrationMode !== 'rollback') {
-        throw new UnauthorizedError('Canonical authentication is unavailable');
-      }
-      throw new UnauthorizedError(
-        'Appwrite rollback authentication is not enabled'
-      );
+      throw new UnauthorizedError('Canonical authentication is unavailable');
     }
+
     const supabase = await createSupabaseServerClient();
     const {
       data: { user },
       error: userError,
     } = await supabase.auth.getUser();
-
     const userId = user?.id;
+
     if (userError || !userId || typeof userId !== 'string') {
       throw new UnauthorizedError();
     }
 
     const admin = getSupabaseAdminClient();
-
-    // 1. Check explicit active memberships from canonical account_members table
     const { data: memberships } = await admin
       .from('account_members')
       .select('account_id, role, active')
@@ -90,7 +84,6 @@ export async function getCurrentAccount(): Promise<AccountContext> {
       accountId = activeMember.account_id;
       role = (activeMember.role as AccountRole) || 'viewer';
     } else {
-      // 2. Check legacy profile link if member record is yet to be populated
       const { data: profile } = await admin
         .from('profiles')
         .select('id, account_id, role, account_role')
@@ -110,8 +103,6 @@ export async function getCurrentAccount(): Promise<AccountContext> {
             (profile.account_role as AccountRole) ||
             (profile.role as AccountRole) ||
             'viewer';
-
-          // Sync explicit profile record
           await admin.from('profiles').upsert(
             {
               user_id: userId,
@@ -126,7 +117,6 @@ export async function getCurrentAccount(): Promise<AccountContext> {
       }
     }
 
-    // 3. Check if user is the direct owner of an existing account
     if (!accountId) {
       const { data: ownedAccount } = await admin
         .from('accounts')
@@ -137,8 +127,6 @@ export async function getCurrentAccount(): Promise<AccountContext> {
       if (ownedAccount) {
         accountId = ownedAccount.id;
         role = 'owner';
-
-        // Auto-heal: Populate explicit profile record
         await admin.from('profiles').upsert(
           {
             user_id: userId,
@@ -157,7 +145,6 @@ export async function getCurrentAccount(): Promise<AccountContext> {
       }
     }
 
-    // 4. Auto-provision personal workspace for authenticated user if none exists
     if (!accountId) {
       const defaultName =
         user.user_metadata?.business_name ||
@@ -166,7 +153,6 @@ export async function getCurrentAccount(): Promise<AccountContext> {
           ? `${user.email.split('@')[0]}'s Workspace`
           : 'My Workspace');
       const defaultIndustry = user.user_metadata?.industry || 'health';
-
       const { data: newAccount } = await admin
         .from('accounts')
         .insert({
@@ -180,7 +166,6 @@ export async function getCurrentAccount(): Promise<AccountContext> {
       if (newAccount) {
         accountId = newAccount.id;
         role = 'owner';
-
         await admin.from('profiles').upsert(
           {
             user_id: userId,
@@ -199,11 +184,9 @@ export async function getCurrentAccount(): Promise<AccountContext> {
       }
     }
 
-    // Strict Fail-Closed: If user still has no account, reject access!
     if (!accountId) {
       throw new ForbiddenError('Account membership is required');
     }
-
     if (!isAccountRole(role)) {
       throw new ForbiddenError('Invalid account role');
     }

@@ -1,16 +1,17 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Transitional client import facade.
  *
  * Existing components can keep their current import path while the runtime is
  * Supabase-only. This file performs no Appwrite network requests and imports no
- * Appwrite SDK.
+ * Appwrite SDK. The temporary `any` alias preserves the legacy fluent surface
+ * while callers are migrated without changing runtime behavior.
  */
-import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import { createClient as createSupabaseBrowserClient } from '@/lib/supabase/client';
 
-export type AppwriteCompatClient = SupabaseClient;
-export type AppwriteClient = SupabaseClient;
-export type AppwriteError = PostgrestError;
+export type AppwriteCompatClient = any;
+export type AppwriteClient = AppwriteCompatClient;
+export type AppwriteError = any;
 
 export function createClient(): AppwriteCompatClient {
   return createSupabaseBrowserClient();
