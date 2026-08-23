@@ -1094,7 +1094,7 @@ async function loadContactSnapshot(
       .then(({ data }: { data: unknown }) => (data as ContactSnapshot) ?? null)
       .catch(() => null);
   }
-  return args.contactCache.promise;
+  return (await args.contactCache.promise) ?? null;
 }
 
 function resolveToken(
