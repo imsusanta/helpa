@@ -7,17 +7,21 @@ import {
   type SidebarNavItem,
 } from '@/components/layout/sidebar-navigation';
 import { getIndustryTerminology } from '@/modules/terminology';
+import { getIndustryModule } from '@/modules/registry';
+import { isIndustryRouteAllowed } from '@/modules/routes';
 
 function childrenFor(id: string) {
   return NAV.find((item) => item.id === id)?.children ?? [];
 }
 
+const hospitalManifest = getIndustryModule('hospital_clinic');
 const hospitalNavigation = buildVisibleNavigation({
   navigation: NAV,
   terminology: getIndustryTerminology('hospital_clinic'),
   currentIndustry: 'hospital_clinic',
   isSuperAdmin: false,
-  isRouteAllowed: () => true,
+  isRouteAllowed: (pathname) =>
+    isIndustryRouteAllowed(hospitalManifest, pathname),
 });
 
 function visibleChildrenFor(id: string) {
@@ -101,6 +105,27 @@ describe('authenticated sidebar navigation', () => {
       'Campaigns',
       'WhatsApp API',
     ]);
+    expect(
+      visibleChildrenFor('conversations').find(
+        (child) => child.id === 'conversations-meetings'
+      )
+    ).toMatchObject({ sourceLabel: 'Meetings', label: 'Appointments' });
+  });
+
+  it('allows every route required by the Hospital Clinic menu', () => {
+    for (const route of [
+      '/inbox',
+      '/follow-ups',
+      '/appointments',
+      '/broadcasts',
+      '/campaign-reports',
+      '/lead-forms',
+      '/patients',
+      '/contacts',
+      '/settings',
+    ]) {
+      expect(isIndustryRouteAllowed(hospitalManifest, route), route).toBe(true);
+    }
   });
 
   it('keeps final Hospital Clinic IDs, destinations, and labels unique', () => {

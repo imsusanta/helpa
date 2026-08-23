@@ -13,6 +13,7 @@ import {
   getIndustryTerminology,
   resolveIndustryAlias,
 } from '@/modules/terminology';
+import { isIndustryRouteAllowed } from '@/modules/routes';
 
 export const DEFAULT_TERMINOLOGY = GENERAL_INDUSTRY_TERMINOLOGY;
 
@@ -58,49 +59,7 @@ export function useWorkspace(): WorkspaceContextValue {
   );
 
   const isRouteAllowed = useMemo(
-    () => (pathname: string) => {
-      // Core platform routes always allowed across all workspace industries
-      if (
-        pathname === '/dashboard' ||
-        pathname.startsWith('/dashboard/') ||
-        pathname === '/inbox' ||
-        pathname.startsWith('/inbox/') ||
-        pathname === '/settings' ||
-        pathname.startsWith('/settings/') ||
-        pathname === '/broadcasts' ||
-        pathname.startsWith('/broadcasts/') ||
-        pathname === '/campaign-reports' ||
-        pathname.startsWith('/campaign-reports/') ||
-        pathname === '/lead-forms' ||
-        pathname.startsWith('/lead-forms/') ||
-        pathname === '/knowledge-base' ||
-        pathname.startsWith('/knowledge-base/') ||
-        pathname === '/chatbot' ||
-        pathname.startsWith('/chatbot/') ||
-        pathname === '/faq-bot' ||
-        pathname.startsWith('/faq-bot/') ||
-        pathname === '/ai-assistant' ||
-        pathname.startsWith('/ai-assistant/') ||
-        pathname === '/admin' ||
-        pathname.startsWith('/admin/') ||
-        pathname === '/billing' ||
-        pathname.startsWith('/billing/') ||
-        pathname === '/automations' ||
-        pathname.startsWith('/automations/') ||
-        pathname === '/integrations' ||
-        pathname.startsWith('/integrations/') ||
-        pathname === '/pipelines' ||
-        pathname.startsWith('/pipelines/')
-      ) {
-        return true;
-      }
-
-      if (!manifest.allowedRoutes || manifest.allowedRoutes.length === 0) {
-        return true;
-      }
-
-      return manifest.allowedRoutes.some((route) => pathname.startsWith(route));
-    },
+    () => (pathname: string) => isIndustryRouteAllowed(manifest, pathname),
     [manifest]
   );
 

@@ -4,6 +4,7 @@ import { resolveIndustryAlias } from '@/modules/terminology';
 export type SidebarNavChild = {
   id: string;
   label: string;
+  sourceLabel?: string;
   href: string;
   hospitalOnly?: boolean;
   activeHrefs?: string[];
@@ -12,6 +13,7 @@ export type SidebarNavChild = {
 export type SidebarNavItem<TIcon = unknown> = {
   id: string;
   label: string;
+  sourceLabel?: string;
   href?: string;
   icon: TIcon;
   children?: SidebarNavChild[];
@@ -103,11 +105,13 @@ export function buildVisibleNavigation<TIcon>({
         )
         .map((child) => ({
           ...child,
+          sourceLabel: child.sourceLabel ?? child.label,
           label: labelByHref.get(child.href) ?? child.label,
         }));
 
       return {
         ...item,
+        sourceLabel: item.sourceLabel ?? item.label,
         label:
           item.href === '/services'
             ? terminology.services
@@ -128,7 +132,7 @@ export function buildVisibleNavigation<TIcon>({
 }
 
 function normalizeLabel(label: string) {
-  return label.trim().replace(/\s+/g, ' ').toLocaleLowerCase();
+  return label.trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
 function duplicateGroups<T>(

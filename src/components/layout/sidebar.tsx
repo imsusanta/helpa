@@ -25,30 +25,18 @@ import {
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import { useWorkspace } from '@/hooks/use-workspace';
+import {
+  buildVisibleNavigation,
+  validateVisibleNavigation,
+  type SidebarNavItem,
+} from '@/components/layout/sidebar-navigation';
 
 interface SidebarProps {
   open?: boolean;
   onClose?: () => void;
 }
 
-type NavItem = {
-  id: string;
-  label: string;
-  href?: string;
-  icon: React.ElementType;
-  children?: NavChild[];
-  superAdminOnly?: boolean;
-};
-
-type NavChild = {
-  id: string;
-  label: string;
-  href: string;
-  hospitalOnly?: boolean;
-  activeHrefs?: string[];
-};
-
-export const NAV: NavItem[] = [
+export const NAV: SidebarNavItem<React.ElementType>[] = [
   { id: 'dashboard', label: 'Dashboard', href: '/dashboard', icon: Home },
   {
     id: 'sales',
@@ -261,7 +249,6 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { profile, isSuperAdmin } = useAuth();
   const { terminology, currentIndustry, isRouteAllowed } = useWorkspace();
-  const isHospitalWorkspace = currentIndustry === 'hospital_clinic';
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
     sales: true,
     conversations: false,
@@ -275,47 +262,24 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
     settings: false,
   });
 
-  const visibleNav = useMemo(() => {
-    const labelByHref: Record<string, string> = {
-      '/leads': terminology.pipelineItems,
-      '/customers': terminology.people,
-      '/pipelines': terminology.pipelines,
-      '/inbox': 'Inbox',
-      '/follow-ups': terminology.followUps,
-      '/appointments': terminology.meetings,
-      '/broadcasts': terminology.campaigns,
-      '/forms': `${terminology.pipelineItem} Forms`,
-      '/services': terminology.services,
-      '/billing/reports': terminology.reports,
-      '/settings?tab=team': terminology.staffMembers,
-    };
+  const visibleNav = useMemo(
+    () =>
+      buildVisibleNavigation({
+        navigation: NAV,
+        terminology,
+        currentIndustry,
+        isSuperAdmin,
+        isRouteAllowed,
+      }),
+    [currentIndustry, isRouteAllowed, isSuperAdmin, terminology]
+  );
 
-    return NAV.filter((item) => !item.superAdminOnly || isSuperAdmin)
-      .map((item) => ({
-        ...item,
-        label:
-          item.href === '/services'
-            ? terminology.services
-            : item.label === 'Conversations'
-              ? terminology.conversations
-              : item.label,
-        children: item.children
-          ?.filter(
-            (child) =>
-              (!child.hospitalOnly || isHospitalWorkspace) &&
-              isRouteAllowed(child.href.split('?')[0])
-          )
-          .map((child) => ({
-            ...child,
-            label: labelByHref[child.href] || child.label,
-          })),
-      }))
-      .filter(
-        (item) =>
-          item.superAdminOnly ||
-          (item.href ? isRouteAllowed(item.href.split('?')[0]) : true)
-      );
-  }, [isHospitalWorkspace, isRouteAllowed, isSuperAdmin, terminology]);
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'production') return;
+    for (const issue of validateVisibleNavigation(visibleNav)) {
+      console.error(`[navigation] ${issue.message}`);
+    }
+  }, [visibleNav]);
 
   const activeParent = useMemo(() => {
     for (const item of visibleNav)
@@ -404,6 +368,9 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                 return (
                   <Link
                     key={item.id}
+                    data-nav-id={item.id}
+                    data-nav-href={item.href}
+                    data-nav-source-label={item.sourceLabel}
                     href={item.href}
                     onClick={onClose}
                     className={cn(
@@ -434,7 +401,12 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
               }
 
               return (
-                <div key={item.id} className="space-y-0.5">
+                <div
+                  key={item.id}
+                  data-nav-id={item.id}
+                  data-nav-source-label={item.sourceLabel}
+                  className="space-y-0.5"
+                >
                   <button
                     type="button"
                     onClick={() => toggle(item.id)}
@@ -472,6 +444,10 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                         return (
                           <Link
                             key={child.id}
+                            data-nav-id={child.id}
+                            data-nav-parent-id={item.id}
+                            data-nav-href={child.href}
+                            data-nav-source-label={child.sourceLabel}
                             href={child.href}
                             onClick={onClose}
                             className={cn(
