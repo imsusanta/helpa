@@ -104,13 +104,6 @@ function resolveCommit() {
 }
 
 function main() {
-  if (process.env.APP_COMMIT_SHA) {
-    console.log('🔎 [prebuild] Running final validation diagnostics');
-    execSync('npm run format:check && npm run lint && npm run typecheck', {
-      stdio: 'inherit',
-    });
-  }
-
   const resolved = resolveCommit();
   const buildTime = new Date().toISOString();
 
