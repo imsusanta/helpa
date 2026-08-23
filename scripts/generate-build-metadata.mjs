@@ -87,8 +87,11 @@ function resolveCommit() {
     }
   }
 
+  // Fallback to git CLI
   const fromGit = resolveGitSha();
-  if (fromGit) return fromGit;
+  if (fromGit) {
+    return fromGit;
+  }
 
   if (process.env.VERCEL) {
     return {
@@ -119,18 +122,21 @@ function main() {
   };
 
   const outputDir = path.join(process.cwd(), 'src', 'lib');
-  if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
 
   const outputPath = path.join(outputDir, 'build-metadata.json');
   fs.writeFileSync(outputPath, JSON.stringify(metadata, null, 2) + '\n');
-  fs.writeFileSync(
-    path.join(outputDir, 'build-info.json'),
-    JSON.stringify(metadata, null, 2) + '\n'
-  );
-  fs.writeFileSync(
-    path.join(outputDir, 'build-info.generated.ts'),
-    `// Auto-generated compile-time deployment metadata\nexport const COMPILED_BUILD_METADATA = ${JSON.stringify(metadata, null, 2)} as const;\n`
-  );
+
+  const buildInfoPath = path.join(outputDir, 'build-info.json');
+  fs.writeFileSync(buildInfoPath, JSON.stringify(metadata, null, 2) + '\n');
+
+  const generatedTsPath = path.join(outputDir, 'build-info.generated.ts');
+  const tsContent = `// Auto-generated compile-time deployment metadata
+export const COMPILED_BUILD_METADATA = ${JSON.stringify(metadata, null, 2)} as const;
+`;
+  fs.writeFileSync(generatedTsPath, tsContent);
 
   console.log(
     `✅ [prebuild] Build metadata generated at ${outputPath}: commit=${metadata.commit ? metadata.commit.slice(0, 7) : 'null'} (source=${metadata.commitSource})`

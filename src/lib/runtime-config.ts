@@ -38,9 +38,7 @@ export function getRuntimeConfig(
       explicitDatabase !== 'supabase' ||
       explicitMigration !== 'cutover')
   ) {
-    throw new RuntimeConfigurationError(
-      'PRODUCTION_SUPABASE_CUTOVER_REQUIRED'
-    );
+    throw new RuntimeConfigurationError('PRODUCTION_SUPABASE_CUTOVER_REQUIRED');
   }
 
   const authProvider = explicitAuth || 'supabase';
