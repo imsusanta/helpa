@@ -11,6 +11,12 @@ import {
   validateTriggerForActivation,
 } from '@/lib/automations/validate';
 import { checkPlanLimits } from '@/lib/saas/subscription';
+import {
+  ForbiddenError,
+  UnauthorizedError,
+  requireRole,
+} from '@/lib/auth/account';
+import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
 
 function normalizeAppointmentTrigger(
   name: unknown,
@@ -58,22 +64,47 @@ function normalizeAppointmentTrigger(
 }
 
 export async function GET() {
-  const appwrite = await createClient();
-  const {
-    data: { user },
-  } = await appwrite.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  try {
+    const context = await requireRole('viewer');
+    const supabase = getSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from('automations')
+      .select('*')
+      .eq('account_id', context.accountId)
+      .order('created_at', { ascending: false });
+    if (error) {
+      console.error('[automations] GET query failed:', error);
+      return NextResponse.json(
+        {
+          error: 'AUTOMATIONS_FETCH_FAILED',
+          message: 'Unable to load automations.',
+        },
+        { status: 500, headers: { 'Cache-Control': 'private, no-store' } }
+      );
+    }
+    return NextResponse.json(
+      { automations: data ?? [] },
+      { headers: { 'Cache-Control': 'private, no-store' } }
+    );
+  } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return NextResponse.json({ error: 'AUTH_REQUIRED' }, { status: 401 });
+    }
+    if (error instanceof ForbiddenError) {
+      return NextResponse.json(
+        { error: 'ACCOUNT_MEMBERSHIP_REQUIRED' },
+        { status: 403 }
+      );
+    }
+    console.error('[automations] GET failed:', error);
+    return NextResponse.json(
+      {
+        error: 'AUTOMATIONS_FETCH_FAILED',
+        message: 'Unable to load automations.',
+      },
+      { status: 500, headers: { 'Cache-Control': 'private, no-store' } }
+    );
   }
-
-  const { data, error } = await appwrite
-    .from('automations')
-    .select('*')
-    .order('created_at', { ascending: false });
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-  return NextResponse.json({ automations: data ?? [] });
 }
 
 export async function POST(request: Request) {
