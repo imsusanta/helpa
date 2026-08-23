@@ -39,17 +39,6 @@ export const TRIGGER_META: Record<AutomationTriggerType, TriggerMeta> = {
     label: 'Form Submitted',
     pillClass: 'border-indigo-500/30 bg-indigo-500/10 text-indigo-300',
   },
-};
-
-/**
- * Trigger types the engine dispatches today but that are not part of the
- * `AutomationTriggerType` union yet: the appointment lifecycle hooks in
- * `appointment-triggers.ts`, `/api/appointments`, and the industry
- * workflow packs under `src/modules/*/workflows.ts`. Without these
- * entries the automations list rendered the raw slug
- * ("appointment_reminder") as the pill label.
- */
-const RUNTIME_TRIGGER_META: Record<string, TriggerMeta> = {
   appointment_created: {
     label: 'Appointment Booked',
     pillClass: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
@@ -76,13 +65,18 @@ function humanize(value: string): string {
     .join(' ');
 }
 
+/**
+ * `trigger_type` is a plain `text` column with no CHECK constraint, and the
+ * industry workflow packs under `src/modules/*\/workflows.ts` seed their own
+ * strings, so a row can legitimately carry a trigger this build has never
+ * heard of. Those get a humanised label instead of a raw slug.
+ */
 export function triggerMeta(
   t: AutomationTriggerType | string | null | undefined
 ): TriggerMeta {
   if (!t) return { label: 'Unknown Trigger', pillClass: FALLBACK_PILL };
   return (
-    TRIGGER_META[t as AutomationTriggerType] ??
-    RUNTIME_TRIGGER_META[t] ?? {
+    TRIGGER_META[t as AutomationTriggerType] ?? {
       label: humanize(t),
       pillClass: FALLBACK_PILL,
     }
