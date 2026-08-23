@@ -1,37 +1,22 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/appwrite-server-compat';
+import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { resolveSystemPrompt } from '@/modules/registry';
 import { applyAiSafety } from '@/lib/ai/safety';
 import { executeAiCompletionWithFallback } from '@/core/ai/resolver';
 
 export async function POST(request: Request) {
   try {
-    const appwrite = await createClient();
+    // Use the same canonical account resolution as the rest of the app.
+    // Looking up profiles directly breaks for valid users whose workspace
+    // membership lives in account_members (the canonical source of truth).
+    const ctx = await requireRole('viewer');
+    const appwrite = ctx.appwrite;
 
-    const {
-      data: { user },
-      error: authError,
-    } = await appwrite.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!appwrite) {
+      throw new Error('Account data client is unavailable.');
     }
 
-    // Resolve the caller's account_id
-    const { data: profile } = await appwrite
-      .from('profiles')
-      .select('account_id')
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    const accountId = profile?.account_id;
-    if (!accountId) {
-      return NextResponse.json(
-        { error: 'Your profile is not linked to an account.' },
-        { status: 400 }
-      );
-    }
-
+    const accountId = ctx.accountId;
     const body = await request.json();
     const { action } = body;
 
@@ -109,7 +94,7 @@ export async function POST(request: Request) {
 
       const latestMessage = messages[messages.length - 1];
 
-      // 🛡️ AI Safety & Healthcare Guardrails Evaluation
+      // AI Safety & Healthcare Guardrails Evaluation
       const safety = applyAiSafety(latestMessage.content_text || '');
       if (safety.isEmergency) {
         return NextResponse.json({
@@ -157,7 +142,7 @@ You MUST detect the language and write the suggested reply in the EXACT SAME LAN
             return {
               role: (m.sender_type === 'customer' ? 'user' : 'assistant') as
                 'user' | 'assistant',
-              content: content,
+              content,
             };
           })
           .filter((m) => m.content !== ''),
@@ -172,7 +157,15 @@ You MUST detect the language and write the suggested reply in the EXACT SAME LAN
         },
       });
 
-      return NextResponse.json({ result: res.content.trim() });
+      const result = res.content.trim();
+      if (!result) {
+        return NextResponse.json(
+          { error: 'AI provider returned an empty reply. Please try again.' },
+          { status: 502 }
+        );
+      }
+
+      return NextResponse.json({ result });
     } else if (action === 'rewrite') {
       const { text, tone } = body;
       if (!text) {
@@ -196,7 +189,15 @@ Text to rewrite:
         },
       });
 
-      return NextResponse.json({ result: res.content.trim() });
+      const result = res.content.trim();
+      if (!result) {
+        return NextResponse.json(
+          { error: 'AI provider returned an empty reply. Please try again.' },
+          { status: 502 }
+        );
+      }
+
+      return NextResponse.json({ result });
     } else if (action === 'translate') {
       const { text, targetLanguage } = body;
       if (!text || !targetLanguage) {
@@ -222,18 +223,23 @@ Text to translate:
         },
       });
 
-      return NextResponse.json({ result: res.content.trim() });
-    } else {
-      return NextResponse.json(
-        { error: `Invalid action: ${action}` },
-        { status: 400 }
-      );
+      const result = res.content.trim();
+      if (!result) {
+        return NextResponse.json(
+          { error: 'AI provider returned an empty reply. Please try again.' },
+          { status: 502 }
+        );
+      }
+
+      return NextResponse.json({ result });
     }
+
+    return NextResponse.json(
+      { error: `Invalid action: ${action}` },
+      { status: 400 }
+    );
   } catch (err: unknown) {
     console.error('[AI API] Server Error:', err);
-    return NextResponse.json(
-      { error: (err as Error).message || 'Server error' },
-      { status: 500 }
-    );
+    return toErrorResponse(err);
   }
 }
