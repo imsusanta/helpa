@@ -6,7 +6,6 @@ import {
   scheduleAppointmentReminders,
 } from '@/lib/automations/appointment-triggers';
 import { runAutomationsForTrigger } from '@/lib/automations/engine';
-import type { AutomationTriggerType } from '@/types';
 
 const PRIVATE_HEADERS = {
   'Cache-Control': 'private, no-store, no-cache, must-revalidate',
@@ -97,7 +96,7 @@ export async function PUT(
       if (!wasCancelled && isCancelled) {
         void runAutomationsForTrigger({
           accountId: context.accountId,
-          triggerType: 'appointment_cancelled' as AutomationTriggerType,
+          triggerType: 'appointment_cancelled',
           contactId: data.patient_id,
           context: {
             vars: {
