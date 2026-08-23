@@ -203,11 +203,7 @@ export function Sidebar({
         {/* Navigation Menu */}
         <div className="min-h-0 flex-1 [scrollbar-width:thin] [scrollbar-color:#1e293b_transparent] overflow-y-auto px-3 py-2">
           <nav className="space-y-1" aria-label="Workspace navigation">
-<<<<<<< HEAD
             {visibleNav.map((item, index) => {
-=======
-            {visibleNav.map((item) => {
->>>>>>> origin/main
               const Icon = item.icon;
               const isDashboard = item.id === 'dashboard';
               const activeDirect = pathIsActive(
