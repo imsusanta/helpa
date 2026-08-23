@@ -604,14 +604,10 @@ async function runStep(
       const body = cfg.body_template
         ? await interpolate(cfg.body_template, args)
         : JSON.stringify(args.context);
-      const { status, attempts } = await postWebhook(
-        target,
-        body,
-        cfg.headers
-      );
-      return attempts > 1
-        ? `webhook ${status} (after ${attempts} attempts)`
-        : `webhook ${status}`;
+      const sent = await postWebhook(target, body, cfg.headers);
+      return sent.attempts > 1
+        ? `webhook ${sent.status} (after ${sent.attempts} attempts)`
+        : `webhook ${sent.status}`;
     }
 
     case 'close_conversation': {
