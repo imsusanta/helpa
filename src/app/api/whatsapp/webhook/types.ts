@@ -1,3 +1,11 @@
+/** A provider-reported error attached to a change or an individual message. */
+export interface WhatsAppProviderError {
+  code?: number;
+  title?: string;
+  message?: string;
+  error_data?: { details?: string };
+}
+
 export interface WhatsAppMessage {
   id: string;
   from: string;
@@ -26,6 +34,33 @@ export interface WhatsAppMessage {
     button_reply?: { id: string; title: string };
     list_reply?: { id: string; title: string; description?: string };
   };
+  /**
+   * Quick-reply button on a *template* message. Distinct from `interactive`:
+   * Meta sends `type: 'button'` with this shape when a customer taps a button
+   * on a template (which is how appointment reminders are delivered), and
+   * `type: 'interactive'` for buttons on a free-form interactive message.
+   */
+  button?: { text?: string; payload?: string };
+  /** Product enquiry / cart submission from a WhatsApp catalog. */
+  order?: {
+    catalog_id?: string;
+    text?: string;
+    product_items?: Array<{
+      product_retailer_id?: string;
+      quantity?: number;
+      item_price?: number;
+      currency?: string;
+    }>;
+  };
+  /** Shared vCard(s). */
+  contacts?: Array<{
+    name?: { formatted_name?: string };
+    phones?: Array<{ phone?: string; wa_id?: string }>;
+  }>;
+  /** Group/number-change notifications. */
+  system?: { body?: string; type?: string; wa_id?: string };
+  /** Present on `type: 'unsupported'` and on partially-failed messages. */
+  errors?: WhatsAppProviderError[];
   context?: { id: string };
 }
 
@@ -51,6 +86,7 @@ export interface WhatsAppWebhookEntry {
       }>;
       messages?: WhatsAppMessage[];
       statuses?: WhatsAppStatusUpdate[];
+      errors?: WhatsAppProviderError[];
     };
     field: string;
   }>;

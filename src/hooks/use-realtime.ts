@@ -158,8 +158,22 @@ export function useRealtime({
           }
         )
         .subscribe((status) => {
+          // All four terminal states must be observed. Previously only
+          // 'SUBSCRIBED' was handled, so `isConnected` latched true forever:
+          // once the socket dropped, the inbox never learned it had gone
+          // stale and never fired the reconnect resync that backfills the
+          // messages missed while offline.
           if (status === 'SUBSCRIBED') {
             setIsConnected(true);
+            return;
+          }
+
+          if (
+            status === 'CHANNEL_ERROR' ||
+            status === 'TIMED_OUT' ||
+            status === 'CLOSED'
+          ) {
+            setIsConnected(false);
           }
         });
 

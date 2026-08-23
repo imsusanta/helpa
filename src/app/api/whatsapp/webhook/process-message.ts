@@ -5,6 +5,7 @@ import { runAutomationsForTrigger } from '@/lib/automations/engine';
 import { dispatchInboundToFlows } from '@/lib/flows/engine';
 import { triggerAiResponse } from '@/lib/whatsapp/ai';
 import { getAccountChatbotSettings } from '@/core/ai/chatbot-settings';
+import { logger } from '@/lib/observability/logger';
 import { parseMessageContent } from './parse-event';
 import { findOrCreateContact } from './contact-service';
 import {
@@ -14,6 +15,152 @@ import {
 } from './conversation-service';
 import { handleReaction } from './process-reaction';
 import type { WhatsAppMessage } from './types';
+
+/**
+ * SQLSTATE 23505. On the inbound path a unique violation is not an error —
+ * it means a retried webhook delivery raced us and the message is already in
+ * the inbox exactly once, which is precisely the guarantee we want.
+ */
+function isUniqueViolation(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const candidate = error as { code?: string; message?: string };
+  return (
+    candidate.code === '23505' ||
+    candidate.message?.toLowerCase().includes('duplicate key') === true
+  );
+}
+
+/**
+ * Advance a conversation's rollup fields for a newly-received inbound
+ * message: preview text, last-message timestamp, unread badge, and reopening
+ * a closed thread.
+ *
+ * Prefers the `apply_inbound_message_to_conversation` RPC, which performs the
+ * unread increment inside a single UPDATE. The previous read-modify-write
+ * (`unread_count = valueReadEarlier + 1`) dropped increments whenever two
+ * replies arrived at once, and never reopened a closed conversation — leaving
+ * the new reply hidden behind the inbox's status filter.
+ *
+ * Falls back to the direct update (and then the legacy camelCase column
+ * names) so a database without the migration still gets its preview and
+ * badge updated.
+ */
+async function applyConversationRollup({
+  convId,
+  previewText,
+  messageDate,
+  conversation,
+  accountId,
+  messageId,
+  correlationId,
+}: {
+  convId: string;
+  previewText: string;
+  messageDate: Date;
+  conversation: Record<string, unknown>;
+  accountId: string;
+  messageId: string;
+  correlationId?: string;
+}): Promise<void> {
+  const db = getAdminClient();
+
+  const { error: rpcError } = await db.rpc(
+    'apply_inbound_message_to_conversation',
+    {
+      p_conversation_id: convId,
+      p_preview: previewText,
+      p_message_at: messageDate.toISOString(),
+    }
+  );
+
+  if (!rpcError) return;
+
+  logger.warn('Atomic conversation rollup unavailable; using fallback update', {
+    correlationId,
+    component: 'inbound-message',
+    accountId,
+    conversationId: convId,
+    messageId,
+    code: (rpcError as { code?: string }).code,
+  });
+
+  // Fallback: replicate the RPC's semantics in application code.
+  const existingLastMessageAt =
+    conversation.lastMessageAt || conversation.last_message_at
+      ? new Date(
+          (conversation.lastMessageAt || conversation.last_message_at) as string
+        )
+      : null;
+  const shouldUpdatePreview =
+    !existingLastMessageAt || messageDate >= existingLastMessageAt;
+
+  const currentUnread = Number(
+    conversation.unread_count || conversation.unreadCount || 0
+  );
+  const currentStatus = String(conversation.status ?? 'open');
+
+  const convUpdatePayload: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+    unread_count: currentUnread + 1,
+  };
+  if (shouldUpdatePreview) {
+    convUpdatePayload.last_message_text = previewText;
+    convUpdatePayload.last_message_at = messageDate.toISOString();
+  }
+  // A customer replying to a closed thread reopens it.
+  if (currentStatus === 'closed') {
+    convUpdatePayload.status = 'open';
+  }
+
+  const { error: convError } = await db
+    .from('conversations')
+    .update(convUpdatePayload)
+    .eq('id', convId);
+
+  if (!convError) return;
+
+  // Legacy camelCase fallback.
+  const legacyPayload: Record<string, unknown> = {
+    updatedAt: new Date().toISOString(),
+    unreadCount: currentUnread + 1,
+  };
+  if (shouldUpdatePreview) {
+    legacyPayload.lastMessageText = previewText;
+    legacyPayload.lastMessageAt = messageDate.toISOString();
+  }
+  if (currentStatus === 'closed') {
+    legacyPayload.status = 'open';
+  }
+
+  try {
+    const { error: legacyError } = await db
+      .from('conversations')
+      .update(legacyPayload)
+      .eq('id', convId);
+
+    if (legacyError) {
+      // The message itself is already persisted; a stale preview/badge is a
+      // cosmetic degradation and must not fail the delivery.
+      logger.error('Conversation rollup failed after all fallbacks', {
+        correlationId,
+        component: 'inbound-message',
+        accountId,
+        conversationId: convId,
+        messageId,
+        code: (legacyError as { code?: string }).code,
+      });
+    }
+  } catch (err) {
+    logger.error('Conversation rollup threw after all fallbacks', {
+      correlationId,
+      component: 'inbound-message',
+      accountId,
+      conversationId: convId,
+      messageId,
+      error: err instanceof Error ? err.message : 'unknown',
+    });
+  }
+}
 
 export async function handleReminderReplyAction(
   accountId: string,
@@ -238,7 +385,6 @@ export async function processMessage(
   accessToken: string,
   correlationId?: string
 ) {
-  void correlationId;
   const senderPhone = normalizePhone(message.from);
   const contactName =
     contact?.profile?.name ||
@@ -319,7 +465,11 @@ export async function processMessage(
       ? 'image'
       : 'text';
 
-  // Deduplication check: ignore duplicate webhook deliveries for the same Meta message ID
+  // Deduplication check: ignore duplicate webhook deliveries for the same
+  // Meta message ID. This read-then-write check is a fast path only — two
+  // concurrent redeliveries can both pass it, so the authoritative guard is
+  // the unique index on messages.message_id, whose violation is handled as
+  // an idempotent success below.
   let existingMsg: { id: string }[] | null = null;
   try {
     const res = await getAdminClient()
@@ -333,7 +483,13 @@ export async function processMessage(
   }
 
   if (existingMsg && existingMsg.length > 0) {
-    console.log(`[webhook] Duplicate messageId ${message.id} ignored.`);
+    logger.info('Duplicate inbound message ignored', {
+      correlationId,
+      component: 'inbound-message',
+      accountId,
+      conversationId: convId,
+      messageId: message.id,
+    });
     return;
   }
 
@@ -349,106 +505,148 @@ export async function processMessage(
   }
   const isFirstInboundMessage = priorCustomerMsgCount === 0;
 
-  const nowIso = new Date(parseInt(message.timestamp) * 1000).toISOString();
+  const messageDate = new Date(parseInt(message.timestamp) * 1000);
+  const nowIso = messageDate.toISOString();
+  const writtenAtIso = new Date().toISOString();
+  const previewText = contentText || `[${message.type}]`;
   let msgError: unknown = null;
   let msgInserted = false;
+  let alreadyPersisted = false;
 
-  // Attempt 1: Full schema (new columns present)
+  // Attempt 1: Canonical schema. `account_id`, `direction` and
+  // `provider_message_id` are what the outbound path in
+  // /api/whatsapp/send writes; omitting them on inbound rows was leaving
+  // inbound messages outside the tenant scoping and outside the
+  // `messages_provider_message_unique` duplicate guard.
   const insertRes = await getAdminClient()
     .from('messages')
     .insert({
+      account_id: accountId,
       conversation_id: convId,
+      direction: 'inbound',
       sender_type: 'customer',
       content_type: contentType,
       content_text: contentText || null,
       media_url: mediaUrl || null,
       message_id: message.id,
+      provider_message_id: message.id,
       status: 'delivered',
       reply_to_message_id: replyToInternalId || null,
       interactive_reply_id: interactiveReplyId || null,
       created_at: nowIso,
+      updated_at: writtenAtIso,
     });
 
   if (!insertRes.error) {
     msgInserted = true;
+  } else if (isUniqueViolation(insertRes.error)) {
+    // A concurrent redelivery won the race. The message is in the inbox
+    // exactly once, which is the desired outcome — treat as success and stop
+    // so we do not double-count the unread badge or re-run automations.
+    alreadyPersisted = true;
   } else {
-    // Attempt 2: Legacy schema fallback (Appwrite or alternate naming)
-    const legacyRes = await getAdminClient()
+    // Attempt 2: Canonical column names minus the newer columns, for a
+    // database that has not yet applied the tenant-cutover migration.
+    const reducedRes = await getAdminClient()
       .from('messages')
       .insert({
-        conversationId: convId,
-        senderType: 'customer',
-        contentType: contentType,
-        contentText: contentText || null,
-        mediaUrl: mediaUrl || null,
-        messageId: message.id,
+        conversation_id: convId,
+        sender_type: 'customer',
+        content_type: contentType,
+        content_text: contentText || null,
+        media_url: mediaUrl || null,
+        message_id: message.id,
         status: 'delivered',
-        replyToMessageId: replyToInternalId || null,
-        interactiveReplyId: interactiveReplyId || null,
-        createdAt: nowIso,
+        reply_to_message_id: replyToInternalId || null,
+        interactive_reply_id: interactiveReplyId || null,
+        created_at: nowIso,
       });
 
-    if (!legacyRes.error) {
+    if (!reducedRes.error) {
       msgInserted = true;
+    } else if (isUniqueViolation(reducedRes.error)) {
+      alreadyPersisted = true;
     } else {
-      msgError = legacyRes.error || insertRes.error;
+      // Attempt 3: Legacy schema fallback (Appwrite or alternate naming)
+      const legacyRes = await getAdminClient()
+        .from('messages')
+        .insert({
+          conversationId: convId,
+          senderType: 'customer',
+          contentType: contentType,
+          contentText: contentText || null,
+          mediaUrl: mediaUrl || null,
+          messageId: message.id,
+          status: 'delivered',
+          replyToMessageId: replyToInternalId || null,
+          interactiveReplyId: interactiveReplyId || null,
+          createdAt: nowIso,
+        });
+
+      if (!legacyRes.error) {
+        msgInserted = true;
+      } else if (isUniqueViolation(legacyRes.error)) {
+        alreadyPersisted = true;
+      } else {
+        msgError = legacyRes.error || reducedRes.error || insertRes.error;
+      }
     }
+  }
+
+  if (alreadyPersisted) {
+    logger.info('Inbound message already persisted by a concurrent delivery', {
+      correlationId,
+      component: 'inbound-message',
+      accountId,
+      conversationId: convId,
+      messageId: message.id,
+    });
+    return;
   }
 
   if (!msgInserted || msgError) {
-    console.error('Error inserting message:', msgError);
+    logger.error('Failed to persist inbound message', {
+      correlationId,
+      component: 'inbound-message',
+      accountId,
+      conversationId: convId,
+      messageId: message.id,
+      messageType: message.type,
+      code:
+        msgError && typeof msgError === 'object'
+          ? (msgError as { code?: string }).code
+          : undefined,
+      reason:
+        msgError && typeof msgError === 'object'
+          ? (msgError as { message?: string }).message
+          : undefined,
+    });
     throw new Error(`Unable to persist inbound message ${message.id}`);
   }
 
-  // Update conversation
-  const messageDate = new Date(parseInt(message.timestamp) * 1000);
-  const existingLastMessageAt =
-    conversation.lastMessageAt || conversation.last_message_at
-      ? new Date(
-          (conversation.lastMessageAt || conversation.last_message_at) as string
-        )
-      : null;
-  const shouldUpdatePreview =
-    !existingLastMessageAt || messageDate >= existingLastMessageAt;
+  logger.info('Inbound message persisted', {
+    correlationId,
+    component: 'inbound-message',
+    accountId,
+    conversationId: convId,
+    contactId: contactRecord.id,
+    messageId: message.id,
+    messageType: message.type,
+    contentType,
+  });
 
-  const currentUnread = Number(
-    conversation.unread_count || conversation.unreadCount || 0
-  );
-
-  const convUpdatePayload: Record<string, unknown> = {
-    updated_at: new Date().toISOString(),
-    unread_count: currentUnread + 1,
-  };
-
-  if (shouldUpdatePreview) {
-    convUpdatePayload.last_message_text = contentText || `[${message.type}]`;
-    convUpdatePayload.last_message_at = messageDate.toISOString();
-  }
-
-  const { error: convError } = await getAdminClient()
-    .from('conversations')
-    .update(convUpdatePayload)
-    .eq('id', convId);
-
-  if (convError) {
-    // Legacy fallback
-    const legacyPayload: Record<string, unknown> = {
-      updatedAt: new Date().toISOString(),
-      unreadCount: currentUnread + 1,
-    };
-    if (shouldUpdatePreview) {
-      legacyPayload.lastMessageText = contentText || `[${message.type}]`;
-      legacyPayload.lastMessageAt = messageDate.toISOString();
-    }
-    try {
-      await getAdminClient()
-        .from('conversations')
-        .update(legacyPayload)
-        .eq('id', convId);
-    } catch {
-      // Ignore
-    }
-  }
+  // Roll the conversation forward: preview, timestamp, unread badge, and
+  // reopen if it had been closed. Done in a single atomic statement so two
+  // simultaneous replies cannot lose an unread increment.
+  await applyConversationRollup({
+    convId,
+    previewText,
+    messageDate,
+    conversation,
+    accountId,
+    messageId: message.id,
+    correlationId,
+  });
 
   await flagBroadcastReplyIfAny(accountId, contactRecord.id);
 

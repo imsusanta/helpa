@@ -91,7 +91,12 @@ describe('WhatsApp Webhook Route (Modular Fail-Closed)', () => {
     expect(data.status).toBe('received');
   });
 
-  it('returns 500 when an inbound message cannot be routed to a WhatsApp configuration', async () => {
+  // Behaviour change: an unroutable phone_number_id used to return 500.
+  // Retrying can never make an unregistered number routable, so a 500 only
+  // produced an unbounded Meta retry storm — which risks Meta disabling the
+  // whole webhook subscription and taking every tenant's inbound messages
+  // down. We now acknowledge the delivery, count it as skipped, and log it.
+  it('acknowledges but skips an inbound message that cannot be routed to a WhatsApp configuration', async () => {
     const req = createSignedRequest({
       object: 'whatsapp_business_account',
       entry: [
@@ -122,9 +127,11 @@ describe('WhatsApp Webhook Route (Modular Fail-Closed)', () => {
     });
 
     const res = await POST(req);
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(200);
     const data = await res.json();
-    expect(data.error).toBe('Webhook processing failed');
+    expect(data.status).toBe('received');
+    expect(data.skipped).toBe(1);
+    expect(data.persisted).toBe(0);
   });
 
   it('handles GET challenge verification with missing parameters by returning 400', async () => {

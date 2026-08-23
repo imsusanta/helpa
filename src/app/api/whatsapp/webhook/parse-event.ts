@@ -3,7 +3,8 @@ import type { WhatsAppMessage, ParsedMessageContent } from './types';
 
 /**
  * Parses message payload content based on WhatsApp message type
- * (text, image, video, document, audio, sticker, location, reaction, interactive).
+ * (text, image, video, document, audio, sticker, location, reaction,
+ * interactive, button, order, contacts, system, request_welcome, unsupported).
  */
 export async function parseMessageContent(
   message: WhatsAppMessage,
@@ -115,6 +116,70 @@ export async function parseMessageContent(
         };
       }
       return { ...empty, contentText: '[Interactive reply]' };
+    }
+
+    // A quick-reply tap on a *template* message. Meta uses `type: 'button'`
+    // here — NOT `type: 'interactive'` — and puts the developer-defined value
+    // in `button.payload`. This is how appointment-reminder confirmations
+    // arrive, so the payload must reach `interactiveReplyId` for the reminder
+    // handler in process-message.ts to recognise them.
+    case 'button': {
+      const payload = message.button?.payload ?? null;
+      const label = message.button?.text ?? null;
+      if (payload || label) {
+        return {
+          ...empty,
+          contentText: label || payload,
+          interactiveReplyId: payload || null,
+        };
+      }
+      return { ...empty, contentText: '[Button reply]' };
+    }
+
+    case 'order': {
+      const items = message.order?.product_items ?? [];
+      const summary = message.order?.text
+        ? message.order.text
+        : `[Order: ${items.length} item${items.length === 1 ? '' : 's'}]`;
+      return { ...empty, contentText: summary };
+    }
+
+    case 'contacts': {
+      const names = (message.contacts ?? [])
+        .map((c) => c.name?.formatted_name)
+        .filter(Boolean);
+      return {
+        ...empty,
+        contentText: names.length
+          ? `[Shared contact: ${names.join(', ')}]`
+          : '[Shared contact]',
+      };
+    }
+
+    case 'system':
+      return {
+        ...empty,
+        contentText: message.system?.body
+          ? `[${message.system.body}]`
+          : '[System notification]',
+      };
+
+    // Customer tapped a "call to action" / opted into messaging. Carries no
+    // body, but must still land in the thread so the agent sees the contact.
+    case 'request_welcome':
+      return { ...empty, contentText: '[Conversation started]' };
+
+    // Meta itself could not render the message (e.g. an unsupported type on
+    // the sender's client). It ships the reason in `errors`.
+    case 'unsupported': {
+      const detail =
+        message.errors?.[0]?.title ?? message.errors?.[0]?.message ?? null;
+      return {
+        ...empty,
+        contentText: detail
+          ? `[Unsupported message: ${detail}]`
+          : '[Unsupported message]',
+      };
     }
 
     default:
