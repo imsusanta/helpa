@@ -16,11 +16,6 @@ import { handleStatusUpdate } from './process-status';
 import { processMessage } from './process-message';
 import type { WhatsAppWebhookEntry } from './types';
 
-interface WebhookEventRow {
-  status?: string | null;
-  attempt_count?: number | null;
-}
-
 function isUniqueViolation(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false;
   const candidate = error as { code?: string; message?: string };
@@ -30,12 +25,10 @@ function isUniqueViolation(error: unknown): boolean {
   );
 }
 
-// GET - Meta challenge verification
 export async function GET(request: Request) {
   return handleWebhookGet(request);
 }
 
-// POST - Receive webhook events with strict fail-closed signature verification
 export async function POST(request: Request) {
   const correlationId = getOrCreateCorrelationId(request);
   const rawBody = await request.text();
@@ -60,12 +53,7 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json(
       { error: 'Invalid JSON' },
-      {
-        status: 400,
-        headers: {
-          [CORRELATION_ID_HEADER]: correlationId,
-        },
-      }
+      { status: 400, headers: { [CORRELATION_ID_HEADER]: correlationId } }
     );
   }
 
@@ -88,12 +76,7 @@ export async function POST(request: Request) {
 
   return NextResponse.json(
     { status: 'received' },
-    {
-      status: 200,
-      headers: {
-        [CORRELATION_ID_HEADER]: correlationId,
-      },
-    }
+    { status: 200, headers: { [CORRELATION_ID_HEADER]: correlationId } }
   );
 }
 
@@ -126,19 +109,18 @@ async function processWebhook(
         !value.messages ||
         !Array.isArray(value.messages) ||
         value.messages.length === 0
-      )
+      ) {
         continue;
+      }
 
       const phoneNumberId = value.metadata?.phone_number_id;
       if (!phoneNumberId) continue;
 
-      // Strict multi-tenant resolution by Phone Number ID
       const tenantContext = await resolveTenantByPhoneNumberId(phoneNumberId);
       if (!tenantContext) {
         throw new Error('No WhatsApp configuration found for phone number');
       }
 
-      // Update last_webhook_at timestamp for tenant health tracking
       const nowIso = new Date().toISOString();
       try {
         const { error: confErr } = await db
@@ -153,7 +135,7 @@ async function processWebhook(
             .eq('phone_number_id', phoneNumberId);
         }
       } catch {
-        // Non-critical timestamp update failure
+        // Health timestamp is non-critical to inbound persistence.
       }
 
       for (let i = 0; i < value.messages.length; i++) {
@@ -165,8 +147,6 @@ async function processWebhook(
           profile: { name: message.from },
         };
 
-        // Register before processing. Only a unique-key conflict is a
-        // duplicate; all other failures return 500 so Meta retries.
         if (message?.id) {
           const payloadHash = crypto
             .createHash('sha256')
@@ -186,41 +166,13 @@ async function processWebhook(
             });
 
           if (eventInsertError) {
-            if (!isUniqueViolation(eventInsertError)) {
-              console.error('[Webhook Idempotency] Event registration failed');
-              throw new Error('Unable to register inbound webhook event');
-            }
-
-            const { data: existingEvent, error: existingEventError } = await db
-              .from('webhook_events')
-              .select('status, attempt_count')
-              .eq('provider', 'whatsapp')
-              .eq('provider_event_id', message.id)
-              .maybeSingle();
-
-            if (existingEventError) {
-              throw new Error('Unable to inspect duplicate webhook event');
-            }
-
-            const previous = existingEvent as WebhookEventRow | null;
-            if (previous?.status === 'processed') {
-              console.warn('[Webhook Idempotency] Processed duplicate skipped');
+            if (isUniqueViolation(eventInsertError)) {
+              console.warn('[Webhook Idempotency] Duplicate event skipped');
               continue;
             }
 
-            const { error: retryUpdateError } = await db
-              .from('webhook_events')
-              .update({
-                status: 'processing',
-                attempt_count: (previous?.attempt_count ?? 1) + 1,
-                received_at: nowIso,
-              })
-              .eq('provider', 'whatsapp')
-              .eq('provider_event_id', message.id);
-
-            if (retryUpdateError) {
-              throw new Error('Unable to prepare webhook retry');
-            }
+            console.error('[Webhook Idempotency] Event registration failed');
+            throw new Error('Unable to register inbound webhook event');
           }
         }
 
