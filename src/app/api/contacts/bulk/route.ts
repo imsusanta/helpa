@@ -249,9 +249,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           assigned_user_id: assignedUserId,
         }));
 
-        const { error: fuErr } = await supabase
+        let { error: fuErr } = await supabase
           .from('hospital_followups')
           .insert(followupRows);
+
+        if (fuErr && fuErr.message?.includes('assigned_user_id')) {
+          const fallbackRows = followupRows.map(
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            ({ assigned_user_id, ...rest }) => rest
+          );
+          const retry = await supabase
+            .from('hospital_followups')
+            .insert(fallbackRows);
+          fuErr = retry.error;
+        }
 
         if (fuErr) {
           console.error('[contacts bulk] create followup error:', fuErr);

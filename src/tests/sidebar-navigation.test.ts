@@ -75,6 +75,7 @@ describe('authenticated sidebar navigation', () => {
         ['/templates', '/forms', '/api-docs'].includes(child.href)
       )
     ).toBe(false);
+    expect(NAV.some((item) => item.id === 'developers')).toBe(false);
     expect(allChildren.some((child) => child.href === '/billing/reports')).toBe(
       false
     );
@@ -84,6 +85,83 @@ describe('authenticated sidebar navigation', () => {
     expect(
       allChildren.some((child) => child.href === '/billing/settings')
     ).toBe(false);
+    expect(
+      allChildren.some((child) =>
+        [
+          '/settings?tab=api',
+          '/settings?tab=columns',
+          '/settings?tab=consent',
+          '/settings?tab=organization',
+          '/settings?tab=roles',
+          '/settings?tab=webhooks',
+        ].includes(child.href)
+      )
+    ).toBe(false);
+  });
+
+  it('applies module role requirements to the final navigation', () => {
+    const buildForRole = (
+      accountRole: 'owner' | 'admin' | 'agent' | 'viewer'
+    ) =>
+      buildVisibleNavigation({
+        navigation: NAV,
+        terminology: getIndustryTerminology('hospital_clinic'),
+        currentIndustry: 'hospital_clinic',
+        isSuperAdmin: false,
+        accountRole,
+        routeRoleRequirements: hospitalManifest.sidebar,
+        isRouteAllowed: (pathname) =>
+          isIndustryRouteAllowed(hospitalManifest, pathname),
+      });
+
+    for (const role of ['owner', 'admin'] as const) {
+      expect(
+        buildForRole(role)
+          .find((item) => item.id === 'marketing')
+          ?.children?.some((child) => child.href === '/broadcasts')
+      ).toBe(true);
+    }
+
+    for (const role of ['agent', 'viewer'] as const) {
+      expect(
+        buildForRole(role)
+          .find((item) => item.id === 'marketing')
+          ?.children?.some((child) => child.href === '/broadcasts')
+      ).toBe(false);
+      expect(
+        buildForRole(role)
+          .find((item) => item.id === 'whatsapp')
+          ?.children?.some((child) => child.href === '/broadcasts')
+      ).toBe(false);
+    }
+
+    expect(
+      buildVisibleNavigation({
+        navigation: NAV,
+        terminology: getIndustryTerminology('hospital_clinic'),
+        currentIndustry: 'hospital_clinic',
+        isSuperAdmin: false,
+        accountRole: null,
+        routeRoleRequirements: hospitalManifest.sidebar,
+        isRouteAllowed: () => true,
+      })
+        .find((item) => item.id === 'whatsapp')
+        ?.children?.some((child) => child.href === '/broadcasts')
+    ).toBe(false);
+
+    expect(
+      buildVisibleNavigation({
+        navigation: NAV,
+        terminology: getIndustryTerminology('hospital_clinic'),
+        currentIndustry: 'hospital_clinic',
+        isSuperAdmin: true,
+        accountRole: null,
+        routeRoleRequirements: hospitalManifest.sidebar,
+        isRouteAllowed: () => true,
+      })
+        .find((item) => item.id === 'whatsapp')
+        ?.children?.some((child) => child.href === '/broadcasts')
+    ).toBe(true);
   });
 
   it('builds the final Hospital Clinic navigation with distinct labels', () => {

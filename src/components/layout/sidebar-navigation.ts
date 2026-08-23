@@ -1,5 +1,6 @@
-import type { IndustryTerminology } from '@/modules/types';
+import { hasMinRole, type AccountRole } from '@/lib/auth/roles';
 import { resolveIndustryAlias } from '@/modules/terminology';
+import type { IndustryTerminology } from '@/modules/types';
 
 export type SidebarNavChild = {
   id: string;
@@ -26,6 +27,11 @@ type BuildVisibleNavigationOptions<TIcon> = {
   currentIndustry: string;
   isSuperAdmin: boolean;
   isRouteAllowed: (pathname: string) => boolean;
+  accountRole?: AccountRole | null;
+  routeRoleRequirements?: readonly {
+    href: string;
+    roleMin?: AccountRole;
+  }[];
 };
 
 export type NavigationValidationIssueCode =
@@ -89,10 +95,30 @@ export function buildVisibleNavigation<TIcon>({
   currentIndustry,
   isSuperAdmin,
   isRouteAllowed,
+  accountRole,
+  routeRoleRequirements = [],
 }: BuildVisibleNavigationOptions<TIcon>): SidebarNavItem<TIcon>[] {
   const isHospitalWorkspace =
     resolveIndustryAlias(currentIndustry) === 'hospital_clinic';
   const labelByHref = getLabelByHref(terminology);
+
+  const roleMinByDestination = new Map<string, AccountRole>();
+  for (const requirement of routeRoleRequirements) {
+    if (!requirement.roleMin) continue;
+    const destination = normalizeNavigationDestination(requirement.href);
+    const existing = roleMinByDestination.get(destination);
+    if (!existing || hasMinRole(requirement.roleMin, existing)) {
+      roleMinByDestination.set(destination, requirement.roleMin);
+    }
+  }
+
+  const isRoleAllowed = (href: string) => {
+    const roleMin = roleMinByDestination.get(
+      normalizeNavigationDestination(href)
+    );
+    if (!roleMin || isSuperAdmin || accountRole === undefined) return true;
+    return Boolean(accountRole && hasMinRole(accountRole, roleMin));
+  };
 
   return navigation
     .filter((item) => !item.superAdminOnly || isSuperAdmin)
@@ -101,7 +127,8 @@ export function buildVisibleNavigation<TIcon>({
         ?.filter(
           (child) =>
             (!child.hospitalOnly || isHospitalWorkspace) &&
-            isRouteAllowed(getNavigationPathname(child.href))
+            isRouteAllowed(getNavigationPathname(child.href)) &&
+            isRoleAllowed(child.href)
         )
         .map((child) => ({
           ...child,
@@ -123,6 +150,10 @@ export function buildVisibleNavigation<TIcon>({
     })
     .filter((item) => {
       if (item.href && !isRouteAllowed(getNavigationPathname(item.href))) {
+        return false;
+      }
+
+      if (item.href && !isRoleAllowed(item.href)) {
         return false;
       }
 

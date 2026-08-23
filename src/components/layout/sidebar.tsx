@@ -9,7 +9,6 @@ import {
   ChevronsUpDown,
   ChevronDown,
   ChevronRight,
-  Code2,
   Home,
   LayoutGrid,
   LineChart,
@@ -141,41 +140,16 @@ export const NAV: SidebarNavItem<React.ElementType>[] = [
     ],
   },
   {
-    id: 'manage',
-    label: 'Manage',
+    id: 'manage-tags',
+    label: 'Tags',
+    href: '/settings?tab=tags',
     icon: Settings2,
-    children: [
-      { id: 'manage-tags', label: 'Tags', href: '/settings?tab=tags' },
-      { id: 'manage-columns', label: 'Columns', href: '/settings?tab=columns' },
-      {
-        id: 'manage-consent',
-        label: 'Opt-in / Opt-out',
-        href: '/settings?tab=consent',
-      },
-      {
-        id: 'manage-webhooks',
-        label: 'Webhook Events',
-        href: '/settings?tab=webhooks',
-      },
-    ],
   },
   {
     id: 'integrations',
     label: 'Integrations',
     href: '/integrations',
     icon: LayoutGrid,
-  },
-  {
-    id: 'developers',
-    label: 'Developers',
-    icon: Code2,
-    children: [
-      {
-        id: 'developers-api',
-        label: 'API & Connection Key',
-        href: '/settings?tab=api',
-      },
-    ],
   },
   {
     id: 'settings',
@@ -188,19 +162,9 @@ export const NAV: SidebarNavItem<React.ElementType>[] = [
         href: '/settings?tab=profile',
       },
       {
-        id: 'settings-roles',
-        label: 'Roles & Permissions',
-        href: '/settings?tab=roles',
-      },
-      {
         id: 'settings-team',
         label: 'Team Members',
         href: '/settings?tab=team',
-      },
-      {
-        id: 'settings-organization',
-        label: 'Organization',
-        href: '/settings?tab=organization',
       },
     ],
   },
@@ -247,8 +211,9 @@ function pathIsActive(pathname: string, href?: string, aliases: string[] = []) {
 
 export function Sidebar({ open = false, onClose }: SidebarProps) {
   const pathname = usePathname();
-  const { profile, isSuperAdmin } = useAuth();
-  const { terminology, currentIndustry, isRouteAllowed } = useWorkspace();
+  const { profile, accountRole, isSuperAdmin } = useAuth();
+  const { terminology, currentIndustry, manifest, isRouteAllowed } =
+    useWorkspace();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
     sales: true,
     conversations: false,
@@ -256,8 +221,6 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
     whatsapp: false,
     'automation-ai': false,
     billing: false,
-    manage: false,
-    developers: false,
     admin: false,
     settings: false,
   });
@@ -270,8 +233,17 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         currentIndustry,
         isSuperAdmin,
         isRouteAllowed,
+        accountRole,
+        routeRoleRequirements: manifest.sidebar,
       }),
-    [currentIndustry, isRouteAllowed, isSuperAdmin, terminology]
+    [
+      accountRole,
+      currentIndustry,
+      isRouteAllowed,
+      isSuperAdmin,
+      manifest.sidebar,
+      terminology,
+    ]
   );
 
   useEffect(() => {

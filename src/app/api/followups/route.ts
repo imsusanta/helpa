@@ -91,22 +91,37 @@ export async function POST(request: Request) {
     }
 
     const db = appwriteAdmin();
-    const { data: created, error } = await db
+    const insertPayload: Record<string, unknown> = {
+      account_id: accountId,
+      patient_id: targetContactId,
+      doctor_id: doctor_id || assigned_user_id || null,
+      assigned_user_id: assigned_user_id || doctor_id || null,
+      followup_type: taskType,
+      due_date,
+      notes: notes || null,
+      status: 'scheduled',
+    };
+
+    let { data: created, error } = await db
       .from('hospital_followups')
-      .insert({
-        account_id: accountId,
-        patient_id: targetContactId,
-        doctor_id: doctor_id || assigned_user_id || null,
-        assigned_user_id: assigned_user_id || doctor_id || null,
-        followup_type: taskType,
-        due_date,
-        notes: notes || null,
-        status: 'scheduled',
-      })
+      .insert(insertPayload)
       .select(
         '*, patient:contacts(id, name, phone), doctor:hospital_doctors(id, name)'
       )
       .single();
+
+    if (error && error.message?.includes('assigned_user_id')) {
+      delete insertPayload.assigned_user_id;
+      const retry = await db
+        .from('hospital_followups')
+        .insert(insertPayload)
+        .select(
+          '*, patient:contacts(id, name, phone), doctor:hospital_doctors(id, name)'
+        )
+        .single();
+      created = retry.data;
+      error = retry.error;
+    }
 
     if (error) {
       console.error('[Followups POST] Insert error:', error.message);
@@ -149,13 +164,26 @@ export async function PATCH(request: Request) {
     if (title !== undefined) updatePayload.followup_type = title;
 
     const db = appwriteAdmin();
-    const { data: updated, error } = await db
+    let { data: updated, error } = await db
       .from('hospital_followups')
       .update(updatePayload)
       .eq('id', id)
       .eq('account_id', accountId)
       .select()
       .single();
+
+    if (error && error.message?.includes('assigned_user_id')) {
+      delete updatePayload.assigned_user_id;
+      const retry = await db
+        .from('hospital_followups')
+        .update(updatePayload)
+        .eq('id', id)
+        .eq('account_id', accountId)
+        .select()
+        .single();
+      updated = retry.data;
+      error = retry.error;
+    }
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 });
