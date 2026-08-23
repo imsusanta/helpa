@@ -1,55 +1,27 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createDataClient } from '@/lib/appwrite-compat';
+import { describe, expect, it } from 'vitest';
+import {
+  getRuntimeConfig,
+  RuntimeConfigurationError,
+} from '@/lib/runtime-config';
 
-describe('Appwrite Compat Security', () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
+describe('Supabase-only runtime configuration', () => {
+  it('uses Supabase and cutover mode by default', () => {
+    expect(getRuntimeConfig({ NODE_ENV: 'test' })).toEqual({
+      authProvider: 'supabase',
+      databaseProvider: 'supabase',
+      migrationMode: 'cutover',
+      production: false,
+    });
   });
 
-  it('returns APPWRITE_SCHEMA_MISMATCH error when attribute or index is missing without dropping filters', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({
-        ok: false,
-        status: 400,
-        json: async () => ({ message: 'Attribute not found: missing_field' }),
-      } as unknown as Response)
+  it.each([
+    [{ AUTH_PROVIDER: 'appwrite' }, 'INVALID_AUTH_PROVIDER'],
+    [{ DATABASE_PROVIDER: 'appwrite' }, 'INVALID_DATABASE_PROVIDER'],
+    [{ MIGRATION_MODE: 'rollback' }, 'INVALID_MIGRATION_MODE'],
+    [{ MIGRATION_MODE: 'shadow' }, 'INVALID_MIGRATION_MODE'],
+  ])('fails closed for prohibited runtime configuration', (env, code) => {
+    expect(() => getRuntimeConfig(env)).toThrowError(
+      expect.objectContaining<Partial<RuntimeConfigurationError>>({ code })
     );
-
-    const client = createDataClient('test-session', true);
-    const result = await client
-      .from('contacts')
-      .eq('account_id', 'tenant-a')
-      .eq('missing_field', 'val');
-
-    expect(result.data).toBeNull();
-    expect(result.error?.code).toBe('APPWRITE_SCHEMA_MISMATCH');
-    expect(result.error?.message).toContain('APPWRITE_SCHEMA_MISMATCH');
-  });
-
-  it('fails maybeSingle when multiple documents match', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          documents: [
-            { $id: 'doc-1', name: 'Doc 1' },
-            { $id: 'doc-2', name: 'Doc 2' },
-          ],
-          total: 2,
-        }),
-      } as unknown as Response)
-    );
-
-    const client = createDataClient('test-session', true);
-    const result = await client
-      .from('contacts')
-      .eq('account_id', 'tenant-a')
-      .maybeSingle();
-
-    expect(result.data).toBeNull();
-    expect(result.error?.code).toBe('PGRST116');
   });
 });
