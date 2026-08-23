@@ -198,6 +198,7 @@ export async function POST(request: Request) {
         documentUrl: report.report_pdf_url,
         filename: `${report.test_name.replace(/\s+/g, '_')}_Report.pdf`,
         caption: `Here is your completed ${report.test_name} report.`,
+        deliveryIntent: 'staff_initiated',
       });
     }
 

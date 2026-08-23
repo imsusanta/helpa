@@ -11,6 +11,10 @@ import {
   phoneVariants,
   isRecipientNotAllowedError,
 } from '@/lib/whatsapp/phone-utils';
+import {
+  isExplicitLabReportRequest,
+  isLikelyAiLabReportDocument,
+} from '@/lib/whatsapp/report-delivery-guard';
 
 interface SendTextArgs {
   accountId: string;
@@ -39,6 +43,8 @@ interface SendTemplateArgs {
   params?: string[];
 }
 
+type DocumentDeliveryIntent = 'staff_initiated' | 'patient_requested';
+
 interface SendDocumentArgs {
   accountId: string;
   userId?: string;
@@ -47,12 +53,57 @@ interface SendDocumentArgs {
   documentUrl: string;
   filename?: string;
   caption?: string;
+  deliveryIntent?: DocumentDeliveryIntent;
 }
 
 interface ResolvedCredentials {
   phoneNumberId: string;
   accessToken: string;
   phone: string;
+}
+
+async function assertLabReportDeliveryAllowed(
+  args: SendDocumentArgs
+): Promise<void> {
+  if (
+    args.deliveryIntent ||
+    !isLikelyAiLabReportDocument({
+      filename: args.filename,
+      caption: args.caption,
+    })
+  ) {
+    return;
+  }
+
+  const db = appwriteAdmin();
+  const { data: recentMessages, error } = await db
+    .from('messages')
+    .select('sender_type, content_text, created_at')
+    .eq('conversation_id', args.conversationId)
+    .order('created_at', { ascending: false })
+    .limit(10);
+
+  if (error) {
+    throw new Error(
+      '[meta-send] Lab report delivery blocked because patient intent could not be verified.'
+    );
+  }
+
+  const latestCustomerMessage = (recentMessages || []).find(
+    (message: Record<string, unknown>) =>
+      String(message.sender_type || '') === 'customer'
+  );
+  const messageText = String(
+    latestCustomerMessage?.content_text ||
+      latestCustomerMessage?.contentText ||
+      ''
+  );
+
+  if (!isExplicitLabReportRequest(messageText)) {
+    throw new Error(
+      '[meta-send] Blocked unsolicited lab report delivery: the patient did not explicitly request a report.'
+    );
+  }
 }
 
 async function resolveCredentialsAndPhone(
@@ -313,6 +364,8 @@ export async function engineSendText(
 export async function engineSendDocument(
   args: SendDocumentArgs
 ): Promise<{ whatsapp_message_id: string }> {
+  await assertLabReportDeliveryAllowed(args);
+
   const creds = await resolveCredentialsAndPhone(
     args.accountId,
     args.contactId,
