@@ -1,0 +1,113 @@
+import { describe, expect, it } from 'vitest';
+
+import {
+  AUTOMATION_TEMPLATES,
+  getTemplate,
+  type TemplateSlug,
+} from './templates';
+import { triggerMeta } from './trigger-meta';
+import {
+  validateStepsForActivation,
+  validateTriggerForActivation,
+} from './validate';
+
+const SLUGS = Object.keys(AUTOMATION_TEMPLATES) as TemplateSlug[];
+
+/**
+ * Templates whose trigger deliberately ships blank because the value is
+ * account-specific (the user picks the tag in the builder). Everything
+ * else must be activatable straight from the gallery.
+ */
+const NEEDS_TAG_PICK: TemplateSlug[] = [
+  'report_ready_alert',
+  'post_visit_feedback',
+];
+
+function stepsForValidation(slug: TemplateSlug) {
+  return AUTOMATION_TEMPLATES[slug].steps.map((step) => ({
+    step_type: step.step_type as string,
+    step_config: step.step_config as Record<string, unknown>,
+  }));
+}
+
+describe('automation templates', () => {
+  it('keys every entry under its own slug', () => {
+    for (const slug of SLUGS) {
+      expect(AUTOMATION_TEMPLATES[slug].slug).toBe(slug);
+    }
+  });
+
+  it('gives every template a name, description, and at least one step', () => {
+    for (const slug of SLUGS) {
+      const template = AUTOMATION_TEMPLATES[slug];
+      expect(template.name.trim()).not.toBe('');
+      expect(template.description.trim()).not.toBe('');
+      expect(template.steps.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('only nests seeds under an earlier condition step', () => {
+    for (const slug of SLUGS) {
+      const { steps } = AUTOMATION_TEMPLATES[slug];
+      steps.forEach((step, index) => {
+        if (step.parent_index === undefined || step.parent_index === null) {
+          return;
+        }
+        expect(step.parent_index).toBeLessThan(index);
+        expect(steps[step.parent_index].step_type).toBe('condition');
+        expect(step.branch === 'yes' || step.branch === 'no').toBe(true);
+      });
+    }
+  });
+
+  it('ships steps that pass activation validation as-is', () => {
+    for (const slug of SLUGS) {
+      expect(validateStepsForActivation(stepsForValidation(slug))).toEqual([]);
+    }
+  });
+
+  it('ships triggers that pass activation validation, except tag pickers', () => {
+    for (const slug of SLUGS) {
+      const template = AUTOMATION_TEMPLATES[slug];
+      const issues = validateTriggerForActivation(
+        template.trigger_type,
+        template.trigger_config
+      );
+      if (NEEDS_TAG_PICK.includes(slug)) {
+        expect(issues.length).toBeGreaterThan(0);
+      } else {
+        expect(issues).toEqual([]);
+      }
+    }
+  });
+
+  it('renders a human-readable trigger label for every template', () => {
+    for (const slug of SLUGS) {
+      const meta = triggerMeta(AUTOMATION_TEMPLATES[slug].trigger_type);
+      expect(meta.label).not.toContain('_');
+      expect(meta.pillClass.trim()).not.toBe('');
+    }
+  });
+
+  it('labels appointment triggers dispatched by the engine', () => {
+    expect(triggerMeta('appointment_created').label).toBe('Appointment Booked');
+    expect(triggerMeta('appointment_reminder').label).toBe(
+      'Appointment Reminder'
+    );
+    expect(triggerMeta('appointment_cancelled').label).toBe(
+      'Appointment Cancelled'
+    );
+  });
+
+  it('humanises unknown trigger slugs instead of leaking them raw', () => {
+    expect(triggerMeta('some_future_trigger').label).toBe(
+      'Some Future Trigger'
+    );
+    expect(triggerMeta(undefined).label).toBe('Unknown Trigger');
+  });
+
+  it('resolves known slugs and rejects unknown ones', () => {
+    expect(getTemplate('welcome_message')?.slug).toBe('welcome_message');
+    expect(getTemplate('does_not_exist')).toBeNull();
+  });
+});

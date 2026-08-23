@@ -41,11 +41,50 @@ export const TRIGGER_META: Record<AutomationTriggerType, TriggerMeta> = {
   },
 };
 
-export function triggerMeta(t: AutomationTriggerType | string): TriggerMeta {
+/**
+ * Trigger types the engine dispatches today but that are not part of the
+ * `AutomationTriggerType` union yet: the appointment lifecycle hooks in
+ * `appointment-triggers.ts`, `/api/appointments`, and the industry
+ * workflow packs under `src/modules/*/workflows.ts`. Without these
+ * entries the automations list rendered the raw slug
+ * ("appointment_reminder") as the pill label.
+ */
+const RUNTIME_TRIGGER_META: Record<string, TriggerMeta> = {
+  appointment_created: {
+    label: 'Appointment Booked',
+    pillClass: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
+  },
+  appointment_reminder: {
+    label: 'Appointment Reminder',
+    pillClass: 'border-sky-500/30 bg-sky-500/10 text-sky-300',
+  },
+  appointment_cancelled: {
+    label: 'Appointment Cancelled',
+    pillClass: 'border-rose-500/30 bg-rose-500/10 text-rose-300',
+  },
+};
+
+const FALLBACK_PILL =
+  'border-slate-500/30 bg-slate-500/10 text-muted-foreground';
+
+/** "some_unknown_trigger" -> "Some Unknown Trigger". */
+function humanize(value: string): string {
+  return value
+    .split(/[_\s]+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+export function triggerMeta(
+  t: AutomationTriggerType | string | null | undefined
+): TriggerMeta {
+  if (!t) return { label: 'Unknown Trigger', pillClass: FALLBACK_PILL };
   return (
-    TRIGGER_META[t as AutomationTriggerType] ?? {
-      label: t,
-      pillClass: 'border-slate-500/30 bg-slate-500/10 text-muted-foreground',
+    TRIGGER_META[t as AutomationTriggerType] ??
+    RUNTIME_TRIGGER_META[t] ?? {
+      label: humanize(t),
+      pillClass: FALLBACK_PILL,
     }
   );
 }
