@@ -22,6 +22,12 @@ import {
   Building2,
   BookOpen,
   UtensilsCrossed,
+  HelpCircle,
+  Siren,
+  FileCheck,
+  Star,
+  Pill,
+  FlaskConical,
 } from 'lucide-react';
 
 import { useCan } from '@/hooks/use-can';
@@ -51,18 +57,29 @@ import {
 import { triggerMeta, formatRelative } from '@/lib/automations/trigger-meta';
 import { cn } from '@/lib/utils';
 
+// Clinic-first: Helpa's core audience is a clinic front desk, so the
+// patient-facing automations lead and the other verticals follow.
 const TEMPLATE_ORDER: TemplateSlug[] = [
   'welcome_message',
-  'out_of_office',
-  'lead_qualifier',
-  'follow_up_reminder',
   'doctor_booking_enquiry',
+  'clinic_faq_autoreply',
+  'urgent_case_escalation',
+  'report_ready_alert',
+  'post_visit_feedback',
+  'prescription_refill',
+  'lab_test_booking',
+  'out_of_office',
+  'follow_up_reminder',
   'new_lead_instant_reply',
+  'lead_qualifier',
   'admission_enquiry',
   'property_site_visit',
   'course_enquiry',
   'table_booking',
 ];
+
+/** Cards shown before the user asks to see the whole library. */
+const TEMPLATE_PREVIEW_COUNT = 8;
 
 const TEMPLATE_ICON: Record<TemplateSlug, typeof Zap> = {
   welcome_message: MessageCircle,
@@ -70,6 +87,12 @@ const TEMPLATE_ICON: Record<TemplateSlug, typeof Zap> = {
   lead_qualifier: Users,
   follow_up_reminder: PhoneCall,
   doctor_booking_enquiry: CalendarDays,
+  clinic_faq_autoreply: HelpCircle,
+  urgent_case_escalation: Siren,
+  report_ready_alert: FileCheck,
+  post_visit_feedback: Star,
+  prescription_refill: Pill,
+  lab_test_booking: FlaskConical,
   new_lead_instant_reply: UserPlus,
   admission_enquiry: GraduationCap,
   property_site_visit: Building2,
@@ -84,6 +107,7 @@ export default function AutomationsPage() {
   const [error, setError] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Automation | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [showAllTemplates, setShowAllTemplates] = useState(false);
 
   async function load() {
     try {
@@ -190,6 +214,9 @@ export default function AutomationsPage() {
   }
 
   const showTemplates = automations.length < 3;
+  const visibleTemplates = showAllTemplates
+    ? TEMPLATE_ORDER
+    : TEMPLATE_ORDER.slice(0, TEMPLATE_PREVIEW_COUNT);
 
   return (
     <div className="space-y-6">
@@ -220,7 +247,7 @@ export default function AutomationsPage() {
             Recommended for your business
           </h2>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-            {TEMPLATE_ORDER.map((slug) => {
+            {visibleTemplates.map((slug) => {
               const t = AUTOMATION_TEMPLATES[slug];
               const Icon = TEMPLATE_ICON[slug];
               return (
@@ -242,6 +269,17 @@ export default function AutomationsPage() {
               );
             })}
           </div>
+          {TEMPLATE_ORDER.length > TEMPLATE_PREVIEW_COUNT && (
+            <Button
+              variant="ghost"
+              className="text-muted-foreground hover:text-foreground mt-3 text-xs"
+              onClick={() => setShowAllTemplates((v) => !v)}
+            >
+              {showAllTemplates
+                ? 'Show fewer templates'
+                : `Show all ${TEMPLATE_ORDER.length} templates`}
+            </Button>
+          )}
         </section>
       )}
 
