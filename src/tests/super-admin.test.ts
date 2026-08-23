@@ -19,16 +19,6 @@ vi.mock('@/lib/supabase/server', () => ({
   })),
 }));
 
-vi.mock('@/lib/appwrite-server-compat', () => ({
-  getAdminClient: vi.fn(() => ({
-    from: () => ({
-      select: () => ({
-        eq: () => ({ maybeSingle: mocks.profileMaybeSingle }),
-      }),
-    }),
-  })),
-}));
-
 vi.mock('@/lib/auth/account', () => ({
   getCurrentAccount: mocks.getCurrentAccount,
 }));
@@ -42,24 +32,14 @@ describe('Super Admin server-side authorization', () => {
     mocks.profileMaybeSingle.mockResolvedValue({ data: null, error: null });
   });
 
-  it('does not treat an email address as authorization', async () => {
+  it('never treats an email address as authorization evidence', async () => {
     mocks.getUser.mockResolvedValue({
-      data: {
-        user: {
-          id: 'user-normal',
-          email: 'normal@example.com',
-        },
-      },
-      error: null,
-    });
-    mocks.profileMaybeSingle.mockResolvedValue({
-      data: { is_super_admin: false },
-      error: null,
+      data: { user: null },
+      error: { message: 'No authenticated session' },
     });
 
-    expect(isPlatformOwnerEmail('normal@example.com')).toBe(false);
-    expect(isPlatformOwnerEmail('susantalohr@gmail.com')).toBe(true);
-    await expect(checkSuperAdmin('susantalohr@gmail.com')).resolves.toBe(true);
+    expect(isPlatformOwnerEmail('susantalohr@gmail.com')).toBe(false);
+    await expect(checkSuperAdmin('susantalohr@gmail.com')).resolves.toBe(false);
   });
 
   it('grants access only when the authenticated profile has the role', async () => {

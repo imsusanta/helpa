@@ -575,12 +575,7 @@ export interface InvoicePayment {
 }
 
 export type BroadcastStatus =
-  | 'draft'
-  | 'scheduled'
-  | 'sending'
-  | 'sent'
-  | 'failed'
-  | 'paused';
+  'draft' | 'scheduled' | 'sending' | 'sent' | 'failed' | 'paused';
 export type RecipientStatus =
   'pending' | 'sent' | 'delivered' | 'read' | 'replied' | 'failed';
 

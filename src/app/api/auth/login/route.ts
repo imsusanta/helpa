@@ -15,7 +15,9 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const { email, password } = body;
+    const email = typeof body.email === 'string' ? body.email : '';
+    const password = typeof body.password === 'string' ? body.password : '';
+    const rememberMe = body.rememberMe !== false;
 
     if (!email || !password) {
       return NextResponse.json(
@@ -25,8 +27,9 @@ export async function POST(request: Request) {
     }
 
     const trimmedEmail = email.trim().toLowerCase();
-
-    const supabase = await createSupabaseServerClient();
+    const supabase = await createSupabaseServerClient({
+      persistentSession: rememberMe,
+    });
     const { data, error } = await supabase.auth.signInWithPassword({
       email: trimmedEmail,
       password,

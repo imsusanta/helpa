@@ -6,10 +6,16 @@ import {
   requireSupabaseServiceRole,
 } from '@/lib/runtime-config';
 
-export async function createClient() {
+interface ServerClientOptions {
+  /** When false, authentication cookies expire with the browser session. */
+  persistentSession?: boolean;
+}
+
+export async function createClient(options: ServerClientOptions = {}) {
   const cookieStore = await cookies();
   const { url: supabaseUrl, publishableKey: supabaseAnonKey } =
     requireSupabasePublicConfig();
+  const persistentSession = options.persistentSession !== false;
 
   return createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
@@ -18,11 +24,18 @@ export async function createClient() {
       },
       setAll(cookiesToSet) {
         try {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
-          );
+          cookiesToSet.forEach(({ name, value, options: cookieOptions }) => {
+            const normalizedOptions = persistentSession
+              ? cookieOptions
+              : {
+                  ...cookieOptions,
+                  expires: undefined,
+                  maxAge: undefined,
+                };
+            cookieStore.set(name, value, normalizedOptions);
+          });
         } catch {
-          // Can be ignored if called from Server Component.
+          // Server Components cannot write cookies. The proxy refreshes them.
         }
       },
     },

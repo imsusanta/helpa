@@ -63,8 +63,11 @@ interface KbEntry {
 export function FaqBotConsole() {
   const { account, canSendMessages } = useAuth();
   const preset = getIndustryAiPreset(account?.industry);
-  const { ai: aiStats, loading: statsLoading, refresh: refreshStats } =
-    useAiStats();
+  const {
+    ai: aiStats,
+    loading: statsLoading,
+    refresh: refreshStats,
+  } = useAiStats();
 
   const [entries, setEntries] = useState<KbEntry[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -208,7 +211,9 @@ export function FaqBotConsole() {
         <AiStatCard
           icon={BookOpen}
           label="Total knowledge base entries"
-          value={aiStats ? aiStats.knowledge_base_entries.toLocaleString() : '—'}
+          value={
+            aiStats ? aiStats.knowledge_base_entries.toLocaleString() : '—'
+          }
           sublabel="Across all categories"
           loading={statsLoading}
           accent="blue"

@@ -2,6 +2,13 @@ export type AuthProvider = 'supabase' | 'appwrite';
 export type DatabaseProvider = 'supabase' | 'appwrite';
 export type MigrationMode = 'off' | 'shadow' | 'cutover' | 'rollback';
 
+export interface RuntimeConfig {
+  authProvider: AuthProvider;
+  databaseProvider: DatabaseProvider;
+  migrationMode: MigrationMode;
+  production: boolean;
+}
+
 export class RuntimeConfigurationError extends Error {
   constructor(readonly code: string) {
     super(code);
@@ -9,73 +16,51 @@ export class RuntimeConfigurationError extends Error {
   }
 }
 
-function enumValue<T extends string>(
-  value: string | undefined,
-  allowed: readonly T[],
-  name: string,
-  isProduction: boolean
-): T {
-  if (value && (allowed as readonly string[]).includes(value)) {
-    return value as T;
-  }
-  if (isProduction && !value) {
-    throw new RuntimeConfigurationError(`INVALID_${name}`);
-  }
-  return allowed[0];
-}
-
 type EnvMap = Record<string, string | undefined>;
 
 function requireEnvironmentValue(env: EnvMap, name: string): string {
   const value = env[name]?.trim();
-  if (!value) {
-    throw new RuntimeConfigurationError(`MISSING_${name}`);
-  }
+  if (!value) throw new RuntimeConfigurationError(`MISSING_${name}`);
   return value;
 }
 
-/** Server-only provider selection. No request may infer or override this. */
 export function getRuntimeConfig(
   env: EnvMap = process.env as unknown as EnvMap
-) {
+): RuntimeConfig {
   const production = env.NODE_ENV === 'production';
-  const authProvider = enumValue(
-    env.AUTH_PROVIDER ||
-      (env === (process.env as unknown) ? 'supabase' : undefined),
-    ['supabase', 'appwrite'] as const,
-    'AUTH_PROVIDER',
-    production
-  );
-  const databaseProvider = enumValue(
-    env.DATABASE_PROVIDER ||
-      (env === (process.env as unknown) ? 'supabase' : undefined),
-    ['supabase', 'appwrite'] as const,
-    'DATABASE_PROVIDER',
-    production
-  );
-  const migrationMode = enumValue(
-    env.MIGRATION_MODE ||
-      (env === (process.env as unknown)
-        ? 'cutover'
-        : production
-          ? undefined
-          : 'off'),
-    ['cutover', 'shadow', 'off', 'rollback'] as const,
-    'MIGRATION_MODE',
-    production
-  );
+  const explicitAuth = env.AUTH_PROVIDER?.trim().toLowerCase();
+  const explicitDatabase = env.DATABASE_PROVIDER?.trim().toLowerCase();
+  const explicitMigration = env.MIGRATION_MODE?.trim().toLowerCase();
 
   if (
     production &&
-    (authProvider !== 'supabase' || databaseProvider !== 'supabase')
+    (explicitAuth !== 'supabase' ||
+      explicitDatabase !== 'supabase' ||
+      explicitMigration !== 'cutover')
   ) {
     throw new RuntimeConfigurationError('PRODUCTION_SUPABASE_CUTOVER_REQUIRED');
   }
-  if (production && migrationMode !== 'cutover') {
-    throw new RuntimeConfigurationError('PRODUCTION_CUTOVER_MODE_REQUIRED');
+
+  const authProvider = explicitAuth || 'supabase';
+  const databaseProvider = explicitDatabase || 'supabase';
+  const migrationMode = explicitMigration || 'cutover';
+
+  if (authProvider !== 'supabase') {
+    throw new RuntimeConfigurationError('INVALID_AUTH_PROVIDER');
+  }
+  if (databaseProvider !== 'supabase') {
+    throw new RuntimeConfigurationError('INVALID_DATABASE_PROVIDER');
+  }
+  if (migrationMode !== 'cutover') {
+    throw new RuntimeConfigurationError('INVALID_MIGRATION_MODE');
   }
 
-  return { authProvider, databaseProvider, migrationMode, production };
+  return {
+    authProvider: 'supabase',
+    databaseProvider: 'supabase',
+    migrationMode: 'cutover',
+    production,
+  };
 }
 
 export function requireSupabasePublicConfig(

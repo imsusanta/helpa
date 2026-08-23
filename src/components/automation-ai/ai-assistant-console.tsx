@@ -81,7 +81,11 @@ export function AiAssistantConsole() {
       const body =
         mode === 'rewrite'
           ? { action: 'rewrite', text: text.trim(), tone }
-          : { action: 'translate', text: text.trim(), targetLanguage: language };
+          : {
+              action: 'translate',
+              text: text.trim(),
+              targetLanguage: language,
+            };
 
       const res = await fetch('/api/ai/features', {
         method: 'POST',

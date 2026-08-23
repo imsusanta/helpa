@@ -48,9 +48,8 @@ describe('WhatsApp Webhook & Idempotency Engine', () => {
               eq: (field: string, value: unknown) => ({
                 maybeSingle: async () => ({
                   data:
-                    mockWebhookEvents.find(
-                      (row) => row[field] === value
-                    ) ?? null,
+                    mockWebhookEvents.find((row) => row[field] === value) ??
+                    null,
                   error: null,
                 }),
               }),

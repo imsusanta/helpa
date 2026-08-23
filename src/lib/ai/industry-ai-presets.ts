@@ -7,7 +7,10 @@
  * and greeting suggestions so the Chatbot / FAQ Bot / AI Assistant pages read
  * naturally for each industry. Nothing here is presented as live data.
  */
-import { resolveIndustryAlias, type CanonicalIndustry } from '@/modules/terminology';
+import {
+  resolveIndustryAlias,
+  type CanonicalIndustry,
+} from '@/modules/terminology';
 
 export interface IndustryAiPreset {
   /** Human label for the assistant's role, e.g. "AI Receptionist". */

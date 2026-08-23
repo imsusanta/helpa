@@ -2,7 +2,8 @@
  * Helpa Core Platform — Super Admin Authorization
  *
  * Super Admin access is granted only by a persisted `profiles.is_super_admin`
- * role for the authenticated user. Email addresses are never authorization.
+ * role for the authenticated Supabase user. Email addresses are never
+ * authorization evidence.
  */
 
 import { redirect } from 'next/navigation';
@@ -12,17 +13,9 @@ import {
   getAdminClient,
 } from '@/lib/supabase/server';
 
-/**
- * Platform owner email bootstrap configuration.
- */
-export const PLATFORM_OWNER_EMAIL =
-  process.env.HELPA_PLATFORM_OWNER_EMAIL?.trim().toLowerCase() ||
-  'susantalohr@gmail.com';
-
-/** Checks if an email is the configured platform owner email. */
-export function isPlatformOwnerEmail(email?: string | null): boolean {
-  if (!email || !PLATFORM_OWNER_EMAIL) return false;
-  return email.trim().toLowerCase() === PLATFORM_OWNER_EMAIL;
+/** @deprecated Email-based platform authorization is intentionally disabled. */
+export function isPlatformOwnerEmail(_email?: string | null): boolean {
+  return false;
 }
 
 async function hasPersistedSuperAdminRole(userId: string): Promise<boolean> {
@@ -43,35 +36,19 @@ async function hasPersistedSuperAdminRole(userId: string): Promise<boolean> {
   return profile?.is_super_admin === true;
 }
 
-/**
- * Verifies if the user or session has Super Admin role.
- */
+/** Verifies the authenticated Supabase user's persisted platform role. */
 export async function checkSuperAdmin(
-  expectedEmail?: string
+  _untrustedEmailHint?: string
 ): Promise<boolean> {
-  if (expectedEmail) {
-    return isPlatformOwnerEmail(expectedEmail);
-  }
-
   try {
-    try {
-      const supabase = await createSupabaseServerClient();
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser();
+    const supabase = await createSupabaseServerClient();
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
 
-      if (!error && user) {
-        if (isPlatformOwnerEmail(user.email)) return true;
-        return await hasPersistedSuperAdminRole(user.id);
-      }
-    } catch {
-      // Rollback mode may not have a Supabase session; use verified account context.
-    }
-
-    const context = await getCurrentAccount();
-    if (context.email && isPlatformOwnerEmail(context.email)) return true;
-    return await hasPersistedSuperAdminRole(context.userId);
+    if (error || !user?.id) return false;
+    return await hasPersistedSuperAdminRole(user.id);
   } catch {
     return false;
   }
@@ -79,8 +56,7 @@ export async function checkSuperAdmin(
 
 /** Enforces Super Admin access server-side. */
 export async function requireSuperAdmin() {
-  const isSuperAdmin = await checkSuperAdmin();
-  if (!isSuperAdmin) redirect('/dashboard');
+  if (!(await checkSuperAdmin())) redirect('/dashboard');
 
   try {
     const context = await getCurrentAccount();

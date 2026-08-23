@@ -1,50 +1,42 @@
-import { describe, it, expect } from 'vitest';
-import { createClient } from '@/lib/appwrite-compat';
+import { describe, expect, it } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 
-describe('Appwrite Compat Least-Privilege Security Audit', () => {
-  it('rejects public any permissions and generates user-scoped least-privilege permissions', () => {
-    const client = createClient();
+describe('Supabase-only compatibility facade audit', () => {
+  it('contains no Appwrite endpoint, credential, session, or SDK behavior', () => {
+    const clientFacade = fs.readFileSync(
+      path.join(process.cwd(), 'src/lib/appwrite-compat.ts'),
+      'utf8'
+    );
+    const serverFacade = fs.readFileSync(
+      path.join(process.cwd(), 'src/lib/appwrite-server-compat.ts'),
+      'utf8'
+    );
+    const source = `${clientFacade}\n${serverFacade}`;
 
-    const qb = client.from('whatsapp_config');
-
-    const recordWithAny = {
-      permissions: ['read("any")', 'read("user:user_123456789")'],
-      user_id: 'user_123456789',
-    };
-
-    const getPermsFn = (
-      qb as unknown as {
-        getPermissionsForRecord?: (r: Record<string, unknown>) => string[];
-      }
-    ).getPermissionsForRecord;
-    const perms = getPermsFn ? getPermsFn(recordWithAny) : null;
-
-    if (perms) {
-      expect(perms).not.toContain('read("any")');
-      expect(perms).not.toContain('write("any")');
-      expect(perms).not.toContain('update("any")');
-      expect(perms).not.toContain('delete("any")');
-      expect(perms).toContain('read("user:user_123456789")');
-    }
+    expect(source).not.toContain('appwrite.io');
+    expect(source).not.toContain('appwrite.network');
+    expect(source).not.toContain('X-Appwrite-');
+    expect(source).not.toContain('appwrite_session');
+    expect(source).not.toMatch(/from ['"]appwrite['"]/);
+    expect(source).not.toMatch(/from ['"]node-appwrite['"]/);
+    expect(source).toContain('@/lib/supabase/client');
+    expect(source).toContain('@/lib/supabase/server');
   });
 
-  it('ensures no protected collection manifest or repo configuration exposes public any permissions', () => {
-    const prohibited = [
-      'read("any")',
-      'write("any")',
-      'update("any")',
-      'delete("any")',
-    ];
-
-    const compatSource = fs.readFileSync(
+  it('does not expose public-any data permissions', () => {
+    const source = fs.readFileSync(
       path.join(process.cwd(), 'src/lib/appwrite-compat.ts'),
       'utf8'
     );
 
-    prohibited.forEach((perm) => {
-      expect(compatSource).not.toContain(perm);
-    });
+    for (const permission of [
+      'read("any")',
+      'write("any")',
+      'update("any")',
+      'delete("any")',
+    ]) {
+      expect(source).not.toContain(permission);
+    }
   });
 });

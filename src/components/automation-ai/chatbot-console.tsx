@@ -62,8 +62,11 @@ const STYLE_LABELS: Record<ResponseStyle, string> = {
 export function ChatbotConsole() {
   const { account, canEditSettings, profileLoading } = useAuth();
   const preset = getIndustryAiPreset(account?.industry);
-  const { ai: aiStats, loading: statsLoading, refresh: refreshStats } =
-    useAiStats();
+  const {
+    ai: aiStats,
+    loading: statsLoading,
+    refresh: refreshStats,
+  } = useAiStats();
 
   // Editable configuration (admin+ only, sourced from /api/account/ai).
   const [config, setConfig] = useState<AiConfig | null>(null);
@@ -137,7 +140,9 @@ export function ChatbotConsole() {
 
   // Effective status for the header badge / read-only view: the editable
   // state if we loaded config, otherwise the real value from stats.
-  const effectiveEnabled = config ? enabled : aiStats?.chatbot_enabled ?? true;
+  const effectiveEnabled = config
+    ? enabled
+    : (aiStats?.chatbot_enabled ?? true);
 
   return (
     <div className="space-y-6">
@@ -165,7 +170,9 @@ export function ChatbotConsole() {
               : '—'
           }
           sublabel={
-            aiStats ? `${aiStats.ai_requests_remaining.toLocaleString()} remaining` : undefined
+            aiStats
+              ? `${aiStats.ai_requests_remaining.toLocaleString()} remaining`
+              : undefined
           }
           loading={statsLoading}
           accent="emerald"
@@ -230,7 +237,10 @@ export function ChatbotConsole() {
                     Customers messaging your WhatsApp get instant AI answers.
                   </p>
                 </div>
-                <Switch checked={enabled} onCheckedChange={(v) => setEnabled(!!v)} />
+                <Switch
+                  checked={enabled}
+                  onCheckedChange={(v) => setEnabled(!!v)}
+                />
               </div>
 
               <div className="space-y-2">
