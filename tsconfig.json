@@ -20,6 +20,12 @@
       }
     ],
     "paths": {
+      "@/components/inbox/conversation-list": [
+        "./src/components/inbox/conversation-list-stable"
+      ],
+      "@/components/inbox/message-thread": [
+        "./src/components/inbox/message-thread-stable"
+      ],
       "@/*": ["./src/*"]
     }
   },
