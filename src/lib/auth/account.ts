@@ -48,13 +48,14 @@ export interface AccountContext {
   role: AccountRole;
   email?: string;
   account: { id: string; name: string };
-  /** Transitional name; when resolved, this is a Supabase service-role client. */
+  /** Transitional name; when present, this is a Supabase service-role client. */
   appwrite?: AppwriteCompatClient;
 }
 
-export type ResolvedAccountContext = AccountContext & {
-  appwrite: AppwriteCompatClient;
-};
+// The compatibility client is typed as any during the incremental migration,
+// so optional access remains backward-compatible while runtime callers always
+// receive the Supabase-backed value returned below.
+export type ResolvedAccountContext = AccountContext;
 
 export async function getCurrentAccount(): Promise<ResolvedAccountContext> {
   try {
@@ -69,7 +70,6 @@ export async function getCurrentAccount(): Promise<ResolvedAccountContext> {
       error: userError,
     } = await supabase.auth.getUser();
     const userId = user?.id;
-
     if (userError || !userId || typeof userId !== 'string') {
       throw new UnauthorizedError();
     }
@@ -101,7 +101,6 @@ export async function getCurrentAccount(): Promise<ResolvedAccountContext> {
           .select('id, name')
           .eq('id', profile.account_id)
           .maybeSingle();
-
         if (targetAccount) {
           accountId = targetAccount.id;
           role =
@@ -128,7 +127,6 @@ export async function getCurrentAccount(): Promise<ResolvedAccountContext> {
         .select('id, name')
         .eq('owner_user_id', userId)
         .maybeSingle();
-
       if (ownedAccount) {
         accountId = ownedAccount.id;
         role = 'owner';
@@ -157,17 +155,15 @@ export async function getCurrentAccount(): Promise<ResolvedAccountContext> {
         (user.email
           ? `${user.email.split('@')[0]}'s Workspace`
           : 'My Workspace');
-      const defaultIndustry = user.user_metadata?.industry || 'health';
       const { data: newAccount } = await admin
         .from('accounts')
         .insert({
           name: defaultName,
           owner_user_id: userId,
-          industry: defaultIndustry,
+          industry: user.user_metadata?.industry || 'health',
         })
         .select('id, name')
         .maybeSingle();
-
       if (newAccount) {
         accountId = newAccount.id;
         role = 'owner';
@@ -189,32 +185,22 @@ export async function getCurrentAccount(): Promise<ResolvedAccountContext> {
       }
     }
 
-    if (!accountId) {
-      throw new ForbiddenError('Account membership is required');
-    }
-    if (!isAccountRole(role)) {
-      throw new ForbiddenError('Invalid account role');
-    }
+    if (!accountId) throw new ForbiddenError('Account membership is required');
+    if (!isAccountRole(role)) throw new ForbiddenError('Invalid account role');
 
     const { data: accountDoc } = await admin
       .from('accounts')
       .select('id, name')
       .eq('id', accountId)
       .maybeSingle();
-
-    if (!accountDoc) {
-      throw new ForbiddenError('Account not found');
-    }
+    if (!accountDoc) throw new ForbiddenError('Account not found');
 
     return {
       userId,
       accountId,
       role,
       email: user.email || undefined,
-      account: {
-        id: accountId,
-        name: accountDoc.name || 'Clinic Account',
-      },
+      account: { id: accountId, name: accountDoc.name || 'Clinic Account' },
       appwrite: appwriteAdmin(),
     };
   } catch (error) {

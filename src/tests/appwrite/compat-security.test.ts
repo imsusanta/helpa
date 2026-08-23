@@ -20,7 +20,7 @@ describe('Supabase-only runtime configuration', () => {
     [{ MIGRATION_MODE: 'rollback' }, 'rollback mode'],
     [{ MIGRATION_MODE: 'shadow' }, 'shadow mode'],
     [{ MIGRATION_MODE: 'off' }, 'off mode'],
-  ])('rejects %s (%s)', (env) => {
+  ])('rejects %s (%s)', (env, _label) => {
     expect(() => getRuntimeConfig(env)).toThrow(RuntimeConfigurationError);
   });
 });
