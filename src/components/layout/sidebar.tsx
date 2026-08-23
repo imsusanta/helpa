@@ -1,26 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
-import {
-  BadgeDollarSign,
-  Bot,
-  ChevronsUpDown,
-  ChevronDown,
-  ChevronRight,
-  Home,
-  LayoutGrid,
-  LineChart,
-  Megaphone,
-  MessageCircle,
-  MessageSquare,
-  Package,
-  Settings,
-  Settings2,
-  ShieldCheck,
-  X,
-} from 'lucide-react';
+import { ChevronsUpDown, ChevronDown, ChevronRight, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import { useWorkspace } from '@/hooks/use-workspace';
@@ -29,191 +12,69 @@ import {
   validateVisibleNavigation,
   type SidebarNavItem,
 } from '@/components/layout/sidebar-navigation';
+import {
+  NAVIGATION_FEATURE_STATUSES,
+  NAVIGATION_REGISTRY,
+} from '@/components/layout/navigation-registry';
 
 interface SidebarProps {
   open?: boolean;
   onClose?: () => void;
+  collapsed?: boolean;
+  mobileTriggerRef?: React.RefObject<HTMLButtonElement | null>;
 }
 
-export const NAV: SidebarNavItem<React.ElementType>[] = [
-  { id: 'dashboard', label: 'Dashboard', href: '/dashboard', icon: Home },
-  {
-    id: 'sales',
-    label: 'Sales',
-    icon: LineChart,
-    children: [
-      { id: 'sales-leads', label: 'Leads', href: '/leads' },
-      { id: 'sales-customers', label: 'Customers', href: '/customers' },
-      { id: 'sales-deals', label: 'Deals', href: '/pipelines' },
-      { id: 'sales-quotations', label: 'Quotations', href: '/quotations' },
-    ],
-  },
-  {
-    id: 'conversations',
-    label: 'Conversations',
-    icon: MessageSquare,
-    children: [
-      { id: 'conversations-inbox', label: 'Inbox', href: '/inbox' },
-      {
-        id: 'conversations-follow-ups',
-        label: 'Follow-ups',
-        href: '/follow-ups',
-      },
-      {
-        id: 'conversations-meetings',
-        label: 'Meetings',
-        href: '/appointments',
-      },
-    ],
-  },
-  {
-    id: 'marketing',
-    label: 'Marketing',
-    icon: Megaphone,
-    children: [
-      { id: 'marketing-campaigns', label: 'Campaigns', href: '/broadcasts' },
-      {
-        id: 'marketing-reports',
-        label: 'Campaign Reports',
-        href: '/campaign-reports',
-      },
-      { id: 'marketing-lead-forms', label: 'Lead Forms', href: '/lead-forms' },
-    ],
-  },
-  {
-    id: 'whatsapp',
-    label: 'WhatsApp',
-    icon: MessageCircle,
-    children: [
-      {
-        id: 'whatsapp-patient-list',
-        label: 'Patient List',
-        href: '/patients',
-        hospitalOnly: true,
-        activeHrefs: ['/contacts'],
-      },
-      { id: 'whatsapp-campaigns', label: 'Campaigns', href: '/broadcasts' },
-      {
-        id: 'whatsapp-api',
-        label: 'WhatsApp API',
-        href: '/settings?tab=whatsapp',
-      },
-    ],
-  },
-  {
-    id: 'automation-ai',
-    label: 'Automation & AI',
-    icon: Bot,
-    children: [
-      { id: 'automation-chatbot', label: 'Chatbot', href: '/chatbot' },
-      { id: 'automation-faq', label: 'FAQ Bot', href: '/faq-bot' },
-      {
-        id: 'automation-assistant',
-        label: 'AI Assistant',
-        href: '/ai-assistant',
-      },
-      { id: 'automation-rules', label: 'Automations', href: '/automations' },
-      {
-        id: 'automation-knowledge',
-        label: 'AI Knowledge Base',
-        href: '/knowledge-base',
-      },
-    ],
-  },
-  {
-    id: 'services',
-    label: 'Products / Services',
-    href: '/services',
-    icon: Package,
-  },
-  {
-    id: 'billing',
-    label: 'Billing',
-    icon: BadgeDollarSign,
-    children: [
-      { id: 'billing-invoices', label: 'Invoices', href: '/invoices' },
-      {
-        id: 'billing-settings',
-        label: 'Billing Settings',
-        href: '/settings?tab=billing',
-      },
-    ],
-  },
-  {
-    id: 'manage-tags',
-    label: 'Tags',
-    href: '/settings?tab=tags',
-    icon: Settings2,
-  },
-  {
-    id: 'integrations',
-    label: 'Integrations',
-    href: '/integrations',
-    icon: LayoutGrid,
-  },
-  {
-    id: 'settings',
-    label: 'Settings',
-    icon: Settings,
-    children: [
-      {
-        id: 'settings-profile',
-        label: 'Profile',
-        href: '/settings?tab=profile',
-      },
-      {
-        id: 'settings-team',
-        label: 'Team Members',
-        href: '/settings?tab=team',
-      },
-    ],
-  },
-  {
-    id: 'admin',
-    label: 'Admin Panel',
-    icon: ShieldCheck,
-    href: '/admin',
-    superAdminOnly: true,
-    children: [
-      { id: 'admin-overview', label: 'Overview', href: '/admin' },
-      { id: 'admin-tenants', label: 'Tenants', href: '/admin/tenants' },
-      {
-        id: 'admin-subscriptions',
-        label: 'Subscriptions',
-        href: '/admin/subscriptions',
-      },
-      { id: 'admin-ai', label: 'AI Infrastructure', href: '/admin/ai' },
-      { id: 'admin-payments', label: 'Payments', href: '/admin/payments' },
-      {
-        id: 'admin-whatsapp',
-        label: 'WhatsApp Numbers',
-        href: '/admin/whatsapp',
-      },
-      {
-        id: 'admin-settings',
-        label: 'System Settings',
-        href: '/admin/settings',
-      },
-    ],
-  },
-];
+export const NAV = NAVIGATION_REGISTRY;
 
-function pathIsActive(pathname: string, href?: string, aliases: string[] = []) {
+export function pathIsActive(
+  pathname: string,
+  searchParams: Pick<URLSearchParams, 'get'>,
+  href?: string,
+  aliases: string[] = [],
+  activeMatchers: SidebarNavItem['activeMatchers'] = []
+) {
   if (!href) return false;
-  return [href, ...aliases].some((candidate) => {
-    const clean = candidate.split('?')[0];
-    return (
-      pathname === clean ||
-      (clean !== '/dashboard' && pathname.startsWith(`${clean}/`))
-    );
-  });
+  const matches = (candidate: string) => {
+    const url = new URL(candidate, 'https://navigation.local');
+    if (
+      pathname !== url.pathname &&
+      (url.pathname === '/dashboard' ||
+        !pathname.startsWith(`${url.pathname}/`))
+    )
+      return false;
+    for (const [key, value] of url.searchParams)
+      if (searchParams.get(key) !== value) return false;
+    return true;
+  };
+  return (
+    [href, ...aliases].some(matches) ||
+    activeMatchers.some((matcher) =>
+      pathname === matcher.pathname ||
+      pathname.startsWith(`${matcher.pathname}/`)
+        ? Object.entries(matcher.query ?? {}).every(
+            ([key, value]) => searchParams.get(key) === value
+          )
+        : false
+    )
+  );
 }
 
-export function Sidebar({ open = false, onClose }: SidebarProps) {
+export function Sidebar({
+  open = false,
+  onClose,
+  collapsed = false,
+  mobileTriggerRef: _mobileTriggerRef,
+}: SidebarProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { profile, accountRole, isSuperAdmin } = useAuth();
-  const { terminology, currentIndustry, manifest, isRouteAllowed } =
-    useWorkspace();
+  const {
+    terminology,
+    currentIndustry,
+    manifest,
+    isRouteAllowed,
+    enabledModules,
+  } = useWorkspace();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
     sales: true,
     conversations: false,
@@ -235,13 +96,17 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         isRouteAllowed,
         accountRole,
         routeRoleRequirements: manifest.sidebar,
+        manifest,
+        enabledModules,
+        featureStatuses: NAVIGATION_FEATURE_STATUSES,
       }),
     [
       accountRole,
       currentIndustry,
+      enabledModules,
       isRouteAllowed,
       isSuperAdmin,
-      manifest.sidebar,
+      manifest,
       terminology,
     ]
   );
@@ -257,15 +122,22 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
     for (const item of visibleNav)
       if (
         item.children?.some((child) =>
-          pathIsActive(pathname, child.href, child.activeHrefs)
+          pathIsActive(
+            pathname,
+            searchParams,
+            child.href,
+            child.activeHrefs,
+            child.activeMatchers
+          )
         )
       )
         return item.id;
     return (
-      visibleNav.find((item) => pathIsActive(pathname, item.href))?.id ||
-      'dashboard'
+      visibleNav.find((item) =>
+        pathIsActive(pathname, searchParams, item.href, [], item.activeMatchers)
+      )?.id || 'dashboard'
     );
-  }, [pathname, visibleNav]);
+  }, [pathname, searchParams, visibleNav]);
 
   useEffect(() => {
     if (activeParent && activeParent !== 'dashboard') {
@@ -290,7 +162,8 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
       {/* Sidebar Aside */}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-[252px] shrink-0 flex-col bg-[#071426] text-white transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0',
+          'fixed inset-y-0 left-0 z-50 flex w-[252px] shrink-0 flex-col bg-[#071426] text-white transition-[width,transform] duration-200 lg:static lg:z-auto lg:translate-x-0',
+          collapsed && 'lg:w-[72px]',
           open ? 'translate-x-0' : '-translate-x-full'
         )}
       >
@@ -298,8 +171,9 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         <div className="flex h-[76px] items-center justify-between px-5">
           <Link
             href="/dashboard"
-            className="flex items-center gap-3.5"
+            className="animate-brand-in flex items-center gap-3.5"
             onClick={onClose}
+            aria-label="Open dashboard"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -320,6 +194,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
             type="button"
             className="rounded-lg p-1.5 text-slate-400 hover:bg-white/5 hover:text-white lg:hidden"
             onClick={onClose}
+            aria-label="Close navigation"
           >
             <X className="h-5 w-5" />
           </button>
@@ -327,11 +202,17 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
 
         {/* Navigation Menu */}
         <div className="min-h-0 flex-1 [scrollbar-width:thin] [scrollbar-color:#1e293b_transparent] overflow-y-auto px-3 py-2">
-          <nav className="space-y-1">
-            {visibleNav.map((item) => {
+          <nav className="space-y-1" aria-label="Workspace navigation">
+            {visibleNav.map((item, index) => {
               const Icon = item.icon;
               const isDashboard = item.id === 'dashboard';
-              const activeDirect = pathIsActive(pathname, item.href);
+              const activeDirect = pathIsActive(
+                pathname,
+                searchParams,
+                item.href,
+                [],
+                item.activeMatchers
+              );
               const isParentActive = activeParent === item.id;
               const isExpanded = expanded[item.id];
               const hasChildren = Boolean(item.children?.length);
@@ -340,13 +221,16 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                 return (
                   <Link
                     key={item.id}
+                    style={{ ['--i']: index } as React.CSSProperties}
                     data-nav-id={item.id}
                     data-nav-href={item.href}
                     data-nav-source-label={item.sourceLabel}
                     href={item.href}
                     onClick={onClose}
+                    aria-current={activeDirect ? 'page' : undefined}
+                    title={collapsed ? item.label : undefined}
                     className={cn(
-                      'group relative flex h-[44px] items-center gap-3 rounded-xl px-3.5 text-[14px] font-medium transition-all',
+                      'animate-nav-item group relative flex h-[44px] items-center gap-3 rounded-xl px-3.5 text-[14px] font-medium transition-all',
                       isDashboard && activeDirect
                         ? 'bg-emerald-500/15 text-white'
                         : activeDirect
@@ -359,7 +243,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                     )}
                     <Icon
                       className={cn(
-                        'h-[18px] w-[18px] shrink-0',
+                        'h-[18px] w-[18px] shrink-0 transition-transform duration-200 group-hover:scale-110',
                         isDashboard && activeDirect
                           ? 'text-[#10b981]'
                           : activeDirect
@@ -367,7 +251,9 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                             : 'text-slate-400 group-hover:text-slate-200'
                       )}
                     />
-                    <span>{item.label}</span>
+                    <span className={cn(collapsed && 'lg:hidden')}>
+                      {item.label}
+                    </span>
                   </Link>
                 );
               }
@@ -375,13 +261,17 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
               return (
                 <div
                   key={item.id}
+                  style={{ ['--i']: index } as React.CSSProperties}
                   data-nav-id={item.id}
                   data-nav-source-label={item.sourceLabel}
-                  className="space-y-0.5"
+                  className="animate-nav-item space-y-0.5"
                 >
                   <button
                     type="button"
                     onClick={() => toggle(item.id)}
+                    aria-expanded={isExpanded}
+                    aria-controls={`sidebar-group-${item.id}`}
+                    title={collapsed ? item.label : undefined}
                     className={cn(
                       'group flex h-[44px] w-full items-center gap-3 rounded-xl px-3.5 text-left text-[14px] font-medium transition-colors',
                       isParentActive && !isExpanded
@@ -391,13 +281,15 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                   >
                     <Icon
                       className={cn(
-                        'h-[18px] w-[18px] shrink-0',
+                        'h-[18px] w-[18px] shrink-0 transition-transform duration-200 group-hover:scale-110',
                         isParentActive
                           ? 'text-slate-200'
                           : 'text-slate-400 group-hover:text-slate-200'
                       )}
                     />
-                    <span className="flex-1">{item.label}</span>
+                    <span className={cn('flex-1', collapsed && 'lg:hidden')}>
+                      {item.label}
+                    </span>
                     {isExpanded ? (
                       <ChevronDown className="h-4 w-4 text-slate-400" />
                     ) : (
@@ -406,10 +298,14 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                   </button>
 
                   {isExpanded && item.children && (
-                    <div className="space-y-0.5 pt-0.5 pr-1 pb-1 pl-9">
+                    <div
+                      id={`sidebar-group-${item.id}`}
+                      className="space-y-0.5 pt-0.5 pr-1 pb-1 pl-9"
+                    >
                       {item.children.map((child) => {
                         const active = pathIsActive(
                           pathname,
+                          searchParams,
                           child.href,
                           child.activeHrefs
                         );
@@ -422,6 +318,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                             data-nav-source-label={child.sourceLabel}
                             href={child.href}
                             onClick={onClose}
+                            aria-current={active ? 'page' : undefined}
                             className={cn(
                               'flex h-8 items-center rounded-lg px-2.5 text-[13px] font-medium transition-colors',
                               active
@@ -478,7 +375,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
             </div>
             <div className="min-w-0 flex-1">
               <div className="truncate text-[13px] font-semibold text-white">
-                {profile?.full_name || 'susanta lohar'}
+                {profile?.full_name || 'Account user'}
               </div>
               <div className="text-[11px] text-slate-400 capitalize">
                 {profile?.role || 'Admin'}

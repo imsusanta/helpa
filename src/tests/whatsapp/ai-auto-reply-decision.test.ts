@@ -43,7 +43,10 @@ vi.mock('@/lib/appwrite-server-compat', () => {
     const { table } = ops;
 
     if (table === 'conversations') {
-      return { data: conversationData, error: null };
+      if (ops.type === 'single' || ops.type === 'maybeSingle') {
+        return { data: conversationData, error: null };
+      }
+      return { data: [conversationData], error: null };
     }
     if (table === 'contacts') {
       const contactObj = {
@@ -162,8 +165,14 @@ vi.mock('@/lib/appwrite-server-compat', () => {
       is: () => b,
       order: () => b,
       limit: () => b,
-      single: () => Promise.resolve(resolve(ops)),
-      maybeSingle: () => Promise.resolve(resolve(ops)),
+      single: () => {
+        ops.type = 'single';
+        return Promise.resolve(resolve(ops));
+      },
+      maybeSingle: () => {
+        ops.type = 'maybeSingle';
+        return Promise.resolve(resolve(ops));
+      },
       then: (onF: (v: unknown) => unknown, onR?: (e: unknown) => unknown) =>
         Promise.resolve(resolve(ops)).then(onF, onR),
     };

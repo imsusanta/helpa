@@ -36,6 +36,8 @@ const eslintConfig = defineConfig([
     'public/opus/**',
     // Local diagnostic scratch scripts
     'scratch/**',
+    // Internal agent worktrees
+    '.claude/**',
   ]),
 ]);
 

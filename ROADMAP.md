@@ -4,16 +4,19 @@ Helpa is focusing first on independent clinics and outpatient teams using WhatsA
 
 ## Now — prove the clinic workflow
 
+- [x] Prepare 7-shot capture checklist and 90s walkthrough specification (`docs/PRODUCT_DEMO.md`). *(Awaiting human staging capture)*
 - [ ] Complete a real staging demo with seven fictional-data screenshots.
 - [ ] Publish a captioned 90-second product walkthrough.
-- [ ] Instrument response time, bookings handled, automation success, and patient return rate.
-- [ ] Validate event calculations against manual samples.
+- [x] Instrument response time, bookings handled, automation success, and patient return rate (`src/lib/metrics`).
+- [ ] Complete 30-day production observation period before publishing scorecard.
 - [ ] Pilot with 3–5 clinics and document consented, anonymized outcomes.
 
 ## Next — reduce operational risk
 
-- [ ] Commission and remediate an independent security assessment.
-- [ ] Complete the Supabase cutover and remove Appwrite runtime code, dependencies, configuration, and CSP allowances.
+- [x] Prepare independent security review handover package and remediation tracker (`docs/EXTERNAL_SECURITY_REVIEW_PACKAGE.md`).
+- [ ] Commission third-party cybersecurity firm for formal penetration test and signed retest.
+- [x] Inventory Appwrite assets and establish 10 cutover gates (`docs/APPWRITE_INVENTORY_AND_CUTOVER.md`).
+- [ ] Execute irreversible Appwrite removal upon human cutover sign-off.
 - [ ] Add restore testing, incident-response exercises, and production SLO reporting.
 - [ ] Add accessibility and mobile usability audits for the reception workflow.
 

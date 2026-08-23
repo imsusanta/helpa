@@ -46,7 +46,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
   const fullName = profile?.full_name || 'susanta lohar';
 
   return (
-    <header className="z-20 flex h-[72px] shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 shadow-2xs lg:px-6">
+    <header className="animate-header-in z-20 flex h-[72px] shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 shadow-2xs lg:px-6">
       {/* Left: Hamburger + Search + Quick Create */}
       <div className="flex items-center gap-3.5">
         <button
@@ -88,7 +88,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
-              <button className="flex h-10 shrink-0 items-center gap-1.5 rounded-xl bg-[#00b074] px-3.5 text-xs font-bold text-white shadow-2xs transition hover:bg-[#009b66]">
+              <button className="flex h-10 shrink-0 items-center gap-1.5 rounded-xl bg-[#00b074] px-3.5 text-xs font-bold text-white shadow-2xs transition hover:-translate-y-0.5 hover:bg-[#009b66] hover:shadow-md active:translate-y-0">
                 <Plus className="h-4 w-4 stroke-[2.5]" />
                 <span>Quick Create</span>
               </button>
@@ -228,9 +228,9 @@ export function Header({ onOpenSidebar }: HeaderProps) {
         <button
           type="button"
           aria-label="Refresh"
-          className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100"
+          className="group flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100"
         >
-          <RotateCw className="h-4 w-4" />
+          <RotateCw className="h-4 w-4 transition-transform duration-500 group-hover:rotate-180" />
         </button>
 
         {/* Live Notification Center */}
@@ -238,7 +238,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
 
         {/* User Avatar & Dropdown */}
         <DropdownMenu>
-          <DropdownMenuTrigger className="flex items-center rounded-full outline-none focus:ring-2 focus:ring-emerald-500/20">
+          <DropdownMenuTrigger className="flex items-center rounded-full transition-transform outline-none hover:scale-105 focus:ring-2 focus:ring-emerald-500/20">
             <Avatar className="h-9 w-9">
               {profile?.avatar_url ? (
                 <AvatarImage src={profile.avatar_url} alt={fullName} />

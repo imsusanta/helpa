@@ -1,6 +1,14 @@
 import { hasMinRole, type AccountRole } from '@/lib/auth/roles';
 import { resolveIndustryAlias } from '@/modules/terminology';
-import type { IndustryTerminology } from '@/modules/types';
+import type { IndustryModule, IndustryTerminology } from '@/modules/types';
+import {
+  Calendar,
+  Clock,
+  FileText,
+  GitBranch,
+  UserCheck,
+  Users,
+} from 'lucide-react';
 
 export type SidebarNavChild = {
   id: string;
@@ -9,6 +17,11 @@ export type SidebarNavChild = {
   href: string;
   hospitalOnly?: boolean;
   activeHrefs?: string[];
+  roleMin?: AccountRole;
+  featureKey?: string;
+  requiredModule?: string;
+  badge?: 'beta' | 'coming-soon' | 'setup-required';
+  activeMatchers?: Array<{ pathname: string; query?: Record<string, string> }>;
 };
 
 export type SidebarNavItem<TIcon = unknown> = {
@@ -19,7 +32,20 @@ export type SidebarNavItem<TIcon = unknown> = {
   icon: TIcon;
   children?: SidebarNavChild[];
   superAdminOnly?: boolean;
+  roleMin?: AccountRole;
+  featureKey?: string;
+  requiredModule?: string;
+  badge?: 'beta' | 'coming-soon' | 'setup-required';
+  activeMatchers?: Array<{ pathname: string; query?: Record<string, string> }>;
 };
+
+export type NavigationFeatureStatus =
+  | 'WORKING'
+  | 'PARTIAL'
+  | 'BROKEN'
+  | 'PLACEHOLDER'
+  | 'CREDENTIAL_GATED'
+  | 'COMING_SOON';
 
 type BuildVisibleNavigationOptions<TIcon> = {
   navigation: readonly SidebarNavItem<TIcon>[];
@@ -32,6 +58,9 @@ type BuildVisibleNavigationOptions<TIcon> = {
     href: string;
     roleMin?: AccountRole;
   }[];
+  manifest?: IndustryModule;
+  enabledModules?: readonly string[];
+  featureStatuses?: Record<string, NavigationFeatureStatus>;
 };
 
 export type NavigationValidationIssueCode =
@@ -63,8 +92,19 @@ function getLabelByHref(terminology: IndustryTerminology) {
     ['/services', terminology.services],
     ['/billing/reports', terminology.reports],
     ['/settings?tab=team', terminology.staffMembers],
+    ['/doctors', terminology.staffMembers],
+    ['/lab-reports', terminology.reports],
   ]);
 }
+
+const MANIFEST_ICON_BY_PATH: Record<string, typeof FileText> = {
+  '/doctors': UserCheck,
+  '/lab-reports': FileText,
+  '/patients': Users,
+  '/appointments': Calendar,
+  '/follow-ups': Clock,
+  '/pipelines': GitBranch,
+};
 
 export function getNavigationPathname(href: string) {
   try {
@@ -97,6 +137,9 @@ export function buildVisibleNavigation<TIcon>({
   isRouteAllowed,
   accountRole,
   routeRoleRequirements = [],
+  manifest,
+  enabledModules = [],
+  featureStatuses = {},
 }: BuildVisibleNavigationOptions<TIcon>): SidebarNavItem<TIcon>[] {
   const isHospitalWorkspace =
     resolveIndustryAlias(currentIndustry) === 'hospital_clinic';
@@ -112,7 +155,14 @@ export function buildVisibleNavigation<TIcon>({
     }
   }
 
-  const isRoleAllowed = (href: string) => {
+  const isRoleAllowed = (href: string, explicitRoleMin?: AccountRole) => {
+    if (
+      explicitRoleMin &&
+      !isSuperAdmin &&
+      accountRole !== undefined &&
+      (!accountRole || !hasMinRole(accountRole, explicitRoleMin))
+    )
+      return false;
     const roleMin = roleMinByDestination.get(
       normalizeNavigationDestination(href)
     );
@@ -120,15 +170,59 @@ export function buildVisibleNavigation<TIcon>({
     return Boolean(accountRole && hasMinRole(accountRole, roleMin));
   };
 
-  return navigation
-    .filter((item) => !item.superAdminOnly || isSuperAdmin)
+  const isFeatureVisible = (
+    item: Pick<SidebarNavChild, 'requiredModule' | 'featureKey'>
+  ) => {
+    if (
+      item.requiredModule &&
+      enabledModules.length > 0 &&
+      !enabledModules.includes(item.requiredModule)
+    )
+      return false;
+    const status = item.featureKey
+      ? featureStatuses[item.featureKey]
+      : undefined;
+    return (
+      !status || !['BROKEN', 'PLACEHOLDER', 'COMING_SOON'].includes(status)
+    );
+  };
+
+  const manifestRoutes =
+    manifest?.status === 'ACTIVE'
+      ? manifest.sidebar
+          .filter((item) => !navigationHasPathname(navigation, item.href))
+          .map((item) => ({
+            id: `industry-${item.href.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '')}`,
+            label: labelByHref.get(item.href) ?? item.label,
+            href: item.href,
+            icon: MANIFEST_ICON_BY_PATH[item.href] ?? FileText,
+            roleMin: item.roleMin,
+          }))
+      : [];
+  const navigationWithManifest = manifestRoutes.length
+    ? [
+        ...navigation,
+        {
+          id: 'industry-operations',
+          label: 'Clinic Operations',
+          icon: FileText,
+          children: manifestRoutes,
+        } as unknown as SidebarNavItem<TIcon>,
+      ]
+    : navigation;
+
+  return navigationWithManifest
+    .filter(
+      (item) => (!item.superAdminOnly || isSuperAdmin) && isFeatureVisible(item)
+    )
     .map((item) => {
       const children = item.children
         ?.filter(
           (child) =>
             (!child.hospitalOnly || isHospitalWorkspace) &&
             isRouteAllowed(getNavigationPathname(child.href)) &&
-            isRoleAllowed(child.href)
+            isRoleAllowed(child.href, child.roleMin) &&
+            isFeatureVisible(child)
         )
         .map((child) => ({
           ...child,
@@ -153,13 +247,27 @@ export function buildVisibleNavigation<TIcon>({
         return false;
       }
 
-      if (item.href && !isRoleAllowed(item.href)) {
+      if (item.href && !isRoleAllowed(item.href, item.roleMin)) {
         return false;
       }
 
       // Do not leave behind an expandable heading with no accessible routes.
       return Boolean(item.href || !item.children || item.children.length > 0);
     });
+}
+
+function navigationHasPathname<TIcon>(
+  navigation: readonly SidebarNavItem<TIcon>[],
+  href: string
+) {
+  const pathname = getNavigationPathname(href);
+  return navigation.some(
+    (item) =>
+      (item.href && getNavigationPathname(item.href) === pathname) ||
+      (item.children ?? []).some(
+        (child) => getNavigationPathname(child.href) === pathname
+      )
+  );
 }
 
 function normalizeLabel(label: string) {
