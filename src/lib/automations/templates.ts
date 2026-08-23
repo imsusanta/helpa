@@ -135,22 +135,24 @@ export const AUTOMATION_TEMPLATES: Record<
     slug: 'doctor_booking_enquiry',
     name: 'Doctor Booking Enquiry',
     description:
-      'Collect appointment preferences and route the patient to staff.',
+      'Starts an AI-assisted appointment flow and keeps the chatbot active until booking.',
     trigger_type: 'keyword_match',
     trigger_config: {
-      keywords: ['doctor', 'appointment', 'book doctor', 'consultation'],
+      keywords: [
+        'doctor appointment',
+        'book appointment',
+        'book doctor',
+        'appointment booking',
+        'consultation booking',
+      ],
       match_type: 'contains',
     },
     steps: [
       {
         step_type: 'send_message',
         step_config: {
-          text: "Thanks for contacting us about a doctor appointment. Please share the patient's name, preferred doctor or department, and preferred date and time.",
+          text: "Let's book the doctor appointment. Please reply with the patient's full name, mobile number, gender, date of birth (YYYY-MM-DD), department, preferred doctor, date, and time. The AI receptionist will verify the details and complete the booking.",
         },
-      },
-      {
-        step_type: 'assign_conversation',
-        step_config: { mode: 'round_robin' },
       },
     ],
   },
