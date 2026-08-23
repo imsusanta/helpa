@@ -34,14 +34,11 @@ vi.mock('@/lib/appwrite-server-compat', () => {
     if (table === 'contacts') return { data: state.contact, error: null };
     if (table === 'automations')
       return { data: state.automations, error: null };
-    if (table === 'automation_steps')
-      return { data: state.steps, error: null };
+    if (table === 'automation_steps') return { data: state.steps, error: null };
     if (table === 'profiles') return { data: state.profiles, error: null };
     if (table === 'conversations') {
       if (type === 'update') {
-        state.conversationUpdates.push(
-          ops.payload as Record<string, unknown>
-        );
+        state.conversationUpdates.push(ops.payload as Record<string, unknown>);
         return { data: null, error: null };
       }
       return { data: state.conversations, error: null };
@@ -91,7 +88,26 @@ vi.mock('@/lib/appwrite-server-compat', () => {
   };
 });
 
-const sendText = vi.fn(async () => ({ whatsapp_message_id: 'm1' }));
+/** The payload `engineSendText` receives from the engine. */
+interface SendTextArgs {
+  accountId: string;
+  userId: string;
+  conversationId: string;
+  contactId: string;
+  text: string;
+}
+
+/**
+ * Declared as a typed function rather than an inline `async () => ...`
+ * so `sendText.mock.calls[0][0]` keeps its argument type. A zero-arg
+ * implementation makes `mock.calls` an array of empty tuples, and
+ * indexing one of those is a compile error (TS2493), not just an `any`.
+ */
+async function sendTextStub(_args: SendTextArgs) {
+  return { whatsapp_message_id: 'm1' };
+}
+
+const sendText = vi.fn(sendTextStub);
 
 vi.mock('./meta-send', () => ({
   engineSendText: (...a: unknown[]) =>
@@ -102,6 +118,15 @@ vi.mock('./meta-send', () => ({
 import { runAutomationsForTrigger } from './engine';
 
 const ACCOUNT = 'acct-1';
+const NEW_MESSAGE = 'new_message_received';
+const CONV_ASSIGNED = 'conversation_assigned';
+const APPT_REMINDER = 'appointment_reminder';
+
+/** One entry of the `steps_executed` array written to automation_logs. */
+interface LoggedStep {
+  status: string;
+  detail?: string;
+}
 
 function automation(over: Record<string, unknown>) {
   return {
@@ -123,6 +148,14 @@ function step(step_type: string, step_config: Record<string, unknown>) {
     position: 0,
     parent_step_id: null,
   };
+}
+
+/** First step result on the most recent log update that carried any. */
+function lastLogStatus(): LoggedStep | undefined {
+  const withSteps = h.state.logUpdates.filter((u) => u.steps_executed);
+  const last = withSteps[withSteps.length - 1];
+  const steps = last?.steps_executed as LoggedStep[] | undefined;
+  return steps?.[0];
 }
 
 beforeEach(() => {
@@ -182,9 +215,7 @@ describe('triggerMatches — tag_added', () => {
   });
 
   it('stays silent when no tag is configured', async () => {
-    h.state.automations = [
-      automation({ trigger_type: 'tag_added', trigger_config: {} }),
-    ];
+    h.state.automations = [automation({ trigger_type: 'tag_added' })];
     const res = await runAutomationsForTrigger({
       accountId: ACCOUNT,
       triggerType: 'tag_added',
@@ -199,7 +230,7 @@ describe('triggerMatches — conversation_assigned', () => {
   it('only fires for the configured agent', async () => {
     h.state.automations = [
       automation({
-        trigger_type: 'conversation_assigned',
+        trigger_type: CONV_ASSIGNED,
         trigger_config: { agent_id: 'u2' },
       }),
     ];
@@ -207,7 +238,7 @@ describe('triggerMatches — conversation_assigned', () => {
 
     const miss = await runAutomationsForTrigger({
       accountId: ACCOUNT,
-      triggerType: 'conversation_assigned',
+      triggerType: CONV_ASSIGNED,
       contactId: 'c1',
       context: { agent_id: 'u3', conversation_id: 'conv1' },
     });
@@ -215,7 +246,7 @@ describe('triggerMatches — conversation_assigned', () => {
 
     const hit = await runAutomationsForTrigger({
       accountId: ACCOUNT,
-      triggerType: 'conversation_assigned',
+      triggerType: CONV_ASSIGNED,
       contactId: 'c1',
       context: { agent_id: 'u2', conversation_id: 'conv1' },
     });
@@ -223,17 +254,12 @@ describe('triggerMatches — conversation_assigned', () => {
   });
 
   it('matches any agent when unconfigured', async () => {
-    h.state.automations = [
-      automation({
-        trigger_type: 'conversation_assigned',
-        trigger_config: {},
-      }),
-    ];
+    h.state.automations = [automation({ trigger_type: CONV_ASSIGNED })];
     h.state.steps = [step('send_message', { text: 'yours now' })];
 
     const res = await runAutomationsForTrigger({
       accountId: ACCOUNT,
-      triggerType: 'conversation_assigned',
+      triggerType: CONV_ASSIGNED,
       contactId: 'c1',
       context: { agent_id: 'anyone', conversation_id: 'conv1' },
     });
@@ -242,8 +268,8 @@ describe('triggerMatches — conversation_assigned', () => {
 });
 
 describe('assign_conversation — round robin', () => {
-  it('picks the assignable member with the fewest open conversations', async () => {
-    h.state.automations = [automation({ trigger_type: 'new_message_received' })];
+  it('picks the assignable member with the fewest open chats', async () => {
+    h.state.automations = [automation({ trigger_type: NEW_MESSAGE })];
     h.state.steps = [step('assign_conversation', { mode: 'round_robin' })];
     h.state.profiles = [
       { user_id: 'u1', account_role: 'owner' },
@@ -258,7 +284,7 @@ describe('assign_conversation — round robin', () => {
 
     await runAutomationsForTrigger({
       accountId: ACCOUNT,
-      triggerType: 'new_message_received',
+      triggerType: NEW_MESSAGE,
       contactId: 'c1',
       context: {},
     });
@@ -269,7 +295,7 @@ describe('assign_conversation — round robin', () => {
   });
 
   it('never assigns to a viewer', async () => {
-    h.state.automations = [automation({ trigger_type: 'new_message_received' })];
+    h.state.automations = [automation({ trigger_type: NEW_MESSAGE })];
     h.state.steps = [step('assign_conversation', { mode: 'round_robin' })];
     h.state.profiles = [
       { user_id: 'u1', account_role: 'agent' },
@@ -279,7 +305,7 @@ describe('assign_conversation — round robin', () => {
 
     await runAutomationsForTrigger({
       accountId: ACCOUNT,
-      triggerType: 'new_message_received',
+      triggerType: NEW_MESSAGE,
       contactId: 'c1',
       context: {},
     });
@@ -291,8 +317,8 @@ describe('assign_conversation — round robin', () => {
 });
 
 describe('interpolate — contact and appointment tokens', () => {
-  it('renders the contact first name and a human appointment date/time', async () => {
-    h.state.automations = [automation({ trigger_type: 'appointment_reminder' })];
+  it('renders the first name and a human appointment slot', async () => {
+    h.state.automations = [automation({ trigger_type: APPT_REMINDER })];
     h.state.steps = [
       step('send_message', {
         text: 'Hi {{ contact.first_name }}, reminder: {{ appointment.date }} at {{ appointment.time }}. Ref {{ appointment.booking_id }}.',
@@ -301,7 +327,7 @@ describe('interpolate — contact and appointment tokens', () => {
 
     await runAutomationsForTrigger({
       accountId: ACCOUNT,
-      triggerType: 'appointment_reminder',
+      triggerType: APPT_REMINDER,
       contactId: 'c1',
       context: {
         conversation_id: 'conv1',
@@ -314,50 +340,42 @@ describe('interpolate — contact and appointment tokens', () => {
     });
 
     expect(sendText).toHaveBeenCalledTimes(1);
-    const arg = sendText.mock.calls[0][0] as unknown as { text: string };
+    const arg = sendText.mock.calls[0][0];
     expect(arg.text).toBe(
       'Hi Riya, reminder: 25 Aug 2026 at 2:30 PM. Ref BK-9001.'
     );
   });
 
   it('leaves unknown tokens blank rather than printing them', async () => {
-    h.state.automations = [automation({ trigger_type: 'new_message_received' })];
+    h.state.automations = [automation({ trigger_type: NEW_MESSAGE })];
     h.state.steps = [
       step('send_message', { text: 'Hello{{ contact.nmae }} there' }),
     ];
 
     await runAutomationsForTrigger({
       accountId: ACCOUNT,
-      triggerType: 'new_message_received',
+      triggerType: NEW_MESSAGE,
       contactId: 'c1',
       context: { conversation_id: 'conv1' },
     });
 
-    const arg = sendText.mock.calls[0][0] as unknown as { text: string };
+    const arg = sendText.mock.calls[0][0];
     expect(arg.text).toBe('Hello there');
   });
 });
 
 describe('send_webhook — egress rules', () => {
-  function lastLogStatus() {
-    const withSteps = h.state.logUpdates.filter((u) => u.steps_executed);
-    const last = withSteps[withSteps.length - 1] as
-      | { steps_executed: { status: string; detail?: string }[] }
-      | undefined;
-    return last?.steps_executed?.[0];
-  }
-
-  it('refuses the cloud metadata address without making a request', async () => {
+  it('refuses the cloud metadata address without a request', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
-    h.state.automations = [automation({ trigger_type: 'new_message_received' })];
+    h.state.automations = [automation({ trigger_type: NEW_MESSAGE })];
     h.state.steps = [
-      step('send_webhook', { url: 'http://169.254.169.254/latest/meta-data/' }),
+      step('send_webhook', { url: 'http://169.254.169.254/latest/' }),
     ];
 
     await runAutomationsForTrigger({
       accountId: ACCOUNT,
-      triggerType: 'new_message_received',
+      triggerType: NEW_MESSAGE,
       contactId: 'c1',
       context: {},
     });
@@ -369,14 +387,15 @@ describe('send_webhook — egress rules', () => {
   it('refuses loopback and non-http schemes', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
-    h.state.automations = [automation({ trigger_type: 'new_message_received' })];
+    h.state.automations = [automation({ trigger_type: NEW_MESSAGE })];
 
-    for (const url of ['http://127.0.0.1:5432/hook', 'file:///etc/passwd']) {
+    const urls = ['http://127.0.0.1:5432/hook', 'file:///etc/passwd'];
+    for (const url of urls) {
       h.state.logUpdates = [];
       h.state.steps = [step('send_webhook', { url })];
       await runAutomationsForTrigger({
         accountId: ACCOUNT,
-        triggerType: 'new_message_received',
+        triggerType: NEW_MESSAGE,
         contactId: 'c1',
         context: {},
       });
@@ -391,14 +410,14 @@ describe('send_webhook — egress rules', () => {
       .mockResolvedValueOnce({ ok: false, status: 500 })
       .mockResolvedValueOnce({ ok: true, status: 200 });
     vi.stubGlobal('fetch', fetchMock);
-    h.state.automations = [automation({ trigger_type: 'new_message_received' })];
+    h.state.automations = [automation({ trigger_type: NEW_MESSAGE })];
     h.state.steps = [
       step('send_webhook', { url: 'https://hooks.example.com/inbound' }),
     ];
 
     await runAutomationsForTrigger({
       accountId: ACCOUNT,
-      triggerType: 'new_message_received',
+      triggerType: NEW_MESSAGE,
       contactId: 'c1',
       context: {},
     });
@@ -412,14 +431,14 @@ describe('send_webhook — egress rules', () => {
   it('does not retry a 400 and does not follow redirects', async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 400 });
     vi.stubGlobal('fetch', fetchMock);
-    h.state.automations = [automation({ trigger_type: 'new_message_received' })];
+    h.state.automations = [automation({ trigger_type: NEW_MESSAGE })];
     h.state.steps = [
       step('send_webhook', { url: 'https://hooks.example.com/inbound' }),
     ];
 
     await runAutomationsForTrigger({
       accountId: ACCOUNT,
-      triggerType: 'new_message_received',
+      triggerType: NEW_MESSAGE,
       contactId: 'c1',
       context: {},
     });
