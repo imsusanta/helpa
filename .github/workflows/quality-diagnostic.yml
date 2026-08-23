@@ -1,0 +1,54 @@
+name: Temporary quality diagnostics
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: quality-diagnostic-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Capture quality output
+        shell: bash
+        run: |
+          set +e
+          npm run format:check > /tmp/quality.log 2>&1
+          format_status=$?
+          npm run lint >> /tmp/quality.log 2>&1
+          lint_status=$?
+          npm run typecheck >> /tmp/quality.log 2>&1
+          type_status=$?
+          {
+            echo '## Temporary quality diagnostics'
+            echo
+            echo "- Format status: $format_status"
+            echo "- Lint status: $lint_status"
+            echo "- Typecheck status: $type_status"
+            echo
+            echo '```text'
+            tail -c 50000 /tmp/quality.log
+            echo
+            echo '```'
+          } > /tmp/quality-comment.md
+          exit 0
+      - name: Post diagnostics
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: gh pr comment "$PR_NUMBER" --body-file /tmp/quality-comment.md
