@@ -45,6 +45,10 @@ export const broadcastStatusConfig: Record<BroadcastStatus, StatusDisplay> = {
     label: 'Failed',
     classes: 'bg-red-500/10 text-red-400 border-red-500/20',
   },
+  paused: {
+    label: 'Paused',
+    classes: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
+  },
 };
 
 export const recipientStatusConfig: Record<RecipientStatus, StatusDisplay> = {

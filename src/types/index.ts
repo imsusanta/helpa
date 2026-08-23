@@ -575,7 +575,12 @@ export interface InvoicePayment {
 }
 
 export type BroadcastStatus =
-  'draft' | 'scheduled' | 'sending' | 'sent' | 'failed';
+  | 'draft'
+  | 'scheduled'
+  | 'sending'
+  | 'sent'
+  | 'failed'
+  | 'paused';
 export type RecipientStatus =
   'pending' | 'sent' | 'delivered' | 'read' | 'replied' | 'failed';
 
@@ -588,6 +593,7 @@ export interface Broadcast {
   template_variables?: Record<string, unknown>;
   audience_filter?: Record<string, unknown>;
   scheduled_at?: string;
+  paused_at?: string | null;
   status: BroadcastStatus;
   total_recipients: number;
   sent_count: number;
@@ -643,7 +649,44 @@ export type AutomationTriggerType =
   | 'new_contact_created'
   | 'conversation_assigned'
   | 'tag_added'
-  | 'time_based';
+  | 'time_based'
+  | 'form_submitted';
+
+export interface LeadFormField {
+  key: string;
+  label: string;
+  type: 'text' | 'email' | 'phone' | 'date' | 'number' | 'textarea';
+  required?: boolean;
+  placeholder?: string;
+}
+
+export interface LeadForm {
+  id: string;
+  account_id: string;
+  name: string;
+  description?: string | null;
+  public_token: string;
+  fields: LeadFormField[];
+  success_message?: string | null;
+  status: 'draft' | 'active' | 'paused';
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FormSubmission {
+  id: string;
+  account_id: string;
+  form_id: string;
+  contact_id?: string | null;
+  lead_id?: string | null;
+  data: Record<string, unknown>;
+  status: 'new' | 'contacted' | 'converted' | 'archived';
+  assigned_user_id?: string | null;
+  created_at: string;
+  updated_at: string;
+  contact?: Contact | null;
+}
 
 export type AutomationStepType =
   | 'send_message'

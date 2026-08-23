@@ -115,7 +115,7 @@ function LoginPageInner() {
             <Link href="/" className="group flex items-center gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/helpa-logo.png?v=2"
+                src="/helpa-logo.png?v=4"
                 alt="Helpa"
                 className="h-10 w-10 rounded-xl object-contain shadow-[0_0_20px_rgba(16,185,129,0.3)] transition-transform duration-300 group-hover:scale-105"
               />

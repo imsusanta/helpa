@@ -3,13 +3,19 @@ import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { resolveSystemPrompt } from '@/modules/registry';
 import { applyAiSafety } from '@/lib/ai/safety';
 import { executeAiCompletionWithFallback } from '@/core/ai/resolver';
+import {
+  checkRateLimit,
+  rateLimitResponse,
+  RATE_LIMITS,
+} from '@/lib/rate-limit';
 
 export async function POST(request: Request) {
   try {
-    // Use the same canonical account resolution as the rest of the app.
-    // Looking up profiles directly breaks for valid users whose workspace
-    // membership lives in account_members (the canonical source of truth).
-    const ctx = await requireRole('viewer');
+    // AI Assistant actions generate content and consume AI quota, so they
+    // require at least the 'agent' role — viewers are read-only and cannot
+    // invoke them. account_members is the canonical membership source, and
+    // requireRole resolves the effective account role from it.
+    const ctx = await requireRole('agent');
     const appwrite = ctx.appwrite;
 
     if (!appwrite) {
@@ -17,6 +23,11 @@ export async function POST(request: Request) {
     }
 
     const accountId = ctx.accountId;
+
+    // Per-user rate limit (shared 'send' budget: 60/min) to bound AI spend.
+    const rl = checkRateLimit(`ai-features:${ctx.userId}`, RATE_LIMITS.send);
+    if (!rl.success) return rateLimitResponse(rl);
+
     const body = await request.json();
     const { action } = body;
 
@@ -220,6 +231,99 @@ Text to translate:
         resolutionParams: {
           accountId,
           feature: 'AI_AGENT',
+        },
+      });
+
+      const result = res.content.trim();
+      if (!result) {
+        return NextResponse.json(
+          { error: 'AI provider returned an empty reply. Please try again.' },
+          { status: 502 }
+        );
+      }
+
+      return NextResponse.json({ result });
+    } else if (
+      action === 'summarize' ||
+      action === 'follow_up' ||
+      action === 'analyze_lead'
+    ) {
+      const { conversationId } = body;
+      if (!conversationId) {
+        return NextResponse.json(
+          { error: `conversationId is required for ${action}.` },
+          { status: 400 }
+        );
+      }
+
+      // Verify the conversation belongs to the authenticated account.
+      const { data: conversation, error: convError } = await appwrite
+        .from('conversations')
+        .select('account_id')
+        .eq('id', conversationId)
+        .single();
+
+      if (convError || !conversation || conversation.account_id !== accountId) {
+        return NextResponse.json(
+          { error: 'Conversation not found or unauthorized.' },
+          { status: 404 }
+        );
+      }
+
+      const { data: messages, error: msgError } = await appwrite
+        .from('messages')
+        .select('sender_type, content_type, content_text, created_at')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: false })
+        .limit(30);
+
+      if (msgError || !messages || messages.length === 0) {
+        return NextResponse.json(
+          { error: 'No messages found in conversation.' },
+          { status: 400 }
+        );
+      }
+
+      messages.reverse();
+
+      const transcript = messages
+        .map((m) => {
+          const who = m.sender_type === 'customer' ? 'Customer' : 'Agent';
+          const text = m.content_text || `[${m.content_type || 'message'}]`;
+          return `${who}: ${text}`;
+        })
+        .join('\n');
+
+      let promptContent: string;
+      if (action === 'summarize') {
+        promptContent = `Summarize the following customer conversation in 3-5 concise bullet points capturing the customer's goal, key details, and current status. Respond ONLY with the summary bullets, written in the same language as the conversation.\n\nConversation:\n${transcript}`;
+      } else if (action === 'follow_up') {
+        promptContent = `Based on the following customer conversation, draft a short, friendly follow-up message the agent can send to re-engage the customer or move things forward. Match the language of the conversation. Respond ONLY with the message text — no quotes, labels, or explanations.\n\nConversation:\n${transcript}`;
+      } else {
+        promptContent = `Analyze the following customer conversation for lead qualification. Respond ONLY with a raw, valid JSON object (no markdown fences, no extra text) in exactly this shape:
+{
+  "lead_score": "hot" | "warm" | "cold",
+  "intent": "sales" | "support" | "booking" | "complaint" | "other",
+  "sentiment": "positive" | "neutral" | "negative",
+  "interested_in": "short string or null",
+  "next_action": "one short recommended next step for the agent"
+}
+
+Conversation:\n${transcript}`;
+      }
+
+      const res = await executeAiCompletionWithFallback({
+        messages: [{ role: 'system', content: promptContent }],
+        options: {
+          temperature: 0.3,
+          ...(action === 'analyze_lead'
+            ? { responseFormat: { type: 'json_object' as const } }
+            : {}),
+        },
+        resolutionParams: {
+          accountId,
+          feature: 'AI_AGENT',
+          conversationId,
         },
       });
 

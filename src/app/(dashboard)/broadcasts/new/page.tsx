@@ -414,7 +414,7 @@ export default function NewCampaignPage() {
         finalVariables = templateVariables;
       }
 
-      const _scheduledAt =
+      const scheduledAt =
         scheduleMode === 'scheduled'
           ? new Date(`${scheduledDate}T${scheduledTime}`).toISOString()
           : undefined;
@@ -442,6 +442,7 @@ export default function NewCampaignPage() {
         cta_url: ctaUrl || undefined,
         recurrence,
         ai_suggested: !!searchParams.get('suggestion'),
+        scheduled_at: scheduledAt,
       } as Parameters<typeof createAndSendBroadcast>[0]);
 
       toast.success(

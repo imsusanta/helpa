@@ -4,6 +4,7 @@ import {
   engineSendText,
   engineSendDocument,
 } from '@/lib/automations/meta-send';
+import { authorizeCronRequest } from '@/lib/marketing/cron-auth';
 
 // Helper to calculate next recurring date
 function getNextRecurringDate(
@@ -22,14 +23,8 @@ function getNextRecurringDate(
 }
 
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('authorization');
-  const expectedSecret = process.env.CRON_SECRET;
-
-  if (process.env.NODE_ENV === 'production' || expectedSecret) {
-    if (!expectedSecret || authHeader !== `Bearer ${expectedSecret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-  }
+  const denied = authorizeCronRequest(request);
+  if (denied) return denied;
 
   console.log('[Cron Campaigns] Executing cron automation triggers...');
 
@@ -69,8 +64,21 @@ export async function GET(request: Request) {
           >;
           let patientIds: string[] = [];
 
-          // Server-side audience resolution
-          if (filter.type === 'all') {
+          // Preferred path: audience snapshot frozen at schedule time by
+          // the wizard (scheduled_contact_ids). Covers every audience
+          // type — tags, custom fields, CSV upserts — which the dynamic
+          // resolver below cannot handle.
+          const snapIds = Array.isArray(filter.scheduled_contact_ids)
+            ? (filter.scheduled_contact_ids as unknown[]).filter(
+                (v): v is string => typeof v === 'string' && v.length > 0
+              )
+            : [];
+
+          // Server-side audience resolution (fallback for legacy rows
+          // without a snapshot)
+          if (snapIds.length > 0) {
+            patientIds = snapIds;
+          } else if (filter.type === 'all') {
             const { data } = await db.from('contacts').select('id');
             patientIds = (data || []).map((c) => c.id);
           } else if (filter.type === 'new_patients') {

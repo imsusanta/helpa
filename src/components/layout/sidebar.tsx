@@ -67,8 +67,8 @@ const NAV: NavItem[] = [
     icon: Megaphone,
     children: [
       { label: 'Campaigns', href: '/broadcasts' },
-      { label: 'Campaign Reports', href: '/broadcasts' },
-      { label: 'Lead Forms', href: '/forms' },
+      { label: 'Campaign Reports', href: '/campaign-reports' },
+      { label: 'Lead Forms', href: '/lead-forms' },
     ],
   },
   {
@@ -264,7 +264,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/helpa-logo.png?v=2"
+              src="/helpa-logo.png?v=4"
               alt="Helpa"
               className="h-10 w-10 rounded-xl object-contain shadow-xs"
             />
