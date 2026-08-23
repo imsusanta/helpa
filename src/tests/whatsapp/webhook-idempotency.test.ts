@@ -347,7 +347,14 @@ describe('WhatsApp Webhook & Idempotency Engine', () => {
       );
 
       const response = await webhookHandler(request);
-      expect(response.status).toBe(500);
+
+      // Acknowledged, not retried: an unregistered phone_number_id cannot
+      // become routable on redelivery, so answering 500 would only trigger an
+      // endless Meta retry loop that risks the subscription being disabled
+      // for every tenant. The event is counted as skipped and logged instead.
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body.skipped).toBe(1);
       expect(processMsgModule.processMessage).not.toHaveBeenCalled();
     });
   });
