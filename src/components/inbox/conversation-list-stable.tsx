@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import type { ComponentProps } from 'react';
 import { ConversationList as BaseConversationList } from './conversation-list';
 
@@ -13,8 +12,9 @@ type ConversationListProps = ComponentProps<typeof BaseConversationList>;
  * every visibility token to restart its fetch effect converted those silent
  * checks into a blocking loader and recreated the polling interval.
  */
-export function ConversationList(props: ConversationListProps) {
-  const [stableResyncToken] = useState(props.resyncToken ?? 0);
-
-  return <BaseConversationList {...props} resyncToken={stableResyncToken} />;
+export function ConversationList({
+  resyncToken: _resyncToken,
+  ...props
+}: ConversationListProps) {
+  return <BaseConversationList {...props} resyncToken={0} />;
 }

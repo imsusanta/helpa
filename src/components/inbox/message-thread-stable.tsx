@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import type { ComponentProps } from 'react';
 import type { Message } from '@/types';
 import { mergeMessageSnapshots } from '@/lib/inbox/client-cache';
@@ -14,36 +14,34 @@ type MessageThreadProps = ComponentProps<typeof BaseMessageThread>;
  * gets its own token. Server snapshots are merged with optimistic bubbles so
  * a just-sent message cannot disappear until the database insert arrives.
  */
-export function MessageThread(props: MessageThreadProps) {
-  const messagesRef = useRef(props.messages);
-  const [manualRefreshToken, setManualRefreshToken] = useState(
-    props.resyncToken ?? 0
-  );
-
-  useEffect(() => {
-    messagesRef.current = props.messages;
-  }, [props.messages]);
+export function MessageThread({
+  messages,
+  onMessagesLoaded,
+  onRefresh,
+  resyncToken: _resyncToken,
+  ...props
+}: MessageThreadProps) {
+  const [manualRefreshToken, setManualRefreshToken] = useState(0);
 
   const handleMessagesLoaded = useCallback(
     (serverMessages: Message[]) => {
-      props.onMessagesLoaded(
-        mergeMessageSnapshots(serverMessages, messagesRef.current)
-      );
+      onMessagesLoaded(mergeMessageSnapshots(serverMessages, messages));
     },
-    [props.onMessagesLoaded]
+    [messages, onMessagesLoaded]
   );
 
   const handleManualRefresh = useCallback(() => {
     setManualRefreshToken((token) => token + 1);
-    props.onRefresh?.();
-  }, [props.onRefresh]);
+    onRefresh?.();
+  }, [onRefresh]);
 
   return (
     <BaseMessageThread
       {...props}
+      messages={messages}
       onMessagesLoaded={handleMessagesLoaded}
       resyncToken={manualRefreshToken}
-      onRefresh={props.onRefresh ? handleManualRefresh : undefined}
+      onRefresh={onRefresh ? handleManualRefresh : undefined}
     />
   );
 }
