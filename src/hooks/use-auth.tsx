@@ -88,7 +88,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ? payload.modules
             .filter(
               (module: { enabled?: boolean; module_key?: unknown }) =>
-                module?.enabled === true && typeof module.module_key === 'string'
+                module?.enabled === true &&
+                typeof module.module_key === 'string'
             )
             .map((module: { module_key: string }) => module.module_key)
         : [];
