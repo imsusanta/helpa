@@ -19,6 +19,7 @@ import {
   Package,
   Settings,
   Settings2,
+  ShieldCheck,
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -34,6 +35,7 @@ type NavItem = {
   href?: string;
   icon: React.ElementType;
   children?: { label: string; href: string }[];
+  superAdminOnly?: boolean;
 };
 
 const NAV: NavItem[] = [
@@ -134,6 +136,12 @@ const NAV: NavItem[] = [
       { label: 'Organization', href: '/settings?tab=organization' },
     ],
   },
+  {
+    label: 'Admin Panel',
+    href: '/admin',
+    icon: ShieldCheck,
+    superAdminOnly: true,
+  },
 ];
 
 function pathIsActive(pathname: string, href?: string) {
@@ -147,7 +155,7 @@ function pathIsActive(pathname: string, href?: string) {
 
 export function Sidebar({ open = false, onClose }: SidebarProps) {
   const pathname = usePathname();
-  const { profile } = useAuth();
+  const { profile, isSuperAdmin } = useAuth();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
     Sales: true,
     Conversations: false,
@@ -160,15 +168,20 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
     Settings: false,
   });
 
+  const visibleNav = useMemo(
+    () => NAV.filter((item) => !item.superAdminOnly || isSuperAdmin),
+    [isSuperAdmin]
+  );
+
   const activeParent = useMemo(() => {
-    for (const item of NAV)
+    for (const item of visibleNav)
       if (item.children?.some((child) => pathIsActive(pathname, child.href)))
         return item.label;
     return (
-      NAV.find((item) => pathIsActive(pathname, item.href))?.label ||
+      visibleNav.find((item) => pathIsActive(pathname, item.href))?.label ||
       'Dashboard'
     );
-  }, [pathname]);
+  }, [pathname, visibleNav]);
 
   useEffect(() => {
     if (activeParent && activeParent !== 'Dashboard') {
@@ -231,7 +244,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         {/* Navigation Menu */}
         <div className="min-h-0 flex-1 [scrollbar-width:thin] [scrollbar-color:#1e293b_transparent] overflow-y-auto px-3 py-2">
           <nav className="space-y-1">
-            {NAV.map((item) => {
+            {visibleNav.map((item) => {
               const Icon = item.icon;
               const isDashboard = item.label === 'Dashboard';
               const activeDirect = pathIsActive(pathname, item.href);
