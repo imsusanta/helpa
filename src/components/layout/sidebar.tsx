@@ -138,9 +138,18 @@ const NAV: NavItem[] = [
   },
   {
     label: 'Admin Panel',
-    href: '/admin',
     icon: ShieldCheck,
+    href: '/admin',
     superAdminOnly: true,
+    children: [
+      { label: 'Overview', href: '/admin' },
+      { label: 'Tenants', href: '/admin/tenants' },
+      { label: 'Subscriptions', href: '/admin/subscriptions' },
+      { label: 'AI Infrastructure', href: '/admin/ai' },
+      { label: 'Payments', href: '/admin/payments' },
+      { label: 'WhatsApp Numbers', href: '/admin/whatsapp' },
+      { label: 'System Settings', href: '/admin/settings' },
+    ],
   },
 ];
 
@@ -165,6 +174,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
     Billing: false,
     Manage: false,
     Developers: false,
+    'Admin Panel': false,
     Settings: false,
   });
 
