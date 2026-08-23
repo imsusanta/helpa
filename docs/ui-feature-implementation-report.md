@@ -102,4 +102,4 @@ No new DDL has been applied. The two committed files are recovered history, not 
 
 ## Test evidence
 
-GitHub CI is running on draft PR #112. Security persistence and secret/dependency checks passed on the latest observed run; formatting, types, tests, coverage, CodeQL and preview checks were still in progress. No local build/test evidence is claimed because the sandbox could not resolve `github.com` for cloning.
+Automated formatting has been applied. A fresh required-check run must complete on the current human-authored head before merge; no check will be bypassed. No local build/test evidence is claimed because the sandbox could not resolve `github.com` for cloning.
