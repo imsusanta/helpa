@@ -186,8 +186,62 @@ const TRIGGER_OPTIONS: {
     label: 'Tag Added',
     hint: 'When a tag is added to a contact',
   },
+  {
+    value: 'form_submitted',
+    label: 'Form Submitted',
+    hint: 'When someone submits one of your lead forms',
+  },
   { value: 'time_based', label: 'Time-Based', hint: 'On a recurring schedule' },
+  {
+    value: 'appointment_created',
+    label: 'Appointment Booked',
+    hint: 'As soon as an appointment is booked for this contact',
+  },
+  {
+    value: 'appointment_reminder',
+    label: 'Appointment Reminder',
+    hint: 'A set amount of time before the appointment starts',
+  },
+  {
+    value: 'appointment_cancelled',
+    label: 'Appointment Cancelled',
+    hint: 'When an appointment is cancelled',
+  },
 ];
+
+/** Reminder offsets offered in the UI, in minutes before the appointment. */
+const REMINDER_OFFSETS: { value: number; label: string }[] = [
+  { value: 60, label: '1 hour before' },
+  { value: 180, label: '3 hours before' },
+  { value: 720, label: '12 hours before' },
+  { value: 1440, label: '1 day before' },
+  { value: 2880, label: '2 days before' },
+];
+
+const DEFAULT_REMINDER_OFFSET = 1440;
+
+/**
+ * Config a freshly-picked trigger starts from. Switching trigger type used
+ * to keep the previous config object, so a Keyword Match automation turned
+ * into a Tag Added one still carried `keywords` and had no `tag_id` — which
+ * validation rejects and the engine cannot match on.
+ */
+function defaultTriggerConfig(
+  type: AutomationTriggerType
+): Record<string, unknown> {
+  switch (type) {
+    case 'keyword_match':
+      return { keywords: [], match_type: 'contains' };
+    case 'tag_added':
+      return { tag_id: '' };
+    case 'time_based':
+      return { schedule: '' };
+    case 'appointment_reminder':
+      return { before_minutes: DEFAULT_REMINDER_OFFSET };
+    default:
+      return {};
+  }
+}
 
 function cid(): string {
   return (
@@ -740,9 +794,14 @@ function TriggerCard({
               </label>
               <select
                 value={type}
-                onChange={(e) =>
-                  onTypeChange(e.target.value as AutomationTriggerType)
-                }
+                onChange={(e) => {
+                  const next = e.target.value as AutomationTriggerType;
+                  if (next === type) return;
+                  onTypeChange(next);
+                  // Drop the previous trigger's config — it never applies
+                  // to the new trigger and only fails validation later.
+                  onConfigChange(defaultTriggerConfig(next));
+                }}
                 className="border-border bg-muted text-foreground focus:border-primary w-full rounded-md border px-2 py-1.5 text-sm focus:outline-none"
               >
                 {TRIGGER_OPTIONS.map((o) => (
@@ -782,9 +841,82 @@ function TriggerCard({
                 className="bg-muted text-foreground"
               />
             )}
+            {type === 'appointment_reminder' && (
+              <AppointmentReminderConfig
+                config={config}
+                onChange={onConfigChange}
+              />
+            )}
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/** How long before the appointment the reminder should go out. Stored as
+ *  `before_minutes`, which is what the reminder scheduler reads and what
+ *  activation validation requires. */
+function AppointmentReminderConfig({
+  config,
+  onChange,
+}: {
+  config: Record<string, unknown>;
+  onChange: (c: Record<string, unknown>) => void;
+}) {
+  const raw = Number(config.before_minutes);
+  const before =
+    Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_REMINDER_OFFSET;
+  const isPreset = REMINDER_OFFSETS.some((o) => o.value === before);
+
+  return (
+    <div className="space-y-2">
+      <div>
+        <label className="text-muted-foreground mb-1 block text-xs font-medium">
+          Send the reminder
+        </label>
+        <select
+          value={isPreset ? String(before) : 'custom'}
+          onChange={(e) => {
+            if (e.target.value === 'custom') {
+              onChange({ ...config, before_minutes: before + 1 });
+              return;
+            }
+            onChange({ ...config, before_minutes: Number(e.target.value) });
+          }}
+          className={SELECT_CLASS}
+        >
+          {REMINDER_OFFSETS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+          <option value="custom">Custom…</option>
+        </select>
+      </div>
+      {!isPreset && (
+        <div>
+          <label className="text-muted-foreground mb-1 block text-xs font-medium">
+            Minutes before
+          </label>
+          <Input
+            type="number"
+            min={1}
+            value={before}
+            onChange={(e) =>
+              onChange({
+                ...config,
+                before_minutes: Math.max(1, Number(e.target.value)),
+              })
+            }
+            className="bg-muted text-foreground"
+          />
+        </div>
+      )}
+      <p className="text-muted-foreground text-[11px]">
+        Reminders are scheduled when the appointment is booked and are
+        cancelled automatically if it is cancelled.
+      </p>
     </div>
   );
 }
