@@ -168,11 +168,6 @@ export const NAVIGATION_REGISTRY: SidebarNavItem<React.ElementType>[] = [
         label: 'Profile',
         href: '/settings?tab=profile',
       },
-      {
-        id: 'settings-team',
-        label: 'Team Members',
-        href: '/settings?tab=team',
-      },
     ],
   },
   {
