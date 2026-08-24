@@ -26,6 +26,7 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -468,25 +469,27 @@ export default function LeadFormDetailPage() {
                               Follow-up
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuLabel className="text-xs">
-                              Mark as
-                            </DropdownMenuLabel>
-                            {['contacted', 'converted', 'archived'].map(
-                              (status) => (
-                                <DropdownMenuItem
-                                  key={status}
-                                  disabled={submission.status === status}
-                                  onClick={() =>
-                                    void updateSubmission(submission.id, {
-                                      status,
-                                    })
-                                  }
-                                  className="capitalize"
-                                >
-                                  {status}
-                                </DropdownMenuItem>
-                              )
-                            )}
+                            <DropdownMenuGroup>
+                              <DropdownMenuLabel className="text-xs">
+                                Mark as
+                              </DropdownMenuLabel>
+                              {['contacted', 'converted', 'archived'].map(
+                                (status) => (
+                                  <DropdownMenuItem
+                                    key={status}
+                                    disabled={submission.status === status}
+                                    onClick={() =>
+                                      void updateSubmission(submission.id, {
+                                        status,
+                                      })
+                                    }
+                                    className="capitalize"
+                                  >
+                                    {status}
+                                  </DropdownMenuItem>
+                                )
+                              )}
+                            </DropdownMenuGroup>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       )}
@@ -540,14 +543,16 @@ function AssignMenuItem({ onAssign }: { onAssign: (userId: string) => void }) {
   return (
     <>
       <DropdownMenuSeparator />
-      <DropdownMenuLabel className="text-xs">
-        Assign contact to
-      </DropdownMenuLabel>
-      {members.slice(0, 8).map((m) => (
-        <DropdownMenuItem key={m.user_id} onClick={() => onAssign(m.user_id)}>
-          {m.full_name || m.user_id.slice(0, 8)}
-        </DropdownMenuItem>
-      ))}
+      <DropdownMenuGroup>
+        <DropdownMenuLabel className="text-xs">
+          Assign contact to
+        </DropdownMenuLabel>
+        {members.slice(0, 8).map((m) => (
+          <DropdownMenuItem key={m.user_id} onClick={() => onAssign(m.user_id)}>
+            {m.full_name || m.user_id.slice(0, 8)}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuGroup>
     </>
   );
 }
