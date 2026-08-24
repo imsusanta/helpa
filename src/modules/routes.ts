@@ -3,6 +3,12 @@ import type { IndustryModule } from './types';
 const SHARED_WORKSPACE_ROUTES = [
   '/dashboard',
   '/inbox',
+  '/follow-ups',
+  '/appointments',
+  '/leads',
+  '/customers',
+  '/pipelines',
+  '/quotations',
   '/settings',
   '/broadcasts',
   '/campaign-reports',
@@ -12,9 +18,9 @@ const SHARED_WORKSPACE_ROUTES = [
   '/faq-bot',
   '/admin',
   '/billing',
+  '/invoices',
   '/automations',
   '/integrations',
-  '/pipelines',
 ] as const;
 
 function pathMatchesRoute(pathname: string, route: string) {

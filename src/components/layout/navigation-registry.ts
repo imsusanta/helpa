@@ -9,9 +9,15 @@ import {
   ShieldCheck,
   Users,
 } from 'lucide-react';
-import type { SidebarNavItem, NavigationFeatureStatus } from './sidebar-navigation';
+import type {
+  SidebarNavItem,
+  NavigationFeatureStatus,
+} from './sidebar-navigation';
 
-export const NAVIGATION_FEATURE_STATUSES: Record<string, NavigationFeatureStatus> = {
+export const NAVIGATION_FEATURE_STATUSES: Record<
+  string,
+  NavigationFeatureStatus
+> = {
   services: 'PLACEHOLDER',
   whatsapp_setup: 'CREDENTIAL_GATED',
   integrations: 'CREDENTIAL_GATED',
@@ -26,8 +32,16 @@ export const NAVIGATION_REGISTRY: SidebarNavItem<React.ElementType>[] = [
     icon: MessageSquare,
     children: [
       { id: 'conversations-inbox', label: 'Inbox', href: '/inbox' },
-      { id: 'conversations-follow-ups', label: 'Follow-ups', href: '/follow-ups' },
-      { id: 'conversations-appointments', label: 'Appointments', href: '/appointments' },
+      {
+        id: 'conversations-follow-ups',
+        label: 'Follow-ups',
+        href: '/follow-ups',
+      },
+      {
+        id: 'conversations-appointments',
+        label: 'Appointments',
+        href: '/appointments',
+      },
     ],
   },
   {
@@ -39,7 +53,12 @@ export const NAVIGATION_REGISTRY: SidebarNavItem<React.ElementType>[] = [
       { id: 'crm-contacts', label: 'Contacts', href: '/customers' },
       { id: 'crm-pipelines', label: 'Pipelines', href: '/pipelines' },
       { id: 'crm-quotations', label: 'Quotations', href: '/quotations' },
-      { id: 'crm-tags', label: 'Tags', href: '/settings?tab=tags', roleMin: 'admin' },
+      {
+        id: 'crm-tags',
+        label: 'Tags',
+        href: '/settings?tab=tags',
+        roleMin: 'admin',
+      },
     ],
   },
   {
@@ -48,7 +67,11 @@ export const NAVIGATION_REGISTRY: SidebarNavItem<React.ElementType>[] = [
     icon: Megaphone,
     children: [
       { id: 'marketing-campaigns', label: 'Campaigns', href: '/broadcasts' },
-      { id: 'marketing-reports', label: 'Campaign Reports', href: '/campaign-reports' },
+      {
+        id: 'marketing-reports',
+        label: 'Campaign Reports',
+        href: '/campaign-reports',
+      },
       { id: 'marketing-lead-forms', label: 'Lead Forms', href: '/lead-forms' },
     ],
   },
@@ -60,7 +83,11 @@ export const NAVIGATION_REGISTRY: SidebarNavItem<React.ElementType>[] = [
       { id: 'automation-chatbot', label: 'Chatbot', href: '/chatbot' },
       { id: 'automation-faq', label: 'FAQ Bot', href: '/faq-bot' },
       { id: 'automation-rules', label: 'Automations', href: '/automations' },
-      { id: 'automation-knowledge', label: 'Knowledge Base', href: '/knowledge-base' },
+      {
+        id: 'automation-knowledge',
+        label: 'Knowledge Base',
+        href: '/knowledge-base',
+      },
     ],
   },
   {
@@ -101,11 +128,23 @@ export const NAVIGATION_REGISTRY: SidebarNavItem<React.ElementType>[] = [
     children: [
       { id: 'admin-overview', label: 'Overview', href: '/admin' },
       { id: 'admin-tenants', label: 'Tenants', href: '/admin/tenants' },
-      { id: 'admin-subscriptions', label: 'Subscriptions', href: '/admin/subscriptions' },
+      {
+        id: 'admin-subscriptions',
+        label: 'Subscriptions',
+        href: '/admin/subscriptions',
+      },
       { id: 'admin-ai', label: 'AI Infrastructure', href: '/admin/ai' },
       { id: 'admin-payments', label: 'Payments', href: '/admin/payments' },
-      { id: 'admin-whatsapp', label: 'WhatsApp Numbers', href: '/admin/whatsapp' },
-      { id: 'admin-settings', label: 'System Settings', href: '/admin/settings' },
+      {
+        id: 'admin-whatsapp',
+        label: 'WhatsApp Numbers',
+        href: '/admin/whatsapp',
+      },
+      {
+        id: 'admin-settings',
+        label: 'System Settings',
+        href: '/admin/settings',
+      },
     ],
   },
 ];

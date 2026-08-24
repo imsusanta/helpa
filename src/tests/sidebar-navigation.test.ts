@@ -27,6 +27,7 @@ function buildHospitalNavigation(
     currentIndustry: 'hospital_clinic',
     isSuperAdmin,
     accountRole,
+    manifest: hospitalManifest,
     routeRoleRequirements: hospitalManifest.sidebar,
     featureStatuses: NAVIGATION_FEATURE_STATUSES,
     isRouteAllowed: (pathname) =>
@@ -52,9 +53,13 @@ describe('authenticated sidebar navigation', () => {
 
     for (const item of NAV) {
       const children = item.children ?? [];
-      expect(new Set(children.map((child) => child.id)).size).toBe(children.length);
+      expect(new Set(children.map((child) => child.id)).size).toBe(
+        children.length
+      );
       expect(
-        new Set(children.map((child) => normalizeNavigationDestination(child.href))).size
+        new Set(
+          children.map((child) => normalizeNavigationDestination(child.href))
+        ).size
       ).toBe(children.length);
     }
   });
@@ -66,7 +71,7 @@ describe('authenticated sidebar navigation', () => {
       'crm',
       'marketing',
       'automation-ai',
-      'channels',
+      'integrations',
       'billing',
       'settings',
       'admin',
@@ -92,14 +97,13 @@ describe('authenticated sidebar navigation', () => {
     expect(childrenFor('automation-ai').map((child) => child.href)).toEqual([
       '/chatbot',
       '/faq-bot',
-      '/ai-assistant',
       '/automations',
       '/knowledge-base',
     ]);
-    expect(childrenFor('channels').map((child) => child.href)).toEqual([
-      '/settings?tab=whatsapp',
-      '/integrations',
-    ]);
+    expect(NAV.find((item) => item.id === 'integrations')).toMatchObject({
+      href: '/integrations',
+      label: 'Integrations',
+    });
     expect(childrenFor('billing').map((child) => child.href)).toEqual([
       '/invoices',
       '/settings?tab=billing',
@@ -113,19 +117,29 @@ describe('authenticated sidebar navigation', () => {
   it('does not expose Operations, Services, or Patient List in the global menu', () => {
     expect(NAV.some((item) => item.id === 'operations')).toBe(false);
     expect(NAV.some((item) => item.label === 'Operations')).toBe(false);
-    expect(NAV.flatMap((item) => item.children ?? []).some((child) => child.href === '/services')).toBe(false);
-    expect(NAV.flatMap((item) => item.children ?? []).some((child) => child.href === '/patients')).toBe(false);
+    expect(
+      NAV.flatMap((item) => item.children ?? []).some(
+        (child) => child.href === '/services'
+      )
+    ).toBe(false);
+    expect(
+      NAV.flatMap((item) => item.children ?? []).some(
+        (child) => child.href === '/patients'
+      )
+    ).toBe(false);
   });
 
-  it('keeps WhatsApp and Integrations only under Channels & Integrations', () => {
-    const channels = childrenFor('channels');
-    expect(channels.map((child) => child.label)).toEqual(['WhatsApp', 'Integrations']);
-    expect(NAV.flatMap((item) => item.children ?? []).filter((child) => child.href === '/settings?tab=whatsapp')).toHaveLength(1);
-    expect(NAV.flatMap((item) => item.children ?? []).filter((child) => child.href === '/integrations')).toHaveLength(1);
+  it('exposes Integrations directly with admin role requirement', () => {
+    const integrations = NAV.find((item) => item.id === 'integrations');
+    expect(integrations).toBeDefined();
+    expect(integrations?.href).toBe('/integrations');
+    expect(integrations?.roleMin).toBe('admin');
   });
 
   it('builds Clinic Operations with only Doctors and Medical Reports', () => {
-    const clinicOperations = hospitalNavigation.find((item) => item.id === 'industry-operations');
+    const clinicOperations = hospitalNavigation.find(
+      (item) => item.id === 'industry-operations'
+    );
     expect(clinicOperations?.label).toBe('Clinic Operations');
     expect(clinicOperations?.children?.map((child) => child.label)).toEqual([
       'Doctors',
@@ -138,8 +152,16 @@ describe('authenticated sidebar navigation', () => {
   });
 
   it('keeps Appointments in Conversations and out of Clinic Operations', () => {
-    expect(visibleLabelsFor('conversations')).toEqual(['Inbox', 'Follow-ups', 'Appointments']);
-    expect(visibleChildrenFor('industry-operations').some((child) => child.href === '/appointments')).toBe(false);
+    expect(visibleLabelsFor('conversations')).toEqual([
+      'Inbox',
+      'Follow-ups',
+      'Appointments',
+    ]);
+    expect(
+      visibleChildrenFor('industry-operations').some(
+        (child) => child.href === '/appointments'
+      )
+    ).toBe(false);
   });
 
   it('keeps clinic-specific operations out of general workspaces', () => {
@@ -151,20 +173,40 @@ describe('authenticated sidebar navigation', () => {
       isRouteAllowed: () => true,
     });
 
-    expect(generalNavigation.some((item) => item.id === 'industry-operations')).toBe(false);
+    expect(
+      generalNavigation.some((item) => item.id === 'industry-operations')
+    ).toBe(false);
   });
 
-  it('applies role requirements to marketing and channel setup', () => {
+  it('applies role requirements to integrations and admin-gated features', () => {
     for (const role of ['owner', 'admin'] as const) {
       const navigation = buildHospitalNavigation(role);
-      expect(navigation.find((item) => item.id === 'marketing')?.children?.some((child) => child.href === '/broadcasts')).toBe(true);
-      expect(navigation.find((item) => item.id === 'channels')?.children?.some((child) => child.href === '/settings?tab=whatsapp')).toBe(true);
+      expect(navigation.some((item) => item.id === 'integrations')).toBe(true);
+      expect(
+        navigation
+          .find((item) => item.id === 'crm')
+          ?.children?.some((child) => child.id === 'crm-tags')
+      ).toBe(true);
+      expect(
+        navigation
+          .find((item) => item.id === 'billing')
+          ?.children?.some((child) => child.id === 'billing-settings')
+      ).toBe(true);
     }
 
     for (const role of ['agent', 'viewer'] as const) {
       const navigation = buildHospitalNavigation(role);
-      expect(navigation.find((item) => item.id === 'marketing')?.children?.some((child) => child.href === '/broadcasts')).toBe(false);
-      expect(navigation.find((item) => item.id === 'channels')?.children?.some((child) => child.href === '/settings?tab=whatsapp')).toBe(false);
+      expect(navigation.some((item) => item.id === 'integrations')).toBe(false);
+      expect(
+        navigation
+          .find((item) => item.id === 'crm')
+          ?.children?.some((child) => child.id === 'crm-tags')
+      ).toBe(false);
+      expect(
+        navigation
+          .find((item) => item.id === 'billing')
+          ?.children?.some((child) => child.id === 'billing-settings')
+      ).toBe(false);
     }
   });
 
@@ -173,9 +215,17 @@ describe('authenticated sidebar navigation', () => {
 
     for (const item of hospitalNavigation) {
       const children = item.children ?? [];
-      expect(new Set(children.map((child) => child.id)).size).toBe(children.length);
-      expect(new Set(children.map((child) => normalizeNavigationDestination(child.href))).size).toBe(children.length);
-      expect(new Set(children.map((child) => child.label.toLocaleLowerCase())).size).toBe(children.length);
+      expect(new Set(children.map((child) => child.id)).size).toBe(
+        children.length
+      );
+      expect(
+        new Set(
+          children.map((child) => normalizeNavigationDestination(child.href))
+        ).size
+      ).toBe(children.length);
+      expect(
+        new Set(children.map((child) => child.label.toLocaleLowerCase())).size
+      ).toBe(children.length);
     }
   });
 
@@ -194,7 +244,6 @@ describe('authenticated sidebar navigation', () => {
       '/lead-forms',
       '/chatbot',
       '/faq-bot',
-      '/ai-assistant',
       '/automations',
       '/knowledge-base',
       '/integrations',
@@ -215,17 +264,35 @@ describe('authenticated sidebar navigation', () => {
         icon: null,
         children: [
           { id: 'settings-api', label: 'API', href: '/settings?tab=api' },
-          { id: 'settings-whatsapp', label: 'WhatsApp', href: '/settings?tab=whatsapp' },
+          {
+            id: 'settings-whatsapp',
+            label: 'WhatsApp',
+            href: '/settings?tab=whatsapp',
+          },
         ],
       },
     ];
 
     expect(validateVisibleNavigation(fixture)).toEqual([]);
-    expect(normalizeNavigationDestination('/settings?b=2&a=1')).toBe('/settings?a=1&b=2');
+    expect(normalizeNavigationDestination('/settings?b=2&a=1')).toBe(
+      '/settings?a=1&b=2'
+    );
   });
 
   it('matches only the selected settings query tab', () => {
-    expect(pathIsActive('/settings', new URLSearchParams('tab=team'), '/settings?tab=team')).toBe(true);
-    expect(pathIsActive('/settings', new URLSearchParams('tab=profile'), '/settings?tab=team')).toBe(false);
+    expect(
+      pathIsActive(
+        '/settings',
+        new URLSearchParams('tab=team'),
+        '/settings?tab=team'
+      )
+    ).toBe(true);
+    expect(
+      pathIsActive(
+        '/settings',
+        new URLSearchParams('tab=profile'),
+        '/settings?tab=team'
+      )
+    ).toBe(false);
   });
 });

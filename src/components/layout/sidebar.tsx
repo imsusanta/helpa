@@ -205,7 +205,6 @@ export function Sidebar({
           <nav className="space-y-1" aria-label="Workspace navigation">
             {visibleNav.map((item, index) => {
               const Icon = item.icon;
-              const isDashboard = item.id === 'dashboard';
               const activeDirect = pathIsActive(
                 pathname,
                 searchParams,
