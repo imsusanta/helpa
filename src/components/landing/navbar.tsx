@@ -15,7 +15,9 @@ const NAV_ITEMS = [
   { href: '#security', label: 'Security' },
 ];
 
-export function LandingNavbar({ isAuthenticated: initialAuthenticated = false }: NavbarProps) {
+export function LandingNavbar({
+  isAuthenticated: initialAuthenticated = false,
+}: NavbarProps) {
   const [isAuthenticated, setIsAuthenticated] = useState(initialAuthenticated);
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -112,7 +114,11 @@ export function LandingNavbar({ isAuthenticated: initialAuthenticated = false }:
           onClick={() => setMobileMenuOpen((open) => !open)}
           className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-[#110E3D] hover:bg-slate-100 md:hidden"
         >
-          {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          {mobileMenuOpen ? (
+            <X className="h-6 w-6" />
+          ) : (
+            <Menu className="h-6 w-6" />
+          )}
         </button>
       </div>
 
@@ -138,7 +144,8 @@ export function LandingNavbar({ isAuthenticated: initialAuthenticated = false }:
                 onClick={() => setMobileMenuOpen(false)}
                 className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#110E3D] text-sm font-semibold text-white"
               >
-                Go to Dashboard <ArrowRight className="h-4 w-4 text-[#B4F73C]" />
+                Go to Dashboard{' '}
+                <ArrowRight className="h-4 w-4 text-[#B4F73C]" />
               </Link>
             ) : (
               <>

@@ -14,7 +14,9 @@ const LandingInteractiveShowcase = dynamic(
       (mod) => mod.LandingInteractiveShowcase
     ),
   {
-    loading: () => <div className="min-h-[520px] bg-[#F1EEFA]" aria-hidden="true" />,
+    loading: () => (
+      <div className="min-h-[520px] bg-[#F1EEFA]" aria-hidden="true" />
+    ),
   }
 );
 

@@ -106,19 +106,6 @@ export async function POST(request: Request) {
       }
 
       if (!verifiedContact) {
-        try {
-          const { data } = await dbAdmin
-            .from('contacts')
-            .select('id')
-            .eq('id', contactIdInput)
-            .maybeSingle();
-          if (data) verifiedContact = data;
-        } catch {
-          // Ignore
-        }
-      }
-
-      if (!verifiedContact) {
         return NextResponse.json(
           { error: 'Contact not found or access denied' },
           { status: 404 }
@@ -229,19 +216,6 @@ export async function POST(request: Request) {
           if (convData) extConv = convData;
         } catch {
           // Ignore
-        }
-
-        if (!extConv) {
-          try {
-            const { data: convData } = await dbAdmin
-              .from('conversations')
-              .select('id')
-              .eq('contact_id', resolvedContactId)
-              .maybeSingle();
-            if (convData) extConv = convData;
-          } catch {
-            // Ignore
-          }
         }
 
         if (!extConv) {
