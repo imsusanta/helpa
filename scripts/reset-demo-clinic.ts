@@ -15,7 +15,8 @@ async function main() {
     .eq('active', true)
     .maybeSingle();
   if (membershipError) throw membershipError;
-  if (!membership) throw new Error('Demo account membership could not be verified');
+  if (!membership)
+    throw new Error('Demo account membership could not be verified');
 
   const deletions: Array<[string, readonly string[]]> = [
     ['reminder_jobs', DEMO_IDS.appointments],
@@ -28,7 +29,10 @@ async function main() {
 
   for (const [table, ids] of deletions) {
     const column = table === 'reminder_jobs' ? 'appointment_id' : 'id';
-    const { error } = await database.from(table).delete().in(column, [...ids]);
+    const { error } = await database
+      .from(table)
+      .delete()
+      .in(column, [...ids]);
     if (error) throw new Error(`Failed to reset ${table}: ${error.message}`);
   }
 

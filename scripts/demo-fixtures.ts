@@ -99,14 +99,13 @@ export function assertSafeDemoEnvironment(
     applicationUrl &&
     ['helpa.studio', 'www.helpa.studio'].includes(applicationUrl.hostname)
   ) {
-    throw new Error('The demo harness cannot target the production application');
+    throw new Error(
+      'The demo harness cannot target the production application'
+    );
   }
 
   const referenceDateValue = env.DEMO_REFERENCE_DATE?.trim();
-  if (
-    referenceDateValue &&
-    !/^\d{4}-\d{2}-\d{2}$/.test(referenceDateValue)
-  ) {
+  if (referenceDateValue && !/^\d{4}-\d{2}-\d{2}$/.test(referenceDateValue)) {
     throw new Error('DEMO_REFERENCE_DATE must use YYYY-MM-DD');
   }
   const referenceDate = referenceDateValue
@@ -259,29 +258,103 @@ export function buildDemoRows(input: {
   ];
 
   const messages = [
-    [0, 0, 'customer', 'inbound', 'Hi, I need an appointment with Dr. Rao for tomorrow morning.', 9, 0],
-    [1, 0, 'bot', 'outbound', 'Dr. Ananya Rao is available at 9:30, 10:30, 11:30, or 12:30.', 9, 1],
-    [2, 0, 'customer', 'inbound', '10:30 AM works for me. Please confirm.', 9, 4],
-    [3, 1, 'customer', 'inbound', 'I need help changing the phone number on my file.', 9, 10],
-    [4, 1, 'bot', 'outbound', 'I will connect you with the clinic reception team.', 9, 11],
-    [5, 1, 'agent', 'outbound', 'Hello Priya, I can help. A receptionist has joined this conversation.', 9, 15],
+    [
+      0,
+      0,
+      'customer',
+      'inbound',
+      'Hi, I need an appointment with Dr. Rao for tomorrow morning.',
+      9,
+      0,
+    ],
+    [
+      1,
+      0,
+      'bot',
+      'outbound',
+      'Dr. Ananya Rao is available at 9:30, 10:30, 11:30, or 12:30.',
+      9,
+      1,
+    ],
+    [
+      2,
+      0,
+      'customer',
+      'inbound',
+      '10:30 AM works for me. Please confirm.',
+      9,
+      4,
+    ],
+    [
+      3,
+      1,
+      'customer',
+      'inbound',
+      'I need help changing the phone number on my file.',
+      9,
+      10,
+    ],
+    [
+      4,
+      1,
+      'bot',
+      'outbound',
+      'I will connect you with the clinic reception team.',
+      9,
+      11,
+    ],
+    [
+      5,
+      1,
+      'agent',
+      'outbound',
+      'Hello Priya, I can help. A receptionist has joined this conversation.',
+      9,
+      15,
+    ],
     [6, 2, 'customer', 'inbound', 'Is my blood test report ready?', 9, 20],
-    [7, 2, 'bot', 'outbound', 'I am checking the report status with CityCare Clinic.', 9, 21],
-    [8, 2, 'agent', 'outbound', 'Your report is ready. The clinic will share the secure link shortly.', 9, 25],
-  ].map(([messageIndex, conversationIndex, senderType, direction, text, hour, minute]) => ({
-    id: DEMO_IDS.messages[messageIndex as number],
-    account_id: accountId,
-    conversation_id: DEMO_IDS.conversations[conversationIndex as number],
-    sender_type: senderType,
-    direction,
-    content_type: 'text',
-    content_text: text,
-    status: 'read',
-    message_id: `demo-message-${Number(messageIndex) + 1}`,
-    provider_message_id: `demo-message-${Number(messageIndex) + 1}`,
-    created_at: isoAt(referenceDate, hour as number, minute as number),
-    updated_at: isoAt(referenceDate, hour as number, minute as number),
-  }));
+    [
+      7,
+      2,
+      'bot',
+      'outbound',
+      'I am checking the report status with CityCare Clinic.',
+      9,
+      21,
+    ],
+    [
+      8,
+      2,
+      'agent',
+      'outbound',
+      'Your report is ready. The clinic will share the secure link shortly.',
+      9,
+      25,
+    ],
+  ].map(
+    ([
+      messageIndex,
+      conversationIndex,
+      senderType,
+      direction,
+      text,
+      hour,
+      minute,
+    ]) => ({
+      id: DEMO_IDS.messages[messageIndex as number],
+      account_id: accountId,
+      conversation_id: DEMO_IDS.conversations[conversationIndex as number],
+      sender_type: senderType,
+      direction,
+      content_type: 'text',
+      content_text: text,
+      status: 'read',
+      message_id: `demo-message-${Number(messageIndex) + 1}`,
+      provider_message_id: `demo-message-${Number(messageIndex) + 1}`,
+      created_at: isoAt(referenceDate, hour as number, minute as number),
+      updated_at: isoAt(referenceDate, hour as number, minute as number),
+    })
+  );
 
   const appointments = [
     {
