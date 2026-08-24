@@ -31,6 +31,14 @@ jobs:
             command: npx eslint e2e/product-demo.spec.ts --max-warnings=0
           - name: typecheck
             command: npm run typecheck
+          - name: type demo fixtures
+            command: npx tsc --noEmit --target ES2017 --lib dom,dom.iterable,esnext --strict --noImplicitAny false --esModuleInterop --module esnext --moduleResolution bundler --resolveJsonModule --isolatedModules --skipLibCheck scripts/demo-fixtures.ts
+          - name: type seed script
+            command: npx tsc --noEmit --target ES2017 --lib dom,dom.iterable,esnext --strict --noImplicitAny false --esModuleInterop --module esnext --moduleResolution bundler --resolveJsonModule --isolatedModules --skipLibCheck scripts/seed-demo-clinic.ts
+          - name: type reset script
+            command: npx tsc --noEmit --target ES2017 --lib dom,dom.iterable,esnext --strict --noImplicitAny false --esModuleInterop --module esnext --moduleResolution bundler --resolveJsonModule --isolatedModules --skipLibCheck scripts/reset-demo-clinic.ts
+          - name: type fixture tests
+            command: npx tsc --noEmit --target ES2017 --lib dom,dom.iterable,esnext --strict --noImplicitAny false --esModuleInterop --module esnext --moduleResolution bundler --resolveJsonModule --isolatedModules --skipLibCheck src/tests/demo-fixtures.test.ts
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
