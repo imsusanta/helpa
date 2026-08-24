@@ -7,6 +7,7 @@ import {
 } from '../../scripts/demo-fixtures';
 
 const baseEnvironment: NodeJS.ProcessEnv = {
+  NODE_ENV: 'test',
   DEMO_MODE: 'true',
   DEMO_ENVIRONMENT: 'local',
   DEMO_ACCOUNT_ID: '00000000-0000-4000-8000-000000000001',
