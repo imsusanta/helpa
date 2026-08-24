@@ -33,7 +33,8 @@ export function LandingNavbar({
     fetch('/api/account/profile', { cache: 'no-store' })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (!cancelled) setIsAuthenticated(Boolean(data?.success && data?.user));
+        if (!cancelled)
+          setIsAuthenticated(Boolean(data?.success && data?.user));
       })
       .catch(() => {
         if (!cancelled) setIsAuthenticated(false);
@@ -56,7 +57,10 @@ export function LandingNavbar({
               : 'border-white/80 bg-white/88'
           }`}
         >
-          <Link href="/" className="group flex shrink-0 items-center gap-2.5 rounded-xl px-1.5 py-1.5">
+          <Link
+            href="/"
+            className="group flex shrink-0 items-center gap-2.5 rounded-xl px-1.5 py-1.5"
+          >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/helpa-logo.svg?v=4"
@@ -118,7 +122,11 @@ export function LandingNavbar({
             onClick={() => setMobileMenuOpen((open) => !open)}
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-[#110E3D] shadow-sm transition-colors hover:bg-slate-50 md:hidden"
           >
-            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            {mobileMenuOpen ? (
+              <X className="h-5 w-5" />
+            ) : (
+              <Menu className="h-5 w-5" />
+            )}
           </button>
         </div>
 
@@ -144,7 +152,8 @@ export function LandingNavbar({
                   onClick={closeMobileMenu}
                   className="col-span-2 flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#110E3D] text-sm font-bold text-white"
                 >
-                  Go to Dashboard <ArrowRight className="h-4 w-4 text-[#B4F73C]" />
+                  Go to Dashboard{' '}
+                  <ArrowRight className="h-4 w-4 text-[#B4F73C]" />
                 </Link>
               ) : (
                 <>
