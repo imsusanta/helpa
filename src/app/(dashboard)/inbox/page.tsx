@@ -37,7 +37,7 @@ export default function InboxPage() {
   const { terminology, currentIndustry } = useWorkspace();
   const contactLabelSingular = terminology.person;
 
-  const [rightTab, setRightTab] = useState<'copilot' | 'crm'>('copilot');
+  const [rightTab, setRightTab] = useState<'copilot' | 'crm'>('crm');
   /**
    * `?c=<id>` deep-link support. Used when landing here from the
    * dashboard's recent-conversations list so the right thread opens
@@ -394,7 +394,7 @@ export default function InboxPage() {
     if (isConnected && !wasConnectedRef.current) {
       // false → true transition
       if (initialConnectDoneRef.current) {
-        setResyncToken((n) => n + 1);
+        setResyncToken((value) => value + 1);
       } else {
         initialConnectDoneRef.current = true;
       }
@@ -402,268 +402,47 @@ export default function InboxPage() {
     wasConnectedRef.current = isConnected;
   }, [isConnected]);
 
-  /**
-   * Refetch when the tab regains focus. Background tabs may have their
-   * WS throttled by the browser even without a full disconnect, so a
-   * visibilitychange → visible is a reliable signal that we may have
-   * missed events. Cheap to fire; the children dedupe on their own.
-   */
+  // Refresh data after the browser tab becomes visible again.
   useEffect(() => {
-    const onVisibility = () => {
+    const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        setResyncToken((n) => n + 1);
+        setResyncToken((value) => value + 1);
       }
     };
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => {
-      document.removeEventListener('visibilitychange', onVisibility);
-    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () =>
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
-  /**
-   * Manual refresh trigger for the thread-header refresh button.
-   * Bumps the same resyncToken the reconnect / visibility paths use,
-   * so it goes through the existing dedupe & refetch plumbing — no
-   * separate code path to keep in sync.
-   */
-  const handleManualRefresh = useCallback(() => {
-    setResyncToken((n) => n + 1);
-  }, []);
+  // Keep the active contact in sync with the selected conversation.
+  useEffect(() => {
+    setActiveContact(activeConversation?.contact ?? null);
+  }, [activeConversation]);
 
   const handleConversationsLoaded = useCallback(
-    (loaded: Conversation[]) => {
-      const pendingIdsAtFetch = new Set(pendingConversationIdsRef.current);
-      const nextKnownIds = new Set(
-        loaded.map((conversation) => conversation.id)
-      );
-      for (const pendingId of pendingIdsAtFetch) nextKnownIds.add(pendingId);
-      knownConvIdsRef.current = nextKnownIds;
-      setConversations((prev) => {
-        const merged = mergeConversations(prev, loaded, pendingIdsAtFetch);
-        if (!activeConversation?.id) return merged;
-        return merged.map((conversation) =>
-          conversation.id === activeConversation.id
-            ? { ...conversation, unread_count: 0 }
-            : conversation
-        );
-      });
-      for (const conversation of loaded) {
-        pendingConversationIdsRef.current.delete(conversation.id);
-      }
-      // Resolve a pending deep-link here rather than in an effect — this
-      // is an event handler, so the setState calls below are allowed by
-      // react-hooks/set-state-in-effect. Runs once per ?c=<id> URL value
-      // via the ref, so realtime refreshes of the list can't snap the
-      // user back to the deep-linked thread after they've navigated.
-      if (
-        deepLinkConvId &&
-        autoSelectedForDeepLinkRef.current !== deepLinkConvId &&
-        loaded.length > 0
-      ) {
-        autoSelectedForDeepLinkRef.current = deepLinkConvId;
-        // If the deep-linked conversation is already the active one
-        // (e.g. because the user clicked it in the list and we
-        // router.replace()'d the URL, which made the ConversationList
-        // refetch and land us back here), do NOT re-apply it. Doing so
-        // would setMessages([]) on a thread whose messages have
-        // already been loaded by MessageThread — and because
-        // conversationId didn't change, MessageThread wouldn't
-        // refetch. The thread would read "No messages yet" until a
-        // full page reload rehydrated state from scratch.
-        if (activeConversation?.id === deepLinkConvId) return;
-        const match = loaded.find((c) => c.id === deepLinkConvId);
-        if (match) {
-          setActiveConversation(match);
-          setActiveContact(match.contact ?? null);
-          setMessages([]);
-          setInsertedReply(null);
-          // Mirror the optimistic unread reset that handleSelectConversation
-          // does — the user just deep-linked into this conv, treat that the
-          // same as a click. Leaves activeConversation.unread_count alone so
-          // the MessageThread reset effect still fires the server UPDATE.
-          if (match.unread_count > 0) {
-            setConversations((prev) =>
-              prev.map((c) =>
-                c.id === match.id ? { ...c, unread_count: 0 } : c
-              )
-            );
-          }
-        }
-      }
-    },
-    [deepLinkConvId, activeConversation?.id]
-  );
-
-  const handleSelectConversation = useCallback(
-    (conv: Conversation) => {
-      // Re-clicking the already-active conversation would clear the
-      // messages array, but the fetch effect in MessageThread only re-runs
-      // when conversationId changes — so messages would stay empty until
-      // the user navigated away and back. Bail out early instead.
-      if (activeConversation?.id === conv.id) return;
-      setActiveConversation(conv);
-      setActiveContact(conv.contact ?? null);
-      setMessages([]);
-      setInsertedReply(null);
-      // Optimistically clear the unread badge for this conv. The
-      // server-side reset is fired by the unread-reset effect inside
-      // MessageThread (which reads activeConversation.unread_count, not
-      // the list copy — so we deliberately leave that intact below to
-      // keep the effect firing), and the realtime UPDATE that comes
-      // back will sync to 0 again as a no-op. Zeroing the list copy
-      // here means the user sees the badge disappear the instant they
-      // click instead of waiting for the round-trip — and it persists
-      // even if the realtime UPDATE is dropped.
-      setConversations((prev) =>
-        prev.map((c) =>
-          c.id === conv.id && c.unread_count > 0 ? { ...c, unread_count: 0 } : c
-        )
-      );
-      // Record the selection on the deep-link ref BEFORE we change the
-      // URL. The router.replace below flips `deepLinkConvId`, which can
-      // in turn cause ConversationList to refetch and eventually call
-      // handleConversationsLoaded again. Without this line, the ref
-      // still points at the previous value, the auto-select block
-      // sees `ref !== deepLinkConvId`, fires a second time, and
-      // clobbers the messages MessageThread just fetched.
-      autoSelectedForDeepLinkRef.current = conv.id;
-      // Reflect the selection in the URL so a refresh lands the user
-      // back in the same thread, and so copy-paste links work. Use
-      // replace() to avoid polluting browser history with every click.
-      router.replace(`/inbox?c=${conv.id}`, { scroll: false });
-    },
-    [activeConversation?.id, router]
-  );
-
-  // Mobile "back" — deselect the conversation so the list pane comes
-  // back. Also clears the ?c= param so a refresh lands on the list
-  // instead of re-opening the thread the user just backed out of.
-  const handleCloseConversation = useCallback(() => {
-    setActiveConversation(null);
-    setActiveContact(null);
-    setMessages([]);
-    setInsertedReply(null);
-    // Clearing the ref lets the deep-link auto-selector fire again if
-    // the user later visits /inbox?c=<same-id> — desirable UX.
-    autoSelectedForDeepLinkRef.current = null;
-    router.replace('/inbox', { scroll: false });
-  }, [router]);
-
-  const handleMessagesLoaded = useCallback((loaded: Message[]) => {
-    setMessages((prev) => mergeMessages(prev, loaded));
-  }, []);
-
-  const handleNewMessage = useCallback((msg: Message) => {
-    setMessages((prev) => {
-      if (prev.some((m) => m.id === msg.id)) return prev;
-      return [...prev, msg];
-    });
-  }, []);
-
-  const handleUpdateMessage = useCallback(
-    (id: string, updates: Partial<Message>) => {
-      setMessages((prev) =>
-        prev.map((m) => (m.id === id ? { ...m, ...updates } : m))
-      );
+    (items: Conversation[]) => {
+      setConversations(items);
     },
     []
   );
 
-  const handleStatusChange = useCallback(
-    (conversationId: string, status: ConversationStatus) => {
-      setConversations((prev) =>
-        prev.map((c) => (c.id === conversationId ? { ...c, status } : c))
-      );
-      if (activeConversation?.id === conversationId) {
-        setActiveConversation((prev) => (prev ? { ...prev, status } : prev));
-      }
-    },
-    [activeConversation]
-  );
-
-  const handleAssignChange = useCallback(
-    (conversationId: string, assignedAgentId: string | null) => {
-      setConversations((prev) =>
-        prev.map((c) =>
-          c.id === conversationId
-            ? { ...c, assigned_agent_id: assignedAgentId ?? undefined }
-            : c
-        )
-      );
-      if (activeConversation?.id === conversationId) {
-        setActiveConversation((prev) =>
-          prev
-            ? { ...prev, assigned_agent_id: assignedAgentId ?? undefined }
-            : prev
-        );
-      }
-    },
-    [activeConversation]
-  );
-
-  const handleConversationUpdate = useCallback(
-    (conversationId: string, updates: Partial<Conversation>) => {
-      setConversations((prev) =>
-        prev.map((c) => (c.id === conversationId ? { ...c, ...updates } : c))
-      );
-      if (activeConversation?.id === conversationId) {
-        setActiveConversation((prev) =>
-          prev ? { ...prev, ...updates } : prev
-        );
-      }
-    },
-    [activeConversation]
-  );
-
-  const handleInsertCopilotReply = useCallback(
-    (reply: string) => {
-      if (!activeConversation) return;
-      setInsertedReply({
-        id: Date.now(),
-        conversationId: activeConversation.id,
-        text: reply,
-      });
-    },
-    [activeConversation]
-  );
-
-  const handleOpenStartConversation = useCallback(() => {
-    setStartConversationOpen(true);
+  const handleSelectConversation = useCallback((conversation: Conversation) => {
+    setActiveConversation(conversation);
+    setMessages([]);
   }, []);
-
-  const handleConversationCreated = useCallback(
-    (newConvId?: string) => {
-      setStartConversationOpen(false);
-      setResyncToken((prev) => prev + 1);
-      if (newConvId) {
-        autoSelectedForDeepLinkRef.current = newConvId;
-        router.replace(`/inbox?c=${newConvId}`, { scroll: false });
-        hydrateConversation(newConvId);
-      }
-    },
-    [router, hydrateConversation]
-  );
 
   const handleSelectById = useCallback(
     (convId: string) => {
-      autoSelectedForDeepLinkRef.current = convId;
       router.replace(`/inbox?c=${convId}`, { scroll: false });
       hydrateConversation(convId);
     },
     [router, hydrateConversation]
   );
 
-  // On mobile (<lg) we show a SINGLE pane — either the list or the
-  // thread — rather than cramming both side-by-side. Selecting a
-  // conversation slides the thread in; the thread's back button pops
-  // it back to the list. On lg+ both panes render side-by-side as
-  // before, unchanged.
   const hasActiveConv = !!activeConversation;
 
   return (
     <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
-      {/* WhatsApp connection banner — in the flex column, not absolute,
-          so it pushes the panels down instead of overlapping them. */}
       {whatsappConnected === false && (
         <div className="flex shrink-0 items-center justify-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-4 py-2">
           <WifiOff className="h-4 w-4 text-amber-400" />
@@ -674,9 +453,6 @@ export default function InboxPage() {
       )}
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        {/* Left panel: Conversation list.
-            Hidden on mobile when a conversation is selected so the
-            thread can occupy the full width. Always visible on lg+. */}
         <div
           className={cn(
             'flex h-full min-h-0 flex-1 lg:flex-none',
@@ -694,16 +470,6 @@ export default function InboxPage() {
           />
         </div>
 
-        {/* Center panel: Message thread.
-            Hidden on mobile when no conversation is selected so the
-            list can occupy the full width. Always visible on lg+
-            (shows its own empty-state if no thread is picked yet).
-
-            `min-w-0` is load-bearing: without it, a single wide piece
-            of content inside the thread (long quote preview, very
-            long URL in a message body) forces the flex child past
-            its share and pushes the contact-sidebar panel off-screen
-            on the right. Issue #165. */}
         <div
           className={cn(
             'flex h-full min-h-0 min-w-0 flex-1 lg:flex',
@@ -730,38 +496,35 @@ export default function InboxPage() {
           />
         </div>
 
-        {/* Right panel: Unified Tabbed Sidebar — desktop only, toggled via header button */}
         {contactPanelOpen && (
           <aside className="border-border bg-card hidden h-full min-h-0 w-80 shrink-0 flex-col border-l lg:flex">
-            {/* Premium Tab Bar */}
             <div className="border-border bg-muted/20 flex shrink-0 border-b p-1">
-              <button
-                type="button"
-                onClick={() => setRightTab('copilot')}
-                className={cn(
-                  'flex-1 cursor-pointer rounded-md py-1.5 text-center text-xs font-bold transition-all',
-                  rightTab === 'copilot'
-                    ? 'bg-background border-border/50 border text-emerald-700 shadow-sm dark:text-emerald-400'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                🤖 AI Copilot
-              </button>
               <button
                 type="button"
                 onClick={() => setRightTab('crm')}
                 className={cn(
                   'flex-1 cursor-pointer rounded-md py-1.5 text-center text-xs font-bold transition-all',
                   rightTab === 'crm'
-                    ? 'bg-background text-foreground border-border/50 border shadow-sm'
+                    ? 'bg-background border-border/50 border text-emerald-700 shadow-sm dark:text-emerald-400'
                     : 'text-muted-foreground hover:text-foreground'
                 )}
               >
                 👤 {contactLabelSingular} Details
               </button>
+              <button
+                type="button"
+                onClick={() => setRightTab('copilot')}
+                className={cn(
+                  'flex-1 cursor-pointer rounded-md py-1.5 text-center text-xs font-bold transition-all',
+                  rightTab === 'copilot'
+                    ? 'bg-background text-foreground border-border/50 border shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                🤖 AI Copilot
+              </button>
             </div>
 
-            {/* Embed Panel Content */}
             <div className="flex min-h-0 flex-1 flex-col">
               {rightTab === 'copilot' &&
               currentIndustry === 'hospital_clinic' ? (
@@ -784,7 +547,6 @@ export default function InboxPage() {
         )}
       </div>
 
-      {/* Start New Conversation Modal */}
       <SendOutboundModal
         open={startConversationOpen}
         onOpenChange={setStartConversationOpen}
