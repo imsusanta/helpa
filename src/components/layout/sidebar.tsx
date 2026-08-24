@@ -150,7 +150,6 @@ export function Sidebar({
 
   return (
     <>
-      {/* Mobile Backdrop */}
       <div
         className={cn(
           'fixed inset-0 z-40 bg-slate-950/50 backdrop-blur-xs transition-opacity lg:hidden',
@@ -159,7 +158,6 @@ export function Sidebar({
         onClick={onClose}
       />
 
-      {/* Sidebar Aside */}
       <aside
         className={cn(
           'fixed inset-y-0 left-0 z-50 flex w-[252px] shrink-0 flex-col bg-[#071426] text-white transition-[width,transform] duration-200 lg:static lg:z-auto lg:translate-x-0',
@@ -167,7 +165,6 @@ export function Sidebar({
           open ? 'translate-x-0' : '-translate-x-full'
         )}
       >
-        {/* Top Branding */}
         <div className="flex h-[76px] items-center justify-between px-5">
           <Link
             href="/dashboard"
@@ -200,7 +197,6 @@ export function Sidebar({
           </button>
         </div>
 
-        {/* Navigation Menu */}
         <div className="min-h-0 flex-1 [scrollbar-width:thin] [scrollbar-color:#1e293b_transparent] overflow-y-auto px-3 py-2">
           <nav className="space-y-1" aria-label="Workspace navigation">
             {visibleNav.map((item, index) => {
@@ -229,15 +225,12 @@ export function Sidebar({
                     aria-current={activeDirect ? 'page' : undefined}
                     title={collapsed ? item.label : undefined}
                     className={cn(
-                      'animate-nav-item group relative flex h-[44px] items-center gap-3 rounded-xl px-3.5 text-[14px] font-medium transition-all',
+                      'animate-nav-item group flex h-[44px] items-center gap-3 rounded-xl px-3.5 text-[14px] font-medium transition-all',
                       activeDirect
                         ? 'bg-emerald-500/15 font-semibold text-white'
                         : 'text-slate-300 hover:bg-white/5 hover:text-white'
                     )}
                   >
-                    {activeDirect && (
-                      <span className="absolute top-2.5 bottom-2.5 left-0 w-[3.5px] rounded-full bg-[#10b981]" />
-                    )}
                     <Icon
                       className={cn(
                         'h-[18px] w-[18px] shrink-0 transition-transform duration-200 group-hover:scale-110',
@@ -270,13 +263,10 @@ export function Sidebar({
                     className={cn(
                       'group relative flex h-[44px] w-full items-center gap-3 rounded-xl px-3.5 text-left text-[14px] font-medium transition-all',
                       isParentActive
-                        ? 'bg-emerald-500/15 font-semibold text-white'
+                        ? 'bg-emerald-500/10 font-semibold text-white'
                         : 'text-slate-300 hover:bg-white/5 hover:text-white'
                     )}
                   >
-                    {isParentActive && (
-                      <span className="absolute top-2.5 bottom-2.5 left-0 w-[3.5px] rounded-full bg-[#10b981]" />
-                    )}
                     <Icon
                       className={cn(
                         'h-[18px] w-[18px] shrink-0 transition-transform duration-200 group-hover:scale-110',
@@ -305,7 +295,8 @@ export function Sidebar({
                           pathname,
                           searchParams,
                           child.href,
-                          child.activeHrefs
+                          child.activeHrefs,
+                          child.activeMatchers
                         );
                         return (
                           <Link
@@ -320,12 +311,12 @@ export function Sidebar({
                             className={cn(
                               'relative flex h-8 items-center rounded-lg px-2.5 text-[13px] font-medium transition-all',
                               active
-                                ? 'bg-emerald-500/10 font-semibold text-white'
+                                ? 'bg-emerald-500/20 font-semibold text-emerald-50 shadow-sm'
                                 : 'text-slate-400 hover:bg-white/5 hover:text-slate-100'
                             )}
                           >
                             {active && (
-                              <span className="absolute top-1.5 bottom-1.5 left-0 w-[3px] rounded-full bg-[#10b981]" />
+                              <span className="mr-2 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />
                             )}
                             {child.label}
                           </Link>
@@ -339,7 +330,6 @@ export function Sidebar({
           </nav>
         </div>
 
-        {/* Bottom User Profile Section */}
         <div className="border-t border-white/[0.08] px-4 py-3.5">
           <Link
             href="/settings?tab=profile"
