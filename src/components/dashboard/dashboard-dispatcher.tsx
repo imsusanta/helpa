@@ -1,19 +1,24 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useAuth } from '@/hooks/use-auth';
-import { GenericDashboardClient } from './generic-dashboard-client';
-import { Loader2 } from 'lucide-react';
+import { DashboardContentSkeleton } from '@/components/ui/page-skeletons';
+
+const GenericDashboardClient = dynamic(
+  () =>
+    import('./generic-dashboard-client').then(
+      (module) => module.GenericDashboardClient
+    ),
+  {
+    loading: () => <DashboardContentSkeleton />,
+    ssr: false,
+  }
+);
 
 export function DashboardDispatcher() {
   const { profileLoading } = useAuth();
 
-  if (profileLoading) {
-    return (
-      <div className="flex h-[50vh] items-center justify-center">
-        <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
-      </div>
-    );
-  }
+  if (profileLoading) return <DashboardContentSkeleton />;
 
   return <GenericDashboardClient />;
 }

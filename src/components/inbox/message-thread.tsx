@@ -57,6 +57,7 @@ import { deleteAccountMedia } from '@/lib/storage/upload-media';
 import { TemplatePicker } from './template-picker';
 import { buildReplyPreview } from './reply-quote';
 import { toast } from 'sonner';
+import { mergeMessages } from '@/lib/inbox/merge';
 
 interface ReplyDraft {
   id: string;
@@ -330,12 +331,25 @@ export function MessageThread({
             Array.isArray(json) ? json : (json.messages ?? [])
           ) as Message[];
 
-          if (isBackground && areMessagesEqual(msgs, messagesRef.current)) {
+          // The API response is a point-in-time snapshot. A realtime INSERT
+          // or an optimistic outbound row can exist locally but be absent
+          // from that snapshot, so replacing the array would make the bubble
+          // disappear. Merge only rows for this conversation; the parent also
+          // merges defensively when it receives the callback.
+          const currentForConversation = messagesRef.current.filter(
+            (message) => message.conversation_id === conversationId
+          );
+          const mergedMsgs = mergeMessages(currentForConversation, msgs);
+
+          if (
+            isBackground &&
+            areMessagesEqual(mergedMsgs, currentForConversation)
+          ) {
             // Unchanged message list: skip setState to prevent scroll jumping and re-render lag
             return;
           }
 
-          onMessagesLoadedRef.current(msgs);
+          onMessagesLoadedRef.current(mergedMsgs);
         }
       } catch (err) {
         if (!cancelled && !isBackground) {

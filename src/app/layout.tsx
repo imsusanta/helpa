@@ -3,6 +3,7 @@ import Script from 'next/script';
 import './globals.css';
 import { ThemeProvider } from '@/hooks/use-theme';
 import { ThemedToaster } from '@/components/themed-toaster';
+import { WebVitalsReporter } from '@/components/performance/web-vitals-reporter';
 import {
   DEFAULT_MODE,
   DEFAULT_THEME,
@@ -26,9 +27,7 @@ export const metadata: Metadata = {
     'Coaching Institute Lead Capture',
     'WhatsApp Cloud API India',
   ],
-  alternates: {
-    canonical: '/',
-  },
+  alternates: { canonical: '/' },
   openGraph: {
     title:
       'Helpa — WhatsApp AI Receptionist for Clinics, Salons & Coaching Institutes',
@@ -55,10 +54,7 @@ export const metadata: Metadata = {
       'Answers WhatsApp enquiries in seconds, books appointments, and captures leads 24/7. Built on the official WhatsApp Cloud API for Indian businesses.',
     images: ['/og-image.jpg'],
   },
-  robots: {
-    index: true,
-    follow: true,
-  },
+  robots: { index: true, follow: true },
   icons: {
     icon: [
       { url: '/helpa-logo.svg?v=4', type: 'image/svg+xml' },
@@ -71,11 +67,7 @@ export const metadata: Metadata = {
     ],
   },
   manifest: '/site.webmanifest',
-  formatDetection: {
-    email: false,
-    address: false,
-    telephone: false,
-  },
+  formatDetection: { email: false, address: false, telephone: false },
 };
 
 export const viewport: Viewport = {
@@ -107,9 +99,7 @@ const THEME_BOOT_SCRIPT = `
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
     <html
       lang="en"
@@ -127,6 +117,7 @@ export default function RootLayout({
         <ThemeProvider>
           {children}
           <ThemedToaster />
+          <WebVitalsReporter />
         </ThemeProvider>
       </body>
     </html>

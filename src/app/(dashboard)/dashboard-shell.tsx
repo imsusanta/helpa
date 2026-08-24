@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { AuthProvider, useAuth } from '@/hooks/use-auth';
 import { useWorkspace } from '@/hooks/use-workspace';
@@ -9,8 +11,6 @@ import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
 import { DashboardErrorBoundary } from '@/components/dashboard/error-boundary';
 import { DashboardShellSkeleton } from '@/components/ui/page-skeletons';
-import { Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
 
 function DashboardShellInner({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -48,13 +48,13 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
     );
 
   return (
-    <div className="flex h-screen min-w-0 overflow-hidden bg-[#f8fafc] text-[#0f172a]">
+    <div className="dashboard-shell flex h-screen min-w-0 overflow-hidden bg-[#f8fafc] text-[#0f172a]">
       <Sidebar open={sidebarOpen} onClose={closeSidebar} />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Header onOpenSidebar={() => setSidebarOpen(true)} />
         <main
           className={cn(
-            'min-h-0 min-w-0 flex-1 bg-[#f8fafc]',
+            'dashboard-main min-h-0 min-w-0 flex-1 bg-[#f8fafc]',
             isInbox
               ? 'flex flex-col overflow-hidden p-0'
               : 'overflow-x-auto overflow-y-auto px-4 py-5 sm:px-6 sm:py-6 lg:px-7 lg:py-6'
@@ -73,6 +73,20 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
           )}
         </main>
       </div>
+      <style jsx global>{`
+        @media (max-width: 1023px) {
+          .dashboard-shell > aside {
+            contain: layout paint style;
+            will-change: transform;
+            overscroll-behavior: contain;
+          }
+        }
+
+        .dashboard-main tbody > tr {
+          content-visibility: auto;
+          contain-intrinsic-size: auto 56px;
+        }
+      `}</style>
     </div>
   );
 }

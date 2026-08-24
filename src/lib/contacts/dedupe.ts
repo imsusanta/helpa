@@ -28,9 +28,9 @@ export interface ExistingContact {
 
 /**
  * Find an existing contact in `accountId` whose phone matches `phone`,
- * or null. Pre-filters in SQL by the last-8-digit suffix (so we don't
- * pull every contact), then applies the strict `phonesMatch` in JS on
- * the small candidate set — the exact approach the webhook has used.
+ * or null. Exact normalized matches are always preferred. A suffix query
+ * remains as a controlled legacy fallback for numbers stored with a trunk
+ * prefix, but it is never allowed to outrank an exact match.
  */
 export async function findExistingContact(
   db: AppwriteClient,
@@ -40,8 +40,38 @@ export async function findExistingContact(
   const normalized = normalizePhone(phone);
   if (!normalized) return null;
 
-  const suffix = normalized.length >= 8 ? normalized.slice(-8) : normalized;
+  // Exact lookups must happen before the suffix fallback. A suffix match is
+  // intentionally fuzzy (it tolerates trunk prefixes), so it is ambiguous
+  // when two contacts share the same final eight digits. Older installations
+  // may not have `phone_normalized`; raw `phone` equality is the compatible
+  // fallback and still gives exact matches precedence.
+  const exactValues = [...new Set([phone, normalized])];
+  for (const accountField of ['account_id', 'accountId']) {
+    for (const phoneField of ['phone_normalized', 'phone']) {
+      for (const exactValue of phoneField === 'phone_normalized'
+        ? [normalized]
+        : exactValues) {
+        try {
+          const query = db
+            .from('contacts')
+            .select('*')
+            .eq(accountField, accountId)
+            .eq(phoneField, exactValue);
+          const exact = await query.limit(10);
+          if (!exact.error && exact.data?.length) {
+            const hit = (exact.data as ExistingContact[]).find((candidate) =>
+              isExactMatch(candidate, phone)
+            );
+            if (hit) return hit;
+          }
+        } catch {
+          // Continue through the alternate schema/query shapes.
+        }
+      }
+    }
+  }
 
+  const suffix = normalized.length >= 8 ? normalized.slice(-8) : normalized;
   let data: ExistingContact[] | null = null;
   let error: unknown = null;
 
@@ -75,16 +105,15 @@ export async function findExistingContact(
   );
   if (matched.length === 0) return null;
 
-  // Prioritize primary contact (no suffix containing '-') first
-  const primary = matched.find((c) => !c.phone.includes('-'));
-  if (primary) return primary;
+  const exact = matched.find((candidate) => isExactMatch(candidate, phone));
+  if (exact) return exact;
 
-  // Fallback to the oldest contact
-  return matched.sort(
-    (a, b) =>
-      new Date((a.created_at as string) || 0).getTime() -
-      new Date((b.created_at as string) || 0).getTime()
-  )[0];
+  // A suffix-only match is intentionally fuzzy (it tolerates trunk-prefix
+  // differences). When more than one contact shares that suffix, there is no
+  // safe way to infer the owner of an inbound reply. Returning an arbitrary
+  // "primary" or oldest row can leak messages across contacts, so fail closed
+  // and let the caller surface the routing problem for correction.
+  return matched.length === 1 ? matched[0] : null;
 }
 
 /**

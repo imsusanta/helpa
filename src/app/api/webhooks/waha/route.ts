@@ -1,47 +1,33 @@
 import { NextResponse } from 'next/server';
+import { WahaWhatsAppProvider } from '@/core/providers/whatsapp/waha-provider';
+import { resolveWahaTenant } from '@/app/api/webhooks/inbound-tenant-resolver';
+import { persistNormalizedInboundMessage } from '@/app/api/webhooks/inbound-persistence';
 import {
-  WahaWhatsAppProvider,
-  extractValidAccountId,
-} from '@/core/providers/whatsapp/waha-provider';
-import { getAdminClient } from '@/lib/supabase/server';
+  beginProviderEvent,
+  completeProviderEvent,
+  failProviderEvent,
+  type ProviderEventContext,
+} from '@/app/api/webhooks/provider-event-log';
 
-/**
- * Verifies that the client-supplied account_id belongs to a real account
- * with an active WhatsApp configuration. Never trust the webhook payload
- * alone for tenant attribution.
- */
-async function resolveVerifiedTenantAccountId(
-  accountId: string
-): Promise<boolean> {
-  const db = getAdminClient();
-
-  const { data, error } = await db
-    .from('whatsapp_configs')
-    .select('account_id')
-    .eq('account_id', accountId)
-    .limit(1);
-
-  if (!error && data && data.length > 0) {
-    return true;
-  }
-
-  // Legacy whatsapp_config has no account linkage; verify the account
-  // exists at minimum before accepting attribution.
-  const { data: accountData } = await db
-    .from('accounts')
-    .select('id')
-    .eq('id', accountId)
-    .limit(1);
-
-  return Boolean(accountData && accountData.length > 0);
+function eventIdFor(
+  event: { externalMessageId?: string; eventId?: string },
+  index: number
+): string {
+  return String(
+    event.externalMessageId || event.eventId || `waha-event-${index}`
+  );
 }
 
+/**
+ * WAHA webhook receiver. account_id in the payload is only a routing hint;
+ * tenant attribution is verified against server-side provider configuration.
+ */
 export async function POST(request: Request) {
+  const provider = new WahaWhatsAppProvider();
+  let rawBody = '';
   try {
-    const bodyText = await request.text();
-    const provider = new WahaWhatsAppProvider();
-
-    const isValid = await provider.verifyWebhook(request, bodyText);
+    rawBody = await request.text();
+    const isValid = await provider.verifyWebhook(request, rawBody);
     if (!isValid) {
       return NextResponse.json(
         { error: 'Invalid or missing webhook signature' },
@@ -49,48 +35,90 @@ export async function POST(request: Request) {
       );
     }
 
-    const payload = JSON.parse(bodyText || '{}');
-
-    // Strict multi-tenant resolution: reject unknown or malformed tenants
-    const accountId = extractValidAccountId(payload);
-    if (!accountId) {
+    let payload: Record<string, unknown>;
+    try {
+      payload = JSON.parse(rawBody || '{}') as Record<string, unknown>;
+    } catch {
       return NextResponse.json(
-        { success: false, error: 'Missing or invalid account_id' },
-        { status: 403 }
+        { success: false, error: 'Invalid JSON payload' },
+        { status: 400 }
       );
     }
 
-    const isKnownTenant = await resolveVerifiedTenantAccountId(accountId);
-    if (!isKnownTenant) {
-      console.warn(
-        `[WAHA Webhook] Rejected event for unregistered account_id ${accountId}`
-      );
+    const tenant = await resolveWahaTenant(payload);
+    if (!tenant) {
+      console.warn('[WAHA Webhook] No unique server-side tenant mapping');
       return NextResponse.json(
         { success: false, error: 'Unknown account' },
         { status: 403 }
       );
     }
 
-    const events = await provider.normalizeWebhook(payload);
-    const db = getAdminClient();
+    // The provider normalizer intentionally preserves its old account_id
+    // guard. Inject the verified server-side account for payloads where WAHA
+    // omitted it, then overwrite clinicId with the trusted value below.
+    const normalizedPayload = { ...payload, account_id: tenant.accountId };
+    const events = await provider.normalizeWebhook(normalizedPayload);
+    let persisted = 0;
+    let duplicates = 0;
+    let failed = 0;
+    const errors: string[] = [];
 
-    for (const evt of events) {
-      await db.from('provider_events').insert({
-        account_id: accountId,
+    for (let index = 0; index < events.length; index += 1) {
+      const event = events[index];
+      // Outbound events are already persisted by the send path.
+      if (event.direction !== 'inbound') continue;
+      event.clinicId = tenant.accountId;
+
+      const externalEventId = eventIdFor(event, index);
+      const context: ProviderEventContext = {
+        accountId: tenant.accountId,
         provider: 'waha',
-        external_event_id: evt.externalMessageId,
-        event_type: 'waha_message',
-        payload_hash: evt.externalMessageId,
+        externalEventId,
+        eventType: String(payload.event || 'waha_message'),
+        rawBody,
         payload,
-        status: 'processed',
-      });
+      };
+      await beginProviderEvent(context);
+
+      try {
+        const result = await persistNormalizedInboundMessage(event, {
+          accountId: tenant.accountId,
+          userId: tenant.userId,
+          correlationId: externalEventId,
+        });
+        if (result.duplicate) duplicates += 1;
+        else persisted += 1;
+        await completeProviderEvent(context);
+      } catch (error) {
+        failed += 1;
+        const message = error instanceof Error ? error.message : String(error);
+        errors.push(`${externalEventId}: ${message}`);
+        await failProviderEvent(context, error);
+        console.error('[WAHA Webhook] Inbound persistence failed', {
+          accountId: tenant.accountId,
+          externalEventId,
+          error: message,
+        });
+      }
     }
 
-    return NextResponse.json({ success: true, count: events.length });
-  } catch (err: unknown) {
-    console.error('[POST /api/webhooks/waha] Error:', err);
+    if (failed > 0) {
+      return NextResponse.json(
+        { success: false, persisted, duplicates, failed, errors },
+        { status: 500 }
+      );
+    }
+    return NextResponse.json({
+      success: true,
+      count: events.length,
+      persisted,
+      duplicates,
+    });
+  } catch (error: unknown) {
+    console.error('[POST /api/webhooks/waha] Error:', error);
     return NextResponse.json(
-      { success: false, error: (err as Error).message },
+      { success: false, error: 'Inbound webhook processing failed' },
       { status: 500 }
     );
   }

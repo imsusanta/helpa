@@ -2,6 +2,20 @@ import { getAdminClient } from '@/lib/supabase/server';
 import { findExistingContact, isUniqueViolation } from '@/lib/contacts/dedupe';
 import type { Contact } from '@/types';
 
+function isSchemaCompatibilityError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const candidate = error as {
+    code?: string;
+    message?: string;
+    details?: string;
+  };
+  const code = String(candidate.code || '').toUpperCase();
+  if (['42P01', '42703', 'PGRST204', 'PGRST205'].includes(code)) return true;
+  return /does not exist|schema cache|could not find the table/i.test(
+    `${candidate.message || ''} ${candidate.details || ''}`
+  );
+}
+
 export type ContactRow = Contact;
 
 export interface ContactOutcome {
@@ -64,8 +78,19 @@ export async function findOrCreateContact(
 
   if (res.data) {
     newContact = res.data;
-  } else {
-    // Fallback to legacy fields
+  } else if (isUniqueViolation(res.error)) {
+    // The pre-insert lookup and this write can race. Re-read immediately so
+    // the winner is adopted rather than attempting a second legacy insert.
+    const raced = (await findExistingContact(
+      db,
+      accountId,
+      phone
+    )) as ContactRow | null;
+    if (raced) return { contact: raced, wasCreated: false };
+    createError = res.error;
+  } else if (isSchemaCompatibilityError(res.error)) {
+    // Fallback to legacy fields only for a known schema mismatch. A canonical
+    // unique violation is a race, not permission to create another row.
     const legacyRes = await db
       .from('contacts')
       .insert({
@@ -77,8 +102,26 @@ export async function findOrCreateContact(
       })
       .select()
       .single();
-    newContact = legacyRes.data;
-    createError = legacyRes.error || res.error;
+    if (legacyRes.data) {
+      newContact = legacyRes.data;
+    } else if (isUniqueViolation(legacyRes.error)) {
+      // Re-read after the compatibility path too: another worker may have
+      // committed the contact between the two attempts.
+      const raced = (await findExistingContact(
+        db,
+        accountId,
+        phone
+      )) as ContactRow | null;
+      if (raced) return { contact: raced, wasCreated: false };
+      createError = legacyRes.error;
+    } else {
+      createError = legacyRes.error || res.error;
+    }
+    // The legacy insert is a valid compatibility path. Only surface an
+    // error when both canonical and legacy writes failed; otherwise a stale
+    // canonical-schema error would discard a successfully-created contact.
+  } else {
+    createError = res.error;
   }
 
   if (createError) {
