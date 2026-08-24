@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
-import crypto from 'node:crypto';
 import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { authorizeCronRequest } from '@/lib/cron/security';
+
+const NO_STORE_HEADERS = {
+  'Cache-Control': 'private, no-store, no-cache, must-revalidate',
+};
 
 /**
  * Retention Cleanup Cron Endpoint
@@ -10,30 +14,20 @@ import { getAdminClient } from '@/lib/appwrite-server-compat';
  * - Dead-letter and failed webhook records older than 30 days are purged.
  * - Outbound outbox completed records older than 14 days are cleaned up.
  *
- * Authentication: Header 'x-cron-secret' must match AUTOMATION_CRON_SECRET / CRON_SECRET.
- * Fails closed if no secret is configured.
+ * Authentication: delegated to the shared cron authorizer, which accepts
+ * either AUTOMATION_CRON_SECRET or CRON_SECRET in `x-cron-secret` or
+ * `Authorization: Bearer`, compares in constant time, and fails closed
+ * when no secret is configured.
  */
 export async function POST(request: Request) {
-  const expected =
-    process.env.AUTOMATION_CRON_SECRET || process.env.CRON_SECRET;
-  if (!expected) {
+  const authorization = authorizeCronRequest(request, [
+    'AUTOMATION_CRON_SECRET',
+    'CRON_SECRET',
+  ]);
+  if (!authorization.authorized) {
     return NextResponse.json(
-      { error: 'Cron secret not configured' },
-      { status: 503, headers: { 'Cache-Control': 'no-store, private' } }
-    );
-  }
-
-  const supplied = request.headers.get('x-cron-secret') || '';
-  const expectedBuf = Buffer.from(expected, 'utf8');
-  const suppliedBuf = Buffer.from(supplied, 'utf8');
-
-  if (
-    expectedBuf.length !== suppliedBuf.length ||
-    !crypto.timingSafeEqual(expectedBuf, suppliedBuf)
-  ) {
-    return NextResponse.json(
-      { error: 'Unauthorized' },
-      { status: 401, headers: { 'Cache-Control': 'no-store, private' } }
+      { error: authorization.message },
+      { status: authorization.status, headers: NO_STORE_HEADERS }
     );
   }
 
@@ -108,6 +102,6 @@ export async function POST(request: Request) {
       purged_sent_outbox: purgedOutbox?.length || 0,
       timestamp: now.toISOString(),
     },
-    { headers: { 'Cache-Control': 'no-store, private' } }
+    { headers: NO_STORE_HEADERS }
   );
 }
