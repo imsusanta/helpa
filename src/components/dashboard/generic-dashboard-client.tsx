@@ -120,12 +120,19 @@ const iconBgClasses: Record<string, string> = {
 };
 
 /**
- * Every metric card renders at the same height so the coloured icon tile
- * sits in an identical spot on each row. Previously the second row used a
- * taller card, which pushed its icons visually out of line with the first
- * row and let them overlap the filter pill.
+ * Metric cards share one minimum height so the coloured icon tile sits in
+ * the same spot on every row, while still being allowed to grow when a
+ * translated label wraps onto a second line. A fixed height would clip or
+ * spill that wrapped label on narrow viewports.
  */
-const METRIC_CARD_HEIGHT = 'h-[148px]';
+const METRIC_CARD_HEIGHT = 'min-h-[148px] overflow-hidden';
+
+/**
+ * The icon tile is 48px wide and inset 20px from the right edge, so the
+ * value needs 68px of clearance. Reserve a little more than that so long
+ * currency amounts never run underneath it.
+ */
+const METRIC_VALUE_PADDING = 'pr-20';
 
 function getMetric(metrics: Record<string, number>, keys: readonly string[]) {
   for (const key of keys)
@@ -268,7 +275,7 @@ export function GenericDashboardClient() {
               className={`group relative flex flex-col justify-between rounded-2xl border border-slate-200/90 bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.04)] transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg ${METRIC_CARD_HEIGHT}`}
             >
               <div className="flex items-start justify-between gap-2 pr-1">
-                <span className="text-[12px] font-bold tracking-[0.055em] text-[#64748b] uppercase group-hover:text-slate-900">
+                <span className="line-clamp-2 min-w-0 text-[12px] font-bold tracking-[0.055em] text-[#64748b] uppercase group-hover:text-slate-900">
                   {card.label}
                 </span>
                 {card.filter && (
@@ -278,7 +285,7 @@ export function GenericDashboardClient() {
                 )}
               </div>
 
-              <div className="pr-16">
+              <div className={METRIC_VALUE_PADDING}>
                 <div className="text-[34px] leading-none font-extrabold tracking-[-0.03em] text-[#0f172a]">
                   {formatValue(value, isWallet)}
                 </div>
