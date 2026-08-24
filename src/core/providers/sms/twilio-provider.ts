@@ -2,6 +2,44 @@ import crypto from 'crypto';
 import { SmsProvider } from './sms-provider.interface';
 import { MessageEvent } from '../../types';
 
+function safeStringEqual(left: string, right: string): boolean {
+  const leftBuffer = Buffer.from(left, 'utf-8');
+  const rightBuffer = Buffer.from(right, 'utf-8');
+  return (
+    leftBuffer.length === rightBuffer.length &&
+    crypto.timingSafeEqual(leftBuffer, rightBuffer)
+  );
+}
+
+function formParameters(bodyText: string): Record<string, string | string[]> {
+  const values = new Map<string, string[]>();
+  new URLSearchParams(bodyText).forEach((value, key) => {
+    values.set(key, [...(values.get(key) || []), value]);
+  });
+
+  return Object.fromEntries(
+    [...values.entries()].map(([key, entries]) => [
+      key,
+      entries.length === 1 ? entries[0] : [...new Set(entries)].sort(),
+    ])
+  );
+}
+
+function signatureData(
+  url: string,
+  parameters: Record<string, string | string[]>
+): string {
+  return Object.keys(parameters)
+    .sort()
+    .reduce((data, key) => {
+      const rawValues = parameters[key];
+      const values = Array.isArray(rawValues)
+        ? [...new Set(rawValues)].sort()
+        : [rawValues];
+      return values.reduce((result, value) => result + key + value, data);
+    }, url);
+}
+
 export class TwilioSmsProvider implements SmsProvider {
   readonly providerName = 'twilio';
 
@@ -21,55 +59,95 @@ export class TwilioSmsProvider implements SmsProvider {
     if (!authToken || authToken.startsWith('mock_')) return false;
 
     const url = request.url;
-    const params = new URLSearchParams(bodyText);
-    const data: Record<string, string> = {};
-    params.forEach((val, key) => {
-      data[key] = val;
-    });
+    const contentType =
+      request.headers.get('content-type')?.toLowerCase() || '';
+    const bodyHash = new URL(url).searchParams.get('bodySHA256');
+    const isJson =
+      contentType.includes('application/json') || Boolean(bodyHash);
 
-    let expectedData = url;
-    Object.keys(data)
-      .sort()
-      .forEach((key) => {
-        expectedData += key + data[key];
-      });
+    if (isJson) {
+      if (!bodyHash) return false;
+      const expectedBodyHash = crypto
+        .createHash('sha256')
+        .update(Buffer.from(bodyText, 'utf-8'))
+        .digest('hex');
+      if (!safeStringEqual(bodyHash, expectedBodyHash)) return false;
+    }
+
+    const expectedData = signatureData(
+      url,
+      isJson ? {} : formParameters(bodyText)
+    );
 
     const hmac = crypto
       .createHmac('sha1', authToken)
       .update(Buffer.from(expectedData, 'utf-8'))
       .digest('base64');
 
-    return hmac === twilioSignature;
+    return safeStringEqual(twilioSignature.trim(), hmac);
   }
 
   async normalizeWebhook(
     payload: Record<string, unknown>
   ): Promise<MessageEvent> {
-    const msgId =
-      (payload.MessageSid as string) ||
-      (payload.SmsSid as string) ||
-      `tw_${Date.now()}`;
-    const body = (payload.Body as string) || '';
-    const from = (payload.From as string) || '';
-    const accountId =
-      (payload.account_id as string) || '00000000-0000-0000-0000-000000000000';
+    const get = (name: string, alternate?: string): string => {
+      const value =
+        payload[name] ?? (alternate ? payload[alternate] : undefined);
+      return typeof value === 'string'
+        ? value
+        : value == null
+          ? ''
+          : String(value);
+    };
+    const msgId = get('MessageSid', 'message_sid') || get('SmsSid', 'sms_sid');
+    if (!msgId) {
+      throw new Error('Twilio webhook is missing MessageSid');
+    }
+    const body = get('Body', 'body');
+    const from = get('From', 'from');
+    const to = get('To', 'to');
+    const timestampValue =
+      get('DateSent', 'date_sent') ||
+      get('Timestamp', 'timestamp') ||
+      new Date().toISOString();
+    const parsedTimestamp = new Date(timestampValue);
+    const occurredAt = Number.isNaN(parsedTimestamp.getTime())
+      ? new Date().toISOString()
+      : parsedTimestamp.toISOString();
+
+    const mediaCount = Number(get('NumMedia', 'num_media') || 0);
+    const mediaUrl = mediaCount > 0 ? get('MediaUrl0', 'media_url_0') : '';
+    const mediaContentType = get('MediaContentType0', 'media_content_type_0');
+    const mediaType = mediaContentType.startsWith('image/')
+      ? 'image'
+      : mediaContentType.startsWith('audio/')
+        ? 'audio'
+        : mediaContentType.startsWith('video/')
+          ? 'video'
+          : mediaContentType.startsWith('application/')
+            ? 'document'
+            : undefined;
 
     return {
       eventId: msgId,
       messageId: msgId,
-      clinicId: accountId,
+      // The route resolves the tenant from the configured receiving number.
+      // Never attribute a Twilio event from a client-supplied account_id.
+      clinicId: '',
       channel: 'sms',
       provider: 'twilio',
       externalMessageId: msgId,
       patientAddress: from,
       senderPhone: from,
-      recipientPhone: (payload.To as string) || '',
+      recipientPhone: to,
       content: body,
       text: body,
+      contentType: mediaType || 'text',
+      mediaUrl: mediaUrl || undefined,
       direction: 'inbound',
       status: 'delivered',
-      occurredAt: new Date().toISOString(),
-      timestamp: new Date().toISOString(),
+      occurredAt,
+      timestamp: occurredAt,
     };
   }
 

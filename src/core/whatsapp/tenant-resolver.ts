@@ -14,6 +14,35 @@ import { decrypt } from '@/lib/whatsapp/encryption';
 import { normalizePhone } from '@/lib/whatsapp/phone-utils';
 import type { ResolvedTenantContext } from './types';
 
+/** Errors raised while resolving a tenant are retryable webhook failures. */
+export class TenantResolutionError extends Error {
+  readonly code = 'TENANT_RESOLUTION_FAILED';
+
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = 'TenantResolutionError';
+  }
+}
+
+function isSchemaCompatibilityError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const candidate = error as {
+    code?: string;
+    message?: string;
+    details?: string;
+  };
+  const code = String(candidate.code || '').toUpperCase();
+  if (['42P01', '42703', 'PGRST204', 'PGRST205'].includes(code)) return true;
+  const text =
+    `${candidate.message || ''} ${candidate.details || ''}`.toLowerCase();
+  return (
+    (text.includes('relation') && text.includes('does not exist')) ||
+    (text.includes('column') && text.includes('does not exist')) ||
+    text.includes('could not find the table') ||
+    text.includes('schema cache')
+  );
+}
+
 /**
  * Resolves tenant context strictly by Phone Number ID.
  * Returns null if the phone number is not registered to any tenant.
@@ -29,25 +58,44 @@ export async function resolveTenantByPhoneNumberId(
   const db = getAdminClient();
 
   try {
-    // Primary query on canonical whatsapp_configs table
-    let rows: Record<string, unknown>[] | null = null;
-    const { data, error } = await db
+    // Primary query on canonical whatsapp_configs table. A fallback to the
+    // legacy table is allowed only for a genuinely old schema; operational
+    // query failures must escape so the provider retries the webhook.
+    let rows: Record<string, unknown>[] = [];
+    const primary = await db
       .from('whatsapp_configs')
       .select('*')
       .eq('phone_number_id', cleanPhoneId)
       .limit(1);
 
-    if (!error && data && data.length > 0) {
-      rows = data as Record<string, unknown>[];
+    if (primary.error && !isSchemaCompatibilityError(primary.error)) {
+      throw new TenantResolutionError(
+        `Canonical WhatsApp configuration lookup failed: ${String(
+          (primary.error as { message?: string }).message || primary.error
+        )}`,
+        { cause: primary.error }
+      );
+    }
+
+    if (!primary.error && primary.data && primary.data.length > 0) {
+      rows = primary.data as Record<string, unknown>[];
     } else {
-      // Fallback query on legacy whatsapp_config table
-      const { data: legacyData } = await db
+      const legacy = await db
         .from('whatsapp_config')
         .select('*')
         .eq('phone_number_id', cleanPhoneId)
         .limit(1);
-      if (legacyData && legacyData.length > 0) {
-        rows = legacyData as Record<string, unknown>[];
+
+      if (legacy.error && !isSchemaCompatibilityError(legacy.error)) {
+        throw new TenantResolutionError(
+          `Legacy WhatsApp configuration lookup failed: ${String(
+            (legacy.error as { message?: string }).message || legacy.error
+          )}`,
+          { cause: legacy.error }
+        );
+      }
+      if (legacy.data && legacy.data.length > 0) {
+        rows = legacy.data as Record<string, unknown>[];
       }
     }
 
@@ -82,15 +130,17 @@ export async function resolveTenantByPhoneNumberId(
       try {
         accessToken = decrypt(encToken);
       } catch (decryptErr) {
-        console.error(
-          `[Tenant Resolver] Decryption failed for phone_number_id ${cleanPhoneId}:`,
-          decryptErr
+        throw new TenantResolutionError(
+          `Unable to decrypt WhatsApp credentials for phone_number_id ${cleanPhoneId}`,
+          { cause: decryptErr }
         );
       }
     }
 
     if (!tenantId) {
-      return null;
+      throw new TenantResolutionError(
+        `WhatsApp configuration for phone_number_id ${cleanPhoneId} has no account_id`
+      );
     }
 
     return {
@@ -103,8 +153,10 @@ export async function resolveTenantByPhoneNumberId(
       businessName,
     };
   } catch (err) {
-    console.error('[Tenant Resolver] Resolution error:', err);
-    return null;
+    if (err instanceof TenantResolutionError) throw err;
+    throw new TenantResolutionError('Unexpected tenant resolution failure', {
+      cause: err,
+    });
   }
 }
 

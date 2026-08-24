@@ -54,6 +54,8 @@ interface FakeOptions {
   ledgerMissing?: boolean;
   /** Simulate a database without the atomic rollup function. */
   rpcMissing?: boolean;
+  /** Simulate a legacy conversations table that rejects snake_case rollups. */
+  canonicalConversationUpdateFails?: boolean;
   /** Force the pre-insert dedupe SELECT to return nothing, so the insert
    *  itself must handle the unique violation. */
   blindDedupeRead?: boolean;
@@ -130,6 +132,20 @@ function createFakeAdmin(store: Record<string, Row[]>, opts: FakeOptions = {}) {
       }
 
       if (op === 'update' && payload) {
+        if (
+          table === 'conversations' &&
+          opts.canonicalConversationUpdateFails &&
+          Object.hasOwn(payload, 'unread_count')
+        ) {
+          return {
+            data: null,
+            error: {
+              code: '42703',
+              message: 'column unread_count does not exist',
+            },
+            count: null,
+          };
+        }
         const matched = rows(table).filter((r) => matches(r, filters));
         matched.forEach((r) => Object.assign(r, payload));
         return { data: matched, error: null, count: null };
@@ -569,6 +585,40 @@ describe('Inbound message pipeline', () => {
     expect(conv.unread_count).toBe(5);
     expect(conv.last_message_text).toBe('ping');
     expect(conv.status).toBe('open');
+  });
+
+  it('does not double-count unread when the legacy conversation fallback is retried', async () => {
+    install({
+      ledgerMissing: true,
+      rpcMissing: true,
+      canonicalConversationUpdateFails: true,
+    });
+    const conv = seedConversation({ status: 'closed' });
+    delete conv.unread_count;
+    delete conv.last_message_text;
+    delete conv.last_message_at;
+    Object.assign(conv, {
+      unreadCount: 0,
+      lastMessageText: '',
+      lastMessageAt: null,
+    });
+    const payload = inboundPayload([
+      {
+        id: 'wamid.LEGACY_RETRY',
+        type: 'text',
+        text: { body: 'still there?' },
+      },
+    ]);
+
+    const first = await webhookHandler(signedRequest(payload));
+    const retry = await webhookHandler(signedRequest(payload));
+
+    expect(first.status).toBe(200);
+    expect(retry.status).toBe(200);
+    expect(store.messages).toHaveLength(1);
+    expect(conv.unreadCount).toBe(1);
+    expect(conv.lastMessageText).toBe('still there?');
+    expect(store.messages[0].inbound_rollup_applied_at).toBeTruthy();
   });
 
   it('does not advance the preview for an out-of-order older redelivery', async () => {

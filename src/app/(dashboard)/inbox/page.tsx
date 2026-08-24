@@ -19,6 +19,12 @@ import type { InsertedComposerReply } from '@/components/inbox/message-composer'
 import { WifiOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useWorkspace } from '@/hooks/use-workspace';
+import {
+  applyMessageToConversation,
+  mergeConversationEvent,
+  mergeConversations,
+  mergeMessages,
+} from '@/lib/inbox/merge';
 
 // Remembers the agent's show/hide choice for the desktop contact panel
 // across reloads and sessions (device-scoped, like the theme prefs).
@@ -101,6 +107,26 @@ export default function InboxPage() {
   // new conversation even when both events arrive within milliseconds.
   const hydratingConvIdsRef = useRef<Set<string>>(new Set());
 
+  // Read by async hydration/event callbacks without capturing an old active
+  // conversation when the user switches threads while a request is pending.
+  const activeConversationIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    activeConversationIdRef.current = activeConversation?.id ?? null;
+  }, [activeConversation?.id]);
+
+  // Realtime callbacks and API snapshots can complete in either order. This
+  // ref lets event handlers de-duplicate INSERT notifications before the
+  // corresponding React state update has rendered.
+  const seenRealtimeMessageIdsRef = useRef<Set<string>>(new Set());
+  const pendingConversationIdsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    // Do not retain live rows from a previously selected workspace when the
+    // authenticated account changes underneath this client page.
+    seenRealtimeMessageIdsRef.current.clear();
+    pendingConversationIdsRef.current.clear();
+  }, [accountId]);
+
   /**
    * Synchronous mirror of the conversation ids currently in `conversations`
    * state. Event handlers need to know "do we already have this conv?"
@@ -145,16 +171,24 @@ export default function InboxPage() {
       const json = await res.json();
       const fetched = (json.conversation || json) as Conversation;
       if (!fetched?.id) return;
+      if (!knownConvIdsRef.current.has(fetched.id)) {
+        pendingConversationIdsRef.current.add(fetched.id);
+      }
       setConversations((prev) => {
         const existing = prev.find((c) => c.id === fetched.id);
-        if (existing) {
-          return prev.map((c) =>
-            c.id === fetched.id
-              ? { ...c, contact: c.contact ?? fetched.contact }
-              : c
-          );
+        const merged = mergeConversationEvent(existing, fetched);
+        if (activeConversationIdRef.current === fetched.id) {
+          merged.unread_count = 0;
         }
-        return [fetched, ...prev];
+        if (existing) {
+          return prev.map((c) => (c.id === fetched.id ? merged : c));
+        }
+        return [merged, ...prev];
+      });
+      knownConvIdsRef.current.add(fetched.id);
+      setActiveConversation((prev) => {
+        if (!prev || prev.id !== fetched.id) return prev;
+        return mergeConversationEvent(prev, fetched);
       });
     } catch (e) {
       console.error('Failed to hydrate conversation:', e);
@@ -194,43 +228,29 @@ export default function InboxPage() {
   const handleMessageEvent = useCallback(
     (event: { eventType: string; new: Message; old: Partial<Message> }) => {
       const newMsg = event.new;
+      if (!newMsg.id) return;
+
+      if (event.eventType === 'DELETE') {
+        setMessages((prev) =>
+          prev.filter((message) => message.id !== newMsg.id)
+        );
+        return;
+      }
+
+      if (!newMsg.conversation_id) return;
 
       if (event.eventType === 'INSERT') {
+        const isFirstRealtimeInsert = !seenRealtimeMessageIdsRef.current.has(
+          newMsg.id
+        );
+        seenRealtimeMessageIdsRef.current.add(newMsg.id);
+
         // Add to messages if it belongs to active conversation
         if (
           activeConversation &&
           newMsg.conversation_id === activeConversation.id
         ) {
-          setMessages((prev) => {
-            // Avoid duplicates
-            if (prev.some((m) => m.id === newMsg.id)) return prev;
-
-            // An inbound reply must not clear pending outbound bubbles. A
-            // customer can answer while our send request is still in flight;
-            // removing every `temp-*` row here made that outbound message
-            // disappear until a later poll (and could leave it missing if the
-            // outbound realtime event was missed). Replace only the matching
-            // optimistic outbound row when this INSERT is itself outbound.
-            if (newMsg.sender_type === 'customer') {
-              return [...prev, newMsg];
-            }
-
-            const optimisticIndex = prev.findIndex(
-              (m) =>
-                m.id.startsWith('temp-') &&
-                m.sender_type !== 'customer' &&
-                m.content_type === newMsg.content_type &&
-                (m.content_text ?? '') === (newMsg.content_text ?? '') &&
-                (m.reply_to_message_id ?? null) ===
-                  (newMsg.reply_to_message_id ?? null)
-            );
-
-            if (optimisticIndex < 0) return [...prev, newMsg];
-
-            const next = prev.slice();
-            next[optimisticIndex] = newMsg;
-            return next;
-          });
+          setMessages((prev) => mergeMessages(prev, [newMsg]));
         }
 
         // Update conversation list preview. We need to know *synchronously*
@@ -239,31 +259,33 @@ export default function InboxPage() {
         // knownConvIdsRef for why a closure flag inside the updater would
         // always read false here.
         if (knownConvIdsRef.current.has(newMsg.conversation_id)) {
+          const isActive = activeConversation?.id === newMsg.conversation_id;
           setConversations((prev) =>
-            prev.map((c) =>
-              c.id === newMsg.conversation_id
-                ? {
-                    ...c,
-                    last_message_text:
-                      newMsg.content_text ||
-                      (newMsg.content_type ? `[${newMsg.content_type}]` : ''),
-                    last_message_at: newMsg.created_at,
-                    unread_count:
-                      activeConversation?.id === newMsg.conversation_id
-                        ? 0
-                        : newMsg.sender_type === 'customer'
-                          ? c.unread_count + 1
-                          : c.unread_count,
-                  }
-                : c
-            )
+            prev.map((c) => {
+              if (c.id !== newMsg.conversation_id) return c;
+              return applyMessageToConversation(c, newMsg, {
+                active: isActive,
+                firstRealtimeInsert: isFirstRealtimeInsert,
+              });
+            })
           );
+          setActiveConversation((prev) => {
+            if (!prev || prev.id !== newMsg.conversation_id) return prev;
+            return applyMessageToConversation(prev, newMsg, {
+              // Keep a positive count on the active-conversation object so
+              // MessageThread's reset effect PATCHes the database. Only the
+              // list copy is forced to zero to avoid a visible badge flicker.
+              active: false,
+              firstRealtimeInsert: isFirstRealtimeInsert,
+            });
+          });
         } else {
           // First time we're seeing this conv: the conv-INSERT event
           // hasn't landed yet, or was missed. Hydrate from the DB so
           // the row surfaces with its `contact` joined; the conv-UPDATE
           // event the webhook emits right after the message INSERT will
           // converge state when it arrives.
+          pendingConversationIdsRef.current.add(newMsg.conversation_id);
           hydrateConversation(newMsg.conversation_id);
         }
       }
@@ -286,6 +308,42 @@ export default function InboxPage() {
       old: Partial<Conversation>;
     }) => {
       const conv = event.new;
+      if (!conv?.id) return;
+
+      if (event.eventType === 'DELETE') {
+        knownConvIdsRef.current.delete(conv.id);
+        setConversations((prev) => prev.filter((c) => c.id !== conv.id));
+        setActiveConversation((prev) => (prev?.id === conv.id ? null : prev));
+        setActiveContact((prev) =>
+          activeConversation?.id === conv.id ? null : prev
+        );
+        if (activeConversation?.id === conv.id) {
+          setMessages([]);
+          setInsertedReply(null);
+        }
+        return;
+      }
+
+      const hadConversation = knownConvIdsRef.current.has(conv.id);
+      knownConvIdsRef.current.add(conv.id);
+      if (!hadConversation) pendingConversationIdsRef.current.add(conv.id);
+
+      // Always merge the payload, even when the row is already present. A
+      // conversation UPDATE may arrive while its hydration request is still
+      // in flight; gating on known ids used to silently discard that update.
+      setConversations((prev) => {
+        const existing = prev.find((c) => c.id === conv.id);
+        const merged = mergeConversationEvent(existing, conv);
+        if (activeConversation?.id === conv.id) merged.unread_count = 0;
+        if (existing) return prev.map((c) => (c.id === conv.id ? merged : c));
+        return [merged, ...prev];
+      });
+
+      if (activeConversation?.id === conv.id) {
+        setActiveConversation((prev) =>
+          prev ? mergeConversationEvent(prev, conv) : prev
+        );
+      }
 
       if (event.eventType === 'INSERT') {
         // Prepend immediately for snappy UX so the new conv shows in the
@@ -293,45 +351,16 @@ export default function InboxPage() {
         // (realtime payloads never include joins). Skip both if we
         // already have the row — that shouldn't happen normally, but
         // out-of-order delivery would have us prepending a duplicate.
-        if (!knownConvIdsRef.current.has(conv.id)) {
-          setConversations((prev) => {
-            if (prev.some((c) => c.id === conv.id)) return prev;
-            return [conv, ...prev];
-          });
-          hydrateConversation(conv.id);
-        }
+        hydrateConversation(conv.id);
       }
 
       if (event.eventType === 'UPDATE') {
-        if (knownConvIdsRef.current.has(conv.id)) {
-          // If this UPDATE is for the conv the user is currently viewing,
-          // suppress the incoming unread_count — the user is reading it
-          // RIGHT NOW, so any positive value would just flicker the badge
-          // back on for the ~100ms it takes for the reset effect's server
-          // UPDATE to round-trip. Non-active convs take the value as-is.
-          const isActive = activeConversation?.id === conv.id;
-          setConversations((prev) =>
-            prev.map((c) =>
-              c.id === conv.id
-                ? {
-                    ...c,
-                    ...conv,
-                    unread_count: isActive ? 0 : conv.unread_count,
-                  }
-                : c
-            )
-          );
-        } else {
+        if (!hadConversation) {
           // UPDATE arrived before the INSERT (or after a missed INSERT)
           // — fetch the row so it surfaces with its contact joined. The
           // patch contained in `conv` will already be reflected in what
           // the hydrate fetch returns.
           hydrateConversation(conv.id);
-        }
-
-        // Update active conversation if it changed
-        if (activeConversation && conv.id === activeConversation.id) {
-          setActiveConversation((prev) => (prev ? { ...prev, ...conv } : prev));
         }
       }
     },
@@ -403,7 +432,24 @@ export default function InboxPage() {
 
   const handleConversationsLoaded = useCallback(
     (loaded: Conversation[]) => {
-      setConversations(loaded);
+      const pendingIdsAtFetch = new Set(pendingConversationIdsRef.current);
+      const nextKnownIds = new Set(
+        loaded.map((conversation) => conversation.id)
+      );
+      for (const pendingId of pendingIdsAtFetch) nextKnownIds.add(pendingId);
+      knownConvIdsRef.current = nextKnownIds;
+      setConversations((prev) => {
+        const merged = mergeConversations(prev, loaded, pendingIdsAtFetch);
+        if (!activeConversation?.id) return merged;
+        return merged.map((conversation) =>
+          conversation.id === activeConversation.id
+            ? { ...conversation, unread_count: 0 }
+            : conversation
+        );
+      });
+      for (const conversation of loaded) {
+        pendingConversationIdsRef.current.delete(conversation.id);
+      }
       // Resolve a pending deep-link here rather than in an effect — this
       // is an event handler, so the setState calls below are allowed by
       // react-hooks/set-state-in-effect. Runs once per ?c=<id> URL value
@@ -504,7 +550,7 @@ export default function InboxPage() {
   }, [router]);
 
   const handleMessagesLoaded = useCallback((loaded: Message[]) => {
-    setMessages(loaded);
+    setMessages((prev) => mergeMessages(prev, loaded));
   }, []);
 
   const handleNewMessage = useCallback((msg: Message) => {

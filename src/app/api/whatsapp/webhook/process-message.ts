@@ -30,6 +30,198 @@ function isUniqueViolation(error: unknown): boolean {
   );
 }
 
+function providerMessageDate(timestamp: string | undefined): Date {
+  const seconds = Number(timestamp);
+  const date =
+    Number.isFinite(seconds) && seconds > 0
+      ? new Date(seconds * 1000)
+      : new Date();
+  return Number.isNaN(date.getTime()) ? new Date() : date;
+}
+
+type RollupMarkerState = {
+  /** Whether the marker column/query shape was available. */
+  known: boolean;
+  /** Whether this call atomically claimed the message for rollup. */
+  claimed: boolean;
+  /** False when the result came from a compatibility read rather than a claim. */
+  atomic: boolean;
+};
+
+async function inspectInboundRollupMarker({
+  messageId,
+  conversationId,
+  accountId,
+}: {
+  messageId: string;
+  conversationId: string;
+  accountId: string;
+}): Promise<{ known: boolean; applied: boolean }> {
+  const db = getAdminClient();
+  for (const key of ['message_id', 'provider_message_id', 'id']) {
+    try {
+      const result = await db
+        .from('messages')
+        .select('inbound_rollup_applied_at')
+        .eq(key, messageId)
+        .eq('conversation_id', conversationId)
+        .eq('account_id', accountId)
+        .limit(1);
+      if (!result.error && result.data?.length) {
+        return {
+          known: true,
+          applied: Boolean(result.data[0]?.inbound_rollup_applied_at),
+        };
+      }
+    } catch {
+      // Continue through compatibility shapes.
+    }
+  }
+  return { known: false, applied: false };
+}
+
+async function markInboundRollup({
+  messageId,
+  conversationId,
+  accountId,
+  value,
+}: {
+  messageId: string;
+  conversationId: string;
+  accountId: string;
+  value: string | null;
+}): Promise<void> {
+  const db = getAdminClient();
+  for (const key of ['message_id', 'provider_message_id', 'id']) {
+    try {
+      const result = await db
+        .from('messages')
+        .update({ inbound_rollup_applied_at: value })
+        .eq(key, messageId)
+        .eq('conversation_id', conversationId)
+        .eq('account_id', accountId);
+      if (!result.error) return;
+    } catch {
+      // Continue through compatibility shapes.
+    }
+  }
+}
+
+/**
+ * Re-read a row after a unique-constraint race. The initial duplicate lookup
+ * is intentionally only a fast path and can be blind during concurrent
+ * deliveries; a second lookup lets us repair a rollup when the winning
+ * delivery inserted a complete payload. If the compatibility schema/fake
+ * cannot expose the row, return null and leave the existing rollup untouched.
+ */
+async function findPersistedInboundMessage({
+  messageId,
+  conversationId,
+  accountId,
+}: {
+  messageId: string;
+  conversationId: string;
+  accountId: string;
+}): Promise<{
+  id: string;
+  content_text?: string | null;
+  created_at?: string | null;
+  conversation_id?: string | null;
+} | null> {
+  const db = getAdminClient();
+  for (const key of ['message_id', 'provider_message_id', 'id']) {
+    try {
+      const result = await db
+        .from('messages')
+        .select('id, content_text, created_at, conversation_id')
+        .eq(key, messageId)
+        .eq('conversation_id', conversationId)
+        .eq('account_id', accountId)
+        .limit(1);
+      if (!result.error && result.data?.length) {
+        return result.data[0] as {
+          id: string;
+          content_text?: string | null;
+          created_at?: string | null;
+          conversation_id?: string | null;
+        };
+      }
+    } catch {
+      // Try the next identifier/compatibility shape.
+    }
+  }
+  return null;
+}
+
+/**
+ * Claim the inbound rollup marker for one message. Provider IDs are not
+ * internal UUIDs, so compatibility paths must look at message_id and
+ * provider_message_id as well as id. The conditional update makes the
+ * fallback retry-safe when the atomic RPC is unavailable.
+ */
+async function claimInboundRollupMarker({
+  messageId,
+  conversationId,
+  accountId,
+}: {
+  messageId: string;
+  conversationId: string;
+  accountId: string;
+}): Promise<RollupMarkerState> {
+  const db = getAdminClient();
+  const markerAt = new Date().toISOString();
+
+  for (const key of ['message_id', 'provider_message_id', 'id']) {
+    try {
+      const query = db
+        .from('messages')
+        .update({ inbound_rollup_applied_at: markerAt })
+        .eq(key, messageId)
+        .eq('conversation_id', conversationId)
+        .eq('account_id', accountId)
+        .is('inbound_rollup_applied_at', null)
+        .select('id')
+        .limit(1);
+      const result = await query;
+      if (!result.error) {
+        return {
+          known: true,
+          claimed: Boolean(result.data?.length),
+          atomic: true,
+        };
+      }
+    } catch {
+      // Try the next identifier/schema shape.
+    }
+  }
+
+  // Legacy rows may use camelCase columns and may not support a conditional
+  // update chain. A read is still useful for deciding whether to increment;
+  // the modern schema takes the atomic path above.
+  for (const key of ['message_id', 'provider_message_id', 'id']) {
+    try {
+      const result = await db
+        .from('messages')
+        .select('inbound_rollup_applied_at')
+        .eq(key, messageId)
+        .eq('conversation_id', conversationId)
+        .eq('account_id', accountId)
+        .limit(1);
+      if (!result.error && result.data?.length) {
+        return {
+          known: true,
+          claimed: !result.data[0]?.inbound_rollup_applied_at,
+          atomic: false,
+        };
+      }
+    } catch {
+      // Continue through compatibility shapes.
+    }
+  }
+
+  return { known: false, claimed: false, atomic: false };
+}
+
 /**
  * Advance a conversation's rollup fields for a newly-received inbound
  * message: preview text, last-message timestamp, unread badge, and reopening
@@ -64,16 +256,47 @@ async function applyConversationRollup({
 }): Promise<void> {
   const db = getAdminClient();
 
+  // The four-argument function claims the message row before incrementing
+  // unread_count, making a retry of an already-inserted message repair-safe.
   const { error: rpcError } = await db.rpc(
     'apply_inbound_message_to_conversation',
     {
       p_conversation_id: convId,
       p_preview: previewText,
       p_message_at: messageDate.toISOString(),
+      p_message_key: messageId,
     }
   );
 
   if (!rpcError) return;
+
+  // Older deployments only have the original three-argument RPC. It is safe
+  // for the first delivery; the marker/rollup checks below prevent duplicate
+  // unread increments when the newer function is unavailable.
+  const rpcCode = String((rpcError as { code?: string }).code || '');
+  if (rpcCode === '42883' || rpcCode === 'PGRST202') {
+    const marker = await inspectInboundRollupMarker({
+      messageId,
+      conversationId: convId,
+      accountId,
+    });
+    if (!marker.known || !marker.applied) {
+      const legacyRpc = await db.rpc('apply_inbound_message_to_conversation', {
+        p_conversation_id: convId,
+        p_preview: previewText,
+        p_message_at: messageDate.toISOString(),
+      });
+      if (!legacyRpc.error) {
+        await markInboundRollup({
+          messageId,
+          conversationId: convId,
+          accountId,
+          value: new Date().toISOString(),
+        });
+        return;
+      }
+    }
+  }
 
   logger.warn('Atomic conversation rollup unavailable; using fallback update', {
     correlationId,
@@ -94,6 +317,13 @@ async function applyConversationRollup({
   const shouldUpdatePreview =
     !existingLastMessageAt || messageDate >= existingLastMessageAt;
 
+  const marker = await claimInboundRollupMarker({
+    messageId,
+    conversationId: convId,
+    accountId,
+  });
+  const shouldIncrementUnread = marker.known ? marker.claimed : true;
+
   const currentUnread = Number(
     conversation.unread_count || conversation.unreadCount || 0
   );
@@ -101,7 +331,7 @@ async function applyConversationRollup({
 
   const convUpdatePayload: Record<string, unknown> = {
     updated_at: new Date().toISOString(),
-    unread_count: currentUnread + 1,
+    unread_count: currentUnread + (shouldIncrementUnread ? 1 : 0),
   };
   if (shouldUpdatePreview) {
     convUpdatePayload.last_message_text = previewText;
@@ -117,12 +347,22 @@ async function applyConversationRollup({
     .update(convUpdatePayload)
     .eq('id', convId);
 
-  if (!convError) return;
+  if (!convError) {
+    if (shouldIncrementUnread && !marker.atomic) {
+      await markInboundRollup({
+        messageId,
+        conversationId: convId,
+        accountId,
+        value: new Date().toISOString(),
+      });
+    }
+    return;
+  }
 
   // Legacy camelCase fallback.
   const legacyPayload: Record<string, unknown> = {
     updatedAt: new Date().toISOString(),
-    unreadCount: currentUnread + 1,
+    unreadCount: currentUnread + (shouldIncrementUnread ? 1 : 0),
   };
   if (shouldUpdatePreview) {
     legacyPayload.lastMessageText = previewText;
@@ -139,8 +379,6 @@ async function applyConversationRollup({
       .eq('id', convId);
 
     if (legacyError) {
-      // The message itself is already persisted; a stale preview/badge is a
-      // cosmetic degradation and must not fail the delivery.
       logger.error('Conversation rollup failed after all fallbacks', {
         correlationId,
         component: 'inbound-message',
@@ -149,8 +387,33 @@ async function applyConversationRollup({
         messageId,
         code: (legacyError as { code?: string }).code,
       });
+      throw new Error(
+        `Conversation rollup failed for inbound message ${messageId}`
+      );
+    }
+
+    // The canonical update failed, but the legacy update completed. Preserve
+    // an atomic claim, or record the compatibility marker now, so a webhook
+    // retry cannot count the same inbound message a second time.
+    if (shouldIncrementUnread && !marker.atomic) {
+      await markInboundRollup({
+        messageId,
+        conversationId: convId,
+        accountId,
+        value: new Date().toISOString(),
+      });
     }
   } catch (err) {
+    // Neither conversation shape was updated. Release an atomic claim so the
+    // provider's retry can repair the rollup instead of being suppressed.
+    if (shouldIncrementUnread && marker.atomic) {
+      await markInboundRollup({
+        messageId,
+        conversationId: convId,
+        accountId,
+        value: null,
+      });
+    }
     logger.error('Conversation rollup threw after all fallbacks', {
       correlationId,
       component: 'inbound-message',
@@ -159,6 +422,9 @@ async function applyConversationRollup({
       messageId,
       error: err instanceof Error ? err.message : 'unknown',
     });
+    throw new Error(
+      `Conversation rollup failed for inbound message ${messageId}`
+    );
   }
 }
 
@@ -410,7 +676,8 @@ export async function processMessage(
   const conversation = await findOrCreateConversation(
     accountId,
     configOwnerUserId,
-    contactRecord.id
+    contactRecord.id,
+    'whatsapp'
   );
   if (!conversation) {
     throw new Error(
@@ -470,14 +737,34 @@ export async function processMessage(
   // concurrent redeliveries can both pass it, so the authoritative guard is
   // the unique index on messages.message_id, whose violation is handled as
   // an idempotent success below.
-  let existingMsg: { id: string }[] | null = null;
+  let existingMsg:
+    | {
+        id: string;
+        content_text?: string | null;
+        created_at?: string | null;
+        conversation_id?: string | null;
+      }[]
+    | null = null;
   try {
-    const res = await getAdminClient()
-      .from('messages')
-      .select('id')
-      .eq('message_id', message.id)
-      .limit(1);
-    existingMsg = (res.data as { id: string }[]) || null;
+    const db = getAdminClient();
+    for (const key of ['message_id', 'provider_message_id']) {
+      const res = await db
+        .from('messages')
+        .select('id, content_text, created_at, conversation_id')
+        .eq(key, message.id)
+        .eq('account_id', accountId)
+        .eq('conversation_id', convId)
+        .limit(1);
+      if (!res.error && res.data?.length) {
+        existingMsg = res.data as {
+          id: string;
+          content_text?: string | null;
+          created_at?: string | null;
+          conversation_id?: string | null;
+        }[];
+        break;
+      }
+    }
   } catch {
     existingMsg = null;
   }
@@ -490,6 +777,27 @@ export async function processMessage(
       conversationId: convId,
       messageId: message.id,
     });
+
+    // A prior attempt may have inserted the message and then crashed before
+    // updating the conversation rollup. Repair only rows with a real payload
+    // (legacy tests/rows that only contain an id are already opaque and should
+    // not be allowed to inflate unread_count).
+    const existing = existingMsg[0];
+    if (existing.content_text || existing.created_at) {
+      const existingDate = existing.created_at
+        ? new Date(existing.created_at)
+        : providerMessageDate(message.timestamp);
+      await applyConversationRollup({
+        convId,
+        previewText:
+          existing.content_text || contentText || `[${message.type}]`,
+        messageDate: existingDate,
+        conversation,
+        accountId,
+        messageId: message.id,
+        correlationId,
+      });
+    }
     return;
   }
 
@@ -505,7 +813,7 @@ export async function processMessage(
   }
   const isFirstInboundMessage = priorCustomerMsgCount === 0;
 
-  const messageDate = new Date(parseInt(message.timestamp) * 1000);
+  const messageDate = providerMessageDate(message.timestamp);
   const nowIso = messageDate.toISOString();
   const writtenAtIso = new Date().toISOString();
   const previewText = contentText || `[${message.type}]`;
@@ -594,6 +902,18 @@ export async function processMessage(
   }
 
   if (alreadyPersisted) {
+    // A unique violation can race the initial read. Re-read the winning row
+    // before attempting repair; opaque legacy rows are deliberately ignored
+    // so a retry cannot manufacture an unread increment.
+    if (!existingMsg || existingMsg.length === 0) {
+      const persisted = await findPersistedInboundMessage({
+        messageId: message.id,
+        conversationId: convId,
+        accountId,
+      });
+      if (persisted) existingMsg = [persisted];
+    }
+
     logger.info('Inbound message already persisted by a concurrent delivery', {
       correlationId,
       component: 'inbound-message',
@@ -601,6 +921,26 @@ export async function processMessage(
       conversationId: convId,
       messageId: message.id,
     });
+    // A concurrent delivery may have won the insert race and then failed
+    // before its conversation rollup. The marker-aware RPC repairs that case
+    // without incrementing unread twice when the rollup already happened.
+    const persisted = existingMsg?.[0];
+    if (persisted?.content_text || persisted?.created_at) {
+      await applyConversationRollup({
+        convId,
+        previewText: persisted.content_text || previewText,
+        messageDate: persisted.created_at
+          ? (() => {
+              const date = new Date(persisted.created_at as string);
+              return Number.isNaN(date.getTime()) ? messageDate : date;
+            })()
+          : messageDate,
+        conversation,
+        accountId,
+        messageId: message.id,
+        correlationId,
+      });
+    }
     return;
   }
 

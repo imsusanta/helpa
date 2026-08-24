@@ -1,20 +1,20 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { useAuth } from '@/hooks/use-auth';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  AlertCircle,
+  Check,
+  CheckCircle,
+  CreditCard,
+  Loader2,
+  Plus,
+  TrendingUp,
+} from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  CreditCard,
-  Plus,
-  Loader2,
-  Check,
-  TrendingUp,
-  AlertCircle,
-  CheckCircle,
-} from 'lucide-react';
-import { toast } from 'sonner';
+import { useAuth } from '@/hooks/use-auth';
 import { useWorkspace } from '@/hooks/use-workspace';
 
 interface Bill {
@@ -32,6 +32,17 @@ interface Patient {
   name: string;
 }
 
+interface ContactRow {
+  id: string;
+  name?: string;
+  phone?: string;
+}
+
+async function readJson(response: Response) {
+  if (!response.ok) throw new Error(`Request failed (${response.status})`);
+  return response.json();
+}
+
 export default function BillingPage() {
   const { accountId } = useAuth();
   const { terminology } = useWorkspace();
@@ -41,8 +52,6 @@ export default function BillingPage() {
   const [activeFilter, setActiveFilter] = useState<
     'all' | 'unpaid' | 'paid' | 'overdue'
   >('all');
-
-  // Form states
   const [showAddForm, setShowAddForm] = useState(false);
   const [patientId, setPatientId] = useState('');
   const [description, setDescription] = useState('');
@@ -52,45 +61,41 @@ export default function BillingPage() {
 
   const loadData = useCallback(async () => {
     if (!accountId) return;
+    setLoading(true);
+
+    const requestOptions: RequestInit = {
+      credentials: 'include',
+      cache: 'no-store',
+    };
+
     try {
-      const res = await fetch('/api/billing', {
-        credentials: 'include',
-        cache: 'no-store',
-      });
-      if (res.ok) {
-        const payload = await res.json();
-        setBills((payload.data as unknown as Bill[]) || []);
+      const [billingResult, contactsResult] = await Promise.allSettled([
+        fetch('/api/billing', requestOptions).then(readJson),
+        fetch('/api/contacts?limit=100', requestOptions).then(readJson),
+      ]);
+
+      if (billingResult.status === 'fulfilled') {
+        setBills((billingResult.value.data as Bill[]) || []);
+      } else {
+        console.error('Failed to load bills:', billingResult.reason);
+        setBills([]);
       }
 
-      // Fetch patients from authenticated /api/contacts endpoint
-      try {
-        const contactsRes = await fetch('/api/contacts?limit=100', {
-          credentials: 'include',
-          cache: 'no-store',
-        });
-        if (contactsRes.ok) {
-          const contactsPayload = await contactsRes.json();
-          const contactsList = contactsPayload.data || [];
-          const mappedPats = contactsList.map(
-            (c: { id: string; name?: string; phone?: string }) => {
-              const name = c.name || terminology.person;
-              const phone = c.phone || '';
-              return {
-                id: c.id,
-                name: phone ? `${name} (${phone})` : name,
-              };
-            }
-          );
-          setPatients(mappedPats);
-        }
-      } catch (err) {
-        console.warn(
-          'Failed to load contacts for billing patient select:',
-          err
+      if (contactsResult.status === 'fulfilled') {
+        const contacts = (contactsResult.value.data || []) as ContactRow[];
+        setPatients(
+          contacts.map((contact) => {
+            const name = contact.name || terminology.person;
+            return {
+              id: contact.id,
+              name: contact.phone ? `${name} (${contact.phone})` : name,
+            };
+          })
         );
+      } else {
+        console.warn('Failed to load billing contacts:', contactsResult.reason);
+        setPatients([]);
       }
-    } catch (err) {
-      console.error('Error loading bills:', err);
     } finally {
       setLoading(false);
     }
@@ -100,8 +105,8 @@ export default function BillingPage() {
     loadData();
   }, [loadData]);
 
-  const handleCreateBill = async (e: React.FormEvent) => {
-    e.preventDefault();
+  async function handleCreateBill(event: React.FormEvent) {
+    event.preventDefault();
     if (!patientId || !amount || !accountId) {
       toast.error(`${terminology.person} and amount are required`);
       return;
@@ -109,72 +114,75 @@ export default function BillingPage() {
 
     setSaving(true);
     try {
-      const res = await fetch('/api/billing', {
+      const response = await fetch('/api/billing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           patient_id: patientId,
           description: description || 'General Consultation & Treatment Fee',
-          amount: parseFloat(amount),
-          status: 'unpaid',
+          amount: Number.parseFloat(amount),
+          status,
         }),
       });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || 'Failed to generate bill');
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || 'Failed to generate bill');
       }
 
       toast.success('Invoice generated successfully!');
       setPatientId('');
       setDescription('');
       setAmount('');
+      setStatus('unpaid');
       setShowAddForm(false);
-      loadData();
-    } catch (err: unknown) {
-      toast.error('Failed to generate bill: ' + (err as Error).message);
+      await loadData();
+    } catch (error) {
+      toast.error(`Failed to generate bill: ${(error as Error).message}`);
     } finally {
       setSaving(false);
     }
-  };
+  }
 
-  const handleUpdateStatus = async (
+  async function handleUpdateStatus(
     billId: string,
-    newStatus: 'unpaid' | 'paid' | 'overdue'
-  ) => {
+    nextStatus: Bill['status']
+  ) {
     try {
-      const res = await fetch(`/api/billing/${billId}`, {
+      const response = await fetch(`/api/billing/${billId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ status: nextStatus }),
       });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || 'Failed to update bill status');
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || 'Failed to update bill status');
       }
-
-      toast.success(`Bill status updated to ${newStatus}.`);
-      loadData();
-    } catch (err: unknown) {
-      toast.error('Status update failed: ' + (err as Error).message);
+      toast.success(`Bill status updated to ${nextStatus}.`);
+      await loadData();
+    } catch (error) {
+      toast.error(`Status update failed: ${(error as Error).message}`);
     }
-  };
+  }
 
-  const filteredBills = bills.filter((b) => {
-    if (activeFilter === 'all') return true;
-    return b.status === activeFilter;
-  });
+  const totals = useMemo(
+    () =>
+      bills.reduce(
+        (result, bill) => ({
+          ...result,
+          [bill.status]: result[bill.status] + Number(bill.amount),
+        }),
+        { paid: 0, unpaid: 0, overdue: 0 }
+      ),
+    [bills]
+  );
 
-  const totalPaid = bills
-    .filter((b) => b.status === 'paid')
-    .reduce((sum, b) => sum + Number(b.amount), 0);
-  const totalUnpaid = bills
-    .filter((b) => b.status === 'unpaid')
-    .reduce((sum, b) => sum + Number(b.amount), 0);
-  const totalOverdue = bills
-    .filter((b) => b.status === 'overdue')
-    .reduce((sum, b) => sum + Number(b.amount), 0);
+  const filteredBills = useMemo(
+    () =>
+      bills.filter(
+        (bill) => activeFilter === 'all' || bill.status === activeFilter
+      ),
+    [activeFilter, bills]
+  );
 
   if (loading) {
     return (
@@ -183,6 +191,27 @@ export default function BillingPage() {
       </div>
     );
   }
+
+  const metricCards = [
+    {
+      label: 'Total Collected',
+      value: totals.paid,
+      icon: TrendingUp,
+      tone: 'text-emerald-500 bg-emerald-500/10',
+    },
+    {
+      label: 'Pending Invoices',
+      value: totals.unpaid,
+      icon: AlertCircle,
+      tone: 'text-amber-500 bg-amber-500/10',
+    },
+    {
+      label: 'Overdue Amount',
+      value: totals.overdue,
+      icon: CheckCircle,
+      tone: 'text-red-500 bg-red-500/10',
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -196,61 +225,38 @@ export default function BillingPage() {
             revenue.
           </p>
         </div>
-        <Button
-          onClick={() => setShowAddForm(!showAddForm)}
-          className="cursor-pointer"
-        >
+        <Button onClick={() => setShowAddForm((open) => !open)}>
           <Plus className="mr-2 h-4 w-4" /> Generate Invoice
         </Button>
       </div>
 
-      {/* KPI Cards */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-        <div className="bg-card border-border flex items-center gap-4 rounded-xl border p-5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-500">
-            <TrendingUp className="h-5 w-5" />
-          </div>
-          <div>
-            <div className="text-muted-foreground text-xs font-semibold uppercase">
-              Total Collected
+        {metricCards.map(({ label, value, icon: Icon, tone }) => (
+          <div
+            key={label}
+            className="bg-card border-border flex items-center gap-4 rounded-xl border p-5"
+          >
+            <div
+              className={`flex h-10 w-10 items-center justify-center rounded-lg ${tone}`}
+            >
+              <Icon className="h-5 w-5" />
             </div>
-            <div className="text-foreground mt-0.5 text-xl font-bold">
-              ${totalPaid.toFixed(2)}
-            </div>
-          </div>
-        </div>
-        <div className="bg-card border-border flex items-center gap-4 rounded-xl border p-5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/10 text-amber-500">
-            <AlertCircle className="h-5 w-5" />
-          </div>
-          <div>
-            <div className="text-muted-foreground text-xs font-semibold uppercase">
-              Pending Invoices
-            </div>
-            <div className="text-foreground mt-0.5 text-xl font-bold">
-              ${totalUnpaid.toFixed(2)}
+            <div>
+              <div className="text-muted-foreground text-xs font-semibold uppercase">
+                {label}
+              </div>
+              <div className="text-foreground mt-0.5 text-xl font-bold">
+                ${value.toFixed(2)}
+              </div>
             </div>
           </div>
-        </div>
-        <div className="bg-card border-border flex items-center gap-4 rounded-xl border p-5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-500/10 text-red-500">
-            <CheckCircle className="h-5 w-5" />
-          </div>
-          <div>
-            <div className="text-muted-foreground text-xs font-semibold uppercase">
-              Overdue Amount
-            </div>
-            <div className="text-foreground mt-0.5 text-xl font-bold">
-              ${totalOverdue.toFixed(2)}
-            </div>
-          </div>
-        </div>
+        ))}
       </div>
 
       {showAddForm && (
         <form
           onSubmit={handleCreateBill}
-          className="bg-card border-border animate-in fade-in slide-in-from-top-4 max-w-2xl space-y-4 rounded-xl border p-5 duration-200"
+          className="bg-card border-border max-w-2xl space-y-4 rounded-xl border p-5"
         >
           <h3 className="text-foreground font-bold">New Outpatient Invoice</h3>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -258,14 +264,14 @@ export default function BillingPage() {
               <Label>Select {terminology.person} *</Label>
               <select
                 value={patientId}
-                onChange={(e) => setPatientId(e.target.value)}
+                onChange={(event) => setPatientId(event.target.value)}
                 required
-                className="border-input bg-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
+                className="border-input bg-background h-10 w-full rounded-md border px-3 text-sm"
               >
                 <option value="">-- Select {terminology.person} --</option>
-                {patients.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
+                {patients.map((patient) => (
+                  <option key={patient.id} value={patient.id}>
+                    {patient.name}
                   </option>
                 ))}
               </select>
@@ -274,8 +280,7 @@ export default function BillingPage() {
               <Label>{terminology.service} / Item Description *</Label>
               <Input
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="e.g. Cardiology Consultation Fee"
+                onChange={(event) => setDescription(event.target.value)}
                 required
               />
             </div>
@@ -285,8 +290,7 @@ export default function BillingPage() {
                 type="number"
                 step="0.01"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0.00"
+                onChange={(event) => setAmount(event.target.value)}
                 required
               />
             </div>
@@ -294,15 +298,17 @@ export default function BillingPage() {
               <Label>Initial Status</Label>
               <select
                 value={status}
-                onChange={(e) => setStatus(e.target.value as 'unpaid' | 'paid')}
-                className="border-input bg-background focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
+                onChange={(event) =>
+                  setStatus(event.target.value as 'unpaid' | 'paid')
+                }
+                className="border-input bg-background h-10 w-full rounded-md border px-3 text-sm"
               >
                 <option value="unpaid">Unpaid</option>
                 <option value="paid">Paid</option>
               </select>
             </div>
           </div>
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex justify-end gap-2">
             <Button
               type="button"
               variant="outline"
@@ -311,118 +317,91 @@ export default function BillingPage() {
               Cancel
             </Button>
             <Button type="submit" disabled={saving}>
-              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{' '}
-              Issue Invoice
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Issue
+              Invoice
             </Button>
           </div>
         </form>
       )}
 
-      {/* Tabs */}
       <div className="border-border flex border-b">
-        {(['all', 'unpaid', 'paid', 'overdue'] as const).map((tab) => (
+        {(['all', 'unpaid', 'paid', 'overdue'] as const).map((filter) => (
           <button
-            key={tab}
-            onClick={() => setActiveFilter(tab)}
-            className={`border-b-2 px-4 py-2 text-sm font-semibold capitalize transition-colors ${
-              activeFilter === tab
-                ? 'border-primary text-primary'
-                : 'text-muted-foreground hover:text-foreground border-transparent'
-            }`}
+            key={filter}
+            onClick={() => setActiveFilter(filter)}
+            className={`border-b-2 px-4 py-2 text-sm font-semibold capitalize ${activeFilter === filter ? 'border-primary text-primary' : 'text-muted-foreground border-transparent'}`}
           >
-            {tab}
+            {filter}
           </button>
         ))}
       </div>
 
-      {/* Bills listing */}
       {filteredBills.length === 0 ? (
-        <div className="border-border mx-auto max-w-2xl rounded-xl border border-dashed p-12 text-center">
+        <div className="border-border rounded-xl border border-dashed p-12 text-center">
           <CreditCard className="text-muted-foreground mx-auto mb-4 h-12 w-12" />
           <h3 className="text-foreground text-lg font-bold">
             No invoices generated
           </h3>
-          <p className="text-muted-foreground mt-1 text-sm">
-            There are no billing records matching this filter.
-          </p>
         </div>
       ) : (
-        <div className="bg-card border-border overflow-hidden rounded-xl border">
-          <div className="overflow-x-auto">
-            <table className="text-muted-foreground w-full text-left text-sm">
-              <thead className="bg-muted/50 border-border text-foreground border-b text-xs font-semibold uppercase">
-                <tr>
-                  <th className="px-6 py-4">Invoice #</th>
-                  <th className="px-6 py-4">{terminology.person}</th>
-                  <th className="px-6 py-4">Description</th>
-                  <th className="px-6 py-4">Amount</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-border text-foreground divide-y">
-                {filteredBills.map((b) => (
-                  <tr
-                    key={b.id}
-                    className="hover:bg-muted/30 transition-colors"
-                  >
-                    <td className="px-6 py-4 font-bold text-slate-700 dark:text-slate-300">
-                      {b.bill_number}
-                    </td>
-                    <td className="px-6 py-4 font-semibold">
-                      <div>
-                        <div>
-                          {b.patient?.name || `Unknown ${terminology.person}`}
-                        </div>
-                        <div className="text-muted-foreground text-xs font-normal">
-                          {b.patient?.phone}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">{b.description}</td>
-                    <td className="text-primary px-6 py-4 font-bold">
-                      ${Number(b.amount).toFixed(2)}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase ${
-                          b.status === 'paid'
-                            ? 'bg-emerald-500/10 text-emerald-500'
-                            : b.status === 'unpaid'
-                              ? 'animate-pulse bg-amber-500/10 text-amber-500'
-                              : 'bg-red-500/10 text-red-500'
-                        }`}
+        <div className="bg-card border-border overflow-x-auto rounded-xl border">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-muted/50 border-border border-b text-xs uppercase">
+              <tr>
+                <th className="px-6 py-4">Invoice #</th>
+                <th className="px-6 py-4">{terminology.person}</th>
+                <th className="px-6 py-4">Description</th>
+                <th className="px-6 py-4">Amount</th>
+                <th className="px-6 py-4">Status</th>
+                <th className="px-6 py-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-border divide-y">
+              {filteredBills.map((bill) => (
+                <tr key={bill.id} className="hover:bg-muted/30">
+                  <td className="px-6 py-4 font-bold">{bill.bill_number}</td>
+                  <td className="px-6 py-4 font-semibold">
+                    <div>
+                      {bill.patient?.name || `Unknown ${terminology.person}`}
+                    </div>
+                    <div className="text-muted-foreground text-xs font-normal">
+                      {bill.patient?.phone}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">{bill.description}</td>
+                  <td className="text-primary px-6 py-4 font-bold">
+                    ${Number(bill.amount).toFixed(2)}
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="text-xs font-bold uppercase">
+                      {bill.status}
+                    </span>
+                  </td>
+                  <td className="space-x-2 px-6 py-4 text-right">
+                    {bill.status !== 'paid' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleUpdateStatus(bill.id, 'paid')}
                       >
-                        {b.status}
-                      </span>
-                    </td>
-                    <td className="flex items-center justify-end space-x-1.5 px-6 py-4 text-right">
-                      {b.status !== 'paid' && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleUpdateStatus(b.id, 'paid')}
-                          className="cursor-pointer border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-xs text-emerald-500 hover:bg-emerald-500/20"
-                        >
-                          <Check className="mr-1 h-3.5 w-3.5" /> Mark Paid
-                        </Button>
-                      )}
-                      {b.status === 'unpaid' && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleUpdateStatus(b.id, 'overdue')}
-                          className="cursor-pointer border-red-500/20 bg-red-500/10 px-2.5 py-1 text-xs text-red-500 hover:bg-red-500/20"
-                        >
-                          Overdue
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                        <Check className="mr-1 h-3.5 w-3.5" />
+                        Mark Paid
+                      </Button>
+                    )}
+                    {bill.status === 'unpaid' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleUpdateStatus(bill.id, 'overdue')}
+                      >
+                        Overdue
+                      </Button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
