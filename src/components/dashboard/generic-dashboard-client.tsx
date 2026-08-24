@@ -119,6 +119,14 @@ const iconBgClasses: Record<string, string> = {
   orange: 'bg-[#f97316] text-white',
 };
 
+/**
+ * Every metric card renders at the same height so the coloured icon tile
+ * sits in an identical spot on each row. Previously the second row used a
+ * taller card, which pushed its icons visually out of line with the first
+ * row and let them overlap the filter pill.
+ */
+const METRIC_CARD_HEIGHT = 'h-[148px]';
+
 function getMetric(metrics: Record<string, number>, keys: readonly string[]) {
   for (const key of keys)
     if (typeof metrics[key] === 'number') return metrics[key];
@@ -213,7 +221,7 @@ export function GenericDashboardClient() {
           {Array.from({ length: 8 }).map((_, i) => (
             <div
               key={i}
-              className={`animate-pulse rounded-2xl bg-white ${i < 4 ? 'h-[148px]' : 'h-[180px]'}`}
+              className={`animate-pulse rounded-2xl bg-white ${METRIC_CARD_HEIGHT}`}
             />
           ))}
         </div>
@@ -249,36 +257,35 @@ export function GenericDashboardClient() {
       </div>
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-        {contextualMetricCards.map((card, index) => {
+        {contextualMetricCards.map((card) => {
           const Icon = card.icon;
           const value = getMetric(metrics, card.keys);
           const isWallet = card.key === 'wallet';
-          const isTopRow = index < 4;
           return (
             <Link
               key={card.key}
               href={card.href}
-              className={`group relative flex flex-col justify-between rounded-2xl border border-slate-200/90 bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.04)] transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg ${isTopRow ? 'h-[148px]' : 'h-[180px]'}`}
+              className={`group relative flex flex-col justify-between rounded-2xl border border-slate-200/90 bg-white p-5 shadow-[0_2px_8px_rgba(15,23,42,0.04)] transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg ${METRIC_CARD_HEIGHT}`}
             >
-              <div className="flex items-start justify-between gap-2">
+              <div className="flex items-start justify-between gap-2 pr-1">
                 <span className="text-[12px] font-bold tracking-[0.055em] text-[#64748b] uppercase group-hover:text-slate-900">
                   {card.label}
                 </span>
                 {card.filter && (
-                  <span className="inline-flex h-6 items-center rounded-lg bg-slate-50 px-2 text-[10px] font-bold text-slate-500">
+                  <span className="inline-flex h-6 shrink-0 items-center rounded-lg bg-slate-50 px-2 text-[10px] font-bold whitespace-nowrap text-slate-500">
                     {card.filter}
                   </span>
                 )}
               </div>
 
-              <div>
+              <div className="pr-16">
                 <div className="text-[34px] leading-none font-extrabold tracking-[-0.03em] text-[#0f172a]">
                   {formatValue(value, isWallet)}
                 </div>
               </div>
 
               <div
-                className={`absolute right-5 ${isTopRow ? 'bottom-5' : 'top-5'} flex h-12 w-12 items-center justify-center rounded-xl shadow-[0_4px_10px_rgba(15,23,42,0.10)] transition-transform group-hover:scale-105 ${iconBgClasses[card.tone]}`}
+                className={`absolute right-5 bottom-5 flex h-12 w-12 items-center justify-center rounded-xl shadow-[0_4px_10px_rgba(15,23,42,0.10)] transition-transform group-hover:scale-105 ${iconBgClasses[card.tone]}`}
               >
                 <Icon className="h-5 w-5" />
               </div>
