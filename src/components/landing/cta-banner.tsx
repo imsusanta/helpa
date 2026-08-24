@@ -1,11 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight, Sparkles } from 'lucide-react';
 
-interface CtaBannerProps {
-  isAuthenticated: boolean;
-}
-
-export function LandingCtaBanner({ isAuthenticated }: CtaBannerProps) {
+export function LandingCtaBanner() {
   return (
     <section className="bg-white py-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -25,13 +21,10 @@ export function LandingCtaBanner({ isAuthenticated }: CtaBannerProps) {
             </p>
             <div className="pt-4">
               <Link
-                href={isAuthenticated ? '/dashboard' : '/signup'}
+                href="/signup"
                 className="inline-flex min-h-11 items-center gap-2 rounded-full bg-gradient-to-r from-[#C4F135] to-[#4EE3C2] px-8 py-3.5 text-sm font-bold text-[#110E3D] shadow-lg sm:text-base"
               >
-                {isAuthenticated
-                  ? 'Open Helpa Dashboard'
-                  : 'Start Clinic Trial'}{' '}
-                <ArrowRight className="h-4 w-4" />
+                Start Clinic Trial <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
           </div>
