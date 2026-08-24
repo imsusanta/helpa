@@ -137,14 +137,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const init = async () => {
       try {
-        const response = await fetch('/api/auth/me', { cache: 'no-store' });
+        // The profile endpoint already verifies the Supabase session and returns
+        // the user, profile, and account in one response. Avoiding a separate
+        // /api/auth/me request removes one full network round trip from every
+        // cold dashboard load.
+        const response = await fetch('/api/account/profile', {
+          cache: 'no-store',
+        });
         const payload = await response.json().catch(() => null);
-        if (!response.ok || !payload?.success || !payload?.user) {
-          throw new Error('No active Supabase session');
+        if (
+          !response.ok ||
+          !payload?.success ||
+          !payload?.user ||
+          !payload?.profile
+        ) {
+          throw new Error(payload?.error || 'No active Supabase session');
         }
+
         if (mounted) {
           setUser(payload.user);
-          await fetchProfile(payload.user.id);
+          setProfile(payload.profile);
+          setAccount(
+            payload.account || {
+              id: payload.profile.account_id || '',
+              name: 'Clinic Account',
+              default_currency: DEFAULT_CURRENCY,
+              industry: 'hospital_clinic',
+            }
+          );
         }
       } catch {
         if (mounted) {
@@ -152,10 +172,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setProfile(null);
           setAccount(null);
           setEnabledModuleKeys([]);
-          setProfileLoading(false);
         }
       } finally {
-        if (mounted) setLoading(false);
+        if (mounted) {
+          setProfileLoading(false);
+          setLoading(false);
+        }
       }
     };
 
@@ -163,7 +185,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       mounted = false;
     };
-  }, [fetchProfile]);
+  }, []);
 
   useEffect(() => {
     if (profile?.account_id) {

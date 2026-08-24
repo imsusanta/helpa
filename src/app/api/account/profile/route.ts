@@ -53,15 +53,22 @@ export async function GET() {
       Boolean(dbProfile?.is_super_admin);
 
     if (pErr || !dbProfile) {
+      const fallbackName = ctx.email?.split('@')[0] || 'User';
       return NextResponse.json({
         success: true,
+        user: {
+          id: ctx.userId,
+          email: ctx.email || '',
+          name: fallbackName,
+        },
         profile: {
           id: ctx.userId,
           user_id: ctx.userId,
-          full_name: 'User',
+          full_name: fallbackName,
           email: ctx.email || '',
           avatar_url: null,
           role: ctx.role,
+          beta_features: [],
           account_id: ctx.accountId,
           account_role: ctx.role,
           is_super_admin: isSuper,
@@ -70,15 +77,27 @@ export async function GET() {
       });
     }
 
+    const fullName = dbProfile.full_name || 'User';
+    const email = dbProfile.email || ctx.email || '';
+
     return NextResponse.json({
       success: true,
+      user: {
+        id: ctx.userId,
+        email,
+        name: fullName,
+        created_at: dbProfile.created_at || undefined,
+      },
       profile: {
         id: dbProfile.id || dbProfile.user_id,
         user_id: dbProfile.user_id,
-        full_name: dbProfile.full_name || 'User',
-        email: dbProfile.email,
+        full_name: fullName,
+        email,
         avatar_url: dbProfile.avatar_url || null,
         role: dbProfile.role || ctx.role || 'owner',
+        beta_features: Array.isArray(dbProfile.beta_features)
+          ? dbProfile.beta_features
+          : [],
         account_id: dbProfile.account_id || ctx.accountId,
         account_role: dbProfile.account_role || ctx.role || 'owner',
         is_super_admin: isSuper,
@@ -142,6 +161,9 @@ export async function PATCH(request: Request) {
         email: updatedProfile.email,
         avatar_url: updatedProfile.avatar_url || null,
         role: updatedProfile.role || ctx.role || 'owner',
+        beta_features: Array.isArray(updatedProfile.beta_features)
+          ? updatedProfile.beta_features
+          : [],
         account_id: updatedProfile.account_id || ctx.accountId,
         account_role: updatedProfile.account_role || ctx.role || 'owner',
         is_super_admin: Boolean(updatedProfile.is_super_admin),
