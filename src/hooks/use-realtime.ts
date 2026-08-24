@@ -109,7 +109,7 @@ function normalizeConversationPayload(
 }
 
 export function useRealtime({
-  channelName: _channelName,
+  channelName,
   onMessageEvent,
   onConversationEvent,
   enabled = true,
@@ -130,12 +130,14 @@ export function useRealtime({
     try {
       const supabase = createSupabaseBrowserClient();
       const channel = supabase
-        .channel('inbox-realtime-global')
+        .channel(channelName)
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'messages' },
           (payload) => {
-            const row = (payload.new || {}) as Record<string, unknown>;
+            const row = (
+              payload.eventType === 'DELETE' ? payload.old : payload.new || {}
+            ) as Record<string, unknown>;
             const normalizedMessage = normalizeMessagePayload(row);
             onMessageRef.current?.({
               eventType: payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE',
@@ -148,7 +150,9 @@ export function useRealtime({
           'postgres_changes',
           { event: '*', schema: 'public', table: 'conversations' },
           (payload) => {
-            const row = (payload.new || {}) as Record<string, unknown>;
+            const row = (
+              payload.eventType === 'DELETE' ? payload.old : payload.new || {}
+            ) as Record<string, unknown>;
             const normalizedConv = normalizeConversationPayload(row);
             onConversationRef.current?.({
               eventType: payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE',
@@ -198,7 +202,7 @@ export function useRealtime({
       }
       setIsConnected(false);
     };
-  }, [enabled]);
+  }, [channelName, enabled]);
 
   const unsubscribe = useCallback(() => {
     if (unsubscribeRef.current) {

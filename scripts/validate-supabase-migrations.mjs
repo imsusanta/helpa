@@ -12,6 +12,8 @@ const requiredTables = [
   'whatsapp_configs',
   'whatsapp_outbox',
   'webhook_events',
+  'inbound_webhook_events',
+  'provider_events',
   'appointments',
   'reminder_jobs',
   'audit_logs',

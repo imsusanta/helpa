@@ -84,9 +84,64 @@ describe('findExistingContact', () => {
     expect(hit?.id).toBe('c1');
   });
 
+  it('prefers an exact contact when another contact shares the fuzzy suffix', async () => {
+    const rows = [
+      { id: 'suffix-only', phone: '991234567890' },
+      { id: 'exact', phone: '141234567890' },
+    ];
+    const builder = {
+      filters: [] as Array<[string, unknown]>,
+      select() {
+        return this;
+      },
+      eq(field: string, value: unknown) {
+        this.filters.push([field, value]);
+        return this;
+      },
+      limit: async () => {
+        const normalized = String(
+          builder.filters.find(
+            ([field]) => field === 'phone_normalized'
+          )?.[1] || ''
+        );
+        const rawPhone = String(
+          builder.filters.find(([field]) => field === 'phone')?.[1] || ''
+        );
+        const data =
+          normalized || rawPhone
+            ? rows.filter((row) =>
+                normalized
+                  ? normalizeKey(row.phone) === normalized
+                  : row.phone === rawPhone
+              )
+            : [];
+        return { data, error: null };
+      },
+      like: async () => ({ data: rows, error: null }),
+    };
+    const db = {
+      from: () => {
+        builder.filters = [];
+        return builder;
+      },
+    } as unknown as AppwriteClient;
+
+    const hit = await findExistingContact(db, 'acct', '+1 412 345 67890');
+    expect(hit?.id).toBe('exact');
+  });
+
   it('returns null when no candidate matches', async () => {
     const db = stubDb([{ id: 'c1', phone: '15559999999' }]);
     const hit = await findExistingContact(db, 'acct', '+1 555-123-4567');
+    expect(hit).toBeNull();
+  });
+
+  it('fails closed when multiple contacts share only the fuzzy suffix', async () => {
+    const db = stubDb([
+      { id: 'c1', phone: '37063949836' },
+      { id: 'c2', phone: '44063949836' },
+    ]);
+    const hit = await findExistingContact(db, 'acct', '+370 063 949 836');
     expect(hit).toBeNull();
   });
 

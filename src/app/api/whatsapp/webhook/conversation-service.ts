@@ -1,5 +1,32 @@
 import { getAdminClient } from '@/lib/supabase/server';
 
+function isUniqueViolation(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const candidate = error as { code?: string; message?: string };
+  return (
+    candidate.code === '23505' ||
+    candidate.message?.toLowerCase().includes('duplicate key') === true
+  );
+}
+
+function isSchemaCompatibilityError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const candidate = error as {
+    code?: string;
+    message?: string;
+    details?: string;
+  };
+  const code = String(candidate.code || '').toUpperCase();
+  if (['42P01', '42703', 'PGRST204', 'PGRST205'].includes(code)) return true;
+  const text =
+    `${candidate.message || ''} ${candidate.details || ''}`.toLowerCase();
+  return (
+    text.includes('does not exist') ||
+    text.includes('schema cache') ||
+    text.includes('could not find the table')
+  );
+}
+
 /**
  * Finds an existing conversation or creates one for the account and contact.
  */
@@ -10,127 +37,194 @@ export async function findOrCreateConversation(
   channel: 'whatsapp' | 'sms' = 'whatsapp'
 ) {
   const db = getAdminClient();
-  let matches: Record<string, unknown>[] | null = null;
+  let legacyShape = false;
+  let camelCaseShape = false;
 
-  try {
-    const scoped = await db
+  const findExisting = async (): Promise<Record<string, unknown> | null> => {
+    if (camelCaseShape) {
+      const camelCase = await db
+        .from('conversations')
+        .select('*')
+        .eq('accountId', accountId)
+        .eq('contactId', contactId)
+        .limit(1);
+      if (camelCase.error && !isSchemaCompatibilityError(camelCase.error)) {
+        throw new Error(
+          `Legacy conversation lookup failed: ${String(
+            (camelCase.error as { message?: string }).message || camelCase.error
+          )}`
+        );
+      }
+      return (
+        (camelCase.data?.[0] as Record<string, unknown> | undefined) ?? null
+      );
+    }
+
+    const canonical = await db
       .from('conversations')
       .select('*')
       .eq('account_id', accountId)
       .eq('contact_id', contactId)
       .eq('channel', channel)
       .limit(1);
-    if (!scoped.error && scoped.data && scoped.data.length > 0) {
-      matches = scoped.data;
-    } else if (scoped.error) {
-      // Databases predating the channel column still need to route inbound
-      // messages. In that legacy shape there is one conversation per contact.
-      const legacyShape = await db
-        .from('conversations')
-        .select('*')
-        .eq('account_id', accountId)
-        .eq('contact_id', contactId)
-        .limit(1);
-      if (legacyShape.data && legacyShape.data.length > 0) {
-        matches = legacyShape.data;
-      }
+
+    if (!canonical.error) {
+      return (
+        (canonical.data?.[0] as Record<string, unknown> | undefined) ?? null
+      );
     }
-  } catch {
-    try {
-      const scoped = await db
-        .from('conversations')
-        .select('*')
-        .eq('accountId', accountId)
-        .eq('contactId', contactId)
-        .eq('channel', channel)
-        .limit(1);
-      if (!scoped.error && scoped.data && scoped.data.length > 0) {
-        matches = scoped.data;
-      } else if (scoped.error) {
-        const legacyShape = await db
-          .from('conversations')
-          .select('*')
-          .eq('accountId', accountId)
-          .eq('contactId', contactId)
-          .limit(1);
-        if (legacyShape.data && legacyShape.data.length > 0) {
-          matches = legacyShape.data;
-        }
-      }
-    } catch {
-      // Ignore
+    if (!isSchemaCompatibilityError(canonical.error)) {
+      throw new Error(
+        `Conversation lookup failed: ${String(
+          (canonical.error as { message?: string }).message || canonical.error
+        )}`
+      );
     }
+
+    legacyShape = true;
+    const legacy = await db
+      .from('conversations')
+      .select('*')
+      .eq('account_id', accountId)
+      .eq('contact_id', contactId)
+      .limit(1);
+    if (legacy.error) {
+      if (isSchemaCompatibilityError(legacy.error)) {
+        // The account/contact columns themselves are camelCase on a small
+        // set of pre-cutover schemas. Let the outer compatibility branch
+        // retry with those exact column names.
+        throw new Error(
+          'Legacy conversation schema cache uses camelCase columns'
+        );
+      }
+      throw new Error(
+        `Legacy conversation lookup failed: ${String(
+          (legacy.error as { message?: string }).message || legacy.error
+        )}`
+      );
+    }
+    return (legacy.data?.[0] as Record<string, unknown> | undefined) ?? null;
+  };
+
+  let existing: Record<string, unknown> | null = null;
+  try {
+    existing = await findExisting();
+  } catch (canonicalError) {
+    // A small number of pre-cutover deployments expose camelCase columns.
+    // Only use that compatibility path when the canonical query itself is a
+    // schema error; operational failures must remain retryable.
+    if (!isSchemaCompatibilityError(canonicalError)) throw canonicalError;
+    legacyShape = true;
+    camelCaseShape = true;
+    const legacy = await db
+      .from('conversations')
+      .select('*')
+      .eq('accountId', accountId)
+      .eq('contactId', contactId)
+      .limit(1);
+    if (legacy.error && !isSchemaCompatibilityError(legacy.error)) {
+      throw new Error(
+        `Legacy conversation lookup failed: ${String(
+          (legacy.error as { message?: string }).message || legacy.error
+        )}`
+      );
+    }
+    existing =
+      (legacy.data?.[0] as Record<string, unknown> | undefined) ?? null;
   }
 
-  if (matches && matches.length > 0 && matches[0]) {
-    return matches[0];
-  }
+  if (existing) return existing;
 
   const now = new Date().toISOString();
-  let newConv: Record<string, unknown> | null = null;
-  let createError: unknown = null;
+  const canonicalPayload = {
+    account_id: accountId,
+    user_id: configOwnerUserId || null,
+    contact_id: contactId,
+    channel,
+    status: 'open',
+    ai_chat_enabled: true,
+    unread_count: 0,
+    last_message_text: '',
+    last_message_at: now,
+    created_at: now,
+    updated_at: now,
+  };
+  const legacyPayload = {
+    account_id: accountId,
+    user_id: configOwnerUserId || null,
+    contact_id: contactId,
+    status: 'open',
+    ai_chat_enabled: true,
+    unread_count: 0,
+    last_message_text: '',
+    last_message_at: now,
+    created_at: now,
+    updated_at: now,
+  };
+  const camelCasePayload = {
+    accountId,
+    userId: configOwnerUserId || null,
+    contactId,
+    status: 'open',
+    aiChatEnabled: true,
+    unreadCount: 0,
+    lastMessageText: '',
+    lastMessageAt: now,
+    createdAt: now,
+    updatedAt: now,
+  };
 
-  // Attempt 1: Full schema (with channel column)
-  try {
-    const { data, error } = await db
-      .from('conversations')
-      .insert({
-        account_id: accountId,
-        user_id: configOwnerUserId || null,
-        contact_id: contactId,
-        channel,
-        status: 'open',
-        ai_chat_enabled: true,
-        unread_count: 0,
-        last_message_text: '',
-        last_message_at: now,
-        created_at: now,
-        updated_at: now,
-      })
-      .select()
-      .single();
-    if (data) newConv = data;
-    createError = error;
-  } catch (err) {
-    createError = err;
-  }
-
-  // Attempt 2: Minimal schema (live DB without channel column)
-  if (!newConv) {
-    try {
-      const { data, error } = await db
+  const inserted = camelCaseShape
+    ? await db
         .from('conversations')
-        .insert({
-          account_id: accountId,
-          user_id: configOwnerUserId || null,
-          contact_id: contactId,
-          status: 'open',
-          ai_chat_enabled: true,
-          unread_count: 0,
-          last_message_text: '',
-          last_message_at: now,
-          created_at: now,
-          updated_at: now,
-        })
+        // The generated Supabase type describes the canonical snake_case
+        // schema. This branch is only reached for pre-cutover camelCase
+        // deployments, so keep the compatibility payload out of that type's
+        // excess-property check.
+        .insert(camelCasePayload as never)
+        .select()
+        .single()
+    : await db
+        .from('conversations')
+        .insert(legacyShape ? legacyPayload : canonicalPayload)
         .select()
         .single();
-      if (data) {
-        newConv = data;
-        createError = null;
-      } else {
-        createError = error;
-      }
-    } catch (err) {
-      createError = err;
+
+  if (!inserted.error && inserted.data) return inserted.data;
+
+  if (isUniqueViolation(inserted.error)) {
+    // Another webhook created the channel-specific row between our lookup
+    // and insert. Re-query before reporting failure.
+    const raced = await findExisting();
+    if (raced) return raced;
+    throw new Error(
+      'Conversation creation raced but the row could not be re-read'
+    );
+  }
+
+  if (!legacyShape && isSchemaCompatibilityError(inserted.error)) {
+    const fallback = await db
+      .from('conversations')
+      .insert(legacyPayload)
+      .select()
+      .single();
+    if (!fallback.error && fallback.data) return fallback.data;
+    if (isUniqueViolation(fallback.error)) {
+      const raced = await findExisting();
+      if (raced) return raced;
     }
+    throw new Error(
+      `Legacy conversation creation failed: ${String(
+        (fallback.error as { message?: string })?.message || fallback.error
+      )}`
+    );
   }
 
-  if (createError && !newConv) {
-    console.error('Error creating conversation:', createError);
-    return null;
-  }
-
-  return newConv;
+  throw new Error(
+    `Conversation creation failed: ${String(
+      (inserted.error as { message?: string })?.message || inserted.error
+    )}`
+  );
 }
 
 /**

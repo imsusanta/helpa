@@ -49,6 +49,41 @@ create table if not exists public.inbound_webhook_events (
   updated_at timestamptz not null default now()
 );
 
+-- Older deployments created this ledger before tenant attribution was added
+-- (the legacy 062/063 shape). Reconcile that shape before creating any
+-- account-scoped indexes or policies; otherwise this migration fails at
+-- `inbound_webhook_events_account_status_idx` and the original 500-path
+-- remains in production.
+alter table public.inbound_webhook_events
+  add column if not exists account_id uuid;
+
+alter table public.inbound_webhook_events
+  add column if not exists entry_id text;
+
+alter table public.inbound_webhook_events
+  add column if not exists field text not null default 'messages';
+
+alter table public.inbound_webhook_events
+  add column if not exists payload jsonb not null default '{}'::jsonb;
+
+alter table public.inbound_webhook_events
+  add column if not exists status text not null default 'received';
+
+alter table public.inbound_webhook_events
+  add column if not exists retry_count integer not null default 0;
+
+alter table public.inbound_webhook_events
+  add column if not exists error_log text;
+
+alter table public.inbound_webhook_events
+  add column if not exists processed_at timestamptz;
+
+alter table public.inbound_webhook_events
+  add column if not exists created_at timestamptz not null default now();
+
+alter table public.inbound_webhook_events
+  add column if not exists updated_at timestamptz not null default now();
+
 -- The provider event id (Meta `wamid.*`) is the idempotency key. The
 -- webhook route relies on the unique violation raised here to detect a
 -- retried delivery, so this index is load-bearing, not just an optimisation.
@@ -66,6 +101,12 @@ create index if not exists inbound_webhook_events_status_created_idx
 
 alter table public.inbound_webhook_events enable row level security;
 
+-- Raw webhook payloads contain PHI/PII. Keep this bookkeeping table
+-- service-role-only, matching the legacy security migration; tenant users do
+-- not need direct access to the provider payload ledger.
+revoke all on table public.inbound_webhook_events from anon, authenticated;
+grant all on table public.inbound_webhook_events to service_role;
+
 -- Mirrors the policy set already declared in
 -- 20260822124500_add_missing_rls_policies.sql so that migration remains
 -- satisfied whichever order the two are applied in.
@@ -73,23 +114,27 @@ drop policy if exists "inbound_webhook_events_select" on public.inbound_webhook_
 drop policy if exists "inbound_webhook_events_insert" on public.inbound_webhook_events;
 drop policy if exists "inbound_webhook_events_update" on public.inbound_webhook_events;
 drop policy if exists "inbound_webhook_events_delete" on public.inbound_webhook_events;
+drop policy if exists "inbound_webhook_events_service_select" on public.inbound_webhook_events;
+drop policy if exists "inbound_webhook_events_service_insert" on public.inbound_webhook_events;
+drop policy if exists "inbound_webhook_events_service_update" on public.inbound_webhook_events;
+drop policy if exists "inbound_webhook_events_service_delete" on public.inbound_webhook_events;
 
-create policy "inbound_webhook_events_select" on public.inbound_webhook_events
-  for select to authenticated
-  using (is_account_member(account_id, 'viewer'::account_role_enum) or (select auth.role()) = 'service_role');
+create policy "inbound_webhook_events_service_select" on public.inbound_webhook_events
+  for select to service_role
+  using ((select auth.role()) = 'service_role');
 
-create policy "inbound_webhook_events_insert" on public.inbound_webhook_events
-  for insert to authenticated, service_role
-  with check (is_account_member(account_id, 'admin'::account_role_enum) or (select auth.role()) = 'service_role');
+create policy "inbound_webhook_events_service_insert" on public.inbound_webhook_events
+  for insert to service_role
+  with check ((select auth.role()) = 'service_role');
 
-create policy "inbound_webhook_events_update" on public.inbound_webhook_events
-  for update to authenticated, service_role
-  using (is_account_member(account_id, 'admin'::account_role_enum) or (select auth.role()) = 'service_role')
-  with check (is_account_member(account_id, 'admin'::account_role_enum) or (select auth.role()) = 'service_role');
+create policy "inbound_webhook_events_service_update" on public.inbound_webhook_events
+  for update to service_role
+  using ((select auth.role()) = 'service_role')
+  with check ((select auth.role()) = 'service_role');
 
-create policy "inbound_webhook_events_delete" on public.inbound_webhook_events
-  for delete to authenticated, service_role
-  using (is_account_member(account_id, 'admin'::account_role_enum) or (select auth.role()) = 'service_role');
+create policy "inbound_webhook_events_service_delete" on public.inbound_webhook_events
+  for delete to service_role
+  using ((select auth.role()) = 'service_role');
 
 
 -- ────────────────────────────────────────────────────────────
@@ -141,6 +186,11 @@ alter table public.messages
 alter table public.messages
   add column if not exists interactive_reply_id text;
 
+-- Marker used by compatibility rollup paths to make a retry repair-safe.
+-- It is intentionally nullable so legacy rows remain untouched.
+alter table public.messages
+  add column if not exists inbound_rollup_applied_at timestamptz;
+
 
 -- ────────────────────────────────────────────────────────────
 -- 4. Duplicate-proofing on messages.message_id
@@ -148,9 +198,11 @@ alter table public.messages
 --    `messages_provider_message_unique (account_id, provider_message_id)`
 --    already exists, but inbound rows historically left
 --    provider_message_id NULL so the index never applied to them. The
---    inbound path now populates both columns; this partial index closes
---    the remaining gap for rows written by older code paths and gives the
---    webhook a hard, race-free duplicate guard.
+--    inbound path now populates both columns; this account-scoped partial
+--    index closes the remaining gap for rows written by older code paths and
+--    gives the webhook a hard, race-free duplicate guard without treating a
+--    WAHA/Twilio ID that is valid in another workspace as this workspace's
+--    duplicate.
 --
 --    Wrapped in an exception handler: a database that already accumulated
 --    duplicate rows (the very defect being fixed) would otherwise abort
@@ -159,9 +211,13 @@ alter table public.messages
 -- ────────────────────────────────────────────────────────────
 do $$
 begin
+  -- A previous draft created a global message_id index. Remove it before
+  -- installing the tenant-scoped form; otherwise provider IDs that are only
+  -- unique within a session/workspace can be rejected across tenants.
+  drop index if exists public.messages_message_id_unique;
   create unique index if not exists messages_message_id_unique
-    on public.messages (message_id)
-    where message_id is not null;
+    on public.messages (account_id, message_id)
+    where account_id is not null and message_id is not null;
 exception
   when unique_violation or duplicate_table then
     raise warning
@@ -185,7 +241,8 @@ end $$;
 create or replace function public.apply_inbound_message_to_conversation(
   p_conversation_id uuid,
   p_preview text,
-  p_message_at timestamptz
+  p_message_at timestamptz,
+  p_message_key text
 )
 returns table (
   out_conversation_id uuid,
@@ -198,6 +255,17 @@ volatile
 security definer
 set search_path = public, pg_temp
 as $$
+  with claimed as (
+    update public.messages m
+    set inbound_rollup_applied_at = now()
+    where p_message_key is not null
+      and m.conversation_id = p_conversation_id
+      and (m.id::text = p_message_key or m.message_id = p_message_key or m.provider_message_id = p_message_key)
+      and m.inbound_rollup_applied_at is null
+    returning m.id
+  ), should_apply as (
+    select p_message_key is null or exists (select 1 from claimed) as apply
+  )
   update public.conversations c
   set
     -- Only advance the preview/timestamp when this message is at least as
@@ -214,12 +282,41 @@ as $$
       else c.last_message_at
     end,
     -- Atomic increment: never reads the prior value into the application.
-    unread_count = coalesce(c.unread_count, 0) + 1,
+    unread_count = coalesce(c.unread_count, 0) +
+      case when (select apply from should_apply) then 1 else 0 end,
     -- A customer replying to a closed thread reopens it.
     status = case when c.status = 'closed' then 'open' else c.status end,
     updated_at = now()
   where c.id = p_conversation_id
   returning c.id, c.unread_count, c.status, c.last_message_at;
+$$;
+
+-- Keep the original three-argument RPC signature for older callers and for
+-- PostgREST function discovery. A default argument on the four-argument
+-- overload does not create a three-argument function, and GRANT/REVOKE on a
+-- non-existent signature aborts a fresh migration.
+create or replace function public.apply_inbound_message_to_conversation(
+  p_conversation_id uuid,
+  p_preview text,
+  p_message_at timestamptz
+)
+returns table (
+  out_conversation_id uuid,
+  out_unread_count integer,
+  out_status text,
+  out_last_message_at timestamptz
+)
+language sql
+volatile
+security definer
+set search_path = public, pg_temp
+as $$
+  select * from public.apply_inbound_message_to_conversation(
+    p_conversation_id,
+    p_preview,
+    p_message_at,
+    null::text
+  );
 $$;
 
 revoke execute on function
@@ -228,10 +325,20 @@ revoke execute on function
   public.apply_inbound_message_to_conversation(uuid, text, timestamptz) from authenticated;
 revoke execute on function
   public.apply_inbound_message_to_conversation(uuid, text, timestamptz) from public;
+revoke execute on function
+  public.apply_inbound_message_to_conversation(uuid, text, timestamptz, text) from anon;
+revoke execute on function
+  public.apply_inbound_message_to_conversation(uuid, text, timestamptz, text) from authenticated;
+revoke execute on function
+  public.apply_inbound_message_to_conversation(uuid, text, timestamptz, text) from public;
 grant execute on function
   public.apply_inbound_message_to_conversation(uuid, text, timestamptz) to service_role;
 grant execute on function
   public.apply_inbound_message_to_conversation(uuid, text, timestamptz) to postgres;
+grant execute on function
+  public.apply_inbound_message_to_conversation(uuid, text, timestamptz, text) to service_role;
+grant execute on function
+  public.apply_inbound_message_to_conversation(uuid, text, timestamptz, text) to postgres;
 
 
 -- ────────────────────────────────────────────────────────────

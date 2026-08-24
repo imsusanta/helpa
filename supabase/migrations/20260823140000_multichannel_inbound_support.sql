@@ -41,6 +41,7 @@ drop policy if exists clinic_integrations_select on public.clinic_integrations;
 drop policy if exists clinic_integrations_insert on public.clinic_integrations;
 drop policy if exists clinic_integrations_update on public.clinic_integrations;
 drop policy if exists clinic_integrations_delete on public.clinic_integrations;
+drop policy if exists clinic_integrations_tenant_isolation on public.clinic_integrations;
 
 create policy clinic_integrations_select
   on public.clinic_integrations for select to authenticated
@@ -129,6 +130,7 @@ drop policy if exists provider_events_select on public.provider_events;
 drop policy if exists provider_events_insert on public.provider_events;
 drop policy if exists provider_events_update on public.provider_events;
 drop policy if exists provider_events_delete on public.provider_events;
+drop policy if exists provider_events_tenant_isolation on public.provider_events;
 
 create policy provider_events_select
   on public.provider_events for select to authenticated
