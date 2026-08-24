@@ -64,12 +64,12 @@ export const NAVIGATION_REGISTRY: SidebarNavItem<React.ElementType>[] = [
     ],
   },
   {
-    id: 'channels',
-    label: 'Channels & Integrations',
+    id: 'integrations',
+    label: 'Integrations',
     icon: MessageCircle,
     children: [
       {
-        id: 'channels-whatsapp',
+        id: 'integrations-whatsapp',
         label: 'WhatsApp',
         href: '/settings?tab=whatsapp',
         roleMin: 'admin',
@@ -77,7 +77,7 @@ export const NAVIGATION_REGISTRY: SidebarNavItem<React.ElementType>[] = [
         badge: 'setup-required',
       },
       {
-        id: 'channels-integrations',
+        id: 'integrations-apps',
         label: 'Integrations',
         href: '/integrations',
         roleMin: 'admin',
