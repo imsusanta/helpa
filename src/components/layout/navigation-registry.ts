@@ -85,6 +85,13 @@ export const NAVIGATION_REGISTRY: SidebarNavItem<React.ElementType>[] = [
     icon: MessageCircle,
     children: [
       {
+        id: 'channels-patient-list',
+        label: 'Patient List',
+        href: '/patients',
+        hospitalOnly: true,
+        activeHrefs: ['/contacts'],
+      },
+      {
         id: 'channels-whatsapp',
         label: 'WhatsApp',
         href: '/settings?tab=whatsapp',
