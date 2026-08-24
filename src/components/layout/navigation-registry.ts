@@ -66,25 +66,11 @@ export const NAVIGATION_REGISTRY: SidebarNavItem<React.ElementType>[] = [
   {
     id: 'integrations',
     label: 'Integrations',
+    href: '/integrations',
     icon: MessageCircle,
-    children: [
-      {
-        id: 'integrations-whatsapp',
-        label: 'WhatsApp',
-        href: '/settings?tab=whatsapp',
-        roleMin: 'admin',
-        featureKey: 'whatsapp_setup',
-        badge: 'setup-required',
-      },
-      {
-        id: 'integrations-apps',
-        label: 'Integrations',
-        href: '/integrations',
-        roleMin: 'admin',
-        featureKey: 'integrations',
-        badge: 'setup-required',
-      },
-    ],
+    roleMin: 'admin',
+    featureKey: 'integrations',
+    badge: 'setup-required',
   },
   {
     id: 'billing',
