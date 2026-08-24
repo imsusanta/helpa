@@ -19,7 +19,6 @@ export async function POST(request: Request) {
     );
     const metricsResult: Record<string, number> = {};
 
-    // Calculate Date Range start
     const now = new Date();
     let startDate: string | null = null;
     if (range === 'today') {
@@ -30,55 +29,60 @@ export async function POST(request: Request) {
       );
       startDate = startOfDay.toISOString();
     } else if (range === '7d') {
-      const d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      startDate = d.toISOString();
+      startDate = new Date(
+        now.getTime() - 7 * 24 * 60 * 60 * 1000
+      ).toISOString();
     } else if (range === '30d') {
-      const d = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      startDate = d.toISOString();
+      startDate = new Date(
+        now.getTime() - 30 * 24 * 60 * 60 * 1000
+      ).toISOString();
     } else if (range === 'this_month') {
-      const d = new Date(now.getFullYear(), now.getMonth(), 1);
-      startDate = d.toISOString();
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
     } else if (range === 'this_year') {
-      const d = new Date(now.getFullYear(), 0, 1);
-      startDate = d.toISOString();
+      startDate = new Date(now.getFullYear(), 0, 1).toISOString();
     }
 
-    // 1. Industry Module Metric Queries
-    const todayStr = new Date().toISOString().split('T')[0];
-    for (const metric of activeModule.dashboardMetrics) {
-      let query = supabase
-        .from(metric.queryTable)
-        .select('*', { count: 'exact', head: true })
-        .eq('account_id', ctx.accountId);
+    const todayStr = now.toISOString().split('T')[0];
+    const industryMetricResults = await Promise.all(
+      activeModule.dashboardMetrics.map(async (metric) => {
+        let query = supabase
+          .from(metric.queryTable)
+          .select('*', { count: 'exact', head: true })
+          .eq('account_id', ctx.accountId);
 
-      if (metric.queryFilters) {
-        for (const filter of metric.queryFilters) {
-          let val = filter.value;
-          if (typeof val === 'string' && val.toUpperCase() === 'TODAY') {
-            val = todayStr;
+        for (const filter of metric.queryFilters ?? []) {
+          let value = filter.value;
+          if (
+            typeof value === 'string' &&
+            value.toUpperCase() === 'TODAY'
+          ) {
+            value = todayStr;
           }
 
           if (filter.operator === 'eq') {
-            query = query.eq(filter.field, val);
+            query = query.eq(filter.field, value);
           } else if (filter.operator === 'neq') {
-            query = query.neq(filter.field, val);
+            query = query.neq(filter.field, value);
           } else if (filter.operator === 'gt') {
-            query = query.gt(filter.field, val);
+            query = query.gt(filter.field, value);
           } else if (filter.operator === 'lt') {
-            query = query.lt(filter.field, val);
+            query = query.lt(filter.field, value);
           } else if (filter.operator === 'gte') {
-            query = query.gte(filter.field, val);
+            query = query.gte(filter.field, value);
           } else if (filter.operator === 'lte') {
-            query = query.lte(filter.field, val);
+            query = query.lte(filter.field, value);
           }
         }
-      }
 
-      const { count } = await query;
-      metricsResult[metric.key] = count || 0;
+        const { count } = await query;
+        return [metric.key, count || 0] as const;
+      })
+    );
+
+    for (const [key, value] of industryMetricResults) {
+      metricsResult[key] = value;
     }
 
-    // 2. Comprehensive Real Sales & CRM Metrics from Supabase
     let leadsQuery = supabase
       .from('leads')
       .select('id, stage, value, created_at')
@@ -129,24 +133,24 @@ export async function POST(request: Request) {
     ]);
 
     const totalLeads = leadsList?.length || 0;
-    const newLeads = leadsList?.filter((l) => l.stage === 'NEW').length || 0;
+    const newLeads = leadsList?.filter((lead) => lead.stage === 'NEW').length || 0;
     const convertedLeads =
-      leadsList?.filter((l) => l.stage === 'CONVERTED').length || 0;
+      leadsList?.filter((lead) => lead.stage === 'CONVERTED').length || 0;
 
     const pipelineDealsValue = (dealsList || [])
-      .filter((d) => d.status === 'open')
-      .reduce((sum, d) => sum + (Number(d.value) || 0), 0);
+      .filter((deal) => deal.status === 'open')
+      .reduce((sum, deal) => sum + (Number(deal.value) || 0), 0);
 
     const wonDealsValue = (dealsList || [])
-      .filter((d) => d.status === 'won')
-      .reduce((sum, d) => sum + (Number(d.value) || 0), 0);
+      .filter((deal) => deal.status === 'won')
+      .reduce((sum, deal) => sum + (Number(deal.value) || 0), 0);
 
     const invoicedTotal = (invoicesList || []).reduce(
-      (sum, inv) => sum + (Number(inv.total) || 0),
+      (sum, invoice) => sum + (Number(invoice.total) || 0),
       0
     );
     const collectedRevenue = (invoicesList || []).reduce(
-      (sum, inv) => sum + (Number(inv.amount_paid) || 0),
+      (sum, invoice) => sum + (Number(invoice.amount_paid) || 0),
       0
     );
 
@@ -163,11 +167,7 @@ export async function POST(request: Request) {
     metricsResult.campaigns_total = campaignsCount || 0;
 
     return NextResponse.json(
-      {
-        success: true,
-        metrics: metricsResult,
-        range,
-      },
+      { success: true, metrics: metricsResult, range },
       { headers: PRIVATE_HEADERS }
     );
   } catch (err) {
