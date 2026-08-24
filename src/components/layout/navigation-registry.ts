@@ -59,7 +59,6 @@ export const NAVIGATION_REGISTRY: SidebarNavItem<React.ElementType>[] = [
     children: [
       { id: 'automation-chatbot', label: 'Chatbot', href: '/chatbot' },
       { id: 'automation-faq', label: 'FAQ Bot', href: '/faq-bot' },
-      { id: 'automation-assistant', label: 'AI Assistant', href: '/ai-assistant' },
       { id: 'automation-rules', label: 'Automations', href: '/automations' },
       { id: 'automation-knowledge', label: 'Knowledge Base', href: '/knowledge-base' },
     ],
