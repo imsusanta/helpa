@@ -1,5 +1,4 @@
 import dynamic from 'next/dynamic';
-import { getCurrentAccount } from '@/lib/auth/account';
 import { LandingNavbar } from '@/components/landing/navbar';
 import { LandingHero } from '@/components/landing/hero';
 import { LandingIndustrySolutions } from '@/components/landing/industry-solutions';
@@ -19,28 +18,18 @@ const LandingInteractiveShowcase = dynamic(
   }
 );
 
-export default async function LandingPage() {
-  // Resolve auth on the server so the landing page does not need a client-side
-  // auth request before showing the correct CTA.
-  let isAuthenticated = false;
-  try {
-    await getCurrentAccount();
-    isAuthenticated = true;
-  } catch {
-    isAuthenticated = false;
-  }
-
+export default function LandingPage() {
   return (
     <div className="min-h-screen bg-[#FAF9FC] text-[#110E3D] selection:bg-[#B4F73C] selection:text-[#110E3D]">
-      <LandingNavbar isAuthenticated={isAuthenticated} />
+      <LandingNavbar />
       <main>
-        <LandingHero isAuthenticated={isAuthenticated} />
+        <LandingHero isAuthenticated={false} />
         <LandingInteractiveShowcase />
         <LandingIndustrySolutions />
         <LandingSecurityBadges />
         <LandingPricingSection />
         <LandingFaqSection />
-        <LandingCtaBanner isAuthenticated={isAuthenticated} />
+        <LandingCtaBanner />
       </main>
       <LandingFooter />
     </div>
