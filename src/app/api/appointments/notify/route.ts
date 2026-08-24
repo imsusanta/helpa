@@ -130,11 +130,25 @@ export async function POST(request: NextRequest) {
     const bookingIdStr =
       appt.booking_id || `APT-2026-${appt.id.slice(0, 5).toUpperCase()}`;
 
-    // Compute canonical base URL dynamically
+    // Canonical base URL comes from configuration only. Deriving it from
+    // the request host would let a spoofed Host/X-Forwarded-Host header
+    // send the patient a 7-day signed PDF token to an attacker's domain.
     const baseUrl =
-      process.env.NEXT_PUBLIC_APP_URL ||
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      request.nextUrl.origin;
+      process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL;
+
+    if (!baseUrl) {
+      console.error(
+        '[POST /api/appointments/notify] NEXT_PUBLIC_APP_URL / NEXT_PUBLIC_SITE_URL is not configured'
+      );
+      return NextResponse.json(
+        {
+          error: 'APP_URL_NOT_CONFIGURED',
+          message:
+            'Canonical app URL is not configured, so a secure PDF link cannot be generated',
+        },
+        { status: 500 }
+      );
+    }
 
     // Generate signed PDF access token (valid for 7 days)
     const expiresAt = Math.floor(Date.now() / 1000) + 7 * 86400;
@@ -143,7 +157,7 @@ export async function POST(request: NextRequest) {
       accountId,
       expiresAt,
     });
-    const pdfUrl = `${baseUrl}/api/appointments/${appt.id}/pdf?token=${encodeURIComponent(token)}`;
+    const pdfUrl = `${baseUrl.replace(/\/+$/, '')}/api/appointments/${appt.id}/pdf?token=${encodeURIComponent(token)}`;
 
     // Formulate confirmation message
     const messageText = `✅ *APPOINTMENT SLIP RESENT!*
