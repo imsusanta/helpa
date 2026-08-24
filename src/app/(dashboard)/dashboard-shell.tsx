@@ -78,10 +78,6 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
               <DashboardErrorBoundary onLogin={() => router.push('/login')}>
                 {children}
               </DashboardErrorBoundary>
-              <footer className="mt-8 flex flex-col gap-1 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
-                <span>© 2026 Helpa Studio. All rights reserved.</span>
-                <span>v1.0.0</span>
-              </footer>
             </div>
           )}
         </main>
