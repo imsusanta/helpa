@@ -1,0 +1,54 @@
+name: PR quality diagnostics (temporary)
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Collect diagnostics
+        run: |
+          {
+            echo '## format:check'
+            npm run format:check 2>&1 | tail -n 40
+            echo '## lint'
+            npm run lint 2>&1 | tail -n 120
+            echo '## typecheck'
+            npm run typecheck 2>&1 | tail -n 120
+          } > diagnostics.txt
+          cat diagnostics.txt
+
+      - name: Comment diagnostics on the pull request
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let text = '';
+            try {
+              text = fs.readFileSync('diagnostics.txt', 'utf8');
+            } catch (err) {
+              text = 'diagnostics.txt was not produced: ' + err.message;
+            }
+            const body = '<!-- quality-diagnostics -->\n```text\n' + text.slice(-55000) + '\n```';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body,
+            });
