@@ -1,0 +1,42 @@
+name: PR 130 quality diagnostics
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  quality-diagnostics:
+    if: github.event.pull_request.number == 130
+    name: Quality diagnostic — ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: format
+            command: npm run format:check
+          - name: lint demo fixtures
+            command: npx eslint scripts/demo-fixtures.ts --max-warnings=0
+          - name: lint seed script
+            command: npx eslint scripts/seed-demo-clinic.ts --max-warnings=0
+          - name: lint reset script
+            command: npx eslint scripts/reset-demo-clinic.ts --max-warnings=0
+          - name: lint fixture tests
+            command: npx eslint src/tests/demo-fixtures.test.ts --max-warnings=0
+          - name: lint capture spec
+            command: npx eslint e2e/product-demo.spec.ts --max-warnings=0
+          - name: typecheck
+            command: npm run typecheck
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Run ${{ matrix.name }}
+        run: ${{ matrix.command }}
