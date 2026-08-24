@@ -43,14 +43,15 @@ test.describe('Product demo evidence capture', () => {
   }) => {
     const email = process.env.DEMO_EMAIL;
     const password = process.env.DEMO_PASSWORD;
-    expect(email, 'DEMO_EMAIL is required').toBeTruthy();
-    expect(password, 'DEMO_PASSWORD is required').toBeTruthy();
+    if (!email || !password) {
+      throw new Error('DEMO_EMAIL and DEMO_PASSWORD are required');
+    }
 
     await mkdir(outputDirectory, { recursive: true });
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/login');
-    await page.locator('input[type="email"]').first().fill(email!);
-    await page.locator('input[type="password"]').first().fill(password!);
+    await page.locator('input[type="email"]').first().fill(email);
+    await page.locator('input[type="password"]').first().fill(password);
     await page
       .getByRole('button', { name: /sign in|log in/i })
       .first()
