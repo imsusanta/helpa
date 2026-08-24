@@ -278,7 +278,7 @@ export function GenericDashboardClient() {
               </div>
 
               <div
-                className={`absolute right-5 ${isTopRow ? 'bottom-5' : 'top-5'} flex h-12 w-12 items-center justify-center rounded-xl shadow-[0_4px_10px_rgba(15,23,42,0.10)] transition-transform group-hover:scale-105 ${iconBgClasses[card.tone]}`}
+                className={`absolute right-5 bottom-5 flex h-12 w-12 items-center justify-center rounded-xl shadow-[0_4px_10px_rgba(15,23,42,0.10)] transition-transform group-hover:scale-105 ${iconBgClasses[card.tone]}`}
               >
                 <Icon className="h-5 w-5" />
               </div>
