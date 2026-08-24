@@ -7,7 +7,9 @@ const outputDirectory = path.resolve('public/assets/screenshots');
 
 async function settle(page: Page) {
   await page.waitForLoadState('domcontentloaded');
-  await page.waitForLoadState('networkidle', { timeout: 8_000 }).catch(() => {});
+  await page
+    .waitForLoadState('networkidle', { timeout: 8_000 })
+    .catch(() => undefined);
   await page.addStyleTag({
     content:
       '*,*::before,*::after{animation-duration:0s!important;transition-duration:0s!important;caret-color:transparent!important}',
