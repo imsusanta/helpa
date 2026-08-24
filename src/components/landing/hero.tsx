@@ -1,7 +1,4 @@
-'use client';
-
 import Link from 'next/link';
-import { motion } from 'framer-motion';
 import { CalendarCheck, MessageCircle, Sparkles, Users } from 'lucide-react';
 
 interface HeroProps {
@@ -18,40 +15,21 @@ export function LandingHero({ isAuthenticated }: HeroProps) {
   return (
     <section className="relative overflow-hidden bg-gradient-to-b from-[#FAF9FC] via-[#F7F5FC] to-[#F1EEFA] pt-32 pb-16">
       <div className="mx-auto max-w-6xl px-4 text-center sm:px-6 lg:px-8">
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-6 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-800"
-        >
+        <div className="animate-fade-in-down mb-6 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-800">
           <MessageCircle className="h-4 w-4" />
           AI-powered WhatsApp automation for businesses
-        </motion.div>
+        </div>
 
-        <motion.h1
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-          className="mx-auto mb-6 max-w-5xl text-4xl leading-[1.05] font-extrabold tracking-tight text-[#110E3D] sm:text-6xl lg:text-[68px]"
-        >
+        <h1 className="animate-fade-in-up mx-auto mb-6 max-w-5xl text-4xl leading-[1.05] font-extrabold tracking-tight text-[#110E3D] sm:text-6xl lg:text-[68px]">
           Automate WhatsApp. Get Leads.
-        </motion.h1>
+        </h1>
 
-        <motion.p
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="mx-auto mb-8 max-w-3xl text-base leading-relaxed text-[#55527C] sm:text-xl"
-        >
+        <p className="animate-fade-in-up animation-delay-100 mx-auto mb-8 max-w-3xl text-base leading-relaxed text-[#55527C] sm:text-xl">
           AI-powered WhatsApp automation that captures leads, answers customers,
           follows up automatically, and helps you turn conversations into sales.
-        </motion.p>
+        </p>
 
-        <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-          className="mb-10 flex flex-col items-center justify-center gap-4 sm:flex-row"
-        >
+        <div className="animate-fade-in-up animation-delay-200 mb-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Link
             href={isAuthenticated ? '/dashboard' : '/signup'}
             className="flex min-h-11 items-center gap-2 rounded-full bg-gradient-to-r from-[#C4F135] via-[#7EE69D] to-[#4EE3C2] px-8 py-3.5 text-base font-bold text-[#110E3D] shadow-md transition hover:scale-[1.03] hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#110E3D]"
@@ -65,14 +43,9 @@ export function LandingHero({ isAuthenticated }: HeroProps) {
           >
             See how it works
           </Link>
-        </motion.div>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
-          className="mx-auto grid max-w-4xl gap-3 text-left sm:grid-cols-3"
-        >
+        <div className="animate-fade-in-up animation-delay-300 mx-auto grid max-w-4xl gap-3 text-left sm:grid-cols-3">
           {outcomes.map(({ icon: Icon, label }) => (
             <div
               key={label}
@@ -82,7 +55,7 @@ export function LandingHero({ isAuthenticated }: HeroProps) {
               <span>{label}</span>
             </div>
           ))}
-        </motion.div>
+        </div>
       </div>
     </section>
   );
