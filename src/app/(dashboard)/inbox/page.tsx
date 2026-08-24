@@ -1,13 +1,8 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import type {
-  Conversation,
-  Message,
-  Contact,
-  ConversationStatus,
-} from '@/types';
+import { useRouter } from 'next/navigation';
+import type { Conversation, Message, Contact } from '@/types';
 import { useRealtime } from '@/hooks/use-realtime';
 import { useAuth } from '@/hooks/use-auth';
 import { ConversationList } from '@/components/inbox/conversation-list';
@@ -22,7 +17,6 @@ import { useWorkspace } from '@/hooks/use-workspace';
 import {
   applyMessageToConversation,
   mergeConversationEvent,
-  mergeConversations,
   mergeMessages,
 } from '@/lib/inbox/merge';
 
@@ -32,18 +26,11 @@ const CONTACT_PANEL_STORAGE_KEY = 'wacrm:inbox:contact-panel-open';
 
 export default function InboxPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { accountId } = useAuth();
   const { terminology, currentIndustry } = useWorkspace();
   const contactLabelSingular = terminology.person;
 
   const [rightTab, setRightTab] = useState<'copilot' | 'crm'>('crm');
-  /**
-   * `?c=<id>` deep-link support. Used when landing here from the
-   * dashboard's recent-conversations list so the right thread opens
-   * automatically instead of showing the empty center panel.
-   */
-  const deepLinkConvId = searchParams.get('c');
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversation, setActiveConversation] =
@@ -94,12 +81,6 @@ export default function InboxPage() {
       return next;
     });
   }, []);
-
-  // Fire the deep-link auto-select exactly once per URL — subsequent
-  // list refreshes (realtime, manual refetch) must not snap the user
-  // back to the deep-linked conversation if they've already clicked
-  // elsewhere.
-  const autoSelectedForDeepLinkRef = useRef<string | null>(null);
 
   // Tracks conversations whose hydrate fetch is currently in flight. The
   // conv-INSERT and the first-message-INSERT events both call into
@@ -419,12 +400,9 @@ export default function InboxPage() {
     setActiveContact(activeConversation?.contact ?? null);
   }, [activeConversation]);
 
-  const handleConversationsLoaded = useCallback(
-    (items: Conversation[]) => {
-      setConversations(items);
-    },
-    []
-  );
+  const handleConversationsLoaded = useCallback((items: Conversation[]) => {
+    setConversations(items);
+  }, []);
 
   const handleSelectConversation = useCallback((conversation: Conversation) => {
     setActiveConversation(conversation);
@@ -435,6 +413,112 @@ export default function InboxPage() {
     (convId: string) => {
       router.replace(`/inbox?c=${convId}`, { scroll: false });
       hydrateConversation(convId);
+    },
+    [router, hydrateConversation]
+  );
+
+  const handleCloseConversation = useCallback(() => {
+    setActiveConversation(null);
+    setActiveContact(null);
+    setMessages([]);
+    setInsertedReply(null);
+    router.replace('/inbox', { scroll: false });
+  }, [router]);
+
+  const handleMessagesLoaded = useCallback((loaded: Message[]) => {
+    setMessages((prev) => mergeMessages(prev, loaded));
+  }, []);
+
+  const handleNewMessage = useCallback((msg: Message) => {
+    setMessages((prev) => {
+      if (prev.some((m) => m.id === msg.id)) return prev;
+      return [...prev, msg];
+    });
+  }, []);
+
+  const handleUpdateMessage = useCallback(
+    (id: string, updates: Partial<Message>) => {
+      setMessages((prev) =>
+        prev.map((m) => (m.id === id ? { ...m, ...updates } : m))
+      );
+    },
+    []
+  );
+
+  const handleStatusChange = useCallback(
+    (conversationId: string, status: Conversation['status']) => {
+      setConversations((prev) =>
+        prev.map((c) => (c.id === conversationId ? { ...c, status } : c))
+      );
+      if (activeConversation?.id === conversationId) {
+        setActiveConversation((prev) => (prev ? { ...prev, status } : prev));
+      }
+    },
+    [activeConversation]
+  );
+
+  const handleAssignChange = useCallback(
+    (conversationId: string, assignedAgentId: string | null) => {
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === conversationId
+            ? { ...c, assigned_agent_id: assignedAgentId ?? undefined }
+            : c
+        )
+      );
+      if (activeConversation?.id === conversationId) {
+        setActiveConversation((prev) =>
+          prev
+            ? { ...prev, assigned_agent_id: assignedAgentId ?? undefined }
+            : prev
+        );
+      }
+    },
+    [activeConversation]
+  );
+
+  const handleConversationUpdate = useCallback(
+    (conversationId: string, updates: Partial<Conversation>) => {
+      setConversations((prev) =>
+        prev.map((c) => (c.id === conversationId ? { ...c, ...updates } : c))
+      );
+      if (activeConversation?.id === conversationId) {
+        setActiveConversation((prev) =>
+          prev ? { ...prev, ...updates } : prev
+        );
+      }
+    },
+    [activeConversation]
+  );
+
+  const handleInsertCopilotReply = useCallback(
+    (reply: string) => {
+      if (!activeConversation) return;
+      setInsertedReply({
+        id: Date.now(),
+        conversationId: activeConversation.id,
+        text: reply,
+      });
+    },
+    [activeConversation]
+  );
+
+  const handleOpenStartConversation = useCallback(() => {
+    setStartConversationOpen(true);
+  }, []);
+
+  const handleManualRefresh = useCallback(() => {
+    setResyncToken((prev) => prev + 1);
+  }, []);
+
+  const handleConversationCreated = useCallback(
+    (newConvId?: string) => {
+      setStartConversationOpen(false);
+      setResyncToken((prev) => prev + 1);
+      if (newConvId) {
+        router.replace(`/inbox?c=${newConvId}`, { scroll: false });
+        hydrateConversation(newConvId);
+      }
     },
     [router, hydrateConversation]
   );
