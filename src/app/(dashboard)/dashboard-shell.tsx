@@ -8,6 +8,7 @@ import { useWorkspace } from '@/hooks/use-workspace';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
 import { DashboardErrorBoundary } from '@/components/dashboard/error-boundary';
+import { DashboardShellSkeleton } from '@/components/ui/page-skeletons';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -34,17 +35,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
     }
   }, [loading, user, pathname, isRouteAllowed, manifest, router]);
 
-  if (loading)
-    return (
-      <div className="flex min-h-screen w-full items-center justify-center bg-[#f8fafc] text-slate-700">
-        <div className="animate-brand-in flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-[#10b981]" />
-          <p className="text-xs font-semibold text-slate-500">
-            Loading your workspace...
-          </p>
-        </div>
-      </div>
-    );
+  if (loading) return <DashboardShellSkeleton />;
 
   if (!user)
     return (
