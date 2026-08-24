@@ -6,39 +6,14 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
-  quality-diagnostics:
+  typecheck-report:
     if: github.event.pull_request.number == 130
-    name: Quality diagnostic — ${{ matrix.name }}
+    name: Quality diagnostic — typecheck report
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: format
-            command: npm run format:check
-          - name: lint demo fixtures
-            command: npx eslint scripts/demo-fixtures.ts --max-warnings=0
-          - name: lint seed script
-            command: npx eslint scripts/seed-demo-clinic.ts --max-warnings=0
-          - name: lint reset script
-            command: npx eslint scripts/reset-demo-clinic.ts --max-warnings=0
-          - name: lint fixture tests
-            command: npx eslint src/tests/demo-fixtures.test.ts --max-warnings=0
-          - name: lint capture spec
-            command: npx eslint e2e/product-demo.spec.ts --max-warnings=0
-          - name: typecheck
-            command: npm run typecheck
-          - name: type demo fixtures
-            command: npx tsc --noEmit --target ES2017 --lib dom,dom.iterable,esnext --strict --noImplicitAny false --esModuleInterop --module esnext --moduleResolution bundler --resolveJsonModule --isolatedModules --skipLibCheck scripts/demo-fixtures.ts
-          - name: type seed script
-            command: npx tsc --noEmit --target ES2017 --lib dom,dom.iterable,esnext --strict --noImplicitAny false --esModuleInterop --module esnext --moduleResolution bundler --resolveJsonModule --isolatedModules --skipLibCheck scripts/seed-demo-clinic.ts
-          - name: type reset script
-            command: npx tsc --noEmit --target ES2017 --lib dom,dom.iterable,esnext --strict --noImplicitAny false --esModuleInterop --module esnext --moduleResolution bundler --resolveJsonModule --isolatedModules --skipLibCheck scripts/reset-demo-clinic.ts
-          - name: type fixture tests
-            command: npx tsc --noEmit --target ES2017 --lib dom,dom.iterable,esnext --strict --noImplicitAny false --esModuleInterop --module esnext --moduleResolution bundler --resolveJsonModule --isolatedModules --skipLibCheck src/tests/demo-fixtures.test.ts
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -46,5 +21,23 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Run ${{ matrix.name }}
-        run: ${{ matrix.command }}
+      - name: Run typecheck and report errors
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set +e
+          npm run typecheck > /tmp/typecheck.log 2>&1
+          status=$?
+          cat /tmp/typecheck.log
+          if [ "$status" -ne 0 ]; then
+            {
+              echo '## PR 130 typecheck diagnostics'
+              echo
+              echo '```text'
+              tail -n 100 /tmp/typecheck.log
+              echo '```'
+            } > /tmp/typecheck-comment.md
+            gh pr comment "$PR_NUMBER" --body-file /tmp/typecheck-comment.md
+          fi
+          exit "$status"
