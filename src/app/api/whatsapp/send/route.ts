@@ -392,12 +392,11 @@ export async function POST(request: Request) {
       );
     }
 
-    // The row above was verified to belong to this tenant, so reuse
-    // whichever account column it actually carries when guarding the
-    // later conversation write. Deployments differ on snake_case vs
-    // camelCase here, and a mismatched guard would silently no-op.
-    const conversationAccountColumn =
-      conversation.account_id !== undefined ? 'account_id' : 'accountId';
+    // The row above was verified to belong to this tenant. Remember
+    // which account column it carries so the later conversation write
+    // can be guarded the same way. Deployments differ on snake_case
+    // and camelCase, and a mismatched guard would silently no-op.
+    const hasSnakeAccount = conversation.account_id !== undefined;
 
     let contactPhone =
       (conversation.contact as { phone?: string })?.phone ||
@@ -569,14 +568,12 @@ export async function POST(request: Request) {
         .maybeSingle();
 
       const parentConvId = parent?.conversation_id || parent?.conversationId;
-      const parentAccountId = parent?.account_id ?? parent?.accountId ?? null;
-      const parentAccountMatches =
-        parentAccountId === null ||
-        String(parentAccountId) === String(accountId);
+      const parentAcct = parent?.account_id ?? parent?.accountId ?? '';
+      const parentOk = !parentAcct || String(parentAcct) === String(accountId);
       if (
         parentError ||
         !parent ||
-        !parentAccountMatches ||
+        !parentOk ||
         parentConvId !== conversation_id
       ) {
         return NextResponse.json(
@@ -938,15 +935,25 @@ export async function POST(request: Request) {
     // Update conversation — guarded by the tenant's account column so a
     // guessed conversation id can never rewrite another tenant's inbox
     // preview.
-    await dbAdmin
-      .from('conversations')
-      .update({
-        last_message_text: content_text || `[${message_type}]`,
-        last_message_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', conversation_id)
-      .eq(conversationAccountColumn, accountId);
+    const conversationTouch = {
+      last_message_text: content_text || `[${message_type}]`,
+      last_message_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    if (hasSnakeAccount) {
+      await dbAdmin
+        .from('conversations')
+        .update(conversationTouch)
+        .eq('id', conversation_id)
+        .eq('account_id', accountId);
+    } else {
+      await dbAdmin
+        .from('conversations')
+        .update(conversationTouch)
+        .eq('id', conversation_id)
+        .eq('accountId', accountId);
+    }
 
     // Pause any active Flow run for this contact — the agent stepping
     // in is the strongest "yield, human is here" signal. See PR #2
