@@ -65,7 +65,7 @@ function normalizeCustomerRows<T>(path: string, data: T): T {
         row.openDealsValue ?? row.total_deals_value ?? 0
       ),
     };
-  }) as T;
+  }) as unknown as T;
 }
 
 function needsResponseEnvelope(path: string, method?: string): boolean {
