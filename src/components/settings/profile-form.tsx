@@ -13,22 +13,12 @@ import { Card, CardContent } from '@/components/ui/card';
 import { SettingsPanelHead } from './settings-panel-head';
 
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
-const ALLOWED_MIME = new Set([
-  'image/png',
-  'image/jpeg',
-  'image/webp',
-  'image/gif',
-]);
-
-// Rough email shape check — the real validator is appwrite Auth, which
-// rejects anything malformed when we call updateUser({ email }). We
-// just want to stop obvious typos before making a network call.
+const ALLOWED_MIME = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function ProfileForm() {
   const { user, profile, refreshProfile } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
-
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [pendingAvatar, setPendingAvatar] = useState<File | null>(null);
@@ -37,45 +27,31 @@ export function ProfileForm() {
   const [saving, setSaving] = useState(false);
   const [emailChangePending, setEmailChangePending] = useState(false);
 
-  // Seed form state once the profile loads.
   useEffect(() => {
     if (!profile) return;
     setFullName(profile.full_name ?? '');
     setEmail(profile.email ?? '');
   }, [profile]);
 
-  // Cleanup object URLs to avoid leaks.
-  useEffect(() => {
-    return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-    };
+  useEffect(() => () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
   }, [previewUrl]);
 
-  const currentAvatar =
-    previewUrl ?? (!removeAvatar ? (profile?.avatar_url ?? null) : null);
-
-  const initial = (fullName || profile?.full_name || profile?.email || 'U')
-    .charAt(0)
-    .toUpperCase();
+  const currentAvatar = previewUrl ?? (!removeAvatar ? (profile?.avatar_url ?? null) : null);
+  const initial = (fullName || profile?.full_name || profile?.email || 'U').charAt(0).toUpperCase();
 
   const onPickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    e.target.value = ''; // reset so the same file can be re-picked
+    e.target.value = '';
     if (!file) return;
-
     if (!ALLOWED_MIME.has(file.type)) {
-      toast.error('Unsupported image type', {
-        description: 'Use PNG, JPG, WebP, or GIF.',
-      });
+      toast.error('Unsupported image type', { description: 'Use PNG, JPG, WebP, or GIF.' });
       return;
     }
     if (file.size > MAX_AVATAR_BYTES) {
-      toast.error('Image is too large', {
-        description: 'Maximum 2 MB.',
-      });
+      toast.error('Image is too large', { description: 'Maximum 2 MB.' });
       return;
     }
-
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPendingAvatar(file);
     setPreviewUrl(URL.createObjectURL(file));
@@ -92,51 +68,27 @@ export function ProfileForm() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !profile) return;
-
     const trimmedName = fullName.trim();
-    if (!trimmedName) {
-      toast.error('Display name is required');
-      return;
-    }
     const trimmedEmail = email.trim();
-    if (!EMAIL_RE.test(trimmedEmail)) {
-      toast.error('Enter a valid email address');
-      return;
-    }
+    if (!trimmedName) return toast.error('Display name is required');
+    if (!EMAIL_RE.test(trimmedEmail)) return toast.error('Enter a valid email address');
 
     setSaving(true);
     try {
       let nextAvatarUrl: string | null = profile.avatar_url ?? null;
-
-      // Upload a newly-staged image via server API endpoint or client SDK fallback
       if (pendingAvatar) {
         try {
           const formData = new FormData();
           formData.append('file', pendingAvatar);
-
-          const avatarRes = await fetch('/api/account/avatar', {
-            method: 'POST',
-            body: formData,
-          });
-
+          const avatarRes = await fetch('/api/account/avatar', { method: 'POST', body: formData });
           const avatarData = await avatarRes.json().catch(() => ({}));
-          if (avatarRes.ok && avatarData.avatar_url) {
-            nextAvatarUrl = avatarData.avatar_url;
-          } else {
-            throw new Error(avatarData.error || 'Server upload failed');
-          }
+          if (avatarRes.ok && avatarData.avatar_url) nextAvatarUrl = avatarData.avatar_url;
+          else throw new Error(avatarData.error || 'Server upload failed');
         } catch {
-          // Client SDK fallback or local base64 Data URL fallback
           try {
-            const { uploadAccountMedia } =
-              await import('@/lib/storage/upload-media');
-            const mediaResult = await uploadAccountMedia(
-              'chat-media',
-              pendingAvatar
-            );
-            nextAvatarUrl = mediaResult.publicUrl;
+            const { uploadAccountMedia } = await import('@/lib/storage/upload-media');
+            nextAvatarUrl = (await uploadAccountMedia('chat-media', pendingAvatar)).publicUrl;
           } catch {
-            // Local FileReader base64 Data URL fallback if remote storage fails
             nextAvatarUrl = await new Promise<string>((resolve) => {
               const reader = new FileReader();
               reader.onload = () => resolve(reader.result as string);
@@ -149,194 +101,146 @@ export function ProfileForm() {
         nextAvatarUrl = null;
       }
 
-      // Persist name + email + avatar via /api/account/profile endpoint
       const res = await fetch('/api/account/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          full_name: trimmedName,
-          email: trimmedEmail,
-          avatar_url: nextAvatarUrl,
-        }),
+        body: JSON.stringify({ full_name: trimmedName, email: trimmedEmail, avatar_url: nextAvatarUrl }),
       });
-
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(
-          `Save failed: ${data.message || data.error || 'Server request failed'}`
-        );
+        throw new Error(data.message || data.error || 'Unable to save profile');
       }
-
       setEmailChangePending(false);
       setPendingAvatar(null);
       setPreviewUrl(null);
       setRemoveAvatar(false);
       await refreshProfile();
-
       toast.success('Profile saved successfully');
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Unknown error';
-      toast.error(msg);
+      toast.error(err instanceof Error ? err.message : 'Unable to save profile');
     } finally {
       setSaving(false);
     }
   };
 
-  const dirty =
-    !!profile &&
-    (fullName.trim() !== (profile.full_name ?? '') ||
-      email.trim().toLowerCase() !== (profile.email ?? '').toLowerCase() ||
-      pendingAvatar !== null ||
-      removeAvatar);
+  const dirty = !!profile && (
+    fullName.trim() !== (profile.full_name ?? '') ||
+    email.trim().toLowerCase() !== (profile.email ?? '').toLowerCase() ||
+    pendingAvatar !== null || removeAvatar
+  );
 
   const joined = user?.created_at
-    ? new Date(user.created_at).toLocaleDateString(undefined, {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      })
+    ? new Date(user.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
     : '—';
 
   return (
-    <section className="animate-in fade-in-50 max-w-2xl duration-200">
+    <section className="animate-in fade-in-50 w-full max-w-4xl duration-200">
       <SettingsPanelHead
         title="Your profile"
-        description="How you show up across the app. Your avatar and name appear in the header, sidebar, and anywhere your teammates see you."
+        description="Manage the personal information your team sees across Helpa."
       />
-      <form onSubmit={onSubmit} className="space-y-4">
-        <Card>
-          <CardContent className="space-y-6">
-            {/* Avatar row */}
-            <div className="flex flex-wrap items-center gap-5">
-              <Avatar size="lg" className="size-16">
-                {currentAvatar ? (
-                  <AvatarImage src={currentAvatar} alt={fullName || 'Avatar'} />
-                ) : null}
-                <AvatarFallback className="bg-primary/10 text-primary text-base">
-                  {initial}
-                </AvatarFallback>
-              </Avatar>
 
-              <div className="flex flex-wrap gap-2">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp,image/gif"
-                  className="hidden"
-                  onChange={onPickFile}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={saving}
-                >
-                  <Upload className="size-4" />
-                  {currentAvatar ? 'Change photo' : 'Upload photo'}
-                </Button>
-                {currentAvatar && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={onRemoveAvatar}
-                    disabled={saving}
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    <Trash2 className="size-4" />
-                    Remove
-                  </Button>
-                )}
-                <p className="text-muted-foreground w-full text-xs">
-                  PNG, JPG, WebP, or GIF. Up to 2 MB.
-                </p>
+      <form onSubmit={onSubmit} className="mt-6 space-y-5">
+        {/* Profile identity */}
+        <Card className="overflow-hidden border-border/70 shadow-sm">
+          <div className="h-1 bg-emerald-500" />
+          <CardContent className="p-0">
+            <div className="bg-gradient-to-r from-emerald-50/80 via-background to-background px-6 py-6 dark:from-emerald-950/20 sm:px-8">
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+                <Avatar size="lg" className="size-20 shrink-0 rounded-2xl border-4 border-background shadow-md">
+                  {currentAvatar ? <AvatarImage src={currentAvatar} alt={fullName || 'Avatar'} /> : null}
+                  <AvatarFallback className="rounded-xl bg-emerald-500/10 text-xl font-semibold text-emerald-700 dark:text-emerald-300">
+                    {initial}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                  <p className="text-muted-foreground text-xs font-semibold uppercase tracking-[0.14em]">Profile photo</p>
+                  <h2 className="mt-1 text-xl font-semibold tracking-tight text-foreground">{fullName || 'Your profile'}</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">This photo and name appear in your workspace header and sidebar.</p>
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
+                    <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="hidden" onChange={onPickFile} />
+                    <Button type="button" variant="outline" className="h-9 rounded-lg" onClick={() => fileInputRef.current?.click()} disabled={saving}>
+                      <Upload className="size-4" />
+                      {currentAvatar ? 'Change photo' : 'Upload photo'}
+                    </Button>
+                    {currentAvatar && (
+                      <Button type="button" variant="ghost" className="h-9 rounded-lg text-muted-foreground hover:text-destructive" onClick={onRemoveAvatar} disabled={saving}>
+                        <Trash2 className="size-4" />
+                        Remove
+                      </Button>
+                    )}
+                    <span className="text-xs text-muted-foreground">PNG, JPG, WebP or GIF · max 2 MB</span>
+                  </div>
+                </div>
               </div>
             </div>
-
-            {/* Name */}
-            <div className="space-y-2">
-              <Label htmlFor="profile-full-name" className="text-foreground">
-                Display name
-              </Label>
-              <Input
-                id="profile-full-name"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="Ada Lovelace"
-                maxLength={120}
-                disabled={saving}
-                required
-              />
-            </div>
-
-            {/* Email */}
-            <div className="space-y-2">
-              <Label htmlFor="profile-email" className="text-foreground">
-                Email
-              </Label>
-              <Input
-                id="profile-email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={saving}
-                required
-              />
-              {emailChangePending && (
-                <p className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
-                  <Mail className="mt-0.5 size-3.5 shrink-0" />
-                  <span>
-                    Check the inbox for <strong>{profile?.email}</strong> and{' '}
-                    <strong>{email}</strong> — both need to confirm before the
-                    change takes effect.
-                  </span>
-                </p>
-              )}
-            </div>
-
-            {/* Read-only block */}
-            <div className="border-border bg-muted rounded-lg border p-4">
-              <p className="text-muted-foreground mb-3 text-xs font-semibold tracking-wider uppercase">
-                Account details
-              </p>
-              <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-                <div>
-                  <dt className="text-muted-foreground">Role</dt>
-                  <dd className="text-foreground mt-0.5 font-mono">
-                    {profile?.role ?? 'user'}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground">Joined</dt>
-                  <dd className="text-foreground mt-0.5">{joined}</dd>
-                </div>
-                <div className="sm:col-span-2">
-                  <dt className="text-muted-foreground">User ID</dt>
-                  <dd className="text-muted-foreground mt-0.5 font-mono text-xs break-all">
-                    {user?.id ?? '—'}
-                  </dd>
-                </div>
-              </dl>
-            </div>
-
-            {!profile && (
-              <p className="text-muted-foreground flex items-center gap-2 text-sm">
-                <CircleAlert className="size-4" />
-                Loading your profile…
-              </p>
-            )}
           </CardContent>
         </Card>
 
-        <div className="flex justify-end">
-          <Button type="submit" disabled={saving || !dirty || !profile}>
-            {saving ? (
-              <>
-                <Loader2 className="size-4 animate-spin" />
-                Saving…
-              </>
-            ) : (
-              'Save changes'
-            )}
+        {/* Personal information */}
+        <Card className="border-border/70 shadow-sm">
+          <CardContent className="p-6 sm:p-8">
+            <div className="mb-6">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-600 dark:text-emerald-400">Personal information</p>
+              <h2 className="mt-1 text-lg font-semibold tracking-tight">Basic account information</h2>
+              <p className="mt-1 text-sm text-muted-foreground">Keep your name and email address up to date.</p>
+            </div>
+
+            <div className="grid gap-5 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="profile-full-name" className="text-sm font-medium">Display name</Label>
+                <Input id="profile-full-name" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Your name" maxLength={120} disabled={saving} required className="h-11 rounded-xl bg-background" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="profile-email" className="text-sm font-medium">Email address</Label>
+                <Input id="profile-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} disabled={saving} required className="h-11 rounded-xl bg-background" />
+                {emailChangePending && (
+                  <p className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+                    <Mail className="mt-0.5 size-3.5 shrink-0" />
+                    <span>Check both inboxes to confirm the email change.</span>
+                  </p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Account information */}
+        <Card className="border-border/70 shadow-sm">
+          <CardContent className="p-6 sm:p-8">
+            <div className="mb-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-600 dark:text-emerald-400">Account</p>
+              <h2 className="mt-1 text-lg font-semibold tracking-tight">Account details</h2>
+            </div>
+            <dl className="grid gap-3 md:grid-cols-2">
+              <div className="rounded-xl border border-border/60 bg-muted/40 p-4">
+                <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Role</dt>
+                <dd className="mt-2 inline-flex rounded-full bg-emerald-500/10 px-2.5 py-1 text-sm font-semibold capitalize text-emerald-700 dark:text-emerald-300">{profile?.role ?? 'user'}</dd>
+              </div>
+              <div className="rounded-xl border border-border/60 bg-muted/40 p-4">
+                <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Member since</dt>
+                <dd className="mt-2 text-sm font-medium text-foreground">{joined}</dd>
+              </div>
+              <div className="rounded-xl border border-border/60 bg-muted/40 p-4 md:col-span-2">
+                <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">User ID</dt>
+                <dd className="mt-2 break-all font-mono text-xs text-muted-foreground">{user?.id ?? '—'}</dd>
+              </div>
+            </dl>
+          </CardContent>
+        </Card>
+
+        {!profile && (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <CircleAlert className="size-4" />
+            Loading your profile…
+          </p>
+        )}
+
+        {/* Save bar */}
+        <div className="flex items-center justify-between gap-4 rounded-2xl border border-border/70 bg-background/95 p-3 shadow-sm backdrop-blur sm:px-4">
+          <p className="hidden text-xs text-muted-foreground sm:block">Changes are saved to your Helpa account.</p>
+          <Button type="submit" disabled={saving || !dirty || !profile} className="ml-auto h-10 rounded-xl px-5">
+            {saving ? <><Loader2 className="size-4 animate-spin" /> Saving…</> : 'Save changes'}
           </Button>
         </div>
       </form>
