@@ -262,10 +262,14 @@ export async function POST(request: Request) {
               if (createdConv2) {
                 extConv = createdConv2;
               } else {
+                // Tenant guard: without account_id this lookup could
+                // hand back another tenant's conversation for a
+                // colliding contact id.
                 const { data: retryConv } = await dbAdmin
                   .from('conversations')
                   .select('id')
                   .eq('contact_id', resolvedContactId)
+                  .eq('account_id', accountId)
                   .maybeSingle();
                 if (retryConv) extConv = retryConv;
               }
@@ -387,6 +391,13 @@ export async function POST(request: Request) {
         { status: 404 }
       );
     }
+
+    // The row above was verified to belong to this tenant, so reuse
+    // whichever account column it actually carries when guarding the
+    // later conversation write. Deployments differ on snake_case vs
+    // camelCase here, and a mismatched guard would silently no-op.
+    const conversationAccountColumn =
+      conversation.account_id !== undefined ? 'account_id' : 'accountId';
 
     let contactPhone =
       (conversation.contact as { phone?: string })?.phone ||
@@ -546,18 +557,28 @@ export async function POST(request: Request) {
 
     // Resolve the reply target (if any) to its Meta message_id, which is
     // what `context.message_id` on the outgoing Meta payload needs. The
-    // parent must belong to this same conversation — otherwise a caller
-    // could quote messages they can't see by guessing UUIDs.
+    // parent must belong to this same conversation AND this same tenant
+    // — otherwise a caller could quote messages they can't see by
+    // guessing UUIDs.
     let contextMessageId: string | undefined;
     if (reply_to_message_id) {
       const { data: parent, error: parentError } = await dbAdmin
         .from('messages')
-        .select('messageId, conversationId, message_id, conversation_id')
+        .select('*')
         .eq('id', reply_to_message_id)
         .maybeSingle();
 
       const parentConvId = parent?.conversation_id || parent?.conversationId;
-      if (parentError || !parent || parentConvId !== conversation_id) {
+      const parentAccountId = parent?.account_id ?? parent?.accountId ?? null;
+      const parentAccountMatches =
+        parentAccountId === null ||
+        String(parentAccountId) === String(accountId);
+      if (
+        parentError ||
+        !parent ||
+        !parentAccountMatches ||
+        parentConvId !== conversation_id
+      ) {
         return NextResponse.json(
           { error: 'reply_to_message_id not found in this conversation' },
           { status: 400 }
@@ -914,7 +935,9 @@ export async function POST(request: Request) {
       await OutboxService.markSent(outboxDocId, accountId, waMessageId);
     }
 
-    // Update conversation
+    // Update conversation — guarded by the tenant's account column so a
+    // guessed conversation id can never rewrite another tenant's inbox
+    // preview.
     await dbAdmin
       .from('conversations')
       .update({
@@ -922,7 +945,8 @@ export async function POST(request: Request) {
         last_message_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
-      .eq('id', conversation_id);
+      .eq('id', conversation_id)
+      .eq(conversationAccountColumn, accountId);
 
     // Pause any active Flow run for this contact — the agent stepping
     // in is the strongest "yield, human is here" signal. See PR #2
