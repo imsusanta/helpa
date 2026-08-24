@@ -57,13 +57,9 @@ function normalizeCustomerRows<T>(path: string, data: T): T {
       ...row,
       dealsCount: Number(row.dealsCount ?? row.total_deals ?? 0),
       invoicesCount: Number(row.invoicesCount ?? row.total_invoices ?? 0),
-      quotationsCount: Number(
-        row.quotationsCount ?? row.total_quotations ?? 0
-      ),
+      quotationsCount: Number(row.quotationsCount ?? row.total_quotations ?? 0),
       totalRevenue: Number(row.totalRevenue ?? row.total_paid ?? 0),
-      openDealsValue: Number(
-        row.openDealsValue ?? row.total_deals_value ?? 0
-      ),
+      openDealsValue: Number(row.openDealsValue ?? row.total_deals_value ?? 0),
     };
   }) as unknown as T;
 }
