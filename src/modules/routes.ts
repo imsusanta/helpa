@@ -10,7 +10,6 @@ const SHARED_WORKSPACE_ROUTES = [
   '/knowledge-base',
   '/chatbot',
   '/faq-bot',
-  '/ai-assistant',
   '/admin',
   '/billing',
   '/automations',
