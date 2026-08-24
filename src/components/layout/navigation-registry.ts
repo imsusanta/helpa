@@ -1,6 +1,7 @@
 import {
   BadgeDollarSign,
   Bot,
+  CalendarDays,
   Home,
   Megaphone,
   MessageCircle,
@@ -42,6 +43,21 @@ export const NAVIGATION_REGISTRY: SidebarNavItem<React.ElementType>[] = [
     ],
   },
   {
+    id: 'operations',
+    label: 'Operations',
+    icon: CalendarDays,
+    children: [
+      { id: 'operations-appointments', label: 'Appointments', href: '/appointments' },
+      {
+        id: 'operations-services',
+        label: 'Services',
+        href: '/services',
+        roleMin: 'admin',
+        featureKey: 'services',
+      },
+    ],
+  },
+  {
     id: 'marketing',
     label: 'Marketing',
     icon: Megaphone,
@@ -68,6 +84,13 @@ export const NAVIGATION_REGISTRY: SidebarNavItem<React.ElementType>[] = [
     label: 'Channels & Integrations',
     icon: MessageCircle,
     children: [
+      {
+        id: 'channels-patient-list',
+        label: 'Patient List',
+        href: '/patients',
+        hospitalOnly: true,
+        activeHrefs: ['/contacts'],
+      },
       {
         id: 'channels-whatsapp',
         label: 'WhatsApp',
