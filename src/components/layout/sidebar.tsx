@@ -231,24 +231,20 @@ export function Sidebar({
                     title={collapsed ? item.label : undefined}
                     className={cn(
                       'animate-nav-item group relative flex h-[44px] items-center gap-3 rounded-xl px-3.5 text-[14px] font-medium transition-all',
-                      isDashboard && activeDirect
-                        ? 'bg-emerald-500/15 text-white'
-                        : activeDirect
-                          ? 'bg-white/10 font-semibold text-white'
-                          : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                      activeDirect
+                        ? 'bg-emerald-500/15 font-semibold text-white'
+                        : 'text-slate-300 hover:bg-white/5 hover:text-white'
                     )}
                   >
-                    {isDashboard && activeDirect && (
+                    {activeDirect && (
                       <span className="absolute top-2.5 bottom-2.5 left-0 w-[3.5px] rounded-full bg-[#10b981]" />
                     )}
                     <Icon
                       className={cn(
                         'h-[18px] w-[18px] shrink-0 transition-transform duration-200 group-hover:scale-110',
-                        isDashboard && activeDirect
+                        activeDirect
                           ? 'text-[#10b981]'
-                          : activeDirect
-                            ? 'text-white'
-                            : 'text-slate-400 group-hover:text-slate-200'
+                          : 'text-slate-400 group-hover:text-slate-200'
                       )}
                     />
                     <span className={cn(collapsed && 'lg:hidden')}>
@@ -273,17 +269,20 @@ export function Sidebar({
                     aria-controls={`sidebar-group-${item.id}`}
                     title={collapsed ? item.label : undefined}
                     className={cn(
-                      'group flex h-[44px] w-full items-center gap-3 rounded-xl px-3.5 text-left text-[14px] font-medium transition-colors',
-                      isParentActive && !isExpanded
-                        ? 'font-semibold text-white'
+                      'group relative flex h-[44px] w-full items-center gap-3 rounded-xl px-3.5 text-left text-[14px] font-medium transition-all',
+                      isParentActive
+                        ? 'bg-emerald-500/15 font-semibold text-white'
                         : 'text-slate-300 hover:bg-white/5 hover:text-white'
                     )}
                   >
+                    {isParentActive && (
+                      <span className="absolute top-2.5 bottom-2.5 left-0 w-[3.5px] rounded-full bg-[#10b981]" />
+                    )}
                     <Icon
                       className={cn(
                         'h-[18px] w-[18px] shrink-0 transition-transform duration-200 group-hover:scale-110',
                         isParentActive
-                          ? 'text-slate-200'
+                          ? 'text-[#10b981]'
                           : 'text-slate-400 group-hover:text-slate-200'
                       )}
                     />
@@ -320,12 +319,15 @@ export function Sidebar({
                             onClick={onClose}
                             aria-current={active ? 'page' : undefined}
                             className={cn(
-                              'flex h-8 items-center rounded-lg px-2.5 text-[13px] font-medium transition-colors',
+                              'relative flex h-8 items-center rounded-lg px-2.5 text-[13px] font-medium transition-all',
                               active
-                                ? 'font-semibold text-white'
+                                ? 'bg-emerald-500/10 font-semibold text-white'
                                 : 'text-slate-400 hover:bg-white/5 hover:text-slate-100'
                             )}
                           >
+                            {active && (
+                              <span className="absolute top-1.5 bottom-1.5 left-0 w-[3px] rounded-full bg-[#10b981]" />
+                            )}
                             {child.label}
                           </Link>
                         );
