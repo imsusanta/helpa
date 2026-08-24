@@ -1,7 +1,6 @@
 import {
   BadgeDollarSign,
   Bot,
-  CalendarDays,
   Home,
   Megaphone,
   MessageCircle,
@@ -18,7 +17,7 @@ export const NAVIGATION_FEATURE_STATUSES: Record<string, NavigationFeatureStatus
   integrations: 'CREDENTIAL_GATED',
 };
 
-/** Canonical product navigation organized around customer workflow. */
+/** Canonical product navigation organized around the customer workflow. */
 export const NAVIGATION_REGISTRY: SidebarNavItem<React.ElementType>[] = [
   { id: 'dashboard', label: 'Dashboard', href: '/dashboard', icon: Home },
   {
@@ -28,6 +27,7 @@ export const NAVIGATION_REGISTRY: SidebarNavItem<React.ElementType>[] = [
     children: [
       { id: 'conversations-inbox', label: 'Inbox', href: '/inbox' },
       { id: 'conversations-follow-ups', label: 'Follow-ups', href: '/follow-ups' },
+      { id: 'conversations-appointments', label: 'Appointments', href: '/appointments' },
     ],
   },
   {
@@ -40,21 +40,6 @@ export const NAVIGATION_REGISTRY: SidebarNavItem<React.ElementType>[] = [
       { id: 'crm-pipelines', label: 'Pipelines', href: '/pipelines' },
       { id: 'crm-quotations', label: 'Quotations', href: '/quotations' },
       { id: 'crm-tags', label: 'Tags', href: '/settings?tab=tags', roleMin: 'admin' },
-    ],
-  },
-  {
-    id: 'operations',
-    label: 'Operations',
-    icon: CalendarDays,
-    children: [
-      { id: 'operations-appointments', label: 'Appointments', href: '/appointments' },
-      {
-        id: 'operations-services',
-        label: 'Services',
-        href: '/services',
-        roleMin: 'admin',
-        featureKey: 'services',
-      },
     ],
   },
   {
@@ -84,13 +69,6 @@ export const NAVIGATION_REGISTRY: SidebarNavItem<React.ElementType>[] = [
     label: 'Channels & Integrations',
     icon: MessageCircle,
     children: [
-      {
-        id: 'channels-patient-list',
-        label: 'Patient List',
-        href: '/patients',
-        hospitalOnly: true,
-        activeHrefs: ['/contacts'],
-      },
       {
         id: 'channels-whatsapp',
         label: 'WhatsApp',
@@ -126,11 +104,8 @@ export const NAVIGATION_REGISTRY: SidebarNavItem<React.ElementType>[] = [
   {
     id: 'settings',
     label: 'Settings',
+    href: '/settings?tab=profile',
     icon: Settings,
-    children: [
-      { id: 'settings-profile', label: 'Profile', href: '/settings?tab=profile' },
-      { id: 'settings-team', label: 'Team', href: '/settings?tab=team', roleMin: 'admin' },
-    ],
   },
   {
     id: 'admin',
