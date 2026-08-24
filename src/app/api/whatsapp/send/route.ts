@@ -262,10 +262,14 @@ export async function POST(request: Request) {
               if (createdConv2) {
                 extConv = createdConv2;
               } else {
+                // Tenant guard: without account_id this lookup could
+                // hand back another tenant's conversation for a
+                // colliding contact id.
                 const { data: retryConv } = await dbAdmin
                   .from('conversations')
                   .select('id')
                   .eq('contact_id', resolvedContactId)
+                  .eq('account_id', accountId)
                   .maybeSingle();
                 if (retryConv) extConv = retryConv;
               }
@@ -387,6 +391,12 @@ export async function POST(request: Request) {
         { status: 404 }
       );
     }
+
+    // The row above was verified to belong to this tenant. Remember
+    // which account column it carries so the later conversation write
+    // can be guarded the same way. Deployments differ on snake_case
+    // and camelCase, and a mismatched guard would silently no-op.
+    const hasSnakeAccount = conversation.account_id !== undefined;
 
     let contactPhone =
       (conversation.contact as { phone?: string })?.phone ||
@@ -546,18 +556,26 @@ export async function POST(request: Request) {
 
     // Resolve the reply target (if any) to its Meta message_id, which is
     // what `context.message_id` on the outgoing Meta payload needs. The
-    // parent must belong to this same conversation — otherwise a caller
-    // could quote messages they can't see by guessing UUIDs.
+    // parent must belong to this same conversation AND this same tenant
+    // — otherwise a caller could quote messages they can't see by
+    // guessing UUIDs.
     let contextMessageId: string | undefined;
     if (reply_to_message_id) {
       const { data: parent, error: parentError } = await dbAdmin
         .from('messages')
-        .select('messageId, conversationId, message_id, conversation_id')
+        .select('*')
         .eq('id', reply_to_message_id)
         .maybeSingle();
 
       const parentConvId = parent?.conversation_id || parent?.conversationId;
-      if (parentError || !parent || parentConvId !== conversation_id) {
+      const parentAcct = parent?.account_id ?? parent?.accountId ?? '';
+      const parentOk = !parentAcct || String(parentAcct) === String(accountId);
+      if (
+        parentError ||
+        !parent ||
+        !parentOk ||
+        parentConvId !== conversation_id
+      ) {
         return NextResponse.json(
           { error: 'reply_to_message_id not found in this conversation' },
           { status: 400 }
@@ -914,15 +932,28 @@ export async function POST(request: Request) {
       await OutboxService.markSent(outboxDocId, accountId, waMessageId);
     }
 
-    // Update conversation
-    await dbAdmin
-      .from('conversations')
-      .update({
-        last_message_text: content_text || `[${message_type}]`,
-        last_message_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', conversation_id);
+    // Update conversation — guarded by the tenant's account column so a
+    // guessed conversation id can never rewrite another tenant's inbox
+    // preview.
+    const conversationTouch = {
+      last_message_text: content_text || `[${message_type}]`,
+      last_message_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    if (hasSnakeAccount) {
+      await dbAdmin
+        .from('conversations')
+        .update(conversationTouch)
+        .eq('id', conversation_id)
+        .eq('account_id', accountId);
+    } else {
+      await dbAdmin
+        .from('conversations')
+        .update(conversationTouch)
+        .eq('id', conversation_id)
+        .eq('accountId', accountId);
+    }
 
     // Pause any active Flow run for this contact — the agent stepping
     // in is the strongest "yield, human is here" signal. See PR #2

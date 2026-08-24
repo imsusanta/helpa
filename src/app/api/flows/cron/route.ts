@@ -1,7 +1,11 @@
-import { timingSafeEqual } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { authorizeCronRequest } from '@/lib/cron/security';
 import { resolveFallbackPolicy } from '@/lib/flows/fallback';
+
+const NO_STORE_HEADERS = {
+  'Cache-Control': 'private, no-store, no-cache, must-revalidate',
+};
 
 /**
  * Sweep abandoned active flow runs.
@@ -16,10 +20,12 @@ import { resolveFallbackPolicy } from '@/lib/flows/fallback';
  * index on `flow_runs WHERE status='active'`) forever — blocking any
  * new triggers for them. The cron is therefore not optional.
  *
- * Auth: re-uses `AUTOMATION_CRON_SECRET` so operators only have one
- * secret to provision. The two endpoints (`/api/automations/cron`
- * and this one) are independent operations; we keep them on separate
- * URLs so one failing doesn't block the other.
+ * Auth: delegated to the shared cron authorizer, which accepts either
+ * `AUTOMATION_CRON_SECRET` or `CRON_SECRET`, reads the secret from
+ * `x-cron-secret` or `Authorization: Bearer`, compares in constant
+ * time, and fails closed when nothing is configured. The two endpoints
+ * (`/api/automations/cron` and this one) are independent operations; we
+ * keep them on separate URLs so one failing doesn't block the other.
  *
  * Hosting: hit on a schedule (appwrite-sites Cron / GitHub Actions / external
  * pinger). A 5-minute interval is more than enough for a 24h timeout
@@ -27,22 +33,15 @@ import { resolveFallbackPolicy } from '@/lib/flows/fallback';
  * tenants.
  */
 export async function GET(request: Request) {
-  const expected = process.env.AUTOMATION_CRON_SECRET;
-  if (!expected) {
-    return NextResponse.json({ error: 'cron not configured' }, { status: 503 });
-  }
-  // Constant-time compare so an attacker who can hit the endpoint
-  // can't recover the secret byte-by-byte from response-time deltas.
-  // Length pre-check is required by timingSafeEqual (throws otherwise)
-  // and leaks only the length itself, which isn't sensitive.
-  const supplied = request.headers.get('x-cron-secret') ?? '';
-  const suppliedBuf = Buffer.from(supplied);
-  const expectedBuf = Buffer.from(expected);
-  if (
-    suppliedBuf.length !== expectedBuf.length ||
-    !timingSafeEqual(suppliedBuf, expectedBuf)
-  ) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const authorization = authorizeCronRequest(request, [
+    'AUTOMATION_CRON_SECRET',
+    'CRON_SECRET',
+  ]);
+  if (!authorization.authorized) {
+    return NextResponse.json(
+      { error: authorization.message },
+      { status: authorization.status, headers: NO_STORE_HEADERS }
+    );
   }
 
   const admin = appwriteAdmin();
@@ -60,9 +59,13 @@ export async function GET(request: Request) {
 
   if (error) {
     console.error('[flows-cron] active-run scan failed:', error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Flow run sweep failed' },
+      { status: 500, headers: NO_STORE_HEADERS }
+    );
   }
-  if (!runs?.length) return NextResponse.json({ swept: 0 });
+  if (!runs?.length)
+    return NextResponse.json({ swept: 0 }, { headers: NO_STORE_HEADERS });
 
   type Row = {
     id: string;
@@ -92,7 +95,7 @@ export async function GET(request: Request) {
   }
 
   if (timedOutRuns.length === 0) {
-    return NextResponse.json({ swept: 0 });
+    return NextResponse.json({ swept: 0 }, { headers: NO_STORE_HEADERS });
   }
 
   const timedOutIds = timedOutRuns.map((r) => r.id);
@@ -129,5 +132,8 @@ export async function GET(request: Request) {
     await admin.from('flow_run_events').insert(events);
   }
 
-  return NextResponse.json({ swept: updatedIds.size });
+  return NextResponse.json(
+    { swept: updatedIds.size },
+    { headers: NO_STORE_HEADERS }
+  );
 }

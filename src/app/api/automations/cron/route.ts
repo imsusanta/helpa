@@ -1,13 +1,19 @@
 import { NextResponse } from 'next/server';
 import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { authorizeCronRequest } from '@/lib/cron/security';
 import { resumePendingExecution } from '@/lib/automations/engine';
 import type { AutomationContext } from '@/lib/automations/engine';
 
+const NO_STORE_HEADERS = {
+  'Cache-Control': 'private, no-store, no-cache, must-revalidate',
+};
+
 /**
  * Drain due `automation_pending_executions` rows. Meant to be hit
- * on a schedule (appwrite-sites Cron / external pinger) — requires a shared
- * secret via the `x-cron-secret` header to match
- * `AUTOMATION_CRON_SECRET`.
+ * on a schedule (appwrite-sites Cron / external pinger) — authorized
+ * by the shared cron authorizer, which accepts the secret in either
+ * `x-cron-secret` or `Authorization: Bearer` and fails closed when no
+ * secret is configured.
  *
  * The claim step (status = 'running') serves as a simple lock so
  * overlapping invocations don't double-process rows. Best-effort
@@ -15,13 +21,15 @@ import type { AutomationContext } from '@/lib/automations/engine';
  * two-step UPDATE-by-id.
  */
 export async function GET(request: Request) {
-  const expected = process.env.AUTOMATION_CRON_SECRET;
-  if (!expected) {
-    return NextResponse.json({ error: 'cron not configured' }, { status: 503 });
-  }
-  const supplied = request.headers.get('x-cron-secret');
-  if (supplied !== expected) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const authorization = authorizeCronRequest(request, [
+    'AUTOMATION_CRON_SECRET',
+    'CRON_SECRET',
+  ]);
+  if (!authorization.authorized) {
+    return NextResponse.json(
+      { error: authorization.message },
+      { status: authorization.status, headers: NO_STORE_HEADERS }
+    );
   }
 
   const admin = appwriteAdmin();
@@ -34,8 +42,12 @@ export async function GET(request: Request) {
     .limit(50);
 
   if (error)
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  if (!due || due.length === 0) return NextResponse.json({ processed: 0 });
+    return NextResponse.json(
+      { error: error.message },
+      { status: 500, headers: NO_STORE_HEADERS }
+    );
+  if (!due || due.length === 0)
+    return NextResponse.json({ processed: 0 }, { headers: NO_STORE_HEADERS });
 
   let processed = 0;
   for (const row of due) {
@@ -65,5 +77,5 @@ export async function GET(request: Request) {
     processed++;
   }
 
-  return NextResponse.json({ processed });
+  return NextResponse.json({ processed }, { headers: NO_STORE_HEADERS });
 }
