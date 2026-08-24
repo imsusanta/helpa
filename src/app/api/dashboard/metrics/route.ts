@@ -52,10 +52,7 @@ export async function POST(request: Request) {
 
         for (const filter of metric.queryFilters ?? []) {
           let value = filter.value;
-          if (
-            typeof value === 'string' &&
-            value.toUpperCase() === 'TODAY'
-          ) {
+          if (typeof value === 'string' && value.toUpperCase() === 'TODAY') {
             value = todayStr;
           }
 
@@ -133,7 +130,8 @@ export async function POST(request: Request) {
     ]);
 
     const totalLeads = leadsList?.length || 0;
-    const newLeads = leadsList?.filter((lead) => lead.stage === 'NEW').length || 0;
+    const newLeads =
+      leadsList?.filter((lead) => lead.stage === 'NEW').length || 0;
     const convertedLeads =
       leadsList?.filter((lead) => lead.stage === 'CONVERTED').length || 0;
 
