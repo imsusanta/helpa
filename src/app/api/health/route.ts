@@ -61,7 +61,7 @@ export async function GET(request: Request) {
         });
         const { error } = await client
           .from('profiles')
-          .select('id')
+          .select('user_id')
           .limit(1)
           .abortSignal(AbortSignal.timeout(2000));
         if (!error) {
@@ -72,7 +72,7 @@ export async function GET(request: Request) {
             const admin = getSupabaseAdminClient();
             const { error: adminErr } = await admin
               .from('profiles')
-              .select('id')
+              .select('user_id')
               .limit(1)
               .abortSignal(AbortSignal.timeout(2000));
             if (!adminErr) {

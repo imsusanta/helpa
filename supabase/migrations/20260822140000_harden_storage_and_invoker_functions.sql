@@ -34,7 +34,7 @@ as $$
   );
 $$;
 
-create or replace function public.is_account_member(target_account_id uuid, min_role account_role_enum default 'viewer'::account_role_enum)
+create or replace function public.is_account_member(target_account_id uuid, minimum_role account_role_enum default 'viewer'::account_role_enum)
 returns boolean
 language sql
 stable
@@ -42,17 +42,18 @@ set search_path = public, pg_temp
 as $$
   select exists (
     select 1
-    from profiles p
-    where p.user_id = (select auth.uid())
-      and p.account_id = target_account_id
-      and case p.account_role
+    from public.account_members am
+    where am.user_id = (select auth.uid())
+      and am.account_id = target_account_id
+      and am.active = true
+      and case am.role
             when 'owner'  then 4
             when 'admin'  then 3
             when 'agent'  then 2
             when 'viewer' then 1
           end
         >=
-          case min_role
+          case minimum_role::text
             when 'owner'  then 4
             when 'admin'  then 3
             when 'agent'  then 2
@@ -80,9 +81,9 @@ create policy "Members can read chat media" on storage.objects
   using (
     bucket_id = 'chat-media'
     and exists (
-      select 1 from profiles p
-      where p.user_id = (select auth.uid())
-        and ('account-' || p.account_id::text) = (storage.foldername(objects.name))[1]
+      select 1 from public.account_members am
+      where am.user_id = (select auth.uid())
+        and ('account-' || am.account_id::text) = (storage.foldername(objects.name))[1]
     )
   );
 
@@ -93,9 +94,9 @@ create policy "Members can read flow media" on storage.objects
     bucket_id = 'flow-media'
     and (
       exists (
-        select 1 from profiles p
-        where p.user_id = (select auth.uid())
-          and ('account-' || p.account_id::text) = (storage.foldername(objects.name))[1]
+        select 1 from public.account_members am
+        where am.user_id = (select auth.uid())
+          and ('account-' || am.account_id::text) = (storage.foldername(objects.name))[1]
       )
       or (select auth.uid())::text = (storage.foldername(name))[1]
     )

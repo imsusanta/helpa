@@ -10,6 +10,43 @@
 -- 1. BROADCASTS — schema drift + paused status
 -- ══════════════════════════════════════════════════════════════
 
+create table if not exists public.broadcasts (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.accounts(id) on delete cascade,
+  user_id uuid references auth.users(id) on delete set null,
+  name text not null,
+  template_name text not null default '',
+  template_language text not null default 'en_US',
+  template_variables jsonb default '{}'::jsonb,
+  audience_filter jsonb default '{}'::jsonb,
+  scheduled_at timestamptz,
+  status text not null default 'draft',
+  total_recipients integer default 0,
+  sent_count integer default 0,
+  delivered_count integer default 0,
+  read_count integer default 0,
+  replied_count integer default 0,
+  failed_count integer default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table public.broadcasts enable row level security;
+
+create table if not exists public.broadcast_recipients (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid references public.accounts(id) on delete cascade,
+  broadcast_id uuid not null references public.broadcasts(id) on delete cascade,
+  contact_id uuid references public.contacts(id) on delete cascade,
+  status text not null default 'pending',
+  sent_at timestamptz,
+  delivered_at timestamptz,
+  read_at timestamptz,
+  replied_at timestamptz,
+  error_message text,
+  created_at timestamptz not null default now()
+);
+alter table public.broadcast_recipients enable row level security;
+
 alter table public.broadcasts
   add column if not exists message text;
 alter table public.broadcasts

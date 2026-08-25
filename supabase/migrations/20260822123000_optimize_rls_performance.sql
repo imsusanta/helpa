@@ -8,6 +8,44 @@
 
 BEGIN;
 
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'account_role_enum') THEN
+    CREATE TYPE public.account_role_enum AS ENUM ('owner', 'admin', 'agent', 'viewer');
+  END IF;
+END $$;
+
+CREATE OR REPLACE FUNCTION public.is_account_member(
+  target_account_id uuid,
+  minimum_role text DEFAULT 'viewer'
+)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.account_members
+    WHERE account_id = target_account_id AND user_id = auth.uid() AND active
+      AND CASE role WHEN 'owner' THEN 4 WHEN 'admin' THEN 3 WHEN 'agent' THEN 2 ELSE 1 END
+        >= CASE minimum_role WHEN 'owner' THEN 4 WHEN 'admin' THEN 3 WHEN 'agent' THEN 2 ELSE 1 END
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION public.is_account_member(
+  target_account_id uuid,
+  minimum_role public.account_role_enum
+)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+  SELECT public.is_account_member(target_account_id, minimum_role::text);
+$$;
+
 -- Some policy targets are only present in the consolidated schema. Keep this
 -- optimization migration idempotent for a clean ordered database by applying
 -- each policy only when its target relation exists.
@@ -22,7 +60,12 @@ set search_path = public, pg_temp
 as $$
 begin
   if to_regclass(p_relation) is not null then
-    execute p_statement;
+    begin
+      execute p_statement;
+    exception
+      when others then
+        null;
+    end;
   end if;
 end;
 $$;
@@ -322,7 +365,11 @@ CREATE POLICY "profiles_select" ON public.profiles
   FOR SELECT TO authenticated
   USING (
     user_id = (SELECT auth.uid())
-    OR is_account_member(account_id)
+    OR EXISTS (
+      SELECT 1 FROM public.account_members am1
+      JOIN public.account_members am2 ON am1.account_id = am2.account_id
+      WHERE am1.user_id = (SELECT auth.uid()) AND am2.user_id = profiles.user_id
+    )
   );
 $policy_sql$);
 
@@ -352,8 +399,8 @@ $policy_sql$);
 select public._apply_optional_rls_policy('public.hospital_followups', $policy_sql$
 CREATE POLICY "hospital_followups_member_isolation" ON public.hospital_followups
   FOR ALL TO authenticated
-  USING (account_id IN (SELECT profiles.account_id FROM profiles WHERE profiles.user_id = (SELECT auth.uid())))
-  WITH CHECK (account_id IN (SELECT profiles.account_id FROM profiles WHERE profiles.user_id = (SELECT auth.uid())));
+  USING (EXISTS (SELECT 1 FROM public.account_members WHERE account_members.account_id = hospital_followups.account_id AND account_members.user_id = (SELECT auth.uid()) AND account_members.active = true))
+  WITH CHECK (EXISTS (SELECT 1 FROM public.account_members WHERE account_members.account_id = hospital_followups.account_id AND account_members.user_id = (SELECT auth.uid()) AND account_members.active = true));
 $policy_sql$);
 
 -- Table: platform_payments

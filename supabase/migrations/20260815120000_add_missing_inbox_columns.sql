@@ -49,13 +49,16 @@ WHERE m.conversation_id = c.id
 ALTER TABLE public.messages
   ADD COLUMN IF NOT EXISTS direction text;
 
--- 7. Backfill direction from legacy sender_type
-UPDATE public.messages
-SET direction = CASE
-  WHEN sender_type = 'customer' THEN 'inbound'
-  ELSE 'outbound'
-END
-WHERE direction IS NULL;
+-- 7. Backfill direction from legacy sender_type if exists
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' AND table_name = 'messages' AND column_name = 'sender_type'
+  ) THEN
+    EXECUTE 'UPDATE public.messages SET direction = CASE WHEN sender_type = ''customer'' THEN ''inbound'' ELSE ''outbound'' END WHERE direction IS NULL';
+  END IF;
+END $$;
 
 -- 8. Add check constraint only if it does not already exist
 DO $$
@@ -75,10 +78,16 @@ END $$;
 ALTER TABLE public.messages
   ADD COLUMN IF NOT EXISTS provider_message_id text;
 
--- 10. Backfill provider_message_id from existing message_id column
-UPDATE public.messages
-SET provider_message_id = message_id
-WHERE provider_message_id IS NULL AND message_id IS NOT NULL;
+-- 10. Backfill provider_message_id from existing message_id column if exists
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' AND table_name = 'messages' AND column_name = 'message_id'
+  ) THEN
+    EXECUTE 'UPDATE public.messages SET provider_message_id = message_id WHERE provider_message_id IS NULL AND message_id IS NOT NULL';
+  END IF;
+END $$;
 
 
 -- ── indexes ───────────────────────────────────────────────────
