@@ -1,0 +1,57 @@
+name: PR 143 staging access check
+
+on:
+  push:
+    branches: [fix/pr142-quality-gate]
+
+permissions:
+  contents: read
+
+jobs:
+  access-check:
+    runs-on: ubuntu-latest
+    env:
+      E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+      E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+      E2E_BASE_URL: ${{ secrets.E2E_BASE_URL }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      MIGRATION_TARGET: ${{ secrets.MIGRATION_TARGET }}
+    steps:
+      - name: Verify required staging secrets are configured
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          for name in \
+            E2E_TEST_EMAIL \
+            E2E_TEST_PASSWORD \
+            E2E_BASE_URL \
+            SUPABASE_PROJECT_REF \
+            SUPABASE_ACCESS_TOKEN \
+            SUPABASE_DB_PASSWORD \
+            NEXT_PUBLIC_SUPABASE_URL \
+            MIGRATION_TARGET
+          do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::$name is not configured"
+              missing=1
+            else
+              echo "$name is configured"
+            fi
+          done
+          if [ "$MIGRATION_TARGET" != "staging" ]; then
+            echo "::error::MIGRATION_TARGET must be staging"
+            missing=1
+          fi
+          if [[ "$E2E_BASE_URL" != https://* ]]; then
+            echo "::error::E2E_BASE_URL must use HTTPS"
+            missing=1
+          fi
+          if [[ "$NEXT_PUBLIC_SUPABASE_URL" != https://*.supabase.co ]]; then
+            echo "::error::NEXT_PUBLIC_SUPABASE_URL is not a Supabase HTTPS URL"
+            missing=1
+          fi
+          exit "$missing"
