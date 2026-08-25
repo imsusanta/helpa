@@ -25,11 +25,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: supabase/setup-cli@v1
+      - id: setup
+        uses: supabase/setup-cli@v1
         with:
-          version: 2.39.2
+          version: 2.115.0
 
-      - name: Enforce staging-only target
+      - id: guard
+        name: Enforce staging-only target
         shell: bash
         run: |
           set -euo pipefail
@@ -40,7 +42,8 @@ jobs:
           expected_host="${SUPABASE_PROJECT_REF}.supabase.co"
           [[ "$NEXT_PUBLIC_SUPABASE_URL" == *"$expected_host"* ]]
 
-      - name: Link staging project
+      - id: link
+        name: Link staging project
         shell: bash
         run: |
           set -euo pipefail
@@ -48,8 +51,8 @@ jobs:
             --project-ref "$SUPABASE_PROJECT_REF" \
             --password "$SUPABASE_DB_PASSWORD"
 
-      - name: Snapshot automation row count before migration
-        id: before
+      - id: before
+        name: Snapshot automation row count before migration
         shell: bash
         run: |
           set -euo pipefail
@@ -63,7 +66,8 @@ jobs:
           echo "count=$count" >> "$GITHUB_OUTPUT"
           echo "Automation rows before migration: $count"
 
-      - name: Dry-run and apply pending staging migrations
+      - id: migrate
+        name: Dry-run and apply pending staging migrations
         shell: bash
         run: |
           set -euo pipefail
@@ -72,8 +76,8 @@ jobs:
           supabase migration list --linked | tee /tmp/migrations.txt
           grep -q '20260825100000' /tmp/migrations.txt
 
-      - name: Verify metadata schema, index, and data preservation
-        id: after
+      - id: after
+        name: Verify metadata schema, index, and data preservation
         shell: bash
         run: |
           set -euo pipefail
@@ -116,6 +120,33 @@ jobs:
           - Automation rows before: **${BEFORE_COUNT}**
           - Automation rows after: **${AFTER_COUNT}**
           - Existing automation row count preserved: **confirmed**
+
+          No secret values are included in this report.
+          EOF
+          gh pr comment 144 --body-file /tmp/comment.md
+
+      - name: Publish sanitized failure stage
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SETUP_OUTCOME: ${{ steps.setup.outcome }}
+          GUARD_OUTCOME: ${{ steps.guard.outcome }}
+          LINK_OUTCOME: ${{ steps.link.outcome }}
+          BEFORE_OUTCOME: ${{ steps.before.outcome }}
+          MIGRATE_OUTCOME: ${{ steps.migrate.outcome }}
+          AFTER_OUTCOME: ${{ steps.after.outcome }}
+        shell: bash
+        run: |
+          cat > /tmp/comment.md <<EOF
+          ## Staging migration verification failed
+
+          Sanitized stage outcomes:
+          - CLI setup: **${SETUP_OUTCOME}**
+          - Staging guard: **${GUARD_OUTCOME}**
+          - Project link: **${LINK_OUTCOME}**
+          - Pre-migration snapshot: **${BEFORE_OUTCOME}**
+          - Migration dry-run/apply: **${MIGRATE_OUTCOME}**
+          - Post-migration verification: **${AFTER_OUTCOME}**
 
           No secret values are included in this report.
           EOF
