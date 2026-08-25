@@ -7,13 +7,17 @@ import {
 const accountId = process.argv[2];
 const apply = process.argv.includes('--apply');
 if (!accountId || !/^[0-9a-f-]{36}$/i.test(accountId)) {
-  throw new Error('Usage: node scripts/repair-automation-seeds.mjs <account-id> [--apply]');
+  throw new Error(
+    'Usage: node scripts/repair-automation-seeds.mjs <account-id> [--apply]'
+  );
 }
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!supabaseUrl || !serviceRoleKey) {
-  throw new Error('NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required');
+  throw new Error(
+    'NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required'
+  );
 }
 
 const db = createClient(supabaseUrl, serviceRoleKey, {
@@ -49,14 +53,27 @@ const ambiguousLegacy = (automations ?? []).filter(
     allKnownWorkflowNames.has(automation.name)
 );
 
-console.log(JSON.stringify({
-  mode: apply ? 'apply' : 'dry-run',
-  accountId,
-  industry: account.industry,
-  canonicalIndustry,
-  markedSeedRows: seeded.map(({ id, name, metadata }) => ({ id, name, metadata })),
-  ambiguousLegacyRows: ambiguousLegacy.map(({ id, name }) => ({ id, name })),
-}, null, 2));
+console.log(
+  JSON.stringify(
+    {
+      mode: apply ? 'apply' : 'dry-run',
+      accountId,
+      industry: account.industry,
+      canonicalIndustry,
+      markedSeedRows: seeded.map(({ id, name, metadata }) => ({
+        id,
+        name,
+        metadata,
+      })),
+      ambiguousLegacyRows: ambiguousLegacy.map(({ id, name }) => ({
+        id,
+        name,
+      })),
+    },
+    null,
+    2
+  )
+);
 
 if (!apply || seeded.length === 0) process.exit(0);
 
@@ -74,5 +91,7 @@ const { error: deleteError } = await db
   .in('id', seededIds);
 if (deleteError) throw deleteError;
 
-console.log(`Removed ${seededIds.length} explicitly marked seeded automation(s).`);
+console.log(
+  `Removed ${seededIds.length} explicitly marked seeded automation(s).`
+);
 console.log('Ambiguous legacy rows were reported and left untouched.');
