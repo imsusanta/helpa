@@ -1,8 +1,10 @@
-name: PR 143 staging access check
+name: PR 142 staging access check
 
 on:
   push:
     branches: [fix/pr142-quality-gate]
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: read
@@ -42,15 +44,15 @@ jobs:
               echo "$name is configured"
             fi
           done
-          if [ "$MIGRATION_TARGET" != "staging" ]; then
+          if [ "${MIGRATION_TARGET:-}" != "staging" ]; then
             echo "::error::MIGRATION_TARGET must be staging"
             missing=1
           fi
-          if [[ "$E2E_BASE_URL" != https://* ]]; then
+          if [[ "${E2E_BASE_URL:-}" != https://* ]]; then
             echo "::error::E2E_BASE_URL must use HTTPS"
             missing=1
           fi
-          if [[ "$NEXT_PUBLIC_SUPABASE_URL" != https://*.supabase.co ]]; then
+          if [[ "${NEXT_PUBLIC_SUPABASE_URL:-}" != https://*.supabase.co ]]; then
             echo "::error::NEXT_PUBLIC_SUPABASE_URL is not a Supabase HTTPS URL"
             missing=1
           fi
