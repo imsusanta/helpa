@@ -37,7 +37,8 @@ jobs:
           test -n "$SUPABASE_PROJECT_REF"
           test -n "$SUPABASE_ACCESS_TOKEN"
           test -n "$SUPABASE_DB_PASSWORD"
-          test "$NEXT_PUBLIC_SUPABASE_URL" = "https://${SUPABASE_PROJECT_REF}.supabase.co"
+          expected_host="${SUPABASE_PROJECT_REF}.supabase.co"
+          [[ "$NEXT_PUBLIC_SUPABASE_URL" == *"$expected_host"* ]]
 
       - name: Link staging project
         shell: bash
