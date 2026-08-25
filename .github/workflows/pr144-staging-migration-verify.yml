@@ -82,8 +82,8 @@ jobs:
           grep -Eqi 'metadata[[:space:]]+jsonb' /tmp/schema.sql
           grep -Eqi "metadata[[:space:]]+jsonb[^;]*(default[[:space:]]+'?\\{\\}'?::jsonb|not null)" /tmp/schema.sql
           grep -Eqi 'CREATE[[:space:]]+(UNIQUE[[:space:]]+)?INDEX[[:space:]]+idx_automations_seed_metadata' /tmp/schema.sql
-          grep -Eqi "workflow_seed_key" /tmp/schema.sql
-          grep -Eqi "helpa_seeded_workflow" /tmp/schema.sql
+          grep -Eqi 'workflow_seed_key' /tmp/schema.sql
+          grep -Eqi 'helpa_seeded_workflow' /tmp/schema.sql
 
           count=$(awk '
             /^COPY public\.automations / { in_table=1; next }
@@ -109,14 +109,13 @@ jobs:
           - Target guard: **staging confirmed**
           - Migration dry-run: **passed**
           - Migration apply: **passed**
-          - Migration history contains [96m20260825100000[0m: **confirmed**
-          - [96mautomations.metadata[0m JSONB column/default: **confirmed**
-          - [96midx_automations_seed_metadata[0m partial index: **confirmed**
+          - Migration history contains `20260825100000`: **confirmed**
+          - `automations.metadata` JSONB column/default: **confirmed**
+          - `idx_automations_seed_metadata` partial index: **confirmed**
           - Automation rows before: **${BEFORE_COUNT}**
           - Automation rows after: **${AFTER_COUNT}**
           - Existing automation row count preserved: **confirmed**
 
           No secret values are included in this report.
           EOF
-          sed -i $'s/\033\[96m/`/g; s/\033\[0m/`/g' /tmp/comment.md
           gh pr comment 144 --body-file /tmp/comment.md
