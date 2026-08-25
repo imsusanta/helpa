@@ -97,7 +97,7 @@ export async function bookHealthAppointment(
   // 3. Duplicate booking prevention
   const { data: existingAppts } = await db
     .from('appointments')
-    .select('id, status, extra_attributes')
+    .select('id, status, extra_attributes, doctor_name')
     .eq('account_id', input.accountId)
     .eq('appointment_date', input.appointmentDate)
     .eq('appointment_time', input.appointmentTime)

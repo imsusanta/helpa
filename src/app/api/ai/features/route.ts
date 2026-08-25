@@ -146,7 +146,7 @@ You MUST detect the language and write the suggested reply in the EXACT SAME LAN
       systemPromptContent += `\n\nCRITICAL INSTRUCTION: You are suggesting a reply to the customer for a human agent to send. Respond ONLY with the direct text of the suggestion. Do not wrap in quotes, do not output any explanations or labels, and do not use JSON. Write it in an organized format with line breaks and friendly emojis.`;
 
       const apiMessages = [
-        { role: 'system', content: systemPromptContent },
+        { role: 'system' as const, content: systemPromptContent },
         ...messages
           .map((m) => {
             let content = m.content_text || '';

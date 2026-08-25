@@ -264,7 +264,10 @@ export async function POST(req: Request) {
           .from('system_settings')
           .delete()
           .eq('key', 'system_openrouter_api_key')
-          .catch(() => {});
+          .then(
+            () => undefined,
+            () => undefined
+          );
         auditActions.push('AI_API_KEY_CLEARED');
       }
     }
@@ -282,7 +285,10 @@ export async function POST(req: Request) {
           .from('system_settings')
           .delete()
           .eq('key', 'system_orcarouter_api_key')
-          .catch(() => {});
+          .then(
+            () => undefined,
+            () => undefined
+          );
         auditActions.push('AI_API_KEY_CLEARED');
       }
     }
@@ -300,7 +306,10 @@ export async function POST(req: Request) {
           .from('system_settings')
           .delete()
           .eq('key', 'system_cloudflare_api_token')
-          .catch(() => {});
+          .then(
+            () => undefined,
+            () => undefined
+          );
         auditActions.push('AI_API_TOKEN_CLEARED');
       }
     }

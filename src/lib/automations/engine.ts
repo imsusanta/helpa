@@ -1086,14 +1086,18 @@ async function loadContactSnapshot(
 ): Promise<ContactSnapshot | null> {
   if (!args.contactId) return null;
   if (!args.contactCache.promise) {
-    args.contactCache.promise = getAdminClient()
-      .from('contacts')
-      .select('name, phone, email, company')
-      .eq('id', args.contactId)
-      .eq('account_id', args.automation.account_id)
-      .maybeSingle()
-      .then(({ data }: { data: unknown }) => (data as ContactSnapshot) ?? null)
-      .catch(() => null);
+    args.contactCache.promise = Promise.resolve(
+      getAdminClient()
+        .from('contacts')
+        .select('name, phone, email, company')
+        .eq('id', args.contactId)
+        .eq('account_id', args.automation.account_id)
+        .maybeSingle()
+        .then(
+          ({ data }: { data: unknown }) => (data as ContactSnapshot) ?? null,
+          () => null
+        )
+    );
   }
   return (await args.contactCache.promise) ?? null;
 }
