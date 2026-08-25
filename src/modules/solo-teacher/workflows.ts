@@ -2,6 +2,7 @@ import { WorkflowSeed } from '../types';
 
 export const workflowsConfig: WorkflowSeed[] = [
   {
+    seedKey: 'student_inquiry_greeting',
     name: 'Student Inquiry Greeting',
     description: 'Auto-greets new student/parent inquiries.',
     trigger_type: 'first_inbound_message',
@@ -17,6 +18,7 @@ export const workflowsConfig: WorkflowSeed[] = [
     ],
   },
   {
+    seedKey: 'enrollment_follow_up',
     name: 'Enrollment Follow-up',
     description: 'Follows up with students who showed enrollment interest.',
     trigger_type: 'tag_added',

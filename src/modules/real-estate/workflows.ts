@@ -2,6 +2,7 @@ import { WorkflowSeed } from '../types';
 
 export const workflowsConfig: WorkflowSeed[] = [
   {
+    seedKey: 'property_inquirer_auto_reply',
     name: 'Property Inquirer Auto-Reply',
     description: 'Auto-greets buyer inquiries.',
     trigger_type: 'first_inbound_message',

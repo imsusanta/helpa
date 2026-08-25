@@ -48,6 +48,7 @@
     "demo:seed": "tsx scripts/seed-demo-clinic.ts",
     "demo:reset": "tsx scripts/reset-demo-clinic.ts",
     "demo:capture": "playwright test e2e/product-demo.spec.ts --workers=1",
+    "repair:automation-seeds": "tsx scripts/repair-automation-seeds.mjs",
     "voice:smoke": "tsx scripts/voice-smoke-test.ts",
     "verify:whatsapp-live": "node scripts/verify-whatsapp-live.mjs",
     "supabase:migrate": "node scripts/apply-supabase-migrations.mjs",

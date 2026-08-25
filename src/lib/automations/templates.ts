@@ -4,6 +4,7 @@ import type {
   AutomationTriggerConfig,
   AutomationTriggerType,
 } from '@/types';
+import { resolveCanonicalIndustry } from '@/modules/registry';
 
 export type TemplateSlug =
   | 'welcome_message'
@@ -21,7 +22,31 @@ export type TemplateSlug =
   | 'admission_enquiry'
   | 'property_site_visit'
   | 'course_enquiry'
-  | 'table_booking';
+  | 'table_booking'
+  | 'traveler_intake_greeting';
+
+export type CanonicalAutomationIndustry =
+  | 'hospital_clinic'
+  | 'travel'
+  | 'restaurant'
+  | 'coaching'
+  | 'salon'
+  | 'real_estate'
+  | 'gym'
+  | 'solo_teacher'
+  | 'general';
+
+const SHARED_INDUSTRIES: readonly CanonicalAutomationIndustry[] = [
+  'hospital_clinic',
+  'travel',
+  'restaurant',
+  'coaching',
+  'salon',
+  'real_estate',
+  'gym',
+  'solo_teacher',
+  'general',
+] as const;
 
 export interface TemplateStepSeed {
   step_type: AutomationStepType;
@@ -35,6 +60,8 @@ export interface AutomationTemplateDefinition {
   slug: TemplateSlug;
   name: string;
   description: string;
+  industries: readonly CanonicalAutomationIndustry[];
+  iconName: string;
   trigger_type: AutomationTriggerType;
   trigger_config: AutomationTriggerConfig;
   steps: TemplateStepSeed[];
@@ -48,6 +75,8 @@ export const AUTOMATION_TEMPLATES: Record<
     slug: 'welcome_message',
     name: 'Welcome Message',
     description: 'Auto-reply to first-time contacts with a greeting.',
+    industries: SHARED_INDUSTRIES,
+    iconName: 'MessageCircle',
     // first_inbound_message (added in PR #33) catches both brand-new
     // contacts AND manually-added/imported contacts on their first-ever
     // reply, which is what a user setting up a "welcome" automation
@@ -72,6 +101,8 @@ export const AUTOMATION_TEMPLATES: Record<
     slug: 'out_of_office',
     name: 'Out of Office',
     description: 'Auto-reply during off-hours so nobody is left waiting.',
+    industries: SHARED_INDUSTRIES,
+    iconName: 'Clock',
     trigger_type: 'new_message_received',
     trigger_config: {},
     steps: [
@@ -96,6 +127,8 @@ export const AUTOMATION_TEMPLATES: Record<
     slug: 'lead_qualifier',
     name: 'Lead Qualifier',
     description: 'Ask qualification questions to filter inbound leads.',
+    industries: SHARED_INDUSTRIES,
+    iconName: 'Users',
     trigger_type: 'keyword_match',
     trigger_config: {
       keywords: ['pricing', 'price', 'quote', 'buy'],
@@ -122,6 +155,8 @@ export const AUTOMATION_TEMPLATES: Record<
     slug: 'follow_up_reminder',
     name: 'Follow-up Reminder',
     description: 'Send a nudge if a contact has not replied within 24 hours.',
+    industries: SHARED_INDUSTRIES,
+    iconName: 'PhoneCall',
     trigger_type: 'new_message_received',
     trigger_config: {},
     steps: [
@@ -142,6 +177,8 @@ export const AUTOMATION_TEMPLATES: Record<
     name: 'Doctor Booking Enquiry',
     description:
       'Starts an AI-assisted appointment flow and keeps the chatbot active until booking.',
+    industries: ['hospital_clinic'],
+    iconName: 'CalendarDays',
     trigger_type: 'keyword_match',
     trigger_config: {
       keywords: [
@@ -167,6 +204,8 @@ export const AUTOMATION_TEMPLATES: Record<
     name: 'Timing, Fees & Address Reply',
     description:
       'Answers the three questions every clinic gets all day, instantly.',
+    industries: ['hospital_clinic'],
+    iconName: 'HelpCircle',
     trigger_type: 'keyword_match',
     trigger_config: {
       keywords: [
@@ -195,6 +234,8 @@ export const AUTOMATION_TEMPLATES: Record<
     name: 'Urgent Case Escalation',
     description:
       'Flags emergency wording, replies with safety guidance, and alerts staff.',
+    industries: ['hospital_clinic'],
+    iconName: 'Siren',
     trigger_type: 'keyword_match',
     trigger_config: {
       keywords: [
@@ -226,6 +267,8 @@ export const AUTOMATION_TEMPLATES: Record<
     name: 'Report Ready Alert',
     description:
       'Tag a patient "Report Ready" and Helpa tells them where to collect it.',
+    industries: ['hospital_clinic'],
+    iconName: 'FileCheck',
     trigger_type: 'tag_added',
     // The tag is account-specific, so the user picks it in the builder
     // before the automation can be activated.
@@ -244,6 +287,8 @@ export const AUTOMATION_TEMPLATES: Record<
     name: 'Post-Visit Feedback',
     description:
       'Tag a completed visit and ask for a rating one day later, automatically.',
+    industries: ['hospital_clinic'],
+    iconName: 'Star',
     trigger_type: 'tag_added',
     // Same as report_ready_alert: the "Visit Done" tag is chosen by the user.
     trigger_config: { tag_id: '' },
@@ -264,6 +309,8 @@ export const AUTOMATION_TEMPLATES: Record<
     slug: 'prescription_refill',
     name: 'Prescription Refill',
     description: 'Collects prescription details for repeat medicine requests.',
+    industries: ['hospital_clinic'],
+    iconName: 'Pill',
     trigger_type: 'keyword_match',
     trigger_config: {
       keywords: [
@@ -292,6 +339,8 @@ export const AUTOMATION_TEMPLATES: Record<
     slug: 'lab_test_booking',
     name: 'Lab Test Booking',
     description: 'Captures test name, patient, and slot for diagnostics.',
+    industries: ['hospital_clinic'],
+    iconName: 'FlaskConical',
     trigger_type: 'keyword_match',
     trigger_config: {
       keywords: [
@@ -321,6 +370,8 @@ export const AUTOMATION_TEMPLATES: Record<
     slug: 'new_lead_instant_reply',
     name: 'New Lead Instant Reply',
     description: 'Acknowledge every new form lead and assign it to the team.',
+    industries: SHARED_INDUSTRIES,
+    iconName: 'UserPlus',
     trigger_type: 'form_submitted',
     trigger_config: {},
     steps: [
@@ -341,6 +392,8 @@ export const AUTOMATION_TEMPLATES: Record<
     name: 'Admission Enquiry',
     description:
       'Capture admission details for schools, colleges, and institutes.',
+    industries: ['coaching'],
+    iconName: 'GraduationCap',
     trigger_type: 'keyword_match',
     trigger_config: {
       keywords: ['admission', 'enrolment', 'enrollment', 'apply'],
@@ -363,6 +416,8 @@ export const AUTOMATION_TEMPLATES: Record<
     slug: 'property_site_visit',
     name: 'Property Site Visit',
     description: 'Collect visit preferences and route property enquiries.',
+    industries: ['real_estate'],
+    iconName: 'Building2',
     trigger_type: 'keyword_match',
     trigger_config: {
       keywords: ['site visit', 'property visit', 'book visit', 'flat'],
@@ -385,6 +440,8 @@ export const AUTOMATION_TEMPLATES: Record<
     slug: 'course_enquiry',
     name: 'Course Enquiry',
     description: 'Answer training enquiries and collect course preferences.',
+    industries: ['coaching', 'solo_teacher'],
+    iconName: 'BookOpen',
     trigger_type: 'keyword_match',
     trigger_config: {
       keywords: ['course', 'training', 'class', 'batch'],
@@ -407,6 +464,8 @@ export const AUTOMATION_TEMPLATES: Record<
     slug: 'table_booking',
     name: 'Table Booking',
     description: 'Capture restaurant reservation details automatically.',
+    industries: ['restaurant'],
+    iconName: 'UtensilsCrossed',
     trigger_type: 'keyword_match',
     trigger_config: {
       keywords: ['book table', 'reservation', 'table booking', 'reserve'],
@@ -425,8 +484,76 @@ export const AUTOMATION_TEMPLATES: Record<
       },
     ],
   },
+  traveler_intake_greeting: {
+    slug: 'traveler_intake_greeting',
+    name: 'Traveler Intake Greeting',
+    description: 'Welcome travel enquiries and start trip planning.',
+    industries: ['travel'],
+    iconName: 'Plane',
+    trigger_type: 'first_inbound_message',
+    trigger_config: {},
+    steps: [
+      {
+        step_type: 'send_message',
+        step_config: {
+          text: 'Welcome to our Travel Agency! How can we help you plan your next trip?',
+        },
+      },
+    ],
+  },
 };
 
 export function getTemplate(slug: string): AutomationTemplateDefinition | null {
   return AUTOMATION_TEMPLATES[slug as TemplateSlug] ?? null;
+}
+
+const TEMPLATE_DISPLAY_ORDER = Object.keys(
+  AUTOMATION_TEMPLATES
+) as TemplateSlug[];
+
+function canonicalTemplateIndustry(
+  industry: string | null | undefined
+): CanonicalAutomationIndustry {
+  return resolveCanonicalIndustry(
+    industry || 'general'
+  ) as CanonicalAutomationIndustry;
+}
+
+export function getTemplatesForIndustry(
+  industry: string | null | undefined
+): AutomationTemplateDefinition[] {
+  const canonical = canonicalTemplateIndustry(industry);
+  return TEMPLATE_DISPLAY_ORDER.filter((slug) =>
+    AUTOMATION_TEMPLATES[slug].industries.includes(canonical)
+  ).map((slug) => {
+    const template = AUTOMATION_TEMPLATES[slug];
+    return {
+      ...template,
+      industries: [...template.industries],
+      trigger_config: { ...template.trigger_config },
+      steps: template.steps.map((step) => ({
+        ...step,
+        step_config: { ...step.step_config },
+      })),
+    };
+  });
+}
+
+export function getTemplateForIndustry(
+  slug: string,
+  industry: string | null | undefined
+): AutomationTemplateDefinition | null {
+  const template = getTemplate(slug);
+  if (!template) return null;
+  const canonical = canonicalTemplateIndustry(industry);
+  if (!template.industries.includes(canonical)) return null;
+  return {
+    ...template,
+    industries: [...template.industries],
+    trigger_config: { ...template.trigger_config },
+    steps: template.steps.map((step) => ({
+      ...step,
+      step_config: { ...step.step_config },
+    })),
+  };
 }

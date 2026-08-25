@@ -1,25 +1,25 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/appwrite-server-compat';
 import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { requireRole, toErrorResponse } from '@/lib/auth/account';
 
 export async function POST(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const appwrite = await createClient();
-  const {
-    data: { user },
-  } = await appwrite.auth.getUser();
-  if (!user)
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  let context;
+  try {
+    context = await requireRole('agent');
+  } catch (error) {
+    return toErrorResponse(error);
+  }
 
   const admin = appwriteAdmin();
   const { data: original, error: origErr } = await admin
     .from('automations')
     .select('*')
     .eq('id', id)
-    .eq('user_id', user.id)
+    .eq('account_id', context.accountId)
     .maybeSingle();
   if (origErr)
     return NextResponse.json({ error: origErr.message }, { status: 500 });
@@ -31,8 +31,8 @@ export async function POST(
     .insert({
       // Clone into the same account as the original. account_id is NOT
       // NULL post-017, so the INSERT fails the constraint without it.
-      account_id: original.account_id,
-      user_id: user.id,
+      account_id: context.accountId,
+      user_id: context.userId,
       name: `${original.name} (Copy)`,
       description: original.description,
       trigger_type: original.trigger_type,

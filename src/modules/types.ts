@@ -73,6 +73,7 @@ export interface EntityConfig {
 }
 
 export interface WorkflowSeed {
+  seedKey: string;
   name: string;
   description: string;
   trigger_type: string;

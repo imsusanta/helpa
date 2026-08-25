@@ -2,6 +2,7 @@ import { WorkflowSeed } from '../types';
 
 export const workflowsConfig: WorkflowSeed[] = [
   {
+    seedKey: 'salon_appointment_auto_confirmation',
     name: 'Salon Appointment Auto-Confirmation',
     description:
       'Sends instant WhatsApp confirmation upon booking a salon slot',

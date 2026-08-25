@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
@@ -28,9 +28,11 @@ import {
   Star,
   Pill,
   FlaskConical,
+  Plane,
 } from 'lucide-react';
 
 import { useCan } from '@/hooks/use-can';
+import { useWorkspace } from '@/hooks/use-workspace';
 import type { Automation } from '@/types';
 import { Button } from '@/components/ui/button';
 import { GatedButton } from '@/components/ui/gated-button';
@@ -51,37 +53,17 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  AUTOMATION_TEMPLATES,
+  getTemplatesForIndustry,
   type TemplateSlug,
 } from '@/lib/automations/templates';
 import { triggerMeta, formatRelative } from '@/lib/automations/trigger-meta';
+import { createAutomationWorkspaceLoader } from '@/lib/automations/workspace-loader';
 import { cn } from '@/lib/utils';
-
-// Clinic-first: Helpa's core audience is a clinic front desk, so the
-// patient-facing automations lead and the other verticals follow.
-const TEMPLATE_ORDER: TemplateSlug[] = [
-  'welcome_message',
-  'doctor_booking_enquiry',
-  'clinic_faq_autoreply',
-  'urgent_case_escalation',
-  'report_ready_alert',
-  'post_visit_feedback',
-  'prescription_refill',
-  'lab_test_booking',
-  'out_of_office',
-  'follow_up_reminder',
-  'new_lead_instant_reply',
-  'lead_qualifier',
-  'admission_enquiry',
-  'property_site_visit',
-  'course_enquiry',
-  'table_booking',
-];
 
 /** Cards shown before the user asks to see the whole library. */
 const TEMPLATE_PREVIEW_COUNT = 8;
 
-const TEMPLATE_ICON: Record<TemplateSlug, typeof Zap> = {
+const TEMPLATE_ICON: Partial<Record<TemplateSlug, typeof Zap>> = {
   welcome_message: MessageCircle,
   out_of_office: Clock,
   lead_qualifier: Users,
@@ -98,41 +80,49 @@ const TEMPLATE_ICON: Record<TemplateSlug, typeof Zap> = {
   property_site_visit: Building2,
   course_enquiry: BookOpen,
   table_booking: UtensilsCrossed,
+  traveler_intake_greeting: Plane,
 };
 
 export default function AutomationsPage() {
   const router = useRouter();
   const canCreate = useCan('send-messages');
+  const { currentWorkspace } = useWorkspace();
+  const workspaceLoader = useRef<ReturnType<
+    typeof createAutomationWorkspaceLoader
+  > | null>(null);
   const [automations, setAutomations] = useState<Automation[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Automation | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [showAllTemplates, setShowAllTemplates] = useState(false);
 
-  async function load() {
-    try {
-      setError(null);
-      const response = await fetch('/api/automations', {
-        credentials: 'include',
-        cache: 'no-store',
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(
-          payload?.message || payload?.error || 'Failed to load automations'
-        );
-      }
-      setAutomations((payload?.automations ?? []) as Automation[]);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Failed to load automations'
-      );
-    }
-  }
+  const industryTemplates = useMemo(
+    () => getTemplatesForIndustry(currentWorkspace?.industry),
+    [currentWorkspace?.industry]
+  );
+
+  const load = useCallback(async () => {
+    await workspaceLoader.current?.load();
+  }, []);
 
   useEffect(() => {
-    load();
-  }, []);
+    workspaceLoader.current?.cancel();
+    workspaceLoader.current = createAutomationWorkspaceLoader((result) => {
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      setAutomations(result.automations ?? []);
+    });
+    setAutomations(null);
+    setError(null);
+    setShowAllTemplates(false);
+    setPendingDelete(null);
+
+    if (!currentWorkspace?.id) return;
+    void load();
+    return () => workspaceLoader.current?.cancel();
+  }, [currentWorkspace?.id, load]);
 
   async function toggleActive(a: Automation, next: boolean) {
     // Optimistic flip so the switch feels instant.
@@ -170,7 +160,7 @@ export default function AutomationsPage() {
       return;
     }
     toast.success('Automation duplicated');
-    load();
+    void load();
   }
 
   async function confirmDelete() {
@@ -187,7 +177,7 @@ export default function AutomationsPage() {
     }
     toast.success('Automation deleted');
     setPendingDelete(null);
-    load();
+    void load();
   }
 
   async function startFromTemplate(slug: TemplateSlug) {
@@ -215,8 +205,8 @@ export default function AutomationsPage() {
 
   const showTemplates = automations.length < 3;
   const visibleTemplates = showAllTemplates
-    ? TEMPLATE_ORDER
-    : TEMPLATE_ORDER.slice(0, TEMPLATE_PREVIEW_COUNT);
+    ? industryTemplates
+    : industryTemplates.slice(0, TEMPLATE_PREVIEW_COUNT);
 
   return (
     <div className="space-y-6">
@@ -247,29 +237,28 @@ export default function AutomationsPage() {
             Recommended for your business
           </h2>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-            {visibleTemplates.map((slug) => {
-              const t = AUTOMATION_TEMPLATES[slug];
-              const Icon = TEMPLATE_ICON[slug];
+            {visibleTemplates.map((template) => {
+              const Icon = TEMPLATE_ICON[template.slug] ?? Zap;
               return (
                 <button
-                  key={slug}
-                  onClick={() => startFromTemplate(slug)}
+                  key={template.slug}
+                  onClick={() => startFromTemplate(template.slug)}
                   className="group border-border bg-card hover:bg-card/80 flex flex-col items-start rounded-xl border p-4 text-left transition-colors hover:border-emerald-500/50"
                 >
                   <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-500 group-hover:bg-emerald-500/20">
                     <Icon className="h-5 w-5" />
                   </div>
                   <div className="text-foreground text-sm font-semibold">
-                    {t.name}
+                    {template.name}
                   </div>
                   <p className="text-muted-foreground mt-1 text-xs">
-                    {t.description}
+                    {template.description}
                   </p>
                 </button>
               );
             })}
           </div>
-          {TEMPLATE_ORDER.length > TEMPLATE_PREVIEW_COUNT && (
+          {industryTemplates.length > TEMPLATE_PREVIEW_COUNT && (
             <Button
               variant="ghost"
               className="text-muted-foreground hover:text-foreground mt-3 text-xs"
@@ -277,7 +266,7 @@ export default function AutomationsPage() {
             >
               {showAllTemplates
                 ? 'Show fewer templates'
-                : `Show all ${TEMPLATE_ORDER.length} templates`}
+                : `Show all ${industryTemplates.length} templates`}
             </Button>
           )}
         </section>

@@ -2,6 +2,7 @@ import { WorkflowSeed } from '../types';
 
 export const workflowsConfig: WorkflowSeed[] = [
   {
+    seedKey: 'doctor_appointment_instant_confirmation',
     name: 'Doctor Appointment Instant Confirmation',
     description:
       'Sends instant WhatsApp confirmation and token number upon appointment scheduling',
@@ -16,6 +17,7 @@ export const workflowsConfig: WorkflowSeed[] = [
     ],
   },
   {
+    seedKey: 'post_consultation_prescription_feedback',
     name: 'Post-Consultation Prescription & Feedback',
     description:
       'Sends doctor prescription link and feedback request 2 hours after appointment',
