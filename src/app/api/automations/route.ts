@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/appwrite-server-compat';
 import { appwriteAdmin } from '@/lib/appwrite-server-compat';
-import { getTemplate } from '@/lib/automations/templates';
+import { getTemplateForIndustry } from '@/lib/automations/templates';
 import {
   insertSteps,
   type BuilderStepInput,
@@ -108,28 +108,28 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const appwrite = await createClient();
-  const {
-    data: { user },
-  } = await appwrite.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  let context;
+  try {
+    context = await requireRole('agent');
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Unauthorized' },
+      { status: error instanceof ForbiddenError ? 403 : 401 }
+    );
   }
+  const appwrite = context.appwrite ?? (await createClient());
 
   // Resolve the caller's account_id — `automations.account_id` is NOT
   // NULL post-017, so an INSERT without it trips the not-null constraint
   // even though the admin client bypasses RLS.
-  const { data: profile } = await appwrite
-    .from('profiles')
-    .select('account_id')
-    .eq('user_id', user.id)
-    .single();
-  const accountId = profile?.account_id as string | undefined;
-  if (!accountId) {
-    return NextResponse.json(
-      { error: 'Your profile is not linked to an account.' },
-      { status: 403 }
-    );
+  const accountId = context.accountId;
+  const { data: account } = await appwrite
+    .from('accounts')
+    .select('industry')
+    .eq('id', accountId)
+    .maybeSingle();
+  if (!account) {
+    return NextResponse.json({ error: 'Account not found.' }, { status: 403 });
   }
 
   const autoLimit = await checkPlanLimits(accountId, 'automations');
@@ -169,9 +169,21 @@ export async function POST(request: Request) {
   let effectiveTriggerType = trigger_type;
   let effectiveTriggerConfig = trigger_config;
 
-  if (template && (!steps || steps.length === 0)) {
-    const t = getTemplate(template);
-    if (t) {
+  if (template !== undefined && template !== null) {
+    if (typeof template !== 'string' || !template.trim()) {
+      return NextResponse.json(
+        { error: 'A valid automation template is required.' },
+        { status: 400 }
+      );
+    }
+    const t = getTemplateForIndustry(template, account.industry);
+    if (!t) {
+      return NextResponse.json(
+        { error: 'This automation template is not available for this workspace.' },
+        { status: 403 }
+      );
+    }
+    if (!steps || steps.length === 0) {
       effectiveName = effectiveName ?? t.name;
       effectiveDescription = effectiveDescription ?? t.description;
       effectiveTriggerType = effectiveTriggerType ?? t.trigger_type;
@@ -241,7 +253,7 @@ export async function POST(request: Request) {
   const { data: automation, error: insertErr } = await admin
     .from('automations')
     .insert({
-      user_id: user.id,
+      user_id: context.userId,
       account_id: accountId,
       name: effectiveName,
       description: effectiveDescription ?? null,

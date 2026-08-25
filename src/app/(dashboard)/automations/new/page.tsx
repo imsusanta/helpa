@@ -9,18 +9,22 @@ import {
   type BuilderStep,
 } from '@/components/automations/automation-builder';
 import {
-  AUTOMATION_TEMPLATES,
-  type TemplateSlug,
+  getTemplateForIndustry,
 } from '@/lib/automations/templates';
+import { useWorkspace } from '@/hooks/use-workspace';
 import type { AutomationStepType, AutomationTriggerType } from '@/types';
 
 export default function NewAutomationPage() {
   const params = useSearchParams();
-  const template = params.get('template') as TemplateSlug | null;
+  const template = params.get('template');
+  const { currentWorkspace } = useWorkspace();
 
   const initial: BuilderInitial = useMemo(() => {
-    if (template && AUTOMATION_TEMPLATES[template]) {
-      const t = AUTOMATION_TEMPLATES[template];
+    const allowedTemplate = template
+      ? getTemplateForIndustry(template, currentWorkspace?.industry)
+      : null;
+    if (allowedTemplate) {
+      const t = allowedTemplate;
       const steps = expandFromSeeds(
         t.steps.map((seed, idx) => ({
           index: idx,
@@ -47,7 +51,7 @@ export default function NewAutomationPage() {
       is_active: false,
       steps: [],
     };
-  }, [template]);
+  }, [currentWorkspace?.industry, template]);
 
   return <AutomationBuilder initial={initial} />;
 }

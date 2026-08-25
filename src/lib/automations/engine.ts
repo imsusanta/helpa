@@ -148,6 +148,7 @@ export async function resumePendingExecution(pending: {
     .from('automations')
     .select('*')
     .eq('id', pending.automation_id)
+    .eq('account_id', pending.account_id)
     .single();
 
   if (error || !automation) {

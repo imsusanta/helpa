@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/appwrite-server-compat';
 import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import {
   loadStepsTree,
   replaceSteps,
@@ -11,29 +11,24 @@ import {
   validateTriggerForActivation,
 } from '@/lib/automations/validate';
 
-async function requireUser() {
-  const appwrite = await createClient();
-  const {
-    data: { user },
-  } = await appwrite.auth.getUser();
-  return user;
-}
-
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const user = await requireUser();
-  if (!user)
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  let context;
+  try {
+    context = await requireRole('viewer');
+  } catch (error) {
+    return toErrorResponse(error);
+  }
 
   const admin = appwriteAdmin();
   const { data: automation, error } = await admin
     .from('automations')
     .select('*')
     .eq('id', id)
-    .eq('user_id', user.id)
+    .eq('account_id', context.accountId)
     .maybeSingle();
 
   if (error)
@@ -50,9 +45,12 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const user = await requireUser();
-  if (!user)
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  let context;
+  try {
+    context = await requireRole('agent');
+  } catch (error) {
+    return toErrorResponse(error);
+  }
 
   const body = await request.json().catch(() => null);
   if (!body)
@@ -66,8 +64,9 @@ export async function PATCH(
     .from('automations')
     .select('id, user_id, is_active, trigger_type, trigger_config')
     .eq('id', id)
+    .eq('account_id', context.accountId)
     .maybeSingle();
-  if (!existing || existing.user_id !== user.id) {
+  if (!existing) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 
@@ -120,7 +119,8 @@ export async function PATCH(
     const { error: updErr } = await admin
       .from('automations')
       .update(update)
-      .eq('id', id);
+      .eq('id', id)
+      .eq('account_id', context.accountId);
     if (updErr)
       return NextResponse.json({ error: updErr.message }, { status: 500 });
   }
@@ -138,15 +138,29 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const user = await requireUser();
-  if (!user)
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  let context;
+  try {
+    context = await requireRole('agent');
+  } catch (error) {
+    return toErrorResponse(error);
+  }
 
-  const { error } = await appwriteAdmin()
+  const admin = appwriteAdmin();
+  const { data: existing } = await admin
+    .from('automations')
+    .select('id')
+    .eq('id', id)
+    .eq('account_id', context.accountId)
+    .maybeSingle();
+  if (!existing) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
+  const { error } = await admin
     .from('automations')
     .delete()
     .eq('id', id)
-    .eq('user_id', user.id);
+    .eq('account_id', context.accountId);
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });

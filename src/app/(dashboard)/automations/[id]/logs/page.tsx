@@ -11,7 +11,6 @@ import {
   ChevronRight,
 } from 'lucide-react';
 
-import { createClient } from '@/lib/appwrite-compat';
 import type {
   Automation,
   AutomationLog,
@@ -37,20 +36,14 @@ export default function AutomationLogsPage({
   useEffect(() => {
     async function load() {
       try {
-        const appwrite = createClient();
-        const [autRes, logRes] = await Promise.all([
-          appwrite.from('automations').select('*').eq('id', id).maybeSingle(),
-          appwrite
-            .from('automation_logs')
-            .select('*, contact:contacts(id, name, phone)')
-            .eq('automation_id', id)
-            .order('created_at', { ascending: false })
-            .limit(100),
-        ]);
-        if (autRes.error) throw autRes.error;
-        if (logRes.error) throw logRes.error;
-        setAutomation(autRes.data as Automation | null);
-        setLogs((logRes.data ?? []) as AutomationLog[]);
+        const response = await fetch(`/api/automations/${id}/logs`, {
+          credentials: 'include',
+          cache: 'no-store',
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload?.error || 'Failed to load logs');
+        setAutomation(payload.automation as Automation | null);
+        setLogs((payload.logs ?? []) as AutomationLog[]);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load logs');
       }

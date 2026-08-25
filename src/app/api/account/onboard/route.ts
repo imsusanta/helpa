@@ -42,6 +42,28 @@ export async function POST(request: Request) {
         console.error('[onboard route] failed to reset industry:', accErr);
         throw accErr;
       }
+      const { data: seededAutos } = await admin
+        .from('automations')
+        .select('id, metadata')
+        .eq('account_id', ctx.accountId);
+      const seededIds = (seededAutos ?? [])
+        .filter(
+          (automation) =>
+            (automation.metadata as Record<string, unknown> | null)
+              ?.helpa_seeded_workflow === true
+        )
+        .map((automation) => automation.id);
+      if (seededIds.length > 0) {
+        await admin
+          .from('automation_steps')
+          .delete()
+          .in('automation_id', seededIds);
+        await admin
+          .from('automations')
+          .delete()
+          .eq('account_id', ctx.accountId)
+          .in('id', seededIds);
+      }
       return NextResponse.json({ success: true, reset: true });
     }
 
@@ -325,15 +347,21 @@ export async function POST(request: Request) {
       console.warn('[onboard route] soft error seeding campaigns:', campErr);
     }
 
-    // 6. Pre-seed Workflow Automations
+    // 6. Pre-seed Workflow Automations. Seed rows are marked in metadata so
+    // rerunning onboarding only reconciles this account's own seed rows and
+    // never removes user-created automations.
     try {
       const { data: existingAutos } = await admin
         .from('automations')
-        .select('id')
+        .select('id, metadata')
         .eq('account_id', ctx.accountId);
 
-      if (existingAutos && existingAutos.length > 0) {
-        const autoIds = existingAutos.map((a) => a.id);
+      const seededAutos = (existingAutos ?? []).filter((automation) => {
+        const metadata = automation.metadata as Record<string, unknown> | null;
+        return metadata?.helpa_seeded_workflow === true;
+      });
+      if (seededAutos.length > 0) {
+        const autoIds = seededAutos.map((a) => a.id);
         await admin
           .from('automation_steps')
           .delete()
@@ -341,7 +369,8 @@ export async function POST(request: Request) {
         await admin
           .from('automations')
           .delete()
-          .eq('account_id', ctx.accountId);
+          .eq('account_id', ctx.accountId)
+          .in('id', autoIds);
       }
 
       if (config.workflows && config.workflows.length > 0) {
@@ -357,6 +386,11 @@ export async function POST(request: Request) {
                 trigger_type: w.trigger_type,
                 trigger_config: w.trigger_config || {},
                 is_active: w.is_active,
+                metadata: {
+                  helpa_seeded_workflow: true,
+                  workflow_seed_key: w.seedKey,
+                  workflow_industry: validIndustryId,
+                },
               })
               .select('id')
               .single();

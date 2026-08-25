@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   AUTOMATION_TEMPLATES,
   getTemplate,
+  getTemplateForIndustry,
+  getTemplatesForIndustry,
   type TemplateSlug,
 } from './templates';
 import { triggerMeta } from './trigger-meta';
@@ -43,6 +45,8 @@ describe('automation templates', () => {
       expect(template.name.trim()).not.toBe('');
       expect(template.description.trim()).not.toBe('');
       expect(template.steps.length).toBeGreaterThan(0);
+      expect(template.industries.length).toBeGreaterThan(0);
+      expect(template.iconName).toBeTruthy();
     }
   });
 
@@ -109,5 +113,46 @@ describe('automation templates', () => {
   it('resolves known slugs and rejects unknown ones', () => {
     expect(getTemplate('welcome_message')?.slug).toBe('welcome_message');
     expect(getTemplate('does_not_exist')).toBeNull();
+  });
+
+  it('returns only travel, shared, and explicitly approved templates', () => {
+    const templates = getTemplatesForIndustry('travel');
+    const slugs = templates.map((template) => template.slug);
+    expect(slugs).toContain('traveler_intake_greeting');
+    expect(slugs).toContain('welcome_message');
+    expect(slugs).not.toContain('doctor_booking_enquiry');
+    expect(slugs).not.toContain('lab_test_booking');
+    expect(slugs).not.toContain('table_booking');
+  });
+
+  it('returns clinic templates for both health aliases', () => {
+    const health = getTemplatesForIndustry('health').map((t) => t.slug);
+    const clinic = getTemplatesForIndustry('hospital_clinic').map((t) => t.slug);
+    expect(health).toEqual(clinic);
+    expect(health).toContain('doctor_booking_enquiry');
+    expect(health).not.toContain('traveler_intake_greeting');
+    expect(health).not.toContain('table_booking');
+  });
+
+  it('keeps general, null, and unknown industries fail-safe', () => {
+    const general = getTemplatesForIndustry('general').map((t) => t.slug);
+    expect(general).toContain('welcome_message');
+    expect(general).not.toContain('doctor_booking_enquiry');
+    expect(general).not.toContain('traveler_intake_greeting');
+    expect(getTemplatesForIndustry(null).map((t) => t.slug)).toEqual(general);
+    expect(getTemplatesForIndustry('legacy_unknown').map((t) => t.slug)).toEqual(
+      general
+    );
+  });
+
+  it('has stable unique ordering and rejects unauthorized template lookups', () => {
+    const first = getTemplatesForIndustry('restaurant').map((t) => t.slug);
+    const second = getTemplatesForIndustry('restaurant').map((t) => t.slug);
+    expect(first).toEqual(second);
+    expect(new Set(first).size).toBe(first.length);
+    expect(getTemplateForIndustry('doctor_booking_enquiry', 'travel')).toBeNull();
+    expect(getTemplateForIndustry('doctor_booking_enquiry', 'health')?.slug).toBe(
+      'doctor_booking_enquiry'
+    );
   });
 });

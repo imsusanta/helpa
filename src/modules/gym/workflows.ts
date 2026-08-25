@@ -2,6 +2,7 @@ import { WorkflowSeed } from '../types';
 
 export const workflowsConfig: WorkflowSeed[] = [
   {
+    seedKey: 'fitness_member_greeting',
     name: 'Fitness Member Greeting',
     description: 'Auto-greets gym membership inquiries.',
     trigger_type: 'first_inbound_message',
