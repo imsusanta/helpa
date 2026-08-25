@@ -76,7 +76,7 @@ import {
   scheduleSiteVisit,
 } from '@/modules/real-estate/services';
 
-import * as appwriteCompat from '@/lib/appwrite-server-compat';
+import * as appwriteCompat from '@/lib/db/server';
 
 const PLATFORM_ADMIN_ACTOR = 'platform-admin@test.invalid';
 

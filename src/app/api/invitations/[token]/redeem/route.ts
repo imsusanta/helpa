@@ -18,7 +18,7 @@
 // ============================================================
 
 import { NextResponse } from 'next/server';
-import type { AppwriteError } from '@/lib/appwrite-server-compat';
+import type { AppwriteError } from '@/lib/db/server';
 
 import { hashInviteToken } from '@/lib/auth/invitations';
 import {
@@ -26,7 +26,7 @@ import {
   rateLimitResponse,
   RATE_LIMITS,
 } from '@/lib/rate-limit';
-import { createClient } from '@/lib/appwrite-server-compat';
+import { createClient } from '@/lib/db/server';
 
 function getClientIp(request: Request): string {
   const xff = request.headers.get('x-forwarded-for');
@@ -58,7 +58,7 @@ export async function POST(
   { params }: { params: Promise<{ token: string }> }
 ) {
   const ip = getClientIp(request);
-  const limit = checkRateLimit(`redeem:${ip}`, RATE_LIMITS.invitationRedeem);
+  const limit = await checkRateLimit(`redeem:${ip}`, RATE_LIMITS.invitationRedeem);
   if (!limit.success) return rateLimitResponse(limit);
 
   const { token } = await params;

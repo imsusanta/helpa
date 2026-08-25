@@ -4,7 +4,7 @@
  * Doctor Directory management and dynamic appointment availability calculation.
  */
 
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 
 export interface DoctorRecord {
   id: string;

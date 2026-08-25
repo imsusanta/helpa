@@ -19,7 +19,7 @@
 // ============================================================
 
 import { NextResponse } from 'next/server';
-import type { AppwriteError } from '@/lib/appwrite-server-compat';
+import type { AppwriteError } from '@/lib/db/server';
 
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import {
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     // every few months at most; a script run in a loop would
     // produce a noisy audit trail. 30/min is well above any human
     // pace and bounds the noise.
-    const limit = checkRateLimit(
+    const limit = await checkRateLimit(
       `admin:transferOwnership:${ctx.userId}`,
       RATE_LIMITS.adminAction
     );

@@ -1,14 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
 import { encrypt, decrypt } from '@/lib/whatsapp/encryption';
 
 describe('WhatsApp Configuration Schema & Tenant Isolation', () => {
-  it('uses the canonical collection ID whatsapp_configs', () => {
-    expect(APPWRITE_CONFIG.collections.whatsappConfigs).toBe(
-      'whatsapp_configs'
-    );
-  });
-
   it('encrypts access tokens securely without returning plaintext in API responses', () => {
     const rawToken = 'EAAG1234567890TestToken';
     const encrypted = encrypt(rawToken);

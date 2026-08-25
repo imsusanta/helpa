@@ -1,4 +1,4 @@
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 
 export interface AppointmentReminderJobData {
   accountId: string;
@@ -27,7 +27,7 @@ export type EnqueueReminderResult =
 export async function enqueueAppointmentReminder(
   data: AppointmentReminderJobData
 ): Promise<EnqueueReminderResult> {
-  const db = appwriteAdmin();
+  const db = getAdminClient();
   const now = new Date().toISOString();
   const idempotencyKey = `rem_${data.appointmentId}_${data.reminderType}`;
   const requestHash = `reminder:${data.appointmentId}:${data.reminderType}`;

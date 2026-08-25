@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 
 export async function POST(
@@ -14,7 +14,7 @@ export async function POST(
     return toErrorResponse(error);
   }
 
-  const admin = appwriteAdmin();
+  const admin = getAdminClient();
   const { data: original, error: origErr } = await admin
     .from('automations')
     .select('*')

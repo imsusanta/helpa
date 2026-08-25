@@ -1,9 +1,11 @@
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import {
   sendTextMessage,
   sendMediaMessage,
   sendInteractiveButtons,
+  sendInteractiveList,
   sendTemplateMessage,
+  type MediaKind,
 } from '@/lib/whatsapp/meta-api';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import {
@@ -31,6 +33,8 @@ interface SendButtonsArgs {
   contactId?: string;
   bodyText: string;
   buttons: { id: string; title: string }[];
+  headerText?: string;
+  footerText?: string;
 }
 
 interface SendTemplateArgs {
@@ -75,7 +79,7 @@ async function assertLabReportDeliveryAllowed(
     return;
   }
 
-  const db = appwriteAdmin();
+  const db = getAdminClient();
   const { data: recentMessages, error } = await db
     .from('messages')
     .select('sender_type, content_text, created_at')
@@ -111,7 +115,7 @@ async function resolveCredentialsAndPhone(
   contactId?: string,
   conversationId?: string
 ): Promise<ResolvedCredentials | null> {
-  const db = appwriteAdmin();
+  const db = getAdminClient();
 
   // 1. Fetch active WhatsApp configuration from the canonical table first.
   let config: Record<string, unknown> | null = null;
@@ -262,7 +266,7 @@ async function recordSentMessage(
   contentText: string | null,
   mediaUrl: string | null
 ): Promise<string> {
-  const db = appwriteAdmin();
+  const db = getAdminClient();
   const nowIso = new Date().toISOString();
   const fallbackId = `bot-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
   const messageId = metaMessageId || fallbackId;
@@ -438,6 +442,8 @@ export async function engineSendButtons(
           accessToken: creds.accessToken,
           to: variant,
           bodyText: args.bodyText,
+          headerText: args.headerText,
+          footerText: args.footerText,
           buttons: args.buttons.map((b) => ({
             id: b.id,
             title: b.title.substring(0, 20),
@@ -513,5 +519,134 @@ export async function engineSendTemplate(
     null
   );
 
+  return { whatsapp_message_id: metaMessageId || recordedId };
+}
+
+interface SendMediaArgs {
+  accountId: string;
+  userId?: string;
+  conversationId: string;
+  contactId?: string;
+  kind: string;
+  link: string;
+  caption?: string;
+  filename?: string;
+}
+
+export async function engineSendMedia(
+  args: SendMediaArgs
+): Promise<{ whatsapp_message_id: string }> {
+  const creds = await resolveCredentialsAndPhone(
+    args.accountId,
+    args.contactId,
+    args.conversationId
+  );
+
+  const kind: MediaKind =
+    args.kind === 'image' ||
+    args.kind === 'video' ||
+    args.kind === 'audio' ||
+    args.kind === 'document'
+      ? args.kind
+      : 'document';
+
+  let metaMessageId: string | null = null;
+  if (creds && args.link) {
+    const sanitized = sanitizePhoneForMeta(creds.phone);
+    const variants = phoneVariants(sanitized);
+    for (const variant of variants) {
+      try {
+        const result = await sendMediaMessage({
+          phoneNumberId: creds.phoneNumberId,
+          accessToken: creds.accessToken,
+          to: variant,
+          kind,
+          link: args.link,
+          caption: args.caption,
+          filename: args.filename,
+        });
+        metaMessageId = result.messageId;
+        break;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (!isRecipientNotAllowedError(msg)) {
+          console.warn('[meta-send] sendMediaMessage error:', msg);
+          break;
+        }
+      }
+    }
+  }
+
+  const recordedId = await recordSentMessage(
+    args.accountId,
+    args.conversationId,
+    metaMessageId,
+    'document',
+    args.caption || `[${kind}]`,
+    args.link
+  );
+  return { whatsapp_message_id: metaMessageId || recordedId };
+}
+
+interface SendListArgs {
+  accountId: string;
+  userId?: string;
+  conversationId: string;
+  contactId?: string;
+  bodyText: string;
+  buttonLabel: string;
+  sections: Array<{
+    title?: string;
+    rows: Array<{ id: string; title: string; description?: string }>;
+  }>;
+  headerText?: string;
+  footerText?: string;
+}
+
+export async function engineSendInteractiveList(
+  args: SendListArgs
+): Promise<{ whatsapp_message_id: string }> {
+  const creds = await resolveCredentialsAndPhone(
+    args.accountId,
+    args.contactId,
+    args.conversationId
+  );
+
+  let metaMessageId: string | null = null;
+  if (creds && args.sections?.length) {
+    const sanitized = sanitizePhoneForMeta(creds.phone);
+    const variants = phoneVariants(sanitized);
+    for (const variant of variants) {
+      try {
+        const result = await sendInteractiveList({
+          phoneNumberId: creds.phoneNumberId,
+          accessToken: creds.accessToken,
+          to: variant,
+          bodyText: args.bodyText,
+          buttonLabel: args.buttonLabel,
+          headerText: args.headerText,
+          footerText: args.footerText,
+          sections: args.sections,
+        });
+        metaMessageId = result.messageId;
+        break;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (!isRecipientNotAllowedError(msg)) {
+          console.warn('[meta-send] sendInteractiveList error:', msg);
+          break;
+        }
+      }
+    }
+  }
+
+  const recordedId = await recordSentMessage(
+    args.accountId,
+    args.conversationId,
+    metaMessageId,
+    'interactive',
+    args.bodyText,
+    null
+  );
   return { whatsapp_message_id: metaMessageId || recordedId };
 }

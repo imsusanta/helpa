@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { POST } from '@/app/api/whatsapp/send/route';
 
-// Mock appwrite-server-compat
-vi.mock('@/lib/appwrite-server-compat', () => {
+// Mock the server database client
+vi.mock('@/lib/db/server', () => {
   const mockContacts: Array<{ id: string; account_id: string; phone: string }> =
     [
       {
@@ -139,7 +139,7 @@ vi.mock('@/lib/appwrite-server-compat', () => {
 
   return {
     createClient: vi.fn().mockResolvedValue(mockAppwrite),
-    appwriteAdmin: vi.fn().mockReturnValue(mockAdmin),
+    getAdminClient: vi.fn().mockReturnValue(mockAdmin),
   };
 });
 

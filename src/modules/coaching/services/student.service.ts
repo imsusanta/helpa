@@ -6,7 +6,7 @@
  * and distinction between leads/enquiries and enrolled students.
  */
 
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 
 export interface StudentRecord {
   id: string;

@@ -6,19 +6,25 @@ import {
   sanitizeAiInput,
 } from '@/lib/ai/safety';
 import { logger } from '@/lib/observability/logger';
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import {
   engineSendText,
   engineSendDocument,
   engineSendButtons,
 } from '@/lib/automations/meta-send';
 import { checkPlanLimits, incrementUsage } from '@/lib/saas/subscription';
-import { getIndustryModule, resolveSystemPrompt } from '@/modules/registry';
+import { getIndustryModule } from '@/modules/registry';
 import { parseAiResponse } from '@/lib/whatsapp/ai-response';
+import { buildReceptionistSystemPrompt } from '@/lib/whatsapp/ai-prompt';
 import {
-  getAccountChatbotSettings,
-  getResponseStyleInstruction,
-} from '@/core/ai/chatbot-settings';
+  buildContactPhoneVariants,
+  extractStructuredInsights,
+  formatKnowledgeBaseContext,
+  isHospitalIndustryEnabled,
+  shouldSkipAiConversation,
+  unwrapNestedReply,
+} from '@/lib/whatsapp/ai-pipeline';
+import { getAccountChatbotSettings } from '@/core/ai/chatbot-settings';
 
 import {
   executeAiCompletionWithFallback,
@@ -53,7 +59,7 @@ export async function triggerAiResponse(
     console.warn('[AI Assistant] Limit check warning, continuing:', msg);
   }
 
-  const db = appwriteAdmin();
+  const db = getAdminClient();
 
   // ═══════ PHASE 1: Parallel fetch all independent data in one shot ═══════
   const [contactRes, accRes, convRes, messagesRes, kbRes] = await Promise.all([
@@ -79,37 +85,22 @@ export async function triggerAiResponse(
   ]);
 
   const conversation = convRes.data as Record<string, unknown> | null;
-  if (conversation) {
-    const assignedAgentId =
-      conversation.assigned_agent_id || conversation.assignedAgentId;
-    if (assignedAgentId) {
+  const skipDecision = shouldSkipAiConversation(conversation);
+  if (skipDecision.skip) {
+    if (skipDecision.reason === 'assigned') {
       console.log(
-        `[AI Assistant] Conversation ${conversationId} is assigned to human agent ${assignedAgentId}. Skipping AI response.`
+        `[AI Assistant] Conversation ${conversationId} is assigned to a human agent. Skipping AI response.`
       );
-      return;
-    }
-
-    if (
-      conversation.ai_chat_enabled === false ||
-      conversation.ai_autoreply_disabled === true ||
-      conversation.is_ai_enabled === false
-    ) {
+    } else if (skipDecision.reason === 'disabled') {
       console.log(
         `[AI Assistant] AI auto-reply is disabled for conversation ${conversationId}. Skipping AI response.`
       );
-      return;
-    }
-
-    const aiReplyCount = Number(
-      conversation.ai_reply_count || conversation.aiReplyCount || 0
-    );
-    const maxAiRepliesPerConv = 100;
-    if (aiReplyCount >= maxAiRepliesPerConv) {
+    } else {
       console.warn(
-        `[AI Assistant] Conversation ${conversationId} reached AI reply cap (${aiReplyCount}/${maxAiRepliesPerConv}). Skipping AI response.`
+        `[AI Assistant] Conversation ${conversationId} reached AI reply cap. Skipping AI response.`
       );
-      return;
     }
+    return;
   }
 
   // Account-level master switch for the AI chatbot (auto-reply). Stored in
@@ -284,22 +275,7 @@ export async function triggerAiResponse(
 
   // ═══════ PHASE 2: Sibling contacts & Patient IDs (depends on contact phone) ═══════
   const rawPhone = contact?.phone || '';
-  const cleanDigits = rawPhone.replace(/\D/g, '');
-  const phoneVariants = Array.from(
-    new Set(
-      [
-        rawPhone,
-        `+${cleanDigits}`,
-        cleanDigits,
-        cleanDigits.startsWith('91')
-          ? cleanDigits.slice(2)
-          : `91${cleanDigits}`,
-        cleanDigits.startsWith('91')
-          ? `+${cleanDigits.slice(2)}`
-          : `+91${cleanDigits}`,
-      ].filter((p) => Boolean(p && p.trim().length > 3))
-    )
-  );
+  const phoneVariants = buildContactPhoneVariants(rawPhone);
 
   let siblingContacts: { id: string }[] | null = null;
   if (phoneVariants.length > 0) {
@@ -345,30 +321,18 @@ export async function triggerAiResponse(
   );
 
   // 3.5 Use pre-fetched Knowledge Base
-  const kbEntries = kbRes.data;
-  let kbContext = '';
-  if (kbEntries && kbEntries.length > 0) {
-    kbContext =
-      'Here is the verified knowledge base and pricing information for our company:\n\n';
-    kbEntries.forEach(
-      (entry: {
-        category: string;
-        question_title: string;
-        answer_content: string;
-      }) => {
-        kbContext += `[${entry.category.toUpperCase()}] ${entry.question_title}: ${entry.answer_content}\n`;
-      }
-    );
-  }
+  const kbEntries = kbRes.data as Array<{
+    category: string;
+    question_title: string;
+    answer_content: string;
+  }> | null;
+  const kbContext = formatKnowledgeBaseContext(kbEntries);
 
   const industryModuleForContext = getIndustryModule(account?.industry);
-  const isHospitalEnabled =
-    industryModuleForContext.id === 'hospital_clinic' ||
-    !account?.industry ||
-    account?.industry === 'hospital' ||
-    account?.industry === 'clinic' ||
-    account?.industry === 'healthcare' ||
-    account?.industry === 'general';
+  const isHospitalEnabled = isHospitalIndustryEnabled(
+    account?.industry,
+    industryModuleForContext.id
+  );
   const isCoachingEnabled = industryModuleForContext.id === 'coaching';
   const isSoloTeacherEnabled = industryModuleForContext.id === 'solo_teacher';
   let hospitalContext = '';
@@ -573,183 +537,19 @@ export async function triggerAiResponse(
   }
 
   // 4. Formulate prompt messages
-  const basePrompt = resolveSystemPrompt(
-    account?.industry,
-    account?.ai_system_prompt
-  );
-
-  const businessName = account?.name || 'our Business';
-
-  // Inject system-level rules override to ensure database values override conversation history for patient profiles and actions
-  const overrideRules = `
-
-[CRITICAL INSTRUCTION - BUSINESS & SYSTEM OVERRIDE]:
-1. BUSINESS IDENTITY: You are the official AI assistant representing "${businessName}". When welcoming a new patient/customer or starting a conversation, you MUST explicitly mention "${businessName}" by name (e.g. "Welcome to *${businessName}*!").
-2. REAL-TIME DATABASE DATA ACCURACY: The "Registered Patients", "Available Doctors & Clinic Schedules", "Appointments", and "Lab Reports" sections in the Hospital Context contain the absolute, real-time database records.
-3. DOCTOR & CLINIC DETAILS: When asked about doctors, departments, consultation fees, working hours, or available slots, ALWAYS reply using the exact database details from the "Available Doctors & Clinic Schedules" list.
-4. PATIENT DETAILS & LOOKUP: When responding to a patient, prioritize their registered database details (Patient ID PAT-XXXXXX, Full Name, Blood Group, Gender, Appointments).
-5. If a patient wants to correct/edit their profile details, extract the corrections into "hospital_profile_update" with the fields to update.
-6. Never diagnose, recommend treatments/medicines, or interpret report values.
-7. SHARED WHATSAPP NUMBER DISAMBIGUATION: Multiple family members (e.g. Father, Mother, Child) may share the exact same WhatsApp number. Each patient has a unique Patient ID (e.g. PAT-000021, PAT-000022). If multiple registered patients exist under this phone number and you cannot confidently identify which patient the user is asking about or booking for, ask: "I found multiple patient profiles linked to this WhatsApp number. Could you please tell me the patient's name?" Once the user specifies the name, switch to that patient profile and continue.`;
-
-  let systemPromptContent = basePrompt + overrideRules;
-
-  // Apply the workspace's configured response style (concise/balanced/detailed).
-  systemPromptContent += `\n\n[RESPONSE STYLE PREFERENCE]: ${getResponseStyleInstruction(
-    chatbotSettings.responseStyle
-  )}`;
-
-  if (account?.welcome_message && account.welcome_message.trim().length > 0) {
-    systemPromptContent += `\n\n[MANDATORY CUSTOM WELCOME GREETING TEMPLATE]:\nWhen greeting a new patient/customer or starting a new conversation, you MUST incorporate this custom welcome message:\n"${account.welcome_message.trim()}"\nFollowed by answering their query or guiding them through the registration/booking process using real-time database records.\n`;
-  }
-
-  if (kbContext) {
-    systemPromptContent += `\n\n${kbContext}`;
-  }
-
-  if (isHospitalEnabled) {
-    systemPromptContent += `\n\n=== HOSPITAL & CLINIC SYSTEM CONTEXT ===\n${hospitalContext}
-
-You are acting as the AI medical receptionist for the hospital/clinic.
-Your primary role is to answer patient inquiries 24/7, book appointments, check doctor availability, consultation fees, department information, hospital timings, report status, insurance FAQs, token number inquiries, and send appointment confirmations.
-
-AI RULES & MEDICAL SAFETY PROTOCOLS:
-1. **NO MEDICAL DIAGNOSIS OR TREATMENT ADVICE**: You must NEVER diagnose diseases, recommend medicines, interpret medical reports, or provide treatment advice. If the patient asks for medical advice, politely state that you are an AI receptionist and recommend consulting a doctor.
-2. **NO EMERGENCY HANDLING**: You must NEVER handle medical emergencies. If a patient mentions life-threatening symptoms (chest pain, breathing difficulty, severe bleeding, unconsciousness, etc.), set "emergency_detected" to true in your JSON output. Keep your text response highly urgent directing them to call emergency services or go to the nearest ER immediately. Do not diagnose.
-3. **Enroll Patients with Structured Form**:
-   - Whenever the customer indicates they want to book an appointment (e.g. clicks the "📅 Book Now" button or asks to consult a doctor), you MUST reply with the following empty structured form for them to fill out:
-     📋 *PATIENT REGISTRATION FORM*
-     Please reply with the following details:
-     - *Full Name:* [Enter Name]
-     - *Mobile Number:* [Enter Mobile Number]
-     - *Gender:* [Male/Female/Other]
-     - *Date of Birth:* [YYYY-MM-DD]
-     - *Department:* [e.g. Cardiology, Orthopedics, General Medicine]
-     - *Blood Group:* [e.g. O+, A-]
-     - *Emergency Contact:* [Name & Phone]
-     
-     (You can also specify your preferred Doctor name, and preferred Date & Time in your reply)
-   - Do NOT confirm the appointment booking until you have collected their Name, Mobile Number, Gender, DOB, and Department.
-   - **DEPARTMENT-FIRST DOCTOR SELECTION**: When a patient provides a department (e.g. "Cardiology", "Orthopedics") but has NOT specified a doctor name, you MUST look up the "Available Doctors & Clinic Schedules" list from the Hospital Context above, filter doctors matching that department, and present them as a numbered list for the patient to choose from. Example reply:
-     "Here are the available doctors in *Cardiology*:
-     1️⃣ Dr. Susanta Lohar — Fee: ₹500 — Mon, Wed, Fri (10:00–17:00)
-     2️⃣ Dr. Priya Sharma — Fee: ₹700 — Tue, Thu (09:00–14:00)
-     Please reply with the doctor number or name to proceed with booking."
-   - Once the patient picks a doctor from the list, THEN set "hospital_booking" action to "book" with the selected doctor_name.
-4. **Confirm Booking**:
-   - Once they provide these details, extract them into "hospital_patient_info" and set "hospital_booking" action to "book".
-   - Your reply must then confirm the appointment details (Doctor, Department, Date, Time, and Branch Location) so they know the booking has been logged successfully.
-5. **REPORT STATUS RESPONSES**: When a patient asks about their report status, respond according to these templates:
-   - If status is "pending": "Your report request has been received. Current Status: *Pending*. Expected Delivery: {{ExpectedDate}}. We will notify you as soon as it becomes available." (Substitute actual test name and expected date).
-   - If status is "processing": "Your report is currently being processed. Expected Completion: {{ExpectedDate}}. Thank you for your patience." (Substitute actual values).
-   - If status is "ready": "Great news! Your {{ReportName}} report is now *Ready*! Please visit the hospital reception to collect your report." (If PDF is available, tell them it is being sent).
-   - If status is "delivered": "Your report has already been delivered. If you need another copy, please contact the hospital reception."
-6. **SMART REPORT LOOKUP**: When a patient simply says "report" or similar:
-   - If they have exactly 1 active report (pending/processing/ready), respond with that report's status directly.
-   - If they have multiple reports, list them and ask which one they want to check.
-   - If they have 0 reports, say "I don't have any active reports on file for you."
-7. **REPORT SAFETY & NON-DIAGNOSIS**: NEVER share internal staff notes. NEVER interpret report values, explain medical findings, recommend medicines, or suggest treatments. If a patient asks: "My report says my sugar is high. What should I do?" or similar medical questions, you MUST politely respond: "I cannot interpret medical reports or provide medical advice. Please consult your doctor. I can help you book an appointment if you would like."
-8. **CAMPAIGN RESPONSE HANDLING**: If the patient received a campaign recently (listed under Last Sent Campaign to Patient), acknowledge it when appropriate. If they reply "BOOK" or indicate interest in scheduling an appointment or check-up relative to that campaign, immediately display the Patient Registration Form to proceed with booking.`;
-  }
-
-  if (isCoachingEnabled) {
-    systemPromptContent += `\n\n=== COACHING & ACADEMY SYSTEM CONTEXT ===\n${coachingContext}
-You are acting as the AI student counselor and assistant for the coaching academy.
-Your primary role is to answer student/parent inquiries, guide them on available courses, fee structures, schedules, and capture/update their targeted competitive exam or board exam preparation details (e.g. JEE, NEET, UPSC, Board Exam).
-
-AI RULES & STUDENT PROFILE UPDATES:
-1. **EXAM PREPARATION IDENTIFICATION**: When a student mentions which exam they are preparing for, or replies to a query about their preparation target, you MUST extract the exam name (e.g. "NEET") and their Student ID (if present in the context, e.g. STU-10001) into the "coaching_student_update" object in your JSON output.
-2. **ACCOMMODATIVE INQUIRIES**: Keep the conversation friendly and helpful. If they have not specified their targeted exam yet, politely ask: "Which exam are you currently preparing for? (e.g. JEE, NEET, UPSC, etc.)" so we can tailor our academy details for them.
-`;
-  }
-
-  // Always enforce that the AI responds in the exact language of the customer's conversation
-  systemPromptContent += `\n\n═══════════════════════════════════════════════════════════════════════════
-CRITICAL MANDATORY MULTILINGUAL RULE:
-1. You MUST ALWAYS reply in the EXACT SAME LANGUAGE, SCRIPT, and DIALECT that the customer used in their latest message.
-2. If the customer messages in Bengali (বাংলা or phonetic/Banglish like "ami doctor dekhte chai"), you MUST reply in natural, fluent Bengali (বাংলা or matching Banglish).
-3. If the customer messages in Hindi (हिंदी or Hinglish like "mujhe appointment book karna hai"), you MUST reply in natural, fluent Hindi/Hinglish.
-4. If the customer messages in English, reply in English.
-5. If the customer messages in any other regional/international language (e.g. Marathi, Tamil, Telugu, Gujarati, Spanish, Arabic, Urdu, French), reply in that exact language.
-6. UNDER NO CIRCUMSTANCES should you default or switch to English when the customer is speaking in another language.
-═══════════════════════════════════════════════════════════════════════════`;
-
-  if (latestMessage && latestMessage.content_text) {
-    systemPromptContent += `\n\n[CUSTOMER'S LATEST MESSAGE]: "${latestMessage.content_text}"\n-> DIRECTIVE: Detect the language of this message and write your "reply" field in the EXACT SAME LANGUAGE.`;
-  }
-
-  // Enforce organized and beautiful formatting with WhatsApp markdown support
-  systemPromptContent += `\n\nCRITICAL REPLY FORMATTING RULE: Write the "reply" in a highly organized, clean, and beautiful format.
-  - Present lists of options, prices, services, or details in bullet points (using - or *) or numbered lists.
-  - Use clear line breaks (\\n) to separate greetings, main details, lists, and the closing call-to-action.
-  - Use WhatsApp markdown formatting where helpful (e.g., *bold* for key terms, headings, or pricing; _italics_ for emphasis).
-  - Use relevant friendly emojis (like 👋, 😊, 🚀, 💬, ✅, etc.) naturally in the conversation to make the response feel warm, friendly, and visually engaging.
-  - Never output walls of plain, unformatted text. Keep it neat, spaced, and easy to read.
-  - KEEP REPLIES SHORT AND CONCISE. Maximum 3-4 short paragraphs. Do not write long essays. Speed matters.`;
-
-  // Enforce JSON structured output format for analytics and features
-  systemPromptContent += `\n\nCRITICAL OUTPUT FORMAT RULE: You must respond ONLY with a raw, valid JSON object matching the JSON schema below. Do not wrap the JSON block in markdown formatting (like \`\`\`json ... \`\`\`), do not output any other text before or after the JSON.
-
-JSON Schema:
-{
-  "reply": "your text response to the customer (keep it short, friendly, and matching the language rule)",
-  "intent": "sales" | "support" | "booking" | "complaint" | "other",
-  "lead_score": "hot" | "warm" | "cold",
-  "sentiment": "positive" | "neutral" | "negative",
-  "handoff_required": true | false,
-  "resolved": true | false,
-  "summary": "an updated, short running summary of the conversation (under 150 characters, capturing the customer's current goal/status)",
-  "faq_category": "pricing" | "delivery" | "refund" | "demo" | "general",
-  "sales_signal": true | false,
-  "extracted_lead_info": {
-    "interested_service": "string or null",
-    "budget": "string or null",
-    "timeline": "string or null",
-    "next_action": "string or null"
-  },
-  "hospital_patient_info": {
-    "name": "string or null",
-    "phone": "string or null",
-    "gender": "Male | Female | Other | null",
-    "dob": "YYYY-MM-DD string or null",
-    "blood_group": "string or null",
-    "emergency_contact": "string or null"
-  },
-  "hospital_booking": {
-    "action": "book | reschedule | cancel | null",
-    "patient_name": "string or null (Full name of the patient this action is for)",
-    "doctor_name": "string or null",
-    "department": "string or null",
-    "date": "YYYY-MM-DD string or null",
-    "time": "HH:MM string or null"
-  },
-  "hospital_report_send": {
-    "send_report": true | false,
-    "report_id": "string or null (ID of the report to send)",
-    "test_name": "string or null (Name of the test, e.g. Blood Test, CBC)"
-  },
-  "hospital_profile_update": {
-    "patient_id": "string or null (The Patient ID to modify, e.g. PAT-90325)",
-    "name": "string or null (New or updated full name if corrected)",
-    "phone": "string or null (New or updated phone number if corrected)",
-    "email": "string or null (New or updated email if corrected)",
-    "gender": "Male | Female | Other | null (New or updated gender if corrected)",
-    "dob": "YYYY-MM-DD string or null (New or updated date of birth if corrected)",
-    "blood_group": "string or null (New or updated blood group if corrected)",
-    "emergency_contact": "string or null (New or updated emergency contact if corrected)",
-    "address": "string or null (New or updated address if corrected)"
-  },
-  "coaching_student_update": {
-    "student_id": "string or null (The Student ID to modify, e.g. STU-10001)",
-    "target_exam": "string or null (The targeted competitive or board exam they are preparing for, e.g. JEE, NEET, UPSC)"
-  },
-  "emergency_detected": true | false
-}
-
-Note:
-- ULTRA-FAST & CRISP REPLIES: Keep the "reply" concise, professional, and direct (1 to 3 short sentences maximum). Avoid long repetitive introductions or verbose text so the patient gets an instant response.
-- Set "sales_signal" to true if you detect genuine buying intent, service inquiry, quotation request, booking intent, or any strong sales signal from the customer.
-- Under "extracted_lead_info", populate only the fields mentioned by the customer. Use null for any details not mentioned or unknown.`;
+  const systemPromptContent = buildReceptionistSystemPrompt({
+    industry: account?.industry,
+    customSystemPrompt: account?.ai_system_prompt,
+    businessName: account?.name || 'our Business',
+    welcomeMessage: account?.welcome_message,
+    responseStyle: chatbotSettings.responseStyle,
+    kbContext,
+    hospitalContext,
+    coachingContext,
+    isHospitalEnabled,
+    isCoachingEnabled,
+    latestCustomerText: latestMessage?.content_text || null,
+  });
 
   const systemPrompt: { role: 'system'; content: string } = {
     role: 'system',
@@ -838,72 +638,35 @@ Note:
       parsedResponse.reply ||
       (!parsedResponse.isStructured ? aiText : '') ||
       aiText;
+    reply = unwrapNestedReply(reply);
 
-    if (reply.startsWith('{') && reply.endsWith('}')) {
-      try {
-        const j = JSON.parse(reply);
-        if (j.reply) reply = String(j.reply);
-      } catch {
-        // keep as is
-      }
-    }
-    let intent = 'other';
-    let lead_score = 'cold';
-    let sentiment = 'neutral';
-    let handoff_required = false;
-    let resolved = false;
-    let summary: string | null = null;
-    let faq_category = 'general';
-
-    let sales_signal = false;
-    let interested_service: string | null = null;
-    let budget: string | null = null;
-    let timeline: string | null = null;
-    let next_action: string | null = null;
-
-    let hospital_patient_info: Record<string, unknown> | null = null;
-    let hospital_booking: Record<string, unknown> | null = null;
-    let hospital_profile_update: Record<string, unknown> | null = null;
-    let hospital_report_send: Record<string, unknown> | null = null;
-    let coaching_student_update: Record<string, unknown> | null = null;
-    let emergency_detected = false;
-
-    if (parsedResponse.payload) {
-      const parsed = parsedResponse.payload as Record<string, unknown>;
-      intent = (parsed.intent as string) || 'other';
-      lead_score = (parsed.lead_score as string) || 'cold';
-      sentiment = (parsed.sentiment as string) || 'neutral';
-      handoff_required = !!parsed.handoff_required;
-      resolved = !!parsed.resolved;
-      summary = (parsed.summary as string) || null;
-      faq_category = (parsed.faq_category as string) || 'general';
-      sales_signal = !!parsed.sales_signal;
-
-      const extracted = (parsed.extracted_lead_info || {}) as Record<
-        string,
-        unknown
-      >;
-      interested_service = (extracted.interested_service as string) || null;
-      budget = (extracted.budget as string) || null;
-      timeline = (extracted.timeline as string) || null;
-      next_action = (extracted.next_action as string) || null;
-
-      hospital_patient_info =
-        (parsed.hospital_patient_info as Record<string, unknown>) || null;
-      hospital_booking =
-        (parsed.hospital_booking as Record<string, unknown>) || null;
-      hospital_profile_update =
-        (parsed.hospital_profile_update as Record<string, unknown>) || null;
-      hospital_report_send =
-        (parsed.hospital_report_send as Record<string, unknown>) || null;
-      coaching_student_update =
-        (parsed.coaching_student_update as Record<string, unknown>) || null;
-      emergency_detected = !!parsed.emergency_detected;
-    } else if (parsedResponse.isStructured) {
+    const insights = extractStructuredInsights(parsedResponse.payload);
+    if (!parsedResponse.payload && parsedResponse.isStructured) {
       console.warn(
         '[AI Assistant] Structured AI response could not be parsed; sending only its recovered reply.'
       );
     }
+
+    const intent = insights.intent;
+    const lead_score = insights.leadScore;
+    const sentiment = insights.sentiment;
+    let handoff_required = insights.handoffRequired;
+    const resolved = insights.resolved;
+    const summary = insights.summary;
+    const faq_category = insights.faqCategory;
+
+    const sales_signal = insights.salesSignal;
+    const interested_service = insights.interestedService;
+    const budget = insights.budget;
+    const timeline = insights.timeline;
+    const next_action = insights.nextAction;
+
+    const hospital_patient_info = insights.hospitalPatientInfo;
+    const hospital_booking = insights.hospitalBooking;
+    const hospital_profile_update = insights.hospitalProfileUpdate;
+    const hospital_report_send = insights.hospitalReportSend;
+    const coaching_student_update = insights.coachingStudentUpdate;
+    const emergency_detected = insights.emergencyDetected;
 
     // Update the conversation's AI insights in the database
     const { error: updateError } = await db

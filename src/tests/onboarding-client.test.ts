@@ -36,8 +36,8 @@ vi.mock('@/lib/auth/account', () => ({
   ),
 }));
 
-vi.mock('@/lib/appwrite-server-compat', () => ({
-  appwriteAdmin: () => mockAdminClient,
+vi.mock('@/lib/db/server', () => ({
+  getAdminClient: () => mockAdminClient,
 }));
 
 vi.mock('@/lib/rate-limit', () => ({

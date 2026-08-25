@@ -11,7 +11,7 @@ export async function POST() {
   try {
     const ctx = await requireRole('admin');
 
-    const rateLimit = checkRateLimit(
+    const rateLimit = await checkRateLimit(
       `oauth_session_${ctx.userId}`,
       RATE_LIMITS.adminAction
     );

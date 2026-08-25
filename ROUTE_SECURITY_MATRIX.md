@@ -1,67 +1,90 @@
 # Helpa Route Security Matrix
 
-**Document Version:** 1.0.0  
-**Enforcement Model:** Default-Deny via `src/proxy.ts` Middleware & `src/lib/auth/account.ts`
+**Document Version:** 1.1.0
+**Enforcement Model:** Default-deny via `src/proxy.ts` and `src/lib/auth/account.ts` (`requireRole`). Roles: `viewer` < `agent` < `admin` < `owner`.
+
+This matrix describes the code as it exists today. Historical audit notes under `docs/audits/` are snapshots and must not be treated as current policy.
 
 ---
 
 ## 1. Public & Unauthenticated Endpoints
 
-| Route Path                      | Method        | Purpose                   | Protection & Rate-Limiting Policy     | Security Notes                             |
-| ------------------------------- | ------------- | ------------------------- | ------------------------------------- | ------------------------------------------ |
-| `/`                             | `GET`         | Clinic AI Landing Page    | Edge cached (Public), CSP enforced    | No customer or patient data exposed        |
-| `/login`                        | `GET`, `POST` | User Authentication       | Rate-limited by IP & Email            | Redirects to `/dashboard` if authenticated |
-| `/signup`                       | `GET`, `POST` | Clinic Account Creation   | Rate-limited by IP                    | Scoped to new account setup                |
-| `/forgot-password`              | `GET`, `POST` | Password Reset            | Rate-limited                          | Appwrite Auth recovery token               |
-| `/join/[token]`                 | `GET`, `POST` | Invitation Acceptance     | Token validation via RPC              | Token must be valid and unexpired          |
-| `/api/whatsapp/webhook`         | `GET`         | Meta Webhook Verification | Query token verification              | Compares verify token against DB           |
-| `/api/whatsapp/webhook`         | `POST`        | Meta Inbound Webhook      | HMAC-SHA256 fail-closed verification  | Rejects unverified payloads with 401       |
-| `/api/health`                   | `GET`         | Service & Health Status   | Rate-limited, Public Status           | No secrets, versions, or PII exposed       |
-| `/public/appointments/[id]/pdf` | `GET`         | Patient OPD Ticket Access | Cryptographic Token / HMAC Validation | Bound to appointment ID and expiry         |
-| `/privacy`, `/terms`, `/refund` | `GET`         | Legal Policies            | Static / Edge cached                  | No dynamic queries                         |
+Allowed by `isPublicRoute()` in `src/proxy.ts`. Everything else requires a session.
+
+| Route Path | Method | Purpose | Protection | Security Notes |
+| --- | --- | --- | --- | --- |
+| `/` | `GET` | Landing page | Edge cached, CSP | No tenant data |
+| `/login`, `/signup`, `/forgot-password` | `GET`, `POST` | Auth UI | Rate-limited at `/api/auth/*` | Password recovery is **Supabase Auth**, not Appwrite |
+| `/join/[token]` | `GET`, `POST` | Invitation acceptance | Token validation | Token must be valid and unexpired |
+| `/api/auth/login`, `/signup`, `/logout`, `/reset-password`, `/me` | mixed | Auth API | Per-IP rate limit (`RATE_LIMITS.auth`, 10/min) | Session cookies via `@supabase/ssr` |
+| `/api/whatsapp/webhook` | `GET` | Meta webhook verification | Query token vs stored config | |
+| `/api/whatsapp/webhook` | `POST` | Meta inbound webhook | HMAC-SHA256, **fail-closed** if `META_APP_SECRET` missing | 401 before DB work |
+| `/api/webhooks/*` | `POST` | Provider webhooks (Razorpay, Calendly, voice) | Provider-specific signatures | Razorpay returns **503** if `RAZORPAY_WEBHOOK_SECRET` is unset; never fail-open |
+| `/api/public/*` | mixed | Public booking / lead forms | Token + IP rate limit (5/min) | Prefix is on the proxy allowlist; handlers still validate the form token |
+| `/api/health` | `GET` | Liveness | Public | No secrets or PII |
+| `/api/appointments/[id]/pdf` | `GET` | Patient OPD ticket | HMAC token **or** authenticated `viewer` | Bound to appointment id, account, expiry |
+| `/privacy`, `/terms`, `/refund` | `GET` | Legal | Static | |
+
+Cron routes are **not** public. They require `x-cron-secret` or `Authorization: Bearer` matching a configured secret. Missing secrets return **503**, never 200.
 
 ---
 
 ## 2. Authenticated Dashboard Pages (`src/app/(dashboard)/*`)
 
-All dashboard pages are intercepted by `src/proxy.ts`. Unauthenticated sessions are automatically redirected to `/login`.
+`src/proxy.ts` redirects unauthenticated sessions to `/login`. Page-level role checks still apply inside layouts/pages; API mutations use `requireRole`.
 
-| Page Route                    | Required Role           | Tenant Isolation Scope                | Data Handled                             |
-| ----------------------------- | ----------------------- | ------------------------------------- | ---------------------------------------- |
-| `/dashboard`                  | `viewer`                | Account-level aggregate metrics       | Appointment counts, message volume       |
-| `/inbox`                      | `agent`                 | `account_id` scoped messages          | Patient chat history, doctor notes       |
-| `/contacts` / `/patients`     | `viewer`                | `account_id` scoped contacts          | Patient demographics, phone, blood group |
-| `/appointments` / `/bookings` | `viewer`                | `account_id` scoped appointments      | Doctor appointments, queue position      |
-| `/doctors` / `/departments`   | `agent`                 | `account_id` scoped clinical staff    | Doctor rosters, consultation fees        |
-| `/lab-reports`                | `agent`                 | `account_id` scoped pathology reports | Lab test statuses, report PDFs           |
-| `/settings`                   | `admin`                 | `account_id` configuration            | WhatsApp Meta tokens, AI system prompt   |
-| `/admin`                      | `owner` / `super_admin` | Global administrative governance      | System metrics, tenant health            |
+| Page Route | Typical Min Role | Tenant Scope | Data |
+| --- | --- | --- | --- |
+| `/dashboard` | `viewer` | Account aggregates | Appointment counts, message volume |
+| `/inbox` | `agent` | `account_id` messages | Chat history |
+| `/contacts` / `/patients` | `viewer` | `account_id` contacts | Demographics |
+| `/appointments` | `viewer` | `account_id` appointments | Bookings |
+| `/settings` | `admin` | Account configuration | WhatsApp tokens, AI prompt |
+| `/admin` | `owner` / super-admin | Platform | Metrics, tenant health |
 
 ---
 
-## 3. Authenticated API Endpoints (`src/app/api/*`)
+## 3. Authenticated API Endpoints (selected, verified in code)
 
-| API Route                        | Method            | Min Role         | Account Scoping            | Rate Limit      | Service Role Used   | Tests                      |
-| -------------------------------- | ----------------- | ---------------- | -------------------------- | --------------- | ------------------- | -------------------------- |
-| `/api/account`                   | `GET`, `PATCH`    | `admin`          | Explicit `ctx.accountId`   | Standard        | No (RLS SSR)        | `roles.test.ts`            |
-| `/api/account/onboard`           | `POST`            | `admin`          | Explicit `ctx.accountId`   | Tier 1 (10/min) | No (RLS SSR)        | `e2e/auth-and-invites`     |
-| `/api/account/ai`                | `GET`, `POST`     | `admin`          | Explicit `ctx.accountId`   | Tier 1 (10/min) | No (RLS SSR)        | `ai-response.test.ts`      |
-| `/api/account/invitations`       | `GET`, `POST`     | `admin`          | Explicit `ctx.accountId`   | Tier 1 (10/min) | Yes (RPC)           | `invitations.test.ts`      |
-| `/api/account/members`           | `GET`             | `viewer`         | Explicit `ctx.accountId`   | Standard        | No (RLS SSR)        | `tenant-isolation.test.ts` |
-| `/api/account/members/[userId]`  | `PATCH`, `DELETE` | `owner`          | Explicit `ctx.accountId`   | Standard        | Yes (Admin RPC)     | `tenant-isolation.test.ts` |
-| `/api/appointments/[id]/confirm` | `POST`            | `agent`          | Explicit `ctx.accountId`   | Tier 2 (30/min) | Yes (WhatsApp send) | `clinical-workflows`       |
-| `/api/appointments/[id]/pdf`     | `GET`             | Token / `viewer` | Explicit `account_id`      | Tier 2 (60/min) | Yes (PDF builder)   | `signed-urls.test.ts`      |
-| `/api/patients/search`           | `GET`             | `agent`          | Explicit `ctx.accountId`   | Tier 2 (60/min) | Yes (Multi-join)    | `tenant-isolation.test.ts` |
-| `/api/patients/upload-pdf`       | `POST`            | `agent`          | Explicit `ctx.accountId`   | Tier 1 (15/min) | Yes (Storage/Send)  | `clinical-workflows`       |
-| `/api/whatsapp/send`             | `POST`            | `agent`          | Explicit `ctx.accountId`   | Tier 2 (60/min) | Yes (Meta API)      | `meta-api.test.ts`         |
-| `/api/whatsapp/broadcast`        | `POST`            | `admin`          | Explicit `ctx.accountId`   | Tier 1 (5/min)  | Yes (Meta API)      | `template-send.test.ts`    |
-| `/api/automations`               | `GET`, `POST`     | `admin`          | Explicit `ctx.accountId`   | Standard        | No (RLS SSR)        | `engine.test.ts`           |
-| `/api/cron/reminders`            | `POST`            | Secret           | System-wide / Account loop | Dedicated       | Yes (Cron engine)   | `durable-events.test.ts`   |
+`accountId` is **always** taken from the session (`requireRole` / `getCurrentAccount`). Request-body `accountId` is ignored.
+
+| API Route | Method | Min Role | Account Scoping | Rate Limit | Notes / Tests |
+| --- | --- | --- | --- | --- | --- |
+| `/api/account` | `GET`, `PATCH` | `admin` | `ctx.accountId` | adminAction 30/min | |
+| `/api/account/ai` | `GET`, `POST` | `admin` | `ctx.accountId` | | |
+| `/api/account/invitations` | `GET`, `POST` | `admin` | `ctx.accountId` | | |
+| `/api/account/members/[userId]` | `PATCH`, `DELETE` | `admin` | RPC + session | | Owner cannot be demoted via this path |
+| `/api/appointments/[id]/confirm` | `POST` | `agent` | `.eq('account_id', ctx.accountId)` before load/send | | **IDOR closed.** Test: `confirm/route.test.ts` |
+| `/api/leads/[id]/handoff` | `POST` | `agent` | Session `accountId` / `userId` only | | Body `accountId` ignored. Test: `handoff/route.test.ts` |
+| `/api/whatsapp/send` | `POST` | `agent` | `ctx.accountId` | send 60/min | Redis-backed when `REDIS_URL` is set |
+| `/api/whatsapp/broadcast` | `POST` | `admin` | `ctx.accountId` | broadcast 5/min | |
+| `/api/automations` | `GET` / `POST` | `viewer` / `agent` | `ctx.accountId` | | |
+| `/api/automations/engine` | `POST` | `agent` | Session account only | | Manual trigger; viewers cannot fire |
+| `/api/patients/search` | `GET` | `agent` | `ctx.accountId` | | |
+| `/api/patients/upload-pdf` | `POST` | `agent` | `ctx.accountId` | | |
 
 ---
 
-## 4. Authorization & Input Validation Guarantees
+## 4. Scheduled / Cron Endpoints
 
-1. **No Client-Supplied Account Trust**: Every authenticated route derives `accountId` and `role` strictly from the verified session user profile (`requireRole`), completely ignoring any `account_id` submitted in request bodies or query parameters.
-2. **Fail-Closed Webhook Verification**: `POST /api/whatsapp/webhook` enforces constant-time HMAC-SHA256 signature verification with `META_APP_SECRET`. Missing secrets or invalid headers fail with HTTP 401 before any database interaction occurs.
-3. **No-Store Caching for Private Endpoints**: All API responses and dashboard pages enforce `Cache-Control: no-store, private` preventing public proxy caching.
+All use `authorizeCronRequest` in `src/lib/cron/security.ts` (constant-time compare, fail-closed, `NODE_ENV` does not relax the check). Campaign queries are tenant-scoped with `account_id`.
+
+| Endpoint | Method | Secrets accepted | Vercel Cron (`vercel.json`) | Purpose |
+| --- | --- | --- | --- | --- |
+| `/api/cron/reminders` | `POST` | `CRON_SECRET` | **Not scheduled in vercel.json** — invoke from an external scheduler | 24h / 2h appointment reminders |
+| `/api/cron/campaigns` | `GET` | `CRON_SECRET` | Daily `0 1 * * *` | Campaign automations; audience/contact/conversation queries filtered by `account_id` |
+| `/api/cron/subscription-lifecycle` | `GET`/`POST` | `CRON_SECRET` or `AUTOMATION_CRON_SECRET` | Daily `0 0 * * *` | Expire stale trials |
+| `/api/cron/cleanup-webhooks` | `POST` | `AUTOMATION_CRON_SECRET` or `CRON_SECRET` | **Not in vercel.json** | Strip old webhook payloads |
+| `/api/automations/cron` | `GET` | `AUTOMATION_CRON_SECRET` or `CRON_SECRET` | **Not in vercel.json** | Drain pending automation steps |
+| `/api/flows/cron` | `GET` | `AUTOMATION_CRON_SECRET` or `CRON_SECRET` | **Not in vercel.json** | Time out abandoned flow runs |
+
+---
+
+## 5. Authorization & Input Validation Guarantees
+
+1. **No client-supplied account trust.** Session profile only. Handoff previously accepted body `accountId`; it no longer does.
+2. **Fail-closed webhook verification.** Meta and Razorpay reject missing secrets (401 / 503) instead of processing unsigned payloads.
+3. **Fail-closed cron.** Unconfigured secrets → 503. Non-production environments are not exempt.
+4. **No-store caching** on private API responses (`Cache-Control: private, no-store`).
+5. **Shared rate limits.** `checkRateLimit` uses Redis `INCR`+`PEXPIRE` when `REDIS_URL` is set; otherwise an in-process Map (single-node only).
+6. **Database is Supabase PostgreSQL.** There is no Appwrite Auth, Database, or Storage runtime. Compat facades live at `@/lib/db/server` and `@/lib/db/client`.

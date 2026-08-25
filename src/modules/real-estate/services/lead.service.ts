@@ -5,7 +5,7 @@
  * structured property requirements, and sales pipeline management.
  */
 
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 
 export type LeadStage =
   | 'New'

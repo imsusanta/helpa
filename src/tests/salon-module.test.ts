@@ -31,7 +31,7 @@ import {
   getSalonCopilotContext,
 } from '@/modules/salon/services';
 import { aiToolRegistry } from '@/core/ai/tools';
-import * as appwriteCompat from '@/lib/appwrite-server-compat';
+import * as appwriteCompat from '@/lib/db/server';
 import { coreEvents } from '@/core/events';
 
 describe('Helpa Salon Industry Module', () => {

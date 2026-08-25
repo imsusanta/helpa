@@ -5,7 +5,7 @@
  * multiple patients per mobile number, and patient timeline aggregation.
  */
 
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 
 export interface PatientRecord {
   id: string;

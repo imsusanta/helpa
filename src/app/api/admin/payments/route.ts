@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { checkSuperAdmin } from '@/lib/auth/admin';
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -15,7 +15,7 @@ export async function GET(request: Request) {
       );
     }
 
-    const db = appwriteAdmin();
+    const db = getAdminClient();
     const { searchParams } = new URL(request.url);
     const limit = Math.min(Number(searchParams.get('limit') || 100), 200);
 

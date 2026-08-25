@@ -4,7 +4,7 @@
  * Course catalog, fee structure, duration, and admission availability.
  */
 
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 
 export interface CourseRecord {
   id: string;

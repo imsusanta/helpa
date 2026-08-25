@@ -17,7 +17,7 @@ import {
 export async function POST(request: Request) {
   try {
     const ip = request.headers.get('x-forwarded-for') || '127.0.0.1';
-    const rateLimit = checkRateLimit(`signup_${ip}`, RATE_LIMITS.auth);
+    const rateLimit = await checkRateLimit(`signup_${ip}`, RATE_LIMITS.auth);
     if (!rateLimit.success) {
       return rateLimitResponse(rateLimit);
     }

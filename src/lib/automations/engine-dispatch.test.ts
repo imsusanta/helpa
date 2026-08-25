@@ -21,7 +21,7 @@ const h = vi.hoisted(() => ({
   },
 }));
 
-vi.mock('@/lib/appwrite-server-compat', () => {
+vi.mock('@/lib/db/server', () => {
   const { state } = h;
 
   function resolve(ops: {
@@ -81,7 +81,7 @@ vi.mock('@/lib/appwrite-server-compat', () => {
   }
 
   return {
-    appwriteAdmin: () => ({
+    getAdminClient: () => ({
       from: (t: string) => builder(t),
       rpc: () => Promise.resolve({ error: null }),
     }),

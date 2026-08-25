@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Loader2, LogOut } from 'lucide-react';
-import { getAppwriteClient } from '@/infrastructure/appwrite/client';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -29,8 +28,6 @@ export function SessionsCard() {
     setSigningOut(true);
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
-      const { account } = getAppwriteClient();
-      await account.deleteSessions().catch(() => {});
       window.location.href = window.location.origin + '/login';
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error';

@@ -5,7 +5,7 @@
  * multi-tenant audience resolution, and analytics engine.
  */
 
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { coreEvents } from '@/core/events';
 import { sendWhatsAppMessage } from '@/core/whatsapp';
 
@@ -162,7 +162,7 @@ export async function resolveCampaignAudience({
   accountId: string;
   filter: AudienceFilter;
 }): Promise<Array<{ id?: string; name: string; phone: string }>> {
-  const db = appwriteAdmin();
+  const db = getAdminClient();
 
   let contacts: Array<{ id?: string; name: string; phone: string }> = [];
 
@@ -217,7 +217,7 @@ export async function getCampaignMetrics(
   accountId: string,
   campaignId: string
 ): Promise<CampaignData | null> {
-  const db = appwriteAdmin();
+  const db = getAdminClient();
 
   const { data, error } = await db
     .from('broadcast_campaigns')
@@ -254,7 +254,7 @@ export async function createCampaign(
     filter?: AudienceFilter;
   }
 ): Promise<CampaignData> {
-  const db = appwriteAdmin();
+  const db = getAdminClient();
 
   const { data: created, error } = await db
     .from('broadcast_campaigns')
@@ -319,7 +319,7 @@ export async function executeCampaignSending({
   sentCount: number;
   failedCount: number;
 }> {
-  const db = appwriteAdmin();
+  const db = getAdminClient();
 
   // 1. Resolve deduplicated audience strictly scoped to accountId
   const audience = await resolveCampaignAudience({ accountId, filter });

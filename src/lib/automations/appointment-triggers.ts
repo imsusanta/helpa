@@ -1,4 +1,4 @@
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 
 const DEFAULT_TIMEZONE = process.env.DEFAULT_TIMEZONE || 'Asia/Kolkata';
 
@@ -20,7 +20,7 @@ interface AppointmentReminderInput {
 export async function scheduleAppointmentReminders(
   input: AppointmentReminderInput
 ): Promise<void> {
-  const db = appwriteAdmin();
+  const db = getAdminClient();
   const { data: automations, error } = await db
     .from('automations')
     .select('*')
@@ -122,7 +122,7 @@ export async function cancelPendingAppointmentReminders(
   accountId: string,
   appointmentId: string
 ): Promise<void> {
-  const db = appwriteAdmin();
+  const db = getAdminClient();
   const { error } = await db
     .from('automation_pending_executions')
     .update({ status: 'cancelled' })

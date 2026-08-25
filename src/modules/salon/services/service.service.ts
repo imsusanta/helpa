@@ -4,7 +4,7 @@
  * Treatment menu, service duration, and configurable pricing structure.
  */
 
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 
 export type SalonServiceCategory =
   | 'Hair'

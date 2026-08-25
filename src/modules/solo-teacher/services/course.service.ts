@@ -4,7 +4,7 @@
  * Course and subject management for independent teachers.
  */
 
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 
 export interface TutorCourseRecord {
   id: string;

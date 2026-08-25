@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { checkSuperAdmin } from '@/lib/auth/admin';
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -15,7 +15,7 @@ export async function GET() {
       );
     }
 
-    const db = appwriteAdmin();
+    const db = getAdminClient();
 
     // 1. Fetch Accounts
     const { data: accountsData } = await db
@@ -141,7 +141,7 @@ export async function DELETE(request: Request) {
       );
     }
 
-    const db = appwriteAdmin();
+    const db = getAdminClient();
 
     try {
       await db.from('whatsapp_configs').delete().eq('accountId', accountId);

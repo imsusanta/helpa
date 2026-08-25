@@ -21,7 +21,7 @@ import {
   executeAiPipeline,
   generateCopilotSuggestions,
 } from '@/core/ai';
-import * as appwriteCompat from '@/lib/appwrite-server-compat';
+import * as appwriteCompat from '@/lib/db/server';
 import { coreEvents } from '@/core/events';
 
 describe('Helpa Core AI Engine', () => {
@@ -223,7 +223,7 @@ describe('Helpa Core AI Engine', () => {
       },
     } as unknown as ReturnType<typeof appwriteCompat.getAdminClient>);
 
-    vi.spyOn(appwriteCompat, 'appwriteAdmin').mockImplementation(() =>
+    vi.spyOn(appwriteCompat, 'getAdminClient').mockImplementation(() =>
       appwriteCompat.getAdminClient()
     );
   });

@@ -20,7 +20,7 @@ import {
   disconnectWhatsApp,
   sendWhatsAppMessage,
 } from '@/core/whatsapp';
-import * as appwriteCompat from '@/lib/appwrite-server-compat';
+import * as appwriteCompat from '@/lib/db/server';
 import * as supabaseServer from '@/lib/supabase/server';
 import * as encryption from '@/lib/whatsapp/encryption';
 import { coreEvents } from '@/core/events';

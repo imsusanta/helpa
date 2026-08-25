@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { authorizeCronRequest } from '@/lib/cron/security';
 import { resolveFallbackPolicy } from '@/lib/flows/fallback';
 
@@ -44,7 +44,7 @@ export async function GET(request: Request) {
     );
   }
 
-  const admin = appwriteAdmin();
+  const admin = getAdminClient();
   const now = new Date();
 
   // Pull all currently-active runs along with their parent flow's

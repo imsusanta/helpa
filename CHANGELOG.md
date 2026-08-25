@@ -1,15 +1,31 @@
 # Changelog
 
-User-visible changes in `wacrm`. Self-hosters: when pulling an update,
-check this file for any **migration required** notes and apply the
-matching SQL files from `appwrite/migrations/` against your Appwrite
-project before restarting the app.
+User-visible changes in Helpa. Self-hosters: when pulling an update,
+check this file for **migration required** notes and apply matching SQL
+from `supabase/migrations/` before restarting the app.
 
 Versions follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Pre-1.0, `MINOR` bumps cover new modules; `PATCH` bumps cover bug fixes
 and polish.
 
 ## [Unreleased]
+
+### Security
+
+- Appointment confirm loads only rows in the caller's `account_id` (IDOR closed).
+- Lead handoff uses session `accountId` / `userId`; body-supplied tenant ids are ignored.
+- Campaign cron is fail-closed and tenant-scopes audience/contact/conversation queries.
+- Razorpay webhooks return 503 when `RAZORPAY_WEBHOOK_SECRET` is unset (no fail-open).
+- WhatsApp send requires `agent`; broadcast requires `admin`; automations engine requires `agent`.
+- Public form APIs are on the proxy allowlist (`/api/public/`).
+- Rate limits use Redis when `REDIS_URL` is set.
+
+### Removed
+
+- Appwrite SDKs, `src/infrastructure/appwrite`, setup/verify scripts, and CSP host allowlists.
+- Database access goes through `@/lib/db/server` and `@/lib/db/client` (Supabase).
+
+## [Unreleased] — account sharing
 
 Multi-user accounts ship. Every wacrm install is multi-tenant on the
 database side: a single user's signup creates a fresh "account", and

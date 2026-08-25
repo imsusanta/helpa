@@ -1,16 +1,16 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createClient, appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { createClient, getAdminClient } from '@/lib/db/server';
 
-describe('Appwrite RLS & Database Security Integration', () => {
+describe('Supabase RLS & Database Security Integration', () => {
   const tenantAId = 'a1111111-1111-1111-1111-111111111111';
   const patientAId = 'p1111111-1111-1111-1111-111111111111';
 
-  let adminClient: ReturnType<typeof appwriteAdmin>;
+  let adminClient: ReturnType<typeof getAdminClient>;
   let tenantAClient: Awaited<ReturnType<typeof createClient>>;
   let tenantBClient: Awaited<ReturnType<typeof createClient>>;
 
   beforeEach(async () => {
-    adminClient = appwriteAdmin();
+    adminClient = getAdminClient();
     tenantAClient = await createClient();
     tenantBClient = await createClient();
   });

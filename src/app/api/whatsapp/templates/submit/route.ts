@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import type { AppwriteClient } from '@/lib/appwrite-server-compat';
-import { createClient } from '@/lib/appwrite-server-compat';
+import type { AppwriteClient } from '@/lib/db/server';
+import { createClient } from '@/lib/db/server';
 import { getCurrentAccount } from '@/lib/auth/account';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import { submitMessageTemplate } from '@/lib/whatsapp/meta-api';

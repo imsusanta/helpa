@@ -5,7 +5,7 @@
  * status tracking, tags, and tenant isolation.
  */
 
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { coreEvents } from '@/core/events';
 
 export interface CoreConversation {
@@ -38,7 +38,7 @@ export async function findOrCreateConversation(
   contactId: string,
   channel: string = 'whatsapp'
 ): Promise<CoreConversation> {
-  const db = appwriteAdmin();
+  const db = getAdminClient();
 
   const { data: existing } = await db
     .from('conversations')
@@ -90,7 +90,7 @@ export async function recordMessage(
     mediaUrl?: string;
   }
 ): Promise<CoreMessage> {
-  const db = appwriteAdmin();
+  const db = getAdminClient();
 
   const { data: created, error } = await db
     .from('messages')
@@ -139,7 +139,7 @@ export async function handoffToHuman(
   conversationId: string,
   assignedUserId?: string
 ): Promise<void> {
-  const db = appwriteAdmin();
+  const db = getAdminClient();
 
   const updates: Record<string, unknown> = {
     is_ai_active: false,

@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     const accountId = ctx.accountId;
 
     // Per-user rate limit (shared 'send' budget: 60/min) to bound AI spend.
-    const rl = checkRateLimit(`ai-features:${ctx.userId}`, RATE_LIMITS.send);
+    const rl = await checkRateLimit(`ai-features:${ctx.userId}`, RATE_LIMITS.send);
     if (!rl.success) return rateLimitResponse(rl);
 
     const body = await request.json();

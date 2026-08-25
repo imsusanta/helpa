@@ -1,16 +1,13 @@
 import crypto from 'crypto';
-import { ID } from 'node-appwrite';
-import { InputFile } from 'node-appwrite/file';
 import { NextResponse } from 'next/server';
 import { getVoiceProvider } from '@/core/providers/voice/provider-factory';
 import {
   VoiceProviderError,
   type VoiceProviderName,
 } from '@/core/providers/voice/voice-provider.interface';
-import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
-import { getAppwriteAdminClient } from '@/infrastructure/appwrite/server';
-import { voiceRepository } from '@/infrastructure/appwrite/repositories/voice.repository';
-import { storageRepository } from '@/infrastructure/appwrite/repositories/storage.repository';
+import { voiceRepository } from '@/lib/db/repositories';
+import { storageRepository } from '@/lib/storage/repository';
+import { STORAGE_BUCKETS } from '@/lib/storage/buckets';
 import { resolveTenantVoiceConfig } from '@/core/providers/voice/credential-resolver';
 
 const MAX_PAYLOAD_BYTES = 1_000_000;
@@ -143,21 +140,21 @@ export async function POST(
       );
     }
 
-    // 5. Store raw payload in private Appwrite Storage bucket (FAIL CLOSED!)
-    const storage = getAppwriteAdminClient().storage;
+    // 5. Store raw payload in private storage (fail closed).
     await storageRepository.verifyBucketExists(
-      APPWRITE_CONFIG.buckets.webhookPayloads
+      STORAGE_BUCKETS.webhookPayloads
     );
     const filename = `${providerName}_${event.externalEventId.replace(/[^a-zA-Z0-9_.:-]/g, '_')}_${payloadHash.slice(0, 16)}.json`;
 
     let rawPayloadReference: string;
     try {
-      const createdFile = await storage.createFile(
-        APPWRITE_CONFIG.buckets.webhookPayloads,
-        ID.unique(),
-        InputFile.fromBuffer(Buffer.from(rawBody), filename)
+      const createdFile = await storageRepository.uploadFile(
+        STORAGE_BUCKETS.webhookPayloads,
+        Buffer.from(rawBody),
+        filename,
+        'application/json'
       );
-      rawPayloadReference = createdFile.$id;
+      rawPayloadReference = createdFile.fileId;
     } catch (storageErr) {
       console.error(
         '[voice-webhook] Storage persistence failed for raw payload:',
@@ -165,7 +162,7 @@ export async function POST(
       );
       throw new VoiceProviderError(
         'VOICE_PROVIDER_PERSISTENCE_FAILED',
-        'Failed to store raw webhook payload in Appwrite Storage',
+        'Failed to store raw webhook payload',
         500
       );
     }
@@ -174,31 +171,25 @@ export async function POST(
     let transcriptReference: string | undefined = undefined;
     if (event.transcript) {
       try {
-        const transcriptFile = await storage.createFile(
-          APPWRITE_CONFIG.buckets.webhookPayloads,
-          ID.unique(),
-          InputFile.fromBuffer(
-            Buffer.from(event.transcript),
-            `transcript_${event.externalCallId}.txt`
-          )
+        const transcriptFile = await storageRepository.uploadFile(
+          STORAGE_BUCKETS.voiceTranscripts,
+          Buffer.from(event.transcript),
+          `transcript_${event.externalCallId}.txt`,
+          'text/plain'
         );
-        transcriptReference = transcriptFile.$id;
+        transcriptReference = transcriptFile.fileId;
       } catch (tErr) {
         console.error(
           '[voice-webhook] Storage persistence failed for transcript:',
           tErr
         );
-        // Clean up raw payload file before throwing to prevent orphan files
-        await storage
-          .deleteFile(
-            APPWRITE_CONFIG.buckets.webhookPayloads,
-            rawPayloadReference
-          )
-          .catch(() => null);
+        await storageRepository
+          .deleteFile(STORAGE_BUCKETS.webhookPayloads, rawPayloadReference)
+          .catch(() => undefined);
 
         throw new VoiceProviderError(
           'VOICE_PROVIDER_PERSISTENCE_FAILED',
-          'Failed to store transcript in Appwrite Storage',
+          'Failed to store transcript',
           500
         );
       }
@@ -220,20 +211,14 @@ export async function POST(
       })) as unknown as { $id: string };
     } catch (err: unknown) {
       // Race condition cleanup: delete redundant uploaded Storage files if another thread won insertion
-      await storage
-        .deleteFile(
-          APPWRITE_CONFIG.buckets.webhookPayloads,
-          rawPayloadReference
-        )
-        .catch(() => null);
+      await storageRepository
+        .deleteFile(STORAGE_BUCKETS.webhookPayloads, rawPayloadReference)
+        .catch(() => undefined);
 
       if (transcriptReference) {
-        await storage
-          .deleteFile(
-            APPWRITE_CONFIG.buckets.webhookPayloads,
-            transcriptReference
-          )
-          .catch(() => null);
+        await storageRepository
+          .deleteFile(STORAGE_BUCKETS.voiceTranscripts, transcriptReference)
+          .catch(() => undefined);
       }
 
       const code = (err as { code?: number })?.code;

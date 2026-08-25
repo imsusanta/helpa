@@ -5,7 +5,7 @@
  * auditing, subscription limit enforcement, and cost optimization.
  */
 
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import type { AiFeatureType, AiProviderName } from './types';
 
 export interface AiUsageRecord {
@@ -63,7 +63,7 @@ export function calculateEstimatedCost(
  */
 export async function trackAiUsage(record: AiUsageRecord): Promise<void> {
   try {
-    const db = appwriteAdmin();
+    const db = getAdminClient();
     const cost =
       record.estimatedCost !== undefined
         ? record.estimatedCost

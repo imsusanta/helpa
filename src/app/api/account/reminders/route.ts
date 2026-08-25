@@ -47,7 +47,7 @@ export async function PATCH(request: Request) {
   try {
     const ctx = await requireRole('admin');
 
-    const limit = checkRateLimit(
+    const limit = await checkRateLimit(
       `admin:reminders-config:${ctx.userId}`,
       RATE_LIMITS.adminAction
     );

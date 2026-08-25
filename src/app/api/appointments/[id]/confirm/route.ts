@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
+import {
+  ForbiddenError,
+  requireRole,
+  toErrorResponse,
+  UnauthorizedError,
+} from '@/lib/auth/account';
 import {
   engineSendText,
   engineSendDocument,
@@ -201,16 +207,18 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const ctx = await requireRole('agent');
     const { id: appointmentId } = await params;
-    const db = appwriteAdmin();
+    const db = getAdminClient();
 
-    // 1. Fetch appointment details safely
+    // 1. Fetch appointment details safely — scoped to the caller's tenant.
     const { data: appt, error: apptErr } = await db
       .from('appointments')
       .select(
         '*, patient:contacts(id, name, phone, email, metadata), doctor:hospital_doctors(id, name, specialization)'
       )
       .eq('id', appointmentId)
+      .eq('account_id', ctx.accountId)
       .maybeSingle();
 
     if (apptErr || !appt) {
@@ -425,6 +433,9 @@ Welcome to *${hospitalName}*! Your consultation ticket and token number have bee
 
     return NextResponse.json({ success: true, pdfUrl: publicPdfUrl });
   } catch (err: unknown) {
+    if (err instanceof UnauthorizedError || err instanceof ForbiddenError) {
+      return toErrorResponse(err);
+    }
     console.error('Failed to send appointment PDF ticket:', err);
     return NextResponse.json(
       { error: (err as Error).message || 'Failed to send ticket PDF' },

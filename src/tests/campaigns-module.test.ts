@@ -19,7 +19,7 @@ import {
   executeCampaignSending,
   AudienceFilter,
 } from '@/core/campaigns';
-import * as appwriteCompat from '@/lib/appwrite-server-compat';
+import * as appwriteCompat from '@/lib/db/server';
 import * as whatsappCore from '@/core/whatsapp';
 
 describe('Helpa Core Platform — Campaigns Engine', () => {
@@ -70,7 +70,7 @@ describe('Helpa Core Platform — Campaigns Engine', () => {
       broadcast_campaigns: [],
     };
 
-    vi.spyOn(appwriteCompat, 'appwriteAdmin').mockReturnValue({
+    vi.spyOn(appwriteCompat, 'getAdminClient').mockReturnValue({
       from: (table: string) => {
         const store =
           (mockDatabase as Record<string, Array<Record<string, unknown>>>)[
@@ -126,7 +126,7 @@ describe('Helpa Core Platform — Campaigns Engine', () => {
           }),
         };
       },
-    } as unknown as ReturnType<typeof appwriteCompat.appwriteAdmin>);
+    } as unknown as ReturnType<typeof appwriteCompat.getAdminClient>);
 
     vi.spyOn(whatsappCore, 'sendWhatsAppMessage').mockResolvedValue({
       success: true,

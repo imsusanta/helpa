@@ -6,7 +6,7 @@
  * and executes authorized actions without direct arbitrary DB access.
  */
 
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import type { AiToolDefinition, AiExecutionContext } from './types';
 
 class AiToolRegistry {

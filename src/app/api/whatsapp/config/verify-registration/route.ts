@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import {
-  appwriteAdmin as createAdminClient,
+  getAdminClient as createAdminClient,
   createClient,
-} from '@/lib/appwrite-server-compat';
+} from '@/lib/db/server';
 import { getCurrentAccount } from '@/lib/auth/account';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import { getSubscribedApps, verifyPhoneNumber } from '@/lib/whatsapp/meta-api';

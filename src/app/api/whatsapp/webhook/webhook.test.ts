@@ -27,7 +27,7 @@ const { createEmptyQuery } = vi.hoisted(() => ({
   },
 }));
 
-vi.mock('@/lib/appwrite-server-compat', () => ({
+vi.mock('@/lib/db/server', () => ({
   getAdminClient: () => ({ from: () => createEmptyQuery() }),
 }));
 

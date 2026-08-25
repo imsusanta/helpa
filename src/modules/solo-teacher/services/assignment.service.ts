@@ -4,7 +4,7 @@
  * Homework tracking, due dates, and automated WhatsApp submission reminders.
  */
 
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { coreEvents } from '@/core/events';
 
 export interface TutorAssignmentRecord {

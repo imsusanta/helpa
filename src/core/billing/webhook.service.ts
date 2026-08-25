@@ -4,7 +4,7 @@
  * Secure, signature-verified, idempotent handling of incoming payment provider events.
  */
 
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import {
   upgradeSubscription,
   handlePaymentFailure,

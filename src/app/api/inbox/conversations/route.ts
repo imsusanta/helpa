@@ -5,10 +5,6 @@ import {
   ForbiddenError,
 } from '@/lib/auth/account';
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
-import { getAppwriteAdminClient } from '@/infrastructure/appwrite/server';
-import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
-import { Query } from 'node-appwrite';
-import { getRuntimeConfig } from '@/lib/runtime-config';
 import type { Conversation, Contact, ConversationStatus } from '@/types';
 
 const CACHE_HEADERS = {
@@ -101,81 +97,7 @@ export async function GET(request: NextRequest) {
       100
     );
 
-    const runtime = getRuntimeConfig();
-
-    if (runtime.databaseProvider === 'appwrite') {
-      const admin = getAppwriteAdminClient();
-      const queries = [
-        Query.equal('accountId', accountId),
-        Query.orderDesc('lastMessageAt'),
-        Query.limit(limit),
-      ];
-
-      if (
-        statusParam &&
-        ['open', 'pending', 'closed'].includes(statusParam.toLowerCase())
-      ) {
-        queries.push(Query.equal('status', statusParam.toLowerCase()));
-      }
-
-      const convsRes = await admin.databases.listDocuments(
-        APPWRITE_CONFIG.databaseId,
-        APPWRITE_CONFIG.collections.conversations,
-        queries
-      );
-
-      const rawConvs = convsRes.documents as unknown as Array<
-        Record<string, unknown>
-      >;
-      if (rawConvs.length === 0) {
-        return NextResponse.json(
-          { conversations: [], total: 0 },
-          { status: 200, headers: CACHE_HEADERS }
-        );
-      }
-
-      const contactIds = Array.from(
-        new Set(
-          rawConvs
-            .map((c) => (c.contactId || c.contact_id) as string | undefined)
-            .filter((id): id is string => Boolean(id))
-        )
-      );
-
-      const contactsMap = new Map<string, Contact>();
-      if (contactIds.length > 0) {
-        try {
-          const contactsRes = await admin.databases.listDocuments(
-            APPWRITE_CONFIG.databaseId,
-            APPWRITE_CONFIG.collections.contacts,
-            [
-              Query.equal('accountId', accountId),
-              Query.equal('$id', contactIds.slice(0, 100)),
-              Query.limit(100),
-            ]
-          );
-
-          for (const doc of contactsRes.documents as unknown as Array<
-            Record<string, unknown>
-          >) {
-            contactsMap.set(doc.$id as string, normalizeContact(doc));
-          }
-        } catch (e) {
-          console.warn('Failed to batch load contacts for conversations:', e);
-        }
-      }
-
-      const conversations: Conversation[] = rawConvs.map((doc) => {
-        const cId = (doc.contactId || doc.contact_id) as string | undefined;
-        const contact = cId ? contactsMap.get(cId) : undefined;
-        return normalizeConversation(doc, contact);
-      });
-
-      return NextResponse.json(
-        { conversations, total: convsRes.total ?? conversations.length },
-        { status: 200, headers: CACHE_HEADERS }
-      );
-    }
+    
 
     const supabase = getSupabaseAdminClient();
     let query = supabase

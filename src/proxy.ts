@@ -40,10 +40,11 @@ const PUBLIC_PATH_PREFIXES = [
   '/api/invitations/',
   '/api/auth/',
   '/api/webhooks/',
+  '/api/public/',
   '/_next/',
 ];
 
-function isPublicRoute(pathname: string): boolean {
+export function isPublicRoute(pathname: string): boolean {
   if (pathname.startsWith('/api/whatsapp/webhook')) return true;
   if (PUBLIC_EXACT_PATHS.has(pathname)) return true;
   if (PUBLIC_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix)))

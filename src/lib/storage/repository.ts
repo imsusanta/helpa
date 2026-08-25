@@ -1,4 +1,4 @@
-import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
+import { getAdminClient } from '@/lib/supabase/server';
 
 export type StorageErrorCode =
   | 'AUTH_REQUIRED'
@@ -24,7 +24,7 @@ export class StorageError extends Error {
 
 export class StorageRepository {
   private get supabase() {
-    return getSupabaseAdminClient();
+    return getAdminClient();
   }
 
   async verifyBucketExists(bucketId: string): Promise<void> {
@@ -60,7 +60,6 @@ export class StorageRepository {
     _permissions: string[] = []
   ): Promise<{ fileId: string; fileUrl: string }> {
     await this.verifyBucketExists(bucketId);
-
     try {
       const fileExt = filename.split('.').pop() || 'bin';
       const safeBaseName = filename
@@ -68,7 +67,6 @@ export class StorageRepository {
         .replace(/[^a-zA-Z0-9_-]+/g, '_')
         .slice(0, 40);
       const filePath = `${Date.now()}-${safeBaseName}.${fileExt}`;
-
       const { data, error } = await this.supabase.storage
         .from(bucketId)
         .upload(filePath, fileBuffer, {
@@ -76,15 +74,12 @@ export class StorageRepository {
           cacheControl: '3600',
           upsert: true,
         });
-
       if (error || !data) {
         throw new Error(error?.message || 'Supabase storage upload failed');
       }
-
       const { data: pubData } = this.supabase.storage
         .from(bucketId)
         .getPublicUrl(data.path);
-
       return { fileId: data.path, fileUrl: pubData.publicUrl };
     } catch (err: unknown) {
       const message =
@@ -103,7 +98,7 @@ export class StorageRepository {
       await this.supabase.storage.from(bucketId).remove([fileId]);
     } catch (err: unknown) {
       console.warn(
-        `[StorageRepository] Warning deleting file ${fileId} from bucket ${bucketId}:`,
+        `[StorageRepository] Warning deleting file ${fileId}:`,
         (err as Error).message
       );
     }

@@ -4,7 +4,7 @@
  * Automated post-inquiry & post-site visit follow-up management.
  */
 
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { coreEvents } from '@/core/events';
 
 export interface RealEstateFollowUp {

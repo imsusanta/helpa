@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-// AppwriteClient type removed — using Appwrite
+// Tenant isolation uses the Supabase-backed database client.
 import { POST as postConsent } from '@/app/api/patients/[id]/consent/route';
 import { GET as getExport } from '@/app/api/patients/[id]/export/route';
 import { POST as postWithdraw } from '@/app/api/patients/[id]/withdraw/route';
@@ -23,7 +23,7 @@ vi.mock('@/lib/auth/account', async () => {
   };
 });
 
-vi.mock('@/lib/appwrite-compat', () => {
+vi.mock('@/lib/db/client', () => {
   const createMockDb = () => {
     const mockChain: Record<string, unknown> = {};
     mockChain.from = vi.fn().mockReturnValue(mockChain);
@@ -45,13 +45,13 @@ vi.mock('@/lib/appwrite-compat', () => {
     return mockChain;
   };
   return {
-    appwriteAdmin: vi.fn().mockImplementation(createMockDb),
+    getAdminClient: vi.fn().mockImplementation(createMockDb),
     createDataClient: vi.fn().mockImplementation(createMockDb),
     createClient: vi.fn().mockImplementation(createMockDb),
   };
 });
 
-vi.mock('@/lib/appwrite-server-compat', () => {
+vi.mock('@/lib/db/server', () => {
   const createMockDb = () => {
     const mockChain: Record<string, unknown> = {};
     mockChain.from = vi.fn().mockReturnValue(mockChain);
@@ -73,7 +73,7 @@ vi.mock('@/lib/appwrite-server-compat', () => {
     return mockChain;
   };
   return {
-    appwriteAdmin: vi.fn().mockImplementation(createMockDb),
+    getAdminClient: vi.fn().mockImplementation(createMockDb),
     createDataClient: vi.fn().mockImplementation(createMockDb),
     createClient: vi.fn().mockImplementation(createMockDb),
   };
@@ -179,7 +179,9 @@ describe('P0 / P1 Security, Authorization & Privacy Hardening Test Suite', () =>
         accountId: TENANT_A_ID,
         role: 'admin',
         account: { id: TENANT_A_ID, name: 'Tenant A' },
-      });
+        admin: {},
+        appwrite: {},
+      } as never);
 
       const params = Promise.resolve({ id: PATIENT_A_ID });
 
@@ -208,7 +210,9 @@ describe('P0 / P1 Security, Authorization & Privacy Hardening Test Suite', () =>
         accountId: TENANT_A_ID,
         role: 'admin',
         account: { id: TENANT_A_ID, name: 'Tenant A' },
-      });
+        admin: {},
+        appwrite: {},
+      } as never);
 
       const params = Promise.resolve({ id: PATIENT_B_ID });
 

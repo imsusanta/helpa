@@ -29,8 +29,8 @@ const mockState = vi.hoisted(() => ({
   ] as Record<string, unknown>[],
 }));
 
-// Mock appwriteAdmin / DB with chainable query builder
-vi.mock('@/lib/appwrite-server-compat', () => {
+// Mock getAdminClient / DB with chainable query builder
+vi.mock('@/lib/db/server', () => {
   const { automations, automationSteps, conversationData, messagesData } =
     mockState;
 
@@ -180,7 +180,7 @@ vi.mock('@/lib/appwrite-server-compat', () => {
   }
 
   return {
-    appwriteAdmin: () => ({
+    getAdminClient: () => ({
       from: (t: string) => builder(t),
       rpc: () => Promise.resolve({ error: null }),
     }),

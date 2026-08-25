@@ -4,7 +4,7 @@
  * Student course & batch enrollments for solo educators.
  */
 
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { coreEvents } from '@/core/events';
 
 export interface TutorEnrollmentRecord {

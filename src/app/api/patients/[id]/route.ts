@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { logger } from '@/lib/observability/logger';
 import {
@@ -23,7 +23,7 @@ export async function DELETE(
     const actorId = ctx.userId;
 
     // Rate limit check: 5/min per user
-    const rl = checkRateLimit(`delete:${actorId}`, RATE_LIMITS.patientDelete);
+    const rl = await checkRateLimit(`delete:${actorId}`, RATE_LIMITS.patientDelete);
     if (!rl.success) return rateLimitResponse(rl);
 
     const { id: patientId } = await params;
@@ -36,7 +36,7 @@ export async function DELETE(
       );
     }
 
-    const db = appwriteAdmin();
+    const db = getAdminClient();
 
     // 2. Atomic deletion + audit event within a single PostgreSQL transaction via RPC
     const { error: rpcErr } = await db.rpc('delete_patient_atomic', {

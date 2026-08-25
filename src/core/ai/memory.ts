@@ -5,7 +5,7 @@
  * and memory compaction for the AI Engine.
  */
 
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import type { AiMessage } from './provider';
 
 export interface ConversationMemoryContext {
@@ -22,7 +22,7 @@ export async function getConversationMemory(
   contactId: string,
   limit: number = 10
 ): Promise<ConversationMemoryContext> {
-  const db = appwriteAdmin();
+  const db = getAdminClient();
 
   // Tenant-isolated query for contact
   const { data: contact } = await db

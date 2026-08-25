@@ -4,7 +4,7 @@
  * Post-visit rebooking reminders and retention workflows.
  */
 
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { coreEvents } from '@/core/events';
 
 export interface SalonFollowUp {

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { logger } from '@/lib/observability/logger';
 import { scrubSensitiveFields } from '@/lib/privacy/consent-service';
@@ -47,7 +47,7 @@ export async function GET(
     const actorId = ctx.userId;
 
     // Rate limit check: 10/min per user
-    const rl = checkRateLimit(`export:${actorId}`, RATE_LIMITS.patientExport);
+    const rl = await checkRateLimit(`export:${actorId}`, RATE_LIMITS.patientExport);
     if (!rl.success) return rateLimitResponse(rl);
 
     const { id: patientId } = await params;
@@ -60,7 +60,7 @@ export async function GET(
       );
     }
 
-    const db = appwriteAdmin();
+    const db = getAdminClient();
 
     // 2. Fetch patient — scoped by server-derived accountId
     const { data: patient, error: fetchErr } = await db

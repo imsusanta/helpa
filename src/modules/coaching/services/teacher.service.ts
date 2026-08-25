@@ -4,7 +4,7 @@
  * Faculty directory, subject specializations, and course assignments.
  */
 
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 
 export interface TeacherRecord {
   id: string;

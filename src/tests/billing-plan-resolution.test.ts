@@ -4,7 +4,7 @@ import {
   findPlanBySlug,
   getPlanBySlug,
 } from '@/core/billing/plans';
-import * as appwriteCompat from '@/lib/appwrite-server-compat';
+import * as appwriteCompat from '@/lib/db/server';
 
 function mockEmptyPlanCatalog() {
   vi.spyOn(appwriteCompat, 'getAdminClient').mockReturnValue({

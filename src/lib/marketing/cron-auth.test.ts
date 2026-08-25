@@ -14,17 +14,17 @@ function get(url = 'https://helpa.test/api/cron/campaigns') {
 }
 
 describe('authorizeCronRequest', () => {
-  it('allows requests in non-production when no secret is configured', () => {
+  it('fails closed when CRON_SECRET is not configured', () => {
     delete process.env.CRON_SECRET;
     vi.stubEnv('NODE_ENV', 'test');
-    expect(get()).toBeNull();
+    expect(get()?.status).toBe(503);
   });
 
   it('fails closed in production when CRON_SECRET is unset', () => {
     delete process.env.CRON_SECRET;
     vi.stubEnv('NODE_ENV', 'production');
     const res = get();
-    expect(res?.status).toBe(401);
+    expect(res?.status).toBe(503);
   });
 
   it('rejects missing or wrong bearer tokens', async () => {
@@ -45,6 +45,17 @@ describe('authorizeCronRequest', () => {
       authorizeCronRequest(
         new Request('https://helpa.test/api/cron/campaigns', {
           headers: { authorization: 'Bearer expected-secret' },
+        })
+      )
+    ).toBeNull();
+  });
+
+  it('accepts the secret from x-cron-secret', () => {
+    process.env.CRON_SECRET = 'expected-secret';
+    expect(
+      authorizeCronRequest(
+        new Request('https://helpa.test/api/cron/campaigns', {
+          headers: { 'x-cron-secret': 'expected-secret' },
         })
       )
     ).toBeNull();

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AppwriteClient } from '@/lib/appwrite-compat';
+import type { AppwriteClient } from '@/lib/db/client';
 import {
   handleTemplateWebhookChange,
   isTemplateWebhookField,

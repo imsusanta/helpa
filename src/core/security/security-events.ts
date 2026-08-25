@@ -6,7 +6,7 @@
  */
 
 import { SecurityEvent } from './types';
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { coreEvents } from '@/core/events';
 
 export async function recordSecurityEvent(

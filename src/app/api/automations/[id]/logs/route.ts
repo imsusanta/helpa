@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 
 export async function GET(
@@ -9,7 +9,7 @@ export async function GET(
   const { id } = await params;
   try {
     const context = await requireRole('viewer');
-    const admin = appwriteAdmin();
+    const admin = getAdminClient();
     const { data: automation, error: automationError } = await admin
       .from('automations')
       .select('*')

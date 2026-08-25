@@ -2,33 +2,21 @@
 
 ## 1. Automated Backups
 
-Appwrite provides automated daily backups with point-in-time recovery (PITR) enabled.
+Use **Supabase** automated backups and, on paid production plans, point-in-time recovery (PITR). Enable PITR in the Supabase project settings; this is not Appwrite Cloud.
 
-### On-Demand Snapshot Command
+### On-Demand Dump
 
-```bash
-appwrite db dump -f appwrite_backup_$(date +%Y%m%d_%H%M%S).sql
-```
+Prefer the Supabase dashboard backup download, or `pg_dump` against the pooler/direct Postgres URL from the Supabase project settings. Store dumps off-project with encryption at rest.
 
-## 2. Restore Procedure
+Do not use `appwrite db dump` — that CLI and backend are not part of this runtime.
 
-To restore a snapshot to a target PostgreSQL database:
+## 2. Restore
 
-```bash
-psql -h <db_host> -U postgres -d postgres -f appwrite_backup_YYYYMMDD_HHMMSS.sql
-```
+1. Restore the Supabase project from a snapshot or PITR timestamp.
+2. Redeploy the Next.js app (`npm run build` / platform deploy) against the restored project URL and keys.
+3. Confirm `/api/health`, login, and a tenant-scoped inbox read.
+4. Resume `npm run worker` and cron schedulers.
 
-## 3. Webhook Dead-Letter Queue Triage
+## 3. RPO / RTO
 
-When an unrecoverable webhook failure occurs:
-
-1. Inspect the `webhook_dead_letter` table:
-   ```sql
-   SELECT event_id, error_message, failed_at FROM webhook_dead_letter WHERE resolved = false;
-   ```
-2. Correct the underlying configuration (e.g. rotate expired Meta access token).
-3. Replay the event using the durable replay utility.
-4. Mark the dead letter as resolved:
-   ```sql
-   UPDATE webhook_dead_letter SET resolved = true, resolved_at = now() WHERE event_id = 'EVENT_ID';
-   ```
+RPO is bounded by Supabase WAL retention for the chosen plan. RTO is the time to restore the project plus a new app deploy. Record the last successful restore drill in the ops log.

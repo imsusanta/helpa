@@ -5,7 +5,7 @@
  * expiring access tokens, and automated WhatsApp delivery.
  */
 
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { sendWhatsAppMessage } from '@/core/whatsapp';
 import { generateDocumentToken, verifyDocumentToken } from '@/lib/pdf-signing';
 import { coreEvents } from '@/core/events';

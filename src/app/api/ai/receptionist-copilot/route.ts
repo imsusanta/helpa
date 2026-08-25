@@ -244,7 +244,7 @@ export async function POST(request: Request) {
   try {
     const ctx = await requireRole('viewer');
 
-    const limit = checkRateLimit(
+    const limit = await checkRateLimit(
       `ai-copilot:${ctx.userId}`,
       RATE_LIMITS.adminAction
     );

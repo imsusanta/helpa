@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { resolveTenantVoiceConfig } from '@/core/providers/voice/credential-resolver';
-import { voiceRepository } from '@/infrastructure/appwrite/repositories/voice.repository';
+import { voiceRepository } from '@/lib/db/repositories';
 import { encrypt } from '@/lib/whatsapp/encryption';
 import { VoiceProviderError } from '@/core/providers/voice/voice-provider.interface';
 
-vi.mock('@/infrastructure/appwrite/repositories/voice.repository', () => ({
+vi.mock('@/lib/db/repositories', () => ({
   voiceRepository: {
     findIntegration: vi.fn(),
   },

@@ -5,7 +5,7 @@
  * reminder scheduling, and cancellation/rescheduling.
  */
 
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { coreEvents } from '@/core/events';
 import { createOrFindPatient } from './patient.service';
 import { getDoctorSlotAvailability, listClinicDoctors } from './doctor.service';

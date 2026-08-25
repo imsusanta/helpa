@@ -6,35 +6,31 @@ import {
   CalendlyBookingRequest,
 } from './calendly-provider.interface';
 import { CalendlyEvent } from '../../types';
-import { getAppwriteAdminClient } from '@/infrastructure/appwrite/server';
-import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
-import { Query, ID } from 'node-appwrite';
 import { encrypt, decrypt } from '@/lib/whatsapp/encryption';
 import crypto from 'crypto';
+import { getAdminClient } from '@/lib/db/server';
 
 export class DefaultCalendlyProvider implements CalendlyProvider {
   private baseUrl = 'https://api.calendly.com';
 
   private async getAccessToken(account_id: string): Promise<string> {
-    const { databases } = getAppwriteAdminClient();
-    const res = await databases.listDocuments(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.calendlyConnections,
-      [Query.equal('accountId', account_id), Query.limit(1)]
-    );
+    const { data: conn, error } = await getAdminClient()
+      .from('calendly_connections')
+      .select('*')
+      .eq('account_id', account_id)
+      .limit(1)
+      .maybeSingle();
 
-    if (res.documents.length === 0) {
+    if (error || !conn) {
       throw new Error(
         `Calendly connection not found for account ${account_id}`
       );
     }
 
-    const conn = res.documents[0] as any;
-    return decrypt(conn.encryptedAccessToken || conn.encrypted_access_token);
+    return decrypt(conn.encrypted_access_token || conn.encryptedAccessToken);
   }
 
   async connect(clinicId: string, authCode: string): Promise<boolean> {
-    const { databases } = getAppwriteAdminClient();
     const clientId = process.env.CALENDLY_CLIENT_ID || 'dummy_client_id';
     const clientSecret = process.env.CALENDLY_CLIENT_SECRET || 'dummy_secret';
     const redirectUri =
@@ -64,18 +60,13 @@ export class DefaultCalendlyProvider implements CalendlyProvider {
     const encryptedAccess = encrypt(accessToken);
     const encryptedRefresh = encrypt(refreshToken);
 
-    await databases.createDocument(
-      APPWRITE_CONFIG.databaseId,
-      APPWRITE_CONFIG.collections.calendlyConnections,
-      ID.unique(),
-      {
-        accountId: clinicId,
-        encryptedAccessToken: encryptedAccess,
-        encryptedRefreshToken: encryptedRefresh,
-        status: 'active',
-        lastSyncedAt: new Date().toISOString(),
-      }
-    );
+    await getAdminClient().from('calendly_connections').insert({
+      account_id: clinicId,
+      encrypted_access_token: encryptedAccess,
+      encrypted_refresh_token: encryptedRefresh,
+      status: 'active',
+      last_synced_at: new Date().toISOString(),
+    });
 
     return true;
   }

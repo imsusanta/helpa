@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getVoiceProvider } from '@/core/providers/voice/provider-factory';
-import { AppwriteVoiceOutboxWorker } from '@/lib/voice/voice-outbox-worker';
+import { VoiceOutboxWorker } from '@/lib/voice/voice-outbox-worker';
 
 export interface VoiceHealthResponse {
   configured: boolean;
@@ -55,7 +55,7 @@ export async function GET() {
     deadLetterCount: 0,
   };
   try {
-    outboxMetrics = await AppwriteVoiceOutboxWorker.getHealthMetrics();
+    outboxMetrics = await VoiceOutboxWorker.getHealthMetrics();
   } catch {
     // Voice worker offline
   }

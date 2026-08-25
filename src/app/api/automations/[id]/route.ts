@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import {
   loadStepsTree,
@@ -23,7 +23,7 @@ export async function GET(
     return toErrorResponse(error);
   }
 
-  const admin = appwriteAdmin();
+  const admin = getAdminClient();
   const { data: automation, error } = await admin
     .from('automations')
     .select('*')
@@ -56,7 +56,7 @@ export async function PATCH(
   if (!body)
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
 
-  const admin = appwriteAdmin();
+  const admin = getAdminClient();
 
   // Ownership check before we touch anything. Load the fields we need
   // to compute the post-patch "effective" state for validation.
@@ -145,7 +145,7 @@ export async function DELETE(
     return toErrorResponse(error);
   }
 
-  const admin = appwriteAdmin();
+  const admin = getAdminClient();
   const { data: existing } = await admin
     .from('automations')
     .select('id')

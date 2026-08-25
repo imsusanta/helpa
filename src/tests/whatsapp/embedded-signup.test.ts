@@ -53,14 +53,18 @@ describe('Meta WhatsApp Embedded Signup & 1-Click Onboarding (Supabase)', () => 
       accountId: tenantA.id,
       role: 'admin',
       account: { id: tenantA.id, name: tenantA.name } as never,
-    });
+      admin: {},
+      appwrite: {},
+    } as never);
 
     vi.spyOn(authAccount, 'getCurrentAccount').mockResolvedValue({
       userId: tenantA.userId,
       accountId: tenantA.id,
       role: 'admin',
       account: { id: tenantA.id, name: tenantA.name } as never,
-    });
+      admin: {},
+      appwrite: {},
+    } as never);
 
     // Mock Supabase server database client
     vi.spyOn(supabaseServer, 'getAdminClient').mockReturnValue({

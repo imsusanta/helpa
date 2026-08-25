@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
-import { createClient, getAdminClient } from '@/lib/appwrite-server-compat';
+import { createClient, getAdminClient } from '@/lib/db/server';
 import { verifyPdfToken } from '@/lib/pdf-signing';
 
 export async function GET(

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/appwrite-server-compat';
+import { createClient } from '@/lib/db/server';
 import { getCurrentAccount } from '@/lib/auth/account';
 import { getMediaUrl, downloadMedia } from '@/lib/whatsapp/meta-api';
 import { decrypt } from '@/lib/whatsapp/encryption';

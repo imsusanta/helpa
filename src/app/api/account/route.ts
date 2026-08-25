@@ -16,7 +16,7 @@ import {
   getCurrentAccount,
   toErrorResponse,
 } from '@/lib/auth/account';
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import {
   checkRateLimit,
   rateLimitResponse,
@@ -43,7 +43,7 @@ export async function PATCH(request: Request) {
   try {
     const ctx = await requireRole('admin');
 
-    const limit = checkRateLimit(
+    const limit = await checkRateLimit(
       `admin:update:${ctx.userId}`,
       RATE_LIMITS.adminAction
     );
@@ -112,7 +112,7 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const admin = appwriteAdmin();
+    const admin = getAdminClient();
 
     // Verify authenticated user has admin role in this specific account
     const { data: profileCheck, error: pErr } = await admin

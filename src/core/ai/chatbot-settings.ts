@@ -16,7 +16,7 @@
  * and every API route that reads/writes it is role-gated. The admin client
  * bypasses RLS the same way the existing account/ai route does.
  */
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 
 export type ResponseStyle = 'concise' | 'balanced' | 'detailed';
 
@@ -38,7 +38,7 @@ const RESPONSE_STYLES: readonly ResponseStyle[] = [
   'detailed',
 ];
 
-type ChatbotDb = ReturnType<typeof appwriteAdmin>;
+type ChatbotDb = ReturnType<typeof getAdminClient>;
 
 function settingKeys(accountId: string) {
   return {
@@ -53,7 +53,7 @@ function settingKeys(accountId: string) {
  */
 export async function getAccountChatbotSettings(
   accountId: string,
-  db: ChatbotDb = appwriteAdmin()
+  db: ChatbotDb = getAdminClient()
 ): Promise<ChatbotSettings> {
   if (!accountId) return { ...DEFAULT_CHATBOT_SETTINGS };
   try {
@@ -99,7 +99,7 @@ export async function getAccountChatbotSettings(
 export async function updateAccountChatbotSettings(
   accountId: string,
   patch: Partial<ChatbotSettings>,
-  db: ChatbotDb = appwriteAdmin()
+  db: ChatbotDb = getAdminClient()
 ): Promise<ChatbotSettings> {
   const current = await getAccountChatbotSettings(accountId, db);
   const next: ChatbotSettings = {

@@ -104,7 +104,7 @@ export async function POST(
       );
     }
 
-    const rl = checkRateLimit(
+    const rl = await checkRateLimit(
       `public-form:${clientIp(request)}`,
       PUBLIC_FORM_RATE_LIMIT
     );

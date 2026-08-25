@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth/account';
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import {
   checkRateLimit,
   rateLimitResponse,
@@ -20,7 +20,7 @@ const RESPONSE_STYLES: ResponseStyle[] = ['concise', 'balanced', 'detailed'];
 export async function GET() {
   try {
     const ctx = await requireRole('admin');
-    const db = appwriteAdmin();
+    const db = getAdminClient();
 
     // Verify authenticated user's active membership and admin role for this specific account
     const { data: profileCheck, error: pErr } = await db
@@ -132,7 +132,7 @@ export async function GET() {
 export async function PATCH(request: Request) {
   try {
     const ctx = await requireRole('admin');
-    const db = appwriteAdmin();
+    const db = getAdminClient();
 
     // Strict account ownership and admin role verification
     const { data: profileCheck, error: pErr } = await db
@@ -163,7 +163,7 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const limit = checkRateLimit(
+    const limit = await checkRateLimit(
       `admin:ai-config:${ctx.userId}`,
       RATE_LIMITS.adminAction
     );

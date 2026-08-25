@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/appwrite-server-compat';
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { createClient } from '@/lib/db/server';
+import { getAdminClient } from '@/lib/db/server';
 
 /**
  * GET   /api/flows/[id]  — fetch one flow with its nodes.
@@ -103,7 +103,7 @@ export async function PUT(
     );
   }
 
-  const admin = appwriteAdmin();
+  const admin = getAdminClient();
 
   // Update the flow row first — the body may not include `nodes` (a
   // header-only save for editing the trigger config without touching
@@ -183,7 +183,7 @@ export async function DELETE(
   // mechanism in v1, but that's intentional: deleting a flow is a
   // deliberate destructive action and the partial unique index will
   // free up the contact for new triggers immediately.
-  const { error } = await appwriteAdmin().from('flows').delete().eq('id', id);
+  const { error } = await getAdminClient().from('flows').delete().eq('id', id);
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

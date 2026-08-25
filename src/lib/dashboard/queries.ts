@@ -1,4 +1,4 @@
-import type { AppwriteClient } from '@/lib/appwrite-compat';
+import type { AppwriteClient } from '@/lib/db/client';
 import {
   daysAgoStart,
   DOW_SHORT_MON_FIRST,

@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import {
   engineSendText,
   engineSendDocument,
 } from '@/lib/automations/meta-send';
-import { authorizeCronRequest } from '@/lib/marketing/cron-auth';
+import { authorizeCronRequest } from '@/lib/cron/security';
 
 // Helper to calculate next recurring date
 function getNextRecurringDate(
@@ -23,12 +23,17 @@ function getNextRecurringDate(
 }
 
 export async function GET(request: Request) {
-  const denied = authorizeCronRequest(request);
-  if (denied) return denied;
+  const authorization = authorizeCronRequest(request);
+  if (!authorization.authorized) {
+    return NextResponse.json(
+      { error: authorization.message },
+      { status: authorization.status }
+    );
+  }
 
   console.log('[Cron Campaigns] Executing cron automation triggers...');
 
-  const db = appwriteAdmin();
+  const db = getAdminClient();
   let totalDispatched = 0;
   let totalAutomatedReviews = 0;
   let totalAutomatedFollowups = 0;
@@ -51,11 +56,23 @@ export async function GET(request: Request) {
 
       for (const campaign of scheduledCampaigns) {
         try {
+          if (!campaign.account_id) {
+            await db
+              .from('broadcasts')
+              .update({ status: 'failed', failed_count: 1 })
+              .eq('id', campaign.id);
+            errors.push(`Campaign ${campaign.id}: missing account_id`);
+            continue;
+          }
+
+          const campaignAccountId = String(campaign.account_id);
+
           // Set to sending
           await db
             .from('broadcasts')
             .update({ status: 'sending' })
-            .eq('id', campaign.id);
+            .eq('id', campaign.id)
+            .eq('account_id', campaignAccountId);
 
           // Get the audience filter settings
           const filter = (campaign.audience_filter || {}) as Record<
@@ -79,7 +96,10 @@ export async function GET(request: Request) {
           if (snapIds.length > 0) {
             patientIds = snapIds;
           } else if (filter.type === 'all') {
-            const { data } = await db.from('contacts').select('id');
+            const { data } = await db
+              .from('contacts')
+              .select('id')
+              .eq('account_id', campaignAccountId);
             patientIds = (data || []).map((c) => c.id);
           } else if (filter.type === 'new_patients') {
             const thirtyDaysAgo = new Date();
@@ -87,12 +107,14 @@ export async function GET(request: Request) {
             const { data } = await db
               .from('contacts')
               .select('id')
+              .eq('account_id', campaignAccountId)
               .gte('created_at', thirtyDaysAgo.toISOString());
             patientIds = (data || []).map((c) => c.id);
           } else if (filter.type === 'returning_patients') {
             const { data: appts } = await db
               .from('appointments')
-              .select('patient_id');
+              .select('patient_id')
+              .eq('account_id', campaignAccountId);
             const counts: Record<string, number> = {};
             appts?.forEach((r) => {
               counts[r.patient_id] = (counts[r.patient_id] || 0) + 1;
@@ -103,6 +125,7 @@ export async function GET(request: Request) {
             const { data: appts } = await db
               .from('appointments')
               .select('patient_id')
+              .eq('account_id', campaignAccountId)
               .gte('appointment_date', todayStr);
             patientIds = [
               ...new Set(
@@ -116,6 +139,7 @@ export async function GET(request: Request) {
             const { data: appts } = await db
               .from('appointments')
               .select('patient_id')
+              .eq('account_id', campaignAccountId)
               .or(
                 `status.eq.no_show,status.eq.Cancelled,and(status.eq.pending,appointment_date.lt.${todayStr})`
               );
@@ -127,29 +151,38 @@ export async function GET(request: Request) {
               ),
             ] as string[];
           } else if (filter.type === 'due_followup') {
-            const { data: pats } = await db.from('patients').select('id');
+            const { data: pats } = await db
+              .from('patients')
+              .select('id')
+              .eq('account_id', campaignAccountId);
             patientIds = (pats || []).map((p) => p.id);
           } else if (filter.type === 'by_department' && filter.department) {
             const { data: pats } = await db
               .from('patients')
               .select('id')
+              .eq('account_id', campaignAccountId)
               .eq('department', filter.department);
             patientIds = (pats || []).map((p) => p.id);
           } else if (filter.type === 'by_doctor' && filter.doctorId) {
             const { data: pats } = await db
               .from('patients')
               .select('id')
+              .eq('account_id', campaignAccountId)
               .eq('assigned_doctor_id', filter.doctorId);
             patientIds = (pats || []).map((p) => p.id);
           } else if (filter.type === 'by_gender' && filter.gender) {
             const { data: pats } = await db
               .from('patients')
               .select('id')
+              .eq('account_id', campaignAccountId)
               .eq('gender', filter.gender);
             patientIds = (pats || []).map((p) => p.id);
           } else if (filter.type === 'by_age') {
             const nowYear = new Date().getFullYear();
-            let query = db.from('patients').select('id');
+            let query = db
+              .from('patients')
+              .select('id')
+              .eq('account_id', campaignAccountId);
             if (filter.ageMin !== undefined) {
               const maxDob = new Date();
               maxDob.setFullYear(nowYear - Number(filter.ageMin));
@@ -174,20 +207,23 @@ export async function GET(request: Request) {
             await db
               .from('broadcasts')
               .update({ status: 'failed', failed_count: 1 })
-              .eq('id', campaign.id);
+              .eq('id', campaign.id)
+              .eq('account_id', campaignAccountId);
             continue;
           }
 
-          // Fetch recipient contacts
+          // Fetch recipient contacts belonging to this campaign's tenant only.
           const { data: contacts } = await db
             .from('contacts')
             .select('*')
+            .eq('account_id', campaignAccountId)
             .in('id', patientIds);
           if (!contacts || contacts.length === 0) {
             await db
               .from('broadcasts')
               .update({ status: 'failed', failed_count: 1 })
-              .eq('id', campaign.id);
+              .eq('id', campaign.id)
+              .eq('account_id', campaignAccountId);
             continue;
           }
 
@@ -215,13 +251,14 @@ export async function GET(request: Request) {
               let { data: conv } = await db
                 .from('conversations')
                 .select('id')
+                .eq('account_id', campaignAccountId)
                 .eq('contact_id', contact.id)
-                .single();
+                .maybeSingle();
               if (!conv) {
                 const { data: newConv } = await db
                   .from('conversations')
                   .insert({
-                    account_id: campaign.account_id,
+                    account_id: campaignAccountId,
                     contact_id: contact.id,
                     status: 'open',
                   })
@@ -254,7 +291,7 @@ export async function GET(request: Request) {
               // Send PDF/Image attachment if specified
               if (campaign.attachment_url) {
                 await engineSendDocument({
-                  accountId: campaign.account_id,
+                  accountId: campaignAccountId,
                   userId: '00000000-0000-0000-0000-000000000000',
                   conversationId: conv.id,
                   contactId: contact.id,
@@ -264,7 +301,7 @@ export async function GET(request: Request) {
                 });
               } else {
                 await engineSendText({
-                  accountId: campaign.account_id,
+                  accountId: campaignAccountId,
                   userId: '00000000-0000-0000-0000-000000000000',
                   conversationId: conv.id,
                   contactId: contact.id,
@@ -297,7 +334,8 @@ export async function GET(request: Request) {
               sent_count: sentCount,
               failed_count: failedCount,
             })
-            .eq('id', campaign.id);
+            .eq('id', campaign.id)
+            .eq('account_id', campaignAccountId);
 
           totalDispatched++;
 
@@ -350,7 +388,8 @@ export async function GET(request: Request) {
           await db
             .from('broadcasts')
             .update({ status: 'failed' })
-            .eq('id', campaign.id);
+            .eq('id', campaign.id)
+            .eq('account_id', campaign.account_id);
         }
       }
     }
@@ -377,11 +416,13 @@ export async function GET(request: Request) {
       );
       for (const appt of yesterdayAppts) {
         try {
+          if (!appt.account_id) continue;
           const { data: contact } = await db
             .from('contacts')
             .select('*')
             .eq('id', appt.patient_id)
-            .single();
+            .eq('account_id', appt.account_id)
+            .maybeSingle();
           const { data: account } = await db
             .from('accounts')
             .select('name, review_link')
@@ -392,8 +433,9 @@ export async function GET(request: Request) {
             let { data: conv } = await db
               .from('conversations')
               .select('id')
+              .eq('account_id', appt.account_id)
               .eq('contact_id', contact.id)
-              .single();
+              .maybeSingle();
             if (!conv) {
               const { data: newConv } = await db
                 .from('conversations')
@@ -446,7 +488,8 @@ Your support helps us serve you better!`;
           await db
             .from('appointments')
             .update({ review_request_sent: true })
-            .eq('id', appt.id);
+            .eq('id', appt.id)
+            .eq('account_id', appt.account_id);
         } catch (apptErr) {
           console.error(
             `[Cron Campaigns] Review campaign error on appt ${appt.id}:`,
@@ -484,11 +527,12 @@ Your support helps us serve you better!`;
               ? patient.contact[0]
               : patient.contact
           ) as { id: string; name?: string; phone?: string } | null;
-          if (contact && contact.phone) {
+          if (contact && contact.phone && patient.account_id) {
             // Confirm they don't have any appointments in the last 6 months
             const { count } = await db
               .from('appointments')
               .select('id', { count: 'exact', head: true })
+              .eq('account_id', patient.account_id)
               .eq('patient_id', patient.id)
               .gte('appointment_date', sixMonthsAgoStr);
 
@@ -497,8 +541,9 @@ Your support helps us serve you better!`;
               let { data: conv } = await db
                 .from('conversations')
                 .select('id')
+                .eq('account_id', patient.account_id)
                 .eq('contact_id', contact.id)
-                .single();
+                .maybeSingle();
               if (!conv) {
                 const { data: newConv } = await db
                   .from('conversations')
@@ -548,7 +593,8 @@ Would you like to schedule a follow-up consultation?
               await db
                 .from('patients')
                 .update({ last_followup_sent_at: new Date().toISOString() })
-                .eq('id', patient.id);
+                .eq('id', patient.id)
+                .eq('account_id', patient.account_id);
             }
           }
         } catch (patErr) {

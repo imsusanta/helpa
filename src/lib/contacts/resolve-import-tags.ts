@@ -1,4 +1,4 @@
-import type { AppwriteClient } from '@/lib/appwrite-compat';
+import type { AppwriteClient } from '@/lib/db/client';
 
 const DEFAULT_TAG_COLOR = '#3b82f6';
 

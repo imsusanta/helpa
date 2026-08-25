@@ -68,7 +68,7 @@ export async function POST(request: Request) {
   try {
     const ctx = await requireRole('agent');
 
-    const limit = checkRateLimit(
+    const limit = await checkRateLimit(
       `agent:kb-create:${ctx.userId}`,
       RATE_LIMITS.adminAction
     );
@@ -140,7 +140,7 @@ export async function PATCH(request: Request) {
   try {
     const ctx = await requireRole('agent');
 
-    const limit = checkRateLimit(
+    const limit = await checkRateLimit(
       `agent:kb-update:${ctx.userId}`,
       RATE_LIMITS.adminAction
     );
@@ -228,7 +228,7 @@ export async function DELETE(request: Request) {
   try {
     const ctx = await requireRole('agent');
 
-    const limit = checkRateLimit(
+    const limit = await checkRateLimit(
       `agent:kb-delete:${ctx.userId}`,
       RATE_LIMITS.adminAction
     );

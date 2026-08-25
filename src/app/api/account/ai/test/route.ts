@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import {
   checkRateLimit,
@@ -14,9 +14,9 @@ import type { AiProviderName } from '@/core/ai/types';
 export async function POST(request: Request) {
   try {
     const ctx = await requireRole('admin');
-    const db = appwriteAdmin();
+    const db = getAdminClient();
 
-    const limit = checkRateLimit(
+    const limit = await checkRateLimit(
       `admin:ai-test:${ctx.userId}`,
       RATE_LIMITS.adminAction
     );

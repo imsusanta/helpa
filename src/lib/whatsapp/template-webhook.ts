@@ -27,7 +27,7 @@
  * warning so operators can investigate.
  */
 
-import type { AppwriteClient } from '@/lib/appwrite-compat';
+import type { AppwriteClient } from '@/lib/db/client';
 import { normalizeStatus } from './template-status-normalize';
 
 const TEMPLATE_WEBHOOK_FIELDS = new Set([

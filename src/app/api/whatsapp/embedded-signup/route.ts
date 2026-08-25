@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     const accountId = ctx.accountId;
     const userId = ctx.userId;
 
-    const rateLimit = checkRateLimit(
+    const rateLimit = await checkRateLimit(
       `embedded_signup_${userId}`,
       RATE_LIMITS.adminAction
     );

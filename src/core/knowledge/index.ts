@@ -5,7 +5,7 @@
  * and AI context formatting.
  */
 
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 
 export interface KnowledgeItem {
   id?: string;
@@ -19,7 +19,7 @@ export async function getRelevantKnowledge(
   queryText?: string,
   limit: number = 20
 ): Promise<KnowledgeItem[]> {
-  const db = appwriteAdmin();
+  const db = getAdminClient();
 
   const { data: items, error } = await db
     .from('knowledge_base')

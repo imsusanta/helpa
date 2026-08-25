@@ -8,7 +8,7 @@
  */
 
 import { decrypt } from '@/lib/whatsapp/encryption';
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { isRetryableAiError, HelpaAiError, normalizeAiError } from './errors';
 import { sanitizeModelIdentifier } from './validation';
 import {
@@ -71,7 +71,7 @@ export async function resolveAccountAiConfig(
   let featureRouting: Record<string, string> = {};
 
   try {
-    const db = appwriteAdmin();
+    const db = getAdminClient();
 
     // 1. Check Super Admin Central AI Infrastructure in system_settings
     const { data: sysSettings } = await db

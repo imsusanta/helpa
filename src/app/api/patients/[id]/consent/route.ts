@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { logger } from '@/lib/observability/logger';
 
@@ -52,7 +52,7 @@ export async function POST(
       );
     }
 
-    const db = appwriteAdmin();
+    const db = getAdminClient();
 
     // 2. Atomic consent update + audit via RPC (scoped by server-derived accountId)
     const { data: rpcResult, error: rpcErr } = await db.rpc(

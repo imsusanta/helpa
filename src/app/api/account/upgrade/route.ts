@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentAccount, toErrorResponse } from '@/lib/auth/account';
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { getPlanBySlug } from '@/core/billing/plans';
 import {
   checkPlanLimits,
