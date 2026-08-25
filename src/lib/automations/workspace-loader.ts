@@ -35,7 +35,9 @@ export function createAutomationWorkspaceLoader(
         );
       }
       if (currentGeneration !== generation || controller.signal.aborted) return;
-      applyResult({ automations: (payload?.automations ?? []) as Automation[] });
+      applyResult({
+        automations: (payload?.automations ?? []) as Automation[],
+      });
     } catch (error) {
       if (currentGeneration !== generation || controller.signal.aborted) return;
       applyResult({
