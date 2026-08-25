@@ -117,8 +117,8 @@ vi.mock('@/lib/auth/account', () => ({
   toErrorResponse: (error: Error) =>
     Response.json({ error: error.message }, { status: 401 }),
 }));
-vi.mock('@/lib/appwrite-server-compat', () => ({
-  appwriteAdmin: () => database,
+vi.mock('@/lib/db/server', () => ({
+  getAdminClient: () => database,
   createClient: async () => database,
 }));
 vi.mock('@/lib/supabase/server', () => ({ getAdminClient: () => database }));

@@ -19,7 +19,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
-import { createClient } from '@/lib/appwrite-compat';
+import { createClient } from '@/lib/db/client';
 import { Button } from '@/components/ui/button';
 import {
   Card,

@@ -1,23 +1,13 @@
 /**
- * In-memory per-key rate limiter.
+ * Per-key rate limiter.
  *
- * Fixed-window counter (not token bucket): every identifier gets a
- * fresh N-request budget each window. Simple, allocation-light, and
- * fine for a single-instance VPS — which is how forkers of this
- * template will usually deploy.
+ * Fixed-window counter: every identifier gets a fresh N-request budget
+ * each window. When REDIS_URL is configured the counter is shared across
+ * instances (required on serverless / multi-node). Without Redis it falls
+ * back to an in-process Map so local development and unit tests still work.
  *
- * Trade-off: a single Node process holds the Map, so horizontal scale
- * (multiple regions, multiple Hostinger nodes, appwrite-sites serverless fan-
- * out) silently defeats the limit. If you scale beyond one instance,
- * swap the `check` implementation for Redis / Upstash / Cloudflare
- * Durable Objects keeping the same return shape. The call sites won't
- * change.
- *
- * Memory: entries are ~50 bytes each. With LIGHT_SWEEP below, expired
- * keys get cleared opportunistically on every ~1 000th call, so a
- * healthy instance stays in the low-MB range even with thousands of
- * distinct users. No background timer — works in serverless edge
- * runtimes that don't keep timers alive across requests.
+ * Call sites always `await checkRateLimit(...)` — the return shape is
+ * unchanged so swapping backends is transparent.
  */
 
 import { NextResponse } from 'next/server';
@@ -43,13 +33,32 @@ interface Entry {
   resetAt: number;
 }
 
+interface RedisEvalClient {
+  eval(
+    script: string,
+    options: { keys: string[]; arguments: string[] }
+  ): Promise<unknown>;
+  isOpen?: boolean;
+  connect?: () => Promise<unknown>;
+  on?: (event: string, listener: (...args: unknown[]) => void) => unknown;
+}
+
 const buckets = new Map<string, Entry>();
 
-// Opportunistic cleanup. Running a sweep on every call would be
-// quadratic; running it 1-in-N lets the Map self-drain without a
-// background timer.
 const LIGHT_SWEEP_EVERY = 1000;
 let callsSinceSweep = 0;
+let redisClient: RedisEvalClient | null = null;
+let redisConnectPromise: Promise<RedisEvalClient | null> | null = null;
+let redisLoggedFailure = false;
+
+const REDIS_INCR_EXPIRE = `
+local current = redis.call("INCR", KEYS[1])
+if current == 1 then
+  redis.call("PEXPIRE", KEYS[1], ARGV[1])
+end
+local ttl = redis.call("PTTL", KEYS[1])
+return {current, ttl}
+`;
 
 function sweepExpired(now: number) {
   for (const [k, v] of buckets) {
@@ -57,7 +66,7 @@ function sweepExpired(now: number) {
   }
 }
 
-export function checkRateLimit(
+function checkMemory(
   key: string,
   { limit, windowMs }: RateLimitOptions
 ): RateLimitResult {
@@ -92,6 +101,93 @@ export function checkRateLimit(
     reset: entry.resetAt,
     limit,
   };
+}
+
+export function redisRateLimitEnabled(): boolean {
+  if (!process.env.REDIS_URL) return false;
+  if (process.env.VITEST || process.env.NODE_ENV === 'test') {
+    return process.env.RATE_LIMIT_USE_REDIS === '1';
+  }
+  return true;
+}
+
+async function getRedisClient(): Promise<RedisEvalClient | null> {
+  if (redisClient) return redisClient;
+  if (!redisRateLimitEnabled()) return null;
+  if (redisConnectPromise) return redisConnectPromise;
+
+  redisConnectPromise = (async () => {
+    try {
+      const { createClient } = await import('redis');
+      const client = createClient({ url: process.env.REDIS_URL }) as RedisEvalClient;
+      client.on?.('error', (err: unknown) => {
+        if (!redisLoggedFailure) {
+          redisLoggedFailure = true;
+          console.error('[rate-limit] Redis error, falling back to memory:', err);
+        }
+      });
+      if (client.connect && !client.isOpen) {
+        await client.connect();
+      }
+      redisClient = client;
+      return client;
+    } catch (err) {
+      if (!redisLoggedFailure) {
+        redisLoggedFailure = true;
+        console.error(
+          '[rate-limit] Redis unavailable, falling back to memory:',
+          err
+        );
+      }
+      return null;
+    }
+  })();
+
+  return redisConnectPromise;
+}
+
+async function checkRedis(
+  client: RedisEvalClient,
+  key: string,
+  { limit, windowMs }: RateLimitOptions
+): Promise<RateLimitResult | null> {
+  try {
+    const raw = await client.eval(REDIS_INCR_EXPIRE, {
+      keys: [`rl:${key}`],
+      arguments: [String(windowMs)],
+    });
+    const current = Number(Array.isArray(raw) ? raw[0] : 0);
+    const ttlMs = Number(Array.isArray(raw) ? raw[1] : windowMs);
+    const reset = Date.now() + Math.max(ttlMs, 1);
+    if (!Number.isFinite(current) || current <= 0) return null;
+    if (current > limit) {
+      return { success: false, remaining: 0, reset, limit };
+    }
+    return {
+      success: true,
+      remaining: Math.max(0, limit - current),
+      reset,
+      limit,
+    };
+  } catch (err) {
+    if (!redisLoggedFailure) {
+      redisLoggedFailure = true;
+      console.error('[rate-limit] Redis eval failed, falling back to memory:', err);
+    }
+    return null;
+  }
+}
+
+export async function checkRateLimit(
+  key: string,
+  options: RateLimitOptions
+): Promise<RateLimitResult> {
+  const client = await getRedisClient();
+  if (client) {
+    const redisResult = await checkRedis(client, key, options);
+    if (redisResult) return redisResult;
+  }
+  return checkMemory(key, options);
 }
 
 /**
@@ -162,4 +258,13 @@ export const RATE_LIMITS = {
 export function __resetRateLimitForTests() {
   buckets.clear();
   callsSinceSweep = 0;
+  redisClient = null;
+  redisConnectPromise = null;
+  redisLoggedFailure = false;
+}
+
+/** Test-only: inject a Redis-like client that implements `eval`. */
+export function __setRedisClientForTests(client: RedisEvalClient | null) {
+  redisClient = client;
+  redisConnectPromise = client ? Promise.resolve(client) : null;
 }

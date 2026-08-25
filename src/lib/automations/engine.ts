@@ -15,7 +15,7 @@ import type {
   CreateDealStepConfig,
   AssignConversationStepConfig,
 } from '@/types';
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { engineSendText, engineSendTemplate } from './meta-send';
 
 // ------------------------------------------------------------
@@ -61,7 +61,7 @@ export async function runAutomationsForTrigger(
   let replied = false;
   let executedCount = 0;
   try {
-    const db = appwriteAdmin();
+    const db = getAdminClient();
 
     // Tenant isolation. `contactId` can be caller-supplied (the manual
     // POST /api/automations/engine entrypoint reads it straight from the
@@ -143,7 +143,7 @@ export async function resumePendingExecution(pending: {
   next_step_position: number;
   context: AutomationContext;
 }): Promise<void> {
-  const db = appwriteAdmin();
+  const db = getAdminClient();
   const { data: automation, error } = await db
     .from('automations')
     .select('*')
@@ -188,7 +188,7 @@ async function executeAutomation(
   automation: Automation,
   input: DispatchInput
 ): Promise<{ replied: boolean }> {
-  const db = appwriteAdmin();
+  const db = getAdminClient();
 
   const { data: log, error: logErr } = await db
     .from('automation_logs')
@@ -276,7 +276,7 @@ async function executeStepsFrom(
   args: ExecuteArgs
 ): Promise<{ replied: boolean }> {
   let replied = false;
-  const db = appwriteAdmin();
+  const db = getAdminClient();
 
   const baseQuery = db
     .from('automation_steps')
@@ -406,7 +406,7 @@ async function runStep(
   step: AutomationStep,
   args: ExecuteArgs
 ): Promise<string> {
-  const db = appwriteAdmin();
+  const db = getAdminClient();
 
   switch (step.step_type) {
     case 'send_message': {
@@ -662,7 +662,7 @@ interface ConversationLoadRow {
 async function resolveRoundRobinAgent(
   accountId: string
 ): Promise<string | undefined> {
-  const db = appwriteAdmin();
+  const db = getAdminClient();
 
   const { data: memberRows } = await db
     .from('profiles')
@@ -905,7 +905,7 @@ async function resolveConversationId(args: ExecuteArgs): Promise<string> {
   if (fromCtx) return fromCtx;
   if (!args.contactId)
     throw new Error('cannot resolve conversation: no contact');
-  const { data, error } = await appwriteAdmin()
+  const { data, error } = await getAdminClient()
     .from('conversations')
     .select('id')
     .eq('account_id', args.automation.account_id)
@@ -971,7 +971,7 @@ async function evaluateCondition(
   cfg: ConditionStepConfig,
   args: ExecuteArgs
 ): Promise<boolean> {
-  const db = appwriteAdmin();
+  const db = getAdminClient();
   switch (cfg.subject) {
     case 'tag_presence': {
       if (!args.contactId || !cfg.operand) return false;
@@ -1086,7 +1086,7 @@ async function loadContactSnapshot(
 ): Promise<ContactSnapshot | null> {
   if (!args.contactId) return null;
   if (!args.contactCache.promise) {
-    args.contactCache.promise = appwriteAdmin()
+    args.contactCache.promise = getAdminClient()
       .from('contacts')
       .select('name, phone, email, company')
       .eq('id', args.contactId)
@@ -1188,7 +1188,7 @@ async function appendResults(
   errorMessage: string | null
 ) {
   if (!logId) return;
-  const db = appwriteAdmin();
+  const db = getAdminClient();
   // NOTE: read-modify-write. Two branches of the same run never execute
   // concurrently, so this is safe today, but a future parallel-branch
   // executor would need a jsonb append in SQL instead.
@@ -1217,14 +1217,14 @@ async function finalizeLog(
   errorMessage: string | null
 ) {
   if (!logId) return;
-  await appwriteAdmin()
+  await getAdminClient()
     .from('automation_logs')
     .update({ status, error_message: errorMessage })
     .eq('id', logId);
 }
 
 async function markPending(id: string, status: 'done' | 'failed') {
-  await appwriteAdmin()
+  await getAdminClient()
     .from('automation_pending_executions')
     .update({ status })
     .eq('id', id);

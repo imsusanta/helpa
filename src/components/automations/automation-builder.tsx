@@ -51,7 +51,7 @@ import type {
   MessageTemplate,
   Tag as TagRecord,
 } from '@/types';
-import { createClient } from '@/lib/appwrite-compat';
+import { createClient } from '@/lib/db/client';
 import { cn } from '@/lib/utils';
 
 // ------------------------------------------------------------

@@ -6,7 +6,7 @@
  * draft suggested replies, and quick actions.
  */
 
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 
 export interface SalonCopilotContext {
   customer: {

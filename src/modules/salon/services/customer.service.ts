@@ -5,7 +5,7 @@
  * preferred stylists/services tracking, visit history, and retention timelines.
  */
 
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 
 export interface SalonCustomerRecord {
   id: string;

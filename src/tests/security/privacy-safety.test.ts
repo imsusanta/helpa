@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-// AppwriteClient type removed — using Appwrite
+// Tenant isolation uses the Supabase-backed database client.
 import {
   withdrawPatientConsent,
   exportPatientData,
@@ -16,10 +16,10 @@ vi.mock('@/lib/auth/account', async () => {
   };
 });
 
-// Mock appwriteAdmin
-vi.mock('@/lib/appwrite-compat', () => {
+// Mock getAdminClient
+vi.mock('@/lib/db/client', () => {
   return {
-    appwriteAdmin: vi.fn().mockImplementation(() => ({
+    getAdminClient: vi.fn().mockImplementation(() => ({
       from: vi.fn().mockReturnThis(),
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
@@ -124,7 +124,9 @@ describe('Production Privacy, Data Protection & Retention Controls', () => {
         accountId: 'acc-1',
         role: 'admin',
         account: { id: 'acc-1', name: 'Acc 1' },
-      });
+        admin: {},
+        appwrite: {},
+      } as never);
 
       const req = new Request(
         'http://localhost:3000/api/patients/patient-001/consent',

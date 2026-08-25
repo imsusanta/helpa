@@ -3,7 +3,7 @@
  */
 
 import { SubscriptionPlan } from './types';
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 
 export class PlanNotFoundError extends Error {
   readonly code = 'PLAN_NOT_FOUND';

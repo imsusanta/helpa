@@ -5,7 +5,7 @@
  * tag management, and custom metadata.
  */
 
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { normalizePhone } from '@/lib/whatsapp/phone-utils';
 import { coreEvents } from '@/core/events';
 
@@ -27,7 +27,7 @@ export async function findOrCreateContact(
   rawPhone: string,
   name?: string
 ): Promise<CoreContact> {
-  const db = appwriteAdmin();
+  const db = getAdminClient();
   const normalized = normalizePhone(rawPhone);
 
   const { data: existing } = await db

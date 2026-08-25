@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth/account';
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 
 export async function GET(request: Request) {
   try {
@@ -14,7 +14,7 @@ export async function GET(request: Request) {
     const contactId =
       searchParams.get('contact_id') || searchParams.get('patient_id');
 
-    const db = appwriteAdmin();
+    const db = getAdminClient();
     let query = db
       .from('hospital_followups')
       .select(
@@ -90,7 +90,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const db = appwriteAdmin();
+    const db = getAdminClient();
     const insertPayload: Record<string, unknown> = {
       account_id: accountId,
       patient_id: targetContactId,
@@ -163,7 +163,7 @@ export async function PATCH(request: Request) {
       updatePayload.assigned_user_id = assigned_user_id;
     if (title !== undefined) updatePayload.followup_type = title;
 
-    const db = appwriteAdmin();
+    const db = getAdminClient();
     let { data: updated, error } = await db
       .from('hospital_followups')
       .update(updatePayload)
@@ -215,7 +215,7 @@ export async function DELETE(request: Request) {
       );
     }
 
-    const db = appwriteAdmin();
+    const db = getAdminClient();
     const { error } = await db
       .from('hospital_followups')
       .delete()

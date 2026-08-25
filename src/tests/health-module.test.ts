@@ -33,7 +33,7 @@ import {
   sendDueFollowUpReminders,
   getReceptionistCopilotContext,
 } from '@/modules/health/services';
-import * as appwriteCompat from '@/lib/appwrite-server-compat';
+import * as appwriteCompat from '@/lib/db/server';
 import * as whatsappCore from '@/core/whatsapp';
 import { coreEvents } from '@/core/events';
 

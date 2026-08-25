@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/appwrite-server-compat';
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { createClient } from '@/lib/db/server';
+import { getAdminClient } from '@/lib/db/server';
 import { getTemplateForIndustry } from '@/lib/automations/templates';
 import {
   insertSteps,
@@ -252,7 +252,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const admin = appwriteAdmin();
+  const admin = getAdminClient();
   const { data: automation, error: insertErr } = await admin
     .from('automations')
     .insert({

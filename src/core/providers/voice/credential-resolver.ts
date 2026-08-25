@@ -1,4 +1,4 @@
-import { voiceRepository } from '@/infrastructure/appwrite/repositories/voice.repository';
+import { voiceRepository } from '@/lib/db/repositories';
 import {
   VoiceProviderConfig,
   VoiceProviderError,

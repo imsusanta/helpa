@@ -15,7 +15,7 @@ import {
 import { encrypt, decrypt } from '@/lib/whatsapp/encryption';
 import { checkSuperAdmin } from '@/lib/auth/admin';
 import { ForbiddenError } from '@/lib/auth/account';
-import * as appwriteCompat from '@/lib/appwrite-server-compat';
+import * as appwriteCompat from '@/lib/db/server';
 import { coreEvents } from '@/core/events';
 
 describe('Helpa Multi-Tenant Security & Security Hardening', () => {

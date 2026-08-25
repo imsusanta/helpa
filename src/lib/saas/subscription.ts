@@ -1,4 +1,4 @@
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { getAvailablePlans, getPlanBySlug } from '@/core/billing/plans';
 import {
   FeatureAccessResult,

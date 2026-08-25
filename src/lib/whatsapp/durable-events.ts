@@ -1,4 +1,4 @@
-import { providerEventsRepository } from '@/infrastructure/appwrite/repositories/provider_events.repository';
+import { providerEventsRepository } from '@/lib/db/repositories';
 
 export interface WebhookEventRecord {
   eventId: string;

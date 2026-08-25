@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { createClient } from '@/lib/appwrite-compat';
+import { createClient } from '@/lib/db/client';
 import { useAuth } from '@/hooks/use-auth';
 import {
   Brain,

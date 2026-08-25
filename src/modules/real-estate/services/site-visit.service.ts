@@ -4,7 +4,7 @@
  * Site visit scheduling, agent assignment, automated WhatsApp reminders, and status tracking.
  */
 
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { coreEvents } from '@/core/events';
 import { getOrCreateRealEstateLead } from './lead.service';
 

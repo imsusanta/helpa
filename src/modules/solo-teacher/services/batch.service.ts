@@ -4,7 +4,7 @@
  * Micro-batch management for independent teachers.
  */
 
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 
 export interface TutorBatchRecord {
   id: string;

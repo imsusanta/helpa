@@ -14,10 +14,13 @@ const { contactsTerminalCalls } = vi.hoisted(() => ({
 vi.mock('@/lib/auth/account', () => ({
   getCurrentAccount: vi
     .fn()
-    .mockResolvedValue({ accountId: 'tenant-1', userId: 'user-1' }),
+    .mockResolvedValue({ accountId: 'tenant-1', userId: 'user-1', role: 'agent' }),
+  requireRole: vi
+    .fn()
+    .mockResolvedValue({ accountId: 'tenant-1', userId: 'user-1', role: 'agent' }),
 }));
 
-vi.mock('@/lib/appwrite-server-compat', () => {
+vi.mock('@/lib/db/server', () => {
   const mockAppwrite = {
     auth: {
       getUser: vi.fn().mockResolvedValue({
@@ -81,7 +84,7 @@ vi.mock('@/lib/appwrite-server-compat', () => {
 
   return {
     createClient: vi.fn().mockResolvedValue(mockAppwrite),
-    appwriteAdmin: vi.fn().mockReturnValue(mockAdmin),
+    getAdminClient: vi.fn().mockReturnValue(mockAdmin),
   };
 });
 

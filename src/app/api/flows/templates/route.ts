@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/appwrite-server-compat';
+import { createClient } from '@/lib/db/server';
 import { listFlowTemplates } from '@/lib/flows/templates';
 
 /**

@@ -5,7 +5,7 @@
  * AI resolution rate, and contact growth.
  */
 
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 
 export interface CoreAnalyticsMetrics {
   totalConversations: number;
@@ -20,7 +20,7 @@ export interface CoreAnalyticsMetrics {
 export async function getCoreAnalytics(
   accountId: string
 ): Promise<CoreAnalyticsMetrics> {
-  const db = appwriteAdmin();
+  const db = getAdminClient();
 
   const [convRes, openConvRes, contactsRes] = await Promise.all([
     db

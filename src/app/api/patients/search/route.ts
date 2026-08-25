@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth/account';
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { getOrGeneratePatientId } from '@/lib/patients/id-generator';
 
 export async function GET(request: Request) {
@@ -14,7 +14,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ patients: [] });
     }
 
-    const db = appwriteAdmin();
+    const db = getAdminClient();
     const cleanPhone = (phone || queryTerm).replace(/\D/g, '');
 
     // Search contacts matching account_id and phone

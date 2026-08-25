@@ -6,7 +6,7 @@
  * draft suggested replies, and quick actions.
  */
 
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { type PropertyRequirement } from './lead.service';
 
 export interface RealEstateCopilotContext {

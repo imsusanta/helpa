@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
-import { voiceRepository } from '@/infrastructure/appwrite/repositories/voice.repository';
-import { getAppwriteAdminClient } from '@/infrastructure/appwrite/server';
-import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
+import { voiceRepository } from '@/lib/db/repositories';
+import { getAdminClient } from '@/lib/supabase/server';
+import { STORAGE_BUCKETS } from '@/lib/storage/buckets';
 
 export async function GET(
   _request: Request,
@@ -43,12 +43,11 @@ export async function GET(
 
     let transcriptText = '';
     try {
-      const storage = getAppwriteAdminClient().storage;
-      const fileBuffer = await storage.getFileDownload(
-        APPWRITE_CONFIG.buckets.webhookPayloads,
-        call.transcriptReference as string
-      );
-      transcriptText = Buffer.from(fileBuffer).toString('utf8');
+      const { data, error } = await getAdminClient()
+        .storage.from(STORAGE_BUCKETS.voiceTranscripts)
+        .download(call.transcriptReference as string);
+      if (error || !data) throw error || new Error('missing transcript');
+      transcriptText = await data.text();
     } catch {
       return NextResponse.json(
         { transcript: null, status: 'unavailable' },

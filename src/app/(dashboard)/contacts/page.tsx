@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { createClient } from '@/lib/appwrite-compat';
+import { createClient } from '@/lib/db/client';
 import { toast } from 'sonner';
 import type { Contact, Tag, ContactTag, Profile } from '@/types';
 import { useAuth } from '@/hooks/use-auth';

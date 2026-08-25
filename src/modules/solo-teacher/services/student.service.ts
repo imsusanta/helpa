@@ -5,7 +5,7 @@
  * multiple students per parent mobile number, and parent/guardian communication context.
  */
 
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 
 export interface TutorStudentRecord {
   id: string;

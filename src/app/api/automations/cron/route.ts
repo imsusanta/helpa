@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { authorizeCronRequest } from '@/lib/cron/security';
 import { resumePendingExecution } from '@/lib/automations/engine';
 import type { AutomationContext } from '@/lib/automations/engine';
@@ -10,7 +10,7 @@ const NO_STORE_HEADERS = {
 
 /**
  * Drain due `automation_pending_executions` rows. Meant to be hit
- * on a schedule (appwrite-sites Cron / external pinger) — authorized
+ * on a schedule (external cron / Vercel Cron / pinger) — authorized
  * by the shared cron authorizer, which accepts the secret in either
  * `x-cron-secret` or `Authorization: Bearer` and fails closed when no
  * secret is configured.
@@ -32,7 +32,7 @@ export async function GET(request: Request) {
     );
   }
 
-  const admin = appwriteAdmin();
+  const admin = getAdminClient();
   const { data: due, error } = await admin
     .from('automation_pending_executions')
     .select('*')

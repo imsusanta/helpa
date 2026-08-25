@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server';
 import { hasMinRole, isAccountRole, type AccountRole } from './roles';
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient, type AdminClient } from '@/lib/db/server';
 import {
   createClient as createSupabaseServerClient,
   getAdminClient as getSupabaseAdminClient,
 } from '@/lib/supabase/server';
 import { getRuntimeConfig } from '@/lib/runtime-config';
-import type { AppwriteCompatClient } from '@/lib/appwrite-compat';
 
 export class UnauthorizedError extends Error {
   readonly status = 401 as const;
@@ -48,8 +47,10 @@ export interface AccountContext {
   role: AccountRole;
   email?: string;
   account: { id: string; name: string };
-  /** Transitional name; when present, this is a Supabase service-role client. */
-  appwrite?: AppwriteCompatClient;
+  /** Service-role database client for this request. Always set. */
+  admin: AdminClient;
+  /** @deprecated Use `admin`. Alias kept for remaining ctx.appwrite call sites. */
+  appwrite: AdminClient;
 }
 
 // The compatibility client is typed as any during the incremental migration,
@@ -201,7 +202,8 @@ export async function getCurrentAccount(): Promise<ResolvedAccountContext> {
       role,
       email: user.email || undefined,
       account: { id: accountId, name: accountDoc.name || 'Clinic Account' },
-      appwrite: appwriteAdmin(),
+      admin: getAdminClient(),
+      appwrite: getAdminClient(),
     };
   } catch (error) {
     if (error instanceof UnauthorizedError || error instanceof ForbiddenError) {

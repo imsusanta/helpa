@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { authorizeCronRequest } from '@/lib/cron/security';
 
 const NO_STORE_HEADERS = {

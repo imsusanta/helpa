@@ -15,7 +15,7 @@
 // ============================================================
 
 import { NextResponse } from 'next/server';
-import type { AppwriteError } from '@/lib/appwrite-server-compat';
+import type { AppwriteError } from '@/lib/db/server';
 
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { isAccountRole } from '@/lib/auth/roles';
@@ -49,7 +49,7 @@ export async function PATCH(
   try {
     const ctx = await requireRole('admin');
 
-    const limit = checkRateLimit(
+    const limit = await checkRateLimit(
       `admin:memberRole:${ctx.userId}`,
       RATE_LIMITS.adminAction
     );
@@ -101,7 +101,7 @@ export async function DELETE(
   try {
     const ctx = await requireRole('admin');
 
-    const limit = checkRateLimit(
+    const limit = await checkRateLimit(
       `admin:memberRemove:${ctx.userId}`,
       RATE_LIMITS.adminAction
     );

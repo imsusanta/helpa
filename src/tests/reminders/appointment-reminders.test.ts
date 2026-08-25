@@ -6,8 +6,8 @@ const mockSelect = vi.fn();
 const mockEq = vi.fn();
 const mockMaybeSingle = vi.fn();
 
-vi.mock('@/lib/appwrite-server-compat', () => ({
-  appwriteAdmin: () => ({
+vi.mock('@/lib/db/server', () => ({
+  getAdminClient: () => ({
     from: (_collection: string) => ({
       insert: (payload: unknown) => {
         mockInsert(payload);

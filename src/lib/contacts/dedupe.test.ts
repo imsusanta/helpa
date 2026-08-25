@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { AppwriteClient } from '@/lib/appwrite-compat';
+import type { AppwriteClient } from '@/lib/db/client';
 import {
   dedupeByPhone,
   findExistingContact,

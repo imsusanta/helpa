@@ -1,7 +1,7 @@
-import { AppwriteVoiceOutboxWorker } from '../src/lib/voice/voice-outbox-worker';
+import { VoiceOutboxWorker } from '../src/lib/voice/voice-outbox-worker';
 import { OutboxService } from '../src/lib/whatsapp/outbox-service';
 
-console.log('[Helpa Worker] Starting Appwrite-native background worker...');
+console.log('[Helpa Worker] Starting background worker...');
 
 let isRunning = true;
 const POLL_INTERVAL_MS = 5000;
@@ -18,7 +18,7 @@ async function runWorkerLoop() {
       }
 
       // 2. Process voice outbox & provider events
-      await AppwriteVoiceOutboxWorker.processPendingEvents();
+      await VoiceOutboxWorker.processPendingEvents();
     } catch (err) {
       console.error(
         '[Helpa Worker] Error during worker batch execution:',
@@ -42,4 +42,4 @@ process.once('SIGTERM', () => void shutdown('SIGTERM'));
 process.once('SIGINT', () => void shutdown('SIGINT'));
 
 void runWorkerLoop();
-console.log('[Helpa Worker] Appwrite worker loop active.');
+console.log('[Helpa Worker] Worker loop active (5s poller).');

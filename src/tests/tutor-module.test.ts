@@ -28,7 +28,7 @@ import {
   getTutorCopilotContext,
 } from '@/modules/solo-teacher/services';
 import { aiToolRegistry } from '@/core/ai/tools';
-import * as appwriteCompat from '@/lib/appwrite-server-compat';
+import * as appwriteCompat from '@/lib/db/server';
 import { coreEvents } from '@/core/events';
 
 describe('Helpa Solo Tutor / Private Teacher Industry Module', () => {

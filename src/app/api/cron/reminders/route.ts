@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { authorizeCronRequest } from '@/lib/cron/security';
 import {
   addDaysToDateKey,
@@ -41,7 +41,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const db = appwriteAdmin();
+    const db = getAdminClient();
     const now = new Date();
     const { data: accountRows, error: accountsError } = await db
       .from('accounts')

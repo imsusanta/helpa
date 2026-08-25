@@ -1,8 +1,6 @@
 import crypto from 'node:crypto';
-import { Query } from 'node-appwrite';
-import { getAppwriteAdminClient } from '@/infrastructure/appwrite/server';
-import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
-import { voiceRepository } from '@/infrastructure/appwrite/repositories/voice.repository';
+import { getAdminClient } from '@/lib/db/server';
+import { voiceRepository } from '@/lib/db/repositories';
 import { resolveTenantVoiceConfig } from '@/core/providers/voice/credential-resolver';
 import { getVoiceProvider } from '@/core/providers/voice/provider-factory';
 import { VoiceProviderError } from '@/core/providers/voice/voice-provider.interface';
@@ -22,13 +20,16 @@ const COMMIT_SHA =
   process.env.NEXT_PUBLIC_COMMIT_SHA ||
   process.env.VERCEL_GIT_COMMIT_SHA ||
   process.env.GITHUB_SHA ||
-  process.env.APPWRITE_GIT_COMMIT_SHA ||
   'development';
 
 const WORKER_ID = `voice_worker_primary`;
 const HEARTBEAT_FRESHNESS_MS = 120_000;
 
-export class AppwriteVoiceOutboxWorker {
+function db() {
+  return getAdminClient();
+}
+
+export class VoiceOutboxWorker {
   private static startedAt = new Date().toISOString();
   private static processedCount = 0;
   private static retryCount = 0;
@@ -36,191 +37,100 @@ export class AppwriteVoiceOutboxWorker {
   private static lastSuccessAt: string | null = null;
   private static lastFailureCode: string | null = null;
 
-  /**
-   * Persists heartbeat in Appwrite `worker_health` collection.
-   */
   static async recordHeartbeat(): Promise<void> {
-    const db = getAppwriteAdminClient().databases;
     const now = new Date().toISOString();
-
+    const row = {
+      worker_id: WORKER_ID,
+      commit_sha: COMMIT_SHA,
+      started_at: this.startedAt,
+      last_heartbeat_at: now,
+      last_scan_at: now,
+      last_success_at: this.lastSuccessAt,
+      last_failure_code: this.lastFailureCode,
+      processed_count: this.processedCount,
+      retry_count: this.retryCount,
+      dead_letter_count: this.deadLetterCount,
+      updated_at: now,
+    };
     try {
-      const existing = await db.listDocuments(
-        APPWRITE_CONFIG.databaseId,
-        APPWRITE_CONFIG.collections.workerHealth,
-        [Query.equal('workerId', WORKER_ID), Query.limit(1)]
-      );
-
-      if (existing.documents[0]) {
-        await db.updateDocument(
-          APPWRITE_CONFIG.databaseId,
-          APPWRITE_CONFIG.collections.workerHealth,
-          existing.documents[0].$id,
-          {
-            commitSha: COMMIT_SHA,
-            lastHeartbeatAt: now,
-            lastScanAt: now,
-            lastSuccessAt: this.lastSuccessAt,
-            lastFailureCode: this.lastFailureCode,
-            processedCount: this.processedCount,
-            retryCount: this.retryCount,
-            deadLetterCount: this.deadLetterCount,
-            updatedAt: now,
-          }
-        );
-      } else {
-        await db.createDocument(
-          APPWRITE_CONFIG.databaseId,
-          APPWRITE_CONFIG.collections.workerHealth,
-          WORKER_ID,
-          {
-            workerId: WORKER_ID,
-            commitSha: COMMIT_SHA,
-            startedAt: this.startedAt,
-            lastHeartbeatAt: now,
-            lastScanAt: now,
-            lastSuccessAt: this.lastSuccessAt,
-            lastFailureCode: this.lastFailureCode,
-            processedCount: this.processedCount,
-            retryCount: this.retryCount,
-            deadLetterCount: this.deadLetterCount,
-            updatedAt: now,
-          }
-        );
-      }
+      await db().from('worker_health').upsert(row, { onConflict: 'worker_id' });
     } catch {
       /* safe heartbeat logging */
     }
   }
 
-  /**
-   * Process pending outbox events stored in `provider_events`.
-   */
   static async processPendingEvents(): Promise<{
     processed: number;
     failed: number;
   }> {
-    const db = getAppwriteAdminClient().databases;
-    const storage = getAppwriteAdminClient().storage;
     const now = new Date().toISOString();
     let processed = 0;
     let failed = 0;
-
     await this.recordHeartbeat();
 
     try {
-      // 1. Recover expired processing leases (> 60s old)
-      const expiredDocs = await db
-        .listDocuments(
-          APPWRITE_CONFIG.databaseId,
-          APPWRITE_CONFIG.collections.providerEvents,
-          [
-            Query.equal('processingStatus', 'processing'),
-            Query.lessThan('lockExpiresAt', now),
-            Query.limit(20),
-          ]
-        )
-        .catch(() => ({ documents: [] }));
+      await db()
+        .from('provider_events')
+        .update({ status: 'retrying', next_attempt_at: now })
+        .eq('status', 'processing')
+        .lt('lock_expires_at', now);
 
-      for (const doc of expiredDocs.documents) {
-        await db
-          .updateDocument(
-            APPWRITE_CONFIG.databaseId,
-            APPWRITE_CONFIG.collections.providerEvents,
-            doc.$id,
-            {
-              processingStatus: 'retrying',
-              nextAttemptAt: now,
-            }
-          )
-          .catch(() => null);
-      }
+      const { data: pendingEvents } = await db()
+        .from('provider_events')
+        .select('*')
+        .in('status', ['queued', 'retrying'])
+        .limit(25);
 
-      // 2. Fetch pending events (queued or retrying)
-      const pendingEvents = await db.listDocuments(
-        APPWRITE_CONFIG.databaseId,
-        APPWRITE_CONFIG.collections.providerEvents,
-        [
-          Query.equal('processingStatus', ['queued', 'retrying']),
-          Query.limit(25),
-        ]
-      );
-
-      for (const doc of pendingEvents.documents) {
+      for (const doc of pendingEvents || []) {
         if (
-          doc.nextAttemptAt &&
-          new Date(doc.nextAttemptAt as string).getTime() > Date.now()
+          doc.next_attempt_at &&
+          new Date(doc.next_attempt_at as string).getTime() > Date.now()
         ) {
           continue;
         }
 
         const lockExpiresAt = new Date(Date.now() + 60_000).toISOString();
-        const currentAttempts = Number(doc.processingAttempts || 0) + 1;
+        const currentAttempts = Number(doc.attempt_count || 0) + 1;
 
-        // Atomically claim event lock
-        let claimed = false;
-        try {
-          await db.updateDocument(
-            APPWRITE_CONFIG.databaseId,
-            APPWRITE_CONFIG.collections.providerEvents,
-            doc.$id,
-            {
-              processingStatus: 'processing',
-              processingStartedAt: now,
-              lockOwner: WORKER_ID,
-              lockExpiresAt,
-              processingAttempts: currentAttempts,
-              heartbeatAt: now,
-            }
-          );
-          claimed = true;
-        } catch {
-          continue;
-        }
+        const { data: claimed, error: claimErr } = await db()
+          .from('provider_events')
+          .update({
+            status: 'processing',
+            lock_owner: WORKER_ID,
+            lock_expires_at: lockExpiresAt,
+            attempt_count: currentAttempts,
+          })
+          .eq('id', doc.id)
+          .in('status', ['queued', 'retrying'])
+          .select('id, lock_owner')
+          .maybeSingle();
 
-        if (!claimed) continue;
-
-        // Re-read document to verify lock ownership before side effects
-        const verifyDoc = await db
-          .getDocument(
-            APPWRITE_CONFIG.databaseId,
-            APPWRITE_CONFIG.collections.providerEvents,
-            doc.$id
-          )
-          .catch(() => null);
-
-        if (!verifyDoc || verifyDoc.lockOwner !== WORKER_ID) {
-          continue; // Lock stolen or lost
-        }
+        if (claimErr || !claimed || claimed.lock_owner !== WORKER_ID) continue;
 
         try {
           const providerName = doc.provider as 'elevenlabs' | 'sarvam' | 'xai';
-          const externalEventId = doc.externalEventId as string;
-          const accountId = doc.accountId as string;
-          const rawPayloadReference = doc.rawPayloadReference as string;
-          const expectedHash = doc.payloadHash as string;
+          const externalEventId = doc.external_event_id as string;
+          const accountId = doc.account_id as string;
+          const expectedHash = doc.payload_hash as string;
+          const payload = doc.payload;
+          const rawBody =
+            typeof payload === 'string'
+              ? payload
+              : JSON.stringify(payload || {});
 
-          if (!accountId || !rawPayloadReference) {
+          if (!accountId) {
             throw new VoiceProviderError(
               'VOICE_PROVIDER_REQUEST_FAILED',
-              'Event document is missing required tenant or payload references',
+              'Event document is missing required tenant reference',
               400
             );
           }
 
-          // Download raw payload from private Appwrite Storage
-          const fileBuffer = await storage.getFileDownload(
-            APPWRITE_CONFIG.buckets.webhookPayloads,
-            rawPayloadReference
-          );
-          const rawBody = Buffer.from(fileBuffer).toString('utf8');
-
-          // Verify SHA-256 payload hash integrity
           const computedHash = crypto
             .createHash('sha256')
             .update(rawBody)
             .digest('hex');
-
-          if (computedHash !== expectedHash) {
+          if (expectedHash && computedHash !== expectedHash) {
             throw new VoiceProviderError(
               'VOICE_PROVIDER_REQUEST_FAILED',
               'Raw payload SHA-256 hash mismatch',
@@ -228,17 +138,17 @@ export class AppwriteVoiceOutboxWorker {
             );
           }
 
-          // Resolve tenant configuration & reconstruct provider
           const tenantConfig = await resolveTenantVoiceConfig(
             accountId,
             providerName
           );
           const provider = getVoiceProvider(providerName, tenantConfig);
-
-          // Normalize stored event payload
           const event = await provider.normalizeWebhook(rawBody);
 
-          if (event.externalEventId !== externalEventId) {
+          if (
+            event.externalEventId &&
+            event.externalEventId !== externalEventId
+          ) {
             throw new VoiceProviderError(
               'VOICE_PROVIDER_REQUEST_FAILED',
               'Normalized event ID mismatch',
@@ -246,7 +156,6 @@ export class AppwriteVoiceOutboxWorker {
             );
           }
 
-          // Apply call status update via state-machine-enforced repository method
           if (event.status) {
             await voiceRepository.upsertCall(accountId, event.externalCallId, {
               provider: providerName,
@@ -262,16 +171,13 @@ export class AppwriteVoiceOutboxWorker {
             });
           }
 
-          // Mark event processed
-          await db.updateDocument(
-            APPWRITE_CONFIG.databaseId,
-            APPWRITE_CONFIG.collections.providerEvents,
-            doc.$id,
-            {
-              processingStatus: 'processed',
-              processedAt: new Date().toISOString(),
-            }
-          );
+          await db()
+            .from('provider_events')
+            .update({
+              status: 'processed',
+              processed_at: new Date().toISOString(),
+            })
+            .eq('id', doc.id);
 
           this.processedCount++;
           this.lastSuccessAt = new Date().toISOString();
@@ -284,121 +190,78 @@ export class AppwriteVoiceOutboxWorker {
               ? err.code
               : 'VOICE_PROVIDER_REQUEST_FAILED';
           this.lastFailureCode = errorCode;
-
-          const maxAttempts = Number(doc.maxAttempts || 5);
-
+          const maxAttempts = Number(doc.max_attempts || 5);
           if (currentAttempts >= maxAttempts) {
             this.deadLetterCount++;
-            await db
-              .updateDocument(
-                APPWRITE_CONFIG.databaseId,
-                APPWRITE_CONFIG.collections.providerEvents,
-                doc.$id,
-                {
-                  processingStatus: 'dead_letter',
-                  deadLetteredAt: new Date().toISOString(),
-                  lastErrorSanitized: errorCode,
-                }
-              )
-              .catch(() => null);
+            await db()
+              .from('provider_events')
+              .update({
+                status: 'dead_letter',
+                last_error: errorCode,
+              })
+              .eq('id', doc.id);
           } else {
             const delayMs = Math.min(
               5000 * Math.pow(3, currentAttempts - 1),
               900_000
             );
-            const nextAttemptAt = new Date(Date.now() + delayMs).toISOString();
-
-            await db
-              .updateDocument(
-                APPWRITE_CONFIG.databaseId,
-                APPWRITE_CONFIG.collections.providerEvents,
-                doc.$id,
-                {
-                  processingStatus: 'retrying',
-                  nextAttemptAt,
-                  lastErrorSanitized: errorCode,
-                }
-              )
-              .catch(() => null);
+            await db()
+              .from('provider_events')
+              .update({
+                status: 'retrying',
+                next_attempt_at: new Date(Date.now() + delayMs).toISOString(),
+                last_error: errorCode,
+              })
+              .eq('id', doc.id);
           }
         }
       }
     } catch (err) {
-      console.warn('[AppwriteVoiceOutboxWorker] Outbox scan error:', err);
+      console.warn('[VoiceOutboxWorker] Outbox scan error:', err);
     }
 
     await this.recordHeartbeat();
     return { processed, failed };
   }
 
-  /**
-   * Reads persistent worker metrics from `worker_health` collection.
-   */
   static async getHealthMetrics(): Promise<VoiceOutboxMetrics> {
-    const db = getAppwriteAdminClient().databases;
     let queuedCount = 0;
     let retryingCount = 0;
     let processingCount = 0;
     let deadLetterCount = 0;
     let processedCount = 0;
-
     let workerReady = false;
     let workerHeartbeatHealthy = false;
     let lastHeartbeatAt: string | null = null;
 
     try {
-      const workerDocs = await db.listDocuments(
-        APPWRITE_CONFIG.databaseId,
-        APPWRITE_CONFIG.collections.workerHealth,
-        [Query.equal('workerId', WORKER_ID), Query.limit(1)]
-      );
-
-      if (workerDocs.documents[0]) {
-        const workerDoc = workerDocs.documents[0];
-        lastHeartbeatAt = (workerDoc.lastHeartbeatAt as string) || null;
-        if (lastHeartbeatAt) {
-          const age = Date.now() - new Date(lastHeartbeatAt).getTime();
-          if (age <= HEARTBEAT_FRESHNESS_MS) {
-            workerReady = true;
-            workerHeartbeatHealthy = true;
-          }
+      const { data: workerDoc } = await db()
+        .from('worker_health')
+        .select('*')
+        .eq('worker_id', WORKER_ID)
+        .maybeSingle();
+      if (workerDoc?.last_heartbeat_at) {
+        const heartbeat = String(workerDoc.last_heartbeat_at);
+        lastHeartbeatAt = heartbeat;
+        const age = Date.now() - new Date(heartbeat).getTime();
+        if (age <= HEARTBEAT_FRESHNESS_MS) {
+          workerReady = true;
+          workerHeartbeatHealthy = true;
         }
       }
 
-      const queuedRes = await db.listDocuments(
-        APPWRITE_CONFIG.databaseId,
-        APPWRITE_CONFIG.collections.providerEvents,
-        [Query.equal('processingStatus', 'queued'), Query.limit(1)]
-      );
-      queuedCount = queuedRes.total;
-
-      const retryingRes = await db.listDocuments(
-        APPWRITE_CONFIG.databaseId,
-        APPWRITE_CONFIG.collections.providerEvents,
-        [Query.equal('processingStatus', 'retrying'), Query.limit(1)]
-      );
-      retryingCount = retryingRes.total;
-
-      const procRes = await db.listDocuments(
-        APPWRITE_CONFIG.databaseId,
-        APPWRITE_CONFIG.collections.providerEvents,
-        [Query.equal('processingStatus', 'processing'), Query.limit(1)]
-      );
-      processingCount = procRes.total;
-
-      const deadRes = await db.listDocuments(
-        APPWRITE_CONFIG.databaseId,
-        APPWRITE_CONFIG.collections.providerEvents,
-        [Query.equal('processingStatus', 'dead_letter'), Query.limit(1)]
-      );
-      deadLetterCount = deadRes.total;
-
-      const doneRes = await db.listDocuments(
-        APPWRITE_CONFIG.databaseId,
-        APPWRITE_CONFIG.collections.providerEvents,
-        [Query.equal('processingStatus', 'processed'), Query.limit(1)]
-      );
-      processedCount = doneRes.total;
+      const countStatus = async (status: string) => {
+        const { count } = await db()
+          .from('provider_events')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', status);
+        return count || 0;
+      };
+      queuedCount = await countStatus('queued');
+      retryingCount = await countStatus('retrying');
+      processingCount = await countStatus('processing');
+      deadLetterCount = await countStatus('dead_letter');
+      processedCount = await countStatus('processed');
     } catch {
       /* safe fallback */
     }

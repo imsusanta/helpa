@@ -51,7 +51,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { createClient } from '@/lib/appwrite-compat';
+import { createClient } from '@/lib/db/client';
 
 interface PeekOk {
   ok: true;

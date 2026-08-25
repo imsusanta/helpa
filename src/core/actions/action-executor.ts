@@ -1,7 +1,7 @@
-import { leadsRepository } from '@/infrastructure/appwrite/repositories/leads.repository';
-import { appointmentsRepository } from '@/infrastructure/appwrite/repositories/appointments.repository';
-import { auditLogsRepository } from '@/infrastructure/appwrite/repositories/audit_logs.repository';
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { leadsRepository } from '@/lib/db/repositories';
+import { appointmentsRepository } from '@/lib/db/repositories';
+import { auditLogsRepository } from '@/lib/db/repositories';
+import { getAdminClient } from '@/lib/db/server';
 import { DefaultCalendlyProvider } from '../providers/calendly/calendly-provider';
 import { LeadStageType } from '../types';
 
@@ -31,7 +31,7 @@ export class TrustedActionExecutor {
     this.context = context;
   }
 
-  // 1. Transition Lead Stage using Appwrite LeadsRepository & Idempotency Engine
+  // 1. Transition lead stage using the tenant-scoped leads repository.
   async transitionLead(params: {
     leadId: string;
     nextStage: LeadStageType;

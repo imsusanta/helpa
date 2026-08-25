@@ -1,61 +1,56 @@
 # Helpa Production Deployment Guide
 
-Helpa runs as a Next.js application on Appwrite Sites with Appwrite Auth,
-Databases, Storage, and Teams.
+Helpa is a Next.js 16 application. Canonical data and auth are **Supabase** (PostgreSQL, Auth, Storage). Hosting is whatever runs `next start` or the Vercel/Node runtime pointed at this repo — not Appwrite Sites, Auth, Databases, or Storage.
+
+Authoritative current docs:
+
+- This file — env, build, deploy
+- `docs/production-workers.md` — worker poller and HTTP crons
+- `ROUTE_SECURITY_MATRIX.md` — public vs authenticated routes
+- `docs/OPERATIONS.md` — backups and incident response
+- `docs/SUPABASE_CUTOVER_SIGN_OFF.md` — cutover status
+
+Historical files under `docs/audits/`, `docs/deployment-canonical.md`, and `docs/canonical-production-deployment.md` describe a pre-cutover Appwrite topology and are **not** current.
 
 ## Required environment variables
 
-Set these in the Appwrite Site environment configuration:
+Copy `.env.example` / `.env.local.example` and fill real values.
 
-| Variable                          | Scope       | Purpose                                             |
-| --------------------------------- | ----------- | --------------------------------------------------- |
-| `NEXT_PUBLIC_APPWRITE_ENDPOINT`   | Public      | Appwrite API endpoint                               |
-| `NEXT_PUBLIC_APPWRITE_PROJECT_ID` | Public      | Appwrite project ID                                 |
-| `APPWRITE_API_KEY`                | Server-only | Server SDK access to Databases and Storage          |
-| `APPWRITE_DATABASE_ID`            | Server-only | Appwrite database ID                                |
-| `NEXT_PUBLIC_SITE_URL`            | Public      | Canonical site URL, e.g. `https://www.helpa.studio` |
-| `ENCRYPTION_KEY`                  | Server-only | 64-character AES-256-GCM key                        |
-| `PDF_SIGNING_KEY`                 | Server-only | HMAC key for public appointment PDFs                |
-| `META_APP_SECRET`                 | Server-only | Meta webhook signature verification                 |
-| `REDIS_URL`                       | Server-only | BullMQ worker and queue connection                  |
-| `CRON_SECRET`                     | Server-only | Cron route protection                               |
+| Variable | Scope | Purpose |
+| --- | --- | --- |
+| `AUTH_PROVIDER` | Server | Must be `supabase` |
+| `DATABASE_PROVIDER` | Server | Must be `supabase` |
+| `MIGRATION_MODE` | Server | Must be `cutover` (rollback/shadow are rejected) |
+| `NEXT_PUBLIC_SUPABASE_URL` | Public | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public | Publishable key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-only | Service-role client; never `NEXT_PUBLIC_` |
+| `ENCRYPTION_KEY` / `WHATSAPP_TOKEN_ENCRYPTION_KEY` | Server-only | AES-256-GCM (64 hex chars) |
+| `PDF_SIGNING_KEY` | Server-only | HMAC for public appointment PDFs |
+| `META_APP_SECRET` | Server-only | WhatsApp webhook HMAC; missing → fail-closed 401 |
+| `RAZORPAY_WEBHOOK_SECRET` | Server-only | Razorpay HMAC; missing → fail-closed 503 |
+| `REDIS_URL` | Server-only | Shared rate-limit counters (not BullMQ) |
+| `CRON_SECRET` | Server-only | Cron route protection |
+| `AUTOMATION_CRON_SECRET` | Server-only | Accepted by several cron routes |
+| `NEXT_PUBLIC_SITE_URL` | Public | Canonical site URL |
 
-Copy `.env.local.example` for local development, then fill in real values.
-Never expose `APPWRITE_API_KEY`, `ENCRYPTION_KEY`, or signing keys to the browser.
+Never expose service-role keys, encryption keys, or webhook secrets to the browser.
 
-## Provision Appwrite
+## Database
 
-After creating the Appwrite project and API key, provision the database,
-collections, and buckets:
+Apply SQL from `supabase/migrations/` with `npm run supabase:migrate` (or the Supabase CLI). Validate with `npm run supabase:validate`.
 
-```bash
-npm ci
-npm run appwrite:setup
-npm run appwrite:verify
-```
-
-The Appwrite project must include the production site domain under Platforms
-and the Auth redirect URL configuration. Add:
-
-- `https://www.helpa.studio`
-- `https://www.helpa.studio/login`
-- `https://www.helpa.studio/dashboard`
-- `https://www.helpa.studio/join/*`
+There are no Appwrite collection setup scripts in this repository.
 
 ## Build and deploy
 
-Use the Appwrite Sites Git deployment with:
-
 ```text
-Build command: npm run build
-Install command: npm ci
-Output: Next.js server deployment
+Install: npm ci
+Build:   npm run build
+Start:   npm start
+Worker:  npm run worker   # separate long-running process
 ```
 
-The post-deployment workflow checks `/`, `/login`, and `/api/health` at
-`https://www.helpa.studio`.
-
-## Local verification
+Quality gates:
 
 ```bash
 npm run lint
@@ -64,5 +59,8 @@ npm test
 npm run build
 ```
 
-If Appwrite service reports a quota error, resolve the quota or spend cap in
-the Appwrite project console; the application no longer contacts the legacy hosted database.
+After deploy, confirm `/`, `/login`, and `/api/health`. Configure Vercel Cron (see `vercel.json`) **and** an external scheduler for reminder/automation/flow/cleanup routes that are not listed there.
+
+## Redis
+
+Set `REDIS_URL` in production so `checkRateLimit` shares counters across serverless instances. Without it, each instance uses an in-memory Map.

@@ -1,8 +1,8 @@
 import crypto from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
-import { contactsRepository } from '@/infrastructure/appwrite/repositories/contacts.repository';
-import { voiceRepository } from '@/infrastructure/appwrite/repositories/voice.repository';
+import { contactsRepository } from '@/lib/db/repositories';
+import { voiceRepository } from '@/lib/db/repositories';
 import { getVoiceProvider } from '@/core/providers/voice/provider-factory';
 import { VoiceProviderError } from '@/core/providers/voice/voice-provider.interface';
 import { resolveTenantVoiceConfig } from '@/core/providers/voice/credential-resolver';

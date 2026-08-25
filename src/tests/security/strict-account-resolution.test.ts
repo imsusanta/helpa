@@ -59,8 +59,8 @@ vi.mock('@/lib/supabase/server', () => ({
   }),
 }));
 
-vi.mock('@/lib/appwrite-server-compat', () => ({
-  appwriteAdmin: () => ({}),
+vi.mock('@/lib/db/server', () => ({
+  getAdminClient: () => ({}),
 }));
 
 describe('Strict Multi-Tenant Account Resolution & RBAC Security', () => {

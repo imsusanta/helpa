@@ -1,6 +1,8 @@
 # Voice Agent System Setup & Production Guide
 
-This guide details the setup, configuration, security rules, and production deployment procedure for the **WA CRM Voice Agent System**.
+Voice rows (`voice_integrations`, `voice_commands`, `worker_health`, `calls`, `provider_events`) live in **Supabase PostgreSQL**. The long-running processor is `VoiceOutboxWorker` via `npm run worker`. Appwrite collections and `AppwriteVoiceOutboxWorker` are gone.
+
+This guide details provider capability, credential encryption, and webhook verification for the Helpa voice agent.
 
 ---
 
@@ -70,22 +72,15 @@ XAI_WEBHOOK_SECRET=
 
 ---
 
-## 3. Appwrite Database Collections & Indexes
+## 3. Supabase Tables & Indexes
 
-The Voice Agent System requires 4 collections in the Appwrite `wacrm_production` database:
+Apply `supabase/migrations/` (including `20260825120000_voice_worker_supabase_cutover.sql`). Required tables:
 
-1. `voice_integrations`:
-   - Stores tenant voice provider configurations and server-side mapping.
-   - Required Indexes: `accountId + provider` (unique), `provider + agentId + providerPhoneNumberId`.
-2. `calls`:
-   - Tracks real call lifecycle (`initiating` -> `in_progress` -> `completed` / `failed`).
-   - Required Indexes: `accountId + externalCallId` (unique), `accountId + createdAt`.
-3. `provider_events`:
-   - Stores normalized webhook event logs and raw payload references.
-   - Required Indexes: `provider + externalEventId` (unique), `accountId + receivedAt`.
-4. `voice_commands`:
-   - Enforces idempotent outbound call commands.
-   - Required Indexes: `accountId + idempotencyKey` (unique).
+1. `voice_integrations` — tenant provider config. Unique on `(account_id, provider)`.
+2. `calls` — call lifecycle. Unique on `(account_id, external_call_id)`.
+3. `provider_events` — webhook event log / outbox. Unique on `(provider, external_event_id)`.
+4. `voice_commands` — idempotent outbound commands. Unique on `(account_id, idempotency_key)`.
+5. `worker_health` — poller heartbeat for `npm run worker`.
 
 ---
 
@@ -118,7 +113,7 @@ Send an authenticated POST request with a unique `Idempotency-Key` header:
 curl -X POST https://www.helpa.studio/api/voice/outbound \
   -H "Content-Type: application/json" \
   -H "Idempotency-Key: cmd_outbound_$(date +%s)" \
-  -H "Cookie: a_session_6a79822b003adde92f63=YOUR_SESSION" \
+  -H "Cookie: <supabase-auth-cookie>" \
   -d '{"contactId": "CONTACT_DOC_ID", "provider": "elevenlabs"}'
 ```
 
@@ -128,6 +123,6 @@ curl -X POST https://www.helpa.studio/api/voice/outbound \
 
 If a provider API degrades or fails:
 
-1. Disable the integration in Appwrite `voice_integrations` collection (`status = "disabled"`).
+1. Disable the integration in the `voice_integrations` table (`status = "disabled"`).
 2. The health check `/api/health` will report `checks.voice.status: "not_configured"`.
 3. Outbound calls will fail closed cleanly with `VOICE_PROVIDER_NOT_CONFIGURED` without impacting CRM or WhatsApp operations.

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { checkSuperAdmin } from '@/lib/auth/admin';
 import { getCurrentAccount } from '@/lib/auth/account';
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { encrypt } from '@/lib/whatsapp/encryption';
 import { validateAiModelId } from '@/core/ai/validation';
 
@@ -15,7 +15,7 @@ export async function GET() {
       );
     }
 
-    const db = appwriteAdmin();
+    const db = getAdminClient();
     const { data, error } = await db
       .from('system_settings')
       .select('key, value');
@@ -118,7 +118,7 @@ export async function POST(req: Request) {
       system_feature_routing,
     } = body;
 
-    const db = appwriteAdmin();
+    const db = getAdminClient();
     const upserts: Array<{ key: string; value: string }> = [];
     const auditActions: string[] = [];
 

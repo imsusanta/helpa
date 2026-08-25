@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { requireRole } from '@/lib/auth/account';
 import {
   engineSendText,
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const db = appwriteAdmin();
+    const db = getAdminClient();
 
     // 1. Fetch report details
     const { data: report, error: reportErr } = await db

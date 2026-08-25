@@ -5,7 +5,7 @@
  * and available tool definitions scoped strictly to the current tenant and industry.
  */
 
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { getIndustryModule } from '@/modules/registry';
 import { getConversationMemory } from './memory';
 import { aiToolRegistry } from './tools';

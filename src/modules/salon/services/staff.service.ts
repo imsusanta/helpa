@@ -4,7 +4,7 @@
  * Stylist directory, working shifts, and real-time conflict-free slot calculation.
  */
 
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 
 export interface SalonStaffRecord {
   id: string;

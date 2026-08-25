@@ -7,7 +7,7 @@
 
 import { UsageMetricType, UsageLimitCheckResult } from './types';
 import { getPlanById } from './plans';
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { coreEvents } from '@/core/events';
 
 export interface RecordUsageInput {

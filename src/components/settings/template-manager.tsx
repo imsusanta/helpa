@@ -13,7 +13,7 @@ import {
   RotateCcw,
   Upload,
 } from 'lucide-react';
-import { createClient } from '@/lib/appwrite-compat';
+import { createClient } from '@/lib/db/client';
 import {
   uploadAccountMedia,
   MEDIA_MAX_BYTES_BY_KIND,

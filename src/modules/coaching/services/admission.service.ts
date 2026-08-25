@@ -5,7 +5,7 @@
  * and admission confirmation.
  */
 
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { coreEvents } from '@/core/events';
 import { createOrFindStudent } from './student.service';
 import { findCourseByNameOrCode } from './course.service';

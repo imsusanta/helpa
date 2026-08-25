@@ -4,7 +4,7 @@
  * Real Estate Agent directory, location assignments, and site visit scheduling availability.
  */
 
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 
 export interface RealEstateAgentRecord {
   id: string;

@@ -3,8 +3,8 @@ import { getCurrentAccount } from '@/lib/auth/account';
 import {
   storageRepository,
   StorageError,
-} from '@/infrastructure/appwrite/repositories/storage.repository';
-import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
+} from '@/lib/storage/repository';
+import { STORAGE_BUCKETS } from '@/lib/storage/buckets';
 
 const MAX_AVATAR_BYTES = 10 * 1024 * 1024; // 10 MB
 const ALLOWED_MIME_TYPES = new Set([
@@ -123,7 +123,7 @@ export async function POST(request: Request) {
     const filename = `avatar_${userId}_${Date.now()}.${safeExt}`;
 
     const { fileUrl } = await storageRepository.uploadFile(
-      APPWRITE_CONFIG.buckets.avatars,
+      STORAGE_BUCKETS.avatars,
       fileBuffer,
       filename,
       mimeType,

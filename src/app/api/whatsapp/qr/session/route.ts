@@ -9,7 +9,7 @@
 import { NextResponse } from 'next/server';
 import crypto from 'node:crypto';
 import { requireRole } from '@/lib/auth/account';
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import {
   checkRateLimit,
   rateLimitResponse,
@@ -53,7 +53,7 @@ export async function GET() {
   try {
     const ctx = await requireRole('admin');
     const accountId = ctx.accountId;
-    const db = appwriteAdmin();
+    const db = getAdminClient();
 
     // Check DB config first
     const { data: config } = await db
@@ -106,7 +106,7 @@ export async function POST(request: Request) {
     const ctx = await requireRole('admin');
     const accountId = ctx.accountId;
 
-    const rateLimit = checkRateLimit(
+    const rateLimit = await checkRateLimit(
       `qr_session_${ctx.userId}`,
       RATE_LIMITS.adminAction
     );
@@ -120,7 +120,7 @@ export async function POST(request: Request) {
     // Mock simulate instant scan / paired state if test flag provided
     if (action === 'simulate_paired' || body?.simulate_phone) {
       const simulatedPhone = body?.simulate_phone || '918927093059';
-      const db = appwriteAdmin();
+      const db = getAdminClient();
       const now = new Date().toISOString();
       const fakeDeviceId = `qr_device_${crypto.randomBytes(8).toString('hex')}`;
 
@@ -187,7 +187,7 @@ export async function DELETE() {
   try {
     const ctx = await requireRole('admin');
     const accountId = ctx.accountId;
-    const db = appwriteAdmin();
+    const db = getAdminClient();
 
     qrSessions.delete(accountId);
 

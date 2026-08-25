@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { checkSuperAdmin } from '@/lib/auth/admin';
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { RevenueAnalytics } from '@/core/billing/types';
 
 export async function GET() {
@@ -13,7 +13,7 @@ export async function GET() {
       );
     }
 
-    const db = appwriteAdmin();
+    const db = getAdminClient();
 
     // Fetch all subscriptions
     const { data: subs } = await db.from('subscriptions').select('*');

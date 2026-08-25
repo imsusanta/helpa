@@ -176,12 +176,12 @@ describe('Step 9 Security Hardening — Penetration Testing Audit Suite', () => 
   });
 
   describe('6. Rate Limiting & Webhook Signature Hardening', () => {
-    it('enforces independent rate limiting budgets across distinct tenants', () => {
-      const limitA = checkRateLimit(
+    it('enforces independent rate limiting budgets across distinct tenants', async () => {
+      const limitA = await checkRateLimit(
         `broadcast:${HEALTH_TENANT_A.id}`,
         RATE_LIMITS.broadcast
       );
-      const limitB = checkRateLimit(
+      const limitB = await checkRateLimit(
         `broadcast:${SALON_TENANT_B.id}`,
         RATE_LIMITS.broadcast
       );

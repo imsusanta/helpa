@@ -29,7 +29,7 @@ import {
   checkUsageLimit,
   processPaymentWebhook,
 } from '@/core/billing';
-import * as appwriteCompat from '@/lib/appwrite-server-compat';
+import * as appwriteCompat from '@/lib/db/server';
 import { coreEvents } from '@/core/events';
 
 describe('Helpa Core SaaS Billing & Monetization Layer', () => {

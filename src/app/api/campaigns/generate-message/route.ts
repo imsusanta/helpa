@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     // 1. Authenticate user as admin/owner
     const ctx = await requireRole('admin');
 
-    const limit = checkRateLimit(
+    const limit = await checkRateLimit(
       `admin:campaign-ai:${ctx.userId}`,
       RATE_LIMITS.adminAction
     );

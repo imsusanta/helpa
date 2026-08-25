@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/appwrite-server-compat';
-import { getCurrentAccount } from '@/lib/auth/account';
+import { createClient } from '@/lib/db/server';
+import {
+  ForbiddenError,
+  requireRole,
+  toErrorResponse,
+  UnauthorizedError,
+} from '@/lib/auth/account';
 import { sendTemplateMessage } from '@/lib/whatsapp/meta-api';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import type { SendTimeParams } from '@/lib/whatsapp/template-send-builder';
@@ -61,49 +66,17 @@ interface NewRecipient {
 
 export async function POST(request: Request) {
   try {
+    const ctx = await requireRole('admin');
+    const user = { id: ctx.userId };
+    const accountId = ctx.accountId;
     const appwrite = await createClient();
-
-    const {
-      data: { user },
-      error: authError,
-    } = await appwrite.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
 
     // Per-user broadcast budget. Note: this limits how often a user
     // can *start* a campaign, not how many messages go out inside
     // one — the fan-out loop below runs without additional gating.
-    const limit = checkRateLimit(`broadcast:${user.id}`, RATE_LIMITS.broadcast);
+    const limit = await checkRateLimit(`broadcast:${user.id}`, RATE_LIMITS.broadcast);
     if (!limit.success) {
       return rateLimitResponse(limit);
-    }
-
-    let accountId: string | null = null;
-    const ctx = await getCurrentAccount().catch(() => null);
-    if (ctx?.accountId) {
-      accountId = ctx.accountId;
-    } else {
-      try {
-        const { data: profile } = await appwrite
-          .from('profiles')
-          .select('account_id, accountId')
-          .eq('user_id', user.id)
-          .maybeSingle();
-        if (profile?.account_id || profile?.accountId) {
-          accountId = String(profile.account_id || profile.accountId);
-        }
-      } catch {
-        // Fallback
-      }
-    }
-
-    if (!accountId) {
-      return NextResponse.json(
-        { error: 'Account membership required' },
-        { status: 403 }
-      );
     }
 
     const body = await request.json();
@@ -621,6 +594,9 @@ export async function POST(request: Request) {
       results,
     });
   } catch (error) {
+    if (error instanceof UnauthorizedError || error instanceof ForbiddenError) {
+      return toErrorResponse(error);
+    }
     console.error('Error in WhatsApp broadcast POST:', error);
     return NextResponse.json(
       { error: 'Failed to process broadcast' },

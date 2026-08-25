@@ -38,8 +38,8 @@ graph TD
    - Strict database-level scoping (`account_id = ctx.accountId`).
    - Tenant guard (`src/core/security/tenant-guard.ts`) verifies resource ownership for every read/write.
 
-3. **Provider Compatibility Layer**:
-   - `src/lib/appwrite-server-compat.ts` provides a unified ORM-like interface for database operations, allowing PostgreSQL (Supabase) in production while preserving rollback compatibility.
+3. **Database access**:
+   - `src/lib/db/server.ts` and `src/lib/db/client.ts` return Supabase clients only. There is no Appwrite rollback adapter.
 
 4. **Meta WhatsApp Cloud Integration**:
    - 1-Click Embedded Signup via Facebook JavaScript SDK.

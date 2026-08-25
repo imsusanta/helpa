@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import { checkSuperAdmin } from '@/lib/auth/admin';
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import { getProviderInstance, CloudflareAiProvider } from '@/core/ai/provider';
 import type { AiProviderName } from '@/core/ai/types';
 
 async function resolveAdminProviderCredentials(providerName: AiProviderName) {
-  const db = appwriteAdmin();
+  const db = getAdminClient();
   const { data: sysSettings } = await db
     .from('system_settings')
     .select('key, value');

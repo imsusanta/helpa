@@ -1,16 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { GET } from './route';
 
-vi.mock('@/lib/appwrite-server-compat', () => ({
-  appwriteAdmin: vi.fn(),
+vi.mock('@/lib/db/server', () => ({
+  getAdminClient: vi.fn(),
 }));
 vi.mock('@/lib/reminders/appointment-reminders', () => ({
   enqueueAppointmentReminder: vi.fn(),
 }));
 
 const ORIGINAL_SECRET = process.env.CRON_SECRET;
-const appwriteAdminMock = vi.mocked(appwriteAdmin);
+const getAdminClientMock = vi.mocked(getAdminClient);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -28,7 +28,7 @@ describe('GET /api/cron/reminders', () => {
       new Request('https://helpa.test/api/cron/reminders')
     );
     expect(response.status).toBe(503);
-    expect(appwriteAdminMock).not.toHaveBeenCalled();
+    expect(getAdminClientMock).not.toHaveBeenCalled();
   });
 
   it('does not accept a secret passed in the query string', async () => {
@@ -39,12 +39,12 @@ describe('GET /api/cron/reminders', () => {
       )
     );
     expect(response.status).toBe(401);
-    expect(appwriteAdminMock).not.toHaveBeenCalled();
+    expect(getAdminClientMock).not.toHaveBeenCalled();
   });
 
   it('accepts the header and returns a sanitized queue summary', async () => {
     process.env.CRON_SECRET = 'expected-secret';
-    appwriteAdminMock.mockReturnValue({
+    getAdminClientMock.mockReturnValue({
       from: vi.fn(() => ({
         select: vi.fn().mockResolvedValue({ data: [], error: null }),
       })),
@@ -67,7 +67,7 @@ describe('GET /api/cron/reminders', () => {
 
   it('does not leak database errors', async () => {
     process.env.CRON_SECRET = 'expected-secret';
-    appwriteAdminMock.mockReturnValue({
+    getAdminClientMock.mockReturnValue({
       from: vi.fn(() => ({
         select: vi.fn().mockResolvedValue({
           data: null,

@@ -5,7 +5,7 @@
  * messaging, tag updates, and team notifications.
  */
 
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { coreEvents, CoreEvent } from '@/core/events';
 
 export interface AutomationTrigger {
@@ -31,7 +31,7 @@ export interface AutomationRule {
 export async function executeAutomationsForEvent(
   event: CoreEvent
 ): Promise<void> {
-  const db = appwriteAdmin();
+  const db = getAdminClient();
 
   const { data: rules } = await db
     .from('automations')

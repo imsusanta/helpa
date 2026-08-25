@@ -6,7 +6,7 @@
  */
 
 import { AdminAuditLog } from './types';
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 
 /**
  * Logs an administrative action to the platform audit trail.

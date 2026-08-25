@@ -1,4 +1,4 @@
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import crypto from 'node:crypto';
 
 export interface OutboxEntryPayload {
@@ -35,7 +35,7 @@ export class OutboxService {
   static async createPreSendOutbox(
     payload: OutboxEntryPayload
   ): Promise<OutboxCreateResult> {
-    const dbAdmin = appwriteAdmin();
+    const dbAdmin = getAdminClient();
     const now = new Date().toISOString();
     const correlationId = payload.correlationId || crypto.randomUUID();
 
@@ -243,7 +243,7 @@ export class OutboxService {
     accountId: string,
     providerMessageId: string
   ): Promise<void> {
-    const dbAdmin = appwriteAdmin();
+    const dbAdmin = getAdminClient();
     const now = new Date().toISOString();
     try {
       const res = await dbAdmin
@@ -285,7 +285,7 @@ export class OutboxService {
     providerMessageId: string,
     dbErrorMessage: string
   ): Promise<void> {
-    const dbAdmin = appwriteAdmin();
+    const dbAdmin = getAdminClient();
     const now = new Date().toISOString();
     try {
       const res = await dbAdmin
@@ -326,7 +326,7 @@ export class OutboxService {
     accountId: string,
     errorMessage: string
   ): Promise<void> {
-    const dbAdmin = appwriteAdmin();
+    const dbAdmin = getAdminClient();
     const now = new Date().toISOString();
     try {
       const res = await dbAdmin
@@ -363,7 +363,7 @@ export class OutboxService {
    * Creates local message records without resending to Meta.
    */
   static async reconcilePendingMessages(): Promise<number> {
-    const dbAdmin = appwriteAdmin();
+    const dbAdmin = getAdminClient();
     let pending: Record<string, unknown>[] = [];
     try {
       const { data } = await dbAdmin

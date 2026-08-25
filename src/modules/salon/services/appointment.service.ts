@@ -4,7 +4,7 @@
  * WhatsApp appointment booking, rescheduling, cancellation, and status tracking.
  */
 
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { coreEvents } from '@/core/events';
 import { getOrCreateSalonCustomer } from './customer.service';
 import { findSalonServiceByName } from './service.service';

@@ -5,9 +5,6 @@ import {
   ForbiddenError,
 } from '@/lib/auth/account';
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
-import { getAppwriteAdminClient } from '@/infrastructure/appwrite/server';
-import { APPWRITE_CONFIG } from '@/infrastructure/appwrite/config';
-import { getRuntimeConfig } from '@/lib/runtime-config';
 import type { Conversation, Contact, ConversationStatus } from '@/types';
 
 const CACHE_HEADERS = {
@@ -97,53 +94,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
       );
     }
 
-    const runtime = getRuntimeConfig();
-
-    if (runtime.databaseProvider === 'appwrite') {
-      const admin = getAppwriteAdminClient();
-      let convDoc: Record<string, unknown> | null = null;
-      try {
-        convDoc = (await admin.databases.getDocument(
-          APPWRITE_CONFIG.databaseId,
-          APPWRITE_CONFIG.collections.conversations,
-          conversationId
-        )) as unknown as Record<string, unknown>;
-      } catch {
-        return NextResponse.json(
-          { error: 'Conversation not found' },
-          { status: 404, headers: CACHE_HEADERS }
-        );
-      }
-
-      const docAccountId = (convDoc.accountId || convDoc.account_id) as string;
-      if (docAccountId !== accountId) {
-        return NextResponse.json(
-          { error: 'Conversation not found' },
-          { status: 404, headers: CACHE_HEADERS }
-        );
-      }
-
-      let contact: Contact | undefined;
-      const cId = (convDoc.contactId || convDoc.contact_id) as string;
-      if (cId) {
-        try {
-          const cDoc = (await admin.databases.getDocument(
-            APPWRITE_CONFIG.databaseId,
-            APPWRITE_CONFIG.collections.contacts,
-            cId
-          )) as unknown as Record<string, unknown>;
-          if (cDoc) contact = normalizeContact(cDoc);
-        } catch {
-          // Ignore
-        }
-      }
-
-      const normalized = normalizeConversation(convDoc, contact);
-      return NextResponse.json(
-        { conversation: normalized },
-        { status: 200, headers: CACHE_HEADERS }
-      );
-    }
+    
 
     const supabase = getSupabaseAdminClient();
     const { data: conv, error: convErr } = await supabase
@@ -238,92 +189,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       unknown
     >;
 
-    const runtime = getRuntimeConfig();
-
-    if (runtime.databaseProvider === 'appwrite') {
-      const admin = getAppwriteAdminClient();
-      let convDoc: Record<string, unknown> | null = null;
-      try {
-        convDoc = (await admin.databases.getDocument(
-          APPWRITE_CONFIG.databaseId,
-          APPWRITE_CONFIG.collections.conversations,
-          conversationId
-        )) as unknown as Record<string, unknown>;
-      } catch {
-        return NextResponse.json(
-          { error: 'Conversation not found' },
-          { status: 404, headers: CACHE_HEADERS }
-        );
-      }
-
-      const docAccountId = (convDoc.accountId || convDoc.account_id) as string;
-      if (docAccountId !== accountId) {
-        return NextResponse.json(
-          { error: 'Conversation not found' },
-          { status: 404, headers: CACHE_HEADERS }
-        );
-      }
-
-      const appwritePayload: Record<string, unknown> = {
-        updatedAt: new Date().toISOString(),
-      };
-      if (
-        typeof body.status === 'string' &&
-        ['open', 'pending', 'closed'].includes(body.status)
-      ) {
-        appwritePayload.status = body.status;
-      }
-      if (body.unread_count !== undefined || body.unreadCount !== undefined) {
-        const count = Number(body.unread_count ?? body.unreadCount);
-        if (!isNaN(count) && count >= 0) {
-          appwritePayload.unreadCount = count;
-        }
-      }
-      if (
-        body.ai_chat_enabled !== undefined ||
-        body.aiChatEnabled !== undefined
-      ) {
-        appwritePayload.aiChatEnabled = Boolean(
-          body.ai_chat_enabled ?? body.aiChatEnabled
-        );
-      }
-      if (
-        body.assigned_agent_id !== undefined ||
-        body.assignedAgentId !== undefined
-      ) {
-        appwritePayload.assignedAgentId = (body.assigned_agent_id ??
-          body.assignedAgentId ??
-          null) as string | null;
-      }
-
-      const updated = (await admin.databases.updateDocument(
-        APPWRITE_CONFIG.databaseId,
-        APPWRITE_CONFIG.collections.conversations,
-        conversationId,
-        appwritePayload
-      )) as unknown as Record<string, unknown>;
-
-      let contact: Contact | undefined;
-      const cId = (updated.contactId || updated.contact_id) as string;
-      if (cId) {
-        try {
-          const cDoc = (await admin.databases.getDocument(
-            APPWRITE_CONFIG.databaseId,
-            APPWRITE_CONFIG.collections.contacts,
-            cId
-          )) as unknown as Record<string, unknown>;
-          if (cDoc) contact = normalizeContact(cDoc);
-        } catch {
-          // Ignore
-        }
-      }
-
-      const normalized = normalizeConversation(updated, contact);
-      return NextResponse.json(
-        { conversation: normalized },
-        { status: 200, headers: CACHE_HEADERS }
-      );
-    }
+    
 
     const supabase = getSupabaseAdminClient();
     const updatePayload: Record<string, unknown> = {

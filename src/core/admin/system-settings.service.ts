@@ -5,7 +5,7 @@
  */
 
 import { SystemSettings } from './types';
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { logAdminAction } from './audit.service';
 
 export const DEFAULT_SYSTEM_SETTINGS: SystemSettings = {

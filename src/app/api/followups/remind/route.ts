@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth/account';
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { engineSendText } from '@/lib/automations/meta-send';
 
 export async function POST(request: Request) {
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const db = appwriteAdmin();
+    const db = getAdminClient();
 
     // Fetch account details for business name
     const { data: acc } = await db

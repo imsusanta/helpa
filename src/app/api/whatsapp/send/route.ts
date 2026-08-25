@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { createClient } from '@/lib/appwrite-server-compat';
-import { getCurrentAccount } from '@/lib/auth/account';
+import {
+  ForbiddenError,
+  requireRole,
+  toErrorResponse,
+  UnauthorizedError,
+} from '@/lib/auth/account';
 import {
   sendTextMessage,
   sendTemplateMessage,
@@ -9,7 +13,7 @@ import {
   type MediaKind,
 } from '@/lib/whatsapp/meta-api';
 import { decrypt, encrypt, isLegacyFormat } from '@/lib/whatsapp/encryption';
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import {
   sanitizePhoneForMeta,
   isValidE164,
@@ -27,48 +31,15 @@ import { OutboxService } from '@/lib/whatsapp/outbox-service';
 
 export async function POST(request: Request) {
   try {
-    const appwrite = await createClient();
-
-    const {
-      data: { user },
-      error: authError,
-    } = await appwrite.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const ctx = await requireRole('agent');
+    const user = { id: ctx.userId };
+    const accountId = ctx.accountId;
 
     // Per-user rate limit. Bucket key is scoped to this route so
     // `/broadcast` has an independent budget.
-    const limit = checkRateLimit(`send:${user.id}`, RATE_LIMITS.send);
+    const limit = await checkRateLimit(`send:${user.id}`, RATE_LIMITS.send);
     if (!limit.success) {
       return rateLimitResponse(limit);
-    }
-
-    let accountId: string | null = null;
-    const ctx = await getCurrentAccount().catch(() => null);
-    if (ctx?.accountId) {
-      accountId = ctx.accountId;
-    } else {
-      try {
-        const { data: profile } = await appwrite
-          .from('profiles')
-          .select('account_id, accountId')
-          .eq('user_id', user.id)
-          .maybeSingle();
-        if (profile?.account_id || profile?.accountId) {
-          accountId = String(profile.account_id || profile.accountId);
-        }
-      } catch {
-        // Fallback
-      }
-    }
-
-    if (!accountId) {
-      return NextResponse.json(
-        { error: 'Account membership required' },
-        { status: 403 }
-      );
     }
 
     const body = await request.json();
@@ -88,7 +59,7 @@ export async function POST(request: Request) {
     const template_message_params = body.template_message_params;
     const reply_to_message_id = body.reply_to_message_id;
 
-    const dbAdmin = appwriteAdmin();
+    const dbAdmin = getAdminClient();
 
     // Validate contact_id tenant scoping if contact_id is explicitly provided
     if (contactIdInput) {
@@ -174,7 +145,7 @@ export async function POST(request: Request) {
               .from('contacts')
               .insert({
                 account_id: accountId,
-                user_id: ctx?.userId || user.id || null,
+                user_id: ctx.userId,
                 phone: plusPhone,
                 name: body.name || cleanPhone || rawPhone,
                 created_at: now,
@@ -226,7 +197,7 @@ export async function POST(request: Request) {
               .from('conversations')
               .insert({
                 account_id: accountId,
-                user_id: ctx?.userId || user.id || null,
+                user_id: ctx.userId,
                 contact_id: resolvedContactId,
                 channel: 'whatsapp',
                 status: 'open',
@@ -247,7 +218,7 @@ export async function POST(request: Request) {
                 .from('conversations')
                 .insert({
                   account_id: accountId,
-                  user_id: ctx?.userId || user.id || null,
+                  user_id: ctx.userId,
                   contact_id: resolvedContactId,
                   status: 'open',
                   unread_count: 0,
@@ -1003,6 +974,9 @@ export async function POST(request: Request) {
       conversation_id: conversation_id,
     });
   } catch (error) {
+    if (error instanceof UnauthorizedError || error instanceof ForbiddenError) {
+      return toErrorResponse(error);
+    }
     console.error('Error in WhatsApp send POST:', error);
     return NextResponse.json(
       { error: 'Failed to send message' },

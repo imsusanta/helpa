@@ -4,7 +4,7 @@
  * Listings catalog, property configurations, pricing, and availability.
  */
 
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 
 export interface PropertyRecord {
   id: string;

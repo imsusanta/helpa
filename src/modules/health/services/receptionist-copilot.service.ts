@@ -6,7 +6,7 @@
  * and quick actions.
  */
 
-import { getAdminClient } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 import { getPatientReports } from './report.service';
 
 export interface ReceptionistCopilotContext {

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentAccount, toErrorResponse } from '@/lib/auth/account';
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
-import { appwriteAdmin } from '@/lib/appwrite-server-compat';
+import { getAdminClient } from '@/lib/db/server';
 
 export async function GET() {
   try {
@@ -76,7 +76,7 @@ export async function GET() {
       }
     } catch {
       // Fallback to Appwrite counts
-      const admin = appwriteAdmin();
+      const admin = getAdminClient();
       const [membersRes, templatesRes, tagsRes] = await Promise.allSettled([
         admin.from('profiles').select('id').eq('accountId', accountId),
         admin.from('message_templates').select('id').eq('userId', userId),
