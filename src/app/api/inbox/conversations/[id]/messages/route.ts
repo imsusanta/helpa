@@ -78,8 +78,6 @@ export async function GET(request: NextRequest, { params }: Params) {
       100
     );
 
-    
-
     const supabase = getSupabaseAdminClient();
     const { data: conv, error: cErr } = await supabase
       .from('conversations')

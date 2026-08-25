@@ -94,8 +94,6 @@ export async function GET(_request: NextRequest, { params }: Params) {
       );
     }
 
-    
-
     const supabase = getSupabaseAdminClient();
     const { data: conv, error: convErr } = await supabase
       .from('conversations')
@@ -188,8 +186,6 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       string,
       unknown
     >;
-
-    
 
     const supabase = getSupabaseAdminClient();
     const updatePayload: Record<string, unknown> = {

@@ -8,7 +8,9 @@ vi.mock('@/lib/cron/security', () => ({
 
 vi.mock('@/lib/automations/meta-send', () => ({
   engineSendText: vi.fn().mockResolvedValue({ whatsapp_message_id: 'wa-1' }),
-  engineSendDocument: vi.fn().mockResolvedValue({ whatsapp_message_id: 'wa-1' }),
+  engineSendDocument: vi
+    .fn()
+    .mockResolvedValue({ whatsapp_message_id: 'wa-1' }),
 }));
 
 vi.mock('@/lib/db/server', () => ({
@@ -34,7 +36,10 @@ vi.mock('@/lib/db/server', () => ({
           };
         }
         if (table === 'contacts') {
-          return { data: [{ id: 'c-1', name: 'Pat', phone: '+15550001' }], error: null };
+          return {
+            data: [{ id: 'c-1', name: 'Pat', phone: '+15550001' }],
+            error: null,
+          };
         }
         if (table === 'conversations') {
           return { data: { id: 'conv-1' }, error: null };
