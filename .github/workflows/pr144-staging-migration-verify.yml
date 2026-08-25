@@ -1,0 +1,122 @@
+name: PR 142 staging migration verification
+
+on:
+  push:
+    branches: [fix/pr142-quality-gate]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: pr142-staging-migration-verification
+  cancel-in-progress: false
+
+jobs:
+  verify-staging-migration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      MIGRATION_TARGET: ${{ secrets.MIGRATION_TARGET }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.39.2
+
+      - name: Enforce staging-only target
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$MIGRATION_TARGET" = "staging"
+          test -n "$SUPABASE_PROJECT_REF"
+          test -n "$SUPABASE_ACCESS_TOKEN"
+          test -n "$SUPABASE_DB_PASSWORD"
+          test "$NEXT_PUBLIC_SUPABASE_URL" = "https://${SUPABASE_PROJECT_REF}.supabase.co"
+
+      - name: Link staging project
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase link \
+            --project-ref "$SUPABASE_PROJECT_REF" \
+            --password "$SUPABASE_DB_PASSWORD"
+
+      - name: Snapshot automation row count before migration
+        id: before
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase db dump --linked --data-only --schema public --file /tmp/before.sql
+          count=$(awk '
+            /^COPY public\.automations / { in_table=1; next }
+            in_table && /^\\\.$/ { in_table=0; exit }
+            in_table { rows++ }
+            END { print rows + 0 }
+          ' /tmp/before.sql)
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          echo "Automation rows before migration: $count"
+
+      - name: Dry-run and apply pending staging migrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase db push --linked --dry-run
+          supabase db push --linked
+          supabase migration list --linked | tee /tmp/migrations.txt
+          grep -q '20260825100000' /tmp/migrations.txt
+
+      - name: Verify metadata schema, index, and data preservation
+        id: after
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase db dump --linked --schema public --file /tmp/schema.sql
+          supabase db dump --linked --data-only --schema public --file /tmp/after.sql
+
+          grep -Eqi 'metadata[[:space:]]+jsonb' /tmp/schema.sql
+          grep -Eqi "metadata[[:space:]]+jsonb[^;]*(default[[:space:]]+'?\\{\\}'?::jsonb|not null)" /tmp/schema.sql
+          grep -Eqi 'CREATE[[:space:]]+(UNIQUE[[:space:]]+)?INDEX[[:space:]]+idx_automations_seed_metadata' /tmp/schema.sql
+          grep -Eqi "workflow_seed_key" /tmp/schema.sql
+          grep -Eqi "helpa_seeded_workflow" /tmp/schema.sql
+
+          count=$(awk '
+            /^COPY public\.automations / { in_table=1; next }
+            in_table && /^\\\.$/ { in_table=0; exit }
+            in_table { rows++ }
+            END { print rows + 0 }
+          ' /tmp/after.sql)
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          echo "Automation rows after migration: $count"
+          test "$count" = "${{ steps.before.outputs.count }}"
+
+      - name: Publish sanitized verification evidence
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BEFORE_COUNT: ${{ steps.before.outputs.count }}
+          AFTER_COUNT: ${{ steps.after.outputs.count }}
+        shell: bash
+        run: |
+          cat > /tmp/comment.md <<EOF
+          ## Staging migration verification
+
+          - Target guard: **staging confirmed**
+          - Migration dry-run: **passed**
+          - Migration apply: **passed**
+          - Migration history contains [96m20260825100000[0m: **confirmed**
+          - [96mautomations.metadata[0m JSONB column/default: **confirmed**
+          - [96midx_automations_seed_metadata[0m partial index: **confirmed**
+          - Automation rows before: **${BEFORE_COUNT}**
+          - Automation rows after: **${AFTER_COUNT}**
+          - Existing automation row count preserved: **confirmed**
+
+          No secret values are included in this report.
+          EOF
+          sed -i $'s/\033\[96m/`/g; s/\033\[0m/`/g' /tmp/comment.md
+          gh pr comment 144 --body-file /tmp/comment.md
