@@ -14,7 +14,8 @@ const state = vi.hoisted(() => ({
 class Query {
   private filters: Array<(row: Record<string, unknown>) => boolean> = [];
   private operation: 'select' | 'insert' | 'update' | 'delete' = 'select';
-  private payload: Record<string, unknown> | Array<Record<string, unknown>> | null = null;
+  private payload:
+    Record<string, unknown> | Array<Record<string, unknown>> | null = null;
   private rowLimit: number | null = null;
 
   constructor(private table: keyof typeof state.tables) {}
@@ -22,69 +23,60 @@ class Query {
   select() {
     return this;
   }
-
   eq(column: string, value: unknown) {
     this.filters.push((row) => row[column] === value);
     return this;
   }
-
   in(column: string, values: unknown[]) {
     this.filters.push((row) => values.includes(row[column]));
     return this;
   }
-
   order() {
     return this;
   }
-
   limit(value: number) {
     this.rowLimit = value;
     return this;
   }
-
   insert(payload: Record<string, unknown> | Array<Record<string, unknown>>) {
     this.operation = 'insert';
     this.payload = payload;
     return this;
   }
-
   update(payload: Record<string, unknown>) {
     this.operation = 'update';
     this.payload = payload;
     return this;
   }
-
   delete() {
     this.operation = 'delete';
     return this;
   }
-
   async maybeSingle() {
     const result = this.execute();
     return { data: result.data[0] ?? null, error: result.error };
   }
-
   async single() {
     const result = this.execute();
     return { data: result.data[0] ?? null, error: result.error };
   }
-
   then<TResult1 = unknown, TResult2 = never>(
     onfulfilled?: ((value: unknown) => TResult1 | PromiseLike<TResult1>) | null,
     onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null
   ) {
     return Promise.resolve(this.execute()).then(onfulfilled, onrejected);
   }
-
   private execute() {
     const table = state.tables[this.table];
     const matches = (row: Record<string, unknown>) =>
       this.filters.every((filter) => filter(row));
-
     if (this.operation === 'insert') {
-      const rows = (Array.isArray(this.payload) ? this.payload : [this.payload]).map(
-        (row, index) => ({ id: `${this.table}-${table.length + index + 1}`, ...row })
-      );
+      const rows = (
+        Array.isArray(this.payload) ? this.payload : [this.payload]
+      ).map((row, index) => ({
+        id: `${this.table}-${table.length + index + 1}`,
+        ...row,
+      }));
       table.push(...rows);
       return { data: rows, error: null };
     }
@@ -98,7 +90,6 @@ class Query {
       state.tables[this.table] = table.filter((row) => !matches(row)) as never;
       return { data: rows, error: null };
     }
-
     const rows = table.filter(matches);
     return {
       data: this.rowLimit === null ? rows : rows.slice(0, this.rowLimit),
@@ -192,14 +183,12 @@ describe('automation route tenant and industry isolation', () => {
       { id: 'log-b', automation_id: 'automation-b', account_id: 'account-b' },
     ];
   });
-
   it('rejects a clinic template for a travel account', async () => {
     const response = await createAutomation(
       request('POST', { template: 'doctor_booking_enquiry' })
     );
     expect(response.status).toBe(403);
   });
-
   it('allows a clinic template for a clinic account', async () => {
     state.accountId = 'account-b';
     state.userId = 'user-b';
@@ -209,18 +198,30 @@ describe('automation route tenant and industry isolation', () => {
     expect(response.status).toBe(201);
     expect(state.tables.automations.at(-1)?.account_id).toBe('account-b');
   });
-
   it.each([
     ['read', () => GET(request('GET'), params('automation-b'))],
-    ['patch', () => PATCH(request('PATCH', { is_active: true }), params('automation-b'))],
-    ['deactivate', () => PATCH(request('PATCH', { is_active: false }), params('automation-b'))],
+    [
+      'patch',
+      () =>
+        PATCH(request('PATCH', { is_active: true }), params('automation-b')),
+    ],
+    [
+      'deactivate',
+      () =>
+        PATCH(request('PATCH', { is_active: false }), params('automation-b')),
+    ],
     ['delete', () => DELETE(request('DELETE'), params('automation-b'))],
-    ['duplicate', () => duplicateAutomation(request('POST'), params('automation-b'))],
+    [
+      'duplicate',
+      () => duplicateAutomation(request('POST'), params('automation-b')),
+    ],
     ['logs', () => getLogs(request('GET'), params('automation-b'))],
-  ])('returns 404 when Account A tries to %s Account B automation', async (_name, call) => {
-    expect((await call()).status).toBe(404);
-  });
-
+  ])(
+    'returns 404 when Account A tries to %s Account B automation',
+    async (_name, call) => {
+      expect((await call()).status).toBe(404);
+    }
+  );
   it('duplicates an owned automation into the authenticated account', async () => {
     const response = await duplicateAutomation(
       request('POST'),

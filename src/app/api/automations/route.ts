@@ -179,7 +179,10 @@ export async function POST(request: Request) {
     const t = getTemplateForIndustry(template, account.industry);
     if (!t) {
       return NextResponse.json(
-        { error: 'This automation template is not available for this workspace.' },
+        {
+          error:
+            'This automation template is not available for this workspace.',
+        },
         { status: 403 }
       );
     }

@@ -8,9 +8,7 @@ import {
   type BuilderInitial,
   type BuilderStep,
 } from '@/components/automations/automation-builder';
-import {
-  getTemplateForIndustry,
-} from '@/lib/automations/templates';
+import { getTemplateForIndustry } from '@/lib/automations/templates';
 import { useWorkspace } from '@/hooks/use-workspace';
 import type { AutomationStepType, AutomationTriggerType } from '@/types';
 
