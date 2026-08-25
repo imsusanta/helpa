@@ -85,6 +85,16 @@ const SECURITY_HEADERS = [
 ] as const;
 
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
+  compress: true,
+  experimental: {
+    optimizePackageImports: [
+      'lucide-react',
+      'framer-motion',
+      'recharts',
+      'date-fns',
+    ],
+  },
   env: {
     APP_COMMIT_SHA: COMMIT_SHA,
     NEXT_PUBLIC_COMMIT_SHA: COMMIT_SHA,
@@ -133,6 +143,16 @@ const nextConfig: NextConfig = {
           {
             key: 'Cache-Control',
             value: 'private, no-store, no-cache, must-revalidate',
+          },
+        ],
+      },
+      {
+        source: '/',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value:
+              'public, max-age=0, s-maxage=300, stale-while-revalidate=86400',
           },
         ],
       },
