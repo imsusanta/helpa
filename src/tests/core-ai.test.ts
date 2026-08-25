@@ -222,10 +222,6 @@ describe('Helpa Core AI Engine', () => {
         };
       },
     } as unknown as ReturnType<typeof appwriteCompat.getAdminClient>);
-
-    vi.spyOn(appwriteCompat, 'getAdminClient').mockImplementation(() =>
-      appwriteCompat.getAdminClient()
-    );
   });
 
   describe('Dynamic Industry AI Role Resolution', () => {

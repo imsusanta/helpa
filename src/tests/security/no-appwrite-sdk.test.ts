@@ -41,6 +41,7 @@ describe('Appwrite SDK excision', () => {
     ];
     const offenders: string[] = [];
     for (const file of files) {
+      if (file.endsWith('no-appwrite-sdk.test.ts')) continue;
       const source = fs.readFileSync(file, 'utf8');
       if (
         /from ['"]appwrite['"]/.test(source) ||

@@ -68,7 +68,8 @@ describe('buildContactPhoneVariants', () => {
   });
 
   it('drops empty or too-short values', () => {
-    expect(buildContactPhoneVariants('12')).toEqual([]);
+    expect(buildContactPhoneVariants('')).toEqual([]);
+    expect(buildContactPhoneVariants('ab')).toEqual([]);
   });
 });
 

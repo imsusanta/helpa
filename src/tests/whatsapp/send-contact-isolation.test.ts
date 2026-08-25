@@ -1,6 +1,30 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { POST } from '@/app/api/whatsapp/send/route';
 
+vi.mock('@/lib/auth/account', () => ({
+  getCurrentAccount: vi
+    .fn()
+    .mockResolvedValue({
+      accountId: 'tenant-1',
+      userId: 'user-1',
+      role: 'agent',
+    }),
+  requireRole: vi
+    .fn()
+    .mockResolvedValue({
+      accountId: 'tenant-1',
+      userId: 'user-1',
+      role: 'agent',
+    }),
+  toErrorResponse: vi.fn(),
+  UnauthorizedError: class UnauthorizedError extends Error {
+    status = 401 as const;
+  },
+  ForbiddenError: class ForbiddenError extends Error {
+    status = 403 as const;
+  },
+}));
+
 // Mock the server database client
 vi.mock('@/lib/db/server', () => {
   const mockContacts: Array<{ id: string; account_id: string; phone: string }> =

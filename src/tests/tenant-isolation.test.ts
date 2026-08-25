@@ -50,7 +50,7 @@ const CROSS_TENANT: Record<string, Row> = {
 };
 
 vi.mock('@/lib/db/server', () => {
-  const from = (table: string) => {
+  const from = (_table: string) => {
     const filters: Record<string, unknown> = {};
     const chain: Record<string, unknown> = {
       select: () => chain,
