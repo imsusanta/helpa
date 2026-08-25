@@ -1,0 +1,156 @@
+name: PR 142 authenticated preview verification
+
+on:
+  push:
+    branches: [fix/pr142-quality-gate]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  verify-authenticated-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+      E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+      E2E_BASE_URL: ${{ secrets.E2E_BASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - id: preview
+        name: Inspect authenticated automation workspace
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const { chromium } = require('@playwright/test');
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            const page = await browser.newPage();
+            let login = false;
+            let industry = 'unknown';
+            let profileAccountId = false;
+            let workspaceSwitchControl = false;
+            let doctorVisible = false;
+            let labVisible = false;
+            let travelVisible = false;
+            let showAllLabel = 'missing';
+            let error = 'none';
+
+            try {
+              await page.goto(new URL('/login', process.env.E2E_BASE_URL).toString(), {
+                waitUntil: 'domcontentloaded',
+                timeout: 30000,
+              });
+              await page.locator('#email').fill(process.env.E2E_TEST_EMAIL);
+              await page.locator('#password').fill(process.env.E2E_TEST_PASSWORD);
+              await Promise.all([
+                page.waitForURL((url) => !url.pathname.includes('/login'), {
+                  timeout: 30000,
+                }),
+                page.getByRole('button', { name: /sign in to dashboard/i }).click(),
+              ]);
+
+              const profile = await page.evaluate(async () => {
+                const response = await fetch('/api/account/profile', {
+                  credentials: 'include',
+                  cache: 'no-store',
+                });
+                return {
+                  ok: response.ok,
+                  body: await response.json().catch(() => ({})),
+                };
+              });
+              login = Boolean(profile.ok && profile.body?.success);
+              industry = String(profile.body?.account?.industry || 'unknown');
+              profileAccountId = Boolean(profile.body?.profile?.account_id);
+
+              await page.goto(
+                new URL('/automations', process.env.E2E_BASE_URL).toString(),
+                { waitUntil: 'networkidle', timeout: 30000 }
+              );
+
+              const showAll = page.getByRole('button', {
+                name: /show all \d+ templates/i,
+              });
+              if (await showAll.count()) {
+                showAllLabel = (await showAll.first().innerText()).trim();
+                await showAll.first().click();
+              }
+
+              doctorVisible =
+                (await page.locator('a[href*="template=doctor_booking_enquiry"]').count()) > 0 ||
+                (await page.getByText(/doctor booking enquiry/i).count()) > 0;
+              labVisible =
+                (await page.locator('a[href*="template=lab_test_booking"]').count()) > 0 ||
+                (await page.getByText(/lab test booking/i).count()) > 0;
+              travelVisible =
+                (await page.locator('a[href*="template=traveler_intake_greeting"]').count()) > 0 ||
+                (await page.getByText(/traveler intake greeting/i).count()) > 0;
+
+              workspaceSwitchControl =
+                (await page.getByRole('button', { name: /switch workspace/i }).count()) > 0 ||
+                (await page.getByText(/switch workspace/i).count()) > 0;
+            } catch (caught) {
+              error = caught instanceof Error ? caught.name : 'preview verification error';
+            } finally {
+              await browser.close();
+            }
+
+            const output = process.env.GITHUB_OUTPUT;
+            const values = {
+              login,
+              industry,
+              profile_account_id: profileAccountId,
+              workspace_switch_control: workspaceSwitchControl,
+              doctor_visible: doctorVisible,
+              lab_visible: labVisible,
+              travel_visible: travelVisible,
+              show_all_label: showAllLabel.replace(/[\r\n]/g, ' '),
+              error,
+            };
+            for (const [key, value] of Object.entries(values)) {
+              fs.appendFileSync(output, `${key}=${value}\n`);
+            }
+            if (!login) process.exitCode = 1;
+          })();
+          NODE
+      - name: Publish sanitized preview evidence
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LOGIN: ${{ steps.preview.outputs.login }}
+          INDUSTRY: ${{ steps.preview.outputs.industry }}
+          PROFILE_ACCOUNT_ID: ${{ steps.preview.outputs.profile_account_id }}
+          SWITCH_CONTROL: ${{ steps.preview.outputs.workspace_switch_control }}
+          DOCTOR_VISIBLE: ${{ steps.preview.outputs.doctor_visible }}
+          LAB_VISIBLE: ${{ steps.preview.outputs.lab_visible }}
+          TRAVEL_VISIBLE: ${{ steps.preview.outputs.travel_visible }}
+          SHOW_ALL_LABEL: ${{ steps.preview.outputs.show_all_label }}
+          ERROR_NAME: ${{ steps.preview.outputs.error }}
+        shell: bash
+        run: |
+          cat > /tmp/comment.md <<EOF
+          ## Authenticated preview inspection
+
+          - Login succeeded: **${LOGIN:-false}**
+          - Authenticated profile has an account: **${PROFILE_ACCOUNT_ID:-false}**
+          - Current industry: **${INDUSTRY:-unknown}**
+          - Workspace-switch control present: **${SWITCH_CONTROL:-false}**
+          - Doctor template visible: **${DOCTOR_VISIBLE:-false}**
+          - Lab-test template visible: **${LAB_VISIBLE:-false}**
+          - Travel template visible: **${TRAVEL_VISIBLE:-false}**
+          - Template-count control: **${SHOW_ALL_LABEL:-missing}**
+          - Sanitized error class: **${ERROR_NAME:-none}**
+
+          No credential, account ID, or secret value is included in this report.
+          EOF
+          gh pr comment 144 --body-file /tmp/comment.md
