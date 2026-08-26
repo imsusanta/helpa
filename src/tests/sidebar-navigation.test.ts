@@ -38,7 +38,7 @@ describe('authenticated sidebar navigation', () => {
     }
   });
 
-  it('shows Patients and Patient Reports in Clinic Operations', () => {
+  it('shows Patients, Patient Reports and Website in Clinic Operations', () => {
     const clinicOperations = hospitalNavigation.find(
       (item) => item.id === 'industry-operations'
     );
@@ -47,11 +47,13 @@ describe('authenticated sidebar navigation', () => {
       'Patients',
       'Doctors',
       'Patient Reports',
+      'Website',
     ]);
     expect(clinicOperations?.children?.map((child) => child.href)).toEqual([
       '/patients',
       '/doctors',
       '/lab-reports?scope=patients',
+      '/website',
     ]);
     expect(
       clinicOperations?.children?.some((child) => child.label === 'Contacts')
@@ -72,7 +74,12 @@ describe('authenticated sidebar navigation', () => {
   });
 
   it('allows every clinic operation route', () => {
-    for (const route of ['/patients', '/doctors', '/lab-reports']) {
+    for (const route of [
+      '/patients',
+      '/doctors',
+      '/lab-reports',
+      '/website',
+    ]) {
       expect(isIndustryRouteAllowed(hospitalManifest, route), route).toBe(true);
     }
   });

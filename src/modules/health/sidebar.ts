@@ -15,4 +15,5 @@ export const sidebarConfig: ModuleNavItem[] = [
     label: 'Patient Reports',
     iconName: 'FileText',
   },
+  { href: '/website', label: 'Website', iconName: 'Globe' },
 ];
