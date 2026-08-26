@@ -1,4 +1,27 @@
-export const ADMIN_NAV_GROUPS = [
+export type AdminNavIconName =
+  | 'LayoutDashboard'
+  | 'Building2'
+  | 'CreditCard'
+  | 'Receipt'
+  | 'IndianRupee'
+  | 'Bot'
+  | 'MessageSquare'
+  | 'Settings';
+
+export interface AdminNavItem {
+  id: string;
+  href: string;
+  label: string;
+  icon: AdminNavIconName;
+  exact?: boolean;
+}
+
+export interface AdminNavGroup {
+  title: string;
+  items: AdminNavItem[];
+}
+
+export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
   {
     title: 'OVERVIEW',
     items: [
@@ -73,11 +96,7 @@ export const ADMIN_NAV_GROUPS = [
       },
     ],
   },
-] as const;
-
-export type AdminNavItem =
-  (typeof ADMIN_NAV_GROUPS)[number]['items'][number];
-export type AdminNavIconName = AdminNavItem['icon'];
+];
 
 export const ADMIN_ROUTE_DESCRIPTIONS: Record<
   string,
@@ -130,11 +149,8 @@ export const ADMIN_ROUTE_PATHS = ADMIN_NAV_GROUPS.flatMap((group) =>
   group.items.map((item) => item.href)
 );
 
-export function isAdminNavItemActive(
-  pathname: string,
-  item: AdminNavItem
-) {
-  if ('exact' in item && item.exact) return pathname === item.href;
+export function isAdminNavItemActive(pathname: string, item: AdminNavItem) {
+  if (item.exact) return pathname === item.href;
   if (ADMIN_LEGACY_ROUTES[pathname] === item.href) return true;
   return pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
