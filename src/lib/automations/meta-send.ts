@@ -18,631 +18,142 @@ import {
   isLikelyAiLabReportDocument,
 } from '@/lib/whatsapp/report-delivery-guard';
 
-interface SendTextArgs {
-  accountId: string;
-  userId?: string;
-  conversationId: string;
-  contactId?: string;
-  text: string;
-}
-
-interface SendButtonsArgs {
-  accountId: string;
-  userId?: string;
-  conversationId: string;
-  contactId?: string;
-  bodyText: string;
-  buttons: { id: string; title: string }[];
-  headerText?: string;
-  footerText?: string;
-}
-
-interface SendTemplateArgs {
-  accountId: string;
-  userId?: string;
-  conversationId: string;
-  contactId?: string;
-  templateName: string;
-  language?: string;
-  params?: string[];
-}
-
+interface SendTextArgs { accountId: string; userId?: string; conversationId: string; contactId?: string; text: string; }
+interface SendButtonsArgs { accountId: string; userId?: string; conversationId: string; contactId?: string; bodyText: string; buttons: { id: string; title: string }[]; headerText?: string; footerText?: string; }
+interface SendTemplateArgs { accountId: string; userId?: string; conversationId: string; contactId?: string; templateName: string; language?: string; params?: string[]; }
 type DocumentDeliveryIntent = 'staff_initiated' | 'patient_requested';
+interface SendDocumentArgs { accountId: string; userId?: string; conversationId: string; contactId?: string; documentUrl: string; filename?: string; caption?: string; deliveryIntent?: DocumentDeliveryIntent; }
+interface ResolvedCredentials { phoneNumberId: string; accessToken: string; phone: string; }
 
-interface SendDocumentArgs {
-  accountId: string;
-  userId?: string;
-  conversationId: string;
-  contactId?: string;
-  documentUrl: string;
-  filename?: string;
-  caption?: string;
-  deliveryIntent?: DocumentDeliveryIntent;
-}
-
-interface ResolvedCredentials {
-  phoneNumberId: string;
-  accessToken: string;
-  phone: string;
-}
-
-async function assertLabReportDeliveryAllowed(
-  args: SendDocumentArgs
-): Promise<void> {
-  if (
-    args.deliveryIntent ||
-    !isLikelyAiLabReportDocument({
-      filename: args.filename,
-      caption: args.caption,
-    })
-  ) {
-    return;
-  }
-
+async function assertLabReportDeliveryAllowed(args: SendDocumentArgs): Promise<void> {
+  if (args.deliveryIntent || !isLikelyAiLabReportDocument({ filename: args.filename, caption: args.caption })) return;
   const db = getAdminClient();
-  const { data: recentMessages, error } = await db
-    .from('messages')
-    .select('sender_type, content_text, created_at')
-    .eq('conversation_id', args.conversationId)
-    .order('created_at', { ascending: false })
-    .limit(10);
-
-  if (error) {
-    throw new Error(
-      '[meta-send] Lab report delivery blocked because patient intent could not be verified.'
-    );
-  }
-
-  const latestCustomerMessage = (recentMessages || []).find(
-    (message: Record<string, unknown>) =>
-      String(message.sender_type || '') === 'customer'
-  );
+  const { data: recentMessages, error } = await db.from('messages').select('sender_type, content_text, created_at').eq('conversation_id', args.conversationId).order('created_at', { ascending: false }).limit(10);
+  if (error) throw new Error('[meta-send] Lab report delivery blocked because patient intent could not be verified.');
+  const latestCustomerMessage = (recentMessages || []).find((message: Record<string, unknown>) => String(message.sender_type || '') === 'customer');
   const messageText = String(latestCustomerMessage?.content_text || '');
-
-  if (!isExplicitLabReportRequest(messageText)) {
-    throw new Error(
-      '[meta-send] Blocked unsolicited lab report delivery: the patient did not explicitly request a report.'
-    );
-  }
+  if (!isExplicitLabReportRequest(messageText)) throw new Error('[meta-send] Blocked unsolicited lab report delivery: the patient did not explicitly request a report.');
 }
 
-async function resolveCredentialsAndPhone(
-  accountId: string,
-  contactId?: string,
-  conversationId?: string
-): Promise<ResolvedCredentials | null> {
+async function resolveCredentialsAndPhone(accountId: string, contactId?: string, conversationId?: string): Promise<ResolvedCredentials | null> {
   const db = getAdminClient();
-
-  // 1. Fetch active WhatsApp configuration from the canonical table first.
   let config: Record<string, unknown> | null = null;
-  try {
-    const { data } = await db
-      .from('whatsapp_configs')
-      .select('*')
-      .eq('account_id', accountId)
-      .eq('status', 'connected')
-      .maybeSingle();
-    if (data) config = data as Record<string, unknown>;
-  } catch {
-    // Fall through to the legacy compatibility table.
-  }
-
-  if (!config) {
-    try {
-      const { data } = await db
-        .from('whatsapp_configs')
-        .select('*')
-        .eq('account_id', accountId)
-        .order('created_at', { ascending: false })
-        .limit(1);
-      if (data && data.length > 0) config = data[0] as Record<string, unknown>;
-    } catch {
-      // Fall through to the legacy compatibility table.
-    }
-  }
-
-  if (!config) {
-    try {
-      const { data } = await db
-        .from('whatsapp_config')
-        .select('*')
-        .eq('account_id', accountId)
-        .eq('status', 'connected')
-        .maybeSingle();
-      if (data) config = data as Record<string, unknown>;
-    } catch {
-      // fallback
-    }
-  }
-
-  if (!config) {
-    try {
-      const { data } = await db
-        .from('whatsapp_config')
-        .select('*')
-        .eq('account_id', accountId)
-        .order('created_at', { ascending: false })
-        .limit(1);
-      if (data && data.length > 0) config = data[0] as Record<string, unknown>;
-    } catch {
-      // ignore
-    }
-  }
-
-  if (!config) {
-    try {
-      const { data } = await db
-        .from('whatsapp_config')
-        .select('*')
-        .eq('accountId', accountId)
-        .limit(1);
-      if (data && data.length > 0) config = data[0] as Record<string, unknown>;
-    } catch {
-      // ignore
-    }
-  }
-
+  try { const { data } = await db.from('whatsapp_configs').select('*').eq('account_id', accountId).eq('status', 'connected').maybeSingle(); if (data) config = data as Record<string, unknown>; } catch {}
+  if (!config) { try { const { data } = await db.from('whatsapp_configs').select('*').eq('account_id', accountId).order('created_at', { ascending: false }).limit(1); if (data?.length) config = data[0] as Record<string, unknown>; } catch {} }
+  if (!config) { try { const { data } = await db.from('whatsapp_config').select('*').eq('account_id', accountId).eq('status', 'connected').maybeSingle(); if (data) config = data as Record<string, unknown>; } catch {} }
+  if (!config) { try { const { data } = await db.from('whatsapp_config').select('*').eq('account_id', accountId).order('created_at', { ascending: false }).limit(1); if (data?.length) config = data[0] as Record<string, unknown>; } catch {} }
+  if (!config) { try { const { data } = await db.from('whatsapp_config').select('*').eq('accountId', accountId).limit(1); if (data?.length) config = data[0] as Record<string, unknown>; } catch {} }
   if (!config) return null;
-
-  const rawPhoneNumberId = String(
-    config.phone_number_id || config.phoneNumberId || config.phone_number || ''
-  );
-  const rawEncryptedToken = String(
-    config.access_token_encrypted ||
-      config.encrypted_access_token ||
-      config.accessTokenEncrypted ||
-      config.access_token ||
-      config.accessToken ||
-      ''
-  );
-
+  const rawPhoneNumberId = String(config.phone_number_id || config.phoneNumberId || config.phone_number || '');
+  const rawEncryptedToken = String(config.access_token_encrypted || config.encrypted_access_token || config.accessTokenEncrypted || config.access_token || config.accessToken || '');
   if (!rawPhoneNumberId || !rawEncryptedToken) return null;
-
   let accessToken = rawEncryptedToken;
-  try {
-    if (rawEncryptedToken.includes(':')) {
-      accessToken = decrypt(rawEncryptedToken);
-    }
-  } catch {
-    // raw token
-  }
-
-  // 2. Fetch recipient phone number
+  try { if (rawEncryptedToken.includes(':')) accessToken = decrypt(rawEncryptedToken); } catch {}
   let phone = '';
-  if (contactId) {
-    try {
-      const { data: contact } = await db
-        .from('contacts')
-        .select('phone')
-        .eq('id', contactId)
-        .maybeSingle();
-      if (contact?.phone) phone = String(contact.phone);
-    } catch {
-      // ignore
-    }
-  }
-
-  if (!phone && conversationId) {
-    try {
-      const { data: conv } = await db
-        .from('conversations')
-        .select('contact_id, contact:contacts(phone)')
-        .eq('id', conversationId)
-        .maybeSingle();
-      const contactObj = conv?.contact as { phone?: string } | null;
-      if (contactObj?.phone) {
-        phone = String(contactObj.phone);
-      } else if (conv?.contact_id) {
-        const { data: c } = await db
-          .from('contacts')
-          .select('phone')
-          .eq('id', conv.contact_id)
-          .maybeSingle();
-        if (c?.phone) phone = String(c.phone);
-      }
-    } catch {
-      // ignore
-    }
-  }
-
+  if (contactId) { try { const { data: contact } = await db.from('contacts').select('phone').eq('id', contactId).maybeSingle(); if (contact?.phone) phone = String(contact.phone); } catch {} }
+  if (!phone && conversationId) { try { const { data: conv } = await db.from('conversations').select('contact_id, contact:contacts(phone)').eq('id', conversationId).maybeSingle(); const contactObj = conv?.contact as { phone?: string } | null; if (contactObj?.phone) phone = String(contactObj.phone); else if (conv?.contact_id) { const { data: c } = await db.from('contacts').select('phone').eq('id', conv.contact_id).maybeSingle(); if (c?.phone) phone = String(c.phone); } } catch {} }
   if (!phone) return null;
-
-  return {
-    phoneNumberId: rawPhoneNumberId,
-    accessToken,
-    phone,
-  };
+  return { phoneNumberId: rawPhoneNumberId, accessToken, phone };
 }
 
-async function recordSentMessage(
-  accountId: string,
-  conversationId: string,
-  metaMessageId: string | null,
-  contentType: 'text' | 'document' | 'interactive' | 'template',
-  contentText: string | null,
-  mediaUrl: string | null
-): Promise<string> {
+async function recordSentMessage(accountId: string, conversationId: string, metaMessageId: string | null, contentType: 'text' | 'document' | 'interactive' | 'template', contentText: string | null, mediaUrl: string | null): Promise<string> {
   const db = getAdminClient();
   const nowIso = new Date().toISOString();
   const fallbackId = `bot-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
   const messageId = metaMessageId || fallbackId;
-
   try {
-    const { data: inserted } = await db
-      .from('messages')
-      .insert({
-        conversation_id: conversationId,
-        sender_type: 'bot',
-        content_type: contentType,
-        content_text: contentText,
-        media_url: mediaUrl,
-        status: 'sent',
-        message_id: messageId,
-        created_at: nowIso,
-      })
-      .select('id')
-      .maybeSingle();
+    // account_id is required by the canonical messages schema. Keep the
+    // provider message id as the idempotency key so webhook/retry paths cannot
+    // create duplicate outbound bubbles.
+    const existing = await db.from('messages').select('id').eq('account_id', accountId).eq('message_id', messageId).maybeSingle();
+    if (existing.data?.id) return String(existing.data.id);
 
-    try {
-      await db
-        .from('conversations')
-        .update({
-          last_message_at: nowIso,
-          updated_at: nowIso,
-        })
-        .eq('id', conversationId);
-    } catch {
-      // ignore
+    const { data: inserted, error } = await db.from('messages').insert({
+      account_id: accountId,
+      conversation_id: conversationId,
+      sender_type: 'bot',
+      content_type: contentType,
+      content_text: contentText,
+      media_url: mediaUrl,
+      status: 'sent',
+      message_id: messageId,
+      created_at: nowIso,
+      updated_at: nowIso,
+    }).select('id').maybeSingle();
+
+    if (error) {
+      console.error('[meta-send] Failed to persist outbound message:', error);
+      throw new Error(`[meta-send] Outbound Meta message was sent but local persistence failed: ${error.message}`);
     }
+
+    await db.from('conversations').update({
+      last_message_text: contentText || `[${contentType}]`,
+      last_message_at: nowIso,
+      updated_at: nowIso,
+    }).eq('id', conversationId).eq('account_id', accountId);
 
     return inserted?.id ? String(inserted.id) : messageId;
   } catch (err) {
     console.error('[meta-send] Failed to record message in database:', err);
+    // Do not silently claim local persistence succeeded. The caller still
+    // receives the Meta message id, while the failure is visible in logs.
     return messageId;
   }
 }
 
-export async function engineSendText(
-  args: SendTextArgs
-): Promise<{ whatsapp_message_id: string }> {
-  const creds = await resolveCredentialsAndPhone(
-    args.accountId,
-    args.contactId,
-    args.conversationId
-  );
-
-  if (!creds) {
-    throw new Error(
-      '[meta-send] Cannot send text: WhatsApp credentials or recipient phone are unavailable.'
-    );
-  }
-
-  let metaMessageId: string | null = null;
-  let lastSendError: Error | null = null;
-  const sanitized = sanitizePhoneForMeta(creds.phone);
-  const variants = phoneVariants(sanitized);
-
-  for (const variant of variants) {
-    try {
-      const result = await sendTextMessage({
-        phoneNumberId: creds.phoneNumberId,
-        accessToken: creds.accessToken,
-        to: variant,
-        text: args.text,
-      });
-      metaMessageId = result.messageId;
-      break;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      lastSendError = err instanceof Error ? err : new Error(msg);
-      if (!isRecipientNotAllowedError(msg)) {
-        console.warn('[meta-send] sendTextMessage error:', msg);
-        break;
-      }
-    }
-  }
-
-  if (!metaMessageId) {
-    throw (
-      lastSendError ||
-      new Error('[meta-send] Meta did not return a WhatsApp message ID.')
-    );
-  }
-
-  const recordedId = await recordSentMessage(
-    args.accountId,
-    args.conversationId,
-    metaMessageId,
-    'text',
-    args.text,
-    null
-  );
-
-  return { whatsapp_message_id: metaMessageId || recordedId };
+export async function engineSendText(args: SendTextArgs): Promise<{ whatsapp_message_id: string }> {
+  const creds = await resolveCredentialsAndPhone(args.accountId, args.contactId, args.conversationId);
+  if (!creds) throw new Error('[meta-send] Cannot send text: WhatsApp credentials or recipient phone are unavailable.');
+  let metaMessageId: string | null = null; let lastSendError: Error | null = null;
+  const variants = phoneVariants(sanitizePhoneForMeta(creds.phone));
+  for (const variant of variants) { try { const result = await sendTextMessage({ phoneNumberId: creds.phoneNumberId, accessToken: creds.accessToken, to: variant, text: args.text }); metaMessageId = result.messageId; break; } catch (err) { const msg = err instanceof Error ? err.message : String(err); lastSendError = err instanceof Error ? err : new Error(msg); if (!isRecipientNotAllowedError(msg)) { console.warn('[meta-send] sendTextMessage error:', msg); break; } } }
+  if (!metaMessageId) throw (lastSendError || new Error('[meta-send] Meta did not return a WhatsApp message ID.'));
+  await recordSentMessage(args.accountId, args.conversationId, metaMessageId, 'text', args.text, null);
+  return { whatsapp_message_id: metaMessageId };
 }
 
-export async function engineSendDocument(
-  args: SendDocumentArgs
-): Promise<{ whatsapp_message_id: string }> {
+export async function engineSendDocument(args: SendDocumentArgs): Promise<{ whatsapp_message_id: string }> {
   await assertLabReportDeliveryAllowed(args);
-
-  const creds = await resolveCredentialsAndPhone(
-    args.accountId,
-    args.contactId,
-    args.conversationId
-  );
-
+  const creds = await resolveCredentialsAndPhone(args.accountId, args.contactId, args.conversationId);
   let metaMessageId: string | null = null;
-
-  if (creds && args.documentUrl) {
-    const sanitized = sanitizePhoneForMeta(creds.phone);
-    const variants = phoneVariants(sanitized);
-
-    for (const variant of variants) {
-      try {
-        const result = await sendMediaMessage({
-          phoneNumberId: creds.phoneNumberId,
-          accessToken: creds.accessToken,
-          to: variant,
-          kind: 'document',
-          link: args.documentUrl,
-          caption: args.caption || undefined,
-          filename: args.filename || 'Document.pdf',
-        });
-        metaMessageId = result.messageId;
-        console.log(
-          `[meta-send] Document sent successfully via Meta: ${result.messageId}`
-        );
-        break;
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (!isRecipientNotAllowedError(msg)) {
-          console.warn('[meta-send] sendMediaMessage error:', msg);
-          break;
-        }
-      }
-    }
-  }
-
-  const recordedId = await recordSentMessage(
-    args.accountId,
-    args.conversationId,
-    metaMessageId,
-    'document',
-    args.caption || args.filename || '[Document]',
-    args.documentUrl
-  );
-
-  return { whatsapp_message_id: metaMessageId || recordedId };
+  if (creds && args.documentUrl) { for (const variant of phoneVariants(sanitizePhoneForMeta(creds.phone))) { try { const result = await sendMediaMessage({ phoneNumberId: creds.phoneNumberId, accessToken: creds.accessToken, to: variant, kind: 'document', link: args.documentUrl, caption: args.caption || undefined, filename: args.filename || 'Document.pdf' }); metaMessageId = result.messageId; break; } catch (err) { const msg = err instanceof Error ? err.message : String(err); if (!isRecipientNotAllowedError(msg)) { console.warn('[meta-send] sendMediaMessage error:', msg); break; } } } }
+  if (!metaMessageId) throw new Error('[meta-send] Meta did not return a WhatsApp message ID for document.');
+  await recordSentMessage(args.accountId, args.conversationId, metaMessageId, 'document', args.caption || args.filename || '[Document]', args.documentUrl);
+  return { whatsapp_message_id: metaMessageId };
 }
 
-export async function engineSendButtons(
-  args: SendButtonsArgs
-): Promise<{ whatsapp_message_id: string }> {
-  const creds = await resolveCredentialsAndPhone(
-    args.accountId,
-    args.contactId,
-    args.conversationId
-  );
+export async function engineSendButtons(args: SendButtonsArgs): Promise<{ whatsapp_message_id: string }> {
+  const creds = await resolveCredentialsAndPhone(args.accountId, args.contactId, args.conversationId); let metaMessageId: string | null = null;
+  if (creds && args.buttons?.length) { for (const variant of phoneVariants(sanitizePhoneForMeta(creds.phone))) { try { const result = await sendInteractiveButtons({ phoneNumberId: creds.phoneNumberId, accessToken: creds.accessToken, to: variant, bodyText: args.bodyText, headerText: args.headerText, footerText: args.footerText, buttons: args.buttons.map(b => ({ id: b.id, title: b.title.substring(0, 20) })) }); metaMessageId = result.messageId; break; } catch (err) { const msg = err instanceof Error ? err.message : String(err); if (!isRecipientNotAllowedError(msg)) { console.warn('[meta-send] sendInteractiveButtons error:', msg); break; } } } }
+  if (!metaMessageId) throw new Error('[meta-send] Meta did not return a WhatsApp message ID for interactive buttons.');
+  await recordSentMessage(args.accountId, args.conversationId, metaMessageId, 'interactive', args.bodyText, null);
+  return { whatsapp_message_id: metaMessageId };
+}
 
+export async function engineSendTemplate(args: SendTemplateArgs): Promise<{ whatsapp_message_id: string }> {
+  const creds = await resolveCredentialsAndPhone(args.accountId, args.contactId, args.conversationId); let metaMessageId: string | null = null;
+  if (creds) { for (const variant of phoneVariants(sanitizePhoneForMeta(creds.phone))) { try { const result = await sendTemplateMessage({ phoneNumberId: creds.phoneNumberId, accessToken: creds.accessToken, to: variant, templateName: args.templateName, language: args.language || 'en_US', params: args.params || [] }); metaMessageId = result.messageId; break; } catch (err) { const msg = err instanceof Error ? err.message : String(err); if (!isRecipientNotAllowedError(msg)) { console.warn('[meta-send] sendTemplateMessage error:', msg); break; } } } }
+  if (!metaMessageId) throw new Error('[meta-send] Meta did not return a WhatsApp message ID for template.');
+  await recordSentMessage(args.accountId, args.conversationId, metaMessageId, 'template', `[Template: ${args.templateName}]`, null);
+  return { whatsapp_message_id: metaMessageId };
+}
+
+interface SendMediaArgs { accountId: string; userId?: string; conversationId: string; contactId?: string; kind: string; link: string; caption?: string; filename?: string; }
+export async function engineSendMedia(args: SendMediaArgs): Promise<{ whatsapp_message_id: string }> {
+  const creds = await resolveCredentialsAndPhone(args.accountId, args.contactId, args.conversationId);
+  const kind: MediaKind = args.kind === 'image' || args.kind === 'video' || args.kind === 'audio' || args.kind === 'document' ? args.kind : 'document';
   let metaMessageId: string | null = null;
-
-  if (creds && args.buttons && args.buttons.length > 0) {
-    const sanitized = sanitizePhoneForMeta(creds.phone);
-    const variants = phoneVariants(sanitized);
-
-    for (const variant of variants) {
-      try {
-        const result = await sendInteractiveButtons({
-          phoneNumberId: creds.phoneNumberId,
-          accessToken: creds.accessToken,
-          to: variant,
-          bodyText: args.bodyText,
-          headerText: args.headerText,
-          footerText: args.footerText,
-          buttons: args.buttons.map((b) => ({
-            id: b.id,
-            title: b.title.substring(0, 20),
-          })),
-        });
-        metaMessageId = result.messageId;
-        break;
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (!isRecipientNotAllowedError(msg)) {
-          console.warn('[meta-send] sendInteractiveButtons error:', msg);
-          break;
-        }
-      }
-    }
-  }
-
-  const recordedId = await recordSentMessage(
-    args.accountId,
-    args.conversationId,
-    metaMessageId,
-    'interactive',
-    args.bodyText,
-    null
-  );
-
-  return { whatsapp_message_id: metaMessageId || recordedId };
+  if (creds && args.link) { for (const variant of phoneVariants(sanitizePhoneForMeta(creds.phone))) { try { const result = await sendMediaMessage({ phoneNumberId: creds.phoneNumberId, accessToken: creds.accessToken, to: variant, kind, link: args.link, caption: args.caption, filename: args.filename }); metaMessageId = result.messageId; break; } catch (err) { const msg = err instanceof Error ? err.message : String(err); if (!isRecipientNotAllowedError(msg)) { console.warn('[meta-send] sendMediaMessage error:', msg); break; } } } }
+  if (!metaMessageId) throw new Error('[meta-send] Meta did not return a WhatsApp message ID for media.');
+  await recordSentMessage(args.accountId, args.conversationId, metaMessageId, 'document', args.caption || `[${kind}]`, args.link);
+  return { whatsapp_message_id: metaMessageId };
 }
 
-export async function engineSendTemplate(
-  args: SendTemplateArgs
-): Promise<{ whatsapp_message_id: string }> {
-  const creds = await resolveCredentialsAndPhone(
-    args.accountId,
-    args.contactId,
-    args.conversationId
-  );
-
-  let metaMessageId: string | null = null;
-
-  if (creds) {
-    const sanitized = sanitizePhoneForMeta(creds.phone);
-    const variants = phoneVariants(sanitized);
-
-    for (const variant of variants) {
-      try {
-        const result = await sendTemplateMessage({
-          phoneNumberId: creds.phoneNumberId,
-          accessToken: creds.accessToken,
-          to: variant,
-          templateName: args.templateName,
-          language: args.language || 'en_US',
-          params: args.params || [],
-        });
-        metaMessageId = result.messageId;
-        break;
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (!isRecipientNotAllowedError(msg)) {
-          console.warn('[meta-send] sendTemplateMessage error:', msg);
-          break;
-        }
-      }
-    }
-  }
-
-  const recordedId = await recordSentMessage(
-    args.accountId,
-    args.conversationId,
-    metaMessageId,
-    'template',
-    `[Template: ${args.templateName}]`,
-    null
-  );
-
-  return { whatsapp_message_id: metaMessageId || recordedId };
-}
-
-interface SendMediaArgs {
-  accountId: string;
-  userId?: string;
-  conversationId: string;
-  contactId?: string;
-  kind: string;
-  link: string;
-  caption?: string;
-  filename?: string;
-}
-
-export async function engineSendMedia(
-  args: SendMediaArgs
-): Promise<{ whatsapp_message_id: string }> {
-  const creds = await resolveCredentialsAndPhone(
-    args.accountId,
-    args.contactId,
-    args.conversationId
-  );
-
-  const kind: MediaKind =
-    args.kind === 'image' ||
-    args.kind === 'video' ||
-    args.kind === 'audio' ||
-    args.kind === 'document'
-      ? args.kind
-      : 'document';
-
-  let metaMessageId: string | null = null;
-  if (creds && args.link) {
-    const sanitized = sanitizePhoneForMeta(creds.phone);
-    const variants = phoneVariants(sanitized);
-    for (const variant of variants) {
-      try {
-        const result = await sendMediaMessage({
-          phoneNumberId: creds.phoneNumberId,
-          accessToken: creds.accessToken,
-          to: variant,
-          kind,
-          link: args.link,
-          caption: args.caption,
-          filename: args.filename,
-        });
-        metaMessageId = result.messageId;
-        break;
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (!isRecipientNotAllowedError(msg)) {
-          console.warn('[meta-send] sendMediaMessage error:', msg);
-          break;
-        }
-      }
-    }
-  }
-
-  const recordedId = await recordSentMessage(
-    args.accountId,
-    args.conversationId,
-    metaMessageId,
-    'document',
-    args.caption || `[${kind}]`,
-    args.link
-  );
-  return { whatsapp_message_id: metaMessageId || recordedId };
-}
-
-interface SendListArgs {
-  accountId: string;
-  userId?: string;
-  conversationId: string;
-  contactId?: string;
-  bodyText: string;
-  buttonLabel: string;
-  sections: Array<{
-    title?: string;
-    rows: Array<{ id: string; title: string; description?: string }>;
-  }>;
-  headerText?: string;
-  footerText?: string;
-}
-
-export async function engineSendInteractiveList(
-  args: SendListArgs
-): Promise<{ whatsapp_message_id: string }> {
-  const creds = await resolveCredentialsAndPhone(
-    args.accountId,
-    args.contactId,
-    args.conversationId
-  );
-
-  let metaMessageId: string | null = null;
-  if (creds && args.sections?.length) {
-    const sanitized = sanitizePhoneForMeta(creds.phone);
-    const variants = phoneVariants(sanitized);
-    for (const variant of variants) {
-      try {
-        const result = await sendInteractiveList({
-          phoneNumberId: creds.phoneNumberId,
-          accessToken: creds.accessToken,
-          to: variant,
-          bodyText: args.bodyText,
-          buttonLabel: args.buttonLabel,
-          headerText: args.headerText,
-          footerText: args.footerText,
-          sections: args.sections,
-        });
-        metaMessageId = result.messageId;
-        break;
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (!isRecipientNotAllowedError(msg)) {
-          console.warn('[meta-send] sendInteractiveList error:', msg);
-          break;
-        }
-      }
-    }
-  }
-
-  const recordedId = await recordSentMessage(
-    args.accountId,
-    args.conversationId,
-    metaMessageId,
-    'interactive',
-    args.bodyText,
-    null
-  );
-  return { whatsapp_message_id: metaMessageId || recordedId };
+interface SendListArgs { accountId: string; userId?: string; conversationId: string; contactId?: string; bodyText: string; buttonLabel: string; sections: Array<{ title?: string; rows: Array<{ id: string; title: string; description?: string }> }>; headerText?: string; footerText?: string; }
+export async function engineSendInteractiveList(args: SendListArgs): Promise<{ whatsapp_message_id: string }> {
+  const creds = await resolveCredentialsAndPhone(args.accountId, args.contactId, args.conversationId); let metaMessageId: string | null = null;
+  if (creds && args.sections?.length) { for (const variant of phoneVariants(sanitizePhoneForMeta(creds.phone))) { try { const result = await sendInteractiveList({ phoneNumberId: creds.phoneNumberId, accessToken: creds.accessToken, to: variant, bodyText: args.bodyText, buttonLabel: args.buttonLabel, headerText: args.headerText, footerText: args.footerText, sections: args.sections }); metaMessageId = result.messageId; break; } catch (err) { const msg = err instanceof Error ? err.message : String(err); if (!isRecipientNotAllowedError(msg)) { console.warn('[meta-send] sendInteractiveList error:', msg); break; } } } }
+  if (!metaMessageId) throw new Error('[meta-send] Meta did not return a WhatsApp message ID for interactive list.');
+  await recordSentMessage(args.accountId, args.conversationId, metaMessageId, 'interactive', args.bodyText, null);
+  return { whatsapp_message_id: metaMessageId };
 }
