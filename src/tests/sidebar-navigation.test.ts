@@ -38,7 +38,7 @@ describe('authenticated sidebar navigation', () => {
     }
   });
 
-  it('shows Patients, Patient Reports and Website in Clinic Operations', () => {
+  it('shows Patients, Doctors and Medical Reports in Clinic Operations', () => {
     const clinicOperations = hospitalNavigation.find(
       (item) => item.id === 'industry-operations'
     );
@@ -46,14 +46,12 @@ describe('authenticated sidebar navigation', () => {
     expect(clinicOperations?.children?.map((child) => child.label)).toEqual([
       'Patients',
       'Doctors',
-      'Patient Reports',
-      'Website',
+      'Medical Reports',
     ]);
     expect(clinicOperations?.children?.map((child) => child.href)).toEqual([
       '/patients',
       '/doctors',
       '/lab-reports?scope=patients',
-      '/website',
     ]);
     expect(
       clinicOperations?.children?.some((child) => child.label === 'Contacts')
