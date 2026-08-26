@@ -275,9 +275,8 @@ function isSection(value: string | null): value is SettingsSection {
 
 /**
  * Resolve a raw `?tab=` value to a section. Legacy tabs from the old
- * flat layout collapse onto their new home (Tags + Custom fields → the
- * merged "Fields & tags" section). Anything unknown falls back to the
- * Overview landing.
+ * flat layout collapse onto their new sections. Anything unknown falls back
+ * to the Overview landing.
  */
 export function resolveSection(raw: string | null): SettingsSection {
   if (!raw) return DEFAULT_SECTION;
