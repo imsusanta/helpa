@@ -62,6 +62,7 @@ export const healthManifest: IndustryModule = {
     '/appointments',
     '/follow-ups',
     '/lab-reports',
+    '/website',
     '/broadcasts',
     '/knowledge-base',
     '/dashboard/analytics',
