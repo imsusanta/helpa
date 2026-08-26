@@ -14,10 +14,17 @@ import {
   Settings,
   RefreshCw,
   Sparkles,
+  type LucideIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import {
+  ADMIN_NAV_GROUPS,
+  getAdminRouteDescription,
+  isAdminNavItemActive,
+  type AdminNavIconName,
+} from './admin-navigation';
 
 export interface AdminNavProps {
   onRefresh?: () => void;
@@ -27,128 +34,15 @@ export interface AdminNavProps {
   children?: React.ReactNode;
 }
 
-interface NavItem {
-  href: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  exact?: boolean;
-}
-
-interface NavGroup {
-  title: string;
-  items: NavItem[];
-}
-
-const NAV_GROUPS: NavGroup[] = [
-  {
-    title: 'OVERVIEW',
-    items: [
-      {
-        href: '/admin',
-        label: 'Dashboard',
-        icon: LayoutDashboard,
-        exact: true,
-      },
-    ],
-  },
-  {
-    title: 'BUSINESSES',
-    items: [
-      {
-        href: '/admin/subscribers',
-        label: 'Businesses',
-        icon: Building2,
-      },
-    ],
-  },
-  {
-    title: 'REVENUE',
-    items: [
-      {
-        href: '/admin/plans',
-        label: 'Plans & Pricing',
-        icon: CreditCard,
-      },
-      {
-        href: '/admin/subscriptions',
-        label: 'Subscriptions',
-        icon: Receipt,
-      },
-      {
-        href: '/admin/payments',
-        label: 'Payments',
-        icon: IndianRupee,
-      },
-    ],
-  },
-  {
-    title: 'AI & WHATSAPP',
-    items: [
-      {
-        href: '/admin/ai',
-        label: 'AI Settings',
-        icon: Bot,
-      },
-      {
-        href: '/admin/whatsapp',
-        label: 'WhatsApp Accounts',
-        icon: MessageSquare,
-      },
-    ],
-  },
-  {
-    title: 'SYSTEM',
-    items: [
-      {
-        href: '/admin/settings',
-        label: 'Settings',
-        icon: Settings,
-      },
-    ],
-  },
-];
-
-const ROUTE_DESCRIPTIONS: Record<
-  string,
-  { title: string; description: string }
-> = {
-  '/admin': {
-    title: 'Dashboard',
-    description:
-      'Platform health metrics, multi-tenant subscription revenue, and active workspace overview.',
-  },
-  '/admin/subscribers': {
-    title: 'Businesses',
-    description:
-      'Manage registered tenant organizations, subscription states, and workspace overrides.',
-  },
-  '/admin/plans': {
-    title: 'Plans & Pricing',
-    description:
-      'Configure subscription tiers, setup fees, usage limits, and commercial feature flags.',
-  },
-  '/admin/subscriptions': {
-    title: 'Subscriptions',
-    description: 'Manage business subscriptions, renewals and payment status.',
-  },
-  '/admin/payments': {
-    title: 'Payments',
-    description: 'Track payments received from businesses using Helpa.',
-  },
-  '/admin/ai': {
-    title: 'AI Settings',
-    description:
-      'Configure global AI providers, model endpoints, rate limits, and fallback routing.',
-  },
-  '/admin/whatsapp': {
-    title: 'WhatsApp Accounts',
-    description: 'Monitor WhatsApp connections for businesses using Helpa.',
-  },
-  '/admin/settings': {
-    title: 'Settings',
-    description:
-      'Super Admin platform controls, maintenance mode, system keys, and administrative audit logs.',
-  },
+const ADMIN_NAV_ICONS: Record<AdminNavIconName, LucideIcon> = {
+  LayoutDashboard,
+  Building2,
+  CreditCard,
+  Receipt,
+  IndianRupee,
+  Bot,
+  MessageSquare,
+  Settings,
 };
 
 export function AdminNav({
@@ -159,32 +53,18 @@ export function AdminNav({
   children,
 }: AdminNavProps) {
   const pathname = usePathname();
-
-  const isCurrent = (item: NavItem) => {
-    if (item.exact) {
-      return pathname === item.href;
-    }
-    if (item.href === '/admin/subscribers' && pathname === '/admin/tenants') {
-      return true;
-    }
-    return pathname === item.href || pathname.startsWith(`${item.href}/`);
-  };
-
-  const activeMeta = ROUTE_DESCRIPTIONS[pathname] || {
+  const activeMeta = getAdminRouteDescription(pathname) || {
     title: title || 'Super Admin',
     description:
       description ||
       'Platform governance, subscriber accounts, pricing plans, and AI engine setup.',
   };
-
   const pageTitle = title || activeMeta.title;
   const pageDescription = description || activeMeta.description;
 
   return (
     <div className="flex flex-col items-start gap-6 lg:flex-row">
-      {/* Left Vertical Super Admin Sidebar */}
       <aside className="border-border/80 bg-card/90 w-full shrink-0 rounded-2xl border p-4 shadow-xs backdrop-blur-md lg:sticky lg:top-4 lg:w-60">
-        {/* Branding & Scope Header */}
         <div className="border-border/60 mb-4 flex items-center gap-2.5 border-b pb-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 font-bold text-emerald-600 shadow-xs dark:text-emerald-400">
             <Shield className="h-5 w-5" />
@@ -207,21 +87,21 @@ export function AdminNav({
           </div>
         </div>
 
-        {/* Vertical Navigation Groups */}
-        <nav className="space-y-4">
-          {NAV_GROUPS.map((group) => (
+        <nav className="space-y-4" aria-label="Super Admin navigation">
+          {ADMIN_NAV_GROUPS.map((group) => (
             <div key={group.title} className="space-y-1">
               <h3 className="text-muted-foreground/70 px-2 text-[10px] font-bold tracking-[0.14em] uppercase">
                 {group.title}
               </h3>
               <div className="space-y-0.5 pt-0.5">
                 {group.items.map((item) => {
-                  const active = isCurrent(item);
-                  const Icon = item.icon;
+                  const active = isAdminNavItemActive(pathname, item);
+                  const Icon = ADMIN_NAV_ICONS[item.icon];
                   return (
                     <Link
-                      key={item.href}
+                      key={item.id}
                       href={item.href}
+                      aria-current={active ? 'page' : undefined}
                       className={cn(
                         'flex items-center justify-between rounded-xl px-2.5 py-2 text-xs font-medium transition-all duration-150',
                         active
@@ -252,9 +132,7 @@ export function AdminNav({
         </nav>
       </aside>
 
-      {/* Main Right Content Workspace */}
       <main className="w-full min-w-0 flex-1 space-y-6">
-        {/* Top Header Card with Dynamic Breadcrumb Title and Sync Trigger */}
         <div className="border-border/70 bg-card/60 flex flex-col gap-3 rounded-2xl border p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between sm:p-5">
           <div>
             <div className="flex items-center gap-2">
@@ -285,7 +163,6 @@ export function AdminNav({
             </Button>
           )}
         </div>
-
         {children}
       </main>
     </div>
