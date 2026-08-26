@@ -10,5 +10,9 @@ const terms = getIndustryTerminology('hospital_clinic');
 export const sidebarConfig: ModuleNavItem[] = [
   { href: '/patients', label: terms.people, iconName: 'Users' },
   { href: '/doctors', label: terms.staffMembers, iconName: 'UserCheck' },
-  { href: '/lab-reports', label: 'Patient Reports', iconName: 'FileText' },
+  {
+    href: '/lab-reports?scope=patients',
+    label: 'Patient Reports',
+    iconName: 'FileText',
+  },
 ];
