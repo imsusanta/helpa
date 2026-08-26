@@ -26,9 +26,81 @@ function withTerminology(
 
 const canonicalHealthModule = withTerminology(healthModule, 'hospital_clinic');
 
+export const generalModule: IndustryModule = {
+  id: 'general',
+  name: 'General CRM',
+  description: 'AI General Assistant',
+  status: 'ACTIVE',
+  terminology: getIndustryTerminology('general'),
+
+  sidebar: [
+    { href: '/dashboard', label: 'Dashboard', iconName: 'LayoutDashboard' },
+    { href: '/inbox', label: 'WhatsApp Chats', iconName: 'MessageSquare' },
+    { href: '/contacts', label: 'Contacts', iconName: 'Users' },
+    {
+      href: '/broadcasts',
+      label: 'Campaigns',
+      iconName: 'Megaphone',
+      roleMin: 'admin',
+    },
+    { href: '/knowledge-base', label: 'Knowledge', iconName: 'FileText' },
+    { href: '/settings', label: 'Settings', iconName: 'Settings' },
+  ],
+
+  dashboardMetrics: [
+    {
+      key: 'conversations_active',
+      label: 'Active Chats',
+      iconName: 'MessageSquare',
+      queryTable: 'conversations',
+      queryType: 'count',
+    },
+  ],
+
+  systemPrompt:
+    'You are acting as a helpful and polite AI Assistant. Assist the client with generic details and hand off to human agents when requested.',
+
+  kbTemplates: [
+    {
+      category: 'faq',
+      questionTitle: 'Company Hours',
+      answerContent: 'We are open Monday to Friday from 9:00 AM to 6:00 PM.',
+    },
+  ],
+
+  campaignTemplates: [
+    {
+      name: 'General Offer Newsletter',
+      category: 'General Announcement',
+      messageBody:
+        'Hello {{Name}}, thank you for being a valued customer. Check out our website for updates!',
+      ctaType: 'none',
+    },
+  ],
+
+  copilotConfig: {
+    summaryFields: ['status'],
+    quickActions: [],
+  },
+
+  pipelineStages: [
+    { name: 'New Lead', position: 1, color: '#3b82f6' },
+    { name: 'Won', position: 2, color: '#10b981' },
+    { name: 'Lost', position: 3, color: '#ef4444' },
+  ],
+  workflows: [],
+  entityConfigs: {
+    contacts: {
+      tableName: 'contacts',
+      label: 'Contact',
+      pluralLabel: 'Contacts',
+      fields: [],
+    },
+  },
+};
+
 export const INDUSTRY_REGISTRY: Record<string, IndustryModule> = {
   hospital_clinic: canonicalHealthModule,
-  health: canonicalHealthModule,
   coaching: withTerminology(coachingModule, 'coaching'),
   real_estate: withTerminology(realEstateModule, 'real_estate'),
   travel: withTerminology(travelModule, 'travel'),
@@ -36,6 +108,7 @@ export const INDUSTRY_REGISTRY: Record<string, IndustryModule> = {
   restaurant: withTerminology(restaurantModule, 'restaurant'),
   solo_teacher: withTerminology(soloTeacherModule, 'solo_teacher'),
   salon: withTerminology(salonModule, 'salon'),
+  general: generalModule,
 };
 
 export { INDUSTRY_ALIASES };
@@ -111,94 +184,20 @@ export const BUSINESS_TYPE_OPTIONS: readonly BusinessTypeOption[] = [
 export function isValidIndustry(industry: unknown): boolean {
   if (!industry || typeof industry !== 'string') return false;
   const normalized = industry.trim().toLowerCase();
-  return normalized in INDUSTRY_ALIASES || normalized === 'general';
+  return Boolean(
+    INDUSTRY_ALIASES[normalized as keyof typeof INDUSTRY_ALIASES] ||
+      INDUSTRY_REGISTRY[normalized]
+  );
 }
 
 export function resolveCanonicalIndustry(industry: string): string {
   return resolveIndustryAlias(industry);
 }
 
-// Fallback module definition for 'general' or others
-export const generalModule: IndustryModule = {
-  id: 'general',
-  name: 'General CRM',
-  description: 'AI General Assistant',
-  status: 'ACTIVE',
-  terminology: getIndustryTerminology('general'),
-
-  sidebar: [
-    { href: '/dashboard', label: 'Dashboard', iconName: 'LayoutDashboard' },
-    { href: '/inbox', label: 'WhatsApp Chats', iconName: 'MessageSquare' },
-    { href: '/contacts', label: 'Contacts', iconName: 'Users' },
-    {
-      href: '/broadcasts',
-      label: 'Campaigns',
-      iconName: 'Megaphone',
-      roleMin: 'admin',
-    },
-    { href: '/knowledge-base', label: 'Knowledge', iconName: 'FileText' },
-    { href: '/settings', label: 'Settings', iconName: 'Settings' },
-  ],
-
-  dashboardMetrics: [
-    {
-      key: 'conversations_active',
-      label: 'Active Chats',
-      iconName: 'MessageSquare',
-      queryTable: 'conversations',
-      queryType: 'count',
-    },
-  ],
-
-  systemPrompt:
-    'You are acting as a helpful and polite AI Assistant. Assist the client with generic details and hand off to human agents when requested.',
-
-  kbTemplates: [
-    {
-      category: 'faq',
-      questionTitle: 'Company Hours',
-      answerContent: 'We are open Monday to Friday from 9:00 AM to 6:00 PM.',
-    },
-  ],
-
-  campaignTemplates: [
-    {
-      name: 'General Offer Newsletter',
-      category: 'General Announcement',
-      messageBody:
-        'Hello {{Name}}, thank you for being a valued customer. Check out our website for updates!',
-      ctaType: 'none',
-    },
-  ],
-
-  copilotConfig: {
-    summaryFields: ['status'],
-    quickActions: [],
-  },
-
-  pipelineStages: [
-    { name: 'New Lead', position: 1, color: '#3b82f6' },
-    { name: 'Won', position: 2, color: '#10b981' },
-    { name: 'Lost', position: 3, color: '#ef4444' },
-  ],
-  workflows: [],
-  entityConfigs: {
-    contacts: {
-      tableName: 'contacts',
-      label: 'Contact',
-      pluralLabel: 'Contacts',
-      fields: [],
-    },
-  },
-};
-
-// Keep the fallback module as the canonical registry entry so every layer
-// (signup, settings, onboarding and workspace resolution) sees the same key.
-INDUSTRY_REGISTRY.general = generalModule;
-
 export function getIndustryModule(
   industry: string | null | undefined
 ): IndustryModule {
+  if (!industry) return generalModule;
   const industryKey = resolveIndustryAlias(industry);
   return INDUSTRY_REGISTRY[industryKey] || generalModule;
 }
