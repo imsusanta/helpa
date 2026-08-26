@@ -59,9 +59,11 @@ export async function GET(request: Request) {
         const client = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
           auth: { persistSession: false, autoRefreshToken: false },
         });
+        // profiles keys on user_id (no id column); selecting a nonexistent
+        // column returns 42703 and falsely reports the database unreachable.
         const { error } = await client
           .from('profiles')
-          .select('id')
+          .select('user_id')
           .limit(1)
           .abortSignal(AbortSignal.timeout(2000));
         if (!error) {
@@ -72,7 +74,7 @@ export async function GET(request: Request) {
             const admin = getSupabaseAdminClient();
             const { error: adminErr } = await admin
               .from('profiles')
-              .select('id')
+              .select('user_id')
               .limit(1)
               .abortSignal(AbortSignal.timeout(2000));
             if (!adminErr) {

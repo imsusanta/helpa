@@ -279,7 +279,37 @@ describe('Health Endpoint Hardening & Security Tests', () => {
     expect(body.checks.migrationVersion).toBe('20260814000000');
   });
 
-  it('8. Zero credential or sensitive connection data exposure', async () => {
+  it('8. Readiness probe selects user_id, the canonical profiles key (no id column exists)', async () => {
+    const selectMock = vi.fn().mockReturnValue({
+      limit: vi.fn().mockReturnValue({
+        abortSignal: vi
+          .fn()
+          .mockResolvedValue({ data: [{ user_id: 'user-1' }], error: null }),
+      }),
+      order: vi.fn().mockReturnValue({
+        limit: vi.fn().mockReturnValue({
+          abortSignal: vi.fn().mockResolvedValue({ data: [], error: null }),
+        }),
+      }),
+    });
+    const mockClient = {
+      from: vi.fn().mockReturnValue({ select: selectMock }),
+      schema: vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({ select: selectMock }),
+      }),
+    };
+    mockCreateClient.mockReturnValue(mockClient);
+
+    const req = new NextRequest('http://localhost:3000/api/health');
+    const res = await getHealth(req);
+    const body = await res.json();
+
+    expect(body.checks.supabase).toBe('healthy');
+    expect(selectMock).toHaveBeenCalledWith('user_id');
+    expect(selectMock).not.toHaveBeenCalledWith('id');
+  });
+
+  it('9. Zero credential or sensitive connection data exposure', async () => {
     process.env.CI = 'true';
     process.env.META_APP_SECRET = 'ci-dummy-meta-secret';
     process.env.TWILIO_AUTH_TOKEN = 'ci-dummy-twilio-token';

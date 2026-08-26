@@ -5,7 +5,7 @@
 - Source baseline: `main` at `e455b1458f327d59b2b4bf4e853acf88defbb42d`.
 - Implementation branch: `feat/complete-existing-ui-features`.
 - Runtime contract: Next.js/TypeScript; Supabase Auth and Database only; Appwrite Sites hosting only.
-- Production Supabase project inspected: `tmqlzsyqlprioeoowmtk` (`ap-southeast-1`).
+- Historical note: this audit inspected `tmqlzsyqlprioeoowmtk` (`ap-southeast-1`). That project is retired. Current Helpa production is `zsxhtcprjllesptvxlyq` (`https://zsxhtcprjllesptvxlyq.supabase.co`).
 - The live public schema contains 89 tables and RLS is enabled on all 89.
 - No production migration was applied during this audit.
 

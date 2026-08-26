@@ -31,4 +31,13 @@ describe('Supabase runtime credentials', () => {
     });
     expect(requireSupabaseServiceRole(env)).toBe(env.SUPABASE_SERVICE_ROLE_KEY);
   });
+
+  it('rejects the retired Helpa Supabase project', () => {
+    expect(() =>
+      requireSupabasePublicConfig({
+        NEXT_PUBLIC_SUPABASE_URL: 'https://tmqlzsyqlprioeoowmtk.supabase.co',
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: 'test-anon-key',
+      })
+    ).toThrow(new RuntimeConfigurationError('RETIRED_SUPABASE_PROJECT'));
+  });
 });

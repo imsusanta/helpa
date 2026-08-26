@@ -3,6 +3,7 @@ dotenv.config({ path: '.env.local' });
 
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
+import { resolveSupabaseUrl } from './lib/supabase-target.mjs';
 
 function getEncryptionKeyBuffer() {
   const rawKey =
@@ -32,9 +33,7 @@ function decrypt(encryptedText) {
   throw new Error('Invalid format');
 }
 
-const supabaseUrl =
-  process.env.NEXT_PUBLIC_SUPABASE_URL ||
-  'https://tmqlzsyqlprioeoowmtk.supabase.co';
+const supabaseUrl = resolveSupabaseUrl();
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false },

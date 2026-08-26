@@ -14,7 +14,7 @@ Historical files under `docs/audits/`, `docs/deployment-canonical.md`, and `docs
 
 ## Required environment variables
 
-Copy `.env.example` / `.env.local.example` and fill real values.
+Copy `.env.example` / `.env.local.example` and fill real values. Production Helpa uses the hosted project `zsxhtcprjllesptvxlyq` (`https://zsxhtcprjllesptvxlyq.supabase.co`). Do not point env vars at the retired project `tmqlzsyqlprioeoowmtk`.
 
 | Variable | Scope | Purpose |
 | --- | --- | --- |
