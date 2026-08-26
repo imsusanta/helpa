@@ -2,39 +2,81 @@ export const ADMIN_NAV_GROUPS = [
   {
     title: 'OVERVIEW',
     items: [
-      { id: 'dashboard', href: '/admin', label: 'Dashboard', icon: 'LayoutDashboard', exact: true },
+      {
+        id: 'dashboard',
+        href: '/admin',
+        label: 'Dashboard',
+        icon: 'LayoutDashboard',
+        exact: true,
+      },
     ],
   },
   {
     title: 'BUSINESSES',
     items: [
-      { id: 'businesses', href: '/admin/subscribers', label: 'Businesses', icon: 'Building2' },
+      {
+        id: 'businesses',
+        href: '/admin/subscribers',
+        label: 'Businesses',
+        icon: 'Building2',
+      },
     ],
   },
   {
     title: 'REVENUE',
     items: [
-      { id: 'plans', href: '/admin/plans', label: 'Plans & Pricing', icon: 'CreditCard' },
-      { id: 'subscriptions', href: '/admin/subscriptions', label: 'Subscriptions', icon: 'Receipt' },
-      { id: 'payments', href: '/admin/payments', label: 'Payments', icon: 'IndianRupee' },
+      {
+        id: 'plans',
+        href: '/admin/plans',
+        label: 'Plans & Pricing',
+        icon: 'CreditCard',
+      },
+      {
+        id: 'subscriptions',
+        href: '/admin/subscriptions',
+        label: 'Subscriptions',
+        icon: 'Receipt',
+      },
+      {
+        id: 'payments',
+        href: '/admin/payments',
+        label: 'Payments',
+        icon: 'IndianRupee',
+      },
     ],
   },
   {
     title: 'AI & WHATSAPP',
     items: [
-      { id: 'ai', href: '/admin/ai', label: 'AI Settings', icon: 'Bot' },
-      { id: 'whatsapp', href: '/admin/whatsapp', label: 'WhatsApp Accounts', icon: 'MessageSquare' },
+      {
+        id: 'ai',
+        href: '/admin/ai',
+        label: 'AI Settings',
+        icon: 'Bot',
+      },
+      {
+        id: 'whatsapp',
+        href: '/admin/whatsapp',
+        label: 'WhatsApp Accounts',
+        icon: 'MessageSquare',
+      },
     ],
   },
   {
     title: 'SYSTEM',
     items: [
-      { id: 'settings', href: '/admin/settings', label: 'Settings', icon: 'Settings' },
+      {
+        id: 'settings',
+        href: '/admin/settings',
+        label: 'Settings',
+        icon: 'Settings',
+      },
     ],
   },
 ] as const;
 
-export type AdminNavItem = (typeof ADMIN_NAV_GROUPS)[number]['items'][number];
+export type AdminNavItem =
+  (typeof ADMIN_NAV_GROUPS)[number]['items'][number];
 export type AdminNavIconName = AdminNavItem['icon'];
 
 export const ADMIN_ROUTE_DESCRIPTIONS: Record<
@@ -88,7 +130,10 @@ export const ADMIN_ROUTE_PATHS = ADMIN_NAV_GROUPS.flatMap((group) =>
   group.items.map((item) => item.href)
 );
 
-export function isAdminNavItemActive(pathname: string, item: AdminNavItem) {
+export function isAdminNavItemActive(
+  pathname: string,
+  item: AdminNavItem
+) {
   if ('exact' in item && item.exact) return pathname === item.href;
   if (ADMIN_LEGACY_ROUTES[pathname] === item.href) return true;
   return pathname === item.href || pathname.startsWith(`${item.href}/`);
