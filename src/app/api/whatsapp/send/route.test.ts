@@ -12,12 +12,16 @@ const { contactsTerminalCalls } = vi.hoisted(() => ({
 // Resolve the tenant deterministically so the route reaches contact
 // validation without depending on the profiles fallback path.
 vi.mock('@/lib/auth/account', () => ({
-  getCurrentAccount: vi
-    .fn()
-    .mockResolvedValue({ accountId: 'tenant-1', userId: 'user-1', role: 'agent' }),
-  requireRole: vi
-    .fn()
-    .mockResolvedValue({ accountId: 'tenant-1', userId: 'user-1', role: 'agent' }),
+  getCurrentAccount: vi.fn().mockResolvedValue({
+    accountId: 'tenant-1',
+    userId: 'user-1',
+    role: 'agent',
+  }),
+  requireRole: vi.fn().mockResolvedValue({
+    accountId: 'tenant-1',
+    userId: 'user-1',
+    role: 'agent',
+  }),
 }));
 
 vi.mock('@/lib/db/server', () => {

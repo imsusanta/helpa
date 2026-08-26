@@ -39,7 +39,17 @@ graph TD
    - Tenant guard (`src/core/security/tenant-guard.ts`) verifies resource ownership for every read/write.
 
 3. **Database access**:
-   - `src/lib/db/server.ts` and `src/lib/db/client.ts` return Supabase clients only. There is no Appwrite rollback adapter.
+   - `src/lib/db/server.ts` and `src/lib/db/client.ts` return Supabase clients only, typed with the real Supabase client types so the query-builder chain is type-checked. There is no Appwrite rollback adapter.
+   - Tenant-scoped repositories for trusted server flows live in `src/lib/db/repositories`.
+
+3a. **AI receptionist pipeline** (`src/lib/whatsapp/`):
+   - `ai.ts` — orchestrator (`triggerAiResponse`): fetch, safety guardrails, completion, hospital/coaching actions, reply dispatch.
+   - `ai-pipeline.ts` — pure gating and insight extraction (skip decisions, phone variants, structured-payload mapping).
+   - `ai-prompt.ts` — system prompt assembly and the receptionist JSON schema.
+   - `ai-context.ts` — industry context loading/formatting (doctors, branches, appointments, lab reports, coaching students).
+   - `ai-crm-sync.ts` — conversation insight columns and sales-pipeline deal sync.
+   - `ai-response.ts` — tolerant model-output parsing.
+   - Each helper module has its own unit tests; the orchestrator is covered end-to-end by `src/tests/whatsapp/ai-auto-reply-decision.test.ts`.
 
 4. **Meta WhatsApp Cloud Integration**:
    - 1-Click Embedded Signup via Facebook JavaScript SDK.

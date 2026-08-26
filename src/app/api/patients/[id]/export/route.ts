@@ -47,7 +47,10 @@ export async function GET(
     const actorId = ctx.userId;
 
     // Rate limit check: 10/min per user
-    const rl = await checkRateLimit(`export:${actorId}`, RATE_LIMITS.patientExport);
+    const rl = await checkRateLimit(
+      `export:${actorId}`,
+      RATE_LIMITS.patientExport
+    );
     if (!rl.success) return rateLimitResponse(rl);
 
     const { id: patientId } = await params;

@@ -3,17 +3,20 @@
  *
  * Historical route handlers imported `@/lib/appwrite-server-compat`.
  * This module is the renamed facade and returns only Supabase clients.
- * The public client types stay `any` so remaining fluent call sites can
- * migrate without a repo-wide PostgREST typing pass.
+ *
+ * The client types are the real Supabase client types, so the fluent
+ * query-builder chain is type-checked. Per-table row types remain open
+ * (`any` rows) until generated database types are introduced; tightening
+ * those is a follow-up that does not change this module's surface.
  */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   createClient as createSupabaseServerClient,
   getAdminClient as getSupabaseAdminClient,
 } from '@/lib/supabase/server';
 
-export type AdminClient = any;
-export type UserClient = any;
+export type AdminClient = ReturnType<typeof getSupabaseAdminClient>;
+export type UserClient = Awaited<ReturnType<typeof createSupabaseServerClient>>;
+
 /** PostgREST / RPC error shape used by account-management helpers. */
 export type DbError = {
   message?: string;
@@ -21,6 +24,7 @@ export type DbError = {
   details?: string;
   hint?: string;
 };
+
 /** @deprecated Use AdminClient. Kept for remaining call-site imports. */
 export type AppwriteClient = AdminClient;
 /** @deprecated Use DbError. Kept for remaining call-site imports. */

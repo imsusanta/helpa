@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   isEmergencyQuery,
   isDiagnosticRequest,
@@ -24,6 +23,14 @@ import {
   shouldSkipAiConversation,
   unwrapNestedReply,
 } from '@/lib/whatsapp/ai-pipeline';
+import {
+  buildIndustryAiContext,
+  type LabReportRow,
+} from '@/lib/whatsapp/ai-context';
+import {
+  syncDealPipeline,
+  updateConversationInsights,
+} from '@/lib/whatsapp/ai-crm-sync';
 import { getAccountChatbotSettings } from '@/core/ai/chatbot-settings';
 
 import {
@@ -335,206 +342,20 @@ export async function triggerAiResponse(
   );
   const isCoachingEnabled = industryModuleForContext.id === 'coaching';
   const isSoloTeacherEnabled = industryModuleForContext.id === 'solo_teacher';
-  let hospitalContext = '';
-  let coachingContext = '';
-  interface LabReportRow {
-    id: string;
-    test_name: string;
-    status: string;
-    report_pdf_url?: string | null;
-    department?: string | null;
-    expected_delivery_date?: string | null;
-    notes?: string | null;
-    internal_notes?: string | null;
-  }
-  let labReports: LabReportRow[] | null = null;
+  const entityLabelForContext =
+    industryModuleForContext.entityConfigs?.contacts?.label || 'Contact';
 
-  // Build Contact profile context dynamically using active industry entity config
-  const contactConfigForContext =
-    industryModuleForContext.entityConfigs?.contacts;
-  const entityLabelForContext = contactConfigForContext?.label || 'Contact';
-
-  if (isCoachingEnabled || isSoloTeacherEnabled) {
-    const { data: coachingStudents } = await db
-      .from('contacts')
-      .select('name, phone, metadata')
-      .in('id', contactIds);
-
-    if (coachingStudents && coachingStudents.length > 0) {
-      coachingContext += `Registered ${entityLabelForContext}s under this WhatsApp/Phone Number:\n`;
-      coachingStudents.forEach(
-        (s: { metadata?: Record<string, string> | null; name: string }) => {
-          const meta =
-            s.metadata && typeof s.metadata === 'object'
-              ? (s.metadata as Record<string, string>)
-              : {};
-          coachingContext += `- Name: ${s.name}, Student ID: ${meta.student_id || 'N/A'}, Exam Preparation (Target Exam): ${meta.parent_name || 'Not set'}\n`;
-        }
-      );
-      coachingContext += '\n';
-    }
-  }
-
-  if (isHospitalEnabled) {
-    const [
-      { data: doctors },
-      { data: branches },
-      { data: appts },
-      { data: labReportsData },
-      { data: registeredPatients },
-      { data: lastCampaignRec },
-    ] = await Promise.all([
-      db
-        .from('hospital_doctors')
-        .select(
-          'name, department, specialization, consultation_fee, available_days, working_hours'
-        )
-        .eq('account_id', accountId)
-        .eq('status', 'active'),
-      db
-        .from('hospital_branches')
-        .select('name, address, phone')
-        .eq('account_id', accountId),
-      db
-        .from('appointments')
-        .select('*, doctor:hospital_doctors(name), patient:contacts(name)')
-        .in('patient_id', allPatientAndContactIds)
-        .order('appointment_date', { ascending: false })
-        .limit(5),
-      db
-        .from('hospital_lab_reports')
-        .select(
-          'id, test_name, status, expected_delivery_date, report_pdf_url, notes, department, doctor:hospital_doctors(name), patient:contacts(name)'
-        )
-        .in('patient_id', allPatientAndContactIds)
-        .order('created_at', { ascending: false })
-        .limit(20),
-      db
-        .from('patients')
-        .select(
-          'patient_seq_id, gender, date_of_birth, blood_group, emergency_contact, contact:contacts(name, phone)'
-        )
-        .in('id', allPatientAndContactIds),
-      db
-        .from('broadcast_recipients')
-        .select('id, broadcast_id, broadcasts(*)')
-        .eq('contact_id', contactId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-    ]);
-
-    labReports = labReportsData as LabReportRow[] | null;
-
-    if (registeredPatients && registeredPatients.length > 0) {
-      hospitalContext +=
-        'Registered Patients under this WhatsApp/Phone Number:\n';
-      registeredPatients.forEach(
-        (p: {
-          contact?: unknown;
-          patient_seq_id: string;
-          gender?: string;
-          date_of_birth?: string;
-          blood_group?: string;
-          emergency_contact?: string;
-        }) => {
-          const contactData = p.contact as
-            | { name?: string; phone?: string }
-            | Array<{ name?: string; phone?: string }>
-            | null;
-          const name =
-            (Array.isArray(contactData)
-              ? contactData[0]?.name
-              : contactData?.name) || 'Unknown';
-          const phone =
-            (Array.isArray(contactData)
-              ? contactData[0]?.phone
-              : contactData?.phone) || 'N/A';
-          hospitalContext += `- Name: ${name}, Patient ID: ${p.patient_seq_id}, Gender: ${p.gender || 'N/A'}, DOB: ${p.date_of_birth || 'N/A'}, Blood Group: ${p.blood_group || 'N/A'}, Phone: ${phone}, Emergency Contact: ${p.emergency_contact || 'N/A'}\n`;
-        }
-      );
-      hospitalContext += '\n';
-    }
-
-    if (lastCampaignRec && lastCampaignRec.broadcasts) {
-      const camp = lastCampaignRec.broadcasts as unknown as {
-        id: string;
-        name: string;
-        category?: string;
-        message_body?: string;
-        cta_type?: string;
-      };
-      hospitalContext += `Last Sent Campaign to Patient (within last 7 days):\n`;
-      hospitalContext += `- Campaign ID: ${camp.id}\n`;
-      hospitalContext += `- Name: ${camp.name}\n`;
-      hospitalContext += `- Category: ${camp.category || 'General Announcement'}\n`;
-      hospitalContext += `- Message Content: "${camp.message_body || ''}"\n`;
-      hospitalContext += `- CTA Configured: ${camp.cta_type || 'none'}\n\n`;
-    }
-
-    if (doctors && doctors.length > 0) {
-      hospitalContext += 'Available Doctors & Clinic Schedules:\n';
-      doctors.forEach(
-        (d: {
-          available_days?: string[];
-          working_hours?: unknown;
-          name: string;
-          department: string;
-          specialization?: string;
-          consultation_fee?: number;
-        }) => {
-          const days = Array.isArray(d.available_days)
-            ? d.available_days.join(', ')
-            : '';
-          const workingHours = d.working_hours as
-            { start?: string; end?: string } | null | undefined;
-          const start = workingHours?.start || '09:00';
-          const end = workingHours?.end || '17:00';
-          hospitalContext += `- Dr. ${d.name.replace(/^Dr\.\s+/i, '')} (${d.department} - ${d.specialization || 'General'}): Fee: ₹${d.consultation_fee || '0'}, Working Days: ${days}, Working Hours: ${start} to ${end}\n`;
-        }
-      );
-    }
-    if (branches && branches.length > 0) {
-      hospitalContext += '\nClinic Branches Locations:\n';
-      branches.forEach(
-        (b: { name: string; address?: string; phone?: string }) => {
-          hospitalContext += `- ${b.name}: ${b.address || ''} (Phone: ${b.phone || ''})\n`;
-        }
-      );
-    }
-    if (appts && appts.length > 0) {
-      hospitalContext += "\nPatient's Recent/Upcoming Appointments:\n";
-      appts.forEach((a: Record<string, any>) => {
-        const patientData = a.patient as
-          { name?: string } | { name?: string }[] | null;
-        const pName =
-          (Array.isArray(patientData)
-            ? patientData[0]?.name
-            : patientData?.name) || 'Unknown';
-        const docName =
-          (a.doctor as { name?: string } | null)?.name || 'Unassigned';
-        hospitalContext += `- Patient: ${pName}, Date: ${a.appointment_date}, Time: ${a.appointment_time}, Doctor: ${docName}, Status: ${a.status}, Token: #${a.token_number || 'N/A'}, Queue Pos: ${a.queue_position || 'N/A'}\n`;
-      });
-    }
-    if (labReports && labReports.length > 0) {
-      hospitalContext += "\nPatient's Lab/Diagnostic Reports:\n";
-      labReports.forEach((rItem) => {
-        const r = rItem as unknown as Record<string, unknown>;
-        const docData = r.doctor as
-          { name?: string } | { name?: string }[] | null;
-        const docName =
-          (Array.isArray(docData) ? docData[0]?.name : docData?.name) ||
-          'Doctor';
-        const patientData = r.patient as
-          { name?: string } | { name?: string }[] | null;
-        const pName =
-          (Array.isArray(patientData)
-            ? patientData[0]?.name
-            : patientData?.name) || 'Unknown';
-        hospitalContext += `- Patient: ${pName}, Report Name: ${r.test_name}, Department: ${r.department || 'General'}, Referred By: Dr. ${docName.replace(/^Dr\.\s+/i, '')}, Status: ${r.status}, Expected Delivery: ${r.expected_delivery_date || 'N/A'}, Notes: ${r.notes || 'None'}, PDF Available: ${r.report_pdf_url ? 'Yes' : 'No'}\n`;
-      });
-    }
-  }
+  const { hospitalContext, coachingContext, labReports } =
+    await buildIndustryAiContext(db, {
+      accountId,
+      contactId,
+      contactIds,
+      allPatientAndContactIds,
+      isHospitalEnabled,
+      isCoachingEnabled,
+      isSoloTeacherEnabled,
+      entityLabel: entityLabelForContext,
+    });
 
   // 4. Formulate prompt messages
   const systemPromptContent = buildReceptionistSystemPrompt({
@@ -648,19 +469,7 @@ export async function triggerAiResponse(
     }
 
     const intent = insights.intent;
-    const lead_score = insights.leadScore;
-    const sentiment = insights.sentiment;
     let handoff_required = insights.handoffRequired;
-    const resolved = insights.resolved;
-    const summary = insights.summary;
-    const faq_category = insights.faqCategory;
-
-    const sales_signal = insights.salesSignal;
-    const interested_service = insights.interestedService;
-    const budget = insights.budget;
-    const timeline = insights.timeline;
-    const next_action = insights.nextAction;
-
     const hospital_patient_info = insights.hospitalPatientInfo;
     const hospital_booking = insights.hospitalBooking;
     const hospital_profile_update = insights.hospitalProfileUpdate;
@@ -668,133 +477,15 @@ export async function triggerAiResponse(
     const coaching_student_update = insights.coachingStudentUpdate;
     const emergency_detected = insights.emergencyDetected;
 
-    // Update the conversation's AI insights in the database
-    const { error: updateError } = await db
-      .from('conversations')
-      .update({
-        ai_intent: intent,
-        ai_lead_score: lead_score,
-        ai_sentiment: sentiment,
-        ai_summary: summary,
-        ai_handoff_required: handoff_required,
-        ai_resolved: resolved,
-        ai_faq_category: faq_category,
-      })
-      .eq('id', conversationId);
-
-    if (updateError) {
-      console.error(
-        '[AI Assistant] Failed to update conversation AI insights:',
-        updateError
-      );
-    }
-
-    // AI Pipeline Automation
-    try {
-      const { data: existingDeal } = await db
-        .from('deals')
-        .select('*')
-        .eq('contact_id', contactId)
-        .eq('account_id', accountId)
-        .maybeSingle();
-
-      if (existingDeal) {
-        // Update existing Pipeline card
-        const { error: dealUpdateErr } = await db
-          .from('deals')
-          .update({
-            ai_lead_score: lead_score,
-            ai_buying_intent: intent,
-            ai_budget: budget || existingDeal.ai_budget,
-            ai_timeline: timeline || existingDeal.ai_timeline,
-            ai_summary: summary || existingDeal.ai_summary,
-            ai_next_action: next_action || existingDeal.ai_next_action,
-            ai_product_service:
-              interested_service || existingDeal.ai_product_service,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', existingDeal.id);
-
-        if (dealUpdateErr) {
-          console.error(
-            '[AI Pipeline] Failed to update existing deal:',
-            dealUpdateErr
-          );
-        } else {
-          console.log(
-            '[AI Pipeline] Successfully updated existing Pipeline card:',
-            existingDeal.id
-          );
-        }
-      } else if (sales_signal) {
-        // Create new Pipeline card in default stage of default pipeline
-        const { data: pipelines } = await db
-          .from('pipelines')
-          .select('id')
-          .eq('account_id', accountId)
-          .order('created_at', { ascending: true });
-
-        if (pipelines && pipelines.length > 0) {
-          const pipelineId = pipelines[0].id;
-          const { data: stages } = await db
-            .from('pipeline_stages')
-            .select('id, name')
-            .eq('pipeline_id', pipelineId)
-            .order('position', { ascending: true });
-
-          if (stages && stages.length > 0) {
-            const newLeadStage =
-              stages.find(
-                (s: { name: string }) =>
-                  s.name.toLowerCase() === 'new inquiry' ||
-                  s.name.toLowerCase() === 'new lead'
-              ) || stages[0];
-
-            const stageId = newLeadStage.id;
-
-            const contactName =
-              contact?.name || contact?.phone || 'Unknown Client';
-            const cardTitle = interested_service
-              ? `${contactName} - ${interested_service}`
-              : `${contactName} - WhatsApp Lead`;
-
-            const { error: dealInsertErr } = await db.from('deals').insert({
-              account_id: accountId,
-              user_id: userId,
-              pipeline_id: pipelineId,
-              stage_id: stageId,
-              contact_id: contactId,
-              conversation_id: conversationId,
-              title: cardTitle,
-              ai_lead_score: lead_score,
-              ai_buying_intent: intent,
-              ai_budget: budget,
-              ai_timeline: timeline,
-              ai_summary: summary,
-              ai_next_action: next_action,
-              ai_product_service: interested_service,
-            });
-
-            if (dealInsertErr) {
-              console.error(
-                '[AI Pipeline] Failed to create new deal:',
-                dealInsertErr
-              );
-            } else {
-              console.log(
-                '[AI Pipeline] Successfully created new Pipeline card for contact:',
-                contactId
-              );
-            }
-          }
-        }
-      }
-    } catch (pipelineErr) {
-      console.error(
-        '[AI Pipeline] Error during pipeline synchronization:',
-        pipelineErr
-      );
-    }
+    await updateConversationInsights(db, { conversationId, insights });
+    await syncDealPipeline(db, {
+      accountId,
+      userId,
+      conversationId,
+      contactId,
+      contact,
+      insights,
+    });
 
     // Hospital & Clinic Action Processing
     if (isHospitalEnabled) {

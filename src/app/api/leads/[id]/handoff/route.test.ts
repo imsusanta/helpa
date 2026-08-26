@@ -35,7 +35,10 @@ describe('POST /api/leads/[id]/handoff', () => {
     requireRole.mockReset();
     constructed.length = 0;
     handoffToHuman.mockReset();
-    handoffToHuman.mockResolvedValue({ success: true, data: { aiEnabled: false } });
+    handoffToHuman.mockResolvedValue({
+      success: true,
+      data: { aiEnabled: false },
+    });
   });
 
   it('ignores a client-supplied accountId and uses the session tenant', async () => {

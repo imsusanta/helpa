@@ -25,7 +25,10 @@ export async function POST(request: Request) {
     const accountId = ctx.accountId;
 
     // Per-user rate limit (shared 'send' budget: 60/min) to bound AI spend.
-    const rl = await checkRateLimit(`ai-features:${ctx.userId}`, RATE_LIMITS.send);
+    const rl = await checkRateLimit(
+      `ai-features:${ctx.userId}`,
+      RATE_LIMITS.send
+    );
     if (!rl.success) return rateLimitResponse(rl);
 
     const body = await request.json();
@@ -143,7 +146,7 @@ You MUST detect the language and write the suggested reply in the EXACT SAME LAN
       systemPromptContent += `\n\nCRITICAL INSTRUCTION: You are suggesting a reply to the customer for a human agent to send. Respond ONLY with the direct text of the suggestion. Do not wrap in quotes, do not output any explanations or labels, and do not use JSON. Write it in an organized format with line breaks and friendly emojis.`;
 
       const apiMessages = [
-        { role: 'system', content: systemPromptContent },
+        { role: 'system' as const, content: systemPromptContent },
         ...messages
           .map((m) => {
             let content = m.content_text || '';

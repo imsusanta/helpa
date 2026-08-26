@@ -97,11 +97,7 @@ async function assertLabReportDeliveryAllowed(
     (message: Record<string, unknown>) =>
       String(message.sender_type || '') === 'customer'
   );
-  const messageText = String(
-    latestCustomerMessage?.content_text ||
-      latestCustomerMessage?.contentText ||
-      ''
-  );
+  const messageText = String(latestCustomerMessage?.content_text || '');
 
   if (!isExplicitLabReportRequest(messageText)) {
     throw new Error(

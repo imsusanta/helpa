@@ -32,7 +32,10 @@ vi.mock('@/lib/db/server', () => ({
           if (table === 'appointments') appointmentFilters.push({ ...filters });
           return { data: null, error: { message: 'not found' } };
         }),
-        single: vi.fn(async () => ({ data: null, error: { message: 'not found' } })),
+        single: vi.fn(async () => ({
+          data: null,
+          error: { message: 'not found' },
+        })),
         insert: () => chain(),
         update: () => chain(),
       });
@@ -67,9 +70,12 @@ describe('POST /api/appointments/[id]/confirm', () => {
       role: 'agent',
     });
 
-    const req = new Request('http://localhost/api/appointments/appt-1/confirm', {
-      method: 'POST',
-    }) as unknown as Parameters<typeof POST>[0];
+    const req = new Request(
+      'http://localhost/api/appointments/appt-1/confirm',
+      {
+        method: 'POST',
+      }
+    ) as unknown as Parameters<typeof POST>[0];
 
     await POST(req, { params: Promise.resolve({ id: 'appt-1' }) });
 
@@ -83,9 +89,12 @@ describe('POST /api/appointments/[id]/confirm', () => {
       role: 'agent',
     });
 
-    const req = new Request('http://localhost/api/appointments/appt-other/confirm', {
-      method: 'POST',
-    }) as unknown as Parameters<typeof POST>[0];
+    const req = new Request(
+      'http://localhost/api/appointments/appt-other/confirm',
+      {
+        method: 'POST',
+      }
+    ) as unknown as Parameters<typeof POST>[0];
 
     const res = await POST(req, {
       params: Promise.resolve({ id: 'appt-other' }),
