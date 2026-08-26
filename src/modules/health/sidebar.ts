@@ -12,8 +12,7 @@ export const sidebarConfig: ModuleNavItem[] = [
   { href: '/doctors', label: terms.staffMembers, iconName: 'UserCheck' },
   {
     href: '/lab-reports?scope=patients',
-    label: 'Patient Reports',
+    label: 'Medical Reports',
     iconName: 'FileText',
   },
-  { href: '/website', label: 'Website', iconName: 'Globe' },
 ];
