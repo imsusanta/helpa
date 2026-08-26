@@ -8,6 +8,11 @@ const terms = getIndustryTerminology('hospital_clinic');
  * Shared product features are provided by the canonical global navigation.
  */
 export const sidebarConfig: ModuleNavItem[] = [
+  { href: '/patients', label: terms.people, iconName: 'Users' },
   { href: '/doctors', label: terms.staffMembers, iconName: 'UserCheck' },
-  { href: '/lab-reports', label: terms.reports, iconName: 'FileText' },
+  {
+    href: '/lab-reports?scope=patients',
+    label: 'Patient Reports',
+    iconName: 'FileText',
+  },
 ];
