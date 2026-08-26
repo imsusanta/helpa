@@ -32,6 +32,14 @@ const EXPECTED_GROUPS = [
   { title: 'SYSTEM', items: [['Settings', '/admin/settings']] },
 ] as const;
 
+function getNavItem(href: string) {
+  const item = ADMIN_NAV_GROUPS.flatMap((group) => group.items).find(
+    (candidate) => candidate.href === href
+  );
+  if (!item) throw new Error(`Missing approved admin route: ${href}`);
+  return item;
+}
+
 describe('approved Super Admin navigation', () => {
   it('preserves exact groups, labels, order, and routes', () => {
     expect(
@@ -58,20 +66,20 @@ describe('approved Super Admin navigation', () => {
 
   it('preserves legacy tenants compatibility and active state', () => {
     expect(ADMIN_LEGACY_ROUTES['/admin/tenants']).toBe('/admin/subscribers');
-    const businesses = ADMIN_NAV_GROUPS[1].items[0];
+    const businesses = getNavItem('/admin/subscribers');
     expect(isAdminNavItemActive('/admin/subscribers', businesses)).toBe(true);
     expect(isAdminNavItemActive('/admin/tenants', businesses)).toBe(true);
     expect(getAdminRouteDescription('/admin/tenants')?.title).toBe('Businesses');
   });
 
   it('does not activate sibling pages', () => {
-    expect(
-      isAdminNavItemActive('/admin/plans', ADMIN_NAV_GROUPS[0].items[0])
-    ).toBe(false);
+    expect(isAdminNavItemActive('/admin/plans', getNavItem('/admin'))).toBe(
+      false
+    );
     expect(
       isAdminNavItemActive(
         '/admin/subscriptions',
-        ADMIN_NAV_GROUPS[2].items[0]
+        getNavItem('/admin/plans')
       )
     ).toBe(false);
   });
