@@ -69,7 +69,9 @@ describe('approved Super Admin navigation', () => {
     const businesses = getNavItem('/admin/subscribers');
     expect(isAdminNavItemActive('/admin/subscribers', businesses)).toBe(true);
     expect(isAdminNavItemActive('/admin/tenants', businesses)).toBe(true);
-    expect(getAdminRouteDescription('/admin/tenants')?.title).toBe('Businesses');
+    expect(getAdminRouteDescription('/admin/tenants')?.title).toBe(
+      'Businesses'
+    );
   });
 
   it('does not activate sibling pages', () => {
@@ -77,10 +79,7 @@ describe('approved Super Admin navigation', () => {
       false
     );
     expect(
-      isAdminNavItemActive(
-        '/admin/subscriptions',
-        getNavItem('/admin/plans')
-      )
+      isAdminNavItemActive('/admin/subscriptions', getNavItem('/admin/plans'))
     ).toBe(false);
   });
 });
