@@ -2,20 +2,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { POST } from '@/app/api/whatsapp/send/route';
 
 vi.mock('@/lib/auth/account', () => ({
-  getCurrentAccount: vi
-    .fn()
-    .mockResolvedValue({
-      accountId: 'tenant-1',
-      userId: 'user-1',
-      role: 'agent',
-    }),
-  requireRole: vi
-    .fn()
-    .mockResolvedValue({
-      accountId: 'tenant-1',
-      userId: 'user-1',
-      role: 'agent',
-    }),
+  getCurrentAccount: vi.fn().mockResolvedValue({
+    accountId: 'tenant-1',
+    userId: 'user-1',
+    role: 'agent',
+  }),
+  requireRole: vi.fn().mockResolvedValue({
+    accountId: 'tenant-1',
+    userId: 'user-1',
+    role: 'agent',
+  }),
   toErrorResponse: vi.fn(),
   UnauthorizedError: class UnauthorizedError extends Error {
     status = 401 as const;

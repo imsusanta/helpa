@@ -119,11 +119,16 @@ async function getRedisClient(): Promise<RedisEvalClient | null> {
   redisConnectPromise = (async () => {
     try {
       const { createClient } = await import('redis');
-      const client = createClient({ url: process.env.REDIS_URL }) as RedisEvalClient;
+      const client = createClient({
+        url: process.env.REDIS_URL,
+      }) as RedisEvalClient;
       client.on?.('error', (err: unknown) => {
         if (!redisLoggedFailure) {
           redisLoggedFailure = true;
-          console.error('[rate-limit] Redis error, falling back to memory:', err);
+          console.error(
+            '[rate-limit] Redis error, falling back to memory:',
+            err
+          );
         }
       });
       if (client.connect && !client.isOpen) {
@@ -172,7 +177,10 @@ async function checkRedis(
   } catch (err) {
     if (!redisLoggedFailure) {
       redisLoggedFailure = true;
-      console.error('[rate-limit] Redis eval failed, falling back to memory:', err);
+      console.error(
+        '[rate-limit] Redis eval failed, falling back to memory:',
+        err
+      );
     }
     return null;
   }

@@ -75,7 +75,9 @@ export async function POST(request: Request) {
           )
           .maybeSingle();
 
-        const linked = patRec?.contact as {
+        // PostgREST types embedded relations as arrays until generated
+        // schema types land; at runtime a to-one join returns an object.
+        const linked = patRec?.contact as unknown as {
           id: string;
           name?: string;
           phone?: string;

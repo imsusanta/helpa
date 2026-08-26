@@ -74,7 +74,10 @@ export async function POST(request: Request) {
     // Per-user broadcast budget. Note: this limits how often a user
     // can *start* a campaign, not how many messages go out inside
     // one — the fan-out loop below runs without additional gating.
-    const limit = await checkRateLimit(`broadcast:${user.id}`, RATE_LIMITS.broadcast);
+    const limit = await checkRateLimit(
+      `broadcast:${user.id}`,
+      RATE_LIMITS.broadcast
+    );
     if (!limit.success) {
       return rateLimitResponse(limit);
     }

@@ -303,10 +303,12 @@ export function ContactDetailView({
         .from('profiles')
         .select('*')
         .order('full_name')
-        .then((res) => {
-          if (res.data) setTeamProfiles(res.data);
-        })
-        .catch(() => {});
+        .then(
+          (res) => {
+            if (res.data) setTeamProfiles(res.data);
+          },
+          () => undefined
+        );
     }
   }, [
     open,

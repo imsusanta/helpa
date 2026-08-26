@@ -59,20 +59,51 @@ alter table public.voice_integrations enable row level security;
 alter table public.voice_commands enable row level security;
 alter table public.worker_health enable row level security;
 
+drop policy if exists voice_integrations_select on public.voice_integrations;
+drop policy if exists voice_integrations_write on public.voice_integrations;
 drop policy if exists voice_integrations_service on public.voice_integrations;
-create policy voice_integrations_service
-  on public.voice_integrations for all to service_role
-  using (true) with check (true);
+create policy voice_integrations_select
+  on public.voice_integrations for select to authenticated
+  using (
+    public.is_active_account_member(account_id)
+    or (select auth.role()) = 'service_role'
+  );
+create policy voice_integrations_write
+  on public.voice_integrations for all to authenticated
+  using (
+    public.has_account_role(account_id, 'admin')
+    or (select auth.role()) = 'service_role'
+  )
+  with check (
+    public.has_account_role(account_id, 'admin')
+    or (select auth.role()) = 'service_role'
+  );
 
+drop policy if exists voice_commands_select on public.voice_commands;
+drop policy if exists voice_commands_write on public.voice_commands;
 drop policy if exists voice_commands_service on public.voice_commands;
-create policy voice_commands_service
-  on public.voice_commands for all to service_role
-  using (true) with check (true);
+create policy voice_commands_select
+  on public.voice_commands for select to authenticated
+  using (
+    public.is_active_account_member(account_id)
+    or (select auth.role()) = 'service_role'
+  );
+create policy voice_commands_write
+  on public.voice_commands for all to authenticated
+  using (
+    public.has_account_role(account_id, 'agent')
+    or (select auth.role()) = 'service_role'
+  )
+  with check (
+    public.has_account_role(account_id, 'agent')
+    or (select auth.role()) = 'service_role'
+  );
 
 drop policy if exists worker_health_service on public.worker_health;
 create policy worker_health_service
   on public.worker_health for all to service_role
-  using (true) with check (true);
+  using ((select auth.role()) = 'service_role')
+  with check ((select auth.role()) = 'service_role');
 
 grant all on table public.voice_integrations to service_role;
 grant all on table public.voice_commands to service_role;
