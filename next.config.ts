@@ -47,6 +47,20 @@ try {
 }
 
 /**
+ * In local development the app talks to a local Supabase stack (e.g.
+ * http://127.0.0.1:54321) instead of a hosted *.supabase.co project. Allow the
+ * configured Supabase origin (and its WebSocket variant) through connect-src so
+ * the browser Supabase client can reach it. Production CSP is unchanged.
+ */
+const LOCAL_SUPABASE_CSP =
+  process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_SUPABASE_URL
+    ? [
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.NEXT_PUBLIC_SUPABASE_URL.replace(/^http/, 'ws'),
+      ].join(' ')
+    : '';
+
+/**
  * Enterprise Baseline Security Headers
  *
  * Enforces strict Content-Security-Policy, HSTS, clickjacking prevention (DENY),
@@ -75,7 +89,9 @@ const SECURITY_HEADERS = [
       "img-src 'self' data: blob: https://images.unsplash.com https://*.facebook.com https://*.fbcdn.net https://*.supabase.co",
       "media-src 'self' blob: https://*.supabase.co",
       "font-src 'self' data:",
-      "connect-src 'self' https://openrouter.ai https://*.supabase.co wss://*.supabase.co https://*.facebook.com https://*.facebook.net https://graph.facebook.com",
+      `connect-src 'self' https://openrouter.ai https://*.supabase.co wss://*.supabase.co https://*.facebook.com https://*.facebook.net https://graph.facebook.com${
+        LOCAL_SUPABASE_CSP ? ` ${LOCAL_SUPABASE_CSP}` : ''
+      }`,
       "frame-src 'self' https://*.facebook.com https://*.facebook.net https://web.facebook.com",
       "frame-ancestors 'none'",
       "base-uri 'self'",

@@ -38,6 +38,8 @@ const eslintConfig = defineConfig([
     'scratch/**',
     // Internal agent worktrees
     '.claude/**',
+    // Generated local Supabase stack scratch files (see .gitignore).
+    'supabase/.temp/**',
   ]),
 ]);
 
