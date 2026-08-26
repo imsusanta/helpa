@@ -28,7 +28,10 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { isIndustryAvailable } from '@/modules/registry';
+import {
+  isIndustryAvailable,
+  resolveCanonicalIndustry,
+} from '@/modules/registry';
 import { toast } from 'sonner';
 
 import { SECTION_META, type SettingsSection } from './settings-sections';
@@ -229,9 +232,18 @@ export function SettingsOverview({
   };
 
   const handleOpenModal = () => {
-    const currentIndustry = account?.industry || 'hospital_clinic';
+    // The stored industry is canonical (e.g. 'general') while cards use their
+    // own ids (e.g. 'other'), so match cards by canonical id.
+    const currentCanonical = resolveCanonicalIndustry(
+      account?.industry || 'hospital_clinic'
+    );
+    const currentCard = INDUSTRIES.find(
+      (ind) => resolveCanonicalIndustry(ind.id) === currentCanonical
+    );
     setSelectedIndustry(
-      isIndustryAvailable(currentIndustry) ? currentIndustry : 'hospital_clinic'
+      currentCard && isIndustryAvailable(currentCard.id)
+        ? currentCard.id
+        : 'hospital_clinic'
     );
     setInstallationStep('idle');
     setChecklist([
