@@ -33,17 +33,25 @@ export async function enqueueAppointmentReminder(
   const requestHash = `reminder:${data.appointmentId}:${data.reminderType}`;
 
   try {
+    // Insert using the canonical snake_case outbound_outbox columns
+    // (account_id, idempotency_key, payload, …) — the same shape
+    // OutboxService writes. The previous camelCase insert never matched
+    // the Supabase schema, so reminder enqueue failed on every cron run.
     const { data: outboxItem, error } = await db
       .from('outbound_outbox')
       .insert({
-        accountId: data.accountId,
-        idempotencyKey,
-        channel: 'whatsapp',
+        account_id: data.accountId,
+        idempotency_key: idempotencyKey,
+        message_type: 'text',
+        payload: {
+          requestHash,
+          channel: 'whatsapp',
+          appointmentId: data.appointmentId,
+          reminderType: data.reminderType,
+        },
         status: 'pending',
-        requestHash,
-        attempts: 0,
-        createdAt: now,
-        updatedAt: now,
+        created_at: now,
+        updated_at: now,
       })
       .select('id')
       .single();
@@ -51,18 +59,25 @@ export async function enqueueAppointmentReminder(
     if (error) {
       const isConflict =
         String(error.code) === '409' ||
+        String(error.code) === '23505' ||
         /duplicate|conflict|unique/i.test(error.message || '');
 
       if (isConflict) {
         const { data: existing, error: fetchErr } = await db
           .from('outbound_outbox')
-          .select('id, requestHash')
-          .eq('accountId', data.accountId)
-          .eq('idempotencyKey', idempotencyKey)
+          .select('*')
+          .eq('account_id', data.accountId)
+          .eq('idempotency_key', idempotencyKey)
           .maybeSingle();
 
         if (existing) {
-          if (existing.requestHash && existing.requestHash !== requestHash) {
+          const existingHash = String(
+            (existing.payload as Record<string, unknown> | null)?.requestHash ||
+              existing.requestHash ||
+              existing.request_hash ||
+              ''
+          );
+          if (existingHash && existingHash !== requestHash) {
             return {
               ok: false,
               code: 'REMINDER_IDEMPOTENCY_CONFLICT',

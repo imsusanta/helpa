@@ -4848,7 +4848,7 @@ CREATE TABLE IF NOT EXISTS outbound_outbox (
     message_type TEXT NOT NULL DEFAULT 'text',
     payload JSONB NOT NULL DEFAULT '{}'::jsonb,
     meta_message_id TEXT,
-    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'sent', 'failed')),
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'sent', 'failed', 'reconciliation_required', 'dead_letter')),
     error_code TEXT,
     error_message TEXT,
     retry_count INTEGER NOT NULL DEFAULT 0,
@@ -4858,6 +4858,27 @@ CREATE TABLE IF NOT EXISTS outbound_outbox (
 );
 
 CREATE INDEX IF NOT EXISTS idx_outbound_outbox_account_status ON outbound_outbox(account_id, status);
+
+-- Databases provisioned before the status list was widened still carry the
+-- old 4-value CHECK; recreate it idempotently so the terminal statuses the
+-- application writes ('reconciliation_required', 'dead_letter') are valid.
+DO $$
+BEGIN
+  IF to_regclass('public.outbound_outbox') IS NOT NULL THEN
+    ALTER TABLE public.outbound_outbox
+      DROP CONSTRAINT IF EXISTS outbound_outbox_status_check;
+    ALTER TABLE public.outbound_outbox
+      ADD CONSTRAINT outbound_outbox_status_check
+      CHECK (status IN (
+        'pending',
+        'processing',
+        'sent',
+        'failed',
+        'reconciliation_required',
+        'dead_letter'
+      ));
+  END IF;
+END $$;
 
 -- 2. Durable Inbound Webhook Events Table
 CREATE TABLE IF NOT EXISTS inbound_webhook_events (

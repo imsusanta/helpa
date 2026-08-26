@@ -615,7 +615,7 @@ export async function POST(request: Request) {
       const { data } = await dbAdmin
         .from('message_templates')
         .select('*')
-        .eq('accountId', accountId)
+        .eq('account_id', accountId)
         .eq('name', template_name)
         .eq('language', template_language || 'en_US')
         .maybeSingle();
@@ -813,7 +813,7 @@ export async function POST(request: Request) {
         .from('contacts')
         .update({ phone: workingPhone })
         .eq('id', contactId)
-        .eq('accountId', accountId);
+        .eq('account_id', accountId);
     }
 
     const isValidUUID = (str?: string | null) =>
@@ -966,11 +966,11 @@ export async function POST(request: Request) {
           .from('flow_runs')
           .update({
             status: 'paused_by_agent',
-            endedAt: new Date().toISOString(),
-            endReason: 'agent_replied',
+            ended_at: new Date().toISOString(),
+            end_reason: 'agent_replied',
           })
-          .eq('accountId', accountId)
-          .eq('contactId', contactId)
+          .eq('account_id', accountId)
+          .eq('contact_id', contactId)
           .eq('status', 'active');
         if (pauseErr) {
           // Best-effort — log + continue. The agent's message already
