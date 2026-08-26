@@ -37,7 +37,6 @@ describe('Phase 2: Dynamic Industry Workspace Manifests', () => {
   });
 
   it('resolves correct industry-specific terminology', () => {
-    // Health Terminology
     const health = getIndustryTerminology('health');
     expect(health.contact).toBe('Patient');
     expect(health.contacts).toBe('Patients');
@@ -45,7 +44,6 @@ describe('Phase 2: Dynamic Industry Workspace Manifests', () => {
     expect(health.staff).toBe('Doctor');
     expect(getIndustryModule('health').aiRole).toBe('AI Hospital Receptionist');
 
-    // Coaching Terminology
     const coaching = getIndustryTerminology('coaching');
     expect(coaching.contact).toBe('Student');
     expect(coaching.contacts).toBe('Students');
@@ -53,7 +51,6 @@ describe('Phase 2: Dynamic Industry Workspace Manifests', () => {
     expect(coaching.staff).toBe('Teacher');
     expect(getIndustryModule('coaching').aiRole).toBe('AI Admission Assistant');
 
-    // Tutor Terminology
     const tutor = getIndustryTerminology('tutor');
     expect(tutor.contact).toBe('Student');
     expect(tutor.contacts).toBe('Students');
@@ -61,7 +58,6 @@ describe('Phase 2: Dynamic Industry Workspace Manifests', () => {
     expect(tutor.staff).toBe('Teacher');
     expect(getIndustryModule('tutor').aiRole).toBe('AI Teaching Assistant');
 
-    // Salon Terminology
     const salon = getIndustryTerminology('salon');
     expect(salon.contact).toBe('Client');
     expect(salon.contacts).toBe('Clients');
@@ -69,7 +65,6 @@ describe('Phase 2: Dynamic Industry Workspace Manifests', () => {
     expect(salon.staff).toBe('Stylist');
     expect(getIndustryModule('salon').aiRole).toBe('AI Salon Receptionist');
 
-    // Real Estate Terminology
     const realEstate = getIndustryTerminology('real_estate');
     expect(realEstate.contact).toBe('Lead');
     expect(realEstate.contacts).toBe('Leads');
@@ -133,6 +128,11 @@ describe('Phase 2: Dynamic Industry Workspace Manifests', () => {
 
     const nullIndustry = getIndustryModule(null);
     expect(nullIndustry.id).toBe('general');
+
+    const general = getIndustryModule('general');
+    expect(general.id).toBe('general');
+    expect(general.name).toBe('General CRM');
+    expect(general.sidebar.some((item) => item.href === '/contacts')).toBe(true);
   });
 
   describe('Business Type Canonical Selection & Server Validation', () => {
@@ -181,7 +181,6 @@ describe('Phase 2: Dynamic Industry Workspace Manifests', () => {
       expect(isValidIndustry('other')).toBe(true);
       expect(isValidIndustry('general')).toBe(true);
 
-      // Rejections
       expect(isValidIndustry('')).toBe(false);
       expect(isValidIndustry(null)).toBe(false);
       expect(isValidIndustry(undefined)).toBe(false);
