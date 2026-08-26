@@ -7,7 +7,7 @@ import { gymModule } from './gym';
 import { restaurantModule } from './restaurant';
 import { soloTeacherModule } from './solo-teacher';
 import { salonModule } from './salon';
-import { withIntentFulfillmentPolicy } from '@/core/ai/intent-fulfillment';
+import { withIntentFulfillmentPolicy } from '@/lib/ai/intent-fulfillment';
 import {
   INDUSTRY_ALIASES,
   getIndustryTerminology,
@@ -216,5 +216,5 @@ export function resolveSystemPrompt(
   const selectedPrompt = prompt || industryModule.systemPrompt;
   return withIntentFulfillmentPolicy(selectedPrompt, industryModule.id);
 }
+
 export * from './types';
-export * from './registry';
