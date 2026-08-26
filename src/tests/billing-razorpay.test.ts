@@ -193,22 +193,24 @@ describe('Helpa Phase 1A — 30-Day Prepaid Billing Hardening & Razorpay Integra
       expect(pro.usageLimits.automations).toBe(100);
     });
 
-    it('should safely execute checkPlanLimits', async () => {
+    it('fails closed on checkPlanLimits when subscription state is unavailable', async () => {
+      // No database is reachable in this suite: limits must deny, not allow.
       const contactCheck = await checkPlanLimits('test-acc-1', 'max_contacts');
-      expect(contactCheck).toHaveProperty('allowed');
-      expect(contactCheck).toHaveProperty('currentUsage');
-      expect(contactCheck).toHaveProperty('limit');
+      expect(contactCheck.allowed).toBe(false);
+      expect(contactCheck.limit).toBe(0);
+      expect(contactCheck.reason).toBeTruthy();
 
       const userCheck = await checkPlanLimits('test-acc-1', 'max_users');
-      expect(userCheck).toHaveProperty('allowed');
+      expect(userCheck.allowed).toBe(false);
 
       const autoCheck = await checkPlanLimits('test-acc-1', 'automations');
-      expect(autoCheck).toHaveProperty('allowed');
+      expect(autoCheck.allowed).toBe(false);
     });
 
-    it('should block feature access for expired or trial-expired subscriptions', async () => {
+    it('fails closed on checkFeatureAccess when subscription state is unavailable', async () => {
       const access = await checkFeatureAccess('test-acc-expired', 'core.inbox');
-      expect(access).toHaveProperty('allowed');
+      expect(access.allowed).toBe(false);
+      expect(access.reason).toBeTruthy();
     });
   });
 

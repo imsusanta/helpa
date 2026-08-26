@@ -48,27 +48,28 @@ describe('Helpa SaaS Pricing Plans & Billing Architecture', () => {
   });
 
   describe('2. Centralized Feature Entitlements & Access Control', () => {
-    it('should grant features included in plan and reject features missing from plan', async () => {
+    it('fails closed for accounts without a verifiable subscription', async () => {
+      // No database is reachable here, and account-id strings must never
+      // influence plan resolution — both checks deny.
       const starterAccess = await checkFeatureAccess(
         'test-account-starter',
         'core.inbox'
       );
-      expect(starterAccess.allowed).toBe(true);
+      expect(starterAccess.allowed).toBe(false);
 
       const proAccess = await checkFeatureAccess(
         'test-account-pro',
         'core.custom_models'
       );
-      expect(proAccess.allowed).toBe(true);
+      expect(proAccess.allowed).toBe(false);
     });
   });
 
   describe('3. Usage Limits & Consumption Enforcements', () => {
-    it('should allow usage within limit and flag limits reached', async () => {
+    it('fails closed on limits when subscription state is unavailable', async () => {
       const limitCheck = await checkPlanLimits('test-account-1', 'max_users');
-      expect(limitCheck).toHaveProperty('allowed');
-      expect(limitCheck).toHaveProperty('currentUsage');
-      expect(limitCheck).toHaveProperty('limit');
+      expect(limitCheck.allowed).toBe(false);
+      expect(limitCheck.limit).toBe(0);
       expect(limitCheck).toHaveProperty('percentageUsed');
     });
 

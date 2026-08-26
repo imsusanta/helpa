@@ -1,7 +1,12 @@
 /**
- * Helpa Core SaaS Billing — Webhook Processing & Idempotency
+ * Helpa Core SaaS Billing — Internal Billing Event Processing
  *
- * Secure, signature-verified, idempotent handling of incoming payment provider events.
+ * @deprecated for provider webhooks. The single production webhook path is
+ * POST /api/webhooks/razorpay, which verifies the provider signature and
+ * applies the payment atomically via the billing_apply_payment_* RPCs.
+ * This module only serves internal, already-trusted billing events (and
+ * their tests); it performs no signature verification and must never be
+ * exposed on a public route.
  */
 
 import { getAdminClient } from '@/lib/db/server';
@@ -66,27 +71,21 @@ export async function processPaymentWebhook(
         });
       }
 
-      // Record payment transaction
+      // The canonical SaaS payment ledger is platform_payments, written by
+      // the Razorpay webhook's atomic RPC. This internal event processor
+      // must not double-book payments into hospital_bills (clinical
+      // billing) or any secondary ledger.
       const paymentRecord: PaymentRecord = {
-        id: `pay-${Date.now()}`,
+        id: payload.eventId,
         workspaceId: payload.workspaceId,
         subscriptionId: `sub-${payload.workspaceId}`,
-        amount: payload.amount || 2499,
+        amount: payload.amount || 0,
         currency: payload.currency || 'INR',
         status: 'Paid',
         provider: 'Razorpay',
-        providerPaymentId: payload.paymentId || `pay_${Date.now()}`,
+        providerPaymentId: payload.paymentId || payload.eventId,
         date: payload.timestamp || new Date().toISOString(),
       };
-
-      await db.from('hospital_bills').insert({
-        account_id: payload.workspaceId,
-        bill_number: `INV-${Date.now().toString().slice(-6)}`,
-        description: `Helpa Subscription (${payload.planId || 'Professional'})`,
-        amount: paymentRecord.amount,
-        status: 'paid',
-        created_at: new Date().toISOString(),
-      });
 
       coreEvents.emit(
         'billing.payment_succeeded',

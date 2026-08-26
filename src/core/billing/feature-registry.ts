@@ -13,28 +13,44 @@ export interface WorkspaceContextForFeature {
   industry: string;
   subscriptionPlanId: string;
   subscriptionStatus: SubscriptionStatus;
+  /**
+   * Required for PAST_DUE access: paid access continues only until this
+   * instant. Callers that cannot provide it get PAST_DUE denied.
+   */
+  gracePeriodEnd?: string;
 }
 
 export const ACTIVE_SUBSCRIPTION_STATUSES: SubscriptionStatus[] = [
   'ACTIVE',
   'TRIALING',
-  'PAST_DUE', // In grace period
 ];
 
 /**
  * Checks if a workspace is entitled to use a specific feature key based on
  * its industry, subscription status, and plan configuration.
+ *
+ * Status policy (mirrors hasPaidAccess in lib/saas/subscription):
+ * ACTIVE and TRIALING are entitled; PAST_DUE only inside an explicit,
+ * unexpired grace period; every other status is denied.
  */
 export async function canAccessFeature(
   workspace: WorkspaceContextForFeature,
   featureKey: string
 ): Promise<FeatureAccessResult> {
   // 1. Subscription status validation
-  if (!ACTIVE_SUBSCRIPTION_STATUSES.includes(workspace.subscriptionStatus)) {
+  const inGracePeriod =
+    workspace.subscriptionStatus === 'PAST_DUE' &&
+    Boolean(workspace.gracePeriodEnd) &&
+    new Date(workspace.gracePeriodEnd as string) > new Date();
+
+  if (
+    !ACTIVE_SUBSCRIPTION_STATUSES.includes(workspace.subscriptionStatus) &&
+    !inGracePeriod
+  ) {
     return {
       allowed: false,
       featureKey,
-      reason: `Subscription is ${workspace.subscriptionStatus.toLowerCase()}. Upgrade or renew your plan to restore access.`,
+      reason: `Subscription is ${workspace.subscriptionStatus.toLowerCase().replace(/_/g, ' ')}. Upgrade or renew your plan to restore access.`,
     };
   }
 

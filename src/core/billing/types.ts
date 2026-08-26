@@ -64,6 +64,8 @@ export interface WorkspaceSubscription {
   currentPeriodEnd: string;
   trialStart?: string;
   trialEnd?: string;
+  /** PAST_DUE keeps access only until this instant (see hasPaidAccess). */
+  gracePeriodEnd?: string;
   cancelAtPeriodEnd: boolean;
   cancelledAt?: string;
   paymentProvider: string;

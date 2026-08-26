@@ -352,7 +352,7 @@ describe('Helpa Core SaaS Billing & Monetization Layer', () => {
   });
 
   describe('Payment Webhooks & Idempotency', () => {
-    it('processes payment.succeeded and creates payment record idempotently', async () => {
+    it('processes payment.succeeded idempotently without touching hospital_bills', async () => {
       const webhookPayload = {
         eventId: 'evt_rzp_999',
         eventType: 'payment.succeeded' as const,
@@ -363,17 +363,19 @@ describe('Helpa Core SaaS Billing & Monetization Layer', () => {
         timestamp: new Date().toISOString(),
       };
 
-      // 1. First execution
+      // 1. First execution — subscription payments belong to the
+      // platform_payments ledger (written by the Razorpay webhook RPC),
+      // never to the clinical hospital_bills table.
       const res1 = await processPaymentWebhook(webhookPayload);
       expect(res1.success).toBe(true);
       expect(res1.duplicate).toBe(false);
-      expect(mockDatabase.hospital_bills.length).toBe(1);
+      expect(mockDatabase.hospital_bills.length).toBe(0);
 
       // 2. Duplicate webhook delivery
       const res2 = await processPaymentWebhook(webhookPayload);
       expect(res2.success).toBe(true);
       expect(res2.duplicate).toBe(true);
-      expect(mockDatabase.hospital_bills.length).toBe(1); // No duplicate invoice created
+      expect(mockDatabase.hospital_bills.length).toBe(0);
     });
   });
 });

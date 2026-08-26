@@ -1,7 +1,64 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
-import { getPlanBySlug } from '@/core/billing/plans';
+import { findPlanBySlug } from '@/core/billing/plans';
 import { verifyRazorpayWebhookSignature } from '@/lib/billing/razorpay';
+
+/**
+ * POST /api/webhooks/razorpay — the single production payment webhook.
+ *
+ * Pipeline (fail-closed at every step):
+ * 1. Raw body is read before JSON parsing; RAZORPAY_WEBHOOK_SECRET is
+ *    required (503 when missing) and x-razorpay-signature is verified
+ *    before any payload field is trusted (400 on mismatch).
+ * 2. Only payment.captured, order.paid, and payment.failed are handled;
+ *    other events are acknowledged and ignored.
+ * 3. Events without stable provider identity (payment id + order id) are
+ *    logged and safely ignored — no Date.now()-based ids are ever minted.
+ * 4. Account, plan, and the expected charge are resolved from the
+ *    server-created billing_orders record (fallback: server-set order
+ *    notes for account/plan identity only, with the price recomputed from
+ *    the plan catalog and persisted setup-fee state — notes are never
+ *    trusted for price or first-payment status).
+ * 5. Currency and captured amount must match the server-side expectation
+ *    or the subscription is not activated.
+ * 6. The state change is applied by an atomic PostgreSQL RPC
+ *    (billing_apply_payment_captured / billing_apply_payment_failed) that
+ *    locks state, rejects duplicates by razorpay_payment_id, updates the
+ *    subscription, writes platform_payments and the audit log, and mirrors
+ *    accounts.* in one transaction. Any database failure returns 500 so
+ *    Razorpay retries.
+ */
+
+interface PaymentEntity {
+  id?: unknown;
+  order_id?: unknown;
+  amount?: unknown;
+  currency?: unknown;
+  status?: unknown;
+  error_code?: unknown;
+  error_description?: unknown;
+  notes?: Record<string, unknown>;
+}
+
+interface ResolvedOrderContext {
+  accountId: string;
+  planSlug: string;
+  billingInterval: 'monthly' | 'yearly';
+  expectedAmountPaise: number;
+  expectedCurrency: string;
+  setupFeeIncluded: boolean;
+  setupFeeAmount: number;
+  monthlyAmount: number;
+}
+
+function asNonEmptyString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim().length > 0
+    ? value.trim()
+    : null;
+}
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
@@ -39,232 +96,303 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const payload = JSON.parse(rawBody);
-    const event = payload?.event;
-    const payment = payload?.payload?.payment?.entity;
-    const order = payload?.payload?.order?.entity;
+    let payload: Record<string, unknown>;
+    try {
+      payload = JSON.parse(rawBody);
+    } catch {
+      return NextResponse.json({ error: 'Malformed JSON' }, { status: 400 });
+    }
 
-    const notes = payment?.notes || order?.notes || {};
-    const accountId = notes.accountId;
-    const planSlug = notes.planSlug || 'growth';
-    const isFirstTime = notes.isFirstTime === 'true';
+    const event = asNonEmptyString(payload?.event);
+    const handledEvents = ['payment.captured', 'order.paid', 'payment.failed'];
+    if (!event || !handledEvents.includes(event)) {
+      return NextResponse.json({ received: true, event: event || 'unknown' });
+    }
 
-    if (!accountId) {
+    const payloadBody = (payload?.payload ?? {}) as Record<
+      string,
+      { entity?: unknown } | undefined
+    >;
+    const payment = (payloadBody.payment?.entity ??
+      null) as PaymentEntity | null;
+    const orderEntity = (payloadBody.order?.entity ?? null) as {
+      id?: unknown;
+      notes?: Record<string, unknown>;
+    } | null;
+
+    const paymentId = asNonEmptyString(payment?.id);
+    const orderId =
+      asNonEmptyString(payment?.order_id) ?? asNonEmptyString(orderEntity?.id);
+
+    if (!paymentId || !orderId) {
+      // Stable provider identity is mandatory; without it the event cannot
+      // be processed idempotently. Acknowledge so Razorpay stops retrying
+      // an event that can never become valid.
       console.warn(
-        '[Razorpay Webhook] Missing accountId in payment notes, event ignored:',
+        '[Razorpay Webhook] Ignoring event without payment/order identity:',
         event
       );
       return NextResponse.json({
         received: true,
-        message: 'No accountId in notes',
+        status: 'ignored_missing_identity',
       });
     }
 
     const supabase = getSupabaseAdminClient();
-    const paymentId = payment?.id || `pay_mock_${Date.now()}`;
-    const orderId =
-      payment?.order_id || order?.id || `order_mock_${Date.now()}`;
 
-    // 1. Database-Level Idempotency Check: Query platform_payments for unique payment ID
-    const { data: existingPayment } = await supabase
-      .from('platform_payments')
-      .select('id, status')
-      .eq('razorpay_payment_id', paymentId)
+    // ---- Resolve the server-side order context -------------------------
+    const { data: orderRow, error: orderErr } = await supabase
+      .from('billing_orders')
+      .select(
+        'account_id, plan_slug, billing_interval, amount_paise, currency, setup_fee_included, setup_fee_amount, monthly_amount'
+      )
+      .eq('razorpay_order_id', orderId)
       .maybeSingle();
+    if (orderErr) {
+      console.error('[Razorpay Webhook] Order lookup failed:', orderErr);
+      return NextResponse.json(
+        { error: 'Order lookup failed' },
+        { status: 500 }
+      );
+    }
 
-    if (existingPayment && existingPayment.status === 'captured') {
+    let ctx: ResolvedOrderContext | null = null;
+
+    if (orderRow) {
+      ctx = {
+        accountId: String(orderRow.account_id),
+        planSlug: String(orderRow.plan_slug),
+        billingInterval:
+          orderRow.billing_interval === 'yearly' ? 'yearly' : 'monthly',
+        expectedAmountPaise: Number(orderRow.amount_paise),
+        expectedCurrency: String(orderRow.currency || 'INR'),
+        setupFeeIncluded: orderRow.setup_fee_included === true,
+        setupFeeAmount: Number(orderRow.setup_fee_amount || 0),
+        monthlyAmount: Number(orderRow.monthly_amount || 0),
+      };
+    } else {
+      // Legacy fallback for orders created before billing_orders existed.
+      // Notes were written server-side at order creation and the payload
+      // signature has been verified — but the price and first-payment flag
+      // are still recomputed from persisted data, never read from notes.
+      const notes = {
+        ...(orderEntity?.notes || {}),
+        ...(payment?.notes || {}),
+      } as Record<string, unknown>;
+      const notesAccountId =
+        asNonEmptyString(notes.account_id) ?? asNonEmptyString(notes.accountId);
+      const notesPlanSlug =
+        asNonEmptyString(notes.plan_slug) ?? asNonEmptyString(notes.planSlug);
+
+      if (!notesAccountId || !UUID_RE.test(notesAccountId) || !notesPlanSlug) {
+        console.warn(
+          '[Razorpay Webhook] Ignoring event without resolvable order context:',
+          event
+        );
+        return NextResponse.json({
+          received: true,
+          status: 'ignored_unresolvable_order',
+        });
+      }
+
+      const plan = await findPlanBySlug(notesPlanSlug);
+      if (!plan || !plan.isActive) {
+        console.warn(
+          '[Razorpay Webhook] Ignoring event for unknown/inactive plan'
+        );
+        return NextResponse.json({
+          received: true,
+          status: 'ignored_unknown_plan',
+        });
+      }
+
+      const { data: subRow, error: subErr } = await supabase
+        .from('subscriptions')
+        .select('setup_fee_paid')
+        .eq('account_id', notesAccountId)
+        .maybeSingle();
+      if (subErr) {
+        console.error('[Razorpay Webhook] Subscription lookup failed:', subErr);
+        return NextResponse.json(
+          { error: 'Subscription lookup failed' },
+          { status: 500 }
+        );
+      }
+
+      const setupFeeIncluded = !(subRow?.setup_fee_paid === true);
+      ctx = {
+        accountId: notesAccountId,
+        planSlug: plan.slug,
+        billingInterval:
+          plan.billingInterval === 'yearly' ? 'yearly' : 'monthly',
+        expectedAmountPaise: Math.round(
+          (setupFeeIncluded
+            ? plan.setupFee + plan.monthlyPrice
+            : plan.monthlyPrice) * 100
+        ),
+        expectedCurrency: plan.currency || 'INR',
+        setupFeeIncluded,
+        setupFeeAmount: setupFeeIncluded ? plan.setupFee : 0,
+        monthlyAmount: plan.monthlyPrice,
+      };
+    }
+
+    // The plan must still be active in the catalog at processing time.
+    const catalogPlan = await findPlanBySlug(ctx.planSlug);
+    if (!catalogPlan || !catalogPlan.isActive) {
+      console.error(
+        '[Razorpay Webhook] Plan is no longer active; not activating subscription'
+      );
       return NextResponse.json({
         received: true,
-        status: 'already_processed',
+        status: 'ignored_inactive_plan',
       });
     }
 
-    // 2. Handle Payment Success (Captured / Order Paid)
+    // ---- payment.captured / order.paid ---------------------------------
     if (event === 'payment.captured' || event === 'order.paid') {
-      const targetPlan = await getPlanBySlug(planSlug);
+      const capturedAmountPaise = Number(payment?.amount);
+      const capturedCurrency = asNonEmptyString(payment?.currency) || 'INR';
 
-      // Check for existing subscription row
-      const { data: existingSub } = await supabase
-        .from('subscriptions')
-        .select('id, end_date, setup_fee_paid')
-        .eq('account_id', accountId)
-        .maybeSingle();
+      const amountMatches =
+        Number.isSafeInteger(capturedAmountPaise) &&
+        capturedAmountPaise === ctx.expectedAmountPaise;
+      const currencyMatches =
+        capturedCurrency.toUpperCase() === ctx.expectedCurrency.toUpperCase();
 
-      // Safe 30-Day Date Rollover Calculation:
-      // If renewed before expiry, add 30 days to existing end_date. Otherwise, add 30 days to now.
-      const now = Date.now();
-      let nextEndDate: string;
-      const existingEndDateMs = existingSub?.end_date
-        ? new Date(existingSub.end_date).getTime()
-        : 0;
-
-      if (existingEndDateMs > now) {
-        // Active prepaid subscription renewed early: preserve remaining days + 30 days
-        nextEndDate = new Date(
-          existingEndDateMs + 30 * 86400 * 1000
-        ).toISOString();
-      } else {
-        // Expired or new subscription: 30 days from today
-        nextEndDate = new Date(now + 30 * 86400 * 1000).toISOString();
-      }
-
-      const isReallyFirstTime =
-        isFirstTime && !(existingSub?.setup_fee_paid ?? false);
-      const chargedAmount = payment?.amount
-        ? payment.amount / 100
-        : isReallyFirstTime
-          ? targetPlan.setupFee + targetPlan.monthlyPrice
-          : targetPlan.monthlyPrice;
-
-      const paymentType = isReallyFirstTime
-        ? 'setup_and_first_month'
-        : 'monthly_renewal';
-
-      // Update or Create Subscription in database
-      let subscriptionId = existingSub?.id;
-      if (existingSub) {
-        await supabase
-          .from('subscriptions')
-          .update({
-            plan_slug: targetPlan.slug,
-            status: 'ACTIVE',
-            setup_fee_paid: true,
-            setup_fee_amount: targetPlan.setupFee,
-            monthly_amount: targetPlan.monthlyPrice,
-            currency: targetPlan.currency || 'INR',
-            end_date: nextEndDate,
-            payment_provider: 'razorpay',
-            external_subscription_id: paymentId,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', existingSub.id);
-      } else {
-        const { data: newSub } = await supabase
-          .from('subscriptions')
-          .insert({
-            account_id: accountId,
-            plan_slug: targetPlan.slug,
-            status: 'ACTIVE',
-            setup_fee_paid: true,
-            setup_fee_amount: targetPlan.setupFee,
-            monthly_amount: targetPlan.monthlyPrice,
-            currency: targetPlan.currency || 'INR',
-            end_date: nextEndDate,
-            payment_provider: 'razorpay',
-            external_subscription_id: paymentId,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .select('id')
-          .single();
-        subscriptionId = newSub?.id;
-      }
-
-      // Record in platform_payments table (with database-level unique constraint)
-      await supabase.from('platform_payments').upsert(
-        {
-          account_id: accountId,
-          subscription_id: subscriptionId || null,
-          razorpay_order_id: orderId,
-          razorpay_payment_id: paymentId,
-          razorpay_signature: signature || null,
-          amount: chargedAmount,
-          currency: payment?.currency || targetPlan.currency || 'INR',
-          plan_slug: targetPlan.slug,
-          payment_type: paymentType,
-          status: 'captured',
-          is_setup_fee_included: isReallyFirstTime,
-          setup_fee_amount: isReallyFirstTime ? targetPlan.setupFee : 0,
-          monthly_recurring_amount: targetPlan.monthlyPrice,
-          period_start: new Date().toISOString(),
-          period_end: nextEndDate,
+      if (!amountMatches || !currencyMatches) {
+        // Real money may have moved, but the charge does not match what the
+        // server priced: never activate. Surface for manual reconciliation.
+        console.error(
+          '[Razorpay Webhook] Amount/currency mismatch; subscription NOT activated',
+          {
+            orderId,
+            expectedAmountPaise: ctx.expectedAmountPaise,
+            capturedAmountPaise,
+            expectedCurrency: ctx.expectedCurrency,
+            capturedCurrency,
+          }
+        );
+        const { error: auditErr } = await supabase.from('audit_logs').insert({
+          account_id: ctx.accountId,
+          action: 'billing.payment_amount_mismatch',
+          target_type: 'subscription',
           metadata: {
             gateway: 'razorpay',
-            event,
-            method: payment?.method || 'unknown',
-            email: payment?.email || '',
-            contact: payment?.contact || '',
+            razorpay_payment_id: paymentId,
+            razorpay_order_id: orderId,
+            expected_amount_paise: ctx.expectedAmountPaise,
+            captured_amount_paise: capturedAmountPaise,
+            expected_currency: ctx.expectedCurrency,
+            captured_currency: capturedCurrency,
           },
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'razorpay_payment_id' }
+        });
+        if (auditErr) {
+          console.error(
+            '[Razorpay Webhook] Mismatch audit insert failed:',
+            auditErr
+          );
+          return NextResponse.json(
+            { error: 'Failed to record mismatch' },
+            { status: 500 }
+          );
+        }
+        return NextResponse.json({
+          received: true,
+          status: 'amount_mismatch_not_activated',
+        });
+      }
+
+      const { data: rpcData, error: rpcError } = await supabase.rpc(
+        'billing_apply_payment_captured',
+        {
+          p_account_id: ctx.accountId,
+          p_order_id: orderId,
+          p_payment_id: paymentId,
+          p_plan_slug: ctx.planSlug,
+          p_amount_paise: ctx.expectedAmountPaise,
+          p_currency: ctx.expectedCurrency,
+          p_setup_fee_included: ctx.setupFeeIncluded,
+          p_setup_fee_amount: ctx.setupFeeAmount,
+          p_monthly_amount: ctx.monthlyAmount,
+          p_billing_interval: ctx.billingInterval,
+          p_signature: signature,
+          p_event: event,
+        }
       );
 
-      // Record in Audit Logs for operational audit trail
-      await supabase.from('audit_logs').insert({
-        account_id: accountId,
-        action: 'payment.captured',
-        target_type: 'subscription',
-        metadata: {
-          gateway: 'razorpay',
-          razorpay_payment_id: paymentId,
-          razorpay_order_id: orderId,
-          amount: chargedAmount,
-          currency: payment?.currency || targetPlan.currency || 'INR',
-          plan_slug: targetPlan.slug,
-          payment_type: paymentType,
-          new_end_date: nextEndDate,
-          processed_at: new Date().toISOString(),
-        },
-      });
+      if (rpcError) {
+        console.error(
+          '[Razorpay Webhook] billing_apply_payment_captured failed:',
+          rpcError
+        );
+        // 500 → Razorpay retries; nothing was committed.
+        return NextResponse.json(
+          { error: 'Payment processing failed' },
+          { status: 500 }
+        );
+      }
+
+      const result = (rpcData ?? {}) as {
+        status?: string;
+        period_end?: string;
+      };
+      if (result.status === 'already_processed') {
+        return NextResponse.json({
+          received: true,
+          status: 'already_processed',
+        });
+      }
 
       return NextResponse.json({
         received: true,
         status: 'subscription_activated',
-        plan: targetPlan.slug,
-        new_end_date: nextEndDate,
+        plan: ctx.planSlug,
+        new_end_date: result.period_end,
       });
     }
 
-    // 3. Handle Payment Failure
+    // ---- payment.failed -------------------------------------------------
     if (event === 'payment.failed') {
-      const targetPlan = await getPlanBySlug(planSlug);
-
-      await supabase
-        .from('subscriptions')
-        .update({
-          status: 'PAST_DUE',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('account_id', accountId);
-
-      await supabase.from('platform_payments').upsert(
+      const failedAmountPaise = Number(payment?.amount);
+      const { data: rpcData, error: rpcError } = await supabase.rpc(
+        'billing_apply_payment_failed',
         {
-          account_id: accountId,
-          razorpay_order_id: orderId,
-          razorpay_payment_id: paymentId,
-          amount: payment?.amount
-            ? payment.amount / 100
-            : targetPlan.monthlyPrice,
-          currency: payment?.currency || targetPlan.currency || 'INR',
-          plan_slug: targetPlan.slug,
-          payment_type: 'monthly_renewal',
-          status: 'failed',
-          period_start: new Date().toISOString(),
-          period_end: new Date().toISOString(),
-          metadata: {
-            gateway: 'razorpay',
-            event,
-            reason: payment?.error_description || 'Payment failed at gateway',
-            error_code: payment?.error_code || 'PAYMENT_ERROR',
-          },
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'razorpay_payment_id' }
+          p_account_id: ctx.accountId,
+          p_order_id: orderId,
+          p_payment_id: paymentId,
+          p_plan_slug: ctx.planSlug,
+          p_amount_paise: Number.isSafeInteger(failedAmountPaise)
+            ? failedAmountPaise
+            : 0,
+          p_currency: ctx.expectedCurrency,
+          p_error_code:
+            asNonEmptyString(payment?.error_code) || 'PAYMENT_ERROR',
+          p_error_description:
+            asNonEmptyString(payment?.error_description) ||
+            'Payment failed at gateway',
+          p_grace_days: 3,
+        }
       );
 
-      await supabase.from('audit_logs').insert({
-        account_id: accountId,
-        action: 'payment.failed',
-        target_type: 'subscription',
-        metadata: {
-          gateway: 'razorpay',
-          razorpay_payment_id: paymentId,
-          reason: payment?.error_description || 'Payment failed at gateway',
-          error_code: payment?.error_code || 'PAYMENT_ERROR',
-          processed_at: new Date().toISOString(),
-        },
-      });
+      if (rpcError) {
+        console.error(
+          '[Razorpay Webhook] billing_apply_payment_failed failed:',
+          rpcError
+        );
+        return NextResponse.json(
+          { error: 'Payment failure processing failed' },
+          { status: 500 }
+        );
+      }
+
+      const result = (rpcData ?? {}) as { status?: string };
+      if (result.status === 'already_processed') {
+        return NextResponse.json({
+          received: true,
+          status: 'already_processed',
+        });
+      }
 
       return NextResponse.json({
         received: true,
@@ -272,14 +400,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       });
     }
 
-    return NextResponse.json({
-      received: true,
-      event,
-    });
+    return NextResponse.json({ received: true, event });
   } catch (err: unknown) {
+    // Never leak internals; a 500 makes Razorpay retry the delivery.
     console.error('[Razorpay Webhook Error]:', err);
-    const message =
-      err instanceof Error ? err.message : 'Webhook processing failure';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Webhook processing failure' },
+      { status: 500 }
+    );
   }
 }
