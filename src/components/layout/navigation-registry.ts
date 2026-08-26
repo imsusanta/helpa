@@ -50,7 +50,7 @@ export const NAVIGATION_REGISTRY: SidebarNavItem<React.ElementType>[] = [
     icon: Users,
     children: [
       { id: 'crm-leads', label: 'Leads', href: '/leads' },
-      { id: 'crm-contacts', label: 'Contacts', href: '/customers' },
+      { id: 'crm-contacts', label: 'Contacts', href: '/contacts' },
       { id: 'crm-pipelines', label: 'Pipelines', href: '/pipelines' },
       { id: 'crm-quotations', label: 'Quotations', href: '/quotations' },
       {
