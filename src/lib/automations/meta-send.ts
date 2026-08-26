@@ -268,25 +268,67 @@ async function recordSentMessage(
   const messageId = metaMessageId || fallbackId;
 
   try {
-    const { data: inserted } = await db
+    const canonicalPayload = {
+      account_id: accountId,
+      conversation_id: conversationId,
+      direction: 'outbound',
+      sender_type: 'agent',
+      content_type: contentType,
+      content_text: contentText,
+      media_url: mediaUrl,
+      status: 'sent',
+      message_id: messageId,
+      provider_message_id: messageId,
+      created_at: nowIso,
+      updated_at: nowIso,
+    };
+
+    const { data: firstInsert, error: insertError } = await db
       .from('messages')
-      .insert({
+      .insert(canonicalPayload)
+      .select('id')
+      .maybeSingle();
+
+    let inserted = firstInsert;
+
+    if (insertError) {
+      console.warn(
+        '[meta-send] Canonical insert error, trying fallback payload:',
+        insertError.message
+      );
+      const fallbackPayload = {
+        account_id: accountId,
         conversation_id: conversationId,
-        sender_type: 'bot',
+        direction: 'outbound',
+        sender_type: 'agent',
         content_type: contentType,
         content_text: contentText,
         media_url: mediaUrl,
         status: 'sent',
         message_id: messageId,
         created_at: nowIso,
-      })
-      .select('id')
-      .maybeSingle();
+        updated_at: nowIso,
+      };
+      const fallbackRes = await db
+        .from('messages')
+        .insert(fallbackPayload)
+        .select('id')
+        .maybeSingle();
+      if (!fallbackRes.error && fallbackRes.data) {
+        inserted = fallbackRes.data;
+      } else {
+        console.error(
+          '[meta-send] Failed to record message in database:',
+          fallbackRes.error || insertError
+        );
+      }
+    }
 
     try {
       await db
         .from('conversations')
         .update({
+          last_message_text: contentText || `[${contentType}]`,
           last_message_at: nowIso,
           updated_at: nowIso,
         })

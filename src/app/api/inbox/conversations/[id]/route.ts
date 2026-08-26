@@ -344,11 +344,14 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     }
     if (
       body.ai_chat_enabled !== undefined ||
-      body.aiChatEnabled !== undefined
+      body.aiChatEnabled !== undefined ||
+      body.is_ai_enabled !== undefined
     ) {
-      updatePayload.ai_chat_enabled = Boolean(
-        body.ai_chat_enabled ?? body.aiChatEnabled
+      const enabled = Boolean(
+        body.ai_chat_enabled ?? body.aiChatEnabled ?? body.is_ai_enabled
       );
+      updatePayload.ai_chat_enabled = enabled;
+      updatePayload.is_ai_enabled = enabled;
     }
     if (
       body.assigned_agent_id !== undefined ||
@@ -359,7 +362,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
         null) as string | null;
     }
 
-    const { data: updated, error } = await supabase
+    let { data: updated, error } = await supabase
       .from('conversations')
       .update(updatePayload)
       .eq('id', conversationId)
@@ -367,10 +370,41 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       .select('*')
       .maybeSingle();
 
+    if (
+      error &&
+      (error.message?.includes('column') ||
+        error.code === 'PGRST204' ||
+        error.message?.includes('schema cache'))
+    ) {
+      console.warn(
+        'Supabase conversations column update fallback:',
+        error.message
+      );
+      const safePayload = { ...updatePayload };
+      delete safePayload.ai_chat_enabled;
+      delete safePayload.is_ai_enabled;
+      const retry = await supabase
+        .from('conversations')
+        .update(safePayload)
+        .eq('id', conversationId)
+        .eq('account_id', accountId)
+        .select('*')
+        .maybeSingle();
+      if (!retry.error && retry.data) {
+        updated = {
+          ...retry.data,
+          ai_chat_enabled: Boolean(updatePayload.ai_chat_enabled ?? true),
+          is_ai_enabled: Boolean(updatePayload.is_ai_enabled ?? true),
+        };
+        error = null;
+      }
+    }
+
     if (error || !updated) {
+      console.error('Error updating conversation in Supabase:', error);
       return NextResponse.json(
-        { error: 'Conversation not found' },
-        { status: 404, headers: CACHE_HEADERS }
+        { error: error?.message || 'Conversation not found' },
+        { status: error ? 500 : 404, headers: CACHE_HEADERS }
       );
     }
 

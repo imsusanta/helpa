@@ -486,11 +486,15 @@ export async function handleReminderReplyAction(
     });
 
     await db.from('messages').insert({
+      account_id: accountId,
       conversation_id: conversationId,
+      direction: 'outbound',
       sender_type: 'bot',
       content_type: 'text',
       content_text: `[System Alert] Patient confirmed their appointment with Dr. ${docName} on ${apptDate} at ${apptTime}.`,
       status: 'sent',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     });
 
     return true;
@@ -517,11 +521,15 @@ export async function handleReminderReplyAction(
     });
 
     await db.from('messages').insert({
+      account_id: accountId,
       conversation_id: conversationId,
+      direction: 'outbound',
       sender_type: 'bot',
       content_type: 'text',
       content_text: `[System Alert] Patient requested a reschedule for their appointment with Dr. ${docName} on ${apptDate} at ${apptTime}.`,
       status: 'sent',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     });
 
     return true;
@@ -548,11 +556,15 @@ export async function handleReminderReplyAction(
     });
 
     await db.from('messages').insert({
+      account_id: accountId,
       conversation_id: conversationId,
+      direction: 'outbound',
       sender_type: 'bot',
       content_type: 'text',
       content_text: `[System Alert] Patient cancelled their appointment with Dr. ${docName} on ${apptDate} at ${apptTime}.`,
       status: 'sent',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     });
 
     return true;
@@ -651,10 +663,12 @@ export async function processMessage(
   accessToken: string,
   correlationId?: string
 ) {
-  const senderPhone = normalizePhone(message.from);
+  const rawFrom = message.from || contact?.wa_id || '';
+  const senderPhone =
+    normalizePhone(rawFrom) || rawFrom.replace(/\D/g, '') || rawFrom;
   const contactName =
     contact?.profile?.name ||
-    contact?.wa_id ||
+    (contact?.wa_id && !/^\d+$/.test(contact.wa_id) ? contact.wa_id : '') ||
     senderPhone ||
     'Unknown Contact';
 

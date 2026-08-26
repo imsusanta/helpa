@@ -136,37 +136,34 @@ export async function findOrCreateConversation(
   if (existing) return existing;
 
   const now = new Date().toISOString();
-  const canonicalPayload = {
+  const canonicalPayload: Record<string, unknown> = {
     account_id: accountId,
     user_id: configOwnerUserId || null,
     contact_id: contactId,
     channel,
     status: 'open',
-    ai_chat_enabled: true,
     unread_count: 0,
     last_message_text: '',
     last_message_at: now,
     created_at: now,
     updated_at: now,
   };
-  const legacyPayload = {
+  const minimalPayload: Record<string, unknown> = {
     account_id: accountId,
     user_id: configOwnerUserId || null,
     contact_id: contactId,
     status: 'open',
-    ai_chat_enabled: true,
     unread_count: 0,
     last_message_text: '',
     last_message_at: now,
     created_at: now,
     updated_at: now,
   };
-  const camelCasePayload = {
+  const camelCasePayload: Record<string, unknown> = {
     accountId,
     userId: configOwnerUserId || null,
     contactId,
     status: 'open',
-    aiChatEnabled: true,
     unreadCount: 0,
     lastMessageText: '',
     lastMessageAt: now,
@@ -177,24 +174,18 @@ export async function findOrCreateConversation(
   const inserted = camelCaseShape
     ? await db
         .from('conversations')
-        // The generated Supabase type describes the canonical snake_case
-        // schema. This branch is only reached for pre-cutover camelCase
-        // deployments, so keep the compatibility payload out of that type's
-        // excess-property check.
         .insert(camelCasePayload as never)
         .select()
         .single()
     : await db
         .from('conversations')
-        .insert(legacyShape ? legacyPayload : canonicalPayload)
+        .insert((legacyShape ? minimalPayload : canonicalPayload) as never)
         .select()
         .single();
 
   if (!inserted.error && inserted.data) return inserted.data;
 
   if (isUniqueViolation(inserted.error)) {
-    // Another webhook created the channel-specific row between our lookup
-    // and insert. Re-query before reporting failure.
     const raced = await findExisting();
     if (raced) return raced;
     throw new Error(
@@ -205,7 +196,7 @@ export async function findOrCreateConversation(
   if (!legacyShape && isSchemaCompatibilityError(inserted.error)) {
     const fallback = await db
       .from('conversations')
-      .insert(legacyPayload)
+      .insert(minimalPayload as never)
       .select()
       .single();
     if (!fallback.error && fallback.data) return fallback.data;
@@ -213,11 +204,6 @@ export async function findOrCreateConversation(
       const raced = await findExisting();
       if (raced) return raced;
     }
-    throw new Error(
-      `Legacy conversation creation failed: ${String(
-        (fallback.error as { message?: string })?.message || fallback.error
-      )}`
-    );
   }
 
   throw new Error(

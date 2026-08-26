@@ -1947,7 +1947,9 @@ Please arrive 15 minutes before your time slot. Thank you!`;
     // If human handoff is requested, insert system message alert
     if (handoff_required) {
       const { error: systemMsgError } = await db.from('messages').insert({
+        account_id: accountId,
         conversation_id: conversationId,
+        direction: 'outbound',
         sender_type: 'bot',
         content_type: 'text',
         content_text:
@@ -1955,6 +1957,7 @@ Please arrive 15 minutes before your time slot. Thank you!`;
         message_id: `system-handoff-${conversationId}-${Date.now()}`,
         status: 'delivered',
         created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       });
 
       if (systemMsgError) {

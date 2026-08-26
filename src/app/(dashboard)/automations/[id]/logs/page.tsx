@@ -41,7 +41,8 @@ export default function AutomationLogsPage({
           cache: 'no-store',
         });
         const payload = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(payload?.error || 'Failed to load logs');
+        if (!response.ok)
+          throw new Error(payload?.error || 'Failed to load logs');
         setAutomation(payload.automation as Automation | null);
         setLogs((payload.logs ?? []) as AutomationLog[]);
       } catch (err) {

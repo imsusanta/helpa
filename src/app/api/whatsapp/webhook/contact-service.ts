@@ -35,10 +35,13 @@ export async function findOrCreateContact(
   name: string
 ): Promise<ContactOutcome | null> {
   const db = getAdminClient();
+  const rawDigits = phone.replace(/\D/g, '');
+  const searchPhone = rawDigits || phone;
+
   const existingContact = (await findExistingContact(
     db,
     accountId,
-    phone
+    searchPhone
   )) as ContactRow | null;
 
   if (existingContact) {
@@ -46,14 +49,21 @@ export async function findOrCreateContact(
     const isPlaceholderName =
       !existingContact.name ||
       existingContact.name === phone ||
+      existingContact.name === searchPhone ||
       existingContact.name.startsWith('+') ||
       /^\d+$/.test(existingContact.name.replace(/[\s\-\+]/g, ''));
 
-    if (name && isPlaceholderName && name !== existingContact.name) {
+    if (
+      name &&
+      isPlaceholderName &&
+      name !== existingContact.name &&
+      !/^\d+$/.test(name.replace(/[\s\-\+]/g, ''))
+    ) {
       await db
         .from('contacts')
         .update({ name, updated_at: new Date().toISOString() })
         .eq('id', existingContact.id);
+      existingContact.name = name;
     }
     return { contact: existingContact, wasCreated: false };
   }
@@ -63,13 +73,21 @@ export async function findOrCreateContact(
   let newContact: Record<string, unknown> | null = null;
   let createError: unknown = null;
 
+  const contactPhone = rawDigits
+    ? rawDigits.startsWith('+')
+      ? rawDigits
+      : `+${rawDigits}`
+    : phone;
+  const contactName =
+    name && name.trim() ? name.trim() : contactPhone || 'Unknown Contact';
+
   const res = await db
     .from('contacts')
     .insert({
       account_id: accountId,
       user_id: configOwnerUserId || null,
-      phone,
-      name: name || phone,
+      phone: contactPhone,
+      name: contactName,
       created_at: now,
       updated_at: now,
     })
@@ -84,19 +102,18 @@ export async function findOrCreateContact(
     const raced = (await findExistingContact(
       db,
       accountId,
-      phone
+      searchPhone
     )) as ContactRow | null;
     if (raced) return { contact: raced, wasCreated: false };
     createError = res.error;
   } else if (isSchemaCompatibilityError(res.error)) {
-    // Fallback to legacy fields only for a known schema mismatch. A canonical
-    // unique violation is a race, not permission to create another row.
+    // Fallback to legacy fields only for a known schema mismatch.
     const legacyRes = await db
       .from('contacts')
       .insert({
         accountId,
-        phone,
-        name: name || phone,
+        phone: contactPhone,
+        name: contactName,
         createdAt: now,
         updatedAt: now,
       })
@@ -105,34 +122,27 @@ export async function findOrCreateContact(
     if (legacyRes.data) {
       newContact = legacyRes.data;
     } else if (isUniqueViolation(legacyRes.error)) {
-      // Re-read after the compatibility path too: another worker may have
-      // committed the contact between the two attempts.
       const raced = (await findExistingContact(
         db,
         accountId,
-        phone
+        searchPhone
       )) as ContactRow | null;
       if (raced) return { contact: raced, wasCreated: false };
       createError = legacyRes.error;
     } else {
       createError = legacyRes.error || res.error;
     }
-    // The legacy insert is a valid compatibility path. Only surface an
-    // error when both canonical and legacy writes failed; otherwise a stale
-    // canonical-schema error would discard a successfully-created contact.
   } else {
     createError = res.error;
   }
 
   if (createError) {
-    if (isUniqueViolation(createError)) {
-      const raced = (await findExistingContact(
-        db,
-        accountId,
-        phone
-      )) as ContactRow | null;
-      if (raced) return { contact: raced, wasCreated: false };
-    }
+    const raced = (await findExistingContact(
+      db,
+      accountId,
+      searchPhone
+    )) as ContactRow | null;
+    if (raced) return { contact: raced, wasCreated: false };
     console.error('Error creating contact:', createError);
     return null;
   }

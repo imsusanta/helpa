@@ -37,29 +37,57 @@ export async function findExistingContact(
   accountId: string,
   phone: string
 ): Promise<ExistingContact | null> {
-  const normalized = normalizePhone(phone);
-  if (!normalized) return null;
+  const digitsOnly = phone.replace(/\D/g, '');
+  const normalized = normalizePhone(phone) || digitsOnly;
+  if (!digitsOnly && !normalized) return null;
 
-  // Exact lookups must happen before the suffix fallback. A suffix match is
-  // intentionally fuzzy (it tolerates trunk prefixes), so it is ambiguous
-  // when two contacts share the same final eight digits. Older installations
-  // may not have `phone_normalized`; raw `phone` equality is the compatible
-  // fallback and still gives exact matches precedence.
-  const exactValues = [...new Set([phone, normalized])];
+  const exactValues = new Set<string>();
+  exactValues.add(phone.trim());
+  if (digitsOnly) {
+    exactValues.add(digitsOnly);
+    exactValues.add(`+${digitsOnly}`);
+  }
+  if (normalized) {
+    exactValues.add(normalized);
+    exactValues.add(`+${normalized}`);
+  }
+  // India country code variants (91 prefix)
+  if (digitsOnly.length === 12 && digitsOnly.startsWith('91')) {
+    const raw10 = digitsOnly.slice(2);
+    exactValues.add(raw10);
+    exactValues.add(`+${raw10}`);
+    exactValues.add(`0${raw10}`);
+  } else if (digitsOnly.length === 10 && /^[6-9]/.test(digitsOnly)) {
+    exactValues.add(`91${digitsOnly}`);
+    exactValues.add(`+91${digitsOnly}`);
+    exactValues.add(`0${digitsOnly}`);
+  }
+
   for (const accountField of ['account_id', 'accountId']) {
     for (const phoneField of ['phone_normalized', 'phone']) {
-      for (const exactValue of phoneField === 'phone_normalized'
-        ? [normalized]
-        : exactValues) {
+      for (const exactValue of Array.from(exactValues)) {
         try {
           const query = db
             .from('contacts')
             .select('*')
             .eq(accountField, accountId)
             .eq(phoneField, exactValue);
-          const exact = await query.limit(10);
-          if (!exact.error && exact.data?.length) {
-            const hit = (exact.data as ExistingContact[]).find((candidate) =>
+          const res =
+            typeof (query as { limit?: unknown }).limit === 'function'
+              ? await (
+                  query as {
+                    limit: (n: number) => Promise<{
+                      data: ExistingContact[] | null;
+                      error: unknown;
+                    }>;
+                  }
+                ).limit(10)
+              : await (query as Promise<{
+                  data: ExistingContact[] | null;
+                  error: unknown;
+                }>);
+          if (!res.error && res.data?.length) {
+            const hit = (res.data as ExistingContact[]).find((candidate) =>
               isExactMatch(candidate, phone)
             );
             if (hit) return hit;
@@ -71,49 +99,48 @@ export async function findExistingContact(
     }
   }
 
-  const suffix = normalized.length >= 8 ? normalized.slice(-8) : normalized;
-  let data: ExistingContact[] | null = null;
-  let error: unknown = null;
-
-  try {
-    const res = await db
-      .from('contacts')
-      .select('*')
-      .eq('account_id', accountId)
-      .like('phone', `%${suffix}`);
-    data = res.data as ExistingContact[] | null;
-    error = res.error;
-  } catch {
-    // Fallback to camelCase
-    try {
-      const res = await db
-        .from('contacts')
-        .select('*')
-        .eq('accountId', accountId)
-        .like('phone', `%${suffix}`);
-      data = res.data as ExistingContact[] | null;
-      error = res.error;
-    } catch {
-      // Ignore
+  const suffix = digitsOnly.length >= 8 ? digitsOnly.slice(-8) : digitsOnly;
+  if (suffix.length >= 7) {
+    for (const accountField of ['account_id', 'accountId']) {
+      try {
+        const query = db
+          .from('contacts')
+          .select('*')
+          .eq(accountField, accountId)
+          .like('phone', `%${suffix}`);
+        const res =
+          typeof (query as { limit?: unknown }).limit === 'function'
+            ? await (
+                query as {
+                  limit: (n: number) => Promise<{
+                    data: ExistingContact[] | null;
+                    error: unknown;
+                  }>;
+                }
+              ).limit(10)
+            : await (query as Promise<{
+                data: ExistingContact[] | null;
+                error: unknown;
+              }>);
+        if (!res.error && res.data?.length) {
+          const matched = (res.data as ExistingContact[]).filter((c) =>
+            phonesMatch(c.phone, phone)
+          );
+          if (matched.length > 0) {
+            const exact = matched.find((candidate) =>
+              isExactMatch(candidate, phone)
+            );
+            if (exact) return exact;
+            if (matched.length === 1) return matched[0];
+          }
+        }
+      } catch {
+        // Ignore
+      }
     }
   }
 
-  if (error || !data) return null;
-
-  const matched = (data as ExistingContact[]).filter((c) =>
-    phonesMatch(c.phone, phone)
-  );
-  if (matched.length === 0) return null;
-
-  const exact = matched.find((candidate) => isExactMatch(candidate, phone));
-  if (exact) return exact;
-
-  // A suffix-only match is intentionally fuzzy (it tolerates trunk-prefix
-  // differences). When more than one contact shares that suffix, there is no
-  // safe way to infer the owner of an inbound reply. Returning an arbitrary
-  // "primary" or oldest row can leak messages across contacts, so fail closed
-  // and let the caller surface the routing problem for correction.
-  return matched.length === 1 ? matched[0] : null;
+  return null;
 }
 
 /**
@@ -125,6 +152,15 @@ export function isExactMatch(
   existing: ExistingContact,
   phone: string
 ): boolean {
+  if (!existing || !existing.phone || !phone) return false;
+  const n1 =
+    normalizePhone(existing.phone) || existing.phone.replace(/\D/g, '');
+  const n2 = normalizePhone(phone) || phone.replace(/\D/g, '');
+  if (n1 === n2) return true;
+  if (n1.length === 12 && n1.startsWith('91') && n1.slice(2) === n2)
+    return true;
+  if (n2.length === 12 && n2.startsWith('91') && n2.slice(2) === n1)
+    return true;
   return normalizeKey(existing.phone) === normalizeKey(phone);
 }
 

@@ -813,12 +813,15 @@ aiToolRegistry.register({
 
     // Insert internal system alert message
     await db.from('messages').insert({
+      account_id: context.accountId,
       conversation_id: context.conversationId,
+      direction: 'outbound',
       sender_type: 'bot',
       content_type: 'text',
       content_text: `[Human Handoff Triggered]: ${reason}. AI Auto-Reply paused.`,
       status: 'delivered',
       created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     });
 
     return {

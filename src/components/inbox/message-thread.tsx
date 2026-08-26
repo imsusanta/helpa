@@ -747,7 +747,11 @@ export function MessageThread({
       toast.success(`AI Chat mode turned ${nextState ? 'ON' : 'OFF'}`);
     } catch (error) {
       console.error('Failed to update AI chat mode:', error);
-      toast.error('Failed to update AI chat mode');
+      toast.error(
+        error instanceof Error && error.message
+          ? `Failed to update AI chat mode: ${error.message}`
+          : 'Failed to update AI chat mode'
+      );
     }
   }, [conversation, onConversationUpdate]);
 

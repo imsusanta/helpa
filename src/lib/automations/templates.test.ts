@@ -127,7 +127,9 @@ describe('automation templates', () => {
 
   it('returns clinic templates for both health aliases', () => {
     const health = getTemplatesForIndustry('health').map((t) => t.slug);
-    const clinic = getTemplatesForIndustry('hospital_clinic').map((t) => t.slug);
+    const clinic = getTemplatesForIndustry('hospital_clinic').map(
+      (t) => t.slug
+    );
     expect(health).toEqual(clinic);
     expect(health).toContain('doctor_booking_enquiry');
     expect(health).not.toContain('traveler_intake_greeting');
@@ -140,9 +142,9 @@ describe('automation templates', () => {
     expect(general).not.toContain('doctor_booking_enquiry');
     expect(general).not.toContain('traveler_intake_greeting');
     expect(getTemplatesForIndustry(null).map((t) => t.slug)).toEqual(general);
-    expect(getTemplatesForIndustry('legacy_unknown').map((t) => t.slug)).toEqual(
-      general
-    );
+    expect(
+      getTemplatesForIndustry('legacy_unknown').map((t) => t.slug)
+    ).toEqual(general);
   });
 
   it('has stable unique ordering and rejects unauthorized template lookups', () => {
@@ -150,9 +152,11 @@ describe('automation templates', () => {
     const second = getTemplatesForIndustry('restaurant').map((t) => t.slug);
     expect(first).toEqual(second);
     expect(new Set(first).size).toBe(first.length);
-    expect(getTemplateForIndustry('doctor_booking_enquiry', 'travel')).toBeNull();
-    expect(getTemplateForIndustry('doctor_booking_enquiry', 'health')?.slug).toBe(
-      'doctor_booking_enquiry'
-    );
+    expect(
+      getTemplateForIndustry('doctor_booking_enquiry', 'travel')
+    ).toBeNull();
+    expect(
+      getTemplateForIndustry('doctor_booking_enquiry', 'health')?.slug
+    ).toBe('doctor_booking_enquiry');
   });
 });

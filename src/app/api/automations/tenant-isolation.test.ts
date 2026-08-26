@@ -14,7 +14,8 @@ const state = vi.hoisted(() => ({
 class Query {
   private filters: Array<(row: Record<string, unknown>) => boolean> = [];
   private operation: 'select' | 'insert' | 'update' | 'delete' = 'select';
-  private payload: Record<string, unknown> | Array<Record<string, unknown>> | null = null;
+  private payload:
+    Record<string, unknown> | Array<Record<string, unknown>> | null = null;
   private rowLimit: number | null = null;
 
   constructor(private table: keyof typeof state.tables) {}
@@ -82,9 +83,12 @@ class Query {
       this.filters.every((filter) => filter(row));
 
     if (this.operation === 'insert') {
-      const rows = (Array.isArray(this.payload) ? this.payload : [this.payload]).map(
-        (row, index) => ({ id: `${this.table}-${table.length + index + 1}`, ...row })
-      );
+      const rows = (
+        Array.isArray(this.payload) ? this.payload : [this.payload]
+      ).map((row, index) => ({
+        id: `${this.table}-${table.length + index + 1}`,
+        ...row,
+      }));
       table.push(...rows);
       return { data: rows, error: null };
     }
@@ -212,14 +216,28 @@ describe('automation route tenant and industry isolation', () => {
 
   it.each([
     ['read', () => GET(request('GET'), params('automation-b'))],
-    ['patch', () => PATCH(request('PATCH', { is_active: true }), params('automation-b'))],
-    ['deactivate', () => PATCH(request('PATCH', { is_active: false }), params('automation-b'))],
+    [
+      'patch',
+      () =>
+        PATCH(request('PATCH', { is_active: true }), params('automation-b')),
+    ],
+    [
+      'deactivate',
+      () =>
+        PATCH(request('PATCH', { is_active: false }), params('automation-b')),
+    ],
     ['delete', () => DELETE(request('DELETE'), params('automation-b'))],
-    ['duplicate', () => duplicateAutomation(request('POST'), params('automation-b'))],
+    [
+      'duplicate',
+      () => duplicateAutomation(request('POST'), params('automation-b')),
+    ],
     ['logs', () => getLogs(request('GET'), params('automation-b'))],
-  ])('returns 404 when Account A tries to %s Account B automation', async (_name, call) => {
-    expect((await call()).status).toBe(404);
-  });
+  ])(
+    'returns 404 when Account A tries to %s Account B automation',
+    async (_name, call) => {
+      expect((await call()).status).toBe(404);
+    }
+  );
 
   it('duplicates an owned automation into the authenticated account', async () => {
     const response = await duplicateAutomation(
