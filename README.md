@@ -71,6 +71,8 @@ The remaining Appwrite compatibility layer is rollback-only migration code. Its 
 
 ## Local development
 
+Point `.env.local` at any Supabase project and run the dev server:
+
 ```bash
 git clone https://github.com/imsusanta/helpa.git
 cd helpa
@@ -78,6 +80,17 @@ npm ci
 cp .env.local.example .env.local
 npm run dev
 ```
+
+To bring up a fully self-contained local backend (Docker + local Supabase stack,
+schema, and a generated `.env.local`) with no hosted project, run:
+
+```bash
+bash scripts/setup-local-supabase.sh
+npm run dev
+```
+
+This is also what the Cloud Agent environment (`.cursor/environment.json`) uses
+on startup.
 
 ## Quality gates
 
