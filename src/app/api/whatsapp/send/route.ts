@@ -650,8 +650,9 @@ export async function POST(request: Request) {
 
     if (!waMessageId) {
       try {
-        await OutboxService.markSendFailed(
+        await OutboxService.markDeadLetter(
           outboxRes.outboxId,
+          accountId,
           lastSendError?.message || 'Meta did not return a WhatsApp message ID.'
         );
       } catch {}
@@ -676,9 +677,7 @@ export async function POST(request: Request) {
     }
 
     try {
-      await OutboxService.markSent(outboxRes.outboxId, {
-        messageId: waMessageId,
-      });
+      await OutboxService.markSent(outboxRes.outboxId, accountId, waMessageId);
     } catch {}
     return NextResponse.json({
       success: true,
