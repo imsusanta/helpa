@@ -2449,8 +2449,26 @@ CREATE POLICY profiles_select ON profiles FOR SELECT
 CREATE POLICY profiles_update ON profiles FOR UPDATE
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
+-- INSERT is owned by the handle_new_user() SECURITY DEFINER trigger and
+-- by server code using the service-role client; client roles have no
+-- INSERT privilege. The tightened policy below is defense in depth: a
+-- client may only insert its own non-privileged row bound to an account
+-- it already owns, so a profile row can never be used to self-elevate to
+-- another tenant's owner or to platform super admin.
+REVOKE INSERT ON TABLE profiles FROM authenticated;
+REVOKE INSERT ON TABLE profiles FROM anon;
 CREATE POLICY profiles_insert ON profiles FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
+  WITH CHECK (
+    auth.uid() = user_id
+    AND is_super_admin IS NOT TRUE
+    AND (
+      account_id IS NULL
+      OR EXISTS (
+        SELECT 1 FROM accounts a
+        WHERE a.id = account_id AND a.owner_user_id = auth.uid()
+      )
+    )
+  );
 
 -- ============================================================
 -- RLS — ACCOUNTS & ACCOUNT_INVITATIONS
