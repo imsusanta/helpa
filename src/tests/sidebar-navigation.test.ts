@@ -74,12 +74,7 @@ describe('authenticated sidebar navigation', () => {
   });
 
   it('allows every clinic operation route', () => {
-    for (const route of [
-      '/patients',
-      '/doctors',
-      '/lab-reports',
-      '/website',
-    ]) {
+    for (const route of ['/patients', '/doctors', '/lab-reports', '/website']) {
       expect(isIndustryRouteAllowed(hospitalManifest, route), route).toBe(true);
     }
   });

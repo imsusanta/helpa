@@ -186,7 +186,7 @@ export function isValidIndustry(industry: unknown): boolean {
   const normalized = industry.trim().toLowerCase();
   return Boolean(
     INDUSTRY_ALIASES[normalized as keyof typeof INDUSTRY_ALIASES] ||
-      INDUSTRY_REGISTRY[normalized]
+    INDUSTRY_REGISTRY[normalized]
   );
 }
 
