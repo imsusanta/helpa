@@ -298,8 +298,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ snapshot: fallback });
     }
 
+    // Enforce the plan's AI request quota. checkPlanLimits reports via
+    // its return value (it does not throw), so the result must be
+    // honored explicitly.
+    const limitCheck = await checkPlanLimits(ctx.accountId, 'max_ai_requests');
+    if (!limitCheck.allowed) {
+      return NextResponse.json(
+        {
+          error: 'AI_QUOTA_EXCEEDED',
+          message:
+            limitCheck.reason ||
+            'Your monthly AI request limit has been reached. Please upgrade your plan.',
+        },
+        { status: 429 }
+      );
+    }
+
     try {
-      await checkPlanLimits(ctx.accountId, 'max_ai_requests');
       const snapshot = await generateOpenRouterCopilotSnapshot({
         apiKey,
         model,

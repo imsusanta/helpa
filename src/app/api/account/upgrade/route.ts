@@ -1,18 +1,22 @@
 import { NextResponse } from 'next/server';
-import { getCurrentAccount, toErrorResponse } from '@/lib/auth/account';
+import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { getAdminClient } from '@/lib/db/server';
-import { getPlanBySlug } from '@/core/billing/plans';
+import { getPlanBySlug, resolvePlanRowId } from '@/core/billing/plans';
 import {
   checkPlanLimits,
   getWorkspaceSubscription,
 } from '@/lib/saas/subscription';
 
+/**
+ * Plan change endpoint for changes that do NOT expand paid entitlement:
+ * downgrades and free-plan switches. It never activates a paid plan,
+ * never extends end_date, and never marks anything as paid — paid
+ * upgrades and renewals must go through Razorpay checkout
+ * (/api/billing/create-order) and are applied by the verified webhook.
+ */
 export async function POST(request: Request) {
   try {
-    const ctx = await getCurrentAccount();
-    if (!ctx.accountId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const ctx = await requireRole('owner');
 
     const body = (await request.json().catch(() => null)) as {
       planId?: string;
@@ -34,7 +38,21 @@ export async function POST(request: Request) {
     const { subscription: currentSub, plan: currentPlan } =
       await getWorkspaceSubscription(ctx.accountId);
 
+    const isPaidPlan = targetPlan.monthlyPrice > 0 || targetPlan.setupFee > 0;
     const isDowngrade = targetPlan.monthlyPrice < currentPlan.monthlyPrice;
+
+    // Fail closed on anything that would grant new paid entitlement
+    // without a verified payment.
+    if (isPaidPlan && !isDowngrade) {
+      return NextResponse.json(
+        {
+          error: 'PAYMENT_REQUIRED',
+          message:
+            'Paid plan changes require checkout. Start a payment via /api/billing/create-order.',
+        },
+        { status: 402 }
+      );
+    }
 
     // Check usage limits if downgrading
     if (isDowngrade && !body?.confirmDowngrade) {
@@ -69,75 +87,64 @@ export async function POST(request: Request) {
       }
     }
 
+    const planRowId = await resolvePlanRowId(targetPlan);
+    if (!planRowId) {
+      return NextResponse.json(
+        { error: `Plan '${targetPlan.slug}' is not provisioned` },
+        { status: 409 }
+      );
+    }
+
     const db = getAdminClient();
-    const nextEndDate = new Date(Date.now() + 30 * 86400 * 1000).toISOString();
-
-    const isFirstTimePayment = !currentSub.setupFeePaid;
-    const initialPaymentAmount = isFirstTimePayment
-      ? targetPlan.setupFee + targetPlan.monthlyPrice
-      : targetPlan.monthlyPrice;
-
-    // Fetch existing sub
     const { data: existing } = await db
       .from('subscriptions')
       .select('id')
       .eq('account_id', ctx.accountId)
       .maybeSingle();
 
-    if (existing) {
-      await db
-        .from('subscriptions')
-        .update({
-          plan_slug: targetPlan.slug,
-          status: 'ACTIVE',
-          setup_fee_paid: true,
-          setup_fee_amount: targetPlan.setupFee,
-          monthly_amount: targetPlan.monthlyPrice,
-          currency: targetPlan.currency,
-          end_date: nextEndDate,
-          was_upgraded: true,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', existing.id);
-    } else {
-      await db.from('subscriptions').insert({
-        account_id: ctx.accountId,
-        plan_slug: targetPlan.slug,
-        status: 'ACTIVE',
-        setup_fee_paid: true,
-        setup_fee_amount: targetPlan.setupFee,
-        monthly_amount: targetPlan.monthlyPrice,
-        currency: targetPlan.currency,
-        end_date: nextEndDate,
-        was_upgraded: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      });
+    if (!existing) {
+      return NextResponse.json(
+        { error: 'No subscription found for this workspace' },
+        { status: 404 }
+      );
     }
 
-    // Insert Invoice / Payment Record
-    const billNumber = `INV-${new Date().getFullYear()}-${Date.now().toString().slice(-5)}`;
-    await db.from('payments').insert({
+    // Change the plan only. Status and the prepaid end_date are left
+    // untouched: a downgrade re-scopes features, it does not buy time.
+    const { error: updateErr } = await db
+      .from('subscriptions')
+      .update({
+        plan_id: planRowId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', existing.id);
+
+    if (updateErr) {
+      console.error('[account/upgrade] plan change failed:', updateErr);
+      return NextResponse.json(
+        { error: 'Failed to update subscription plan' },
+        { status: 500 }
+      );
+    }
+
+    await db.from('audit_logs').insert({
       account_id: ctx.accountId,
-      invoice_number: billNumber,
-      description: `Subscription to ${targetPlan.name} Plan (${isFirstTimePayment ? 'Setup Fee + First Month' : 'Monthly Renewal'})`,
-      setup_fee: isFirstTimePayment ? targetPlan.setupFee : 0,
-      monthly_subscription: targetPlan.monthlyPrice,
-      amount: initialPaymentAmount,
-      currency: targetPlan.currency,
-      status: 'Paid',
-      provider: 'helpa_billing',
-      provider_payment_id: `pay_${Date.now()}`,
-      created_at: new Date().toISOString(),
+      action: 'subscription.plan_changed',
+      target_type: 'subscription',
+      metadata: {
+        from_plan: currentPlan.slug,
+        to_plan: targetPlan.slug,
+        changed_by: ctx.userId,
+        end_date: currentSub.currentPeriodEnd,
+      },
     });
 
     return NextResponse.json({
       success: true,
-      message: `Subscription successfully updated to ${targetPlan.name} Plan!`,
+      message: `Subscription plan changed to ${targetPlan.name}.`,
       plan: targetPlan,
-      initialPaymentAmount,
-      status: 'ACTIVE',
-      endDate: nextEndDate,
+      status: currentSub.status,
+      endDate: currentSub.currentPeriodEnd,
     });
   } catch (err) {
     return toErrorResponse(err);

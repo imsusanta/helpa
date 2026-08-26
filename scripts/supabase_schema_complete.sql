@@ -2449,8 +2449,26 @@ CREATE POLICY profiles_select ON profiles FOR SELECT
 CREATE POLICY profiles_update ON profiles FOR UPDATE
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
+-- INSERT is owned by the handle_new_user() SECURITY DEFINER trigger and
+-- by server code using the service-role client; client roles have no
+-- INSERT privilege. The tightened policy below is defense in depth: a
+-- client may only insert its own non-privileged row bound to an account
+-- it already owns, so a profile row can never be used to self-elevate to
+-- another tenant's owner or to platform super admin.
+REVOKE INSERT ON TABLE profiles FROM authenticated;
+REVOKE INSERT ON TABLE profiles FROM anon;
 CREATE POLICY profiles_insert ON profiles FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
+  WITH CHECK (
+    auth.uid() = user_id
+    AND is_super_admin IS NOT TRUE
+    AND (
+      account_id IS NULL
+      OR EXISTS (
+        SELECT 1 FROM accounts a
+        WHERE a.id = account_id AND a.owner_user_id = auth.uid()
+      )
+    )
+  );
 
 -- ============================================================
 -- RLS — ACCOUNTS & ACCOUNT_INVITATIONS
@@ -4848,7 +4866,7 @@ CREATE TABLE IF NOT EXISTS outbound_outbox (
     message_type TEXT NOT NULL DEFAULT 'text',
     payload JSONB NOT NULL DEFAULT '{}'::jsonb,
     meta_message_id TEXT,
-    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'sent', 'failed')),
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'sent', 'failed', 'reconciliation_required', 'dead_letter')),
     error_code TEXT,
     error_message TEXT,
     retry_count INTEGER NOT NULL DEFAULT 0,
@@ -4858,6 +4876,27 @@ CREATE TABLE IF NOT EXISTS outbound_outbox (
 );
 
 CREATE INDEX IF NOT EXISTS idx_outbound_outbox_account_status ON outbound_outbox(account_id, status);
+
+-- Databases provisioned before the status list was widened still carry the
+-- old 4-value CHECK; recreate it idempotently so the terminal statuses the
+-- application writes ('reconciliation_required', 'dead_letter') are valid.
+DO $$
+BEGIN
+  IF to_regclass('public.outbound_outbox') IS NOT NULL THEN
+    ALTER TABLE public.outbound_outbox
+      DROP CONSTRAINT IF EXISTS outbound_outbox_status_check;
+    ALTER TABLE public.outbound_outbox
+      ADD CONSTRAINT outbound_outbox_status_check
+      CHECK (status IN (
+        'pending',
+        'processing',
+        'sent',
+        'failed',
+        'reconciliation_required',
+        'dead_letter'
+      ));
+  END IF;
+END $$;
 
 -- 2. Durable Inbound Webhook Events Table
 CREATE TABLE IF NOT EXISTS inbound_webhook_events (

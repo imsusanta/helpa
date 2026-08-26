@@ -3,6 +3,7 @@ import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { resolveSystemPrompt } from '@/modules/registry';
 import { applyAiSafety } from '@/lib/ai/safety';
 import { executeAiCompletionWithFallback } from '@/core/ai/resolver';
+import { checkPlanLimits, incrementUsage } from '@/lib/saas/subscription';
 import {
   checkRateLimit,
   rateLimitResponse,
@@ -30,6 +31,32 @@ export async function POST(request: Request) {
       RATE_LIMITS.send
     );
     if (!rl.success) return rateLimitResponse(rl);
+
+    // Enforce the plan's AI request quota (same policy as the WhatsApp
+    // AI pipeline): block when the limit is reached, continue on limit
+    // infrastructure errors.
+    try {
+      const limitCheck = await checkPlanLimits(
+        ctx.accountId,
+        'max_ai_requests'
+      );
+      if (!limitCheck.allowed) {
+        return NextResponse.json(
+          {
+            error: 'AI_QUOTA_EXCEEDED',
+            message:
+              limitCheck.reason ||
+              'Your monthly AI request limit has been reached. Please upgrade your plan.',
+          },
+          { status: 429 }
+        );
+      }
+    } catch (err) {
+      console.warn(
+        '[AI Features] Limit check warning, continuing:',
+        err instanceof Error ? err.message : String(err)
+      );
+    }
 
     const body = await request.json();
     const { action } = body;
@@ -179,6 +206,7 @@ You MUST detect the language and write the suggested reply in the EXACT SAME LAN
         );
       }
 
+      await incrementUsage(accountId, 'ai_requests');
       return NextResponse.json({ result });
     } else if (action === 'rewrite') {
       const { text, tone } = body;
@@ -211,6 +239,7 @@ Text to rewrite:
         );
       }
 
+      await incrementUsage(accountId, 'ai_requests');
       return NextResponse.json({ result });
     } else if (action === 'translate') {
       const { text, targetLanguage } = body;
@@ -245,6 +274,7 @@ Text to translate:
         );
       }
 
+      await incrementUsage(accountId, 'ai_requests');
       return NextResponse.json({ result });
     } else if (
       action === 'summarize' ||
@@ -338,6 +368,7 @@ Conversation:\n${transcript}`;
         );
       }
 
+      await incrementUsage(accountId, 'ai_requests');
       return NextResponse.json({ result });
     }
 

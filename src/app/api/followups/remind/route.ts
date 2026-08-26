@@ -28,13 +28,16 @@ export async function POST(request: Request) {
       .single();
     const clinicName = acc?.name || 'Helpa Health Clinic';
 
-    // Fetch follow-up record
+    // Fetch follow-up record — scoped to the caller's tenant so a
+    // guessed followupId can never read or message another clinic's
+    // patient.
     const { data: followup, error: fetchErr } = await db
       .from('hospital_followups')
       .select(
         '*, patient:contacts(id, name, phone), doctor:hospital_doctors(id, name)'
       )
       .eq('id', followupId)
+      .eq('account_id', accountId)
       .single();
 
     if (fetchErr || !followup || !followup.patient) {
@@ -103,7 +106,8 @@ export async function POST(request: Request) {
         last_reminder_sent_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
-      .eq('id', followupId);
+      .eq('id', followupId)
+      .eq('account_id', accountId);
 
     // Create note in timeline
     try {

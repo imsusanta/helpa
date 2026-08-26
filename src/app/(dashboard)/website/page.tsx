@@ -8,7 +8,9 @@ export default function WebsitePage() {
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 p-6 lg:p-8">
       <div>
-        <p className="text-sm font-medium text-emerald-600">Clinic Operations</p>
+        <p className="text-sm font-medium text-emerald-600">
+          Clinic Operations
+        </p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">
           Website
         </h1>
@@ -29,7 +31,9 @@ export default function WebsitePage() {
             </div>
             <ArrowUpRight className="h-4 w-4 text-slate-400 transition group-hover:text-emerald-600" />
           </div>
-          <h2 className="mt-4 font-semibold text-slate-900">Business Profile</h2>
+          <h2 className="mt-4 font-semibold text-slate-900">
+            Business Profile
+          </h2>
           <p className="mt-1 text-sm leading-6 text-slate-500">
             Update clinic name, contact details and public business information.
           </p>
@@ -47,7 +51,8 @@ export default function WebsitePage() {
           </div>
           <h2 className="mt-4 font-semibold text-slate-900">Enquiry Forms</h2>
           <p className="mt-1 text-sm leading-6 text-slate-500">
-            Create public forms that turn website visitors into patient enquiries.
+            Create public forms that turn website visitors into patient
+            enquiries.
           </p>
         </Link>
 
@@ -61,9 +66,12 @@ export default function WebsitePage() {
             </div>
             <ArrowUpRight className="h-4 w-4 text-slate-400 transition group-hover:text-emerald-600" />
           </div>
-          <h2 className="mt-4 font-semibold text-slate-900">WhatsApp Connection</h2>
+          <h2 className="mt-4 font-semibold text-slate-900">
+            WhatsApp Connection
+          </h2>
           <p className="mt-1 text-sm leading-6 text-slate-500">
-            Connect WhatsApp so website enquiries can continue directly into the inbox.
+            Connect WhatsApp so website enquiries can continue directly into the
+            inbox.
           </p>
         </Link>
       </section>
@@ -73,7 +81,9 @@ export default function WebsitePage() {
           <div>
             <h2 className="font-semibold text-slate-900">Website workspace</h2>
             <p className="mt-1 text-sm text-slate-500">
-              Your website controls are now available from Clinic Operations. Full visual website-builder controls can be added here without changing the existing CRM navigation.
+              Your website controls are now available from Clinic Operations.
+              Full visual website-builder controls can be added here without
+              changing the existing CRM navigation.
             </p>
           </div>
           <span className="inline-flex w-fit rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">

@@ -73,7 +73,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // Bucket check is best-effort
     }
 
-    const fileExt = file.name.split('.').pop() || 'bin';
+    // Sanitize both parts of the user-controlled filename: the base name
+    // AND the extension. Without the extension check a crafted name like
+    // "x.pdf/../../evil" would smuggle path separators into the object key.
+    const rawExt = file.name.split('.').pop() || 'bin';
+    const fileExt = /^[a-zA-Z0-9]{1,10}$/.test(rawExt)
+      ? rawExt.toLowerCase()
+      : 'bin';
     const safeBaseName = file.name
       .replace(/\.[^.]+$/, '')
       .replace(/[^a-zA-Z0-9_-]+/g, '_')
@@ -136,7 +142,7 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
   const correlationId =
     request.headers.get('x-request-id') || crypto.randomUUID();
   try {
-    await requireRole('viewer');
+    const context = await requireRole('viewer');
     const { searchParams } = new URL(request.url);
     const bucket = searchParams.get('bucket') || 'chat-media';
     const path = searchParams.get('path');
@@ -146,6 +152,22 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
         { error: 'File path required for deletion', requestId: correlationId },
         {
           status: 400,
+          headers: { ...PRIVATE_HEADERS, 'X-Request-Id': correlationId },
+        }
+      );
+    }
+
+    // Deletion runs with the service-role client, so tenant scoping must
+    // be enforced here: only allowlisted buckets and only objects under
+    // the caller's own account prefix (the same prefix POST writes to).
+    if (
+      !ALLOWED_BUCKETS.has(bucket) ||
+      !path.startsWith(`account-${context.accountId}/`)
+    ) {
+      return NextResponse.json(
+        { error: 'File not found', requestId: correlationId },
+        {
+          status: 404,
           headers: { ...PRIVATE_HEADERS, 'X-Request-Id': correlationId },
         }
       );

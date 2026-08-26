@@ -132,7 +132,9 @@ describe('Phase 2: Dynamic Industry Workspace Manifests', () => {
     const general = getIndustryModule('general');
     expect(general.id).toBe('general');
     expect(general.name).toBe('General CRM');
-    expect(general.sidebar.some((item) => item.href === '/contacts')).toBe(true);
+    expect(general.sidebar.some((item) => item.href === '/contacts')).toBe(
+      true
+    );
   });
 
   describe('Business Type Canonical Selection & Server Validation', () => {

@@ -172,6 +172,47 @@ async function fetchCustomValueIndex(
   return index;
 }
 
+// PostgREST caps a single response at `max_rows` (1000 in this project).
+// A bare .select() therefore silently truncates large audiences, causing
+// broadcasts to under-send with a falsely successful recipient count.
+// These helpers page through the full result set instead.
+const SUPABASE_PAGE_SIZE = 1000;
+
+async function fetchAllPaged<T>(
+  makeQuery: (
+    from: number,
+    to: number
+  ) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>
+): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; ; from += SUPABASE_PAGE_SIZE) {
+    const to = from + SUPABASE_PAGE_SIZE - 1;
+    const { data, error } = await makeQuery(from, to);
+    if (error) throw new Error(error.message);
+    const rows = data ?? [];
+    out.push(...rows);
+    if (rows.length < SUPABASE_PAGE_SIZE) break;
+  }
+  return out;
+}
+
+async function fetchContactsByIds(
+  appwrite: ReturnType<typeof createClient>,
+  ids: string[]
+): Promise<Contact[]> {
+  const out: Contact[] = [];
+  for (let i = 0; i < ids.length; i += SUPABASE_PAGE_SIZE) {
+    const chunk = ids.slice(i, i + SUPABASE_PAGE_SIZE);
+    const { data, error } = await appwrite
+      .from('contacts')
+      .select('*')
+      .in('id', chunk);
+    if (error) throw new Error(error.message);
+    out.push(...((data ?? []) as Contact[]));
+  }
+  return out;
+}
+
 export function useBroadcastSending(): UseBroadcastSendingReturn {
   const { accountId } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -183,33 +224,28 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
     let contacts: Contact[] = [];
 
     if (audience.type === 'all') {
-      const { data, error } = await appwrite.from('contacts').select('*');
-      if (error) throw new Error(`Failed to fetch contacts: ${error.message}`);
-      contacts = data ?? [];
+      contacts = await fetchAllPaged<Contact>((from, to) =>
+        appwrite.from('contacts').select('*').range(from, to)
+      );
     } else if (
       audience.type === 'tags' &&
       audience.tagIds &&
       audience.tagIds.length > 0
     ) {
-      const { data: contactTags, error: tagError } = await appwrite
-        .from('contact_tags')
-        .select('contact_id')
-        .in('tag_id', audience.tagIds);
+      const contactTags = await fetchAllPaged<{ contact_id: string }>(
+        (from, to) =>
+          appwrite
+            .from('contact_tags')
+            .select('contact_id')
+            .in('tag_id', audience.tagIds!)
+            .range(from, to)
+      );
 
-      if (tagError)
-        throw new Error(`Failed to fetch contact tags: ${tagError.message}`);
-
-      if (contactTags && contactTags.length > 0) {
+      if (contactTags.length > 0) {
         const uniqueContactIds = [
           ...new Set(contactTags.map((ct) => ct.contact_id)),
         ];
-        const { data, error } = await appwrite
-          .from('contacts')
-          .select('*')
-          .in('id', uniqueContactIds);
-        if (error)
-          throw new Error(`Failed to fetch contacts: ${error.message}`);
-        contacts = data ?? [];
+        contacts = await fetchContactsByIds(appwrite, uniqueContactIds);
       }
     } else if (audience.type === 'custom_field' && audience.customField) {
       contacts = await resolveCustomFieldAudience(
@@ -221,157 +257,137 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
     } else if (audience.type === 'new_patients') {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const { data, error } = await appwrite
-        .from('contacts')
-        .select('*')
-        .gte('created_at', thirtyDaysAgo.toISOString());
-      if (error) throw error;
-      contacts = data ?? [];
+      contacts = await fetchAllPaged<Contact>((from, to) =>
+        appwrite
+          .from('contacts')
+          .select('*')
+          .gte('created_at', thirtyDaysAgo.toISOString())
+          .range(from, to)
+      );
     } else if (audience.type === 'returning_patients') {
-      const { data: appts, error } = await appwrite
-        .from('appointments')
-        .select('patient_id');
-      if (error) throw error;
+      const appts = await fetchAllPaged<{ patient_id: string }>((from, to) =>
+        appwrite.from('appointments').select('patient_id').range(from, to)
+      );
       const counts: Record<string, number> = {};
       appts?.forEach((r) => {
         counts[r.patient_id] = (counts[r.patient_id] || 0) + 1;
       });
       const returningIds = Object.keys(counts).filter((id) => counts[id] >= 2);
       if (returningIds.length > 0) {
-        const { data, error: fetchErr } = await appwrite
-          .from('contacts')
-          .select('*')
-          .in('id', returningIds);
-        if (fetchErr) throw fetchErr;
-        contacts = data ?? [];
+        contacts = await fetchContactsByIds(appwrite, returningIds);
       }
     } else if (audience.type === 'upcoming_appointments') {
       const todayStr = new Date().toISOString().split('T')[0];
-      const { data: appts, error } = await appwrite
-        .from('appointments')
-        .select('patient_id')
-        .gte('appointment_date', todayStr);
-      if (error) throw error;
-      const ids = [...new Set((appts || []).map((a) => a.patient_id))];
+      const appts = await fetchAllPaged<{ patient_id: string }>((from, to) =>
+        appwrite
+          .from('appointments')
+          .select('patient_id')
+          .gte('appointment_date', todayStr)
+          .range(from, to)
+      );
+      const ids = [...new Set(appts.map((a) => a.patient_id))];
       if (ids.length > 0) {
-        const { data, error: fetchErr } = await appwrite
-          .from('contacts')
-          .select('*')
-          .in('id', ids);
-        if (fetchErr) throw fetchErr;
-        contacts = data ?? [];
+        contacts = await fetchContactsByIds(appwrite, ids);
       }
     } else if (audience.type === 'missed_appointments') {
       const todayStr = new Date().toISOString().split('T')[0];
-      const { data: appts, error } = await appwrite
-        .from('appointments')
-        .select('patient_id')
-        .or(
-          `status.eq.no_show,status.eq.Cancelled,and(status.eq.pending,appointment_date.lt.${todayStr})`
-        );
-      if (error) throw error;
-      const ids = [...new Set((appts || []).map((a) => a.patient_id))];
+      const appts = await fetchAllPaged<{ patient_id: string }>((from, to) =>
+        appwrite
+          .from('appointments')
+          .select('patient_id')
+          .or(
+            `status.eq.no_show,status.eq.Cancelled,and(status.eq.pending,appointment_date.lt.${todayStr})`
+          )
+          .range(from, to)
+      );
+      const ids = [...new Set(appts.map((a) => a.patient_id))];
       if (ids.length > 0) {
-        const { data, error: fetchErr } = await appwrite
-          .from('contacts')
-          .select('*')
-          .in('id', ids);
-        if (fetchErr) throw fetchErr;
-        contacts = data ?? [];
+        contacts = await fetchContactsByIds(appwrite, ids);
       }
     } else if (audience.type === 'due_followup') {
-      const { data: pats, error } = await appwrite
-        .from('patients')
-        .select('id');
-      if (error) throw error;
-      const ids = (pats || []).map((p) => p.id);
+      const pats = await fetchAllPaged<{ id: string }>((from, to) =>
+        appwrite.from('patients').select('id').range(from, to)
+      );
+      const ids = pats.map((p) => p.id);
       if (ids.length > 0) {
-        const { data, error: fetchErr } = await appwrite
-          .from('contacts')
-          .select('*')
-          .in('id', ids);
-        if (fetchErr) throw fetchErr;
-        contacts = data ?? [];
+        contacts = await fetchContactsByIds(appwrite, ids);
       }
     } else if (audience.type === 'by_department' && audience.department) {
-      const { data: pats, error } = await appwrite
-        .from('patients')
-        .select('id')
-        .eq('department', audience.department);
-      if (error) throw error;
-      const ids = (pats || []).map((p) => p.id);
+      const pats = await fetchAllPaged<{ id: string }>((from, to) =>
+        appwrite
+          .from('patients')
+          .select('id')
+          .eq('department', audience.department!)
+          .range(from, to)
+      );
+      const ids = pats.map((p) => p.id);
       if (ids.length > 0) {
-        const { data, error: fetchErr } = await appwrite
-          .from('contacts')
-          .select('*')
-          .in('id', ids);
-        if (fetchErr) throw fetchErr;
-        contacts = data ?? [];
+        contacts = await fetchContactsByIds(appwrite, ids);
       }
     } else if (audience.type === 'by_doctor' && audience.doctorId) {
-      const { data: pats, error } = await appwrite
-        .from('patients')
-        .select('id')
-        .eq('assigned_doctor_id', audience.doctorId);
-      if (error) throw error;
-      const ids = (pats || []).map((p) => p.id);
+      const pats = await fetchAllPaged<{ id: string }>((from, to) =>
+        appwrite
+          .from('patients')
+          .select('id')
+          .eq('assigned_doctor_id', audience.doctorId!)
+          .range(from, to)
+      );
+      const ids = pats.map((p) => p.id);
       if (ids.length > 0) {
-        const { data, error: fetchErr } = await appwrite
-          .from('contacts')
-          .select('*')
-          .in('id', ids);
-        if (fetchErr) throw fetchErr;
-        contacts = data ?? [];
+        contacts = await fetchContactsByIds(appwrite, ids);
       }
     } else if (audience.type === 'by_gender' && audience.gender) {
-      const { data: pats, error } = await appwrite
-        .from('patients')
-        .select('id')
-        .eq('gender', audience.gender);
-      if (error) throw error;
-      const ids = (pats || []).map((p) => p.id);
+      const pats = await fetchAllPaged<{ id: string }>((from, to) =>
+        appwrite
+          .from('patients')
+          .select('id')
+          .eq('gender', audience.gender!)
+          .range(from, to)
+      );
+      const ids = pats.map((p) => p.id);
       if (ids.length > 0) {
-        const { data, error: fetchErr } = await appwrite
-          .from('contacts')
-          .select('*')
-          .in('id', ids);
-        if (fetchErr) throw fetchErr;
-        contacts = data ?? [];
+        contacts = await fetchContactsByIds(appwrite, ids);
       }
     } else if (audience.type === 'by_age') {
       const nowYear = new Date().getFullYear();
-      let query = appwrite.from('patients').select('id');
-      if (audience.ageMin !== undefined) {
-        const maxDob = new Date();
-        maxDob.setFullYear(nowYear - audience.ageMin);
-        query = query.lte('date_of_birth', maxDob.toISOString().split('T')[0]);
-      }
-      if (audience.ageMax !== undefined) {
-        const minDob = new Date();
-        minDob.setFullYear(nowYear - audience.ageMax);
-        query = query.gte('date_of_birth', minDob.toISOString().split('T')[0]);
-      }
-      const { data: pats, error } = await query;
-      if (error) throw error;
-      const ids = (pats || []).map((p) => p.id);
+      const pats = await fetchAllPaged<{ id: string }>((from, to) => {
+        let query = appwrite.from('patients').select('id');
+        if (audience.ageMin !== undefined) {
+          const maxDob = new Date();
+          maxDob.setFullYear(nowYear - audience.ageMin);
+          query = query.lte(
+            'date_of_birth',
+            maxDob.toISOString().split('T')[0]
+          );
+        }
+        if (audience.ageMax !== undefined) {
+          const minDob = new Date();
+          minDob.setFullYear(nowYear - audience.ageMax);
+          query = query.gte(
+            'date_of_birth',
+            minDob.toISOString().split('T')[0]
+          );
+        }
+        return query.range(from, to);
+      });
+      const ids = pats.map((p) => p.id);
       if (ids.length > 0) {
-        const { data, error: fetchErr } = await appwrite
-          .from('contacts')
-          .select('*')
-          .in('id', ids);
-        if (fetchErr) throw fetchErr;
-        contacts = data ?? [];
+        contacts = await fetchContactsByIds(appwrite, ids);
       }
     }
 
     // Apply exclude tags (works across all contact-derived audience
     // types). CSV contacts are synthetic so exclusion doesn't apply.
     if (audience.excludeTagIds && audience.excludeTagIds.length > 0) {
-      const { data: excludeRows } = await appwrite
-        .from('contact_tags')
-        .select('contact_id')
-        .in('tag_id', audience.excludeTagIds);
-      const excludedIds = new Set((excludeRows ?? []).map((r) => r.contact_id));
+      const excludeRows = await fetchAllPaged<{ contact_id: string }>(
+        (from, to) =>
+          appwrite
+            .from('contact_tags')
+            .select('contact_id')
+            .in('tag_id', audience.excludeTagIds!)
+            .range(from, to)
+      );
+      const excludedIds = new Set(excludeRows.map((r) => r.contact_id));
       contacts = contacts.filter((c) => !excludedIds.has(c.id));
     }
 
@@ -469,33 +485,24 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
     // Build the WHERE clause for the operator. Appwrite supports
     // eq/neq/ilike via the query builder — use ilike with wildcards
     // for "contains" so the match is case-insensitive.
-    let query = appwrite
-      .from('contact_custom_values')
-      .select('contact_id')
-      .eq('custom_field_id', fieldId);
+    const matches = await fetchAllPaged<{ contact_id: string }>((from, to) => {
+      let query = appwrite
+        .from('contact_custom_values')
+        .select('contact_id')
+        .eq('custom_field_id', fieldId);
 
-    if (operator === 'is') query = query.eq('value', value);
-    else if (operator === 'is_not') query = query.neq('value', value);
-    else if (operator === 'contains')
-      query = query.ilike('value', `%${value}%`);
+      if (operator === 'is') query = query.eq('value', value);
+      else if (operator === 'is_not') query = query.neq('value', value);
+      else if (operator === 'contains')
+        query = query.ilike('value', `%${value}%`);
 
-    const { data: matches, error: matchErr } = await query;
-    if (matchErr)
-      throw new Error(`Custom-field filter failed: ${matchErr.message}`);
+      return query.range(from, to);
+    });
 
-    const contactIds = [
-      ...new Set(
-        (matches ?? []).map((m: { contact_id: string }) => m.contact_id)
-      ),
-    ];
+    const contactIds = [...new Set(matches.map((m) => m.contact_id))];
     if (contactIds.length === 0) return [];
 
-    const { data, error } = await appwrite
-      .from('contacts')
-      .select('*')
-      .in('id', contactIds);
-    if (error) throw new Error(`Failed to fetch contacts: ${error.message}`);
-    return data ?? [];
+    return fetchContactsByIds(appwrite, contactIds);
   }
 
   async function createAndSendBroadcast(

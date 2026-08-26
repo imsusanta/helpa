@@ -201,10 +201,14 @@ export function CommandSearch({
     }
 
     setLoading(true);
+    // Abort in-flight requests when the query changes so a slow earlier
+    // response can never overwrite results for a newer query.
+    const controller = new AbortController();
     const timer = setTimeout(async () => {
       try {
         const res = await fetch(
-          `/api/search/global?q=${encodeURIComponent(query.trim())}`
+          `/api/search/global?q=${encodeURIComponent(query.trim())}`,
+          { signal: controller.signal }
         );
         if (res.ok) {
           const json = await res.json();
@@ -213,13 +217,17 @@ export function CommandSearch({
           );
         }
       } catch (err) {
+        if ((err as Error)?.name === 'AbortError') return;
         console.warn('[CommandSearch] Live search failed:', err);
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     }, 200);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [query]);
 
   const filteredNavItems = commandNavItems.filter(

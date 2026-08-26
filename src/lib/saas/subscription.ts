@@ -1,11 +1,39 @@
 import { getAdminClient } from '@/lib/db/server';
-import { getAvailablePlans, getPlanBySlug } from '@/core/billing/plans';
+import { findPlanBySlug, getAvailablePlans } from '@/core/billing/plans';
 import {
   FeatureAccessResult,
   SubscriptionPlan,
   UsageLimitCheckResult,
   WorkspaceSubscription,
 } from '@/core/billing/types';
+
+/**
+ * The subscriptions table stores lowercase subscription_status_enum
+ * labels ('trial', 'active', 'expired', 'cancelled'); the application
+ * status type uses uppercase. Normalize on read so status checks match
+ * what is actually stored.
+ */
+function normalizeSubscriptionStatus(
+  raw: unknown
+): WorkspaceSubscription['status'] {
+  const value = String(raw || '').toUpperCase();
+  switch (value) {
+    case 'TRIAL':
+    case 'TRIALING':
+      return 'TRIAL';
+    case 'EXPIRED':
+      return 'EXPIRED';
+    case 'CANCELLED':
+      return 'CANCELLED';
+    case 'PAST_DUE':
+      return 'PAST_DUE';
+    case 'TRIAL_EXPIRED':
+      return 'TRIAL_EXPIRED';
+    case 'ACTIVE':
+    default:
+      return 'ACTIVE';
+  }
+}
 
 export async function getWorkspaceSubscription(
   accountId: string
@@ -35,7 +63,14 @@ export async function getWorkspaceSubscription(
     planSlug = 'starter';
   }
 
-  const plan = (await getPlanBySlug(planSlug)) || availablePlans[1];
+  // Unknown identifiers (e.g. a provisioned 'Free Trial' catalog row)
+  // must not throw here — every feature/limit check calls this. Fall
+  // back to the recommended plan for entitlement resolution.
+  const plan =
+    (await findPlanBySlug(planSlug)) ||
+    availablePlans.find((p) => p.slug === 'growth') ||
+    availablePlans[1] ||
+    availablePlans[0];
 
   const now = new Date().toISOString();
   const subscription: WorkspaceSubscription = {
@@ -43,9 +78,7 @@ export async function getWorkspaceSubscription(
     workspaceId: accountId,
     planId: plan.id,
     planSlug: plan.slug,
-    status:
-      (subData?.status as unknown as WorkspaceSubscription['status']) ||
-      'ACTIVE',
+    status: normalizeSubscriptionStatus(subData?.status),
     billingCycle: 'monthly',
     setupFeePaid: subData?.setup_fee_paid ?? true,
     setupFeeAmount: subData?.setup_fee_amount ?? plan.setupFee,
@@ -255,7 +288,13 @@ export async function incrementUsage(
 }
 
 /**
- * Transition expired trials to TRIAL_EXPIRED and past-due subscriptions to EXPIRED.
+ * Transition lapsed trials and prepaid subscriptions to 'expired'.
+ *
+ * Uses the real subscription_status_enum labels ('trial', 'active',
+ * 'expired', 'cancelled') and the real end_date column. The previous
+ * implementation filtered on uppercase labels and a nonexistent
+ * trial_end column, so PostgREST rejected every query and nothing was
+ * ever expired.
  */
 export async function expireStaleTrials(): Promise<{
   expiredTrialsCount: number;
@@ -265,39 +304,39 @@ export async function expireStaleTrials(): Promise<{
     const db = getAdminClient();
     const now = new Date().toISOString();
 
-    // 1. Expire stale trials where trial_end < NOW()
+    // 1. Expire stale trials where end_date < NOW()
     const { data: staleTrials } = await db
       .from('subscriptions')
       .select('id, account_id')
-      .in('status', ['TRIAL', 'TRIALING'])
-      .lt('trial_end', now);
+      .eq('status', 'trial')
+      .lt('end_date', now);
 
     let expiredTrialsCount = 0;
     if (staleTrials && staleTrials.length > 0) {
       for (const trial of staleTrials) {
-        await db
+        const { error } = await db
           .from('subscriptions')
-          .update({ status: 'TRIAL_EXPIRED', updated_at: now })
+          .update({ status: 'expired', updated_at: now })
           .eq('id', trial.id);
-        expiredTrialsCount++;
+        if (!error) expiredTrialsCount++;
       }
     }
 
-    // 2. Expire past due subscriptions where end_date < NOW()
-    const { data: pastDueSubs } = await db
+    // 2. Expire lapsed prepaid subscriptions where end_date < NOW()
+    const { data: lapsedSubs } = await db
       .from('subscriptions')
       .select('id, account_id')
-      .eq('status', 'PAST_DUE')
+      .eq('status', 'active')
       .lt('end_date', now);
 
     let expiredSubsCount = 0;
-    if (pastDueSubs && pastDueSubs.length > 0) {
-      for (const sub of pastDueSubs) {
-        await db
+    if (lapsedSubs && lapsedSubs.length > 0) {
+      for (const sub of lapsedSubs) {
+        const { error } = await db
           .from('subscriptions')
-          .update({ status: 'EXPIRED', updated_at: now })
+          .update({ status: 'expired', updated_at: now })
           .eq('id', sub.id);
-        expiredSubsCount++;
+        if (!error) expiredSubsCount++;
       }
     }
 

@@ -85,11 +85,15 @@ export async function handleWebhookGet(request: Request): Promise<Response> {
     if (matchedConfig) {
       const encToken =
         matchedConfig.encryptedVerifyToken || matchedConfig.verify_token;
-      // Fire-and-forget GCM upgrade for legacy CBC tokens
+      // Fire-and-forget GCM upgrade for legacy CBC tokens. This must
+      // rewrite the verify_token column only — writing to
+      // encrypted_access_token would overwrite the Meta access token
+      // with an (encrypted) verify token and break every send until the
+      // real credential is re-saved.
       if (encToken && isLegacyFormat(encToken)) {
         void db
           .from('whatsapp_configs')
-          .update({ encrypted_access_token: encrypt(verifyToken) })
+          .update({ verify_token: encrypt(verifyToken) })
           .eq('id', matchedConfig.id)
           .then(({ error }: { error: unknown }) => {
             if (error) {

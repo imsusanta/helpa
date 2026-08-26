@@ -291,6 +291,70 @@ describe('Inbox API & Tenant Isolation Tests', () => {
       expect(json.messages).toHaveLength(1);
       expect(json.messages[0].content_text).toBe('Hi');
       expect(json.messages[0].sender_type).toBe('customer');
+      expect(mockMsgQuery.order).toHaveBeenCalledWith('created_at', {
+        ascending: false,
+      });
+    });
+
+    it('returns the latest page in chronological order', async () => {
+      const mockConvQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: { id: 'conv-a', account_id: 'tenant-a' },
+          error: null,
+        }),
+      };
+
+      const mockMsgQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockResolvedValue({
+          data: [
+            {
+              id: 'msg-2',
+              conversation_id: 'conv-a',
+              sender_type: 'agent',
+              content_type: 'text',
+              content_text: 'newest',
+              status: 'sent',
+              created_at: '2026-08-14T01:00:00Z',
+            },
+            {
+              id: 'msg-1',
+              conversation_id: 'conv-a',
+              sender_type: 'customer',
+              content_type: 'text',
+              content_text: 'older',
+              status: 'delivered',
+              created_at: '2026-08-14T00:00:00Z',
+            },
+          ],
+          error: null,
+        }),
+      };
+
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === 'conversations')
+          return mockConvQuery as unknown as Record<string, unknown>;
+        if (table === 'messages')
+          return mockMsgQuery as unknown as Record<string, unknown>;
+        return {};
+      });
+
+      const res = await getMessages(
+        createRequest(
+          'http://localhost/api/inbox/conversations/conv-a/messages'
+        ),
+        { params: Promise.resolve({ id: 'conv-a' }) }
+      );
+
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(
+        json.messages.map((m: { content_text: string }) => m.content_text)
+      ).toEqual(['older', 'newest']);
     });
   });
 

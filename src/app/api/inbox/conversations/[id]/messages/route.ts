@@ -93,11 +93,16 @@ export async function GET(request: NextRequest, { params }: Params) {
       );
     }
 
+    // Fetch the LATEST `limit` messages (newest-first), then reverse to
+    // chronological order for display. Ordering ascending with a limit
+    // returned the OLDEST N and silently dropped the most recent
+    // messages in long threads, so agents replied without seeing the
+    // newest context.
     const { data: msgs, error: mErr } = await supabase
       .from('messages')
       .select('*')
       .eq('conversation_id', conversationId)
-      .order('created_at', { ascending: true })
+      .order('created_at', { ascending: false })
       .limit(limit);
 
     if (mErr) {
@@ -109,7 +114,7 @@ export async function GET(request: NextRequest, { params }: Params) {
     }
 
     const rawMsgs = Array.isArray(msgs) ? msgs : [];
-    const normalized = rawMsgs.map((m) => normalizeMessage(m));
+    const normalized = rawMsgs.map((m) => normalizeMessage(m)).reverse();
 
     return NextResponse.json(
       { messages: normalized, total: normalized.length },

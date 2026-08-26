@@ -37,16 +37,17 @@ export async function DELETE(
 
     const { id } = await params;
 
-    // No `eq('account_id', ctx.accountId)` — the RLS policy
-    // (`is_account_member(account_id, 'admin')`) already scopes
-    // the DELETE to invites in the caller's account. Adding the
-    // filter would be redundant; omitting it surfaces a
-    // cross-account attempt as a silent 0-row delete (which is
-    // exactly what we want for a revocation endpoint).
+    // `ctx.appwrite` is the service-role client, which bypasses RLS —
+    // so the tenant filter must be applied explicitly here. Without it
+    // an admin of any account could revoke another tenant's invitation
+    // by guessing its id. A cross-account attempt now surfaces as a
+    // silent 0-row delete (which is exactly what we want for a
+    // revocation endpoint).
     const { error, count } = await ctx.appwrite
       .from('account_invitations')
       .delete({ count: 'exact' })
-      .eq('id', id);
+      .eq('id', id)
+      .eq('account_id', ctx.accountId);
 
     if (error) {
       console.error('[DELETE /api/account/invitations/[id]] error:', error);

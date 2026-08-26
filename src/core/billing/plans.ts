@@ -229,11 +229,20 @@ export async function getAvailablePlans(): Promise<SubscriptionPlan[]> {
     }
 
     return rows.map((r) => {
+      // Catalog rows in Postgres have no slug column and UUID ids, so a
+      // usable slug must be derived from the display name ("Growth ⭐"
+      // → "growth"). Falling back to the UUID would make every
+      // findPlanBySlug lookup miss and break plan resolution.
+      const derivedFromName = String(r.name || '')
+        .toLowerCase()
+        .replace(/[^a-z]/g, '');
       const slug =
         r.slug ||
-        String(r.id || r.name)
-          .toLowerCase()
-          .replace(/^plan_/, '');
+        (derivedFromName
+          ? LEGACY_PLAN_ALIASES[derivedFromName] || derivedFromName
+          : String(r.id)
+              .toLowerCase()
+              .replace(/^plan_/, ''));
       const defaultPlan = DEFAULT_PLANS.find(
         (plan) => plan.slug === slug || plan.id === r.id
       );
@@ -320,14 +329,18 @@ export async function findPlanBySlug(
   const plans = await getAvailablePlans();
   const lookup = resolvePlanLookup(identifier);
 
-  return (
-    plans.find(
+  const match = (candidates: SubscriptionPlan[]) =>
+    candidates.find(
       (plan) =>
         plan.slug.toLowerCase() === lookup ||
         plan.id.toLowerCase() === lookup ||
         plan.id.toLowerCase() === `plan_${lookup}`
-    ) || null
-  );
+    ) || null;
+
+  // The database catalog may not contain every canonical plan (e.g. a
+  // seeded 'Free Trial'/'Growth'-only table); fall back to the static
+  // catalog so canonical plans always stay resolvable for billing.
+  return match(plans) || match(DEFAULT_PLANS);
 }
 
 /**
@@ -342,4 +355,42 @@ export async function getPlanBySlug(slug: string): Promise<SubscriptionPlan> {
 
 export async function getPlanById(planId: string): Promise<SubscriptionPlan> {
   return getPlanBySlug(planId);
+}
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Resolve the plans-table row id (uuid FK target for subscriptions.plan_id)
+ * for a catalog plan. Catalog entries sourced from the database already
+ * carry the row uuid; static catalog entries ('plan_growth', ...) are
+ * matched against DB rows by normalized name. Returns null when no
+ * matching row exists.
+ */
+export async function resolvePlanRowId(
+  plan: SubscriptionPlan
+): Promise<string | null> {
+  if (UUID_RE.test(plan.id)) return plan.id;
+
+  try {
+    const db = getAdminClient();
+    const { data: rows } = await db.from('plans').select('id, name');
+    if (!rows) return null;
+
+    const normalize = (value: unknown) =>
+      String(value || '')
+        .toLowerCase()
+        .replace(/[^a-z]/g, '');
+
+    const match = rows.find(
+      (r) =>
+        normalize(r.name) === plan.slug ||
+        (LEGACY_PLAN_ALIASES[normalize(r.name)] || normalize(r.name)) ===
+          plan.slug ||
+        normalize(r.name) === normalize(plan.name)
+    );
+    return match?.id ?? null;
+  } catch {
+    return null;
+  }
 }

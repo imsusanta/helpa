@@ -48,8 +48,11 @@ export async function createRazorpayOrder(
   const { keyId, keySecret } = getRazorpayCredentials();
 
   if (!keyId || !keySecret) {
-    // In local development or testing without live keys, generate a deterministic mock order
-    if (process.env.NODE_ENV !== 'production' || !keyId) {
+    // In local development or testing without live keys, generate a
+    // deterministic mock order. Production must fail closed instead —
+    // a mock order would silently mask a missing credential and hand
+    // the client an order id Razorpay does not know about.
+    if (process.env.NODE_ENV !== 'production') {
       return {
         id: `order_mock_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
         entity: 'order',

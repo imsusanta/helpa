@@ -12,8 +12,12 @@ export function buildMediaPath(
   fileName: string,
   now: number = Date.now()
 ): string {
+  // The extension comes from a user-controlled filename; restrict it to a
+  // short alphanumeric token so path separators can never reach the
+  // storage object key (e.g. "x.pdf/../../evil").
   const hasExt = /\.[^.]+$/.test(fileName);
-  const ext = hasExt ? fileName.split('.').pop()!.toLowerCase() : 'bin';
+  const rawExt = hasExt ? fileName.split('.').pop()!.toLowerCase() : 'bin';
+  const ext = /^[a-z0-9]{1,10}$/.test(rawExt) ? rawExt : 'bin';
   const safeBase =
     fileName
       .replace(/\.[^.]+$/, '')
