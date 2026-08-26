@@ -111,11 +111,7 @@ export const BUSINESS_TYPE_OPTIONS: readonly BusinessTypeOption[] = [
 export function isValidIndustry(industry: unknown): boolean {
   if (!industry || typeof industry !== 'string') return false;
   const normalized = industry.trim().toLowerCase();
-  if (normalized === 'general' || normalized === 'other') return true;
-  return Boolean(
-    INDUSTRY_ALIASES[normalized as keyof typeof INDUSTRY_ALIASES] ||
-    INDUSTRY_REGISTRY[normalized]
-  );
+  return normalized in INDUSTRY_ALIASES || normalized === 'general';
 }
 
 export function resolveCanonicalIndustry(industry: string): string {
@@ -196,10 +192,13 @@ export const generalModule: IndustryModule = {
   },
 };
 
+// Keep the fallback module as the canonical registry entry so every layer
+// (signup, settings, onboarding and workspace resolution) sees the same key.
+INDUSTRY_REGISTRY.general = generalModule;
+
 export function getIndustryModule(
   industry: string | null | undefined
 ): IndustryModule {
-  if (!industry) return generalModule;
   const industryKey = resolveIndustryAlias(industry);
   return INDUSTRY_REGISTRY[industryKey] || generalModule;
 }
