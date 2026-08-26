@@ -113,6 +113,30 @@ export const INDUSTRY_REGISTRY: Record<string, IndustryModule> = {
 
 export { INDUSTRY_ALIASES };
 
+/**
+ * Canonical tenant_modules keys: one per unique industry module plus the
+ * 'general' fallback. Alias registry keys (e.g. 'health') are deduped so a
+ * tenant never receives duplicate or alias-keyed module rows.
+ */
+export const ALL_MODULE_KEYS: readonly string[] = Array.from(
+  new Set([
+    ...Object.values(INDUSTRY_REGISTRY).map((mod) => mod.id),
+    'general',
+  ])
+);
+
+/**
+ * An industry template is selectable in the workspace switcher only when its
+ * module is launched. COMING_SOON modules never mount their sidebar routes
+ * (see buildVisibleNavigation), so offering them would apply a template that
+ * visibly changes nothing.
+ */
+export function isIndustryAvailable(
+  industry: string | null | undefined
+): boolean {
+  return getIndustryModule(industry).status === 'ACTIVE';
+}
+
 export interface BusinessTypeOption {
   id: string;
   label: string;

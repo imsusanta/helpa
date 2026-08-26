@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  ALL_MODULE_KEYS,
   getIndustryModule,
+  isIndustryAvailable,
   resolveSystemPrompt,
   INDUSTRY_REGISTRY,
 } from './registry';
@@ -83,6 +85,45 @@ describe('INDUSTRY_REGISTRY', () => {
     expect(getIndustryModule('salon').status).toBe('COMING_SOON');
     expect(getIndustryModule('real_estate').status).toBe('COMING_SOON');
     expect(getIndustryModule('health').aiTools).toBeDefined();
+  });
+});
+
+describe('isIndustryAvailable', () => {
+  it('allows launched templates and the general fallback', () => {
+    expect(isIndustryAvailable('hospital_clinic')).toBe(true);
+    expect(isIndustryAvailable('health')).toBe(true);
+    expect(isIndustryAvailable('other')).toBe(true);
+    expect(isIndustryAvailable('general')).toBe(true);
+  });
+
+  it('rejects every COMING_SOON template', () => {
+    for (const industryModule of Object.values(INDUSTRY_REGISTRY)) {
+      if (industryModule.status !== 'ACTIVE') {
+        expect(isIndustryAvailable(industryModule.id)).toBe(false);
+      }
+    }
+    expect(isIndustryAvailable('travel')).toBe(false);
+    expect(isIndustryAvailable('salon')).toBe(false);
+    expect(isIndustryAvailable('coaching')).toBe(false);
+  });
+});
+
+describe('ALL_MODULE_KEYS', () => {
+  it('lists every unique industry module plus general, without alias keys', () => {
+    const expected = [
+      'hospital_clinic',
+      'coaching',
+      'real_estate',
+      'travel',
+      'gym',
+      'restaurant',
+      'solo_teacher',
+      'salon',
+      'general',
+    ];
+    expect([...ALL_MODULE_KEYS].sort()).toEqual([...expected].sort());
+    expect(ALL_MODULE_KEYS).not.toContain('health');
+    expect(new Set(ALL_MODULE_KEYS).size).toBe(ALL_MODULE_KEYS.length);
   });
 });
 

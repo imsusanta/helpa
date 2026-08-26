@@ -28,6 +28,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { isIndustryAvailable } from '@/modules/registry';
 import { toast } from 'sonner';
 
 import { SECTION_META, type SettingsSection } from './settings-sections';
@@ -228,7 +229,10 @@ export function SettingsOverview({
   };
 
   const handleOpenModal = () => {
-    setSelectedIndustry(account?.industry || 'hospital_clinic');
+    const currentIndustry = account?.industry || 'hospital_clinic';
+    setSelectedIndustry(
+      isIndustryAvailable(currentIndustry) ? currentIndustry : 'hospital_clinic'
+    );
     setInstallationStep('idle');
     setChecklist([
       { label: 'Installing modules', status: 'idle' },
@@ -244,6 +248,13 @@ export function SettingsOverview({
   const handleApplyTemplate = async () => {
     if (!selectedIndustry) {
       toast.error('Selecting a template is mandatory.');
+      return;
+    }
+
+    if (!isIndustryAvailable(selectedIndustry)) {
+      toast.error(
+        'This template is coming soon. Please pick an available template.'
+      );
       return;
     }
 
@@ -650,17 +661,29 @@ export function SettingsOverview({
                   {INDUSTRIES.map((ind) => {
                     const Icon = ind.icon;
                     const isSelected = selectedIndustry === ind.id;
+                    const isAvailable = isIndustryAvailable(ind.id);
                     return (
                       <button
                         key={ind.id}
-                        onClick={() => setSelectedIndustry(ind.id)}
+                        disabled={!isAvailable}
+                        aria-disabled={!isAvailable}
+                        onClick={
+                          isAvailable
+                            ? () => setSelectedIndustry(ind.id)
+                            : undefined
+                        }
                         className={cn(
-                          'group relative flex cursor-pointer flex-col gap-2 rounded-xl border p-3.5 text-left transition outline-none',
+                          'group relative flex flex-col gap-2 rounded-xl border p-3.5 text-left transition outline-none',
                           ind.bg,
                           ind.border,
+                          isAvailable
+                            ? 'cursor-pointer'
+                            : 'cursor-not-allowed opacity-60 saturate-50',
                           isSelected
                             ? 'ring-primary border-primary scale-[1.01] shadow-sm ring-2'
-                            : 'hover:scale-[1.01]'
+                            : isAvailable
+                              ? 'hover:scale-[1.01]'
+                              : ''
                         )}
                       >
                         <div className="flex items-center justify-between">
@@ -672,10 +695,16 @@ export function SettingsOverview({
                           >
                             <Icon className="h-4 w-4" />
                           </div>
-                          {isSelected && (
-                            <div className="bg-primary text-primary-foreground flex h-3.5 w-3.5 items-center justify-center rounded-full text-[9px] font-bold">
-                              ✓
-                            </div>
+                          {!isAvailable ? (
+                            <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[9px] font-bold tracking-wide text-amber-600 uppercase dark:text-amber-400">
+                              Coming Soon
+                            </span>
+                          ) : (
+                            isSelected && (
+                              <div className="bg-primary text-primary-foreground flex h-3.5 w-3.5 items-center justify-center rounded-full text-[9px] font-bold">
+                                ✓
+                              </div>
+                            )
                           )}
                         </div>
                         <div>
