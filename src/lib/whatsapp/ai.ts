@@ -56,7 +56,17 @@ export async function triggerAiResponse(
   const db = appwriteAdmin();
 
   // ═══════ PHASE 1: Parallel fetch all independent data in one shot ═══════
-  const [contactRes, accRes, convRes, messagesRes, kbRes] = await Promise.all([
+  const [
+    contactRes,
+    accRes,
+    convRes,
+    messagesRes,
+    kbRes,
+    travelPackagesRes,
+    coursesRes,
+    batchesRes,
+    propertiesRes,
+  ] = await Promise.all([
     db.from('contacts').select('*').eq('id', contactId).maybeSingle(),
     db
       .from('accounts')
@@ -76,6 +86,26 @@ export async function triggerAiResponse(
       .from('knowledge_base')
       .select('category, question_title, answer_content')
       .eq('account_id', accountId),
+    db
+      .from('travel_packages')
+      .select('id, name, destination, duration_days, price, description')
+      .eq('account_id', accountId)
+      .order('created_at', { ascending: false }),
+    db
+      .from('coaching_courses')
+      .select('id, name, fee, duration')
+      .eq('account_id', accountId)
+      .order('created_at', { ascending: false }),
+    db
+      .from('coaching_batches')
+      .select('id, course_id, name, timing, teacher_name')
+      .eq('account_id', accountId)
+      .order('created_at', { ascending: false }),
+    db
+      .from('realestate_properties')
+      .select('id, name, location, price, type, bedrooms, bathrooms, status')
+      .eq('account_id', accountId)
+      .order('created_at', { ascending: false }),
   ]);
 
   const conversation = convRes.data as Record<string, unknown> | null;
@@ -362,17 +392,75 @@ export async function triggerAiResponse(
   }
 
   const industryModuleForContext = getIndustryModule(account?.industry);
+  const normalizedIndustry = (account?.industry || '').toLowerCase().trim();
+
+  const isTravelEnabled =
+    industryModuleForContext.id === 'travel' ||
+    normalizedIndustry === 'travel' ||
+    normalizedIndustry === 'tour' ||
+    normalizedIndustry === 'tourism';
+
+  const isRealEstateEnabled =
+    industryModuleForContext.id === 'real_estate' ||
+    normalizedIndustry === 'real_estate' ||
+    normalizedIndustry === 'realestate' ||
+    normalizedIndustry === 'property';
+
+  const isCoachingEnabled =
+    industryModuleForContext.id === 'coaching' ||
+    normalizedIndustry === 'coaching' ||
+    normalizedIndustry === 'education';
+
+  const isSoloTeacherEnabled =
+    industryModuleForContext.id === 'solo_teacher' ||
+    normalizedIndustry === 'solo_teacher' ||
+    normalizedIndustry === 'tutor';
+
+  const isSalonEnabled =
+    industryModuleForContext.id === 'salon' ||
+    normalizedIndustry === 'salon' ||
+    normalizedIndustry === 'spa' ||
+    normalizedIndustry === 'beauty';
+
+  const isGymEnabled =
+    industryModuleForContext.id === 'gym' ||
+    normalizedIndustry === 'gym' ||
+    normalizedIndustry === 'fitness';
+
+  const isRestaurantEnabled =
+    industryModuleForContext.id === 'restaurant' ||
+    normalizedIndustry === 'restaurant' ||
+    normalizedIndustry === 'cafe' ||
+    normalizedIndustry === 'food';
+
+  const travelPackages = (travelPackagesRes.data || []) as Array<Record<string, unknown>>;
+  const courses = (coursesRes.data || []) as Array<Record<string, unknown>>;
+  const batches = (batchesRes.data || []) as Array<Record<string, unknown>>;
+  const properties = (propertiesRes.data || []) as Array<Record<string, unknown>>;
+
   const isHospitalEnabled =
     industryModuleForContext.id === 'hospital_clinic' ||
-    !account?.industry ||
-    account?.industry === 'hospital' ||
-    account?.industry === 'clinic' ||
-    account?.industry === 'healthcare' ||
-    account?.industry === 'general';
-  const isCoachingEnabled = industryModuleForContext.id === 'coaching';
-  const isSoloTeacherEnabled = industryModuleForContext.id === 'solo_teacher';
+    normalizedIndustry === 'hospital' ||
+    normalizedIndustry === 'clinic' ||
+    normalizedIndustry === 'healthcare' ||
+    (!normalizedIndustry &&
+      !isTravelEnabled &&
+      !isCoachingEnabled &&
+      !isRealEstateEnabled &&
+      !isSalonEnabled &&
+      !isGymEnabled &&
+      !isRestaurantEnabled &&
+      travelPackages.length === 0 &&
+      courses.length === 0);
+
   let hospitalContext = '';
   let coachingContext = '';
+  let travelContext = '';
+  let realEstateContext = '';
+  let salonContext = '';
+  let gymContext = '';
+  let generalCatalogContext = '';
+
   interface LabReportRow {
     id: string;
     test_name: string;
@@ -390,6 +478,40 @@ export async function triggerAiResponse(
     industryModuleForContext.entityConfigs?.contacts;
   const entityLabelForContext = contactConfigForContext?.label || 'Contact';
 
+  // 1. Travel Packages & Bookings Context
+  if (isTravelEnabled || travelPackages.length > 0) {
+    if (travelPackages.length > 0) {
+      travelContext += 'Available Travel & Tour Packages in our Database:\n';
+      travelPackages.forEach((pkg) => {
+        travelContext += `- Package: ${pkg.name} | Destination: ${pkg.destination} | Duration: ${pkg.duration_days} Days | Price: ₹${pkg.price} per person | Inclusions: ${pkg.description || 'Sightseeing, Accommodation, and Transfers'}\n`;
+      });
+      travelContext += '\n';
+    }
+
+    try {
+      const { data: bookingsData } = await db
+        .from('travel_bookings')
+        .select(
+          'id, package_id, travel_date, guests_count, total_price, status, package:travel_packages(name, destination, price)'
+        )
+        .in('contact_id', allPatientAndContactIds)
+        .order('travel_date', { ascending: false })
+        .limit(5);
+
+      if (bookingsData && bookingsData.length > 0) {
+        travelContext += "Traveler's Previous / Active Bookings:\n";
+        bookingsData.forEach((b: Record<string, unknown>) => {
+          const pkgData = b.package as { name?: string; destination?: string } | null;
+          travelContext += `- Booking ID: ${b.id}, Package: ${pkgData?.name || 'Tour'}, Destination: ${pkgData?.destination || 'N/A'}, Date: ${b.travel_date}, Guests: ${b.guests_count || 1}, Total Price: ₹${b.total_price || 0}, Status: ${b.status}\n`;
+        });
+        travelContext += '\n';
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // 2. Coaching & Solo Teacher Context
   if (isCoachingEnabled || isSoloTeacherEnabled) {
     const { data: coachingStudents } = await db
       .from('contacts')
@@ -409,6 +531,72 @@ export async function triggerAiResponse(
       );
       coachingContext += '\n';
     }
+
+    if (courses.length > 0) {
+      coachingContext += 'Available Courses & Fee Structures:\n';
+      courses.forEach((c) => {
+        coachingContext += `- Course: ${c.name}, Fee: ₹${c.fee}, Duration: ${c.duration || 'N/A'}\n`;
+      });
+      coachingContext += '\n';
+    }
+
+    if (batches.length > 0) {
+      coachingContext += 'Available Batch Schedules:\n';
+      batches.forEach((b) => {
+        coachingContext += `- Batch: ${b.name}, Timing: ${b.timing || 'N/A'}, Teacher: ${b.teacher_name || 'Assigned Faculty'}\n`;
+      });
+      coachingContext += '\n';
+    }
+  }
+
+  // 3. Real Estate Context
+  if (isRealEstateEnabled && properties.length > 0) {
+    realEstateContext += 'Available Properties & Listings in our Database:\n';
+    properties.forEach((p) => {
+      realEstateContext += `- Title: ${p.name}, Location: ${p.location}, Price: ₹${p.price}, Type: ${p.type}, Configuration: ${p.bedrooms || 0} BHK, Status: ${p.status}\n`;
+    });
+    realEstateContext += '\n';
+  }
+
+  // 4. Salon Context
+  if (isSalonEnabled && courses.length > 0) {
+    salonContext += 'Available Salon Treatments & Services:\n';
+    courses.forEach((c) => {
+      salonContext += `- Service: ${c.name}, Price: ₹${c.fee}, Duration: ${c.duration || 'N/A'}\n`;
+    });
+    salonContext += '\n';
+  }
+
+  // 5. Gym Context
+  if (isGymEnabled) {
+    if (courses.length > 0) {
+      gymContext += 'Available Gym Membership Plans:\n';
+      courses.forEach((c) => {
+        gymContext += `- Plan: ${c.name}, Fee: ₹${c.fee}, Duration: ${c.duration || 'N/A'}\n`;
+      });
+      gymContext += '\n';
+    }
+    if (batches.length > 0) {
+      gymContext += 'Workout Classes & Timings:\n';
+      batches.forEach((b) => {
+        gymContext += `- Class: ${b.name}, Timing: ${b.timing || 'N/A'}\n`;
+      });
+      gymContext += '\n';
+    }
+  }
+
+  // 6. Generic Catalog Fallback
+  if (!isTravelEnabled && travelPackages.length > 0) {
+    generalCatalogContext += 'Available Tour Packages & Inclusions:\n';
+    travelPackages.forEach((pkg) => {
+      generalCatalogContext += `- ${pkg.name}: Destination: ${pkg.destination}, Duration: ${pkg.duration_days} Days, Price: ₹${pkg.price}, Details: ${pkg.description || 'N/A'}\n`;
+    });
+  }
+  if (!isCoachingEnabled && !isSalonEnabled && !isGymEnabled && courses.length > 0) {
+    generalCatalogContext += 'Available Services & Offerings:\n';
+    courses.forEach((c) => {
+      generalCatalogContext += `- ${c.name}: Price: ₹${c.fee}, Duration: ${c.duration || 'N/A'}\n`;
+    });
   }
 
   if (isHospitalEnabled) {
@@ -580,17 +768,14 @@ export async function triggerAiResponse(
 
   const businessName = account?.name || 'our Business';
 
-  // Inject system-level rules override to ensure database values override conversation history for patient profiles and actions
+  // Inject system-level rules override to ensure database values override conversation history
   const overrideRules = `
 
 [CRITICAL INSTRUCTION - BUSINESS & SYSTEM OVERRIDE]:
-1. BUSINESS IDENTITY: You are the official AI assistant representing "${businessName}". When welcoming a new patient/customer or starting a conversation, you MUST explicitly mention "${businessName}" by name (e.g. "Welcome to *${businessName}*!").
-2. REAL-TIME DATABASE DATA ACCURACY: The "Registered Patients", "Available Doctors & Clinic Schedules", "Appointments", and "Lab Reports" sections in the Hospital Context contain the absolute, real-time database records.
-3. DOCTOR & CLINIC DETAILS: When asked about doctors, departments, consultation fees, working hours, or available slots, ALWAYS reply using the exact database details from the "Available Doctors & Clinic Schedules" list.
-4. PATIENT DETAILS & LOOKUP: When responding to a patient, prioritize their registered database details (Patient ID PAT-XXXXXX, Full Name, Blood Group, Gender, Appointments).
-5. If a patient wants to correct/edit their profile details, extract the corrections into "hospital_profile_update" with the fields to update.
-6. Never diagnose, recommend treatments/medicines, or interpret report values.
-7. SHARED WHATSAPP NUMBER DISAMBIGUATION: Multiple family members (e.g. Father, Mother, Child) may share the exact same WhatsApp number. Each patient has a unique Patient ID (e.g. PAT-000021, PAT-000022). If multiple registered patients exist under this phone number and you cannot confidently identify which patient the user is asking about or booking for, ask: "I found multiple patient profiles linked to this WhatsApp number. Could you please tell me the patient's name?" Once the user specifies the name, switch to that patient profile and continue.`;
+1. BUSINESS IDENTITY: You are the official AI assistant representing "${businessName}". When welcoming a new client/customer or starting a conversation, you MUST explicitly mention "${businessName}" by name (e.g. "Welcome to *${businessName}*!").
+2. REAL-TIME DATABASE DATA ACCURACY: The available packages, services, doctors, courses, and property listings in the System Context contain absolute, real-time database records.
+3. PRICING & DETAILS: When asked about tour packages, services, consultation fees, courses, or properties, ALWAYS quote the exact details and prices in ₹ from the database records above. Never fabricate non-existent prices or packages.
+4. SHARED WHATSAPP NUMBER DISAMBIGUATION: Multiple people (e.g. family members) may share the exact same WhatsApp number. When taking a booking or registration, always confirm the customer's full name.`;
 
   let systemPromptContent = basePrompt + overrideRules;
 
@@ -605,6 +790,57 @@ export async function triggerAiResponse(
 
   if (kbContext) {
     systemPromptContent += `\n\n${kbContext}`;
+  }
+
+  if (isTravelEnabled) {
+    systemPromptContent += `\n\n=== TRAVEL AGENCY & TOUR PACKAGES SYSTEM CONTEXT ===\n${travelContext}
+
+You are acting as the official AI Travel Receptionist and Tour Consultant for "${businessName}".
+Your primary role is to answer traveler inquiries 24/7, quote tour packages, explain itineraries, duration, hotel accommodations, pricing in ₹, transport options, and help travelers book active trips.
+
+AI RULES & TRAVEL CONSULTATION PROTOCOLS:
+1. **ACCURATE PACKAGE & PRICING REPRESENTATION**:
+   - Always reply with genuine package details (Destination, Duration in Days, Price in ₹ per person, and Inclusions) from the "Available Travel & Tour Packages in our Database" list above.
+   - When asked about packages (e.g. "What packages do you have?", "Darjeeling package price?", "Kashmir tour details"), list matching packages clearly with their Name, Destination, Duration, and Price in ₹.
+   - Never fabricate non-existent package prices or fake itineraries. If a requested destination is not in the database, politely state what packages are available and offer to connect them with a human travel specialist.
+2. **QUALIFY TRAVELERS & COLLECT BOOKING DETAILS**:
+   - Whenever a traveler expresses interest in booking a package or asks for a custom booking/quotation, share the Tour Booking Intake Form:
+     ✈️ *TOUR PACKAGE INQUIRY / BOOKING FORM*
+     Please reply with the following details:
+     - *Traveler Full Name:* [Your Name]
+     - *Destination / Selected Package:* [e.g. Darjeeling, Kashmir, Goa, Dubai]
+     - *Preferred Travel Date:* [YYYY-MM-DD]
+     - *Number of Guests (Adults & Children):* [e.g. 2 Adults, 1 Child]
+     - *Contact Phone Number:* [Phone Number]
+     - *Special Preferences:* [e.g. 3-Star/5-Star Hotel, Flight + Hotel, Meal Preferences]
+3. **CONFIRM TOUR BOOKING**:
+   - When the traveler provides their booking details, extract them into the "travel_booking" object with action: "book", and confirm the booking summary (Package Name, Destination, Travel Date, Number of Guests, Total Estimated Price in ₹) so they know their trip request is logged.
+4. **MULTILINGUAL COMMUNICATION**:
+   - Always reply in the exact language and script/style the traveler messages in (Bengali / বাংলা, Banglish, Hindi / हिंदी, Hinglish, English, Spanish, etc.). Never switch to English if the user writes in another language.`;
+  }
+
+  if (isRealEstateEnabled) {
+    systemPromptContent += `\n\n=== REAL ESTATE & PROPERTIES SYSTEM CONTEXT ===\n${realEstateContext}
+You are acting as the AI Property Consultant for "${businessName}".
+Your primary role is to qualify buyers, quote property listings from the database, explain prices in ₹, configurations (BHK), locations, amenities, and schedule site visits.
+When a buyer wants to view a property, extract their details into "realestate_visit" with action: "schedule".`;
+  }
+
+  if (isSalonEnabled) {
+    systemPromptContent += `\n\n=== SALON & BEAUTY SYSTEM CONTEXT ===\n${salonContext}
+You are acting as the AI Salon Receptionist for "${businessName}".
+Your primary role is to answer client inquiries about treatments, service pricing in ₹, duration, and schedule salon appointments.`;
+  }
+
+  if (isGymEnabled) {
+    systemPromptContent += `\n\n=== GYM & FITNESS SYSTEM CONTEXT ===\n${gymContext}
+You are acting as the AI Fitness Assistant for "${businessName}".
+Your primary role is to answer membership inquiries, explain monthly/annual fees in ₹, class timings, and guide members.`;
+  }
+
+  if (generalCatalogContext) {
+    systemPromptContent += `\n\n=== WORKPLACE SERVICES & PACKAGES CONTEXT ===\n${generalCatalogContext}
+Always quote accurate details and pricing from the available packages and services list above.`;
   }
 
   if (isHospitalEnabled) {
@@ -706,6 +942,22 @@ JSON Schema:
     "budget": "string or null",
     "timeline": "string or null",
     "next_action": "string or null"
+  },
+  "travel_booking": {
+    "action": "book | inquire | null",
+    "traveler_name": "string or null (Full name of traveler)",
+    "package_name": "string or null (Name of the selected tour package)",
+    "destination": "string or null (Destination name)",
+    "travel_date": "YYYY-MM-DD string or null",
+    "guests_count": "number or null (Total guests count, default 1)",
+    "special_requests": "string or null"
+  },
+  "realestate_visit": {
+    "action": "schedule | inquire | null",
+    "property_name": "string or null",
+    "visit_date": "YYYY-MM-DD string or null",
+    "visit_time": "HH:MM string or null",
+    "buyer_name": "string or null"
   },
   "hospital_patient_info": {
     "name": "string or null",
@@ -866,6 +1118,8 @@ Note:
     let hospital_profile_update: Record<string, unknown> | null = null;
     let hospital_report_send: Record<string, unknown> | null = null;
     let coaching_student_update: Record<string, unknown> | null = null;
+    let travel_booking: Record<string, unknown> | null = null;
+    let realestate_visit: Record<string, unknown> | null = null;
     let emergency_detected = false;
 
     if (parsedResponse.payload) {
@@ -898,6 +1152,10 @@ Note:
         (parsed.hospital_report_send as Record<string, unknown>) || null;
       coaching_student_update =
         (parsed.coaching_student_update as Record<string, unknown>) || null;
+      travel_booking =
+        (parsed.travel_booking as Record<string, unknown>) || null;
+      realestate_visit =
+        (parsed.realestate_visit as Record<string, unknown>) || null;
       emergency_detected = !!parsed.emergency_detected;
     } else if (parsedResponse.isStructured) {
       console.warn(
@@ -1941,6 +2199,121 @@ Please arrive 15 minutes before your time slot. Thank you!`;
             );
           }
         }
+      }
+    }
+
+    // Travel Package Booking Automation
+    if (travel_booking && travel_booking.action === 'book') {
+      try {
+        const tName = (travel_booking.traveler_name as string) || contact?.name;
+        const pNameOrDest = String(
+          travel_booking.package_name || travel_booking.destination || 'Tour Package'
+        ).trim();
+        const travelDate =
+          (travel_booking.travel_date as string) ||
+          new Date().toISOString().split('T')[0];
+        const guestsCount = Number(travel_booking.guests_count) || 1;
+
+        let matchedPack = travelPackages.find((p: Record<string, unknown>) => {
+          const pLower = String(p.name || '').toLowerCase();
+          const dLower = String(p.destination || '').toLowerCase();
+          const queryLower = pNameOrDest.toLowerCase();
+          return (
+            pLower.includes(queryLower) ||
+            dLower.includes(queryLower) ||
+            queryLower.includes(pLower)
+          );
+        });
+
+        let packageId = matchedPack?.id as string | undefined;
+        let unitPrice = Number(matchedPack?.price) || 0;
+        let displayPackageName = (matchedPack?.name as string) || pNameOrDest;
+        let displayDest =
+          (matchedPack?.destination as string) ||
+          (travel_booking.destination as string) ||
+          'Destination';
+
+        if (!packageId && travelPackages.length > 0) {
+          packageId = travelPackages[0].id as string;
+          unitPrice = Number(travelPackages[0].price) || 0;
+          displayPackageName = (travelPackages[0].name as string) || pNameOrDest;
+          displayDest = (travelPackages[0].destination as string) || displayDest;
+        }
+
+        if (!packageId) {
+          const { data: createdPack } = await db
+            .from('travel_packages')
+            .insert({
+              account_id: accountId,
+              name: displayPackageName,
+              destination: displayDest,
+              price: 5000,
+              duration_days: 3,
+            })
+            .select('id')
+            .single();
+          packageId = createdPack?.id;
+          unitPrice = 5000;
+        }
+
+        const totalPrice = unitPrice * guestsCount;
+
+        const { data: newBooking, error: bookErr } = await db
+          .from('travel_bookings')
+          .insert({
+            account_id: accountId,
+            package_id: packageId,
+            contact_id: contactId,
+            travel_date: travelDate,
+            guests_count: guestsCount,
+            total_price: totalPrice,
+            status: 'Confirmed',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .select('id')
+          .single();
+
+        if (bookErr) {
+          console.error('[AI Travel] Booking insert error:', bookErr);
+        } else {
+          console.log('[AI Travel] Successfully created booking:', newBooking?.id);
+          if (tName && !contact?.name) {
+            await db
+              .from('contacts')
+              .update({ name: tName })
+              .eq('id', contactId);
+          }
+        }
+      } catch (travelErr) {
+        console.error('[AI Travel] Error handling travel booking:', travelErr);
+      }
+    }
+
+    // Real Estate Site Visit Automation
+    if (realestate_visit && realestate_visit.action === 'schedule') {
+      try {
+        const propName = String(
+          realestate_visit.property_name || 'Property Visit'
+        );
+        const vDate =
+          (realestate_visit.visit_date as string) ||
+          new Date().toISOString().split('T')[0];
+        const vTime = (realestate_visit.visit_time as string) || '11:00 AM';
+        const bName = (realestate_visit.buyer_name as string) || contact?.name;
+
+        await db.from('appointments').insert({
+          account_id: accountId,
+          patient_id: contactId,
+          department_name: propName,
+          appointment_date: vDate,
+          appointment_time: vTime,
+          status: 'Confirmed',
+          notes: `Site visit: ${propName} for ${bName || 'Buyer'}`,
+          created_at: new Date().toISOString(),
+        });
+      } catch (reErr) {
+        console.error('[AI RealEstate] Error scheduling site visit:', reErr);
       }
     }
 

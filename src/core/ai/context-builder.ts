@@ -75,6 +75,88 @@ export async function buildAiContextBundle({
     (kb) => `Q: ${kb.question_title}\nA: ${kb.answer_content}`
   );
 
+  // 3.5 Fetch Workplace Dynamic Catalog (Travel Packages, Courses, Properties, Services)
+  const catalogSnippets: string[] = [];
+
+  try {
+    const isTravel = industry === 'travel' || industry === 'tour' || industry === 'tourism';
+    const isRealEstate = industry === 'real_estate' || industry === 'realestate';
+    const isCoaching = industry === 'coaching' || industry === 'solo_teacher' || industry === 'education' || industry === 'tutor';
+    const isSalonOrGym = industry === 'salon' || industry === 'gym' || industry === 'restaurant';
+
+    if (isTravel) {
+      const { data: packages } = await db
+        .from('travel_packages')
+        .select('name, destination, duration_days, price, description')
+        .eq('account_id', accountId)
+        .limit(15);
+
+      if (packages && packages.length > 0) {
+        catalogSnippets.push('AVAILABLE TRAVEL & TOUR PACKAGES (DATABASE RECORDS):');
+        packages.forEach((pkg: Record<string, unknown>) => {
+          catalogSnippets.push(
+            `- Package: ${pkg.name} | Destination: ${pkg.destination} | Duration: ${pkg.duration_days} Days | Price: ₹${pkg.price} per person | Description: ${pkg.description || 'All standard sightseeing & transport included'}`
+          );
+        });
+      }
+    }
+
+    if (isCoaching || isSalonOrGym) {
+      const { data: courses } = await db
+        .from('coaching_courses')
+        .select('name, fee, duration')
+        .eq('account_id', accountId)
+        .limit(15);
+
+      if (courses && courses.length > 0) {
+        catalogSnippets.push(
+          isCoaching
+            ? 'AVAILABLE COURSES & PROGRAMS (DATABASE RECORDS):'
+            : 'AVAILABLE SERVICES & PLANS (DATABASE RECORDS):'
+        );
+        courses.forEach((c: Record<string, unknown>) => {
+          catalogSnippets.push(`- ${c.name}: Fee/Price: ₹${c.fee}, Duration: ${c.duration || 'N/A'}`);
+        });
+      }
+    }
+
+    if (isRealEstate) {
+      const { data: properties } = await db
+        .from('realestate_properties')
+        .select('name, location, price, type, bedrooms, bathrooms, status')
+        .eq('account_id', accountId)
+        .limit(15);
+
+      if (properties && properties.length > 0) {
+        catalogSnippets.push('AVAILABLE PROPERTIES & LISTINGS (DATABASE RECORDS):');
+        properties.forEach((p: Record<string, unknown>) => {
+          catalogSnippets.push(
+            `- ${p.name}: Location: ${p.location}, Price: ₹${p.price}, Type: ${p.type}, Configuration: ${p.bedrooms || 0} BHK, Status: ${p.status}`
+          );
+        });
+      }
+    }
+
+    // Generic fallback: check if any travel packages exist regardless of industry
+    if (!isTravel && catalogSnippets.length === 0) {
+      const { data: genericPacks } = await db
+        .from('travel_packages')
+        .select('name, destination, duration_days, price, description')
+        .eq('account_id', accountId)
+        .limit(10);
+      if (genericPacks && genericPacks.length > 0) {
+        catalogSnippets.push('AVAILABLE PACKAGES & SERVICES (DATABASE RECORDS):');
+        genericPacks.forEach((pkg: Record<string, unknown>) => {
+          catalogSnippets.push(
+            `- Package: ${pkg.name} | Destination: ${pkg.destination} | Duration: ${pkg.duration_days} Days | Price: ₹${pkg.price} per person | Description: ${pkg.description || 'N/A'}`
+          );
+        });
+      }
+    }
+  } catch (catalogErr) {
+    console.warn('[AI Context Builder] Catalog lookup notice:', catalogErr);
+  }
+
   // 4. Retrieve Conversation Memory
   const memory = await getConversationMemory(
     accountId,
@@ -115,8 +197,21 @@ export async function buildAiContextBundle({
     .reverse()
     .find((m) => m.role === 'user');
   const languageDirective = latestCustomerMsg?.content
-    ? `\n\n══════════════════════════════════════════════════\nCRITICAL LANGUAGE DIRECTIVE:\nThe customer's latest message is: "${latestCustomerMsg.content}"\nDetect the language and write your response in the EXACT same language and script/style.\n══════════════════════════════════════════════════`
+    ? `\n\n══════════════════════════════════════════════════
+CRITICAL MANDATORY MULTILINGUAL DIRECTIVE:
+1. The customer's latest message is: "${latestCustomerMsg.content}"
+2. You MUST detect the language and write your response in the EXACT same language and script/style.
+3. If the message is in Bengali (বাংলা or Banglish like "Darjeeling package koto?"), reply in Bengali (বাংলা or Banglish).
+4. If the message is in Hindi (हिंदी or Hinglish), reply in Hindi.
+5. If the message is in English, reply in English.
+6. UNDER NO CIRCUMSTANCES should you switch to English when the customer writes in Bengali, Hindi, or another regional language.
+══════════════════════════════════════════════════`
     : '';
+
+  const catalogText =
+    catalogSnippets.length > 0
+      ? `\n\nWORKPLACE LIVE DATABASE CATALOG:\n${catalogSnippets.join('\n')}\n`
+      : '';
 
   const fullSystemPrompt = `${CORE_SYSTEM_PROMPT}
 
@@ -128,7 +223,7 @@ CUSTOMER NAME: ${memory.contactName || 'Valued Client'} (${memory.contactMobile 
 
 INDUSTRY SPECIFIC GUIDANCE:
 ${industryConfig.systemPrompt}
-${customTenantPrompt}
+${customTenantPrompt}${catalogText}
 
 SAFETY & COMPLIANCE RULES:
 ${safetyRulesText}

@@ -972,3 +972,172 @@ aiToolRegistry.register({
     };
   },
 });
+
+// 20. Search Travel Packages (Travel Agency)
+aiToolRegistry.register({
+  name: 'searchTravelPackages',
+  description:
+    'Searches available tour and holiday packages by destination, duration, or budget.',
+  type: 'read',
+  allowedIndustries: ['travel'],
+  parameters: {
+    destination: {
+      type: 'string',
+      description: 'Destination or city name (e.g. Darjeeling, Kashmir, Goa, Dubai).',
+    },
+    maxBudget: {
+      type: 'number',
+      description: 'Maximum budget per person in ₹.',
+    },
+  },
+  execute: async (params, context: AiExecutionContext) => {
+    const db = getAdminClient();
+    const dest = params.destination ? String(params.destination).trim().toLowerCase() : '';
+    
+    let query = db
+      .from('travel_packages')
+      .select('id, name, destination, duration_days, price, description')
+      .eq('account_id', context.accountId);
+
+    if (dest) {
+      query = query.ilike('destination', `%${dest}%`);
+    }
+
+    const { data: packages } = await query.limit(5);
+
+    return {
+      success: true,
+      data: {
+        packages: (packages || []).map((p) => ({
+          id: p.id,
+          name: p.name,
+          destination: p.destination,
+          durationDays: p.duration_days,
+          price: p.price,
+          description: p.description,
+        })),
+      },
+    };
+  },
+});
+
+// 21. Book Travel Package (Travel Agency)
+aiToolRegistry.register({
+  name: 'bookTravelPackage',
+  description:
+    'Books or creates a tour package booking for a traveler with travel date and guests count.',
+  type: 'write',
+  allowedIndustries: ['travel'],
+  parameters: {
+    packageId: {
+      type: 'string',
+      description: 'The ID of the travel package.',
+    },
+    packageNameOrDestination: {
+      type: 'string',
+      description: 'Package name or destination.',
+      required: true,
+    },
+    travelDate: {
+      type: 'string',
+      description: 'Travel date (YYYY-MM-DD).',
+      required: true,
+    },
+    guestsCount: {
+      type: 'number',
+      description: 'Number of travelers/guests (e.g. 2).',
+      required: true,
+    },
+  },
+  execute: async (params, context: AiExecutionContext) => {
+    const db = getAdminClient();
+    const travelDate = String(params.travelDate);
+    const guestsCount = Number(params.guestsCount) || 1;
+    let packageId = params.packageId ? String(params.packageId) : null;
+    let packageName = String(params.packageNameOrDestination || 'Tour Package');
+    let unitPrice = 0;
+
+    // Resolve package if ID not provided
+    if (!packageId) {
+      const { data: matchedPacks } = await db
+        .from('travel_packages')
+        .select('id, name, destination, price')
+        .eq('account_id', context.accountId)
+        .ilike('name', `%${packageName}%`)
+        .limit(1);
+
+      if (matchedPacks && matchedPacks.length > 0) {
+        packageId = matchedPacks[0].id;
+        packageName = matchedPacks[0].name;
+        unitPrice = Number(matchedPacks[0].price) || 0;
+      } else {
+        const { data: anyPack } = await db
+          .from('travel_packages')
+          .select('id, name, price')
+          .eq('account_id', context.accountId)
+          .limit(1);
+        if (anyPack && anyPack.length > 0) {
+          packageId = anyPack[0].id;
+          packageName = anyPack[0].name;
+          unitPrice = Number(anyPack[0].price) || 0;
+        }
+      }
+    }
+
+    if (!packageId) {
+      // Create fallback package if none exists
+      const { data: createdPack } = await db
+        .from('travel_packages')
+        .insert({
+          account_id: context.accountId,
+          name: packageName,
+          destination: packageName,
+          price: 5000,
+          duration_days: 3,
+        })
+        .select('id')
+        .single();
+      packageId = createdPack?.id || null;
+      unitPrice = 5000;
+    }
+
+    const totalPrice = unitPrice * guestsCount;
+
+    const { data: booking, error } = await db
+      .from('travel_bookings')
+      .insert({
+        account_id: context.accountId,
+        package_id: packageId,
+        contact_id: context.contactId,
+        travel_date: travelDate,
+        guests_count: guestsCount,
+        total_price: totalPrice,
+        status: 'Confirmed',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single();
+
+    if (error || !booking) {
+      return {
+        success: false,
+        error: `Travel booking failed: ${error?.message || 'Database error'}`,
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        bookingId: booking.id,
+        packageName,
+        travelDate,
+        guestsCount,
+        totalPrice,
+        status: 'Confirmed',
+        message: `Booking confirmed for ${packageName} on ${travelDate} for ${guestsCount} guest(s). Total: ₹${totalPrice}.`,
+      },
+    };
+  },
+});
+
