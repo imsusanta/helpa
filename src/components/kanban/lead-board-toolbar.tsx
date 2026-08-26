@@ -88,7 +88,7 @@ export function LeadBoardToolbar({
               <SelectItem value="QUALIFYING">Qualifying</SelectItem>
               <SelectItem value="QUALIFIED">Qualified</SelectItem>
               <SelectItem value="BOOKED">Booked</SelectItem>
-              <SelectItem value="FOLLOW_UP">Follow-up</SelectItem>
+              <SelectItem value="FOLLOW_UP">{terminology.followUp}</SelectItem>
               <SelectItem value="CONVERTED">Won / Converted</SelectItem>
               <SelectItem value="LOST">Lost</SelectItem>
             </SelectContent>
@@ -192,7 +192,7 @@ export function LeadBoardToolbar({
 
           {filters.service !== 'all' && (
             <Badge variant="secondary" className="gap-1 text-[11px]">
-              Service: {filters.service}
+              {terminology.service}: {filters.service}
               <X
                 className="h-3 w-3 cursor-pointer"
                 onClick={() => onFilterChange('service', 'all')}

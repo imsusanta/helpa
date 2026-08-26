@@ -41,6 +41,7 @@ import {
 import { toast } from 'sonner';
 import { LeadStageType } from '@/core/types';
 import { useCan } from '@/hooks/use-can';
+import { useWorkspace } from '@/hooks/use-workspace';
 import { salesApi } from '@/lib/sales/api-client';
 
 interface LeadDetailsDrawerProps {
@@ -128,19 +129,26 @@ interface HydratedLeadDetails {
   role: string;
 }
 
-const STAGES: { id: LeadStageType; label: string }[] = [
-  { id: 'NEW', label: 'New Lead' },
-  { id: 'CONTACTED', label: 'Contacted' },
-  { id: 'QUALIFYING', label: 'Qualifying' },
-  { id: 'QUALIFIED', label: 'Qualified' },
-  { id: 'APPOINTMENT_OFFERED', label: 'Appointment Offered' },
-  { id: 'BOOKED', label: 'Booked' },
-  { id: 'CONFIRMED', label: 'Confirmed' },
-  { id: 'FOLLOW_UP', label: 'Follow-up' },
-  { id: 'ATTENDED', label: 'Attended' },
-  { id: 'CONVERTED', label: 'Converted' },
-  { id: 'LOST', label: 'Lost' },
-];
+/** Stage IDs are canonical API values; labels adapt to workspace terminology. */
+function getStageOptions(terminology: {
+  pipelineItem: string;
+  meeting: string;
+  followUp: string;
+}): { id: LeadStageType; label: string }[] {
+  return [
+    { id: 'NEW', label: `New ${terminology.pipelineItem}` },
+    { id: 'CONTACTED', label: 'Contacted' },
+    { id: 'QUALIFYING', label: 'Qualifying' },
+    { id: 'QUALIFIED', label: 'Qualified' },
+    { id: 'APPOINTMENT_OFFERED', label: `${terminology.meeting} Offered` },
+    { id: 'BOOKED', label: 'Booked' },
+    { id: 'CONFIRMED', label: 'Confirmed' },
+    { id: 'FOLLOW_UP', label: terminology.followUp },
+    { id: 'ATTENDED', label: 'Attended' },
+    { id: 'CONVERTED', label: 'Converted' },
+    { id: 'LOST', label: 'Lost' },
+  ];
+}
 
 export function LeadDetailsDrawer({
   leadId,
@@ -149,6 +157,9 @@ export function LeadDetailsDrawer({
   onStageChange,
 }: LeadDetailsDrawerProps) {
   const canSendMessages = useCan('send-messages');
+  const { terminology } = useWorkspace();
+  const pipelineItemLower = terminology.pipelineItem.toLowerCase();
+  const stageOptions = getStageOptions(terminology);
   const [details, setDetails] = useState<HydratedLeadDetails | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -166,7 +177,7 @@ export function LeadDetailsDrawer({
       );
       setDetails(data);
     } catch (err: unknown) {
-      setError((err as Error).message || 'Error loading lead details.');
+      setError((err as Error).message || 'Error loading details.');
     } finally {
       setLoading(false);
     }
@@ -217,10 +228,14 @@ export function LeadDetailsDrawer({
         method: 'POST',
         body: JSON.stringify({ createDeal: true }),
       });
-      toast.success('Lead converted to Customer & Deal successfully!');
+      toast.success(
+        `${terminology.pipelineItem} converted to ${terminology.person} successfully!`
+      );
       loadDetails(leadId);
     } catch (err: unknown) {
-      toast.error((err as Error).message || 'Failed to convert lead');
+      toast.error(
+        (err as Error).message || `Failed to convert ${pipelineItemLower}`
+      );
     } finally {
       setConverting(false);
     }
@@ -267,7 +282,7 @@ export function LeadDetailsDrawer({
           <div className="space-y-3 p-8 text-center">
             <AlertCircle className="text-destructive mx-auto h-10 w-10" />
             <h3 className="text-foreground text-base font-semibold">
-              Error Loading Lead
+              Error Loading {terminology.pipelineItem}
             </h3>
             <p className="text-muted-foreground text-xs">{error}</p>
             <Button
@@ -287,11 +302,11 @@ export function LeadDetailsDrawer({
                   <SheetTitle className="text-foreground text-lg font-bold">
                     {details.lead.contact?.name ||
                       details.lead.title ||
-                      'Patient Inquiry'}
+                      terminology.pipelineItem}
                   </SheetTitle>
                   <SheetDescription className="text-muted-foreground text-xs">
-                    {details.lead.contact?.phone || 'No phone provided'} •
-                    Service:{' '}
+                    {details.lead.contact?.phone || 'No phone provided'} •{' '}
+                    {terminology.service}:{' '}
                     {details.lead.ai_product_service || details.lead.title}
                   </SheetDescription>
                 </div>
@@ -357,7 +372,7 @@ export function LeadDetailsDrawer({
                   {(!canSendMessages || isOptedOut) && (
                     <TooltipContent>
                       {isOptedOut
-                        ? 'Patient has opted out of messages.'
+                        ? `${terminology.person} has opted out of messages.`
                         : 'Insufficient role permissions.'}
                     </TooltipContent>
                   )}
@@ -382,7 +397,7 @@ export function LeadDetailsDrawer({
                   {(!canSendMessages || isOptedOut) && (
                     <TooltipContent>
                       {isOptedOut
-                        ? 'Patient has opted out of messages.'
+                        ? `${terminology.person} has opted out of messages.`
                         : 'Insufficient role permissions.'}
                     </TooltipContent>
                   )}
@@ -409,7 +424,7 @@ export function LeadDetailsDrawer({
                   {(!canSendMessages || isOptedOut) && (
                     <TooltipContent>
                       {isOptedOut
-                        ? 'Patient has opted out of calls.'
+                        ? `${terminology.person} has opted out of calls.`
                         : 'Insufficient role permissions.'}
                     </TooltipContent>
                   )}
@@ -437,7 +452,7 @@ export function LeadDetailsDrawer({
                   <UserCheck className="h-3.5 w-3.5" />
                   {details.lead.stage === 'CONVERTED'
                     ? 'Converted'
-                    : 'Convert to Customer'}
+                    : `Convert to ${terminology.person}`}
                 </Button>
 
                 {/* Change Stage Dropdown */}
@@ -456,7 +471,7 @@ export function LeadDetailsDrawer({
                     }
                   />
                   <DropdownMenuContent align="end" className="w-48 text-xs">
-                    {STAGES.map((s) => (
+                    {stageOptions.map((s) => (
                       <DropdownMenuItem
                         key={s.id}
                         onClick={() => handleStageSelect(s.id)}
@@ -488,7 +503,7 @@ export function LeadDetailsDrawer({
                   Messages ({details.messages.length})
                 </TabsTrigger>
                 <TabsTrigger value="followups" className="text-xs">
-                  Follow-ups
+                  {terminology.followUps}
                 </TabsTrigger>
               </TabsList>
 
@@ -497,8 +512,8 @@ export function LeadDetailsDrawer({
                 <TabsContent value="overview" className="m-0 space-y-5">
                   <div className="bg-muted/30 border-border space-y-3 rounded-xl border p-4">
                     <h4 className="text-foreground flex items-center gap-1.5 text-xs font-bold tracking-wider uppercase">
-                      <UserCheck className="text-primary h-3.5 w-3.5" /> Contact
-                      Details
+                      <UserCheck className="text-primary h-3.5 w-3.5" />{' '}
+                      {terminology.person} Details
                     </h4>
                     <div className="grid grid-cols-2 gap-3 text-xs">
                       <div>
@@ -539,13 +554,13 @@ export function LeadDetailsDrawer({
                   {/* Service & AI Insights */}
                   <div className="bg-muted/30 border-border space-y-3 rounded-xl border p-4">
                     <h4 className="text-foreground flex items-center gap-1.5 text-xs font-bold tracking-wider uppercase">
-                      <FileText className="text-primary h-3.5 w-3.5" /> Service
-                      & Qualification
+                      <FileText className="text-primary h-3.5 w-3.5" />{' '}
+                      {terminology.service} & Qualification
                     </h4>
                     <div className="space-y-2 text-xs">
                       <div>
                         <span className="text-muted-foreground block text-[11px]">
-                          Requested Service
+                          Requested {terminology.service}
                         </span>
                         <span className="text-foreground font-medium">
                           {details.lead.ai_product_service ||
@@ -579,11 +594,11 @@ export function LeadDetailsDrawer({
                   <div className="bg-muted/30 border-border space-y-3 rounded-xl border p-4">
                     <h4 className="text-foreground flex items-center gap-1.5 text-xs font-bold tracking-wider uppercase">
                       <Calendar className="text-primary h-3.5 w-3.5" />{' '}
-                      Appointments ({details.appointments.length})
+                      {terminology.meetings} ({details.appointments.length})
                     </h4>
                     {details.appointments.length === 0 ? (
                       <p className="text-muted-foreground text-xs">
-                        No appointments booked yet.
+                        No {terminology.meetings.toLowerCase()} booked yet.
                       </p>
                     ) : (
                       <div className="space-y-2">
@@ -620,7 +635,7 @@ export function LeadDetailsDrawer({
                     <textarea
                       value={newNoteText}
                       onChange={(e) => setNewNoteText(e.target.value)}
-                      placeholder="Add an internal note about this lead..."
+                      placeholder={`Add an internal note about this ${pipelineItemLower}...`}
                       rows={3}
                       className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none"
                     />
@@ -701,7 +716,7 @@ export function LeadDetailsDrawer({
                 <TabsContent value="conversations" className="m-0 space-y-3">
                   {details.messages.length === 0 ? (
                     <p className="text-muted-foreground text-xs">
-                      No messages found for this lead.
+                      No messages found for this {pipelineItemLower}.
                     </p>
                   ) : (
                     <div className="space-y-2.5">
@@ -737,11 +752,11 @@ export function LeadDetailsDrawer({
                 <TabsContent value="followups" className="m-0 space-y-4">
                   <div className="bg-muted/30 border-border space-y-3 rounded-xl border p-4">
                     <h4 className="text-foreground text-xs font-bold tracking-wider uppercase">
-                      Follow-up Sequences ({details.followups.length})
+                      {terminology.followUp} Sequences ({details.followups.length})
                     </h4>
                     {details.followups.length === 0 ? (
                       <p className="text-muted-foreground text-xs">
-                        No active follow-up sequences enrolled.
+                        No active {terminology.followUp.toLowerCase()} sequences enrolled.
                       </p>
                     ) : (
                       <div className="space-y-2">

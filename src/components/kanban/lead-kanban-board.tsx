@@ -23,6 +23,7 @@ import { toast } from 'sonner';
 import { salesApi } from '@/lib/sales/api-client';
 import { SavedFilterBar } from '@/components/crm/saved-filter-bar';
 import { useAuth } from '@/hooks/use-auth';
+import { useWorkspace } from '@/hooks/use-workspace';
 import {
   Users,
   Flame,
@@ -42,6 +43,20 @@ export const CANONICAL_STAGES: StageColumnDef[] = [
   { id: 'LOST', label: 'Lost', color: '#ef4444' },
 ];
 
+/** Stage IDs are canonical; display labels adapt to the workspace industry. */
+function getStageColumns(terminology: {
+  pipelineItems: string;
+  followUp: string;
+}): StageColumnDef[] {
+  return CANONICAL_STAGES.map((stage) => {
+    if (stage.id === 'NEW')
+      return { ...stage, label: `New ${terminology.pipelineItems}` };
+    if (stage.id === 'FOLLOW_UP')
+      return { ...stage, label: terminology.followUp };
+    return stage;
+  });
+}
+
 export function LeadKanbanBoard({
   initialLeads = [],
 }: {
@@ -50,6 +65,16 @@ export function LeadKanbanBoard({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { terminology } = useWorkspace();
+  const pipelineItemLabel = terminology.pipelineItem;
+  const pipelineItemsLabel = terminology.pipelineItems;
+  const pipelineItemLower = pipelineItemLabel.toLowerCase();
+  const pipelineItemsLower = pipelineItemsLabel.toLowerCase();
+  const followUpLower = terminology.followUp.toLowerCase();
+  const stageColumns = useMemo(
+    () => getStageColumns(terminology),
+    [terminology]
+  );
 
   const [leads, setLeads] = useState<LeadCardModel[]>(initialLeads);
   const [loading, setLoading] = useState(false);
@@ -88,7 +113,7 @@ export function LeadKanbanBoard({
       if (Array.isArray(data)) {
         const mapped: LeadCardModel[] = data.map((d: any) => ({
           id: d.id || d.$id,
-          patientName: d.name || d.contacts?.name || 'Lead Inquiry',
+          patientName: d.name || d.contacts?.name || pipelineItemLabel,
           phone: d.phone || d.contacts?.phone,
           service: d.service || 'General Inquiry',
           stage: (d.stage as LeadStageType) || 'NEW',
@@ -114,7 +139,7 @@ export function LeadKanbanBoard({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [pipelineItemLabel]);
 
   useEffect(() => {
     if (initialLeads.length === 0) {
@@ -155,7 +180,7 @@ export function LeadKanbanBoard({
     ).length;
     if (hotNoFollowup > 0) {
       items.push(
-        `${hotNoFollowup} hot ${hotNoFollowup === 1 ? 'lead has' : 'leads have'} no follow-up scheduled`
+        `${hotNoFollowup} hot ${hotNoFollowup === 1 ? `${pipelineItemLower} has` : `${pipelineItemsLower} have`} no ${followUpLower} scheduled`
       );
     }
 
@@ -166,18 +191,18 @@ export function LeadKanbanBoard({
     ).length;
     if (uncontactedNew > 0) {
       items.push(
-        `${uncontactedNew} new ${uncontactedNew === 1 ? 'lead has' : 'leads have'} not been contacted yet`
+        `${uncontactedNew} new ${uncontactedNew === 1 ? `${pipelineItemLower} has` : `${pipelineItemsLower} have`} not been contacted yet`
       );
     }
 
     const attentionReq = leads.filter((l) => l.attentionRequired).length;
     if (attentionReq > 0) {
       items.push(
-        `${attentionReq} ${attentionReq === 1 ? 'lead requires' : 'leads require'} immediate attention`
+        `${attentionReq} ${attentionReq === 1 ? `${pipelineItemLower} requires` : `${pipelineItemsLower} require`} immediate attention`
       );
     }
     return items;
-  }, [leads]);
+  }, [leads, pipelineItemLower, pipelineItemsLower, followUpLower]);
 
   // DND Sensors
   const sensors = useSensors(
@@ -289,7 +314,7 @@ export function LeadKanbanBoard({
       let reason = customReason;
       if (targetStage === 'LOST' && !reason) {
         const userPrompt = window.prompt(
-          'Please provide a reason for marking this lead as LOST:'
+          `Please provide a reason for marking this ${pipelineItemLower} as LOST:`
         );
         if (userPrompt === null) {
           return false;
@@ -326,7 +351,7 @@ export function LeadKanbanBoard({
         return false;
       }
     },
-    [leads]
+    [leads, pipelineItemLower]
   );
 
   function handleDragStart(event: DragStartEvent) {
@@ -372,7 +397,7 @@ export function LeadKanbanBoard({
         <div className="bg-card border-border rounded-xl border p-3.5 shadow-2xs">
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground text-xs font-medium">
-              Total Leads
+              Total {pipelineItemsLabel}
             </span>
             <Users className="text-primary size-4" />
           </div>
@@ -383,7 +408,7 @@ export function LeadKanbanBoard({
         <div className="bg-card border-border rounded-xl border p-3.5 shadow-2xs">
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground text-xs font-medium">
-              Hot Leads
+              Hot {pipelineItemsLabel}
             </span>
             <Flame className="size-4 text-red-500" />
           </div>
@@ -394,7 +419,7 @@ export function LeadKanbanBoard({
         <div className="bg-card border-border rounded-xl border p-3.5 shadow-2xs">
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground text-xs font-medium">
-              New Leads
+              New {pipelineItemsLabel}
             </span>
             <TrendingUp className="size-4 text-blue-500" />
           </div>
@@ -405,7 +430,7 @@ export function LeadKanbanBoard({
         <div className="bg-card border-border rounded-xl border p-3.5 shadow-2xs">
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground text-xs font-medium">
-              Needs Follow-up
+              Needs {terminology.followUp}
             </span>
             <Clock className="size-4 text-amber-500" />
           </div>
@@ -472,14 +497,14 @@ export function LeadKanbanBoard({
         onDragCancel={() => setActiveLeadId(null)}
       >
         <div className="pipeline-scroll flex snap-x snap-mandatory gap-3.5 overflow-x-auto pb-4 lg:snap-none">
-          {CANONICAL_STAGES.map((col) => {
+          {stageColumns.map((col) => {
             const stageLeads = filteredLeads.filter((l) => l.stage === col.id);
             return (
               <LeadKanbanColumn
                 key={col.id}
                 column={col}
                 leads={stageLeads}
-                allStages={CANONICAL_STAGES}
+                allStages={stageColumns}
                 onCardClick={handleCardClick}
                 onMoveLeadStage={handleMoveLeadStage}
               />

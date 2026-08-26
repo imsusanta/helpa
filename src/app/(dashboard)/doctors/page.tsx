@@ -4,6 +4,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-auth';
+import { useWorkspace } from '@/hooks/use-workspace';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -43,6 +44,10 @@ const ALL_DAYS = [
 export default function DoctorsPage() {
   const { accountId, defaultCurrency } = useAuth();
   void defaultCurrency;
+  const { terminology } = useWorkspace();
+  const staffLabel = terminology.staffMember;
+  const staffPlural = terminology.staffMembers;
+  const staffLower = staffLabel.toLowerCase();
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -101,7 +106,7 @@ export default function DoctorsPage() {
   const handleSaveDoctor = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !department) {
-      toast.error('Please fill in Doctor Name and Department.');
+      toast.error(`Please fill in ${staffLabel} Name and Department.`);
       return;
     }
 
@@ -127,10 +132,10 @@ export default function DoctorsPage() {
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error || 'Failed to update doctor');
+          throw new Error(errData.error || `Failed to update ${staffLower}`);
         }
 
-        toast.success('Doctor profile updated successfully!');
+        toast.success(`${staffLabel} profile updated successfully!`);
       } else {
         const res = await fetch('/api/doctors', {
           method: 'POST',
@@ -140,10 +145,10 @@ export default function DoctorsPage() {
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error || 'Failed to create doctor');
+          throw new Error(errData.error || `Failed to create ${staffLower}`);
         }
 
-        toast.success('Doctor registered successfully!');
+        toast.success(`${staffLabel} registered successfully!`);
       }
 
       setName('');
@@ -158,7 +163,7 @@ export default function DoctorsPage() {
       setShowAddForm(false);
       loadDoctors();
     } catch (err: unknown) {
-      toast.error('Failed to save doctor: ' + (err as Error).message);
+      toast.error(`Failed to save ${staffLower}: ` + (err as Error).message);
     } finally {
       setSaving(false);
     }
@@ -191,14 +196,16 @@ export default function DoctorsPage() {
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || 'Failed to delete doctor');
+        throw new Error(errData.error || `Failed to delete ${staffLower}`);
       }
 
-      toast.success('Doctor deleted successfully!');
+      toast.success(`${staffLabel} deleted successfully!`);
       setDocIdToDelete(null);
       loadDoctors();
     } catch (err: unknown) {
-      toast.error('Failed to delete doctor: ' + (err as Error).message);
+      toast.error(
+        `Failed to delete ${staffLower}: ` + (err as Error).message
+      );
     } finally {
       setDeletingDoc(false);
     }
@@ -216,7 +223,9 @@ export default function DoctorsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-foreground text-2xl font-bold">Doctors</h1>
+          <h1 className="text-foreground text-2xl font-bold">
+            {staffPlural}
+          </h1>
           <p className="text-muted-foreground text-sm font-medium">
             Manage clinical staff on-call rotas and consultation rates.
           </p>
@@ -225,7 +234,7 @@ export default function DoctorsPage() {
           onClick={() => setShowAddForm(!showAddForm)}
           className="cursor-pointer"
         >
-          <Plus className="mr-2 h-4 w-4" /> New Doctor
+          <Plus className="mr-2 h-4 w-4" /> New {staffLabel}
         </Button>
       </div>
 
@@ -235,11 +244,13 @@ export default function DoctorsPage() {
           className="bg-card border-border animate-in fade-in slide-in-from-top-4 max-w-2xl space-y-4 rounded-xl border p-5 duration-200"
         >
           <h3 className="text-foreground font-bold">
-            {editingDocId ? 'Edit Doctor Profile' : 'New Doctor Profile'}
+            {editingDocId
+              ? `Edit ${staffLabel} Profile`
+              : `New ${staffLabel} Profile`}
           </h3>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label>Doctor Name *</Label>
+              <Label>{staffLabel} Name *</Label>
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -337,8 +348,8 @@ export default function DoctorsPage() {
               Cancel
             </Button>
             <Button type="submit" disabled={saving}>
-              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save
-              Doctor
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{' '}
+              Save {staffLabel}
             </Button>
           </div>
         </form>
@@ -348,12 +359,14 @@ export default function DoctorsPage() {
         <div className="border-border mx-auto max-w-2xl rounded-xl border border-dashed p-12 text-center">
           <Stethoscope className="text-muted-foreground mx-auto mb-4 h-12 w-12" />
           <h3 className="text-foreground text-lg font-bold">
-            No doctors registered
+            No {staffPlural.toLowerCase()} registered
           </h3>
           <p className="text-muted-foreground mt-1 mb-4 text-sm">
             Register on-call medical practitioners to allocate shift rotas.
           </p>
-          <Button onClick={() => setShowAddForm(true)}>New Doctor</Button>
+          <Button onClick={() => setShowAddForm(true)}>
+            New {staffLabel}
+          </Button>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
@@ -435,8 +448,8 @@ export default function DoctorsPage() {
       <ConfirmDialog
         open={!!docIdToDelete}
         onOpenChange={(open) => !open && setDocIdToDelete(null)}
-        title="Delete Doctor Profile"
-        description="Are you sure you want to delete this doctor? This will remove all their scheduling data."
+        title={`Delete ${staffLabel} Profile`}
+        description={`Are you sure you want to delete this ${staffLower}? This will remove all their scheduling data.`}
         onConfirm={executeDeleteDoctor}
         loading={deletingDoc}
       />

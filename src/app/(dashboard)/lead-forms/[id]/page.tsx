@@ -35,6 +35,7 @@ import {
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
 import { useAuth } from '@/hooks/use-auth';
+import { useWorkspace } from '@/hooks/use-workspace';
 import type { FormSubmission, LeadForm } from '@/types';
 
 interface FormDetailResponse {
@@ -76,6 +77,8 @@ export default function LeadFormDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { accountId } = useAuth();
+  const { terminology } = useWorkspace();
+  const pipelineItemsLower = terminology.pipelineItems.toLowerCase();
 
   const [form, setForm] = useState<
     | (LeadForm & { submission_count: number; leads_created_count: number })
@@ -149,10 +152,10 @@ export default function LeadFormDetailPage() {
         }),
       });
       if (!res.ok) throw new Error('Failed');
-      toast.success('Contact assigned.');
+      toast.success(`${terminology.contact} assigned.`);
       await fetchDetail();
     } catch {
-      toast.error('Unable to assign the contact.');
+      toast.error(`Unable to assign the ${terminology.contact.toLowerCase()}.`);
     }
   }
 
@@ -167,14 +170,18 @@ export default function LeadFormDetailPage() {
         credentials: 'include',
         body: JSON.stringify({
           contact_id: contactId,
-          title: 'Follow up on lead form enquiry',
+          title: `Follow up on ${terminology.pipelineItem.toLowerCase()} form enquiry`,
           due_date: due.toISOString().slice(0, 10),
         }),
       });
       if (!res.ok) throw new Error('Failed');
-      toast.success('Follow-up created — find it on the Follow-ups board.');
+      toast.success(
+        `${terminology.followUp} created — find it on the ${terminology.followUps} board.`
+      );
     } catch {
-      toast.error('Unable to create the follow-up.');
+      toast.error(
+        `Unable to create the ${terminology.followUp.toLowerCase()}.`
+      );
     }
   }
 
@@ -351,7 +358,7 @@ export default function LeadFormDetailPage() {
         <Card>
           <CardContent className="p-4">
             <div className="text-muted-foreground text-xs font-medium">
-              Leads Created
+              {terminology.pipelineItems} Created
             </div>
             <div className="text-foreground text-xl font-bold tabular-nums">
               {form.leads_created_count.toLocaleString()}
@@ -382,8 +389,8 @@ export default function LeadFormDetailPage() {
               title="No submissions yet."
               description={
                 form.status === 'active'
-                  ? 'Share your form link to start capturing leads.'
-                  : 'Activate this form and share the link to start capturing leads.'
+                  ? `Share your form link to start capturing ${pipelineItemsLower}.`
+                  : `Activate this form and share the link to start capturing ${pipelineItemsLower}.`
               }
             />
           ) : (
@@ -447,8 +454,8 @@ export default function LeadFormDetailPage() {
                                 )
                               }
                             >
-                              <ExternalLink className="mr-2 h-4 w-4" /> Open
-                              Contact
+                              <ExternalLink className="mr-2 h-4 w-4" /> Open{' '}
+                              {terminology.contact}
                             </DropdownMenuItem>
                             <AssignMenuItem
                               onAssign={(userId) =>
@@ -465,8 +472,8 @@ export default function LeadFormDetailPage() {
                                 )
                               }
                             >
-                              <UserPlus className="mr-2 h-4 w-4" /> Create
-                              Follow-up
+                              <UserPlus className="mr-2 h-4 w-4" /> Create{' '}
+                              {terminology.followUp}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuGroup>

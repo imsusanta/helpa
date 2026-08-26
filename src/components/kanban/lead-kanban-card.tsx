@@ -108,7 +108,7 @@ export function LeadKanbanCard({
       onClick={() => onClick(lead)}
       tabIndex={0}
       role="button"
-      aria-label={`Lead ${lead.patientName}, stage ${lead.stage}`}
+      aria-label={`${lead.patientName}, stage ${lead.stage}`}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();

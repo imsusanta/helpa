@@ -84,7 +84,7 @@ export default function FollowupsPage() {
   const [doctors, setDoctors] = useState<DoctorRef[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState('');
   const [selectedDoctorId, setSelectedDoctorId] = useState('');
-  const [followupType, setFollowupType] = useState('Follow-up Review');
+  const [followupType, setFollowupType] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -95,7 +95,7 @@ export default function FollowupsPage() {
 
   const PRESET_TYPES = useMemo(() => {
     switch (currentIndustry) {
-      case 'real-estate':
+      case 'real_estate':
         return [
           'Property Inquiry Follow-up',
           'Site Visit Scheduling',
@@ -114,7 +114,7 @@ export default function FollowupsPage() {
           'General Follow-up',
         ];
       case 'coaching':
-      case 'solo-teacher':
+      case 'solo_teacher':
         return [
           'Assignment Review',
           'Batch Enrollment Follow-up',
@@ -138,7 +138,15 @@ export default function FollowupsPage() {
           'Payment Installment Reminder',
           'Trip Feedback',
         ];
-      default:
+      case 'gym':
+        return [
+          'Membership Renewal Follow-up',
+          'Trial Session Follow-up',
+          'Plan Upgrade Discussion',
+          'Missed Session Check-in',
+          'Payment Reminder',
+        ];
+      case 'hospital_clinic':
         return [
           'General Health Follow-up',
           'Diabetes Review',
@@ -150,8 +158,15 @@ export default function FollowupsPage() {
           'Pregnancy ANC Check-up',
           'Post-Op Surgical Review',
         ];
+      default:
+        return [
+          `General ${terminology.followUp}`,
+          `${terminology.booking} ${terminology.followUp}`,
+          'Payment Reminder',
+          'Feedback Check-in',
+        ];
     }
-  }, [currentIndustry]);
+  }, [currentIndustry, terminology.followUp, terminology.booking]);
 
   const fetchFollowups = useCallback(async () => {
     setLoading(true);
@@ -160,7 +175,7 @@ export default function FollowupsPage() {
       const data = await res.json();
       setFollowups(data.followups || []);
     } catch {
-      toast.error('Failed to load follow-ups');
+      toast.error(`Failed to load ${terminology.followUps.toLowerCase()}`);
     } finally {
       setLoading(false);
     }
@@ -196,7 +211,7 @@ export default function FollowupsPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to send reminder');
-      toast.success('WhatsApp follow-up reminder sent!');
+      toast.success(`WhatsApp ${terminology.followUp.toLowerCase()} reminder sent!`);
       fetchFollowups();
     } catch (err: unknown) {
       toast.error((err as Error).message || 'Failed to send reminder');
@@ -236,7 +251,7 @@ export default function FollowupsPage() {
   async function handleCreateFollowup() {
     if (!selectedPatientId || !dueDate) {
       toast.error(
-        `${terminology.contact || 'Customer'} and Due Date are required`
+        `${terminology.contact} and Due Date are required`
       );
       return;
     }
@@ -248,22 +263,27 @@ export default function FollowupsPage() {
         body: JSON.stringify({
           patient_id: selectedPatientId,
           doctor_id: selectedDoctorId || null,
-          followup_type: followupType,
+          followup_type: followupType || PRESET_TYPES[0],
           due_date: dueDate,
           notes,
         }),
       });
       const data = await res.json();
       if (!res.ok)
-        throw new Error(data.error || 'Failed to schedule follow-up');
-      toast.success('Follow-up scheduled successfully!');
+        throw new Error(
+          data.error || `Failed to schedule ${terminology.followUp.toLowerCase()}`
+        );
+      toast.success(`${terminology.followUp} scheduled successfully!`);
       setNewDialogOpen(false);
       setSelectedPatientId('');
       setSelectedDoctorId('');
       setNotes('');
       fetchFollowups();
     } catch (err: unknown) {
-      toast.error((err as Error).message || 'Failed to schedule follow-up');
+      toast.error(
+        (err as Error).message ||
+          `Failed to schedule ${terminology.followUp.toLowerCase()}`
+      );
     } finally {
       setSubmitting(false);
     }
@@ -308,12 +328,11 @@ export default function FollowupsPage() {
         <div>
           <h1 className="text-foreground flex items-center gap-2 text-2xl font-bold">
             <Clock className="text-primary size-6" />
-            {terminology.contact || 'Patient'} Tasks & Follow-ups
+            {terminology.contact} Tasks & {terminology.followUps}
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Automate follow-up care, chronic condition reviews, and WhatsApp
-            reminders across your{' '}
-            {terminology.contacts?.toLowerCase() || 'contacts'}.
+            Automate {terminology.followUp.toLowerCase()} reminders and tasks
+            across your {terminology.contacts.toLowerCase()}.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -336,7 +355,7 @@ export default function FollowupsPage() {
             className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2 font-medium"
           >
             <Plus className="size-4" />
-            Schedule Follow-up
+            Schedule {terminology.followUp}
           </Button>
         </div>
       </div>
@@ -349,7 +368,7 @@ export default function FollowupsPage() {
           </div>
           <div>
             <p className="text-muted-foreground text-xs font-medium">
-              Total Active Follow-ups
+              Total Active {terminology.followUps}
             </p>
             <p className="text-foreground text-2xl font-bold">{totalCount}</p>
           </div>
@@ -431,11 +450,11 @@ export default function FollowupsPage() {
           <TableHeader>
             <TableRow className="bg-muted/30 border-border">
               <TableHead className="w-28">
-                {terminology.contact || 'Patient'} ID
+                {terminology.contact} ID
               </TableHead>
-              <TableHead>{terminology.contact || 'Patient'} Details</TableHead>
-              <TableHead>Task / Follow-up</TableHead>
-              <TableHead>Assigned / {terminology.staff || 'Doctor'}</TableHead>
+              <TableHead>{terminology.contact} Details</TableHead>
+              <TableHead>Task / {terminology.followUp}</TableHead>
+              <TableHead>Assigned / {terminology.staff}</TableHead>
               <TableHead>Due Date</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -448,7 +467,7 @@ export default function FollowupsPage() {
                   colSpan={7}
                   className="text-muted-foreground py-10 text-center text-sm"
                 >
-                  Loading follow-ups...
+                  Loading {terminology.followUps.toLowerCase()}...
                 </TableCell>
               </TableRow>
             ) : filteredList.length === 0 ? (
@@ -456,11 +475,11 @@ export default function FollowupsPage() {
                 <TableCell colSpan={7} className="py-12 text-center">
                   <Clock className="text-muted-foreground/40 mx-auto mb-2 size-10" />
                   <p className="text-foreground text-sm font-medium">
-                    No follow-ups found
+                    No {terminology.followUps.toLowerCase()} found
                   </p>
                   <p className="text-muted-foreground mt-1 text-xs">
-                    Schedule a follow-up review to keep track of{' '}
-                    {terminology.contact?.toLowerCase() || 'patient'} reminders
+                    Schedule a {terminology.followUp.toLowerCase()} review to
+                    keep track of {terminology.contact.toLowerCase()} reminders
                     and tasks.
                   </p>
                 </TableCell>
@@ -484,7 +503,7 @@ export default function FollowupsPage() {
                     <TableCell>
                       <p className="text-foreground text-sm font-semibold">
                         {item.patient?.name ||
-                          `Unknown ${terminology.contact || 'Patient'}`}
+                          `Unknown ${terminology.contact}`}
                       </p>
                       <p className="text-muted-foreground font-mono text-xs">
                         {item.patient?.phone}
@@ -592,14 +611,14 @@ export default function FollowupsPage() {
           <DialogHeader>
             <DialogTitle className="text-foreground flex items-center gap-2 text-lg font-bold">
               <Clock className="text-primary size-5" />
-              Schedule {terminology.contact || 'Patient'} Task / Follow-up
+              Schedule {terminology.contact} Task / {terminology.followUp}
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2 text-xs">
             <div>
               <Label className="text-foreground font-semibold">
-                Select {terminology.contact || 'Patient'} *
+                Select {terminology.contact} *
               </Label>
               <select
                 value={selectedPatientId}
@@ -607,7 +626,7 @@ export default function FollowupsPage() {
                 className="bg-background border-border text-foreground focus:ring-primary mt-1.5 w-full rounded-lg border p-2.5 text-xs focus:ring-1 focus:outline-none"
               >
                 <option value="">
-                  -- Choose {terminology.contact || 'Patient'} --
+                  -- Choose {terminology.contact} --
                 </option>
                 {patients.map((p) => {
                   const seq = p.metadata?.patient_id
@@ -625,10 +644,10 @@ export default function FollowupsPage() {
 
             <div>
               <Label className="text-foreground font-semibold">
-                Task / Follow-up Type *
+                Task / {terminology.followUp} Type *
               </Label>
               <select
-                value={followupType}
+                value={followupType || PRESET_TYPES[0]}
                 onChange={(e) => setFollowupType(e.target.value)}
                 className="bg-background border-border text-foreground focus:ring-primary mt-1.5 w-full rounded-lg border p-2.5 text-xs focus:ring-1 focus:outline-none"
               >
@@ -642,7 +661,7 @@ export default function FollowupsPage() {
 
             <div>
               <Label className="text-foreground font-semibold">
-                Assigned {terminology.staff || 'Staff / Doctor'} (Optional)
+                Assigned {terminology.staff} (Optional)
               </Label>
               <select
                 value={selectedDoctorId}
@@ -672,12 +691,12 @@ export default function FollowupsPage() {
 
             <div>
               <Label className="text-foreground font-semibold">
-                Instructions & Clinical Notes
+                Instructions & Notes
               </Label>
               <Textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="e.g. Fasting blood sugar report required before consultation."
+                placeholder={`Any instructions for this ${terminology.followUp.toLowerCase()}...`}
                 className="bg-background border-border mt-1.5 text-xs"
                 rows={3}
               />
@@ -693,7 +712,9 @@ export default function FollowupsPage() {
               onClick={handleCreateFollowup}
               className="bg-primary text-primary-foreground font-medium"
             >
-              {submitting ? 'Scheduling...' : 'Schedule Follow-up'}
+              {submitting
+                ? 'Scheduling...'
+                : `Schedule ${terminology.followUp}`}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -44,6 +44,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useAuth } from '@/hooks/use-auth';
+import { useWorkspace } from '@/hooks/use-workspace';
 import {
   getSuggestedFormFields,
   validateSubmissionData,
@@ -63,6 +64,8 @@ const STATUS_STYLES: Record<string, string> = {
 
 export default function LeadFormsPage() {
   const { accountId, account } = useAuth();
+  const { terminology } = useWorkspace();
+  const pipelineItemsLower = terminology.pipelineItems.toLowerCase();
   const router = useRouter();
 
   const [forms, setForms] = useState<EnrichedLeadForm[]>([]);
@@ -154,7 +157,7 @@ export default function LeadFormsPage() {
       }
       toast.success(
         status === 'active'
-          ? 'Form published — share the link to start capturing leads.'
+          ? `Form published — share the link to start capturing ${pipelineItemsLower}.`
           : 'Form saved as draft.'
       );
       setBuilderOpen(false);
@@ -255,7 +258,7 @@ export default function LeadFormsPage() {
         <div>
           <h1 className="text-foreground text-2xl font-bold">Lead Forms</h1>
           <p className="text-muted-foreground text-sm">
-            Capture new leads and send them directly into Helpa.
+            Capture new {pipelineItemsLower} and send them directly into Helpa.
           </p>
         </div>
         <Button onClick={openCreateDialog}>
@@ -290,7 +293,7 @@ export default function LeadFormsPage() {
         <EmptyState
           icon={FormInput}
           title="No lead forms yet."
-          description="Create a form to start capturing new leads."
+          description={`Create a form to start capturing new ${pipelineItemsLower}.`}
           actionLabel="Create Lead Form"
           onAction={openCreateDialog}
         />
@@ -323,7 +326,7 @@ export default function LeadFormsPage() {
             <Card>
               <CardContent className="p-4">
                 <div className="text-muted-foreground text-xs font-medium">
-                  New Leads
+                  New {terminology.pipelineItems}
                 </div>
                 <div className="text-foreground text-xl font-bold tabular-nums">
                   {totals.newLeads.toLocaleString()}
@@ -357,7 +360,9 @@ export default function LeadFormsPage() {
                     <TableHead>Form Name</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Submissions</TableHead>
-                    <TableHead className="text-right">New Leads</TableHead>
+                    <TableHead className="text-right">
+                      New {terminology.pipelineItems}
+                    </TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead className="text-right">Action</TableHead>
                   </TableRow>
@@ -500,7 +505,8 @@ export default function LeadFormsPage() {
                       Submissions: {form.submission_count.toLocaleString()}
                     </span>
                     <span>
-                      New Leads: {form.new_leads_count.toLocaleString()}
+                      New {terminology.pipelineItems}:{' '}
+                      {form.new_leads_count.toLocaleString()}
                     </span>
                   </div>
                   <div className="flex gap-2 pt-1">
@@ -663,7 +669,7 @@ export default function LeadFormsPage() {
         open={Boolean(formToDelete)}
         onOpenChange={(open) => !open && setFormToDelete(null)}
         title="Delete this lead form?"
-        description={`This permanently deletes "${formToDelete?.name}" and all of its submission history. Existing contacts and leads are kept.`}
+        description={`This permanently deletes "${formToDelete?.name}" and all of its submission history. Existing ${terminology.contacts.toLowerCase()} and ${pipelineItemsLower} are kept.`}
         confirmText={deleting ? 'Deleting…' : 'Delete Form'}
         loading={deleting}
         onConfirm={() => void deleteForm()}

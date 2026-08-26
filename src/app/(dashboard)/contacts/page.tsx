@@ -329,7 +329,7 @@ export default function ContactsPage() {
         ? `/api/contacts/export?ids=${[...selected].join(',')}`
         : `/api/contacts/export?search=${encodeURIComponent(search)}`;
     window.open(url, '_blank');
-    toast.success('Downloading contacts export CSV...');
+    toast.success(`Downloading ${entityLabelPlural.toLowerCase()} export CSV...`);
   };
 
   const handleBulkAssign = async () => {
@@ -349,12 +349,12 @@ export default function ContactsPage() {
         }),
       });
       if (!res.ok) throw new Error('Bulk assign failed');
-      toast.success(`Assigned ${ids.length} contacts`);
+      toast.success(`Assigned ${ids.length} ${entityLabelPlural.toLowerCase()}`);
       setSelected(new Set());
       setBulkAssignOpen(false);
       fetchContacts();
     } catch {
-      toast.error('Failed to assign contacts');
+      toast.error(`Failed to assign ${entityLabelPlural.toLowerCase()}`);
     }
   };
 
@@ -375,12 +375,12 @@ export default function ContactsPage() {
         }),
       });
       if (!res.ok) throw new Error('Bulk tagging failed');
-      toast.success(`Tagged ${ids.length} contacts`);
+      toast.success(`Tagged ${ids.length} ${entityLabelPlural.toLowerCase()}`);
       setSelected(new Set());
       setBulkTagOpen(false);
       fetchContacts();
     } catch {
-      toast.error('Failed to tag contacts');
+      toast.error(`Failed to tag ${entityLabelPlural.toLowerCase()}`);
     }
   };
 
@@ -401,7 +401,7 @@ export default function ContactsPage() {
         }),
       });
       if (!res.ok) throw new Error('Bulk tag removal failed');
-      toast.success(`Removed tag from ${ids.length} contacts`);
+      toast.success(`Removed tag from ${ids.length} ${entityLabelPlural.toLowerCase()}`);
       setSelected(new Set());
       setBulkRemoveTagOpen(false);
       fetchContacts();
@@ -427,7 +427,7 @@ export default function ContactsPage() {
         }),
       });
       if (!res.ok) throw new Error('Bulk stage update failed');
-      toast.success(`Moved ${ids.length} contacts to stage "${bulkStage}"`);
+      toast.success(`Moved ${ids.length} ${entityLabelPlural.toLowerCase()} to stage "${bulkStage}"`);
       setSelected(new Set());
       setBulkStageOpen(false);
       fetchContacts();
@@ -458,12 +458,12 @@ export default function ContactsPage() {
         }),
       });
       if (!res.ok) throw new Error('Bulk task creation failed');
-      toast.success(`Created follow-up tasks for ${ids.length} contacts`);
+      toast.success(`Created ${terminology.followUp.toLowerCase()} tasks for ${ids.length} ${entityLabelPlural.toLowerCase()}`);
       setSelected(new Set());
       setBulkFollowupOpen(false);
       fetchContacts();
     } catch {
-      toast.error('Failed to create follow-up tasks');
+      toast.error(`Failed to create ${terminology.followUp.toLowerCase()} tasks`);
     }
   };
 
@@ -502,7 +502,8 @@ export default function ContactsPage() {
           return;
         }
         const message =
-          payload?.error ?? `Unable to load contacts (${response.status})`;
+          payload?.error ??
+          `Unable to load ${entityLabelPlural.toLowerCase()} (${response.status})`;
         setLoadError(
           payload?.requestId
             ? `${message} (request ${payload.requestId})`
@@ -588,8 +589,10 @@ export default function ContactsPage() {
       setContacts(enriched);
     } catch {
       if (controller.signal.aborted) return;
-      setLoadError('Unable to load contacts. Check your connection and retry.');
-      toast.error('Failed to load contacts');
+      setLoadError(
+        `Unable to load ${entityLabelPlural.toLowerCase()}. Check your connection and retry.`
+      );
+      toast.error(`Failed to load ${entityLabelPlural.toLowerCase()}`);
     } finally {
       setLoading(false);
     }
@@ -763,14 +766,15 @@ export default function ContactsPage() {
       if (error) {
         throw error;
       } else {
-        toast.success(`${ids.length} patient profiles deleted`);
+        toast.success(`${ids.length} ${entityLabel.toLowerCase()} profiles deleted`);
         setSelected(new Set());
         fetchContacts();
       }
     } catch (err: unknown) {
       console.error('[Bulk Delete Patients] Error:', err);
       toast.error(
-        'Failed to delete patient profiles: ' + (err as Error).message
+        `Failed to delete ${entityLabel.toLowerCase()} profiles: ` +
+          (err as Error).message
       );
     } finally {
       setDeleting(false);
@@ -1090,7 +1094,7 @@ export default function ContactsPage() {
               className="gap-1 text-xs"
             >
               <Clock className="size-3.5 text-indigo-500" />
-              Create Follow-up
+              Create {terminology.followUp}
             </Button>
             <Button
               variant="outline"
@@ -1113,7 +1117,7 @@ export default function ContactsPage() {
               variant="destructive"
               size="sm"
               canAct={canEdit}
-              gateReason="delete contacts"
+              gateReason={`delete ${entityLabelPlural.toLowerCase()}`}
               onClick={() => setBulkDeleteOpen(true)}
             >
               <Trash2 className="size-3.5" />
@@ -1166,7 +1170,7 @@ export default function ContactsPage() {
                 Last Activity
               </TableHead>
               <TableHead className="text-muted-foreground">
-                Next Follow-up
+                Next {terminology.followUp}
               </TableHead>
               <TableHead className="text-muted-foreground text-right">
                 Actions
@@ -1287,7 +1291,7 @@ export default function ContactsPage() {
                             : 'border-emerald-500/30 bg-emerald-500/10 text-[10px] font-bold text-emerald-600 dark:text-emerald-400'
                         }
                       >
-                        {isLead ? 'Lead' : 'Customer'}
+                        {isLead ? terminology.pipelineItem : entityLabel}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -1455,7 +1459,7 @@ export default function ContactsPage() {
                   </div>
                   <div>
                     <span className="text-muted-foreground/70 block text-[10px] font-bold uppercase">
-                      Next Follow-up
+                      Next {terminology.followUp}
                     </span>
                     <span className="text-foreground font-medium">
                       {nextFollowup}
@@ -1778,7 +1782,7 @@ export default function ContactsPage() {
               <option value="QUALIFYING">Qualifying</option>
               <option value="QUALIFIED">Qualified</option>
               <option value="BOOKED">Booked</option>
-              <option value="FOLLOW_UP">Follow-up</option>
+              <option value="FOLLOW_UP">{terminology.followUp}</option>
               <option value="CONVERTED">Converted</option>
               <option value="LOST">Lost</option>
             </select>
@@ -1803,22 +1807,23 @@ export default function ContactsPage() {
         <DialogContent className="bg-popover border-border text-popover-foreground sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-popover-foreground">
-              Create Follow-up for {selected.size}{' '}
+              Create {terminology.followUp} for {selected.size}{' '}
               {selected.size === 1 ? entityLabel : entityLabelPlural}
             </DialogTitle>
             <DialogDescription className="text-muted-foreground">
-              Schedule a task or reminder for all selected contacts.
+              Schedule a task or reminder for all selected{' '}
+              {entityLabelPlural.toLowerCase()}.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
             <div>
               <label className="text-muted-foreground mb-1 block text-xs font-medium">
-                Task / Follow-up Title
+                Task / {terminology.followUp} Title
               </label>
               <Input
                 value={bulkTaskTitle}
                 onChange={(e) => setBulkTaskTitle(e.target.value)}
-                placeholder="e.g. Follow-up Call, Review, Payment Reminder"
+                placeholder={`e.g. ${terminology.followUp} Call, Review, Payment Reminder`}
                 className="text-xs"
               />
             </div>
@@ -1874,7 +1879,7 @@ export default function ContactsPage() {
               onClick={handleBulkCreateFollowup}
               disabled={!bulkTaskDueDate}
             >
-              Schedule Follow-ups
+              Schedule {terminology.followUps}
             </Button>
           </DialogFooter>
         </DialogContent>
