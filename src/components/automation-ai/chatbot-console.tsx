@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useWorkspace } from '@/hooks/use-workspace';
 import { toast } from 'sonner';
 import {
   Bot,
@@ -60,6 +61,7 @@ const STYLE_LABELS: Record<ResponseStyle, string> = {
 };
 
 export function ChatbotConsole() {
+  const { terminology } = useWorkspace();
   const { account, canEditSettings, profileLoading } = useAuth();
   const preset = getIndustryAiPreset(account?.industry);
   const {
@@ -234,7 +236,8 @@ export function ChatbotConsole() {
                     Enable AI auto-reply
                   </Label>
                   <p className="text-muted-foreground text-xs">
-                    Customers messaging your WhatsApp get instant AI answers.
+                    {terminology.people} messaging your WhatsApp get instant
+                    AI answers.
                   </p>
                 </div>
                 <Switch

@@ -30,6 +30,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Trash2, Plus, GripVertical, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
+import { useWorkspace } from '@/hooks/use-workspace';
 
 const STAGE_COLORS = [
   '#3b82f6',
@@ -63,6 +64,8 @@ export function PipelineSettings({
   onStagesChanged,
   onCreateNewPipeline,
 }: PipelineSettingsProps) {
+  const { terminology } = useWorkspace();
+  const pipelineItemsLower = terminology.pipelineItems.toLowerCase();
   const [name, setName] = useState(pipeline.name);
   const [localStages, setLocalStages] = useState<PipelineStage[]>(stages);
   const [newStageName, setNewStageName] = useState('');
@@ -123,7 +126,7 @@ export function PipelineSettings({
       onOpenChange(false);
       onPipelinesChanged();
       onStagesChanged();
-      toast.success('Pipeline saved');
+      toast.success(`${terminology.pipeline} saved`);
     } catch (err: unknown) {
       setSaving(false);
       toast.error((err as Error).message || 'Failed to save pipeline');
@@ -179,7 +182,7 @@ export function PipelineSettings({
       setDeleting(false);
       onOpenChange(false);
       onPipelinesChanged();
-      toast.success('Pipeline deleted');
+      toast.success(`${terminology.pipeline} deleted`);
     } catch (err: unknown) {
       setDeleting(false);
       toast.error((err as Error).message || 'Failed to delete pipeline');
@@ -191,7 +194,7 @@ export function PipelineSettings({
       <DialogContent className="bg-popover border-border max-h-[85vh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-popover-foreground">
-            Manage Pipeline
+            Manage {terminology.pipeline}
           </DialogTitle>
         </DialogHeader>
 
@@ -201,11 +204,11 @@ export function PipelineSettings({
               <AlertTriangle className="h-5 w-5 shrink-0 text-red-400" />
               <div>
                 <p className="text-sm font-medium text-red-400">
-                  Delete Pipeline
+                  Delete {terminology.pipeline}
                 </p>
                 <p className="text-muted-foreground mt-1 text-xs">
-                  This will archive all deals in this pipeline. This cannot be
-                  undone.
+                  This will archive all {pipelineItemsLower} in this pipeline.
+                  This cannot be undone.
                 </p>
               </div>
             </div>
@@ -222,7 +225,7 @@ export function PipelineSettings({
                 disabled={deleting}
                 className="bg-red-600 text-white hover:bg-red-700"
               >
-                {deleting ? 'Deleting...' : 'Delete Pipeline'}
+                {deleting ? 'Deleting...' : `Delete ${terminology.pipeline}`}
               </Button>
             </div>
           </div>
@@ -230,7 +233,9 @@ export function PipelineSettings({
           <>
             <div className="grid gap-4 py-2">
               <div className="grid gap-2">
-                <Label className="text-muted-foreground">Pipeline Name</Label>
+                <Label className="text-muted-foreground">
+                  {terminology.pipeline} Name
+                </Label>
                 <Input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -330,7 +335,7 @@ export function PipelineSettings({
                 onClick={() => setShowDeleteConfirm(true)}
                 className="mr-auto bg-red-600 hover:bg-red-700"
               >
-                Delete Pipeline
+                Delete {terminology.pipeline}
               </Button>
               <Button
                 variant="outline"

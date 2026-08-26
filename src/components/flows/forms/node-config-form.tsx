@@ -25,6 +25,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useWorkspace } from '@/hooks/use-workspace';
 import { Loader2, Paperclip, Plus, Trash2, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -591,6 +592,7 @@ function ConditionForm({
   currentKey: string;
   onUpdateConfig: (patch: Record<string, unknown>) => void;
 }) {
+  const { terminology } = useWorkspace();
   const tags = useUserTags();
 
   const subject = cfg.subject ?? 'var';
@@ -613,8 +615,12 @@ function ConditionForm({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="var">Captured variable</SelectItem>
-              <SelectItem value="tag">Contact has tag</SelectItem>
-              <SelectItem value="contact_field">Contact field</SelectItem>
+              <SelectItem value="tag">
+                {terminology.contact} has tag
+              </SelectItem>
+              <SelectItem value="contact_field">
+                {terminology.contact} field
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>

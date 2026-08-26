@@ -11,7 +11,7 @@ export default function IntegrationsPage() {
         </h1>
         <p className="text-sm text-slate-500">
           Connect WhatsApp, Instagram, Facebook Messenger, and lead capture
-          tools to centralize your customer communications.
+          tools to centralize your conversations in one inbox.
         </p>
       </div>
 

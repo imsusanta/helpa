@@ -18,6 +18,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useWorkspace } from '@/hooks/use-workspace';
 import {
   CircleAlert,
   Plus,
@@ -260,6 +261,7 @@ function TriggerPanel({
   setState: React.Dispatch<React.SetStateAction<BuilderState>>;
   triggerIssues: ValidationIssue[];
 }) {
+  const { terminology } = useWorkspace();
   return (
     <section className="border-border bg-card rounded-lg border p-4">
       <h2 className="text-foreground mb-3 text-sm font-semibold">Trigger</h2>
@@ -287,7 +289,7 @@ function TriggerPanel({
                 A message contains a keyword
               </SelectItem>
               <SelectItem value="first_inbound_message">
-                Customer&apos;s first ever inbound message
+                {terminology.contact}&apos;s first ever inbound message
               </SelectItem>
               <SelectItem value="manual">
                 Manual only (no auto-trigger)

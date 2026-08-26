@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { createClient } from '@/lib/db/client';
 import { useAuth } from '@/hooks/use-auth';
+import { useWorkspace } from '@/hooks/use-workspace';
 import {
   dedupeByPhone,
   isUniqueViolation,
@@ -125,6 +126,7 @@ export function ImportModal({
 }: ImportModalProps) {
   const appwrite = createClient();
   const { accountId, canEditSettings } = useAuth();
+  const { terminology } = useWorkspace();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [file, setFile] = useState<File | null>(null);
@@ -358,7 +360,9 @@ export function ImportModal({
           tagIdByKey
         );
       } catch {
-        toast.warning('Contacts imported, but some tag assignments failed.');
+        toast.warning(
+          `${terminology.contacts} imported, but some tag assignments failed.`
+        );
       }
 
       setResult({ imported, skipped, failed, tagsAssigned });
@@ -424,7 +428,7 @@ export function ImportModal({
         <div className="border-border/80 shrink-0 space-y-4 border-b px-6 pt-6 pb-5">
           <DialogHeader className="gap-1.5">
             <DialogTitle className="text-popover-foreground text-lg">
-              Import Contacts
+              Import {terminology.contacts}
             </DialogTitle>
             <DialogDescription className="text-muted-foreground leading-relaxed">
               Upload a CSV with a required{' '}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useWorkspace } from '@/hooks/use-workspace';
 import type { ActivityItem } from '@/types';
 import {
   MessageSquare,
@@ -25,6 +26,7 @@ interface ContactActivityTimelineProps {
 export function ContactActivityTimeline({
   contactId,
 }: ContactActivityTimelineProps) {
+  const { terminology } = useWorkspace();
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState<string>('all');
@@ -129,7 +131,7 @@ export function ContactActivityTimeline({
             variant="outline"
             className="border-blue-500/30 bg-blue-500/10 text-[10px] text-blue-600"
           >
-            Appointment
+            {terminology.meeting}
           </Badge>
         );
       case 'task':
@@ -138,7 +140,7 @@ export function ContactActivityTimeline({
             variant="outline"
             className="border-indigo-500/30 bg-indigo-500/10 text-[10px] text-indigo-600"
           >
-            Task / Follow-up
+            Task / {terminology.followUp}
           </Badge>
         );
       case 'deal_stage':
@@ -181,9 +183,9 @@ export function ContactActivityTimeline({
               { id: 'all', label: 'All' },
               { id: 'messages', label: 'WhatsApp' },
               { id: 'notes', label: 'Notes' },
-              { id: 'appointments', label: 'Appointments' },
+              { id: 'appointments', label: terminology.meetings },
               { id: 'tasks', label: 'Tasks' },
-              { id: 'deals', label: 'Deals' },
+              { id: 'deals', label: terminology.pipelineItems },
             ] as const
           ).map((t) => (
             <button

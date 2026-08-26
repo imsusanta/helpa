@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/db/client';
 import { useAuth } from '@/hooks/use-auth';
+import { useWorkspace } from '@/hooks/use-workspace';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -35,7 +36,9 @@ export function SendOutboundModal({
   const appwrite = createClient();
   const { accountId, account } = useAuth();
   void accountId;
-  const businessName = account?.name || 'our Clinic';
+  const { terminology, currentIndustry } = useWorkspace();
+  const isClinical = currentIndustry === 'hospital_clinic';
+  const businessName = account?.name || 'our business';
 
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [selectedContactId, setSelectedContactId] = useState<string>('');
@@ -80,18 +83,22 @@ export function SendOutboundModal({
   }
 
   function setQuickTemplate(type: 'welcome' | 'appointment' | 'report') {
-    const patientName = customName || 'Patient';
+    const recipientName = customName || terminology.contact;
     if (type === 'welcome') {
       setMessage(
-        `Hello ${patientName}, welcome to *${businessName}*! 🏥 How can we assist you with your healthcare and consultation needs today?`
+        isClinical
+          ? `Hello ${recipientName}, welcome to *${businessName}*! 🏥 How can we assist you with your healthcare and consultation needs today?`
+          : `Hello ${recipientName}, welcome to *${businessName}*! How can we assist you today?`
       );
     } else if (type === 'appointment') {
       setMessage(
-        `Hello ${patientName}, this is a reminder from *${businessName}* regarding your upcoming doctor consultation appointment. Please let us know if you need to confirm or reschedule.`
+        `Hello ${recipientName}, this is a reminder from *${businessName}* regarding your upcoming ${terminology.meeting.toLowerCase()}. Please let us know if you need to confirm or reschedule.`
       );
     } else if (type === 'report') {
       setMessage(
-        `Hello ${patientName}, your diagnostic lab test report from *${businessName}* is ready. You can reply 'REPORT' to get your report PDF directly on WhatsApp.`
+        isClinical
+          ? `Hello ${recipientName}, your diagnostic lab test report from *${businessName}* is ready. You can reply 'REPORT' to get your report PDF directly on WhatsApp.`
+          : `Hello ${recipientName}, your ${terminology.report.toLowerCase()} from *${businessName}* is ready. You can reply 'REPORT' to get it directly on WhatsApp.`
       );
     }
   }
@@ -158,7 +165,8 @@ export function SendOutboundModal({
                 Send Outbound WhatsApp Message
               </DialogTitle>
               <DialogDescription className="text-muted-foreground text-xs">
-                Directly contact patients or leads on WhatsApp
+                Directly contact {terminology.people.toLowerCase()} or{' '}
+                {terminology.pipelineItems.toLowerCase()} on WhatsApp
               </DialogDescription>
             </div>
           </div>
@@ -168,7 +176,7 @@ export function SendOutboundModal({
           {!defaultContact && (
             <div className="space-y-1.5">
               <Label className="text-muted-foreground text-xs">
-                Select Existing Patient / Contact
+                Select Existing {terminology.contact}
               </Label>
               <select
                 value={selectedContactId}
@@ -189,7 +197,7 @@ export function SendOutboundModal({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-muted-foreground text-xs">
-                Patient / Contact Name
+                {terminology.contact} Name
               </Label>
               <Input
                 value={customName}
@@ -237,7 +245,7 @@ export function SendOutboundModal({
                 onClick={() => setQuickTemplate('appointment')}
                 className="bg-muted/60 hover:bg-muted border-border h-7 text-[11px]"
               >
-                📅 Doctor Appointment
+                📅 {terminology.meeting}
               </Button>
               <Button
                 type="button"
@@ -246,7 +254,7 @@ export function SendOutboundModal({
                 onClick={() => setQuickTemplate('report')}
                 className="bg-muted/60 hover:bg-muted border-border h-7 text-[11px]"
               >
-                📋 Lab Report
+                📋 {terminology.report}
               </Button>
             </div>
           </div>

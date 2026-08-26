@@ -53,6 +53,7 @@ import type {
 } from '@/types';
 import { createClient } from '@/lib/db/client';
 import { cn } from '@/lib/utils';
+import { useWorkspace } from '@/hooks/use-workspace';
 
 // ------------------------------------------------------------
 // Types (builder-local — mirror the flattened rows we POST)
@@ -151,11 +152,20 @@ const ADDABLE_STEPS: AutomationStepType[] = [
   'close_conversation',
 ];
 
-const TRIGGER_OPTIONS: {
+type TriggerTerminology = {
+  contact: string;
+  meeting: string;
+};
+
+/** Trigger/step values are canonical API identifiers; only labels adapt. */
+function getTriggerOptions(terminology: TriggerTerminology): {
   value: AutomationTriggerType;
   label: string;
   hint: string;
-}[] = [
+}[] {
+  const contactLower = terminology.contact.toLowerCase();
+  const meetingLower = terminology.meeting.toLowerCase();
+  return [
   {
     value: 'new_message_received',
     label: 'New Message Received',
@@ -163,8 +173,8 @@ const TRIGGER_OPTIONS: {
   },
   {
     value: 'first_inbound_message',
-    label: 'First Message from Contact',
-    hint: 'First time this contact ever messages you (works for manually-added contacts too)',
+    label: `First Message from ${terminology.contact}`,
+    hint: `First time this ${contactLower} ever messages you (works for manually-added ${contactLower}s too)`,
   },
   {
     value: 'keyword_match',
@@ -173,8 +183,8 @@ const TRIGGER_OPTIONS: {
   },
   {
     value: 'new_contact_created',
-    label: 'New Contact Created',
-    hint: 'When a contact is auto-created from an incoming message',
+    label: `New ${terminology.contact} Created`,
+    hint: `When a ${contactLower} is auto-created from an incoming message`,
   },
   {
     value: 'conversation_assigned',
@@ -184,7 +194,7 @@ const TRIGGER_OPTIONS: {
   {
     value: 'tag_added',
     label: 'Tag Added',
-    hint: 'When a tag is added to a contact',
+    hint: `When a tag is added to a ${contactLower}`,
   },
   {
     value: 'form_submitted',
@@ -194,20 +204,32 @@ const TRIGGER_OPTIONS: {
   { value: 'time_based', label: 'Time-Based', hint: 'On a recurring schedule' },
   {
     value: 'appointment_created',
-    label: 'Appointment Booked',
-    hint: 'As soon as an appointment is booked for this contact',
+    label: `${terminology.meeting} Booked`,
+    hint: `As soon as an ${meetingLower} is booked for this ${contactLower}`,
   },
   {
     value: 'appointment_reminder',
-    label: 'Appointment Reminder',
-    hint: 'A set amount of time before the appointment starts',
+    label: `${terminology.meeting} Reminder`,
+    hint: `A set amount of time before the ${meetingLower} starts`,
   },
   {
     value: 'appointment_cancelled',
-    label: 'Appointment Cancelled',
-    hint: 'When an appointment is cancelled',
+    label: `${terminology.meeting} Cancelled`,
+    hint: `When an ${meetingLower} is cancelled`,
   },
-];
+  ];
+}
+
+/** Terminology-aware display label for a step type. */
+function getStepLabel(
+  type: AutomationStepType,
+  terminology: { contact: string; pipelineItem: string }
+): string {
+  if (type === 'update_contact_field')
+    return `Update ${terminology.contact} Field`;
+  if (type === 'create_deal') return `Create ${terminology.pipelineItem}`;
+  return STEP_META[type].label;
+}
 
 /** Reminder offsets offered in the UI, in minutes before the appointment. */
 const REMINDER_OFFSETS: { value: number; label: string }[] = [
@@ -758,6 +780,8 @@ function TriggerCard({
   onConfigChange: (c: Record<string, unknown>) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const { terminology } = useWorkspace();
+  const TRIGGER_OPTIONS = getTriggerOptions(terminology);
   return (
     // Card width: full on mobile, fixed 320px on sm+. The canvas wrapper
     // (max-w-2xl + px-4) keeps this tidy on tablet/desktop.
@@ -1077,7 +1101,9 @@ function StepRenderer({
           index,
         },
   ];
+  const { terminology } = useWorkspace();
   const meta = STEP_META[step.step_type];
+  const stepLabel = getStepLabel(step.step_type, terminology);
   const Icon = meta.icon;
   const expanded = props.expandedId === step.cid;
   const isCondition = step.step_type === 'condition';
@@ -1118,7 +1144,7 @@ function StepRenderer({
                     : 'Action'}
               </div>
               <div className="text-foreground truncate text-sm font-medium">
-                {meta.label}
+                {stepLabel}
               </div>
               <div className="text-muted-foreground truncate text-[11px]">
                 {previewFor(step)}
@@ -1242,6 +1268,7 @@ function BranchColumn({
 }
 
 function AddButton({ onPick }: { onPick: (t: AutomationStepType) => void }) {
+  const { terminology } = useWorkspace();
   return (
     <div className="relative flex flex-col items-center">
       <div className="bg-border h-4 w-[2px]" aria-hidden />
@@ -1261,7 +1288,7 @@ function AddButton({ onPick }: { onPick: (t: AutomationStepType) => void }) {
             return (
               <DropdownMenuItem key={t} onClick={() => onPick(t)}>
                 <Icon className="h-4 w-4" />
-                {STEP_META[t].label}
+                {getStepLabel(t, terminology)}
               </DropdownMenuItem>
             );
           })}
@@ -1283,6 +1310,7 @@ function StepEditor({
   step: BuilderStep;
   onChange: (s: BuilderStep) => void;
 }) {
+  const { terminology } = useWorkspace();
   const cfg = step.step_config;
   const set = (patch: Record<string, unknown>) =>
     onChange({ ...step, step_config: { ...cfg, ...patch } });
@@ -1430,7 +1458,9 @@ function StepEditor({
               className="border-border bg-muted text-foreground w-full rounded-md border px-2 py-1.5 text-sm"
             >
               <option value="tag_presence">Tag presence</option>
-              <option value="contact_field">Contact field</option>
+              <option value="contact_field">
+                {terminology.contact} field
+              </option>
               <option value="message_content">Message content</option>
               <option value="time_of_day">Time of day</option>
             </select>

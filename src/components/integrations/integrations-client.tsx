@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useWorkspace } from '@/hooks/use-workspace';
 import Link from 'next/link';
 import {
   ExternalLink,
@@ -75,6 +76,7 @@ interface IntegrationApp {
 }
 
 export function IntegrationsClient() {
+  const { terminology } = useWorkspace();
   const [_loading, setLoading] = useState(true);
   const [whatsAppConnected, setWhatsAppConnected] = useState(false);
   const [whatsAppPhone, setWhatsAppPhone] = useState<string | null>(null);
@@ -236,7 +238,7 @@ export function IntegrationsClient() {
       setMessengerConnected(true);
       setActiveModal(null);
       toast.success(
-        'Facebook Messenger connected! Page inquiries will now sync to Contacts.'
+        `Facebook Messenger connected! Page inquiries will now sync to ${terminology.contacts}.`
       );
     }, 1200);
   };
@@ -362,7 +364,7 @@ export function IntegrationsClient() {
             </h2>
             <p className="text-sm text-slate-600">
               Build forms, share a public link, or embed on your website.
-              Submissions sync to Contacts.
+              Submissions sync to {terminology.contacts}.
             </p>
           </div>
           <Button
@@ -882,8 +884,9 @@ export function IntegrationsClient() {
                   </Badge>
                 </div>
                 <p className="text-[11px] text-slate-500">
-                  Embed code ready. Collects Name, Phone, Service requirement,
-                  and syncs to Contacts.
+                  Embed code ready. Collects Name, Phone,{' '}
+                  {terminology.service} requirement, and syncs to{' '}
+                  {terminology.contacts}.
                 </p>
                 <div className="mt-2 flex items-center gap-2">
                   <Button

@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useWorkspace } from '@/hooks/use-workspace';
 import { createClient } from '@/lib/db/client';
 import { useAuth } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
@@ -844,7 +845,9 @@ export function MessageThread({
     return map;
   }, [reactions]);
 
-  const contactDisplayName = contact?.name || contact?.phone || 'Customer';
+  const { terminology } = useWorkspace();
+  const contactDisplayName =
+    contact?.name || contact?.phone || terminology.contact;
 
   // Author label for a quoted message: "You" when we sent the parent,
   // contact name when the customer sent it.
@@ -993,7 +996,7 @@ export function MessageThread({
     conversation.contact ||
     ({
       id: conversation.contact_id || 'unknown',
-      name: 'Contact',
+      name: terminology.contact,
       phone: '',
       account_id: '',
       user_id: '',
@@ -1005,7 +1008,7 @@ export function MessageThread({
     effectiveContact.name ||
     effectiveContact.phone ||
     conversation.contact_id ||
-    'Contact';
+    terminology.contact;
   const messageGroups = groupMessagesByDate(messages);
   const currentStatus = STATUS_OPTIONS.find(
     (s) => s.value === conversation.status

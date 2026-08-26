@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useWorkspace } from '@/hooks/use-workspace';
 import { createClient } from '@/lib/db/client';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
@@ -31,6 +32,8 @@ export function CustomFieldsManager({
   open,
   onOpenChange,
 }: CustomFieldsManagerProps) {
+  const { terminology } = useWorkspace();
+  const contactLower = terminology.contact.toLowerCase();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="border-border bg-popover text-popover-foreground sm:max-w-md">
@@ -39,9 +42,9 @@ export function CustomFieldsManager({
             Custom fields
           </DialogTitle>
           <DialogDescription className="text-muted-foreground">
-            Define extra contact fields (e.g. ZIP code, lead source). They
-            appear on every contact and in the “Update Contact Field” automation
-            action.
+            Define extra {contactLower} fields (e.g. ZIP code, source). They
+            appear on every {contactLower} and in the “Update{' '}
+            {terminology.contact} Field” automation action.
           </DialogDescription>
         </DialogHeader>
         <CustomFieldsPanel />

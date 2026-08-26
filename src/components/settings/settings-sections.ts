@@ -15,6 +15,10 @@ import {
   Database,
   type LucideIcon,
 } from 'lucide-react';
+import {
+  getIndustryTerminology,
+  resolveIndustryAlias,
+} from '@/modules/terminology';
 
 /**
  * Settings information architecture for the redesigned page.
@@ -68,76 +72,69 @@ interface IndustryLabels {
   reminders: string;
 }
 
-const INDUSTRY_LABELS: Record<string, IndustryLabels> = {
+/**
+ * Labels that aren't covered by the shared terminology registry (AI persona
+ * names and knowledge-base framing). The `fields` label is always derived
+ * from `src/modules/terminology.ts` so the contact noun has a single source
+ * of truth.
+ */
+const INDUSTRY_LABEL_OVERRIDES: Record<
+  string,
+  Partial<Pick<IndustryLabels, 'deals' | 'ai' | 'kb'>>
+> = {
   hospital_clinic: {
-    fields: 'Patient Custom Fields',
     deals: 'Currency & Billing',
     ai: 'AI Receptionist',
     kb: 'Hospital Info & FAQs',
-    reminders: 'Smart Reminders',
   },
   coaching: {
-    fields: 'Student Custom Fields',
     deals: 'Currency & Pricing',
     ai: 'AI Counselor',
     kb: 'Institute Info & FAQs',
-    reminders: 'Smart Reminders',
   },
   real_estate: {
-    fields: 'Lead Custom Fields',
     deals: 'Currency & Pipeline',
     ai: 'AI Sales Assistant',
     kb: 'Property Info & FAQs',
-    reminders: 'Smart Reminders',
   },
   travel: {
-    fields: 'Traveler Custom Fields',
     deals: 'Currency & Rates',
     ai: 'AI Travel Assistant',
     kb: 'Travel Info & FAQs',
-    reminders: 'Smart Reminders',
   },
   gym: {
-    fields: 'Member Custom Fields',
     deals: 'Currency & Billing',
     ai: 'AI Fitness Assistant',
     kb: 'Gym Info & FAQs',
-    reminders: 'Smart Reminders',
   },
   restaurant: {
-    fields: 'Guest Custom Fields',
     deals: 'Currency & Pricing',
     ai: 'AI Reservation Assistant',
     kb: 'Restaurant Info & FAQs',
-    reminders: 'Smart Reminders',
   },
   solo_teacher: {
-    fields: 'Student Custom Fields',
     deals: 'Currency & Tuition',
     ai: 'AI Teaching Assistant',
     kb: 'Course Info & FAQs',
-    reminders: 'Smart Reminders',
   },
   salon: {
-    fields: 'Client Custom Fields',
     deals: 'Currency & Services',
     ai: 'AI Salon Receptionist',
     kb: 'Salon Info & FAQs',
-    reminders: 'Smart Reminders',
   },
 };
 
-const DEFAULT_LABELS: IndustryLabels = {
-  fields: 'Contact Custom Fields',
-  deals: 'Currency Settings',
-  ai: 'AI Receptionist',
-  kb: 'Business Info & FAQs',
-  reminders: 'Smart Reminders',
-};
-
 function getLabels(industry: string | null | undefined): IndustryLabels {
-  if (!industry) return DEFAULT_LABELS;
-  return INDUSTRY_LABELS[industry] || DEFAULT_LABELS;
+  const canonical = resolveIndustryAlias(industry);
+  const terminology = getIndustryTerminology(industry);
+  const overrides = INDUSTRY_LABEL_OVERRIDES[canonical] ?? {};
+  return {
+    fields: `${terminology.contact} Custom Fields`,
+    deals: overrides.deals ?? 'Currency Settings',
+    ai: overrides.ai ?? 'AI Receptionist',
+    kb: overrides.kb ?? 'Business Info & FAQs',
+    reminders: 'Smart Reminders',
+  };
 }
 
 /** Sections that are only visible for certain industries. */
@@ -154,7 +151,7 @@ export function isSectionVisible(
 ): boolean {
   const allowed = INDUSTRY_ONLY_SECTIONS[section];
   if (!allowed) return true; // No restriction — always visible
-  return !!industry && allowed.includes(industry);
+  return !!industry && allowed.includes(resolveIndustryAlias(industry));
 }
 
 /**

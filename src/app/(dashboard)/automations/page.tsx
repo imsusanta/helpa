@@ -86,7 +86,7 @@ const TEMPLATE_ICON: Partial<Record<TemplateSlug, typeof Zap>> = {
 export default function AutomationsPage() {
   const router = useRouter();
   const canCreate = useCan('send-messages');
-  const { currentWorkspace } = useWorkspace();
+  const { currentWorkspace, terminology } = useWorkspace();
   const workspaceLoader = useRef<ReturnType<
     typeof createAutomationWorkspaceLoader
   > | null>(null);
@@ -213,11 +213,13 @@ export default function AutomationsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-foreground text-2xl font-bold">
-            Auto-Reminders & Follow-ups
+            Auto-Reminders & {terminology.followUps}
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Set up automatic WhatsApp messages, appointment reminders, and
-            customer follow-up rules.
+            Set up automatic WhatsApp messages,{' '}
+            {terminology.meeting.toLowerCase()} reminders, and{' '}
+            {terminology.contact.toLowerCase()}{' '}
+            {terminology.followUp.toLowerCase()} rules.
           </p>
         </div>
         <GatedButton

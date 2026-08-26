@@ -377,9 +377,9 @@ export function ContactDetailView({
       .eq('id', contactId);
 
     if (error) {
-      toast.error('Failed to update contact');
+      toast.error(`Failed to update ${terminology.contact.toLowerCase()}`);
     } else {
-      toast.success('Contact updated');
+      toast.success(`${terminology.contact} updated`);
       fetchContact();
       onUpdated();
     }

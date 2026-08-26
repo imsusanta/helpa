@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useWorkspace } from '@/hooks/use-workspace';
 import { cn } from '@/lib/utils';
 import type { Conversation, ConversationStatus } from '@/types';
 import {
@@ -561,9 +562,11 @@ function ConversationItem({
   isActive,
   onSelect,
 }: ConversationItemProps) {
+  const { terminology } = useWorkspace();
   const contact = conversation.contact;
   const displayName =
-    contact?.name || contact?.phone || conversation.contact_id || 'Contact';
+    contact?.name || contact?.phone || conversation.contact_id ||
+    terminology.contact;
   const initials = displayName.charAt(0).toUpperCase() || 'C';
 
   const handleClick = useCallback(() => {

@@ -349,7 +349,7 @@ export function DealForm({
                     {deal.ai_product_service && (
                       <div className="space-y-0.5">
                         <span className="text-muted-foreground block text-[10px] font-bold tracking-wider uppercase">
-                          Service/Product
+                          {terminology.service}/Product
                         </span>
                         <span className="text-foreground inline-flex items-center gap-1 text-xs font-medium">
                           <Target className="text-primary h-3 w-3" />
@@ -431,7 +431,7 @@ export function DealForm({
 
             <div className="grid gap-2">
               <Label className="text-muted-foreground">
-                Target Discharge / Follow-up Date
+                Target Close / {terminology.followUp} Date
               </Label>
               <Input
                 type="date"

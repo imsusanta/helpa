@@ -16,6 +16,7 @@ import {
   Check,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useWorkspace } from '@/hooks/use-workspace';
 import {
   Dialog,
   DialogContent,
@@ -43,6 +44,7 @@ export function ContactTasksTab({
   contactId,
   contactName,
 }: ContactTasksTabProps) {
+  const { terminology } = useWorkspace();
   const [tasks, setTasks] = useState<FollowupItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [newModalOpen, setNewModalOpen] = useState(false);
@@ -154,7 +156,7 @@ export function ContactTasksTab({
         <div className="flex items-center gap-2">
           <Clock className="text-primary size-4" />
           <span className="text-foreground text-xs font-semibold">
-            Tasks & Follow-ups ({tasks.length})
+            Tasks & {terminology.followUps} ({tasks.length})
           </span>
         </div>
         <Button
@@ -285,7 +287,8 @@ export function ContactTasksTab({
           <form onSubmit={handleCreateTask}>
             <DialogHeader>
               <DialogTitle className="text-sm font-semibold">
-                Schedule Task / Follow-up for {contactName || 'Contact'}
+                Schedule Task / {terminology.followUp} for{' '}
+                {contactName || terminology.contact}
               </DialogTitle>
             </DialogHeader>
 
@@ -297,7 +300,9 @@ export function ContactTasksTab({
                   onChange={(e) => setTaskType(e.target.value)}
                   className="border-input bg-background focus:ring-primary w-full rounded-md border px-3 py-1.5 text-xs focus:ring-1"
                 >
-                  <option value="Call Follow-up">Call Follow-up</option>
+                  <option value="Call Follow-up">
+                    Call {terminology.followUp}
+                  </option>
                   <option value="WhatsApp Message Follow-up">
                     WhatsApp Message Follow-up
                   </option>
@@ -305,7 +310,7 @@ export function ContactTasksTab({
                     Proposal / Quote Follow-up
                   </option>
                   <option value="Appointment / Visit Follow-up">
-                    Appointment / Visit Follow-up
+                    {terminology.meeting} / Visit {terminology.followUp}
                   </option>
                   <option value="Payment / Invoice Reminder">
                     Payment / Invoice Reminder
