@@ -61,7 +61,12 @@ export class StorageRepository {
   ): Promise<{ fileId: string; fileUrl: string }> {
     await this.verifyBucketExists(bucketId);
     try {
-      const fileExt = filename.split('.').pop() || 'bin';
+      // Restrict the user-controlled extension to a short alphanumeric
+      // token so path separators can never reach the storage object key.
+      const rawExt = filename.split('.').pop() || 'bin';
+      const fileExt = /^[a-zA-Z0-9]{1,10}$/.test(rawExt)
+        ? rawExt.toLowerCase()
+        : 'bin';
       const safeBaseName = filename
         .replace(/\.[^.]+$/, '')
         .replace(/[^a-zA-Z0-9_-]+/g, '_')

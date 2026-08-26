@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getAdminClient } from '@/lib/db/server';
-import { requireRole } from '@/lib/auth/account';
+import {
+  requireRole,
+  toErrorResponse,
+  UnauthorizedError,
+  ForbiddenError,
+} from '@/lib/auth/account';
 import {
   engineSendText,
   engineSendDocument,
@@ -9,16 +14,17 @@ import {
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
-    const { reportId, accountId: bodyAccountId } = body;
+    const { reportId } = body;
 
-    const authContext = await requireRole('agent').catch(() => null);
-    const accountId = authContext?.accountId || bodyAccountId;
+    // Fail closed: the tenant is always the caller's own account. A
+    // client-supplied accountId must never be trusted here — it would
+    // let any authenticated user read another tenant's report and send
+    // WhatsApp messages on that tenant's behalf.
+    const authContext = await requireRole('agent');
+    const accountId = authContext.accountId;
 
-    if (!reportId || !accountId) {
-      return NextResponse.json(
-        { error: 'Missing reportId or accountId' },
-        { status: 400 }
-      );
+    if (!reportId) {
+      return NextResponse.json({ error: 'Missing reportId' }, { status: 400 });
     }
 
     const db = getAdminClient();
@@ -50,6 +56,7 @@ export async function POST(request: Request) {
           .from('contacts')
           .select('id, name, phone')
           .eq('id', contactId)
+          .eq('account_id', accountId)
           .maybeSingle();
 
         if (directContact) {
@@ -70,6 +77,7 @@ export async function POST(request: Request) {
           .select(
             'id, contact_id, patient_seq_id, contact:contacts(id, name, phone)'
           )
+          .eq('account_id', accountId)
           .or(
             `id.eq.${report.patient_id},patient_seq_id.eq.${report.patient_id}`
           )
@@ -211,7 +219,8 @@ export async function POST(request: Request) {
         notified_patient: true,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', reportId);
+      .eq('id', reportId)
+      .eq('account_id', accountId);
 
     // 8. Save note in timeline
     try {
@@ -229,6 +238,9 @@ export async function POST(request: Request) {
       message: 'Patient notified on WhatsApp successfully',
     });
   } catch (err: unknown) {
+    if (err instanceof UnauthorizedError || err instanceof ForbiddenError) {
+      return toErrorResponse(err);
+    }
     console.error('[Report Notify API] Crash:', err);
     return NextResponse.json(
       { error: (err as Error).message || String(err) },

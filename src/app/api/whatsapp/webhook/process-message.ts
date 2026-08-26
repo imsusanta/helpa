@@ -438,13 +438,17 @@ export async function handleReminderReplyAction(
 ): Promise<boolean> {
   const db = getAdminClient();
 
-  // 1. Fetch appointment details
+  // 1. Fetch appointment details — always scoped to the resolved tenant.
+  // The appointment id arrives inside an attacker-influenceable
+  // interactive reply id, so an unscoped lookup would let a crafted
+  // reply read or mutate another tenant's appointment.
   const { data: appt, error: apptErr } = await db
     .from('appointments')
     .select(
       'id, appointment_date, appointment_time, doctor:hospital_doctors(id, name, department)'
     )
     .eq('id', apptId)
+    .eq('account_id', accountId)
     .single();
 
   if (apptErr || !appt) {
@@ -469,7 +473,8 @@ export async function handleReminderReplyAction(
     await db
       .from('appointments')
       .update({ status: 'Confirmed' })
-      .eq('id', apptId);
+      .eq('id', apptId)
+      .eq('account_id', accountId);
 
     await db.from('contact_notes').insert({
       account_id: accountId,
@@ -500,7 +505,8 @@ export async function handleReminderReplyAction(
     await db
       .from('appointments')
       .update({ status: 'Reschedule Requested' })
-      .eq('id', apptId);
+      .eq('id', apptId)
+      .eq('account_id', accountId);
 
     await db.from('contact_notes').insert({
       account_id: accountId,
@@ -531,7 +537,8 @@ export async function handleReminderReplyAction(
     await db
       .from('appointments')
       .update({ status: 'Cancelled' })
-      .eq('id', apptId);
+      .eq('id', apptId)
+      .eq('account_id', accountId);
 
     await db.from('contact_notes').insert({
       account_id: accountId,
@@ -571,12 +578,16 @@ export async function handleReportButtonReply(
 ): Promise<boolean> {
   const db = getAdminClient();
 
+  // Scoped to the resolved tenant: the report id arrives inside an
+  // attacker-influenceable interactive reply id, so an unscoped lookup
+  // would leak another tenant's report PDF over WhatsApp.
   const { data: report, error } = await db
     .from('hospital_lab_reports')
     .select(
       'id, test_name, status, expected_delivery_date, report_pdf_url, department, doctor:hospital_doctors(name)'
     )
     .eq('id', reportId)
+    .eq('account_id', accountId)
     .single();
 
   if (error || !report) {
