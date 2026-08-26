@@ -126,23 +126,33 @@ export const NAVIGATION_REGISTRY: SidebarNavItem<React.ElementType>[] = [
     href: '/admin',
     superAdminOnly: true,
     children: [
-      { id: 'admin-overview', label: 'Overview', href: '/admin' },
-      { id: 'admin-tenants', label: 'Tenants', href: '/admin/tenants' },
+      { id: 'admin-overview', label: 'Dashboard', href: '/admin' },
+      {
+        id: 'admin-businesses',
+        label: 'Businesses',
+        href: '/admin/subscribers',
+        activeHrefs: ['/admin/tenants'],
+      },
+      {
+        id: 'admin-plans',
+        label: 'Plans & Pricing',
+        href: '/admin/plans',
+      },
       {
         id: 'admin-subscriptions',
         label: 'Subscriptions',
         href: '/admin/subscriptions',
       },
-      { id: 'admin-ai', label: 'AI Infrastructure', href: '/admin/ai' },
       { id: 'admin-payments', label: 'Payments', href: '/admin/payments' },
+      { id: 'admin-ai', label: 'AI Settings', href: '/admin/ai' },
       {
         id: 'admin-whatsapp',
-        label: 'WhatsApp Numbers',
+        label: 'WhatsApp Accounts',
         href: '/admin/whatsapp',
       },
       {
         id: 'admin-settings',
-        label: 'System Settings',
+        label: 'Settings',
         href: '/admin/settings',
       },
     ],
