@@ -10,7 +10,10 @@ import {
 
 const EXPECTED_GROUPS = [
   { title: 'OVERVIEW', items: [['Dashboard', '/admin']] },
-  { title: 'BUSINESSES', items: [['Businesses', '/admin/subscribers']] },
+  {
+    title: 'BUSINESSES',
+    items: [['Businesses', '/admin/subscribers']],
+  },
   {
     title: 'REVENUE',
     items: [
@@ -66,7 +69,10 @@ describe('approved Super Admin navigation', () => {
       isAdminNavItemActive('/admin/plans', ADMIN_NAV_GROUPS[0].items[0])
     ).toBe(false);
     expect(
-      isAdminNavItemActive('/admin/subscriptions', ADMIN_NAV_GROUPS[2].items[0])
+      isAdminNavItemActive(
+        '/admin/subscriptions',
+        ADMIN_NAV_GROUPS[2].items[0]
+      )
     ).toBe(false);
   });
 });
