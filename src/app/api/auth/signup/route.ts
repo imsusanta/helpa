@@ -9,6 +9,7 @@ import {
   RATE_LIMITS,
 } from '@/lib/rate-limit';
 import {
+  ALL_MODULE_KEYS,
   isValidIndustry,
   resolveCanonicalIndustry,
   getIndustryModule,
@@ -138,18 +139,8 @@ export async function POST(request: Request) {
             .eq('id', accountId);
 
           // Setup tenant module enable states
-          const allKnownModules = [
-            'hospital_clinic',
-            'real_estate',
-            'travel',
-            'coaching',
-            'restaurant',
-            'gym',
-            'solo_teacher',
-            'salon',
-          ];
           const nowIso = new Date().toISOString();
-          const modulesToUpsert = allKnownModules.map((mod) => ({
+          const modulesToUpsert = ALL_MODULE_KEYS.map((mod) => ({
             account_id: accountId,
             module_key: mod,
             enabled: moduleConfig.id === mod,

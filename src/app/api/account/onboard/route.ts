@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
 import {
+  ALL_MODULE_KEYS,
   getIndustryModule,
   isValidIndustry,
   resolveCanonicalIndustry,
@@ -119,20 +120,14 @@ export async function POST(request: Request) {
       throw accErr;
     }
 
-    // 2. Set up dynamic modules (enable active industry module, disable others)
-    const allKnownModules = [
-      'hospital_clinic',
-      'real_estate',
-      'travel',
-      'coaching',
-      'restaurant',
-      'gym',
-      'solo_teacher',
-      'salon',
-    ];
+    // Steps below are individually recoverable, but the client must know when
+    // the template was only partially applied so the user can retry instead of
+    // silently keeping a half-configured workspace.
+    const failedSteps = new Set<string>();
 
+    // 2. Set up dynamic modules (enable active industry module, disable others)
     const nowIso = new Date().toISOString();
-    const modulesToUpsert = allKnownModules.map((mod) => ({
+    const modulesToUpsert = ALL_MODULE_KEYS.map((mod) => ({
       account_id: ctx.accountId,
       module_key: mod,
       enabled: config.id === mod,
@@ -146,6 +141,7 @@ export async function POST(request: Request) {
 
     if (modErr) {
       console.error('[onboard route] failed to batch upsert modules:', modErr);
+      failedSteps.add('modules');
     }
 
     // 3. Set up primary pipeline stages safely
@@ -184,6 +180,7 @@ export async function POST(request: Request) {
 
       if (pipeErr) {
         console.error('[onboard route] failed to create pipeline:', pipeErr);
+        failedSteps.add('pipeline');
       } else if (newPipe) {
         pipelineId = newPipe.id;
       }
@@ -241,15 +238,24 @@ export async function POST(request: Request) {
         }
       } catch (stageErr) {
         console.warn('[onboard route] soft error updating stages:', stageErr);
+        failedSteps.add('pipeline stages');
       }
     }
 
     // 4. Pre-seed Knowledge Base entries (Custom services + Industry templates)
     try {
-      await admin
+      const { error: kbDeleteErr } = await admin
         .from('knowledge_base')
         .delete()
         .eq('account_id', ctx.accountId);
+
+      if (kbDeleteErr) {
+        console.error(
+          '[onboard route] failed to clear knowledge base:',
+          kbDeleteErr
+        );
+        failedSteps.add('knowledge base');
+      }
 
       const kbToInsert: Array<{
         account_id: string;
@@ -304,19 +310,37 @@ export async function POST(request: Request) {
       }
 
       if (kbToInsert.length > 0) {
-        await admin.from('knowledge_base').insert(kbToInsert);
+        const { error: kbInsertErr } = await admin
+          .from('knowledge_base')
+          .insert(kbToInsert);
+        if (kbInsertErr) {
+          console.error(
+            '[onboard route] failed to seed knowledge base:',
+            kbInsertErr
+          );
+          failedSteps.add('knowledge base');
+        }
       }
     } catch (kbErr) {
       console.warn('[onboard route] soft error seeding knowledge base:', kbErr);
+      failedSteps.add('knowledge base');
     }
 
     // 5. Pre-seed Campaign templates as Drafts
     try {
-      await admin
+      const { error: campDeleteErr } = await admin
         .from('broadcasts')
         .delete()
         .eq('account_id', ctx.accountId)
         .eq('status', 'draft');
+
+      if (campDeleteErr) {
+        console.error(
+          '[onboard route] failed to clear draft campaigns:',
+          campDeleteErr
+        );
+        failedSteps.add('campaign templates');
+      }
 
       if (config.campaignTemplates && config.campaignTemplates.length > 0) {
         const campaignsToInsert = config.campaignTemplates.map((camp) => ({
@@ -341,10 +365,20 @@ export async function POST(request: Request) {
           failed_count: 0,
         }));
 
-        await admin.from('broadcasts').insert(campaignsToInsert);
+        const { error: campInsertErr } = await admin
+          .from('broadcasts')
+          .insert(campaignsToInsert);
+        if (campInsertErr) {
+          console.error(
+            '[onboard route] failed to seed campaigns:',
+            campInsertErr
+          );
+          failedSteps.add('campaign templates');
+        }
       }
     } catch (campErr) {
       console.warn('[onboard route] soft error seeding campaigns:', campErr);
+      failedSteps.add('campaign templates');
     }
 
     // 6. Pre-seed Workflow Automations. Seed rows are marked in metadata so
@@ -400,6 +434,7 @@ export async function POST(request: Request) {
                 '[onboard route] failed to seed automation:',
                 autoErr
               );
+              failedSteps.add('automations');
               return;
             }
 
@@ -414,6 +449,19 @@ export async function POST(request: Request) {
       }
     } catch (autoErr) {
       console.warn('[onboard route] soft error seeding automations:', autoErr);
+      failedSteps.add('automations');
+    }
+
+    if (failedSteps.size > 0) {
+      const failed = Array.from(failedSteps);
+      return NextResponse.json(
+        {
+          error: `The workspace template was only partially applied (failed: ${failed.join(', ')}). Please try again.`,
+          failedSteps: failed,
+          industry: validIndustryId,
+        },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ success: true, industry: validIndustryId });

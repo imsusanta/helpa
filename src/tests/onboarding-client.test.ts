@@ -54,6 +54,10 @@ vi.mock('@/core/ai/engine', () => ({
   }),
 }));
 
+vi.mock('@/lib/automations/steps-tree', () => ({
+  insertSteps: vi.fn().mockResolvedValue(null),
+}));
+
 describe('Helpa Client Onboarding Suite (Phase 2A)', () => {
   let dbStore: {
     accounts: Record<string, unknown>;
@@ -157,17 +161,30 @@ describe('Helpa Client Onboarding Suite (Phase 2A)', () => {
         };
       }
 
-      if (table === 'automations' || table === 'automation_steps') {
+      if (table === 'automations') {
         return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+          }),
           delete: vi.fn().mockReturnValue({
-            eq: vi.fn().mockResolvedValue({ error: null }),
+            eq: vi.fn().mockReturnValue({
+              in: vi.fn().mockResolvedValue({ error: null }),
+            }),
           }),
           insert: vi.fn().mockReturnValue({
             select: vi.fn().mockReturnValue({
-              maybeSingle: vi
+              single: vi
                 .fn()
                 .mockResolvedValue({ data: { id: 'auto-1' }, error: null }),
             }),
+          }),
+        };
+      }
+
+      if (table === 'automation_steps') {
+        return {
+          delete: vi.fn().mockReturnValue({
+            in: vi.fn().mockResolvedValue({ error: null }),
           }),
         };
       }
@@ -268,6 +285,74 @@ describe('Helpa Client Onboarding Suite (Phase 2A)', () => {
     );
     expect(salonKb).toBeDefined();
     expect(String(salonKb?.answer_content)).toContain('₹1,200');
+  });
+
+  it('2b. Enables the general module when the Other Business template is applied', async () => {
+    const req = new Request('http://localhost:3000/api/account/onboard', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ industry: 'other', name: 'Acme Services' }),
+    });
+
+    const res = await handleOnboard(req);
+    expect(res.status).toBe(200);
+    expect(dbStore.accounts.industry).toBe('general');
+
+    const generalRow = dbStore.tenantModules.find(
+      (row) => row.module_key === 'general'
+    );
+    expect(generalRow).toBeDefined();
+    expect(generalRow?.enabled).toBe(true);
+
+    const industryRows = dbStore.tenantModules.filter(
+      (row) => row.module_key !== 'general'
+    );
+    expect(industryRows.length).toBeGreaterThan(0);
+    for (const row of industryRows) {
+      expect(row.enabled).toBe(false);
+    }
+  });
+
+  it('2c. Enables exactly one module row per known industry template', async () => {
+    const req = new Request('http://localhost:3000/api/account/onboard', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ industry: 'hospital_clinic' }),
+    });
+
+    const res = await handleOnboard(req);
+    expect(res.status).toBe(200);
+
+    const enabledRows = dbStore.tenantModules.filter((row) => row.enabled);
+    expect(enabledRows).toHaveLength(1);
+    expect(enabledRows[0].module_key).toBe('hospital_clinic');
+  });
+
+  it('2d. Reports partial failure when module setup fails instead of returning success', async () => {
+    const baseImplementation = mockAdminClient.from.getMockImplementation()!;
+    mockAdminClient.from.mockImplementation((table: string) => {
+      if (table === 'tenant_modules') {
+        return {
+          upsert: vi.fn().mockResolvedValue({
+            data: null,
+            error: { message: 'permission denied for tenant_modules' },
+          }),
+        };
+      }
+      return baseImplementation(table);
+    });
+
+    const req = new Request('http://localhost:3000/api/account/onboard', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ industry: 'hospital_clinic' }),
+    });
+
+    const res = await handleOnboard(req);
+    expect(res.status).toBe(500);
+    const data = await res.json();
+    expect(data.error).toContain('partially applied');
+    expect(data.failedSteps).toContain('modules');
   });
 
   it('3. Rejects onboarding if industry is missing', async () => {
