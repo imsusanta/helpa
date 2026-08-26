@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import type { Message, MessageReaction } from '@/types';
 import {
@@ -57,6 +57,11 @@ function MediaImage({ url, alt }: { url: string; alt: string }) {
   const [src, setSrc] = useState<string | null>(null);
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
+  // Track the created blob URL in a ref so cleanup revokes the actual
+  // URL. The previous cleanup closed over `src` from effect setup time
+  // (always null), so blob URLs were never revoked — a memory leak while
+  // scrolling image-heavy threads.
+  const blobUrlRef = useRef<string | null>(null);
 
   const loadImage = useCallback(async () => {
     if (!url) return;
@@ -68,6 +73,7 @@ function MediaImage({ url, alt }: { url: string; alt: string }) {
         if (!res.ok) throw new Error('Failed to load media');
         const blob = await res.blob();
         const blobUrl = URL.createObjectURL(blob);
+        blobUrlRef.current = blobUrl;
         setSrc(blobUrl);
       } catch {
         setError(true);
@@ -83,11 +89,11 @@ function MediaImage({ url, alt }: { url: string; alt: string }) {
   useEffect(() => {
     loadImage();
     return () => {
-      if (src?.startsWith('blob:')) {
-        URL.revokeObjectURL(src);
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current);
+        blobUrlRef.current = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadImage]);
 
   if (error) {
