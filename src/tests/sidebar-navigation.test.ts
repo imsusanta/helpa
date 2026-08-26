@@ -51,7 +51,7 @@ describe('authenticated sidebar navigation', () => {
     expect(clinicOperations?.children?.map((child) => child.href)).toEqual([
       '/patients',
       '/doctors',
-      '/lab-reports',
+      '/lab-reports?scope=patients',
     ]);
     expect(
       clinicOperations?.children?.some((child) => child.label === 'Contacts')
