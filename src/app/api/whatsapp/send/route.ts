@@ -175,19 +175,47 @@ export async function POST(request: Request) {
       }
 
       if (resolvedContactId) {
-        // Find existing conversation
-        let extConv: { id: string } | null = null;
-        try {
-          const { data: convData } = await dbAdmin
-            .from('conversations')
-            .select('id')
-            .eq('contact_id', resolvedContactId)
-            .eq('account_id', accountId)
-            .maybeSingle();
-          if (convData) extConv = convData;
-        } catch {
-          // Ignore
-        }
+        // Find existing conversation. A contact may legitimately hold one
+        // conversation per channel (unique index on account_id, contact_id,
+        // channel — multichannel inbound creates them), so the lookup must
+        // never assume a single row: prefer the WhatsApp thread, then fall
+        // back to the most recently updated conversation. A bare
+        // `.maybeSingle()` here errors on 2+ rows, which used to make
+        // resolution fail with "Could not resolve conversation".
+        const findConversationForContact = async (): Promise<{
+          id: string;
+        } | null> => {
+          try {
+            const { data: whatsappConv } = await dbAdmin
+              .from('conversations')
+              .select('id')
+              .eq('contact_id', resolvedContactId)
+              .eq('account_id', accountId)
+              .eq('channel', 'whatsapp')
+              .order('updated_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            if (whatsappConv) return whatsappConv;
+          } catch {
+            // Legacy schemas without the channel column fall through.
+          }
+          try {
+            const { data: anyConv } = await dbAdmin
+              .from('conversations')
+              .select('id')
+              .eq('contact_id', resolvedContactId)
+              .eq('account_id', accountId)
+              .order('updated_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+            if (anyConv) return anyConv;
+          } catch {
+            // Ignore; caller decides whether to create a conversation.
+          }
+          return null;
+        };
+
+        let extConv: { id: string } | null = await findConversationForContact();
 
         if (!extConv) {
           const now = new Date().toISOString();
@@ -233,16 +261,11 @@ export async function POST(request: Request) {
               if (createdConv2) {
                 extConv = createdConv2;
               } else {
-                // Tenant guard: without account_id this lookup could
-                // hand back another tenant's conversation for a
-                // colliding contact id.
-                const { data: retryConv } = await dbAdmin
-                  .from('conversations')
-                  .select('id')
-                  .eq('contact_id', resolvedContactId)
-                  .eq('account_id', accountId)
-                  .maybeSingle();
-                if (retryConv) extConv = retryConv;
+                // Both inserts failed — most likely a unique violation on
+                // (account_id, contact_id, channel) from a concurrent
+                // webhook or an existing thread the first lookup missed.
+                // Re-run the tolerant tenant-scoped lookup.
+                extConv = await findConversationForContact();
               }
             }
           } catch (insertErr) {
@@ -260,6 +283,11 @@ export async function POST(request: Request) {
     }
 
     if (!conversation_id) {
+      console.error('[whatsapp/send] Could not resolve conversation', {
+        accountId,
+        hasContactId: Boolean(contactIdInput),
+        hasPhone: Boolean(phoneInput),
+      });
       return NextResponse.json(
         { error: 'Could not resolve conversation for recipient' },
         { status: 400 }
