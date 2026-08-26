@@ -10,6 +10,7 @@ import { Loader2, Plus, Search, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { getIndustryModule } from '@/modules/registry';
+import { getIndustryTerminology } from '@/modules/terminology';
 import { parseContactCsv } from '@/lib/contacts/parse-contact-csv';
 import type { EntityConfig } from '@/modules/types';
 
@@ -383,7 +384,27 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
     ...ENTITY_CONFIGS,
     ...(activeModule?.entityConfigs || {}),
   };
-  const config = mergedConfigs[entityKey];
+  const baseConfig = mergedConfigs[entityKey];
+  // Shared entity routes (e.g. /staff, /services) display the workspace
+  // industry's nouns; table names and field keys stay canonical.
+  const terminology = getIndustryTerminology(
+    account?.industry,
+    activeModule?.terminology
+  );
+  const config =
+    baseConfig && entityKey === 'staff'
+      ? {
+          ...baseConfig,
+          label: terminology.staffMember,
+          pluralLabel: terminology.staffMembers,
+        }
+      : baseConfig && entityKey === 'services'
+        ? {
+            ...baseConfig,
+            label: terminology.service,
+            pluralLabel: terminology.services,
+          }
+        : baseConfig;
   const [records, setRecords] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');

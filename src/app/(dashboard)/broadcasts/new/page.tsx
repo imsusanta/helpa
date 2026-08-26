@@ -787,7 +787,7 @@ export default function NewCampaignPage() {
                           const { rows } = parseContactCsv(text);
                           if (rows.length === 0) {
                             toast.error(
-                              'No contacts found. Ensure CSV has a "phone" column header.'
+                              `No ${terminology.contacts.toLowerCase()} found. Ensure CSV has a "phone" column header.`
                             );
                             return;
                           }
@@ -1002,7 +1002,9 @@ export default function NewCampaignPage() {
                           const text = await file.text();
                           const { rows } = parseContactCsv(text);
                           if (rows.length === 0) {
-                            toast.error('No contacts found in CSV.');
+                            toast.error(
+                              `No ${terminology.contacts.toLowerCase()} found in CSV.`
+                            );
                             return;
                           }
                           const formatted = rows.map((r) => ({
