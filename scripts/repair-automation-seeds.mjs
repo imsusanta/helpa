@@ -3,6 +3,7 @@ import {
   INDUSTRY_REGISTRY,
   resolveCanonicalIndustry,
 } from '../src/modules/registry.ts';
+import { assertNotRetiredSupabaseUrl } from './lib/supabase-target.mjs';
 
 const accountId = process.argv[2];
 const apply = process.argv.includes('--apply');
@@ -19,6 +20,7 @@ if (!supabaseUrl || !serviceRoleKey) {
     'NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required'
   );
 }
+assertNotRetiredSupabaseUrl(supabaseUrl);
 
 const db = createClient(supabaseUrl, serviceRoleKey, {
   auth: { persistSession: false, autoRefreshToken: false },

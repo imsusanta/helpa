@@ -1,7 +1,7 @@
 -- ============================================================================
 -- HELPA SAAS & SALES CRM — CONSOLIDATED IDEMPOTENT SUPABASE MIGRATION
 -- Run this script in the Supabase SQL Editor:
--- https://supabase.com/dashboard/project/tmqlzsyqlprioeoowmtk/sql/new
+-- https://supabase.com/dashboard/project/zsxhtcprjllesptvxlyq/sql/new
 -- ============================================================================
 
 BEGIN;

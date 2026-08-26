@@ -2,10 +2,9 @@ import dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 
 import { createClient } from '@supabase/supabase-js';
+import { resolveSupabaseUrl } from './lib/supabase-target.mjs';
 
-const supabaseUrl =
-  process.env.NEXT_PUBLIC_SUPABASE_URL ||
-  'https://tmqlzsyqlprioeoowmtk.supabase.co';
+const supabaseUrl = resolveSupabaseUrl();
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {

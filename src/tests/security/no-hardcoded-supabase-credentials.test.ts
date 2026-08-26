@@ -31,4 +31,28 @@ describe('Supabase credential safety', () => {
     expect(clientSource).toContain('process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY');
     expect(clientSource).not.toContain('process.env[name]');
   });
+
+  it('does not let operator scripts fall back to the retired Helpa project', () => {
+    const scriptsDir = path.join(process.cwd(), 'scripts');
+    const scriptFiles = fs
+      .readdirSync(scriptsDir)
+      .filter((name) => name.endsWith('.mjs') || name.endsWith('.ts'));
+    for (const name of scriptFiles) {
+      const source = fs.readFileSync(path.join(scriptsDir, name), 'utf8');
+      expect(source, name).not.toContain(
+        'https://tmqlzsyqlprioeoowmtk.supabase.co'
+      );
+    }
+  });
+
+  it('documents the current production project as the script fallback', () => {
+    const targetSource = fs.readFileSync(
+      path.join(process.cwd(), 'scripts/lib/supabase-target.mjs'),
+      'utf8'
+    );
+    expect(targetSource).toContain(
+      'https://${CANONICAL_PRODUCTION_SUPABASE_PROJECT_REF}.supabase.co'
+    );
+    expect(targetSource).toContain("'zsxhtcprjllesptvxlyq'");
+  });
 });

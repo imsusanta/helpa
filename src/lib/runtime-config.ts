@@ -24,6 +24,21 @@ function requireEnvironmentValue(env: EnvMap, name: string): string {
   return value;
 }
 
+/** Hosted Helpa database. Clients still read this from env; never embed keys. */
+export const CANONICAL_PRODUCTION_SUPABASE_PROJECT_REF = 'zsxhtcprjllesptvxlyq';
+export const CANONICAL_PRODUCTION_SUPABASE_URL = `https://${CANONICAL_PRODUCTION_SUPABASE_PROJECT_REF}.supabase.co`;
+
+const RETIRED_SUPABASE_PROJECT_REFS = ['tmqlzsyqlprioeoowmtk'] as const;
+
+function assertSupabaseUrlNotRetired(url: string) {
+  const lower = url.toLowerCase();
+  for (const ref of RETIRED_SUPABASE_PROJECT_REFS) {
+    if (lower.includes(ref)) {
+      throw new RuntimeConfigurationError('RETIRED_SUPABASE_PROJECT');
+    }
+  }
+}
+
 export function getRuntimeConfig(
   env: EnvMap = process.env as unknown as EnvMap
 ): RuntimeConfig {
@@ -67,6 +82,7 @@ export function requireSupabasePublicConfig(
   env: EnvMap = process.env as unknown as EnvMap
 ) {
   const url = requireEnvironmentValue(env, 'NEXT_PUBLIC_SUPABASE_URL');
+  assertSupabaseUrlNotRetired(url);
   const publishableKey = requireEnvironmentValue(
     env,
     'NEXT_PUBLIC_SUPABASE_ANON_KEY'

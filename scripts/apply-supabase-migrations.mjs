@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { assertNotRetiredSupabaseUrl } from './lib/supabase-target.mjs';
 
 const migrationsDir = path.join(process.cwd(), 'supabase', 'migrations');
 const reportPath = path.join(
@@ -27,6 +28,12 @@ function assertPreflight() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
   if (supabaseUrl && !supabaseUrl.startsWith('https://')) {
     fail('INSECURE_HTTP_ENDPOINT_FORBIDDEN');
+  }
+  try {
+    assertNotRetiredSupabaseUrl(`https://${projectRef}.supabase.co`);
+    if (supabaseUrl) assertNotRetiredSupabaseUrl(supabaseUrl);
+  } catch {
+    fail('RETIRED_SUPABASE_PROJECT');
   }
 
   if (
