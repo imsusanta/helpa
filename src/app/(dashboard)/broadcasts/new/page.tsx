@@ -206,7 +206,7 @@ export default function NewCampaignPage() {
         'Write a friendly note to parents about upcoming pediatric vaccination drives and seasonal child wellness checks.'
       );
     }
-  }, [accountId, searchParams]);
+  }, [accountId, searchParams, terminology.booking, terminology.people]);
 
   // ═══════ AI COPYWRITER GENERATOR ═══════
   async function handleAiGenerateText() {

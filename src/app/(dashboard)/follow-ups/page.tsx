@@ -179,7 +179,7 @@ export default function FollowupsPage() {
     } finally {
       setLoading(false);
     }
-  }, [filter]);
+  }, [filter, terminology.followUps]);
 
   const fetchPatientsAndDoctors = useCallback(async () => {
     try {

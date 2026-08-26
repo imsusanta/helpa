@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
@@ -379,32 +379,35 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
   const { accountId, account } = useAuth();
   const db = createClient();
 
-  const activeModule = getIndustryModule(account?.industry);
-  const mergedConfigs = {
-    ...ENTITY_CONFIGS,
-    ...(activeModule?.entityConfigs || {}),
-  };
-  const baseConfig = mergedConfigs[entityKey];
+  const industry = account?.industry;
   // Shared entity routes (e.g. /staff, /services) display the workspace
   // industry's nouns; table names and field keys stay canonical.
-  const terminology = getIndustryTerminology(
-    account?.industry,
-    activeModule?.terminology
-  );
-  const config =
-    baseConfig && entityKey === 'staff'
-      ? {
-          ...baseConfig,
-          label: terminology.staffMember,
-          pluralLabel: terminology.staffMembers,
-        }
-      : baseConfig && entityKey === 'services'
-        ? {
-            ...baseConfig,
-            label: terminology.service,
-            pluralLabel: terminology.services,
-          }
-        : baseConfig;
+  const config = useMemo(() => {
+    const activeModule = getIndustryModule(industry);
+    const merged = {
+      ...ENTITY_CONFIGS,
+      ...(activeModule?.entityConfigs || {}),
+    };
+    const base = merged[entityKey];
+    if (!base) return base;
+    const terminology = getIndustryTerminology(
+      industry,
+      activeModule?.terminology
+    );
+    if (entityKey === 'staff')
+      return {
+        ...base,
+        label: terminology.staffMember,
+        pluralLabel: terminology.staffMembers,
+      };
+    if (entityKey === 'services')
+      return {
+        ...base,
+        label: terminology.service,
+        pluralLabel: terminology.services,
+      };
+    return base;
+  }, [entityKey, industry]);
   const [records, setRecords] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
