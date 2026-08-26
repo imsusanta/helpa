@@ -94,25 +94,48 @@ ensure_supabase() {
   fi
 
   log "Starting the local Supabase stack (booting with an empty migration set)."
-  local hold_dir
+  local hold_dir mig_dir
+  mig_dir="supabase/migrations"
   hold_dir="$(mktemp -d)"
+
+  # Restore the migration files no matter how we leave this function (success,
+  # error under `set -e`, or signal). An EXIT trap is used instead of a RETURN
+  # trap because a failing command under `set -e` bypasses RETURN traps and
+  # would otherwise leave the migrations directory empty.
+  SETUP_MIG_HOLD_DIR="$hold_dir"
+  SETUP_MIG_DIR="$mig_dir"
+  restore_migrations() {
+    [ -n "${SETUP_MIG_HOLD_DIR:-}" ] || return 0
+    shopt -s nullglob
+    local f
+    for f in "$SETUP_MIG_HOLD_DIR"/*.sql; do
+      mv "$f" "$SETUP_MIG_DIR/" 2>/dev/null || true
+    done
+    rmdir "$SETUP_MIG_HOLD_DIR" 2>/dev/null || true
+    SETUP_MIG_HOLD_DIR=""
+  }
+  trap restore_migrations EXIT
+
   shopt -s nullglob
-  local moved=()
-  for f in supabase/migrations/*.sql; do
+  local f
+  for f in "$mig_dir"/*.sql; do
     mv "$f" "$hold_dir/"
-    moved+=("$(basename "$f")")
   done
 
-  # Always restore the migration files, even if supabase start fails.
-  restore_migrations() {
-    for name in "${moved[@]:-}"; do
-      [ -n "$name" ] && mv "$hold_dir/$name" "supabase/migrations/$name" 2>/dev/null || true
-    done
-    rmdir "$hold_dir" 2>/dev/null || true
-  }
-  trap restore_migrations RETURN
+  # `supabase start` can return non-zero when an optional, non-essential
+  # container (edge_runtime, imgproxy, vector, pooler) is unhealthy even though
+  # the core stack (db, kong, auth, rest, storage) is fine. Exclude those and do
+  # not abort on a non-zero exit; verify core health explicitly below instead.
+  supabase start -x edge_runtime,imgproxy,vector,pooler >/dev/null 2>&1 || true
 
-  supabase start
+  restore_migrations
+  trap - EXIT
+
+  if ! supabase status >/dev/null 2>&1; then
+    log "ERROR: the Supabase core stack did not become healthy."
+    supabase status || true
+    exit 1
+  fi
 }
 
 # ---------------------------------------------------------------------------
