@@ -15,6 +15,7 @@ import {
   Database,
   type LucideIcon,
 } from 'lucide-react';
+import { resolveIndustryAlias } from '@/modules/terminology';
 
 /**
  * Settings information architecture for the redesigned page.
@@ -136,8 +137,8 @@ const DEFAULT_LABELS: IndustryLabels = {
 };
 
 function getLabels(industry: string | null | undefined): IndustryLabels {
-  if (!industry) return DEFAULT_LABELS;
-  return INDUSTRY_LABELS[industry] || DEFAULT_LABELS;
+  const canonical = resolveIndustryAlias(industry);
+  return INDUSTRY_LABELS[canonical] || DEFAULT_LABELS;
 }
 
 /** Sections that are only visible for certain industries. */
@@ -153,8 +154,9 @@ export function isSectionVisible(
   industry: string | null | undefined
 ): boolean {
   const allowed = INDUSTRY_ONLY_SECTIONS[section];
-  if (!allowed) return true; // No restriction — always visible
-  return !!industry && allowed.includes(industry);
+  if (!allowed) return true;
+  const canonical = resolveIndustryAlias(industry);
+  return allowed.includes(canonical);
 }
 
 /**
