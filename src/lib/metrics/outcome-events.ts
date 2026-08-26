@@ -49,11 +49,19 @@ export function createSubjectHash(
   rawIdentifier: string
 ): string {
   const pepper =
-    process.env.OUTCOME_METRICS_PEPPER ||
-    process.env.META_APP_SECRET ||
-    'helpa-privacy-salt-v1';
+    process.env.OUTCOME_METRICS_PEPPER || process.env.META_APP_SECRET;
+  if (!pepper) {
+    // Fail closed in production: a public constant pepper would make the
+    // one-way subject hashes vulnerable to offline dictionary attacks on
+    // phone numbers / patient ids.
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        'OUTCOME_METRICS_PEPPER (or META_APP_SECRET) must be configured to hash outcome subjects'
+      );
+    }
+  }
   return createHash('sha256')
-    .update(`${accountId}:${pepper}:${rawIdentifier}`)
+    .update(`${accountId}:${pepper || 'helpa-dev-only-salt'}:${rawIdentifier}`)
     .digest('hex');
 }
 

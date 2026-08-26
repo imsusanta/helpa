@@ -14,13 +14,19 @@ export interface OAuthStateResult {
 }
 
 function getSigningSecret(): string {
-  return (
+  const secret =
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
     process.env.META_APP_SECRET ||
     process.env.NEXTAUTH_SECRET ||
-    process.env.APPWRITE_API_KEY ||
-    'helpa-oauth-state-secret-fallback-key-32b'
-  );
+    process.env.APPWRITE_API_KEY;
+  if (!secret) {
+    // Fail closed: a static fallback key in a public repository would
+    // make every HMAC state token forgeable.
+    throw new Error(
+      'OAuth state signing requires SUPABASE_SERVICE_ROLE_KEY (or META_APP_SECRET) to be configured'
+    );
+  }
+  return secret;
 }
 
 function signHmacState(payload: {

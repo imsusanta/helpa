@@ -76,7 +76,14 @@ export function NotificationCenter() {
     }
 
     setOpen(false);
-    if (notif.link_url) {
+    // Only follow same-origin relative paths. A notification's link_url
+    // is attacker-influenceable (any agent can POST /api/notifications),
+    // so absolute/protocol-relative URLs must never be navigated to.
+    if (
+      notif.link_url &&
+      notif.link_url.startsWith('/') &&
+      !notif.link_url.startsWith('//')
+    ) {
       router.push(notif.link_url);
     }
   };

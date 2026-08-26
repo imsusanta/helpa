@@ -129,17 +129,17 @@ export async function resolveTenantVoiceConfig(
     );
   }
 
+  // Agent/phone resolve from the tenant's own credentials or integration
+  // only. Falling back to the platform ELEVENLABS_AGENT_ID/PHONE_NUMBER_ID
+  // here (the resolver's own rule #3) would let a tenant missing those
+  // values place calls on the platform's shared agent/number. The
+  // explicit bootstrap path above still allows env for admin scripts.
   return {
     apiKey: credentials.apiKey,
     webhookSecret: credentials.webhookSecret,
-    agentId:
-      credentials.agentId ||
-      integration.agentId ||
-      process.env.ELEVENLABS_AGENT_ID,
+    agentId: credentials.agentId || integration.agentId,
     phoneNumberId:
-      credentials.phoneNumberId ||
-      integration.providerPhoneNumberId ||
-      process.env.ELEVENLABS_PHONE_NUMBER_ID,
+      credentials.phoneNumberId || integration.providerPhoneNumberId,
     baseUrl: process.env.ELEVENLABS_BASE_URL,
   };
 }
