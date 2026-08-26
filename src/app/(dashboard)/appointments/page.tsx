@@ -220,7 +220,9 @@ export default function AppointmentsPage() {
     setEmail(p.email || '');
     setEmergencyContact(p.emergency_contact || '');
     setCreateNewFamilyMember(false);
-    toast.info(`Selected patient ${p.name} (${p.patient_seq_id})`);
+    toast.info(
+      `Selected ${terminology.person.toLowerCase()} ${p.name} (${p.patient_seq_id})`
+    );
   }
 
   const handleCreateAppointment = async (e: React.FormEvent) => {
@@ -332,13 +334,16 @@ export default function AppointmentsPage() {
         : '';
       const bookingInfo = newAppt?.booking_id ? ` (${newAppt.booking_id})` : '';
       toast.success(
-        `Appointment booked!${tokenInfo}${bookingInfo} — WhatsApp confirmation sent.`
+        `${terminology.meeting} booked!${tokenInfo}${bookingInfo} — WhatsApp confirmation sent.`
       );
       resetForm();
       setShowAddForm(false);
       loadAllData();
     } catch (err: unknown) {
-      toast.error('Failed to book appointment: ' + getErrorMessage(err));
+      toast.error(
+        `Failed to book ${terminology.meeting.toLowerCase()}: ` +
+          getErrorMessage(err)
+      );
     } finally {
       setSaving(false);
     }
@@ -354,10 +359,13 @@ export default function AppointmentsPage() {
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || 'Failed to update appointment status');
+        throw new Error(
+          errData.error ||
+            `Failed to update ${terminology.meeting.toLowerCase()} status`
+        );
       }
 
-      toast.success(`Appointment status updated to ${newStatus}.`);
+      toast.success(`${terminology.meeting} status updated to ${newStatus}.`);
       loadAllData();
     } catch (err: unknown) {
       toast.error('Status update failed: ' + getErrorMessage(err));
@@ -984,7 +992,7 @@ export default function AppointmentsPage() {
                         variant="outline"
                         onClick={async () => {
                           toast.info(
-                            "Sending Watermarked OPD Ticket PDF to patient's WhatsApp..."
+                            `Sending Watermarked OPD Ticket PDF to ${terminology.person.toLowerCase()}'s WhatsApp...`
                           );
                           try {
                             const res = await fetch(
@@ -993,7 +1001,7 @@ export default function AppointmentsPage() {
                             );
                             if (res.ok) {
                               toast.success(
-                                "OPD Ticket PDF sent to patient's WhatsApp!"
+                                `OPD Ticket PDF sent to ${terminology.person.toLowerCase()}'s WhatsApp!`
                               );
                             } else {
                               const data = await res.json().catch(() => ({}));

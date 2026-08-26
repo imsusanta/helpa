@@ -181,14 +181,14 @@ export default function NewCampaignPage() {
       setCategory('Annual Check-up Reminder');
       setName('Annual Health Check-up Broadcast');
       setAiPrompt(
-        "Write a follow-up reminder inviting patients who haven't visited in 6 months for a comprehensive annual checkup at our clinic."
+        `Write a follow-up reminder inviting ${terminology.people.toLowerCase()} who haven't visited in 6 months to come back and see us.`
       );
     } else if (suggestionType === 'missed') {
       setAudienceType('missed_appointments');
       setCategory('Rescheduling Outreach');
-      setName('Appointment Rescheduling Outreach');
+      setName(`${terminology.booking} Rescheduling Outreach`);
       setAiPrompt(
-        'Write an empathetic outreach message for patients who missed their recent appointment, asking if they would like to reschedule.'
+        `Write an empathetic outreach message for ${terminology.people.toLowerCase()} who missed their recent ${terminology.booking.toLowerCase()}, asking if they would like to reschedule.`
       );
     } else if (suggestionType === 'wellness') {
       setAudienceType('all');
@@ -456,18 +456,29 @@ export default function NewCampaignPage() {
     }
   }
 
-  const categoryOptions = [
-    'Health Camp',
-    'New Doctor Announcement',
-    'Health Check-up Reminder',
-    'Vaccination Campaign',
-    'Follow-up Reminder',
-    'Annual Check-up Reminder',
-    'Festival Greetings',
-    'Health Awareness',
-    'Special Offer',
-    'Review Request',
-    'General Announcement',
+  const categoryOptions =
+    currentIndustry === 'hospital_clinic'
+      ? [
+          'Health Camp',
+          'New Doctor Announcement',
+          'Health Check-up Reminder',
+          'Vaccination Campaign',
+          'Follow-up Reminder',
+          'Annual Check-up Reminder',
+          'Festival Greetings',
+          'Health Awareness',
+          'Special Offer',
+          'Review Request',
+          'General Announcement',
+        ]
+      : [
+          `New ${terminology.service} Announcement`,
+          `${terminology.booking} Reminder`,
+          `${terminology.followUp} Reminder`,
+          'Festival Greetings',
+          'Special Offer',
+          'Review Request',
+          'General Announcement',
   ];
 
   if (loadingConfig) {
@@ -495,8 +506,9 @@ export default function NewCampaignPage() {
             New Campaign Builder
           </h1>
           <p className="text-muted-foreground text-xs">
-            Create structured patient notifications, segment your patient base,
-            and schedule delivery.
+            Create structured {terminology.contact.toLowerCase()} notifications,
+            segment your {terminology.contact.toLowerCase()} base, and schedule
+            delivery.
           </p>
         </div>
       </div>
@@ -729,7 +741,7 @@ export default function NewCampaignPage() {
                 <div className="border-border/80 bg-muted/20 space-y-4 rounded-xl border p-4">
                   <div className="space-y-2">
                     <label className="text-muted-foreground block text-xs font-bold uppercase">
-                      Upload CSV Contact List
+                      Upload CSV {terminology.contact} List
                     </label>
                     <div
                       onClick={() =>
@@ -744,7 +756,9 @@ export default function NewCampaignPage() {
                             {csvFileName}
                           </p>
                           <p className="mt-0.5 text-xs font-medium text-emerald-500">
-                            {csvContacts.length} contacts parsed successfully
+                            {csvContacts.length}{' '}
+                            {terminology.contacts.toLowerCase()} parsed
+                            successfully
                           </p>
                         </div>
                       ) : (
@@ -851,7 +865,7 @@ export default function NewCampaignPage() {
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div className="space-y-1.5">
                       <label className="text-muted-foreground text-xs font-bold uppercase">
-                        Select Contact List (Tag)
+                        Select {terminology.contact} List (Tag)
                       </label>
                       <select
                         value={isCreatingNewTag ? 'new_list' : selectedTagId}
@@ -895,12 +909,12 @@ export default function NewCampaignPage() {
                   {/* Add contact manually */}
                   <div className="border-border/80 space-y-2 border-t pt-3">
                     <label className="text-muted-foreground block text-xs font-bold uppercase">
-                      Add Contact manually
+                      Add {terminology.contact} manually
                     </label>
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                       <input
                         type="text"
-                        placeholder="Contact Name"
+                        placeholder={`${terminology.contact} Name`}
                         value={manualContactName}
                         onChange={(e) => setManualContactName(e.target.value)}
                         className="border-border bg-background text-foreground h-10 rounded-lg border px-3 text-sm focus:outline-none"
@@ -922,7 +936,7 @@ export default function NewCampaignPage() {
                           const newC = {
                             name:
                               manualContactName.trim() ||
-                              `Contact ${manualContactPhone.slice(-4)}`,
+                              `${terminology.contact} ${manualContactPhone.slice(-4)}`,
                             phone: manualContactPhone
                               .trim()
                               .replace(/[^0-9+]/g, ''),
@@ -930,11 +944,13 @@ export default function NewCampaignPage() {
                           setTempContacts([...tempContacts, newC]);
                           setManualContactName('');
                           setManualContactPhone('');
-                          toast.success('Contact added. Click Next to save.');
+                          toast.success(
+                            `${terminology.contact} added. Click Next to save.`
+                          );
                         }}
                         className="h-10 cursor-pointer rounded-lg bg-indigo-600 font-semibold text-white hover:bg-indigo-700"
                       >
-                        Add Contact
+                        Add {terminology.contact}
                       </Button>
                     </div>
                   </div>
@@ -1009,7 +1025,7 @@ export default function NewCampaignPage() {
                     <div className="border-border/80 space-y-1.5 border-t pt-3">
                       <div className="flex items-center justify-between">
                         <label className="text-muted-foreground text-xs font-bold uppercase">
-                          Contacts to add ({tempContacts.length})
+                          {terminology.contacts} to add ({tempContacts.length})
                         </label>
                         <button
                           type="button"
@@ -1102,7 +1118,7 @@ export default function NewCampaignPage() {
                       <Sparkles className="h-3.5 w-3.5" /> AI Campaign Assistant
                     </p>
                     <textarea
-                      placeholder="e.g. Tell our pediatric patients about a free polio and measles vaccination drive this Saturday from 10 AM to 2 PM at the clinic lobby. Booking code BOOK."
+                      placeholder={`e.g. Tell our ${terminology.people.toLowerCase()} about a special offer this Saturday from 10 AM to 2 PM. Booking code BOOK.`}
                       value={aiPrompt}
                       onChange={(e) => setAiPrompt(e.target.value)}
                       className="border-border bg-background text-foreground h-16 w-full rounded-lg border p-2 text-xs"
@@ -1191,7 +1207,7 @@ export default function NewCampaignPage() {
                       >
                         <option value="none">No Action Button</option>
                         <option value="appointment">
-                          Appointment Booking (BOOK)
+                          {terminology.booking} (BOOK)
                         </option>
                         <option value="review">Leave a Review link</option>
                         <option value="url">Redirect Website URL</option>
@@ -1293,7 +1309,9 @@ export default function NewCampaignPage() {
                                   className="border-border bg-background h-8 rounded border px-2 text-xs"
                                 >
                                   <option value="static">Static Text</option>
-                                  <option value="field">Contact Field</option>
+                                  <option value="field">
+                                    {terminology.contact} Field
+                                  </option>
                                 </select>
                                 {mapVal.type === 'static' ? (
                                   <input
@@ -1531,12 +1549,12 @@ export default function NewCampaignPage() {
               {ctaType === 'appointment' && (
                 <div className="max-w-[85%] self-end rounded-xl border border-zinc-800 bg-zinc-950 p-2.5 text-[10px] text-zinc-300 shadow-sm">
                   <p className="font-bold text-emerald-400">
-                    Patient Response:
+                    {terminology.contact} Response:
                   </p>
                   <p className="mt-0.5 font-semibold text-white">BOOK</p>
                   <p className="mt-1.5 font-bold text-indigo-400">Helpa AI:</p>
                   <p className="mt-0.5 text-zinc-400 italic">
-                    &quot;Starting booking... Please provide doctor name &amp;
+                    &quot;Starting booking... Please provide a preferred
                     time.&quot;
                   </p>
                 </div>

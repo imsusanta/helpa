@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/db/client';
 import { CustomField, Tag } from '@/types';
+import { useWorkspace } from '@/hooks/use-workspace';
 import { Button } from '@/components/ui/button';
 import {
   Users,
@@ -39,37 +40,42 @@ interface Step2Props {
   onBack: () => void;
 }
 
-const audienceOptions: {
+function getAudienceOptions(terminology: {
+  contact: string;
+  contacts: string;
+}): {
   type: AudienceType;
   label: string;
   description: string;
   icon: typeof Users;
-}[] = [
-  {
-    type: 'all',
-    label: 'All Contacts',
-    description: 'Send to every contact in your database',
-    icon: Users,
-  },
-  {
-    type: 'tags',
-    label: 'Filter by Tags',
-    description: 'Target contacts with specific tags',
-    icon: Tags,
-  },
-  {
-    type: 'custom_field',
-    label: 'Custom Field',
-    description: 'Filter by a custom field value',
-    icon: Filter,
-  },
-  {
-    type: 'csv',
-    label: 'Upload CSV',
-    description: 'Upload a list of phone numbers',
-    icon: Upload,
-  },
-];
+}[] {
+  return [
+    {
+      type: 'all',
+      label: `All ${terminology.contacts}`,
+      description: `Send to every ${terminology.contact.toLowerCase()} in your database`,
+      icon: Users,
+    },
+    {
+      type: 'tags',
+      label: 'Filter by Tags',
+      description: `Target ${terminology.contacts.toLowerCase()} with specific tags`,
+      icon: Tags,
+    },
+    {
+      type: 'custom_field',
+      label: 'Custom Field',
+      description: 'Filter by a custom field value',
+      icon: Filter,
+    },
+    {
+      type: 'csv',
+      label: 'Upload CSV',
+      description: 'Upload a list of phone numbers',
+      icon: Upload,
+    },
+  ];
+}
 
 const OPERATOR_OPTIONS: { value: CustomFieldOperator; label: string }[] = [
   { value: 'is', label: 'is' },
@@ -83,6 +89,8 @@ export function Step2SelectAudience({
   onNext,
   onBack,
 }: Step2Props) {
+  const { terminology } = useWorkspace();
+  const audienceOptions = getAudienceOptions(terminology);
   const [tags, setTags] = useState<Tag[]>([]);
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [loadingTags, setLoadingTags] = useState(false);
@@ -404,7 +412,7 @@ export function Step2SelectAudience({
         <div className="mb-3 flex items-center gap-2">
           <X className="h-4 w-4 text-red-400" />
           <p className="text-foreground text-sm font-medium">
-            Exclude contacts with these tags
+            Exclude {terminology.contacts.toLowerCase()} with these tags
           </p>
           <span className="text-muted-foreground text-xs">(optional)</span>
         </div>

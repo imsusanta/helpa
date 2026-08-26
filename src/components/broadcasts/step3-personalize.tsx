@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/db/client';
 import { Contact, CustomField, MessageTemplate } from '@/types';
+import { useWorkspace } from '@/hooks/use-workspace';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -30,7 +31,7 @@ interface Step3Props {
 }
 
 const contactFields = [
-  { value: 'name', label: 'Contact Name' },
+  { value: 'name', label: 'Name' },
   { value: 'phone', label: 'Phone Number' },
   { value: 'email', label: 'Email Address' },
   { value: 'company', label: 'Company' },
@@ -55,6 +56,7 @@ export function Step3Personalize({
   onNext,
   onBack,
 }: Step3Props) {
+  const { terminology } = useWorkspace();
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [loadingFields, setLoadingFields] = useState(true);
   const [firstContact, setFirstContact] = useState<Contact | null>(null);
@@ -241,7 +243,9 @@ export function Step3Personalize({
                       </SelectTrigger>
                       <SelectContent className="border-border bg-popover">
                         <SelectItem value="static">Static Value</SelectItem>
-                        <SelectItem value="field">Contact Field</SelectItem>
+                        <SelectItem value="field">
+                          {terminology.contact} Field
+                        </SelectItem>
                         <SelectItem value="custom_field">
                           Custom Field
                         </SelectItem>

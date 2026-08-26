@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
+import { useWorkspace } from '@/hooks/use-workspace';
 import {
   Building,
   Heart,
@@ -56,6 +57,7 @@ const DEPT_TEMPLATES = [
 
 export default function DepartmentsPage() {
   const { accountId } = useAuth();
+  const { terminology } = useWorkspace();
   const [departments, setDepartments] = useState<DepartmentData[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -146,11 +148,15 @@ export default function DepartmentsPage() {
               <div className="border-border text-muted-foreground grid grid-cols-2 gap-4 border-t pt-4 text-xs font-semibold">
                 <div className="flex items-center gap-1.5">
                   <Users className="text-muted-foreground/60 h-4.5 w-4.5 shrink-0" />
-                  <span>{dept.doctorCount} Doctors</span>
+                  <span>
+                    {dept.doctorCount} {terminology.staffMembers}
+                  </span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Calendar className="text-muted-foreground/60 h-4.5 w-4.5 shrink-0" />
-                  <span>{dept.appointmentCount} Bookings</span>
+                  <span>
+                    {dept.appointmentCount} {terminology.bookings}
+                  </span>
                 </div>
               </div>
             </div>

@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { createClient } from '@/lib/db/client';
 import { useAuth } from '@/hooks/use-auth';
+import { useWorkspace } from '@/hooks/use-workspace';
 import {
   Brain,
   Flame,
@@ -111,6 +112,7 @@ const DEFAULT_METRICS: AiMetrics = {
 };
 
 export default function AiAnalyticsPage() {
+  const { terminology } = useWorkspace();
   useAuth();
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState<AiMetrics>(DEFAULT_METRICS);
@@ -290,7 +292,7 @@ export default function AiAnalyticsPage() {
         fill: COLORS.support,
       },
       {
-        name: 'Booking',
+        name: terminology.booking,
         value: metrics.intentBookingCount,
         fill: COLORS.booking,
       },
@@ -301,7 +303,7 @@ export default function AiAnalyticsPage() {
       },
       { name: 'Other', value: metrics.intentOtherCount, fill: COLORS.other },
     ].filter((d) => d.value > 0);
-  }, [metrics]);
+  }, [metrics, terminology.booking]);
 
   const leadScoreData = useMemo(() => {
     if (!metrics) return [];
@@ -500,10 +502,11 @@ export default function AiAnalyticsPage() {
           <CardHeader>
             <CardTitle className="text-foreground flex items-center gap-1.5 text-sm font-extrabold">
               <PieIcon className="size-4 text-emerald-500" />
-              Customer Intent Analysis
+              {terminology.person} Intent Analysis
             </CardTitle>
             <CardDescription className="text-muted-foreground text-xs">
-              Detected topics and context of incoming customer messages.
+              Detected topics and context of incoming{' '}
+              {terminology.person.toLowerCase()} messages.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex h-64 items-center justify-center">
@@ -565,7 +568,7 @@ export default function AiAnalyticsPage() {
           <CardHeader>
             <CardTitle className="text-foreground flex items-center gap-1.5 text-sm font-extrabold">
               <Smile className="size-4 text-emerald-500" />
-              Customer Sentiment Breakdown
+              {terminology.person} Sentiment Breakdown
             </CardTitle>
             <CardDescription className="text-muted-foreground text-xs">
               Atmosphere and attitude of conversations handled by the bot.
@@ -781,21 +784,24 @@ export default function AiAnalyticsPage() {
                 <li>
                   Captured{' '}
                   <strong className="text-foreground">
-                    {metrics.newLeadsToday} new patient inquiries
+                    {metrics.newLeadsToday} new{' '}
+                    {terminology.pipelineItems.toLowerCase()}
                   </strong>{' '}
                   in workspace.
                 </li>
                 <li>
                   Identified{' '}
                   <strong className="text-red-500 dark:text-red-400">
-                    {metrics.hotLeadsToday} high priority patient inquiries
+                    {metrics.hotLeadsToday} high priority{' '}
+                    {terminology.pipelineItems.toLowerCase()}
                   </strong>
                   .
                 </li>
                 <li>
                   AI assistant automatically handled{' '}
                   <strong className="text-foreground">
-                    {metrics.botRepliesToday} patient queries
+                    {metrics.botRepliesToday}{' '}
+                    {terminology.person.toLowerCase()} queries
                   </strong>
                   .
                 </li>

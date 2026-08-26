@@ -527,12 +527,11 @@ export default function CampaignsPage() {
             <div className="border-border/70 bg-muted/20 flex flex-col justify-between rounded-xl border p-4">
               <div>
                 <p className="text-xs font-bold tracking-wide text-purple-600 uppercase dark:text-purple-400">
-                  Follow-ups Due
+                  {terminology.followUps} Due
                 </p>
                 <p className="text-foreground mt-2 text-sm font-semibold">
                   {oppStats.followup} {terminology.people.toLowerCase()} are due
-                  for routine {terminology.followUp.toLowerCase()}
-                  consultations.
+                  for a routine {terminology.followUp.toLowerCase()}.
                 </p>
               </div>
               <Button
@@ -542,7 +541,8 @@ export default function CampaignsPage() {
                 variant="outline"
                 className="mt-4 flex w-full items-center justify-center gap-1 rounded-xl border-purple-500/30 py-1.5 text-xs text-purple-600 hover:bg-purple-600/5 dark:text-purple-400"
               >
-                Create Follow-up Reminder <ArrowRight className="h-3 w-3" />
+                Create {terminology.followUp} Reminder{' '}
+                <ArrowRight className="h-3 w-3" />
               </Button>
             </div>
           )}
@@ -557,7 +557,8 @@ export default function CampaignsPage() {
             No campaigns yet
           </p>
           <p className="text-muted-foreground mt-1 text-xs">
-            Create your first healthcare campaign to engage your patients.
+            Create your first campaign to engage your{' '}
+            {terminology.people.toLowerCase()}.
           </p>
         </div>
       ) : (

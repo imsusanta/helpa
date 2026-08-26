@@ -33,6 +33,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useWorkspace } from '@/hooks/use-workspace';
 import { getBroadcastStatus, getRecipientStatus } from '@/lib/broadcast-status';
 
 interface StatCardProps {
@@ -142,6 +143,7 @@ function downloadBlob(filename: string, content: string) {
 }
 
 export default function BroadcastDetailPage() {
+  const { terminology } = useWorkspace();
   const params = useParams();
   const router = useRouter();
   const broadcastId = params.id as string;
@@ -190,7 +192,7 @@ export default function BroadcastDetailPage() {
   function handleExport() {
     if (!broadcast) return;
     const header = [
-      'Contact',
+      terminology.contact,
       'Phone',
       'Status',
       'Sent At',
@@ -472,7 +474,7 @@ export default function BroadcastDetailPage() {
               <TableHeader>
                 <TableRow className="border-border hover:bg-transparent">
                   <TableHead className="text-muted-foreground">
-                    Contact
+                    {terminology.contact}
                   </TableHead>
                   <TableHead className="text-muted-foreground">Phone</TableHead>
                   <TableHead className="text-muted-foreground">

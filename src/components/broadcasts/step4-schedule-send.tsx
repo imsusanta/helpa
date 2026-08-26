@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/db/client';
+import { useWorkspace } from '@/hooks/use-workspace';
 import { MessageTemplate } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -87,9 +88,10 @@ export function Step4ScheduleSend({
     calculateReach();
   }, [audience]);
 
+  const { terminology } = useWorkspace();
   const audienceLabel =
     audience.type === 'all'
-      ? 'All Contacts'
+      ? `All ${terminology.contacts}`
       : audience.type === 'tags'
         ? `Tags (${audience.tagIds?.length ?? 0} selected)`
         : audience.type === 'csv'
@@ -221,7 +223,7 @@ export function Step4ScheduleSend({
                   <span className="text-popover-foreground font-medium">
                     {estimatedReach.toLocaleString()}
                   </span>{' '}
-                  contacts using the{' '}
+                  {terminology.contacts.toLowerCase()} using the{' '}
                   <span className="text-popover-foreground font-medium">
                     {template.name}
                   </span>{' '}
