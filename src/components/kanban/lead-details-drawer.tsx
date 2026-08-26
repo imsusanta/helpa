@@ -752,11 +752,13 @@ export function LeadDetailsDrawer({
                 <TabsContent value="followups" className="m-0 space-y-4">
                   <div className="bg-muted/30 border-border space-y-3 rounded-xl border p-4">
                     <h4 className="text-foreground text-xs font-bold tracking-wider uppercase">
-                      {terminology.followUp} Sequences ({details.followups.length})
+                      {terminology.followUp} Sequences (
+                      {details.followups.length})
                     </h4>
                     {details.followups.length === 0 ? (
                       <p className="text-muted-foreground text-xs">
-                        No active {terminology.followUp.toLowerCase()} sequences enrolled.
+                        No active {terminology.followUp.toLowerCase()} sequences
+                        enrolled.
                       </p>
                     ) : (
                       <div className="space-y-2">

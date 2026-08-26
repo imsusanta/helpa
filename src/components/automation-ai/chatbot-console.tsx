@@ -236,8 +236,8 @@ export function ChatbotConsole() {
                     Enable AI auto-reply
                   </Label>
                   <p className="text-muted-foreground text-xs">
-                    {terminology.people} messaging your WhatsApp get instant
-                    AI answers.
+                    {terminology.people} messaging your WhatsApp get instant AI
+                    answers.
                   </p>
                 </div>
                 <Switch

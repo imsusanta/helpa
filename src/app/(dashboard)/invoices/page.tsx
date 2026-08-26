@@ -119,7 +119,7 @@ export default function InvoicesPage() {
   const [terms] = useState('Payment due upon invoice presentation.');
   const [items, setItems] = useState<InvoiceItemRow[]>([
     {
-      description: `${terminology.service} / Consultation`,
+      description: terminology.service,
       quantity: 1,
       unit_price: 2000,
     },
@@ -222,7 +222,7 @@ export default function InvoicesPage() {
       setSelectedContactId('');
       setItems([
         {
-          description: `${terminology.service} / Consultation`,
+          description: terminology.service,
           quantity: 1,
           unit_price: 2000,
         },

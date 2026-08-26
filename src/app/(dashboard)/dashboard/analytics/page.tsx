@@ -800,8 +800,8 @@ export default function AiAnalyticsPage() {
                 <li>
                   AI assistant automatically handled{' '}
                   <strong className="text-foreground">
-                    {metrics.botRepliesToday}{' '}
-                    {terminology.person.toLowerCase()} queries
+                    {metrics.botRepliesToday} {terminology.person.toLowerCase()}{' '}
+                    queries
                   </strong>
                   .
                 </li>

@@ -884,9 +884,8 @@ export function IntegrationsClient() {
                   </Badge>
                 </div>
                 <p className="text-[11px] text-slate-500">
-                  Embed code ready. Collects Name, Phone,{' '}
-                  {terminology.service} requirement, and syncs to{' '}
-                  {terminology.contacts}.
+                  Embed code ready. Collects Name, Phone, {terminology.service}{' '}
+                  requirement, and syncs to {terminology.contacts}.
                 </p>
                 <div className="mt-2 flex items-center gap-2">
                   <Button

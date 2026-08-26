@@ -166,57 +166,61 @@ function getTriggerOptions(terminology: TriggerTerminology): {
   const contactLower = terminology.contact.toLowerCase();
   const meetingLower = terminology.meeting.toLowerCase();
   return [
-  {
-    value: 'new_message_received',
-    label: 'New Message Received',
-    hint: 'Any incoming message',
-  },
-  {
-    value: 'first_inbound_message',
-    label: `First Message from ${terminology.contact}`,
-    hint: `First time this ${contactLower} ever messages you (works for manually-added ${contactLower}s too)`,
-  },
-  {
-    value: 'keyword_match',
-    label: 'Keyword Match',
-    hint: 'Message contains specific keyword(s)',
-  },
-  {
-    value: 'new_contact_created',
-    label: `New ${terminology.contact} Created`,
-    hint: `When a ${contactLower} is auto-created from an incoming message`,
-  },
-  {
-    value: 'conversation_assigned',
-    label: 'Conversation Assigned',
-    hint: 'When assigned to an agent',
-  },
-  {
-    value: 'tag_added',
-    label: 'Tag Added',
-    hint: `When a tag is added to a ${contactLower}`,
-  },
-  {
-    value: 'form_submitted',
-    label: 'Form Submitted',
-    hint: 'When someone submits one of your lead forms',
-  },
-  { value: 'time_based', label: 'Time-Based', hint: 'On a recurring schedule' },
-  {
-    value: 'appointment_created',
-    label: `${terminology.meeting} Booked`,
-    hint: `As soon as an ${meetingLower} is booked for this ${contactLower}`,
-  },
-  {
-    value: 'appointment_reminder',
-    label: `${terminology.meeting} Reminder`,
-    hint: `A set amount of time before the ${meetingLower} starts`,
-  },
-  {
-    value: 'appointment_cancelled',
-    label: `${terminology.meeting} Cancelled`,
-    hint: `When an ${meetingLower} is cancelled`,
-  },
+    {
+      value: 'new_message_received',
+      label: 'New Message Received',
+      hint: 'Any incoming message',
+    },
+    {
+      value: 'first_inbound_message',
+      label: `First Message from ${terminology.contact}`,
+      hint: `First time this ${contactLower} ever messages you (works for manually-added ${contactLower}s too)`,
+    },
+    {
+      value: 'keyword_match',
+      label: 'Keyword Match',
+      hint: 'Message contains specific keyword(s)',
+    },
+    {
+      value: 'new_contact_created',
+      label: `New ${terminology.contact} Created`,
+      hint: `When a ${contactLower} is auto-created from an incoming message`,
+    },
+    {
+      value: 'conversation_assigned',
+      label: 'Conversation Assigned',
+      hint: 'When assigned to an agent',
+    },
+    {
+      value: 'tag_added',
+      label: 'Tag Added',
+      hint: `When a tag is added to a ${contactLower}`,
+    },
+    {
+      value: 'form_submitted',
+      label: 'Form Submitted',
+      hint: 'When someone submits one of your lead forms',
+    },
+    {
+      value: 'time_based',
+      label: 'Time-Based',
+      hint: 'On a recurring schedule',
+    },
+    {
+      value: 'appointment_created',
+      label: `${terminology.meeting} Booked`,
+      hint: `As soon as an ${meetingLower} is booked for this ${contactLower}`,
+    },
+    {
+      value: 'appointment_reminder',
+      label: `${terminology.meeting} Reminder`,
+      hint: `A set amount of time before the ${meetingLower} starts`,
+    },
+    {
+      value: 'appointment_cancelled',
+      label: `${terminology.meeting} Cancelled`,
+      hint: `When an ${meetingLower} is cancelled`,
+    },
   ];
 }
 
@@ -1458,9 +1462,7 @@ function StepEditor({
               className="border-border bg-muted text-foreground w-full rounded-md border px-2 py-1.5 text-sm"
             >
               <option value="tag_presence">Tag presence</option>
-              <option value="contact_field">
-                {terminology.contact} field
-              </option>
+              <option value="contact_field">{terminology.contact} field</option>
               <option value="message_content">Message content</option>
               <option value="time_of_day">Time of day</option>
             </select>

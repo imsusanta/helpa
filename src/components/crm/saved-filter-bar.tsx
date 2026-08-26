@@ -1,5 +1,6 @@
 'use client';
 
+import { useWorkspace } from '@/hooks/use-workspace';
 import { useState, useEffect, useCallback } from 'react';
 import type { SavedFilter } from '@/types';
 import { Bookmark, Plus, Trash2, Loader2 } from 'lucide-react';
@@ -30,6 +31,7 @@ export function SavedFilterBar({
   activeFilterId,
   onSelectFilter,
 }: SavedFilterBarProps) {
+  const { terminology } = useWorkspace();
   const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([]);
   const [_loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -177,7 +179,7 @@ export function SavedFilterBar({
                 preset for easy retrieval anytime.
               </p>
               <Input
-                placeholder="e.g. VIP Clients, Bangalore Leads, Follow-up Pending"
+                placeholder={`e.g. VIP ${terminology.contacts}, Hot ${terminology.pipelineItems}, ${terminology.followUp} Pending`}
                 value={filterName}
                 onChange={(e) => setFilterName(e.target.value)}
                 autoFocus

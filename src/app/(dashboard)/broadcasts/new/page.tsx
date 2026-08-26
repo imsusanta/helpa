@@ -479,7 +479,7 @@ export default function NewCampaignPage() {
           'Special Offer',
           'Review Request',
           'General Announcement',
-  ];
+        ];
 
   if (loadingConfig) {
     return (

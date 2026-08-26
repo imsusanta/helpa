@@ -565,7 +565,9 @@ function ConversationItem({
   const { terminology } = useWorkspace();
   const contact = conversation.contact;
   const displayName =
-    contact?.name || contact?.phone || conversation.contact_id ||
+    contact?.name ||
+    contact?.phone ||
+    conversation.contact_id ||
     terminology.contact;
   const initials = displayName.charAt(0).toUpperCase() || 'C';
 

@@ -329,7 +329,9 @@ export default function ContactsPage() {
         ? `/api/contacts/export?ids=${[...selected].join(',')}`
         : `/api/contacts/export?search=${encodeURIComponent(search)}`;
     window.open(url, '_blank');
-    toast.success(`Downloading ${entityLabelPlural.toLowerCase()} export CSV...`);
+    toast.success(
+      `Downloading ${entityLabelPlural.toLowerCase()} export CSV...`
+    );
   };
 
   const handleBulkAssign = async () => {
@@ -349,7 +351,9 @@ export default function ContactsPage() {
         }),
       });
       if (!res.ok) throw new Error('Bulk assign failed');
-      toast.success(`Assigned ${ids.length} ${entityLabelPlural.toLowerCase()}`);
+      toast.success(
+        `Assigned ${ids.length} ${entityLabelPlural.toLowerCase()}`
+      );
       setSelected(new Set());
       setBulkAssignOpen(false);
       fetchContacts();
@@ -401,7 +405,9 @@ export default function ContactsPage() {
         }),
       });
       if (!res.ok) throw new Error('Bulk tag removal failed');
-      toast.success(`Removed tag from ${ids.length} ${entityLabelPlural.toLowerCase()}`);
+      toast.success(
+        `Removed tag from ${ids.length} ${entityLabelPlural.toLowerCase()}`
+      );
       setSelected(new Set());
       setBulkRemoveTagOpen(false);
       fetchContacts();
@@ -427,7 +433,9 @@ export default function ContactsPage() {
         }),
       });
       if (!res.ok) throw new Error('Bulk stage update failed');
-      toast.success(`Moved ${ids.length} ${entityLabelPlural.toLowerCase()} to stage "${bulkStage}"`);
+      toast.success(
+        `Moved ${ids.length} ${entityLabelPlural.toLowerCase()} to stage "${bulkStage}"`
+      );
       setSelected(new Set());
       setBulkStageOpen(false);
       fetchContacts();
@@ -458,12 +466,16 @@ export default function ContactsPage() {
         }),
       });
       if (!res.ok) throw new Error('Bulk task creation failed');
-      toast.success(`Created ${terminology.followUp.toLowerCase()} tasks for ${ids.length} ${entityLabelPlural.toLowerCase()}`);
+      toast.success(
+        `Created ${terminology.followUp.toLowerCase()} tasks for ${ids.length} ${entityLabelPlural.toLowerCase()}`
+      );
       setSelected(new Set());
       setBulkFollowupOpen(false);
       fetchContacts();
     } catch {
-      toast.error(`Failed to create ${terminology.followUp.toLowerCase()} tasks`);
+      toast.error(
+        `Failed to create ${terminology.followUp.toLowerCase()} tasks`
+      );
     }
   };
 
@@ -766,7 +778,9 @@ export default function ContactsPage() {
       if (error) {
         throw error;
       } else {
-        toast.success(`${ids.length} ${entityLabel.toLowerCase()} profiles deleted`);
+        toast.success(
+          `${ids.length} ${entityLabel.toLowerCase()} profiles deleted`
+        );
         setSelected(new Set());
         fetchContacts();
       }

@@ -98,7 +98,7 @@ export default function QuotationsPage() {
   const [notes, setNotes] = useState('');
   const [terms] = useState('Payment due within 15 days from issuance.');
   const [items, setItems] = useState<QuotationItemRow[]>([
-    { description: 'Consultation & Treatment', quantity: 1, unit_price: 1500 },
+    { description: terminology.service, quantity: 1, unit_price: 1500 },
   ]);
   const [creating, setCreating] = useState(false);
 
@@ -198,7 +198,7 @@ export default function QuotationsPage() {
       setSelectedContactId('');
       setItems([
         {
-          description: 'Consultation & Treatment',
+          description: terminology.service,
           quantity: 1,
           unit_price: 1500,
         },

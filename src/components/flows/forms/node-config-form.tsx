@@ -615,9 +615,7 @@ function ConditionForm({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="var">Captured variable</SelectItem>
-              <SelectItem value="tag">
-                {terminology.contact} has tag
-              </SelectItem>
+              <SelectItem value="tag">{terminology.contact} has tag</SelectItem>
               <SelectItem value="contact_field">
                 {terminology.contact} field
               </SelectItem>

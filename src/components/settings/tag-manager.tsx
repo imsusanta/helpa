@@ -61,7 +61,7 @@ export function TagManager() {
     setTags([
       {
         id: '1',
-        name: 'VIP Patient',
+        name: 'VIP',
         color: '#10b981',
         user_id: 'u1',
         created_at: new Date().toISOString(),

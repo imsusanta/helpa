@@ -1,9 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentAccount } from '@/lib/auth/account';
-import {
-  storageRepository,
-  StorageError,
-} from '@/lib/storage/repository';
+import { storageRepository, StorageError } from '@/lib/storage/repository';
 import { STORAGE_BUCKETS } from '@/lib/storage/buckets';
 
 const MAX_AVATAR_BYTES = 10 * 1024 * 1024; // 10 MB

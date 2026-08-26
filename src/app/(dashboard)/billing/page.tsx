@@ -119,7 +119,7 @@ export default function BillingPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           patient_id: patientId,
-          description: description || 'General Consultation & Treatment Fee',
+          description: description || `General ${terminology.service} Fee`,
           amount: Number.parseFloat(amount),
           status,
         }),
@@ -218,11 +218,11 @@ export default function BillingPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-foreground text-2xl font-bold">
-            Clinical Billing & Invoices
+            Billing & Invoices
           </h1>
           <p className="text-muted-foreground text-sm font-medium">
-            Create invoices, manage patient payments, and track outpatient
-            revenue.
+            Create invoices, manage {terminology.person.toLowerCase()} payments,
+            and track revenue.
           </p>
         </div>
         <Button onClick={() => setShowAddForm((open) => !open)}>

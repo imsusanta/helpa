@@ -203,9 +203,7 @@ export default function DoctorsPage() {
       setDocIdToDelete(null);
       loadDoctors();
     } catch (err: unknown) {
-      toast.error(
-        `Failed to delete ${staffLower}: ` + (err as Error).message
-      );
+      toast.error(`Failed to delete ${staffLower}: ` + (err as Error).message);
     } finally {
       setDeletingDoc(false);
     }
@@ -223,9 +221,7 @@ export default function DoctorsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-foreground text-2xl font-bold">
-            {staffPlural}
-          </h1>
+          <h1 className="text-foreground text-2xl font-bold">{staffPlural}</h1>
           <p className="text-muted-foreground text-sm font-medium">
             Manage clinical staff on-call rotas and consultation rates.
           </p>
@@ -348,8 +344,8 @@ export default function DoctorsPage() {
               Cancel
             </Button>
             <Button type="submit" disabled={saving}>
-              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{' '}
-              Save {staffLabel}
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save{' '}
+              {staffLabel}
             </Button>
           </div>
         </form>
@@ -364,9 +360,7 @@ export default function DoctorsPage() {
           <p className="text-muted-foreground mt-1 mb-4 text-sm">
             Register on-call medical practitioners to allocate shift rotas.
           </p>
-          <Button onClick={() => setShowAddForm(true)}>
-            New {staffLabel}
-          </Button>
+          <Button onClick={() => setShowAddForm(true)}>New {staffLabel}</Button>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-3">

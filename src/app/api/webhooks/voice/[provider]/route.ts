@@ -141,9 +141,7 @@ export async function POST(
     }
 
     // 5. Store raw payload in private storage (fail closed).
-    await storageRepository.verifyBucketExists(
-      STORAGE_BUCKETS.webhookPayloads
-    );
+    await storageRepository.verifyBucketExists(STORAGE_BUCKETS.webhookPayloads);
     const filename = `${providerName}_${event.externalEventId.replace(/[^a-zA-Z0-9_.:-]/g, '_')}_${payloadHash.slice(0, 16)}.json`;
 
     let rawPayloadReference: string;

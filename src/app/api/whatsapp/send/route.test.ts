@@ -14,10 +14,18 @@ const { contactsTerminalCalls } = vi.hoisted(() => ({
 vi.mock('@/lib/auth/account', () => ({
   getCurrentAccount: vi
     .fn()
-    .mockResolvedValue({ accountId: 'tenant-1', userId: 'user-1', role: 'agent' }),
+    .mockResolvedValue({
+      accountId: 'tenant-1',
+      userId: 'user-1',
+      role: 'agent',
+    }),
   requireRole: vi
     .fn()
-    .mockResolvedValue({ accountId: 'tenant-1', userId: 'user-1', role: 'agent' }),
+    .mockResolvedValue({
+      accountId: 'tenant-1',
+      userId: 'user-1',
+      role: 'agent',
+    }),
 }));
 
 vi.mock('@/lib/db/server', () => {

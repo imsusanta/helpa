@@ -23,7 +23,10 @@ export async function DELETE(
     const actorId = ctx.userId;
 
     // Rate limit check: 5/min per user
-    const rl = await checkRateLimit(`delete:${actorId}`, RATE_LIMITS.patientDelete);
+    const rl = await checkRateLimit(
+      `delete:${actorId}`,
+      RATE_LIMITS.patientDelete
+    );
     if (!rl.success) return rateLimitResponse(rl);
 
     const { id: patientId } = await params;

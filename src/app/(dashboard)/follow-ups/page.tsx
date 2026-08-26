@@ -211,7 +211,9 @@ export default function FollowupsPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to send reminder');
-      toast.success(`WhatsApp ${terminology.followUp.toLowerCase()} reminder sent!`);
+      toast.success(
+        `WhatsApp ${terminology.followUp.toLowerCase()} reminder sent!`
+      );
       fetchFollowups();
     } catch (err: unknown) {
       toast.error((err as Error).message || 'Failed to send reminder');
@@ -250,9 +252,7 @@ export default function FollowupsPage() {
 
   async function handleCreateFollowup() {
     if (!selectedPatientId || !dueDate) {
-      toast.error(
-        `${terminology.contact} and Due Date are required`
-      );
+      toast.error(`${terminology.contact} and Due Date are required`);
       return;
     }
     setSubmitting(true);
@@ -271,7 +271,8 @@ export default function FollowupsPage() {
       const data = await res.json();
       if (!res.ok)
         throw new Error(
-          data.error || `Failed to schedule ${terminology.followUp.toLowerCase()}`
+          data.error ||
+            `Failed to schedule ${terminology.followUp.toLowerCase()}`
         );
       toast.success(`${terminology.followUp} scheduled successfully!`);
       setNewDialogOpen(false);
@@ -449,9 +450,7 @@ export default function FollowupsPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/30 border-border">
-              <TableHead className="w-28">
-                {terminology.contact} ID
-              </TableHead>
+              <TableHead className="w-28">{terminology.contact} ID</TableHead>
               <TableHead>{terminology.contact} Details</TableHead>
               <TableHead>Task / {terminology.followUp}</TableHead>
               <TableHead>Assigned / {terminology.staff}</TableHead>
@@ -502,8 +501,7 @@ export default function FollowupsPage() {
                     </TableCell>
                     <TableCell>
                       <p className="text-foreground text-sm font-semibold">
-                        {item.patient?.name ||
-                          `Unknown ${terminology.contact}`}
+                        {item.patient?.name || `Unknown ${terminology.contact}`}
                       </p>
                       <p className="text-muted-foreground font-mono text-xs">
                         {item.patient?.phone}
@@ -625,9 +623,7 @@ export default function FollowupsPage() {
                 onChange={(e) => setSelectedPatientId(e.target.value)}
                 className="bg-background border-border text-foreground focus:ring-primary mt-1.5 w-full rounded-lg border p-2.5 text-xs focus:ring-1 focus:outline-none"
               >
-                <option value="">
-                  -- Choose {terminology.contact} --
-                </option>
+                <option value="">-- Choose {terminology.contact} --</option>
                 {patients.map((p) => {
                   const seq = p.metadata?.patient_id
                     ? `[${p.metadata.patient_id}] `

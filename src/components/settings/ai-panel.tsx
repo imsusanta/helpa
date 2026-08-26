@@ -20,6 +20,7 @@ import {
   Smartphone,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
+import { useWorkspace } from '@/hooks/use-workspace';
 import { getIndustryModule } from '@/modules/registry';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -91,6 +92,7 @@ const DEFAULT_SCHEDULE = [
 ];
 
 export function AiPanel() {
+  const { terminology } = useWorkspace();
   const { canEditSettings, account } = useAuth();
   const activeModule = getIndustryModule(account?.industry);
 
@@ -365,8 +367,8 @@ export function AiPanel() {
                 <div>
                   <div className="text-muted-foreground mb-2 flex items-center justify-between text-[11px] font-semibold">
                     <span className="flex items-center gap-1.5 text-emerald-400">
-                      <Smartphone className="size-3.5" /> Customer WhatsApp
-                      Preview
+                      <Smartphone className="size-3.5" /> {terminology.person}{' '}
+                      WhatsApp Preview
                     </span>
                     <span className="text-[10px] text-zinc-500">Live</span>
                   </div>
@@ -382,8 +384,8 @@ export function AiPanel() {
                   </div>
                 </div>
                 <p className="text-muted-foreground mt-3 text-[10px]">
-                  Customers receive this within 1 second of sending their first
-                  message.
+                  {terminology.people} receive this within 1 second of sending
+                  their first message.
                 </p>
               </div>
             </div>
@@ -524,9 +526,9 @@ export function AiPanel() {
                   Automatic Inbox Alert
                 </div>
                 <p className="text-muted-foreground text-[11px] leading-relaxed">
-                  When a customer asks for a human doctor or complex medical
-                  inquiry, the AI pauses and flags the chat as &ldquo;Needs
-                  Attention&rdquo; in your Inbox.
+                  When a {terminology.person.toLowerCase()} asks for a human or
+                  raises a complex inquiry, the AI pauses and flags the chat as
+                  &ldquo;Needs Attention&rdquo; in your Inbox.
                 </p>
               </div>
 

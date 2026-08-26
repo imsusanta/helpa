@@ -97,8 +97,6 @@ export async function GET(request: NextRequest) {
       100
     );
 
-    
-
     const supabase = getSupabaseAdminClient();
     let query = supabase
       .from('conversations')
