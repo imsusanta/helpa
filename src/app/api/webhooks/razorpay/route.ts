@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
-import { getPlanBySlug } from '@/core/billing/plans';
+import { getPlanBySlug, resolvePlanRowId } from '@/core/billing/plans';
 import { verifyRazorpayWebhookSignature } from '@/lib/billing/razorpay';
+
+/** How long a 'pending' claim is honored before a retry may take over. */
+const CLAIM_TAKEOVER_MS = 10 * 60 * 1000;
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
@@ -61,32 +64,148 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     const supabase = getSupabaseAdminClient();
-    const paymentId = payment?.id || `pay_mock_${Date.now()}`;
-    const orderId =
-      payment?.order_id || order?.id || `order_mock_${Date.now()}`;
 
-    // 1. Database-Level Idempotency Check: Query platform_payments for unique payment ID
-    const { data: existingPayment } = await supabase
-      .from('platform_payments')
-      .select('id, status')
-      .eq('razorpay_payment_id', paymentId)
-      .maybeSingle();
-
-    if (existingPayment && existingPayment.status === 'captured') {
-      return NextResponse.json({
-        received: true,
-        status: 'already_processed',
-      });
+    // Stable idempotency subject. `payment.captured` and `order.paid`
+    // fire for the same payment; both must resolve to the same key so
+    // one payment can never be applied twice. Never fall back to a
+    // timestamp — that would defeat deduplication entirely.
+    const rawPaymentId =
+      typeof payment?.id === 'string' && payment.id ? payment.id : null;
+    const rawOrderId = payment?.order_id || order?.id || null;
+    const paymentId =
+      rawPaymentId || (rawOrderId ? `order_${rawOrderId}` : null);
+    if (!paymentId) {
+      console.warn(
+        '[Razorpay Webhook] Event carries neither payment id nor order id, ignored:',
+        event
+      );
+      return NextResponse.json({ received: true, message: 'No payment id' });
     }
+    const orderId = rawOrderId || `order_for_${paymentId}`;
 
     // 2. Handle Payment Success (Captured / Order Paid)
     if (event === 'payment.captured' || event === 'order.paid') {
       const targetPlan = await getPlanBySlug(planSlug);
+      const nowIso = new Date().toISOString();
+
+      const claimedAmount = payment?.amount
+        ? payment.amount / 100
+        : isFirstTime
+          ? targetPlan.setupFee + targetPlan.monthlyPrice
+          : targetPlan.monthlyPrice;
+
+      // 1. Atomic idempotency claim: INSERT the payment row first. The
+      //    unique constraint on razorpay_payment_id makes exactly one
+      //    concurrent delivery win; the check-then-act SELECT this
+      //    replaces allowed `payment.captured` + `order.paid` to both
+      //    extend the subscription (double entitlement per payment).
+      const { error: claimError } = await supabase
+        .from('platform_payments')
+        .insert({
+          account_id: accountId,
+          razorpay_order_id: orderId,
+          razorpay_payment_id: paymentId,
+          razorpay_signature: signature || null,
+          amount: claimedAmount,
+          currency: payment?.currency || targetPlan.currency || 'INR',
+          plan_slug: targetPlan.slug,
+          payment_type: 'monthly_renewal',
+          status: 'pending',
+          period_start: nowIso,
+          period_end: nowIso,
+          metadata: { gateway: 'razorpay', event, claim: true },
+        });
+
+      if (claimError) {
+        const isConflict =
+          claimError.code === '23505' ||
+          /duplicate|unique/i.test(claimError.message || '');
+        if (!isConflict) {
+          console.error('[Razorpay Webhook] Claim insert failed:', claimError);
+          return NextResponse.json(
+            { error: 'Failed to record payment' },
+            { status: 500 }
+          );
+        }
+
+        // Someone already holds (or held) this payment/order.
+        const { data: byPayment } = await supabase
+          .from('platform_payments')
+          .select('id, status, updated_at, razorpay_order_id')
+          .eq('razorpay_payment_id', paymentId)
+          .maybeSingle();
+
+        if (byPayment) {
+          if (byPayment.status === 'captured') {
+            return NextResponse.json({
+              received: true,
+              status: 'already_processed',
+            });
+          }
+          const claimAgeMs =
+            Date.now() - new Date(byPayment.updated_at || 0).getTime();
+          if (
+            byPayment.status === 'pending' &&
+            claimAgeMs < CLAIM_TAKEOVER_MS
+          ) {
+            // A concurrent delivery is processing this payment right
+            // now. Non-2xx makes Razorpay retry later, when the winner
+            // will have marked the row 'captured'.
+            return NextResponse.json(
+              { received: true, status: 'processing_in_progress' },
+              { status: 409 }
+            );
+          }
+          // Stale claim (crashed run) or previously failed row: take over.
+        } else {
+          // The conflict came from the order-id unique constraint: a
+          // different payment attempt for this order already has a row
+          // (e.g. a failed attempt before this captured one). Take the
+          // row over for the captured payment.
+          const { data: byOrder } = await supabase
+            .from('platform_payments')
+            .select('id, status')
+            .eq('razorpay_order_id', orderId)
+            .maybeSingle();
+
+          if (byOrder?.status === 'captured') {
+            return NextResponse.json({
+              received: true,
+              status: 'already_processed',
+            });
+          }
+          if (byOrder) {
+            const { error: takeoverErr } = await supabase
+              .from('platform_payments')
+              .update({
+                razorpay_payment_id: paymentId,
+                status: 'pending',
+                updated_at: nowIso,
+              })
+              .eq('id', byOrder.id);
+            if (takeoverErr) {
+              console.error(
+                '[Razorpay Webhook] Order row takeover failed:',
+                takeoverErr
+              );
+              return NextResponse.json(
+                { error: 'Failed to record payment' },
+                { status: 500 }
+              );
+            }
+          } else {
+            return NextResponse.json(
+              { received: true, status: 'processing_in_progress' },
+              { status: 409 }
+            );
+          }
+        }
+      }
 
       // Check for existing subscription row
       const { data: existingSub } = await supabase
         .from('subscriptions')
-        .select('id, end_date, setup_fee_paid')
+        .select('id, end_date, status')
         .eq('account_id', accountId)
         .maybeSingle();
 
@@ -98,69 +217,69 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         ? new Date(existingSub.end_date).getTime()
         : 0;
 
-      if (existingEndDateMs > now) {
+      if (existingEndDateMs > now && existingSub?.status === 'active') {
         // Active prepaid subscription renewed early: preserve remaining days + 30 days
         nextEndDate = new Date(
           existingEndDateMs + 30 * 86400 * 1000
         ).toISOString();
       } else {
-        // Expired or new subscription: 30 days from today
+        // Expired, trial, or new subscription: 30 days from today
         nextEndDate = new Date(now + 30 * 86400 * 1000).toISOString();
       }
 
-      const isReallyFirstTime =
-        isFirstTime && !(existingSub?.setup_fee_paid ?? false);
-      const chargedAmount = payment?.amount
-        ? payment.amount / 100
-        : isReallyFirstTime
-          ? targetPlan.setupFee + targetPlan.monthlyPrice
-          : targetPlan.monthlyPrice;
-
+      const isReallyFirstTime = isFirstTime;
+      const chargedAmount = claimedAmount;
       const paymentType = isReallyFirstTime
         ? 'setup_and_first_month'
         : 'monthly_renewal';
 
-      // Update or Create Subscription in database
+      // Update or Create Subscription using the real schema:
+      // (account_id, plan_id, status enum, start_date, end_date).
+      const planRowId = await resolvePlanRowId(targetPlan);
       let subscriptionId = existingSub?.id;
       if (existingSub) {
-        await supabase
+        const { error: subErr } = await supabase
           .from('subscriptions')
           .update({
-            plan_slug: targetPlan.slug,
-            status: 'ACTIVE',
-            setup_fee_paid: true,
-            setup_fee_amount: targetPlan.setupFee,
-            monthly_amount: targetPlan.monthlyPrice,
-            currency: targetPlan.currency || 'INR',
+            status: 'active',
             end_date: nextEndDate,
-            payment_provider: 'razorpay',
-            external_subscription_id: paymentId,
-            updated_at: new Date().toISOString(),
+            updated_at: nowIso,
+            ...(planRowId ? { plan_id: planRowId } : {}),
           })
           .eq('id', existingSub.id);
-      } else {
-        const { data: newSub } = await supabase
+        if (subErr) {
+          console.error(
+            '[Razorpay Webhook] Subscription update failed:',
+            subErr
+          );
+        }
+      } else if (planRowId) {
+        const { data: newSub, error: subErr } = await supabase
           .from('subscriptions')
           .insert({
             account_id: accountId,
-            plan_slug: targetPlan.slug,
-            status: 'ACTIVE',
-            setup_fee_paid: true,
-            setup_fee_amount: targetPlan.setupFee,
-            monthly_amount: targetPlan.monthlyPrice,
-            currency: targetPlan.currency || 'INR',
+            plan_id: planRowId,
+            status: 'active',
+            start_date: nowIso,
             end_date: nextEndDate,
-            payment_provider: 'razorpay',
-            external_subscription_id: paymentId,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
           })
           .select('id')
           .single();
+        if (subErr) {
+          console.error(
+            '[Razorpay Webhook] Subscription insert failed:',
+            subErr
+          );
+        }
         subscriptionId = newSub?.id;
+      } else {
+        console.error(
+          '[Razorpay Webhook] No plans row found for slug:',
+          targetPlan.slug
+        );
       }
 
-      // Record in platform_payments table (with database-level unique constraint)
+      // Finalize the payment row (with database-level unique constraint)
       await supabase.from('platform_payments').upsert(
         {
           account_id: accountId,
@@ -176,7 +295,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           is_setup_fee_included: isReallyFirstTime,
           setup_fee_amount: isReallyFirstTime ? targetPlan.setupFee : 0,
           monthly_recurring_amount: targetPlan.monthlyPrice,
-          period_start: new Date().toISOString(),
+          period_start: nowIso,
           period_end: nextEndDate,
           metadata: {
             gateway: 'razorpay',
@@ -185,7 +304,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             email: payment?.email || '',
             contact: payment?.contact || '',
           },
-          updated_at: new Date().toISOString(),
+          updated_at: nowIso,
         },
         { onConflict: 'razorpay_payment_id' }
       );
@@ -204,7 +323,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           plan_slug: targetPlan.slug,
           payment_type: paymentType,
           new_end_date: nextEndDate,
-          processed_at: new Date().toISOString(),
+          processed_at: nowIso,
         },
       });
 
@@ -216,17 +335,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       });
     }
 
-    // 3. Handle Payment Failure
+    // 3. Handle Payment Failure. The subscription status is left
+    //    untouched: a failed renewal attempt does not revoke the period
+    //    that is already paid for, and lapsed periods are expired by the
+    //    subscription-lifecycle cron based on end_date.
     if (event === 'payment.failed') {
       const targetPlan = await getPlanBySlug(planSlug);
-
-      await supabase
-        .from('subscriptions')
-        .update({
-          status: 'PAST_DUE',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('account_id', accountId);
 
       await supabase.from('platform_payments').upsert(
         {
@@ -268,7 +382,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
       return NextResponse.json({
         received: true,
-        status: 'subscription_marked_past_due',
+        status: 'payment_failure_recorded',
       });
     }
 

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
 import { findPlanBySlug } from '@/core/billing/plans';
-import { getWorkspaceSubscription } from '@/lib/saas/subscription';
 import {
   createRazorpayOrder,
   getRazorpayCredentials,
@@ -35,11 +34,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const { subscription: currentSub } = await getWorkspaceSubscription(
-      context.accountId
-    );
+    // The one-time setup fee is owed until a captured payment that
+    // included it exists. platform_payments is the source of truth —
+    // the subscriptions table has no setup-fee column, so deriving this
+    // from the subscription silently waived the fee for every account.
+    const { count: setupFeePayments } = await context.admin
+      .from('platform_payments')
+      .select('id', { count: 'exact', head: true })
+      .eq('account_id', context.accountId)
+      .eq('status', 'captured')
+      .eq('is_setup_fee_included', true);
 
-    const isFirstTime = !currentSub.setupFeePaid;
+    const isFirstTime = (setupFeePayments ?? 0) === 0;
     const totalAmountInInr = isFirstTime
       ? targetPlan.setupFee + targetPlan.monthlyPrice
       : targetPlan.monthlyPrice;
