@@ -6,6 +6,7 @@ const { dbState } = vi.hoisted(() => ({
     insertError: null as { code?: string; message?: string } | null,
     unknownColumns: new Set<string>(),
     disallowedStatus: new Set<string>(),
+    disallowedSenderType: new Set<string>(),
     inserts: [] as Record<string, unknown>[],
     updates: [] as Array<{
       table: string;
@@ -77,6 +78,17 @@ vi.mock('@/lib/db/server', () => ({
                 code: '23514',
                 message:
                   'new row for relation "messages" violates check constraint "messages_status_check"',
+              };
+            }
+            if (
+              !err &&
+              typeof inserting.sender_type === 'string' &&
+              dbState.disallowedSenderType.has(inserting.sender_type)
+            ) {
+              err = {
+                code: '23514',
+                message:
+                  'new row for relation "messages" violates check constraint "messages_sender_type_check"',
               };
             }
             if (
@@ -180,6 +192,7 @@ describe('persistOutboundMessage', () => {
     dbState.insertError = null;
     dbState.unknownColumns.clear();
     dbState.disallowedStatus.clear();
+    dbState.disallowedSenderType.clear();
     dbState.inserts.length = 0;
     dbState.updates.length = 0;
   });
@@ -243,6 +256,25 @@ describe('persistOutboundMessage', () => {
       message_id: 'wamid.AI.1',
       status: 'delivered',
     });
+  });
+
+  it('retries sender_type agent when the live check rejects bot', async () => {
+    dbState.disallowedSenderType.add('bot');
+
+    const res = await persistOutboundMessage({
+      accountId: 'tenant-1',
+      conversationId: 'conv-1',
+      senderType: 'bot',
+      contentType: 'text',
+      contentText: 'I can help you book.',
+      providerMessageId: 'wamid.AI.BOT.1',
+    });
+
+    expect(res.ok).toBe(true);
+    expect(dbState.inserts.map((row) => row.sender_type)).toEqual([
+      'bot',
+      'agent',
+    ]);
   });
 
   it('uses the caller createdAt so AI replies sort after the customer turn', async () => {

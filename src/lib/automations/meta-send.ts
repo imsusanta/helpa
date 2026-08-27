@@ -231,7 +231,10 @@ async function recordSentMessage(
     const persistRes = await persistOutboundMessage({
       accountId,
       conversationId,
-      senderType: 'bot',
+      // Live `messages` accepts the staff persist path (`agent`). `bot` is
+      // mapped to outbound in the inbox anyway, and a sender_type check that
+      // rejects `bot` was dropping AI rows after Meta already sent them.
+      senderType: 'agent',
       contentType,
       contentText,
       mediaUrl,

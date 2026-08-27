@@ -159,7 +159,7 @@ export function Sidebar({
         className={cn(
           'fixed inset-y-0 left-0 z-50 flex w-[252px] shrink-0 flex-col bg-[#071426] text-white shadow-[12px_0_40px_rgba(0,0,0,0.16)] transition-[width,transform,box-shadow] duration-300 ease-out lg:static lg:z-auto lg:translate-x-0 lg:shadow-none',
           collapsed && 'lg:w-[72px]',
-          open ? 'translate-x-0 animate-sidebar-panel-in' : '-translate-x-full'
+          open ? 'animate-sidebar-panel-in translate-x-0' : '-translate-x-full'
         )}
       >
         <div className="flex h-[76px] items-center justify-between px-5">
@@ -235,7 +235,12 @@ export function Sidebar({
                           : 'text-slate-400 group-hover:text-slate-200'
                       )}
                     />
-                    <span className={cn('transition-transform duration-200 group-hover:translate-x-0.5', collapsed && 'lg:hidden')}>
+                    <span
+                      className={cn(
+                        'transition-transform duration-200 group-hover:translate-x-0.5',
+                        collapsed && 'lg:hidden'
+                      )}
+                    >
                       {item.label}
                     </span>
                   </Link>
@@ -270,7 +275,12 @@ export function Sidebar({
                           : 'text-slate-400 group-hover:text-slate-200'
                       )}
                     />
-                    <span className={cn('flex-1 transition-transform duration-200 group-hover:translate-x-0.5', collapsed && 'lg:hidden')}>
+                    <span
+                      className={cn(
+                        'flex-1 transition-transform duration-200 group-hover:translate-x-0.5',
+                        collapsed && 'lg:hidden'
+                      )}
+                    >
                       {item.label}
                     </span>
                     {isExpanded ? (
@@ -295,7 +305,11 @@ export function Sidebar({
                         return (
                           <Link
                             key={child.id}
-                            style={{ ['--child-i']: childIndex } as React.CSSProperties}
+                            style={
+                              {
+                                ['--child-i']: childIndex,
+                              } as React.CSSProperties
+                            }
                             data-nav-id={child.id}
                             data-nav-parent-id={item.id}
                             data-nav-href={child.href}
@@ -375,16 +389,34 @@ export function Sidebar({
 
       <style jsx global>{`
         @keyframes sidebar-panel-in {
-          0% { opacity: 0; transform: translateX(-18px); }
-          100% { opacity: 1; transform: translateX(0); }
+          0% {
+            opacity: 0;
+            transform: translateX(-18px);
+          }
+          100% {
+            opacity: 1;
+            transform: translateX(0);
+          }
         }
         @keyframes sidebar-group-in {
-          0% { opacity: 0; transform: translateY(-5px); }
-          100% { opacity: 1; transform: translateY(0); }
+          0% {
+            opacity: 0;
+            transform: translateY(-5px);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0);
+          }
         }
         @keyframes sidebar-child-in {
-          0% { opacity: 0; transform: translateX(-7px); }
-          100% { opacity: 1; transform: translateX(0); }
+          0% {
+            opacity: 0;
+            transform: translateX(-7px);
+          }
+          100% {
+            opacity: 1;
+            transform: translateX(0);
+          }
         }
         .animate-sidebar-panel-in {
           animation: sidebar-panel-in 360ms cubic-bezier(0.22, 1, 0.36, 1) both;

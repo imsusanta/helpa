@@ -467,9 +467,11 @@ describe('AI Receptionist Auto-Reply Decision Engine & Automations Coexistence',
     expect(engineSendText).toHaveBeenCalledWith(
       expect.objectContaining({
         replyToMessageId: customerId,
-        createdAt: '2026-08-27T10:00:01.000Z',
         text: expect.stringContaining('consultation fee is ₹500'),
       })
+    );
+    expect(engineSendText).not.toHaveBeenCalledWith(
+      expect.objectContaining({ createdAt: expect.any(String) })
     );
   });
 

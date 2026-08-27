@@ -29,12 +29,12 @@ describe('WhatsApp AI reply delivery invariants', () => {
     expect(persistence).toBeGreaterThan(deliveryGuard);
   });
 
-  it('persists AI WhatsApp replies through the inbox persist helper as bot', () => {
+  it('persists AI WhatsApp replies through the inbox persist helper as agent', () => {
     expect(metaSendSource).toContain(
       "from '@/lib/whatsapp/persist-outbound-message'"
     );
     expect(metaSendSource).toContain('persistOutboundMessage');
-    expect(metaSendSource).toContain("senderType: 'bot'");
+    expect(metaSendSource).toContain("senderType: 'agent'");
     expect(metaSendSource).toContain('touchConversationPreview');
   });
 
