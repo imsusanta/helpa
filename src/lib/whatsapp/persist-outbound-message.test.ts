@@ -4,7 +4,7 @@ const { dbState } = vi.hoisted(() => ({
   dbState: {
     existingByProviderId: new Map<string, { id: string }>(),
     insertError: null as { code?: string; message?: string } | null,
-    insertFallbackError: null as { code?: string; message?: string } | null,
+    unknownColumns: new Set<string>(),
     inserts: [] as Record<string, unknown>[],
     updates: [] as Array<{
       table: string;
@@ -29,7 +29,7 @@ vi.mock('@/lib/db/server', () => ({
         },
         insert: (payload: Record<string, unknown>) => {
           inserting = payload;
-          dbState.inserts.push(payload);
+          dbState.inserts.push({ ...payload });
           return builder;
         },
         update: (payload: Record<string, unknown>) => {
@@ -41,32 +41,6 @@ vi.mock('@/lib/db/server', () => ({
           return builder;
         },
         maybeSingle: async () => {
-          if (inserting) {
-            const isFallback = !('direction' in inserting);
-            const err = isFallback
-              ? dbState.insertFallbackError
-              : dbState.insertError;
-            if (err) {
-              if (
-                String(err.code) === '23505' &&
-                inserting.provider_message_id
-              ) {
-                dbState.existingByProviderId.set(
-                  String(inserting.provider_message_id),
-                  { id: 'msg-raced' }
-                );
-              }
-              return { data: null, error: err };
-            }
-            const id = `msg-${dbState.inserts.length}`;
-            const providerId = String(
-              inserting.provider_message_id || inserting.message_id || ''
-            );
-            if (providerId) {
-              dbState.existingByProviderId.set(providerId, { id });
-            }
-            return { data: { id }, error: null };
-          }
           if (selecting) {
             const providerId = String(
               filters.provider_message_id || filters.message_id || ''
@@ -79,9 +53,37 @@ vi.mock('@/lib/db/server', () => ({
           return { data: null, error: null };
         },
         then: (
-          resolve: (value: { data: null; error: null }) => void,
+          resolve: (value: {
+            data: { id?: unknown } | null;
+            error: { code?: string; message?: string } | null;
+          }) => void,
           reject: (reason?: unknown) => void
         ) => {
+          if (inserting) {
+            const missing = Object.keys(inserting).find((key) =>
+              dbState.unknownColumns.has(key)
+            );
+            let err = missing
+              ? {
+                  code: 'PGRST204',
+                  message: `Could not find the '${missing}' column of 'messages' in the schema cache`,
+                }
+              : dbState.insertError;
+            if (
+              err &&
+              String(err.code) === '23505' &&
+              inserting.provider_message_id
+            ) {
+              dbState.existingByProviderId.set(
+                String(inserting.provider_message_id),
+                { id: 'msg-raced' }
+              );
+            }
+            return Promise.resolve({
+              data: err ? null : { id: inserting.id },
+              error: err,
+            }).then(resolve, reject);
+          }
           if (updating) {
             dbState.updates.push({
               table,
@@ -103,57 +105,102 @@ vi.mock('@/lib/db/server', () => ({
 
 import {
   isValidUuid,
+  missingColumnName,
   outboundPreviewText,
   persistOutboundMessage,
   touchConversationPreview,
   pauseActiveFlowRuns,
 } from '@/lib/whatsapp/persist-outbound-message';
 
+const AGENT_UUID = '3d8f0c1a-6b2e-4c11-9a0d-7e4b5c2a1f90';
+const REPLY_UUID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+
+describe('missingColumnName', () => {
+  it('parses PostgREST schema-cache and Postgres 42703 messages', () => {
+    expect(
+      missingColumnName({
+        code: 'PGRST204',
+        message:
+          "Could not find the 'template_name' column of 'messages' in the schema cache",
+      })
+    ).toBe('template_name');
+    expect(
+      missingColumnName({
+        code: '42703',
+        message: 'column "sender_id" of relation "messages" does not exist',
+      })
+    ).toBe('sender_id');
+  });
+});
+
 describe('persistOutboundMessage', () => {
   beforeEach(() => {
     dbState.existingByProviderId.clear();
     dbState.insertError = null;
-    dbState.insertFallbackError = null;
+    dbState.unknownColumns.clear();
     dbState.inserts.length = 0;
     dbState.updates.length = 0;
   });
 
   it('accepts canonical UUID strings only', () => {
-    expect(isValidUuid('3d8f0c1a-6b2e-4c11-9a0d-7e4b5c2a1f90')).toBe(true);
+    expect(isValidUuid(AGENT_UUID)).toBe(true);
     expect(isValidUuid('wamid.OUT.1')).toBe(false);
     expect(isValidUuid(null)).toBe(false);
   });
 
-  it('writes direction=outbound with tenant + provider ids', async () => {
+  it('inserts inbound-shaped outbound rows and omits null optionals', async () => {
     const res = await persistOutboundMessage({
       accountId: 'tenant-1',
       conversationId: 'conv-1',
-      senderId: '3d8f0c1a-6b2e-4c11-9a0d-7e4b5c2a1f90',
       contentType: 'text',
       contentText: 'Hello from clinic',
       providerMessageId: 'wamid.OUT.1',
-      replyToMessageId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
     });
 
-    expect(res).toEqual({
-      ok: true,
-      messageId: 'msg-1',
-      duplicate: false,
-    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.duplicate).toBe(false);
+    expect(res.messageId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    );
     expect(dbState.inserts).toHaveLength(1);
     expect(dbState.inserts[0]).toMatchObject({
+      id: res.messageId,
       account_id: 'tenant-1',
       conversation_id: 'conv-1',
       direction: 'outbound',
       sender_type: 'agent',
-      sender_id: '3d8f0c1a-6b2e-4c11-9a0d-7e4b5c2a1f90',
       content_type: 'text',
       content_text: 'Hello from clinic',
       provider_message_id: 'wamid.OUT.1',
       message_id: 'wamid.OUT.1',
       status: 'sent',
-      reply_to_message_id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
     });
+    expect(dbState.inserts[0]).not.toHaveProperty('template_name');
+    expect(dbState.inserts[0]).not.toHaveProperty('media_url');
+    expect(dbState.inserts[0]).not.toHaveProperty('sender_id');
+    expect(dbState.inserts[0]).not.toHaveProperty('reply_to_message_id');
+  });
+
+  it('includes optional columns only when they have values', async () => {
+    await persistOutboundMessage({
+      accountId: 'tenant-1',
+      conversationId: 'conv-1',
+      senderId: AGENT_UUID,
+      contentType: 'template',
+      contentText: 'Hi',
+      providerMessageId: 'wamid.TPL.1',
+      templateName: 'hello_world',
+      mediaUrl: 'https://cdn.example/a.jpg',
+      replyToMessageId: REPLY_UUID,
+    });
+
+    expect(dbState.inserts[0]).toMatchObject({
+      template_name: 'hello_world',
+      media_url: 'https://cdn.example/a.jpg',
+      reply_to_message_id: REPLY_UUID,
+    });
+    expect(dbState.inserts[0]).not.toHaveProperty('sender_id');
   });
 
   it('drops a non-UUID reply_to_message_id rather than failing the insert', async () => {
@@ -185,11 +232,34 @@ describe('persistOutboundMessage', () => {
     expect(dbState.inserts).toHaveLength(0);
   });
 
-  it('falls back to the reduced schema when canonical columns are missing', async () => {
-    dbState.insertError = {
-      code: '42703',
-      message: 'column "direction" does not exist',
-    };
+  it('strips template_name when production messages lacks that column', async () => {
+    dbState.unknownColumns.add('template_name');
+
+    const res = await persistOutboundMessage({
+      accountId: 'tenant-1',
+      conversationId: 'conv-1',
+      senderId: AGENT_UUID,
+      contentType: 'template',
+      contentText: 'Hi',
+      providerMessageId: 'wamid.TPL.2',
+      templateName: 'hello_world',
+    });
+
+    expect(res.ok).toBe(true);
+    expect(dbState.inserts).toHaveLength(2);
+    expect(dbState.inserts[0]).toHaveProperty('template_name', 'hello_world');
+    expect(dbState.inserts[1]).not.toHaveProperty('template_name');
+    expect(dbState.inserts[1]).not.toHaveProperty('sender_id');
+    expect(dbState.inserts[1]).toMatchObject({
+      conversation_id: 'conv-1',
+      direction: 'outbound',
+      sender_type: 'agent',
+      message_id: 'wamid.TPL.2',
+    });
+  });
+
+  it('strips unknown canonical columns such as direction and retries', async () => {
+    dbState.unknownColumns.add('direction');
     const res = await persistOutboundMessage({
       accountId: 'tenant-1',
       conversationId: 'conv-1',
@@ -200,13 +270,14 @@ describe('persistOutboundMessage', () => {
     expect(res.ok).toBe(true);
     if (res.ok) expect(res.duplicate).toBe(false);
     expect(dbState.inserts).toHaveLength(2);
+    expect(dbState.inserts[0]).toHaveProperty('direction', 'outbound');
+    expect(dbState.inserts[1]).not.toHaveProperty('direction');
     expect(dbState.inserts[1]).toMatchObject({
       conversation_id: 'conv-1',
       sender_type: 'agent',
       message_id: 'wamid.OUT.3',
       content_text: 'hi',
     });
-    expect(dbState.inserts[1]).not.toHaveProperty('direction');
   });
 
   it('treats a unique-violation race as success', async () => {
@@ -225,9 +296,8 @@ describe('persistOutboundMessage', () => {
     });
   });
 
-  it('returns ok:false when both insert attempts fail', async () => {
-    dbState.insertError = { message: 'permission denied' };
-    dbState.insertFallbackError = { message: 'permission denied' };
+  it('returns ok:false when insert fails for a non-schema reason', async () => {
+    dbState.insertError = { code: '42501', message: 'permission denied' };
     const res = await persistOutboundMessage({
       accountId: 'tenant-1',
       conversationId: 'conv-1',
@@ -236,6 +306,19 @@ describe('persistOutboundMessage', () => {
       providerMessageId: 'wamid.FAIL',
     });
     expect(res).toEqual({ ok: false, error: 'permission denied' });
+  });
+
+  it('does not require PostgREST RETURNING to treat the insert as success', async () => {
+    const res = await persistOutboundMessage({
+      accountId: 'tenant-1',
+      conversationId: 'conv-1',
+      contentType: 'text',
+      contentText: 'hello',
+      providerMessageId: 'wamid.NORETURN',
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.messageId).toBe(dbState.inserts[0].id);
   });
 });
 
