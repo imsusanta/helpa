@@ -68,8 +68,20 @@ interface ReplyDraft {
 function applyPersistedSend(
   onUpdateMessage: (id: string, updates: Partial<Message>) => void,
   tempId: string,
-  payload: { id?: unknown; message_id?: unknown }
+  payload: {
+    id?: unknown;
+    message_id?: unknown;
+    status?: unknown;
+    persist_error?: unknown;
+  }
 ) {
+  if (payload.status === 'sent_meta_reconciliation_pending') {
+    const detail =
+      typeof payload.persist_error === 'string' && payload.persist_error
+        ? payload.persist_error
+        : 'the inbox could not save the message';
+    toast.error(`WhatsApp delivered, but ${detail}`);
+  }
   const localId =
     typeof payload.id === 'string' && payload.id ? payload.id : null;
   const providerId =

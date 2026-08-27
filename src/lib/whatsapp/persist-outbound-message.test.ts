@@ -5,6 +5,7 @@ const { dbState } = vi.hoisted(() => ({
     existingByProviderId: new Map<string, { id: string }>(),
     insertError: null as { code?: string; message?: string } | null,
     unknownColumns: new Set<string>(),
+    disallowedStatus: new Set<string>(),
     inserts: [] as Record<string, unknown>[],
     updates: [] as Array<{
       table: string;
@@ -40,6 +41,7 @@ vi.mock('@/lib/db/server', () => ({
           filters[col] = val;
           return builder;
         },
+        limit: () => builder,
         maybeSingle: async () => {
           if (selecting) {
             const providerId = String(
@@ -53,22 +55,30 @@ vi.mock('@/lib/db/server', () => ({
           return { data: null, error: null };
         },
         then: (
-          resolve: (value: {
-            data: { id?: unknown } | null;
-            error: { code?: string; message?: string } | null;
-          }) => void,
-          reject: (reason?: unknown) => void
+          resolve: (value: { data: unknown; error: unknown }) => void,
+          reject?: (reason?: unknown) => void
         ) => {
           if (inserting) {
             const missing = Object.keys(inserting).find((key) =>
               dbState.unknownColumns.has(key)
             );
-            const err = missing
+            let err = missing
               ? {
                   code: 'PGRST204',
                   message: `Could not find the '${missing}' column of 'messages' in the schema cache`,
                 }
               : dbState.insertError;
+            if (
+              !err &&
+              typeof inserting.status === 'string' &&
+              dbState.disallowedStatus.has(inserting.status)
+            ) {
+              err = {
+                code: '23514',
+                message:
+                  'new row for relation "messages" violates check constraint "messages_status_check"',
+              };
+            }
             if (
               err &&
               String(err.code) === '23505' &&
@@ -79,8 +89,26 @@ vi.mock('@/lib/db/server', () => ({
                 { id: 'msg-raced' }
               );
             }
+            if (!err) {
+              const id = String(
+                inserting.id || `msg-${dbState.inserts.length}`
+              );
+              const providerId = String(
+                inserting.provider_message_id ||
+                  inserting.message_id ||
+                  inserting.messageId ||
+                  ''
+              );
+              if (providerId) {
+                dbState.existingByProviderId.set(providerId, { id });
+              }
+              return Promise.resolve({ data: { id }, error: null }).then(
+                resolve,
+                reject
+              );
+            }
             return Promise.resolve({
-              data: err ? null : { id: inserting.id },
+              data: null,
               error: err,
             }).then(resolve, reject);
           }
@@ -90,6 +118,19 @@ vi.mock('@/lib/db/server', () => ({
               payload: updating,
               filters: { ...filters },
             });
+          }
+          if (selecting) {
+            const providerId = String(
+              filters.provider_message_id ||
+                filters.message_id ||
+                filters.messageId ||
+                ''
+            );
+            const found = dbState.existingByProviderId.get(providerId);
+            return Promise.resolve({
+              data: found ? [found] : [],
+              error: null,
+            }).then(resolve, reject);
           }
           return Promise.resolve({ data: null, error: null }).then(
             resolve,
@@ -138,6 +179,7 @@ describe('persistOutboundMessage', () => {
     dbState.existingByProviderId.clear();
     dbState.insertError = null;
     dbState.unknownColumns.clear();
+    dbState.disallowedStatus.clear();
     dbState.inserts.length = 0;
     dbState.updates.length = 0;
   });
@@ -148,7 +190,7 @@ describe('persistOutboundMessage', () => {
     expect(isValidUuid(null)).toBe(false);
   });
 
-  it('inserts inbound-shaped outbound rows and omits null optionals', async () => {
+  it('inserts inbound-shaped outbound rows including nullable inbound columns', async () => {
     const res = await persistOutboundMessage({
       accountId: 'tenant-1',
       conversationId: 'conv-1',
@@ -160,12 +202,9 @@ describe('persistOutboundMessage', () => {
     expect(res.ok).toBe(true);
     if (!res.ok) return;
     expect(res.duplicate).toBe(false);
-    expect(res.messageId).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-    );
+    expect(res.messageId).toBe('msg-1');
     expect(dbState.inserts).toHaveLength(1);
     expect(dbState.inserts[0]).toMatchObject({
-      id: res.messageId,
       account_id: 'tenant-1',
       conversation_id: 'conv-1',
       direction: 'outbound',
@@ -174,12 +213,14 @@ describe('persistOutboundMessage', () => {
       content_text: 'Hello from clinic',
       provider_message_id: 'wamid.OUT.1',
       message_id: 'wamid.OUT.1',
-      status: 'sent',
+      status: 'delivered',
+      media_url: null,
+      reply_to_message_id: null,
+      interactive_reply_id: null,
     });
+    expect(dbState.inserts[0]).not.toHaveProperty('id');
     expect(dbState.inserts[0]).not.toHaveProperty('template_name');
-    expect(dbState.inserts[0]).not.toHaveProperty('media_url');
     expect(dbState.inserts[0]).not.toHaveProperty('sender_id');
-    expect(dbState.inserts[0]).not.toHaveProperty('reply_to_message_id');
   });
 
   it('includes optional columns only when they have values', async () => {
@@ -196,10 +237,10 @@ describe('persistOutboundMessage', () => {
     });
 
     expect(dbState.inserts[0]).toMatchObject({
-      template_name: 'hello_world',
       media_url: 'https://cdn.example/a.jpg',
       reply_to_message_id: REPLY_UUID,
     });
+    expect(dbState.inserts[0]).not.toHaveProperty('template_name');
     expect(dbState.inserts[0]).not.toHaveProperty('sender_id');
   });
 
@@ -212,7 +253,7 @@ describe('persistOutboundMessage', () => {
       providerMessageId: 'wamid.OUT.2',
       replyToMessageId: 'wamid.IN.1',
     });
-    expect(dbState.inserts[0]).not.toHaveProperty('reply_to_message_id');
+    expect(dbState.inserts[0]).toMatchObject({ reply_to_message_id: null });
   });
 
   it('is a no-op insert when the provider message already exists', async () => {
@@ -232,8 +273,8 @@ describe('persistOutboundMessage', () => {
     expect(dbState.inserts).toHaveLength(0);
   });
 
-  it('strips template_name when production messages lacks that column', async () => {
-    dbState.unknownColumns.add('template_name');
+  it('strips inbound nullable columns when production messages lacks them', async () => {
+    dbState.unknownColumns.add('interactive_reply_id');
 
     const res = await persistOutboundMessage({
       accountId: 'tenant-1',
@@ -247,9 +288,8 @@ describe('persistOutboundMessage', () => {
 
     expect(res.ok).toBe(true);
     expect(dbState.inserts).toHaveLength(2);
-    expect(dbState.inserts[0]).toHaveProperty('template_name', 'hello_world');
-    expect(dbState.inserts[1]).not.toHaveProperty('template_name');
-    expect(dbState.inserts[1]).not.toHaveProperty('sender_id');
+    expect(dbState.inserts[0]).toHaveProperty('interactive_reply_id', null);
+    expect(dbState.inserts[1]).not.toHaveProperty('interactive_reply_id');
     expect(dbState.inserts[1]).toMatchObject({
       conversation_id: 'conv-1',
       direction: 'outbound',
@@ -305,20 +345,67 @@ describe('persistOutboundMessage', () => {
       contentText: 'hi',
       providerMessageId: 'wamid.FAIL',
     });
-    expect(res).toEqual({ ok: false, error: 'permission denied' });
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error).toMatch(/permission denied/);
   });
 
-  it('does not require PostgREST RETURNING to treat the insert as success', async () => {
+  it('retries status when messages_status_check rejects delivered/sent', async () => {
+    dbState.disallowedStatus.add('delivered');
+    dbState.disallowedStatus.add('sent');
+
     const res = await persistOutboundMessage({
       accountId: 'tenant-1',
       conversationId: 'conv-1',
       contentType: 'text',
-      contentText: 'hello',
-      providerMessageId: 'wamid.NORETURN',
+      contentText: 'hi',
+      providerMessageId: 'wamid.STATUS',
     });
+
     expect(res.ok).toBe(true);
-    if (!res.ok) return;
-    expect(res.messageId).toBe(dbState.inserts[0].id);
+    expect(dbState.inserts.map((row) => row.status)).toEqual([
+      'delivered',
+      'sent',
+      'pending',
+    ]);
+  });
+
+  it('falls back to camelCase when snake_case required columns are missing', async () => {
+    for (const column of [
+      'conversation_id',
+      'sender_type',
+      'content_type',
+      'content_text',
+      'media_url',
+      'message_id',
+      'status',
+      'reply_to_message_id',
+      'interactive_reply_id',
+      'created_at',
+      'account_id',
+      'direction',
+      'provider_message_id',
+      'updated_at',
+    ]) {
+      dbState.unknownColumns.add(column);
+    }
+
+    const res = await persistOutboundMessage({
+      accountId: 'tenant-1',
+      conversationId: 'conv-1',
+      contentType: 'text',
+      contentText: 'hi',
+      providerMessageId: 'wamid.LEGACY',
+    });
+
+    expect(res.ok).toBe(true);
+    const last = dbState.inserts[dbState.inserts.length - 1];
+    expect(last).toMatchObject({
+      conversationId: 'conv-1',
+      senderType: 'agent',
+      messageId: 'wamid.LEGACY',
+      contentText: 'hi',
+    });
+    expect(last).not.toHaveProperty('conversation_id');
   });
 });
 

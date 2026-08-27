@@ -718,6 +718,7 @@ export async function POST(request: Request) {
       return NextResponse.json({
         success: true,
         status: 'sent_meta_reconciliation_pending',
+        persist_error: persistRes.error,
         message_id: waMessageId,
         conversation_id,
         phone: workingPhone,
