@@ -222,11 +222,10 @@ export function Sidebar({
                     className={cn(
                       'animate-nav-item group relative flex h-[44px] items-center gap-3 overflow-hidden rounded-xl px-3.5 text-[14px] font-medium transition-all duration-200 ease-out hover:translate-x-0.5',
                       activeDirect
-                        ? 'bg-emerald-500/15 font-semibold text-white shadow-[inset_3px_0_0_#10b981]'
+                        ? 'bg-emerald-500/15 font-semibold text-white'
                         : 'text-slate-300 hover:bg-white/5 hover:text-white'
                     )}
                   >
-                    <span className="pointer-events-none absolute inset-y-1 left-0 w-0.5 origin-left scale-y-0 rounded-full bg-emerald-400 opacity-0 transition-all duration-200 group-hover:scale-y-100 group-hover:opacity-70" />
                     <Icon
                       className={cn(
                         'h-[18px] w-[18px] shrink-0 transition-transform duration-200 ease-out group-hover:scale-110',
@@ -262,11 +261,10 @@ export function Sidebar({
                     className={cn(
                       'group relative flex h-[44px] w-full items-center gap-3 overflow-hidden rounded-xl px-3.5 text-left text-[14px] font-medium transition-all duration-200 ease-out hover:translate-x-0.5',
                       isParentActive
-                        ? 'bg-emerald-500/10 font-semibold text-white shadow-[inset_3px_0_0_#10b981]'
+                        ? 'bg-emerald-500/10 font-semibold text-white'
                         : 'text-slate-300 hover:bg-white/5 hover:text-white'
                     )}
                   >
-                    <span className="pointer-events-none absolute inset-y-1 left-0 w-0.5 origin-left scale-y-0 rounded-full bg-emerald-400 opacity-0 transition-all duration-200 group-hover:scale-y-100 group-hover:opacity-70" />
                     <Icon
                       className={cn(
                         'h-[18px] w-[18px] shrink-0 transition-transform duration-200 ease-out group-hover:scale-110',
