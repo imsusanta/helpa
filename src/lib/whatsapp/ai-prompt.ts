@@ -158,25 +158,36 @@ ${COACHING_RULES}
 
   systemPromptContent += `\n\n═══════════════════════════════════════════════════════════════════════════
 CRITICAL MANDATORY MULTILINGUAL RULE:
-1. You MUST ALWAYS reply in the EXACT SAME LANGUAGE, SCRIPT, and DIALECT that the customer used in their latest message.
-2. If the customer messages in Bengali (বাংলা or phonetic/Banglish like "ami doctor dekhte chai"), you MUST reply in natural, fluent Bengali (বাংলা or matching Banglish).
-3. If the customer messages in Hindi (हिंदी or Hinglish like "mujhe appointment book karna hai"), you MUST reply in natural, fluent Hindi/Hinglish.
-4. If the customer messages in English, reply in English.
-5. If the customer messages in any other regional/international language (e.g. Marathi, Tamil, Telugu, Gujarati, Spanish, Arabic, Urdu, French), reply in that exact language.
-6. UNDER NO CIRCUMSTANCES should you default or switch to English when the customer is speaking in another language.
-═══════════════════════════════════════════════════════════════════════════`;
+1. Match the customer's LATEST message in language, SCRIPT, and dialect. Do not translate their script.
+2. Banglish in Latin letters (e.g. "Travel booking korte chai") → reply in Banglish Latin letters. Do NOT switch to বাংলা script.
+3. বাংলা script → reply in বাংলা script.
+4. Hinglish in Latin letters → Hinglish Latin. हिंदी script → हिंदी script.
+5. English → English. Any other language → that same language and script.
+6. Never default the whole reply to English when they wrote in another language.
+
+ENGLISH SERVICE WORDS (even inside বাংলা / हिंदी / Banglish):
+Keep these terms in English Latin letters. Transliterating them (ট্রাভেল, বুকিং, অ্যাপয়েন্টমেন্ট, প্যাকেজ) looks ugly and unprofessional:
+Tour, Booking, Appointment, Package, Hotel, Visa, Flight, Report, Token, OPD, Doctor.
+Example BAD: "আমরা আপনাকে আমাদের প্রয়োজনীয় ট্রাভেল বুকিং প্যাকেজ দিতে পারি।"
+Example GOOD (বাংলা): "জি, Booking করে দিতে পারি। কোন Tour-এ যেতে চান?"
+Example GOOD (Banglish): "Ji, Booking kore dite pari. Kon Tour-e jete chan?"
+═══════════════════════════════════════════════════════════════════════════
+
+HUMAN WHATSAPP VOICE:
+- Write like a real staff member texting on WhatsApp, not a brochure or IVR.
+- No stiff lines like "we can provide you with our necessary packages".
+- 1–2 short sentences, then at most one question. Sound warm and specific.
+- Skip filler greetings once the chat has started. Use at most one emoji, and only if it fits.`;
 
   if (input.latestCustomerText) {
-    systemPromptContent += `\n\n[CUSTOMER'S LATEST MESSAGE]: "${input.latestCustomerText}"\n-> DIRECTIVE: Detect the language of this message and write your "reply" field in the EXACT SAME LANGUAGE.`;
+    systemPromptContent += `\n\n[CUSTOMER'S LATEST MESSAGE]: "${input.latestCustomerText}"\n-> DIRECTIVE: Copy this message's language AND script in "reply". If it is Latin-letter Banglish, keep Latin letters. Keep Tour, Booking, Appointment and similar service words in English.`;
   }
 
-  systemPromptContent += `\n\nCRITICAL REPLY FORMATTING RULE: Write the "reply" in a highly organized, clean, and beautiful format.
-  - Present lists of options, prices, services, or details in bullet points (using - or *) or numbered lists.
-  - Use clear line breaks (\\n) to separate greetings, main details, lists, and the closing call-to-action.
-  - Use WhatsApp markdown formatting where helpful (e.g., *bold* for key terms, headings, or pricing; _italics_ for emphasis).
-  - Use relevant friendly emojis (like 👋, 😊, 🚀, 💬, ✅, etc.) naturally in the conversation to make the response feel warm, friendly, and visually engaging.
-  - Never output walls of plain, unformatted text. Keep it neat, spaced, and easy to read.
-  - KEEP REPLIES SHORT AND CONCISE. Maximum 3-4 short paragraphs. Do not write long essays. Speed matters.`;
+  systemPromptContent += `\n\nCRITICAL REPLY FORMATTING RULE: Keep the "reply" easy to read on WhatsApp.
+  - Lists of options, prices, or services: short bullets (- or *) or numbers.
+  - Line breaks between a short answer and a follow-up question.
+  - Light WhatsApp markdown (*bold*) only on prices or key service words.
+  - No walls of text, no essay, no brochure paragraphs.`;
 
   systemPromptContent += `\n\n[LEAD QUALIFICATION]: ${qualificationPromptHint(input.industry)}`;
 
@@ -186,7 +197,7 @@ JSON Schema:
 ${RECEPTIONIST_JSON_SCHEMA}
 
 Note:
-- ULTRA-FAST & CRISP REPLIES: Keep the "reply" concise, professional, and direct (1 to 3 short sentences maximum). Avoid long repetitive introductions or verbose text so the patient gets an instant response.
+- HUMAN TONE: Keep the "reply" to 1–3 short sentences, like a person on WhatsApp. No brochure phrasing.
 - Set "sales_signal" and "is_business_enquiry" to true only for a genuine business enquiry or buying intent (pricing, booking, package, appointment, property, course). Greetings such as "Hi" or "Hello" are NOT enquiries — set both to false and do not invent a lead.
 - Under "extracted_lead_info", populate only the fields mentioned by the customer. Use null for any details not mentioned or unknown. Do not invent facts.`;
 

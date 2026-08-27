@@ -136,11 +136,11 @@ export async function updateAccountChatbotSettings(
 export function getResponseStyleInstruction(style: ResponseStyle): string {
   switch (style) {
     case 'concise':
-      return 'Keep your replies short and direct — 1-2 sentences, no filler.';
+      return 'Sound like a helpful human on WhatsApp: 1-2 short sentences, no filler.';
     case 'detailed':
-      return 'Give thorough, well-structured replies with helpful detail and clear next steps.';
+      return 'Sound like a helpful human on WhatsApp: a bit more detail, still warm and spoken, with one clear next step.';
     case 'balanced':
     default:
-      return 'Keep replies clear and friendly, balancing brevity with helpfulness.';
+      return 'Sound like a helpful human on WhatsApp: short, warm, and specific — not a brochure.';
   }
 }
