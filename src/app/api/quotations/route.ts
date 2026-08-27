@@ -31,9 +31,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '50', 10)));
     const offset = Math.max(0, parseInt(searchParams.get('offset') || '0', 10));
 
+    // quotation_items has both a simple FK and a composite tenant FK to quotations.
+    // Explicitly select the simple FK relationship to avoid PostgREST PGRST201/HTTP 300
+    // ambiguous-relationship errors.
     let query = supabase
       .from('quotations')
-      .select('*, contacts(id, name, phone, email), quotation_items(*)', { count: 'exact' })
+      .select('*, contacts(id, name, phone, email), quotation_items!quotation_items_quotation_id_fkey(*)', { count: 'exact' })
       .eq('account_id', ctx.accountId);
 
     if (contactId) query = query.eq('contact_id', contactId);
