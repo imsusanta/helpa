@@ -37,38 +37,40 @@ export class HelpaAiError extends Error {
 }
 
 /**
- * Determines whether an AI error is transient/retryable and therefore eligible
- * for provider failover. Authentication, invalid-model, malformed-request and
- * policy/tool failures stay on the current provider because switching providers
- * cannot reliably fix the same configuration/request problem.
+ * Determines whether a provider error should trigger automatic failover.
+ * Provider-specific outages, exhausted quota/credits, rate limits, revoked
+ * credentials and unavailable models are eligible for fallback. Invalid user
+ * requests and tool/policy failures are not, because another provider would
+ * receive the same invalid request.
  */
 export function isRetryableAiError(error: unknown): boolean {
   if (error instanceof HelpaAiError) {
     switch (error.code) {
       case 'AI_PROVIDER_UNAVAILABLE':
       case 'AI_RATE_LIMITED':
+      case 'AI_AUTHENTICATION_FAILED':
+      case 'AI_MODEL_UNAVAILABLE':
       case 'AI_TIMEOUT':
         return true;
-      case 'AI_AUTHENTICATION_FAILED':
       case 'AI_INVALID_REQUEST':
-      case 'AI_MODEL_UNAVAILABLE':
       case 'AI_TOOL_ERROR':
         return false;
       default:
         break;
     }
     if (error.status) {
-      if (error.status === 402 || error.status === 408 || error.status === 429 || error.status >= 500) {
+      if (
+        error.status === 401 ||
+        error.status === 402 ||
+        error.status === 403 ||
+        error.status === 404 ||
+        error.status === 408 ||
+        error.status === 429 ||
+        error.status >= 500
+      ) {
         return true;
       }
-      if (
-        error.status === 400 ||
-        error.status === 401 ||
-        error.status === 403 ||
-        error.status === 404
-      ) {
-        return false;
-      }
+      if (error.status === 400) return false;
     }
   }
 
@@ -88,8 +90,18 @@ export function isRetryableAiError(error: unknown): boolean {
       msg.includes('limit exceeded') ||
       msg.includes('insufficient balance') ||
       msg.includes('payment required') ||
+      msg.includes('unauthorized') ||
+      msg.includes('forbidden') ||
+      msg.includes('invalid api key') ||
+      msg.includes('api key expired') ||
+      msg.includes('model not found') ||
+      msg.includes('model unavailable') ||
+      msg.includes(' 401') ||
       msg.includes(' 402') ||
+      msg.includes(' 403') ||
+      msg.includes(' 404') ||
       msg.includes(' 408') ||
+      msg.includes(' 429') ||
       msg.includes('503') ||
       msg.includes('502') ||
       msg.includes('500')
@@ -97,12 +109,9 @@ export function isRetryableAiError(error: unknown): boolean {
       return true;
     }
     if (
-      msg.includes('api key') ||
-      msg.includes('unauthorized') ||
-      msg.includes('forbidden') ||
-      msg.includes('invalid model') ||
-      msg.includes('model not found') ||
-      msg.includes('invalid request')
+      msg.includes('invalid request') ||
+      msg.includes('malformed request') ||
+      msg.includes('policy rejection')
     ) {
       return false;
     }
@@ -118,9 +127,7 @@ export function normalizeAiError(
   error: unknown,
   providerName: string
 ): HelpaAiError {
-  if (error instanceof HelpaAiError) {
-    return error;
-  }
+  if (error instanceof HelpaAiError) return error;
 
   const rawMessage = error instanceof Error ? error.message : String(error);
   const lowerMessage = rawMessage.toLowerCase();
@@ -130,15 +137,14 @@ export function normalizeAiError(
 
   const statusMatch =
     rawMessage.match(/HTTP (\d{3})/i) || rawMessage.match(/status (\d{3})/i);
-  if (statusMatch) {
-    status = parseInt(statusMatch[1], 10);
-  }
+  if (statusMatch) status = parseInt(statusMatch[1], 10);
 
   if (
     status === 401 ||
     status === 403 ||
     lowerMessage.includes('api key') ||
-    lowerMessage.includes('unauthorized')
+    lowerMessage.includes('unauthorized') ||
+    lowerMessage.includes('forbidden')
   ) {
     code = 'AI_AUTHENTICATION_FAILED';
   } else if (
@@ -165,6 +171,7 @@ export function normalizeAiError(
   } else if (
     status === 404 ||
     lowerMessage.includes('model not found') ||
+    lowerMessage.includes('model unavailable') ||
     lowerMessage.includes('does not exist')
   ) {
     code = 'AI_MODEL_UNAVAILABLE';
