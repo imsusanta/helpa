@@ -66,7 +66,11 @@ export async function GET(
     }
 
     return NextResponse.json(
-      { success: true, data: presentQuotation(quotation), requestId: correlationId },
+      {
+        success: true,
+        data: presentQuotation(quotation),
+        requestId: correlationId,
+      },
       { headers: { ...PRIVATE_HEADERS, 'X-Request-Id': correlationId } }
     );
   } catch (err: unknown) {

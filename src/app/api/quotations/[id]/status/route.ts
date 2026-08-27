@@ -101,7 +101,11 @@ export async function POST(
     }
 
     return NextResponse.json(
-      { success: true, data: presentQuotation(updated), requestId: correlationId },
+      {
+        success: true,
+        data: presentQuotation(updated),
+        requestId: correlationId,
+      },
       { headers: { ...PRIVATE_HEADERS, 'X-Request-Id': correlationId } }
     );
   } catch (err: unknown) {

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   OpenRouterProvider,
   OrcaRouterProvider,
@@ -13,7 +13,29 @@ import {
 import { executeAiCompletionWithFallback } from '@/core/ai/resolver';
 import { calculateEstimatedCost } from '@/core/ai/usage-tracker';
 
+const TEST_AI_KEYS = {
+  OPENROUTER_API_KEY: 'test-openrouter-key',
+  ORCAROUTER_API_KEY: 'test-orcarouter-key',
+  CLOUDFLARE_API_TOKEN: 'test-cloudflare-token',
+  CLOUDFLARE_ACCOUNT_ID: 'test-cloudflare-account',
+} as const;
+
 describe('AI Provider Architecture & OrcaRouter Integration', () => {
+  const previousAiKeys: Record<string, string | undefined> = {};
+
+  beforeEach(() => {
+    for (const [key, value] of Object.entries(TEST_AI_KEYS)) {
+      previousAiKeys[key] = process.env[key];
+      process.env[key] = value;
+    }
+  });
+
+  afterEach(() => {
+    for (const key of Object.keys(TEST_AI_KEYS)) {
+      if (previousAiKeys[key] === undefined) delete process.env[key];
+      else process.env[key] = previousAiKeys[key];
+    }
+  });
   describe('1. Provider Abstraction & Capabilities', () => {
     it('should instantiate OpenRouterProvider with proper capabilities', () => {
       const provider = new OpenRouterProvider();
@@ -69,7 +91,7 @@ describe('AI Provider Architecture & OrcaRouter Integration', () => {
       expect(isRetryableAiError(err)).toBe(true);
     });
 
-    it('should NOT classify 401 auth or 400 bad request errors as retryable', () => {
+    it('should classify revoked credentials as retryable and invalid requests as not', () => {
       const authErr = new HelpaAiError(
         'Invalid API key',
         'AI_AUTHENTICATION_FAILED',
@@ -83,7 +105,7 @@ describe('AI Provider Architecture & OrcaRouter Integration', () => {
         400
       );
 
-      expect(isRetryableAiError(authErr)).toBe(false);
+      expect(isRetryableAiError(authErr)).toBe(true);
       expect(isRetryableAiError(reqErr)).toBe(false);
     });
 
@@ -240,7 +262,7 @@ describe('AI Provider Architecture & OrcaRouter Integration', () => {
       spyFallback.mockRestore();
     });
 
-    it('should NOT trigger fallback when primary fails with non-retryable 401 auth error', async () => {
+    it('should trigger fallback when primary fails with a revoked credential', async () => {
       const openrouter = getProviderInstance('openrouter');
       const orcarouter = getProviderInstance('orcarouter');
 
@@ -255,6 +277,49 @@ describe('AI Provider Architecture & OrcaRouter Integration', () => {
           )
         );
 
+      const spyFallback = vi
+        .spyOn(orcarouter, 'generateCompletion')
+        .mockResolvedValueOnce({
+          content: 'Fallback after primary auth failure',
+          model: 'orcarouter/auto',
+          provider: 'orcarouter',
+          promptTokens: 8,
+          completionTokens: 4,
+          totalTokens: 12,
+          latencyMs: 80,
+        });
+
+      const res = await executeAiCompletionWithFallback({
+        messages: [{ role: 'user', content: 'Test prompt' }],
+        resolutionParams: {
+          primaryProvider: 'openrouter',
+          fallbackProvider: 'orcarouter',
+        },
+      });
+
+      expect(res.content).toBe('Fallback after primary auth failure');
+      expect(res.provider).toBe('orcarouter');
+      expect(spyFallback).toHaveBeenCalled();
+
+      spyPrimary.mockRestore();
+      spyFallback.mockRestore();
+    });
+
+    it('should NOT trigger fallback when primary fails with a non-retryable 400', async () => {
+      const openrouter = getProviderInstance('openrouter');
+      const orcarouter = getProviderInstance('orcarouter');
+
+      const spyPrimary = vi
+        .spyOn(openrouter, 'generateCompletion')
+        .mockRejectedValue(
+          new HelpaAiError(
+            'Invalid request parameter',
+            'AI_INVALID_REQUEST',
+            'openrouter',
+            400
+          )
+        );
+
       const spyFallback = vi.spyOn(orcarouter, 'generateCompletion');
 
       await expect(
@@ -265,7 +330,7 @@ describe('AI Provider Architecture & OrcaRouter Integration', () => {
             fallbackProvider: 'orcarouter',
           },
         })
-      ).rejects.toThrow('401 Unauthorized API Key');
+      ).rejects.toThrow('Invalid request parameter');
 
       expect(spyFallback).not.toHaveBeenCalled();
 
