@@ -131,7 +131,9 @@ describe('Travel Module & AI Receptionist', () => {
 
   it('contains travel protocols and intake form in system prompt', () => {
     expect(TRAVEL_AI_SYSTEM_PROMPT).toContain('AI Travel Receptionist');
-    expect(TRAVEL_AI_SYSTEM_PROMPT).toContain('TOUR PACKAGE INQUIRY / BOOKING FORM');
+    expect(TRAVEL_AI_SYSTEM_PROMPT).toContain(
+      'TOUR PACKAGE INQUIRY / BOOKING FORM'
+    );
     expect(TRAVEL_AI_SYSTEM_PROMPT).toContain('MULTILINGUAL');
     expect(TRAVEL_AI_SYSTEM_PROMPT).toContain('Bengali');
     expect(TRAVEL_AI_SYSTEM_PROMPT).toContain('Hindi');
@@ -157,15 +159,21 @@ describe('Travel Module & AI Receptionist', () => {
     expect(bundle.businessName).toBe('Himalayan Holidays');
 
     // Check that database package records are injected into the system prompt
-    expect(bundle.systemPrompt).toContain('AVAILABLE TRAVEL & TOUR PACKAGES (DATABASE RECORDS):');
+    expect(bundle.systemPrompt).toContain(
+      'AVAILABLE TRAVEL & TOUR PACKAGES (DATABASE RECORDS):'
+    );
     expect(bundle.systemPrompt).toContain('Darjeeling Delight');
     expect(bundle.systemPrompt).toContain('₹12500');
     expect(bundle.systemPrompt).toContain('Kashmir Paradise');
     expect(bundle.systemPrompt).toContain('₹24999');
 
     // Check that multilingual directive matched customer language
-    expect(bundle.systemPrompt).toContain('CRITICAL MANDATORY MULTILINGUAL DIRECTIVE:');
-    expect(bundle.systemPrompt).toContain('Darjeeling package price koto? Ami 2 jon jabo.');
+    expect(bundle.systemPrompt).toContain(
+      'CRITICAL MANDATORY MULTILINGUAL DIRECTIVE:'
+    );
+    expect(bundle.systemPrompt).toContain(
+      'Darjeeling package price koto? Ami 2 jon jabo.'
+    );
     expect(bundle.systemPrompt).toContain('Bengali');
   });
 });

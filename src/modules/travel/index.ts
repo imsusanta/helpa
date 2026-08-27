@@ -36,6 +36,7 @@ export const travelModule: IndustryModule = {
     '/inbox',
     '/contacts',
     '/packages',
+    '/trip-proposals',
     '/bookings',
     '/broadcasts',
     '/knowledge-base',

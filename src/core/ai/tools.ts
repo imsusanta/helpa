@@ -983,7 +983,8 @@ aiToolRegistry.register({
   parameters: {
     destination: {
       type: 'string',
-      description: 'Destination or city name (e.g. Darjeeling, Kashmir, Goa, Dubai).',
+      description:
+        'Destination or city name (e.g. Darjeeling, Kashmir, Goa, Dubai).',
     },
     maxBudget: {
       type: 'number',
@@ -992,8 +993,10 @@ aiToolRegistry.register({
   },
   execute: async (params, context: AiExecutionContext) => {
     const db = getAdminClient();
-    const dest = params.destination ? String(params.destination).trim().toLowerCase() : '';
-    
+    const dest = params.destination
+      ? String(params.destination).trim().toLowerCase()
+      : '';
+
     let query = db
       .from('travel_packages')
       .select('id, name, destination, duration_days, price, description')
@@ -1140,4 +1143,3 @@ aiToolRegistry.register({
     };
   },
 });
-

@@ -364,10 +364,18 @@ function inferLanguage(text: string): string {
   if (/[\u0600-\u06ff]/.test(text)) return 'Arabic';
   if (/[¿¡ñáéíóúü]/i.test(text)) return 'Spanish';
   const lower = text.toLowerCase();
-  if (/\b(koto|kobe|dekhte|chai|korbo|parbo|ache|achhe|khobor|daktar|bhalo|taka|jabo|apnader|amader)\b/.test(lower)) {
+  if (
+    /\b(koto|kobe|dekhte|chai|korbo|parbo|ache|achhe|khobor|daktar|bhalo|taka|jabo|apnader|amader)\b/.test(
+      lower
+    )
+  ) {
     return 'Bengali';
   }
-  if (/\b(kya|kab|karna|chahiye|hai|batao|bataiye|kitna|hoga|kripya|namaste|shukriya|mujhe)\b/.test(lower)) {
+  if (
+    /\b(kya|kab|karna|chahiye|hai|batao|bataiye|kitna|hoga|kripya|namaste|shukriya|mujhe)\b/.test(
+      lower
+    )
+  ) {
     return 'Hindi';
   }
   return 'English';

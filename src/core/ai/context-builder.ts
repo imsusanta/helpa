@@ -79,10 +79,17 @@ export async function buildAiContextBundle({
   const catalogSnippets: string[] = [];
 
   try {
-    const isTravel = industry === 'travel' || industry === 'tour' || industry === 'tourism';
-    const isRealEstate = industry === 'real_estate' || industry === 'realestate';
-    const isCoaching = industry === 'coaching' || industry === 'solo_teacher' || industry === 'education' || industry === 'tutor';
-    const isSalonOrGym = industry === 'salon' || industry === 'gym' || industry === 'restaurant';
+    const isTravel =
+      industry === 'travel' || industry === 'tour' || industry === 'tourism';
+    const isRealEstate =
+      industry === 'real_estate' || industry === 'realestate';
+    const isCoaching =
+      industry === 'coaching' ||
+      industry === 'solo_teacher' ||
+      industry === 'education' ||
+      industry === 'tutor';
+    const isSalonOrGym =
+      industry === 'salon' || industry === 'gym' || industry === 'restaurant';
 
     if (isTravel) {
       const { data: packages } = await db
@@ -92,7 +99,9 @@ export async function buildAiContextBundle({
         .limit(15);
 
       if (packages && packages.length > 0) {
-        catalogSnippets.push('AVAILABLE TRAVEL & TOUR PACKAGES (DATABASE RECORDS):');
+        catalogSnippets.push(
+          'AVAILABLE TRAVEL & TOUR PACKAGES (DATABASE RECORDS):'
+        );
         packages.forEach((pkg: Record<string, unknown>) => {
           catalogSnippets.push(
             `- Package: ${pkg.name} | Destination: ${pkg.destination} | Duration: ${pkg.duration_days} Days | Price: ₹${pkg.price} per person | Description: ${pkg.description || 'All standard sightseeing & transport included'}`
@@ -115,7 +124,9 @@ export async function buildAiContextBundle({
             : 'AVAILABLE SERVICES & PLANS (DATABASE RECORDS):'
         );
         courses.forEach((c: Record<string, unknown>) => {
-          catalogSnippets.push(`- ${c.name}: Fee/Price: ₹${c.fee}, Duration: ${c.duration || 'N/A'}`);
+          catalogSnippets.push(
+            `- ${c.name}: Fee/Price: ₹${c.fee}, Duration: ${c.duration || 'N/A'}`
+          );
         });
       }
     }
@@ -128,7 +139,9 @@ export async function buildAiContextBundle({
         .limit(15);
 
       if (properties && properties.length > 0) {
-        catalogSnippets.push('AVAILABLE PROPERTIES & LISTINGS (DATABASE RECORDS):');
+        catalogSnippets.push(
+          'AVAILABLE PROPERTIES & LISTINGS (DATABASE RECORDS):'
+        );
         properties.forEach((p: Record<string, unknown>) => {
           catalogSnippets.push(
             `- ${p.name}: Location: ${p.location}, Price: ₹${p.price}, Type: ${p.type}, Configuration: ${p.bedrooms || 0} BHK, Status: ${p.status}`
@@ -145,7 +158,9 @@ export async function buildAiContextBundle({
         .eq('account_id', accountId)
         .limit(10);
       if (genericPacks && genericPacks.length > 0) {
-        catalogSnippets.push('AVAILABLE PACKAGES & SERVICES (DATABASE RECORDS):');
+        catalogSnippets.push(
+          'AVAILABLE PACKAGES & SERVICES (DATABASE RECORDS):'
+        );
         genericPacks.forEach((pkg: Record<string, unknown>) => {
           catalogSnippets.push(
             `- Package: ${pkg.name} | Destination: ${pkg.destination} | Duration: ${pkg.duration_days} Days | Price: ₹${pkg.price} per person | Description: ${pkg.description || 'N/A'}`

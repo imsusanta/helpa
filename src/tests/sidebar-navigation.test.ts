@@ -87,6 +87,7 @@ describe('authenticated sidebar navigation', () => {
       '/customers',
       '/pipelines',
       '/quotations',
+      '/trip-proposals',
       '/settings?tab=tags',
     ]);
     expect(childrenFor('marketing').map((child) => child.href)).toEqual([

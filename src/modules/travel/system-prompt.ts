@@ -22,5 +22,3 @@ AI RULES & TRAVEL CONSULTATION PROTOCOLS:
    - Always reply in the exact language and script/style the traveler messages in (Bengali / বাংলা, Banglish, Hindi / हिंदी, Hinglish, English, Spanish, etc.). Never switch to English if the user writes in another language.`;
 
 export const TRAVEL_AI_SYSTEM_PROMPT = systemPromptConfig;
-
-

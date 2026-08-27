@@ -433,10 +433,14 @@ export async function triggerAiResponse(
     normalizedIndustry === 'cafe' ||
     normalizedIndustry === 'food';
 
-  const travelPackages = (travelPackagesRes.data || []) as Array<Record<string, unknown>>;
+  const travelPackages = (travelPackagesRes.data || []) as Array<
+    Record<string, unknown>
+  >;
   const courses = (coursesRes.data || []) as Array<Record<string, unknown>>;
   const batches = (batchesRes.data || []) as Array<Record<string, unknown>>;
-  const properties = (propertiesRes.data || []) as Array<Record<string, unknown>>;
+  const properties = (propertiesRes.data || []) as Array<
+    Record<string, unknown>
+  >;
 
   const isHospitalEnabled =
     industryModuleForContext.id === 'hospital_clinic' ||
@@ -501,7 +505,10 @@ export async function triggerAiResponse(
       if (bookingsData && bookingsData.length > 0) {
         travelContext += "Traveler's Previous / Active Bookings:\n";
         bookingsData.forEach((b: Record<string, unknown>) => {
-          const pkgData = b.package as { name?: string; destination?: string } | null;
+          const pkgData = b.package as {
+            name?: string;
+            destination?: string;
+          } | null;
           travelContext += `- Booking ID: ${b.id}, Package: ${pkgData?.name || 'Tour'}, Destination: ${pkgData?.destination || 'N/A'}, Date: ${b.travel_date}, Guests: ${b.guests_count || 1}, Total Price: ₹${b.total_price || 0}, Status: ${b.status}\n`;
         });
         travelContext += '\n';
@@ -592,7 +599,12 @@ export async function triggerAiResponse(
       generalCatalogContext += `- ${pkg.name}: Destination: ${pkg.destination}, Duration: ${pkg.duration_days} Days, Price: ₹${pkg.price}, Details: ${pkg.description || 'N/A'}\n`;
     });
   }
-  if (!isCoachingEnabled && !isSalonEnabled && !isGymEnabled && courses.length > 0) {
+  if (
+    !isCoachingEnabled &&
+    !isSalonEnabled &&
+    !isGymEnabled &&
+    courses.length > 0
+  ) {
     generalCatalogContext += 'Available Services & Offerings:\n';
     courses.forEach((c) => {
       generalCatalogContext += `- ${c.name}: Price: ₹${c.fee}, Duration: ${c.duration || 'N/A'}\n`;
@@ -2207,23 +2219,27 @@ Please arrive 15 minutes before your time slot. Thank you!`;
       try {
         const tName = (travel_booking.traveler_name as string) || contact?.name;
         const pNameOrDest = String(
-          travel_booking.package_name || travel_booking.destination || 'Tour Package'
+          travel_booking.package_name ||
+            travel_booking.destination ||
+            'Tour Package'
         ).trim();
         const travelDate =
           (travel_booking.travel_date as string) ||
           new Date().toISOString().split('T')[0];
         const guestsCount = Number(travel_booking.guests_count) || 1;
 
-        let matchedPack = travelPackages.find((p: Record<string, unknown>) => {
-          const pLower = String(p.name || '').toLowerCase();
-          const dLower = String(p.destination || '').toLowerCase();
-          const queryLower = pNameOrDest.toLowerCase();
-          return (
-            pLower.includes(queryLower) ||
-            dLower.includes(queryLower) ||
-            queryLower.includes(pLower)
-          );
-        });
+        const matchedPack = travelPackages.find(
+          (p: Record<string, unknown>) => {
+            const pLower = String(p.name || '').toLowerCase();
+            const dLower = String(p.destination || '').toLowerCase();
+            const queryLower = pNameOrDest.toLowerCase();
+            return (
+              pLower.includes(queryLower) ||
+              dLower.includes(queryLower) ||
+              queryLower.includes(pLower)
+            );
+          }
+        );
 
         let packageId = matchedPack?.id as string | undefined;
         let unitPrice = Number(matchedPack?.price) || 0;
@@ -2236,8 +2252,10 @@ Please arrive 15 minutes before your time slot. Thank you!`;
         if (!packageId && travelPackages.length > 0) {
           packageId = travelPackages[0].id as string;
           unitPrice = Number(travelPackages[0].price) || 0;
-          displayPackageName = (travelPackages[0].name as string) || pNameOrDest;
-          displayDest = (travelPackages[0].destination as string) || displayDest;
+          displayPackageName =
+            (travelPackages[0].name as string) || pNameOrDest;
+          displayDest =
+            (travelPackages[0].destination as string) || displayDest;
         }
 
         if (!packageId) {
@@ -2277,7 +2295,10 @@ Please arrive 15 minutes before your time slot. Thank you!`;
         if (bookErr) {
           console.error('[AI Travel] Booking insert error:', bookErr);
         } else {
-          console.log('[AI Travel] Successfully created booking:', newBooking?.id);
+          console.log(
+            '[AI Travel] Successfully created booking:',
+            newBooking?.id
+          );
           if (tName && !contact?.name) {
             await db
               .from('contacts')
