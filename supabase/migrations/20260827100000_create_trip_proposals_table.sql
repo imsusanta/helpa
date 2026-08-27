@@ -1,8 +1,62 @@
 -- Migration: 20260827100000_create_trip_proposals_table.sql
--- Purpose: Create trip_proposals table for travel agency module with RLS and indexes.
+-- Purpose: Ensure travel_packages, travel_bookings, and trip_proposals tables exist with RLS and indexes.
 
 BEGIN;
 
+-- 1. Travel Packages Table
+CREATE TABLE IF NOT EXISTS public.travel_packages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  account_id UUID NOT NULL REFERENCES public.accounts(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  destination TEXT NOT NULL,
+  duration_days INTEGER NOT NULL DEFAULT 1,
+  price NUMERIC NOT NULL DEFAULT 0,
+  description TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_travel_packages_account ON public.travel_packages(account_id);
+ALTER TABLE public.travel_packages ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'travel_packages' AND policyname = 'travel_packages_select') THEN
+    CREATE POLICY travel_packages_select ON public.travel_packages FOR SELECT TO authenticated USING (public.is_active_account_member(account_id));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'travel_packages' AND policyname = 'travel_packages_manage') THEN
+    CREATE POLICY travel_packages_manage ON public.travel_packages FOR ALL TO authenticated USING (public.has_account_role(account_id, 'agent')) WITH CHECK (public.has_account_role(account_id, 'agent'));
+  END IF;
+END $$;
+
+-- 2. Travel Bookings Table
+CREATE TABLE IF NOT EXISTS public.travel_bookings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  account_id UUID NOT NULL REFERENCES public.accounts(id) ON DELETE CASCADE,
+  package_id UUID REFERENCES public.travel_packages(id) ON DELETE SET NULL,
+  contact_id UUID REFERENCES public.contacts(id) ON DELETE CASCADE,
+  travel_date DATE NOT NULL,
+  guests_count INTEGER NOT NULL DEFAULT 1,
+  total_price NUMERIC NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'Pending',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_travel_bookings_account ON public.travel_bookings(account_id);
+ALTER TABLE public.travel_bookings ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'travel_bookings' AND policyname = 'travel_bookings_select') THEN
+    CREATE POLICY travel_bookings_select ON public.travel_bookings FOR SELECT TO authenticated USING (public.is_active_account_member(account_id));
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'travel_bookings' AND policyname = 'travel_bookings_manage') THEN
+    CREATE POLICY travel_bookings_manage ON public.travel_bookings FOR ALL TO authenticated USING (public.has_account_role(account_id, 'agent')) WITH CHECK (public.has_account_role(account_id, 'agent'));
+  END IF;
+END $$;
+
+-- 3. Trip Proposals Table
 CREATE TABLE IF NOT EXISTS public.trip_proposals (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   account_id UUID NOT NULL REFERENCES public.accounts(id) ON DELETE CASCADE,
