@@ -21,6 +21,7 @@ import { encrypt, decrypt } from '@/lib/whatsapp/encryption';
 import * as authAccount from '@/lib/auth/account';
 import * as supabaseServer from '@/lib/supabase/server';
 import * as metaService from '@/lib/whatsapp/meta-service';
+import * as oauthState from '@/lib/whatsapp/oauth-state';
 
 describe('Meta WhatsApp Embedded Signup & 1-Click Onboarding (Supabase)', () => {
   const tenantA = {
@@ -41,13 +42,15 @@ describe('Meta WhatsApp Embedded Signup & 1-Click Onboarding (Supabase)', () => 
   };
 
   beforeEach(() => {
+    process.env.META_APP_ID = 'meta-app-123';
+    process.env.META_APP_SECRET = 'meta-secret';
+
     mockDatabase = {
       whatsapp_configs: [],
       audit_logs: [],
       contacts: [],
     };
 
-    // Mock authenticated user context
     vi.spyOn(authAccount, 'requireRole').mockResolvedValue({
       userId: tenantA.userId,
       accountId: tenantA.id,
@@ -66,7 +69,14 @@ describe('Meta WhatsApp Embedded Signup & 1-Click Onboarding (Supabase)', () => 
       appwrite: {},
     } as never);
 
-    // Mock Supabase server database client
+    vi.spyOn(oauthState, 'validateAndConsumeOAuthState').mockResolvedValue({
+      id: 'oauth-state-1',
+      accountId: tenantA.id,
+      userId: tenantA.userId,
+      state: 'valid-oauth-state',
+      createdAt: new Date().toISOString(),
+    });
+
     vi.spyOn(supabaseServer, 'getAdminClient').mockReturnValue({
       from: (table: string) => {
         const store =
@@ -141,7 +151,6 @@ describe('Meta WhatsApp Embedded Signup & 1-Click Onboarding (Supabase)', () => 
       },
     } as unknown as ReturnType<typeof supabaseServer.getAdminClient>);
 
-    // Mock Meta Service calls
     vi.spyOn(metaService, 'subscribeWabaWebhook').mockResolvedValue(true);
     vi.spyOn(metaService, 'getPhoneNumberDetails').mockResolvedValue({
       id: 'phone-100200',
@@ -153,11 +162,24 @@ describe('Meta WhatsApp Embedded Signup & 1-Click Onboarding (Supabase)', () => 
       accessToken: 'EAABwzLIX_EXCHANGED_TOKEN',
       tokenType: 'bearer',
     });
+    vi.spyOn(metaService, 'debugAccessToken').mockResolvedValue({
+      isValid: true,
+      appId: 'meta-app-123',
+      wabaId: 'waba-999888',
+      scopes: [
+        'whatsapp_business_management',
+        'whatsapp_business_messaging',
+      ],
+    });
+    vi.spyOn(metaService, 'getWabaPhoneNumbers').mockResolvedValue([
+      { id: 'phone-100200', display_phone_number: '+91 98765 43210' },
+    ]);
   });
 
   describe('1. 1-Click Embedded Signup Flow', () => {
     it('successfully processes Embedded Signup with token encryption, webhook subscription, and audit logs', async () => {
       const payload = {
+        state: 'valid-oauth-state',
         accessToken: 'EAABwzLIX_TEST_TOKEN_12345',
         waba_id: 'waba-999888',
         phone_number_id: 'phone-100200',
@@ -185,7 +207,6 @@ describe('Meta WhatsApp Embedded Signup & 1-Click Onboarding (Supabase)', () => 
       expect(json.checks.account_connected).toBe(true);
       expect(json.checks.messaging_api_available).toBe(true);
 
-      // Verify DB stored encrypted token (never plaintext)
       expect(mockDatabase.whatsapp_configs.length).toBe(1);
       const stored = mockDatabase.whatsapp_configs[0];
       expect(stored.account_id).toBe(tenantA.id);
@@ -197,7 +218,6 @@ describe('Meta WhatsApp Embedded Signup & 1-Click Onboarding (Supabase)', () => 
         'EAABwzLIX_TEST_TOKEN_12345'
       );
 
-      // Verify Audit Log was created without credential leakage
       expect(mockDatabase.audit_logs.length).toBe(1);
       const audit = mockDatabase.audit_logs[0];
       expect(audit.action).toBe('WHATSAPP_CONNECTED');
@@ -207,7 +227,6 @@ describe('Meta WhatsApp Embedded Signup & 1-Click Onboarding (Supabase)', () => 
     });
 
     it('prevents connecting a phone number that is already bound to another workspace', async () => {
-      // Pre-seed Tenant B with phone-100200
       mockDatabase.whatsapp_configs.push({
         id: 'cfg-tenant-b',
         account_id: tenantB.id,
@@ -217,16 +236,16 @@ describe('Meta WhatsApp Embedded Signup & 1-Click Onboarding (Supabase)', () => 
         status: 'connected',
       });
 
-      // Tenant A attempts to connect the same phone-100200
       const request = new Request(
         'http://localhost:3000/api/whatsapp/embedded-signup',
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            state: 'valid-oauth-state',
             accessToken: 'EAABwzLIX_NEW_TOKEN',
             waba_id: 'waba-999888',
-            phone_number_id: 'phone-100200', // Conflict!
+            phone_number_id: 'phone-100200',
           }),
         }
       );
@@ -258,7 +277,6 @@ describe('Meta WhatsApp Embedded Signup & 1-Click Onboarding (Supabase)', () => 
       expect(resolved?.displayPhoneNumber).toBe('+91 98765 00001');
       expect(resolved?.accessToken).toBe('TOKEN_ALPHA');
 
-      // Unregistered phone returns null
       const unregistered =
         await resolveTenantByPhoneNumberId('phone-unknown-999');
       expect(unregistered).toBeNull();
@@ -267,7 +285,6 @@ describe('Meta WhatsApp Embedded Signup & 1-Click Onboarding (Supabase)', () => 
 
   describe('3. Disconnect & Reconnect Lifecycle', () => {
     it('safely disconnects WhatsApp while logging audit event and preserving CRM history', async () => {
-      // Connect first
       mockDatabase.whatsapp_configs.push({
         id: 'cfg-tenant-a',
         account_id: tenantA.id,
@@ -275,7 +292,6 @@ describe('Meta WhatsApp Embedded Signup & 1-Click Onboarding (Supabase)', () => 
         status: 'connected',
       });
 
-      // Add a CRM contact
       mockDatabase.contacts.push({
         id: 'cnt-1',
         account_id: tenantA.id,
@@ -287,14 +303,9 @@ describe('Meta WhatsApp Embedded Signup & 1-Click Onboarding (Supabase)', () => 
       const delJson = await delRes.json();
       expect(delRes.status).toBe(200);
       expect(delJson.success).toBe(true);
-
-      // Verify config was deleted
       expect(mockDatabase.whatsapp_configs.length).toBe(0);
-
-      // Verify CRM contacts remain intact!
       expect(mockDatabase.contacts.length).toBe(1);
 
-      // Verify audit log
       const audit = mockDatabase.audit_logs.find(
         (l) => l.action === 'WHATSAPP_DISCONNECTED'
       );
@@ -303,7 +314,6 @@ describe('Meta WhatsApp Embedded Signup & 1-Click Onboarding (Supabase)', () => 
     });
 
     it('safely handles reconnect flow by updating existing config row and logging WHATSAPP_RECONNECTED', async () => {
-      // Pre-existing connected state
       mockDatabase.whatsapp_configs.push({
         id: 'cfg-existing-alpha',
         account_id: tenantA.id,
@@ -319,6 +329,7 @@ describe('Meta WhatsApp Embedded Signup & 1-Click Onboarding (Supabase)', () => 
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            state: 'valid-oauth-state',
             accessToken: 'EAABwzLIX_RECONNECTED_TOKEN_999',
             waba_id: 'waba-updated',
             phone_number_id: 'phone-100200',
@@ -332,15 +343,12 @@ describe('Meta WhatsApp Embedded Signup & 1-Click Onboarding (Supabase)', () => 
       expect(response.status).toBe(200);
       expect(json.success).toBe(true);
       expect(json.connected).toBe(true);
-
-      // Still exactly 1 row (updated in place)
       expect(mockDatabase.whatsapp_configs.length).toBe(1);
       const updated = mockDatabase.whatsapp_configs[0];
       expect(decrypt(updated.encrypted_access_token as string)).toBe(
         'EAABwzLIX_RECONNECTED_TOKEN_999'
       );
 
-      // Audit log records WHATSAPP_RECONNECTED
       const audit = mockDatabase.audit_logs.find(
         (l) => l.action === 'WHATSAPP_RECONNECTED'
       );
