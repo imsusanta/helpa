@@ -63,7 +63,7 @@ vi.mock('@/lib/db/server', () => ({
             const missing = Object.keys(inserting).find((key) =>
               dbState.unknownColumns.has(key)
             );
-            let err = missing
+            const err = missing
               ? {
                   code: 'PGRST204',
                   message: `Could not find the '${missing}' column of 'messages' in the schema cache`,
