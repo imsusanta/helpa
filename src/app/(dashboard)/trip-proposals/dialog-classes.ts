@@ -1,9 +1,6 @@
-/**
- * DialogContent ships with `sm:max-w-sm`. These classes must include a
- * matching `sm:max-w-*` override or the wizard crushes to 384px.
- */
+/** Shared layout classes for the Trip Proposal create wizard. */
 export const TRIP_PROPOSAL_CREATE_DIALOG_CLASSNAME =
-  'flex max-h-[min(88vh,640px)] w-[calc(100vw-24px)] max-w-[calc(100vw-24px)] flex-col gap-0 overflow-hidden rounded-2xl bg-white p-0 sm:w-full sm:max-w-xl';
+  'flex max-h-[min(90vh,720px)] w-[calc(100vw-20px)] max-w-[calc(100vw-20px)] flex-col gap-0 overflow-hidden rounded-2xl bg-white p-0 sm:w-full sm:max-w-2xl';
 
 export const TRIP_PROPOSAL_CREATE_FOOTER_CLASSNAME =
   'mx-0 mb-0 shrink-0 rounded-none border-t bg-white px-4 py-3';
