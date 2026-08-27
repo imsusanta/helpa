@@ -120,7 +120,6 @@ export async function POST(
       );
     }
 
-    // Call atomic PostgreSQL RPC execution
     const { data: rpcResult, error: rpcError } = await supabase.rpc(
       'record_invoice_payment',
       {
@@ -199,21 +198,19 @@ export async function POST(
       );
     }
 
-    const { data: updatedInvoice, error: hydrationError } = await supabase
+    const { data: updatedInvoice, error: hydrationBaseError } = await supabase
       .from('invoices')
-      .select(
-        '*, contacts(id, name, phone, email), invoice_items(*), invoice_payments(*)'
-      )
+      .select('*')
       .eq('id', invoiceId)
       .eq('account_id', ctx.accountId)
       .single();
 
-    if (hydrationError || !updatedInvoice) {
+    if (hydrationBaseError || !updatedInvoice) {
       console.error('[invoice payment hydration]', {
         requestId: correlationId,
         invoiceId,
-        code: hydrationError?.code,
-        message: hydrationError?.message,
+        code: hydrationBaseError?.code,
+        message: hydrationBaseError?.message,
       });
 
       return NextResponse.json(
@@ -227,6 +224,57 @@ export async function POST(
             status: (rpcResult as { status?: string }).status,
             currency: (rpcResult as { currency?: string }).currency,
           },
+          warning: 'INVOICE_DETAILS_REFRESH_REQUIRED',
+          requestId: correlationId,
+        },
+        {
+          status: 201,
+          headers: {
+            ...PRIVATE_HEADERS,
+            'X-Request-Id': correlationId,
+          },
+        }
+      );
+    }
+
+    const [contactResult, itemsResult, paymentsResult] = await Promise.all([
+      updatedInvoice.contact_id
+        ? supabase
+            .from('contacts')
+            .select('id, name, phone, email')
+            .eq('id', updatedInvoice.contact_id)
+            .eq('account_id', ctx.accountId)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      supabase
+        .from('invoice_items')
+        .select('*')
+        .eq('invoice_id', invoiceId)
+        .eq('account_id', ctx.accountId)
+        .order('position', { ascending: true }),
+      supabase
+        .from('invoice_payments')
+        .select('*')
+        .eq('invoice_id', invoiceId)
+        .eq('account_id', ctx.accountId)
+        .order('payment_date', { ascending: false }),
+    ]);
+
+    if (contactResult.error || itemsResult.error || paymentsResult.error) {
+      console.error('[invoice payment hydration related data]', {
+        requestId: correlationId,
+        contactCode: contactResult.error?.code,
+        contactMessage: contactResult.error?.message,
+        itemsCode: itemsResult.error?.code,
+        itemsMessage: itemsResult.error?.message,
+        paymentsCode: paymentsResult.error?.code,
+        paymentsMessage: paymentsResult.error?.message,
+      });
+
+      return NextResponse.json(
+        {
+          success: true,
+          data: updatedInvoice,
           warning: 'INVOICE_DETAILS_REFRESH_REQUIRED',
           requestId: correlationId,
         },
@@ -258,7 +306,12 @@ export async function POST(
     return NextResponse.json(
       {
         success: true,
-        data: updatedInvoice,
+        data: {
+          ...updatedInvoice,
+          contacts: contactResult.data || null,
+          invoice_items: itemsResult.data || [],
+          invoice_payments: paymentsResult.data || [],
+        },
         message: `Payment of ${(rpcResult as { currency?: string }).currency || 'INR'} ${paymentAmount} recorded successfully.`,
         requestId: correlationId,
       },

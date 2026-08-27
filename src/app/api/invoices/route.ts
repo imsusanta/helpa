@@ -49,10 +49,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     let query = supabase
       .from('invoices')
-      .select(
-        '*, contacts(id, name, phone, email), invoice_items(*), invoice_payments(*)',
-        { count: 'exact' }
-      )
+      .select('*', { count: 'exact' })
       .eq('account_id', ctx.accountId);
 
     if (contactId) {
@@ -77,7 +74,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       .range(offset, offset + limit - 1);
 
     if (error) {
-      console.error('[invoices] GET error:', {
+      console.error('[invoices] GET base query error:', {
         requestId: correlationId,
         code: error.code,
         message: error.message,
@@ -90,11 +87,94 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       );
     }
 
+    const baseInvoices = invoices || [];
+    const invoiceIds = baseInvoices.map((invoice) => invoice.id as string).filter(Boolean);
+    const contactIds = Array.from(
+      new Set(
+        baseInvoices
+          .map((invoice) => invoice.contact_id as string | null)
+          .filter((id): id is string => Boolean(id))
+      )
+    );
+
+    const [itemsResult, paymentsResult, contactsResult] = await Promise.all([
+      invoiceIds.length
+        ? supabase
+            .from('invoice_items')
+            .select('*')
+            .eq('account_id', ctx.accountId)
+            .in('invoice_id', invoiceIds)
+            .order('position', { ascending: true })
+        : Promise.resolve({ data: [], error: null }),
+      invoiceIds.length
+        ? supabase
+            .from('invoice_payments')
+            .select('*')
+            .eq('account_id', ctx.accountId)
+            .in('invoice_id', invoiceIds)
+            .order('payment_date', { ascending: false })
+        : Promise.resolve({ data: [], error: null }),
+      contactIds.length
+        ? supabase
+            .from('contacts')
+            .select('id, name, phone, email')
+            .eq('account_id', ctx.accountId)
+            .in('id', contactIds)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+
+    if (itemsResult.error || paymentsResult.error || contactsResult.error) {
+      console.error('[invoices] GET related data error:', {
+        requestId: correlationId,
+        itemsCode: itemsResult.error?.code,
+        itemsMessage: itemsResult.error?.message,
+        paymentsCode: paymentsResult.error?.code,
+        paymentsMessage: paymentsResult.error?.message,
+        contactsCode: contactsResult.error?.code,
+        contactsMessage: contactsResult.error?.message,
+      });
+      return errorResponse(
+        500,
+        'INVOICES_FETCH_FAILED',
+        correlationId,
+        'Unable to load invoices.'
+      );
+    }
+
+    const itemsByInvoice = new Map<string, unknown[]>();
+    (itemsResult.data || []).forEach((item) => {
+      const key = String(item.invoice_id);
+      const bucket = itemsByInvoice.get(key) || [];
+      bucket.push(item);
+      itemsByInvoice.set(key, bucket);
+    });
+
+    const paymentsByInvoice = new Map<string, unknown[]>();
+    (paymentsResult.data || []).forEach((payment) => {
+      const key = String(payment.invoice_id);
+      const bucket = paymentsByInvoice.get(key) || [];
+      bucket.push(payment);
+      paymentsByInvoice.set(key, bucket);
+    });
+
+    const contactById = new Map(
+      (contactsResult.data || []).map((contact) => [String(contact.id), contact])
+    );
+
+    const hydratedInvoices = baseInvoices.map((invoice) => ({
+      ...invoice,
+      contacts: invoice.contact_id
+        ? contactById.get(String(invoice.contact_id)) || null
+        : null,
+      invoice_items: itemsByInvoice.get(String(invoice.id)) || [],
+      invoice_payments: paymentsByInvoice.get(String(invoice.id)) || [],
+    }));
+
     return NextResponse.json(
       {
         success: true,
-        data: invoices || [],
-        total: count ?? (invoices || []).length,
+        data: hydratedInvoices,
+        total: count ?? hydratedInvoices.length,
         limit,
         offset,
         requestId: correlationId,
@@ -159,19 +239,31 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Generate unique Invoice Number via concurrency-safe atomic sequence
-    const { data: seqNumber } = await supabase.rpc(
+    const { data: seqNumber, error: sequenceError } = await supabase.rpc(
       'generate_next_invoice_number',
       {
         p_account_id: ctx.accountId,
       }
     );
 
+    if (sequenceError) {
+      console.error('[invoices] invoice number generation error:', {
+        requestId: correlationId,
+        code: sequenceError.code,
+        message: sequenceError.message,
+      });
+      return errorResponse(
+        503,
+        'SALES_SCHEMA_NOT_READY',
+        correlationId,
+        'Invoice numbering is not available.'
+      );
+    }
+
     const invoice_number =
       seqNumber ||
       `INV-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
 
-    // Calculate totals
     let subtotal = 0;
     const computedItems = items.map(
       (
@@ -180,34 +272,33 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       ) => {
         const quantity = Math.max(1, Number(item.quantity) || 1);
         const unit_price = Math.max(0, Number(item.unit_price) || 0);
-        const total = quantity * unit_price;
-        subtotal += total;
+        const line_total = quantity * unit_price;
+        subtotal += line_total;
         return {
           account_id: ctx.accountId,
           description: String(item.description || `Item ${idx + 1}`).trim(),
           quantity,
           unit_price,
-          total,
-          order_index: idx,
+          discount: 0,
+          tax_rate: 0,
+          line_total,
+          position: idx,
         };
       }
     );
 
     const taxAmount = (subtotal * (Number(tax_rate) || 0)) / 100;
-    const totalAmount = Math.max(
-      0,
-      subtotal + taxAmount - (Number(discount_amount) || 0)
-    );
+    const discountTotal = Math.max(0, Number(discount_amount) || 0);
+    const totalAmount = Math.max(0, subtotal + taxAmount - discountTotal);
 
     const defaultDueDate = new Date();
     defaultDueDate.setDate(defaultDueDate.getDate() + 14);
 
-    // Insert Invoice
     const { data: newInvoice, error: insertErr } = await supabase
       .from('invoices')
       .insert({
         account_id: ctx.accountId,
-        user_id: ctx.userId,
+        created_by: ctx.userId,
         contact_id,
         deal_id: deal_id || null,
         invoice_number,
@@ -215,15 +306,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         issue_date: issue_date || new Date().toISOString().split('T')[0],
         due_date: due_date || defaultDueDate.toISOString().split('T')[0],
         subtotal,
-        tax_amount: taxAmount,
-        discount_amount: Number(discount_amount) || 0,
+        discount_total: discountTotal,
+        tax_total: taxAmount,
         total: totalAmount,
         amount_paid: 0,
+        balance_due: totalAmount,
         currency,
         notes: notes || null,
         terms: terms || null,
       })
-      .select('*, contacts(id, name, phone, email)')
+      .select('*')
       .single();
 
     if (insertErr || !newInvoice) {
@@ -240,16 +332,30 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Insert line items
     const itemsPayload = computedItems.map((ci) => ({
       ...ci,
       invoice_id: newInvoice.id,
     }));
 
-    const { data: insertedItems } = await supabase
+    const { data: insertedItems, error: itemsErr } = await supabase
       .from('invoice_items')
       .insert(itemsPayload)
-      .select();
+      .select('*');
+
+    if (itemsErr) {
+      await supabase.from('invoices').delete().eq('id', newInvoice.id).eq('account_id', ctx.accountId);
+      console.error('[invoices] POST items insert error:', {
+        requestId: correlationId,
+        code: itemsErr.code,
+        message: itemsErr.message,
+      });
+      return errorResponse(
+        500,
+        'INVOICE_CREATE_FAILED',
+        correlationId,
+        'Unable to create invoice.'
+      );
+    }
 
     return NextResponse.json(
       {
