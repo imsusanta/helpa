@@ -25,6 +25,20 @@ const REQUIRED_INSERT_COLUMNS = new Set([
   'sender_type',
   'content_type',
   'message_id',
+  'account_id',
+  'direction',
+  'status',
+  'created_at',
+]);
+
+const OPTIONAL_COLUMNS = new Set([
+  'template_name',
+  'sender_id',
+  'media_url',
+  'updated_at',
+  'reply_to_message_id',
+  'provider_message_id',
+  'id',
 ]);
 
 export function isValidUuid(value?: string | null): value is string {
@@ -53,20 +67,6 @@ function isUniqueViolation(error: unknown): boolean {
   );
 }
 
-const OPTIONAL_STRIP_ORDER = [
-  'template_name',
-  'sender_id',
-  'media_url',
-  'updated_at',
-  'reply_to_message_id',
-  'provider_message_id',
-  'account_id',
-  'direction',
-  'status',
-  'created_at',
-  'id',
-] as const;
-
 function errorCode(error: unknown): string {
   if (!error || typeof error !== 'object') return '';
   const code = (error as { code?: unknown }).code;
@@ -85,7 +85,6 @@ function errorBlob(error: unknown): string {
     .join(' ');
 }
 
-/** PostgREST/Postgres unknown-column errors (schema cache miss or 42703). */
 export function missingColumnName(error: unknown): string | null {
   const message = errorBlob(error) || errorMessage(error);
   const match =
@@ -105,7 +104,7 @@ function isUnknownColumnError(error: unknown): boolean {
 async function lookupExistingMessage(
   accountId: string,
   providerMessageId: string
-): Promise<{ id: string } | null> {
+): Promise<{ id: string; conversationId?: string } | null> {
   const db = getAdminClient();
   const attempts: Array<{ account?: string; id: string }> = [
     { account: 'account_id', id: 'provider_message_id' },
@@ -119,18 +118,56 @@ async function lookupExistingMessage(
       const query = attempt.account
         ? db
             .from('messages')
-            .select('id')
+            .select('id, conversation_id')
             .eq(attempt.account, accountId)
             .eq(attempt.id, providerMessageId)
-        : db.from('messages').select('id').eq(attempt.id, providerMessageId);
+        : db
+            .from('messages')
+            .select('id, conversation_id')
+            .eq(attempt.id, providerMessageId);
       const { data } = await query.maybeSingle();
-      if (data?.id) return { id: String(data.id) };
+      if (data?.id) {
+        return {
+          id: String(data.id),
+          conversationId: data.conversation_id
+            ? String(data.conversation_id)
+            : undefined,
+        };
+      }
     } catch {
-      // Column may not exist on this schema; try the next lookup.
+      // Compatibility lookup; continue to the next canonical/legacy key.
     }
   }
 
   return null;
+}
+
+async function verifyConversationOwnership(
+  db: ReturnType<typeof getAdminClient>,
+  accountId: string,
+  conversationId: string
+): Promise<boolean> {
+  try {
+    const { data, error } = await db
+      .from('conversations')
+      .select('id, account_id')
+      .eq('id', conversationId)
+      .eq('account_id', accountId)
+      .maybeSingle();
+    if (!error && data?.id) return true;
+  } catch {}
+
+  try {
+    const { data, error } = await db
+      .from('conversations')
+      .select('id, accountId')
+      .eq('id', conversationId)
+      .eq('accountId', accountId)
+      .maybeSingle();
+    if (!error && data?.id) return true;
+  } catch {}
+
+  return false;
 }
 
 function buildOutboundPayload(
@@ -152,12 +189,9 @@ function buildOutboundPayload(
     updated_at: now,
   };
 
-  // Only send optional columns when they have values. The working inbound
-  // insert never sends `template_name` or `sender_id`; those columns are
-  // missing on the canonical-cutover messages table, and posting them
-  // (even as null) makes PostgREST reject the whole row (PGRST204 / 42703).
-  // Inbox alignment uses `sender_type = 'agent'`, so we deliberately omit
-  // `sender_id` even when the agent UUID is known.
+  // Optional columns are populated only when supplied. The Inbox uses
+  // sender_type/direction for outbound detection, so sender_id is not needed
+  // to make the row render.
   if (input.mediaUrl) payload.media_url = input.mediaUrl;
   if (input.templateName) payload.template_name = input.templateName;
   if (isValidUuid(input.replyToMessageId)) {
@@ -167,34 +201,54 @@ function buildOutboundPayload(
   return payload;
 }
 
-/**
- * Persist a Meta-accepted outbound WhatsApp message into `messages`.
- *
- * The inbox thread and conversation list both read this table. Sending to
- * Meta without writing a local row is how outbound bubbles disappear after
- * refresh: WhatsApp delivers the message, but `/inbox` has nothing to show.
- *
- * Column set matches the working inbound webhook insert, then retries while
- * stripping unknown columns so a schema that lacks `template_name` /
- * `sender_id` / `updated_at` still stores the bubble.
- */
 export async function persistOutboundMessage(
   input: PersistOutboundMessageInput
 ): Promise<PersistOutboundMessageResult> {
   try {
     const db = getAdminClient();
+
+    if (!input.accountId || !input.conversationId || !input.providerMessageId) {
+      return {
+        ok: false,
+        error: 'Missing required outbound message identity fields',
+      };
+    }
+
+    const ownsConversation = await verifyConversationOwnership(
+      db,
+      input.accountId,
+      input.conversationId
+    );
+    if (!ownsConversation) {
+      return {
+        ok: false,
+        error: 'Outbound message conversation/account ownership check failed',
+      };
+    }
+
     const now = new Date().toISOString();
     const existing = await lookupExistingMessage(
       input.accountId,
       input.providerMessageId
     );
     if (existing) {
+      if (
+        existing.conversationId &&
+        String(existing.conversationId) !== String(input.conversationId)
+      ) {
+        return {
+          ok: false,
+          error: 'Provider message ID already belongs to another conversation',
+        };
+      }
       return { ok: true, messageId: existing.id, duplicate: true };
     }
 
     const payload = buildOutboundPayload(input, now);
     let lastError: unknown = null;
 
+    // Never remove required Inbox identity fields. Only schema-optional
+    // compatibility columns may be stripped after an unknown-column error.
     for (let attempt = 0; attempt < 12; attempt++) {
       const insertRes = await db.from('messages').insert(payload);
       if (!insertRes.error) {
@@ -206,47 +260,69 @@ export async function persistOutboundMessage(
       }
 
       lastError = insertRes.error;
+
       if (isUniqueViolation(insertRes.error)) {
         const raced = await lookupExistingMessage(
           input.accountId,
           input.providerMessageId
         );
         if (raced) {
+          if (
+            raced.conversationId &&
+            String(raced.conversationId) !== String(input.conversationId)
+          ) {
+            return {
+              ok: false,
+              error: 'Provider message ID already belongs to another conversation',
+            };
+          }
           return { ok: true, messageId: raced.id, duplicate: true };
         }
       }
 
       const missing = missingColumnName(insertRes.error);
-      if (missing && REQUIRED_INSERT_COLUMNS.has(missing)) {
-        break;
-      }
+      if (missing && REQUIRED_INSERT_COLUMNS.has(missing)) break;
+
+      const optionalMissing =
+        missing && OPTIONAL_COLUMNS.has(missing) ? missing : null;
+      if (!optionalMissing && !isUnknownColumnError(insertRes.error)) break;
 
       const strip =
-        missing && missing in payload
-          ? missing
-          : isUnknownColumnError(insertRes.error)
-            ? OPTIONAL_STRIP_ORDER.find((column) => column in payload)
-            : undefined;
+        optionalMissing ||
+        (isUnknownColumnError(insertRes.error)
+          ? ['template_name', 'sender_id', 'media_url', 'updated_at', 'reply_to_message_id', 'provider_message_id', 'id'].find(
+              (column) => column in payload
+            )
+          : undefined);
 
-      if (!strip) break;
+      if (!strip || !OPTIONAL_COLUMNS.has(strip)) break;
 
       console.warn(
-        `[whatsapp/send] messages schema is missing ${strip}; retrying without it`
+        `[whatsapp/send] messages schema is missing optional column ${strip}; retrying without it`
       );
       delete payload[strip];
     }
 
     const error = errorMessage(lastError);
-    console.error('[whatsapp/send] Failed to persist outbound message:', error);
+    console.error('[whatsapp/send] Failed to persist outbound message:', {
+      accountId: input.accountId,
+      conversationId: input.conversationId,
+      providerMessageId: input.providerMessageId,
+      error: errorCode(lastError) ? `${errorCode(lastError)}: ${error}` : error,
+    });
     return { ok: false, error };
   } catch (err) {
     const error = errorMessage(err);
-    console.error('[whatsapp/send] Failed to persist outbound message:', error);
+    console.error('[whatsapp/send] Failed to persist outbound message:', {
+      accountId: input.accountId,
+      conversationId: input.conversationId,
+      providerMessageId: input.providerMessageId,
+      error,
+    });
     return { ok: false, error };
   }
 }
 
-/** Roll the conversation preview so the inbox list shows the outbound text. */
 export async function touchConversationPreview(input: {
   accountId: string;
   conversationId: string;
@@ -279,11 +355,6 @@ export async function touchConversationPreview(input: {
     .eq('accountId', input.accountId);
 }
 
-/**
- * Yield any active Flow run for this contact. An agent reply is the
- * strongest "human is here" signal; pausing (not ending) keeps diagnostic
- * state for the stale-run sweep.
- */
 export async function pauseActiveFlowRuns(input: {
   accountId: string;
   contactId?: string | null;
