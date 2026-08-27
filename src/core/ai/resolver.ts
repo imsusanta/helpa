@@ -137,8 +137,7 @@ export async function resolveAccountAiConfig(
           settingsMap.system_ai_fallback_provider === 'none')
       ) {
         fallbackName = settingsMap.system_ai_fallback_provider as
-          | AiProviderName
-          | 'none';
+          AiProviderName | 'none';
       }
       configuredFallbacks = parseFallbackList(
         settingsMap.system_ai_fallback_providers
@@ -344,7 +343,10 @@ export async function resolveAccountAiConfig(
     const mappedModel = featureRouting[overrides?.feature || ''];
     if (primaryName === 'cloudflare' && mappedModel.startsWith('@cf/')) {
       models.cloudflare = mappedModel;
-    } else if (primaryName !== 'cloudflare' && !mappedModel.startsWith('@cf/')) {
+    } else if (
+      primaryName !== 'cloudflare' &&
+      !mappedModel.startsWith('@cf/')
+    ) {
       models[primaryName] = mappedModel;
     }
   }
@@ -357,14 +359,18 @@ export async function resolveAccountAiConfig(
   });
 
   const preferredFallbacks: AiProviderName[] = [];
-  if (configuredFallbacks.length) preferredFallbacks.push(...configuredFallbacks);
+  if (configuredFallbacks.length)
+    preferredFallbacks.push(...configuredFallbacks);
   if (fallbackName !== 'none' && isProviderName(fallbackName)) {
     preferredFallbacks.unshift(fallbackName);
   }
-  preferredFallbacks.push(...PROVIDER_ORDER.filter((name) => name !== primaryName));
+  preferredFallbacks.push(
+    ...PROVIDER_ORDER.filter((name) => name !== primaryName)
+  );
 
   const orderedUnique = Array.from(new Set(preferredFallbacks)).filter(
-    (name) => name !== primaryName && enabled[name] && Boolean(keys[name]?.trim())
+    (name) =>
+      name !== primaryName && enabled[name] && Boolean(keys[name]?.trim())
   );
 
   // If primary is cooling down and this is not an explicit override, start with
@@ -373,7 +379,11 @@ export async function resolveAccountAiConfig(
   const primaryCooling = isProviderCoolingDown(primaryName, providerCooldowns);
   let effectivePrimaryName = primaryName;
   let fallbacks = orderedUnique;
-  if (!overrides?.primaryProvider && primaryCooling && orderedUnique.length > 0) {
+  if (
+    !overrides?.primaryProvider &&
+    primaryCooling &&
+    orderedUnique.length > 0
+  ) {
     effectivePrimaryName = orderedUnique[0];
     fallbacks = [primaryName, ...orderedUnique.slice(1)];
   }
@@ -381,11 +391,16 @@ export async function resolveAccountAiConfig(
   // If the selected primary has no credentials, move to the first configured
   // provider rather than returning an unusable primary configuration.
   if (!keys[effectivePrimaryName]?.trim()) {
-    const firstAvailable = orderedUnique.find((name) => !isProviderCoolingDown(name, providerCooldowns));
+    const firstAvailable = orderedUnique.find(
+      (name) => !isProviderCoolingDown(name, providerCooldowns)
+    );
     if (firstAvailable) {
       effectivePrimaryName = firstAvailable;
       fallbacks = Array.from(
-        new Set([primaryName, ...orderedUnique.filter((name) => name !== firstAvailable)])
+        new Set([
+          primaryName,
+          ...orderedUnique.filter((name) => name !== firstAvailable),
+        ])
       ).filter((name) => name !== firstAvailable);
     }
   }
@@ -460,10 +475,14 @@ export async function executeAiCompletionWithFallback({
   const workspaceId = resolutionParams?.accountId || 'system';
   const conversationId = resolutionParams?.conversationId;
 
-  const candidates: Array<{ entry: ResolvedProviderEntry; attempts: number }> = [
-    { entry: config.primary, attempts: MAX_PRIMARY_ATTEMPTS },
-    ...config.fallbacks.map((entry) => ({ entry, attempts: MAX_FALLBACK_ATTEMPTS })),
-  ];
+  const candidates: Array<{ entry: ResolvedProviderEntry; attempts: number }> =
+    [
+      { entry: config.primary, attempts: MAX_PRIMARY_ATTEMPTS },
+      ...config.fallbacks.map((entry) => ({
+        entry,
+        attempts: MAX_FALLBACK_ATTEMPTS,
+      })),
+    ];
 
   let lastError: HelpaAiError | null = null;
 
@@ -474,7 +493,9 @@ export async function executeAiCompletionWithFallback({
     if (!entry.apiKey?.trim()) continue;
 
     if (isProviderCoolingDown(providerName, await loadProviderCooldowns())) {
-      console.warn(`[AI Failover] Skipping cooling-down provider: ${providerName}`);
+      console.warn(
+        `[AI Failover] Skipping cooling-down provider: ${providerName}`
+      );
       continue;
     }
 
@@ -550,7 +571,8 @@ export async function executeAiCompletionWithFallback({
     }
   }
 
-  const finalError = lastError ||
+  const finalError =
+    lastError ||
     new HelpaAiError(
       'No configured AI provider is currently available.',
       'AI_PROVIDER_UNAVAILABLE',

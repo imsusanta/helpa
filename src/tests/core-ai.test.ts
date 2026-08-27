@@ -65,6 +65,11 @@ describe('Helpa Core AI Engine', () => {
   };
 
   beforeEach(() => {
+    process.env.OPENROUTER_API_KEY = 'test-openrouter-key';
+    process.env.ORCAROUTER_API_KEY = 'test-orcarouter-key';
+    process.env.CLOUDFLARE_API_TOKEN = 'test-cloudflare-token';
+    process.env.CLOUDFLARE_ACCOUNT_ID = 'test-cloudflare-account';
+
     mockDatabase = {
       accounts: [
         {
