@@ -7,7 +7,7 @@ export const sidebarConfig: ModuleNavItem[] = [
   { href: '/inbox', label: 'Messages', iconName: 'MessageSquare' },
   { href: '/contacts', label: terms.contacts, iconName: 'Users' },
   { href: '/packages', label: terms.services, iconName: 'FileText' },
-  { href: '/bookings', label: terms.bookings, iconName: 'Calendar' },
+  { href: '/booking-trip', label: 'Booking Trip', iconName: 'Calendar' },
   {
     href: '/broadcasts',
     label: 'Campaigns',
