@@ -24,6 +24,10 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { toast } from 'sonner';
 import { salesApi } from '@/lib/sales/api-client';
+import {
+  TRIP_PROPOSAL_CREATE_DIALOG_CLASSNAME,
+  TRIP_PROPOSAL_CREATE_FOOTER_CLASSNAME,
+} from './dialog-classes';
 
 interface Day {
   day: number;
@@ -420,8 +424,8 @@ export default function TripProposalsPage() {
       </div>
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="flex h-[min(94vh,920px)] w-[calc(100vw-24px)] max-w-[1380px] flex-col gap-0 overflow-hidden rounded-2xl p-0 sm:w-[calc(100vw-40px)]">
-          <DialogHeader className="shrink-0 border-b bg-white px-6 py-4 sm:px-7">
+        <DialogContent className={TRIP_PROPOSAL_CREATE_DIALOG_CLASSNAME}>
+          <DialogHeader className="shrink-0 border-b bg-white px-6 py-4 pr-14 sm:px-7">
             <DialogTitle className="flex items-center gap-2 text-xl font-bold text-slate-900">
               <Sparkles className="h-5 w-5 text-emerald-500" /> Create Trip Proposal
             </DialogTitle>
@@ -441,7 +445,7 @@ export default function TripProposalsPage() {
 
           <form onSubmit={createProposal} className="flex min-h-0 flex-1 flex-col">
             <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-slate-50/60 p-4 sm:p-6">
-              <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.9fr)]">
+              <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,0.9fr)]">
                 <div className="min-w-0 space-y-4">
                   <section className="min-w-0 rounded-2xl border bg-white p-4 shadow-sm sm:p-5">
                     <div className="mb-4 flex items-center gap-2"><MapPin className="h-4 w-4 text-emerald-500" /><h3 className="text-sm font-bold text-slate-900">Trip Details</h3></div>
@@ -523,7 +527,7 @@ export default function TripProposalsPage() {
               </div>
             </div>
 
-            <DialogFooter className="shrink-0 border-t bg-white px-5 py-4 sm:px-6">
+            <DialogFooter className={TRIP_PROPOSAL_CREATE_FOOTER_CLASSNAME}>
               <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <Button type="button" variant="outline" onClick={() => { setCreateOpen(false); reset(); }} className="rounded-xl">Cancel</Button>
                 <div className="flex flex-col gap-2 sm:flex-row"><Button type="button" variant="outline" onClick={() => toast.info('Draft saving uses the same quotation workflow.')} className="rounded-xl">Save as Draft</Button><Button type="submit" disabled={saving} className="rounded-xl bg-[#00b074] font-bold text-white hover:bg-[#009b66]"><Send className="mr-2 h-4 w-4" />{saving ? 'Saving...' : 'Preview & Send Proposal'}</Button></div>
