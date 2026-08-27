@@ -76,10 +76,7 @@ describe('WhatsApp Embedded Signup security boundary', () => {
       isValid: true,
       appId: 'meta-app-123',
       wabaId: 'waba-1',
-      scopes: [
-        'whatsapp_business_management',
-        'whatsapp_business_messaging',
-      ],
+      scopes: ['whatsapp_business_management', 'whatsapp_business_messaging'],
     });
     mocks.getWabaPhoneNumbers.mockResolvedValue([
       { id: 'phone-1', display_phone_number: '+91 99999 99999' },
@@ -105,10 +102,7 @@ describe('WhatsApp Embedded Signup security boundary', () => {
       isValid: true,
       appId: 'foreign-app',
       wabaId: 'waba-1',
-      scopes: [
-        'whatsapp_business_management',
-        'whatsapp_business_messaging',
-      ],
+      scopes: ['whatsapp_business_management', 'whatsapp_business_messaging'],
     });
 
     const response = await POST(
