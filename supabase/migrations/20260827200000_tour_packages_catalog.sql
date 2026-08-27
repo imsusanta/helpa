@@ -51,6 +51,14 @@ BEGIN
   END IF;
 END $$;
 
+-- Unique constraint on (account_id, id) for composite foreign key tenant integrity
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_travel_packages_account_id_id') THEN
+    ALTER TABLE public.travel_packages ADD CONSTRAINT uq_travel_packages_account_id_id UNIQUE (account_id, id);
+  END IF;
+END $$;
+
 -- Unique package_code per account (when not null)
 CREATE UNIQUE INDEX IF NOT EXISTS idx_travel_packages_account_code
   ON public.travel_packages(account_id, package_code)
@@ -87,6 +95,10 @@ CREATE TABLE IF NOT EXISTS public.tour_package_departures (
   metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT fk_tour_package_departures_package_tenant
+    FOREIGN KEY (account_id, package_id)
+    REFERENCES public.travel_packages(account_id, id)
+    ON DELETE CASCADE,
   CONSTRAINT chk_departures_seats_positive CHECK (total_seats IS NULL OR total_seats >= 0),
   CONSTRAINT chk_departures_available_seats CHECK (available_seats IS NULL OR available_seats >= 0),
   CONSTRAINT chk_departures_available_le_total CHECK (total_seats IS NULL OR available_seats IS NULL OR available_seats <= total_seats),
@@ -94,6 +106,17 @@ CREATE TABLE IF NOT EXISTS public.tour_package_departures (
   CONSTRAINT chk_departures_status CHECK (status IN ('scheduled', 'sold_out', 'cancelled')),
   CONSTRAINT chk_departures_dates CHECK (end_date IS NULL OR end_date >= start_date)
 );
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_tour_package_departures_package_tenant') THEN
+    ALTER TABLE public.tour_package_departures
+      ADD CONSTRAINT fk_tour_package_departures_package_tenant
+      FOREIGN KEY (account_id, package_id)
+      REFERENCES public.travel_packages(account_id, id)
+      ON DELETE CASCADE;
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_tour_departures_account ON public.tour_package_departures(account_id);
 CREATE INDEX IF NOT EXISTS idx_tour_departures_package ON public.tour_package_departures(package_id);
@@ -123,9 +146,24 @@ CREATE TABLE IF NOT EXISTS public.tour_package_itinerary_days (
   accommodation TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT fk_tour_package_itinerary_package_tenant
+    FOREIGN KEY (account_id, package_id)
+    REFERENCES public.travel_packages(account_id, id)
+    ON DELETE CASCADE,
   CONSTRAINT chk_itinerary_day_number CHECK (day_number > 0),
   UNIQUE (package_id, day_number)
 );
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_tour_package_itinerary_package_tenant') THEN
+    ALTER TABLE public.tour_package_itinerary_days
+      ADD CONSTRAINT fk_tour_package_itinerary_package_tenant
+      FOREIGN KEY (account_id, package_id)
+      REFERENCES public.travel_packages(account_id, id)
+      ON DELETE CASCADE;
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_tour_itinerary_account ON public.tour_package_itinerary_days(account_id);
 CREATE INDEX IF NOT EXISTS idx_tour_itinerary_package ON public.tour_package_itinerary_days(package_id, day_number);
@@ -183,8 +221,20 @@ DECLARE
   v_idx INTEGER;
 BEGIN
   -- Explicit tenant & role authorization
-  IF NOT public.has_account_role(p_account_id, 'agent') THEN
-    RAISE EXCEPTION 'PERMISSION_DENIED: Caller lacks agent role on account %', p_account_id;
+  IF (select auth.role()) = 'service_role' THEN
+    IF p_user_id IS NOT NULL THEN
+      IF NOT EXISTS (
+        SELECT 1 FROM public.account_members
+        WHERE account_id = p_account_id AND user_id = p_user_id AND active
+          AND role IN ('agent', 'admin', 'owner')
+      ) THEN
+        RAISE EXCEPTION 'PERMISSION_DENIED: User % lacks agent role on account %', p_user_id, p_account_id;
+      END IF;
+    END IF;
+  ELSE
+    IF NOT public.has_account_role(p_account_id, 'agent') THEN
+      RAISE EXCEPTION 'PERMISSION_DENIED: Caller lacks agent role on account %', p_account_id;
+    END IF;
   END IF;
 
   -- Extract fields from JSONB

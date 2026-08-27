@@ -238,109 +238,7 @@ export async function getPackageWithDetails(
   };
 }
 
-/** Save or replace itinerary days for a package */
-export async function saveItineraryDays(
-  accountId: string,
-  packageId: string,
-  itinerary: Array<{
-    day_number: number;
-    title: string;
-    description?: string | null;
-    meals?: string | null;
-    accommodation?: string | null;
-  }>
-): Promise<void> {
-  const supabase = getSupabaseAdminClient();
-
-  // Verify package belongs to this tenant
-  const { data: pkg, error: checkErr } = await supabase
-    .from('travel_packages')
-    .select('id')
-    .eq('id', packageId)
-    .eq('account_id', accountId)
-    .maybeSingle();
-
-  if (checkErr || !pkg) {
-    throw new Error('Package not found in tenant');
-  }
-
-  await supabase
-    .from('tour_package_itinerary_days')
-    .delete()
-    .eq('package_id', packageId)
-    .eq('account_id', accountId);
-
-  if (itinerary.length > 0) {
-    const rows = itinerary.map((item, index) => ({
-      account_id: accountId,
-      package_id: packageId,
-      day_number: item.day_number || index + 1,
-      title: item.title.trim(),
-      description: item.description?.trim() || null,
-      meals: item.meals?.trim() || null,
-      accommodation: item.accommodation?.trim() || null,
-    }));
-    const { error } = await supabase
-      .from('tour_package_itinerary_days')
-      .insert(rows);
-    if (error) throw new Error(`Failed to save itinerary: ${error.message}`);
-  }
-}
-
-/** Save or replace departures for a package */
-export async function saveDepartures(
-  accountId: string,
-  packageId: string,
-  departures: Array<{
-    start_date: string;
-    end_date?: string | null;
-    departure_price?: number | null;
-    total_seats?: number | null;
-    available_seats?: number | null;
-    status?: 'scheduled' | 'sold_out' | 'cancelled';
-    metadata?: Record<string, unknown>;
-  }>
-): Promise<void> {
-  const supabase = getSupabaseAdminClient();
-
-  // Verify package belongs to this tenant
-  const { data: pkg, error: checkErr } = await supabase
-    .from('travel_packages')
-    .select('id')
-    .eq('id', packageId)
-    .eq('account_id', accountId)
-    .maybeSingle();
-
-  if (checkErr || !pkg) {
-    throw new Error('Package not found in tenant');
-  }
-
-  await supabase
-    .from('tour_package_departures')
-    .delete()
-    .eq('package_id', packageId)
-    .eq('account_id', accountId);
-
-  if (departures.length > 0) {
-    const rows = departures.map((dep) => ({
-      account_id: accountId,
-      package_id: packageId,
-      start_date: dep.start_date,
-      end_date: dep.end_date || null,
-      departure_price: dep.departure_price ?? null,
-      total_seats: dep.total_seats ?? null,
-      available_seats: dep.available_seats ?? dep.total_seats ?? null,
-      status: dep.status || 'scheduled',
-      metadata: dep.metadata || {},
-    }));
-    const { error } = await supabase
-      .from('tour_package_departures')
-      .insert(rows);
-    if (error) throw new Error(`Failed to save departures: ${error.message}`);
-  }
-}
-
-/** Create a new tour package using the transactional database RPC. */
+/** Create a new tour package using the atomic database RPC. */
 export async function createPackage(
   accountId: string,
   userId: string,
@@ -348,115 +246,48 @@ export async function createPackage(
 ): Promise<TourPackage> {
   const supabase = getSupabaseAdminClient();
 
-  // Try RPC for genuine single-statement PostgreSQL transaction
-  if (typeof supabase.rpc === 'function') {
-    const { data: rpcData, error: rpcError } = await supabase.rpc(
-      'upsert_tour_package_with_children',
-      {
-        p_account_id: accountId,
-        p_package_id: null,
-        p_user_id: userId,
-        p_package_data: {
-          name: input.name.trim(),
-          destination: input.destination.trim(),
-          duration_days: input.duration_days,
-          duration_nights: input.duration_nights ?? null,
-          package_code: input.package_code?.trim() || null,
-          summary: input.summary?.trim() || null,
-          base_price: input.base_price ?? null,
-          currency: input.currency || 'INR',
-          price_basis: input.price_basis || null,
-          hotel_details: input.hotel_details || null,
-          transport_details: input.transport_details || null,
-          inclusions: input.inclusions || [],
-          exclusions: input.exclusions || [],
-          terms_and_conditions: input.terms_and_conditions?.trim() || null,
-          booking_deadline: input.booking_deadline || null,
-          valid_from: input.valid_from || null,
-          valid_until: input.valid_until || null,
-          status: input.status || 'draft',
-          metadata: input.metadata || {},
-        },
-        p_itinerary: input.itinerary || [],
-        p_departures: input.departures || [],
-      }
+  const { data: rpcData, error: rpcError } = await supabase.rpc(
+    'upsert_tour_package_with_children',
+    {
+      p_account_id: accountId,
+      p_package_id: null,
+      p_user_id: userId,
+      p_package_data: {
+        name: input.name.trim(),
+        destination: input.destination.trim(),
+        duration_days: input.duration_days,
+        duration_nights: input.duration_nights ?? null,
+        package_code: input.package_code?.trim() || null,
+        summary: input.summary?.trim() || null,
+        base_price: input.base_price ?? null,
+        currency: input.currency || 'INR',
+        price_basis: input.price_basis || null,
+        hotel_details: input.hotel_details || null,
+        transport_details: input.transport_details || null,
+        inclusions: input.inclusions || [],
+        exclusions: input.exclusions || [],
+        terms_and_conditions: input.terms_and_conditions?.trim() || null,
+        booking_deadline: input.booking_deadline || null,
+        valid_from: input.valid_from || null,
+        valid_until: input.valid_until || null,
+        status: input.status || 'draft',
+        metadata: input.metadata || {},
+      },
+      p_itinerary: input.itinerary || [],
+      p_departures: input.departures || [],
+    }
+  );
+
+  if (rpcError || !rpcData) {
+    throw new Error(
+      `Failed to create package: ${rpcError?.message || 'Database transaction error'}`
     );
-
-    if (!rpcError && rpcData) {
-      return rpcData as unknown as TourPackage;
-    }
   }
 
-  // Fallback path for unit-test mocks where stored functions are not registered
-  const { data, error } = await supabase
-    .from('travel_packages')
-    .insert({
-      account_id: accountId,
-      name: input.name.trim(),
-      destination: input.destination.trim(),
-      duration_days: input.duration_days,
-      duration_nights: input.duration_nights ?? null,
-      package_code: input.package_code?.trim() || null,
-      summary: input.summary?.trim() || null,
-      base_price: input.base_price ?? null,
-      price: input.base_price ?? 0, // backward compat with old 'price' column
-      currency: input.currency || 'INR',
-      price_basis: input.price_basis || null,
-      hotel_details: input.hotel_details || null,
-      transport_details: input.transport_details || null,
-      inclusions: input.inclusions || [],
-      exclusions: input.exclusions || [],
-      terms_and_conditions: input.terms_and_conditions?.trim() || null,
-      booking_deadline: input.booking_deadline || null,
-      valid_from: input.valid_from || null,
-      valid_until: input.valid_until || null,
-      status: input.status || 'draft',
-      metadata: input.metadata || {},
-      description: input.summary?.trim() || null, // backward compat
-      created_by: userId,
-      updated_by: userId,
-    })
-    .select(PACKAGE_DETAIL_COLUMNS)
-    .single();
-
-  if (error) throw new Error(`Failed to create package: ${error.message}`);
-
-  const packageId = (data as unknown as TourPackage).id;
-
-  try {
-    if (input.itinerary && Array.isArray(input.itinerary)) {
-      await saveItineraryDays(accountId, packageId, input.itinerary);
-    }
-
-    if (input.departures && Array.isArray(input.departures)) {
-      await saveDepartures(accountId, packageId, input.departures);
-    }
-  } catch (childError) {
-    // Transactional rollback: Clean up partial package and child records
-    await Promise.all([
-      supabase
-        .from('tour_package_itinerary_days')
-        .delete()
-        .eq('package_id', packageId)
-        .eq('account_id', accountId),
-      supabase
-        .from('tour_package_departures')
-        .delete()
-        .eq('package_id', packageId)
-        .eq('account_id', accountId),
-      supabase
-        .from('travel_packages')
-        .delete()
-        .eq('id', packageId)
-        .eq('account_id', accountId),
-    ]);
-    throw childError;
-  }
-
-  return data as unknown as TourPackage;
+  return rpcData as unknown as TourPackage;
 }
 
-/** Update a tour package. */
+/** Update an existing tour package using the atomic database RPC. */
 export async function updatePackage(
   accountId: string,
   packageId: string,
@@ -465,130 +296,89 @@ export async function updatePackage(
 ): Promise<TourPackage> {
   const supabase = getSupabaseAdminClient();
 
-  // Try RPC if full details/children are being updated
-  if (input.itinerary !== undefined || input.departures !== undefined) {
-    const existing = await getPackageWithDetails(accountId, packageId);
-    if (!existing) throw new Error('Package not found in tenant');
+  const existing = await getPackageWithDetails(accountId, packageId);
+  if (!existing) throw new Error('Package not found in tenant');
 
-    if (typeof supabase.rpc === 'function') {
-      const { data: rpcData, error: rpcError } = await supabase.rpc(
-        'upsert_tour_package_with_children',
-        {
-          p_account_id: accountId,
-          p_package_id: packageId,
-          p_user_id: userId,
-          p_package_data: {
-            name: input.name !== undefined ? input.name.trim() : existing.name,
-            destination:
-              input.destination !== undefined
-                ? input.destination.trim()
-                : existing.destination,
-            duration_days: input.duration_days ?? existing.duration_days,
-            duration_nights: input.duration_nights ?? existing.duration_nights,
-            package_code:
-              input.package_code !== undefined
-                ? input.package_code?.trim() || null
-                : existing.package_code,
-            summary:
-              input.summary !== undefined
-                ? input.summary?.trim() || null
-                : existing.summary,
-            base_price: input.base_price ?? existing.base_price,
-            currency: input.currency || existing.currency,
-            price_basis: input.price_basis ?? existing.price_basis,
-            hotel_details: input.hotel_details ?? existing.hotel_details,
-            transport_details:
-              input.transport_details ?? existing.transport_details,
-            inclusions: input.inclusions ?? existing.inclusions,
-            exclusions: input.exclusions ?? existing.exclusions,
-            terms_and_conditions:
-              input.terms_and_conditions !== undefined
-                ? input.terms_and_conditions?.trim() || null
-                : existing.terms_and_conditions,
-            booking_deadline:
-              input.booking_deadline !== undefined
-                ? input.booking_deadline
-                : existing.booking_deadline,
-            valid_from:
-              input.valid_from !== undefined
-                ? input.valid_from
-                : existing.valid_from,
-            valid_until:
-              input.valid_until !== undefined
-                ? input.valid_until
-                : existing.valid_until,
-            status: input.status || existing.status,
-            metadata: input.metadata || existing.metadata,
-          },
-          p_itinerary: input.itinerary ?? existing.itinerary,
-          p_departures: input.departures ?? existing.departures,
-        }
-      );
-
-      if (!rpcError && rpcData) {
-        return rpcData as unknown as TourPackage;
-      }
+  const { data: rpcData, error: rpcError } = await supabase.rpc(
+    'upsert_tour_package_with_children',
+    {
+      p_account_id: accountId,
+      p_package_id: packageId,
+      p_user_id: userId,
+      p_package_data: {
+        name: input.name !== undefined ? input.name.trim() : existing.name,
+        destination:
+          input.destination !== undefined
+            ? input.destination.trim()
+            : existing.destination,
+        duration_days: input.duration_days ?? existing.duration_days,
+        duration_nights: input.duration_nights ?? existing.duration_nights,
+        package_code:
+          input.package_code !== undefined
+            ? input.package_code?.trim() || null
+            : existing.package_code,
+        summary:
+          input.summary !== undefined
+            ? input.summary?.trim() || null
+            : existing.summary,
+        base_price:
+          input.base_price !== undefined
+            ? input.base_price
+            : existing.base_price,
+        currency: input.currency || existing.currency,
+        price_basis:
+          input.price_basis !== undefined
+            ? input.price_basis
+            : existing.price_basis,
+        hotel_details:
+          input.hotel_details !== undefined
+            ? input.hotel_details
+            : existing.hotel_details,
+        transport_details:
+          input.transport_details !== undefined
+            ? input.transport_details
+            : existing.transport_details,
+        inclusions:
+          input.inclusions !== undefined
+            ? input.inclusions
+            : existing.inclusions,
+        exclusions:
+          input.exclusions !== undefined
+            ? input.exclusions
+            : existing.exclusions,
+        terms_and_conditions:
+          input.terms_and_conditions !== undefined
+            ? input.terms_and_conditions?.trim() || null
+            : existing.terms_and_conditions,
+        booking_deadline:
+          input.booking_deadline !== undefined
+            ? input.booking_deadline
+            : existing.booking_deadline,
+        valid_from:
+          input.valid_from !== undefined
+            ? input.valid_from
+            : existing.valid_from,
+        valid_until:
+          input.valid_until !== undefined
+            ? input.valid_until
+            : existing.valid_until,
+        status: input.status || existing.status,
+        metadata: input.metadata || existing.metadata,
+      },
+      p_itinerary:
+        input.itinerary !== undefined ? input.itinerary : existing.itinerary,
+      p_departures:
+        input.departures !== undefined ? input.departures : existing.departures,
     }
+  );
+
+  if (rpcError || !rpcData) {
+    throw new Error(
+      `Failed to update package: ${rpcError?.message || 'Database transaction error'}`
+    );
   }
 
-  const updates: Record<string, unknown> = {
-    updated_at: new Date().toISOString(),
-    updated_by: userId,
-  };
-
-  if (input.name !== undefined) updates.name = input.name.trim();
-  if (input.destination !== undefined)
-    updates.destination = input.destination.trim();
-  if (input.duration_days !== undefined)
-    updates.duration_days = input.duration_days;
-  if (input.duration_nights !== undefined)
-    updates.duration_nights = input.duration_nights;
-  if (input.package_code !== undefined)
-    updates.package_code = input.package_code?.trim() || null;
-  if (input.summary !== undefined) {
-    updates.summary = input.summary?.trim() || null;
-    updates.description = input.summary?.trim() || null; // backward compat
-  }
-  if (input.base_price !== undefined) {
-    updates.base_price = input.base_price;
-    updates.price = input.base_price ?? 0; // backward compat
-  }
-  if (input.currency !== undefined) updates.currency = input.currency;
-  if (input.price_basis !== undefined) updates.price_basis = input.price_basis;
-  if (input.hotel_details !== undefined)
-    updates.hotel_details = input.hotel_details;
-  if (input.transport_details !== undefined)
-    updates.transport_details = input.transport_details;
-  if (input.inclusions !== undefined) updates.inclusions = input.inclusions;
-  if (input.exclusions !== undefined) updates.exclusions = input.exclusions;
-  if (input.terms_and_conditions !== undefined)
-    updates.terms_and_conditions = input.terms_and_conditions?.trim() || null;
-  if (input.booking_deadline !== undefined)
-    updates.booking_deadline = input.booking_deadline;
-  if (input.valid_from !== undefined) updates.valid_from = input.valid_from;
-  if (input.valid_until !== undefined) updates.valid_until = input.valid_until;
-  if (input.status !== undefined) updates.status = input.status;
-  if (input.metadata !== undefined) updates.metadata = input.metadata;
-
-  const { data, error } = await supabase
-    .from('travel_packages')
-    .update(updates)
-    .eq('id', packageId)
-    .eq('account_id', accountId)
-    .select(PACKAGE_DETAIL_COLUMNS)
-    .single();
-
-  if (error) throw new Error(`Failed to update package: ${error.message}`);
-
-  if (input.itinerary !== undefined && Array.isArray(input.itinerary)) {
-    await saveItineraryDays(accountId, packageId, input.itinerary);
-  }
-
-  if (input.departures !== undefined && Array.isArray(input.departures)) {
-    await saveDepartures(accountId, packageId, input.departures);
-  }
-
-  return data as unknown as TourPackage;
+  return rpcData as unknown as TourPackage;
 }
 
 /** Archive a package (safe delete). */
@@ -658,7 +448,7 @@ export async function safeDeletePackage(
     return { deleted: false, archived: true };
   }
 
-  // Safe to hard delete - delete children first
+  // Safe to hard delete - delete children first then parent
   await Promise.all([
     supabase
       .from('tour_package_itinerary_days')
@@ -686,6 +476,97 @@ export async function safeDeletePackage(
 // AI Retrieval (Bounded, Published, Valid)
 // ═══════════════════════════════════════════════════
 
+const GENERAL_CATALOG_KEYWORDS = [
+  'show packages',
+  'show package',
+  'list packages',
+  'all packages',
+  'available packages',
+  'what packages',
+  'package list',
+  'tour packages',
+  'tour plans',
+  'tour list',
+  'প্যাকেজ',
+  'সব প্যাকেজ',
+  'ট্যুর প্যাকেজ',
+  'কী কী প্যাকেজ আছে',
+  'কোন কোন প্যাকেজ আছে',
+  'packages',
+];
+
+const STOP_WORDS = new Set([
+  'what',
+  'have',
+  'with',
+  'from',
+  'price',
+  'cost',
+  'hotel',
+  'travel',
+  'tour',
+  'want',
+  'like',
+  'need',
+  'book',
+  'trip',
+  'please',
+  'plan',
+  'plans',
+  'view',
+  'about',
+  'details',
+  'show',
+  'list',
+  'give',
+  'tell',
+  'info',
+  'information',
+  'package',
+  'packages',
+  'available',
+  'destination',
+  'destinations',
+  'koto',
+  'taka',
+  'hobe',
+  'chai',
+  'jabo',
+  'ache',
+  'ki',
+  'kon',
+  'sob',
+  'কত',
+  'টাকা',
+  'হবে',
+  'চাই',
+  'যাব',
+  'আছে',
+  'কি',
+  'কোন',
+  'সব',
+  'দয়া',
+  'করে',
+  'বলুন',
+]);
+
+function extractSearchTokens(query: string): string[] {
+  // Strip all non-alphanumeric punctuation (Unicode aware)
+  const cleanText = query.replace(/[^\p{L}\p{N}\s]/gu, ' ');
+  const words = cleanText.split(/\s+/).map((w) => w.trim().toLowerCase());
+  return words.filter((w) => w.length >= 3 && !STOP_WORDS.has(w));
+}
+
+function isGeneralCatalogRequest(query?: string): boolean {
+  if (!query || !query.trim()) return true;
+  const q = query.trim().toLowerCase();
+  for (const phrase of GENERAL_CATALOG_KEYWORDS) {
+    if (q.includes(phrase)) return true;
+  }
+  const tokens = extractSearchTokens(query);
+  return tokens.length === 0;
+}
+
 /** Retrieve relevant published packages for AI context. Never returns more than 5 results. */
 export async function retrievePackagesForAi(
   accountId: string,
@@ -695,6 +576,8 @@ export async function retrievePackagesForAi(
   const today = new Date().toISOString().split('T')[0];
   const MAX_AI_RESULTS = 5;
 
+  const isGeneral = isGeneralCatalogRequest(query);
+
   let dbQuery = supabase
     .from('travel_packages')
     .select(PACKAGE_AI_COLUMNS)
@@ -702,12 +585,19 @@ export async function retrievePackagesForAi(
     .eq('status', 'published')
     .or(`valid_until.is.null,valid_until.gte.${today}`);
 
-  // If there's a search query, try to match destination/name/package_code
-  if (query && query.trim()) {
-    const term = query.trim();
-    dbQuery = dbQuery.or(
-      `name.ilike.%${term}%,destination.ilike.%${term}%,package_code.ilike.%${term}%,summary.ilike.%${term}%`
-    );
+  if (!isGeneral && query) {
+    const tokens = extractSearchTokens(query);
+    if (tokens.length > 0) {
+      // Build safe sanitized OR clauses using tokens
+      const orClauses = tokens
+        .slice(0, 3)
+        .map(
+          (t) =>
+            `name.ilike.%${t}%,destination.ilike.%${t}%,summary.ilike.%${t}%`
+        )
+        .join(',');
+      dbQuery = dbQuery.or(orClauses);
+    }
   }
 
   const { data: rawPackages } = await dbQuery
@@ -715,46 +605,41 @@ export async function retrievePackagesForAi(
     .limit(MAX_AI_RESULTS * 2);
 
   // In-memory strict date guard
-  const filtered = ((rawPackages || []) as unknown as TourPackage[])
-    .filter((pkg) => {
+  const filtered = ((rawPackages || []) as unknown as TourPackage[]).filter(
+    (pkg) => {
       if (pkg.status !== 'published') return false;
       if (pkg.valid_from && pkg.valid_from > today) return false;
       if (pkg.valid_until && pkg.valid_until < today) return false;
       return true;
-    })
-    .slice(0, MAX_AI_RESULTS);
-
-  if (filtered.length === 0) {
-    // If filtered search returned nothing, try general published packages
-    if (query && query.trim()) {
-      const { data: fallbackPackages } = await supabase
-        .from('travel_packages')
-        .select(PACKAGE_AI_COLUMNS)
-        .eq('account_id', accountId)
-        .eq('status', 'published')
-        .or(`valid_from.is.null,valid_from.lte.${today}`)
-        .or(`valid_until.is.null,valid_until.gte.${today}`)
-        .order('created_at', { ascending: false })
-        .limit(MAX_AI_RESULTS * 2);
-
-      const generalFiltered = (
-        (fallbackPackages || []) as unknown as TourPackage[]
-      )
-        .filter((pkg) => {
-          if (pkg.status !== 'published') return false;
-          if (pkg.valid_from && pkg.valid_from > today) return false;
-          if (pkg.valid_until && pkg.valid_until < today) return false;
-          return true;
-        })
-        .slice(0, MAX_AI_RESULTS);
-
-      if (generalFiltered.length === 0) return [];
-      return enrichWithDetails(supabase, accountId, generalFiltered);
     }
-    return [];
+  );
+
+  if (!isGeneral && query) {
+    const tokens = extractSearchTokens(query);
+    // Strict match verification for specific queries
+    const strictlyMatched = filtered.filter((pkg) => {
+      const pkgStr =
+        `${pkg.name} ${pkg.destination} ${pkg.summary || ''} ${pkg.package_code || ''}`.toLowerCase();
+      return tokens.some((token) => pkgStr.includes(token));
+    });
+
+    if (strictlyMatched.length === 0) {
+      // NEVER fall back to unrelated general packages on a specific destination miss!
+      return [];
+    }
+
+    return enrichWithDetails(
+      supabase,
+      accountId,
+      strictlyMatched.slice(0, MAX_AI_RESULTS)
+    );
   }
 
-  return enrichWithDetails(supabase, accountId, filtered);
+  return enrichWithDetails(
+    supabase,
+    accountId,
+    filtered.slice(0, MAX_AI_RESULTS)
+  );
 }
 
 async function enrichWithDetails(
@@ -762,6 +647,7 @@ async function enrichWithDetails(
   accountId: string,
   packages: TourPackage[]
 ): Promise<TourPackageWithDetails[]> {
+  if (packages.length === 0) return [];
   const packageIds = packages.map((p) => p.id);
   const today = new Date().toISOString().split('T')[0];
 
@@ -793,7 +679,6 @@ async function enrichWithDetails(
   const departureMap = new Map<string, TourPackageDeparture[]>();
   for (const dep of (departuresResult.data ||
     []) as unknown as TourPackageDeparture[]) {
-    // Only include departures that are scheduled and have available seats (or unspecified seats)
     if (
       dep.status === 'scheduled' &&
       (dep.available_seats === null ||
@@ -813,12 +698,45 @@ async function enrichWithDetails(
   }));
 }
 
-/** Re-fetch a single package by ID for proposal snapshot (server-side validation). */
+/** Re-fetch and strictly validate a single package by ID for proposal/booking snapshot. */
 export async function revalidatePackageForProposal(
   accountId: string,
-  packageId: string
+  packageId: string,
+  options?: {
+    departureId?: string | null;
+    requiredSeats?: number;
+  }
 ): Promise<TourPackageWithDetails | null> {
-  return getPackageWithDetails(accountId, packageId);
+  const pkg = await getPackageWithDetails(accountId, packageId);
+  if (!pkg || pkg.account_id !== accountId) return null;
+
+  const today = new Date().toISOString().split('T')[0];
+
+  // 1. Status must be published
+  if (pkg.status !== 'published') return null;
+
+  // 2. Date validity window
+  if (pkg.valid_from && pkg.valid_from > today) return null;
+  if (pkg.valid_until && pkg.valid_until < today) return null;
+
+  // 3. Departure validation if requested
+  if (options?.departureId) {
+    const dep = pkg.departures.find(
+      (d) =>
+        d.id === options.departureId &&
+        d.package_id === packageId &&
+        d.account_id === accountId
+    );
+    if (!dep) return null;
+    if (dep.status !== 'scheduled') return null;
+    if (dep.start_date < today) return null;
+    if (dep.available_seats !== null && dep.available_seats !== undefined) {
+      const seats = Math.max(1, options.requiredSeats ?? 1);
+      if (dep.available_seats < seats) return null;
+    }
+  }
+
+  return pkg;
 }
 
 // ═══════════════════════════════════════════════════

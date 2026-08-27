@@ -29,7 +29,3 @@ declare module 'opus-recorder' {
     static isRecordingSupported(): boolean;
   }
 }
-
-declare module 'redis' {
-  export function createClient(...args: unknown[]): unknown;
-}

@@ -13,8 +13,6 @@ import {
   getNoMatchFallback,
   generateProposalSnapshot,
   revalidatePackageForProposal,
-  saveItineraryDays,
-  saveDepartures,
   type TourPackageWithDetails,
 } from './package-service';
 
@@ -139,16 +137,6 @@ class MockQueryBuilder {
     const table = mockState[this.tableName];
     const items = Array.isArray(data) ? data : [data];
 
-    // Failure injection simulation for rollback test
-    if (
-      this.tableName === 'tour_package_departures' &&
-      items.some(
-        (item) => (item.metadata as Record<string, unknown>)?.simulate_failure
-      )
-    ) {
-      throw new Error('Simulated DB network failure during departure insert');
-    }
-
     const inserted = items.map((item) => ({
       id: item.id || `mock-${Math.random().toString(36).slice(2, 9)}`,
       created_at: item.created_at || new Date().toISOString(),
@@ -249,6 +237,110 @@ class MockQueryBuilder {
 
 const mockAdminClient = {
   from: (table: keyof typeof mockState) => new MockQueryBuilder(table),
+  rpc: vi.fn(async (funcName: string, args: Record<string, unknown>) => {
+    if (funcName === 'upsert_tour_package_with_children') {
+      const accountId = args.p_account_id as string;
+      const packageId = args.p_package_id as string | null;
+      const userId = args.p_user_id as string | null;
+      const pkgData = (args.p_package_data as Record<string, unknown>) || {};
+      const itinerary =
+        (args.p_itinerary as Array<Record<string, unknown>>) || [];
+      const departures =
+        (args.p_departures as Array<Record<string, unknown>>) || [];
+
+      // Check if simulation failure requested in test
+      if (
+        pkgData._simulate_rpc_failure ||
+        (pkgData.metadata as Record<string, unknown>)?._simulate_rpc_failure
+      ) {
+        return { data: null, error: new Error('Simulated RPC database error') };
+      }
+
+      let pkg: Record<string, unknown>;
+      if (packageId) {
+        const existing = mockState.travel_packages.find(
+          (p) => p.id === packageId && p.account_id === accountId
+        );
+        if (!existing) {
+          return { data: null, error: new Error('Package not found') };
+        }
+        Object.assign(existing, {
+          ...pkgData,
+          price: pkgData.base_price ?? existing.price ?? 0,
+          description: pkgData.summary ?? existing.description,
+          updated_by: userId,
+          updated_at: new Date().toISOString(),
+        });
+        pkg = existing;
+      } else {
+        pkg = {
+          id: `pkg-${Math.random().toString(36).slice(2, 9)}`,
+          account_id: accountId,
+          currency: 'INR',
+          status: 'draft',
+          metadata: {},
+          inclusions: [],
+          exclusions: [],
+          ...pkgData,
+          price: pkgData.base_price ?? 0,
+          description: pkgData.summary || null,
+          created_by: userId,
+          updated_by: userId,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        mockState.travel_packages.push(pkg);
+      }
+
+      // Atomic replace itinerary
+      mockState.tour_package_itinerary_days =
+        mockState.tour_package_itinerary_days.filter(
+          (it) => !(it.package_id === pkg.id && it.account_id === accountId)
+        );
+      itinerary.forEach((it, idx) => {
+        mockState.tour_package_itinerary_days.push({
+          id: `itin-${Math.random().toString(36).slice(2, 9)}`,
+          account_id: accountId,
+          package_id: pkg.id,
+          day_number: it.day_number || idx + 1,
+          title: it.title,
+          description: it.description || null,
+          meals: it.meals || null,
+          accommodation: it.accommodation || null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+      });
+
+      // Atomic replace departures
+      mockState.tour_package_departures =
+        mockState.tour_package_departures.filter(
+          (dep) => !(dep.package_id === pkg.id && dep.account_id === accountId)
+        );
+      departures.forEach((dep) => {
+        mockState.tour_package_departures.push({
+          id: `dep-${Math.random().toString(36).slice(2, 9)}`,
+          account_id: accountId,
+          package_id: pkg.id,
+          start_date: dep.start_date,
+          end_date: dep.end_date || null,
+          departure_price: dep.departure_price ?? null,
+          total_seats: dep.total_seats ?? null,
+          available_seats: dep.available_seats ?? dep.total_seats ?? null,
+          status: dep.status || 'scheduled',
+          metadata: dep.metadata || {},
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+      });
+
+      return { data: pkg, error: null };
+    }
+    return {
+      data: null,
+      error: new Error(`Unknown RPC function: ${funcName}`),
+    };
+  }),
 };
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -737,60 +829,101 @@ describe('Tour Packages Catalog & Service', () => {
       expect(results[0].departures[0].start_date).toBe('2026-12-10');
       expect(results[0].departures[0].available_seats).toBe(8);
     });
+
+    it('returns empty array when specific destination search does not match any packages', async () => {
+      // Create Darjeeling package only
+      await createPackage(ACCOUNT_A, USER_ID, {
+        name: 'Darjeeling Explorer',
+        destination: 'Darjeeling',
+        duration_days: 3,
+        status: 'published',
+      });
+
+      // Specific search for Maldives should return [] and NOT fall back to Darjeeling
+      const results = await retrievePackagesForAi(
+        ACCOUNT_A,
+        'Do you have any Maldives tour package?'
+      );
+      expect(results).toEqual([]);
+    });
+
+    it('returns active packages for generic catalog requests', async () => {
+      await createPackage(ACCOUNT_A, USER_ID, {
+        name: 'Darjeeling Classic',
+        destination: 'Darjeeling',
+        duration_days: 3,
+        status: 'published',
+      });
+
+      const genericResults = await retrievePackagesForAi(
+        ACCOUNT_A,
+        'show available packages'
+      );
+      expect(genericResults.length).toBe(1);
+      expect(genericResults[0].name).toBe('Darjeeling Classic');
+
+      const banglaGeneric = await retrievePackagesForAi(
+        ACCOUNT_A,
+        'কী কী প্যাকেজ আছে?'
+      );
+      expect(banglaGeneric.length).toBe(1);
+    });
+
+    it('handles punctuation-heavy and special character queries safely without filter errors', async () => {
+      await createPackage(ACCOUNT_A, USER_ID, {
+        name: 'Kashmir Magic',
+        destination: 'Kashmir',
+        duration_days: 5,
+        status: 'published',
+      });
+
+      const weirdQuery = 'Kashmir!! (5-day) -- 50% discount??? "special"';
+      const results = await retrievePackagesForAi(ACCOUNT_A, weirdQuery);
+      expect(results.length).toBe(1);
+      expect(results[0].name).toBe('Kashmir Magic');
+    });
   });
 
-  describe('3. Child Record Tenant Defense & Transaction Safety', () => {
-    it('prevents cross-tenant child record attacks in saveItineraryDays and saveDepartures', async () => {
+  describe('3. Database Atomic RPC & Error Propagation (No Fallback)', () => {
+    it('propagates RPC error immediately and does not perform fallback direct writes', async () => {
+      const initialCount = mockState.travel_packages.length;
+
+      // Pass input that simulates RPC database failure
+      await expect(
+        createPackage(ACCOUNT_A, USER_ID, {
+          name: 'RPC Failing Package',
+          destination: 'Leh',
+          duration_days: 5,
+          metadata: { _simulate_rpc_failure: true },
+        })
+      ).rejects.toThrow(
+        'Failed to create package: Simulated RPC database error'
+      );
+
+      // Verify no direct row was written to travel_packages table
+      expect(
+        mockState.travel_packages.some((p) => p.name === 'RPC Failing Package')
+      ).toBe(false);
+      expect(mockState.travel_packages.length).toBe(initialCount);
+    });
+
+    it('throws when updating a package that does not belong to the tenant', async () => {
       const pkgA = await createPackage(ACCOUNT_A, USER_ID, {
-        name: 'Tenant A Secret Package',
+        name: 'Tenant A Private Package',
         destination: 'Bhutan',
         duration_days: 4,
       });
 
-      // Tenant B attempts to modify Tenant A's itinerary
+      // Tenant B attempts to update Tenant A's package
       await expect(
-        saveItineraryDays(ACCOUNT_B, pkgA.id, [
-          { day_number: 1, title: 'Hacked day' },
-        ])
-      ).rejects.toThrow('Package not found in tenant');
-
-      // Tenant B attempts to modify Tenant A's departures
-      await expect(
-        saveDepartures(ACCOUNT_B, pkgA.id, [
-          { start_date: '2026-10-01', total_seats: 100 },
-        ])
-      ).rejects.toThrow('Package not found in tenant');
-    });
-
-    it('performs transactional rollback if child insert fails during createPackage', async () => {
-      const initialCount = mockState.travel_packages.length;
-
-      await expect(
-        createPackage(ACCOUNT_A, USER_ID, {
-          name: 'Failing Transaction Package',
-          destination: 'Leh',
-          duration_days: 5,
-          itinerary: [{ day_number: 1, title: 'Day 1' }],
-          departures: [
-            {
-              start_date: '2026-10-01',
-              metadata: { simulate_failure: true },
-            },
-          ],
+        updatePackage(ACCOUNT_B, pkgA.id, USER_ID, {
+          name: 'Hacked Package Name',
         })
-      ).rejects.toThrow('Simulated DB network failure during departure insert');
-
-      // Assert that rollback cleaned up parent and child rows
-      expect(
-        mockState.travel_packages.some(
-          (p) => p.name === 'Failing Transaction Package'
-        )
-      ).toBe(false);
-      expect(mockState.travel_packages.length).toBe(initialCount);
+      ).rejects.toThrow('Package not found in tenant');
     });
   });
 
-  describe('4. Proposal Snapshot & Server-Side Security Verification', () => {
+  describe('4. Proposal Snapshot & Strict Server-Side Revalidation', () => {
     it('generates immutable proposal snapshot copying verified DB values without trusting LLM', () => {
       const pkgWithDetails: TourPackageWithDetails = {
         id: 'pkg-secure-uuid',
@@ -868,18 +1001,96 @@ describe('Tour Packages Catalog & Service', () => {
       expect(snap2.available_seats).toBe(6);
     });
 
-    it('revalidates package from database before generating proposal', async () => {
-      const pkg = await createPackage(ACCOUNT_A, USER_ID, {
+    it('strictly revalidates package and departure invariants before proposal generation', async () => {
+      // 1. Published and valid
+      const validPkg = await createPackage(ACCOUNT_A, USER_ID, {
         name: 'Andaman Scuba Adventure',
         destination: 'Havelock, Neil Island',
         duration_days: 6,
         base_price: 42000,
+        status: 'published',
+        departures: [
+          {
+            start_date: '2026-12-01',
+            departure_price: 45000,
+            total_seats: 10,
+            available_seats: 4,
+            status: 'scheduled',
+          },
+        ],
       });
 
-      const revalidated = await revalidatePackageForProposal(ACCOUNT_A, pkg.id);
+      const depId = (await getPackageWithDetails(ACCOUNT_A, validPkg.id))
+        ?.departures[0].id;
+
+      // Valid check passes
+      const revalidated = await revalidatePackageForProposal(
+        ACCOUNT_A,
+        validPkg.id,
+        {
+          departureId: depId,
+          requiredSeats: 2,
+        }
+      );
       expect(revalidated).not.toBeNull();
       expect(revalidated?.name).toBe('Andaman Scuba Adventure');
-      expect(revalidated?.base_price).toBe(42000);
+
+      // 2. Draft package fails revalidation
+      const draftPkg = await createPackage(ACCOUNT_A, USER_ID, {
+        name: 'Draft Package',
+        destination: 'Goa',
+        duration_days: 3,
+        status: 'draft',
+      });
+      expect(
+        await revalidatePackageForProposal(ACCOUNT_A, draftPkg.id)
+      ).toBeNull();
+
+      // 3. Archived package fails revalidation
+      await publishPackage(ACCOUNT_A, draftPkg.id, USER_ID);
+      await archivePackage(ACCOUNT_A, draftPkg.id, USER_ID);
+      expect(
+        await revalidatePackageForProposal(ACCOUNT_A, draftPkg.id)
+      ).toBeNull();
+
+      // 4. Expired package fails revalidation
+      const expiredPkg = await createPackage(ACCOUNT_A, USER_ID, {
+        name: 'Expired Package',
+        destination: 'Goa',
+        duration_days: 3,
+        status: 'published',
+        valid_until: '2020-01-01',
+      });
+      expect(
+        await revalidatePackageForProposal(ACCOUNT_A, expiredPkg.id)
+      ).toBeNull();
+
+      // 5. Future valid_from package fails revalidation
+      const futurePkg = await createPackage(ACCOUNT_A, USER_ID, {
+        name: 'Future Package',
+        destination: 'Goa',
+        duration_days: 3,
+        status: 'published',
+        valid_from: '2099-01-01',
+      });
+      expect(
+        await revalidatePackageForProposal(ACCOUNT_A, futurePkg.id)
+      ).toBeNull();
+
+      // 6. Insufficient seats fails revalidation
+      expect(
+        await revalidatePackageForProposal(ACCOUNT_A, validPkg.id, {
+          departureId: depId,
+          requiredSeats: 10, // Only 4 available
+        })
+      ).toBeNull();
+
+      // 7. Non-existent departure fails revalidation
+      expect(
+        await revalidatePackageForProposal(ACCOUNT_A, validPkg.id, {
+          departureId: 'non-existent-dep-id',
+        })
+      ).toBeNull();
     });
   });
 });

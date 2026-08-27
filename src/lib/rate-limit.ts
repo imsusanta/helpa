@@ -118,6 +118,7 @@ async function getRedisClient(): Promise<RedisEvalClient | null> {
 
   redisConnectPromise = (async () => {
     try {
+      // @ts-expect-error optional dependency
       const { createClient } = await import('redis');
       const client = createClient({
         url: process.env.REDIS_URL,

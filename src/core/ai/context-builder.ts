@@ -75,7 +75,19 @@ export async function buildAiContextBundle({
     (kb) => `Q: ${kb.question_title}\nA: ${kb.answer_content}`
   );
 
-  // 3.5 Fetch Workplace Dynamic Catalog (Travel Packages, Courses, Properties, Services)
+  // 4. Retrieve Conversation Memory
+  const memory = await getConversationMemory(
+    accountId,
+    conversationId,
+    contactId,
+    10
+  );
+
+  const latestCustomerMsg = [...memory.messages]
+    .reverse()
+    .find((m) => m.role === 'user');
+
+  // 4.5 Fetch Workplace Dynamic Catalog (Travel Packages, Courses, Properties, Services)
   const catalogSnippets: string[] = [];
 
   try {
@@ -92,50 +104,22 @@ export async function buildAiContextBundle({
       industry === 'salon' || industry === 'gym' || industry === 'restaurant';
 
     if (isTravel) {
-      const today = new Date().toISOString().split('T')[0];
-      const { data: rawPackages } = await db
-        .from('travel_packages')
-        .select(
-          'name, destination, duration_days, duration_nights, base_price, price, currency, summary, description, inclusions, status, valid_until'
-        )
-        .eq('account_id', accountId)
-        .limit(15);
-
-      const packages = (rawPackages || [])
-        .filter((pkg: Record<string, unknown>) => {
-          if (pkg.status && pkg.status !== 'published') return false;
-          if (pkg.valid_until && String(pkg.valid_until) < today) return false;
-          return true;
-        })
-        .slice(0, 5);
-
-      if (packages && packages.length > 0) {
-        catalogSnippets.push(
-          'AVAILABLE TRAVEL & TOUR PACKAGES (DATABASE RECORDS):'
+      const { retrievePackagesForAi, formatPackagesForAiContext } =
+        await import('@/modules/travel/package-service');
+      const packages = await retrievePackagesForAi(
+        accountId,
+        latestCustomerMsg?.content
+      );
+      if (packages.length > 0) {
+        const formatted = formatPackagesForAiContext(
+          packages,
+          latestCustomerMsg?.content
         );
-        packages.forEach((pkg: Record<string, unknown>) => {
-          const durationStr = pkg.duration_nights
-            ? `${pkg.duration_days} Days / ${pkg.duration_nights} Nights`
-            : `${pkg.duration_days} Days`;
-          const priceVal = pkg.base_price ?? pkg.price ?? 'N/A';
-          const currency =
-            !pkg.currency || pkg.currency === 'INR' ? '₹' : `${pkg.currency} `;
-          const summaryStr =
-            pkg.summary ||
-            pkg.description ||
-            'All standard sightseeing & transport included';
-          const inclStr =
-            Array.isArray(pkg.inclusions) && pkg.inclusions.length > 0
-              ? ` | Inclusions: ${pkg.inclusions.join(', ')}`
-              : '';
-          catalogSnippets.push(
-            `- Package: ${pkg.name} | Destination: ${pkg.destination} | Duration: ${durationStr} | Price: ${currency}${priceVal} per person | Summary: ${summaryStr}${inclStr}`
-          );
-        });
+        if (formatted.context) {
+          catalogSnippets.push(formatted.context.trim());
+        }
       }
-    }
-
-    if (isCoaching || isSalonOrGym) {
+    } else if (isCoaching || isSalonOrGym) {
       const { data: courses } = await db
         .from('coaching_courses')
         .select('name, fee, duration')
@@ -154,9 +138,7 @@ export async function buildAiContextBundle({
           );
         });
       }
-    }
-
-    if (isRealEstate) {
+    } else if (isRealEstate) {
       const { data: properties } = await db
         .from('realestate_properties')
         .select('name, location, price, type, bedrooms, bathrooms, status')
@@ -174,35 +156,9 @@ export async function buildAiContextBundle({
         });
       }
     }
-
-    // Generic fallback: check if any travel packages exist regardless of industry
-    if (!isTravel && catalogSnippets.length === 0) {
-      const { data: genericPacks } = await db
-        .from('travel_packages')
-        .select('name, destination, duration_days, price, description')
-        .eq('account_id', accountId)
-        .limit(10);
-      if (genericPacks && genericPacks.length > 0) {
-        catalogSnippets.push(
-          'AVAILABLE PACKAGES & SERVICES (DATABASE RECORDS):'
-        );
-        genericPacks.forEach((pkg: Record<string, unknown>) => {
-          catalogSnippets.push(
-            `- Package: ${pkg.name} | Destination: ${pkg.destination} | Duration: ${pkg.duration_days} Days | Price: ₹${pkg.price} per person | Description: ${pkg.description || 'N/A'}`
-          );
-        });
-      }
-    }
   } catch (catalogErr) {
     console.warn('[AI Context Builder] Catalog lookup notice:', catalogErr);
   }
-  // 4. Retrieve Conversation Memory
-  const memory = await getConversationMemory(
-    accountId,
-    conversationId,
-    contactId,
-    10
-  );
 
   // 5. Gather Tools for this Industry
   const availableTools = aiToolRegistry.getToolsForIndustry(industry);
@@ -232,12 +188,12 @@ export async function buildAiContextBundle({
     .map((r, i) => `${i + 1}. ${r}`)
     .join('\n');
 
-  const latestCustomerMsg = [...memory.messages]
-    .reverse()
-    .find((m) => m.role === 'user');
   const languageDirective = latestCustomerMsg?.content
     ? `\n\n══════════════════════════════════════════════════\nCRITICAL LANGUAGE DIRECTIVE:\nThe customer's latest message is: "${latestCustomerMsg.content}"\nDetect the language and write your response in the EXACT same language and script/style.\n══════════════════════════════════════════════════`
     : '';
+
+  const catalogSection =
+    catalogSnippets.length > 0 ? `\n\n${catalogSnippets.join('\n\n')}` : '';
 
   const fullSystemPrompt = `${CORE_SYSTEM_PROMPT}
 
@@ -255,7 +211,7 @@ SAFETY & COMPLIANCE RULES:
 ${safetyRulesText}
 
 OFFICIAL KNOWLEDGE BASE:
-${knowledgeSnippets.length > 0 ? knowledgeSnippets.join('\n\n') : 'No knowledge base entries configured yet.'}
+${knowledgeSnippets.length > 0 ? knowledgeSnippets.join('\n\n') : 'No knowledge base entries configured yet.'}${catalogSection}
 
 AVAILABLE TOOLS:
 ${toolsSummary}${languageDirective}

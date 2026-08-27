@@ -151,15 +151,15 @@ export default function PackagesPage() {
   const [statusFilter, setStatusFilter] = useState('all');
 
   useEffect(() => {
-    if (
-      !workspaceLoading &&
-      currentIndustry !== 'travel' &&
-      !isRouteAllowed('/packages')
-    ) {
-      toast.error(
-        'Tour Packages catalog is only available for Travel Agency workspaces.'
-      );
-      router.replace('/dashboard');
+    if (!workspaceLoading) {
+      const isTravel = currentIndustry === 'travel';
+      const isAllowed = isRouteAllowed('/packages');
+      if (!isTravel || !isAllowed) {
+        toast.error(
+          'Tour Packages catalog is only available for Travel Agency workspaces.'
+        );
+        router.replace('/dashboard');
+      }
     }
   }, [workspaceLoading, currentIndustry, isRouteAllowed, router]);
 
@@ -198,45 +198,27 @@ export default function PackagesPage() {
     package_code: '',
     destination: '',
     summary: '',
-    duration_days: 3,
-    duration_nights: 2,
+    duration_days: 1,
+    duration_nights: 0,
     base_price: '',
     currency: 'INR',
     price_basis: 'per_person',
-    status: 'published',
+    status: 'draft',
     valid_from: '',
     valid_until: '',
     booking_deadline: '',
-    hotel_note: '3-Star / 4-Star Deluxe Room on Twin Sharing',
-    transport_note: 'Private AC Sedan with Driver for Sightseeing',
-    terms_and_conditions:
-      '50% advance for booking confirmation. Balance payment 7 days before departure.',
-    inclusions: [...COMMON_INCLUSIONS.slice(0, 4)],
-    exclusions: [...COMMON_EXCLUSIONS.slice(0, 3)],
+    hotel_note: '',
+    transport_note: '',
+    terms_and_conditions: '',
+    inclusions: [],
+    exclusions: [],
     itinerary: [
       {
         day_number: 1,
-        title: 'Arrival & Welcome',
-        description:
-          'Airport/Station pickup and hotel check-in. Evening leisure.',
-        meals: 'Dinner',
-        accommodation: 'Standard Deluxe Room',
-      },
-      {
-        day_number: 2,
-        title: 'Full Day Sightseeing Tour',
-        description:
-          'Guided tour of top scenic attractions, viewpoints and markets.',
-        meals: 'Breakfast & Dinner',
-        accommodation: 'Standard Deluxe Room',
-      },
-      {
-        day_number: 3,
-        title: 'Departure',
-        description:
-          'Breakfast at hotel, checkout and transfer back to departure point.',
-        meals: 'Breakfast',
-        accommodation: 'Check-out',
+        title: '',
+        description: '',
+        meals: '',
+        accommodation: '',
       },
     ],
     departures: [],
@@ -261,11 +243,11 @@ export default function PackagesPage() {
       if (data.success) {
         setPackages(data.data || []);
       } else {
-        toast.error(data.message || 'Failed to load tour packages');
+        toast.error(data.message || 'Failed to fetch packages');
       }
     } catch (err) {
       console.error('Error fetching packages:', err);
-      toast.error('Unable to fetch tour packages catalog');
+      toast.error('Failed to load tour packages');
     } finally {
       setLoading(false);
     }
@@ -282,45 +264,27 @@ export default function PackagesPage() {
       package_code: `PKG-${Date.now().toString(36).toUpperCase().slice(-5)}`,
       destination: '',
       summary: '',
-      duration_days: 3,
-      duration_nights: 2,
+      duration_days: 1,
+      duration_nights: 0,
       base_price: '',
       currency: 'INR',
       price_basis: 'per_person',
-      status: 'published',
+      status: 'draft',
       valid_from: '',
       valid_until: '',
       booking_deadline: '',
-      hotel_note: '3-Star / 4-Star Deluxe Room on Twin Sharing',
-      transport_note: 'Private AC Sedan with Driver for Sightseeing',
-      terms_and_conditions:
-        '50% advance for booking confirmation. Balance payment 7 days before departure.',
-      inclusions: [...COMMON_INCLUSIONS.slice(0, 4)],
-      exclusions: [...COMMON_EXCLUSIONS.slice(0, 3)],
+      hotel_note: '',
+      transport_note: '',
+      terms_and_conditions: '',
+      inclusions: [],
+      exclusions: [],
       itinerary: [
         {
           day_number: 1,
-          title: 'Arrival & Welcome',
-          description:
-            'Airport/Station pickup and hotel check-in. Evening leisure.',
-          meals: 'Dinner',
-          accommodation: 'Standard Deluxe Room',
-        },
-        {
-          day_number: 2,
-          title: 'Full Day Sightseeing Tour',
-          description:
-            'Guided tour of top scenic attractions, viewpoints and markets.',
-          meals: 'Breakfast & Dinner',
-          accommodation: 'Standard Deluxe Room',
-        },
-        {
-          day_number: 3,
-          title: 'Departure',
-          description:
-            'Breakfast at hotel, checkout and transfer back to departure point.',
-          meals: 'Breakfast',
-          accommodation: 'Check-out',
+          title: '',
+          description: '',
+          meals: '',
+          accommodation: '',
         },
       ],
       departures: [],

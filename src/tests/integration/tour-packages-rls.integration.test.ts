@@ -11,8 +11,9 @@ vi.mock('next/headers', () => ({
 
 describe('Tour Packages RLS & Tenant Isolation Integration Suite', () => {
   const accountAId = 'a1111111-1111-1111-1111-111111111111';
-  const _accountBId = 'b2222222-2222-2222-2222-222222222222';
-  const packageAId = 'pkg-a111-1111-1111-1111-111111111111';
+  const accountBId = 'b2222222-2222-2222-2222-222222222222';
+  const packageAId = 'a1111111-1111-1111-1111-111111111112';
+  const userBId = 'b2222222-2222-2222-2222-222222222223';
 
   let _tenantAClient: Awaited<ReturnType<typeof createClient>>;
   let tenantBClient: Awaited<ReturnType<typeof createClient>>;
@@ -141,13 +142,31 @@ describe('Tour Packages RLS & Tenant Isolation Integration Suite', () => {
     }
   });
 
+  it('verifies Tenant B cannot insert child records referencing Tenant A package under Tenant B account_id (composite FK violation)', async () => {
+    const { data, error } = await tenantBClient
+      .from('tour_package_itinerary_days')
+      .insert({
+        account_id: accountBId, // Tenant B account
+        package_id: packageAId, // Tenant A package
+        day_number: 1,
+        title: 'Cross-tenant injected day',
+      })
+      .select();
+
+    if (error) {
+      expect(error.code || error.message).toBeDefined();
+    } else {
+      expect(data || []).toHaveLength(0);
+    }
+  });
+
   it('verifies Tenant B cannot call transactional RPC upsert_tour_package_with_children against Tenant A', async () => {
     const { data, error } = await tenantBClient.rpc(
       'upsert_tour_package_with_children',
       {
         p_account_id: accountAId,
         p_package_id: packageAId,
-        p_user_id: 'user-b-uuid',
+        p_user_id: userBId,
         p_package_data: { name: 'RPC Tampered' },
         p_itinerary: [],
         p_departures: [],

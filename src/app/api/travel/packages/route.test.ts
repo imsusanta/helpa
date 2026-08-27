@@ -14,6 +14,7 @@ const mockAuth = vi.hoisted(() => ({
   accountId: 'test-account-id',
   userId: 'test-user-id',
   role: 'agent',
+  industry: 'travel',
   shouldFailAuth: false,
   shouldFailForbidden: false,
 }));
@@ -27,6 +28,18 @@ vi.mock('@/lib/auth/account', () => ({
       accountId: mockAuth.accountId,
       userId: mockAuth.userId,
       role: mockAuth.role,
+      admin: {
+        from: (_table: string) => ({
+          select: (_cols: string) => ({
+            eq: (_col: string, _val: unknown) => ({
+              single: async () => ({
+                data: { industry: mockAuth.industry },
+                error: null,
+              }),
+            }),
+          }),
+        }),
+      },
     };
   }),
   UnauthorizedError: class UnauthorizedError extends Error {},
@@ -35,7 +48,11 @@ vi.mock('@/lib/auth/account', () => ({
 
 // Mock rate-limit
 vi.mock('@/lib/rate-limit', () => ({
-  checkRateLimit: vi.fn(() => ({ success: true, remaining: 10, reset: 60 })),
+  checkRateLimit: vi.fn(async () => ({
+    success: true,
+    remaining: 10,
+    reset: 60,
+  })),
   rateLimitResponse: vi.fn(
     () => new Response('Too Many Requests', { status: 429 })
   ),
@@ -142,6 +159,16 @@ describe('Tour Packages REST API Routes', () => {
   });
 
   describe('GET /api/travel/packages', () => {
+    it('returns 403 INDUSTRY_NOT_SUPPORTED for non-travel industry accounts', async () => {
+      mockAuth.industry = 'clinic';
+      const req = new NextRequest('http://localhost/api/travel/packages');
+      const res = await GET(req);
+      expect(res.status).toBe(403);
+      const json = await res.json();
+      expect(json.error).toBe('INDUSTRY_NOT_SUPPORTED');
+      mockAuth.industry = 'travel';
+    });
+
     it('returns 401 if unauthenticated', async () => {
       mockAuth.shouldFailAuth = true;
       const req = new NextRequest('http://localhost/api/travel/packages');
@@ -175,6 +202,23 @@ describe('Tour Packages REST API Routes', () => {
   });
 
   describe('POST /api/travel/packages', () => {
+    it('returns 403 INDUSTRY_NOT_SUPPORTED for non-travel industry accounts', async () => {
+      mockAuth.industry = 'coaching';
+      const req = new NextRequest('http://localhost/api/travel/packages', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: 'Coaching Trip',
+          destination: 'Himalayas',
+          duration_days: 2,
+        }),
+      });
+      const res = await POST(req);
+      expect(res.status).toBe(403);
+      const json = await res.json();
+      expect(json.error).toBe('INDUSTRY_NOT_SUPPORTED');
+      mockAuth.industry = 'travel';
+    });
+
     it('validates required fields and returns 400 on invalid input', async () => {
       const req = new NextRequest('http://localhost/api/travel/packages', {
         method: 'POST',
@@ -217,6 +261,18 @@ describe('Tour Packages REST API Routes', () => {
   });
 
   describe('GET /api/travel/packages/[id]', () => {
+    it('returns 403 for non-travel industry accounts', async () => {
+      mockAuth.industry = 'clinic';
+      const req = new NextRequest('http://localhost/api/travel/packages/pkg-1');
+      const res = await GET_ID(req, {
+        params: Promise.resolve({ id: 'pkg-1' }),
+      });
+      expect(res.status).toBe(403);
+      const json = await res.json();
+      expect(json.error).toBe('INDUSTRY_NOT_SUPPORTED');
+      mockAuth.industry = 'travel';
+    });
+
     it('returns 404 when package does not exist', async () => {
       const req = new NextRequest(
         'http://localhost/api/travel/packages/non-existent'

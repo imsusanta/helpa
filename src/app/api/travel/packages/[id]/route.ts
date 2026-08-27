@@ -46,6 +46,29 @@ function errorResponse(
   );
 }
 
+async function requireTravelIndustry(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  admin: any,
+  accountId: string,
+  correlationId: string
+): Promise<NextResponse | null> {
+  const { data: account, error } = await admin
+    .from('accounts')
+    .select('industry')
+    .eq('id', accountId)
+    .single();
+
+  if (error || !account || account.industry !== 'travel') {
+    return errorResponse(
+      403,
+      'INDUSTRY_NOT_SUPPORTED',
+      correlationId,
+      'Tour Packages catalog is only available for Travel Agency accounts.'
+    );
+  }
+  return null;
+}
+
 type RouteParams = { params: Promise<{ id: string }> };
 
 /**
@@ -59,6 +82,14 @@ export async function GET(
   const correlationId = requestId(request);
   try {
     const ctx = await requireRole('viewer');
+
+    const industryErr = await requireTravelIndustry(
+      ctx.admin,
+      ctx.accountId,
+      correlationId
+    );
+    if (industryErr) return industryErr;
+
     const { id } = await params;
 
     const pkg = await getPackageWithDetails(ctx.accountId, id);
@@ -104,6 +135,14 @@ export async function PATCH(
   const correlationId = requestId(request);
   try {
     const ctx = await requireRole('agent');
+
+    const industryErr = await requireTravelIndustry(
+      ctx.admin,
+      ctx.accountId,
+      correlationId
+    );
+    if (industryErr) return industryErr;
+
     const { id } = await params;
 
     const limit = await checkRateLimit(
@@ -269,6 +308,14 @@ export async function DELETE(
   const correlationId = requestId(request);
   try {
     const ctx = await requireRole('agent');
+
+    const industryErr = await requireTravelIndustry(
+      ctx.admin,
+      ctx.accountId,
+      correlationId
+    );
+    if (industryErr) return industryErr;
+
     const { id } = await params;
 
     const limit = await checkRateLimit(

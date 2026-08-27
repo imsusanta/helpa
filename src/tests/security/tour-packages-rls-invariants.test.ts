@@ -82,6 +82,34 @@ describe('Tour Packages RLS & Tenant Invariants Security Audit', () => {
     );
   });
 
+  it('enforces database-level composite tenant foreign key integrity', () => {
+    // Unique composite on parent
+    expect(catalogMigration).toContain('uq_travel_packages_account_id_id');
+    expect(catalogMigration).toContain('(account_id, id)');
+
+    // Composite foreign keys on child tables
+    expect(catalogMigration).toContain(
+      'fk_tour_package_departures_package_tenant'
+    );
+    expect(catalogMigration).toContain(
+      'fk_tour_package_itinerary_package_tenant'
+    );
+    expect(catalogMigration).toContain('FOREIGN KEY (account_id, package_id)');
+    expect(catalogMigration).toContain(
+      'REFERENCES public.travel_packages(account_id, id)'
+    );
+  });
+
+  it('hardens transactional RPC function with immutable search_path and role checks', () => {
+    expect(catalogMigration).toContain(
+      'CREATE OR REPLACE FUNCTION public.upsert_tour_package_with_children'
+    );
+    expect(catalogMigration).toContain('SECURITY DEFINER');
+    expect(catalogMigration).toContain('SET search_path = public, pg_temp');
+    expect(catalogMigration).toContain('public.has_account_role');
+    expect(catalogMigration).toContain('public.is_active_account_member');
+  });
+
   it('enforces idempotency and constraint safety for catalog migration', () => {
     expect(catalogMigration).toContain('IF NOT EXISTS');
     expect(catalogMigration).toContain('chk_travel_packages_base_price');
