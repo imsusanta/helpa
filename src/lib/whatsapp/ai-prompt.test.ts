@@ -61,14 +61,22 @@ describe('buildReceptionistSystemPrompt', () => {
     expect(prompt).toContain('Namaste, welcome to our clinic!');
   });
 
-  it('pins the reply language to the latest customer message', () => {
+  it('pins Bangla replies to বাংলা script with English Travel/Booking words', () => {
     const prompt = buildReceptionistSystemPrompt({
       ...BASE,
-      latestCustomerText: 'ami doctor dekhte chai',
+      latestCustomerText: 'Travel booking korte chai',
     });
     expect(prompt).toContain('CRITICAL MANDATORY MULTILINGUAL RULE');
-    expect(prompt).toContain('ami doctor dekhte chai');
-    expect(prompt).toContain('EXACT SAME LANGUAGE');
+    expect(prompt).toContain('Travel booking korte chai');
+    expect(prompt).toContain('HUMAN WHATSAPP VOICE');
+    expect(prompt).toContain('Travel, Tour, Booking, Appointment');
+    expect(prompt).toContain(
+      'আমরা আপনাকে আমাদের প্রয়োজনীয় Travel Booking প্যাকেজ দিতে পারি।'
+    );
+    expect(prompt).toContain(
+      'আমরা আপনাকে আমাদের প্রয়োজনীয় ট্রাভেল বুকিং প্যাকেজ দিতে পারি।'
+    );
+    expect(prompt).not.toContain('Banglish Latin letters');
   });
 
   it('includes knowledge-base context when provided', () => {
