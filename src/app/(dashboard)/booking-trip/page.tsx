@@ -1,12 +1,21 @@
-import AppointmentsPage from '@/app/(dashboard)/appointments/page';
+'use client';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import AppointmentsPage from '../appointments/page';
+import { useWorkspace } from '@/hooks/use-workspace';
 
-/**
- * Travel-specific route for the shared booking/appointment workflow.
- * The underlying workflow remains in AppointmentsPage so no booking logic is duplicated.
- */
 export default function BookingTripPage() {
+  const router = useRouter();
+  const { currentIndustry } = useWorkspace();
+
+  useEffect(() => {
+    if (currentIndustry && currentIndustry !== 'travel') {
+      router.replace('/appointments');
+    }
+  }, [currentIndustry, router]);
+
+  if (currentIndustry !== 'travel') return null;
+
   return <AppointmentsPage />;
 }
