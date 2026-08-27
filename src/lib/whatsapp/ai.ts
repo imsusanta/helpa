@@ -2496,9 +2496,7 @@ Please arrive 15 minutes before your time slot. Thank you!`;
                     guests_count: guestsCount,
                     total_price: totalPrice,
                     status: 'Pending',
-                    idempotency_key: latestMessage?.id
-                      ? `msg_${latestMessage.id}`
-                      : null,
+                    idempotency_key: `booking_${contactId}_${packageId}_${travelDate}`,
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString(),
                   })
