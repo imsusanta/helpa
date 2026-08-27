@@ -35,6 +35,12 @@ import {
 } from '@/lib/whatsapp/ai-crm-sync';
 import { applyDetectionToLead } from '@/lib/leads/inbound-lead-layer';
 import { getAccountChatbotSettings } from '@/core/ai/chatbot-settings';
+import {
+  retrievePackagesForAi,
+  formatPackagesForAiContext,
+  revalidatePackageForProposal,
+  generateProposalSnapshot,
+} from '@/modules/travel/package-service';
 
 import {
   executeAiCompletionWithFallback,
@@ -405,8 +411,35 @@ export async function triggerAiResponse(
       entityLabel: entityLabelForContext,
     });
 
+  let travelContext = '';
+  let travelPackageFallbackMessage: string | null = null;
+  const currentIndustry = (account?.industry || '').toLowerCase().trim();
+  const isTravelEnabled =
+    industryModuleForContext.id === 'travel' ||
+    currentIndustry === 'travel' ||
+    currentIndustry === 'tour' ||
+    currentIndustry === 'tourism';
+
+  if (isTravelEnabled) {
+    try {
+      const userText = latestMessage?.content_text || '';
+      const structuredPackages = await retrievePackagesForAi(
+        accountId,
+        userText
+      );
+      const { context: pkgContext, fallbackMessage } =
+        formatPackagesForAiContext(structuredPackages, userText);
+      if (pkgContext) {
+        travelContext += pkgContext;
+      }
+      travelPackageFallbackMessage = fallbackMessage;
+    } catch (pkgErr) {
+      console.warn('[AI Travel] Structured package retrieval error:', pkgErr);
+    }
+  }
+
   // 4. Formulate prompt messages
-  const systemPromptContent = buildReceptionistSystemPrompt({
+  let systemPromptContent = buildReceptionistSystemPrompt({
     industry: account?.industry,
     customSystemPrompt: account?.ai_system_prompt,
     businessName: account?.name || 'our Business',
@@ -419,6 +452,29 @@ export async function triggerAiResponse(
     isCoachingEnabled,
     latestCustomerText: latestMessage?.content_text || null,
   });
+
+  if (isTravelEnabled && travelContext) {
+    systemPromptContent += `\n\n=== TRAVEL AGENCY & TOUR PACKAGES SYSTEM CONTEXT ===\n${travelContext}
+${travelPackageFallbackMessage ? `[NO-MATCH FALLBACK]: ${travelPackageFallbackMessage}\n` : ''}
+You are acting as the official AI Travel Receptionist and Tour Consultant for "${account?.name || 'our Business'}".
+Your primary role is to answer traveler inquiries 24/7, quote tour packages, explain itineraries, duration, hotel accommodations, pricing in ₹, transport options, and help travelers book active trips.
+
+AI RULES & TRAVEL CONSULTATION PROTOCOLS:
+1. **STRICT PACKAGE GROUNDING (CRITICAL)**:
+   - The "STRUCTURED TOUR PACKAGE DATABASE" section above is the SINGLE SOURCE OF TRUTH for all company-specific package facts.
+   - When asked about packages, prices, itineraries, inclusions, or durations, you MUST ONLY quote information that exists in the database above.
+   - If a specific package or destination appears in the "Day-by-Day Itinerary" section, include those itinerary details in your response.
+   - If the database section includes "Upcoming Departures", mention available dates and remaining seats.
+   - NEVER fabricate, assume, or invent any package names, prices, itineraries, hotel names, or durations that are not explicitly listed in the database above.
+   - If a requested destination is NOT in the database, use the exact NO-MATCH FALLBACK message and offer to connect them with a human travel specialist. Do NOT make up a package.
+2. **ACCURATE PACKAGE & PRICING REPRESENTATION**:
+   - Always reply with genuine package details (Destination, Duration in Days, Price in ₹ per person, and Inclusions) from the structured database above.
+   - When asked about packages (e.g. "What packages do you have?", "Darjeeling package price?", "Kashmir tour details"), list matching packages clearly with their Name, Destination, Duration, Price, Inclusions, and Itinerary highlights.
+3. **CONFIRM TOUR BOOKING & PROPOSAL**:
+   - When the traveler expresses interest in a package, provide the package summary. When they explicitly confirm booking, extract travel_booking with action "book".
+4. **MULTILINGUAL COMMUNICATION**:
+   - Always reply in the exact language and script/style the traveler messages in (Bengali / বাংলা, Banglish, Hindi / हिंदी, Hinglish, English, etc.).`;
+  }
 
   const systemPrompt: { role: 'system'; content: string } = {
     role: 'system',
@@ -510,6 +566,17 @@ export async function triggerAiResponse(
     reply = unwrapNestedReply(reply);
 
     const insights = extractStructuredInsights(parsedResponse.payload);
+    const travel_booking =
+      (parsedResponse.payload?.travel_booking as Record<string, unknown>) ||
+      null;
+    const travel_package_selection =
+      (parsedResponse.payload?.travel_package_selection as Record<
+        string,
+        unknown
+      >) || null;
+    const realestate_visit =
+      (parsedResponse.payload?.realestate_visit as Record<string, unknown>) ||
+      null;
     if (!parsedResponse.payload && parsedResponse.isStructured) {
       console.warn(
         '[AI Assistant] Structured AI response could not be parsed; sending only its recovered reply.'
@@ -1461,6 +1528,295 @@ Please arrive 15 minutes before your time slot. Thank you!`;
             );
           }
         }
+      }
+    }
+
+    // Travel Package Automation (Structured Grounding & Proposal / Booking)
+    const travelAction = (travel_package_selection?.action ||
+      travel_booking?.action) as string | undefined;
+    if (
+      travelAction &&
+      ['book', 'quote', 'inquire', 'select'].includes(travelAction)
+    ) {
+      try {
+        const tName =
+          (travel_package_selection?.traveler_name as string) ||
+          (travel_booking?.traveler_name as string) ||
+          contact?.name;
+        const requestedPkgId =
+          (travel_package_selection?.package_id as string) || undefined;
+        const requestedDepId =
+          (travel_package_selection?.departure_id as string) || undefined;
+        const pNameOrDest = String(
+          travel_booking?.package_name ||
+            travel_booking?.destination ||
+            travel_package_selection?.destination ||
+            ''
+        ).trim();
+        const travelDate =
+          (travel_package_selection?.travel_date as string) ||
+          (travel_booking?.travel_date as string) ||
+          new Date().toISOString().split('T')[0];
+        const guestsCount =
+          Number(
+            travel_package_selection?.guests_count ||
+              travel_booking?.guests_count
+          ) || 1;
+
+        let verifiedPkg: Record<string, unknown> | null = null;
+
+        // 1. Try finding package by exact ID if provided
+        if (requestedPkgId) {
+          const { data: pkgById } = await db
+            .from('travel_packages')
+            .select('*')
+            .eq('id', requestedPkgId)
+            .eq('account_id', accountId)
+            .maybeSingle();
+          if (pkgById) {
+            verifiedPkg = pkgById as Record<string, unknown>;
+          }
+        }
+
+        // 2. If not found by ID, search by name / destination
+        if (!verifiedPkg && pNameOrDest) {
+          const { data: matchedPackages } = await db
+            .from('travel_packages')
+            .select('*')
+            .eq('account_id', accountId)
+            .eq('status', 'published')
+            .or(
+              `name.ilike.%${pNameOrDest}%,destination.ilike.%${pNameOrDest}%,package_code.ilike.%${pNameOrDest}%`
+            )
+            .limit(1);
+
+          if (matchedPackages && matchedPackages.length > 0) {
+            verifiedPkg = matchedPackages[0] as Record<string, unknown>;
+          }
+        }
+
+        if (verifiedPkg) {
+          const packageId = String(verifiedPkg.id);
+          let unitPrice =
+            Number(verifiedPkg.base_price ?? verifiedPkg.price) || 0;
+
+          // If departure batch requested, re-validate price and availability
+          if (requestedDepId) {
+            const { data: dep } = await db
+              .from('tour_package_departures')
+              .select('*')
+              .eq('id', requestedDepId)
+              .eq('account_id', accountId)
+              .maybeSingle();
+            if (
+              dep &&
+              dep.departure_price !== null &&
+              dep.departure_price !== undefined
+            ) {
+              unitPrice = Number(dep.departure_price);
+            }
+          }
+
+          // A. Proposal / Quotation Generation
+          if (
+            travelAction === 'quote' ||
+            intent === 'sales' ||
+            intent === 'booking'
+          ) {
+            const fullPkgDetails = await revalidatePackageForProposal(
+              accountId,
+              packageId
+            );
+            if (fullPkgDetails) {
+              const snapshot = generateProposalSnapshot(
+                fullPkgDetails,
+                requestedDepId
+              );
+              const propNum = `PROP-${Date.now().toString(36).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
+              const basePrice = unitPrice * guestsCount;
+              const { data: newProposal, error: propErr } = await db
+                .from('trip_proposals')
+                .insert({
+                  account_id: accountId,
+                  contact_id: contactId,
+                  package_id: packageId,
+                  proposal_number: propNum,
+                  title: `${fullPkgDetails.name} - ${fullPkgDetails.destination}`,
+                  destination: fullPkgDetails.destination,
+                  duration_days: fullPkgDetails.duration_days,
+                  duration_nights:
+                    fullPkgDetails.duration_nights ||
+                    Math.max(1, fullPkgDetails.duration_days - 1),
+                  adults_count: guestsCount,
+                  base_price: basePrice,
+                  total_price: basePrice,
+                  currency: fullPkgDetails.currency || 'INR',
+                  inclusions: Array.isArray(fullPkgDetails.inclusions)
+                    ? fullPkgDetails.inclusions
+                    : [],
+                  exclusions: Array.isArray(fullPkgDetails.exclusions)
+                    ? fullPkgDetails.exclusions
+                    : [],
+                  itinerary: fullPkgDetails.itinerary || [],
+                  hotel_details: fullPkgDetails.hotel_details
+                    ? typeof fullPkgDetails.hotel_details === 'string'
+                      ? fullPkgDetails.hotel_details
+                      : JSON.stringify(fullPkgDetails.hotel_details)
+                    : null,
+                  transport_details: fullPkgDetails.transport_details
+                    ? typeof fullPkgDetails.transport_details === 'string'
+                      ? fullPkgDetails.transport_details
+                      : JSON.stringify(fullPkgDetails.transport_details)
+                    : null,
+                  terms: fullPkgDetails.terms_and_conditions || null,
+                  status: 'draft',
+                  start_date: (snapshot.departure_date as string) || travelDate,
+                  end_date: (snapshot.departure_end_date as string) || null,
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                })
+                .select('id, proposal_number')
+                .maybeSingle();
+
+              if (propErr) {
+                console.warn('[AI Travel] Proposal generation note:', propErr);
+              } else if (newProposal) {
+                console.log(
+                  '[AI Travel] Successfully created trip proposal from DB snapshot:',
+                  newProposal.proposal_number
+                );
+              }
+            }
+          }
+
+          // B. Deterministic Booking Confirmation Guard (State Machine)
+          const userRawText = (latestMessage?.content_text || '')
+            .trim()
+            .toLowerCase();
+          const enConfirm =
+            /\b(confirm|yes confirm|please confirm|proceed with booking|proceed|book it|book this|book now|book this package|confirm booking)\b/i.test(
+              userRawText
+            );
+          const bnConfirm =
+            /(হ্যাঁ কনফার্ম|হাঁ কনফার্ম|কনফার্ম করুন|বুক করুন|বুক করে দিন|বুকিং কনফার্ম)/.test(
+              userRawText
+            );
+          const isExplicitConfirmation = enConfirm || bnConfirm;
+
+          // Check if there is an existing proposal or pending quote for this contact & package
+          const { data: existingProposals } = await db
+            .from('trip_proposals')
+            .select('id, base_price, total_price, status')
+            .eq('account_id', accountId)
+            .eq('contact_id', contactId)
+            .eq('package_id', packageId)
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+          const hasPendingProposal =
+            existingProposals && existingProposals.length > 0;
+
+          if (
+            travelAction === 'book' &&
+            isExplicitConfirmation &&
+            hasPendingProposal &&
+            travelDate
+          ) {
+            // Check departure availability if departureId is supplied
+            let departureAvailable = true;
+            if (requestedDepId) {
+              const { data: depCheck } = await db
+                .from('tour_package_departures')
+                .select('available_seats, status')
+                .eq('id', requestedDepId)
+                .eq('account_id', accountId)
+                .maybeSingle();
+
+              if (
+                !depCheck ||
+                depCheck.status !== 'scheduled' ||
+                (depCheck.available_seats !== null &&
+                  depCheck.available_seats < guestsCount)
+              ) {
+                departureAvailable = false;
+                console.warn(
+                  '[AI Travel] Booking rejected: Departure batch is sold out, cancelled, or has insufficient seats.'
+                );
+              }
+            }
+
+            if (departureAvailable) {
+              const totalPrice = unitPrice * guestsCount;
+              const { data: newBooking, error: bookErr } = await db
+                .from('travel_bookings')
+                .insert({
+                  account_id: accountId,
+                  package_id: packageId,
+                  contact_id: contactId,
+                  travel_date: travelDate,
+                  guests_count: guestsCount,
+                  total_price: totalPrice,
+                  status: 'Pending',
+                  idempotency_key: `booking_${contactId}_${packageId}_${travelDate}`,
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                })
+                .select('id')
+                .single();
+
+              if (bookErr) {
+                console.error('[AI Travel] Booking insert error:', bookErr);
+              } else {
+                console.log(
+                  '[AI Travel] Successfully created pending booking upon customer confirmation:',
+                  newBooking?.id
+                );
+              }
+            }
+          }
+
+          if (tName && !contact?.name) {
+            await db
+              .from('contacts')
+              .update({ name: tName })
+              .eq('id', contactId)
+              .eq('account_id', accountId);
+          }
+        } else {
+          console.warn(
+            '[AI Travel] No verified package found in DB for query:',
+            pNameOrDest || requestedPkgId
+          );
+        }
+      } catch (travelErr) {
+        console.error('[AI Travel] Error handling travel action:', travelErr);
+      }
+    }
+
+    // Real Estate Site Visit Automation
+    if (realestate_visit && realestate_visit.action === 'schedule') {
+      try {
+        const propName = String(
+          realestate_visit.property_name || 'Property Visit'
+        );
+        const vDate =
+          (realestate_visit.visit_date as string) ||
+          new Date().toISOString().split('T')[0];
+        const vTime = (realestate_visit.visit_time as string) || '11:00 AM';
+        const bName = (realestate_visit.buyer_name as string) || contact?.name;
+
+        await db.from('appointments').insert({
+          account_id: accountId,
+          patient_id: contactId,
+          department_name: propName,
+          appointment_date: vDate,
+          appointment_time: vTime,
+          status: 'Confirmed',
+          notes: `Site visit: ${propName} for ${bName || 'Buyer'}`,
+          created_at: new Date().toISOString(),
+        });
+      } catch (reErr) {
+        console.error('[AI RealEstate] Error scheduling site visit:', reErr);
       }
     }
 

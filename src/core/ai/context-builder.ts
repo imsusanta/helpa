@@ -75,6 +75,127 @@ export async function buildAiContextBundle({
     (kb) => `Q: ${kb.question_title}\nA: ${kb.answer_content}`
   );
 
+  // 3.5 Fetch Workplace Dynamic Catalog (Travel Packages, Courses, Properties, Services)
+  const catalogSnippets: string[] = [];
+
+  try {
+    const isTravel =
+      industry === 'travel' || industry === 'tour' || industry === 'tourism';
+    const isRealEstate =
+      industry === 'real_estate' || industry === 'realestate';
+    const isCoaching =
+      industry === 'coaching' ||
+      industry === 'solo_teacher' ||
+      industry === 'education' ||
+      industry === 'tutor';
+    const isSalonOrGym =
+      industry === 'salon' || industry === 'gym' || industry === 'restaurant';
+
+    if (isTravel) {
+      const today = new Date().toISOString().split('T')[0];
+      const { data: rawPackages } = await db
+        .from('travel_packages')
+        .select(
+          'name, destination, duration_days, duration_nights, base_price, price, currency, summary, description, inclusions, status, valid_until'
+        )
+        .eq('account_id', accountId)
+        .limit(15);
+
+      const packages = (rawPackages || [])
+        .filter((pkg: Record<string, unknown>) => {
+          if (pkg.status && pkg.status !== 'published') return false;
+          if (pkg.valid_until && String(pkg.valid_until) < today) return false;
+          return true;
+        })
+        .slice(0, 5);
+
+      if (packages && packages.length > 0) {
+        catalogSnippets.push(
+          'AVAILABLE TRAVEL & TOUR PACKAGES (DATABASE RECORDS):'
+        );
+        packages.forEach((pkg: Record<string, unknown>) => {
+          const durationStr = pkg.duration_nights
+            ? `${pkg.duration_days} Days / ${pkg.duration_nights} Nights`
+            : `${pkg.duration_days} Days`;
+          const priceVal = pkg.base_price ?? pkg.price ?? 'N/A';
+          const currency =
+            !pkg.currency || pkg.currency === 'INR' ? '₹' : `${pkg.currency} `;
+          const summaryStr =
+            pkg.summary ||
+            pkg.description ||
+            'All standard sightseeing & transport included';
+          const inclStr =
+            Array.isArray(pkg.inclusions) && pkg.inclusions.length > 0
+              ? ` | Inclusions: ${pkg.inclusions.join(', ')}`
+              : '';
+          catalogSnippets.push(
+            `- Package: ${pkg.name} | Destination: ${pkg.destination} | Duration: ${durationStr} | Price: ${currency}${priceVal} per person | Summary: ${summaryStr}${inclStr}`
+          );
+        });
+      }
+    }
+
+    if (isCoaching || isSalonOrGym) {
+      const { data: courses } = await db
+        .from('coaching_courses')
+        .select('name, fee, duration')
+        .eq('account_id', accountId)
+        .limit(15);
+
+      if (courses && courses.length > 0) {
+        catalogSnippets.push(
+          isCoaching
+            ? 'AVAILABLE COURSES & PROGRAMS (DATABASE RECORDS):'
+            : 'AVAILABLE SERVICES & PLANS (DATABASE RECORDS):'
+        );
+        courses.forEach((c: Record<string, unknown>) => {
+          catalogSnippets.push(
+            `- ${c.name}: Fee/Price: ₹${c.fee}, Duration: ${c.duration || 'N/A'}`
+          );
+        });
+      }
+    }
+
+    if (isRealEstate) {
+      const { data: properties } = await db
+        .from('realestate_properties')
+        .select('name, location, price, type, bedrooms, bathrooms, status')
+        .eq('account_id', accountId)
+        .limit(15);
+
+      if (properties && properties.length > 0) {
+        catalogSnippets.push(
+          'AVAILABLE PROPERTIES & LISTINGS (DATABASE RECORDS):'
+        );
+        properties.forEach((p: Record<string, unknown>) => {
+          catalogSnippets.push(
+            `- ${p.name}: Location: ${p.location}, Price: ₹${p.price}, Type: ${p.type}, Configuration: ${p.bedrooms || 0} BHK, Status: ${p.status}`
+          );
+        });
+      }
+    }
+
+    // Generic fallback: check if any travel packages exist regardless of industry
+    if (!isTravel && catalogSnippets.length === 0) {
+      const { data: genericPacks } = await db
+        .from('travel_packages')
+        .select('name, destination, duration_days, price, description')
+        .eq('account_id', accountId)
+        .limit(10);
+      if (genericPacks && genericPacks.length > 0) {
+        catalogSnippets.push(
+          'AVAILABLE PACKAGES & SERVICES (DATABASE RECORDS):'
+        );
+        genericPacks.forEach((pkg: Record<string, unknown>) => {
+          catalogSnippets.push(
+            `- Package: ${pkg.name} | Destination: ${pkg.destination} | Duration: ${pkg.duration_days} Days | Price: ₹${pkg.price} per person | Description: ${pkg.description || 'N/A'}`
+          );
+        });
+      }
+    }
+  } catch (catalogErr) {
+    console.warn('[AI Context Builder] Catalog lookup notice:', catalogErr);
+  }
   // 4. Retrieve Conversation Memory
   const memory = await getConversationMemory(
     accountId,
