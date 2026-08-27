@@ -39,8 +39,11 @@ export const NAVIGATION_REGISTRY: SidebarNavItem<React.ElementType>[] = [
       },
       {
         id: 'conversations-appointments',
-        label: 'Appointments',
-        href: '/appointments',
+        label: 'Booking Trip',
+        sourceLabel: 'Booking Trip',
+        href: '/booking-trip',
+        activeHrefs: ['/appointments'],
+        travelOnly: true,
       },
     ],
   },

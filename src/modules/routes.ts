@@ -5,6 +5,7 @@ const SHARED_WORKSPACE_ROUTES = [
   '/inbox',
   '/follow-ups',
   '/appointments',
+  '/booking-trip',
   '/leads',
   '/customers',
   '/pipelines',
