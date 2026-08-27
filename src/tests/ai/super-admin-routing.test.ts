@@ -1,8 +1,15 @@
-import { describe, it, expect } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { resolveAccountAiConfig } from '@/core/ai/resolver';
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe('Centralized Super Admin AI Routing & Feature-Level Model Assignment', () => {
   it('resolves centralized primary provider when set to OrcaRouter', async () => {
+    vi.stubEnv('ORCAROUTER_API_KEY', 'test-orcarouter-key');
+    vi.stubEnv('OPENROUTER_API_KEY', 'test-openrouter-key');
+
     const config = await resolveAccountAiConfig(undefined, {
       primaryProvider: 'orcarouter',
       fallbackProvider: 'openrouter',
@@ -15,6 +22,8 @@ describe('Centralized Super Admin AI Routing & Feature-Level Model Assignment', 
   });
 
   it('resolves centralized primary provider when set to OpenRouter', async () => {
+    vi.stubEnv('OPENROUTER_API_KEY', 'test-openrouter-key');
+
     const config = await resolveAccountAiConfig(undefined, {
       primaryProvider: 'openrouter',
       fallbackProvider: 'none',
@@ -26,6 +35,8 @@ describe('Centralized Super Admin AI Routing & Feature-Level Model Assignment', 
   });
 
   it('resolves custom model assignment for specialized feature routing', async () => {
+    vi.stubEnv('OPENROUTER_API_KEY', 'test-openrouter-key');
+
     const config = await resolveAccountAiConfig(undefined, {
       primaryProvider: 'openrouter',
       customModel: 'anthropic/claude-3.5-sonnet',

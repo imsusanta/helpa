@@ -12,7 +12,7 @@
  * - Copilot Suggestions & Conversation Summary
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   OpenRouterAiProvider,
   setAiProvider,
@@ -65,6 +65,8 @@ describe('Helpa Core AI Engine', () => {
   };
 
   beforeEach(() => {
+    vi.stubEnv('OPENROUTER_API_KEY', 'test-openrouter-key');
+
     mockDatabase = {
       accounts: [
         {
@@ -224,6 +226,11 @@ describe('Helpa Core AI Engine', () => {
     } as unknown as ReturnType<typeof appwriteCompat.getAdminClient>);
   });
 
+  afterEach(() => {
+    setAiProvider(new OpenRouterAiProvider());
+    vi.unstubAllEnvs();
+  });
+
   describe('Dynamic Industry AI Role Resolution', () => {
     it('resolves Health to AI Receptionist', async () => {
       const bundle = await buildAiContextBundle({
@@ -364,7 +371,6 @@ describe('Helpa Core AI Engine', () => {
       expect(result.replyText).toContain('medical emergency');
       expect(result.replyText).toContain('108 or 112');
 
-      // Verify conversation marked for human takeover
       const conv = mockDatabase.conversations.find((c) => c.id === 'conv-h1');
       expect(conv?.needs_human).toBe(true);
       expect(conv?.ai_chat_enabled).toBe(false);
@@ -406,7 +412,6 @@ describe('Helpa Core AI Engine', () => {
       expect(result.role).toMatch(/AI (Hospital )?Receptionist/);
       expect(result.tokensUsed?.totalTokens).toBe(150);
 
-      // Verify event was emitted
       expect(eventSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           accountId: tenantHealth.id,
