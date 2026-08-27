@@ -253,14 +253,13 @@ describe('AI Receptionist Auto-Reply Decision Engine & Automations Coexistence',
     mockState.conversationData.is_ai_enabled = true;
     mockState.conversationData.assigned_agent_id = null;
     mockState.conversationData.ai_reply_count = 0;
-    mockState.messagesData = [
-      {
-        sender_type: 'customer',
-        content_type: 'text',
-        content_text: 'How much is consultation?',
-        created_at: new Date().toISOString(),
-      },
-    ];
+    mockState.messagesData.length = 0;
+    mockState.messagesData.push({
+      sender_type: 'customer',
+      content_type: 'text',
+      content_text: 'How much is consultation?',
+      created_at: new Date().toISOString(),
+    });
     vi.clearAllMocks();
   });
 
@@ -440,7 +439,8 @@ describe('AI Receptionist Auto-Reply Decision Engine & Automations Coexistence',
 
   it('still replies when a previous bot persist sorts newer than the customer turn', async () => {
     const customerId = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
-    mockState.messagesData = [
+    mockState.messagesData.length = 0;
+    mockState.messagesData.push(
       {
         id: 'bot-prev',
         sender_type: 'bot',
@@ -454,8 +454,8 @@ describe('AI Receptionist Auto-Reply Decision Engine & Automations Coexistence',
         content_type: 'text',
         content_text: 'How much is consultation?',
         created_at: '2026-08-27T10:00:00.000Z',
-      },
-    ];
+      }
+    );
 
     await triggerAiResponse({
       accountId: 'acc-1',
@@ -475,7 +475,8 @@ describe('AI Receptionist Auto-Reply Decision Engine & Automations Coexistence',
 
   it('does not send another AI reply when outbound already points at that customer', async () => {
     const customerId = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
-    mockState.messagesData = [
+    mockState.messagesData.length = 0;
+    mockState.messagesData.push(
       {
         id: 'bot-answered',
         sender_type: 'bot',
@@ -490,8 +491,8 @@ describe('AI Receptionist Auto-Reply Decision Engine & Automations Coexistence',
         content_type: 'text',
         content_text: 'How much is consultation?',
         created_at: '2026-08-27T10:00:00.000Z',
-      },
-    ];
+      }
+    );
 
     await triggerAiResponse({
       accountId: 'acc-1',
