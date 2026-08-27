@@ -37,4 +37,13 @@ describe('WhatsApp AI reply delivery invariants', () => {
     expect(metaSendSource).toContain("senderType: 'bot'");
     expect(metaSendSource).toContain('touchConversationPreview');
   });
+
+  it('threads replyToMessageId and createdAt from AI sends into persist', () => {
+    expect(metaSendSource).toContain(
+      'replyToMessageId: extras?.replyToMessageId'
+    );
+    expect(metaSendSource).toContain('createdAt: extras?.createdAt');
+    expect(metaSendSource).toContain('replyToMessageId: args.replyToMessageId');
+    expect(metaSendSource).toContain('createdAt: args.createdAt');
+  });
 });

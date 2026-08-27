@@ -20,6 +20,8 @@ import {
   extractStructuredInsights,
   formatKnowledgeBaseContext,
   isHospitalIndustryEnabled,
+  latestUnansweredCustomerMessage,
+  outboundCreatedAtAfter,
   shouldSkipAiConversation,
   unwrapNestedReply,
 } from '@/lib/whatsapp/ai-pipeline';
@@ -82,7 +84,9 @@ export async function triggerAiResponse(
     db.from('conversations').select('*').eq('id', conversationId).maybeSingle(),
     db
       .from('messages')
-      .select('sender_type, content_type, content_text, created_at')
+      .select(
+        'id, sender_type, content_type, content_text, created_at, reply_to_message_id'
+      )
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: false })
       .limit(15),
@@ -196,11 +200,14 @@ export async function triggerAiResponse(
   }
 
   const messages = (rawMessages || []).map((m) => ({
-    id: String(m.id || m.message_id || m.messageId || ''),
+    id: String(m.id || ''),
     sender_type: String(m.sender_type || m.senderType || 'customer'),
     content_type: String(m.content_type || m.contentType || 'text'),
     content_text: String(m.content_text || m.contentText || ''),
     created_at: String(m.created_at || m.createdAt || new Date().toISOString()),
+    reply_to_message_id: String(
+      m.reply_to_message_id || m.replyToMessageId || ''
+    ),
   }));
 
   if (messages.length === 0) {
@@ -211,17 +218,30 @@ export async function triggerAiResponse(
     return;
   }
 
-  // Guard: Only respond if the latest message is from the customer
-  const latestMessage = messages[0];
-  if (latestMessage.sender_type !== 'customer') {
+  const unansweredCustomer = latestUnansweredCustomerMessage(messages);
+  if (!unansweredCustomer) {
     console.warn(
-      '[AI Assistant] Latest message is not from customer. Skipping AI response. Latest sender:',
-      latestMessage.sender_type
+      '[AI Assistant] No unanswered customer message in recent history. Skipping AI response. Newest sender:',
+      messages[0]?.sender_type
     );
     return;
   }
 
-  const rawUserText = latestMessage.content_text || '';
+  // Use the unanswered customer turn, not messages[0]: outbound persist uses
+  // server time while inbound uses WhatsApp time, so the newest row is often
+  // the previous bot/staff bubble.
+  const latestMessage = unansweredCustomer;
+
+  const aiSendBase = {
+    accountId,
+    userId,
+    conversationId,
+    contactId,
+    replyToMessageId: unansweredCustomer.id || null,
+    createdAt: outboundCreatedAtAfter(unansweredCustomer.created_at),
+  };
+
+  const rawUserText = unansweredCustomer.content_text || '';
 
   // 🛡️ AI SAFETY & HEALTHCARE GUARDRAILS (Production Module: src/lib/ai/safety.ts)
   if (isEmergencyQuery(rawUserText)) {
@@ -232,10 +252,7 @@ export async function triggerAiResponse(
       classification: 'emergency',
     });
     await engineSendText({
-      accountId,
-      userId,
-      conversationId,
-      contactId,
+      ...aiSendBase,
       text: '⚠️ *EMERGENCY ALERT*: If you or the patient are experiencing a life-threatening medical emergency (e.g., chest pain, severe bleeding, difficulty breathing), please call your local emergency service or proceed immediately to the nearest hospital emergency room.\n\nA human receptionist may review this conversation. For immediate help, call your local emergency service or go to the nearest emergency department.',
     });
     await db.from('audit_logs').insert({
@@ -263,10 +280,7 @@ export async function triggerAiResponse(
       rawUserText
     );
     await engineSendText({
-      accountId,
-      userId,
-      conversationId,
-      contactId,
+      ...aiSendBase,
       text: '🩺 *Medical Notice*: As an automated clinic receptionist, I cannot provide medical diagnoses, evaluate clinical symptoms, or prescribe medications.\n\nPlease consult directly with one of our qualified doctors. Would you like me to show available OPD consultation slots for booking?',
     });
     return;
@@ -1184,10 +1198,7 @@ Please arrive 15 minutes before your time slot. Thank you!`;
 
               // Automatically send the PDF slip to the patient via WhatsApp
               engineSendDocument({
-                accountId,
-                userId,
-                conversationId,
-                contactId,
+                ...aiSendBase,
                 documentUrl: pdfUrl,
                 filename: `appointment-${bookingIdStr}.pdf`,
                 caption: `Digital Appointment Ticket for ${displayDoc}`,
@@ -1387,10 +1398,7 @@ Please arrive 15 minutes before your time slot. Thank you!`;
               targetReport.test_name
             );
             engineSendDocument({
-              accountId,
-              userId,
-              conversationId,
-              contactId,
+              ...aiSendBase,
               documentUrl: targetReport.report_pdf_url,
               filename: `${targetReport.test_name.replace(/\s+/g, '_')}_Report.pdf`,
               caption: `Here is your completed ${targetReport.test_name} report.`,
@@ -1409,10 +1417,7 @@ Please arrive 15 minutes before your time slot. Thank you!`;
               title: r.test_name.substring(0, 20),
             }));
             engineSendButtons({
-              accountId,
-              userId,
-              conversationId,
-              contactId,
+              ...aiSendBase,
               bodyText:
                 'I found multiple reports ready for you. Which one would you like to receive?',
               buttons,
@@ -1454,10 +1459,7 @@ Please arrive 15 minutes before your time slot. Thank you!`;
         const { engineSendButtons } =
           await import('@/lib/automations/meta-send');
         await engineSendButtons({
-          accountId,
-          userId,
-          conversationId,
-          contactId,
+          ...aiSendBase,
           bodyText: reply.substring(0, 1024),
           buttons: [
             { id: 'hospital_btn_book', title: '📅 Book Now' },
@@ -1471,19 +1473,13 @@ Please arrive 15 minutes before your time slot. Thank you!`;
           btnErr
         );
         await engineSendText({
-          accountId,
-          userId,
-          conversationId,
-          contactId,
+          ...aiSendBase,
           text: reply,
         });
       }
     } else {
       await engineSendText({
-        accountId,
-        userId,
-        conversationId,
-        contactId,
+        ...aiSendBase,
         text: reply,
       });
     }

@@ -5,6 +5,8 @@ import {
   extractStructuredInsights,
   formatKnowledgeBaseContext,
   isHospitalIndustryEnabled,
+  latestUnansweredCustomerMessage,
+  outboundCreatedAtAfter,
   shouldSkipAiConversation,
   unwrapNestedReply,
 } from './ai-pipeline';
@@ -56,6 +58,97 @@ describe('shouldSkipAiConversation', () => {
         ai_reply_count: 3,
       })
     ).toEqual({ skip: false });
+  });
+});
+
+describe('latestUnansweredCustomerMessage', () => {
+  const customerId = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+  const customer = {
+    id: customerId,
+    sender_type: 'customer',
+    content_text: 'Can I book an appointment?',
+    created_at: '2026-08-27T10:00:00.000Z',
+  };
+
+  it('returns the latest customer when a newer bot row has no reply_to', () => {
+    expect(
+      latestUnansweredCustomerMessage([
+        {
+          id: 'bot-1',
+          sender_type: 'bot',
+          content_text: 'Previous AI reply',
+          created_at: '2026-08-27T10:00:20.000Z',
+        },
+        customer,
+      ])
+    ).toEqual(customer);
+  });
+
+  it('skips when an outbound row already points at that customer message', () => {
+    expect(
+      latestUnansweredCustomerMessage([
+        {
+          id: 'bot-2',
+          sender_type: 'bot',
+          content_text: 'Already answered',
+          created_at: '2026-08-27T10:00:01.000Z',
+          reply_to_message_id: customerId,
+        },
+        customer,
+      ])
+    ).toBeNull();
+  });
+
+  it('treats a staff reply as answering that customer turn', () => {
+    expect(
+      latestUnansweredCustomerMessage([
+        {
+          id: 'agent-1',
+          sender_type: 'agent',
+          content_text: 'Staff already replied',
+          reply_to_message_id: customerId,
+        },
+        customer,
+      ])
+    ).toBeNull();
+  });
+
+  it('falls back to newest-is-customer when ids are missing', () => {
+    expect(
+      latestUnansweredCustomerMessage([
+        {
+          sender_type: 'bot',
+          content_text: 'Earlier bot',
+          created_at: '2026-08-27T10:00:20.000Z',
+        },
+        {
+          sender_type: 'customer',
+          content_text: 'Hello',
+          created_at: '2026-08-27T10:00:00.000Z',
+        },
+      ])
+    ).toBeNull();
+    expect(
+      latestUnansweredCustomerMessage([
+        {
+          sender_type: 'customer',
+          content_text: 'Hello',
+        },
+      ])?.content_text
+    ).toBe('Hello');
+  });
+});
+
+describe('outboundCreatedAtAfter', () => {
+  it('places the outbound row one second after the customer turn', () => {
+    expect(outboundCreatedAtAfter('2026-08-27T10:00:00.000Z')).toBe(
+      '2026-08-27T10:00:01.000Z'
+    );
+  });
+
+  it('returns undefined for missing or invalid timestamps', () => {
+    expect(outboundCreatedAtAfter(undefined)).toBeUndefined();
+    expect(outboundCreatedAtAfter('not-a-date')).toBeUndefined();
   });
 });
 
