@@ -1,4 +1,4 @@
-name: PR 130 quality diagnostics
+name: PR quality diagnostics
 
 on:
   pull_request:
@@ -9,11 +9,11 @@ permissions:
   pull-requests: write
 
 jobs:
-  typecheck-report:
-    if: github.event.pull_request.number == 130
-    name: Quality diagnostic — typecheck report
+  quality-report:
+    if: github.event.pull_request.number == 130 || github.event.pull_request.number == 177
+    name: Quality diagnostic report
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -21,23 +21,42 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Run typecheck and report errors
+      - name: Run quality checks and report errors
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set +e
+          npm run format:check > /tmp/format.log 2>&1
+          format_status=$?
+          npm run lint > /tmp/lint.log 2>&1
+          lint_status=$?
           npm run typecheck > /tmp/typecheck.log 2>&1
-          status=$?
+          type_status=$?
+          cat /tmp/format.log
+          cat /tmp/lint.log
           cat /tmp/typecheck.log
-          if [ "$status" -ne 0 ]; then
+          if [ "$format_status" -ne 0 ] || [ "$lint_status" -ne 0 ] || [ "$type_status" -ne 0 ]; then
             {
-              echo '## PR 130 typecheck diagnostics'
+              echo "## PR $PR_NUMBER quality diagnostics"
               echo
+              echo "- format: $format_status"
+              echo "- lint: $lint_status"
+              echo "- typecheck: $type_status"
+              echo
+              echo '### Format'
               echo '```text'
-              tail -n 100 /tmp/typecheck.log
+              tail -n 80 /tmp/format.log
               echo '```'
-            } > /tmp/typecheck-comment.md
-            gh pr comment "$PR_NUMBER" --body-file /tmp/typecheck-comment.md
+              echo '### Lint'
+              echo '```text'
+              tail -n 120 /tmp/lint.log
+              echo '```'
+              echo '### Typecheck'
+              echo '```text'
+              tail -n 120 /tmp/typecheck.log
+              echo '```'
+            } > /tmp/quality-comment.md
+            gh pr comment "$PR_NUMBER" --body-file /tmp/quality-comment.md
+            exit 1
           fi
-          exit "$status"
