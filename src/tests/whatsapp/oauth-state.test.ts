@@ -97,9 +97,9 @@ describe('OAuth State Security & Single-Use Verification', () => {
     expect(validated.state).toBe(state);
     expect(validated.accountId).toBe(tenantA.id);
     expect(validated.userId).toBe(tenantA.userId);
-    expect(mockOauthStates.find((row) => row.state === state)?.used_at).toBe(
-      defined
-    );
+    expect(
+      mockOauthStates.find((row) => row.state === state)?.used_at
+    ).toBeDefined();
   });
 
   it('rejects replayed state', async () => {
