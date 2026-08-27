@@ -461,7 +461,8 @@ export async function POST(request: Request) {
  * DELETE /api/whatsapp/config
  *
  * Disconnects WhatsApp for the caller's workspace.
- * Clears credentials and marks status as disconnected.
+ * Removes both canonical and legacy credentials so a compatibility fallback
+ * cannot silently reactivate a supposedly disconnected account.
  * Preserves all historical CRM contacts, conversations, and messages.
  */
 export async function DELETE() {
@@ -471,24 +472,37 @@ export async function DELETE() {
     const userId = ctx.userId;
     const db = getAdminClient();
 
-    // Fetch existing connection details for audit log before removal
+    // Fetch existing connection details for audit log before removal.
     const { data: existingConfig } = await db
       .from('whatsapp_configs')
       .select('*')
       .eq('account_id', accountId)
       .maybeSingle();
 
-    const { error: deleteError } = await db
-      .from('whatsapp_configs')
-      .delete()
-      .eq('account_id', accountId);
+    // Always attempt both deletes. Previously the legacy row was deleted only
+    // when the canonical delete errored, so a stale legacy credential could
+    // remain active through resolver/send fallbacks after a successful UI
+    // disconnect.
+    const [canonicalDelete, legacyDelete] = await Promise.all([
+      db.from('whatsapp_configs').delete().eq('account_id', accountId),
+      db.from('whatsapp_config').delete().eq('account_id', accountId),
+    ]);
 
-    if (deleteError) {
-      // Also try legacy table
-      await db.from('whatsapp_config').delete().eq('account_id', accountId);
+    if (canonicalDelete.error && legacyDelete.error) {
+      console.error('[DELETE /api/whatsapp/config] Config removal failed:', {
+        canonical: canonicalDelete.error.message,
+        legacy: legacyDelete.error.message,
+      });
+      return NextResponse.json(
+        {
+          code: 'DB_ERROR',
+          error: 'Failed to remove WhatsApp credentials. Please try again.',
+        },
+        { status: 500 }
+      );
     }
 
-    // Record sanitized audit event
+    // Record sanitized audit event.
     const now = new Date().toISOString();
     try {
       await db.from('audit_logs').insert({
@@ -500,6 +514,8 @@ export async function DELETE() {
           phone_number_id: existingConfig?.phone_number_id || null,
           waba_id: existingConfig?.waba_id || null,
           disconnected_at: now,
+          canonical_removed: !canonicalDelete.error,
+          legacy_removed: !legacyDelete.error,
         },
         created_at: now,
       });
