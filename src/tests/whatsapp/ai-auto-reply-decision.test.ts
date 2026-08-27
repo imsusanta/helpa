@@ -438,6 +438,71 @@ describe('AI Receptionist Auto-Reply Decision Engine & Automations Coexistence',
     expect(engineSendText).not.toHaveBeenCalled();
   });
 
+  it('still replies when a previous bot persist sorts newer than the customer turn', async () => {
+    const customerId = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+    mockState.messagesData = [
+      {
+        id: 'bot-prev',
+        sender_type: 'bot',
+        content_type: 'text',
+        content_text: 'Previous AI reply persisted with server time',
+        created_at: '2026-08-27T10:00:20.000Z',
+      },
+      {
+        id: customerId,
+        sender_type: 'customer',
+        content_type: 'text',
+        content_text: 'How much is consultation?',
+        created_at: '2026-08-27T10:00:00.000Z',
+      },
+    ];
+
+    await triggerAiResponse({
+      accountId: 'acc-1',
+      userId: 'usr-1',
+      conversationId: 'conv-123',
+      contactId: 'cnt-1',
+    });
+
+    expect(engineSendText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        replyToMessageId: customerId,
+        createdAt: '2026-08-27T10:00:01.000Z',
+        text: expect.stringContaining('consultation fee is ₹500'),
+      })
+    );
+  });
+
+  it('does not send another AI reply when outbound already points at that customer', async () => {
+    const customerId = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+    mockState.messagesData = [
+      {
+        id: 'bot-answered',
+        sender_type: 'bot',
+        content_type: 'text',
+        content_text: 'Already answered',
+        created_at: '2026-08-27T10:00:01.000Z',
+        reply_to_message_id: customerId,
+      },
+      {
+        id: customerId,
+        sender_type: 'customer',
+        content_type: 'text',
+        content_text: 'How much is consultation?',
+        created_at: '2026-08-27T10:00:00.000Z',
+      },
+    ];
+
+    await triggerAiResponse({
+      accountId: 'acc-1',
+      userId: 'usr-1',
+      conversationId: 'conv-123',
+      contactId: 'cnt-1',
+    });
+
+    expect(engineSendText).not.toHaveBeenCalled();
+  });
+
   // Test 9: Conversation reply limit reached -> AI does not reply
   it('Test 9: Conversation reached AI reply cap (>=100) -> AI skips response', async () => {
     mockState.conversationData.ai_reply_count = 100;

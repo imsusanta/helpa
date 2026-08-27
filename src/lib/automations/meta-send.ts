@@ -29,6 +29,8 @@ interface SendTextArgs {
   conversationId: string;
   contactId?: string;
   text: string;
+  replyToMessageId?: string | null;
+  createdAt?: string;
 }
 interface SendButtonsArgs {
   accountId: string;
@@ -39,6 +41,8 @@ interface SendButtonsArgs {
   buttons: { id: string; title: string }[];
   headerText?: string;
   footerText?: string;
+  replyToMessageId?: string | null;
+  createdAt?: string;
 }
 interface SendTemplateArgs {
   accountId: string;
@@ -59,6 +63,8 @@ interface SendDocumentArgs {
   filename?: string;
   caption?: string;
   deliveryIntent?: DocumentDeliveryIntent;
+  replyToMessageId?: string | null;
+  createdAt?: string;
 }
 interface ResolvedCredentials {
   phoneNumberId: string;
@@ -216,7 +222,8 @@ async function recordSentMessage(
   metaMessageId: string | null,
   contentType: 'text' | 'document' | 'interactive' | 'template',
   contentText: string | null,
-  mediaUrl: string | null
+  mediaUrl: string | null,
+  extras?: { replyToMessageId?: string | null; createdAt?: string }
 ): Promise<string> {
   const fallbackId = `bot-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
   const messageId = metaMessageId || fallbackId;
@@ -229,6 +236,8 @@ async function recordSentMessage(
       contentText,
       mediaUrl,
       providerMessageId: messageId,
+      replyToMessageId: extras?.replyToMessageId,
+      createdAt: extras?.createdAt,
     });
     if (!persistRes.ok) {
       console.error(
@@ -306,7 +315,11 @@ export async function engineSendText(
     metaMessageId,
     'text',
     args.text,
-    null
+    null,
+    {
+      replyToMessageId: args.replyToMessageId,
+      createdAt: args.createdAt,
+    }
   );
   return { whatsapp_message_id: metaMessageId };
 }
@@ -354,7 +367,11 @@ export async function engineSendDocument(
     metaMessageId,
     'document',
     args.caption || args.filename || '[Document]',
-    args.documentUrl
+    args.documentUrl,
+    {
+      replyToMessageId: args.replyToMessageId,
+      createdAt: args.createdAt,
+    }
   );
   return { whatsapp_message_id: metaMessageId };
 }
@@ -404,7 +421,11 @@ export async function engineSendButtons(
     metaMessageId,
     'interactive',
     args.bodyText,
-    null
+    null,
+    {
+      replyToMessageId: args.replyToMessageId,
+      createdAt: args.createdAt,
+    }
   );
   return { whatsapp_message_id: metaMessageId };
 }

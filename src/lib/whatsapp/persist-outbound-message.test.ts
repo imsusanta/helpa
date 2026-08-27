@@ -245,6 +245,26 @@ describe('persistOutboundMessage', () => {
     });
   });
 
+  it('uses the caller createdAt so AI replies sort after the customer turn', async () => {
+    const createdAt = '2026-08-27T10:00:01.000Z';
+    await persistOutboundMessage({
+      accountId: 'tenant-1',
+      conversationId: 'conv-1',
+      senderType: 'bot',
+      contentType: 'text',
+      contentText: 'I can help you book.',
+      providerMessageId: 'wamid.AI.TS.1',
+      replyToMessageId: REPLY_UUID,
+      createdAt,
+    });
+
+    expect(dbState.inserts[0]).toMatchObject({
+      sender_type: 'bot',
+      created_at: createdAt,
+      reply_to_message_id: REPLY_UUID,
+    });
+  });
+
   it('includes optional columns only when they have values', async () => {
     await persistOutboundMessage({
       accountId: 'tenant-1',

@@ -11,6 +11,7 @@ export interface PersistOutboundMessageInput {
   templateName?: string | null;
   providerMessageId: string;
   replyToMessageId?: string | null;
+  createdAt?: string;
 }
 
 export type PersistOutboundMessageResult =
@@ -389,7 +390,12 @@ export async function persistOutboundMessage(
   input: PersistOutboundMessageInput
 ): Promise<PersistOutboundMessageResult> {
   try {
-    const now = new Date().toISOString();
+    const parsedCreatedAt = input.createdAt
+      ? Date.parse(input.createdAt)
+      : Number.NaN;
+    const now = Number.isFinite(parsedCreatedAt)
+      ? new Date(parsedCreatedAt).toISOString()
+      : new Date().toISOString();
     const existing = await lookupExistingMessage(
       input.accountId,
       input.providerMessageId

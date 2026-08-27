@@ -37,6 +37,54 @@ export function shouldSkipAiConversation(
   return { skip: false };
 }
 
+export interface HistoryMessage {
+  id?: string;
+  sender_type: string;
+  content_type?: string;
+  content_text?: string;
+  created_at?: string;
+  reply_to_message_id?: string | null;
+}
+
+/**
+ * Inbound rows use WhatsApp provider time; outbound rows were persisted with
+ * server time. After outbound persist started working, the newest row by
+ * `created_at` is often the previous AI/staff bubble, so the old
+ * "latest sender must be customer" guard skipped every new customer turn.
+ *
+ * Skip only when we already stored an outbound reply pointing at that
+ * customer message id.
+ */
+export function latestUnansweredCustomerMessage(
+  messages: HistoryMessage[]
+): HistoryMessage | null {
+  const latestCustomer = messages.find(
+    (message) => message.sender_type === 'customer'
+  );
+  if (!latestCustomer) return null;
+
+  const customerId = latestCustomer.id;
+  if (!customerId) {
+    return messages[0]?.sender_type === 'customer' ? latestCustomer : null;
+  }
+
+  const answered = messages.some(
+    (message) =>
+      message.sender_type !== 'customer' &&
+      message.reply_to_message_id === customerId
+  );
+  return answered ? null : latestCustomer;
+}
+
+export function outboundCreatedAtAfter(
+  customerCreatedAt?: string
+): string | undefined {
+  if (!customerCreatedAt) return undefined;
+  const timestamp = Date.parse(customerCreatedAt);
+  if (!Number.isFinite(timestamp)) return undefined;
+  return new Date(timestamp + 1000).toISOString();
+}
+
 /**
  * Phone lookup variants used to find sibling contacts registered under
  * the same WhatsApp number (E.164, local 10-digit, +91 prefix, etc.).
