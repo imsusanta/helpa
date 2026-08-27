@@ -72,6 +72,7 @@ export async function GET(
       appointmentsRes,
       conversationRes,
       assigneeRes,
+      followupJobsRes,
     ] = await Promise.all([
       supabase
         .from('lead_activities')
@@ -122,6 +123,14 @@ export async function GET(
             .eq('user_id', lead.assigned_user_id)
             .maybeSingle()
         : Promise.resolve({ data: null }),
+
+      supabase
+        .from('lead_followups')
+        .select('*')
+        .eq('account_id', ctx.accountId)
+        .eq('lead_id', leadId)
+        .order('created_at', { ascending: false })
+        .limit(10),
     ]);
 
     const conversation = conversationRes.data;
@@ -145,6 +154,7 @@ export async function GET(
           conversation: conversation || null,
           messages: messages || [],
           followups: tasksRes.data || [],
+          leadFollowups: followupJobsRes.data || [],
           role: ctx.role || 'owner',
         },
         requestId: correlationId,

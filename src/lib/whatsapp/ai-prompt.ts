@@ -1,6 +1,7 @@
 import type { ResponseStyle } from '@/core/ai/chatbot-settings';
 import { getResponseStyleInstruction } from '@/core/ai/chatbot-settings';
 import { resolveSystemPrompt } from '@/modules/registry';
+import { qualificationPromptHint } from '@/lib/leads/lead-qualification.service';
 
 export interface ReceptionistPromptInput {
   industry?: string | null;
@@ -63,6 +64,8 @@ export const RECEPTIONIST_JSON_SCHEMA = `{
   "summary": "an updated, short running summary of the conversation (under 150 characters, capturing the customer's current goal/status)",
   "faq_category": "pricing" | "delivery" | "refund" | "demo" | "general",
   "sales_signal": true | false,
+  "is_business_enquiry": true | false,
+  "lead_confidence": 0.0,
   "extracted_lead_info": {
     "interested_service": "string or null",
     "budget": "string or null",
@@ -175,6 +178,8 @@ CRITICAL MANDATORY MULTILINGUAL RULE:
   - Never output walls of plain, unformatted text. Keep it neat, spaced, and easy to read.
   - KEEP REPLIES SHORT AND CONCISE. Maximum 3-4 short paragraphs. Do not write long essays. Speed matters.`;
 
+  systemPromptContent += `\n\n[LEAD QUALIFICATION]: ${qualificationPromptHint(input.industry)}`;
+
   systemPromptContent += `\n\nCRITICAL OUTPUT FORMAT RULE: You must respond ONLY with a raw, valid JSON object matching the JSON schema below. Do not wrap the JSON block in markdown formatting (like \`\`\`json ... \`\`\`), do not output any other text before or after the JSON.
 
 JSON Schema:
@@ -182,8 +187,8 @@ ${RECEPTIONIST_JSON_SCHEMA}
 
 Note:
 - ULTRA-FAST & CRISP REPLIES: Keep the "reply" concise, professional, and direct (1 to 3 short sentences maximum). Avoid long repetitive introductions or verbose text so the patient gets an instant response.
-- Set "sales_signal" to true if you detect genuine buying intent, service inquiry, quotation request, booking intent, or any strong sales signal from the customer.
-- Under "extracted_lead_info", populate only the fields mentioned by the customer. Use null for any details not mentioned or unknown.`;
+- Set "sales_signal" and "is_business_enquiry" to true only for a genuine business enquiry or buying intent (pricing, booking, package, appointment, property, course). Greetings such as "Hi" or "Hello" are NOT enquiries — set both to false and do not invent a lead.
+- Under "extracted_lead_info", populate only the fields mentioned by the customer. Use null for any details not mentioned or unknown. Do not invent facts.`;
 
   return systemPromptContent;
 }

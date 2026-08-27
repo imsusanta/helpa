@@ -6,6 +6,10 @@ import { dispatchInboundToFlows } from '@/lib/flows/engine';
 import { triggerAiResponse } from '@/lib/whatsapp/ai';
 import { getAccountChatbotSettings } from '@/core/ai/chatbot-settings';
 import { logger } from '@/lib/observability/logger';
+import {
+  handleCustomerReply,
+  processInboundLeadDetection,
+} from '@/lib/leads/inbound-lead-layer';
 import { parseMessageContent } from './parse-event';
 import { findOrCreateContact } from './contact-service';
 import {
@@ -1001,6 +1005,39 @@ export async function processMessage(
 
   await flagBroadcastReplyIfAny(accountId, contactRecord.id);
 
+  const inboundLeadContext = {
+    accountId,
+    userId: configOwnerUserId,
+    conversationId: convId,
+    contactId: contactRecord.id,
+    messageId: message.id,
+    messageText: contentText ?? message.text?.body ?? '',
+    contactName: contactRecord.name ?? null,
+    contactPhone: contactRecord.phone ?? null,
+    assignedAgentId:
+      (conversation.assigned_agent_id as string | null) ||
+      (conversation.assignedAgentId as string | null) ||
+      null,
+    conversationStatus: (conversation.status as string | null) ?? null,
+    aiDisabled:
+      conversation.ai_chat_enabled === false ||
+      conversation.ai_autoreply_disabled === true ||
+      conversation.is_ai_enabled === false,
+    correlationId,
+  };
+
+  try {
+    await handleCustomerReply(inboundLeadContext);
+  } catch (err) {
+    logger.error('Lead follow-up reply guard failed', {
+      correlationId,
+      component: 'lead-detection',
+      accountId,
+      conversationId: convId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
   // Smart Interceptions (Reminders & Reports)
   try {
     let reminderHandled = false;
@@ -1220,6 +1257,14 @@ export async function processMessage(
         });
       } catch (err) {
         console.error('[AI Assistant] trigger error:', err);
+      }
+    } else {
+      try {
+        await processInboundLeadDetection(inboundLeadContext, {
+          aiAlreadySynced: false,
+        });
+      } catch (err) {
+        console.error('[lead-layer] inbound detection failed:', err);
       }
     }
   } catch (backgroundErr) {

@@ -425,6 +425,20 @@ export interface Lead {
   converted_at?: string | null;
   converted_contact_id?: string | null;
   converted_deal_id?: string | null;
+  conversation_id?: string | null;
+  ai_buying_intent?: string | null;
+  ai_lead_score?: string | null;
+  ai_score_numeric?: number | null;
+  ai_summary?: string | null;
+  ai_next_action?: string | null;
+  ai_product_service?: string | null;
+  ai_budget?: string | null;
+  ai_timeline?: string | null;
+  followup_status?: string | null;
+  last_customer_reply_at?: string | null;
+  last_automated_message_at?: string | null;
+  reminder_count?: number | null;
+  followup_stopped_reason?: string | null;
   created_at: string;
   updated_at: string;
   contact?: Contact | null;
@@ -656,7 +670,10 @@ export type AutomationTriggerType =
    */
   | 'appointment_created'
   | 'appointment_reminder'
-  | 'appointment_cancelled';
+  | 'appointment_cancelled'
+  | 'lead_created'
+  | 'lead_qualified'
+  | 'lead_score_changed';
 
 export interface LeadFormField {
   key: string;
@@ -705,7 +722,9 @@ export type AutomationStepType =
   | 'wait'
   | 'condition'
   | 'send_webhook'
-  | 'close_conversation';
+  | 'close_conversation'
+  | 'update_lead'
+  | 'stop_followup';
 
 export type AutomationLogStatus = 'success' | 'partial' | 'failed';
 
@@ -787,6 +806,11 @@ export interface CreateDealStepConfig {
   value?: number;
 }
 
+export interface UpdateLeadStepConfig {
+  field: 'stage' | 'score' | 'service' | 'notes';
+  value: string;
+}
+
 export interface WaitStepConfig {
   amount: number;
   unit: 'minutes' | 'hours' | 'days';
@@ -816,6 +840,7 @@ export type AutomationStepConfig =
   | AssignConversationStepConfig
   | UpdateContactFieldStepConfig
   | CreateDealStepConfig
+  | UpdateLeadStepConfig
   | WaitStepConfig
   | ConditionStepConfig
   | SendWebhookStepConfig

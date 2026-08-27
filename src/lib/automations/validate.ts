@@ -179,6 +179,22 @@ function validateOne(
     case 'close_conversation':
       // No config required.
       break;
+    case 'stop_followup':
+      break;
+    case 'update_lead':
+      if (!nonEmpty(c.field)) {
+        issues.push({
+          path: `${path}.field`,
+          message: 'lead field is required',
+        });
+      }
+      if (c.value === undefined || c.value === null || c.value === '') {
+        issues.push({
+          path: `${path}.value`,
+          message: 'lead field value is required',
+        });
+      }
+      break;
     default:
       issues.push({ path, message: `unknown step type: ${step.step_type}` });
   }

@@ -28,6 +28,27 @@ vi.mock('@/core/actions/action-executor', () => ({
   },
 }));
 
+vi.mock('@/lib/db/server', () => ({
+  getAdminClient: () => ({
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          eq: () => ({
+            eq: () => Promise.resolve({ data: [], error: null }),
+          }),
+        }),
+      }),
+      update: () => ({
+        eq: () => ({
+          eq: () => ({
+            in: () => Promise.resolve({ data: null, error: null }),
+          }),
+        }),
+      }),
+    }),
+  }),
+}));
+
 import { POST } from '@/app/api/leads/[id]/handoff/route';
 
 describe('POST /api/leads/[id]/handoff', () => {

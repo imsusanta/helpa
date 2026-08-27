@@ -14,9 +14,16 @@ import type {
   WaitStepConfig,
   CreateDealStepConfig,
   AssignConversationStepConfig,
+  UpdateLeadStepConfig,
 } from '@/types';
 import { getAdminClient } from '@/lib/db/server';
 import { engineSendText, engineSendTemplate } from './meta-send';
+import { evaluateDelayedOutboundGuard } from '@/lib/leads/followup-guard.service';
+import {
+  cancelScheduledFollowups,
+  pauseFollowupsForConversation,
+  stopFollowupsForLead,
+} from '@/lib/leads/lead-followup.service';
 
 // ------------------------------------------------------------
 // Public API
@@ -325,7 +332,13 @@ async function executeStepsFrom(
         parent_step_id: args.parentStepId,
         branch: args.branch,
         next_step_position: step.position + 1,
-        context: args.context,
+        context: {
+          ...args.context,
+          vars: {
+            ...(args.context.vars || {}),
+            __wait_scheduled_at: new Date().toISOString(),
+          },
+        },
         run_at: new Date(Date.now() + ms).toISOString(),
         status: 'pending',
       });
@@ -412,6 +425,10 @@ async function runStep(
     case 'send_message': {
       const cfg = step.step_config as SendMessageStepConfig;
       if (!args.contactId) throw new Error('send_message needs a contact');
+      if (args.triggerEvent === 'resumed_wait') {
+        const skipped = await skipDelayedSendIfBlocked(args, 'reminder');
+        if (skipped) return skipped;
+      }
       const text = await interpolate(cfg.text, args);
       if (!text.trim()) throw new Error('send_message has empty text');
       const conversationId = await resolveConversationId(args);
@@ -430,6 +447,10 @@ async function runStep(
       if (!args.contactId) throw new Error('send_template needs a contact');
       if (!cfg.template_name)
         throw new Error('send_template needs template_name');
+      if (args.triggerEvent === 'resumed_wait') {
+        const skipped = await skipDelayedSendIfBlocked(args, 'template');
+        if (skipped) return skipped;
+      }
       const conversationId = await resolveConversationId(args);
       // Meta templates use positional numbered placeholders, so we MUST
       // emit params in strict numeric order. Lexicographic sort of
@@ -509,6 +530,16 @@ async function runStep(
         .update({ assigned_agent_id: agentId })
         .eq('account_id', args.automation.account_id)
         .eq('contact_id', args.contactId);
+      try {
+        await cancelScheduledFollowups(getAdminClient(), {
+          accountId: args.automation.account_id,
+          contactId: args.contactId,
+          conversationId: args.context.conversation_id,
+          reason: 'human_handoff',
+        });
+      } catch (err) {
+        console.error('[automations] pause follow-ups on assign failed', err);
+      }
       return `assigned to ${agentId}`;
     }
 
@@ -619,7 +650,79 @@ async function runStep(
         .update({ status: 'closed', updated_at: new Date().toISOString() })
         .eq('account_id', args.automation.account_id)
         .eq('contact_id', args.contactId);
+      try {
+        const conversationId = await resolveConversationId(args);
+        const { data: lead } = await db
+          .from('leads')
+          .select('id')
+          .eq('account_id', args.automation.account_id)
+          .eq('contact_id', args.contactId)
+          .not('stage', 'in', '(CONVERTED,LOST)')
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (lead?.id) {
+          await stopFollowupsForLead(db, {
+            accountId: args.automation.account_id,
+            leadId: lead.id as string,
+            reason: 'conversation_closed',
+          });
+        } else {
+          await pauseFollowupsForConversation(db, {
+            accountId: args.automation.account_id,
+            conversationId,
+          });
+        }
+      } catch (err) {
+        console.error('[automations] stop follow-ups on close failed', err);
+      }
       return 'conversation closed';
+    }
+
+    case 'update_lead': {
+      const cfg = step.step_config as UpdateLeadStepConfig;
+      if (!args.contactId) throw new Error('update_lead needs a contact');
+      const allowed = new Set(['stage', 'score', 'service', 'notes']);
+      if (!allowed.has(cfg.field)) {
+        return `field ${cfg.field} not writable from automations`;
+      }
+      const value = await interpolate(cfg.value, args);
+      const patch: Record<string, unknown> = {
+        updated_at: new Date().toISOString(),
+      };
+      if (cfg.field === 'score') {
+        patch.score = value;
+        patch.lead_score = value;
+      } else {
+        patch[cfg.field] = value;
+      }
+      await db
+        .from('leads')
+        .update(patch)
+        .eq('account_id', args.automation.account_id)
+        .eq('contact_id', args.contactId)
+        .not('stage', 'in', '(CONVERTED,LOST)');
+      return `lead ${cfg.field} updated`;
+    }
+
+    case 'stop_followup': {
+      if (!args.contactId) throw new Error('stop_followup needs a contact');
+      const { data: lead } = await db
+        .from('leads')
+        .select('id')
+        .eq('account_id', args.automation.account_id)
+        .eq('contact_id', args.contactId)
+        .not('stage', 'in', '(CONVERTED,LOST)')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!lead?.id) return 'no active lead';
+      await stopFollowupsForLead(db, {
+        accountId: args.automation.account_id,
+        leadId: lead.id as string,
+        reason: 'automation_disabled',
+      });
+      return 'follow-up stopped';
     }
 
     default:
@@ -1227,7 +1330,47 @@ async function finalizeLog(
     .eq('id', logId);
 }
 
-async function markPending(id: string, status: 'done' | 'failed') {
+async function skipDelayedSendIfBlocked(
+  args: ExecuteArgs,
+  kind: string
+): Promise<string | null> {
+  try {
+    const followupTriggers = new Set([
+      'lead_created',
+      'lead_qualified',
+      'lead_score_changed',
+      'new_message_received',
+      'first_inbound_message',
+      'keyword_match',
+      'form_submitted',
+    ]);
+    const isFollowup = followupTriggers.has(args.automation.trigger_type);
+    const scheduledAt =
+      typeof args.context.vars?.__wait_scheduled_at === 'string'
+        ? args.context.vars.__wait_scheduled_at
+        : null;
+    const conversationId = args.context.conversation_id || null;
+    const decision = await evaluateDelayedOutboundGuard(getAdminClient(), {
+      accountId: args.automation.account_id,
+      conversationId,
+      contactId: args.contactId,
+      scheduledAt,
+      isReminder: isFollowup,
+      ignoreCustomerReply: !isFollowup,
+    });
+    if (!decision.allow) {
+      return `skipped delayed ${kind}: ${decision.reason}`;
+    }
+  } catch (err) {
+    console.error('[automations] delayed send guard failed', err);
+  }
+  return null;
+}
+
+async function markPending(
+  id: string,
+  status: 'done' | 'failed' | 'cancelled'
+) {
   await getAdminClient()
     .from('automation_pending_executions')
     .update({ status })

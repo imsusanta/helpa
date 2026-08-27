@@ -51,6 +51,18 @@ export const TRIGGER_META: Record<AutomationTriggerType, TriggerMeta> = {
     label: 'Appointment Cancelled',
     pillClass: 'border-rose-500/30 bg-rose-500/10 text-rose-300',
   },
+  lead_created: {
+    label: 'Lead Created',
+    pillClass: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
+  },
+  lead_qualified: {
+    label: 'Lead Qualified',
+    pillClass: 'border-lime-500/30 bg-lime-500/10 text-lime-300',
+  },
+  lead_score_changed: {
+    label: 'Lead Score Changed',
+    pillClass: 'border-orange-500/30 bg-orange-500/10 text-orange-300',
+  },
 };
 
 const FALLBACK_PILL =

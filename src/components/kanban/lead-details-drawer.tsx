@@ -62,6 +62,16 @@ interface HydratedLeadDetails {
     ai_buying_intent?: string;
     ai_next_action?: string;
     ai_product_service?: string;
+    ai_summary?: string;
+    ai_score_numeric?: number | null;
+    source?: string | null;
+    channel?: string | null;
+    service?: string | null;
+    followup_status?: string | null;
+    last_customer_reply_at?: string | null;
+    next_follow_up_at?: string | null;
+    reminder_count?: number | null;
+    followup_stopped_reason?: string | null;
     contact?: {
       id: string;
       name?: string;
@@ -125,7 +135,32 @@ interface HydratedLeadDetails {
     enrolled_at?: string;
     sequence?: { name: string };
   }>;
+  leadFollowups?: Array<{
+    id: string;
+    status: string;
+    followup_type?: string;
+    scheduled_at?: string;
+    sent_at?: string | null;
+    cancelled_reason?: string | null;
+  }>;
   role: string;
+}
+
+function formatFollowupStatus(status: string): string {
+  switch (status) {
+    case 'scheduled':
+      return 'Scheduled';
+    case 'waiting_for_reply':
+      return 'Waiting for reply';
+    case 'reminder_sent':
+      return 'Reminder sent';
+    case 'stopped':
+      return 'Stopped';
+    case 'human_takeover':
+      return 'Human takeover';
+    default:
+      return 'No follow-up';
+  }
 }
 
 const STAGES: { id: LeadStageType; label: string }[] = [
@@ -310,9 +345,23 @@ export function LeadDetailsDrawer({
                     variant="secondary"
                     className="text-[11px] font-medium"
                   >
-                    Score: {details.lead.ai_lead_score}
+                    Score:{' '}
+                    {details.lead.ai_score_numeric != null
+                      ? `${details.lead.ai_score_numeric} · `
+                      : ''}
+                    {details.lead.ai_lead_score}
                   </Badge>
                 )}
+                {details.lead.followup_status &&
+                  details.lead.followup_status !== 'none' && (
+                    <Badge
+                      variant="outline"
+                      className="text-[11px] font-medium"
+                    >
+                      Follow-up:{' '}
+                      {formatFollowupStatus(details.lead.followup_status)}
+                    </Badge>
+                  )}
                 {details.lead.assignee && (
                   <Badge variant="outline" className="text-[11px] font-medium">
                     Owner: {details.lead.assignee.full_name}
@@ -559,6 +608,63 @@ export function LeadDetailsDrawer({
                           </span>
                           <span className="text-foreground font-medium">
                             {details.lead.ai_buying_intent}
+                          </span>
+                        </div>
+                      )}
+                      {details.lead.source && (
+                        <div>
+                          <span className="text-muted-foreground block text-[11px]">
+                            Source
+                          </span>
+                          <span className="text-foreground font-medium capitalize">
+                            {details.lead.source}
+                            {details.lead.channel
+                              ? ` · ${details.lead.channel}`
+                              : ''}
+                          </span>
+                        </div>
+                      )}
+                      {details.lead.ai_summary && (
+                        <div>
+                          <span className="text-muted-foreground block text-[11px]">
+                            AI Summary
+                          </span>
+                          <span className="text-foreground font-medium">
+                            {details.lead.ai_summary}
+                          </span>
+                        </div>
+                      )}
+                      <div>
+                        <span className="text-muted-foreground block text-[11px]">
+                          Follow-up Status
+                        </span>
+                        <span className="text-foreground font-medium">
+                          {formatFollowupStatus(
+                            details.lead.followup_status || 'none'
+                          )}
+                        </span>
+                      </div>
+                      {details.lead.last_customer_reply_at && (
+                        <div>
+                          <span className="text-muted-foreground block text-[11px]">
+                            Last Customer Reply
+                          </span>
+                          <span className="text-foreground font-medium">
+                            {new Date(
+                              details.lead.last_customer_reply_at
+                            ).toLocaleString()}
+                          </span>
+                        </div>
+                      )}
+                      {details.lead.next_follow_up_at && (
+                        <div>
+                          <span className="text-muted-foreground block text-[11px]">
+                            Next Follow-up
+                          </span>
+                          <span className="text-foreground font-medium">
+                            {new Date(
+                              details.lead.next_follow_up_at
+                            ).toLocaleString()}
                           </span>
                         </div>
                       )}

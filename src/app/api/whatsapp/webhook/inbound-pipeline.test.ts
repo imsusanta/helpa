@@ -180,6 +180,9 @@ function createFakeAdmin(store: Record<string, Row[]>, opts: FakeOptions = {}) {
         filters.push([field, value]);
         return chain;
       },
+      in: () => chain,
+      not: () => chain,
+      or: () => chain,
       order: () => chain,
       limit: () => chain,
       maybeSingle: async () => {
