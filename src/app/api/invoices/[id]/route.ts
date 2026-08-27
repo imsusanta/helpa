@@ -43,16 +43,28 @@ export async function GET(
     const ctx = await requireRole('viewer');
     const supabase = getSupabaseAdminClient();
 
-    const { data: invoice, error } = await supabase
+    const { data: invoice, error: invoiceError } = await supabase
       .from('invoices')
-      .select(
-        '*, contacts(id, name, phone, email, metadata), invoice_items(*), invoice_payments(*)'
-      )
+      .select('*')
       .eq('id', id)
       .eq('account_id', ctx.accountId)
       .maybeSingle();
 
-    if (error || !invoice) {
+    if (invoiceError) {
+      console.error('[invoices] GET by id base query error:', {
+        requestId: correlationId,
+        code: invoiceError.code,
+        message: invoiceError.message,
+      });
+      return errorResponse(
+        500,
+        'INVOICE_FETCH_FAILED',
+        correlationId,
+        'Unable to load invoice.'
+      );
+    }
+
+    if (!invoice) {
       return errorResponse(
         404,
         'INVOICE_NOT_FOUND',
@@ -61,8 +73,58 @@ export async function GET(
       );
     }
 
+    const [contactResult, itemsResult, paymentsResult] = await Promise.all([
+      invoice.contact_id
+        ? supabase
+            .from('contacts')
+            .select('id, name, phone, email, metadata')
+            .eq('id', invoice.contact_id)
+            .eq('account_id', ctx.accountId)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      supabase
+        .from('invoice_items')
+        .select('*')
+        .eq('invoice_id', invoice.id)
+        .eq('account_id', ctx.accountId)
+        .order('position', { ascending: true }),
+      supabase
+        .from('invoice_payments')
+        .select('*')
+        .eq('invoice_id', invoice.id)
+        .eq('account_id', ctx.accountId)
+        .order('payment_date', { ascending: false }),
+    ]);
+
+    if (contactResult.error || itemsResult.error || paymentsResult.error) {
+      console.error('[invoices] GET by id related data error:', {
+        requestId: correlationId,
+        contactCode: contactResult.error?.code,
+        contactMessage: contactResult.error?.message,
+        itemsCode: itemsResult.error?.code,
+        itemsMessage: itemsResult.error?.message,
+        paymentsCode: paymentsResult.error?.code,
+        paymentsMessage: paymentsResult.error?.message,
+      });
+      return errorResponse(
+        500,
+        'INVOICE_FETCH_FAILED',
+        correlationId,
+        'Unable to load invoice.'
+      );
+    }
+
     return NextResponse.json(
-      { success: true, data: invoice, requestId: correlationId },
+      {
+        success: true,
+        data: {
+          ...invoice,
+          contacts: contactResult.data || null,
+          invoice_items: itemsResult.data || [],
+          invoice_payments: paymentsResult.data || [],
+        },
+        requestId: correlationId,
+      },
       { headers: { ...PRIVATE_HEADERS, 'X-Request-Id': correlationId } }
     );
   } catch (err: unknown) {
@@ -72,7 +134,7 @@ export async function GET(
     if (err instanceof ForbiddenError) {
       return errorResponse(403, 'ACCOUNT_MEMBERSHIP_REQUIRED', correlationId);
     }
-    console.error('[invoices] GET by id error:', {
+    console.error('[invoices] GET by id unhandled error:', {
       requestId: correlationId,
       error: err,
     });
