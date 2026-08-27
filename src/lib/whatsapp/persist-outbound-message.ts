@@ -1,5 +1,4 @@
 import { getAdminClient } from '@/lib/db/server';
-import crypto from 'node:crypto';
 
 export interface PersistOutboundMessageInput {
   accountId: string;
@@ -20,12 +19,34 @@ export type PersistOutboundMessageResult =
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+const STATUS_FALLBACKS = ['delivered', 'sent', 'pending', 'sending'] as const;
+const SENDER_TYPE_FALLBACKS = ['agent', 'bot'] as const;
+
 const REQUIRED_INSERT_COLUMNS = new Set([
   'conversation_id',
+  'conversationId',
   'sender_type',
+  'senderType',
   'content_type',
+  'contentType',
   'message_id',
+  'messageId',
 ]);
+
+const OPTIONAL_STRIP_ORDER = [
+  'template_name',
+  'sender_id',
+  'interactive_reply_id',
+  'media_url',
+  'updated_at',
+  'reply_to_message_id',
+  'provider_message_id',
+  'account_id',
+  'direction',
+  'status',
+  'created_at',
+  'id',
+] as const;
 
 export function isValidUuid(value?: string | null): value is string {
   return typeof value === 'string' && UUID_RE.test(value);
@@ -41,31 +62,18 @@ function errorMessage(error: unknown): string {
   return String(error);
 }
 
-function isUniqueViolation(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false;
-  const candidate = error as { code?: string | number; message?: string };
-  return (
-    candidate.code === '23505' ||
-    candidate.code === 23505 ||
-    /duplicate key|already exists|unique constraint/i.test(
-      candidate.message || ''
-    )
-  );
+export function formatPersistError(error: unknown): string {
+  if (!error || typeof error !== 'object') return errorMessage(error);
+  const candidate = error as {
+    code?: unknown;
+    message?: unknown;
+    details?: unknown;
+    hint?: unknown;
+  };
+  return [candidate.code, candidate.message, candidate.details, candidate.hint]
+    .filter((value) => typeof value === 'string' && value)
+    .join(' — ');
 }
-
-const OPTIONAL_STRIP_ORDER = [
-  'template_name',
-  'sender_id',
-  'media_url',
-  'updated_at',
-  'reply_to_message_id',
-  'provider_message_id',
-  'account_id',
-  'direction',
-  'status',
-  'created_at',
-  'id',
-] as const;
 
 function errorCode(error: unknown): string {
   if (!error || typeof error !== 'object') return '';
@@ -83,6 +91,46 @@ function errorBlob(error: unknown): string {
   return [candidate.message, candidate.details, candidate.hint]
     .filter((value) => typeof value === 'string' && value)
     .join(' ');
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const candidate = error as { code?: string | number; message?: string };
+  return (
+    candidate.code === '23505' ||
+    candidate.code === 23505 ||
+    /duplicate key|already exists|unique constraint/i.test(
+      candidate.message || ''
+    )
+  );
+}
+
+function isForeignKeyViolation(error: unknown): boolean {
+  return (
+    errorCode(error) === '23503' ||
+    /foreign key constraint/i.test(errorBlob(error))
+  );
+}
+
+function isCheckConstraint(error: unknown, column?: string): boolean {
+  const blob = errorBlob(error);
+  const matches =
+    errorCode(error) === '23514' ||
+    /check constraint|invalid input value/i.test(blob);
+  if (!matches) return false;
+  if (!column) return true;
+  return (
+    blob.includes(column) ||
+    blob.includes(`${column}_check`) ||
+    new RegExp(`\\b${column}\\b`, 'i').test(blob)
+  );
+}
+
+function isInvalidUuid(error: unknown): boolean {
+  return (
+    errorCode(error) === '22P02' ||
+    /invalid input syntax for type uuid/i.test(errorBlob(error))
+  );
 }
 
 /** PostgREST/Postgres unknown-column errors (schema cache miss or 42703). */
@@ -112,6 +160,7 @@ async function lookupExistingMessage(
     { account: 'account_id', id: 'message_id' },
     { id: 'provider_message_id' },
     { id: 'message_id' },
+    { id: 'messageId' },
   ];
 
   for (const attempt of attempts) {
@@ -123,8 +172,9 @@ async function lookupExistingMessage(
             .eq(attempt.account, accountId)
             .eq(attempt.id, providerMessageId)
         : db.from('messages').select('id').eq(attempt.id, providerMessageId);
-      const { data } = await query.maybeSingle();
-      if (data?.id) return { id: String(data.id) };
+      const { data } = await query.limit(1);
+      const row = Array.isArray(data) ? data[0] : data;
+      if (row?.id) return { id: String(row.id) };
     } catch {
       // Column may not exist on this schema; try the next lookup.
     }
@@ -133,38 +183,187 @@ async function lookupExistingMessage(
   return null;
 }
 
+type PayloadShape = 'canonical' | 'reduced' | 'legacy';
+
 function buildOutboundPayload(
+  shape: PayloadShape,
   input: PersistOutboundMessageInput,
   now: string
 ): Record<string, unknown> {
-  const payload: Record<string, unknown> = {
-    id: crypto.randomUUID(),
-    account_id: input.accountId,
-    conversation_id: input.conversationId,
-    direction: 'outbound',
-    provider_message_id: input.providerMessageId,
-    sender_type: 'agent',
-    content_type: input.contentType || 'text',
-    content_text: input.contentText,
-    message_id: input.providerMessageId,
-    status: 'sent',
-    created_at: now,
-    updated_at: now,
-  };
+  const replyTo = isValidUuid(input.replyToMessageId)
+    ? input.replyToMessageId
+    : null;
 
-  // Only send optional columns when they have values. The working inbound
-  // insert never sends `template_name` or `sender_id`; those columns are
-  // missing on the canonical-cutover messages table, and posting them
-  // (even as null) makes PostgREST reject the whole row (PGRST204 / 42703).
-  // Inbox alignment uses `sender_type = 'agent'`, so we deliberately omit
-  // `sender_id` even when the agent UUID is known.
-  if (input.mediaUrl) payload.media_url = input.mediaUrl;
-  if (input.templateName) payload.template_name = input.templateName;
-  if (isValidUuid(input.replyToMessageId)) {
-    payload.reply_to_message_id = input.replyToMessageId;
+  // Canonical/reduced copies of the working inbound webhook insert in
+  // process-message.ts. Inbound uses status `delivered` (Meta already
+  // accepted this outbound send too) and always sends the nullable
+  // media/reply/interactive columns. Extra columns like `id`,
+  // `template_name`, and `sender_id` are what made earlier outbound
+  // persists fail against the live hybrid schema.
+  if (shape === 'canonical') {
+    return {
+      account_id: input.accountId,
+      conversation_id: input.conversationId,
+      direction: 'outbound',
+      sender_type: 'agent',
+      content_type: input.contentType || 'text',
+      content_text: input.contentText,
+      media_url: input.mediaUrl || null,
+      message_id: input.providerMessageId,
+      provider_message_id: input.providerMessageId,
+      status: 'delivered',
+      reply_to_message_id: replyTo,
+      interactive_reply_id: null,
+      created_at: now,
+      updated_at: now,
+    };
   }
 
-  return payload;
+  if (shape === 'reduced') {
+    return {
+      conversation_id: input.conversationId,
+      sender_type: 'agent',
+      content_type: input.contentType || 'text',
+      content_text: input.contentText,
+      media_url: input.mediaUrl || null,
+      message_id: input.providerMessageId,
+      status: 'delivered',
+      reply_to_message_id: replyTo,
+      interactive_reply_id: null,
+      created_at: now,
+    };
+  }
+
+  return {
+    conversationId: input.conversationId,
+    senderType: 'agent',
+    contentType: input.contentType || 'text',
+    contentText: input.contentText,
+    mediaUrl: input.mediaUrl || null,
+    messageId: input.providerMessageId,
+    status: 'delivered',
+    replyToMessageId: replyTo,
+    interactiveReplyId: null,
+    createdAt: now,
+  };
+}
+
+function nextFallback<T extends string>(
+  current: unknown,
+  options: readonly T[]
+): T | null {
+  const index = options.indexOf(current as T);
+  if (index < 0) return options[0] ?? null;
+  return options[index + 1] ?? null;
+}
+
+function mutatePayloadForError(
+  payload: Record<string, unknown>,
+  error: unknown
+): boolean {
+  const missing = missingColumnName(error);
+  if (missing && REQUIRED_INSERT_COLUMNS.has(missing)) {
+    return false;
+  }
+  if (missing && missing in payload) {
+    delete payload[missing];
+    return true;
+  }
+  if (!missing && isUnknownColumnError(error)) {
+    const strip = OPTIONAL_STRIP_ORDER.find((column) => column in payload);
+    if (strip) {
+      delete payload[strip];
+      return true;
+    }
+  }
+
+  if (
+    isCheckConstraint(error, 'status') ||
+    isCheckConstraint(error, 'Status')
+  ) {
+    const next = nextFallback(payload.status, STATUS_FALLBACKS);
+    if (next && next !== payload.status) {
+      payload.status = next;
+      return true;
+    }
+  }
+
+  if (
+    isCheckConstraint(error, 'sender_type') ||
+    isCheckConstraint(error, 'senderType')
+  ) {
+    const key = 'sender_type' in payload ? 'sender_type' : 'senderType';
+    const next = nextFallback(payload[key], SENDER_TYPE_FALLBACKS);
+    if (next && next !== payload[key]) {
+      payload[key] = next;
+      return true;
+    }
+  }
+
+  if (isCheckConstraint(error, 'direction') && 'direction' in payload) {
+    delete payload.direction;
+    return true;
+  }
+
+  if (
+    isCheckConstraint(error, 'content_type') ||
+    isCheckConstraint(error, 'contentType')
+  ) {
+    const key = 'content_type' in payload ? 'content_type' : 'contentType';
+    if (payload[key] !== 'text') {
+      payload[key] = 'text';
+      return true;
+    }
+  }
+
+  if (isInvalidUuid(error) || isForeignKeyViolation(error)) {
+    for (const key of [
+      'reply_to_message_id',
+      'replyToMessageId',
+      'account_id',
+    ]) {
+      if (key in payload && payload[key] != null) {
+        if (key === 'account_id') {
+          delete payload[key];
+        } else {
+          payload[key] = null;
+        }
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+async function insertWithRetries(
+  payload: Record<string, unknown>
+): Promise<{ inserted: boolean; unique: boolean; error: unknown }> {
+  const db = getAdminClient();
+  let lastError: unknown = null;
+
+  for (let attempt = 0; attempt < 12; attempt++) {
+    const insertRes = await db.from('messages').insert(payload);
+    if (!insertRes.error) {
+      return { inserted: true, unique: false, error: null };
+    }
+
+    lastError = insertRes.error;
+    if (isUniqueViolation(insertRes.error)) {
+      return { inserted: false, unique: true, error: insertRes.error };
+    }
+
+    if (mutatePayloadForError(payload, insertRes.error)) {
+      console.warn(
+        '[whatsapp/send] messages insert rejected; retrying with adjusted payload'
+      );
+      continue;
+    }
+
+    break;
+  }
+
+  return { inserted: false, unique: false, error: lastError };
 }
 
 /**
@@ -174,15 +373,14 @@ function buildOutboundPayload(
  * Meta without writing a local row is how outbound bubbles disappear after
  * refresh: WhatsApp delivers the message, but `/inbox` has nothing to show.
  *
- * Column set matches the working inbound webhook insert, then retries while
- * stripping unknown columns so a schema that lacks `template_name` /
- * `sender_id` / `updated_at` still stores the bubble.
+ * Insert shapes copy the working inbound webhook in process-message.ts:
+ * canonical snake_case, then reduced (pre-cutover), then camelCase. Within
+ * each shape we also strip unknown columns and retry check/FK failures.
  */
 export async function persistOutboundMessage(
   input: PersistOutboundMessageInput
 ): Promise<PersistOutboundMessageResult> {
   try {
-    const db = getAdminClient();
     const now = new Date().toISOString();
     const existing = await lookupExistingMessage(
       input.accountId,
@@ -192,55 +390,31 @@ export async function persistOutboundMessage(
       return { ok: true, messageId: existing.id, duplicate: true };
     }
 
-    const payload = buildOutboundPayload(input, now);
     let lastError: unknown = null;
+    const shapes: PayloadShape[] = ['canonical', 'reduced', 'legacy'];
 
-    for (let attempt = 0; attempt < 12; attempt++) {
-      const insertRes = await db.from('messages').insert(payload);
-      if (!insertRes.error) {
-        return {
-          ok: true,
-          messageId: String(payload.id),
-          duplicate: false,
-        };
-      }
-
-      lastError = insertRes.error;
-      if (isUniqueViolation(insertRes.error)) {
-        const raced = await lookupExistingMessage(
+    for (const shape of shapes) {
+      const payload = buildOutboundPayload(shape, input, now);
+      const result = await insertWithRetries(payload);
+      if (result.inserted || result.unique) {
+        const lookedUp = await lookupExistingMessage(
           input.accountId,
           input.providerMessageId
         );
-        if (raced) {
-          return { ok: true, messageId: raced.id, duplicate: true };
-        }
+        return {
+          ok: true,
+          messageId: lookedUp?.id || '',
+          duplicate: result.unique,
+        };
       }
-
-      const missing = missingColumnName(insertRes.error);
-      if (missing && REQUIRED_INSERT_COLUMNS.has(missing)) {
-        break;
-      }
-
-      const strip =
-        missing && missing in payload
-          ? missing
-          : isUnknownColumnError(insertRes.error)
-            ? OPTIONAL_STRIP_ORDER.find((column) => column in payload)
-            : undefined;
-
-      if (!strip) break;
-
-      console.warn(
-        `[whatsapp/send] messages schema is missing ${strip}; retrying without it`
-      );
-      delete payload[strip];
+      lastError = result.error;
     }
 
-    const error = errorMessage(lastError);
+    const error = formatPersistError(lastError) || errorMessage(lastError);
     console.error('[whatsapp/send] Failed to persist outbound message:', error);
     return { ok: false, error };
   } catch (err) {
-    const error = errorMessage(err);
+    const error = formatPersistError(err) || errorMessage(err);
     console.error('[whatsapp/send] Failed to persist outbound message:', error);
     return { ok: false, error };
   }

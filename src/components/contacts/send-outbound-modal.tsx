@@ -131,6 +131,13 @@ export function SendOutboundModal({
       toast.success(
         `Outbound WhatsApp message sent to ${customName || targetPhone}!`
       );
+      if (data.status === 'sent_meta_reconciliation_pending') {
+        toast.error(
+          data.persist_error
+            ? `WhatsApp delivered, but inbox did not save: ${data.persist_error}`
+            : 'WhatsApp delivered, but the inbox could not save the message'
+        );
+      }
       setMessage('');
       onOpenChange(false);
       if (onSuccess) onSuccess(data.conversation_id);

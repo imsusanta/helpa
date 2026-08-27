@@ -219,6 +219,7 @@ describe('WhatsApp send — inbox persistence after Meta accept', () => {
     expect(res.status).toBe(200);
     expect(json.success).toBe(true);
     expect(json.status).toBe('sent_meta_reconciliation_pending');
+    expect(json.persist_error).toBe('insert failed');
     expect(json.message_id).toBe('wamid.OUT.1');
     expect(json.id).toBeUndefined();
     expect(mocks.markSent).not.toHaveBeenCalled();
