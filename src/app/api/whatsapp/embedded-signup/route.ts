@@ -25,6 +25,11 @@ import {
   RATE_LIMITS,
 } from '@/lib/rate-limit';
 
+const REQUIRED_META_SCOPES = [
+  'whatsapp_business_management',
+  'whatsapp_business_messaging',
+] as const;
+
 export async function POST(request: Request) {
   try {
     const ctx = await requireRole('admin');
@@ -65,22 +70,32 @@ export async function POST(request: Request) {
       mode?: 'standard' | 'coexistence';
     };
 
-    // 1. Validate OAuth state if supplied (required for production browser flows)
-    if (state && typeof state === 'string') {
-      try {
-        await validateAndConsumeOAuthState({
-          state,
-          accountId,
-          userId,
-        });
-      } catch (stateErr: unknown) {
-        const msg =
-          stateErr instanceof Error ? stateErr.message : 'Invalid OAuth state';
-        return NextResponse.json(
-          { error: msg, code: 'INVALID_OAUTH_STATE' },
-          { status: 400 }
-        );
-      }
+    // Embedded Signup is a browser OAuth flow. State is mandatory so a
+    // cross-site request cannot bind an attacker's WhatsApp account to the
+    // signed-in workspace.
+    if (!state || typeof state !== 'string' || !state.trim()) {
+      return NextResponse.json(
+        {
+          error: 'OAuth state parameter is required',
+          code: 'INVALID_OAUTH_STATE',
+        },
+        { status: 400 }
+      );
+    }
+
+    try {
+      await validateAndConsumeOAuthState({
+        state: state.trim(),
+        accountId,
+        userId,
+      });
+    } catch (stateErr: unknown) {
+      const msg =
+        stateErr instanceof Error ? stateErr.message : 'Invalid OAuth state';
+      return NextResponse.json(
+        { error: msg, code: 'INVALID_OAUTH_STATE' },
+        { status: 400 }
+      );
     }
 
     let accessToken = directAccessToken || directAccessToken2 || '';
@@ -88,22 +103,22 @@ export async function POST(request: Request) {
       process.env.META_APP_ID || process.env.NEXT_PUBLIC_META_APP_ID || '';
     const appSecret = process.env.META_APP_SECRET || '';
 
-    // 2. Exchange authorization code if access token is not already supplied
+    if (!appId || !appSecret) {
+      return NextResponse.json(
+        {
+          error:
+            'META_APP_ID and META_APP_SECRET must be configured on the server.',
+        },
+        { status: 500 }
+      );
+    }
+
+    // Exchange authorization code if access token is not already supplied.
     if (!accessToken) {
       if (!code || typeof code !== 'string' || !code.trim()) {
         return NextResponse.json(
           { error: 'Authorization code or access token is required' },
           { status: 400 }
-        );
-      }
-
-      if (!appSecret) {
-        return NextResponse.json(
-          {
-            error:
-              'META_APP_SECRET is not configured on the server. Please configure it in your environment variables.',
-          },
-          { status: 500 }
         );
       }
 
@@ -124,42 +139,114 @@ export async function POST(request: Request) {
       }
     }
 
-    let resolvedWabaId = typeof waba_id === 'string' ? waba_id.trim() : '';
+    // Validate every token, including tokens supplied directly by the SDK.
+    // This prevents accepting an expired token or a valid token issued to a
+    // different Meta app.
+    let debugInfo: Awaited<ReturnType<typeof debugAccessToken>>;
+    try {
+      debugInfo = await debugAccessToken({
+        accessToken,
+        appId,
+        appSecret,
+      });
+    } catch (debugErr: unknown) {
+      const msg =
+        debugErr instanceof Error
+          ? debugErr.message
+          : 'Unable to validate Meta access token';
+      return NextResponse.json(
+        { error: msg, code: 'INVALID_META_TOKEN' },
+        { status: 400 }
+      );
+    }
+
+    if (!debugInfo.isValid) {
+      return NextResponse.json(
+        {
+          error: 'Meta access token is invalid or expired.',
+          code: 'INVALID_META_TOKEN',
+        },
+        { status: 400 }
+      );
+    }
+
+    if (debugInfo.appId && debugInfo.appId !== appId) {
+      return NextResponse.json(
+        {
+          error: 'Meta access token was issued to a different application.',
+          code: 'META_APP_MISMATCH',
+        },
+        { status: 403 }
+      );
+    }
+
+    const grantedScopes = new Set(debugInfo.scopes || []);
+    const missingScopes = REQUIRED_META_SCOPES.filter(
+      (scope) => !grantedScopes.has(scope)
+    );
+    if (missingScopes.length > 0) {
+      return NextResponse.json(
+        {
+          error: `Meta access token is missing required permissions: ${missingScopes.join(', ')}`,
+          code: 'META_SCOPES_MISSING',
+        },
+        { status: 403 }
+      );
+    }
+
+    let resolvedWabaId =
+      (typeof waba_id === 'string' ? waba_id.trim() : '') ||
+      debugInfo.wabaId ||
+      '';
     let resolvedPhoneId =
       typeof phone_number_id === 'string' ? phone_number_id.trim() : '';
 
-    // 3. Auto-discover WABA ID if missing
-    if (!resolvedWabaId && appId && appSecret) {
-      try {
-        const debugInfo = await debugAccessToken({
-          accessToken,
-          appId,
-          appSecret,
-        });
-        if (debugInfo.wabaId) {
-          resolvedWabaId = debugInfo.wabaId;
-        }
-      } catch (debugErr) {
-        console.warn(
-          '[Embedded Signup] Debug token discovery error:',
-          debugErr
-        );
-      }
+    if (!resolvedWabaId) {
+      return NextResponse.json(
+        {
+          error:
+            'Could not resolve the WhatsApp Business Account selected during Meta signup.',
+          code: 'WABA_NOT_FOUND',
+        },
+        { status: 400 }
+      );
     }
 
-    // 4. Auto-discover Phone Number ID if missing
-    if (resolvedWabaId && !resolvedPhoneId) {
-      try {
-        const phoneList = await getWabaPhoneNumbers({
-          wabaId: resolvedWabaId,
-          accessToken,
-        });
-        if (phoneList && phoneList.length > 0 && phoneList[0].id) {
-          resolvedPhoneId = phoneList[0].id;
-        }
-      } catch (phoneErr) {
-        console.warn('[Embedded Signup] Phone discovery error:', phoneErr);
-      }
+    // Resolve the phone number from the selected WABA and reject a supplied
+    // phone_number_id that does not belong to that WABA.
+    let phoneList: Awaited<ReturnType<typeof getWabaPhoneNumbers>>;
+    try {
+      phoneList = await getWabaPhoneNumbers({
+        wabaId: resolvedWabaId,
+        accessToken,
+      });
+    } catch (phoneErr: unknown) {
+      const msg =
+        phoneErr instanceof Error
+          ? phoneErr.message
+          : 'Unable to read phone numbers from the selected WABA';
+      return NextResponse.json(
+        { error: msg, code: 'WABA_PHONE_LOOKUP_FAILED' },
+        { status: 400 }
+      );
+    }
+
+    if (!resolvedPhoneId && phoneList[0]?.id) {
+      resolvedPhoneId = phoneList[0].id;
+    }
+
+    if (
+      resolvedPhoneId &&
+      !phoneList.some((phone) => phone.id === resolvedPhoneId)
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            'The selected WhatsApp phone number does not belong to the selected WABA.',
+          code: 'PHONE_WABA_MISMATCH',
+        },
+        { status: 400 }
+      );
     }
 
     if (!resolvedPhoneId) {
@@ -172,7 +259,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // 5. Tenant Isolation / Conflict Protection: Ensure phone number is not bound to another workspace
+    // Tenant Isolation / Conflict Protection: Ensure phone number is not bound to another workspace.
     const supabase = getAdminClient();
     const now = new Date().toISOString();
 
@@ -194,19 +281,24 @@ export async function POST(request: Request) {
       );
     }
 
-    // 6. Subscribe WABA to webhooks if WABA ID is known
-    if (resolvedWabaId) {
-      try {
-        await subscribeWabaWebhook({
-          wabaId: resolvedWabaId,
-          accessToken,
-        });
-      } catch (subErr) {
-        console.warn('[Embedded Signup] Subscribed apps warning:', subErr);
-      }
+    // Subscribe the selected WABA to this app's webhooks.
+    try {
+      await subscribeWabaWebhook({
+        wabaId: resolvedWabaId,
+        accessToken,
+      });
+    } catch (subErr: unknown) {
+      const msg =
+        subErr instanceof Error
+          ? subErr.message
+          : 'Failed to subscribe the WABA to webhooks';
+      return NextResponse.json(
+        { error: msg, code: 'WEBHOOK_SUBSCRIPTION_FAILED' },
+        { status: 400 }
+      );
     }
 
-    // 7. Verify Phone Number details from Meta
+    // Verify Phone Number details from Meta.
     let verifiedName: string | null = null;
     let displayPhoneNumber: string | null = null;
     try {
@@ -216,15 +308,21 @@ export async function POST(request: Request) {
       });
       verifiedName = phoneInfo.verified_name || null;
       displayPhoneNumber = phoneInfo.display_phone_number || null;
-    } catch (phoneInfoErr) {
-      console.warn('[Embedded Signup] Phone info fetch warning:', phoneInfoErr);
+    } catch (phoneInfoErr: unknown) {
+      const msg =
+        phoneInfoErr instanceof Error
+          ? phoneInfoErr.message
+          : 'Failed to verify WhatsApp phone number';
+      return NextResponse.json(
+        { error: msg, code: 'PHONE_VERIFICATION_FAILED' },
+        { status: 400 }
+      );
     }
 
-    // 8. Encrypt access token with AES-256-GCM
     const encryptedToken = encrypt(accessToken);
     const isCoexistenceMode = mode === 'coexistence';
 
-    // 9. Upsert connection record into Supabase whatsapp_configs
+    // Upsert connection record into Supabase whatsapp_configs.
     const { data: existingConfig } = await supabase
       .from('whatsapp_configs')
       .select('id')
@@ -236,7 +334,7 @@ export async function POST(request: Request) {
     const configPayload = {
       account_id: accountId,
       phone_number_id: resolvedPhoneId,
-      waba_id: resolvedWabaId || null,
+      waba_id: resolvedWabaId,
       encrypted_access_token: encryptedToken,
       provider: 'meta_embedded_signup',
       display_phone_number: displayPhoneNumber,
@@ -294,7 +392,7 @@ export async function POST(request: Request) {
         user_id: userId,
         account_id: accountId,
         phone_number_id: resolvedPhoneId,
-        waba_id: resolvedWabaId || null,
+        waba_id: resolvedWabaId,
         access_token: encryptedToken,
         status: isCoexistenceMode ? 'coexistence_connected' : 'connected',
         connected_at: now,
@@ -314,7 +412,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // 10. Audit Log sanitized event
+    // Audit Log sanitized event.
     try {
       await supabase.from('audit_logs').insert({
         account_id: accountId,
