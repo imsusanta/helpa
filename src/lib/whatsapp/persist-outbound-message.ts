@@ -4,6 +4,7 @@ export interface PersistOutboundMessageInput {
   accountId: string;
   conversationId: string;
   senderId?: string | null;
+  senderType?: 'agent' | 'bot';
   contentType: string;
   contentText: string | null;
   mediaUrl?: string | null;
@@ -20,7 +21,6 @@ const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const STATUS_FALLBACKS = ['delivered', 'sent', 'pending', 'sending'] as const;
-const SENDER_TYPE_FALLBACKS = ['agent', 'bot'] as const;
 
 const REQUIRED_INSERT_COLUMNS = new Set([
   'conversation_id',
@@ -185,6 +185,12 @@ async function lookupExistingMessage(
 
 type PayloadShape = 'canonical' | 'reduced' | 'legacy';
 
+function outboundSenderType(
+  input: PersistOutboundMessageInput
+): 'agent' | 'bot' {
+  return input.senderType === 'bot' ? 'bot' : 'agent';
+}
+
 function buildOutboundPayload(
   shape: PayloadShape,
   input: PersistOutboundMessageInput,
@@ -193,6 +199,7 @@ function buildOutboundPayload(
   const replyTo = isValidUuid(input.replyToMessageId)
     ? input.replyToMessageId
     : null;
+  const senderType = outboundSenderType(input);
 
   // Canonical/reduced copies of the working inbound webhook insert in
   // process-message.ts. Inbound uses status `delivered` (Meta already
@@ -205,7 +212,7 @@ function buildOutboundPayload(
       account_id: input.accountId,
       conversation_id: input.conversationId,
       direction: 'outbound',
-      sender_type: 'agent',
+      sender_type: senderType,
       content_type: input.contentType || 'text',
       content_text: input.contentText,
       media_url: input.mediaUrl || null,
@@ -222,7 +229,7 @@ function buildOutboundPayload(
   if (shape === 'reduced') {
     return {
       conversation_id: input.conversationId,
-      sender_type: 'agent',
+      sender_type: senderType,
       content_type: input.contentType || 'text',
       content_text: input.contentText,
       media_url: input.mediaUrl || null,
@@ -236,7 +243,7 @@ function buildOutboundPayload(
 
   return {
     conversationId: input.conversationId,
-    senderType: 'agent',
+    senderType,
     contentType: input.contentType || 'text',
     contentText: input.contentText,
     mediaUrl: input.mediaUrl || null,
@@ -293,8 +300,9 @@ function mutatePayloadForError(
     isCheckConstraint(error, 'senderType')
   ) {
     const key = 'sender_type' in payload ? 'sender_type' : 'senderType';
-    const next = nextFallback(payload[key], SENDER_TYPE_FALLBACKS);
-    if (next && next !== payload[key]) {
+    const current = String(payload[key] || '');
+    const next = current === 'bot' ? 'agent' : 'bot';
+    if (next !== current) {
       payload[key] = next;
       return true;
     }
