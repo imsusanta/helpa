@@ -54,13 +54,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       })
       .eq('account_id', ctx.accountId);
 
-    if (contactId) {
-      query = query.eq('contact_id', contactId);
-    }
-
-    if (status && status !== 'all') {
-      query = query.eq('status', status);
-    }
+    if (contactId) query = query.eq('contact_id', contactId);
+    if (status && status !== 'all') query = query.eq('status', status);
 
     if (search && search.trim()) {
       const term = search.trim();
@@ -69,11 +64,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const {
-      data: quotations,
-      count,
-      error,
-    } = await query
+    const { data: quotations, count, error } = await query
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -103,12 +94,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       { headers: { ...PRIVATE_HEADERS, 'X-Request-Id': correlationId } }
     );
   } catch (err: unknown) {
-    if (err instanceof UnauthorizedError) {
+    if (err instanceof UnauthorizedError)
       return errorResponse(401, 'AUTH_REQUIRED', correlationId);
-    }
-    if (err instanceof ForbiddenError) {
+    if (err instanceof ForbiddenError)
       return errorResponse(403, 'ACCOUNT_MEMBERSHIP_REQUIRED', correlationId);
-    }
     console.error('[quotations] GET unhandled error:', {
       requestId: correlationId,
       error: err,
@@ -139,6 +128,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       notes,
       terms,
       items = [],
+      travel_details,
     } = body;
 
     if (!contact_id) {
@@ -159,19 +149,29 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Generate unique Quotation Number via concurrency-safe atomic sequence
-    const { data: seqNumber } = await supabase.rpc(
+    const { data: seqNumber, error: sequenceError } = await supabase.rpc(
       'generate_next_quotation_number',
-      {
-        p_account_id: ctx.accountId,
-      }
+      { p_account_id: ctx.accountId }
     );
+
+    if (sequenceError) {
+      console.error('[quotations] sequence generation failed:', {
+        requestId: correlationId,
+        code: sequenceError.code,
+        message: sequenceError.message,
+      });
+      return errorResponse(
+        500,
+        'QUOTATION_NUMBER_FAILED',
+        correlationId,
+        'Unable to generate quotation number.'
+      );
+    }
 
     const quotation_number =
       seqNumber ||
       `QT-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
 
-    // Calculate totals
     let subtotal = 0;
     const computedItems = items.map(
       (
@@ -199,7 +199,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       subtotal + taxAmount - (Number(discount_amount) || 0)
     );
 
-    // Insert Quotation
+    // travel_details is optional so the existing generic quotation workflow
+    // remains fully backward compatible.
+    const normalizedTravelDetails =
+      travel_details && typeof travel_details === 'object'
+        ? travel_details
+        : null;
+
     const { data: newQuotation, error: insertErr } = await supabase
       .from('quotations')
       .insert({
@@ -217,6 +223,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         currency,
         notes: notes || null,
         terms: terms || null,
+        travel_details: normalizedTravelDetails,
       })
       .select('*, contacts(id, name, phone, email)')
       .single();
@@ -235,16 +242,30 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // Insert line items
     const itemsPayload = computedItems.map((ci) => ({
       ...ci,
       quotation_id: newQuotation.id,
     }));
 
-    const { data: insertedItems } = await supabase
+    const { data: insertedItems, error: itemsError } = await supabase
       .from('quotation_items')
       .insert(itemsPayload)
       .select();
+
+    if (itemsError) {
+      console.error('[quotations] item insert failed:', {
+        requestId: correlationId,
+        code: itemsError.code,
+        message: itemsError.message,
+      });
+      await supabase.from('quotations').delete().eq('id', newQuotation.id);
+      return errorResponse(
+        500,
+        'QUOTATION_ITEMS_CREATE_FAILED',
+        correlationId,
+        'Unable to create quotation items.'
+      );
+    }
 
     return NextResponse.json(
       {
@@ -261,12 +282,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
     );
   } catch (err: unknown) {
-    if (err instanceof UnauthorizedError) {
+    if (err instanceof UnauthorizedError)
       return errorResponse(401, 'AUTH_REQUIRED', correlationId);
-    }
-    if (err instanceof ForbiddenError) {
+    if (err instanceof ForbiddenError)
       return errorResponse(403, 'AGENT_PERMISSION_REQUIRED', correlationId);
-    }
     console.error('[quotations] POST unhandled error:', {
       requestId: correlationId,
       error: err,
