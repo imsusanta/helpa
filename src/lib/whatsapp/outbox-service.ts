@@ -1,5 +1,19 @@
 import { getAdminClient } from '@/lib/db/server';
 import crypto from 'node:crypto';
+import {
+  persistOutboundMessage,
+  touchConversationPreview,
+  outboundPreviewText,
+} from '@/lib/whatsapp/persist-outbound-message';
+
+export interface OutboxMessageSnapshot {
+  contentType: string;
+  contentText: string | null;
+  mediaUrl?: string | null;
+  templateName?: string | null;
+  replyToMessageId?: string | null;
+  senderId?: string | null;
+}
 
 export interface OutboxEntryPayload {
   accountId: string;
@@ -10,6 +24,8 @@ export interface OutboxEntryPayload {
   contactId?: string | null;
   provider?: string;
   correlationId?: string;
+  messageType?: string;
+  messageSnapshot?: OutboxMessageSnapshot;
 }
 
 export type OutboxCreateResult =
@@ -112,11 +128,12 @@ export class OutboxService {
         idempotency_key: payload.idempotencyKey,
         conversation_id: payload.conversationId || null,
         contact_id: payload.contactId || null,
-        message_type: 'text',
+        message_type: payload.messageType || 'text',
         payload: {
           requestHash: payload.requestHash,
           channel: payload.channel || 'whatsapp',
           correlationId,
+          messageSnapshot: payload.messageSnapshot || null,
         },
         status: 'processing',
         created_at: now,
@@ -413,17 +430,34 @@ export class OutboxService {
         }
 
         if (!existingMsg) {
-          const now = new Date().toISOString();
-          await dbAdmin.from('messages').insert({
-            account_id: accountId,
-            conversation_id: conversationId,
-            sender_type: 'agent',
-            content_type: 'text',
-            content_text: 'Message sent (reconciled)',
-            message_id: providerMessageId,
-            status: 'sent',
-            created_at: now,
-            updated_at: now,
+          const snapshot = ((doc.payload as Record<string, unknown> | null)
+            ?.messageSnapshot ||
+            (doc.messageSnapshot as OutboxMessageSnapshot | undefined) ||
+            {}) as Partial<OutboxMessageSnapshot>;
+          const contentType = snapshot.contentType || 'text';
+          const contentText =
+            snapshot.contentText ?? 'Message sent (reconciled)';
+          const persistRes = await persistOutboundMessage({
+            accountId,
+            conversationId,
+            senderId: snapshot.senderId,
+            contentType,
+            contentText,
+            mediaUrl: snapshot.mediaUrl ?? null,
+            templateName: snapshot.templateName ?? null,
+            providerMessageId,
+            replyToMessageId: snapshot.replyToMessageId,
+          });
+          if (!persistRes.ok) {
+            throw new Error(persistRes.error);
+          }
+          await touchConversationPreview({
+            accountId,
+            conversationId,
+            previewText: outboundPreviewText({
+              contentText,
+              contentType,
+            }),
           });
         }
 

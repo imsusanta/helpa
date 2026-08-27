@@ -65,6 +65,22 @@ interface ReplyDraft {
   preview: string;
 }
 
+function applyPersistedSend(
+  onUpdateMessage: (id: string, updates: Partial<Message>) => void,
+  tempId: string,
+  payload: { id?: unknown; message_id?: unknown }
+) {
+  const localId =
+    typeof payload.id === 'string' && payload.id ? payload.id : null;
+  const providerId =
+    typeof payload.message_id === 'string' ? payload.message_id : undefined;
+  onUpdateMessage(tempId, {
+    status: 'sent',
+    ...(localId ? { id: localId } : {}),
+    ...(providerId ? { message_id: providerId } : {}),
+  });
+}
+
 function renderTemplateBody(body: string, params: string[]): string {
   return body.replace(/\{\{(\d+)\}\}/g, (_, raw) => {
     const idx = Number(raw) - 1;
@@ -614,10 +630,10 @@ export function MessageThread({
           return;
         }
 
-        // Success — the realtime INSERT event will replace the temp bubble
-        // with the real DB row. If realtime hasn't arrived yet, at least
-        // flip status to 'sent' so the UI stops showing "sending".
-        onUpdateMessage(tempId, { status: 'sent' });
+        // Swap the temp id for the persisted row so a later refetch or
+        // delivery-status UPDATE matches this bubble instead of leaving
+        // a ghost "sending" message that never appears after reload.
+        applyPersistedSend(onUpdateMessage, tempId, payload);
       } catch (err) {
         console.error('Failed to send message:', err);
         const reason = err instanceof Error ? err.message : 'network error';
@@ -684,7 +700,7 @@ export function MessageThread({
           return;
         }
 
-        onUpdateMessage(tempId, { status: 'sent' });
+        applyPersistedSend(onUpdateMessage, tempId, data);
       } catch (err) {
         console.error('Failed to send media:', err);
         const reason = err instanceof Error ? err.message : 'network error';
@@ -814,7 +830,7 @@ export function MessageThread({
           return;
         }
 
-        onUpdateMessage(tempId, { status: 'sent' });
+        applyPersistedSend(onUpdateMessage, tempId, payload);
       } catch (err) {
         console.error('Failed to send template:', err);
         const reason = err instanceof Error ? err.message : 'network error';
