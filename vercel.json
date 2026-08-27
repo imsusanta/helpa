@@ -7,10 +7,6 @@
     {
       "path": "/api/cron/campaigns",
       "schedule": "0 1 * * *"
-    },
-    {
-      "path": "/api/automations/cron",
-      "schedule": "* * * * *"
     }
   ]
 }
