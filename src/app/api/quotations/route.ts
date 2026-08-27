@@ -31,6 +31,15 @@ function errorResponse(
   );
 }
 
+function isMissingTravelColumnsError(error: unknown): boolean {
+  const text = `${(error as { message?: string })?.message || ''} ${(error as { details?: string })?.details || ''} ${(error as { hint?: string })?.hint || ''}`.toLowerCase();
+  return (
+    text.includes('travel_details') ||
+    text.includes('public_token') ||
+    text.includes('could not find the')
+  );
+}
+
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const correlationId = requestId(request);
   try {
@@ -41,27 +50,19 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const contactId = searchParams.get('contact_id');
     const status = searchParams.get('status');
     const search = searchParams.get('search');
-    const limit = Math.min(
-      100,
-      Math.max(1, parseInt(searchParams.get('limit') || '50', 10))
-    );
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '50', 10)));
     const offset = Math.max(0, parseInt(searchParams.get('offset') || '0', 10));
 
     let query = supabase
       .from('quotations')
-      .select('*, contacts(id, name, phone, email), quotation_items(*)', {
-        count: 'exact',
-      })
+      .select('*, contacts(id, name, phone, email), quotation_items(*)', { count: 'exact' })
       .eq('account_id', ctx.accountId);
 
     if (contactId) query = query.eq('contact_id', contactId);
     if (status && status !== 'all') query = query.eq('status', status);
-
     if (search && search.trim()) {
       const term = search.trim();
-      query = query.or(
-        `quotation_number.ilike.%${term}%,notes.ilike.%${term}%`
-      );
+      query = query.or(`quotation_number.ilike.%${term}%,notes.ilike.%${term}%`);
     }
 
     const { data: quotations, count, error } = await query
@@ -74,12 +75,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         code: error.code,
         message: error.message,
       });
-      return errorResponse(
-        500,
-        'QUOTATIONS_FETCH_FAILED',
-        correlationId,
-        'Unable to load quotations.'
-      );
+      return errorResponse(500, 'QUOTATIONS_FETCH_FAILED', correlationId, 'Unable to load quotations.');
     }
 
     return NextResponse.json(
@@ -94,20 +90,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       { headers: { ...PRIVATE_HEADERS, 'X-Request-Id': correlationId } }
     );
   } catch (err: unknown) {
-    if (err instanceof UnauthorizedError)
-      return errorResponse(401, 'AUTH_REQUIRED', correlationId);
-    if (err instanceof ForbiddenError)
-      return errorResponse(403, 'ACCOUNT_MEMBERSHIP_REQUIRED', correlationId);
-    console.error('[quotations] GET unhandled error:', {
-      requestId: correlationId,
-      error: err,
-    });
-    return errorResponse(
-      500,
-      'QUOTATIONS_FETCH_FAILED',
-      correlationId,
-      'Unable to load quotations.'
-    );
+    if (err instanceof UnauthorizedError) return errorResponse(401, 'AUTH_REQUIRED', correlationId);
+    if (err instanceof ForbiddenError) return errorResponse(403, 'ACCOUNT_MEMBERSHIP_REQUIRED', correlationId);
+    console.error('[quotations] GET unhandled error:', { requestId: correlationId, error: err });
+    return errorResponse(500, 'QUOTATIONS_FETCH_FAILED', correlationId, 'Unable to load quotations.');
   }
 }
 
@@ -131,118 +117,98 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       travel_details,
     } = body;
 
-    if (!contact_id) {
-      return errorResponse(400, 'CONTACT_REQUIRED', correlationId, 'Contact is required for quotation.');
-    }
-    if (!Array.isArray(items) || items.length === 0) {
-      return errorResponse(400, 'ITEMS_REQUIRED', correlationId, 'At least one line item is required.');
-    }
+    if (!contact_id) return errorResponse(400, 'CONTACT_REQUIRED', correlationId, 'Contact is required for quotation.');
+    if (!Array.isArray(items) || items.length === 0) return errorResponse(400, 'ITEMS_REQUIRED', correlationId, 'At least one line item is required.');
 
-    const { data: seqNumber, error: sequenceError } = await supabase.rpc(
-      'generate_next_quotation_number',
-      { p_account_id: ctx.accountId }
-    );
+    const { data: seqNumber, error: sequenceError } = await supabase.rpc('generate_next_quotation_number', { p_account_id: ctx.accountId });
+    if (sequenceError) return errorResponse(500, 'QUOTATION_NUMBER_FAILED', correlationId, 'Unable to generate quotation number.');
 
-    if (sequenceError) {
-      console.error('[quotations] sequence generation failed:', {
-        requestId: correlationId,
-        code: sequenceError.code,
-        message: sequenceError.message,
-      });
-      return errorResponse(500, 'QUOTATION_NUMBER_FAILED', correlationId, 'Unable to generate quotation number.');
-    }
-
-    const quotation_number =
-      seqNumber || `QT-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
-
+    const quotation_number = seqNumber || `QT-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
     let subtotal = 0;
-    const computedItems = items.map(
-      (
-        item: { description: string; quantity: number; unit_price: number },
-        idx: number
-      ) => {
-        const quantity = Math.max(1, Number(item.quantity) || 1);
-        const unit_price = Math.max(0, Number(item.unit_price) || 0);
-        const total = quantity * unit_price;
-        subtotal += total;
-        return {
-          account_id: ctx.accountId,
-          description: String(item.description || `Item ${idx + 1}`).trim(),
-          quantity,
-          unit_price,
-          total,
-          order_index: idx,
-        };
-      }
-    );
+    const computedItems = items.map((item: { description: string; quantity: number; unit_price: number }, idx: number) => {
+      const quantity = Math.max(1, Number(item.quantity) || 1);
+      const unit_price = Math.max(0, Number(item.unit_price) || 0);
+      const total = quantity * unit_price;
+      subtotal += total;
+      return { account_id: ctx.accountId, description: String(item.description || `Item ${idx + 1}`).trim(), quantity, unit_price, total, order_index: idx };
+    });
 
     const taxAmount = (subtotal * (Number(tax_rate) || 0)) / 100;
     const totalAmount = Math.max(0, subtotal + taxAmount - (Number(discount_amount) || 0));
-    const normalizedTravelDetails =
-      travel_details && typeof travel_details === 'object' ? travel_details : null;
+    const normalizedTravelDetails = travel_details && typeof travel_details === 'object' ? travel_details : null;
     const publicToken = normalizedTravelDetails ? crypto.randomUUID() : null;
 
-    const { data: newQuotation, error: insertErr } = await supabase
+    const basePayload = {
+      account_id: ctx.accountId,
+      user_id: ctx.userId,
+      contact_id,
+      deal_id: deal_id || null,
+      quotation_number,
+      status: 'draft',
+      valid_until: valid_until || null,
+      subtotal,
+      tax_amount: taxAmount,
+      discount_amount: Number(discount_amount) || 0,
+      total: totalAmount,
+      currency,
+      notes: notes || null,
+      terms: terms || null,
+    };
+
+    let newQuotation: Record<string, unknown> | null = null;
+    let insertErr: { code?: string; message?: string } | null = null;
+
+    const fullInsert = await supabase
       .from('quotations')
-      .insert({
-        account_id: ctx.accountId,
-        user_id: ctx.userId,
-        contact_id,
-        deal_id: deal_id || null,
-        quotation_number,
-        status: 'draft',
-        valid_until: valid_until || null,
-        subtotal,
-        tax_amount: taxAmount,
-        discount_amount: Number(discount_amount) || 0,
-        total: totalAmount,
-        currency,
-        notes: notes || null,
-        terms: terms || null,
-        travel_details: normalizedTravelDetails,
-        public_token: publicToken,
-      })
+      .insert({ ...basePayload, travel_details: normalizedTravelDetails, public_token: publicToken })
       .select('*, contacts(id, name, phone, email)')
       .single();
 
+    if (fullInsert.error && normalizedTravelDetails && isMissingTravelColumnsError(fullInsert.error)) {
+      const fallbackInsert = await supabase
+        .from('quotations')
+        .insert(basePayload)
+        .select('*, contacts(id, name, phone, email)')
+        .single();
+      newQuotation = fallbackInsert.data as Record<string, unknown> | null;
+      insertErr = fallbackInsert.error as { code?: string; message?: string } | null;
+    } else {
+      newQuotation = fullInsert.data as Record<string, unknown> | null;
+      insertErr = fullInsert.error as { code?: string; message?: string } | null;
+    }
+
     if (insertErr || !newQuotation) {
-      console.error('[quotations] POST insert failed:', {
-        requestId: correlationId,
-        code: insertErr?.code,
-        message: insertErr?.message,
-      });
+      console.error('[quotations] POST insert failed:', { requestId: correlationId, code: insertErr?.code, message: insertErr?.message });
       return errorResponse(500, 'QUOTATION_CREATE_FAILED', correlationId, 'Unable to create quotation.');
     }
 
-    const itemsPayload = computedItems.map((ci) => ({ ...ci, quotation_id: newQuotation.id }));
-    const { data: insertedItems, error: itemsError } = await supabase
-      .from('quotation_items')
-      .insert(itemsPayload)
-      .select();
-
+    const itemsPayload = computedItems.map((ci) => ({ ...ci, quotation_id: newQuotation!.id }));
+    const { data: insertedItems, error: itemsError } = await supabase.from('quotation_items').insert(itemsPayload).select();
     if (itemsError) {
-      console.error('[quotations] item insert failed:', {
-        requestId: correlationId,
-        code: itemsError.code,
-        message: itemsError.message,
-      });
-      await supabase.from('quotations').delete().eq('id', newQuotation.id);
+      console.error('[quotations] item insert failed:', { requestId: correlationId, code: itemsError.code, message: itemsError.message });
+      await supabase.from('quotations').delete().eq('id', newQuotation.id).eq('account_id', ctx.accountId);
       return errorResponse(500, 'QUOTATION_ITEMS_CREATE_FAILED', correlationId, 'Unable to create quotation items.');
     }
 
+    if (normalizedTravelDetails && !('travel_details' in newQuotation)) {
+      try {
+        await supabase
+          .from('quotations')
+          .update({ travel_details: normalizedTravelDetails, public_token: publicToken })
+          .eq('id', String(newQuotation.id))
+          .eq('account_id', ctx.accountId);
+      } catch {
+        // Keep quotation creation successful on deployments where travel columns are not yet available.
+      }
+    }
+
     return NextResponse.json(
-      {
-        success: true,
-        data: { ...newQuotation, quotation_items: insertedItems || [] },
-        requestId: correlationId,
-      },
+      { success: true, data: { ...newQuotation, quotation_items: insertedItems || [] }, requestId: correlationId },
       { status: 201, headers: { ...PRIVATE_HEADERS, 'X-Request-Id': correlationId } }
     );
   } catch (err: unknown) {
-    if (err instanceof UnauthorizedError)
-      return errorResponse(401, 'AUTH_REQUIRED', correlationId);
-    if (err instanceof ForbiddenError)
-      return errorResponse(403, 'AGENT_PERMISSION_REQUIRED', correlationId);
+    if (err instanceof UnauthorizedError) return errorResponse(401, 'AUTH_REQUIRED', correlationId);
+    if (err instanceof ForbiddenError) return errorResponse(403, 'AGENT_PERMISSION_REQUIRED', correlationId);
     console.error('[quotations] POST unhandled error:', { requestId: correlationId, error: err });
     return errorResponse(500, 'QUOTATION_CREATE_FAILED', correlationId, 'Unable to create quotation.');
   }
