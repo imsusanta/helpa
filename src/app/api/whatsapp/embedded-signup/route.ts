@@ -194,7 +194,7 @@ export async function POST(request: Request) {
       );
     }
 
-    let resolvedWabaId =
+    const resolvedWabaId =
       (typeof waba_id === 'string' ? waba_id.trim() : '') ||
       debugInfo.wabaId ||
       '';
