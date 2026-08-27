@@ -92,19 +92,44 @@ export async function buildAiContextBundle({
       industry === 'salon' || industry === 'gym' || industry === 'restaurant';
 
     if (isTravel) {
-      const { data: packages } = await db
+      const today = new Date().toISOString().split('T')[0];
+      const { data: rawPackages } = await db
         .from('travel_packages')
-        .select('name, destination, duration_days, price, description')
+        .select(
+          'name, destination, duration_days, duration_nights, base_price, price, currency, summary, description, inclusions, status, valid_until'
+        )
         .eq('account_id', accountId)
         .limit(15);
+
+      const packages = (rawPackages || [])
+        .filter((pkg: Record<string, unknown>) => {
+          if (pkg.status && pkg.status !== 'published') return false;
+          if (pkg.valid_until && String(pkg.valid_until) < today) return false;
+          return true;
+        })
+        .slice(0, 5);
 
       if (packages && packages.length > 0) {
         catalogSnippets.push(
           'AVAILABLE TRAVEL & TOUR PACKAGES (DATABASE RECORDS):'
         );
         packages.forEach((pkg: Record<string, unknown>) => {
+          const durationStr = pkg.duration_nights
+            ? `${pkg.duration_days} Days / ${pkg.duration_nights} Nights`
+            : `${pkg.duration_days} Days`;
+          const priceVal = pkg.base_price ?? pkg.price ?? 'N/A';
+          const currency =
+            !pkg.currency || pkg.currency === 'INR' ? '₹' : `${pkg.currency} `;
+          const summaryStr =
+            pkg.summary ||
+            pkg.description ||
+            'All standard sightseeing & transport included';
+          const inclStr =
+            Array.isArray(pkg.inclusions) && pkg.inclusions.length > 0
+              ? ` | Inclusions: ${pkg.inclusions.join(', ')}`
+              : '';
           catalogSnippets.push(
-            `- Package: ${pkg.name} | Destination: ${pkg.destination} | Duration: ${pkg.duration_days} Days | Price: ₹${pkg.price} per person | Description: ${pkg.description || 'All standard sightseeing & transport included'}`
+            `- Package: ${pkg.name} | Destination: ${pkg.destination} | Duration: ${durationStr} | Price: ${currency}${priceVal} per person | Summary: ${summaryStr}${inclStr}`
           );
         });
       }
