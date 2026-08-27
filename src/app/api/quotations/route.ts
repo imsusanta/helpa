@@ -132,21 +132,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     } = body;
 
     if (!contact_id) {
-      return errorResponse(
-        400,
-        'CONTACT_REQUIRED',
-        correlationId,
-        'Contact is required for quotation.'
-      );
+      return errorResponse(400, 'CONTACT_REQUIRED', correlationId, 'Contact is required for quotation.');
     }
-
     if (!Array.isArray(items) || items.length === 0) {
-      return errorResponse(
-        400,
-        'ITEMS_REQUIRED',
-        correlationId,
-        'At least one line item is required.'
-      );
+      return errorResponse(400, 'ITEMS_REQUIRED', correlationId, 'At least one line item is required.');
     }
 
     const { data: seqNumber, error: sequenceError } = await supabase.rpc(
@@ -160,17 +149,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         code: sequenceError.code,
         message: sequenceError.message,
       });
-      return errorResponse(
-        500,
-        'QUOTATION_NUMBER_FAILED',
-        correlationId,
-        'Unable to generate quotation number.'
-      );
+      return errorResponse(500, 'QUOTATION_NUMBER_FAILED', correlationId, 'Unable to generate quotation number.');
     }
 
     const quotation_number =
-      seqNumber ||
-      `QT-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
+      seqNumber || `QT-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
 
     let subtotal = 0;
     const computedItems = items.map(
@@ -194,17 +177,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
 
     const taxAmount = (subtotal * (Number(tax_rate) || 0)) / 100;
-    const totalAmount = Math.max(
-      0,
-      subtotal + taxAmount - (Number(discount_amount) || 0)
-    );
-
-    // travel_details is optional so the existing generic quotation workflow
-    // remains fully backward compatible.
+    const totalAmount = Math.max(0, subtotal + taxAmount - (Number(discount_amount) || 0));
     const normalizedTravelDetails =
-      travel_details && typeof travel_details === 'object'
-        ? travel_details
-        : null;
+      travel_details && typeof travel_details === 'object' ? travel_details : null;
+    const publicToken = normalizedTravelDetails ? crypto.randomUUID() : null;
 
     const { data: newQuotation, error: insertErr } = await supabase
       .from('quotations')
@@ -224,6 +200,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         notes: notes || null,
         terms: terms || null,
         travel_details: normalizedTravelDetails,
+        public_token: publicToken,
       })
       .select('*, contacts(id, name, phone, email)')
       .single();
@@ -234,19 +211,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         code: insertErr?.code,
         message: insertErr?.message,
       });
-      return errorResponse(
-        500,
-        'QUOTATION_CREATE_FAILED',
-        correlationId,
-        'Unable to create quotation.'
-      );
+      return errorResponse(500, 'QUOTATION_CREATE_FAILED', correlationId, 'Unable to create quotation.');
     }
 
-    const itemsPayload = computedItems.map((ci) => ({
-      ...ci,
-      quotation_id: newQuotation.id,
-    }));
-
+    const itemsPayload = computedItems.map((ci) => ({ ...ci, quotation_id: newQuotation.id }));
     const { data: insertedItems, error: itemsError } = await supabase
       .from('quotation_items')
       .insert(itemsPayload)
@@ -259,42 +227,23 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         message: itemsError.message,
       });
       await supabase.from('quotations').delete().eq('id', newQuotation.id);
-      return errorResponse(
-        500,
-        'QUOTATION_ITEMS_CREATE_FAILED',
-        correlationId,
-        'Unable to create quotation items.'
-      );
+      return errorResponse(500, 'QUOTATION_ITEMS_CREATE_FAILED', correlationId, 'Unable to create quotation items.');
     }
 
     return NextResponse.json(
       {
         success: true,
-        data: {
-          ...newQuotation,
-          quotation_items: insertedItems || [],
-        },
+        data: { ...newQuotation, quotation_items: insertedItems || [] },
         requestId: correlationId,
       },
-      {
-        status: 201,
-        headers: { ...PRIVATE_HEADERS, 'X-Request-Id': correlationId },
-      }
+      { status: 201, headers: { ...PRIVATE_HEADERS, 'X-Request-Id': correlationId } }
     );
   } catch (err: unknown) {
     if (err instanceof UnauthorizedError)
       return errorResponse(401, 'AUTH_REQUIRED', correlationId);
     if (err instanceof ForbiddenError)
       return errorResponse(403, 'AGENT_PERMISSION_REQUIRED', correlationId);
-    console.error('[quotations] POST unhandled error:', {
-      requestId: correlationId,
-      error: err,
-    });
-    return errorResponse(
-      500,
-      'QUOTATION_CREATE_FAILED',
-      correlationId,
-      'Unable to create quotation.'
-    );
+    console.error('[quotations] POST unhandled error:', { requestId: correlationId, error: err });
+    return errorResponse(500, 'QUOTATION_CREATE_FAILED', correlationId, 'Unable to create quotation.');
   }
 }
