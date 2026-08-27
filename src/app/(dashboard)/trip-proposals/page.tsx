@@ -1,7 +1,22 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarDays, CheckCircle2, ChevronRight, Clock3, Hotel, MapPin, Plus, Receipt, Search, Sparkles, Trash2, Users, XCircle } from 'lucide-react';
+import {
+  CalendarDays,
+  CheckCircle2,
+  ChevronRight,
+  Hotel,
+  MapPin,
+  Plus,
+  Receipt,
+  Search,
+  Send,
+  Sparkles,
+  Trash2,
+  Users,
+  X,
+  XCircle,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,100 +25,526 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { toast } from 'sonner';
 import { salesApi } from '@/lib/sales/api-client';
 
-interface Day { day: number; title: string; description: string }
-interface TravelDetails {
-  proposal_title: string; destination: string; start_date: string; end_date: string;
-  adults: number; children: number; trip_type: string; duration_label: string;
-  hotel_category: string; meal_plan: string; itinerary: Day[];
-  inclusions: string[]; exclusions: string[]; advance_amount: number; balance_amount: number;
+interface Day {
+  day: number;
+  title: string;
+  description: string;
 }
-interface Item { description: string; quantity: number; unit_price: number; category: string }
+
+interface TravelDetails {
+  proposal_title: string;
+  destination: string;
+  start_date: string;
+  end_date: string;
+  adults: number;
+  children: number;
+  trip_type: string;
+  duration_label: string;
+  hotel_category: string;
+  meal_plan: string;
+  itinerary: Day[];
+  inclusions: string[];
+  exclusions: string[];
+  advance_amount: number;
+  balance_amount: number;
+}
+
+interface Item {
+  description: string;
+  quantity: number;
+  unit_price: number;
+  category: string;
+}
+
 interface Proposal {
-  id: string; quotation_number: string; public_token?: string; contact_id: string;
-  status: 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired'; valid_until?: string;
-  subtotal: number; tax_amount: number; discount_amount: number; total: number; currency: string;
-  notes?: string; terms?: string; created_at: string;
+  id: string;
+  quotation_number: string;
+  public_token?: string;
+  contact_id: string;
+  status: 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired';
+  valid_until?: string;
+  subtotal: number;
+  tax_amount: number;
+  discount_amount: number;
+  total: number;
+  currency: string;
+  notes?: string;
+  terms?: string;
+  created_at: string;
   contacts?: { id: string; name: string; phone: string; email?: string };
-  quotation_items?: Array<{ id: string; description: string; quantity: number; unit_price: number; total: number }>;
+  quotation_items?: Array<{
+    id: string;
+    description: string;
+    quantity: number;
+    unit_price: number;
+    total: number;
+  }>;
   travel_details?: TravelDetails | null;
 }
 
 const STATUS: Record<string, string> = {
-  draft: 'bg-slate-100 text-slate-700 border-slate-200', sent: 'bg-blue-50 text-blue-700 border-blue-200',
-  accepted: 'bg-emerald-50 text-emerald-700 border-emerald-200', rejected: 'bg-rose-50 text-rose-700 border-rose-200',
+  draft: 'bg-slate-100 text-slate-700 border-slate-200',
+  sent: 'bg-blue-50 text-blue-700 border-blue-200',
+  accepted: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  rejected: 'bg-rose-50 text-rose-700 border-rose-200',
   expired: 'bg-amber-50 text-amber-700 border-amber-200',
 };
-const emptyItem = (): Item => ({ description: '', quantity: 1, unit_price: 0, category: 'Other' });
-const emptyTravel = (): TravelDetails => ({
-  proposal_title: '', destination: '', start_date: '', end_date: '', adults: 2, children: 0,
-  trip_type: 'Family Holiday', duration_label: '', hotel_category: '4 Star', meal_plan: 'Breakfast',
-  itinerary: [{ day: 1, title: 'Arrival & Check-in', description: 'Pickup and hotel check-in.' }],
-  inclusions: ['Hotel accommodation', 'Private transfers'], exclusions: ['Personal expenses'], advance_amount: 0, balance_amount: 0,
+
+const emptyItem = (): Item => ({
+  description: '',
+  quantity: 1,
+  unit_price: 0,
+  category: 'Other',
 });
-const dateLabel = (v?: string) => v ? new Date(`${v}T00:00:00`).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-const duration = (a: string, b: string) => {
-  if (!a || !b) return '';
-  const nights = Math.max(0, Math.round((new Date(`${b}T00:00:00`).getTime() - new Date(`${a}T00:00:00`).getTime()) / 86400000));
+
+const emptyTravel = (): TravelDetails => ({
+  proposal_title: '',
+  destination: '',
+  start_date: '',
+  end_date: '',
+  adults: 2,
+  children: 0,
+  trip_type: 'Family Holiday',
+  duration_label: '',
+  hotel_category: '4 Star',
+  meal_plan: 'Breakfast',
+  itinerary: [
+    {
+      day: 1,
+      title: 'Arrival & Check-in',
+      description: 'Pickup and hotel check-in.',
+    },
+  ],
+  inclusions: ['Hotel accommodation', 'Private transfers'],
+  exclusions: ['Personal expenses'],
+  advance_amount: 0,
+  balance_amount: 0,
+});
+
+const dateLabel = (value?: string) =>
+  value
+    ? new Date(`${value}T00:00:00`).toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      })
+    : '—';
+
+const duration = (start: string, end: string) => {
+  if (!start || !end) return '';
+  const nights = Math.max(
+    0,
+    Math.round(
+      (new Date(`${end}T00:00:00`).getTime() - new Date(`${start}T00:00:00`).getTime()) /
+        86400000,
+    ),
+  );
   return `${nights + 1} Days / ${nights} Nights`;
 };
 
+const money = (value: number) => `₹${Math.max(0, Number(value) || 0).toLocaleString('en-IN')}`;
+
 export default function TripProposalsPage() {
-  const [rows, setRows] = useState<Proposal[]>([]); const [contacts, setContacts] = useState<Array<{ id: string; name: string; phone: string }>>([]);
-  const [loading, setLoading] = useState(true); const [search, setSearch] = useState(''); const [filter, setFilter] = useState('all');
-  const [createOpen, setCreateOpen] = useState(false); const [detailsOpen, setDetailsOpen] = useState(false); const [selected, setSelected] = useState<Proposal | null>(null); const [saving, setSaving] = useState(false); const [converting, setConverting] = useState(false);
-  const [contactId, setContactId] = useState(''); const [validUntil, setValidUntil] = useState(''); const [taxRate, setTaxRate] = useState('0'); const [discount, setDiscount] = useState('0'); const [notes, setNotes] = useState('');
-  const [travel, setTravel] = useState(emptyTravel()); const [items, setItems] = useState<Item[]>([emptyItem()]);
+  const [rows, setRows] = useState<Proposal[]>([]);
+  const [contacts, setContacts] = useState<Array<{ id: string; name: string; phone: string }>>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState('all');
+  const [createOpen, setCreateOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [selected, setSelected] = useState<Proposal | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [converting, setConverting] = useState(false);
+
+  const [contactId, setContactId] = useState('');
+  const [validUntil, setValidUntil] = useState('');
+  const [taxRate, setTaxRate] = useState('0');
+  const [discount, setDiscount] = useState('0');
+  const [notes, setNotes] = useState('');
+  const [travel, setTravel] = useState<TravelDetails>(emptyTravel());
+  const [items, setItems] = useState<Item[]>([emptyItem()]);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const q = new URLSearchParams(); if (search.trim()) q.set('search', search.trim()); if (filter !== 'all') q.set('status', filter);
-      const data = await salesApi<Proposal[]>(`/api/quotations?${q.toString()}`); setRows(Array.isArray(data) ? data.filter((x) => x.travel_details) : []);
-    } catch (e) { toast.error((e as Error).message || 'Failed to load trip proposals'); } finally { setLoading(false); }
+      const query = new URLSearchParams();
+      if (search.trim()) query.set('search', search.trim());
+      if (filter !== 'all') query.set('status', filter);
+      const data = await salesApi<Proposal[]>(`/api/quotations?${query.toString()}`);
+      setRows(Array.isArray(data) ? data.filter((item) => item.travel_details) : []);
+    } catch (error) {
+      toast.error((error as Error).message || 'Failed to load trip proposals');
+    } finally {
+      setLoading(false);
+    }
   }, [search, filter]);
-  useEffect(() => { load(); }, [load]);
-  useEffect(() => { if (createOpen) salesApi<Array<{ id: string; name: string; phone: string }>>('/api/contacts').then((x) => setContacts(Array.isArray(x) ? x : [])).catch(() => {}); }, [createOpen]);
 
-  const subtotal = useMemo(() => items.reduce((s, x) => s + (Number(x.quantity) || 0) * (Number(x.unit_price) || 0), 0), [items]);
-  const tax = subtotal * (Number(taxRate) || 0) / 100; const total = Math.max(0, subtotal + tax - (Number(discount) || 0));
-  const setT = <K extends keyof TravelDetails>(key: K, value: TravelDetails[K]) => setTravel((p) => ({ ...p, [key]: value }));
-  const reset = () => { setContactId(''); setValidUntil(''); setTaxRate('0'); setDiscount('0'); setNotes(''); setTravel(emptyTravel()); setItems([emptyItem()]); };
+  useEffect(() => {
+    load();
+  }, [load]);
 
-  const createProposal = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!contactId) return toast.error('Please select a traveller'); if (!travel.destination.trim()) return toast.error('Destination is required');
-    if (!travel.start_date || !travel.end_date) return toast.error('Travel dates are required'); if (items.some((x) => !x.description.trim())) return toast.error('All services need a description');
+  useEffect(() => {
+    if (!createOpen) return;
+    salesApi<Array<{ id: string; name: string; phone: string }>>('/api/contacts')
+      .then((data) => setContacts(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, [createOpen]);
+
+  const subtotal = useMemo(
+    () => items.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.unit_price) || 0), 0),
+    [items],
+  );
+  const tax = (subtotal * (Number(taxRate) || 0)) / 100;
+  const total = Math.max(0, subtotal + tax - (Number(discount) || 0));
+  const advance = Math.min(total, Math.max(0, Number(travel.advance_amount) || 0));
+  const balance = Math.max(0, total - advance);
+
+  const setTravelField = <K extends keyof TravelDetails>(key: K, value: TravelDetails[K]) => {
+    setTravel((previous) => ({ ...previous, [key]: value }));
+  };
+
+  const reset = () => {
+    setContactId('');
+    setValidUntil('');
+    setTaxRate('0');
+    setDiscount('0');
+    setNotes('');
+    setTravel(emptyTravel());
+    setItems([emptyItem()]);
+  };
+
+  const addDay = () => {
+    setTravel((previous) => ({
+      ...previous,
+      itinerary: [
+        ...previous.itinerary,
+        {
+          day: previous.itinerary.length + 1,
+          title: '',
+          description: '',
+        },
+      ],
+    }));
+  };
+
+  const updateDay = (index: number, key: keyof Day, value: string) => {
+    setTravel((previous) => ({
+      ...previous,
+      itinerary: previous.itinerary.map((day, dayIndex) =>
+        dayIndex === index ? { ...day, [key]: key === 'day' ? Number(value) : value } : day,
+      ),
+    }));
+  };
+
+  const removeDay = (index: number) => {
+    setTravel((previous) => ({
+      ...previous,
+      itinerary: previous.itinerary
+        .filter((_, dayIndex) => dayIndex !== index)
+        .map((day, dayIndex) => ({ ...day, day: dayIndex + 1 })),
+    }));
+  };
+
+  const updateList = (key: 'inclusions' | 'exclusions', index: number, value: string) => {
+    setTravel((previous) => ({
+      ...previous,
+      [key]: previous[key].map((item, itemIndex) => (itemIndex === index ? value : item)),
+    }));
+  };
+
+  const addListItem = (key: 'inclusions' | 'exclusions') => {
+    setTravel((previous) => ({ ...previous, [key]: [...previous[key], ''] }));
+  };
+
+  const removeListItem = (key: 'inclusions' | 'exclusions', index: number) => {
+    setTravel((previous) => ({
+      ...previous,
+      [key]: previous[key].filter((_, itemIndex) => itemIndex !== index),
+    }));
+  };
+
+  const createProposal = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!contactId) return toast.error('Please select a traveller');
+    if (!travel.destination.trim()) return toast.error('Destination is required');
+    if (!travel.start_date || !travel.end_date) return toast.error('Travel dates are required');
+    if (new Date(`${travel.end_date}T00:00:00`) < new Date(`${travel.start_date}T00:00:00`)) {
+      return toast.error('End date cannot be before start date');
+    }
+    if (items.some((item) => !item.description.trim())) return toast.error('All services need a description');
+
     setSaving(true);
     try {
-      await salesApi('/api/quotations', { method: 'POST', body: JSON.stringify({ contact_id: contactId, valid_until: validUntil || undefined, tax_rate: Number(taxRate) || 0, discount_amount: Number(discount) || 0, notes: notes || undefined, currency: 'INR', terms: 'Package subject to availability. Payment terms as agreed with the traveller.', items: items.map(({ description, quantity, unit_price }) => ({ description, quantity, unit_price })), travel_details: { ...travel, proposal_title: travel.proposal_title.trim() || `${travel.destination} Trip`, duration_label: duration(travel.start_date, travel.end_date), inclusions: travel.inclusions.filter(Boolean), exclusions: travel.exclusions.filter(Boolean), balance_amount: Math.max(0, total - (Number(travel.advance_amount) || 0)) } }) });
-      toast.success('Trip proposal created'); setCreateOpen(false); reset(); load();
-    } catch (e) { toast.error((e as Error).message || 'Failed to create proposal'); } finally { setSaving(false); }
+      await salesApi('/api/quotations', {
+        method: 'POST',
+        body: JSON.stringify({
+          contact_id: contactId,
+          valid_until: validUntil || undefined,
+          tax_rate: Number(taxRate) || 0,
+          discount_amount: Number(discount) || 0,
+          notes: notes || undefined,
+          currency: 'INR',
+          terms: 'Package subject to availability. Payment terms as agreed with the traveller.',
+          items: items.map(({ description, quantity, unit_price }) => ({ description, quantity, unit_price })),
+          travel_details: {
+            ...travel,
+            proposal_title: travel.proposal_title.trim() || `${travel.destination} Trip`,
+            duration_label: duration(travel.start_date, travel.end_date),
+            itinerary: travel.itinerary.map((day, index) => ({ ...day, day: index + 1 })),
+            inclusions: travel.inclusions.filter(Boolean),
+            exclusions: travel.exclusions.filter(Boolean),
+            advance_amount: advance,
+            balance_amount: balance,
+          },
+        }),
+      });
+      toast.success('Trip proposal created');
+      setCreateOpen(false);
+      reset();
+      load();
+    } catch (error) {
+      toast.error((error as Error).message || 'Failed to create proposal');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const updateStatus = async (id: string, status: string) => {
-    try { const updated = await salesApi<Proposal>(`/api/quotations/${id}/status`, { method: 'POST', body: JSON.stringify({ status }) }); setSelected(updated); load(); toast.success(`Proposal marked as ${status}`); }
-    catch (e) { toast.error((e as Error).message || 'Failed to update proposal'); }
+    try {
+      const updated = await salesApi<Proposal>(`/api/quotations/${id}/status`, {
+        method: 'POST',
+        body: JSON.stringify({ status }),
+      });
+      setSelected(updated);
+      await load();
+      toast.success(`Proposal marked as ${status}`);
+    } catch (error) {
+      toast.error((error as Error).message || 'Failed to update proposal');
+    }
   };
+
   const invoice = async (id: string) => {
-    setConverting(true); try { const r = await salesApi<{ message?: string }>(`/api/quotations/${id}/convert-to-invoice`, { method: 'POST' }); toast.success(r?.message || 'Invoice created'); setDetailsOpen(false); load(); } catch (e) { toast.error((e as Error).message || 'Failed to create invoice'); } finally { setConverting(false); }
+    setConverting(true);
+    try {
+      const response = await salesApi<{ message?: string }>(`/api/quotations/${id}/convert-to-invoice`, {
+        method: 'POST',
+      });
+      toast.success(response?.message || 'Invoice created');
+      setDetailsOpen(false);
+      load();
+    } catch (error) {
+      toast.error((error as Error).message || 'Failed to create invoice');
+    } finally {
+      setConverting(false);
+    }
   };
-  const publicUrl = selected?.public_token ? `${window.location.origin}/proposal/${selected.public_token}` : '';
-  const copyLink = async () => { if (!publicUrl) return toast.error('Public link is not available'); await navigator.clipboard.writeText(publicUrl); toast.success('Proposal link copied'); };
 
-  return <div className="mx-auto w-full max-w-[1536px] space-y-6 pb-10">
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><div className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-emerald-500" /><h1 className="text-2xl font-bold text-slate-900">Trip Proposals</h1></div><p className="mt-1 text-sm text-slate-500">Travel-specific proposal builder on top of Helpa's existing quotation and invoice engine.</p></div><Button onClick={() => setCreateOpen(true)} className="rounded-xl bg-[#00b074] font-bold text-white hover:bg-[#009b66]"><Plus className="mr-2 h-4 w-4" /> Create Trip Proposal</Button></div>
-    <div className="grid gap-4 sm:grid-cols-3"><div className="rounded-2xl border bg-white p-4 shadow-sm"><p className="text-xs text-slate-500">Total Proposals</p><p className="mt-1 text-2xl font-bold">{rows.length}</p></div><div className="rounded-2xl border bg-white p-4 shadow-sm"><p className="text-xs text-slate-500">Awaiting Approval</p><p className="mt-1 text-2xl font-bold text-blue-700">{rows.filter((x) => x.status === 'sent').length}</p></div><div className="rounded-2xl border bg-white p-4 shadow-sm"><p className="text-xs text-slate-500">Accepted</p><p className="mt-1 text-2xl font-bold text-emerald-700">{rows.filter((x) => x.status === 'accepted').length}</p></div></div>
-    <div className="flex flex-col gap-3 rounded-2xl border bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"><div className="relative flex-1 sm:max-w-md"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search destination, proposal or notes..." className="pl-9" /></div><div className="flex flex-wrap gap-2">{['all','draft','sent','accepted','rejected'].map((x) => <button key={x} onClick={() => setFilter(x)} className={`rounded-xl px-3 py-1.5 text-xs font-bold capitalize ${filter === x ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'}`}>{x}</button>)}</div></div>
-    <div className="overflow-hidden rounded-2xl border bg-white shadow-sm">{loading ? <div className="space-y-3 p-6">{[1,2,3].map((x) => <div key={x} className="h-16 animate-pulse rounded-xl bg-slate-100" />)}</div> : rows.length === 0 ? <div className="p-14 text-center"><MapPin className="mx-auto h-12 w-12 text-slate-300" /><h3 className="mt-3 font-semibold">No trip proposals yet</h3><p className="mt-1 text-xs text-slate-500">Create a destination-based proposal with itinerary, services and pricing.</p></div> : <div className="overflow-x-auto"><table className="w-full text-left text-xs"><thead className="bg-slate-50 text-[11px] font-bold uppercase text-slate-500"><tr><th className="px-5 py-3.5">Proposal</th><th className="px-5 py-3.5">Traveller</th><th className="px-5 py-3.5">Trip</th><th className="px-5 py-3.5">Dates</th><th className="px-5 py-3.5">Status</th><th className="px-5 py-3.5 text-right">Total</th><th /></tr></thead><tbody className="divide-y">{rows.map((p) => { const t = p.travel_details!; return <tr key={p.id} onClick={() => { setSelected(p); setDetailsOpen(true); }} className="cursor-pointer hover:bg-slate-50"><td className="px-5 py-4"><b>{t.proposal_title || `${t.destination} Trip`}</b><div className="text-[10px] text-slate-400">{p.quotation_number}</div></td><td className="px-5 py-4">{p.contacts?.name || 'Traveller'}</td><td className="px-5 py-4"><b>{t.destination}</b><div className="flex items-center gap-1 text-[10px] text-slate-400"><Users className="h-3 w-3" />{t.adults + t.children} travellers</div></td><td className="px-5 py-4">{dateLabel(t.start_date)} – {dateLabel(t.end_date)}</td><td className="px-5 py-4"><span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase ${STATUS[p.status]}`}>{p.status}</span></td><td className="px-5 py-4 text-right font-extrabold">₹{p.total.toLocaleString('en-IN')}</td><td className="px-5"><ChevronRight className="h-4 w-4 text-slate-400" /></td></tr>; })}</tbody></table></div>}</div>
+  const publicUrl = selected?.public_token
+    ? `${typeof window !== 'undefined' ? window.location.origin : ''}/proposal/${selected.public_token}`
+    : '';
 
-    <Dialog open={createOpen} onOpenChange={setCreateOpen}><DialogContent className="max-h-[92vh] max-w-5xl overflow-y-auto"><DialogHeader><DialogTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-emerald-500" /> Create Trip Proposal</DialogTitle></DialogHeader><form onSubmit={createProposal} className="space-y-5">
-      <section className="rounded-2xl border bg-slate-50 p-4"><h3 className="mb-4 text-sm font-bold">Trip Details</h3><div className="grid gap-3 md:grid-cols-3"><div className="md:col-span-2"><Label className="text-xs">Proposal Title</Label><Input value={travel.proposal_title} onChange={(e) => setT('proposal_title', e.target.value)} placeholder="Goa Family Holiday" /></div><div><Label className="text-xs">Traveller *</Label><select required value={contactId} onChange={(e) => setContactId(e.target.value)} className="h-10 w-full rounded-xl border bg-white px-3 text-xs"><option value="">Choose Traveller</option>{contacts.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.phone})</option>)}</select></div><div><Label className="text-xs">Destination *</Label><Input required value={travel.destination} onChange={(e) => setT('destination', e.target.value)} placeholder="Goa, India" /></div><div><Label className="text-xs">Start Date *</Label><Input required type="date" value={travel.start_date} onChange={(e) => setT('start_date', e.target.value)} /></div><div><Label className="text-xs">End Date *</Label><Input required type="date" value={travel.end_date} onChange={(e) => setT('end_date', e.target.value)} /></div><div><Label className="text-xs">Adults</Label><Input type="number" min="1" value={travel.adults} onChange={(e) => setT('adults', Math.max(1, Number(e.target.value) || 1))} /></div><div><Label className="text-xs">Children</Label><Input type="number" min="0" value={travel.children} onChange={(e) => setT('children', Math.max(0, Number(e.target.value) || 0))} /></div><div><Label className="text-xs">Trip Type</Label><select value={travel.trip_type} onChange={(e) => setT('trip_type', e.target.value)} className="h-10 w-full rounded-xl border bg-white px-3 text-xs"><option>Family Holiday</option><option>Honeymoon</option><option>Adventure</option><option>Business</option><option>Group Tour</option><option>Custom</option></select></div><div><Label className="text-xs">Hotel</Label><select value={travel.hotel_category} onChange={(e) => setT('hotel_category', e.target.value)} className="h-10 w-full rounded-xl border bg-white px-3 text-xs"><option>3 Star</option><option>4 Star</option><option>5 Star</option><option>Luxury</option><option>Budget</option></select></div><div><Label className="text-xs">Meal Plan</Label><select value={travel.meal_plan} onChange={(e) => setT('meal_plan', e.target.value)} className="h-10 w-full rounded-xl border bg-white px-3 text-xs"><option>Room Only</option><option>Breakfast</option><option>Breakfast & Dinner</option><option>All Meals</option></select></div><div><Label className="text-xs">Valid Until</Label><Input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} /></div></div>{travel.start_date && travel.end_date && <div className="mt-3 flex items-center gap-2 text-xs font-bold text-emerald-700"><Clock3 className="h-3.5 w-3.5" />{duration(travel.start_date, travel.end_date)}</div>}</section>
-      <section className="rounded-2xl border p-4"><div className="mb-3 flex items-center justify-between"><h3 className="text-sm font-bold">Day-by-Day Itinerary</h3><Button type="button" variant="outline" size="sm" onClick={() => setT('itinerary', [...travel.itinerary, { day: travel.itinerary.length + 1, title: '', description: '' }])}><Plus className="mr-1 h-3.5 w-3.5" />Add Day</Button></div>{travel.itinerary.map((d, i) => <div key={i} className="mb-2 grid gap-2 md:grid-cols-[60px_1fr_1.5fr_40px]"><div className="pt-3 text-xs font-bold text-emerald-700">DAY {d.day}</div><Input value={d.title} onChange={(e) => setT('itinerary', travel.itinerary.map((x, n) => n === i ? { ...x, title: e.target.value } : x))} placeholder="North Goa sightseeing" /><Input value={d.description} onChange={(e) => setT('itinerary', travel.itinerary.map((x, n) => n === i ? { ...x, description: e.target.value } : x))} placeholder="Activities, transfers and highlights" />{travel.itinerary.length > 1 && <Button type="button" variant="ghost" size="icon" onClick={() => setT('itinerary', travel.itinerary.filter((_, n) => n !== i).map((x, n) => ({ ...x, day: n + 1 })))}><Trash2 className="h-4 w-4 text-rose-500" /></Button>}</div>)}</section>
-      <section className="rounded-2xl border p-4"><div className="mb-3 flex items-center gap-2"><Hotel className="h-4 w-4 text-emerald-600" /><h3 className="text-sm font-bold">Services & Pricing</h3></div>{items.map((x, i) => <div key={i} className="mb-2 grid gap-2 md:grid-cols-[130px_1fr_80px_110px_110px_40px]"><select value={x.category} onChange={(e) => setItems(items.map((v,n) => n===i ? {...v,category:e.target.value}:v))} className="h-10 rounded-xl border bg-white px-2 text-xs"><option>Hotel</option><option>Transport</option><option>Flight</option><option>Activity</option><option>Meal</option><option>Transfer</option><option>Guide</option><option>Other</option></select><Input value={x.description} onChange={(e) => setItems(items.map((v,n) => n===i ? {...v,description:e.target.value}:v))} placeholder="4-star hotel for 4 nights" /><Input type="number" min="1" value={x.quantity} onChange={(e) => setItems(items.map((v,n) => n===i ? {...v,quantity:Number(e.target.value)||1}:v))} /><Input type="number" min="0" value={x.unit_price} onChange={(e) => setItems(items.map((v,n) => n===i ? {...v,unit_price:Number(e.target.value)||0}:v))} /><div className="pt-3 text-right text-xs font-bold">₹{(x.quantity*x.unit_price).toLocaleString('en-IN')}</div>{items.length>1 && <Button type="button" variant="ghost" size="icon" onClick={() => setItems(items.filter((_,n)=>n!==i))}><Trash2 className="h-4 w-4 text-rose-500" /></Button>}</div>)}<Button type="button" variant="outline" size="sm" onClick={() => setItems([...items, emptyItem()])}><Plus className="mr-1 h-3.5 w-3.5" />Add Service</Button><div className="mt-4 grid gap-3 md:grid-cols-3"><div><Label className="text-xs">Tax %</Label><Input type="number" min="0" value={taxRate} onChange={(e)=>setTaxRate(e.target.value)} /></div><div><Label className="text-xs">Discount ₹</Label><Input type="number" min="0" value={discount} onChange={(e)=>setDiscount(e.target.value)} /></div><div><Label className="text-xs">Advance ₹</Label><Input type="number" min="0" value={travel.advance_amount} onChange={(e)=>setT('advance_amount', Math.max(0,Number(e.target.value)||0))} /></div></div><div className="mt-4 rounded-xl bg-slate-50 p-4 text-sm"><div className="flex justify-between"><span>Subtotal</span><b>₹{subtotal.toLocaleString('en-IN')}</b></div><div className="mt-1 flex justify-between"><span>Tax</span><span>₹{tax.toLocaleString('en-IN')}</span></div><div className="mt-2 flex justify-between text-base font-extrabold"><span>Total Package</span><span>₹{total.toLocaleString('en-IN')}</span></div></div></section>
-      <section className="grid gap-4 md:grid-cols-2">{(['inclusions','exclusions'] as const).map((key) => <div key={key} className="rounded-2xl border p-4"><div className="mb-2 flex justify-between"><h3 className="text-sm font-bold capitalize">{key}</h3><Button type="button" variant="ghost" size="sm" onClick={() => setT(key,[...travel[key],''])}><Plus className="h-3.5 w-3.5" /></Button></div>{travel[key].map((v,i)=><div key={i} className="mb-2 flex gap-2"><Input value={v} onChange={(e)=>setT(key,travel[key].map((x,n)=>n===i?e.target.value:x))} placeholder={key==='inclusions'?'Airport transfer':'Personal expenses'} />{travel[key].length>1 && <Button type="button" variant="ghost" size="icon" onClick={()=>setT(key,travel[key].filter((_,n)=>n!==i))}><Trash2 className="h-4 w-4 text-rose-500" /></Button>}</div>)}</div>)}</section>
-      <div><Label className="text-xs">Agent Notes</Label><Input value={notes} onChange={(e)=>setNotes(e.target.value)} placeholder="Special requests, cancellation notes, room preferences..." /></div><DialogFooter><Button type="button" variant="outline" onClick={()=>setCreateOpen(false)}>Cancel</Button><Button type="submit" disabled={saving} className="bg-[#00b074] font-bold text-white hover:bg-[#009b66]">{saving?'Creating...':'Save & Generate Proposal'}</Button></DialogFooter>
-    </form></DialogContent></Dialog>
+  const copyLink = async () => {
+    if (!publicUrl) return toast.error('Public link is not available');
+    await navigator.clipboard.writeText(publicUrl);
+    toast.success('Proposal link copied');
+  };
 
-    <Sheet open={detailsOpen} onOpenChange={setDetailsOpen}><SheetContent className="w-full overflow-y-auto sm:max-w-xl">{selected?.travel_details && <><SheetHeader><SheetTitle>{selected.travel_details.proposal_title || `${selected.travel_details.destination} Trip`}</SheetTitle></SheetHeader><div className="mt-5 space-y-5"><div className="rounded-2xl bg-slate-950 p-5 text-white"><div className="text-xl font-black">{selected.travel_details.destination}</div><div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-300">{dateLabel(selected.travel_details.start_date)} – {dateLabel(selected.travel_details.end_date)} · {selected.travel_details.duration_label} · {selected.travel_details.adults + selected.travel_details.children} travellers</div></div><div className="grid grid-cols-2 gap-3"><div className="rounded-xl border p-3"><div className="text-[10px] text-slate-400">Traveller</div><b className="text-sm">{selected.contacts?.name || 'Traveller'}</b></div><div className="rounded-xl border p-3"><div className="text-[10px] text-slate-400">Status</div><span className={`mt-1 inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${STATUS[selected.status]}`}>{selected.status}</span></div></div><div><h3 className="mb-2 text-sm font-bold">Itinerary</h3><div className="space-y-2">{selected.travel_details.itinerary.map((d)=><div key={d.day} className="rounded-xl border p-3"><b className="text-xs text-emerald-700">Day {d.day} · {d.title}</b><p className="mt-1 text-xs text-slate-500">{d.description}</p></div>)}</div></div><div><h3 className="mb-2 text-sm font-bold">Services</h3><div className="divide-y rounded-xl border">{selected.quotation_items?.map((x)=><div key={x.id} className="flex justify-between p-3 text-xs"><span>{x.description} × {x.quantity}</span><b>₹{x.total.toLocaleString('en-IN')}</b></div>)}</div></div><div className="rounded-2xl bg-slate-50 p-4"><div className="flex justify-between text-sm font-extrabold"><span>Total Package</span><span>₹{selected.total.toLocaleString('en-IN')}</span></div><div className="mt-2 flex justify-between text-xs text-emerald-700"><span>Advance</span><span>₹{selected.travel_details.advance_amount.toLocaleString('en-IN')}</span></div><div className="mt-1 flex justify-between text-xs font-bold"><span>Balance</span><span>₹{selected.travel_details.balance_amount.toLocaleString('en-IN')}</span></div></div><div className="grid grid-cols-2 gap-2"><Button variant="outline" onClick={copyLink} disabled={!selected.public_token}>Copy Proposal Link</Button><Button variant="outline" onClick={()=>publicUrl && window.open(publicUrl,'_blank')} disabled={!selected.public_token}>Open Customer View</Button></div><div className="grid grid-cols-2 gap-2"><Button variant="outline" onClick={()=>updateStatus(selected.id, selected.status==='draft'?'sent':selected.status==='sent'?'accepted':selected.status)}><CheckCircle2 className="mr-1 h-4 w-4" />{selected.status==='draft'?'Mark Sent':selected.status==='sent'?'Accept':'Accepted'}</Button><Button onClick={()=>invoice(selected.id)} disabled={converting} className="bg-slate-900 text-white"><Receipt className="mr-1 h-4 w-4" />{converting?'Creating...':'Create Invoice'}</Button></div>{selected.status!=='rejected' && <Button variant="ghost" className="w-full text-rose-600" onClick={()=>updateStatus(selected.id,'rejected')}><XCircle className="mr-1 h-4 w-4" />Reject Proposal</Button>}</div></>}</SheetContent></Sheet>
-  </div>;
+  return (
+    <div className="mx-auto w-full max-w-[1536px] space-y-6 pb-10">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-emerald-500" />
+            <h1 className="text-2xl font-bold text-slate-900">Trip Proposals</h1>
+          </div>
+          <p className="mt-1 text-sm text-slate-500">Travel proposal builder using Helpa&apos;s existing quotation and invoice engine.</p>
+        </div>
+        <Button
+          onClick={() => setCreateOpen(true)}
+          className="rounded-xl bg-[#00b074] font-bold text-white hover:bg-[#009b66]"
+        >
+          <Plus className="mr-2 h-4 w-4" /> Create Trip Proposal
+        </Button>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="rounded-2xl border bg-white p-4 shadow-sm"><p className="text-xs text-slate-500">Total Proposals</p><p className="mt-1 text-2xl font-bold">{rows.length}</p></div>
+        <div className="rounded-2xl border bg-white p-4 shadow-sm"><p className="text-xs text-slate-500">Awaiting Approval</p><p className="mt-1 text-2xl font-bold text-blue-700">{rows.filter((row) => row.status === 'sent').length}</p></div>
+        <div className="rounded-2xl border bg-white p-4 shadow-sm"><p className="text-xs text-slate-500">Accepted</p><p className="mt-1 text-2xl font-bold text-emerald-700">{rows.filter((row) => row.status === 'accepted').length}</p></div>
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-2xl border bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative flex-1 sm:max-w-md">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search destination, proposal or notes..." className="pl-9" />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {['all', 'draft', 'sent', 'accepted', 'rejected'].map((status) => (
+            <button key={status} onClick={() => setFilter(status)} className={`rounded-xl px-3 py-1.5 text-xs font-bold capitalize ${filter === status ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'}`}>
+              {status}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border bg-white shadow-sm">
+        {loading ? (
+          <div className="space-y-3 p-6">{[1, 2, 3].map((item) => <div key={item} className="h-16 animate-pulse rounded-xl bg-slate-100" />)}</div>
+        ) : rows.length === 0 ? (
+          <div className="p-14 text-center"><MapPin className="mx-auto h-12 w-12 text-slate-300" /><h3 className="mt-3 font-semibold">No trip proposals yet</h3><p className="mt-1 text-xs text-slate-500">Create a destination-based proposal with itinerary, services and pricing.</p></div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 text-[11px] font-bold uppercase text-slate-500"><tr><th className="px-5 py-3.5">Proposal</th><th className="px-5 py-3.5">Traveller</th><th className="px-5 py-3.5">Trip</th><th className="px-5 py-3.5">Dates</th><th className="px-5 py-3.5">Status</th><th className="px-5 py-3.5 text-right">Total</th><th /></tr></thead>
+              <tbody className="divide-y">
+                {rows.map((proposal) => {
+                  const trip = proposal.travel_details!;
+                  return (
+                    <tr key={proposal.id} onClick={() => { setSelected(proposal); setDetailsOpen(true); }} className="cursor-pointer hover:bg-slate-50">
+                      <td className="px-5 py-4"><b>{trip.proposal_title || `${trip.destination} Trip`}</b><div className="text-[10px] text-slate-400">{proposal.quotation_number}</div></td>
+                      <td className="px-5 py-4">{proposal.contacts?.name || 'Traveller'}</td>
+                      <td className="px-5 py-4"><b>{trip.destination}</b><div className="flex items-center gap-1 text-[10px] text-slate-400"><Users className="h-3 w-3" />{trip.adults + trip.children} travellers</div></td>
+                      <td className="px-5 py-4">{dateLabel(trip.start_date)} – {dateLabel(trip.end_date)}</td>
+                      <td className="px-5 py-4"><span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase ${STATUS[proposal.status]}`}>{proposal.status}</span></td>
+                      <td className="px-5 py-4 text-right font-extrabold">{money(proposal.total)}</td>
+                      <td className="px-5"><ChevronRight className="h-4 w-4 text-slate-400" /></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="flex h-[min(94vh,920px)] w-[calc(100vw-24px)] max-w-[1380px] flex-col gap-0 overflow-hidden rounded-2xl p-0 sm:w-[calc(100vw-40px)]">
+          <DialogHeader className="shrink-0 border-b bg-white px-6 py-4 sm:px-7">
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold text-slate-900">
+              <Sparkles className="h-5 w-5 text-emerald-500" /> Create Trip Proposal
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="shrink-0 border-b bg-white px-6 py-3 sm:px-7">
+            <div className="mx-auto flex max-w-4xl items-center justify-between gap-2 text-xs font-semibold text-slate-500">
+              {[['1', 'Trip Details'], ['2', 'Itinerary'], ['3', 'Services & Pricing'], ['4', 'Review & Send']].map(([number, label], index) => (
+                <div key={number} className="flex min-w-0 flex-1 items-center gap-2">
+                  <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${index === 0 ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-600'}`}>{number}</div>
+                  <span className="hidden truncate sm:block">{label}</span>
+                  {index < 3 && <div className="h-px flex-1 bg-slate-200" />}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <form onSubmit={createProposal} className="flex min-h-0 flex-1 flex-col">
+            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-slate-50/60 p-4 sm:p-6">
+              <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.9fr)]">
+                <div className="min-w-0 space-y-4">
+                  <section className="min-w-0 rounded-2xl border bg-white p-4 shadow-sm sm:p-5">
+                    <div className="mb-4 flex items-center gap-2"><MapPin className="h-4 w-4 text-emerald-500" /><h3 className="text-sm font-bold text-slate-900">Trip Details</h3></div>
+                    <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                      <div className="sm:col-span-2 xl:col-span-2"><Label className="text-xs">Proposal Title</Label><Input value={travel.proposal_title} onChange={(event) => setTravelField('proposal_title', event.target.value)} placeholder="Goa Family Holiday" className="mt-1.5" /></div>
+                      <div><Label className="text-xs">Traveller *</Label><select required value={contactId} onChange={(event) => setContactId(event.target.value)} className="mt-1.5 h-10 w-full min-w-0 rounded-xl border bg-white px-3 text-xs outline-none focus:ring-2 focus:ring-emerald-200"><option value="">Choose Traveller</option>{contacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.name} ({contact.phone})</option>)}</select></div>
+                      <div><Label className="text-xs">Destination *</Label><Input required value={travel.destination} onChange={(event) => setTravelField('destination', event.target.value)} placeholder="Goa, India" className="mt-1.5" /></div>
+                      <div><Label className="text-xs">Start Date *</Label><Input required type="date" value={travel.start_date} onChange={(event) => setTravelField('start_date', event.target.value)} className="mt-1.5" /></div>
+                      <div><Label className="text-xs">End Date *</Label><Input required type="date" value={travel.end_date} onChange={(event) => setTravelField('end_date', event.target.value)} className="mt-1.5" /></div>
+                      <div><Label className="text-xs">Duration</Label><Input readOnly value={duration(travel.start_date, travel.end_date)} placeholder="5 Days / 4 Nights" className="mt-1.5 bg-slate-50" /></div>
+                      <div><Label className="text-xs">Adults *</Label><Input required type="number" min="1" value={travel.adults} onChange={(event) => setTravelField('adults', Math.max(1, Number(event.target.value) || 1))} className="mt-1.5" /></div>
+                      <div><Label className="text-xs">Children</Label><Input type="number" min="0" value={travel.children} onChange={(event) => setTravelField('children', Math.max(0, Number(event.target.value) || 0))} className="mt-1.5" /></div>
+                      <div><Label className="text-xs">Trip Type</Label><select value={travel.trip_type} onChange={(event) => setTravelField('trip_type', event.target.value)} className="mt-1.5 h-10 w-full rounded-xl border bg-white px-3 text-xs"><option>Family Holiday</option><option>Leisure</option><option>Honeymoon</option><option>Adventure</option><option>Business</option><option>Group Tour</option></select></div>
+                      <div><Label className="text-xs">Hotel Category</Label><select value={travel.hotel_category} onChange={(event) => setTravelField('hotel_category', event.target.value)} className="mt-1.5 h-10 w-full rounded-xl border bg-white px-3 text-xs"><option>3 Star</option><option>4 Star</option><option>5 Star</option><option>Luxury</option><option>Budget</option></select></div>
+                      <div><Label className="text-xs">Meal Plan</Label><select value={travel.meal_plan} onChange={(event) => setTravelField('meal_plan', event.target.value)} className="mt-1.5 h-10 w-full rounded-xl border bg-white px-3 text-xs"><option>Breakfast</option><option>Breakfast & Dinner</option><option>Half Board</option><option>Full Board</option><option>Room Only</option></select></div>
+                    </div>
+                  </section>
+
+                  <section className="min-w-0 rounded-2xl border bg-white p-4 shadow-sm sm:p-5">
+                    <div className="mb-4 flex items-center justify-between gap-3"><div className="flex items-center gap-2"><CalendarDays className="h-4 w-4 text-emerald-500" /><h3 className="text-sm font-bold text-slate-900">Day-by-Day Itinerary</h3></div><Button type="button" variant="outline" size="sm" onClick={addDay} className="rounded-xl"><Plus className="mr-1 h-3.5 w-3.5" /> Add Day</Button></div>
+                    <div className="space-y-3">
+                      {travel.itinerary.map((day, index) => (
+                        <div key={`day-${index}`} className="grid min-w-0 gap-2 sm:grid-cols-[56px_minmax(0,1fr)_minmax(0,1.8fr)_36px] sm:items-center">
+                          <div className="text-xs font-bold text-emerald-600">DAY {day.day}</div>
+                          <Input value={day.title} onChange={(event) => updateDay(index, 'title', event.target.value)} placeholder="Day title" />
+                          <Input value={day.description} onChange={(event) => updateDay(index, 'description', event.target.value)} placeholder="Activities, transfers and notes" />
+                          <Button type="button" variant="ghost" size="icon" onClick={() => removeDay(index)} disabled={travel.itinerary.length === 1} className="text-rose-500 hover:bg-rose-50 hover:text-rose-600"><Trash2 className="h-4 w-4" /></Button>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+
+                  <div className="grid min-w-0 gap-4 md:grid-cols-2">
+                    {(['inclusions', 'exclusions'] as const).map((key) => (
+                      <section key={key} className="min-w-0 rounded-2xl border bg-white p-4 shadow-sm">
+                        <div className="mb-3 flex items-center justify-between"><h3 className="text-sm font-bold capitalize text-slate-900">{key}</h3><Button type="button" variant="ghost" size="sm" onClick={() => addListItem(key)} className="h-7 rounded-lg text-xs"><Plus className="mr-1 h-3 w-3" /> Add</Button></div>
+                        <div className="space-y-2">
+                          {travel[key].map((value, index) => (
+                            <div key={`${key}-${index}`} className="flex min-w-0 items-center gap-2"><Input value={value} onChange={(event) => updateList(key, index, event.target.value)} placeholder={key === 'inclusions' ? 'Daily breakfast' : 'Airfare / train fare'} /><Button type="button" variant="ghost" size="icon" onClick={() => removeListItem(key, index)} className="shrink-0 text-rose-500"><X className="h-4 w-4" /></Button></div>
+                          ))}
+                        </div>
+                      </section>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="min-w-0 space-y-4">
+                  <section className="min-w-0 rounded-2xl border bg-white p-4 shadow-sm sm:p-5">
+                    <div className="mb-4 flex items-center gap-2"><Hotel className="h-4 w-4 text-emerald-500" /><h3 className="text-sm font-bold text-slate-900">Services & Pricing</h3></div>
+                    <div className="hidden grid-cols-[minmax(0,1fr)_60px_112px_100px_32px] gap-2 border-b pb-2 text-[10px] font-bold uppercase text-slate-400 sm:grid"><span>Service</span><span>Qty</span><span>Unit Price (₹)</span><span>Total (₹)</span><span /></div>
+                    <div className="space-y-2 pt-2">
+                      {items.map((item, index) => {
+                        const lineTotal = (Number(item.quantity) || 0) * (Number(item.unit_price) || 0);
+                        return (
+                          <div key={`service-${index}`} className="grid min-w-0 gap-2 rounded-xl border bg-slate-50/60 p-2 sm:grid-cols-[minmax(0,1fr)_60px_112px_100px_32px] sm:items-center sm:border-0 sm:bg-transparent sm:p-0">
+                            <div className="min-w-0"><Label className="mb-1 block text-[10px] text-slate-400 sm:hidden">Service</Label><div className="flex min-w-0 items-center gap-2"><select value={item.category} onChange={(event) => setItems((previous) => previous.map((row, rowIndex) => rowIndex === index ? { ...row, category: event.target.value } : row))} className="h-10 w-28 shrink-0 rounded-xl border bg-white px-2 text-[11px]"><option>Hotel</option><option>Transport</option><option>Flight</option><option>Activity</option><option>Meal</option><option>Transfer</option><option>Other</option></select><Input value={item.description} onChange={(event) => setItems((previous) => previous.map((row, rowIndex) => rowIndex === index ? { ...row, description: event.target.value } : row))} placeholder="Service description" /></div></div>
+                            <div><Label className="mb-1 block text-[10px] text-slate-400 sm:hidden">Qty</Label><Input type="number" min="1" value={item.quantity} onChange={(event) => setItems((previous) => previous.map((row, rowIndex) => rowIndex === index ? { ...row, quantity: Math.max(1, Number(event.target.value) || 1) } : row))} /></div>
+                            <div><Label className="mb-1 block text-[10px] text-slate-400 sm:hidden">Unit Price</Label><Input type="number" min="0" value={item.unit_price} onChange={(event) => setItems((previous) => previous.map((row, rowIndex) => rowIndex === index ? { ...row, unit_price: Math.max(0, Number(event.target.value) || 0) } : row))} /></div>
+                            <div className="flex h-10 items-center justify-between rounded-xl border bg-white px-3 text-xs font-semibold sm:border-0 sm:bg-transparent sm:px-0"><span className="sm:hidden">Total</span>{money(lineTotal)}</div>
+                            <Button type="button" variant="ghost" size="icon" onClick={() => setItems((previous) => previous.length === 1 ? previous : previous.filter((_, rowIndex) => rowIndex !== index))} disabled={items.length === 1} className="text-rose-500"><Trash2 className="h-4 w-4" /></Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <Button type="button" variant="outline" size="sm" onClick={() => setItems((previous) => [...previous, emptyItem()])} className="mt-3 rounded-xl"><Plus className="mr-1 h-3.5 w-3.5" /> Add Service</Button>
+                  </section>
+
+                  <section className="min-w-0 rounded-2xl border bg-white p-4 shadow-sm sm:p-5">
+                    <h3 className="mb-4 text-sm font-bold text-slate-900">Pricing Summary</h3>
+                    <div className="space-y-3 text-xs"><div className="flex justify-between"><span className="text-slate-500">Sub Total</span><b>{money(subtotal)}</b></div><div className="grid grid-cols-2 items-center gap-3"><Label className="text-xs text-slate-500">Tax Rate (%)</Label><Input type="number" min="0" value={taxRate} onChange={(event) => setTaxRate(event.target.value)} /></div><div className="flex justify-between"><span className="text-slate-500">Tax</span><b>{money(tax)}</b></div><div className="grid grid-cols-2 items-center gap-3"><Label className="text-xs text-slate-500">Discount (₹)</Label><Input type="number" min="0" value={discount} onChange={(event) => setDiscount(event.target.value)} /></div><div className="border-t pt-3 flex justify-between text-base"><span className="font-bold">Total Package Price</span><b className="text-emerald-600">{money(total)}</b></div></div>
+                    <div className="mt-5 grid gap-3 sm:grid-cols-2"><div><Label className="text-xs">Advance Amount</Label><Input type="number" min="0" max={total} value={travel.advance_amount} onChange={(event) => setTravelField('advance_amount', Math.min(total, Math.max(0, Number(event.target.value) || 0)))} className="mt-1.5" /></div><div><Label className="text-xs">Balance Amount</Label><Input readOnly value={balance} className="mt-1.5 bg-slate-50" /></div><div className="sm:col-span-2"><Label className="text-xs">Proposal Valid Until</Label><Input type="date" value={validUntil} onChange={(event) => setValidUntil(event.target.value)} className="mt-1.5" /></div></div>
+                  </section>
+
+                  <section className="min-w-0 rounded-2xl border bg-white p-4 shadow-sm sm:p-5">
+                    <Label className="text-sm font-bold text-slate-900">Notes for Traveller <span className="font-normal text-slate-400">(Optional)</span></Label>
+                    <textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="We are happy to customize this itinerary as per your preferences." className="mt-2 min-h-28 w-full resize-y rounded-xl border bg-white p-3 text-xs outline-none focus:ring-2 focus:ring-emerald-200" />
+                  </section>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter className="shrink-0 border-t bg-white px-5 py-4 sm:px-6">
+              <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <Button type="button" variant="outline" onClick={() => { setCreateOpen(false); reset(); }} className="rounded-xl">Cancel</Button>
+                <div className="flex flex-col gap-2 sm:flex-row"><Button type="button" variant="outline" onClick={() => toast.info('Draft saving uses the same quotation workflow.')} className="rounded-xl">Save as Draft</Button><Button type="submit" disabled={saving} className="rounded-xl bg-[#00b074] font-bold text-white hover:bg-[#009b66]"><Send className="mr-2 h-4 w-4" />{saving ? 'Saving...' : 'Preview & Send Proposal'}</Button></div>
+              </div>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Sheet open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
+          <SheetHeader><SheetTitle>{selected?.travel_details?.proposal_title || 'Trip Proposal'}</SheetTitle></SheetHeader>
+          {selected?.travel_details && (
+            <div className="mt-6 space-y-5 text-sm">
+              <div className="rounded-2xl bg-slate-50 p-4"><div className="flex items-center justify-between"><b>{selected.travel_details.destination}</b><span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase ${STATUS[selected.status]}`}>{selected.status}</span></div><p className="mt-2 text-xs text-slate-500">{dateLabel(selected.travel_details.start_date)} – {dateLabel(selected.travel_details.end_date)} · {selected.travel_details.duration_label}</p><p className="mt-1 text-xs text-slate-500">{selected.travel_details.adults} adults · {selected.travel_details.children} children · {selected.travel_details.hotel_category} · {selected.travel_details.meal_plan}</p></div>
+              <div><h4 className="mb-2 font-bold">Itinerary</h4><div className="space-y-2">{selected.travel_details.itinerary.map((day) => <div key={day.day} className="rounded-xl border p-3"><b className="text-emerald-600">Day {day.day} · {day.title}</b><p className="mt-1 text-xs text-slate-500">{day.description}</p></div>)}</div></div>
+              <div><h4 className="mb-2 font-bold">Pricing</h4><div className="rounded-xl border p-4"><div className="flex justify-between"><span>Subtotal</span><b>{money(selected.subtotal)}</b></div><div className="mt-2 flex justify-between"><span>Tax</span><b>{money(selected.tax_amount)}</b></div><div className="mt-2 flex justify-between"><span>Discount</span><b>- {money(selected.discount_amount)}</b></div><div className="mt-3 border-t pt-3 flex justify-between text-base"><b>Total</b><b className="text-emerald-600">{money(selected.total)}</b></div></div></div>
+              <div className="grid gap-2 sm:grid-cols-2"><Button type="button" variant="outline" onClick={copyLink} disabled={!selected.public_token}>Copy Proposal Link</Button><Button type="button" variant="outline" onClick={() => updateStatus(selected.id, 'sent')} disabled={selected.status === 'sent'}><Send className="mr-2 h-4 w-4" /> Mark Sent</Button><Button type="button" variant="outline" onClick={() => updateStatus(selected.id, 'accepted')}><CheckCircle2 className="mr-2 h-4 w-4 text-emerald-500" /> Accept</Button><Button type="button" variant="outline" onClick={() => updateStatus(selected.id, 'rejected')}><XCircle className="mr-2 h-4 w-4 text-rose-500" /> Reject</Button></div>
+              {selected.status === 'accepted' && <Button type="button" onClick={() => invoice(selected.id)} disabled={converting} className="w-full rounded-xl bg-slate-900 text-white hover:bg-slate-800"><Receipt className="mr-2 h-4 w-4" />{converting ? 'Creating Invoice...' : 'Convert to Invoice'}</Button>}
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+    </div>
+  );
 }
