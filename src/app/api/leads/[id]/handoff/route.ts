@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { TrustedActionExecutor } from '@/core/actions/action-executor';
+import { pauseFollowupsForConversation } from '@/lib/leads/lead-followup.service';
+import { getAdminClient } from '@/lib/db/server';
 import {
   ForbiddenError,
   requireRole,
@@ -44,6 +46,16 @@ export async function POST(
         { success: false, error: result.error },
         { status: 500 }
       );
+    }
+
+    try {
+      await pauseFollowupsForConversation(getAdminClient(), {
+        accountId: ctx.accountId,
+        conversationId,
+        leadId,
+      });
+    } catch (err) {
+      console.error('[leads] pause follow-ups on handoff failed', err);
     }
 
     return NextResponse.json({ success: true, data: result.data });

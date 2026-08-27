@@ -157,7 +157,7 @@ export function extractStructuredInsights(
     resolved: !!payload.resolved,
     summary: (payload.summary as string) || null,
     faqCategory: (payload.faq_category as string) || 'general',
-    salesSignal: !!payload.sales_signal,
+    salesSignal: !!payload.sales_signal || !!payload.is_business_enquiry,
     interestedService: (extracted.interested_service as string) || null,
     budget: (extracted.budget as string) || null,
     timeline: (extracted.timeline as string) || null,

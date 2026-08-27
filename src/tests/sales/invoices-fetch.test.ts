@@ -20,13 +20,34 @@ function request(url = 'http://localhost/api/invoices'): NextRequest {
   return new NextRequest(url, { method: 'GET' });
 }
 
-function createQueryMock(result: { data: unknown[]; count: number | null; error: null | { code: string; message: string } }) {
-  const query = {
-    eq: vi.fn().mockReturnThis(),
-    or: vi.fn().mockReturnThis(),
-    order: vi.fn().mockReturnThis(),
-    range: vi.fn().mockResolvedValue(result),
+function createQueryMock(result: {
+  data: unknown[];
+  count: number | null;
+  error: null | { code: string; message: string };
+}) {
+  const query: {
+    eq: ReturnType<typeof vi.fn>;
+    or: ReturnType<typeof vi.fn>;
+    in: ReturnType<typeof vi.fn>;
+    order: ReturnType<typeof vi.fn>;
+    range: ReturnType<typeof vi.fn>;
+    then: (
+      resolve: (value: typeof result) => unknown,
+      reject?: (reason: unknown) => unknown
+    ) => Promise<unknown>;
+  } = {
+    eq: vi.fn(),
+    or: vi.fn(),
+    in: vi.fn(),
+    order: vi.fn(),
+    range: vi.fn(),
+    then: (resolve, reject) => Promise.resolve(result).then(resolve, reject),
   };
+  query.eq.mockReturnValue(query);
+  query.or.mockReturnValue(query);
+  query.in.mockReturnValue(query);
+  query.order.mockReturnValue(query);
+  query.range.mockResolvedValue(result);
   return query;
 }
 
@@ -86,15 +107,31 @@ describe('invoice list API', () => {
       count: 1,
       error: null,
     });
-    const itemsQuery = createQueryMock({ data: invoiceItems, count: null, error: null });
-    const paymentsQuery = createQueryMock({ data: invoicePayments, count: null, error: null });
-    const contactsQuery = createQueryMock({ data: [contact], count: null, error: null });
+    const itemsQuery = createQueryMock({
+      data: invoiceItems,
+      count: null,
+      error: null,
+    });
+    const paymentsQuery = createQueryMock({
+      data: invoicePayments,
+      count: null,
+      error: null,
+    });
+    const contactsQuery = createQueryMock({
+      data: [contact],
+      count: null,
+      error: null,
+    });
 
     const fromMock = vi.fn((table: string) => {
-      if (table === 'invoices') return { select: vi.fn().mockReturnValue(invoicesQuery) };
-      if (table === 'invoice_items') return { select: vi.fn().mockReturnValue(itemsQuery) };
-      if (table === 'invoice_payments') return { select: vi.fn().mockReturnValue(paymentsQuery) };
-      if (table === 'contacts') return { select: vi.fn().mockReturnValue(contactsQuery) };
+      if (table === 'invoices')
+        return { select: vi.fn().mockReturnValue(invoicesQuery) };
+      if (table === 'invoice_items')
+        return { select: vi.fn().mockReturnValue(itemsQuery) };
+      if (table === 'invoice_payments')
+        return { select: vi.fn().mockReturnValue(paymentsQuery) };
+      if (table === 'contacts')
+        return { select: vi.fn().mockReturnValue(contactsQuery) };
       throw new Error(`Unexpected table ${table}`);
     });
 

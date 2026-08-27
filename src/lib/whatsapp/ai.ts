@@ -31,6 +31,7 @@ import {
   syncDealPipeline,
   updateConversationInsights,
 } from '@/lib/whatsapp/ai-crm-sync';
+import { applyDetectionToLead } from '@/lib/leads/inbound-lead-layer';
 import { getAccountChatbotSettings } from '@/core/ai/chatbot-settings';
 
 import {
@@ -195,6 +196,7 @@ export async function triggerAiResponse(
   }
 
   const messages = (rawMessages || []).map((m) => ({
+    id: String(m.id || m.message_id || m.messageId || ''),
     sender_type: String(m.sender_type || m.senderType || 'customer'),
     content_type: String(m.content_type || m.contentType || 'text'),
     content_text: String(m.content_text || m.contentText || ''),
@@ -486,6 +488,33 @@ export async function triggerAiResponse(
       contact,
       insights,
     });
+    try {
+      const latestInbound = messages.find((m) => m.sender_type === 'customer');
+      await applyDetectionToLead(
+        {
+          accountId,
+          userId,
+          conversationId,
+          contactId,
+          messageId:
+            latestInbound?.id ||
+            `ai:${conversationId}:${latestInbound?.created_at || 'latest'}`,
+          messageText: latestInbound?.content_text || '',
+          contactName: contact?.name ?? null,
+          contactPhone: contact?.phone ?? null,
+          industry: account?.industry ?? accData?.industry ?? null,
+          assignedAgentId:
+            (conversation?.assigned_agent_id as string | null) || null,
+          aiDisabled:
+            conversation?.ai_chat_enabled === false ||
+            conversation?.ai_autoreply_disabled === true,
+        },
+        insights,
+        db
+      );
+    } catch (leadErr) {
+      console.error('[AI Assistant] lead detection layer failed:', leadErr);
+    }
 
     // Hospital & Clinic Action Processing
     if (isHospitalEnabled) {

@@ -252,6 +252,19 @@ export async function POST(
       metadata: { contact_id: contact.id, deal_id: createdDeal?.id },
     });
 
+    try {
+      const { stopFollowupsForLead } =
+        await import('@/lib/leads/lead-followup.service');
+      await stopFollowupsForLead(supabase, {
+        accountId: ctx.accountId,
+        leadId: id,
+        reason: 'lead_converted',
+        correlationId,
+      });
+    } catch (err) {
+      console.error('[leads] stop follow-ups on convert failed', err);
+    }
+
     // 5. Dispatch CRM Event
     try {
       await dispatchCrmEvent({

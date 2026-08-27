@@ -3,6 +3,7 @@ import { getAdminClient } from '@/lib/db/server';
 import { authorizeCronRequest } from '@/lib/cron/security';
 import { resumePendingExecution } from '@/lib/automations/engine';
 import type { AutomationContext } from '@/lib/automations/engine';
+import { processDueLeadFollowups } from '@/lib/leads/lead-followup.service';
 
 const NO_STORE_HEADERS = {
   'Cache-Control': 'private, no-store, no-cache, must-revalidate',
@@ -46,11 +47,9 @@ export async function GET(request: Request) {
       { error: error.message },
       { status: 500, headers: NO_STORE_HEADERS }
     );
-  if (!due || due.length === 0)
-    return NextResponse.json({ processed: 0 }, { headers: NO_STORE_HEADERS });
 
   let processed = 0;
-  for (const row of due) {
+  for (const row of due || []) {
     const { data: claim } = await admin
       .from('automation_pending_executions')
       .update({ status: 'running' })
@@ -77,5 +76,13 @@ export async function GET(request: Request) {
     processed++;
   }
 
-  return NextResponse.json({ processed }, { headers: NO_STORE_HEADERS });
+  const followups = await processDueLeadFollowups(admin, { limit: 50 });
+
+  return NextResponse.json(
+    {
+      processed,
+      followups,
+    },
+    { headers: NO_STORE_HEADERS }
+  );
 }

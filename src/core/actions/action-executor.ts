@@ -167,6 +167,18 @@ export class TrustedActionExecutor {
         }
       );
 
+      try {
+        const { pauseFollowupsForConversation } =
+          await import('@/lib/leads/lead-followup.service');
+        await pauseFollowupsForConversation(getAdminClient(), {
+          accountId: this.context.accountId,
+          conversationId: params.conversationId,
+          leadId: params.leadId,
+        });
+      } catch (err) {
+        console.error('[actions] pause follow-ups on handoff failed', err);
+      }
+
       return {
         success: true,
         data: { conversationId: params.conversationId, aiEnabled: false },

@@ -88,7 +88,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
 
     const baseInvoices = invoices || [];
-    const invoiceIds = baseInvoices.map((invoice) => invoice.id as string).filter(Boolean);
+    const invoiceIds = baseInvoices
+      .map((invoice) => invoice.id as string)
+      .filter(Boolean);
     const contactIds = Array.from(
       new Set(
         baseInvoices
@@ -157,9 +159,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       paymentsByInvoice.set(key, bucket);
     });
 
-    const contactById = new Map(
-      (contactsResult.data || []).map((contact) => [String(contact.id), contact])
-    );
+    const contactById = new Map<
+      string,
+      NonNullable<(typeof contactsResult)['data']>[number]
+    >();
+    for (const contact of contactsResult.data || []) {
+      contactById.set(String(contact.id), contact);
+    }
 
     const hydratedInvoices = baseInvoices.map((invoice) => ({
       ...invoice,
@@ -343,7 +349,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       .select('*');
 
     if (itemsErr) {
-      await supabase.from('invoices').delete().eq('id', newInvoice.id).eq('account_id', ctx.accountId);
+      await supabase
+        .from('invoices')
+        .delete()
+        .eq('id', newInvoice.id)
+        .eq('account_id', ctx.accountId);
       console.error('[invoices] POST items insert error:', {
         requestId: correlationId,
         code: itemsErr.code,

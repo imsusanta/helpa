@@ -133,6 +133,21 @@ export async function POST(
       notes: notes || null,
     });
 
+    if (normalizedStage === 'LOST' || normalizedStage === 'CONVERTED') {
+      try {
+        const { stopFollowupsForLead } =
+          await import('@/lib/leads/lead-followup.service');
+        await stopFollowupsForLead(supabase, {
+          accountId: ctx.accountId,
+          leadId: id,
+          reason: normalizedStage === 'LOST' ? 'lead_lost' : 'lead_converted',
+          correlationId,
+        });
+      } catch (err) {
+        console.error('[leads] stop follow-ups on stage change failed', err);
+      }
+    }
+
     // Dispatch CRM Event
     try {
       await dispatchCrmEvent({

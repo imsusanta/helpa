@@ -26,6 +26,8 @@ import {
   GitBranch,
   Webhook,
   CircleSlash,
+  Ban,
+  UserRoundPen,
   Zap,
   Loader2,
   ArrowDown,
@@ -135,6 +137,16 @@ const STEP_META: Record<AutomationStepType, StepMeta> = {
     icon: CircleSlash,
     border: 'border-l-primary',
   },
+  update_lead: {
+    label: 'Update Lead',
+    icon: UserRoundPen,
+    border: 'border-l-primary',
+  },
+  stop_followup: {
+    label: 'Stop Follow-up',
+    icon: Ban,
+    border: 'border-l-rose-500',
+  },
 };
 
 const ADDABLE_STEPS: AutomationStepType[] = [
@@ -149,6 +161,8 @@ const ADDABLE_STEPS: AutomationStepType[] = [
   'condition',
   'send_webhook',
   'close_conversation',
+  'update_lead',
+  'stop_followup',
 ];
 
 const TRIGGER_OPTIONS: {
@@ -206,6 +220,21 @@ const TRIGGER_OPTIONS: {
     value: 'appointment_cancelled',
     label: 'Appointment Cancelled',
     hint: 'When an appointment is cancelled',
+  },
+  {
+    value: 'lead_created',
+    label: 'Lead Created',
+    hint: 'When AI detects a genuine enquiry and creates a lead',
+  },
+  {
+    value: 'lead_qualified',
+    label: 'Lead Qualified',
+    hint: 'When AI qualifies or updates a WhatsApp lead',
+  },
+  {
+    value: 'lead_score_changed',
+    label: 'Lead Score Changed',
+    hint: 'When a lead score moves between cold, warm, and hot',
   },
 ];
 
@@ -275,6 +304,10 @@ function blankConfig(type: AutomationStepType): Record<string, unknown> {
       return { url: '', headers: {}, body_template: '' };
     case 'close_conversation':
       return {};
+    case 'stop_followup':
+      return {};
+    case 'update_lead':
+      return { field: 'stage', value: '' };
     default:
       return {};
   }
@@ -1488,6 +1521,38 @@ function StepEditor({
           Sets the conversation status to &quot;closed&quot;. No configuration
           needed.
         </p>
+      );
+    case 'stop_followup':
+      return (
+        <p className="text-muted-foreground text-xs">
+          Cancels any scheduled smart follow-up and stops further automated
+          reminders for this lead. No configuration needed.
+        </p>
+      );
+    case 'update_lead':
+      return (
+        <>
+          <FieldBlock label="Lead field">
+            <select
+              value={(cfg.field as string) ?? 'stage'}
+              onChange={(e) => set({ field: e.target.value })}
+              className="border-input bg-background w-full rounded-md border px-2 py-1.5 text-xs"
+            >
+              <option value="stage">Stage</option>
+              <option value="score">Score</option>
+              <option value="service">Service</option>
+              <option value="notes">Notes</option>
+            </select>
+          </FieldBlock>
+          <FieldBlock label="Value">
+            <Input
+              value={(cfg.value as string) ?? ''}
+              onChange={(e) => set({ value: e.target.value })}
+              placeholder="QUALIFIED or hot"
+              className="h-8 text-xs"
+            />
+          </FieldBlock>
+        </>
       );
     default:
       return null;
