@@ -1,5 +1,10 @@
 import { getAdminClient } from '@/lib/db/server';
 import {
+  persistOutboundMessage,
+  touchConversationPreview,
+  outboundPreviewText,
+} from '@/lib/whatsapp/persist-outbound-message';
+import {
   sendTextMessage,
   sendMediaMessage,
   sendInteractiveButtons,
@@ -213,61 +218,45 @@ async function recordSentMessage(
   contentText: string | null,
   mediaUrl: string | null
 ): Promise<string> {
-  const db = getAdminClient();
-  const nowIso = new Date().toISOString();
   const fallbackId = `bot-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
   const messageId = metaMessageId || fallbackId;
   try {
-    // account_id is required by the canonical messages schema. Keep the
-    // provider message id as the idempotency key so webhook/retry paths cannot
-    // create duplicate outbound bubbles.
-    const existing = await db
-      .from('messages')
-      .select('id')
-      .eq('account_id', accountId)
-      .eq('message_id', messageId)
-      .maybeSingle();
-    if (existing.data?.id) return String(existing.data.id);
+    const persistRes = await persistOutboundMessage({
+      accountId,
+      conversationId,
+      senderType: 'bot',
+      contentType,
+      contentText,
+      mediaUrl,
+      providerMessageId: messageId,
+    });
+    if (!persistRes.ok) {
+      console.error(
+        '[meta-send] Failed to persist outbound message:',
+        persistRes.error
+      );
+      return messageId;
+    }
 
-    const { data: inserted, error } = await db
-      .from('messages')
-      .insert({
-        account_id: accountId,
-        conversation_id: conversationId,
-        sender_type: 'bot',
-        content_type: contentType,
-        content_text: contentText,
-        media_url: mediaUrl,
-        status: 'sent',
-        message_id: messageId,
-        created_at: nowIso,
-        updated_at: nowIso,
-      })
-      .select('id')
-      .maybeSingle();
-
-    if (error) {
-      console.error('[meta-send] Failed to persist outbound message:', error);
-      throw new Error(
-        `[meta-send] Outbound Meta message was sent but local persistence failed: ${error.message}`
+    try {
+      await touchConversationPreview({
+        accountId,
+        conversationId,
+        previewText: outboundPreviewText({
+          contentText,
+          contentType,
+        }),
+      });
+    } catch (err) {
+      console.warn(
+        '[meta-send] Conversation preview update failed:',
+        err instanceof Error ? err.message : err
       );
     }
 
-    await db
-      .from('conversations')
-      .update({
-        last_message_text: contentText || `[${contentType}]`,
-        last_message_at: nowIso,
-        updated_at: nowIso,
-      })
-      .eq('id', conversationId)
-      .eq('account_id', accountId);
-
-    return inserted?.id ? String(inserted.id) : messageId;
+    return persistRes.messageId || messageId;
   } catch (err) {
     console.error('[meta-send] Failed to record message in database:', err);
-    // Do not silently claim local persistence succeeded. The caller still
-    // receives the Meta message id, while the failure is visible in logs.
     return messageId;
   }
 }

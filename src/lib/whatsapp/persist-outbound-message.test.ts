@@ -223,6 +223,28 @@ describe('persistOutboundMessage', () => {
     expect(dbState.inserts[0]).not.toHaveProperty('sender_id');
   });
 
+  it('persists AI replies as sender_type bot so inbox shows them as outbound', async () => {
+    const res = await persistOutboundMessage({
+      accountId: 'tenant-1',
+      conversationId: 'conv-1',
+      senderType: 'bot',
+      contentType: 'text',
+      contentText: 'I can help you book an appointment.',
+      providerMessageId: 'wamid.AI.1',
+    });
+
+    expect(res.ok).toBe(true);
+    expect(dbState.inserts).toHaveLength(1);
+    expect(dbState.inserts[0]).toMatchObject({
+      conversation_id: 'conv-1',
+      direction: 'outbound',
+      sender_type: 'bot',
+      content_text: 'I can help you book an appointment.',
+      message_id: 'wamid.AI.1',
+      status: 'delivered',
+    });
+  });
+
   it('includes optional columns only when they have values', async () => {
     await persistOutboundMessage({
       accountId: 'tenant-1',
