@@ -39,46 +39,50 @@ describe('OAuth State Security & Single-Use Verification', () => {
             };
             return builder;
           },
-          update: (updateData: Record<string, unknown>) => {
-            const builder = {
-              eq: (field: string, val: unknown) => {
-                const matched = mockOauthStates.filter((r) => r[field] === val);
-                matched.forEach((r) => Object.assign(r, updateData));
-                return {
-                  is: (_f: string, _v: unknown) =>
-                    Promise.resolve({ data: matched, error: null }),
-                  then: (resolve: (res: { error: null }) => void) =>
-                    resolve({ error: null }),
-                };
-              },
-            };
-            return builder;
-          },
+          update: (updateData: Record<string, unknown>) => ({
+            eq: (field: string, val: unknown) => {
+              const matched = mockOauthStates.filter((r) => r[field] === val);
+              return {
+                is: (nullField: string, nullValue: unknown) => {
+                  const claimable = matched.filter(
+                    (row) => row[nullField] == nullValue
+                  );
+                  claimable.forEach((row) => Object.assign(row, updateData));
+                  return {
+                    select: async () => ({
+                      data: claimable.map((row) => ({ id: row.id })),
+                      error: null,
+                    }),
+                  };
+                },
+              };
+            },
+          }),
         };
       },
     } as unknown as ReturnType<typeof supabaseServer.getAdminClient>);
   });
 
-  it('generates a 64-character cryptographically secure state bound to tenant and user', async () => {
+  it('generates a 64-character state bound to tenant and user', async () => {
     const result = await generateOAuthState({
       accountId: tenantA.id,
       userId: tenantA.userId,
       expiresInSeconds: 900,
     });
 
-    expect(result.state).toBeDefined();
-    expect(result.state.length).toBe(64); // 32 bytes hex = 64 chars
+    expect(result.state).toHaveLength(64);
     expect(result.expiresAt).toBeDefined();
-
-    expect(mockOauthStates.length).toBe(1);
-    const stored = mockOauthStates[0];
-    expect(stored.account_id).toBe(tenantA.id);
-    expect(stored.user_id).toBe(tenantA.userId);
-    expect(stored.state).toBe(result.state);
-    expect(stored.used_at).toBeUndefined();
+    expect(mockOauthStates).toHaveLength(1);
+    expect(mockOauthStates[0]).toEqual(
+      expect.objectContaining({
+        account_id: tenantA.id,
+        user_id: tenantA.userId,
+        state: result.state,
+      })
+    );
   });
 
-  it('successfully validates and consumes a valid active state', async () => {
+  it('validates and atomically consumes an active state', async () => {
     const { state } = await generateOAuthState({
       accountId: tenantA.id,
       userId: tenantA.userId,
@@ -93,26 +97,23 @@ describe('OAuth State Security & Single-Use Verification', () => {
     expect(validated.state).toBe(state);
     expect(validated.accountId).toBe(tenantA.id);
     expect(validated.userId).toBe(tenantA.userId);
-
-    // State should now be marked as used in DB
-    const stored = mockOauthStates.find((r) => r.state === state);
-    expect(stored?.used_at).toBeDefined();
+    expect(mockOauthStates.find((row) => row.state === state)?.used_at).toBe(
+      defined
+    );
   });
 
-  it('rejects replayed / already used state', async () => {
+  it('rejects replayed state', async () => {
     const { state } = await generateOAuthState({
       accountId: tenantA.id,
       userId: tenantA.userId,
     });
 
-    // First consumption succeeds
     await validateAndConsumeOAuthState({
       state,
       accountId: tenantA.id,
       userId: tenantA.userId,
     });
 
-    // Replay attempt must fail hard
     await expect(
       validateAndConsumeOAuthState({
         state,
@@ -122,8 +123,7 @@ describe('OAuth State Security & Single-Use Verification', () => {
     ).rejects.toThrow(/already been consumed|replay attack/i);
   });
 
-  it('rejects expired OAuth state', async () => {
-    // Pre-insert an expired state
+  it('rejects expired state', async () => {
     const expiredState = 'expired_state_hex_1234567890abcdef1234567890abcdef';
     mockOauthStates.push({
       id: 'state-expired-1',
@@ -131,9 +131,9 @@ describe('OAuth State Security & Single-Use Verification', () => {
       user_id: tenantA.userId,
       provider: 'meta_whatsapp',
       state: expiredState,
-      expires_at: new Date(Date.now() - 60000).toISOString(), // 1 minute in the past
+      expires_at: new Date(Date.now() - 60_000).toISOString(),
       used_at: null,
-      created_at: new Date(Date.now() - 120000).toISOString(),
+      created_at: new Date(Date.now() - 120_000).toISOString(),
     });
 
     await expect(
@@ -145,13 +145,12 @@ describe('OAuth State Security & Single-Use Verification', () => {
     ).rejects.toThrow(/expired/i);
   });
 
-  it('rejects state when used by a different tenant (tenant mismatch prevention)', async () => {
+  it('rejects a state bound to another tenant', async () => {
     const { state } = await generateOAuthState({
       accountId: tenantA.id,
       userId: tenantA.userId,
     });
 
-    // Tenant B attempts to use Tenant A's state
     await expect(
       validateAndConsumeOAuthState({
         state,
@@ -161,7 +160,7 @@ describe('OAuth State Security & Single-Use Verification', () => {
     ).rejects.toThrow(/tenant mismatch/i);
   });
 
-  it('rejects non-existent or unknown state', async () => {
+  it('rejects an unknown state', async () => {
     await expect(
       validateAndConsumeOAuthState({
         state: 'completely_unknown_state',
@@ -171,8 +170,7 @@ describe('OAuth State Security & Single-Use Verification', () => {
     ).rejects.toThrow(/Invalid or unknown OAuth state/i);
   });
 
-  it('gracefully handles missing schema cache via HMAC fallback', async () => {
-    // Simulate PostgREST schema cache error
+  it('fails closed when persistent state storage is unavailable', async () => {
     vi.spyOn(supabaseServer, 'getAdminClient').mockReturnValue({
       from: () => ({
         insert: () =>
@@ -187,32 +185,11 @@ describe('OAuth State Security & Single-Use Verification', () => {
       }),
     } as unknown as ReturnType<typeof supabaseServer.getAdminClient>);
 
-    const { state, expiresAt } = await generateOAuthState({
-      accountId: tenantA.id,
-      userId: tenantA.userId,
-    });
-
-    expect(state).toMatch(/^hmac\./);
-    expect(expiresAt).toBeDefined();
-
-    // Validating the HMAC fallback state
-    const validated = await validateAndConsumeOAuthState({
-      state,
-      accountId: tenantA.id,
-      userId: tenantA.userId,
-    });
-
-    expect(validated.accountId).toBe(tenantA.id);
-    expect(validated.userId).toBe(tenantA.userId);
-    expect(validated.state).toBe(state);
-
-    // Tenant mismatch with HMAC state
     await expect(
-      validateAndConsumeOAuthState({
-        state,
-        accountId: tenantB.id,
-        userId: tenantB.userId,
+      generateOAuthState({
+        accountId: tenantA.id,
+        userId: tenantA.userId,
       })
-    ).rejects.toThrow(/tenant mismatch/i);
+    ).rejects.toThrow(/OAuth state storage is unavailable/i);
   });
 });
