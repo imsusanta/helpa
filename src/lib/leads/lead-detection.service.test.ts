@@ -11,6 +11,7 @@ describe('looksLikeGreeting', () => {
   it('treats common greetings as not enough intent', () => {
     expect(looksLikeGreeting('Hi')).toBe(true);
     expect(looksLikeGreeting('hello!')).toBe(true);
+    expect(looksLikeGreeting('Hi!!!!!!!')).toBe(true);
     expect(looksLikeGreeting('Good morning')).toBe(true);
     expect(looksLikeGreeting('Namaste')).toBe(true);
   });

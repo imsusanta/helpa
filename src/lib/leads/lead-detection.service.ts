@@ -111,16 +111,33 @@ export function normalizeMessageText(text: string | null | undefined): string {
     .trim();
 }
 
+const GREETING_PUNCTUATION = new Set(['!', '.', ',', '?']);
+
+function stripChars(value: string, chars: Set<string>): string {
+  let out = '';
+  for (const ch of value) {
+    if (!chars.has(ch)) out += ch;
+  }
+  return out;
+}
+
+function stripTrailingPunctuation(value: string): string {
+  let end = value.length;
+  while (end > 0 && GREETING_PUNCTUATION.has(value[end - 1] || '')) {
+    end -= 1;
+  }
+  return value.slice(0, end);
+}
+
 export function looksLikeGreeting(text: string): boolean {
-  const cleaned = normalizeMessageText(text)
-    .toLowerCase()
-    .replace(/[!.,?]+$/g, '')
-    .trim();
+  const cleaned = stripTrailingPunctuation(
+    normalizeMessageText(text).toLowerCase()
+  ).trim();
   if (!cleaned) return true;
   if (GREETING_EXACT.has(cleaned)) return true;
   if (
     cleaned.length <= 12 &&
-    GREETING_EXACT.has(cleaned.replace(/[.!,]+/g, ''))
+    GREETING_EXACT.has(stripChars(cleaned, GREETING_PUNCTUATION))
   ) {
     return true;
   }

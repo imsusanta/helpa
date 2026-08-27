@@ -36,11 +36,10 @@ const NEGATIVE_EXACT = new Set([
 export function detectStopIntent(
   text: string | null | undefined
 ): StopIntentKind {
-  const cleaned = (text || '')
-    .trim()
-    .toLowerCase()
-    .replace(/[!]+/g, '')
-    .replace(/\s+/g, ' ');
+  let cleaned = (text || '').trim().toLowerCase();
+  cleaned = cleaned.replaceAll('!', '');
+  cleaned = cleaned.replaceAll('\t', ' ');
+  while (cleaned.includes('  ')) cleaned = cleaned.replaceAll('  ', ' ');
   if (!cleaned) return null;
 
   if (STOP_EXACT.has(cleaned)) return 'stop';

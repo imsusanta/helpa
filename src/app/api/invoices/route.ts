@@ -159,12 +159,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       paymentsByInvoice.set(key, bucket);
     });
 
-    const contactById = new Map(
-      (contactsResult.data || []).map((contact) => [
-        String(contact.id),
-        contact,
-      ])
-    );
+    const contactById = new Map<
+      string,
+      NonNullable<(typeof contactsResult)['data']>[number]
+    >();
+    for (const contact of contactsResult.data || []) {
+      contactById.set(String(contact.id), contact);
+    }
 
     const hydratedInvoices = baseInvoices.map((invoice) => ({
       ...invoice,
