@@ -843,6 +843,48 @@ export function LeadDetailsDrawer({
                 <TabsContent value="followups" className="m-0 space-y-4">
                   <div className="bg-muted/30 border-border space-y-3 rounded-xl border p-4">
                     <h4 className="text-foreground text-xs font-bold tracking-wider uppercase">
+                      Smart reminders ({(details.leadFollowups || []).length})
+                    </h4>
+                    {(details.leadFollowups || []).length === 0 ? (
+                      <p className="text-muted-foreground text-xs">
+                        No scheduled WhatsApp reminders. At most one reminder is
+                        sent within 7 days if the customer does not reply.
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {(details.leadFollowups || []).map((job) => (
+                          <div
+                            key={job.id}
+                            className="border-border/50 flex items-center justify-between border-b pb-2 text-xs"
+                          >
+                            <div>
+                              <span className="text-foreground font-semibold capitalize">
+                                {job.followup_type || 'reminder'}
+                              </span>
+                              <span className="text-muted-foreground block text-[10px]">
+                                {job.sent_at
+                                  ? `Sent ${new Date(job.sent_at).toLocaleString()}`
+                                  : job.scheduled_at
+                                    ? `Scheduled ${new Date(job.scheduled_at).toLocaleString()}`
+                                    : 'Pending'}
+                                {job.cancelled_reason
+                                  ? ` · ${job.cancelled_reason.replace(/_/g, ' ')}`
+                                  : ''}
+                              </span>
+                            </div>
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] capitalize"
+                            >
+                              {job.status}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="bg-muted/30 border-border space-y-3 rounded-xl border p-4">
+                    <h4 className="text-foreground text-xs font-bold tracking-wider uppercase">
                       Follow-up Sequences ({details.followups.length})
                     </h4>
                     {details.followups.length === 0 ? (
