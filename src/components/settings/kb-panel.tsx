@@ -226,15 +226,14 @@ export function KbPanel() {
     setSubmitting(true);
     try {
       const payload = {
+        ...(editingEntry ? { id: editingEntry.id } : {}),
         category,
         question_title: title.trim(),
         answer_content: content.trim(),
       };
 
-      const url = editingEntry
-        ? `/api/account/kb?id=${editingEntry.id}`
-        : '/api/account/kb';
-      const method = editingEntry ? 'PUT' : 'POST';
+      const url = '/api/account/kb';
+      const method = editingEntry ? 'PATCH' : 'POST';
 
       const response = await fetch(url, {
         method,
