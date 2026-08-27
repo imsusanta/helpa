@@ -94,13 +94,13 @@ export default function PublicTripProposalPage({ params }: { params: Promise<{ t
 
             <section>
               <h2 className="text-xl font-bold text-slate-900">Your Itinerary</h2>
-              <div className="mt-4 space-y-3">{trip.itinerary.map((day) => <div key={day.day} className="flex gap-4 rounded-2xl border border-slate-200 p-4"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-xs font-extrabold text-emerald-700">{day.day}</div><div><div className="font-bold text-slate-900">{day.title}</div><div className="mt-1 text-sm leading-6 text-slate-500">{day.description}</div></div></div>)}</div>
+              <div className="mt-4 space-y-3">{(trip.itinerary || []).map((day) => <div key={day.day} className="flex gap-4 rounded-2xl border border-slate-200 p-4"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-xs font-extrabold text-emerald-700">{day.day}</div><div><div className="font-bold text-slate-900">{day.title}</div><div className="mt-1 text-sm leading-6 text-slate-500">{day.description}</div></div></div>)}</div>
             </section>
 
             <section>
               <h2 className="text-xl font-bold text-slate-900">Package Includes</h2>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">{trip.inclusions.map((item, i) => <div key={`${item}-${i}`} className="flex gap-2 text-sm text-slate-600"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />{item}</div>)}</div>
-              {trip.exclusions.length > 0 && <><h3 className="mt-6 text-sm font-bold text-slate-900">Exclusions</h3><div className="mt-2 grid gap-2 sm:grid-cols-2">{trip.exclusions.map((item, i) => <div key={`${item}-${i}`} className="text-sm text-slate-500">• {item}</div>)}</div></>}
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">{(trip.inclusions || []).map((item, i) => <div key={`${item}-${i}`} className="flex gap-2 text-sm text-slate-600"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />{item}</div>)}</div>
+              {(trip.exclusions || []).length > 0 && <><h3 className="mt-6 text-sm font-bold text-slate-900">Exclusions</h3><div className="mt-2 grid gap-2 sm:grid-cols-2">{(trip.exclusions || []).map((item, i) => <div key={`${item}-${i}`} className="text-sm text-slate-500">• {item}</div>)}</div></>}
             </section>
 
             <section className="rounded-3xl bg-slate-50 p-5 sm:p-6">

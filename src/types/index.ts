@@ -511,6 +511,8 @@ export interface Quotation {
   created_by?: string | null;
   created_at: string;
   updated_at: string;
+  travel_details?: Record<string, unknown> | null;
+  public_token?: string | null;
   items?: QuotationItem[];
   contact?: Contact | null;
   deal?: Deal | null;

@@ -5,6 +5,10 @@ import {
   requireRole,
 } from '@/lib/auth/account';
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
+import {
+  presentQuotation,
+  QUOTATION_ITEMS_FK,
+} from '@/lib/sales/quotation-presenter';
 
 const PRIVATE_HEADERS = { 'Cache-Control': 'private, no-store, no-cache, must-revalidate' };
 
@@ -36,14 +40,18 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     // ambiguous-relationship errors.
     let query = supabase
       .from('quotations')
-      .select('*, contacts(id, name, phone, email), quotation_items!quotation_items_quotation_id_fkey(*)', { count: 'exact' })
+      .select(`*, contacts(id, name, phone, email), ${QUOTATION_ITEMS_FK}(*)`, { count: 'exact' })
       .eq('account_id', ctx.accountId);
 
     if (contactId) query = query.eq('contact_id', contactId);
     if (status && status !== 'all') query = query.eq('status', status);
     if (search?.trim()) {
-      const term = search.trim().replace(/[(),]/g, ' ');
-      query = query.or(`quotation_number.ilike.%${term}%,notes.ilike.%${term}%`);
+      const term = search.trim().replace(/[%_(),]/g, ' ').replace(/\s+/g, ' ').trim();
+      if (term) {
+        query = query.or(
+          `quotation_number.ilike.%${term}%,notes.ilike.%${term}%,travel_details->>destination.ilike.%${term}%,travel_details->>proposal_title.ilike.%${term}%`
+        );
+      }
     }
 
     const { data: quotations, count, error } = await query
@@ -56,7 +64,14 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
 
     return NextResponse.json(
-      { success: true, data: quotations || [], total: count ?? (quotations || []).length, limit, offset, requestId: correlationId },
+      {
+        success: true,
+        data: (quotations || []).map(presentQuotation),
+        total: count ?? (quotations || []).length,
+        limit,
+        offset,
+        requestId: correlationId,
+      },
       { headers: { ...PRIVATE_HEADERS, 'X-Request-Id': correlationId } }
     );
   } catch (err: unknown) {
@@ -94,12 +109,27 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const quotation_number = seqNumber || `QT-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
     let subtotal = 0;
-    const computedItems = items.map((item: { description: string; quantity: number; unit_price: number }, idx: number) => {
+    const computedItems = items.map((
+      item: { description: string; quantity: number; unit_price: number; category?: string },
+      idx: number
+    ) => {
       const quantity = Math.max(1, Number(item.quantity) || 1);
       const unit_price = Math.max(0, Number(item.unit_price) || 0);
       const total = quantity * unit_price;
+      const description = String(item.description || `Item ${idx + 1}`).trim();
+      const category = String(item.category || '').trim();
       subtotal += total;
-      return { account_id: ctx.accountId, quotation_id: '', description: String(item.description || `Item ${idx + 1}`).trim(), quantity, unit_price, discount: 0, tax_rate: 0, line_total: total, position: idx };
+      return {
+        account_id: ctx.accountId,
+        quotation_id: '',
+        description: category && category !== 'Other' ? `${category}: ${description}` : description,
+        quantity,
+        unit_price,
+        discount: 0,
+        tax_rate: 0,
+        line_total: total,
+        position: idx,
+      };
     });
 
     const taxAmount = subtotal * (Number(tax_rate) || 0) / 100;
@@ -145,7 +175,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     return NextResponse.json(
-      { success: true, data: { ...newQuotation, quotation_items: insertedItems || [] }, requestId: correlationId },
+      { success: true, data: presentQuotation({ ...newQuotation, quotation_items: insertedItems || [] }), requestId: correlationId },
       { status: 201, headers: { ...PRIVATE_HEADERS, 'X-Request-Id': correlationId } }
     );
   } catch (err: unknown) {

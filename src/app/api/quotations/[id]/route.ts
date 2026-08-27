@@ -5,6 +5,10 @@ import {
   requireRole,
 } from '@/lib/auth/account';
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
+import {
+  presentQuotation,
+  QUOTATION_ITEMS_FK,
+} from '@/lib/sales/quotation-presenter';
 
 const PRIVATE_HEADERS = {
   'Cache-Control': 'private, no-store, no-cache, must-revalidate',
@@ -46,7 +50,7 @@ export async function GET(
     const { data: quotation, error } = await supabase
       .from('quotations')
       .select(
-        '*, contacts(id, name, phone, email, metadata), quotation_items(*)'
+        `*, contacts(id, name, phone, email, metadata), ${QUOTATION_ITEMS_FK}(*)`
       )
       .eq('id', id)
       .eq('account_id', ctx.accountId)
@@ -62,7 +66,7 @@ export async function GET(
     }
 
     return NextResponse.json(
-      { success: true, data: quotation, requestId: correlationId },
+      { success: true, data: presentQuotation(quotation), requestId: correlationId },
       { headers: { ...PRIVATE_HEADERS, 'X-Request-Id': correlationId } }
     );
   } catch (err: unknown) {

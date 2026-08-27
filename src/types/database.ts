@@ -2346,6 +2346,8 @@ export interface Database {
           created_by: string | null;
           created_at: string;
           updated_at: string;
+          travel_details: Json | null;
+          public_token: string | null;
         };
         Insert: {
           id?: string;
@@ -2372,6 +2374,8 @@ export interface Database {
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
+          travel_details?: Json | null;
+          public_token?: string | null;
         };
         Update: {
           id?: string;
@@ -2398,6 +2402,8 @@ export interface Database {
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
+          travel_details?: Json | null;
+          public_token?: string | null;
         };
         Relationships: [];
       };

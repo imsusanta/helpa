@@ -64,8 +64,10 @@ interface Proposal {
   status: 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired';
   valid_until?: string;
   subtotal: number;
-  tax_amount: number;
-  discount_amount: number;
+  tax_amount?: number;
+  discount_amount?: number;
+  tax_total?: number;
+  discount_total?: number;
   total: number;
   currency: string;
   notes?: string;
@@ -142,7 +144,7 @@ const duration = (start: string, end: string) => {
   return `${nights + 1} Days / ${nights} Nights`;
 };
 
-const money = (value: number) => `₹${Math.max(0, Number(value) || 0).toLocaleString('en-IN')}`;
+const money = (value?: number | null) => `₹${Math.max(0, Number(value) || 0).toLocaleString('en-IN')}`;
 
 export default function TripProposalsPage() {
   const [rows, setRows] = useState<Proposal[]>([]);
@@ -185,7 +187,7 @@ export default function TripProposalsPage() {
 
   useEffect(() => {
     if (!createOpen) return;
-    salesApi<Array<{ id: string; name: string; phone: string }>>('/api/contacts')
+    salesApi<Array<{ id: string; name: string; phone: string }>>('/api/contacts?limit=100')
       .then((data) => setContacts(Array.isArray(data) ? data : []))
       .catch(() => {});
   }, [createOpen]);
@@ -285,7 +287,7 @@ export default function TripProposalsPage() {
           notes: notes || undefined,
           currency: 'INR',
           terms: 'Package subject to availability. Payment terms as agreed with the traveller.',
-          items: items.map(({ description, quantity, unit_price }) => ({ description, quantity, unit_price })),
+          items: items.map(({ description, quantity, unit_price, category }) => ({ description, quantity, unit_price, category })),
           travel_details: {
             ...travel,
             proposal_title: travel.proposal_title.trim() || `${travel.destination} Trip`,
@@ -537,8 +539,8 @@ export default function TripProposalsPage() {
           {selected?.travel_details && (
             <div className="mt-6 space-y-5 text-sm">
               <div className="rounded-2xl bg-slate-50 p-4"><div className="flex items-center justify-between"><b>{selected.travel_details.destination}</b><span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase ${STATUS[selected.status]}`}>{selected.status}</span></div><p className="mt-2 text-xs text-slate-500">{dateLabel(selected.travel_details.start_date)} – {dateLabel(selected.travel_details.end_date)} · {selected.travel_details.duration_label}</p><p className="mt-1 text-xs text-slate-500">{selected.travel_details.adults} adults · {selected.travel_details.children} children · {selected.travel_details.hotel_category} · {selected.travel_details.meal_plan}</p></div>
-              <div><h4 className="mb-2 font-bold">Itinerary</h4><div className="space-y-2">{selected.travel_details.itinerary.map((day) => <div key={day.day} className="rounded-xl border p-3"><b className="text-emerald-600">Day {day.day} · {day.title}</b><p className="mt-1 text-xs text-slate-500">{day.description}</p></div>)}</div></div>
-              <div><h4 className="mb-2 font-bold">Pricing</h4><div className="rounded-xl border p-4"><div className="flex justify-between"><span>Subtotal</span><b>{money(selected.subtotal)}</b></div><div className="mt-2 flex justify-between"><span>Tax</span><b>{money(selected.tax_amount)}</b></div><div className="mt-2 flex justify-between"><span>Discount</span><b>- {money(selected.discount_amount)}</b></div><div className="mt-3 border-t pt-3 flex justify-between text-base"><b>Total</b><b className="text-emerald-600">{money(selected.total)}</b></div></div></div>
+              <div><h4 className="mb-2 font-bold">Itinerary</h4><div className="space-y-2">{(selected.travel_details.itinerary || []).map((day) => <div key={day.day} className="rounded-xl border p-3"><b className="text-emerald-600">Day {day.day} · {day.title}</b><p className="mt-1 text-xs text-slate-500">{day.description}</p></div>)}</div></div>
+              <div><h4 className="mb-2 font-bold">Pricing</h4><div className="rounded-xl border p-4"><div className="flex justify-between"><span>Subtotal</span><b>{money(selected.subtotal)}</b></div><div className="mt-2 flex justify-between"><span>Tax</span><b>{money(selected.tax_amount ?? selected.tax_total)}</b></div><div className="mt-2 flex justify-between"><span>Discount</span><b>- {money(selected.discount_amount ?? selected.discount_total)}</b></div><div className="mt-3 border-t pt-3 flex justify-between text-base"><b>Total</b><b className="text-emerald-600">{money(selected.total)}</b></div></div></div>
               <div className="grid gap-2 sm:grid-cols-2"><Button type="button" variant="outline" onClick={copyLink} disabled={!selected.public_token}>Copy Proposal Link</Button><Button type="button" variant="outline" onClick={() => updateStatus(selected.id, 'sent')} disabled={selected.status === 'sent'}><Send className="mr-2 h-4 w-4" /> Mark Sent</Button><Button type="button" variant="outline" onClick={() => updateStatus(selected.id, 'accepted')}><CheckCircle2 className="mr-2 h-4 w-4 text-emerald-500" /> Accept</Button><Button type="button" variant="outline" onClick={() => updateStatus(selected.id, 'rejected')}><XCircle className="mr-2 h-4 w-4 text-rose-500" /> Reject</Button></div>
               {selected.status === 'accepted' && <Button type="button" onClick={() => invoice(selected.id)} disabled={converting} className="w-full rounded-xl bg-slate-900 text-white hover:bg-slate-800"><Receipt className="mr-2 h-4 w-4" />{converting ? 'Creating Invoice...' : 'Convert to Invoice'}</Button>}
             </div>
