@@ -434,6 +434,26 @@ export default function InboxPage() {
       if (prev.some((m) => m.id === msg.id)) return prev;
       return [...prev, msg];
     });
+    if (!msg.conversation_id) return;
+    const isActive = activeConversationIdRef.current === msg.conversation_id;
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === msg.conversation_id
+          ? applyMessageToConversation(c, msg, {
+              active: isActive,
+              firstRealtimeInsert: true,
+            })
+          : c
+      )
+    );
+    setActiveConversation((prev) =>
+      prev && prev.id === msg.conversation_id
+        ? applyMessageToConversation(prev, msg, {
+            active: true,
+            firstRealtimeInsert: true,
+          })
+        : prev
+    );
   }, []);
 
   const handleUpdateMessage = useCallback(

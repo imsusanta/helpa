@@ -28,6 +28,12 @@ import {
 import type { MessageTemplate } from '@/types';
 import { isMessageTemplate } from '@/lib/whatsapp/template-row-guard';
 import { OutboxService } from '@/lib/whatsapp/outbox-service';
+import {
+  persistOutboundMessage,
+  touchConversationPreview,
+  pauseActiveFlowRuns,
+  outboundPreviewText,
+} from '@/lib/whatsapp/persist-outbound-message';
 
 export async function POST(request: Request) {
   try {
@@ -552,6 +558,15 @@ export async function POST(request: Request) {
       conversationId: conversation_id,
       contactId: contactId || null,
       provider: 'meta',
+      messageType: message_type,
+      messageSnapshot: {
+        contentType: message_type,
+        contentText: content_text || null,
+        mediaUrl: media_url || null,
+        templateName: template_name || null,
+        replyToMessageId: reply_to_message_id || null,
+        senderId: user.id,
+      },
     });
     if (!outboxRes.ok)
       return NextResponse.json(
@@ -676,12 +691,75 @@ export async function POST(request: Request) {
       } catch {}
     }
 
+    // Meta already accepted the send. The inbox reads `messages`, not the
+    // outbox, so a missing local row is why outbound bubbles never appear
+    // even though WhatsApp delivery succeeded.
+    const persistRes = await persistOutboundMessage({
+      accountId,
+      conversationId: conversation_id,
+      senderId: user.id,
+      contentType: message_type,
+      contentText: content_text || null,
+      mediaUrl: media_url || null,
+      templateName: template_name || null,
+      providerMessageId: waMessageId,
+      replyToMessageId: reply_to_message_id || null,
+    });
+
+    if (!persistRes.ok) {
+      try {
+        await OutboxService.markReconciliationRequired(
+          outboxRes.outboxId,
+          accountId,
+          waMessageId,
+          persistRes.error
+        );
+      } catch {}
+      return NextResponse.json({
+        success: true,
+        status: 'sent_meta_reconciliation_pending',
+        message_id: waMessageId,
+        conversation_id,
+        phone: workingPhone,
+      });
+    }
+
     try {
       await OutboxService.markSent(outboxRes.outboxId, accountId, waMessageId);
     } catch {}
+
+    try {
+      await touchConversationPreview({
+        accountId,
+        conversationId: conversation_id,
+        previewText: outboundPreviewText({
+          contentText: content_text,
+          contentType: message_type,
+        }),
+      });
+    } catch (err) {
+      console.warn(
+        '[whatsapp/send] Conversation preview update failed:',
+        err instanceof Error ? err.message : err
+      );
+    }
+
+    try {
+      await pauseActiveFlowRuns({
+        accountId,
+        contactId: contactId ? String(contactId) : null,
+      });
+    } catch (err) {
+      console.warn(
+        '[whatsapp/send] Pause-on-agent-send failed:',
+        err instanceof Error ? err.message : err
+      );
+    }
+
     return NextResponse.json({
       success: true,
       message_id: waMessageId,
+      id: persistRes.messageId,
       conversation_id,
       phone: workingPhone,
       template_loaded: Boolean(templateRow),
