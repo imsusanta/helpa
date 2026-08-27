@@ -14,14 +14,14 @@ const DIALOG_FOOTER_DEFAULT =
   'bg-muted/50 -mx-4 -mb-4 flex flex-col-reverse gap-2 rounded-b-xl border-t p-4 sm:flex-row sm:justify-end';
 
 describe('Create Trip Proposal dialog layout', () => {
-  it('overrides the default sm:max-w-sm with a compact xl wizard width', () => {
+  it('overrides the default sm:max-w-sm with a compact 2xl wizard width', () => {
     const merged = cn(
       DIALOG_CONTENT_DEFAULT,
       TRIP_PROPOSAL_CREATE_DIALOG_CLASSNAME
     );
 
     expect(merged).not.toMatch(/(?:^|\s)sm:max-w-sm(?:\s|$)/);
-    expect(merged).toContain('sm:max-w-xl');
+    expect(merged).toContain('sm:max-w-2xl');
     expect(merged).not.toContain('1380px');
     expect(merged).toContain('flex');
     expect(merged).not.toMatch(/(?:^|\s)grid(?:\s|$)/);
