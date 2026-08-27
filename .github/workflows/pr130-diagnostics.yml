@@ -1,4 +1,4 @@
-name: PR 130 quality diagnostics
+name: PR quality diagnostics
 
 on:
   pull_request:
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   typecheck-report:
-    if: github.event.pull_request.number == 130
+    if: github.event.pull_request.number == 130 || github.event.pull_request.number == 177
     name: Quality diagnostic — typecheck report
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -32,7 +32,7 @@ jobs:
           cat /tmp/typecheck.log
           if [ "$status" -ne 0 ]; then
             {
-              echo '## PR 130 typecheck diagnostics'
+              echo "## PR $PR_NUMBER typecheck diagnostics"
               echo
               echo '```text'
               tail -n 100 /tmp/typecheck.log
