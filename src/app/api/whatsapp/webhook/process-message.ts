@@ -1249,11 +1249,23 @@ export async function processMessage(
 
     if (shouldTriggerAi) {
       try {
+        let inboundMessageId: string | undefined;
+        try {
+          const persistedInbound = await findPersistedInboundMessage({
+            messageId: message.id,
+            conversationId: convId,
+            accountId,
+          });
+          inboundMessageId = persistedInbound?.id;
+        } catch {
+          inboundMessageId = undefined;
+        }
         await triggerAiResponse({
           accountId,
           userId: configOwnerUserId,
           conversationId: convId,
           contactId: contactRecord.id,
+          inboundMessageId,
         });
       } catch (err) {
         console.error('[AI Assistant] trigger error:', err);

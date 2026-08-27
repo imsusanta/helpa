@@ -20,10 +20,10 @@ import {
   extractStructuredInsights,
   formatKnowledgeBaseContext,
   isHospitalIndustryEnabled,
-  latestUnansweredCustomerMessage,
-  outboundCreatedAtAfter,
+  unansweredCustomerTurn,
   shouldSkipAiConversation,
   unwrapNestedReply,
+  type HistoryMessage,
 } from '@/lib/whatsapp/ai-pipeline';
 import {
   buildIndustryAiContext,
@@ -46,12 +46,14 @@ interface TriggerAiResponseArgs {
   userId: string;
   conversationId: string;
   contactId: string;
+  inboundMessageId?: string | null;
 }
 
 export async function triggerAiResponse(
   args: TriggerAiResponseArgs
 ): Promise<void> {
-  const { accountId, userId, conversationId, contactId } = args;
+  const { accountId, userId, conversationId, contactId, inboundMessageId } =
+    args;
 
   // Check SaaS subscription limits before running any AI requests
   try {
@@ -89,7 +91,7 @@ export async function triggerAiResponse(
       )
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: false })
-      .limit(15),
+      .limit(50),
     db
       .from('knowledge_base')
       .select('category, question_title, answer_content')
@@ -190,7 +192,7 @@ export async function triggerAiResponse(
         .select('*')
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: false })
-        .limit(15);
+        .limit(50);
       if (fallbackMsg.data && fallbackMsg.data.length > 0) {
         rawMessages = fallbackMsg.data as Array<Record<string, unknown>>;
       }
@@ -199,7 +201,7 @@ export async function triggerAiResponse(
     }
   }
 
-  const messages = (rawMessages || []).map((m) => ({
+  const mapHistoryMessage = (m: Record<string, unknown>): HistoryMessage => ({
     id: String(m.id || ''),
     sender_type: String(m.sender_type || m.senderType || 'customer'),
     content_type: String(m.content_type || m.contentType || 'text'),
@@ -208,9 +210,11 @@ export async function triggerAiResponse(
     reply_to_message_id: String(
       m.reply_to_message_id || m.replyToMessageId || ''
     ),
-  }));
+  });
 
-  if (messages.length === 0) {
+  const messages = (rawMessages || []).map(mapHistoryMessage);
+
+  if (messages.length === 0 && !inboundMessageId) {
     console.error(
       '[AI Assistant] Failed to fetch message history or no messages found:',
       msgError
@@ -218,7 +222,36 @@ export async function triggerAiResponse(
     return;
   }
 
-  const unansweredCustomer = latestUnansweredCustomerMessage(messages);
+  let turn = unansweredCustomerTurn(messages, inboundMessageId);
+  if (turn.missingInbound && inboundMessageId) {
+    try {
+      let inboundRow: Record<string, unknown> | null = null;
+      const byId = await db
+        .from('messages')
+        .select(
+          'id, sender_type, content_type, content_text, created_at, reply_to_message_id'
+        )
+        .eq('id', inboundMessageId)
+        .maybeSingle();
+      if (byId.data) inboundRow = byId.data as Record<string, unknown>;
+      if (!inboundRow) {
+        const byStar = await db
+          .from('messages')
+          .select('*')
+          .eq('id', inboundMessageId)
+          .maybeSingle();
+        if (byStar.data) inboundRow = byStar.data as Record<string, unknown>;
+      }
+      if (inboundRow) {
+        messages.unshift(mapHistoryMessage(inboundRow));
+        turn = unansweredCustomerTurn(messages, inboundMessageId);
+      }
+    } catch {
+      turn = unansweredCustomerTurn(messages);
+    }
+  }
+
+  const unansweredCustomer = turn.message;
   if (!unansweredCustomer) {
     console.warn(
       '[AI Assistant] No unanswered customer message in recent history. Skipping AI response. Newest sender:',
@@ -227,9 +260,9 @@ export async function triggerAiResponse(
     return;
   }
 
-  // Use the unanswered customer turn, not messages[0]: outbound persist uses
-  // server time while inbound uses WhatsApp time, so the newest row is often
-  // the previous bot/staff bubble.
+  // Answer this inbound turn, not whichever row happens to have the newest
+  // created_at. Persist with server time so the bubble lands at the bottom
+  // of the inbox thread (inbound uses WhatsApp timestamps).
   const latestMessage = unansweredCustomer;
 
   const aiSendBase = {
@@ -238,7 +271,6 @@ export async function triggerAiResponse(
     conversationId,
     contactId,
     replyToMessageId: unansweredCustomer.id || null,
-    createdAt: outboundCreatedAtAfter(unansweredCustomer.created_at),
   };
 
   const rawUserText = unansweredCustomer.content_text || '';

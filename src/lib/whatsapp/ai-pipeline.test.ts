@@ -7,6 +7,7 @@ import {
   isHospitalIndustryEnabled,
   latestUnansweredCustomerMessage,
   outboundCreatedAtAfter,
+  unansweredCustomerTurn,
   shouldSkipAiConversation,
   unwrapNestedReply,
 } from './ai-pipeline';
@@ -136,6 +137,64 @@ describe('latestUnansweredCustomerMessage', () => {
         },
       ])?.content_text
     ).toBe('Hello');
+  });
+});
+
+describe('unansweredCustomerTurn', () => {
+  const inboundId = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+  const inbound = {
+    id: inboundId,
+    sender_type: 'customer',
+    content_text: 'New inbound',
+    created_at: '2026-08-27T08:00:00.000Z',
+  };
+
+  it('prefers the webhook inbound id even when a later customer exists', () => {
+    expect(
+      unansweredCustomerTurn(
+        [
+          {
+            id: 'newer-customer',
+            sender_type: 'customer',
+            content_text: 'Later by created_at',
+            created_at: '2026-08-27T09:00:00.000Z',
+          },
+          inbound,
+        ],
+        inboundId
+      )
+    ).toEqual({ message: inbound, missingInbound: false });
+  });
+
+  it('skips when outbound already points at that inbound id', () => {
+    expect(
+      unansweredCustomerTurn(
+        [
+          {
+            id: 'bot-1',
+            sender_type: 'agent',
+            reply_to_message_id: inboundId,
+          },
+          inbound,
+        ],
+        inboundId
+      )
+    ).toEqual({ message: null, missingInbound: false });
+  });
+
+  it('signals when the inbound row is outside the recent history window', () => {
+    expect(
+      unansweredCustomerTurn(
+        [
+          {
+            id: 'bot-1',
+            sender_type: 'agent',
+            content_text: 'Previous reply',
+          },
+        ],
+        inboundId
+      )
+    ).toEqual({ message: null, missingInbound: true });
   });
 });
 

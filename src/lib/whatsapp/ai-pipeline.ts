@@ -76,6 +76,35 @@ export function latestUnansweredCustomerMessage(
   return answered ? null : latestCustomer;
 }
 
+/**
+ * Prefer the inbound row this webhook just stored. History is ordered by
+ * `created_at`, so a new patient message can fall outside the recent window
+ * when previous outbound rows used server time.
+ */
+export function unansweredCustomerTurn(
+  messages: HistoryMessage[],
+  inboundMessageId?: string | null
+): { message: HistoryMessage | null; missingInbound: boolean } {
+  if (!inboundMessageId) {
+    return {
+      message: latestUnansweredCustomerMessage(messages),
+      missingInbound: false,
+    };
+  }
+
+  const inbound = messages.find((message) => message.id === inboundMessageId);
+  if (!inbound) {
+    return { message: null, missingInbound: true };
+  }
+
+  const answered = messages.some(
+    (message) =>
+      message.sender_type !== 'customer' &&
+      message.reply_to_message_id === inbound.id
+  );
+  return { message: answered ? null : inbound, missingInbound: false };
+}
+
 export function outboundCreatedAtAfter(
   customerCreatedAt?: string
 ): string | undefined {
