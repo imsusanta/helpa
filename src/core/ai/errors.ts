@@ -2,7 +2,7 @@
  * Helpa Core Platform — AI Error Normalization
  *
  * Provides normalized internal error codes for all AI LLM providers
- * (OpenRouter, OrcaRouter) to ensure consistent user experience and safe fallback routing.
+ * (OpenRouter, OrcaRouter, Cloudflare) to ensure consistent user experience and safe fallback routing.
  */
 
 export type AiErrorCode =
@@ -37,20 +37,10 @@ export class HelpaAiError extends Error {
 }
 
 /**
- * Determines whether an AI error is transient/retryable (eligible for provider fallback).
- * Per rules:
- * Do NOT fallback for:
- * - Invalid request (400)
- * - Permission denied / Auth failed (401, 403)
- * - Unsupported tool
- * - Policy rejection
- * - Invalid model configuration
- *
- * Fallback ONLY for:
- * - Rate limits (429)
- * - Server errors (500, 502, 503, 504)
- * - Timeouts
- * - Network connectivity failures
+ * Determines whether an AI error is transient/retryable and therefore eligible
+ * for provider failover. Authentication, invalid-model, malformed-request and
+ * policy/tool failures stay on the current provider because switching providers
+ * cannot reliably fix the same configuration/request problem.
  */
 export function isRetryableAiError(error: unknown): boolean {
   if (error instanceof HelpaAiError) {
@@ -68,7 +58,7 @@ export function isRetryableAiError(error: unknown): boolean {
         break;
     }
     if (error.status) {
-      if (error.status === 429 || error.status >= 500) {
+      if (error.status === 402 || error.status === 408 || error.status === 429 || error.status >= 500) {
         return true;
       }
       if (
@@ -90,6 +80,16 @@ export function isRetryableAiError(error: unknown): boolean {
       msg.includes('econnreset') ||
       msg.includes('fetch failed') ||
       msg.includes('rate limit') ||
+      msg.includes('too many requests') ||
+      msg.includes('quota') ||
+      msg.includes('credit') ||
+      msg.includes('credits') ||
+      msg.includes('usage limit') ||
+      msg.includes('limit exceeded') ||
+      msg.includes('insufficient balance') ||
+      msg.includes('payment required') ||
+      msg.includes(' 402') ||
+      msg.includes(' 408') ||
       msg.includes('503') ||
       msg.includes('502') ||
       msg.includes('500')
@@ -101,6 +101,7 @@ export function isRetryableAiError(error: unknown): boolean {
       msg.includes('unauthorized') ||
       msg.includes('forbidden') ||
       msg.includes('invalid model') ||
+      msg.includes('model not found') ||
       msg.includes('invalid request')
     ) {
       return false;
@@ -141,9 +142,17 @@ export function normalizeAiError(
   ) {
     code = 'AI_AUTHENTICATION_FAILED';
   } else if (
+    status === 402 ||
+    status === 408 ||
     status === 429 ||
     lowerMessage.includes('rate limit') ||
-    lowerMessage.includes('too many requests')
+    lowerMessage.includes('too many requests') ||
+    lowerMessage.includes('quota') ||
+    lowerMessage.includes('credit') ||
+    lowerMessage.includes('usage limit') ||
+    lowerMessage.includes('limit exceeded') ||
+    lowerMessage.includes('insufficient balance') ||
+    lowerMessage.includes('payment required')
   ) {
     code = 'AI_RATE_LIMITED';
   } else if (
