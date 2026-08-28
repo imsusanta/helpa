@@ -208,15 +208,29 @@ export function isEvolutionConnectionEvent(
   );
 }
 
+const WEBHOOK_SECRET_KEYS = new Set([
+  'instancetoken',
+  'token',
+  'apikey',
+  'access_token',
+  'accesstoken',
+  'webhook_secret',
+  'webhooksecret',
+  'globalapikey',
+  'global_api_key',
+]);
+
 export function redactEvolutionWebhookPayload(
   payload: Record<string, unknown>
 ): Record<string, unknown> {
-  const clone = { ...payload };
-  delete clone.instanceToken;
-  delete clone.token;
-  delete clone.apikey;
-  delete clone.apiKey;
-  return clone;
+  // JSON.stringify's replacer drops secret keys without assigning
+  // attacker-controlled property names onto a new object (CodeQL
+  // js/remote-property-injection). Parsed webhook JSON is acyclic.
+  return JSON.parse(
+    JSON.stringify(payload, (key, value) =>
+      WEBHOOK_SECRET_KEYS.has(String(key).toLowerCase()) ? undefined : value
+    )
+  ) as Record<string, unknown>;
 }
 
 export class EvolutionGoProvider implements WhatsAppProvider {

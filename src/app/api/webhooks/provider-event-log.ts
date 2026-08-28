@@ -17,7 +17,7 @@ function isUniqueViolation(error: unknown): boolean {
 
 export async function beginProviderEvent(
   context: ProviderEventContext
-): Promise<void> {
+): Promise<{ duplicate: boolean }> {
   try {
     const result = await getAdminClient()
       .from('provider_events')
@@ -35,19 +35,24 @@ export async function beginProviderEvent(
         attempt_count: 1,
         received_at: new Date().toISOString(),
       });
-    if (result.error && !isUniqueViolation(result.error)) {
+    if (result.error) {
+      if (isUniqueViolation(result.error)) {
+        return { duplicate: true };
+      }
       console.warn('[inbound] provider event ledger unavailable', {
         provider: context.provider,
         externalEventId: context.externalEventId,
         error: result.error.message,
       });
     }
+    return { duplicate: false };
   } catch (error) {
     console.warn('[inbound] provider event ledger threw', {
       provider: context.provider,
       externalEventId: context.externalEventId,
       error: error instanceof Error ? error.message : String(error),
     });
+    return { duplicate: false };
   }
 }
 

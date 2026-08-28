@@ -9,6 +9,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import crypto from 'node:crypto';
 import { getAdminClient } from '@/lib/db/server';
 import { persistNormalizedInboundMessage } from '@/app/api/webhooks/inbound-persistence';
 import { resolveEvolutionGoTenant } from '@/app/api/webhooks/inbound-tenant-resolver';
@@ -46,6 +47,11 @@ function eventIdFor(
   return String(
     event.externalMessageId || event.eventId || `evolution-event-${index}`
   );
+}
+
+function payloadDeliveryId(prefix: string, rawBody: string): string {
+  const digest = crypto.createHash('sha256').update(rawBody).digest('hex');
+  return `${prefix}:${digest}`;
 }
 
 async function touchLastWebhook(accountId: string): Promise<void> {
@@ -188,9 +194,28 @@ export async function POST(
   await touchLastWebhook(tenant.accountId);
 
   if (isEvolutionConnectionEvent(payload)) {
+    const context: ProviderEventContext = {
+      accountId: tenant.accountId,
+      provider: 'evolution',
+      externalEventId: payloadDeliveryId('connection', rawBody),
+      eventType: asString(payload.event) || 'connection',
+      rawBody,
+      payload: safePayload,
+    };
+    const begun = await beginProviderEvent(context);
+    if (begun.duplicate) {
+      return NextResponse.json({
+        success: true,
+        ignored: false,
+        type: 'connection',
+        duplicate: true,
+      });
+    }
     try {
       await applyConnectionEvent(tenant.accountId, payload);
+      await completeProviderEvent(context);
     } catch (error) {
+      await failProviderEvent(context, error);
       console.error('[evolution webhook] connection event failed', {
         accountId: tenant.accountId,
         error: error instanceof Error ? error.message : 'unknown',
@@ -204,9 +229,28 @@ export async function POST(
   }
 
   if (isEvolutionReceiptEvent(payload)) {
+    const context: ProviderEventContext = {
+      accountId: tenant.accountId,
+      provider: 'evolution',
+      externalEventId: payloadDeliveryId('receipt', rawBody),
+      eventType: asString(payload.event) || 'receipt',
+      rawBody,
+      payload: safePayload,
+    };
+    const begun = await beginProviderEvent(context);
+    if (begun.duplicate) {
+      return NextResponse.json({
+        success: true,
+        ignored: false,
+        type: 'receipt',
+        duplicate: true,
+      });
+    }
     try {
       await applyReceiptEvent(tenant.accountId, payload);
+      await completeProviderEvent(context);
     } catch (error) {
+      await failProviderEvent(context, error);
       console.error('[evolution webhook] receipt event failed', {
         accountId: tenant.accountId,
         error: error instanceof Error ? error.message : 'unknown',
@@ -242,7 +286,11 @@ export async function POST(
       rawBody,
       payload: safePayload,
     };
-    await beginProviderEvent(context);
+    const begun = await beginProviderEvent(context);
+    if (begun.duplicate) {
+      duplicates += 1;
+      continue;
+    }
     try {
       const result = await persistNormalizedInboundMessage(event, {
         accountId: tenant.accountId,

@@ -190,7 +190,10 @@ export function decryptProviderToken(config: CanonicalWhatsAppConfig): string {
   try {
     return decrypt(ciphertext);
   } catch {
-    if (ciphertext.includes(':')) {
+    // Meta historically stored a few plaintext tokens. Evolution Go tokens
+    // are always AES-256-GCM and must fail closed rather than using the
+    // ciphertext as an apikey.
+    if (config.providerKind === 'evolution' || ciphertext.includes(':')) {
       throw new WhatsAppNotConfiguredError(
         'Stored WhatsApp credentials could not be decrypted. Reconnect WhatsApp.'
       );

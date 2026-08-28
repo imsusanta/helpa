@@ -1,7 +1,10 @@
 import { getAdminClient } from '@/lib/supabase/server';
 import { normalizePhone } from '@/lib/whatsapp/phone-utils';
 import { extractValidAccountId } from '@/core/providers/whatsapp/waha-provider';
-import { webhookSecretMatches } from '@/core/providers/whatsapp/evolution-go-provider';
+import {
+  hashWebhookSecret,
+  webhookSecretMatches,
+} from '@/core/providers/whatsapp/evolution-go-provider';
 
 type Row = Record<string, unknown>;
 
@@ -283,22 +286,26 @@ export async function resolveEvolutionGoTenant(
   const trimmed = stringValue(secret);
   if (!trimmed) return null;
 
+  const secretHash = hashWebhookSecret(trimmed);
   const result = await getAdminClient()
     .from('whatsapp_configs')
     .select('account_id, provider, provider_instance_id, webhook_secret_hash')
-    .eq('provider', 'evolution');
+    .eq('provider', 'evolution')
+    .eq('webhook_secret_hash', secretHash)
+    .maybeSingle();
   if (result.error) {
     if (isMissingRelation(result.error)) return null;
     throw result.error;
   }
 
-  const matches = ((result.data || []) as Row[]).filter((row) =>
-    webhookSecretMatches(trimmed, stringValue(row.webhook_secret_hash))
-  );
-  if (matches.length !== 1) return null;
+  const row = (result.data || null) as Row | null;
+  if (!row) return null;
+  if (!webhookSecretMatches(trimmed, stringValue(row.webhook_secret_hash))) {
+    return null;
+  }
 
-  const accountId = stringValue(matches[0].account_id);
-  const instanceId = stringValue(matches[0].provider_instance_id);
+  const accountId = stringValue(row.account_id);
+  const instanceId = stringValue(row.provider_instance_id);
   if (!accountId || !instanceId) return null;
   if (!(await assertAccountExists(accountId))) return null;
   return {
