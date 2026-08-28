@@ -208,7 +208,7 @@ export default function TripProposalsPage() {
       '/api/contacts'
     )
       .then((data) => setContacts(Array.isArray(data) ? data : []))
-      .catch(() => {});
+      .catch(() => setContacts([]));
   }, [createOpen]);
 
   const subtotal = useMemo(
@@ -507,7 +507,8 @@ export default function TripProposalsPage() {
               </thead>
               <tbody className="divide-y">
                 {rows.map((proposal) => {
-                  const trip = proposal.travel_details!;
+                  const trip = proposal.travel_details;
+                  if (!trip) return null;
                   return (
                     <tr
                       key={proposal.id}
