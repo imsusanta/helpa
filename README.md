@@ -53,8 +53,11 @@ Detailed security hardening controls, test references, and third-party handover 
 ```mermaid
 graph LR
   Patient[Patient on WhatsApp] --> Meta[Meta Cloud API]
+  Patient --> Evolution[Evolution Go QR device]
   Meta --> Webhook[Verified webhook]
+  Evolution --> EvoHook[Evolution webhook]
   Webhook --> AI[Clinic-approved AI workflow]
+  EvoHook --> AI
   AI --> DB[(Supabase PostgreSQL + RLS)]
   Staff[Clinic staff] --> Web[Next.js dashboard]
   Web --> Guard[Session + tenant guard]
@@ -63,7 +66,7 @@ graph LR
 
 - **Application:** Next.js 16, React 19, TypeScript
 - **Data and authentication:** Supabase PostgreSQL, SSR auth, RLS
-- **Messaging:** Official Meta WhatsApp Business Cloud API
+- **Messaging:** Official Meta WhatsApp Business Cloud API, with optional Evolution Go v0.7.2 QR/linked-device connections (see [Evolution Go integration](./docs/EVOLUTION_GO_INTEGRATION.md))
 - **Testing:** Vitest and Playwright
 - **Deployment verification:** Commit-aware post-deployment health checks
 
