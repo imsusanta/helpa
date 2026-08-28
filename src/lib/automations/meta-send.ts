@@ -303,6 +303,8 @@ export async function engineSendText(
     throw new Error(
       '[meta-send] Cannot send text: WhatsApp credentials or recipient phone are unavailable.'
     );
+  let metaMessageId: string | null = null;
+  let lastSendError: Error | null = null;
   if (creds.providerKind === 'evolution' || creds.providerKind === 'waha') {
     const outbound =
       creds.providerKind === 'evolution'
@@ -316,39 +318,26 @@ export async function engineSendText(
       creds.phone,
       args.text
     );
-    await recordSentMessage(
-      args.accountId,
-      args.conversationId,
-      result.externalMessageId,
-      'text',
-      args.text,
-      null,
-      {
-        replyToMessageId: args.replyToMessageId,
-        createdAt: args.createdAt,
-      }
-    );
-    return { whatsapp_message_id: result.externalMessageId };
-  }
-  let metaMessageId: string | null = null;
-  let lastSendError: Error | null = null;
-  const variants = phoneVariants(sanitizePhoneForMeta(creds.phone));
-  for (const variant of variants) {
-    try {
-      const result = await sendTextMessage({
-        phoneNumberId: creds.phoneNumberId,
-        accessToken: creds.accessToken,
-        to: variant,
-        text: args.text,
-      });
-      metaMessageId = result.messageId;
-      break;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      lastSendError = err instanceof Error ? err : new Error(msg);
-      if (!isRecipientNotAllowedError(msg)) {
-        console.warn('[meta-send] sendTextMessage error:', msg);
+    metaMessageId = result.externalMessageId;
+  } else {
+    const variants = phoneVariants(sanitizePhoneForMeta(creds.phone));
+    for (const variant of variants) {
+      try {
+        const result = await sendTextMessage({
+          phoneNumberId: creds.phoneNumberId,
+          accessToken: creds.accessToken,
+          to: variant,
+          text: args.text,
+        });
+        metaMessageId = result.messageId;
         break;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        lastSendError = err instanceof Error ? err : new Error(msg);
+        if (!isRecipientNotAllowedError(msg)) {
+          console.warn('[meta-send] sendTextMessage error:', msg);
+          break;
+        }
       }
     }
   }
