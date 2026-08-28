@@ -6,6 +6,10 @@ import {
 } from '@/lib/auth/account';
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
 import { dispatchCrmEvent } from '@/core/events';
+import {
+  presentQuotation,
+  QUOTATION_ITEMS_FK,
+} from '@/lib/sales/quotation-presenter';
 
 const PRIVATE_HEADERS = {
   'Cache-Control': 'private, no-store, no-cache, must-revalidate',
@@ -65,7 +69,7 @@ export async function POST(
       })
       .eq('id', id)
       .eq('account_id', ctx.accountId)
-      .select('*, contacts(id, name, phone, email), quotation_items(*)')
+      .select(`*, contacts(id, name, phone, email), ${QUOTATION_ITEMS_FK}(*)`)
       .single();
 
     if (error || !updated) {
@@ -97,7 +101,11 @@ export async function POST(
     }
 
     return NextResponse.json(
-      { success: true, data: updated, requestId: correlationId },
+      {
+        success: true,
+        data: presentQuotation(updated),
+        requestId: correlationId,
+      },
       { headers: { ...PRIVATE_HEADERS, 'X-Request-Id': correlationId } }
     );
   } catch (err: unknown) {

@@ -1,109 +1,451 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarDays, CheckCircle2, ChevronRight, Clock3, Hotel, MapPin, Plus, Receipt, Search, Sparkles, Trash2, Users, XCircle } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  CheckCircle2,
+  ChevronRight,
+  MapPin,
+  Plus,
+  Receipt,
+  Search,
+  Send,
+  Sparkles,
+  Users,
+  XCircle,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import { toast } from 'sonner';
 import { salesApi } from '@/lib/sales/api-client';
+import { CreateTripProposalDialog } from './create-dialog';
 
-interface Day { day: number; title: string; description: string }
 interface TravelDetails {
-  proposal_title: string; destination: string; start_date: string; end_date: string;
-  adults: number; children: number; trip_type: string; duration_label: string;
-  hotel_category: string; meal_plan: string; itinerary: Day[];
-  inclusions: string[]; exclusions: string[]; advance_amount: number; balance_amount: number;
+  proposal_title: string;
+  destination: string;
+  start_date: string;
+  end_date: string;
+  adults: number;
+  children: number;
+  trip_type: string;
+  duration_label: string;
+  hotel_category: string;
+  meal_plan: string;
+  itinerary: Array<{ day: number; title: string; description: string }>;
+  inclusions: string[];
+  exclusions: string[];
+  advance_amount: number;
+  balance_amount: number;
 }
-interface Item { description: string; quantity: number; unit_price: number; category: string }
+
 interface Proposal {
-  id: string; quotation_number: string; public_token?: string; contact_id: string;
-  status: 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired'; valid_until?: string;
-  subtotal: number; tax_amount: number; discount_amount: number; total: number; currency: string;
-  notes?: string; terms?: string; created_at: string;
+  id: string;
+  quotation_number: string;
+  public_token?: string;
+  contact_id: string;
+  status: 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired';
+  valid_until?: string;
+  subtotal: number;
+  tax_amount?: number;
+  discount_amount?: number;
+  tax_total?: number;
+  discount_total?: number;
+  total: number;
+  currency: string;
+  notes?: string;
+  terms?: string;
+  created_at: string;
   contacts?: { id: string; name: string; phone: string; email?: string };
-  quotation_items?: Array<{ id: string; description: string; quantity: number; unit_price: number; total: number }>;
+  quotation_items?: Array<{
+    id: string;
+    description: string;
+    quantity: number;
+    unit_price: number;
+    total: number;
+  }>;
   travel_details?: TravelDetails | null;
 }
 
 const STATUS: Record<string, string> = {
-  draft: 'bg-slate-100 text-slate-700 border-slate-200', sent: 'bg-blue-50 text-blue-700 border-blue-200',
-  accepted: 'bg-emerald-50 text-emerald-700 border-emerald-200', rejected: 'bg-rose-50 text-rose-700 border-rose-200',
+  draft: 'bg-slate-100 text-slate-700 border-slate-200',
+  sent: 'bg-blue-50 text-blue-700 border-blue-200',
+  accepted: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  rejected: 'bg-rose-50 text-rose-700 border-rose-200',
   expired: 'bg-amber-50 text-amber-700 border-amber-200',
 };
-const emptyItem = (): Item => ({ description: '', quantity: 1, unit_price: 0, category: 'Other' });
-const emptyTravel = (): TravelDetails => ({
-  proposal_title: '', destination: '', start_date: '', end_date: '', adults: 2, children: 0,
-  trip_type: 'Family Holiday', duration_label: '', hotel_category: '4 Star', meal_plan: 'Breakfast',
-  itinerary: [{ day: 1, title: 'Arrival & Check-in', description: 'Pickup and hotel check-in.' }],
-  inclusions: ['Hotel accommodation', 'Private transfers'], exclusions: ['Personal expenses'], advance_amount: 0, balance_amount: 0,
-});
-const dateLabel = (v?: string) => v ? new Date(`${v}T00:00:00`).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-const duration = (a: string, b: string) => {
-  if (!a || !b) return '';
-  const nights = Math.max(0, Math.round((new Date(`${b}T00:00:00`).getTime() - new Date(`${a}T00:00:00`).getTime()) / 86400000));
-  return `${nights + 1} Days / ${nights} Nights`;
-};
+
+const dateLabel = (value?: string) =>
+  value
+    ? new Date(`${value}T00:00:00`).toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      })
+    : '—';
+
+const money = (value?: number | null) =>
+  `₹${Math.max(0, Number(value) || 0).toLocaleString('en-IN')}`;
 
 export default function TripProposalsPage() {
-  const [rows, setRows] = useState<Proposal[]>([]); const [contacts, setContacts] = useState<Array<{ id: string; name: string; phone: string }>>([]);
-  const [loading, setLoading] = useState(true); const [search, setSearch] = useState(''); const [filter, setFilter] = useState('all');
-  const [createOpen, setCreateOpen] = useState(false); const [detailsOpen, setDetailsOpen] = useState(false); const [selected, setSelected] = useState<Proposal | null>(null); const [saving, setSaving] = useState(false); const [converting, setConverting] = useState(false);
-  const [contactId, setContactId] = useState(''); const [validUntil, setValidUntil] = useState(''); const [taxRate, setTaxRate] = useState('0'); const [discount, setDiscount] = useState('0'); const [notes, setNotes] = useState('');
-  const [travel, setTravel] = useState(emptyTravel()); const [items, setItems] = useState<Item[]>([emptyItem()]);
+  const [rows, setRows] = useState<Proposal[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState('all');
+  const [createOpen, setCreateOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [selected, setSelected] = useState<Proposal | null>(null);
+  const [converting, setConverting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const q = new URLSearchParams(); if (search.trim()) q.set('search', search.trim()); if (filter !== 'all') q.set('status', filter);
-      const data = await salesApi<Proposal[]>(`/api/quotations?${q.toString()}`); setRows(Array.isArray(data) ? data.filter((x) => x.travel_details) : []);
-    } catch (e) { toast.error((e as Error).message || 'Failed to load trip proposals'); } finally { setLoading(false); }
+      const query = new URLSearchParams();
+      if (search.trim()) query.set('search', search.trim());
+      if (filter !== 'all') query.set('status', filter);
+      const data = await salesApi<Proposal[]>(
+        `/api/quotations?${query.toString()}`
+      );
+      setRows(
+        Array.isArray(data) ? data.filter((item) => item.travel_details) : []
+      );
+    } catch (error) {
+      toast.error((error as Error).message || 'Failed to load trip proposals');
+    } finally {
+      setLoading(false);
+    }
   }, [search, filter]);
-  useEffect(() => { load(); }, [load]);
-  useEffect(() => { if (createOpen) salesApi<Array<{ id: string; name: string; phone: string }>>('/api/contacts').then((x) => setContacts(Array.isArray(x) ? x : [])).catch(() => {}); }, [createOpen]);
 
-  const subtotal = useMemo(() => items.reduce((s, x) => s + (Number(x.quantity) || 0) * (Number(x.unit_price) || 0), 0), [items]);
-  const tax = subtotal * (Number(taxRate) || 0) / 100; const total = Math.max(0, subtotal + tax - (Number(discount) || 0));
-  const setT = <K extends keyof TravelDetails>(key: K, value: TravelDetails[K]) => setTravel((p) => ({ ...p, [key]: value }));
-  const reset = () => { setContactId(''); setValidUntil(''); setTaxRate('0'); setDiscount('0'); setNotes(''); setTravel(emptyTravel()); setItems([emptyItem()]); };
-
-  const createProposal = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!contactId) return toast.error('Please select a traveller'); if (!travel.destination.trim()) return toast.error('Destination is required');
-    if (!travel.start_date || !travel.end_date) return toast.error('Travel dates are required'); if (items.some((x) => !x.description.trim())) return toast.error('All services need a description');
-    setSaving(true);
-    try {
-      await salesApi('/api/quotations', { method: 'POST', body: JSON.stringify({ contact_id: contactId, valid_until: validUntil || undefined, tax_rate: Number(taxRate) || 0, discount_amount: Number(discount) || 0, notes: notes || undefined, currency: 'INR', terms: 'Package subject to availability. Payment terms as agreed with the traveller.', items: items.map(({ description, quantity, unit_price }) => ({ description, quantity, unit_price })), travel_details: { ...travel, proposal_title: travel.proposal_title.trim() || `${travel.destination} Trip`, duration_label: duration(travel.start_date, travel.end_date), inclusions: travel.inclusions.filter(Boolean), exclusions: travel.exclusions.filter(Boolean), balance_amount: Math.max(0, total - (Number(travel.advance_amount) || 0)) } }) });
-      toast.success('Trip proposal created'); setCreateOpen(false); reset(); load();
-    } catch (e) { toast.error((e as Error).message || 'Failed to create proposal'); } finally { setSaving(false); }
-  };
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const updateStatus = async (id: string, status: string) => {
-    try { const updated = await salesApi<Proposal>(`/api/quotations/${id}/status`, { method: 'POST', body: JSON.stringify({ status }) }); setSelected(updated); load(); toast.success(`Proposal marked as ${status}`); }
-    catch (e) { toast.error((e as Error).message || 'Failed to update proposal'); }
+    try {
+      const updated = await salesApi<Proposal>(`/api/quotations/${id}/status`, {
+        method: 'POST',
+        body: JSON.stringify({ status }),
+      });
+      setSelected(updated);
+      await load();
+      toast.success(`Proposal marked as ${status}`);
+    } catch (error) {
+      toast.error((error as Error).message || 'Failed to update proposal');
+    }
   };
+
   const invoice = async (id: string) => {
-    setConverting(true); try { const r = await salesApi<{ message?: string }>(`/api/quotations/${id}/convert-to-invoice`, { method: 'POST' }); toast.success(r?.message || 'Invoice created'); setDetailsOpen(false); load(); } catch (e) { toast.error((e as Error).message || 'Failed to create invoice'); } finally { setConverting(false); }
+    setConverting(true);
+    try {
+      const response = await salesApi<{ message?: string }>(
+        `/api/quotations/${id}/convert-to-invoice`,
+        {
+          method: 'POST',
+        }
+      );
+      toast.success(response?.message || 'Invoice created');
+      setDetailsOpen(false);
+      load();
+    } catch (error) {
+      toast.error((error as Error).message || 'Failed to create invoice');
+    } finally {
+      setConverting(false);
+    }
   };
-  const publicUrl = selected?.public_token ? `${window.location.origin}/proposal/${selected.public_token}` : '';
-  const copyLink = async () => { if (!publicUrl) return toast.error('Public link is not available'); await navigator.clipboard.writeText(publicUrl); toast.success('Proposal link copied'); };
 
-  return <div className="mx-auto w-full max-w-[1536px] space-y-6 pb-10">
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><div className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-emerald-500" /><h1 className="text-2xl font-bold text-slate-900">Trip Proposals</h1></div><p className="mt-1 text-sm text-slate-500">Travel-specific proposal builder on top of Helpa's existing quotation and invoice engine.</p></div><Button onClick={() => setCreateOpen(true)} className="rounded-xl bg-[#00b074] font-bold text-white hover:bg-[#009b66]"><Plus className="mr-2 h-4 w-4" /> Create Trip Proposal</Button></div>
-    <div className="grid gap-4 sm:grid-cols-3"><div className="rounded-2xl border bg-white p-4 shadow-sm"><p className="text-xs text-slate-500">Total Proposals</p><p className="mt-1 text-2xl font-bold">{rows.length}</p></div><div className="rounded-2xl border bg-white p-4 shadow-sm"><p className="text-xs text-slate-500">Awaiting Approval</p><p className="mt-1 text-2xl font-bold text-blue-700">{rows.filter((x) => x.status === 'sent').length}</p></div><div className="rounded-2xl border bg-white p-4 shadow-sm"><p className="text-xs text-slate-500">Accepted</p><p className="mt-1 text-2xl font-bold text-emerald-700">{rows.filter((x) => x.status === 'accepted').length}</p></div></div>
-    <div className="flex flex-col gap-3 rounded-2xl border bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"><div className="relative flex-1 sm:max-w-md"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search destination, proposal or notes..." className="pl-9" /></div><div className="flex flex-wrap gap-2">{['all','draft','sent','accepted','rejected'].map((x) => <button key={x} onClick={() => setFilter(x)} className={`rounded-xl px-3 py-1.5 text-xs font-bold capitalize ${filter === x ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'}`}>{x}</button>)}</div></div>
-    <div className="overflow-hidden rounded-2xl border bg-white shadow-sm">{loading ? <div className="space-y-3 p-6">{[1,2,3].map((x) => <div key={x} className="h-16 animate-pulse rounded-xl bg-slate-100" />)}</div> : rows.length === 0 ? <div className="p-14 text-center"><MapPin className="mx-auto h-12 w-12 text-slate-300" /><h3 className="mt-3 font-semibold">No trip proposals yet</h3><p className="mt-1 text-xs text-slate-500">Create a destination-based proposal with itinerary, services and pricing.</p></div> : <div className="overflow-x-auto"><table className="w-full text-left text-xs"><thead className="bg-slate-50 text-[11px] font-bold uppercase text-slate-500"><tr><th className="px-5 py-3.5">Proposal</th><th className="px-5 py-3.5">Traveller</th><th className="px-5 py-3.5">Trip</th><th className="px-5 py-3.5">Dates</th><th className="px-5 py-3.5">Status</th><th className="px-5 py-3.5 text-right">Total</th><th /></tr></thead><tbody className="divide-y">{rows.map((p) => { const t = p.travel_details!; return <tr key={p.id} onClick={() => { setSelected(p); setDetailsOpen(true); }} className="cursor-pointer hover:bg-slate-50"><td className="px-5 py-4"><b>{t.proposal_title || `${t.destination} Trip`}</b><div className="text-[10px] text-slate-400">{p.quotation_number}</div></td><td className="px-5 py-4">{p.contacts?.name || 'Traveller'}</td><td className="px-5 py-4"><b>{t.destination}</b><div className="flex items-center gap-1 text-[10px] text-slate-400"><Users className="h-3 w-3" />{t.adults + t.children} travellers</div></td><td className="px-5 py-4">{dateLabel(t.start_date)} – {dateLabel(t.end_date)}</td><td className="px-5 py-4"><span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase ${STATUS[p.status]}`}>{p.status}</span></td><td className="px-5 py-4 text-right font-extrabold">₹{p.total.toLocaleString('en-IN')}</td><td className="px-5"><ChevronRight className="h-4 w-4 text-slate-400" /></td></tr>; })}</tbody></table></div>}</div>
+  const publicUrl = selected?.public_token
+    ? `${typeof window !== 'undefined' ? window.location.origin : ''}/proposal/${selected.public_token}`
+    : '';
 
-    <Dialog open={createOpen} onOpenChange={setCreateOpen}><DialogContent className="max-h-[92vh] max-w-5xl overflow-y-auto"><DialogHeader><DialogTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-emerald-500" /> Create Trip Proposal</DialogTitle></DialogHeader><form onSubmit={createProposal} className="space-y-5">
-      <section className="rounded-2xl border bg-slate-50 p-4"><h3 className="mb-4 text-sm font-bold">Trip Details</h3><div className="grid gap-3 md:grid-cols-3"><div className="md:col-span-2"><Label className="text-xs">Proposal Title</Label><Input value={travel.proposal_title} onChange={(e) => setT('proposal_title', e.target.value)} placeholder="Goa Family Holiday" /></div><div><Label className="text-xs">Traveller *</Label><select required value={contactId} onChange={(e) => setContactId(e.target.value)} className="h-10 w-full rounded-xl border bg-white px-3 text-xs"><option value="">Choose Traveller</option>{contacts.map((c) => <option key={c.id} value={c.id}>{c.name} ({c.phone})</option>)}</select></div><div><Label className="text-xs">Destination *</Label><Input required value={travel.destination} onChange={(e) => setT('destination', e.target.value)} placeholder="Goa, India" /></div><div><Label className="text-xs">Start Date *</Label><Input required type="date" value={travel.start_date} onChange={(e) => setT('start_date', e.target.value)} /></div><div><Label className="text-xs">End Date *</Label><Input required type="date" value={travel.end_date} onChange={(e) => setT('end_date', e.target.value)} /></div><div><Label className="text-xs">Adults</Label><Input type="number" min="1" value={travel.adults} onChange={(e) => setT('adults', Math.max(1, Number(e.target.value) || 1))} /></div><div><Label className="text-xs">Children</Label><Input type="number" min="0" value={travel.children} onChange={(e) => setT('children', Math.max(0, Number(e.target.value) || 0))} /></div><div><Label className="text-xs">Trip Type</Label><select value={travel.trip_type} onChange={(e) => setT('trip_type', e.target.value)} className="h-10 w-full rounded-xl border bg-white px-3 text-xs"><option>Family Holiday</option><option>Honeymoon</option><option>Adventure</option><option>Business</option><option>Group Tour</option><option>Custom</option></select></div><div><Label className="text-xs">Hotel</Label><select value={travel.hotel_category} onChange={(e) => setT('hotel_category', e.target.value)} className="h-10 w-full rounded-xl border bg-white px-3 text-xs"><option>3 Star</option><option>4 Star</option><option>5 Star</option><option>Luxury</option><option>Budget</option></select></div><div><Label className="text-xs">Meal Plan</Label><select value={travel.meal_plan} onChange={(e) => setT('meal_plan', e.target.value)} className="h-10 w-full rounded-xl border bg-white px-3 text-xs"><option>Room Only</option><option>Breakfast</option><option>Breakfast & Dinner</option><option>All Meals</option></select></div><div><Label className="text-xs">Valid Until</Label><Input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} /></div></div>{travel.start_date && travel.end_date && <div className="mt-3 flex items-center gap-2 text-xs font-bold text-emerald-700"><Clock3 className="h-3.5 w-3.5" />{duration(travel.start_date, travel.end_date)}</div>}</section>
-      <section className="rounded-2xl border p-4"><div className="mb-3 flex items-center justify-between"><h3 className="text-sm font-bold">Day-by-Day Itinerary</h3><Button type="button" variant="outline" size="sm" onClick={() => setT('itinerary', [...travel.itinerary, { day: travel.itinerary.length + 1, title: '', description: '' }])}><Plus className="mr-1 h-3.5 w-3.5" />Add Day</Button></div>{travel.itinerary.map((d, i) => <div key={i} className="mb-2 grid gap-2 md:grid-cols-[60px_1fr_1.5fr_40px]"><div className="pt-3 text-xs font-bold text-emerald-700">DAY {d.day}</div><Input value={d.title} onChange={(e) => setT('itinerary', travel.itinerary.map((x, n) => n === i ? { ...x, title: e.target.value } : x))} placeholder="North Goa sightseeing" /><Input value={d.description} onChange={(e) => setT('itinerary', travel.itinerary.map((x, n) => n === i ? { ...x, description: e.target.value } : x))} placeholder="Activities, transfers and highlights" />{travel.itinerary.length > 1 && <Button type="button" variant="ghost" size="icon" onClick={() => setT('itinerary', travel.itinerary.filter((_, n) => n !== i).map((x, n) => ({ ...x, day: n + 1 })))}><Trash2 className="h-4 w-4 text-rose-500" /></Button>}</div>)}</section>
-      <section className="rounded-2xl border p-4"><div className="mb-3 flex items-center gap-2"><Hotel className="h-4 w-4 text-emerald-600" /><h3 className="text-sm font-bold">Services & Pricing</h3></div>{items.map((x, i) => <div key={i} className="mb-2 grid gap-2 md:grid-cols-[130px_1fr_80px_110px_110px_40px]"><select value={x.category} onChange={(e) => setItems(items.map((v,n) => n===i ? {...v,category:e.target.value}:v))} className="h-10 rounded-xl border bg-white px-2 text-xs"><option>Hotel</option><option>Transport</option><option>Flight</option><option>Activity</option><option>Meal</option><option>Transfer</option><option>Guide</option><option>Other</option></select><Input value={x.description} onChange={(e) => setItems(items.map((v,n) => n===i ? {...v,description:e.target.value}:v))} placeholder="4-star hotel for 4 nights" /><Input type="number" min="1" value={x.quantity} onChange={(e) => setItems(items.map((v,n) => n===i ? {...v,quantity:Number(e.target.value)||1}:v))} /><Input type="number" min="0" value={x.unit_price} onChange={(e) => setItems(items.map((v,n) => n===i ? {...v,unit_price:Number(e.target.value)||0}:v))} /><div className="pt-3 text-right text-xs font-bold">₹{(x.quantity*x.unit_price).toLocaleString('en-IN')}</div>{items.length>1 && <Button type="button" variant="ghost" size="icon" onClick={() => setItems(items.filter((_,n)=>n!==i))}><Trash2 className="h-4 w-4 text-rose-500" /></Button>}</div>)}<Button type="button" variant="outline" size="sm" onClick={() => setItems([...items, emptyItem()])}><Plus className="mr-1 h-3.5 w-3.5" />Add Service</Button><div className="mt-4 grid gap-3 md:grid-cols-3"><div><Label className="text-xs">Tax %</Label><Input type="number" min="0" value={taxRate} onChange={(e)=>setTaxRate(e.target.value)} /></div><div><Label className="text-xs">Discount ₹</Label><Input type="number" min="0" value={discount} onChange={(e)=>setDiscount(e.target.value)} /></div><div><Label className="text-xs">Advance ₹</Label><Input type="number" min="0" value={travel.advance_amount} onChange={(e)=>setT('advance_amount', Math.max(0,Number(e.target.value)||0))} /></div></div><div className="mt-4 rounded-xl bg-slate-50 p-4 text-sm"><div className="flex justify-between"><span>Subtotal</span><b>₹{subtotal.toLocaleString('en-IN')}</b></div><div className="mt-1 flex justify-between"><span>Tax</span><span>₹{tax.toLocaleString('en-IN')}</span></div><div className="mt-2 flex justify-between text-base font-extrabold"><span>Total Package</span><span>₹{total.toLocaleString('en-IN')}</span></div></div></section>
-      <section className="grid gap-4 md:grid-cols-2">{(['inclusions','exclusions'] as const).map((key) => <div key={key} className="rounded-2xl border p-4"><div className="mb-2 flex justify-between"><h3 className="text-sm font-bold capitalize">{key}</h3><Button type="button" variant="ghost" size="sm" onClick={() => setT(key,[...travel[key],''])}><Plus className="h-3.5 w-3.5" /></Button></div>{travel[key].map((v,i)=><div key={i} className="mb-2 flex gap-2"><Input value={v} onChange={(e)=>setT(key,travel[key].map((x,n)=>n===i?e.target.value:x))} placeholder={key==='inclusions'?'Airport transfer':'Personal expenses'} />{travel[key].length>1 && <Button type="button" variant="ghost" size="icon" onClick={()=>setT(key,travel[key].filter((_,n)=>n!==i))}><Trash2 className="h-4 w-4 text-rose-500" /></Button>}</div>)}</div>)}</section>
-      <div><Label className="text-xs">Agent Notes</Label><Input value={notes} onChange={(e)=>setNotes(e.target.value)} placeholder="Special requests, cancellation notes, room preferences..." /></div><DialogFooter><Button type="button" variant="outline" onClick={()=>setCreateOpen(false)}>Cancel</Button><Button type="submit" disabled={saving} className="bg-[#00b074] font-bold text-white hover:bg-[#009b66]">{saving?'Creating...':'Save & Generate Proposal'}</Button></DialogFooter>
-    </form></DialogContent></Dialog>
+  const copyLink = async () => {
+    if (!publicUrl) return toast.error('Public link is not available');
+    await navigator.clipboard.writeText(publicUrl);
+    toast.success('Proposal link copied');
+  };
 
-    <Sheet open={detailsOpen} onOpenChange={setDetailsOpen}><SheetContent className="w-full overflow-y-auto sm:max-w-xl">{selected?.travel_details && <><SheetHeader><SheetTitle>{selected.travel_details.proposal_title || `${selected.travel_details.destination} Trip`}</SheetTitle></SheetHeader><div className="mt-5 space-y-5"><div className="rounded-2xl bg-slate-950 p-5 text-white"><div className="text-xl font-black">{selected.travel_details.destination}</div><div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-300">{dateLabel(selected.travel_details.start_date)} – {dateLabel(selected.travel_details.end_date)} · {selected.travel_details.duration_label} · {selected.travel_details.adults + selected.travel_details.children} travellers</div></div><div className="grid grid-cols-2 gap-3"><div className="rounded-xl border p-3"><div className="text-[10px] text-slate-400">Traveller</div><b className="text-sm">{selected.contacts?.name || 'Traveller'}</b></div><div className="rounded-xl border p-3"><div className="text-[10px] text-slate-400">Status</div><span className={`mt-1 inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${STATUS[selected.status]}`}>{selected.status}</span></div></div><div><h3 className="mb-2 text-sm font-bold">Itinerary</h3><div className="space-y-2">{selected.travel_details.itinerary.map((d)=><div key={d.day} className="rounded-xl border p-3"><b className="text-xs text-emerald-700">Day {d.day} · {d.title}</b><p className="mt-1 text-xs text-slate-500">{d.description}</p></div>)}</div></div><div><h3 className="mb-2 text-sm font-bold">Services</h3><div className="divide-y rounded-xl border">{selected.quotation_items?.map((x)=><div key={x.id} className="flex justify-between p-3 text-xs"><span>{x.description} × {x.quantity}</span><b>₹{x.total.toLocaleString('en-IN')}</b></div>)}</div></div><div className="rounded-2xl bg-slate-50 p-4"><div className="flex justify-between text-sm font-extrabold"><span>Total Package</span><span>₹{selected.total.toLocaleString('en-IN')}</span></div><div className="mt-2 flex justify-between text-xs text-emerald-700"><span>Advance</span><span>₹{selected.travel_details.advance_amount.toLocaleString('en-IN')}</span></div><div className="mt-1 flex justify-between text-xs font-bold"><span>Balance</span><span>₹{selected.travel_details.balance_amount.toLocaleString('en-IN')}</span></div></div><div className="grid grid-cols-2 gap-2"><Button variant="outline" onClick={copyLink} disabled={!selected.public_token}>Copy Proposal Link</Button><Button variant="outline" onClick={()=>publicUrl && window.open(publicUrl,'_blank')} disabled={!selected.public_token}>Open Customer View</Button></div><div className="grid grid-cols-2 gap-2"><Button variant="outline" onClick={()=>updateStatus(selected.id, selected.status==='draft'?'sent':selected.status==='sent'?'accepted':selected.status)}><CheckCircle2 className="mr-1 h-4 w-4" />{selected.status==='draft'?'Mark Sent':selected.status==='sent'?'Accept':'Accepted'}</Button><Button onClick={()=>invoice(selected.id)} disabled={converting} className="bg-slate-900 text-white"><Receipt className="mr-1 h-4 w-4" />{converting?'Creating...':'Create Invoice'}</Button></div>{selected.status!=='rejected' && <Button variant="ghost" className="w-full text-rose-600" onClick={()=>updateStatus(selected.id,'rejected')}><XCircle className="mr-1 h-4 w-4" />Reject Proposal</Button>}</div></>}</SheetContent></Sheet>
-  </div>;
+  return (
+    <div className="mx-auto w-full max-w-[1536px] space-y-6 pb-10">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-emerald-500" />
+            <h1 className="text-2xl font-bold text-slate-900">
+              Trip Proposals
+            </h1>
+          </div>
+          <p className="mt-1 text-sm text-slate-500">
+            Travel proposal builder using Helpa&apos;s existing quotation and
+            invoice engine.
+          </p>
+        </div>
+        <Button
+          onClick={() => setCreateOpen(true)}
+          className="rounded-xl bg-[#00b074] font-bold text-white hover:bg-[#009b66]"
+        >
+          <Plus className="mr-2 h-4 w-4" /> Create Trip Proposal
+        </Button>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="rounded-2xl border bg-white p-4 shadow-sm">
+          <p className="text-xs text-slate-500">Total Proposals</p>
+          <p className="mt-1 text-2xl font-bold">{rows.length}</p>
+        </div>
+        <div className="rounded-2xl border bg-white p-4 shadow-sm">
+          <p className="text-xs text-slate-500">Awaiting Approval</p>
+          <p className="mt-1 text-2xl font-bold text-blue-700">
+            {rows.filter((row) => row.status === 'sent').length}
+          </p>
+        </div>
+        <div className="rounded-2xl border bg-white p-4 shadow-sm">
+          <p className="text-xs text-slate-500">Accepted</p>
+          <p className="mt-1 text-2xl font-bold text-emerald-700">
+            {rows.filter((row) => row.status === 'accepted').length}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-2xl border bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative flex-1 sm:max-w-md">
+          <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search destination, proposal or notes..."
+            className="pl-9"
+          />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {['all', 'draft', 'sent', 'accepted', 'rejected'].map((status) => (
+            <button
+              key={status}
+              onClick={() => setFilter(status)}
+              className={`rounded-xl px-3 py-1.5 text-xs font-bold capitalize ${filter === status ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'}`}
+            >
+              {status}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border bg-white shadow-sm">
+        {loading ? (
+          <div className="space-y-3 p-6">
+            {[1, 2, 3].map((item) => (
+              <div
+                key={item}
+                className="h-16 animate-pulse rounded-xl bg-slate-100"
+              />
+            ))}
+          </div>
+        ) : rows.length === 0 ? (
+          <div className="p-14 text-center">
+            <MapPin className="mx-auto h-12 w-12 text-slate-300" />
+            <h3 className="mt-3 font-semibold">No trip proposals yet</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              Create a destination-based proposal with itinerary, services and
+              pricing.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 text-[11px] font-bold text-slate-500 uppercase">
+                <tr>
+                  <th className="px-5 py-3.5">Proposal</th>
+                  <th className="px-5 py-3.5">Traveller</th>
+                  <th className="px-5 py-3.5">Trip</th>
+                  <th className="px-5 py-3.5">Dates</th>
+                  <th className="px-5 py-3.5">Status</th>
+                  <th className="px-5 py-3.5 text-right">Total</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {rows.map((proposal) => {
+                  const trip = proposal.travel_details!;
+                  return (
+                    <tr
+                      key={proposal.id}
+                      onClick={() => {
+                        setSelected(proposal);
+                        setDetailsOpen(true);
+                      }}
+                      className="cursor-pointer hover:bg-slate-50"
+                    >
+                      <td className="px-5 py-4">
+                        <b>
+                          {trip.proposal_title || `${trip.destination} Trip`}
+                        </b>
+                        <div className="text-[10px] text-slate-400">
+                          {proposal.quotation_number}
+                        </div>
+                      </td>
+                      <td className="px-5 py-4">
+                        {proposal.contacts?.name || 'Traveller'}
+                      </td>
+                      <td className="px-5 py-4">
+                        <b>{trip.destination}</b>
+                        <div className="flex items-center gap-1 text-[10px] text-slate-400">
+                          <Users className="h-3 w-3" />
+                          {trip.adults + trip.children} travellers
+                        </div>
+                      </td>
+                      <td className="px-5 py-4">
+                        {dateLabel(trip.start_date)} –{' '}
+                        {dateLabel(trip.end_date)}
+                      </td>
+                      <td className="px-5 py-4">
+                        <span
+                          className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase ${STATUS[proposal.status]}`}
+                        >
+                          {proposal.status}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 text-right font-extrabold">
+                        {money(proposal.total)}
+                      </td>
+                      <td className="px-5">
+                        <ChevronRight className="h-4 w-4 text-slate-400" />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <CreateTripProposalDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onCreated={load}
+      />
+
+      <Sheet open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
+          <SheetHeader>
+            <SheetTitle>
+              {selected?.travel_details?.proposal_title || 'Trip Proposal'}
+            </SheetTitle>
+          </SheetHeader>
+          {selected?.travel_details && (
+            <div className="mt-6 space-y-5 text-sm">
+              <div className="rounded-2xl bg-slate-50 p-4">
+                <div className="flex items-center justify-between">
+                  <b>{selected.travel_details.destination}</b>
+                  <span
+                    className={`rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase ${STATUS[selected.status]}`}
+                  >
+                    {selected.status}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs text-slate-500">
+                  {dateLabel(selected.travel_details.start_date)} –{' '}
+                  {dateLabel(selected.travel_details.end_date)} ·{' '}
+                  {selected.travel_details.duration_label}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {selected.travel_details.adults} adults ·{' '}
+                  {selected.travel_details.children} children ·{' '}
+                  {selected.travel_details.hotel_category} ·{' '}
+                  {selected.travel_details.meal_plan}
+                </p>
+              </div>
+              <div>
+                <h4 className="mb-2 font-bold">Itinerary</h4>
+                <div className="space-y-2">
+                  {(selected.travel_details.itinerary || []).map((day) => (
+                    <div key={day.day} className="rounded-xl border p-3">
+                      <b className="text-emerald-600">
+                        Day {day.day} · {day.title}
+                      </b>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {day.description}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <h4 className="mb-2 font-bold">Pricing</h4>
+                <div className="rounded-xl border p-4">
+                  <div className="flex justify-between">
+                    <span>Subtotal</span>
+                    <b>{money(selected.subtotal)}</b>
+                  </div>
+                  <div className="mt-2 flex justify-between">
+                    <span>Tax</span>
+                    <b>{money(selected.tax_amount ?? selected.tax_total)}</b>
+                  </div>
+                  <div className="mt-2 flex justify-between">
+                    <span>Discount</span>
+                    <b>
+                      -{' '}
+                      {money(
+                        selected.discount_amount ?? selected.discount_total
+                      )}
+                    </b>
+                  </div>
+                  <div className="mt-3 flex justify-between border-t pt-3 text-base">
+                    <b>Total</b>
+                    <b className="text-emerald-600">{money(selected.total)}</b>
+                  </div>
+                </div>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={copyLink}
+                  disabled={!selected.public_token}
+                >
+                  Copy Proposal Link
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => updateStatus(selected.id, 'sent')}
+                  disabled={selected.status === 'sent'}
+                >
+                  <Send className="mr-2 h-4 w-4" /> Mark Sent
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => updateStatus(selected.id, 'accepted')}
+                >
+                  <CheckCircle2 className="mr-2 h-4 w-4 text-emerald-500" />{' '}
+                  Accept
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => updateStatus(selected.id, 'rejected')}
+                >
+                  <XCircle className="mr-2 h-4 w-4 text-rose-500" /> Reject
+                </Button>
+              </div>
+              {selected.status === 'accepted' && (
+                <Button
+                  type="button"
+                  onClick={() => invoice(selected.id)}
+                  disabled={converting}
+                  className="w-full rounded-xl bg-slate-900 text-white hover:bg-slate-800"
+                >
+                  <Receipt className="mr-2 h-4 w-4" />
+                  {converting ? 'Creating Invoice...' : 'Convert to Invoice'}
+                </Button>
+              )}
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+    </div>
+  );
 }
