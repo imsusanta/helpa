@@ -1,4 +1,4 @@
-name: PR 175 quality diagnostics
+name: PR 175 targeted formatter
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  diagnose:
+  format:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
@@ -19,24 +19,13 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - name: Capture quality output
-        shell: bash
-        run: |
-          set +e
-          {
-            echo '=== FORMAT ==='
-            npm run format:check
-            echo '=== LINT ==='
-            npm run lint
-            echo '=== TYPES ==='
-            npm run typecheck
-          } > .github/pr175-quality-diagnostics.log 2>&1
-          exit 0
-      - name: Commit diagnostics
+      - name: Format failing file
+        run: npx prettier --write src/tests/whatsapp/embedded-signup.test.ts
+      - name: Commit formatted file
         shell: bash
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add .github/pr175-quality-diagnostics.log
-          git commit -m 'chore: capture PR 175 quality diagnostics'
+          git add src/tests/whatsapp/embedded-signup.test.ts
+          git commit -m 'style: format WhatsApp embedded signup test'
           git push
