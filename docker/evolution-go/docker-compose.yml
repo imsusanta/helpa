@@ -1,0 +1,72 @@
+# Evolution Go v0.7.2 companion stack for Helpa.
+# Separate from the Next.js app. Do not mix evogo_* databases into
+# Helpa's Supabase public schema.
+#
+# Pin: evoapicloud/evolution-go:0.7.2 — never use latest in production.
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${EVOLUTION_POSTGRES_PASSWORD:-change-me}
+      POSTGRES_DB: postgres
+    volumes:
+      - evolution_postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - evolution_network
+
+  evolution-go:
+    image: evoapicloud/evolution-go:0.7.2
+    restart: unless-stopped
+    ports:
+      - '${EVOLUTION_GO_PORT:-8080}:8080'
+    environment:
+      SERVER_PORT: 8080
+      CLIENT_NAME: evolution
+      GLOBAL_API_KEY: ${EVOLUTION_GO_GLOBAL_API_KEY:?set EVOLUTION_GO_GLOBAL_API_KEY}
+      POSTGRES_AUTH_DB: postgresql://postgres:${EVOLUTION_POSTGRES_PASSWORD:-change-me}@postgres:5432/evogo_auth?sslmode=disable
+      POSTGRES_USERS_DB: postgresql://postgres:${EVOLUTION_POSTGRES_PASSWORD:-change-me}@postgres:5432/evogo_users?sslmode=disable
+      DATABASE_SAVE_MESSAGES: 'false'
+      WADEBUG: INFO
+      LOGTYPE: console
+      CONNECT_ON_STARTUP: 'false'
+      WEBHOOK_FILES: 'true'
+      EVOLUTION_OPERATOR_EMAIL: ${EVOLUTION_OPERATOR_EMAIL:-}
+    volumes:
+      - evolution_data:/app/dbdata
+      - evolution_logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'wget',
+          '-q',
+          '--spider',
+          'http://localhost:8080/server/ok',
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - evolution_network
+
+volumes:
+  evolution_postgres_data:
+  evolution_data:
+  evolution_logs:
+
+networks:
+  evolution_network:
+    driver: bridge

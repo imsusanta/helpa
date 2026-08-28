@@ -238,9 +238,14 @@ export type WhatsAppConnectionStatus =
   | 'not_eligible'
   | 'error'
   | 'needs_reconnect'
-  | 'reconnect_required';
+  | 'reconnect_required'
+  | 'creating_instance'
+  | 'waiting_for_qr'
+  | 'waiting_for_scan'
+  | 'expired';
 
-export type WhatsAppConnectionType = 'coexistence' | 'standard' | 'manual';
+export type WhatsAppConnectionType =
+  'coexistence' | 'standard' | 'manual' | 'qr_linked_device';
 export type WhatsAppCoexistenceStatus =
   'eligible' | 'active' | 'pending' | 'not_eligible' | 'unknown';
 
@@ -276,6 +281,18 @@ export interface WhatsAppConfig {
   subscribed_apps_at?: string;
   /** Last error from /register; cleared on success. */
   last_registration_error?: string;
+  /**
+   * Canonical messaging provider for this workspace.
+   * Meta Cloud API values remain `meta` / `meta_embedded_signup` /
+   * `meta_manual_config`. QR linked-device uses `evolution`.
+   */
+  provider?:
+    | 'meta'
+    | 'meta_embedded_signup'
+    | 'meta_manual_config'
+    | 'evolution'
+    | 'waha';
+  connection_status?: string | null;
 }
 
 // Raw Meta status enum. We persist this verbatim from Meta (sync + webhook)

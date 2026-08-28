@@ -34,6 +34,10 @@ import {
   pauseActiveFlowRuns,
   outboundPreviewText,
 } from '@/lib/whatsapp/persist-outbound-message';
+import { classifyWhatsAppProvider } from '@/core/whatsapp/canonical-config';
+import { EvolutionGoProvider } from '@/core/providers/whatsapp/evolution-go-provider';
+import { WahaWhatsAppProvider } from '@/core/providers/whatsapp/waha-provider';
+import { UnsupportedWhatsAppOperationError } from '@/core/providers/whatsapp/whatsapp-provider.interface';
 
 export async function POST(request: Request) {
   try {
@@ -442,6 +446,15 @@ export async function POST(request: Request) {
         },
         { status: 400 }
       );
+    const providerKind = classifyWhatsAppProvider(config.provider);
+    if (providerKind === 'unknown')
+      return NextResponse.json(
+        {
+          error:
+            'WhatsApp provider is not supported for this workspace. Reconnect WhatsApp.',
+        },
+        { status: 400 }
+      );
     if (String(config.status || '').toLowerCase() === 'disconnected')
       return NextResponse.json(
         {
@@ -452,7 +465,10 @@ export async function POST(request: Request) {
       );
 
     const encryptedToken = String(
-      config.encrypted_access_token ||
+      (providerKind === 'evolution'
+        ? config.provider_token_encrypted || config.providerTokenEncrypted
+        : '') ||
+        config.encrypted_access_token ||
         config.access_token_encrypted ||
         config.encryptedAccessToken ||
         config.access_token ||
@@ -557,7 +573,7 @@ export async function POST(request: Request) {
       channel: 'whatsapp',
       conversationId: conversation_id,
       contactId: contactId || null,
-      provider: 'meta',
+      provider: providerKind,
       messageType: message_type,
       messageSnapshot: {
         contentType: message_type,
@@ -623,43 +639,89 @@ export async function POST(request: Request) {
         { status: 400 }
       );
 
-    for (const variant of phoneVariants(sanitizedPhone)) {
+    if (providerKind === 'evolution' || providerKind === 'waha') {
+      const outboundProvider =
+        providerKind === 'evolution'
+          ? new EvolutionGoProvider({
+              accountId,
+              instanceToken: accessToken,
+            })
+          : new WahaWhatsAppProvider();
       try {
-        let result: { messageId: string };
-        if (message_type === 'text') {
-          result = await sendTextMessage({
-            phoneNumberId,
-            accessToken,
-            to: variant,
-            text: content_text,
-            contextMessageId,
-          });
-        } else if (message_type === 'template') {
-          result = await sendTemplateMessage({
-            phoneNumberId,
-            accessToken,
-            to: variant,
-            templateName: template_name,
-            language: template_language || 'en_US',
-            params: template_message_params || template_params || [],
-          });
+        if (message_type === 'template') {
+          const result = await outboundProvider.sendTemplate(
+            accountId,
+            sanitizedPhone,
+            template_name,
+            template_language || 'en_US',
+            template_message_params || template_params || []
+          );
+          waMessageId = result.externalMessageId;
+        } else if (message_type === 'text') {
+          const result = await outboundProvider.sendText(
+            accountId,
+            sanitizedPhone,
+            content_text
+          );
+          waMessageId = result.externalMessageId;
         } else {
-          result = await sendMediaMessage({
-            phoneNumberId,
-            accessToken,
-            to: variant,
-            kind: message_type as MediaKind,
-            link: media_url,
-            caption: content_text || undefined,
-            filename,
-          });
+          const result = await outboundProvider.sendMedia(
+            accountId,
+            sanitizedPhone,
+            media_url,
+            message_type as MediaKind,
+            content_text || undefined
+          );
+          waMessageId = result.externalMessageId;
         }
-        waMessageId = result.messageId;
-        workingPhone = variant;
-        break;
+        workingPhone = sanitizedPhone;
       } catch (err) {
-        lastSendError = err instanceof Error ? err : new Error(String(err));
-        if (!isRecipientNotAllowedError(lastSendError.message)) break;
+        lastSendError =
+          err instanceof UnsupportedWhatsAppOperationError
+            ? err
+            : err instanceof Error
+              ? err
+              : new Error(String(err));
+      }
+    } else {
+      for (const variant of phoneVariants(sanitizedPhone)) {
+        try {
+          let result: { messageId: string };
+          if (message_type === 'text') {
+            result = await sendTextMessage({
+              phoneNumberId,
+              accessToken,
+              to: variant,
+              text: content_text,
+              contextMessageId,
+            });
+          } else if (message_type === 'template') {
+            result = await sendTemplateMessage({
+              phoneNumberId,
+              accessToken,
+              to: variant,
+              templateName: template_name,
+              language: template_language || 'en_US',
+              params: template_message_params || template_params || [],
+            });
+          } else {
+            result = await sendMediaMessage({
+              phoneNumberId,
+              accessToken,
+              to: variant,
+              kind: message_type as MediaKind,
+              link: media_url,
+              caption: content_text || undefined,
+              filename,
+            });
+          }
+          waMessageId = result.messageId;
+          workingPhone = variant;
+          break;
+        } catch (err) {
+          lastSendError = err instanceof Error ? err : new Error(String(err));
+          if (!isRecipientNotAllowedError(lastSendError.message)) break;
+        }
       }
     }
 
@@ -668,16 +730,23 @@ export async function POST(request: Request) {
         await OutboxService.markDeadLetter(
           outboxRes.outboxId,
           accountId,
-          lastSendError?.message || 'Meta did not return a WhatsApp message ID.'
+          lastSendError?.message || 'WhatsApp did not return a message ID.'
         );
       } catch {}
       return NextResponse.json(
         {
           error:
-            lastSendError?.message ||
-            'Meta did not return a WhatsApp message ID.',
+            lastSendError instanceof UnsupportedWhatsAppOperationError
+              ? lastSendError.message
+              : lastSendError?.message ||
+                'WhatsApp did not return a message ID.',
         },
-        { status: 400 }
+        {
+          status:
+            lastSendError instanceof UnsupportedWhatsAppOperationError
+              ? 422
+              : 400,
+        }
       );
     }
 

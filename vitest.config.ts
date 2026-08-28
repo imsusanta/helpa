@@ -23,6 +23,9 @@ export default defineConfig({
       SUPABASE_SERVICE_ROLE_KEY: 'test-supabase-service-role-key',
       ENCRYPTION_KEY:
         '0000000000000000000000000000000000000000000000000000000000000000',
+      EVOLUTION_GO_BASE_URL: 'https://evolution.test',
+      EVOLUTION_GO_GLOBAL_API_KEY: 'test-global-api-key',
+      EVOLUTION_GO_WEBHOOK_BASE_URL: 'https://helpa.test',
       META_APP_SECRET: 'test-meta-app-secret',
       NEXT_PUBLIC_APPWRITE_ENDPOINT: 'https://cloud.appwrite.io/v1',
       NEXT_PUBLIC_APPWRITE_PROJECT_ID: 'wacrm_test',

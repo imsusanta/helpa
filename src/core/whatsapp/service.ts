@@ -16,6 +16,17 @@ import type {
   WhatsAppSendOptions,
   WhatsAppSendResult,
 } from './types';
+import {
+  classifyWhatsAppProvider,
+  loadCanonicalWhatsAppConfig,
+} from './canonical-config';
+import { resolveWhatsAppProvider } from '@/core/providers/whatsapp/provider-resolver';
+import { UnsupportedWhatsAppOperationError } from '@/core/providers/whatsapp/whatsapp-provider.interface';
+import {
+  disconnectEvolutionQrSession,
+  reconnectEvolutionQrSession,
+  updateEvolutionHealth,
+} from './evolution-connection';
 
 const META_API_VERSION = 'v21.0';
 const META_BASE_URL = `https://graph.facebook.com/${META_API_VERSION}`;
@@ -27,6 +38,40 @@ export async function getWhatsAppConnection(
   tenantId: string
 ): Promise<WhatsAppConnection | null> {
   if (!tenantId) return null;
+
+  const canonical = await loadCanonicalWhatsAppConfig(tenantId);
+  if (canonical?.providerKind === 'evolution') {
+    const connected =
+      canonical.status === 'connected' ||
+      canonical.connectionStatus === 'connected';
+    return {
+      id: canonical.id || canonical.accountId,
+      workspaceId: tenantId,
+      wabaId: canonical.wabaId,
+      phoneNumberId: canonical.phoneNumberId,
+      displayPhoneNumber: canonical.displayPhoneNumber || undefined,
+      businessName: canonical.verifiedName || undefined,
+      connectionStatus: connected
+        ? 'CONNECTED'
+        : canonical.connectionStatus === 'reconnect_required'
+          ? 'RECONNECT_REQUIRED'
+          : canonical.status === 'connecting'
+            ? 'CONNECTING'
+            : 'NOT_CONNECTED',
+      connectedAt:
+        typeof canonical.raw.connected_at === 'string'
+          ? canonical.raw.connected_at
+          : undefined,
+      lastWebhookAt:
+        typeof canonical.raw.last_webhook_at === 'string'
+          ? canonical.raw.last_webhook_at
+          : undefined,
+      lastHealthCheckAt:
+        typeof canonical.raw.last_health_check_at === 'string'
+          ? canonical.raw.last_health_check_at
+          : undefined,
+    };
+  }
 
   const db = getAdminClient();
   const { data: rows, error } = await db
@@ -106,6 +151,78 @@ export async function sendWhatsAppMessage(
       error: 'Recipient phone number is required',
       timestamp: new Date().toISOString(),
     };
+  }
+
+  const canonical = await loadCanonicalWhatsAppConfig(tenantId);
+  if (
+    canonical &&
+    classifyWhatsAppProvider(canonical.providerRaw) === 'unknown'
+  ) {
+    return {
+      success: false,
+      error: 'WhatsApp provider is not supported for this workspace',
+      timestamp: new Date().toISOString(),
+    };
+  }
+  if (
+    canonical?.providerKind === 'evolution' ||
+    canonical?.providerKind === 'waha'
+  ) {
+    try {
+      const resolved = await resolveWhatsAppProvider(tenantId);
+      if (!resolved.provider) {
+        return {
+          success: false,
+          error: 'WhatsApp provider is not available',
+          timestamp: new Date().toISOString(),
+        };
+      }
+      const cleanRecipient = normalizePhone(to).replace(/^\+/, '');
+      let result: { externalMessageId: string };
+      if (type === 'template') {
+        result = await resolved.provider.sendTemplate(
+          tenantId,
+          cleanRecipient,
+          templateName || '',
+          templateLanguage,
+          templateComponents
+        );
+      } else if (
+        (type === 'image' ||
+          type === 'document' ||
+          type === 'audio' ||
+          type === 'video') &&
+        mediaUrl
+      ) {
+        result = await resolved.provider.sendMedia(
+          tenantId,
+          cleanRecipient,
+          mediaUrl,
+          type,
+          options.mediaCaption
+        );
+      } else {
+        result = await resolved.provider.sendText(
+          tenantId,
+          cleanRecipient,
+          text || ''
+        );
+      }
+      return {
+        success: true,
+        metaMessageId: result.externalMessageId,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error:
+          error instanceof UnsupportedWhatsAppOperationError
+            ? error.message
+            : 'WhatsApp send failed',
+        timestamp: new Date().toISOString(),
+      };
+    }
   }
 
   const db = getAdminClient();
@@ -347,6 +464,42 @@ export async function sendWhatsAppMessage(
 export async function getWhatsAppHealth(
   tenantId: string
 ): Promise<WhatsAppHealthReport> {
+  const canonical = await loadCanonicalWhatsAppConfig(tenantId);
+  if (canonical?.providerKind === 'evolution') {
+    const now = new Date().toISOString();
+    const live = await updateEvolutionHealth(tenantId);
+    return {
+      connected: live.status === 'connected',
+      status:
+        live.status === 'connected'
+          ? 'CONNECTED'
+          : live.status === 'reconnect_required'
+            ? 'RECONNECT_REQUIRED'
+            : live.status === 'error'
+              ? 'ERROR'
+              : live.status === 'waiting_for_qr' ||
+                  live.status === 'waiting_for_scan' ||
+                  live.status === 'creating_instance'
+                ? 'CONNECTING'
+                : 'DISCONNECTED',
+      phoneNumber: live.phone_number || undefined,
+      businessName: live.verified_name || undefined,
+      apiStatus:
+        live.status === 'connected'
+          ? 'healthy'
+          : live.status === 'error'
+            ? 'error'
+            : 'degraded',
+      webhookStatus: live.status === 'connected' ? 'healthy' : 'unregistered',
+      coexistenceStatus: 'not_supported',
+      lastCheckAt: now,
+      issues:
+        live.status === 'connected'
+          ? undefined
+          : [live.error || 'Evolution Go QR connection is not active.'],
+    };
+  }
+
   const conn = await getWhatsAppConnection(tenantId);
   const now = new Date().toISOString();
 
@@ -406,6 +559,12 @@ export async function disconnectWhatsApp(
     return { success: false, message: 'Tenant ID is required' };
   }
 
+  const canonical = await loadCanonicalWhatsAppConfig(tenantId);
+  if (canonical?.providerKind === 'evolution') {
+    const result = await disconnectEvolutionQrSession(tenantId);
+    return { success: result.success, message: result.message };
+  }
+
   const db = getAdminClient();
   const { error } = await db
     .from('whatsapp_config')
@@ -432,6 +591,18 @@ export async function disconnectWhatsApp(
 export async function reconnectWhatsApp(
   tenantId: string
 ): Promise<{ success: boolean; message: string }> {
+  const canonical = await loadCanonicalWhatsAppConfig(tenantId);
+  if (canonical?.providerKind === 'evolution') {
+    const result = await reconnectEvolutionQrSession(tenantId);
+    return {
+      success: result.success,
+      message:
+        result.status === 'connected'
+          ? 'WhatsApp QR connection is active.'
+          : result.error || 'Scan the QR code to finish reconnecting.',
+    };
+  }
+
   const health = await getWhatsAppHealth(tenantId);
   if (!health.connected) {
     return {

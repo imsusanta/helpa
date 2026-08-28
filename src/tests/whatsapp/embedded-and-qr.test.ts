@@ -14,15 +14,10 @@ describe('WhatsApp Multi-Modal Connection (Embedded Signup & QR Linked Device)',
     expect(mockPayload.phone_number_id).toBe('1034885893047167');
   });
 
-  it('generates a valid Multi-Device QR session string', () => {
-    const sessionId = 'test_session_id_123';
-    const publicKey = 'test_public_key_abc';
-    const timestamp = 1700000000000;
-    const qrString = `2@${sessionId},${publicKey},${timestamp},helpa-crm-device`;
-
-    expect(qrString.startsWith('2@')).toBe(true);
-    expect(qrString).toContain('helpa-crm-device');
-    expect(qrString).toContain(sessionId);
+  it('recognizes Evolution pairing strings without synthesizing a Helpa QR', () => {
+    const evolutionPairing = `2@session-id,public-key,1700000000000`;
+    expect(evolutionPairing.startsWith('2@')).toBe(true);
+    expect(evolutionPairing).not.toContain('helpa-crm-device');
   });
 
   it('properly encrypts and decrypts OAuth tokens obtained via Embedded Signup', () => {
