@@ -46,16 +46,35 @@ export function qrSessionUnavailableMessage(status: number): string {
   return 'Could not start the WhatsApp QR connection. Try again.';
 }
 
+export function isQrHtmlOrParseError(err: unknown): boolean {
+  if (err instanceof SyntaxError) return true;
+  const message = err instanceof Error ? err.message : String(err || '');
+  return /unexpected token|not valid json|<!doctype|json\.parse/i.test(message);
+}
+
+export function friendlyQrSessionError(
+  err: unknown,
+  fallback = 'Could not start the WhatsApp QR connection. Try again.'
+): string {
+  if (isQrHtmlOrParseError(err)) {
+    return qrSessionUnavailableMessage(502);
+  }
+  if (err instanceof Error && err.message.trim()) return err.message;
+  return fallback;
+}
+
 export async function readQrSessionResponse(
   res: Response
 ): Promise<QrSessionResponse> {
   const contentType = res.headers.get('content-type') || '';
   const text = await res.text();
   const trimmed = text.trim();
+  const looksHtml = trimmed.startsWith('<') || /<!doctype html/i.test(trimmed);
   const looksJson =
-    contentType.toLowerCase().includes('application/json') ||
-    trimmed.startsWith('{') ||
-    trimmed.startsWith('[');
+    !looksHtml &&
+    (contentType.toLowerCase().includes('application/json') ||
+      trimmed.startsWith('{') ||
+      trimmed.startsWith('['));
 
   if (!looksJson) {
     throw new Error(qrSessionUnavailableMessage(res.status));

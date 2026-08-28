@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
+  friendlyQrSessionError,
   readQrSessionResponse,
   type QrSessionResponse,
   type QrUiStatus,
@@ -169,8 +170,7 @@ export function WhatsAppQrPanel({ onConnectionSuccess }: WhatsAppQrPanelProps) {
       }
     } catch (err) {
       setStatus('error');
-      const message =
-        err instanceof Error ? err.message : 'Failed to generate QR code';
+      const message = friendlyQrSessionError(err, 'Failed to generate QR code');
       setError(message);
       toast.error(message);
     } finally {
@@ -201,7 +201,7 @@ export function WhatsAppQrPanel({ onConnectionSuccess }: WhatsAppQrPanelProps) {
       }
     } catch (err) {
       setStatus('error');
-      setError(err instanceof Error ? err.message : 'Reconnect failed');
+      setError(friendlyQrSessionError(err, 'Reconnect failed'));
     } finally {
       setLoading(false);
     }
@@ -224,9 +224,7 @@ export function WhatsAppQrPanel({ onConnectionSuccess }: WhatsAppQrPanelProps) {
       applyPayload({ ...payload, status: 'disconnected', connected: false });
       toast.success('QR WhatsApp disconnected. Conversation history kept.');
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : 'Failed to unlink device'
-      );
+      toast.error(friendlyQrSessionError(err, 'Failed to unlink device'));
     } finally {
       setLoading(false);
     }
@@ -249,9 +247,7 @@ export function WhatsAppQrPanel({ onConnectionSuccess }: WhatsAppQrPanelProps) {
         if (unmounted.current) return;
         setStatus('error');
         setError(
-          err instanceof Error
-            ? err.message
-            : 'Could not load WhatsApp QR status'
+          friendlyQrSessionError(err, 'Could not load WhatsApp QR status')
         );
       });
     return () => {
@@ -417,6 +413,23 @@ export function WhatsAppQrPanel({ onConnectionSuccess }: WhatsAppQrPanelProps) {
                     <span className="font-mono">{pairingCode}</span>
                   </p>
                 ) : null}
+              </div>
+            ) : waiting ? (
+              <div className="flex flex-col items-center justify-center space-y-4 py-6 text-center">
+                <div className="bg-primary/10 text-primary flex h-16 w-16 items-center justify-center rounded-2xl">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-foreground text-sm font-semibold">
+                    {status === 'creating_instance'
+                      ? 'Creating WhatsApp instance'
+                      : 'Waiting for a live QR code'}
+                  </p>
+                  <p className="text-muted-foreground max-w-[220px] text-xs">
+                    {error ||
+                      'Helpa is talking to Evolution Go. Keep this tab open.'}
+                  </p>
+                </div>
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center space-y-4 py-6 text-center">
