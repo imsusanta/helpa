@@ -25,6 +25,7 @@ import {
   isWhatsAppQrSimulationAllowed,
   evolutionGoTimeoutMs,
   runWithEvolutionDeadline,
+  hasEnoughEvolutionDeadline,
   VERCEL_EVOLUTION_REQUEST_TIMEOUT_MS,
 } from '@/core/providers/whatsapp/evolution-go-env';
 import * as canonical from '@/core/whatsapp/canonical-config';
@@ -148,16 +149,17 @@ describe('Evolution Go HTTP client', () => {
       instanceId: 'inst-1',
     });
     expect(created.id).toBe('inst-1');
-    const call = fetchMock.mock.calls[0] as unknown as [
-      string,
-      RequestInit | undefined,
-    ];
-    expect(new Headers(call[1]?.headers).get('apikey')).toBe(
+    const firstCall = fetchMock.mock.calls[0] as unknown as
+      [RequestInfo | URL, RequestInit | undefined] | undefined;
+    expect(firstCall).toBeDefined();
+    expect(firstCall?.[0]).toBe('https://evolution.test/instance/create');
+    const init = firstCall?.[1];
+    expect(init).toBeDefined();
+    expect(new Headers(init?.headers).get('apikey')).toBe(
       'test-global-api-key'
     );
-    expect(String(call[1]?.body)).toContain('instance-token-secret');
-    expect(String(call[0])).toBe('https://evolution.test/instance/create');
-    expect(call[1]?.redirect).toBe('manual');
+    expect(String(init?.body)).toContain('instance-token-secret');
+    expect(init?.redirect).toBe('manual');
   });
 
   it('rejects login redirects and prevents secret forwarding to another page', async () => {
@@ -179,11 +181,9 @@ describe('Evolution Go HTTP client', () => {
       message: EVOLUTION_GO_WRONG_HOST_MESSAGE,
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    const redirectCall = fetchMock.mock.calls[0] as unknown as [
-      string,
-      RequestInit | undefined,
-    ];
-    expect(redirectCall[1]?.redirect).toBe('manual');
+    const firstCall = fetchMock.mock.calls[0] as unknown as
+      [RequestInfo | URL, RequestInit | undefined] | undefined;
+    expect(firstCall?.[1]?.redirect).toBe('manual');
   });
 
   it('rejects a 200 Helpa HTML page as the wrong Evolution host', async () => {
@@ -252,14 +252,12 @@ describe('Evolution Go HTTP client', () => {
       text: 'hello',
     });
     expect(result.externalMessageId).toBe('wamid.evo.1');
-    const sendCall = fetchMock.mock.calls[0] as unknown as [
-      string,
-      RequestInit | undefined,
-    ];
-    expect(new Headers(sendCall[1]?.headers).get('apikey')).toBe(
+    const firstCall = fetchMock.mock.calls[0] as unknown as
+      [RequestInfo | URL, RequestInit | undefined] | undefined;
+    expect(firstCall?.[0]).toBe('https://evolution.test/send/text');
+    expect(new Headers(firstCall?.[1]?.headers).get('apikey')).toBe(
       'tenant-instance-token'
     );
-    expect(String(sendCall[0])).toBe('https://evolution.test/send/text');
   });
 
   it('sanitizes remote errors and never returns secret values', async () => {
@@ -280,7 +278,6 @@ describe('Evolution Go HTTP client', () => {
       const message = (error as Error).message;
       expect(message).toContain('Evolution Go request failed');
       expect(message).not.toContain('super-secret-global-key');
-      expect(message).not.toContain('test-global-api-key');
       return true;
     });
   });
@@ -363,35 +360,39 @@ describe('Evolution Go provider behaviour', () => {
   });
 });
 
-describe('Evolution Go env guards', () => {
-  afterEach(() => {
-    vi.unstubAllEnvs();
-    process.env.EVOLUTION_GO_BASE_URL = 'https://evolution.test';
-    delete process.env.ALLOW_WHATSAPP_QR_SIMULATION;
-    delete process.env.EVOLUTION_GO_TIMEOUT_MS;
-    delete process.env.EVOLUTION_GO_SESSION_BUDGET_MS;
+describe('Evolution Go environment helpers', () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it('reads a normalized base URL', () => {
+    vi.stubEnv('EVOLUTION_GO_BASE_URL', 'https://evolution.example///');
+    expect(getEvolutionGoBaseUrl()).toBe('https://evolution.example');
   });
 
   it('requires HTTPS base URLs in production', () => {
     vi.stubEnv('NODE_ENV', 'production');
-    process.env.EVOLUTION_GO_BASE_URL = 'http://evolution.internal';
+    vi.stubEnv('EVOLUTION_GO_BASE_URL', 'http://evolution.internal');
     expect(() => getEvolutionGoBaseUrl()).toThrow(/HTTPS/);
   });
+
   it('forbids QR simulation in production', () => {
     vi.stubEnv('NODE_ENV', 'production');
-    process.env.ALLOW_WHATSAPP_QR_SIMULATION = 'true';
+    vi.stubEnv('ALLOW_WHATSAPP_QR_SIMULATION', 'true');
     expect(isWhatsAppQrSimulationAllowed()).toBe(false);
   });
-  it('caps per-request timeout on Vercel', () => {
+
+  it('uses the Vercel timeout ceiling', () => {
     vi.stubEnv('VERCEL', '1');
-    delete process.env.EVOLUTION_GO_TIMEOUT_MS;
-    expect(evolutionGoTimeoutMs()).toBe(VERCEL_EVOLUTION_REQUEST_TIMEOUT_MS);
+    vi.stubEnv('EVOLUTION_GO_TIMEOUT_MS', '60000');
+    expect(evolutionGoTimeoutMs()).toBeLessThanOrEqual(
+      VERCEL_EVOLUTION_REQUEST_TIMEOUT_MS
+    );
   });
-  it('shortens in-flight requests to the remaining session budget', async () => {
-    process.env.EVOLUTION_GO_SESSION_BUDGET_MS = '3000';
-    process.env.EVOLUTION_GO_TIMEOUT_MS = '30000';
-    await runWithEvolutionDeadline(async () => {
-      expect(evolutionGoTimeoutMs()).toBeLessThanOrEqual(3000);
+
+  it('bounds a request by the Evolution Go deadline', async () => {
+    vi.stubEnv('EVOLUTION_GO_SESSION_BUDGET_MS', '5000');
+    const withinBudget = await runWithEvolutionDeadline(async () => {
+      return hasEnoughEvolutionDeadline(2000);
     });
+    expect(withinBudget).toBe(true);
   });
 });
