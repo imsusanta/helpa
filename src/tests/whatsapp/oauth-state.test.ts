@@ -45,7 +45,9 @@ describe('OAuth State Security & Single-Use Verification', () => {
               return {
                 is: (nullField: string, nullValue: unknown) => {
                   const claimable = matched.filter(
-                    (row) => row[nullField] == nullValue
+                    (row) =>
+                      row[nullField] === nullValue ||
+                      (nullValue === null && row[nullField] === undefined)
                   );
                   claimable.forEach((row) => Object.assign(row, updateData));
                   return {
