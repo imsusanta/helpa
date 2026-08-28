@@ -1,6 +1,7 @@
 import { getAdminClient } from '@/lib/supabase/server';
 import { normalizePhone } from '@/lib/whatsapp/phone-utils';
 import { extractValidAccountId } from '@/core/providers/whatsapp/waha-provider';
+import { webhookSecretMatches } from '@/core/providers/whatsapp/evolution-go-provider';
 
 type Row = Record<string, unknown>;
 
@@ -266,4 +267,43 @@ export async function resolveTwilioTenant(
 
   if (!accountId || !(await assertAccountExists(accountId))) return null;
   return { accountId, userId: await resolveUserId(accountId) };
+}
+
+export interface ResolvedEvolutionTenant extends ResolvedInboundTenant {
+  instanceId: string;
+}
+
+/**
+ * Resolve an Evolution Go webhook from the URL secret + stored instance
+ * mapping. Payload account_id / tenant_id values are ignored.
+ */
+export async function resolveEvolutionGoTenant(
+  secret: string
+): Promise<ResolvedEvolutionTenant | null> {
+  const trimmed = stringValue(secret);
+  if (!trimmed) return null;
+
+  const result = await getAdminClient()
+    .from('whatsapp_configs')
+    .select('account_id, provider, provider_instance_id, webhook_secret_hash')
+    .eq('provider', 'evolution');
+  if (result.error) {
+    if (isMissingRelation(result.error)) return null;
+    throw result.error;
+  }
+
+  const matches = ((result.data || []) as Row[]).filter((row) =>
+    webhookSecretMatches(trimmed, stringValue(row.webhook_secret_hash))
+  );
+  if (matches.length !== 1) return null;
+
+  const accountId = stringValue(matches[0].account_id);
+  const instanceId = stringValue(matches[0].provider_instance_id);
+  if (!accountId || !instanceId) return null;
+  if (!(await assertAccountExists(accountId))) return null;
+  return {
+    accountId,
+    userId: await resolveUserId(accountId),
+    instanceId,
+  };
 }

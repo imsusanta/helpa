@@ -3,7 +3,7 @@ import { getAdminClient } from '@/lib/supabase/server';
 
 export interface ProviderEventContext {
   accountId: string;
-  provider: 'waha' | 'twilio';
+  provider: 'waha' | 'twilio' | 'evolution';
   externalEventId: string;
   eventType: string;
   rawBody: string;
