@@ -7,6 +7,11 @@ import {
   subscribeWabaWebhook,
 } from '@/lib/whatsapp/meta-service';
 import { encrypt, decrypt } from '@/lib/whatsapp/encryption';
+import { classifyWhatsAppProvider } from '@/core/whatsapp/canonical-config';
+import {
+  disconnectEvolutionQrSession,
+  getEvolutionQrSession,
+} from '@/core/whatsapp/evolution-connection';
 
 /**
  * GET /api/whatsapp/config
@@ -70,6 +75,58 @@ export async function GET() {
       ? String(config.subscribed_apps_at)
       : null;
     const currentStatus = String(config.status || 'disconnected');
+    const providerKind = classifyWhatsAppProvider(config.provider);
+
+    if (providerKind === 'unknown') {
+      return NextResponse.json(
+        {
+          connected: false,
+          reason: 'unsupported_provider',
+          config: {
+            phone_number_id: phoneNumId,
+            has_access_token: false,
+            status: 'error',
+            provider: String(config.provider || ''),
+          },
+          message:
+            'WhatsApp provider is not supported for this workspace. Reconnect WhatsApp.',
+        },
+        { status: 200 }
+      );
+    }
+
+    if (providerKind === 'evolution') {
+      const session = await getEvolutionQrSession(accountId);
+      const connected = session.status === 'connected';
+      return NextResponse.json(
+        {
+          connected,
+          status: session.status,
+          provider: 'evolution',
+          connection_type: 'qr_linked_device',
+          configured: true,
+          reason: connected ? 'active' : session.status,
+          config: {
+            phone_number_id: phoneNumId,
+            has_access_token: Boolean(encryptedToken),
+            status: session.status,
+            provider: 'evolution',
+            connection_type: 'qr_linked_device',
+            phone_number: session.phone_number,
+            display_phone_number: session.phone_number,
+            verified_name: session.verified_name,
+            webhook_healthy: connected,
+            messaging_active: connected,
+            is_active: connected,
+          },
+          message: connected
+            ? 'WhatsApp QR linked-device connection is active.'
+            : session.error ||
+              'Scan the WhatsApp QR code to finish linking this device.',
+        },
+        { status: 200 }
+      );
+    }
 
     if (!encryptedToken || currentStatus === 'disconnected') {
       return NextResponse.json(
@@ -478,14 +535,17 @@ export async function DELETE() {
       .eq('account_id', accountId)
       .maybeSingle();
 
-    const { error: deleteError } = await db
-      .from('whatsapp_configs')
-      .delete()
-      .eq('account_id', accountId);
+    if (classifyWhatsAppProvider(existingConfig?.provider) === 'evolution') {
+      await disconnectEvolutionQrSession(accountId);
+    } else {
+      const { error: deleteError } = await db
+        .from('whatsapp_configs')
+        .delete()
+        .eq('account_id', accountId);
 
-    if (deleteError) {
-      // Also try legacy table
-      await db.from('whatsapp_config').delete().eq('account_id', accountId);
+      if (deleteError) {
+        await db.from('whatsapp_config').delete().eq('account_id', accountId);
+      }
     }
 
     // Record sanitized audit event

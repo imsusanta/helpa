@@ -22,6 +22,10 @@ import {
   isExplicitLabReportRequest,
   isLikelyAiLabReportDocument,
 } from '@/lib/whatsapp/report-delivery-guard';
+import { classifyWhatsAppProvider } from '@/core/whatsapp/canonical-config';
+import { EvolutionGoProvider } from '@/core/providers/whatsapp/evolution-go-provider';
+import { WahaWhatsAppProvider } from '@/core/providers/whatsapp/waha-provider';
+import { UnsupportedWhatsAppOperationError } from '@/core/providers/whatsapp/whatsapp-provider.interface';
 
 interface SendTextArgs {
   accountId: string;
@@ -70,6 +74,7 @@ interface ResolvedCredentials {
   phoneNumberId: string;
   accessToken: string;
   phone: string;
+  providerKind: 'meta' | 'evolution' | 'waha';
 }
 
 async function assertLabReportDeliveryAllowed(
@@ -165,11 +170,19 @@ async function resolveCredentialsAndPhone(
     } catch {}
   }
   if (!config) return null;
+  const providerKind = classifyWhatsAppProvider(
+    (config as Record<string, unknown>).provider
+  );
+  if (providerKind === 'unknown') return null;
   const rawPhoneNumberId = String(
     config.phone_number_id || config.phoneNumberId || config.phone_number || ''
   );
   const rawEncryptedToken = String(
-    config.access_token_encrypted ||
+    (providerKind === 'evolution'
+      ? (config as Record<string, unknown>).provider_token_encrypted ||
+        (config as Record<string, unknown>).providerTokenEncrypted
+      : '') ||
+      config.access_token_encrypted ||
       config.encrypted_access_token ||
       config.accessTokenEncrypted ||
       config.access_token ||
@@ -213,7 +226,12 @@ async function resolveCredentialsAndPhone(
     } catch {}
   }
   if (!phone) return null;
-  return { phoneNumberId: rawPhoneNumberId, accessToken, phone };
+  return {
+    phoneNumberId: rawPhoneNumberId,
+    accessToken,
+    phone,
+    providerKind,
+  };
 }
 
 async function recordSentMessage(
@@ -285,6 +303,33 @@ export async function engineSendText(
     throw new Error(
       '[meta-send] Cannot send text: WhatsApp credentials or recipient phone are unavailable.'
     );
+  if (creds.providerKind === 'evolution' || creds.providerKind === 'waha') {
+    const outbound =
+      creds.providerKind === 'evolution'
+        ? new EvolutionGoProvider({
+            accountId: args.accountId,
+            instanceToken: creds.accessToken,
+          })
+        : new WahaWhatsAppProvider();
+    const result = await outbound.sendText(
+      args.accountId,
+      creds.phone,
+      args.text
+    );
+    await recordSentMessage(
+      args.accountId,
+      args.conversationId,
+      result.externalMessageId,
+      'text',
+      args.text,
+      null,
+      {
+        replyToMessageId: args.replyToMessageId,
+        createdAt: args.createdAt,
+      }
+    );
+    return { whatsapp_message_id: result.externalMessageId };
+  }
   let metaMessageId: string | null = null;
   let lastSendError: Error | null = null;
   const variants = phoneVariants(sanitizePhoneForMeta(creds.phone));
@@ -336,6 +381,39 @@ export async function engineSendDocument(
     args.contactId,
     args.conversationId
   );
+  if (
+    creds &&
+    (creds.providerKind === 'evolution' || creds.providerKind === 'waha') &&
+    args.documentUrl
+  ) {
+    const outbound =
+      creds.providerKind === 'evolution'
+        ? new EvolutionGoProvider({
+            accountId: args.accountId,
+            instanceToken: creds.accessToken,
+          })
+        : new WahaWhatsAppProvider();
+    const result = await outbound.sendMedia(
+      args.accountId,
+      creds.phone,
+      args.documentUrl,
+      'document',
+      args.caption
+    );
+    await recordSentMessage(
+      args.accountId,
+      args.conversationId,
+      result.externalMessageId,
+      'document',
+      args.caption || args.filename || '[Document]',
+      args.documentUrl,
+      {
+        replyToMessageId: args.replyToMessageId,
+        createdAt: args.createdAt,
+      }
+    );
+    return { whatsapp_message_id: result.externalMessageId };
+  }
   let metaMessageId: string | null = null;
   if (creds && args.documentUrl) {
     for (const variant of phoneVariants(sanitizePhoneForMeta(creds.phone))) {
@@ -387,6 +465,24 @@ export async function engineSendButtons(
     args.contactId,
     args.conversationId
   );
+  if (
+    creds &&
+    (creds.providerKind === 'evolution' || creds.providerKind === 'waha')
+  ) {
+    const lines = [
+      args.bodyText,
+      ...args.buttons.map((button, index) => `${index + 1}. ${button.title}`),
+    ].join('\n');
+    return engineSendText({
+      accountId: args.accountId,
+      userId: args.userId,
+      conversationId: args.conversationId,
+      contactId: args.contactId,
+      text: lines,
+      replyToMessageId: args.replyToMessageId,
+      createdAt: args.createdAt,
+    });
+  }
   let metaMessageId: string | null = null;
   if (creds && args.buttons?.length) {
     for (const variant of phoneVariants(sanitizePhoneForMeta(creds.phone))) {
@@ -441,6 +537,13 @@ export async function engineSendTemplate(
     args.contactId,
     args.conversationId
   );
+  if (creds?.providerKind === 'evolution') {
+    throw new UnsupportedWhatsAppOperationError(
+      'evolution',
+      'sendTemplate',
+      'Meta-approved WhatsApp templates are not available on a QR linked-device connection.'
+    );
+  }
   let metaMessageId: string | null = null;
   if (creds) {
     for (const variant of phoneVariants(sanitizePhoneForMeta(creds.phone))) {
@@ -504,6 +607,35 @@ export async function engineSendMedia(
     args.kind === 'document'
       ? args.kind
       : 'document';
+  if (
+    creds &&
+    (creds.providerKind === 'evolution' || creds.providerKind === 'waha') &&
+    args.link
+  ) {
+    const outbound =
+      creds.providerKind === 'evolution'
+        ? new EvolutionGoProvider({
+            accountId: args.accountId,
+            instanceToken: creds.accessToken,
+          })
+        : new WahaWhatsAppProvider();
+    const result = await outbound.sendMedia(
+      args.accountId,
+      creds.phone,
+      args.link,
+      kind,
+      args.caption
+    );
+    await recordSentMessage(
+      args.accountId,
+      args.conversationId,
+      result.externalMessageId,
+      kind === 'document' ? 'document' : 'text',
+      args.caption || null,
+      args.link
+    );
+    return { whatsapp_message_id: result.externalMessageId };
+  }
   let metaMessageId: string | null = null;
   if (creds && args.link) {
     for (const variant of phoneVariants(sanitizePhoneForMeta(creds.phone))) {
@@ -565,6 +697,31 @@ export async function engineSendInteractiveList(
     args.contactId,
     args.conversationId
   );
+  if (
+    creds &&
+    (creds.providerKind === 'evolution' || creds.providerKind === 'waha')
+  ) {
+    const lines = [args.headerText, args.bodyText, args.footerText].filter(
+      Boolean
+    ) as string[];
+    for (const section of args.sections || []) {
+      if (section.title) lines.push(section.title);
+      for (const row of section.rows) {
+        lines.push(
+          row.description
+            ? `- ${row.title}: ${row.description}`
+            : `- ${row.title}`
+        );
+      }
+    }
+    return engineSendText({
+      accountId: args.accountId,
+      userId: args.userId,
+      conversationId: args.conversationId,
+      contactId: args.contactId,
+      text: lines.join('\n'),
+    });
+  }
   let metaMessageId: string | null = null;
   if (creds && args.sections?.length) {
     for (const variant of phoneVariants(sanitizePhoneForMeta(creds.phone))) {
