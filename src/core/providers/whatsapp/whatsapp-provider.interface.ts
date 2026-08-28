@@ -1,7 +1,29 @@
 import { MessageEvent } from '../../types';
 
+export type WhatsAppProviderName = 'meta' | 'evolution' | 'waha';
+
+export class UnsupportedWhatsAppOperationError extends Error {
+  readonly code = 'UNSUPPORTED_WHATSAPP_OPERATION';
+  readonly provider: WhatsAppProviderName;
+  readonly operation: string;
+
+  constructor(
+    provider: WhatsAppProviderName,
+    operation: string,
+    message?: string
+  ) {
+    super(
+      message ||
+        `${operation} is not supported for the ${provider} WhatsApp connection.`
+    );
+    this.name = 'UnsupportedWhatsAppOperationError';
+    this.provider = provider;
+    this.operation = operation;
+  }
+}
+
 export interface WhatsAppProvider {
-  readonly providerName: 'meta' | 'waha';
+  readonly providerName: WhatsAppProviderName;
 
   verifyWebhook(request: Request, bodyText: string): Promise<boolean>;
   normalizeWebhook(payload: Record<string, unknown>): Promise<MessageEvent[]>;

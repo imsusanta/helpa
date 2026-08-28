@@ -27,7 +27,7 @@ export interface MessageEvent {
   eventId: string;
   messageId?: string;
   clinicId: string;
-  provider: 'meta' | 'waha' | 'twilio' | 'exotel';
+  provider: 'meta' | 'waha' | 'evolution' | 'twilio' | 'exotel';
   channel: 'whatsapp' | 'sms';
   externalMessageId: string;
   direction: 'inbound' | 'outbound';

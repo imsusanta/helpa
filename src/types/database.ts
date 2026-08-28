@@ -316,6 +316,11 @@ export interface Database {
           connection_type: string | null;
           coexistence_status: string | null;
           status: string;
+          provider_instance_id: string | null;
+          provider_instance_name: string | null;
+          provider_token_encrypted: string | null;
+          connection_status: string | null;
+          webhook_secret_hash: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -341,6 +346,11 @@ export interface Database {
           connection_type?: string | null;
           coexistence_status?: string | null;
           status?: string;
+          provider_instance_id?: string | null;
+          provider_instance_name?: string | null;
+          provider_token_encrypted?: string | null;
+          connection_status?: string | null;
+          webhook_secret_hash?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -366,6 +376,11 @@ export interface Database {
           connection_type?: string | null;
           coexistence_status?: string | null;
           status?: string;
+          provider_instance_id?: string | null;
+          provider_instance_name?: string | null;
+          provider_token_encrypted?: string | null;
+          connection_status?: string | null;
+          webhook_secret_hash?: string | null;
           created_at?: string;
           updated_at?: string;
         };
