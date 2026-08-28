@@ -8,7 +8,9 @@ import { resolveWhatsAppProvider } from '@/core/providers/whatsapp/provider-reso
 import {
   createEvolutionGoInstance,
   sendEvolutionGoText,
+  EvolutionGoConfigError,
   EvolutionGoRequestError,
+  EVOLUTION_GO_WRONG_HOST_MESSAGE,
 } from '@/core/providers/whatsapp/evolution-go-client';
 import {
   EvolutionGoProvider,
@@ -161,6 +163,53 @@ describe('Evolution Go HTTP client', () => {
     expect(headers.get('apikey')).toBe('test-global-api-key');
     expect(String(call[1]?.body)).toContain('instance-token-secret');
     expect(String(call[0])).toBe('https://evolution.test/instance/create');
+    expect(call[1]?.redirect).toBe('manual');
+  });
+
+  it('does not follow a login redirect and does not treat Helpa HTML as success', async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response('/login', {
+          status: 307,
+          headers: {
+            Location: '/login',
+            'Content-Type': 'text/plain',
+          },
+        })
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(
+      createEvolutionGoInstance({
+        name: 'hname',
+        token: 'instance-token-secret',
+      })
+    ).rejects.toMatchObject({
+      name: 'EvolutionGoConfigError',
+      message: EVOLUTION_GO_WRONG_HOST_MESSAGE,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[1]?.redirect).toBe('manual');
+  });
+
+  it('rejects a 200 Helpa HTML page as the wrong Evolution host', async () => {
+    globalThis.fetch = vi.fn(
+      async () =>
+        new Response(
+          '<!DOCTYPE html><html><body><img src="/helpa-logo.svg" /></body></html>',
+          {
+            status: 200,
+            headers: { 'Content-Type': 'text/html; charset=utf-8' },
+          }
+        )
+    ) as unknown as typeof fetch;
+
+    await expect(
+      createEvolutionGoInstance({
+        name: 'hname',
+        token: 'instance-token-secret',
+      })
+    ).rejects.toBeInstanceOf(EvolutionGoConfigError);
   });
 
   it('surfaces a license error instead of a generic 502', async () => {

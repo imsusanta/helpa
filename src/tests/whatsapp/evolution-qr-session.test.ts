@@ -4,6 +4,7 @@ import * as authAccount from '@/lib/auth/account';
 import * as supabaseServer from '@/lib/supabase/server';
 import * as dbServer from '@/lib/db/server';
 import { hashWebhookSecret } from '@/core/providers/whatsapp/evolution-go-provider';
+import { EVOLUTION_GO_WRONG_HOST_MESSAGE } from '@/core/providers/whatsapp/evolution-go-client';
 import { __resetRateLimitForTests } from '@/lib/rate-limit';
 import { logger } from '@/lib/observability/logger';
 import {
@@ -494,5 +495,26 @@ describe('Evolution Go QR session route', () => {
     expect(body.success).toBe(false);
     expect(body.error).toMatch(/not licensed/i);
     expect(JSON.stringify(body)).not.toMatch(/DOCTYPE/);
+  });
+
+  it('returns JSON 503 when BASE_URL is Helpa HTML instead of Evolution', async () => {
+    globalThis.fetch = vi.fn(
+      async () =>
+        new Response(
+          '<!DOCTYPE html><html lang="en"><body>helpa-logo</body></html>',
+          {
+            status: 200,
+            headers: { 'Content-Type': 'text/html; charset=utf-8' },
+          }
+        )
+    ) as unknown as typeof fetch;
+
+    const res = await qrPost(jsonRequest('POST', { action: 'generate' }));
+    const body = await res.json();
+    expect(res.status).toBe(503);
+    expect(body.success).toBe(false);
+    expect(body.error).toBe(EVOLUTION_GO_WRONG_HOST_MESSAGE);
+    expect(JSON.stringify(body)).not.toMatch(/DOCTYPE/);
+    expect(body).not.toHaveProperty('failure_status');
   });
 });

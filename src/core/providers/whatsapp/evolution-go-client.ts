@@ -30,6 +30,43 @@ export class EvolutionGoRequestError extends Error {
   }
 }
 
+/** Public when BASE_URL is Helpa (or any login HTML) instead of Evolution/WAHA. */
+export const EVOLUTION_GO_WRONG_HOST_MESSAGE =
+  'EVOLUTION_GO_BASE_URL is not Evolution Go. Point it at GET /server/ok JSON, not the Helpa app or a login page.';
+
+function isHttpRedirectStatus(status: number): boolean {
+  return (
+    status === 301 ||
+    status === 302 ||
+    status === 303 ||
+    status === 307 ||
+    status === 308
+  );
+}
+
+function looksLikeHtmlDocument(text: string, contentType: string): boolean {
+  const type = contentType.toLowerCase();
+  if (type.includes('text/html')) return true;
+  const trimmed = text.trim();
+  return (
+    trimmed.startsWith('<') ||
+    /<!doctype html/i.test(trimmed) ||
+    /<html[\s>]/i.test(trimmed)
+  );
+}
+
+function assertEvolutionEngineResponse(response: Response, text: string): void {
+  if (
+    isHttpRedirectStatus(response.status) ||
+    response.type === 'opaqueredirect'
+  ) {
+    throw new EvolutionGoConfigError(EVOLUTION_GO_WRONG_HOST_MESSAGE);
+  }
+  if (looksLikeHtmlDocument(text, response.headers.get('content-type') || '')) {
+    throw new EvolutionGoConfigError(EVOLUTION_GO_WRONG_HOST_MESSAGE);
+  }
+}
+
 export const EVOLUTION_GO_SUBSCRIBE_EVENTS = [
   'MESSAGE',
   'CONNECTION',
@@ -240,13 +277,21 @@ async function evolutionGoRequest(
       },
       body:
         options.body === undefined ? undefined : JSON.stringify(options.body),
+      redirect: 'manual',
       signal: controller.signal,
     });
+
+    if (
+      isHttpRedirectStatus(response.status) ||
+      response.type === 'opaqueredirect'
+    ) {
+      throw new EvolutionGoConfigError(EVOLUTION_GO_WRONG_HOST_MESSAGE);
+    }
 
     const contentType = response.headers.get('content-type') || '';
 
     // Handle binary image responses (e.g. from WAHA QR endpoint)
-    if (contentType.includes('image/')) {
+    if (response.ok && contentType.includes('image/')) {
       const buffer = await response.arrayBuffer();
       const base64 = Buffer.from(buffer).toString('base64');
       const dataUrl = `data:${contentType.split(';')[0]};base64,${base64}`;
@@ -259,6 +304,7 @@ async function evolutionGoRequest(
     }
 
     const text = await response.text();
+    assertEvolutionEngineResponse(response, text);
     let json: Record<string, unknown> | null = null;
     if (text) {
       try {
