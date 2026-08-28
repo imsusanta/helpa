@@ -253,13 +253,15 @@ async function evolutionGoRequest(
     }
 
     if (!response.ok) {
-      const remoteError = json
-        ? asString(json.error || json.message)
-        : sanitizeErrorText(text);
+      const code = json ? asString(json.code) : '';
+      const safeText = sanitizeErrorText(text);
+      if (code === 'LICENSE_REQUIRED' || /license required/i.test(safeText)) {
+        throw new EvolutionGoConfigError(
+          'Evolution Go is not licensed. Open the Evolution manager, activate the community license, then generate the QR again.'
+        );
+      }
       throw new EvolutionGoRequestError(
-        remoteError
-          ? `Evolution Go request failed (${response.status}).`
-          : `Evolution Go request failed (${response.status}).`,
+        `Evolution Go request failed (${response.status}).`,
         response.status >= 400 && response.status < 500 ? response.status : 502
       );
     }
