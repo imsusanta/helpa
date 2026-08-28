@@ -28,6 +28,7 @@ export interface QrSessionResponse {
   display_name?: string | null;
   verified_name?: string | null;
   error?: string;
+  error_code?: string;
 }
 
 export function qrSessionUnavailableMessage(status: number): string {

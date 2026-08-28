@@ -51,6 +51,7 @@
     "repair:automation-seeds": "tsx scripts/repair-automation-seeds.mjs",
     "voice:smoke": "tsx scripts/voice-smoke-test.ts",
     "verify:whatsapp-live": "node scripts/verify-whatsapp-live.mjs",
+    "check:evolution-go": "node scripts/check-evolution-go.mjs",
     "supabase:migrate": "node scripts/apply-supabase-migrations.mjs",
     "supabase:validate": "node scripts/validate-supabase-migrations.mjs"
   },

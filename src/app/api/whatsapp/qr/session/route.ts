@@ -76,11 +76,15 @@ function publicQrSessionJson(
   );
 }
 
-function qrPayload(error: string) {
+function qrPayload(
+  error: string,
+  errorCode: EvolutionQrSessionResponse['error_code'] = 'EVOLUTION_GO_REQUEST_FAILED'
+) {
   return {
     success: false,
     status: 'error' as const,
     error,
+    error_code: errorCode,
     qr_code: null,
     qr_image: null,
     expires_in: null,
@@ -91,11 +95,17 @@ function qrPayload(error: string) {
 
 function qrRouteErrorResponse(err: unknown): NextResponse {
   if (err instanceof EvolutionGoConfigError) {
-    return noStoreJson(qrPayload(err.message), 503);
+    return noStoreJson(qrPayload(err.message, 'EVOLUTION_GO_CONFIG'), 503);
   }
   if (err instanceof EvolutionGoRequestError) {
     const status = err.status === 504 ? 504 : err.status === 503 ? 503 : 502;
-    return noStoreJson(qrPayload(publicErrorMessage(err)), status);
+    const errorCode =
+      err.status === 401 || err.status === 403
+        ? 'EVOLUTION_GO_AUTH_FAILED'
+        : err.status === 502 || err.status === 503 || err.status === 504
+          ? 'EVOLUTION_GO_UNREACHABLE'
+          : 'EVOLUTION_GO_REQUEST_FAILED';
+    return noStoreJson(qrPayload(publicErrorMessage(err), errorCode), status);
   }
   return toErrorResponse(err);
 }
@@ -112,11 +122,10 @@ export async function GET() {
         return rateLimitResponse(rateLimit);
       }
       const session = await getEvolutionQrSession(ctx.accountId);
-      return noStoreJson(
-        stripSecrets(
-          toPublicQrSession(session) as unknown as Record<string, unknown>
-        )
-      );
+      // Preserve the upstream failure status on polling responses. Returning
+      // HTTP 200 for a failed Evolution request made the client treat a
+      // temporary upstream outage as a terminal QR error and stop polling.
+      return publicQrSessionJson(session);
     });
   } catch (err: unknown) {
     return qrRouteErrorResponse(err);

@@ -49,6 +49,21 @@ function mapStatus(payload: QrSessionResponse): QrUiStatus {
   return 'disconnected';
 }
 
+function isRetryableQrError(
+  payload: QrSessionResponse,
+  httpStatus: number
+): boolean {
+  return (
+    (httpStatus === 502 || httpStatus === 503 || httpStatus === 504) &&
+    payload.error_code === 'EVOLUTION_GO_UNREACHABLE'
+  );
+}
+
+interface QrPollOutcome {
+  next: QrUiStatus;
+  retryable: boolean;
+}
+
 export function WhatsAppQrPanel({ onConnectionSuccess }: WhatsAppQrPanelProps) {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<QrUiStatus>('disconnected');
@@ -100,16 +115,24 @@ export function WhatsAppQrPanel({ onConnectionSuccess }: WhatsAppQrPanelProps) {
     [onConnectionSuccess]
   );
 
-  const pollOnce = useCallback(async () => {
+  const pollOnce = useCallback(async (): Promise<QrPollOutcome> => {
     const res = await fetch('/api/whatsapp/qr/session', {
       cache: 'no-store',
       credentials: 'same-origin',
     });
     const payload = await readQrSessionResponse(res);
-    if (!res.ok && res.status !== 502 && res.status !== 503) {
+    if (
+      !res.ok &&
+      res.status !== 502 &&
+      res.status !== 503 &&
+      res.status !== 504
+    ) {
       throw new Error(payload.error || 'Failed to load QR session');
     }
-    return applyPayload(payload);
+    return {
+      next: applyPayload(payload),
+      retryable: isRetryableQrError(payload, res.status),
+    };
   }, [applyPayload]);
 
   const schedulePoll = useCallback(() => {
@@ -121,16 +144,19 @@ export function WhatsAppQrPanel({ onConnectionSuccess }: WhatsAppQrPanelProps) {
     }
     pollTimer.current = setTimeout(async () => {
       try {
-        const next = await pollOnce();
+        const outcome = await pollOnce();
+        const next = outcome.next;
         if (
           next === 'connected' ||
           next === 'disconnected' ||
           next === 'expired' ||
-          next === 'error'
+          (next === 'error' && !outcome.retryable)
         ) {
           stopPolling();
           return;
         }
+        // A 502/503/504 from Evolution Go is transient. Keep polling so a
+        // slow/restarting companion service does not force a manual retry.
         schedulePoll();
       } catch {
         if (!unmounted.current) {
@@ -156,7 +182,14 @@ export function WhatsAppQrPanel({ onConnectionSuccess }: WhatsAppQrPanelProps) {
         body: JSON.stringify({ action: 'generate' }),
       });
       const payload = await readQrSessionResponse(res);
-      if (!res.ok && !payload.qr_code && !payload.qr_image) {
+      if (
+        !res.ok &&
+        res.status !== 502 &&
+        res.status !== 503 &&
+        res.status !== 504 &&
+        !payload.qr_code &&
+        !payload.qr_image
+      ) {
         throw new Error(payload.error || 'Failed to generate QR code');
       }
       const next = applyPayload(payload);
@@ -191,7 +224,14 @@ export function WhatsAppQrPanel({ onConnectionSuccess }: WhatsAppQrPanelProps) {
         body: JSON.stringify({ action: 'reconnect' }),
       });
       const payload = await readQrSessionResponse(res);
-      if (!res.ok && !payload.qr_code && !payload.qr_image) {
+      if (
+        !res.ok &&
+        res.status !== 502 &&
+        res.status !== 503 &&
+        res.status !== 504 &&
+        !payload.qr_code &&
+        !payload.qr_image
+      ) {
         throw new Error(payload.error || 'Reconnect failed');
       }
       const next = applyPayload(payload);
@@ -233,7 +273,7 @@ export function WhatsAppQrPanel({ onConnectionSuccess }: WhatsAppQrPanelProps) {
   useEffect(() => {
     unmounted.current = false;
     void pollOnce()
-      .then((next) => {
+      .then(({ next }) => {
         if (
           next === 'waiting_for_qr' ||
           next === 'waiting_for_scan' ||
