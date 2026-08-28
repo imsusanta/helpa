@@ -220,21 +220,17 @@ const WEBHOOK_SECRET_KEYS = new Set([
   'global_api_key',
 ]);
 
-function redactUnknown(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map((item) => redactUnknown(item));
-  if (!value || typeof value !== 'object') return value;
-  const clone: Record<string, unknown> = {};
-  for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
-    if (WEBHOOK_SECRET_KEYS.has(key.toLowerCase())) continue;
-    clone[key] = redactUnknown(nested);
-  }
-  return clone;
-}
-
 export function redactEvolutionWebhookPayload(
   payload: Record<string, unknown>
 ): Record<string, unknown> {
-  return redactUnknown(payload) as Record<string, unknown>;
+  // JSON.stringify's replacer drops secret keys without assigning
+  // attacker-controlled property names onto a new object (CodeQL
+  // js/remote-property-injection). Parsed webhook JSON is acyclic.
+  return JSON.parse(
+    JSON.stringify(payload, (key, value) =>
+      WEBHOOK_SECRET_KEYS.has(String(key).toLowerCase()) ? undefined : value
+    )
+  ) as Record<string, unknown>;
 }
 
 export class EvolutionGoProvider implements WhatsAppProvider {

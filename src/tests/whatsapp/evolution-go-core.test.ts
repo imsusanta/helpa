@@ -13,6 +13,7 @@ import {
 import {
   EvolutionGoProvider,
   hashWebhookSecret,
+  redactEvolutionWebhookPayload,
   webhookSecretMatches,
 } from '@/core/providers/whatsapp/evolution-go-provider';
 import { UnsupportedWhatsAppOperationError } from '@/core/providers/whatsapp/whatsapp-provider.interface';
@@ -269,6 +270,25 @@ describe('Evolution Go provider behaviour', () => {
     expect(webhookSecretMatches(secret, hash)).toBe(true);
     expect(webhookSecretMatches('other-secret', hash)).toBe(false);
     expect(hash).not.toBe(secret);
+  });
+
+  it('redacts nested webhook secrets without remote property assignment', () => {
+    const payload = {
+      event: 'Message',
+      instanceToken: 'top-secret',
+      apikey: 'global-key',
+      data: {
+        token: 'nested-token',
+        key: { id: 'msg-1', fromMe: false },
+      },
+    };
+    const redacted = redactEvolutionWebhookPayload(payload);
+    expect(redacted.event).toBe('Message');
+    expect(redacted).not.toHaveProperty('instanceToken');
+    expect(redacted).not.toHaveProperty('apikey');
+    const data = redacted.data as Record<string, unknown>;
+    expect(data).not.toHaveProperty('token');
+    expect(data.key).toEqual({ id: 'msg-1', fromMe: false });
   });
 });
 
