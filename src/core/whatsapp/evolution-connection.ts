@@ -33,8 +33,10 @@ import { hashWebhookSecret } from '@/core/providers/whatsapp/evolution-go-provid
 import {
   EvolutionGoConfigError,
   buildEvolutionWebhookUrl,
+  getEvolutionGoBaseUrl,
   hasEnoughEvolutionDeadline,
 } from '@/core/providers/whatsapp/evolution-go-env';
+import { logger } from '@/lib/observability/logger';
 
 export type EvolutionConnectionUiStatus =
   | 'creating_instance'
@@ -59,6 +61,8 @@ export interface EvolutionQrSessionResponse {
   connection_type?: 'qr_linked_device';
   error?: string;
   conflict?: boolean;
+  /** Internal HTTP status for failed POST/reconnect. Not sent to clients. */
+  failure_status?: 502 | 503 | 504;
 }
 
 const QR_TTL_SECONDS = 60;
@@ -127,6 +131,49 @@ function publicErrorMessage(error: unknown): string {
     return SAFE_CONNECT_ERROR;
   }
   return SAFE_CONNECT_ERROR;
+}
+
+function evolutionGoHostname(): string | null {
+  try {
+    return new URL(getEvolutionGoBaseUrl()).hostname;
+  } catch {
+    return null;
+  }
+}
+
+export function qrSessionFailureStatus(error: unknown): 502 | 503 | 504 {
+  if (error instanceof EvolutionGoConfigError) return 503;
+  if (error instanceof EvolutionGoRequestError) {
+    if (error.status === 504 || error.status === 503) return error.status;
+  }
+  return 502;
+}
+
+function failedQrSession(
+  error: unknown,
+  extras: {
+    status?: EvolutionConnectionUiStatus;
+    conflict?: boolean;
+  } = {}
+): EvolutionQrSessionResponse {
+  const failure_status = qrSessionFailureStatus(error);
+  logger.error('WhatsApp QR session failed', {
+    component: 'qr-session',
+    httpStatus: failure_status,
+    evolutionHost: evolutionGoHostname(),
+  });
+  return {
+    success: false,
+    status: extras.status ?? 'error',
+    qr_code: null,
+    qr_image: null,
+    expires_in: null,
+    provider: 'evolution',
+    connection_type: 'qr_linked_device',
+    error: publicErrorMessage(error),
+    failure_status,
+    ...(extras.conflict ? { conflict: true } : {}),
+  };
 }
 
 function storeSafeConnectionError(error: unknown): string {
@@ -344,16 +391,7 @@ async function connectAndFetchQr(
     });
   } catch (error) {
     await markConnectionError(accountId, error);
-    return {
-      success: false,
-      status: 'error',
-      qr_code: null,
-      qr_image: null,
-      expires_in: null,
-      provider: 'evolution',
-      connection_type: 'qr_linked_device',
-      error: publicErrorMessage(error),
-    };
+    return failedQrSession(error);
   }
 
   if (!hasEnoughEvolutionDeadline(1_500)) {
@@ -418,16 +456,7 @@ async function connectAndFetchQr(
       };
     }
     await markConnectionError(accountId, error);
-    return {
-      success: false,
-      status: 'waiting_for_qr',
-      qr_code: null,
-      qr_image: null,
-      expires_in: null,
-      provider: 'evolution',
-      connection_type: 'qr_linked_device',
-      error: publicErrorMessage(error),
-    };
+    return failedQrSession(error, { status: 'waiting_for_qr' });
   }
 }
 
@@ -462,16 +491,7 @@ export async function getEvolutionQrSession(
     }
     return await applyLiveStatus(accountId, instanceToken, config);
   } catch (error) {
-    return {
-      success: false,
-      status: 'error',
-      qr_code: null,
-      qr_image: null,
-      expires_in: null,
-      provider: 'evolution',
-      connection_type: 'qr_linked_device',
-      error: publicErrorMessage(error),
-    };
+    return failedQrSession(error);
   }
 }
 
@@ -527,14 +547,7 @@ export async function startEvolutionQrSession(
       }
       if (!isEvolutionGoNotFoundError(error)) {
         await markConnectionError(accountId, error);
-        return {
-          success: false,
-          status: 'error',
-          qr_code: null,
-          qr_image: null,
-          expires_in: null,
-          error: publicErrorMessage(error),
-        };
+        return failedQrSession(error);
       }
     }
   }
@@ -556,14 +569,7 @@ export async function startEvolutionQrSession(
   } catch (error) {
     if (!hasEnoughEvolutionDeadline(2_000)) {
       await markConnectionError(accountId, error);
-      return {
-        success: false,
-        status: 'error',
-        qr_code: null,
-        qr_image: null,
-        expires_in: null,
-        error: publicErrorMessage(error),
-      };
+      return failedQrSession(error);
     }
     try {
       await deleteEvolutionGoInstance(instanceId);
@@ -580,14 +586,7 @@ export async function startEvolutionQrSession(
         // Compensating delete is best-effort when create partially succeeded.
       }
       await markConnectionError(accountId, error);
-      return {
-        success: false,
-        status: 'error',
-        qr_code: null,
-        qr_image: null,
-        expires_in: null,
-        error: publicErrorMessage(error),
-      };
+      return failedQrSession(error);
     }
   }
 
@@ -616,14 +615,7 @@ export async function startEvolutionQrSession(
       // Compensating delete when Helpa persistence fails after create.
     }
     await markConnectionError(accountId, error);
-    return {
-      success: false,
-      status: 'error',
-      qr_code: null,
-      qr_image: null,
-      expires_in: null,
-      error: publicErrorMessage(error),
-    };
+    return failedQrSession(error);
   }
 
   if (!hasEnoughEvolutionDeadline(2_000)) {
@@ -654,14 +646,7 @@ export async function reconnectEvolutionQrSession(
     return await applyLiveStatus(accountId, instanceToken, config);
   } catch (error) {
     await markConnectionError(accountId, error);
-    return {
-      success: false,
-      status: 'reconnect_required',
-      qr_code: null,
-      qr_image: null,
-      expires_in: null,
-      error: publicErrorMessage(error),
-    };
+    return failedQrSession(error, { status: 'reconnect_required' });
   }
 }
 

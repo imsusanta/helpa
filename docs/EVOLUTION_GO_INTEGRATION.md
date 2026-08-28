@@ -59,7 +59,10 @@ curl -fsS "http://127.0.0.1:8080/server/ok"
 ```
 
 Point Helpa at that service with the environment variables below.
-Production URLs must be HTTPS.
+Production URLs must be HTTPS. Production `EVOLUTION_GO_BASE_URL` must
+be a durable public HTTPS origin that Vercel Functions can reach.
+`localhost`, a developer laptop, and ephemeral tunnels (for example
+trycloudflare) are not valid production hosts.
 
 ## Required Evolution Go version
 
@@ -95,8 +98,8 @@ All server-only. Never use a `NEXT_PUBLIC_` prefix.
 | `EVOLUTION_GO_BASE_URL` | Origin of the Evolution Go service |
 | `EVOLUTION_GO_GLOBAL_API_KEY` | Global admin `apikey` |
 | `EVOLUTION_GO_WEBHOOK_BASE_URL` | Public Helpa origin used to build `/api/webhooks/evolution/{secret}` |
-| `EVOLUTION_GO_TIMEOUT_MS` | Optional per-request timeout (3s–120s, default 30s; capped at 6.5s on Vercel) |
-| `EVOLUTION_GO_SESSION_BUDGET_MS` | Optional whole QR session budget (3s–120s; default 8s on Vercel so Helpa returns JSON before a platform HTML 502) |
+| `EVOLUTION_GO_TIMEOUT_MS` | Optional per-request timeout (3s–120s, default 30s; capped at 3.5s on Vercel) |
+| `EVOLUTION_GO_SESSION_BUDGET_MS` | Optional whole QR session budget (3s–120s; default 5s on Vercel so Helpa returns JSON before a platform HTML 502) |
 
 `WHATSAPP_TOKEN_ENCRYPTION_KEY` (or `ENCRYPTION_KEY`) encrypts the
 tenant instance token with AES-256-GCM before persistence.
