@@ -163,6 +163,31 @@ describe('Evolution Go HTTP client', () => {
     expect(String(call[0])).toBe('https://evolution.test/instance/create');
   });
 
+  it('surfaces a license error instead of a generic 502', async () => {
+    globalThis.fetch = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            code: 'LICENSE_REQUIRED',
+            error: 'service not activated',
+            message:
+              'License required. Open the manager to activate your license.',
+          }),
+          { status: 503, headers: { 'Content-Type': 'application/json' } }
+        )
+    ) as unknown as typeof fetch;
+
+    await expect(
+      createEvolutionGoInstance({
+        name: 'hname',
+        token: 'instance-token-secret',
+      })
+    ).rejects.toMatchObject({
+      name: 'EvolutionGoConfigError',
+      message: expect.stringMatching(/not licensed/i),
+    });
+  });
+
   it('sends text with the tenant instance token, not the global key', async () => {
     const fetchMock = vi.fn(
       async () =>
