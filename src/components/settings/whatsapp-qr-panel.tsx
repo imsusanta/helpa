@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import {
   QrCode,
@@ -9,132 +9,279 @@ import {
   RefreshCw,
   Loader2,
   ShieldCheck,
-  Zap,
   Unlink,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
+type QrUiStatus =
+  | 'creating_instance'
+  | 'waiting_for_qr'
+  | 'waiting_for_scan'
+  | 'connected'
+  | 'disconnected'
+  | 'reconnect_required'
+  | 'expired'
+  | 'error';
+
+interface QrSessionResponse {
+  success?: boolean;
+  connected?: boolean;
+  status?: QrUiStatus | string;
+  qr?: string | null;
+  qr_code?: string | null;
+  qr_image?: string | null;
+  pairing_code?: string | null;
+  expires_in?: number | null;
+  expires_in_seconds?: number | null;
+  phone_number?: string | null;
+  display_name?: string | null;
+  verified_name?: string | null;
+  error?: string;
+}
+
 interface WhatsAppQrPanelProps {
   onConnectionSuccess?: () => void;
 }
 
+const POLL_INTERVAL_MS = 2500;
+const MAX_POLL_MS = 5 * 60 * 1000;
+
+function mapStatus(payload: QrSessionResponse): QrUiStatus {
+  if (payload.connected) return 'connected';
+  const status = payload.status;
+  if (
+    status === 'creating_instance' ||
+    status === 'waiting_for_qr' ||
+    status === 'waiting_for_scan' ||
+    status === 'connected' ||
+    status === 'disconnected' ||
+    status === 'reconnect_required' ||
+    status === 'expired' ||
+    status === 'error'
+  ) {
+    return status;
+  }
+  if (payload.qr || payload.qr_code || payload.qr_image) {
+    return 'waiting_for_scan';
+  }
+  return 'disconnected';
+}
+
 export function WhatsAppQrPanel({ onConnectionSuccess }: WhatsAppQrPanelProps) {
   const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState<QrUiStatus>('disconnected');
   const [qrCode, setQrCode] = useState<string | null>(null);
-  const [status, setStatus] = useState<
-    'disconnected' | 'waiting_for_scan' | 'connected'
-  >('disconnected');
-  const [expiresIn, setExpiresIn] = useState<number>(60);
+  const [qrImage, setQrImage] = useState<string | null>(null);
+  const [pairingCode, setPairingCode] = useState<string | null>(null);
+  const [expiresIn, setExpiresIn] = useState<number>(0);
   const [connectedPhone, setConnectedPhone] = useState<string | null>(null);
-  const [simulating, setSimulating] = useState(false);
+  const [displayName, setDisplayName] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const pollStartedAt = useRef(0);
+  const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const unmounted = useRef(false);
+  const wasConnected = useRef(false);
 
-  const fetchSessionStatus = useCallback(async () => {
-    try {
-      const res = await fetch('/api/whatsapp/qr/session');
-      const data = await res.json();
-      if (res.ok) {
-        if (data.status === 'connected') {
-          setStatus('connected');
-          setConnectedPhone(data.phone_number || null);
-        } else if (data.status === 'waiting_for_scan' && data.qr_code) {
-          setStatus('waiting_for_scan');
-          setQrCode(data.qr_code);
-          setExpiresIn(data.expires_in || 60);
-        } else {
-          setStatus('disconnected');
-        }
-      }
-    } catch {
-      // Ignore poll error
+  const stopPolling = useCallback(() => {
+    if (pollTimer.current) {
+      clearTimeout(pollTimer.current);
+      pollTimer.current = null;
     }
   }, []);
 
+  const applyPayload = useCallback(
+    (payload: QrSessionResponse) => {
+      const next = mapStatus(payload);
+      const nextQr = payload.qr_code || payload.qr || null;
+      const nextImage =
+        payload.qr_image ||
+        (nextQr && nextQr.startsWith('data:') ? nextQr : null);
+      setStatus(next);
+      setQrCode(nextQr);
+      setQrImage(nextImage);
+      setPairingCode(payload.pairing_code ?? null);
+      setExpiresIn(
+        Number(payload.expires_in_seconds || payload.expires_in || 0)
+      );
+      setConnectedPhone(payload.phone_number ?? null);
+      setDisplayName(payload.display_name || payload.verified_name || null);
+      setError(payload.error ?? null);
+      if (next === 'connected' && !wasConnected.current) {
+        wasConnected.current = true;
+        onConnectionSuccess?.();
+      }
+      if (next !== 'connected') {
+        wasConnected.current = false;
+      }
+      return next;
+    },
+    [onConnectionSuccess]
+  );
+
+  const pollOnce = useCallback(async () => {
+    const res = await fetch('/api/whatsapp/qr/session', {
+      cache: 'no-store',
+    });
+    const payload = (await res.json()) as QrSessionResponse;
+    if (!res.ok && res.status !== 502) {
+      throw new Error(payload.error || 'Failed to load QR session');
+    }
+    return applyPayload(payload);
+  }, [applyPayload]);
+
+  const schedulePoll = useCallback(() => {
+    stopPolling();
+    if (unmounted.current) return;
+    if (Date.now() - pollStartedAt.current > MAX_POLL_MS) {
+      setStatus('expired');
+      return;
+    }
+    pollTimer.current = setTimeout(async () => {
+      try {
+        const next = await pollOnce();
+        if (
+          next === 'connected' ||
+          next === 'disconnected' ||
+          next === 'expired' ||
+          next === 'error'
+        ) {
+          stopPolling();
+          return;
+        }
+        schedulePoll();
+      } catch {
+        if (!unmounted.current) {
+          setStatus('error');
+          setError('Could not refresh WhatsApp QR status');
+        }
+        stopPolling();
+      }
+    }, POLL_INTERVAL_MS);
+  }, [pollOnce, stopPolling]);
+
   const generateNewQr = useCallback(async () => {
     setLoading(true);
+    setError(null);
+    stopPolling();
+    setStatus('creating_instance');
     try {
       const res = await fetch('/api/whatsapp/qr/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'generate' }),
       });
-      const data = await res.json();
-      if (res.ok && data.qr_code) {
-        setQrCode(data.qr_code);
-        setStatus('waiting_for_scan');
-        setExpiresIn(data.expires_in || 60);
-      } else {
-        toast.error(data.error || 'Failed to generate QR code');
+      const payload = (await res.json()) as QrSessionResponse;
+      if (!res.ok && !payload.qr_code && !payload.qr_image) {
+        throw new Error(payload.error || 'Failed to generate QR code');
       }
-    } catch {
-      toast.error('Network error while generating QR code');
+      const next = applyPayload(payload);
+      pollStartedAt.current = Date.now();
+      if (
+        next === 'waiting_for_qr' ||
+        next === 'waiting_for_scan' ||
+        next === 'creating_instance'
+      ) {
+        schedulePoll();
+      }
+    } catch (err) {
+      setStatus('error');
+      const message =
+        err instanceof Error ? err.message : 'Failed to generate QR code';
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [applyPayload, schedulePoll, stopPolling]);
 
-  const handleSimulateScan = async () => {
-    setSimulating(true);
+  const reconnect = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    stopPolling();
     try {
       const res = await fetch('/api/whatsapp/qr/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'simulate_paired',
-          simulate_phone: '+91 89270 93059',
-        }),
+        body: JSON.stringify({ action: 'reconnect' }),
       });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setStatus('connected');
-        setConnectedPhone('+91 89270 93059');
-        toast.success('Device linked successfully! All chats preserved.');
-        onConnectionSuccess?.();
+      const payload = (await res.json()) as QrSessionResponse;
+      if (!res.ok && !payload.qr_code && !payload.qr_image) {
+        throw new Error(payload.error || 'Reconnect failed');
       }
-    } catch {
-      toast.error('Failed to link device');
+      const next = applyPayload(payload);
+      pollStartedAt.current = Date.now();
+      if (next !== 'connected' && next !== 'error') {
+        schedulePoll();
+      }
+    } catch (err) {
+      setStatus('error');
+      setError(err instanceof Error ? err.message : 'Reconnect failed');
     } finally {
-      setSimulating(false);
+      setLoading(false);
     }
-  };
+  }, [applyPayload, schedulePoll, stopPolling]);
 
   const handleUnlink = async () => {
-    if (!confirm('Are you sure you want to unlink this device?')) return;
+    if (!confirm('Unlink this WhatsApp QR device from Helpa?')) return;
     setLoading(true);
     try {
       const res = await fetch('/api/whatsapp/qr/session', { method: 'DELETE' });
-      if (res.ok) {
-        setStatus('disconnected');
-        setQrCode(null);
-        setConnectedPhone(null);
-        toast.success('Device unlinked.');
+      const payload = (await res.json()) as QrSessionResponse;
+      if (!res.ok) {
+        throw new Error(payload.error || 'Failed to unlink device');
       }
-    } catch {
-      toast.error('Failed to unlink device');
+      stopPolling();
+      applyPayload({ ...payload, status: 'disconnected', connected: false });
+      toast.success('QR WhatsApp disconnected. Conversation history kept.');
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : 'Failed to unlink device'
+      );
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchSessionStatus();
-  }, [fetchSessionStatus]);
+    unmounted.current = false;
+    void pollOnce().then((next) => {
+      if (
+        next === 'waiting_for_qr' ||
+        next === 'waiting_for_scan' ||
+        next === 'creating_instance'
+      ) {
+        pollStartedAt.current = Date.now();
+        schedulePoll();
+      }
+    });
+    return () => {
+      unmounted.current = true;
+      stopPolling();
+    };
+  }, [pollOnce, schedulePoll, stopPolling]);
 
-  // Countdown timer for active QR Code
   useEffect(() => {
     if (status !== 'waiting_for_scan' || expiresIn <= 0) return;
     const timer = setInterval(() => {
       setExpiresIn((prev) => {
         if (prev <= 1) {
-          generateNewQr();
-          return 60;
+          void generateNewQr();
+          return 0;
         }
         return prev - 1;
       });
     }, 1000);
     return () => clearInterval(timer);
   }, [status, expiresIn, generateNewQr]);
+
+  const waiting =
+    status === 'creating_instance' ||
+    status === 'waiting_for_qr' ||
+    status === 'waiting_for_scan';
+  const qrSrc =
+    qrImage || (qrCode && qrCode.startsWith('data:') ? qrCode : null);
 
   return (
     <div className="space-y-6">
@@ -149,7 +296,7 @@ export function WhatsAppQrPanel({ onConnectionSuccess }: WhatsAppQrPanelProps) {
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="text-foreground text-base font-semibold">
-                      WhatsApp Linked Device Active
+                      WhatsApp QR device linked
                     </h3>
                     <Badge
                       variant="outline"
@@ -159,20 +306,21 @@ export function WhatsAppQrPanel({ onConnectionSuccess }: WhatsAppQrPanelProps) {
                     </Badge>
                   </div>
                   <p className="text-muted-foreground mt-0.5 text-sm">
-                    Connected Number:{' '}
+                    Linked as{' '}
                     <strong className="text-foreground">
-                      {connectedPhone || 'WhatsApp Mobile'}
+                      {displayName || connectedPhone || 'WhatsApp device'}
                     </strong>
                   </p>
                   <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400">
-                    ✓ 100% of your chat history is preserved on your phone.
+                    Inbox, AI, and automations use this QR linked-device
+                    connection. Official Meta templates are not available.
                   </p>
                 </div>
               </div>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleUnlink}
+                onClick={() => void handleUnlink()}
                 disabled={loading}
                 className="text-destructive hover:bg-destructive/10 border-destructive/30"
               >
@@ -184,16 +332,16 @@ export function WhatsAppQrPanel({ onConnectionSuccess }: WhatsAppQrPanelProps) {
         </Card>
       ) : (
         <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-12">
-          {/* Left: Step-by-step instructions */}
           <div className="space-y-4 md:col-span-7">
             <div className="space-y-1.5">
               <h3 className="text-foreground flex items-center gap-2 text-base font-bold">
                 <Smartphone className="text-primary h-5 w-5" />
-                Link Existing WhatsApp (Zero Chat Loss)
+                Connect with QR
               </h3>
               <p className="text-muted-foreground text-xs leading-relaxed">
-                Connect your existing WhatsApp Business or personal mobile app
-                without deleting your account or losing any historical chats.
+                Link an existing WhatsApp account as a device. This is not the
+                official Meta Cloud API and does not support approved message
+                templates.
               </p>
             </div>
 
@@ -207,25 +355,23 @@ export function WhatsAppQrPanel({ onConnectionSuccess }: WhatsAppQrPanelProps) {
                   <strong>WhatsApp Business</strong> on your phone.
                 </p>
               </div>
-
               <div className="border-border/60 bg-muted/20 flex items-start gap-3 rounded-lg border p-3">
                 <span className="bg-primary/20 text-primary flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">
                   2
                 </span>
                 <p className="text-muted-foreground text-xs">
-                  Tap <strong>Menu ⋮</strong> (Android) or{' '}
-                  <strong>Settings ⚙️</strong> (iPhone) and select{' '}
+                  Tap <strong>Menu</strong> (Android) or{' '}
+                  <strong>Settings</strong> (iPhone) and select{' '}
                   <strong>Linked Devices</strong>.
                 </p>
               </div>
-
               <div className="border-border/60 bg-muted/20 flex items-start gap-3 rounded-lg border p-3">
                 <span className="bg-primary/20 text-primary flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">
                   3
                 </span>
                 <p className="text-muted-foreground text-xs">
-                  Tap <strong>Link a Device</strong> and point your camera at
-                  the QR code on the right.
+                  Tap <strong>Link a Device</strong> and scan the QR code on the
+                  right.
                 </p>
               </div>
             </div>
@@ -233,141 +379,77 @@ export function WhatsAppQrPanel({ onConnectionSuccess }: WhatsAppQrPanelProps) {
             <div className="text-muted-foreground bg-primary/5 border-primary/20 flex items-center gap-2 rounded-lg border p-3 text-xs">
               <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-500" />
               <span>
-                End-to-End Encrypted Multi-Device sync keeps all personal &
-                business messages private.
+                Helpa never talks to Evolution Go from the browser. The QR is
+                fetched through your workspace API.
               </span>
             </div>
           </div>
 
-          {/* Right: Interactive QR Box */}
           <div className="bg-card border-border flex flex-col items-center justify-center rounded-2xl border p-6 shadow-sm md:col-span-5">
-            {status === 'waiting_for_scan' && qrCode ? (
+            <p className="text-muted-foreground mb-3 self-start text-[11px] tracking-wide uppercase">
+              {status.replaceAll('_', ' ')}
+            </p>
+            {waiting && qrSrc ? (
               <div className="flex w-full flex-col items-center space-y-4">
                 <div className="relative rounded-xl border border-slate-200 bg-white p-4 shadow-inner">
-                  {/* Visual SVG QR Code Matrix */}
-                  <div className="relative flex h-48 w-48 items-center justify-center">
-                    <svg
-                      viewBox="0 0 100 100"
-                      className="h-full w-full fill-current text-slate-900"
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={qrSrc}
+                    alt="WhatsApp QR code"
+                    className="h-48 w-48"
+                  />
+                </div>
+                {expiresIn > 0 ? (
+                  <div className="text-muted-foreground flex w-full items-center justify-between px-2 text-xs">
+                    <span>
+                      Auto-refreshes in <strong>{expiresIn}s</strong>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => void generateNewQr()}
+                      className="text-primary flex items-center gap-1 hover:underline"
                     >
-                      {/* Corner markers */}
-                      <rect
-                        x="5"
-                        y="5"
-                        width="25"
-                        height="25"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="5"
-                        rx="3"
-                      />
-                      <rect x="11" y="11" width="13" height="13" />
-                      <rect
-                        x="70"
-                        y="5"
-                        width="25"
-                        height="25"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="5"
-                        rx="3"
-                      />
-                      <rect x="76" y="11" width="13" height="13" />
-                      <rect
-                        x="5"
-                        y="70"
-                        width="25"
-                        height="25"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="5"
-                        rx="3"
-                      />
-                      <rect x="11" y="76" width="13" height="13" />
-                      {/* Data dots pattern */}
-                      <rect x="36" y="8" width="6" height="6" />
-                      <rect x="48" y="8" width="6" height="6" />
-                      <rect x="58" y="8" width="6" height="6" />
-                      <rect x="8" y="36" width="6" height="6" />
-                      <rect x="20" y="36" width="6" height="6" />
-                      <rect x="36" y="36" width="6" height="6" />
-                      <rect x="48" y="36" width="6" height="6" />
-                      <rect x="60" y="36" width="6" height="6" />
-                      <rect x="75" y="36" width="6" height="6" />
-                      <rect x="86" y="36" width="6" height="6" />
-                      <rect x="36" y="48" width="6" height="6" />
-                      <rect x="48" y="48" width="6" height="6" />
-                      <rect x="60" y="48" width="6" height="6" />
-                      <rect x="8" y="48" width="6" height="6" />
-                      <rect x="20" y="48" width="6" height="6" />
-                      <rect x="36" y="60" width="6" height="6" />
-                      <rect x="48" y="60" width="6" height="6" />
-                      <rect x="60" y="60" width="6" height="6" />
-                      <rect x="75" y="60" width="6" height="6" />
-                      <rect x="86" y="60" width="6" height="6" />
-                      <rect x="36" y="75" width="6" height="6" />
-                      <rect x="48" y="75" width="6" height="6" />
-                      <rect x="60" y="75" width="6" height="6" />
-                      <rect x="75" y="75" width="6" height="6" />
-                      <rect x="86" y="75" width="6" height="6" />
-                      <rect x="36" y="86" width="6" height="6" />
-                      <rect x="48" y="86" width="6" height="6" />
-                      <rect x="60" y="86" width="6" height="6" />
-                    </svg>
-
-                    {/* Centered WhatsApp Emblem */}
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500 text-white shadow-md">
-                        <Zap className="h-5 w-5 fill-current" />
-                      </div>
-                    </div>
+                      <RefreshCw className="h-3 w-3" /> Refresh
+                    </button>
                   </div>
-                </div>
-
-                <div className="text-muted-foreground flex w-full items-center justify-between px-2 text-xs">
-                  <span>
-                    Auto-refreshes in <strong>{expiresIn}s</strong>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={generateNewQr}
-                    className="text-primary flex items-center gap-1 hover:underline"
-                  >
-                    <RefreshCw className="h-3 w-3" /> Refresh
-                  </button>
-                </div>
-
-                <Button
-                  onClick={handleSimulateScan}
-                  disabled={simulating}
-                  size="sm"
-                  className="w-full bg-emerald-600 text-xs font-semibold text-white hover:bg-emerald-700"
-                >
-                  {simulating ? (
-                    <>
-                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                      Linking Phone...
-                    </>
-                  ) : (
-                    'Simulate Mobile Scan (+91 89270 93059)'
-                  )}
-                </Button>
+                ) : null}
+                {pairingCode ? (
+                  <p className="text-muted-foreground text-xs">
+                    Pairing code:{' '}
+                    <span className="font-mono">{pairingCode}</span>
+                  </p>
+                ) : null}
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center space-y-4 py-6 text-center">
                 <div className="bg-primary/10 text-primary flex h-16 w-16 items-center justify-center rounded-2xl">
-                  <QrCode className="h-8 w-8" />
+                  {loading ? (
+                    <Loader2 className="h-8 w-8 animate-spin" />
+                  ) : (
+                    <QrCode className="h-8 w-8" />
+                  )}
                 </div>
                 <div className="space-y-1">
                   <p className="text-foreground text-sm font-semibold">
-                    Ready to link your device
+                    {status === 'reconnect_required'
+                      ? 'Reconnect required'
+                      : status === 'error'
+                        ? 'Could not start QR connection'
+                        : status === 'expired'
+                          ? 'QR expired'
+                          : 'Ready to link your device'}
                   </p>
-                  <p className="text-muted-foreground max-w-[200px] text-xs">
-                    Click below to generate a live QR Code for your phone.
+                  <p className="text-muted-foreground max-w-[220px] text-xs">
+                    {error ||
+                      'Generate a live QR from Evolution Go through Helpa.'}
                   </p>
                 </div>
                 <Button
-                  onClick={generateNewQr}
+                  onClick={() =>
+                    status === 'reconnect_required' || status === 'error'
+                      ? void reconnect()
+                      : void generateNewQr()
+                  }
                   disabled={loading}
                   size="sm"
                   className="w-full text-xs font-semibold"
@@ -375,8 +457,10 @@ export function WhatsAppQrPanel({ onConnectionSuccess }: WhatsAppQrPanelProps) {
                   {loading ? (
                     <>
                       <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                      Generating QR...
+                      Connecting...
                     </>
+                  ) : status === 'reconnect_required' ? (
+                    'Reconnect'
                   ) : (
                     <>
                       <QrCode className="mr-1.5 h-3.5 w-3.5" />

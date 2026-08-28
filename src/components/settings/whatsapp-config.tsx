@@ -15,6 +15,7 @@ import {
   Smartphone,
   Activity,
   Check,
+  QrCode,
 } from 'lucide-react';
 import { launchWhatsAppEmbeddedSignup } from '@/lib/whatsapp/embedded-signup';
 import { useAuth } from '@/hooks/use-auth';
@@ -34,6 +35,7 @@ import {
   AccordionTrigger,
   AccordionContent,
 } from '@/components/ui/accordion';
+import { WhatsAppQrPanel } from './whatsapp-qr-panel';
 import type {
   WhatsAppConfig as WhatsAppConfigType,
   WhatsAppConnectionStatus,
@@ -55,6 +57,7 @@ export function WhatsAppConfig() {
     useState<WhatsAppConnectionType>('coexistence');
   const [resetReason, setResetReason] = useState<ResetReason>(null);
   const [statusMessage, setStatusMessage] = useState<string>('');
+  const [provider, setProvider] = useState<string>('');
 
   // Disconnect Confirmation Dialog
   const [showDisconnectModal, setShowDisconnectModal] = useState(false);
@@ -82,8 +85,10 @@ export function WhatsAppConfig() {
             payload.connection_type ||
             'coexistence'
         );
+        setProvider(payload.config.provider || payload.provider || '');
       } else {
         setConfig(null);
+        setProvider(payload.provider || '');
       }
 
       if (payload.connected) {
@@ -237,6 +242,7 @@ export function WhatsAppConfig() {
       setShowDisconnectModal(false);
       setConfig(null);
       setConnectionStatus('disconnected');
+      setProvider('');
       setResetReason(null);
       setStatusMessage('');
     } catch (err) {
@@ -366,6 +372,13 @@ export function WhatsAppConfig() {
   const isCoexistenceConnected =
     connectionStatus === 'coexistence_connected' ||
     connectionType === 'coexistence';
+  const isEvolution =
+    provider === 'evolution' ||
+    connectionType === 'qr_linked_device' ||
+    config?.provider === 'evolution';
+  const isMetaConnected = isConnected && !isEvolution;
+  const showEvolutionPanel =
+    isEvolution || (!isMetaConnected && !connectingEmbedded);
 
   return (
     <section className="animate-in fade-in-50 space-y-6 duration-200">
@@ -464,6 +477,7 @@ export function WhatsAppConfig() {
 
       {/* STATE 4: Needs Attention / Error */}
       {!connectingEmbedded &&
+        !isEvolution &&
         (connectionStatus === 'needs_reconnect' ||
           connectionStatus === 'error' ||
           resetReason) && (
@@ -495,7 +509,7 @@ export function WhatsAppConfig() {
         )}
 
       {/* STATE 3: After Success / Connected */}
-      {!connectingEmbedded && isConnected && config && (
+      {!connectingEmbedded && isMetaConnected && config && (
         <Card className="border-emerald-500/30 bg-emerald-500/[0.03] shadow-md">
           <CardContent className="p-6">
             <div className="flex flex-col gap-6">
@@ -605,19 +619,19 @@ export function WhatsAppConfig() {
         </Card>
       )}
 
-      {/* STATE 1: Before Connection (Hero 1-Click Connect) */}
-      {!connectingEmbedded && !isConnected && (
+      {/* STATE 1: Before Connection — Official WhatsApp */}
+      {!connectingEmbedded && !isMetaConnected && !isEvolution && (
         <Card className="from-card via-card border-emerald-500/30 bg-gradient-to-br to-emerald-500/[0.04] shadow-md">
           <CardHeader className="pb-4">
             <div className="flex items-center gap-2.5 text-emerald-600 dark:text-emerald-400">
               <Smartphone className="h-6 w-6" />
               <CardTitle className="text-foreground text-xl font-bold">
-                WhatsApp
+                Official WhatsApp
               </CardTitle>
             </div>
             <CardDescription className="text-muted-foreground mt-1.5 max-w-xl text-sm leading-relaxed">
-              Connect your WhatsApp Business account to manage customer
-              conversations and automate patient engagement with Helpa.
+              Meta Cloud API with Embedded Signup. Recommended for official
+              templates and business messaging.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -671,6 +685,27 @@ export function WhatsAppConfig() {
           </CardContent>
         </Card>
       )}
+
+      {showEvolutionPanel ? (
+        <Card className="border-border shadow-md">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2.5">
+              <QrCode className="text-primary h-5 w-5" />
+              <CardTitle className="text-foreground text-lg font-bold">
+                Connect with QR
+              </CardTitle>
+            </div>
+            <CardDescription className="text-muted-foreground mt-1 text-sm">
+              Link an existing WhatsApp account as a device through Evolution
+              Go. Use Official WhatsApp above when you need Meta-approved
+              templates.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <WhatsAppQrPanel onConnectionSuccess={() => void fetchConfig()} />
+          </CardContent>
+        </Card>
+      ) : null}
 
       {/* Setup Instructions Accordion */}
       <Card>
