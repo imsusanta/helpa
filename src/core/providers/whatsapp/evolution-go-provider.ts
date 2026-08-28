@@ -208,15 +208,33 @@ export function isEvolutionConnectionEvent(
   );
 }
 
+const WEBHOOK_SECRET_KEYS = new Set([
+  'instancetoken',
+  'token',
+  'apikey',
+  'access_token',
+  'accesstoken',
+  'webhook_secret',
+  'webhooksecret',
+  'globalapikey',
+  'global_api_key',
+]);
+
+function redactUnknown(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map((item) => redactUnknown(item));
+  if (!value || typeof value !== 'object') return value;
+  const clone: Record<string, unknown> = {};
+  for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
+    if (WEBHOOK_SECRET_KEYS.has(key.toLowerCase())) continue;
+    clone[key] = redactUnknown(nested);
+  }
+  return clone;
+}
+
 export function redactEvolutionWebhookPayload(
   payload: Record<string, unknown>
 ): Record<string, unknown> {
-  const clone = { ...payload };
-  delete clone.instanceToken;
-  delete clone.token;
-  delete clone.apikey;
-  delete clone.apiKey;
-  return clone;
+  return redactUnknown(payload) as Record<string, unknown>;
 }
 
 export class EvolutionGoProvider implements WhatsAppProvider {

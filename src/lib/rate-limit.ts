@@ -253,6 +253,10 @@ export const RATE_LIMITS = {
    *  while still bounding accidental abuse from a script run in a
    *  loop or a compromised admin session spamming role flips. */
   adminAction: { limit: 30, windowMs: 60_000 },
+  /** WhatsApp QR panel poll. The settings UI refreshes about every
+   *  2.5s (~24/min). 60/min leaves room for two open tabs without
+   *  sharing the stricter adminAction budget used by connect/delete. */
+  whatsappQrPoll: { limit: 60, windowMs: 60_000 },
   /** Patient data export limit. 10/min per user prevents bulk export abuse. */
   patientExport: { limit: 10, windowMs: 60_000 },
   /** Hard deletion limit. 5/min per user prevents mass deletion abuse. */
