@@ -78,7 +78,7 @@ describe('Tour Packages RLS & Tenant Invariants Security Audit', () => {
       'REFERENCES public.accounts(id) ON DELETE CASCADE'
     );
     expect(catalogMigration).toContain(
-      'REFERENCES public.travel_packages(id) ON DELETE CASCADE'
+      'REFERENCES public.travel_packages(account_id, id)'
     );
   });
 
@@ -100,14 +100,36 @@ describe('Tour Packages RLS & Tenant Invariants Security Audit', () => {
     );
   });
 
-  it('hardens transactional RPC function with immutable search_path and role checks', () => {
+  it('hardens transactional RPC function with immutable search_path, anti-spoofing, and role checks', () => {
     expect(catalogMigration).toContain(
       'CREATE OR REPLACE FUNCTION public.upsert_tour_package_with_children'
     );
     expect(catalogMigration).toContain('SECURITY DEFINER');
     expect(catalogMigration).toContain('SET search_path = public, pg_temp');
     expect(catalogMigration).toContain('public.has_account_role');
-    expect(catalogMigration).toContain('public.is_active_account_member');
+    expect(catalogMigration).toContain('auth.uid()');
+    expect(catalogMigration).toContain('cannot spoof user_id');
+  });
+
+  it('provides transactional safe delete and archive RPC', () => {
+    expect(catalogMigration).toContain(
+      'CREATE OR REPLACE FUNCTION public.safe_delete_tour_package'
+    );
+    expect(catalogMigration).toContain('SET search_path = public, pg_temp');
+    expect(catalogMigration).toContain('public.has_account_role');
+    expect(catalogMigration).toContain('PACKAGE_NOT_FOUND');
+  });
+
+  it('enforces table-scoped relation constraint checks in migration', () => {
+    expect(catalogMigration).toContain(
+      "conrelid = 'public.travel_packages'::regclass"
+    );
+    expect(catalogMigration).toContain(
+      "conrelid = 'public.tour_package_departures'::regclass"
+    );
+    expect(catalogMigration).toContain(
+      "conrelid = 'public.tour_package_itinerary_days'::regclass"
+    );
   });
 
   it('enforces idempotency and constraint safety for catalog migration', () => {

@@ -182,13 +182,29 @@ export async function listPackages(
     query = query.eq('status', options.status);
   }
   if (options?.destination) {
-    query = query.ilike('destination', `%${options.destination}%`);
+    const dest = options.destination.replace(/[%_,()\\":;']/g, ' ').trim();
+    if (dest) {
+      query = query.ilike('destination', `%${dest}%`);
+    }
   }
   if (options?.search) {
-    const term = options.search.trim();
-    query = query.or(
-      `name.ilike.%${term}%,destination.ilike.%${term}%,package_code.ilike.%${term}%`
-    );
+    // Strip PostgREST special syntax characters to avoid filter injection / syntax errors
+    const sanitizedSearch = options.search
+      .replace(/[%_,()\\":;']/g, ' ')
+      .trim()
+      .slice(0, 100);
+
+    const terms = sanitizedSearch.split(/\s+/).filter((t) => t.length > 0);
+    if (terms.length > 0) {
+      const orClauses = terms
+        .slice(0, 3)
+        .map(
+          (t) =>
+            `name.ilike.%${t}%,destination.ilike.%${t}%,package_code.ilike.%${t}%`
+        )
+        .join(',');
+      query = query.or(orClauses);
+    }
   }
 
   const { data, count, error } = await query
@@ -199,7 +215,7 @@ export async function listPackages(
   return { data: (data || []) as unknown as TourPackage[], total: count };
 }
 
-/** Get a single package with its itinerary and departures. */
+/** Get a single package with its itinerary and departures. Throws on DB errors. */
 export async function getPackageWithDetails(
   accountId: string,
   packageId: string
@@ -227,7 +243,22 @@ export async function getPackageWithDetails(
       .order('start_date', { ascending: true }),
   ]);
 
-  if (pkgResult.error || !pkgResult.data) return null;
+  if (pkgResult.error) {
+    throw new Error(`Failed to fetch package: ${pkgResult.error.message}`);
+  }
+  if (!pkgResult.data) {
+    return null;
+  }
+  if (itineraryResult.error) {
+    throw new Error(
+      `Failed to fetch package itinerary: ${itineraryResult.error.message}`
+    );
+  }
+  if (departuresResult.error) {
+    throw new Error(
+      `Failed to fetch package departures: ${departuresResult.error.message}`
+    );
+  }
 
   return {
     ...(pkgResult.data as unknown as TourPackage),
@@ -381,14 +412,14 @@ export async function updatePackage(
   return rpcData as unknown as TourPackage;
 }
 
-/** Archive a package (safe delete). */
+/** Archive a package (safe delete). Returns the updated package or throws if not found. */
 export async function archivePackage(
   accountId: string,
   packageId: string,
   userId: string
-): Promise<void> {
+): Promise<TourPackage> {
   const supabase = getSupabaseAdminClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('travel_packages')
     .update({
       status: 'archived',
@@ -396,18 +427,23 @@ export async function archivePackage(
       updated_by: userId,
     })
     .eq('id', packageId)
-    .eq('account_id', accountId);
+    .eq('account_id', accountId)
+    .select(PACKAGE_DETAIL_COLUMNS)
+    .maybeSingle();
+
   if (error) throw new Error(`Failed to archive package: ${error.message}`);
+  if (!data) throw new Error('Package not found in tenant');
+  return data as unknown as TourPackage;
 }
 
-/** Publish a draft package. */
+/** Publish a draft package. Returns the updated package or throws if not found. */
 export async function publishPackage(
   accountId: string,
   packageId: string,
   userId: string
-): Promise<void> {
+): Promise<TourPackage> {
   const supabase = getSupabaseAdminClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('travel_packages')
     .update({
       status: 'published',
@@ -415,11 +451,16 @@ export async function publishPackage(
       updated_by: userId,
     })
     .eq('id', packageId)
-    .eq('account_id', accountId);
+    .eq('account_id', accountId)
+    .select(PACKAGE_DETAIL_COLUMNS)
+    .maybeSingle();
+
   if (error) throw new Error(`Failed to publish package: ${error.message}`);
+  if (!data) throw new Error('Package not found in tenant');
+  return data as unknown as TourPackage;
 }
 
-/** Delete a package only if it has no bookings; otherwise archive. */
+/** Delete a package safely via atomic database function. */
 export async function safeDeletePackage(
   accountId: string,
   packageId: string,
@@ -427,73 +468,35 @@ export async function safeDeletePackage(
 ): Promise<{ deleted: boolean; archived: boolean }> {
   const supabase = getSupabaseAdminClient();
 
-  // Check if any bookings or proposals reference this package
-  const [bookings, proposals] = await Promise.all([
-    supabase
-      .from('travel_bookings')
-      .select('id', { count: 'exact', head: true })
-      .eq('package_id', packageId)
-      .eq('account_id', accountId),
-    supabase
-      .from('trip_proposals')
-      .select('id', { count: 'exact', head: true })
-      .eq('package_id', packageId)
-      .eq('account_id', accountId),
-  ]);
+  const { data, error } = await supabase.rpc('safe_delete_tour_package', {
+    p_account_id: accountId,
+    p_package_id: packageId,
+    p_user_id: userId,
+  });
 
-  const hasReferences = (bookings.count || 0) + (proposals.count || 0) > 0;
-
-  if (hasReferences) {
-    await archivePackage(accountId, packageId, userId);
-    return { deleted: false, archived: true };
+  if (error) {
+    throw new Error(`Failed to delete package: ${error.message}`);
   }
 
-  // Safe to hard delete - delete children first then parent
-  await Promise.all([
-    supabase
-      .from('tour_package_itinerary_days')
-      .delete()
-      .eq('package_id', packageId)
-      .eq('account_id', accountId),
-    supabase
-      .from('tour_package_departures')
-      .delete()
-      .eq('package_id', packageId)
-      .eq('account_id', accountId),
-  ]);
+  const res = data as Record<string, unknown> | null;
+  if (!res || res.success === false) {
+    if (res?.error === 'PACKAGE_NOT_FOUND') {
+      throw new Error('Package not found in tenant');
+    }
+    throw new Error(
+      (res?.message as string) || 'Failed to delete package: Database error'
+    );
+  }
 
-  const { error } = await supabase
-    .from('travel_packages')
-    .delete()
-    .eq('id', packageId)
-    .eq('account_id', accountId);
-
-  if (error) throw new Error(`Failed to delete package: ${error.message}`);
-  return { deleted: true, archived: false };
+  return {
+    deleted: Boolean(res.deleted),
+    archived: Boolean(res.archived),
+  };
 }
 
 // ═══════════════════════════════════════════════════
 // AI Retrieval (Bounded, Published, Valid)
 // ═══════════════════════════════════════════════════
-
-const GENERAL_CATALOG_KEYWORDS = [
-  'show packages',
-  'show package',
-  'list packages',
-  'all packages',
-  'available packages',
-  'what packages',
-  'package list',
-  'tour packages',
-  'tour plans',
-  'tour list',
-  'প্যাকেজ',
-  'সব প্যাকেজ',
-  'ট্যুর প্যাকেজ',
-  'কী কী প্যাকেজ আছে',
-  'কোন কোন প্যাকেজ আছে',
-  'packages',
-];
 
 const STOP_WORDS = new Set([
   'what',
@@ -505,11 +508,14 @@ const STOP_WORDS = new Set([
   'hotel',
   'travel',
   'tour',
+  'tours',
   'want',
   'like',
   'need',
   'book',
+  'booking',
   'trip',
+  'trips',
   'please',
   'plan',
   'plans',
@@ -527,6 +533,33 @@ const STOP_WORDS = new Set([
   'available',
   'destination',
   'destinations',
+  'any',
+  'all',
+  'some',
+  'good',
+  'best',
+  'rate',
+  'rates',
+  'you',
+  'your',
+  'yours',
+  'the',
+  'and',
+  'for',
+  'are',
+  'can',
+  'see',
+  'our',
+  'this',
+  'that',
+  'there',
+  'they',
+  'them',
+  'who',
+  'how',
+  'when',
+  'where',
+  'why',
   'koto',
   'taka',
   'hobe',
@@ -536,6 +569,13 @@ const STOP_WORDS = new Set([
   'ki',
   'kon',
   'sob',
+  'shob',
+  'pabo',
+  'korbo',
+  'amader',
+  'apnar',
+  'apnader',
+  'kono',
   'কত',
   'টাকা',
   'হবে',
@@ -543,28 +583,66 @@ const STOP_WORDS = new Set([
   'যাব',
   'আছে',
   'কি',
+  'কী',
   'কোন',
+  'কোনো',
   'সব',
+  'সকল',
   'দয়া',
   'করে',
   'বলুন',
+  'দেখান',
+  'আমাদের',
+  'আপনার',
+  'ট্যুর',
+  'প্যাকেজ',
+  'প্যাকেজের',
+  'লিস্ট',
 ]);
 
-function extractSearchTokens(query: string): string[] {
-  // Strip all non-alphanumeric punctuation (Unicode aware)
-  const cleanText = query.replace(/[^\p{L}\p{N}\s]/gu, ' ');
+/**
+ * Extracts meaningful specific search tokens (e.g. destinations, package codes).
+ * Strips generic stopwords, punctuation, and returns lowercase tokens.
+ */
+export function extractSearchTokens(query: string): string[] {
+  if (!query || !query.trim()) return [];
+  // Strip all non-alphanumeric punctuation (Unicode aware, preserving combining marks \p{M} for Indic/accents)
+  const cleanText = query.replace(/[^\p{L}\p{M}\p{N}\s]/gu, ' ');
   const words = cleanText.split(/\s+/).map((w) => w.trim().toLowerCase());
   return words.filter((w) => w.length >= 3 && !STOP_WORDS.has(w));
 }
 
-function isGeneralCatalogRequest(query?: string): boolean {
+/**
+ * A general catalog request asks for the full list or general offerings
+ * and contains NO specific destination or package search tokens.
+ */
+export function isGeneralCatalogRequest(query?: string): boolean {
   if (!query || !query.trim()) return true;
-  const q = query.trim().toLowerCase();
-  for (const phrase of GENERAL_CATALOG_KEYWORDS) {
-    if (q.includes(phrase)) return true;
-  }
   const tokens = extractSearchTokens(query);
-  return tokens.length === 0;
+  // If specific meaningful tokens exist (e.g. "Maldives", "Thailand", "Darjeeling"), it is NOT general!
+  if (tokens.length > 0) return false;
+
+  const q = query.trim().toLowerCase();
+  const generalPatterns = [
+    'package',
+    'packages',
+    'tour',
+    'tours',
+    'plan',
+    'plans',
+    'trip',
+    'trips',
+    'available',
+    'all',
+    'list',
+    'show',
+    'what',
+    'প্যাকেজ',
+    'ট্যুর',
+    'সব',
+    'লিস্ট',
+  ];
+  return generalPatterns.some((pattern) => q.includes(pattern));
 }
 
 /** Retrieve relevant published packages for AI context. Never returns more than 5 results. */
@@ -576,7 +654,13 @@ export async function retrievePackagesForAi(
   const today = new Date().toISOString().split('T')[0];
   const MAX_AI_RESULTS = 5;
 
-  const isGeneral = isGeneralCatalogRequest(query);
+  const tokens = query ? extractSearchTokens(query) : [];
+  const isGeneral = tokens.length === 0 && isGeneralCatalogRequest(query);
+
+  // If query is specific but produced no tokens and is not a general request, return empty
+  if (query && query.trim() && tokens.length === 0 && !isGeneral) {
+    return [];
+  }
 
   let dbQuery = supabase
     .from('travel_packages')
@@ -585,24 +669,29 @@ export async function retrievePackagesForAi(
     .eq('status', 'published')
     .or(`valid_until.is.null,valid_until.gte.${today}`);
 
-  if (!isGeneral && query) {
-    const tokens = extractSearchTokens(query);
-    if (tokens.length > 0) {
-      // Build safe sanitized OR clauses using tokens
-      const orClauses = tokens
-        .slice(0, 3)
-        .map(
-          (t) =>
-            `name.ilike.%${t}%,destination.ilike.%${t}%,summary.ilike.%${t}%`
-        )
-        .join(',');
-      dbQuery = dbQuery.or(orClauses);
-    }
+  if (tokens.length > 0) {
+    // Specific query with extracted tokens
+    const orClauses = tokens
+      .slice(0, 3)
+      .map(
+        (t) =>
+          `name.ilike.%${t}%,destination.ilike.%${t}%,summary.ilike.%${t}%,package_code.ilike.%${t}%`
+      )
+      .join(',');
+    dbQuery = dbQuery.or(orClauses);
   }
 
-  const { data: rawPackages } = await dbQuery
+  const { data: rawPackages, error } = await dbQuery
     .order('created_at', { ascending: false })
     .limit(MAX_AI_RESULTS * 2);
+
+  if (error) {
+    console.error(
+      '[travel/package-service] retrievePackagesForAi error:',
+      error
+    );
+    return [];
+  }
 
   // In-memory strict date guard
   const filtered = ((rawPackages || []) as unknown as TourPackage[]).filter(
@@ -614,8 +703,7 @@ export async function retrievePackagesForAi(
     }
   );
 
-  if (!isGeneral && query) {
-    const tokens = extractSearchTokens(query);
+  if (tokens.length > 0) {
     // Strict match verification for specific queries
     const strictlyMatched = filtered.filter((pkg) => {
       const pkgStr =
@@ -635,11 +723,15 @@ export async function retrievePackagesForAi(
     );
   }
 
-  return enrichWithDetails(
-    supabase,
-    accountId,
-    filtered.slice(0, MAX_AI_RESULTS)
-  );
+  if (isGeneral) {
+    return enrichWithDetails(
+      supabase,
+      accountId,
+      filtered.slice(0, MAX_AI_RESULTS)
+    );
+  }
+
+  return [];
 }
 
 async function enrichWithDetails(
@@ -698,7 +790,99 @@ async function enrichWithDetails(
   }));
 }
 
-/** Re-fetch and strictly validate a single package by ID for proposal/booking snapshot. */
+export interface ProposalValidationResult {
+  valid: boolean;
+  reason?:
+    | 'PACKAGE_NOT_FOUND'
+    | 'PACKAGE_NOT_PUBLISHED'
+    | 'PACKAGE_EXPIRED'
+    | 'PACKAGE_NOT_YET_VALID'
+    | 'BOOKING_DEADLINE_PASSED'
+    | 'DEPARTURE_NOT_FOUND'
+    | 'DEPARTURE_NOT_SCHEDULED'
+    | 'DEPARTURE_IN_PAST'
+    | 'INSUFFICIENT_SEATS'
+    | 'INVALID_SEAT_COUNT';
+  package?: TourPackageWithDetails;
+}
+
+/** Re-fetch and strictly validate a single package by ID for proposal/booking snapshot with typed reasoning. */
+export async function validatePackageForProposal(
+  accountId: string,
+  packageId: string,
+  options?: {
+    departureId?: string | null;
+    requiredSeats?: number;
+  }
+): Promise<ProposalValidationResult> {
+  const pkg = await getPackageWithDetails(accountId, packageId);
+  if (!pkg || pkg.account_id !== accountId) {
+    return { valid: false, reason: 'PACKAGE_NOT_FOUND' };
+  }
+
+  const today = new Date().toISOString().split('T')[0];
+
+  // 1. Status must be published
+  if (pkg.status !== 'published') {
+    return { valid: false, reason: 'PACKAGE_NOT_PUBLISHED' };
+  }
+
+  // 2. Date validity window
+  if (pkg.valid_from && pkg.valid_from > today) {
+    return { valid: false, reason: 'PACKAGE_NOT_YET_VALID' };
+  }
+  if (pkg.valid_until && pkg.valid_until < today) {
+    return { valid: false, reason: 'PACKAGE_EXPIRED' };
+  }
+
+  // 3. Booking deadline
+  if (pkg.booking_deadline && pkg.booking_deadline < today) {
+    return { valid: false, reason: 'BOOKING_DEADLINE_PASSED' };
+  }
+
+  // 4. Validate requiredSeats if provided
+  if (options?.requiredSeats !== undefined) {
+    if (
+      !Number.isInteger(options.requiredSeats) ||
+      options.requiredSeats <= 0 ||
+      !Number.isFinite(options.requiredSeats)
+    ) {
+      return { valid: false, reason: 'INVALID_SEAT_COUNT' };
+    }
+  }
+
+  // 5. Departure validation if requested
+  if (options?.departureId) {
+    const dep = pkg.departures.find(
+      (d) =>
+        d.id === options.departureId &&
+        d.package_id === packageId &&
+        d.account_id === accountId
+    );
+    if (!dep) {
+      return { valid: false, reason: 'DEPARTURE_NOT_FOUND' };
+    }
+    if (dep.status !== 'scheduled') {
+      return { valid: false, reason: 'DEPARTURE_NOT_SCHEDULED' };
+    }
+    if (dep.start_date < today) {
+      return { valid: false, reason: 'DEPARTURE_IN_PAST' };
+    }
+    if (options?.requiredSeats !== undefined) {
+      if (
+        dep.available_seats !== null &&
+        dep.available_seats !== undefined &&
+        dep.available_seats < options.requiredSeats
+      ) {
+        return { valid: false, reason: 'INSUFFICIENT_SEATS' };
+      }
+    }
+  }
+
+  return { valid: true, package: pkg };
+}
+
+/** Re-fetch and strictly validate a single package by ID for proposal snapshot. */
 export async function revalidatePackageForProposal(
   accountId: string,
   packageId: string,
@@ -707,49 +891,42 @@ export async function revalidatePackageForProposal(
     requiredSeats?: number;
   }
 ): Promise<TourPackageWithDetails | null> {
-  const pkg = await getPackageWithDetails(accountId, packageId);
-  if (!pkg || pkg.account_id !== accountId) return null;
-
-  const today = new Date().toISOString().split('T')[0];
-
-  // 1. Status must be published
-  if (pkg.status !== 'published') return null;
-
-  // 2. Date validity window
-  if (pkg.valid_from && pkg.valid_from > today) return null;
-  if (pkg.valid_until && pkg.valid_until < today) return null;
-
-  // 3. Departure validation if requested
-  if (options?.departureId) {
-    const dep = pkg.departures.find(
-      (d) =>
-        d.id === options.departureId &&
-        d.package_id === packageId &&
-        d.account_id === accountId
-    );
-    if (!dep) return null;
-    if (dep.status !== 'scheduled') return null;
-    if (dep.start_date < today) return null;
-    if (dep.available_seats !== null && dep.available_seats !== undefined) {
-      const seats = Math.max(1, options.requiredSeats ?? 1);
-      if (dep.available_seats < seats) return null;
-    }
-  }
-
-  return pkg;
+  const result = await validatePackageForProposal(
+    accountId,
+    packageId,
+    options
+  );
+  return result.valid && result.package ? result.package : null;
 }
 
 // ═══════════════════════════════════════════════════
 // Proposal Snapshot
 // ═══════════════════════════════════════════════════
 
-/** Generate a proposal snapshot from a package's current DB state. */
+/** Generate a proposal snapshot from a package's current DB state with deep-cloning. */
 export function generateProposalSnapshot(
   pkg: TourPackageWithDetails,
   departureId?: string | null
 ): Record<string, unknown> {
   const selectedDeparture = departureId
     ? pkg.departures.find((d) => d.id === departureId)
+    : null;
+
+  // Deep clone helper to guarantee snapshot immutability against source mutation
+  const deepClone = <T>(obj: T): T => {
+    if (obj === null || obj === undefined) return obj;
+    if (typeof structuredClone === 'function') {
+      return structuredClone(obj);
+    }
+    return JSON.parse(JSON.stringify(obj));
+  };
+
+  const basePrice = selectedDeparture
+    ? (selectedDeparture.departure_price ?? pkg.base_price)
+    : pkg.base_price;
+
+  const availableSeats = selectedDeparture
+    ? (selectedDeparture.available_seats ?? null)
     : null;
 
   return {
@@ -759,23 +936,25 @@ export function generateProposalSnapshot(
     destination: pkg.destination,
     duration_days: pkg.duration_days,
     duration_nights: pkg.duration_nights,
-    base_price: selectedDeparture?.departure_price ?? pkg.base_price,
+    base_price: basePrice,
     currency: pkg.currency,
     price_basis: pkg.price_basis,
-    hotel_details: pkg.hotel_details,
-    transport_details: pkg.transport_details,
-    inclusions: pkg.inclusions,
-    exclusions: pkg.exclusions,
-    itinerary: pkg.itinerary.map((day) => ({
-      day: day.day_number,
-      title: day.title,
-      description: day.description,
-      meals: day.meals,
-      accommodation: day.accommodation,
-    })),
+    hotel_details: deepClone(pkg.hotel_details),
+    transport_details: deepClone(pkg.transport_details),
+    inclusions: deepClone(pkg.inclusions || []),
+    exclusions: deepClone(pkg.exclusions || []),
+    itinerary: deepClone(
+      pkg.itinerary.map((day) => ({
+        day: day.day_number,
+        title: day.title,
+        description: day.description,
+        meals: day.meals,
+        accommodation: day.accommodation,
+      }))
+    ),
     departure_date: selectedDeparture?.start_date || null,
     departure_end_date: selectedDeparture?.end_date || null,
-    available_seats: selectedDeparture?.available_seats || null,
+    available_seats: availableSeats,
     terms_and_conditions: pkg.terms_and_conditions,
     snapshot_created_at: new Date().toISOString(),
   };

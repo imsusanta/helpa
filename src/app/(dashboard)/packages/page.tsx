@@ -339,8 +339,10 @@ export default function PackagesPage() {
             : [
                 {
                   day_number: 1,
-                  title: 'Day 1 Itinerary',
-                  description: 'Arrival and sightseeing',
+                  title: '',
+                  description: '',
+                  meals: '',
+                  accommodation: '',
                 },
               ],
         departures: Array.isArray(fullPkg.departures) ? fullPkg.departures : [],
@@ -419,6 +421,22 @@ export default function PackagesPage() {
       return;
     }
 
+    // Filter out completely blank itinerary days or validate if published
+    const cleanedItinerary = formData.itinerary
+      .map((day, idx) => ({ ...day, day_number: idx + 1 }))
+      .filter((day) => day.title.trim().length > 0 || day.description?.trim());
+
+    if (formData.status === 'published' && cleanedItinerary.length > 0) {
+      const hasEmptyTitle = cleanedItinerary.some(
+        (day) => !day.title || !day.title.trim()
+      );
+      if (hasEmptyTitle) {
+        toast.error('All itinerary days must have a title before publishing.');
+        setActiveModalTab('itinerary');
+        return;
+      }
+    }
+
     setSubmitting(true);
     try {
       const payload = {
@@ -445,8 +463,8 @@ export default function PackagesPage() {
         inclusions: formData.inclusions,
         exclusions: formData.exclusions,
         terms_and_conditions: formData.terms_and_conditions || undefined,
-        itinerary: formData.itinerary,
-        departures: formData.departures,
+        itinerary: cleanedItinerary,
+        departures: formData.departures.filter((d) => Boolean(d.start_date)),
       };
 
       const url = editingPackage
@@ -489,10 +507,10 @@ export default function PackagesPage() {
         ...prev.itinerary,
         {
           day_number: nextDayNum,
-          title: `Day ${nextDayNum} Itinerary`,
+          title: '',
           description: '',
-          meals: 'Breakfast & Dinner',
-          accommodation: 'Hotel Stay',
+          meals: '',
+          accommodation: '',
         },
       ],
     }));
@@ -509,20 +527,17 @@ export default function PackagesPage() {
 
   // Departure helper methods
   const addDeparture = () => {
-    const today = new Date();
-    today.setDate(today.getDate() + 14);
-    const dateStr = today.toISOString().split('T')[0];
-
     setFormData((prev) => ({
       ...prev,
       departures: [
         ...prev.departures,
         {
-          start_date: dateStr,
+          start_date: '',
+          end_date: '',
           departure_price:
             typeof prev.base_price === 'number' ? prev.base_price : undefined,
-          total_seats: 20,
-          available_seats: 20,
+          total_seats: undefined,
+          available_seats: undefined,
           status: 'scheduled',
         },
       ],

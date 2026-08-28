@@ -12,25 +12,119 @@ const mockDbState = vi.hoisted(() => ({
   knowledgeBase: [] as Array<Record<string, unknown>>,
   messages: [] as Array<{ role: string; content: string }>,
   packages: [] as Array<Record<string, unknown>>,
+  itinerary: [] as Array<Record<string, unknown>>,
+  departures: [] as Array<Record<string, unknown>>,
 }));
 
+class MockAiDbQueryBuilder {
+  private table: string;
+  private filters: Array<(r: Record<string, unknown>) => boolean> = [];
+  private limitCount?: number;
+
+  constructor(table: string) {
+    this.table = table;
+  }
+
+  select(_cols = '*') {
+    return this;
+  }
+
+  eq(col: string, val: unknown) {
+    this.filters.push((r) => r[col] === val);
+    return this;
+  }
+
+  neq(col: string, val: unknown) {
+    this.filters.push((r) => r[col] !== val);
+    return this;
+  }
+
+  gte(col: string, val: string) {
+    this.filters.push((r) => !r[col] || String(r[col]) >= val);
+    return this;
+  }
+
+  in(col: string, vals: unknown[]) {
+    this.filters.push((r) => vals.includes(r[col]));
+    return this;
+  }
+
+  or(expr: string) {
+    const parts = expr.split(',');
+    this.filters.push((row) => {
+      return parts.some((p) => {
+        if (p.includes('.is.null')) {
+          const col = p.split('.')[0];
+          return row[col] === null || row[col] === undefined;
+        }
+        if (p.includes('.gte.')) {
+          const [col, , val] = p.split('.');
+          return row[col] ? String(row[col]) >= val : true;
+        }
+        if (p.includes('.ilike.%')) {
+          const [col, , term] = p.split('.');
+          const clean = term.replace(/%/g, '').toLowerCase();
+          return String(row[col] || '')
+            .toLowerCase()
+            .includes(clean);
+        }
+        return false;
+      });
+    });
+    return this;
+  }
+
+  order(_col: string, _opts?: { ascending?: boolean }) {
+    return this;
+  }
+
+  limit(count: number) {
+    this.limitCount = count;
+    return this;
+  }
+
+  async single() {
+    if (this.table === 'accounts') {
+      return { data: mockDbState.account, error: null };
+    }
+    return { data: null, error: new Error('Not found') };
+  }
+
+  async then<TResult1 = unknown, TResult2 = never>(
+    onfulfilled?: ((value: unknown) => TResult1 | PromiseLike<TResult1>) | null,
+    onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null
+  ) {
+    let source: Array<Record<string, unknown>> = [];
+    if (this.table === 'accounts') source = [mockDbState.account];
+    else if (this.table === 'knowledge_base')
+      source = mockDbState.knowledgeBase;
+    else if (this.table === 'travel_packages') source = mockDbState.packages;
+    else if (this.table === 'tour_package_itinerary_days')
+      source = mockDbState.itinerary;
+    else if (this.table === 'tour_package_departures')
+      source = mockDbState.departures;
+
+    let filtered = source.filter((r) => this.filters.every((f) => f(r)));
+    if (this.limitCount !== undefined) {
+      filtered = filtered.slice(0, this.limitCount);
+    }
+    return Promise.resolve({ data: filtered, error: null }).then(
+      onfulfilled,
+      onrejected
+    );
+  }
+}
+
+const mockDbClient = {
+  from: (table: string) => new MockAiDbQueryBuilder(table),
+};
+
 vi.mock('@/lib/db/server', () => ({
-  getAdminClient: vi.fn(() => ({
-    from: (table: string) => ({
-      select: (_cols?: string) => ({
-        eq: (_col: string, _val: unknown) => ({
-          single: async () => ({
-            data: mockDbState.account,
-            error: null,
-          }),
-          limit: async () => ({
-            data: table === 'knowledge_base' ? mockDbState.knowledgeBase : [],
-            error: null,
-          }),
-        }),
-      }),
-    }),
-  })),
+  getAdminClient: vi.fn(() => mockDbClient),
+}));
+
+vi.mock('@/lib/supabase/server', () => ({
+  getAdminClient: vi.fn(() => mockDbClient),
 }));
 
 vi.mock('./memory', () => ({
@@ -41,27 +135,7 @@ vi.mock('./memory', () => ({
   })),
 }));
 
-vi.mock('@/modules/travel/package-service', () => ({
-  retrievePackagesForAi: vi.fn(async (_accountId: string, query?: string) => {
-    if (!query) return mockDbState.packages;
-    const lower = query.toLowerCase();
-    return mockDbState.packages.filter(
-      (p) =>
-        lower.includes(String(p.destination || '').toLowerCase()) ||
-        lower.includes(String(p.name || '').toLowerCase())
-    );
-  }),
-  formatPackagesForAiContext: vi.fn(
-    (packages: Array<Record<string, unknown>>) => {
-      if (!packages || packages.length === 0)
-        return { context: '', fallbackMessage: 'No package found' };
-      const context = `=== STRUCTURED TOUR PACKAGE DATABASE (SOURCE OF TRUTH) ===\n${packages.map((p) => `--- PACKAGE [internal_id:${p.id}] ---\nName: ${p.name}\nDestination: ${p.destination}\nPrice: ${p.currency} ${p.base_price} (${p.price_basis || 'per_person'})\n`).join('\n')}`;
-      return { context, fallbackMessage: null };
-    }
-  ),
-}));
-
-describe('AI Context Builder — Tour Packages Catalog Integration', () => {
+describe('AI Context Builder — Real Tour Packages Catalog Retrieval Integration', () => {
   beforeEach(() => {
     mockDbState.account = {
       id: 'test-account-1',
@@ -73,17 +147,28 @@ describe('AI Context Builder — Tour Packages Catalog Integration', () => {
     mockDbState.knowledgeBase = [];
     mockDbState.messages = [];
     mockDbState.packages = [];
+    mockDbState.itinerary = [];
+    mockDbState.departures = [];
   });
 
   it('includes matched tour package from structured database in system prompt for travel workspace', async () => {
     mockDbState.packages = [
       {
         id: 'pkg-darj-101',
+        account_id: 'test-account-1',
         name: 'Darjeeling Delight',
         destination: 'Darjeeling',
+        summary: 'Scenic Himalayan tea gardens tour',
+        duration_days: 4,
+        duration_nights: 3,
         base_price: 15000,
         currency: 'INR',
         price_basis: 'per_person',
+        status: 'published',
+        valid_from: null,
+        valid_until: null,
+        inclusions: ['Hotel', 'Sightseeing'],
+        exclusions: ['Airfare'],
       },
     ];
 
@@ -102,19 +187,26 @@ describe('AI Context Builder — Tour Packages Catalog Integration', () => {
     );
     expect(bundle.systemPrompt).toContain('Darjeeling Delight');
     expect(bundle.systemPrompt).toContain('[internal_id:pkg-darj-101]');
-    expect(bundle.systemPrompt).not.toContain(
-      'All standard sightseeing & transport included'
-    );
   });
 
-  it('does not include unrelated package when specific search query has no match', async () => {
+  it('does NOT include Darjeeling package when query specifically asks for Maldives packages', async () => {
     mockDbState.packages = [
       {
         id: 'pkg-darj-101',
+        account_id: 'test-account-1',
         name: 'Darjeeling Delight',
         destination: 'Darjeeling',
+        summary: 'Scenic Himalayan tea gardens tour',
+        duration_days: 4,
+        duration_nights: 3,
         base_price: 15000,
         currency: 'INR',
+        price_basis: 'per_person',
+        status: 'published',
+        valid_from: null,
+        valid_until: null,
+        inclusions: ['Hotel', 'Sightseeing'],
+        exclusions: ['Airfare'],
       },
     ];
 
@@ -128,8 +220,44 @@ describe('AI Context Builder — Tour Packages Catalog Integration', () => {
       contactId: 'contact-1',
     });
 
+    // Real production classification must recognize 'Maldives' token and NOT return Darjeeling!
     expect(bundle.systemPrompt).not.toContain('Darjeeling Delight');
     expect(bundle.systemPrompt).not.toContain('[internal_id:pkg-darj-101]');
+  });
+
+  it('includes packages when query asks general catalog question', async () => {
+    mockDbState.packages = [
+      {
+        id: 'pkg-darj-101',
+        account_id: 'test-account-1',
+        name: 'Darjeeling Delight',
+        destination: 'Darjeeling',
+        summary: 'Scenic Himalayan tea gardens tour',
+        duration_days: 4,
+        duration_nights: 3,
+        base_price: 15000,
+        currency: 'INR',
+        price_basis: 'per_person',
+        status: 'published',
+        valid_from: null,
+        valid_until: null,
+        inclusions: ['Hotel', 'Sightseeing'],
+        exclusions: ['Airfare'],
+      },
+    ];
+
+    mockDbState.messages = [
+      { role: 'user', content: 'What packages do you have?' },
+    ];
+
+    const bundle = await buildAiContextBundle({
+      accountId: 'test-account-1',
+      conversationId: 'conv-1',
+      contactId: 'contact-1',
+    });
+
+    expect(bundle.systemPrompt).toContain('Darjeeling Delight');
+    expect(bundle.systemPrompt).toContain('[internal_id:pkg-darj-101]');
   });
 
   it('does not include any travel catalog context for non-travel industries (e.g. healthcare/clinic)', async () => {

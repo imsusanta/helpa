@@ -147,7 +147,7 @@ vi.mock('@/modules/travel/package-service', () => ({
       mockService.packages.splice(idx, 1);
       return { deleted: true, archived: false };
     }
-    return { deleted: false, archived: false };
+    throw new Error('Package not found in tenant');
   }),
 }));
 
@@ -363,9 +363,41 @@ describe('Tour Packages REST API Routes', () => {
       expect(json.data.name).toBe('Updated Luxury Name');
       expect(json.data.base_price).toBe(14500);
     });
+    it('returns 404 when attempting to update a non-existent package', async () => {
+      const req = new NextRequest(
+        'http://localhost/api/travel/packages/non-existent-uuid',
+        {
+          method: 'PATCH',
+          body: JSON.stringify({ name: 'Update Non Existent' }),
+        }
+      );
+
+      const res = await PATCH_ID(req, {
+        params: Promise.resolve({ id: 'non-existent-uuid' }),
+      });
+      expect(res.status).toBe(404);
+      const json = await res.json();
+      expect(json.error).toBe('NOT_FOUND');
+    });
   });
 
   describe('DELETE /api/travel/packages/[id]', () => {
+    it('returns 404 when attempting to delete a non-existent package', async () => {
+      const req = new NextRequest(
+        'http://localhost/api/travel/packages/non-existent-uuid',
+        {
+          method: 'DELETE',
+        }
+      );
+
+      const res = await DELETE_ID(req, {
+        params: Promise.resolve({ id: 'non-existent-uuid' }),
+      });
+      expect(res.status).toBe(404);
+      const json = await res.json();
+      expect(json.error).toBe('NOT_FOUND');
+    });
+
     it('deletes package safely', async () => {
       mockService.packages.push({
         id: 'pkg-delete-1',

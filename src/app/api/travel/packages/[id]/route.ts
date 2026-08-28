@@ -292,6 +292,13 @@ export async function PATCH(
         correlationId,
         err.message
       );
+    if (err instanceof Error && err.message.toLowerCase().includes('not found'))
+      return errorResponse(
+        404,
+        'NOT_FOUND',
+        correlationId,
+        'Package not found'
+      );
     console.error('[travel/packages/[id]] PATCH error:', err);
     return errorResponse(500, 'INTERNAL_SERVER_ERROR', correlationId);
   }
@@ -350,6 +357,13 @@ export async function DELETE(
         'PERMISSION_REQUIRED',
         correlationId,
         err.message
+      );
+    if (err instanceof Error && err.message.toLowerCase().includes('not found'))
+      return errorResponse(
+        404,
+        'NOT_FOUND',
+        correlationId,
+        'Package not found'
       );
     console.error('[travel/packages/[id]] DELETE error:', err);
     return errorResponse(500, 'INTERNAL_SERVER_ERROR', correlationId);

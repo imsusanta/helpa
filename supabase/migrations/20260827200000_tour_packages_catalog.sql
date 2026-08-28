@@ -28,25 +28,25 @@ ALTER TABLE public.travel_packages
 -- Copy existing price to base_price where null
 UPDATE public.travel_packages SET base_price = price WHERE base_price IS NULL AND price IS NOT NULL AND price > 0;
 
--- Add constraints safely and idempotently
+-- Add constraints safely and idempotently (scoped to table relation)
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_travel_packages_base_price') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public.travel_packages'::regclass AND conname = 'chk_travel_packages_base_price') THEN
     ALTER TABLE public.travel_packages ADD CONSTRAINT chk_travel_packages_base_price CHECK (base_price IS NULL OR base_price >= 0);
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_travel_packages_duration_days') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public.travel_packages'::regclass AND conname = 'chk_travel_packages_duration_days') THEN
     ALTER TABLE public.travel_packages ADD CONSTRAINT chk_travel_packages_duration_days CHECK (duration_days > 0);
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_travel_packages_duration_nights') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public.travel_packages'::regclass AND conname = 'chk_travel_packages_duration_nights') THEN
     ALTER TABLE public.travel_packages ADD CONSTRAINT chk_travel_packages_duration_nights CHECK (duration_nights IS NULL OR duration_nights >= 0);
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_travel_packages_status') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public.travel_packages'::regclass AND conname = 'chk_travel_packages_status') THEN
     ALTER TABLE public.travel_packages ADD CONSTRAINT chk_travel_packages_status CHECK (status IN ('draft', 'published', 'sold_out', 'archived'));
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_travel_packages_price_basis') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public.travel_packages'::regclass AND conname = 'chk_travel_packages_price_basis') THEN
     ALTER TABLE public.travel_packages ADD CONSTRAINT chk_travel_packages_price_basis CHECK (price_basis IS NULL OR price_basis IN ('per_person', 'per_couple', 'per_group'));
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_travel_packages_valid_dates') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public.travel_packages'::regclass AND conname = 'chk_travel_packages_valid_dates') THEN
     ALTER TABLE public.travel_packages ADD CONSTRAINT chk_travel_packages_valid_dates CHECK (valid_until IS NULL OR valid_from IS NULL OR valid_until >= valid_from);
   END IF;
 END $$;
@@ -54,7 +54,7 @@ END $$;
 -- Unique constraint on (account_id, id) for composite foreign key tenant integrity
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_travel_packages_account_id_id') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public.travel_packages'::regclass AND conname = 'uq_travel_packages_account_id_id') THEN
     ALTER TABLE public.travel_packages ADD CONSTRAINT uq_travel_packages_account_id_id UNIQUE (account_id, id);
   END IF;
 END $$;
@@ -85,7 +85,7 @@ END $$;
 CREATE TABLE IF NOT EXISTS public.tour_package_departures (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   account_id UUID NOT NULL REFERENCES public.accounts(id) ON DELETE CASCADE,
-  package_id UUID NOT NULL REFERENCES public.travel_packages(id) ON DELETE CASCADE,
+  package_id UUID NOT NULL,
   start_date DATE NOT NULL,
   end_date DATE,
   departure_price NUMERIC(12,2),
@@ -109,7 +109,7 @@ CREATE TABLE IF NOT EXISTS public.tour_package_departures (
 
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_tour_package_departures_package_tenant') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public.tour_package_departures'::regclass AND conname = 'fk_tour_package_departures_package_tenant') THEN
     ALTER TABLE public.tour_package_departures
       ADD CONSTRAINT fk_tour_package_departures_package_tenant
       FOREIGN KEY (account_id, package_id)
@@ -138,7 +138,7 @@ END $$;
 CREATE TABLE IF NOT EXISTS public.tour_package_itinerary_days (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   account_id UUID NOT NULL REFERENCES public.accounts(id) ON DELETE CASCADE,
-  package_id UUID NOT NULL REFERENCES public.travel_packages(id) ON DELETE CASCADE,
+  package_id UUID NOT NULL,
   day_number INTEGER NOT NULL,
   title TEXT NOT NULL,
   description TEXT,
@@ -156,7 +156,7 @@ CREATE TABLE IF NOT EXISTS public.tour_package_itinerary_days (
 
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_tour_package_itinerary_package_tenant') THEN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public.tour_package_itinerary_days'::regclass AND conname = 'fk_tour_package_itinerary_package_tenant') THEN
     ALTER TABLE public.tour_package_itinerary_days
       ADD CONSTRAINT fk_tour_package_itinerary_package_tenant
       FOREIGN KEY (account_id, package_id)
@@ -180,7 +180,7 @@ BEGIN
   END IF;
 END $$;
 
--- 4. Transactional RPC for Package + Itinerary + Departure Upsert
+-- 4. Transactional RPC for Package + Itinerary + Departure Upsert with Anti-Spoofing
 CREATE OR REPLACE FUNCTION public.upsert_tour_package_with_children(
   p_account_id UUID,
   p_package_id UUID DEFAULT NULL,
@@ -195,6 +195,8 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
+  v_calling_user_id UUID;
+  v_effective_user_id UUID;
   v_pkg_id UUID;
   v_result JSONB;
   v_name TEXT;
@@ -220,21 +222,32 @@ DECLARE
   v_day_num INTEGER;
   v_idx INTEGER;
 BEGIN
-  -- Explicit tenant & role authorization
-  IF (select auth.role()) = 'service_role' THEN
-    IF p_user_id IS NOT NULL THEN
-      IF NOT EXISTS (
-        SELECT 1 FROM public.account_members
-        WHERE account_id = p_account_id AND user_id = p_user_id AND active
-          AND role IN ('agent', 'admin', 'owner')
-      ) THEN
-        RAISE EXCEPTION 'PERMISSION_DENIED: User % lacks agent role on account %', p_user_id, p_account_id;
-      END IF;
-    END IF;
-  ELSE
+  -- Anti-spoofing authorization
+  v_calling_user_id := auth.uid();
+
+  IF v_calling_user_id IS NOT NULL THEN
+    -- Authenticated user: verify agent role on account
     IF NOT public.has_account_role(p_account_id, 'agent') THEN
       RAISE EXCEPTION 'PERMISSION_DENIED: Caller lacks agent role on account %', p_account_id;
     END IF;
+    -- Reject user_id spoofing
+    IF p_user_id IS NOT NULL AND p_user_id <> v_calling_user_id THEN
+      RAISE EXCEPTION 'PERMISSION_DENIED: Caller % cannot spoof user_id %', v_calling_user_id, p_user_id;
+    END IF;
+    v_effective_user_id := v_calling_user_id;
+  ELSE
+    -- Service-role caller: p_user_id is mandatory and must be an active agent/admin/owner of account
+    IF p_user_id IS NULL THEN
+      RAISE EXCEPTION 'PERMISSION_DENIED: user_id is required for service-role attribution on account %', p_account_id;
+    END IF;
+    IF NOT EXISTS (
+      SELECT 1 FROM public.account_members
+      WHERE account_id = p_account_id AND user_id = p_user_id AND active
+        AND role IN ('agent', 'admin', 'owner')
+    ) THEN
+      RAISE EXCEPTION 'PERMISSION_DENIED: User % lacks agent role on account %', p_user_id, p_account_id;
+    END IF;
+    v_effective_user_id := p_user_id;
   END IF;
 
   -- Extract fields from JSONB
@@ -296,7 +309,7 @@ BEGIN
       valid_until = v_valid_until,
       status = v_status,
       metadata = v_metadata,
-      updated_by = p_user_id,
+      updated_by = v_effective_user_id,
       updated_at = NOW()
     WHERE id = p_package_id AND account_id = p_account_id;
 
@@ -313,7 +326,7 @@ BEGIN
       v_summary, v_summary, v_base_price, COALESCE(v_base_price, 0), v_currency, v_price_basis,
       v_hotel_details, v_transport_details, v_inclusions, v_exclusions, v_terms_and_conditions,
       v_booking_deadline, v_valid_from, v_valid_until, v_status, v_metadata,
-      p_user_id, p_user_id, NOW(), NOW()
+      v_effective_user_id, v_effective_user_id, NOW(), NOW()
     ) RETURNING id INTO v_pkg_id;
   END IF;
 
@@ -381,7 +394,88 @@ REVOKE ALL ON FUNCTION public.upsert_tour_package_with_children(UUID, UUID, UUID
 REVOKE ALL ON FUNCTION public.upsert_tour_package_with_children(UUID, UUID, UUID, JSONB, JSONB, JSONB) FROM anon;
 GRANT EXECUTE ON FUNCTION public.upsert_tour_package_with_children(UUID, UUID, UUID, JSONB, JSONB, JSONB) TO authenticated;
 
--- 5. Booking Idempotency & Concurrency Hardening
+-- 5. Atomic Safe Delete / Archive RPC
+CREATE OR REPLACE FUNCTION public.safe_delete_tour_package(
+  p_account_id UUID,
+  p_package_id UUID,
+  p_user_id UUID DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_calling_user_id UUID;
+  v_effective_user_id UUID;
+  v_has_refs BOOLEAN;
+  v_pkg_exists BOOLEAN;
+BEGIN
+  -- 1. Authorization
+  v_calling_user_id := auth.uid();
+  IF v_calling_user_id IS NOT NULL THEN
+    IF NOT public.has_account_role(p_account_id, 'agent') THEN
+      RAISE EXCEPTION 'PERMISSION_DENIED: Caller lacks agent role on account %', p_account_id;
+    END IF;
+    IF p_user_id IS NOT NULL AND p_user_id <> v_calling_user_id THEN
+      RAISE EXCEPTION 'PERMISSION_DENIED: Cannot spoof user identity';
+    END IF;
+    v_effective_user_id := v_calling_user_id;
+  ELSE
+    IF p_user_id IS NULL OR NOT EXISTS (
+      SELECT 1 FROM public.account_members
+      WHERE account_id = p_account_id AND user_id = p_user_id AND active
+        AND role IN ('agent', 'admin', 'owner')
+    ) THEN
+      RAISE EXCEPTION 'PERMISSION_DENIED: Valid active agent user_id required for attribution';
+    END IF;
+    v_effective_user_id := p_user_id;
+  END IF;
+
+  -- 2. Check if package exists in account (with row lock)
+  SELECT EXISTS (
+    SELECT 1 FROM public.travel_packages
+    WHERE id = p_package_id AND account_id = p_account_id
+    FOR UPDATE
+  ) INTO v_pkg_exists;
+
+  IF NOT v_pkg_exists THEN
+    RETURN jsonb_build_object('success', false, 'error', 'PACKAGE_NOT_FOUND');
+  END IF;
+
+  -- 3. Check for references in travel_bookings or trip_proposals
+  SELECT EXISTS (
+    SELECT 1 FROM public.travel_bookings
+    WHERE package_id = p_package_id AND account_id = p_account_id
+    UNION ALL
+    SELECT 1 FROM public.trip_proposals
+    WHERE package_id = p_package_id AND account_id = p_account_id
+  ) INTO v_has_refs;
+
+  IF v_has_refs THEN
+    -- Safe archive
+    UPDATE public.travel_packages SET
+      status = 'archived',
+      updated_by = v_effective_user_id,
+      updated_at = NOW()
+    WHERE id = p_package_id AND account_id = p_account_id;
+
+    RETURN jsonb_build_object('success', true, 'deleted', false, 'archived', true);
+  ELSE
+    -- Safe hard delete (composite foreign keys handle child records via CASCADE)
+    DELETE FROM public.travel_packages
+    WHERE id = p_package_id AND account_id = p_account_id;
+
+    RETURN jsonb_build_object('success', true, 'deleted', true, 'archived', false);
+  END IF;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.safe_delete_tour_package(UUID, UUID, UUID) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.safe_delete_tour_package(UUID, UUID, UUID) FROM anon;
+GRANT EXECUTE ON FUNCTION public.safe_delete_tour_package(UUID, UUID, UUID) TO authenticated;
+
+-- 6. Booking Idempotency & Concurrency Hardening
 ALTER TABLE public.travel_bookings
   ADD COLUMN IF NOT EXISTS idempotency_key TEXT;
 

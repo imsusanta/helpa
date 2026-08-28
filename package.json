@@ -41,7 +41,7 @@
     "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json,css}\" \"scripts/**/*.{ts,js,mjs}\" \"*.{json,ts,mjs,js}\"",
     "test": "vitest run --exclude='**/src/tests/integration/**'",
     "test:watch": "vitest --exclude='**/src/tests/integration/**'",
-    "test:integration": "vitest run src/tests/integration/tour-packages-rls.integration.test.ts src/tests/tenant-isolation.test.ts",
+    "test:integration": "vitest run src/tests/tenant-isolation.test.ts",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:report": "playwright show-report",

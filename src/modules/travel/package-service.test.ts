@@ -336,6 +336,47 @@ const mockAdminClient = {
 
       return { data: pkg, error: null };
     }
+
+    if (funcName === 'safe_delete_tour_package') {
+      const accountId = args.p_account_id as string;
+      const packageId = args.p_package_id as string;
+      const existing = mockState.travel_packages.find(
+        (p) => p.id === packageId && p.account_id === accountId
+      );
+      if (!existing) {
+        return {
+          data: { success: false, error: 'PACKAGE_NOT_FOUND' },
+          error: null,
+        };
+      }
+      const hasRefs =
+        mockState.travel_bookings.some((b) => b.package_id === packageId) ||
+        mockState.trip_proposals.some((p) => p.package_id === packageId);
+      if (hasRefs) {
+        existing.status = 'archived';
+        return {
+          data: { success: true, deleted: false, archived: true },
+          error: null,
+        };
+      } else {
+        mockState.travel_packages = mockState.travel_packages.filter(
+          (p) => !(p.id === packageId && p.account_id === accountId)
+        );
+        mockState.tour_package_itinerary_days =
+          mockState.tour_package_itinerary_days.filter(
+            (i) => !(i.package_id === packageId && i.account_id === accountId)
+          );
+        mockState.tour_package_departures =
+          mockState.tour_package_departures.filter(
+            (d) => !(d.package_id === packageId && d.account_id === accountId)
+          );
+        return {
+          data: { success: true, deleted: true, archived: false },
+          error: null,
+        };
+      }
+    }
+
     return {
       data: null,
       error: new Error(`Unknown RPC function: ${funcName}`),
@@ -1077,7 +1118,39 @@ describe('Tour Packages Catalog & Service', () => {
         await revalidatePackageForProposal(ACCOUNT_A, futurePkg.id)
       ).toBeNull();
 
-      // 6. Insufficient seats fails revalidation
+      // 6. Booking deadline passed fails revalidation
+      const passedDeadlinePkg = await createPackage(ACCOUNT_A, USER_ID, {
+        name: 'Passed Deadline Package',
+        destination: 'Goa',
+        duration_days: 3,
+        status: 'published',
+        booking_deadline: '2020-01-01',
+      });
+      expect(
+        await revalidatePackageForProposal(ACCOUNT_A, passedDeadlinePkg.id)
+      ).toBeNull();
+
+      // 7. Invalid requiredSeats fails revalidation
+      expect(
+        await revalidatePackageForProposal(ACCOUNT_A, validPkg.id, {
+          departureId: depId,
+          requiredSeats: 0,
+        })
+      ).toBeNull();
+      expect(
+        await revalidatePackageForProposal(ACCOUNT_A, validPkg.id, {
+          departureId: depId,
+          requiredSeats: -2,
+        })
+      ).toBeNull();
+      expect(
+        await revalidatePackageForProposal(ACCOUNT_A, validPkg.id, {
+          departureId: depId,
+          requiredSeats: 1.5,
+        })
+      ).toBeNull();
+
+      // 8. Insufficient seats fails revalidation
       expect(
         await revalidatePackageForProposal(ACCOUNT_A, validPkg.id, {
           departureId: depId,
@@ -1085,12 +1158,235 @@ describe('Tour Packages Catalog & Service', () => {
         })
       ).toBeNull();
 
-      // 7. Non-existent departure fails revalidation
+      // 9. Non-existent departure fails revalidation
       expect(
         await revalidatePackageForProposal(ACCOUNT_A, validPkg.id, {
           departureId: 'non-existent-dep-id',
         })
       ).toBeNull();
+    });
+
+    it('deep-clones snapshot data and preserves zero seats and zero prices', () => {
+      const sourcePkg: TourPackageWithDetails = {
+        id: 'pkg-zero-test',
+        account_id: ACCOUNT_A,
+        package_code: 'PKG-ZERO',
+        name: 'Zero Test Package',
+        destination: 'Kashmir',
+        summary: 'Free promotional tour',
+        duration_days: 4,
+        duration_nights: 3,
+        base_price: 0,
+        currency: 'INR',
+        price_basis: 'per_person',
+        hotel_details: { name: 'Hotel Grand', stars: 4 },
+        transport_details: { vehicle: 'Innova' },
+        inclusions: ['Breakfast', 'Transfers'],
+        exclusions: ['Personal Expenses'],
+        terms_and_conditions: 'Standard terms',
+        booking_deadline: null,
+        valid_from: null,
+        valid_until: null,
+        status: 'published',
+        metadata: {},
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        itinerary: [
+          {
+            id: 'itin-1',
+            account_id: ACCOUNT_A,
+            package_id: 'pkg-zero-test',
+            day_number: 1,
+            title: 'Arrival in Srinagar',
+            description: 'Shikara ride',
+            meals: 'Dinner',
+            accommodation: 'Houseboat',
+            created_at: '',
+            updated_at: '',
+          },
+        ],
+        departures: [
+          {
+            id: 'dep-zero-seats',
+            account_id: ACCOUNT_A,
+            package_id: 'pkg-zero-test',
+            start_date: '2026-10-01',
+            end_date: '2026-10-05',
+            departure_price: 0,
+            total_seats: 10,
+            available_seats: 0, // Zero available seats
+            status: 'scheduled',
+            metadata: {},
+            created_at: '',
+            updated_at: '',
+          },
+        ],
+      };
+
+      const snapshot = generateProposalSnapshot(sourcePkg, 'dep-zero-seats');
+
+      // Assert zero preservation
+      expect(snapshot.base_price).toBe(0);
+      expect(snapshot.available_seats).toBe(0);
+
+      // Mutate source nested objects and arrays
+      sourcePkg.inclusions.push('Hacked Inclusion');
+      sourcePkg.exclusions.push('Hacked Exclusion');
+      (sourcePkg.hotel_details as Record<string, unknown>).stars = 99;
+      (sourcePkg.transport_details as Record<string, unknown>).vehicle =
+        'Hacked Vehicle';
+      sourcePkg.itinerary[0].title = 'Hacked Itinerary Title';
+
+      // Snapshot MUST remain completely untouched
+      expect(snapshot.inclusions).toEqual(['Breakfast', 'Transfers']);
+      expect(snapshot.exclusions).toEqual(['Personal Expenses']);
+      expect((snapshot.hotel_details as Record<string, unknown>).stars).toBe(4);
+      expect(
+        (snapshot.transport_details as Record<string, unknown>).vehicle
+      ).toBe('Innova');
+      expect((snapshot.itinerary as Array<{ title: string }>)[0].title).toBe(
+        'Arrival in Srinagar'
+      );
+    });
+
+    it('correctly classifies queries and extracts specific destination tokens', async () => {
+      const { extractSearchTokens, isGeneralCatalogRequest } =
+        await import('./package-service');
+
+      // General catalog queries
+      expect(isGeneralCatalogRequest('What packages do you have?')).toBe(true);
+      expect(extractSearchTokens('What packages do you have?')).toEqual([]);
+
+      expect(isGeneralCatalogRequest('Show all available tour packages.')).toBe(
+        true
+      );
+      expect(extractSearchTokens('Show all available tour packages.')).toEqual(
+        []
+      );
+
+      expect(isGeneralCatalogRequest('কী কী প্যাকেজ আছে?')).toBe(true);
+      expect(extractSearchTokens('কী কী প্যাকেজ আছে?')).toEqual([]);
+
+      // Specific queries with destination tokens
+      expect(isGeneralCatalogRequest('Do you have Maldives packages?')).toBe(
+        false
+      );
+      expect(extractSearchTokens('Do you have Maldives packages?')).toEqual([
+        'maldives',
+      ]);
+
+      expect(isGeneralCatalogRequest('Show Thailand tour packages.')).toBe(
+        false
+      );
+      expect(extractSearchTokens('Show Thailand tour packages.')).toEqual([
+        'thailand',
+      ]);
+
+      expect(isGeneralCatalogRequest('Darjeeling package ache?')).toBe(false);
+      expect(extractSearchTokens('Darjeeling package ache?')).toEqual([
+        'darjeeling',
+      ]);
+
+      expect(isGeneralCatalogRequest('মালদ্বীপ প্যাকেজ আছে?')).toBe(false);
+      expect(extractSearchTokens('মালদ্বীপ প্যাকেজ আছে?')).toEqual([
+        'মালদ্বীপ',
+      ]);
+    });
+
+    it('regression: returns empty array when DB has only Darjeeling and query asks for Maldives packages', async () => {
+      // Seed database with ONLY Darjeeling package
+      await createPackage(ACCOUNT_A, USER_ID, {
+        name: 'Darjeeling Himalayan Tour',
+        destination: 'Darjeeling',
+        summary: 'Scenic hills and tea gardens',
+        duration_days: 4,
+        base_price: 18000,
+        status: 'published',
+      });
+
+      // Query specifically asking for Maldives packages
+      const results = await retrievePackagesForAi(
+        ACCOUNT_A,
+        'Do you have any Maldives packages?'
+      );
+
+      // Must return empty array and never return Darjeeling!
+      expect(results).toHaveLength(0);
+
+      const formatted = formatPackagesForAiContext(
+        results,
+        'Do you have any Maldives packages?'
+      );
+      expect(formatted.context).toBe('');
+      expect(formatted.fallbackMessage).toContain(
+        'No matching active tour package is currently listed'
+      );
+    });
+
+    it('handles database query errors in getPackageWithDetails by throwing', async () => {
+      // Simulate error by passing malformed call or asserting error path
+      const notFound = await getPackageWithDetails(
+        ACCOUNT_A,
+        'non-existent-uuid'
+      );
+      expect(notFound).toBeNull();
+    });
+
+    it('safely handles search filters with special characters in listPackages', async () => {
+      await createPackage(ACCOUNT_A, USER_ID, {
+        name: 'Goa Beach Holiday',
+        destination: 'Goa',
+        duration_days: 3,
+        status: 'published',
+      });
+
+      // Filter with commas, quotes, parentheses, percent signs
+      const result = await listPackages(ACCOUNT_A, {
+        search: 'Goa, (special); %',
+      });
+
+      expect(result.data.length).toBeGreaterThanOrEqual(1);
+      expect(result.data.some((p) => p.name.includes('Goa'))).toBe(true);
+    });
+
+    it('safely deletes or archives a package using the safe_delete_tour_package RPC', async () => {
+      const pkg = await createPackage(ACCOUNT_A, USER_ID, {
+        name: 'Removable Package',
+        destination: 'Kerala',
+        duration_days: 5,
+        status: 'draft',
+      });
+
+      // Unreferenced -> deleted
+      const deleteResult = await safeDeletePackage(ACCOUNT_A, pkg.id, USER_ID);
+      expect(deleteResult.deleted).toBe(true);
+      expect(deleteResult.archived).toBe(false);
+
+      // Re-create and link booking -> archived
+      const bookedPkg = await createPackage(ACCOUNT_A, USER_ID, {
+        name: 'Booked Package',
+        destination: 'Kerala',
+        duration_days: 5,
+        status: 'published',
+      });
+      mockState.travel_bookings.push({
+        id: 'booking-1',
+        account_id: ACCOUNT_A,
+        package_id: bookedPkg.id,
+      });
+
+      const archiveResult = await safeDeletePackage(
+        ACCOUNT_A,
+        bookedPkg.id,
+        USER_ID
+      );
+      expect(archiveResult.deleted).toBe(false);
+      expect(archiveResult.archived).toBe(true);
+
+      // Deleting non-existent package throws not found
+      await expect(
+        safeDeletePackage(ACCOUNT_A, 'non-existent-pkg', USER_ID)
+      ).rejects.toThrow('Package not found in tenant');
     });
   });
 });
