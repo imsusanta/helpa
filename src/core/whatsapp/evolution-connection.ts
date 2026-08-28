@@ -141,7 +141,7 @@ function evolutionGoHostname(): string | null {
   }
 }
 
-export function qrSessionFailureStatus(error: unknown): 502 | 503 | 504 {
+function qrSessionFailureStatus(error: unknown): 502 | 503 | 504 {
   if (error instanceof EvolutionGoConfigError) return 503;
   if (error instanceof EvolutionGoRequestError) {
     if (error.status === 504 || error.status === 503) return error.status;
