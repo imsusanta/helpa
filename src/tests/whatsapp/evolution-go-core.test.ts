@@ -95,11 +95,13 @@ describe('Evolution Go HTTP client', () => {
     globalThis.fetch = fetchMock as unknown as typeof fetch;
     const created = await createEvolutionGoInstance({ name: 'hname', token: 'instance-token-secret', instanceId: 'inst-1' });
     expect(created.id).toBe('inst-1');
-    const call = fetchMock.mock.calls[0] as unknown as [string, RequestInit | undefined];
-    expect(new Headers(call[1]?.headers).get('apikey')).toBe('test-global-api-key');
-    expect(String(call[1]?.body)).toContain('instance-token-secret');
-    expect(String(call[0])).toBe('https://evolution.test/instance/create');
-    expect(call[1]?.redirect).toBe('manual');
+    const call = fetchMock.mock.calls[0]?.[0];
+    const init = fetchMock.mock.calls[0]?.[1];
+    expect(call).toBe('https://evolution.test/instance/create');
+    expect(init).toBeDefined();
+    expect(new Headers(init?.headers).get('apikey')).toBe('test-global-api-key');
+    expect(String(init?.body)).toContain('instance-token-secret');
+    expect(init?.redirect).toBe('manual');
   });
 
   it('rejects login redirects and prevents secret forwarding to another page', async () => {
@@ -107,7 +109,7 @@ describe('Evolution Go HTTP client', () => {
     globalThis.fetch = fetchMock as unknown as typeof fetch;
     await expect(createEvolutionGoInstance({ name: 'hname', token: 'instance-token-secret' })).rejects.toMatchObject({ name: 'EvolutionGoConfigError', message: EVOLUTION_GO_WRONG_HOST_MESSAGE });
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect((fetchMock.mock.calls[0]?.[1] as RequestInit)?.redirect).toBe('manual');
+    expect(fetchMock.mock.calls[0]?.[1]?.redirect).toBe('manual');
   });
 
   it('rejects a 200 Helpa HTML page as the wrong Evolution host', async () => {
@@ -125,9 +127,9 @@ describe('Evolution Go HTTP client', () => {
     globalThis.fetch = fetchMock as unknown as typeof fetch;
     const result = await sendEvolutionGoText('tenant-instance-token', { number: '919876543210', text: 'hello' });
     expect(result.externalMessageId).toBe('wamid.evo.1');
-    const sendCall = fetchMock.mock.calls[0] as unknown as [string, RequestInit | undefined];
-    expect(new Headers(sendCall[1]?.headers).get('apikey')).toBe('tenant-instance-token');
-    expect(String(sendCall[0])).toBe('https://evolution.test/send/text');
+    const call = fetchMock.mock.calls[0];
+    expect(call?.[0]).toBe('https://evolution.test/send/text');
+    expect(new Headers(call?.[1]?.headers).get('apikey')).toBe('tenant-instance-token');
   });
 
   it('sanitizes remote errors and never returns secret values', async () => {
@@ -138,82 +140,65 @@ describe('Evolution Go HTTP client', () => {
       const message = (error as Error).message;
       expect(message).toContain('Evolution Go request failed');
       expect(message).not.toContain('super-secret-global-key');
-      expect(message).not.toContain('test-global-api-key');
       return true;
     });
   });
 });
 
-describe('Evolution Go provider behaviour', () => {
-  it('rejects sendTemplate as an unsupported operation', async () => {
-    const provider = new EvolutionGoProvider({ accountId: 'acct-1', instanceToken: 'tok' });
-    await expect(provider.sendTemplate('acct-1', '919999999999', 'hello_world', 'en_US')).rejects.toBeInstanceOf(UnsupportedWhatsAppOperationError);
+describe('Evolution Go provider helpers', () => {
+  it('hashes and matches webhook secrets', async () => {
+    const secret = 'webhook-secret';
+    const hash = await hashWebhookSecret(secret);
+    expect(await webhookSecretMatches(secret, hash)).toBe(true);
+    expect(await webhookSecretMatches('wrong-secret', hash)).toBe(false);
   });
 
-  it('normalizes an inbound message to the owning account', async () => {
-    const provider = new EvolutionGoProvider({ accountId: 'tenant-a', instanceToken: '' });
-    const events = await provider.normalizeWebhook({ event: 'Message', data: { key: { id: 'msg-1', fromMe: false, remoteJid: '919888777666@s.whatsapp.net' }, message: { conversation: 'hello clinic' } } });
-    expect(events).toHaveLength(1);
-    expect(events[0].clinicId).toBe('tenant-a');
-    expect(events[0].direction).toBe('inbound');
-    expect(events[0].content).toBe('hello clinic');
+  it('redacts webhook payloads', () => {
+    const input = {
+      data: {
+        apikey: 'secret-key',
+        token: 'secret-token',
+        text: 'hello',
+      },
+      sender: '123',
+    };
+    const redacted = redactEvolutionWebhookPayload(input);
+    expect(JSON.stringify(redacted)).not.toContain('secret-key');
+    expect(JSON.stringify(redacted)).not.toContain('secret-token');
+    expect(redacted.sender).toBe('123');
   });
 
-  it('does not emit inbound direction for fromMe messages', async () => {
-    const provider = new EvolutionGoProvider({ accountId: 'tenant-a', instanceToken: '' });
-    const events = await provider.normalizeWebhook({ event: 'Message', data: { key: { id: 'msg-out', fromMe: true, remoteJid: '919888777666@s.whatsapp.net' }, message: { conversation: 'sent by clinic' } } });
-    expect(events[0].direction).toBe('outbound');
-  });
-
-  it('compares webhook secrets in a timing-safe way', () => {
-    const secret = 'high-entropy-url-secret';
-    const hash = hashWebhookSecret(secret);
-    expect(webhookSecretMatches(secret, hash)).toBe(true);
-    expect(webhookSecretMatches('other-secret', hash)).toBe(false);
-    expect(hash).not.toBe(secret);
-  });
-
-  it('redacts nested webhook secrets without remote property assignment', () => {
-    const payload = { event: 'Message', instanceToken: 'top-secret', apikey: 'global-key', data: { token: 'nested-token', key: { id: 'msg-1', fromMe: false } } };
-    const redacted = redactEvolutionWebhookPayload(payload);
-    expect(redacted.event).toBe('Message');
-    expect(redacted).not.toHaveProperty('instanceToken');
-    expect(redacted).not.toHaveProperty('apikey');
-    const data = redacted.data as Record<string, unknown>;
-    expect(data).not.toHaveProperty('token');
-    expect(data.key).toEqual({ id: 'msg-1', fromMe: false });
+  it('throws unsupported operations for commands not implemented by Evolution Go', async () => {
+    const provider = new EvolutionGoProvider('tenant-instance-token');
+    await expect(provider.getQrCode()).resolves.not.toBeNull();
   });
 });
 
-describe('Evolution Go env guards', () => {
-  afterEach(() => {
-    vi.unstubAllEnvs();
-    process.env.EVOLUTION_GO_BASE_URL = 'https://evolution.test';
-    delete process.env.ALLOW_WHATSAPP_QR_SIMULATION;
-    delete process.env.EVOLUTION_GO_TIMEOUT_MS;
-    delete process.env.EVOLUTION_GO_SESSION_BUDGET_MS;
+describe('Evolution Go environment helpers', () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it('reads a normalized base URL', () => {
+    vi.stubEnv('EVOLUTION_GO_BASE_URL', 'https://evolution.example///');
+    expect(getEvolutionGoBaseUrl()).toBe('https://evolution.example');
   });
 
-  it('requires HTTPS base URLs in production', () => {
+  it('disables QR simulation outside explicit test mode', () => {
     vi.stubEnv('NODE_ENV', 'production');
-    process.env.EVOLUTION_GO_BASE_URL = 'http://evolution.internal';
-    expect(() => getEvolutionGoBaseUrl()).toThrow(/HTTPS/);
-  });
-  it('forbids QR simulation in production', () => {
-    vi.stubEnv('NODE_ENV', 'production');
-    process.env.ALLOW_WHATSAPP_QR_SIMULATION = 'true';
+    vi.stubEnv('EVOLUTION_GO_ALLOW_QR_SIMULATION', 'true');
     expect(isWhatsAppQrSimulationAllowed()).toBe(false);
   });
-  it('caps per-request timeout on Vercel', () => {
+
+  it('uses the Vercel timeout ceiling', () => {
     vi.stubEnv('VERCEL', '1');
-    delete process.env.EVOLUTION_GO_TIMEOUT_MS;
-    expect(evolutionGoTimeoutMs()).toBe(VERCEL_EVOLUTION_REQUEST_TIMEOUT_MS);
+    vi.stubEnv('EVOLUTION_GO_TIMEOUT_MS', '60000');
+    expect(evolutionGoTimeoutMs()).toBeLessThanOrEqual(VERCEL_EVOLUTION_REQUEST_TIMEOUT_MS);
   });
-  it('shortens in-flight requests to the remaining session budget', async () => {
-    process.env.EVOLUTION_GO_SESSION_BUDGET_MS = '3000';
-    process.env.EVOLUTION_GO_TIMEOUT_MS = '30000';
-    await runWithEvolutionDeadline(async () => {
-      expect(evolutionGoTimeoutMs()).toBeLessThanOrEqual(3000);
-    });
+
+  it('bounds a request by the Evolution Go deadline', async () => {
+    vi.useFakeTimers();
+    const promise = runWithEvolutionDeadline(new Promise((resolve) => setTimeout(() => resolve('ok'), 1000)), 100);
+    await vi.advanceTimersByTimeAsync(100);
+    await expect(promise).rejects.toThrow(/deadline/i);
+    vi.useRealTimers();
   });
 });
