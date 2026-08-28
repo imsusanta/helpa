@@ -179,9 +179,11 @@ describe('Evolution Go HTTP client', () => {
       message: EVOLUTION_GO_WRONG_HOST_MESSAGE,
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect((fetchMock.mock.calls[0]?.[1] as RequestInit)?.redirect).toBe(
-      'manual'
-    );
+    const redirectCall = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit | undefined,
+    ];
+    expect(redirectCall[1]?.redirect).toBe('manual');
   });
 
   it('rejects a 200 Helpa HTML page as the wrong Evolution host', async () => {
