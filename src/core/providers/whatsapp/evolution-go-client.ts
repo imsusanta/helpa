@@ -343,7 +343,8 @@ export async function createEvolutionGoInstance(
 
 export async function connectEvolutionGoInstance(
   instanceToken: string,
-  input: EvolutionGoConnectInput
+  input: EvolutionGoConnectInput,
+  instanceName?: string
 ): Promise<EvolutionGoConnectResult> {
   try {
     const payload = await evolutionGoRequest({
@@ -368,14 +369,15 @@ export async function connectEvolutionGoInstance(
   } catch (err) {
     // WAHA engine fallback
     if (isEvolutionGoNotFoundError(err)) {
+      const sessionTarget = instanceName || instanceToken;
       try {
         await evolutionGoRequest({
           method: 'POST',
-          path: `/api/sessions/${encodeURIComponent(instanceToken)}/start`,
+          path: `/api/sessions/${encodeURIComponent(sessionTarget)}/start`,
           auth: 'admin',
         });
       } catch {
-        // Start may be in progress, continue
+        // Start may already be in progress, continue
       }
       return { webhookUrl: input.webhookUrl };
     }
@@ -384,7 +386,8 @@ export async function connectEvolutionGoInstance(
 }
 
 export async function getEvolutionGoQr(
-  instanceToken: string
+  instanceToken: string,
+  instanceName?: string
 ): Promise<EvolutionGoQrcode> {
   try {
     const payload = await evolutionGoRequest({
@@ -397,19 +400,39 @@ export async function getEvolutionGoQr(
   } catch (err) {
     // WAHA engine fallback
     if (isEvolutionGoNotFoundError(err)) {
-      const payload = await evolutionGoRequest({
-        method: 'GET',
-        path: `/api/${encodeURIComponent(instanceToken)}/auth/qr`,
-        auth: 'admin',
-      });
-      return parseEvolutionGoQrcode(payload);
+      const sessionTarget = instanceName || instanceToken;
+      try {
+        const payload = await evolutionGoRequest({
+          method: 'GET',
+          path: `/api/${encodeURIComponent(sessionTarget)}/auth/qr`,
+          auth: 'admin',
+        });
+        return parseEvolutionGoQrcode(payload);
+      } catch (innerErr) {
+        if (isEvolutionGoNotFoundError(innerErr)) {
+          // If named session wasn't started, try starting and fetching
+          await evolutionGoRequest({
+            method: 'POST',
+            path: `/api/sessions/${encodeURIComponent(sessionTarget)}/start`,
+            auth: 'admin',
+          }).catch(() => {});
+          const retryPayload = await evolutionGoRequest({
+            method: 'GET',
+            path: `/api/${encodeURIComponent(sessionTarget)}/auth/qr`,
+            auth: 'admin',
+          });
+          return parseEvolutionGoQrcode(retryPayload);
+        }
+        throw innerErr;
+      }
     }
     throw err;
   }
 }
 
 export async function getEvolutionGoStatus(
-  instanceToken: string
+  instanceToken: string,
+  instanceName?: string
 ): Promise<EvolutionGoStatus> {
   try {
     const payload = await evolutionGoRequest({
@@ -422,28 +445,39 @@ export async function getEvolutionGoStatus(
   } catch (err) {
     // WAHA engine fallback
     if (isEvolutionGoNotFoundError(err)) {
-      const payload = await evolutionGoRequest({
-        method: 'GET',
-        path: `/api/sessions/${encodeURIComponent(instanceToken)}`,
-        auth: 'admin',
-      });
-      const raw = dataEnvelope(payload);
-      const statusStr = String(raw.status || '').toUpperCase();
-      const meObj = (raw.me || {}) as Record<string, unknown>;
-      const isConnected = statusStr === 'WORKING' || statusStr === 'CONNECTED';
-      return {
-        connected: isConnected,
-        loggedIn: isConnected,
-        name: instanceToken,
-        jid: asString(meObj.id) || undefined,
-      };
+      const sessionTarget = instanceName || instanceToken;
+      try {
+        const payload = await evolutionGoRequest({
+          method: 'GET',
+          path: `/api/sessions/${encodeURIComponent(sessionTarget)}`,
+          auth: 'admin',
+        });
+        const raw = dataEnvelope(payload);
+        const statusStr = String(raw.status || '').toUpperCase();
+        const meObj = (raw.me || {}) as Record<string, unknown>;
+        const isConnected =
+          statusStr === 'WORKING' || statusStr === 'CONNECTED';
+        return {
+          connected: isConnected,
+          loggedIn: isConnected,
+          name: sessionTarget,
+          jid: asString(meObj.id) || undefined,
+        };
+      } catch {
+        return {
+          connected: false,
+          loggedIn: false,
+          name: sessionTarget,
+        };
+      }
     }
     throw err;
   }
 }
 
 export async function reconnectEvolutionGoInstance(
-  instanceToken: string
+  instanceToken: string,
+  instanceName?: string
 ): Promise<void> {
   try {
     await evolutionGoRequest({
@@ -454,9 +488,10 @@ export async function reconnectEvolutionGoInstance(
     });
   } catch (err) {
     if (isEvolutionGoNotFoundError(err)) {
+      const sessionTarget = instanceName || instanceToken;
       await evolutionGoRequest({
         method: 'POST',
-        path: `/api/sessions/${encodeURIComponent(instanceToken)}/start`,
+        path: `/api/sessions/${encodeURIComponent(sessionTarget)}/start`,
         auth: 'admin',
       });
       return;
@@ -466,7 +501,8 @@ export async function reconnectEvolutionGoInstance(
 }
 
 export async function disconnectEvolutionGoInstance(
-  instanceToken: string
+  instanceToken: string,
+  instanceName?: string
 ): Promise<void> {
   try {
     await evolutionGoRequest({
@@ -477,9 +513,10 @@ export async function disconnectEvolutionGoInstance(
     });
   } catch (err) {
     if (isEvolutionGoNotFoundError(err)) {
+      const sessionTarget = instanceName || instanceToken;
       await evolutionGoRequest({
         method: 'POST',
-        path: `/api/sessions/${encodeURIComponent(instanceToken)}/logout`,
+        path: `/api/sessions/${encodeURIComponent(sessionTarget)}/logout`,
         auth: 'admin',
       });
       return;
@@ -489,7 +526,8 @@ export async function disconnectEvolutionGoInstance(
 }
 
 export async function logoutEvolutionGoInstance(
-  instanceToken: string
+  instanceToken: string,
+  instanceName?: string
 ): Promise<void> {
   try {
     await evolutionGoRequest({
@@ -500,9 +538,10 @@ export async function logoutEvolutionGoInstance(
     });
   } catch (err) {
     if (isEvolutionGoNotFoundError(err)) {
+      const sessionTarget = instanceName || instanceToken;
       await evolutionGoRequest({
         method: 'POST',
-        path: `/api/sessions/${encodeURIComponent(instanceToken)}/logout`,
+        path: `/api/sessions/${encodeURIComponent(sessionTarget)}/logout`,
         auth: 'admin',
       });
       return;

@@ -60,6 +60,12 @@ export interface EvolutionQrSessionResponse {
   provider?: 'evolution';
   connection_type?: 'qr_linked_device';
   error?: string;
+  error_code?:
+    | 'EVOLUTION_GO_CONFIG'
+    | 'EVOLUTION_GO_AUTH_FAILED'
+    | 'EVOLUTION_GO_LICENSE_REQUIRED'
+    | 'EVOLUTION_GO_UNREACHABLE'
+    | 'EVOLUTION_GO_REQUEST_FAILED';
   conflict?: boolean;
   /** Internal HTTP status for failed POST/reconnect. Not sent to clients. */
   failure_status?: 502 | 503 | 504;
@@ -118,13 +124,37 @@ export function toPublicQrSession(session: EvolutionQrSessionResponse) {
     provider: session.provider ?? 'evolution',
     connection_type: session.connection_type ?? 'qr_linked_device',
     error: session.error,
+    error_code: session.error_code,
     conflict: session.conflict,
   };
+}
+
+function publicErrorCode(
+  error: unknown
+): EvolutionQrSessionResponse['error_code'] {
+  if (error instanceof EvolutionGoConfigError) {
+    return /license/i.test(error.message)
+      ? 'EVOLUTION_GO_LICENSE_REQUIRED'
+      : 'EVOLUTION_GO_CONFIG';
+  }
+  if (error instanceof EvolutionGoRequestError) {
+    if (error.status === 401 || error.status === 403) {
+      return 'EVOLUTION_GO_AUTH_FAILED';
+    }
+    if (error.status === 502 || error.status === 503 || error.status === 504) {
+      return 'EVOLUTION_GO_UNREACHABLE';
+    }
+    return 'EVOLUTION_GO_REQUEST_FAILED';
+  }
+  return 'EVOLUTION_GO_REQUEST_FAILED';
 }
 
 function publicErrorMessage(error: unknown): string {
   if (error instanceof EvolutionGoConfigError) return error.message;
   if (error instanceof EvolutionGoRequestError) {
+    if (error.status === 401 || error.status === 403) {
+      return 'Evolution Go rejected the configured API key. Update EVOLUTION_GO_GLOBAL_API_KEY to match the Evolution Go server, then restart both services.';
+    }
     if (error.status === 503 || error.status === 504) {
       return 'WhatsApp QR service is temporarily unreachable. Try again shortly.';
     }
@@ -171,6 +201,7 @@ function failedQrSession(
     provider: 'evolution',
     connection_type: 'qr_linked_device',
     error: publicErrorMessage(error),
+    error_code: publicErrorCode(error),
     failure_status,
     ...(extras.conflict ? { conflict: true } : {}),
   };
@@ -309,9 +340,14 @@ function sessionFromConfig(
 async function applyLiveStatus(
   accountId: string,
   instanceToken: string,
-  config: CanonicalWhatsAppConfig
+  config: CanonicalWhatsAppConfig,
+  instanceName?: string
 ): Promise<EvolutionQrSessionResponse> {
-  const status = await getEvolutionGoStatus(instanceToken);
+  const targetName =
+    instanceName ||
+    config.providerInstanceName ||
+    opaqueInstanceName(accountId);
+  const status = await getEvolutionGoStatus(instanceToken, targetName);
   const now = new Date().toISOString();
   if (status.connected && status.loggedIn) {
     const phone = phoneFromWhatsAppJid(status.jid) || config.displayPhoneNumber;
@@ -344,7 +380,7 @@ async function applyLiveStatus(
   }
 
   try {
-    const qr = await getEvolutionGoQr(instanceToken);
+    const qr = await getEvolutionGoQr(instanceToken, targetName);
     const rendered = await qrImageFromPairing(qr.code, qr.qrcode);
     if (rendered.qrCode || rendered.qrImage) {
       await persistEvolutionConfig(accountId, {
@@ -403,14 +439,20 @@ async function applyLiveStatus(
 async function connectAndFetchQr(
   accountId: string,
   instanceToken: string,
-  webhookSecret: string
+  webhookSecret: string,
+  instanceName?: string
 ): Promise<EvolutionQrSessionResponse> {
+  const targetName = instanceName || opaqueInstanceName(accountId);
   const webhookUrl = buildEvolutionWebhookUrl(webhookSecret);
   try {
-    await connectEvolutionGoInstance(instanceToken, {
-      webhookUrl,
-      subscribe: [...EVOLUTION_GO_SUBSCRIBE_EVENTS],
-    });
+    await connectEvolutionGoInstance(
+      instanceToken,
+      {
+        webhookUrl,
+        subscribe: [...EVOLUTION_GO_SUBSCRIBE_EVENTS],
+      },
+      targetName
+    );
   } catch (error) {
     await markConnectionError(accountId, error);
     return failedQrSession(error);
@@ -434,7 +476,7 @@ async function connectAndFetchQr(
   }
 
   try {
-    const qr = await getEvolutionGoQr(instanceToken);
+    const qr = await getEvolutionGoQr(instanceToken, targetName);
     const rendered = await qrImageFromPairing(qr.code, qr.qrcode);
     await persistEvolutionConfig(accountId, {
       status: 'connecting',
@@ -491,6 +533,8 @@ export async function getEvolutionQrSession(
   }
   try {
     const instanceToken = decryptProviderToken(config);
+    const instanceName =
+      config.providerInstanceName || opaqueInstanceName(accountId);
     if (config.connectionStatus === 'creating_instance') {
       const secret = crypto.randomBytes(32).toString('base64url');
       await persistEvolutionConfig(accountId, {
@@ -498,9 +542,19 @@ export async function getEvolutionQrSession(
         connection_status: 'waiting_for_qr',
         status: 'connecting',
       });
-      return await connectAndFetchQr(accountId, instanceToken, secret);
+      return await connectAndFetchQr(
+        accountId,
+        instanceToken,
+        secret,
+        instanceName
+      );
     }
-    return await applyLiveStatus(accountId, instanceToken, config);
+    return await applyLiveStatus(
+      accountId,
+      instanceToken,
+      config,
+      instanceName
+    );
   } catch (error) {
     return failedQrSession(error);
   }
@@ -530,7 +584,14 @@ export async function startEvolutionQrSession(
   ) {
     try {
       const instanceToken = decryptProviderToken(existing);
-      const live = await applyLiveStatus(accountId, instanceToken, existing);
+      const existingName =
+        existing.providerInstanceName || opaqueInstanceName(accountId);
+      const live = await applyLiveStatus(
+        accountId,
+        instanceToken,
+        existing,
+        existingName
+      );
       if (live.status === 'connected' || live.qr_code || live.qr_image) {
         return live;
       }
@@ -540,7 +601,12 @@ export async function startEvolutionQrSession(
         connection_status: 'waiting_for_qr',
         status: 'connecting',
       });
-      return await connectAndFetchQr(accountId, instanceToken, secret);
+      return await connectAndFetchQr(
+        accountId,
+        instanceToken,
+        secret,
+        existingName
+      );
     } catch (error) {
       if (
         error instanceof EvolutionGoRequestError &&
@@ -641,7 +707,12 @@ export async function startEvolutionQrSession(
     };
   }
 
-  return connectAndFetchQr(accountId, instanceToken, webhookSecret);
+  return connectAndFetchQr(
+    accountId,
+    instanceToken,
+    webhookSecret,
+    instanceName
+  );
 }
 
 export async function reconnectEvolutionQrSession(
@@ -653,8 +724,15 @@ export async function reconnectEvolutionQrSession(
   }
   try {
     const instanceToken = decryptProviderToken(config);
-    await reconnectEvolutionGoInstance(instanceToken);
-    return await applyLiveStatus(accountId, instanceToken, config);
+    const instanceName =
+      config.providerInstanceName || opaqueInstanceName(accountId);
+    await reconnectEvolutionGoInstance(instanceToken, instanceName);
+    return await applyLiveStatus(
+      accountId,
+      instanceToken,
+      config,
+      instanceName
+    );
   } catch (error) {
     await markConnectionError(accountId, error);
     return failedQrSession(error, { status: 'reconnect_required' });
@@ -677,13 +755,15 @@ export async function disconnectEvolutionQrSession(
   const instanceToken = config.providerTokenEncrypted
     ? decryptProviderToken(config)
     : '';
+  const instanceName =
+    config.providerInstanceName || opaqueInstanceName(accountId);
   if (instanceToken) {
     try {
-      await logoutEvolutionGoInstance(instanceToken);
+      await logoutEvolutionGoInstance(instanceToken, instanceName);
     } catch (error) {
       if (!isEvolutionGoNotFoundError(error)) {
         try {
-          await disconnectEvolutionGoInstance(instanceToken);
+          await disconnectEvolutionGoInstance(instanceToken, instanceName);
         } catch {
           // External instance may already be gone.
         }
