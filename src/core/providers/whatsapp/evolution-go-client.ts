@@ -351,22 +351,17 @@ async function evolutionGoRequest(
 export async function createEvolutionGoInstance(
   input: EvolutionGoCreateInstanceInput
 ): Promise<EvolutionGoInstance> {
-  try {
-    const payload = await evolutionGoRequest({
-      method: 'POST',
-      path: '/instance/create',
-      auth: 'admin',
-      body: {
-        name: input.name,
-        token: input.token,
-        ...(input.instanceId ? { instanceId: input.instanceId } : {}),
-      },
-    });
-    return parseEvolutionGoInstance(payload);
-  } catch (err) {
-    // Preserve Evolution Go as the authoritative QR engine.
-    throw err;
-  }
+  const payload = await evolutionGoRequest({
+    method: 'POST',
+    path: '/instance/create',
+    auth: 'admin',
+    body: {
+      name: input.name,
+      token: input.token,
+      ...(input.instanceId ? { instanceId: input.instanceId } : {}),
+    },
+  });
+  return parseEvolutionGoInstance(payload);
 }
 
 export async function connectEvolutionGoInstance(
@@ -457,7 +452,9 @@ export async function logoutEvolutionGoInstance(
   });
 }
 
-export async function deleteEvolutionGoInstance(instanceId: string): Promise<void> {
+export async function deleteEvolutionGoInstance(
+  instanceId: string
+): Promise<void> {
   await evolutionGoRequest({
     method: 'DELETE',
     path: `/instance/delete/${encodeURIComponent(instanceId)}`,

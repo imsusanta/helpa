@@ -7,6 +7,7 @@ import {
 import { resolveWhatsAppProvider } from '@/core/providers/whatsapp/provider-resolver';
 import {
   createEvolutionGoInstance,
+  getEvolutionGoQr,
   sendEvolutionGoText,
   EvolutionGoConfigError,
   EvolutionGoRequestError,
@@ -18,6 +19,7 @@ import {
   redactEvolutionWebhookPayload,
   webhookSecretMatches,
 } from '@/core/providers/whatsapp/evolution-go-provider';
+import { UnsupportedWhatsAppOperationError } from '@/core/providers/whatsapp/whatsapp-provider.interface';
 import {
   getEvolutionGoBaseUrl,
   isWhatsAppQrSimulationAllowed,
@@ -200,6 +202,19 @@ describe('Evolution Go HTTP client', () => {
     ).rejects.toBeInstanceOf(EvolutionGoConfigError);
   });
 
+  it('accepts a successful image QR response', async () => {
+    const png = Uint8Array.from([0x89, 0x50, 0x4e, 0x47]);
+    globalThis.fetch = vi.fn(
+      async () =>
+        new Response(png, {
+          status: 200,
+          headers: { 'Content-Type': 'image/png' },
+        })
+    ) as unknown as typeof fetch;
+    const qr = await getEvolutionGoQr('tenant-instance-token');
+    expect(qr.qrcode.startsWith('data:image/png;base64,')).toBe(true);
+  });
+
   it('surfaces a license error instead of a generic 502', async () => {
     globalThis.fetch = vi.fn(
       async () =>
@@ -268,37 +283,80 @@ describe('Evolution Go HTTP client', () => {
   });
 });
 
-describe('Evolution Go provider helpers', () => {
-  it('hashes and matches webhook secrets', async () => {
-    const secret = 'webhook-secret';
-    const hash = await hashWebhookSecret(secret);
-    expect(await webhookSecretMatches(secret, hash)).toBe(true);
-    expect(await webhookSecretMatches('wrong-secret', hash)).toBe(false);
-  });
-
-  it('redacts webhook payloads', () => {
-    const input = {
-      data: {
-        apikey: 'secret-key',
-        token: 'secret-token',
-        text: 'hello',
-      },
-      sender: '123',
-    };
-    const redacted = redactEvolutionWebhookPayload(input);
-    expect(JSON.stringify(redacted)).not.toContain('secret-key');
-    expect(JSON.stringify(redacted)).not.toContain('secret-token');
-    expect(redacted.sender).toBe('123');
-  });
-
-  it('throws unsupported operations for commands not implemented by Evolution Go', async () => {
+describe('Evolution Go provider behaviour', () => {
+  it('rejects sendTemplate as an unsupported operation', async () => {
     const provider = new EvolutionGoProvider({
-      accountId: 'acc-1',
-      instanceToken: 'tenant-instance-token',
+      accountId: 'acct-1',
+      instanceToken: 'tok',
     });
     await expect(
-      provider.sendTemplate('123', 'test_template', 'en')
-    ).rejects.toThrow();
+      provider.sendTemplate('acct-1', '919999999999', 'hello_world', 'en_US')
+    ).rejects.toBeInstanceOf(UnsupportedWhatsAppOperationError);
+  });
+
+  it('normalizes an inbound message to the owning account', async () => {
+    const provider = new EvolutionGoProvider({
+      accountId: 'tenant-a',
+      instanceToken: '',
+    });
+    const events = await provider.normalizeWebhook({
+      event: 'Message',
+      data: {
+        key: {
+          id: 'msg-1',
+          fromMe: false,
+          remoteJid: '919888777666@s.whatsapp.net',
+        },
+        message: { conversation: 'hello clinic' },
+      },
+    });
+    expect(events).toHaveLength(1);
+    expect(events[0].clinicId).toBe('tenant-a');
+    expect(events[0].direction).toBe('inbound');
+    expect(events[0].content).toBe('hello clinic');
+  });
+
+  it('does not emit inbound direction for fromMe messages', async () => {
+    const provider = new EvolutionGoProvider({
+      accountId: 'tenant-a',
+      instanceToken: '',
+    });
+    const events = await provider.normalizeWebhook({
+      event: 'Message',
+      data: {
+        key: {
+          id: 'msg-out',
+          fromMe: true,
+          remoteJid: '919888777666@s.whatsapp.net',
+        },
+        message: { conversation: 'sent by clinic' },
+      },
+    });
+    expect(events[0].direction).toBe('outbound');
+  });
+
+  it('compares webhook secrets in a timing-safe way', () => {
+    const secret = 'high-entropy-url-secret';
+    const hash = hashWebhookSecret(secret);
+    expect(webhookSecretMatches(secret, hash)).toBe(true);
+    expect(webhookSecretMatches('other-secret', hash)).toBe(false);
+    expect(hash).not.toBe(secret);
+  });
+
+  it('redacts nested webhook secrets without remote property assignment', () => {
+    const payload = {
+      event: 'Message',
+      instanceToken: 'top-secret',
+      apikey: 'global-key',
+      data: { token: 'nested-token', key: { id: 'msg-1', fromMe: false } },
+    };
+    const redacted = redactEvolutionWebhookPayload(payload);
+    expect(redacted.event).toBe('Message');
+    expect(redacted).not.toHaveProperty('instanceToken');
+    expect(redacted).not.toHaveProperty('apikey');
+    const data = redacted.data as Record<string, unknown>;
+    expect(data).not.toHaveProperty('token');
+    expect(data.key).toEqual({ id: 'msg-1', fromMe: false });
   });
 });
 
@@ -310,9 +368,15 @@ describe('Evolution Go environment helpers', () => {
     expect(getEvolutionGoBaseUrl()).toBe('https://evolution.example');
   });
 
-  it('disables QR simulation outside explicit test mode', () => {
+  it('requires HTTPS base URLs in production', () => {
     vi.stubEnv('NODE_ENV', 'production');
-    vi.stubEnv('EVOLUTION_GO_ALLOW_QR_SIMULATION', 'true');
+    vi.stubEnv('EVOLUTION_GO_BASE_URL', 'http://evolution.internal');
+    expect(() => getEvolutionGoBaseUrl()).toThrow(/HTTPS/);
+  });
+
+  it('forbids QR simulation in production', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('ALLOW_WHATSAPP_QR_SIMULATION', 'true');
     expect(isWhatsAppQrSimulationAllowed()).toBe(false);
   });
 
