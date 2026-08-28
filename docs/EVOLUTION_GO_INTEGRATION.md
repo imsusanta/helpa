@@ -95,7 +95,8 @@ All server-only. Never use a `NEXT_PUBLIC_` prefix.
 | `EVOLUTION_GO_BASE_URL` | Origin of the Evolution Go service |
 | `EVOLUTION_GO_GLOBAL_API_KEY` | Global admin `apikey` |
 | `EVOLUTION_GO_WEBHOOK_BASE_URL` | Public Helpa origin used to build `/api/webhooks/evolution/{secret}` |
-| `EVOLUTION_GO_TIMEOUT_MS` | Optional request timeout (3s–120s, default 30s) |
+| `EVOLUTION_GO_TIMEOUT_MS` | Optional per-request timeout (3s–120s, default 30s; capped at 6.5s on Vercel) |
+| `EVOLUTION_GO_SESSION_BUDGET_MS` | Optional whole QR session budget (3s–120s; default 8s on Vercel so Helpa returns JSON before a platform HTML 502) |
 
 `WHATSAPP_TOKEN_ENCRYPTION_KEY` (or `ENCRYPTION_KEY`) encrypts the
 tenant instance token with AES-256-GCM before persistence.
@@ -118,7 +119,9 @@ Helpa does not embed or proxy license keys.
 4. Otherwise Helpa creates the instance with the global API key, stores
    the encrypted instance token, and connects with that token.
 5. Helpa returns the real QR from `GET /instance/qr`. The browser never
-   calls Evolution Go.
+   calls Evolution Go. If the Vercel function budget is almost exhausted,
+   Helpa returns `creating_instance` / `waiting_for_qr` JSON instead of
+   waiting; the panel poll finishes connect + QR on the next GET.
 6. The UI polls `GET /api/whatsapp/qr/session` until connected,
    disconnected, expired, or unmounted.
 7. After scan, Helpa stores the linked phone/identity and sets
@@ -185,6 +188,10 @@ Callback URL (tenant-specific secret, hashed at rest):
   Evolution Go; Helpa surfaces pairing codes when present.
 - `simulate_paired` exists only for test/demo (`NODE_ENV=test` or
   `ALLOW_WHATSAPP_QR_SIMULATION=true`) and is forbidden in production.
+- On Vercel, QR session handlers cap Evolution I/O so they can return
+  JSON before the platform kills the invocation with an HTML 502. Raise
+  `EVOLUTION_GO_SESSION_BUDGET_MS` only when the function `maxDuration`
+  is comfortably larger than that budget.
 - WAHA remains in the tree for backward compatibility and is not removed
   by this integration.
 

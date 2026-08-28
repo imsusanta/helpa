@@ -33,6 +33,7 @@ import { hashWebhookSecret } from '@/core/providers/whatsapp/evolution-go-provid
 import {
   EvolutionGoConfigError,
   buildEvolutionWebhookUrl,
+  hasEnoughEvolutionDeadline,
 } from '@/core/providers/whatsapp/evolution-go-env';
 
 export type EvolutionConnectionUiStatus =
@@ -355,6 +356,23 @@ async function connectAndFetchQr(
     };
   }
 
+  if (!hasEnoughEvolutionDeadline(1_500)) {
+    await persistEvolutionConfig(accountId, {
+      status: 'connecting',
+      connection_status: 'waiting_for_qr',
+      connection_error: null,
+    });
+    return {
+      success: true,
+      status: 'waiting_for_qr',
+      qr_code: null,
+      qr_image: null,
+      expires_in: null,
+      provider: 'evolution',
+      connection_type: 'qr_linked_device',
+    };
+  }
+
   try {
     const qr = await getEvolutionGoQr(instanceToken);
     const rendered = await qrImageFromPairing(qr.code, qr.qrcode);
@@ -380,6 +398,25 @@ async function connectAndFetchQr(
       connection_type: 'qr_linked_device',
     };
   } catch (error) {
+    if (
+      error instanceof EvolutionGoRequestError &&
+      (error.status === 504 || error.status === 503)
+    ) {
+      await persistEvolutionConfig(accountId, {
+        status: 'connecting',
+        connection_status: 'waiting_for_qr',
+        connection_error: null,
+      });
+      return {
+        success: true,
+        status: 'waiting_for_qr',
+        qr_code: null,
+        qr_image: null,
+        expires_in: null,
+        provider: 'evolution',
+        connection_type: 'qr_linked_device',
+      };
+    }
     await markConnectionError(accountId, error);
     return {
       success: false,
@@ -414,6 +451,15 @@ export async function getEvolutionQrSession(
   }
   try {
     const instanceToken = decryptProviderToken(config);
+    if (config.connectionStatus === 'creating_instance') {
+      const secret = crypto.randomBytes(32).toString('base64url');
+      await persistEvolutionConfig(accountId, {
+        webhook_secret_hash: hashWebhookSecret(secret),
+        connection_status: 'waiting_for_qr',
+        status: 'connecting',
+      });
+      return await connectAndFetchQr(accountId, instanceToken, secret);
+    }
     return await applyLiveStatus(accountId, instanceToken, config);
   } catch (error) {
     return {
@@ -465,6 +511,20 @@ export async function startEvolutionQrSession(
       });
       return await connectAndFetchQr(accountId, instanceToken, secret);
     } catch (error) {
+      if (
+        error instanceof EvolutionGoRequestError &&
+        (error.status === 504 || error.status === 503)
+      ) {
+        return {
+          success: true,
+          status: 'waiting_for_qr',
+          qr_code: null,
+          qr_image: null,
+          expires_in: null,
+          provider: 'evolution',
+          connection_type: 'qr_linked_device',
+        };
+      }
       if (!isEvolutionGoNotFoundError(error)) {
         await markConnectionError(accountId, error);
         return {
@@ -494,6 +554,17 @@ export async function startEvolutionQrSession(
     });
     resolvedId = created.id || instanceId;
   } catch (error) {
+    if (!hasEnoughEvolutionDeadline(2_000)) {
+      await markConnectionError(accountId, error);
+      return {
+        success: false,
+        status: 'error',
+        qr_code: null,
+        qr_image: null,
+        expires_in: null,
+        error: publicErrorMessage(error),
+      };
+    }
     try {
       await deleteEvolutionGoInstance(instanceId);
       const created = await createEvolutionGoInstance({
@@ -552,6 +623,18 @@ export async function startEvolutionQrSession(
       qr_image: null,
       expires_in: null,
       error: publicErrorMessage(error),
+    };
+  }
+
+  if (!hasEnoughEvolutionDeadline(2_000)) {
+    return {
+      success: true,
+      status: 'creating_instance',
+      qr_code: null,
+      qr_image: null,
+      expires_in: null,
+      provider: 'evolution',
+      connection_type: 'qr_linked_device',
     };
   }
 

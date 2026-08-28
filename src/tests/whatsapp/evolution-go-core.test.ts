@@ -20,6 +20,9 @@ import { UnsupportedWhatsAppOperationError } from '@/core/providers/whatsapp/wha
 import {
   getEvolutionGoBaseUrl,
   isWhatsAppQrSimulationAllowed,
+  evolutionGoTimeoutMs,
+  runWithEvolutionDeadline,
+  VERCEL_EVOLUTION_REQUEST_TIMEOUT_MS,
 } from '@/core/providers/whatsapp/evolution-go-env';
 import * as canonical from '@/core/whatsapp/canonical-config';
 
@@ -297,6 +300,8 @@ describe('Evolution Go env guards', () => {
     vi.unstubAllEnvs();
     process.env.EVOLUTION_GO_BASE_URL = 'https://evolution.test';
     delete process.env.ALLOW_WHATSAPP_QR_SIMULATION;
+    delete process.env.EVOLUTION_GO_TIMEOUT_MS;
+    delete process.env.EVOLUTION_GO_SESSION_BUDGET_MS;
   });
 
   it('requires HTTPS base URLs in production', () => {
@@ -309,5 +314,19 @@ describe('Evolution Go env guards', () => {
     vi.stubEnv('NODE_ENV', 'production');
     process.env.ALLOW_WHATSAPP_QR_SIMULATION = 'true';
     expect(isWhatsAppQrSimulationAllowed()).toBe(false);
+  });
+
+  it('caps per-request timeout on Vercel', () => {
+    vi.stubEnv('VERCEL', '1');
+    delete process.env.EVOLUTION_GO_TIMEOUT_MS;
+    expect(evolutionGoTimeoutMs()).toBe(VERCEL_EVOLUTION_REQUEST_TIMEOUT_MS);
+  });
+
+  it('shortens in-flight requests to the remaining session budget', async () => {
+    process.env.EVOLUTION_GO_SESSION_BUDGET_MS = '3000';
+    process.env.EVOLUTION_GO_TIMEOUT_MS = '30000';
+    await runWithEvolutionDeadline(async () => {
+      expect(evolutionGoTimeoutMs()).toBeLessThanOrEqual(3000);
+    });
   });
 });

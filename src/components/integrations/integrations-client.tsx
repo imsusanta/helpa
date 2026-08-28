@@ -506,7 +506,7 @@ export function IntegrationsClient() {
       {/* ========================================================================= */}
       {activeModal === 'whatsapp' && (
         <div className="animate-in fade-in-50 fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-xs">
-          <div className="relative w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+          <div className="relative w-full max-w-3xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
             <button
               onClick={() => setActiveModal(null)}
               className="absolute top-4 right-4 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"

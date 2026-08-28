@@ -4,6 +4,7 @@ import * as authAccount from '@/lib/auth/account';
 import * as supabaseServer from '@/lib/supabase/server';
 import * as dbServer from '@/lib/db/server';
 import { hashWebhookSecret } from '@/core/providers/whatsapp/evolution-go-provider';
+import { __resetRateLimitForTests } from '@/lib/rate-limit';
 import {
   GET as qrGet,
   POST as qrPost,
@@ -124,6 +125,7 @@ describe('Evolution Go QR session route', () => {
   let createCount = 0;
 
   beforeEach(() => {
+    __resetRateLimitForTests();
     db = {
       whatsapp_configs: [],
       accounts: [{ id: tenantA }, { id: tenantB }],
@@ -233,6 +235,8 @@ describe('Evolution Go QR session route', () => {
     globalThis.fetch = originalFetch;
     vi.restoreAllMocks();
     vi.unstubAllEnvs();
+    delete process.env.EVOLUTION_GO_TIMEOUT_MS;
+    delete process.env.EVOLUTION_GO_SESSION_BUDGET_MS;
   });
 
   it('returns a real Evolution pairing QR and never a synthetic Helpa QR', async () => {
@@ -322,5 +326,60 @@ describe('Evolution Go QR session route', () => {
     ).toHaveLength(0);
     expect(db.messages).toHaveLength(1);
     expect(db.messages[0].content_text).toBe('history');
+  });
+
+  it('resumes connect and QR from creating_instance on GET', async () => {
+    const token = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    db.whatsapp_configs.push({
+      id: 'cfg-creating',
+      account_id: tenantA,
+      provider: 'evolution',
+      phone_number_id: 'evolution:inst-a',
+      provider_instance_id: 'inst-a',
+      provider_token_encrypted: encrypt(token),
+      encrypted_access_token: encrypt(token),
+      status: 'connecting',
+      connection_status: 'creating_instance',
+    });
+    const res = await qrGet();
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.qr_code).toContain('2@evolution-real-pairing');
+    expect(evoCalls.some((call) => call.path === '/instance/connect')).toBe(
+      true
+    );
+    expect(evoCalls.some((call) => call.path === '/instance/qr')).toBe(true);
+  });
+
+  it('returns JSON when Evolution hangs past the Vercel session budget', async () => {
+    vi.stubEnv('VERCEL', '1');
+    process.env.EVOLUTION_GO_TIMEOUT_MS = '3000';
+    process.env.EVOLUTION_GO_SESSION_BUDGET_MS = '3000';
+    globalThis.fetch = vi.fn((_input, init?: RequestInit) => {
+      return new Promise((_resolve, reject) => {
+        const signal = init?.signal;
+        if (!signal) return;
+        if (signal.aborted) {
+          reject(new DOMException('Aborted', 'AbortError'));
+          return;
+        }
+        signal.addEventListener('abort', () => {
+          reject(new DOMException('Aborted', 'AbortError'));
+        });
+      });
+    }) as unknown as typeof fetch;
+
+    const started = Date.now();
+    const res = await qrPost(jsonRequest('POST', { action: 'generate' }));
+    const elapsed = Date.now() - started;
+    const contentType = res.headers.get('content-type') || '';
+    const body = await res.json();
+    expect(elapsed).toBeLessThan(8000);
+    expect(contentType).toMatch(/json/i);
+    expect(JSON.stringify(body)).not.toMatch(/Unexpected token/);
+    expect(JSON.stringify(body)).not.toMatch(/DOCTYPE/);
+    expect(body.success === false || body.status === 'creating_instance').toBe(
+      true
+    );
   });
 });

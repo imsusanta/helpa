@@ -13,10 +13,16 @@ import {
   rateLimitResponse,
   RATE_LIMITS,
 } from '@/lib/rate-limit';
-import { isWhatsAppQrSimulationAllowed } from '@/core/providers/whatsapp/evolution-go-env';
+import {
+  EvolutionGoConfigError,
+  isWhatsAppQrSimulationAllowed,
+  runWithEvolutionDeadline,
+} from '@/core/providers/whatsapp/evolution-go-env';
+import { EvolutionGoRequestError } from '@/core/providers/whatsapp/evolution-go-client';
 import {
   disconnectEvolutionQrSession,
   getEvolutionQrSession,
+  publicErrorMessage,
   reconnectEvolutionQrSession,
   startEvolutionQrSession,
   toPublicQrSession,
@@ -24,6 +30,10 @@ import {
 import { getAdminClient } from '@/lib/db/server';
 import { encrypt } from '@/lib/whatsapp/encryption';
 import crypto from 'node:crypto';
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+export const maxDuration = 60;
 
 function noStoreJson(body: unknown, status = 200): NextResponse {
   return NextResponse.json(body, {
@@ -48,118 +58,162 @@ function stripSecrets<T extends Record<string, unknown>>(payload: T): T {
   return clone;
 }
 
+function qrPayload(error: string) {
+  return {
+    success: false,
+    status: 'error' as const,
+    error,
+    qr_code: null,
+    qr_image: null,
+    expires_in: null,
+    provider: 'evolution' as const,
+    connection_type: 'qr_linked_device' as const,
+  };
+}
+
+function qrRouteErrorResponse(err: unknown): NextResponse {
+  if (err instanceof EvolutionGoConfigError) {
+    return noStoreJson(qrPayload(err.message), 503);
+  }
+  if (err instanceof EvolutionGoRequestError) {
+    const status = err.status === 504 ? 504 : err.status === 503 ? 503 : 502;
+    return noStoreJson(qrPayload(publicErrorMessage(err)), status);
+  }
+  return toErrorResponse(err);
+}
+
 export async function GET() {
   try {
-    const ctx = await requireRole('admin');
-    const session = await getEvolutionQrSession(ctx.accountId);
-    return noStoreJson(
-      stripSecrets(
-        toPublicQrSession(session) as unknown as Record<string, unknown>
-      )
-    );
+    return await runWithEvolutionDeadline(async () => {
+      const ctx = await requireRole('admin');
+      const rateLimit = await checkRateLimit(
+        `qr_poll_${ctx.userId}`,
+        RATE_LIMITS.whatsappQrPoll
+      );
+      if (!rateLimit.success) {
+        return rateLimitResponse(rateLimit);
+      }
+      const session = await getEvolutionQrSession(ctx.accountId);
+      return noStoreJson(
+        stripSecrets(
+          toPublicQrSession(session) as unknown as Record<string, unknown>
+        )
+      );
+    });
   } catch (err: unknown) {
-    return toErrorResponse(err);
+    return qrRouteErrorResponse(err);
   }
 }
 
 export async function POST(request: Request) {
   try {
-    const ctx = await requireRole('admin');
-    const rateLimit = await checkRateLimit(
-      `qr_session_${ctx.userId}`,
-      RATE_LIMITS.adminAction
-    );
-    if (!rateLimit.success) {
-      return rateLimitResponse(rateLimit);
-    }
+    return await runWithEvolutionDeadline(async () => {
+      const ctx = await requireRole('admin');
+      const rateLimit = await checkRateLimit(
+        `qr_session_${ctx.userId}`,
+        RATE_LIMITS.adminAction
+      );
+      if (!rateLimit.success) {
+        return rateLimitResponse(rateLimit);
+      }
 
-    const body = await request.json().catch(() => ({}));
-    const action = String(body?.action || 'generate').trim();
+      const body = await request.json().catch(() => ({}));
+      const action = String(body?.action || 'generate').trim();
 
-    if (action === 'simulate_paired' || body?.simulate_phone) {
-      if (!isWhatsAppQrSimulationAllowed()) {
+      if (action === 'simulate_paired' || body?.simulate_phone) {
+        if (!isWhatsAppQrSimulationAllowed()) {
+          return noStoreJson(
+            {
+              success: false,
+              error: 'QR pairing simulation is disabled.',
+            },
+            403
+          );
+        }
+        const simulatedPhone = String(body?.simulate_phone || '918927093059');
+        const db = getAdminClient();
+        const now = new Date().toISOString();
+        const fakeDeviceId = `evolution:sim_${crypto.randomBytes(8).toString('hex')}`;
+        const encrypted = encrypt(
+          `evolution-sim-${crypto.randomBytes(16).toString('hex')}`
+        );
+        const configPayload = {
+          account_id: ctx.accountId,
+          phone_number_id: fakeDeviceId,
+          provider: 'evolution',
+          connection_type: 'qr_linked_device',
+          encrypted_access_token: encrypted,
+          provider_token_encrypted: encrypted,
+          display_phone_number: simulatedPhone,
+          verified_name: 'WhatsApp Business Linked Device',
+          status: 'connected',
+          connection_status: 'connected',
+          registered_at: now,
+          connected_at: now,
+          updated_at: now,
+        };
+        const { data: existing } = await db
+          .from('whatsapp_configs')
+          .select('id')
+          .eq('account_id', ctx.accountId)
+          .maybeSingle();
+        if (existing?.id) {
+          await db
+            .from('whatsapp_configs')
+            .update(configPayload)
+            .eq('id', existing.id)
+            .eq('account_id', ctx.accountId);
+        } else {
+          await db.from('whatsapp_configs').insert(configPayload);
+        }
+        return noStoreJson({
+          success: true,
+          status: 'connected',
+          phone_number: simulatedPhone,
+          provider: 'evolution',
+          is_qr_linked: true,
+        });
+      }
+
+      if (action === 'reconnect') {
+        const session = await reconnectEvolutionQrSession(ctx.accountId);
         return noStoreJson(
-          {
-            success: false,
-            error: 'QR pairing simulation is disabled.',
-          },
-          403
+          stripSecrets(
+            toPublicQrSession(session) as unknown as Record<string, unknown>
+          ),
+          session.success ? 200 : 502
         );
       }
-      const simulatedPhone = String(body?.simulate_phone || '918927093059');
-      const db = getAdminClient();
-      const now = new Date().toISOString();
-      const fakeDeviceId = `evolution:sim_${crypto.randomBytes(8).toString('hex')}`;
-      const encrypted = encrypt(
-        `evolution-sim-${crypto.randomBytes(16).toString('hex')}`
-      );
-      const configPayload = {
-        account_id: ctx.accountId,
-        phone_number_id: fakeDeviceId,
-        provider: 'evolution',
-        connection_type: 'qr_linked_device',
-        encrypted_access_token: encrypted,
-        provider_token_encrypted: encrypted,
-        display_phone_number: simulatedPhone,
-        verified_name: 'WhatsApp Business Linked Device',
-        status: 'connected',
-        connection_status: 'connected',
-        registered_at: now,
-        connected_at: now,
-        updated_at: now,
-      };
-      const { data: existing } = await db
-        .from('whatsapp_configs')
-        .select('id')
-        .eq('account_id', ctx.accountId)
-        .maybeSingle();
-      if (existing?.id) {
-        await db
-          .from('whatsapp_configs')
-          .update(configPayload)
-          .eq('id', existing.id)
-          .eq('account_id', ctx.accountId);
-      } else {
-        await db.from('whatsapp_configs').insert(configPayload);
-      }
-      return noStoreJson({
-        success: true,
-        status: 'connected',
-        phone_number: simulatedPhone,
-        provider: 'evolution',
-        is_qr_linked: true,
-      });
-    }
 
-    if (action === 'reconnect') {
-      const session = await reconnectEvolutionQrSession(ctx.accountId);
+      const session = await startEvolutionQrSession(ctx.accountId);
+      const status = session.success ? 200 : session.conflict ? 409 : 502;
       return noStoreJson(
         stripSecrets(
           toPublicQrSession(session) as unknown as Record<string, unknown>
         ),
-        session.success ? 200 : 502
+        status
       );
-    }
-
-    const session = await startEvolutionQrSession(ctx.accountId);
-    const status = session.success ? 200 : session.conflict ? 409 : 502;
-    return noStoreJson(
-      stripSecrets(
-        toPublicQrSession(session) as unknown as Record<string, unknown>
-      ),
-      status
-    );
+    });
   } catch (err: unknown) {
-    return toErrorResponse(err);
+    return qrRouteErrorResponse(err);
   }
 }
 
 export async function DELETE() {
   try {
-    const ctx = await requireRole('admin');
-    const result = await disconnectEvolutionQrSession(ctx.accountId);
-    return noStoreJson(result);
+    return await runWithEvolutionDeadline(async () => {
+      const ctx = await requireRole('admin');
+      const rateLimit = await checkRateLimit(
+        `qr_session_${ctx.userId}`,
+        RATE_LIMITS.adminAction
+      );
+      if (!rateLimit.success) {
+        return rateLimitResponse(rateLimit);
+      }
+      const result = await disconnectEvolutionQrSession(ctx.accountId);
+      return noStoreJson(result);
+    });
   } catch (err: unknown) {
-    return toErrorResponse(err);
+    return qrRouteErrorResponse(err);
   }
 }
