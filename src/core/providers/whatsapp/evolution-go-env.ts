@@ -12,8 +12,8 @@ export const EVOLUTION_GO_VERSION = '0.7.2';
 const DEFAULT_TIMEOUT_MS = 30_000;
 const MIN_REQUEST_TIMEOUT_MS = 1_000;
 /** Hobby-safe default: leave headroom before a ~10s platform kill. */
-export const VERCEL_EVOLUTION_SESSION_BUDGET_MS = 8_000;
-export const VERCEL_EVOLUTION_REQUEST_TIMEOUT_MS = 6_500;
+export const VERCEL_EVOLUTION_SESSION_BUDGET_MS = 5_000;
+export const VERCEL_EVOLUTION_REQUEST_TIMEOUT_MS = 3_500;
 
 export class EvolutionGoConfigError extends Error {
   readonly code = 'EVOLUTION_GO_CONFIG';

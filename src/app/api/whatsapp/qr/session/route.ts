@@ -26,6 +26,7 @@ import {
   reconnectEvolutionQrSession,
   startEvolutionQrSession,
   toPublicQrSession,
+  type EvolutionQrSessionResponse,
 } from '@/core/whatsapp/evolution-connection';
 import { getAdminClient } from '@/lib/db/server';
 import { encrypt } from '@/lib/whatsapp/encryption';
@@ -56,6 +57,23 @@ function stripSecrets<T extends Record<string, unknown>>(payload: T): T {
   delete clone.webhook_secret;
   delete clone.webhook_secret_hash;
   return clone;
+}
+
+function qrSessionHttpStatus(session: EvolutionQrSessionResponse): number {
+  if (session.success) return 200;
+  if (session.conflict) return 409;
+  return session.failure_status ?? 502;
+}
+
+function publicQrSessionJson(
+  session: EvolutionQrSessionResponse
+): NextResponse {
+  return noStoreJson(
+    stripSecrets(
+      toPublicQrSession(session) as unknown as Record<string, unknown>
+    ),
+    qrSessionHttpStatus(session)
+  );
 }
 
 function qrPayload(error: string) {
@@ -177,22 +195,11 @@ export async function POST(request: Request) {
 
       if (action === 'reconnect') {
         const session = await reconnectEvolutionQrSession(ctx.accountId);
-        return noStoreJson(
-          stripSecrets(
-            toPublicQrSession(session) as unknown as Record<string, unknown>
-          ),
-          session.success ? 200 : 502
-        );
+        return publicQrSessionJson(session);
       }
 
       const session = await startEvolutionQrSession(ctx.accountId);
-      const status = session.success ? 200 : session.conflict ? 409 : 502;
-      return noStoreJson(
-        stripSecrets(
-          toPublicQrSession(session) as unknown as Record<string, unknown>
-        ),
-        status
-      );
+      return publicQrSessionJson(session);
     });
   } catch (err: unknown) {
     return qrRouteErrorResponse(err);
