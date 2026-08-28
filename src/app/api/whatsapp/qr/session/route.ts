@@ -13,7 +13,10 @@ import {
   rateLimitResponse,
   RATE_LIMITS,
 } from '@/lib/rate-limit';
-import { isWhatsAppQrSimulationAllowed } from '@/core/providers/whatsapp/evolution-go-env';
+import {
+  EvolutionGoConfigError,
+  isWhatsAppQrSimulationAllowed,
+} from '@/core/providers/whatsapp/evolution-go-env';
 import {
   disconnectEvolutionQrSession,
   getEvolutionQrSession,
@@ -24,6 +27,8 @@ import {
 import { getAdminClient } from '@/lib/db/server';
 import { encrypt } from '@/lib/whatsapp/encryption';
 import crypto from 'node:crypto';
+
+export const dynamic = 'force-dynamic';
 
 function noStoreJson(body: unknown, status = 200): NextResponse {
   return NextResponse.json(body, {
@@ -48,9 +53,35 @@ function stripSecrets<T extends Record<string, unknown>>(payload: T): T {
   return clone;
 }
 
+function qrRouteErrorResponse(err: unknown): NextResponse {
+  if (err instanceof EvolutionGoConfigError) {
+    return noStoreJson(
+      {
+        success: false,
+        status: 'error',
+        error: err.message,
+        qr_code: null,
+        qr_image: null,
+        expires_in: null,
+        provider: 'evolution',
+        connection_type: 'qr_linked_device',
+      },
+      503
+    );
+  }
+  return toErrorResponse(err);
+}
+
 export async function GET() {
   try {
     const ctx = await requireRole('admin');
+    const rateLimit = await checkRateLimit(
+      `qr_poll_${ctx.userId}`,
+      RATE_LIMITS.whatsappQrPoll
+    );
+    if (!rateLimit.success) {
+      return rateLimitResponse(rateLimit);
+    }
     const session = await getEvolutionQrSession(ctx.accountId);
     return noStoreJson(
       stripSecrets(
@@ -58,7 +89,7 @@ export async function GET() {
       )
     );
   } catch (err: unknown) {
-    return toErrorResponse(err);
+    return qrRouteErrorResponse(err);
   }
 }
 
@@ -150,16 +181,23 @@ export async function POST(request: Request) {
       status
     );
   } catch (err: unknown) {
-    return toErrorResponse(err);
+    return qrRouteErrorResponse(err);
   }
 }
 
 export async function DELETE() {
   try {
     const ctx = await requireRole('admin');
+    const rateLimit = await checkRateLimit(
+      `qr_session_${ctx.userId}`,
+      RATE_LIMITS.adminAction
+    );
+    if (!rateLimit.success) {
+      return rateLimitResponse(rateLimit);
+    }
     const result = await disconnectEvolutionQrSession(ctx.accountId);
     return noStoreJson(result);
   } catch (err: unknown) {
-    return toErrorResponse(err);
+    return qrRouteErrorResponse(err);
   }
 }

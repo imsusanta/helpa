@@ -14,32 +14,11 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-
-type QrUiStatus =
-  | 'creating_instance'
-  | 'waiting_for_qr'
-  | 'waiting_for_scan'
-  | 'connected'
-  | 'disconnected'
-  | 'reconnect_required'
-  | 'expired'
-  | 'error';
-
-interface QrSessionResponse {
-  success?: boolean;
-  connected?: boolean;
-  status?: QrUiStatus | string;
-  qr?: string | null;
-  qr_code?: string | null;
-  qr_image?: string | null;
-  pairing_code?: string | null;
-  expires_in?: number | null;
-  expires_in_seconds?: number | null;
-  phone_number?: string | null;
-  display_name?: string | null;
-  verified_name?: string | null;
-  error?: string;
-}
+import {
+  readQrSessionResponse,
+  type QrSessionResponse,
+  type QrUiStatus,
+} from '@/core/whatsapp/qr-session-client';
 
 interface WhatsAppQrPanelProps {
   onConnectionSuccess?: () => void;
@@ -123,9 +102,10 @@ export function WhatsAppQrPanel({ onConnectionSuccess }: WhatsAppQrPanelProps) {
   const pollOnce = useCallback(async () => {
     const res = await fetch('/api/whatsapp/qr/session', {
       cache: 'no-store',
+      credentials: 'same-origin',
     });
-    const payload = (await res.json()) as QrSessionResponse;
-    if (!res.ok && res.status !== 502) {
+    const payload = await readQrSessionResponse(res);
+    if (!res.ok && res.status !== 502 && res.status !== 503) {
       throw new Error(payload.error || 'Failed to load QR session');
     }
     return applyPayload(payload);
@@ -170,9 +150,11 @@ export function WhatsAppQrPanel({ onConnectionSuccess }: WhatsAppQrPanelProps) {
       const res = await fetch('/api/whatsapp/qr/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        cache: 'no-store',
         body: JSON.stringify({ action: 'generate' }),
       });
-      const payload = (await res.json()) as QrSessionResponse;
+      const payload = await readQrSessionResponse(res);
       if (!res.ok && !payload.qr_code && !payload.qr_image) {
         throw new Error(payload.error || 'Failed to generate QR code');
       }
@@ -204,9 +186,11 @@ export function WhatsAppQrPanel({ onConnectionSuccess }: WhatsAppQrPanelProps) {
       const res = await fetch('/api/whatsapp/qr/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        cache: 'no-store',
         body: JSON.stringify({ action: 'reconnect' }),
       });
-      const payload = (await res.json()) as QrSessionResponse;
+      const payload = await readQrSessionResponse(res);
       if (!res.ok && !payload.qr_code && !payload.qr_image) {
         throw new Error(payload.error || 'Reconnect failed');
       }
@@ -227,8 +211,12 @@ export function WhatsAppQrPanel({ onConnectionSuccess }: WhatsAppQrPanelProps) {
     if (!confirm('Unlink this WhatsApp QR device from Helpa?')) return;
     setLoading(true);
     try {
-      const res = await fetch('/api/whatsapp/qr/session', { method: 'DELETE' });
-      const payload = (await res.json()) as QrSessionResponse;
+      const res = await fetch('/api/whatsapp/qr/session', {
+        method: 'DELETE',
+        credentials: 'same-origin',
+        cache: 'no-store',
+      });
+      const payload = await readQrSessionResponse(res);
       if (!res.ok) {
         throw new Error(payload.error || 'Failed to unlink device');
       }
@@ -246,16 +234,26 @@ export function WhatsAppQrPanel({ onConnectionSuccess }: WhatsAppQrPanelProps) {
 
   useEffect(() => {
     unmounted.current = false;
-    void pollOnce().then((next) => {
-      if (
-        next === 'waiting_for_qr' ||
-        next === 'waiting_for_scan' ||
-        next === 'creating_instance'
-      ) {
-        pollStartedAt.current = Date.now();
-        schedulePoll();
-      }
-    });
+    void pollOnce()
+      .then((next) => {
+        if (
+          next === 'waiting_for_qr' ||
+          next === 'waiting_for_scan' ||
+          next === 'creating_instance'
+        ) {
+          pollStartedAt.current = Date.now();
+          schedulePoll();
+        }
+      })
+      .catch((err: unknown) => {
+        if (unmounted.current) return;
+        setStatus('error');
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Could not load WhatsApp QR status'
+        );
+      });
     return () => {
       unmounted.current = true;
       stopPolling();
@@ -446,7 +444,7 @@ export function WhatsAppQrPanel({ onConnectionSuccess }: WhatsAppQrPanelProps) {
                 </div>
                 <Button
                   onClick={() =>
-                    status === 'reconnect_required' || status === 'error'
+                    status === 'reconnect_required'
                       ? void reconnect()
                       : void generateNewQr()
                   }

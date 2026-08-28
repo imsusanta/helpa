@@ -4,6 +4,7 @@ import * as authAccount from '@/lib/auth/account';
 import * as supabaseServer from '@/lib/supabase/server';
 import * as dbServer from '@/lib/db/server';
 import { hashWebhookSecret } from '@/core/providers/whatsapp/evolution-go-provider';
+import { __resetRateLimitForTests } from '@/lib/rate-limit';
 import {
   GET as qrGet,
   POST as qrPost,
@@ -124,6 +125,7 @@ describe('Evolution Go QR session route', () => {
   let createCount = 0;
 
   beforeEach(() => {
+    __resetRateLimitForTests();
     db = {
       whatsapp_configs: [],
       accounts: [{ id: tenantA }, { id: tenantB }],
