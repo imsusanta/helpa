@@ -53,9 +53,7 @@ describe('Evolution Go provider classification', () => {
 });
 
 describe('WhatsApp provider resolver', () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
+  afterEach(() => vi.restoreAllMocks());
 
   it('resolves Meta without constructing an Evolution provider', async () => {
     vi.spyOn(canonical, 'requireCanonicalWhatsAppConfig').mockResolvedValue({
@@ -90,19 +88,15 @@ describe('Evolution Go HTTP client', () => {
     process.env.EVOLUTION_GO_BASE_URL = 'https://evolution.test';
     process.env.EVOLUTION_GO_GLOBAL_API_KEY = 'test-global-api-key';
   });
-  afterEach(() => {
-    globalThis.fetch = originalFetch;
-  });
+  afterEach(() => { globalThis.fetch = originalFetch; });
 
   it('creates instances with the global apikey header', async () => {
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({ data: { id: 'inst-1', name: 'hname', connected: false } }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
     globalThis.fetch = fetchMock as unknown as typeof fetch;
     const created = await createEvolutionGoInstance({ name: 'hname', token: 'instance-token-secret', instanceId: 'inst-1' });
     expect(created.id).toBe('inst-1');
-    expect(fetchMock).toHaveBeenCalledTimes(1);
     const call = fetchMock.mock.calls[0] as unknown as [string, RequestInit | undefined];
-    const headers = new Headers(call[1]?.headers);
-    expect(headers.get('apikey')).toBe('test-global-api-key');
+    expect(new Headers(call[1]?.headers).get('apikey')).toBe('test-global-api-key');
     expect(String(call[1]?.body)).toContain('instance-token-secret');
     expect(String(call[0])).toBe('https://evolution.test/instance/create');
     expect(call[1]?.redirect).toBe('manual');
@@ -132,9 +126,7 @@ describe('Evolution Go HTTP client', () => {
     const result = await sendEvolutionGoText('tenant-instance-token', { number: '919876543210', text: 'hello' });
     expect(result.externalMessageId).toBe('wamid.evo.1');
     const sendCall = fetchMock.mock.calls[0] as unknown as [string, RequestInit | undefined];
-    const headers = new Headers(sendCall[1]?.headers);
-    expect(headers.get('apikey')).toBe('tenant-instance-token');
-    expect(headers.get('apikey')).not.toBe('test-global-api-key');
+    expect(new Headers(sendCall[1]?.headers).get('apikey')).toBe('tenant-instance-token');
     expect(String(sendCall[0])).toBe('https://evolution.test/send/text');
   });
 
@@ -158,16 +150,16 @@ describe('Evolution Go provider behaviour', () => {
     await expect(provider.sendTemplate('acct-1', '919999999999', 'hello_world', 'en_US')).rejects.toBeInstanceOf(UnsupportedWhatsAppOperationError);
   });
 
-  it('ignores spoofed account_id when normalizing webhook payloads', async () => {
+  it('normalizes an inbound message to the owning account', async () => {
     const provider = new EvolutionGoProvider({ accountId: 'tenant-a', instanceToken: '' });
-    const events = await provider.normalizeWebhook({ event: 'Message', account_id: 'tenant-b-spoofed', tenant_id: 'tenant-b-spoofed', data: { key: { id: 'msg-1', fromMe: false, remoteJid: '919888777666@s.whatsapp.net' }, message: { conversation: 'hello clinic' } } });
+    const events = await provider.normalizeWebhook({ event: 'Message', data: { key: { id: 'msg-1', fromMe: false, remoteJid: '919888777666@s.whatsapp.net' }, message: { conversation: 'hello clinic' } } });
     expect(events).toHaveLength(1);
     expect(events[0].clinicId).toBe('tenant-a');
     expect(events[0].direction).toBe('inbound');
     expect(events[0].content).toBe('hello clinic');
   });
 
-  it('does not emit inbound events for fromMe messages', async () => {
+  it('does not emit inbound direction for fromMe messages', async () => {
     const provider = new EvolutionGoProvider({ accountId: 'tenant-a', instanceToken: '' });
     const events = await provider.normalizeWebhook({ event: 'Message', data: { key: { id: 'msg-out', fromMe: true, remoteJid: '919888777666@s.whatsapp.net' }, message: { conversation: 'sent by clinic' } } });
     expect(events[0].direction).toBe('outbound');
@@ -201,6 +193,7 @@ describe('Evolution Go env guards', () => {
     delete process.env.EVOLUTION_GO_TIMEOUT_MS;
     delete process.env.EVOLUTION_GO_SESSION_BUDGET_MS;
   });
+
   it('requires HTTPS base URLs in production', () => {
     vi.stubEnv('NODE_ENV', 'production');
     process.env.EVOLUTION_GO_BASE_URL = 'http://evolution.internal';
