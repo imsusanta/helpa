@@ -354,8 +354,8 @@ describe('Evolution Go QR session route', () => {
 
   it('returns JSON when Evolution hangs past the Vercel session budget', async () => {
     vi.stubEnv('VERCEL', '1');
-    process.env.EVOLUTION_GO_TIMEOUT_MS = '3000';
-    process.env.EVOLUTION_GO_SESSION_BUDGET_MS = '3000';
+    vi.stubEnv('EVOLUTION_GO_TIMEOUT_MS', '1500');
+    vi.stubEnv('EVOLUTION_GO_SESSION_BUDGET_MS', '3000');
     globalThis.fetch = vi.fn((_input, init?: RequestInit) => {
       return new Promise((_resolve, reject) => {
         const signal = init?.signal;
