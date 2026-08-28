@@ -166,10 +166,7 @@ describe('Meta WhatsApp Embedded Signup & 1-Click Onboarding (Supabase)', () => 
       isValid: true,
       appId: 'meta-app-123',
       wabaId: 'waba-999888',
-      scopes: [
-        'whatsapp_business_management',
-        'whatsapp_business_messaging',
-      ],
+      scopes: ['whatsapp_business_management', 'whatsapp_business_messaging'],
     });
     vi.spyOn(metaService, 'getWabaPhoneNumbers').mockResolvedValue([
       { id: 'phone-100200', display_phone_number: '+91 98765 43210' },
