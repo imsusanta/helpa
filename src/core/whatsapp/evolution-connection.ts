@@ -176,6 +176,28 @@ function failedQrSession(
   };
 }
 
+function waitingForQrSession(): EvolutionQrSessionResponse {
+  return {
+    success: true,
+    status: 'waiting_for_qr',
+    qr_code: null,
+    qr_image: null,
+    expires_in: null,
+    provider: 'evolution',
+    connection_type: 'qr_linked_device',
+  };
+}
+
+function isQrNotReadyError(error: unknown): boolean {
+  if (!(error instanceof EvolutionGoRequestError)) return false;
+  return (
+    error.status === 503 ||
+    error.status === 504 ||
+    error.status === 400 ||
+    error.status === 404
+  );
+}
+
 function storeSafeConnectionError(error: unknown): string {
   if (error instanceof EvolutionGoConfigError)
     return error.message.slice(0, 500);
@@ -436,24 +458,13 @@ async function connectAndFetchQr(
       connection_type: 'qr_linked_device',
     };
   } catch (error) {
-    if (
-      error instanceof EvolutionGoRequestError &&
-      (error.status === 504 || error.status === 503)
-    ) {
+    if (isQrNotReadyError(error)) {
       await persistEvolutionConfig(accountId, {
         status: 'connecting',
         connection_status: 'waiting_for_qr',
         connection_error: null,
       });
-      return {
-        success: true,
-        status: 'waiting_for_qr',
-        qr_code: null,
-        qr_image: null,
-        expires_in: null,
-        provider: 'evolution',
-        connection_type: 'qr_linked_device',
-      };
+      return waitingForQrSession();
     }
     await markConnectionError(accountId, error);
     return failedQrSession(error, { status: 'waiting_for_qr' });

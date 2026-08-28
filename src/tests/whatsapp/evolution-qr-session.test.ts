@@ -385,6 +385,68 @@ describe('Evolution Go QR session route', () => {
     expect(body).not.toHaveProperty('failure_status');
   });
 
+  it('returns waiting_for_qr JSON when Evolution QR is not ready yet', async () => {
+    globalThis.fetch = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url =
+          typeof input === 'string'
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input.url;
+        const parsed = new URL(url);
+        const method = String(init?.method || 'GET').toUpperCase();
+        const body = init?.body ? JSON.parse(String(init.body)) : null;
+
+        if (parsed.pathname === '/instance/create') {
+          return new Response(
+            JSON.stringify({
+              data: {
+                id: body.instanceId,
+                name: body.name,
+                connected: false,
+              },
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+        if (parsed.pathname === '/instance/connect') {
+          return new Response(
+            JSON.stringify({ data: { webhookUrl: body.webhookUrl } }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+        if (parsed.pathname === '/instance/qr') {
+          return new Response(
+            JSON.stringify({ error: 'QR code not available yet' }),
+            { status: 400, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+        if (parsed.pathname === '/instance/status') {
+          return new Response(
+            JSON.stringify({ Connected: false, LoggedIn: false }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+        if (method === 'DELETE' || parsed.pathname.startsWith('/instance/')) {
+          return new Response(JSON.stringify({ message: 'ok' }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+        return new Response('not found', { status: 404 });
+      }
+    ) as unknown as typeof fetch;
+
+    const res = await qrPost(jsonRequest('POST', { action: 'generate' }));
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.status).toBe('waiting_for_qr');
+    expect(body.qr_code).toBeNull();
+    expect(JSON.stringify(body)).not.toMatch(/DOCTYPE/);
+  });
+
   it('returns JSON 503 when Evolution is unreachable', async () => {
     const errorSpy = vi.spyOn(logger, 'error').mockImplementation(() => {});
     globalThis.fetch = vi.fn(async () => {
