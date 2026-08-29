@@ -295,6 +295,7 @@ export async function resolveEvolutionGoTenant(
     .maybeSingle();
   if (result.error) {
     if (isMissingRelation(result.error)) return null;
+    if ((result.error as { code?: string }).code === '42703') return null;
     throw result.error;
   }
 
