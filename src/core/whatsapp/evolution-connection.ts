@@ -608,20 +608,6 @@ export async function startEvolutionQrSession(
         existingName
       );
     } catch (error) {
-      if (
-        error instanceof EvolutionGoRequestError &&
-        (error.status === 504 || error.status === 503)
-      ) {
-        return {
-          success: true,
-          status: 'waiting_for_qr',
-          qr_code: null,
-          qr_image: null,
-          expires_in: null,
-          provider: 'evolution',
-          connection_type: 'qr_linked_device',
-        };
-      }
       if (!isEvolutionGoNotFoundError(error)) {
         await markConnectionError(accountId, error);
         return failedQrSession(error);
