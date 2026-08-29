@@ -44,7 +44,10 @@ describe('Evolution Go production preflight', () => {
     });
 
     await expect(
-      runEvolutionGoPreflight({ env: validEnv, fetchImpl })
+      runEvolutionGoPreflight({
+        env: validEnv,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      })
     ).resolves.toEqual({ webhookBaseUrl: 'https://helpa.test' });
 
     expect(fetchImpl).toHaveBeenCalledTimes(2);
@@ -68,7 +71,10 @@ describe('Evolution Go production preflight', () => {
     );
 
     await expect(
-      runEvolutionGoPreflight({ env: validEnv, fetchImpl })
+      runEvolutionGoPreflight({
+        env: validEnv,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      })
     ).rejects.toThrow(EVOLUTION_GO_WRONG_HOST_MESSAGE);
 
     expect(fetchImpl).toHaveBeenCalledTimes(1);
@@ -90,7 +96,10 @@ describe('Evolution Go production preflight', () => {
     );
 
     await expect(
-      runEvolutionGoPreflight({ env: validEnv, fetchImpl })
+      runEvolutionGoPreflight({
+        env: validEnv,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      })
     ).rejects.toThrow(EVOLUTION_GO_WRONG_HOST_MESSAGE);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
@@ -108,7 +117,10 @@ describe('Evolution Go production preflight', () => {
     });
 
     await expect(
-      runEvolutionGoPreflight({ env: validEnv, fetchImpl })
+      runEvolutionGoPreflight({
+        env: validEnv,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      })
     ).rejects.toThrow(/health check failed with HTTP 404/i);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
@@ -123,7 +135,10 @@ describe('Evolution Go production preflight', () => {
     });
 
     await expect(
-      runEvolutionGoPreflight({ env: validEnv, fetchImpl })
+      runEvolutionGoPreflight({
+        env: validEnv,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      })
     ).rejects.toThrow(/API key was rejected/i);
   });
 });
