@@ -367,20 +367,64 @@ async function evolutionGoRequest(
   }
 }
 
+export async function getAllEvolutionGoInstances(): Promise<EvolutionGoInstance[]> {
+  const payload = await evolutionGoRequest({
+    method: 'GET',
+    path: '/instance/all',
+    auth: 'admin',
+  });
+  const data = Array.isArray((payload as { data?: unknown })?.data)
+    ? ((payload as { data: unknown[] }).data)
+    : Array.isArray(payload)
+      ? payload
+      : [];
+  return data.map((item: unknown) => parseEvolutionGoInstance(item));
+}
+
+export async function deleteEvolutionGoInstanceByName(name: string): Promise<void> {
+  try {
+    const all = await getAllEvolutionGoInstances();
+    const match = all.find((inst) => inst.name === name);
+    if (match?.id) {
+      await deleteEvolutionGoInstance(match.id);
+    }
+  } catch {
+    // Best-effort instance delete
+  }
+}
+
 export async function createEvolutionGoInstance(
   input: EvolutionGoCreateInstanceInput
 ): Promise<EvolutionGoInstance> {
-  const payload = await evolutionGoRequest({
-    method: 'POST',
-    path: '/instance/create',
-    auth: 'admin',
-    body: {
-      name: input.name,
-      token: input.token,
-      ...(input.instanceId ? { instanceId: input.instanceId } : {}),
-    },
-  });
-  return parseEvolutionGoInstance(payload);
+  try {
+    const payload = await evolutionGoRequest({
+      method: 'POST',
+      path: '/instance/create',
+      auth: 'admin',
+      body: {
+        name: input.name,
+        token: input.token,
+        ...(input.instanceId ? { instanceId: input.instanceId } : {}),
+      },
+    });
+    return parseEvolutionGoInstance(payload);
+  } catch (err) {
+    if (err instanceof EvolutionGoRequestError) {
+      await deleteEvolutionGoInstanceByName(input.name);
+      const retryPayload = await evolutionGoRequest({
+        method: 'POST',
+        path: '/instance/create',
+        auth: 'admin',
+        body: {
+          name: input.name,
+          token: input.token,
+          ...(input.instanceId ? { instanceId: input.instanceId } : {}),
+        },
+      });
+      return parseEvolutionGoInstance(retryPayload);
+    }
+    throw err;
+  }
 }
 
 export async function connectEvolutionGoInstance(

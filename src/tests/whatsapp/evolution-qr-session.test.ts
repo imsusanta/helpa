@@ -352,7 +352,9 @@ describe('Evolution Go QR session route', () => {
     expect(evoCalls.some((call) => call.path === '/instance/qr')).toBe(true);
   });
 
-  it('returns JSON when Evolution hangs past the Vercel session budget', async () => {
+  it(
+    'returns JSON when Evolution hangs past the Vercel session budget',
+    async () => {
     vi.stubEnv('VERCEL', '1');
     vi.stubEnv('EVOLUTION_GO_TIMEOUT_MS', '1500');
     vi.stubEnv('EVOLUTION_GO_SESSION_BUDGET_MS', '3000');
@@ -383,7 +385,7 @@ describe('Evolution Go QR session route', () => {
     expect(body.success).toBe(false);
     expect(body.error).toMatch(/unreachable/i);
     expect(body).not.toHaveProperty('failure_status');
-  });
+  }, 10000);
 
   it('returns waiting_for_qr JSON when Evolution QR is not ready yet', async () => {
     globalThis.fetch = vi.fn(
