@@ -370,381 +370,165 @@ async function evolutionGoRequest(
 export async function createEvolutionGoInstance(
   input: EvolutionGoCreateInstanceInput
 ): Promise<EvolutionGoInstance> {
-  try {
-    const payload = await evolutionGoRequest({
-      method: 'POST',
-      path: '/instance/create',
-      auth: 'admin',
-      body: {
-        name: input.name,
-        token: input.token,
-        ...(input.instanceId ? { instanceId: input.instanceId } : {}),
-      },
-    });
-    return parseEvolutionGoInstance(payload);
-  } catch (err) {
-    if (err instanceof EvolutionGoRequestError) {
-      try {
-        const wahaPayload = await evolutionGoRequest({
-          method: 'POST',
-          path: '/api/sessions/start',
-          auth: 'admin',
-          body: {
-            name: input.name,
-            config: {},
-          },
-        });
-        return parseEvolutionGoInstance({
-          id: input.name,
-          name: input.name,
-          ...wahaPayload,
-        });
-      } catch {
-        throw err;
-      }
-    }
-    throw err;
-  }
+  const payload = await evolutionGoRequest({
+    method: 'POST',
+    path: '/instance/create',
+    auth: 'admin',
+    body: {
+      name: input.name,
+      token: input.token,
+      ...(input.instanceId ? { instanceId: input.instanceId } : {}),
+    },
+  });
+  return parseEvolutionGoInstance(payload);
 }
 
 export async function connectEvolutionGoInstance(
   instanceToken: string,
   input: EvolutionGoConnectInput,
-  instanceName?: string
+  _instanceName?: string
 ): Promise<EvolutionGoConnectResult> {
-  try {
-    const payload = await evolutionGoRequest({
-      method: 'POST',
-      path: '/instance/connect',
-      auth: 'instance',
-      instanceToken,
-      body: {
-        webhookUrl: input.webhookUrl,
-        subscribe: input.subscribe || [...EVOLUTION_GO_SUBSCRIBE_EVENTS],
-        rabbitmqEnable: 'disabled',
-        websocketEnable: 'disabled',
-        natsEnable: 'disabled',
-      },
-    });
-    const data = dataEnvelope(payload);
-    return {
-      jid: asString(data.jid) || undefined,
-      webhookUrl: asString(data.webhookUrl) || undefined,
-      eventString: asString(data.eventString) || undefined,
-    };
-  } catch (err) {
-    if (err instanceof EvolutionGoRequestError) {
-      const target = instanceName || instanceToken;
-      try {
-        await evolutionGoRequest({
-          method: 'POST',
-          path: '/api/sessions/start',
-          auth: 'admin',
-          body: {
-            name: target,
-            config: {
-              webhook: input.webhookUrl,
-            },
-          },
-        });
-        return { webhookUrl: input.webhookUrl };
-      } catch {
-        throw err;
-      }
-    }
-    throw err;
-  }
+  const payload = await evolutionGoRequest({
+    method: 'POST',
+    path: '/instance/connect',
+    auth: 'instance',
+    instanceToken,
+    body: {
+      webhookUrl: input.webhookUrl,
+      subscribe: input.subscribe || [...EVOLUTION_GO_SUBSCRIBE_EVENTS],
+      rabbitmqEnable: 'disabled',
+      websocketEnable: 'disabled',
+      natsEnable: 'disabled',
+    },
+  });
+  const data = dataEnvelope(payload);
+  return {
+    jid: asString(data.jid) || undefined,
+    webhookUrl: asString(data.webhookUrl) || undefined,
+    eventString: asString(data.eventString) || undefined,
+  };
 }
 
 export async function getEvolutionGoQr(
   instanceToken: string,
-  instanceName?: string
+  _instanceName?: string
 ): Promise<EvolutionGoQrcode> {
-  try {
-    const payload = await evolutionGoRequest({
-      method: 'GET',
-      path: '/instance/qr',
-      auth: 'instance',
-      instanceToken,
-    });
-    return parseEvolutionGoQrcode(payload);
-  } catch (err) {
-    if (err instanceof EvolutionGoRequestError) {
-      const target = instanceName || instanceToken;
-      try {
-        const payload = await evolutionGoRequest({
-          method: 'GET',
-          path: `/api/${encodeURIComponent(target)}/auth/qr`,
-          auth: 'admin',
-        });
-        return parseEvolutionGoQrcode(payload);
-      } catch {
-        throw err;
-      }
-    }
-    throw err;
-  }
+  const payload = await evolutionGoRequest({
+    method: 'GET',
+    path: '/instance/qr',
+    auth: 'instance',
+    instanceToken,
+  });
+  return parseEvolutionGoQrcode(payload);
 }
 
 export async function getEvolutionGoStatus(
   instanceToken: string,
-  instanceName?: string
+  _instanceName?: string
 ): Promise<EvolutionGoStatus> {
-  try {
-    const payload = await evolutionGoRequest({
-      method: 'GET',
-      path: '/instance/status',
-      auth: 'instance',
-      instanceToken,
-    });
-    return parseEvolutionGoStatus(payload);
-  } catch (err) {
-    if (err instanceof EvolutionGoRequestError) {
-      const target = instanceName || instanceToken;
-      try {
-        const payload = await evolutionGoRequest({
-          method: 'GET',
-          path: `/api/sessions/${encodeURIComponent(target)}`,
-          auth: 'admin',
-        });
-        return parseEvolutionGoStatus(payload);
-      } catch {
-        throw err;
-      }
-    }
-    throw err;
-  }
+  const payload = await evolutionGoRequest({
+    method: 'GET',
+    path: '/instance/status',
+    auth: 'instance',
+    instanceToken,
+  });
+  return parseEvolutionGoStatus(payload);
 }
 
 export async function reconnectEvolutionGoInstance(
   instanceToken: string,
-  instanceName?: string
+  _instanceName?: string
 ): Promise<void> {
-  try {
-    await evolutionGoRequest({
-      method: 'POST',
-      path: '/instance/reconnect',
-      auth: 'instance',
-      instanceToken,
-    });
-  } catch (err) {
-    if (
-      err instanceof EvolutionGoRequestError ||
-      (err instanceof EvolutionGoConfigError &&
-        err.message === EVOLUTION_GO_WRONG_HOST_MESSAGE)
-    ) {
-      const target = instanceName || instanceToken;
-      await evolutionGoRequest({
-        method: 'POST',
-        path: `/api/sessions/${encodeURIComponent(target)}/restart`,
-        auth: 'admin',
-      });
-      return;
-    }
-    throw err;
-  }
+  await evolutionGoRequest({
+    method: 'POST',
+    path: '/instance/reconnect',
+    auth: 'instance',
+    instanceToken,
+  });
 }
 
 export async function disconnectEvolutionGoInstance(
   instanceToken: string,
-  instanceName?: string
+  _instanceName?: string
 ): Promise<void> {
-  try {
-    await evolutionGoRequest({
-      method: 'POST',
-      path: '/instance/disconnect',
-      auth: 'instance',
-      instanceToken,
-    });
-  } catch (err) {
-    if (
-      err instanceof EvolutionGoRequestError ||
-      (err instanceof EvolutionGoConfigError &&
-        err.message === EVOLUTION_GO_WRONG_HOST_MESSAGE)
-    ) {
-      const target = instanceName || instanceToken;
-      await evolutionGoRequest({
-        method: 'POST',
-        path: `/api/sessions/${encodeURIComponent(target)}/stop`,
-        auth: 'admin',
-      });
-      return;
-    }
-    throw err;
-  }
+  await evolutionGoRequest({
+    method: 'POST',
+    path: '/instance/disconnect',
+    auth: 'instance',
+    instanceToken,
+  });
 }
 
 export async function logoutEvolutionGoInstance(
   instanceToken: string,
-  instanceName?: string
+  _instanceName?: string
 ): Promise<void> {
-  try {
-    await evolutionGoRequest({
-      method: 'DELETE',
-      path: '/instance/logout',
-      auth: 'instance',
-      instanceToken,
-    });
-  } catch (err) {
-    if (
-      err instanceof EvolutionGoRequestError ||
-      (err instanceof EvolutionGoConfigError &&
-        err.message === EVOLUTION_GO_WRONG_HOST_MESSAGE)
-    ) {
-      const target = instanceName || instanceToken;
-      await evolutionGoRequest({
-        method: 'POST',
-        path: `/api/sessions/${encodeURIComponent(target)}/logout`,
-        auth: 'admin',
-      });
-      return;
-    }
-    throw err;
-  }
+  await evolutionGoRequest({
+    method: 'DELETE',
+    path: '/instance/logout',
+    auth: 'instance',
+    instanceToken,
+  });
 }
 
 export async function deleteEvolutionGoInstance(
   instanceId: string
 ): Promise<void> {
-  try {
-    await evolutionGoRequest({
-      method: 'DELETE',
-      path: `/instance/delete/${encodeURIComponent(instanceId)}`,
-      auth: 'admin',
-    });
-  } catch (err) {
-    if (
-      err instanceof EvolutionGoRequestError ||
-      (err instanceof EvolutionGoConfigError &&
-        err.message === EVOLUTION_GO_WRONG_HOST_MESSAGE)
-    ) {
-      await evolutionGoRequest({
-        method: 'DELETE',
-        path: `/api/sessions/${encodeURIComponent(instanceId)}`,
-        auth: 'admin',
-      });
-      return;
-    }
-    throw err;
-  }
+  await evolutionGoRequest({
+    method: 'DELETE',
+    path: `/instance/delete/${encodeURIComponent(instanceId)}`,
+    auth: 'admin',
+  });
 }
 
 export async function getEvolutionGoInstanceInfo(
   instanceId: string
 ): Promise<EvolutionGoInstance> {
-  try {
-    const payload = await evolutionGoRequest({
-      method: 'GET',
-      path: `/instance/info/${encodeURIComponent(instanceId)}`,
-      auth: 'admin',
-    });
-    return parseEvolutionGoInstance(payload);
-  } catch (err) {
-    if (
-      err instanceof EvolutionGoRequestError ||
-      (err instanceof EvolutionGoConfigError &&
-        err.message === EVOLUTION_GO_WRONG_HOST_MESSAGE)
-    ) {
-      const payload = await evolutionGoRequest({
-        method: 'GET',
-        path: `/api/sessions/${encodeURIComponent(instanceId)}`,
-        auth: 'admin',
-      });
-      return parseEvolutionGoInstance(payload);
-    }
-    throw err;
-  }
+  const payload = await evolutionGoRequest({
+    method: 'GET',
+    path: `/instance/info/${encodeURIComponent(instanceId)}`,
+    auth: 'admin',
+  });
+  return parseEvolutionGoInstance(payload);
 }
 
 export async function sendEvolutionGoText(
   instanceToken: string,
   input: EvolutionGoSendTextInput
 ): Promise<{ externalMessageId: string }> {
-  try {
-    const payload = await evolutionGoRequest({
-      method: 'POST',
-      path: '/send/text',
-      auth: 'instance',
-      instanceToken,
-      body: {
-        number: input.number,
-        text: input.text,
-        formatJid: true,
-      },
-    });
-    return { externalMessageId: extractSendMessageId(payload) };
-  } catch (err) {
-    if (
-      err instanceof EvolutionGoRequestError ||
-      (err instanceof EvolutionGoConfigError &&
-        err.message === EVOLUTION_GO_WRONG_HOST_MESSAGE)
-    ) {
-      const formattedChatId = input.number.includes('@')
-        ? input.number
-        : `${input.number.replace(/\D/g, '')}@c.us`;
-      const payload = await evolutionGoRequest({
-        method: 'POST',
-        path: '/api/sendText',
-        auth: 'admin',
-        body: {
-          session: instanceToken,
-          chatId: formattedChatId,
-          text: input.text,
-        },
-      });
-      return { externalMessageId: extractSendMessageId(payload) };
-    }
-    throw err;
-  }
+  const payload = await evolutionGoRequest({
+    method: 'POST',
+    path: '/send/text',
+    auth: 'instance',
+    instanceToken,
+    body: {
+      number: input.number,
+      text: input.text,
+      formatJid: true,
+    },
+  });
+  return { externalMessageId: extractSendMessageId(payload) };
 }
 
 export async function sendEvolutionGoMedia(
   instanceToken: string,
   input: EvolutionGoSendMediaInput
 ): Promise<{ externalMessageId: string }> {
-  try {
-    const payload = await evolutionGoRequest({
-      method: 'POST',
-      path: '/send/media',
-      auth: 'instance',
-      instanceToken,
-      body: {
-        number: input.number,
-        url: input.url,
-        type: input.type,
-        caption: input.caption || '',
-        filename: input.filename || '',
-        formatJid: true,
-      },
-    });
-    return { externalMessageId: extractSendMessageId(payload) };
-  } catch (err) {
-    if (
-      err instanceof EvolutionGoRequestError ||
-      (err instanceof EvolutionGoConfigError &&
-        err.message === EVOLUTION_GO_WRONG_HOST_MESSAGE)
-    ) {
-      const formattedChatId = input.number.includes('@')
-        ? input.number
-        : `${input.number.replace(/\D/g, '')}@c.us`;
-      const payload = await evolutionGoRequest({
-        method: 'POST',
-        path: '/api/sendFile',
-        auth: 'admin',
-        body: {
-          session: instanceToken,
-          chatId: formattedChatId,
-          file: {
-            url: input.url,
-            filename: input.filename || 'file',
-            caption: input.caption || '',
-          },
-        },
-      });
-      return { externalMessageId: extractSendMessageId(payload) };
-    }
-    throw err;
-  }
+  const payload = await evolutionGoRequest({
+    method: 'POST',
+    path: '/send/media',
+    auth: 'instance',
+    instanceToken,
+    body: {
+      number: input.number,
+      url: input.url,
+      type: input.type,
+      caption: input.caption || '',
+      filename: input.filename || '',
+      formatJid: true,
+    },
+  });
+  return { externalMessageId: extractSendMessageId(payload) };
 }
 
 export function isEvolutionGoNotFoundError(error: unknown): boolean {

@@ -630,7 +630,10 @@ export async function startEvolutionQrSession(
     });
     resolvedId = created.id || instanceId;
   } catch (error) {
-    if (!hasEnoughEvolutionDeadline(2_000)) {
+    if (
+      error instanceof EvolutionGoConfigError ||
+      !hasEnoughEvolutionDeadline(2_000)
+    ) {
       await markConnectionError(accountId, error);
       return failedQrSession(error);
     }
