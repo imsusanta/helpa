@@ -20,6 +20,7 @@ import {
   type QrSessionResponse,
   type QrUiStatus,
 } from '@/core/whatsapp/qr-session-client';
+import { WhatsAppConnectedModal } from './whatsapp-connected-modal';
 
 interface WhatsAppQrPanelProps {
   onConnectionSuccess?: () => void;
@@ -88,6 +89,7 @@ export function WhatsAppQrPanel({
     initialVerifiedName
   );
   const [error, setError] = useState<string | null>(null);
+  const [showCelebrationModal, setShowCelebrationModal] = useState(false);
   const pollStartedAt = useRef(0);
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const unmounted = useRef(false);
@@ -119,6 +121,7 @@ export function WhatsAppQrPanel({
       setError(payload.error ?? null);
       if (next === 'connected' && !wasConnected.current) {
         wasConnected.current = true;
+        setShowCelebrationModal(true);
         onConnectionSuccess?.();
       }
       if (next !== 'connected') {
@@ -539,6 +542,14 @@ export function WhatsAppQrPanel({
           </div>
         </div>
       )}
+
+      {/* Celebration Dialog Modal */}
+      <WhatsAppConnectedModal
+        open={showCelebrationModal}
+        onClose={() => setShowCelebrationModal(false)}
+        phoneNumber={connectedPhone}
+        verifiedName={displayName}
+      />
     </div>
   );
 }
