@@ -4,6 +4,10 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createClient } from '@/lib/db/client';
 import { useAuth } from '@/hooks/use-auth';
+import {
+  isWhatsAppGroupAddress,
+  whatsappContactDisplayName,
+} from '@/core/whatsapp/group-identity';
 import { cn } from '@/lib/utils';
 import type {
   Conversation,
@@ -1029,11 +1033,14 @@ export function MessageThread({
       updated_at: conversation.updated_at || new Date().toISOString(),
     } as Contact);
 
-  const displayName =
-    effectiveContact.name ||
-    effectiveContact.phone ||
-    conversation.contact_id ||
-    'Contact';
+  const displayName = whatsappContactDisplayName(
+    effectiveContact.name,
+    effectiveContact.phone,
+    conversation.contact_id || 'Contact'
+  );
+  const displayPhone = isWhatsAppGroupAddress(effectiveContact.phone)
+    ? 'Group chat'
+    : effectiveContact.phone;
   const messageGroups = groupMessagesByDate(messages);
   const currentStatus = STATUS_OPTIONS.find(
     (s) => s.value === conversation.status
@@ -1079,7 +1086,7 @@ export function MessageThread({
               {displayName}
             </h2>
             <p className="text-muted-foreground truncate text-xs">
-              {effectiveContact.phone}
+              {displayPhone}
             </p>
           </div>
           {/* Session timer badge — hidden on the narrowest phones so

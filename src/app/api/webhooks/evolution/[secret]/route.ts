@@ -26,6 +26,16 @@ import {
   redactEvolutionWebhookPayload,
 } from '@/core/providers/whatsapp/evolution-go-provider';
 import { phoneFromWhatsAppJid } from '@/core/whatsapp/canonical-config';
+import {
+  inboundWhatsAppContactName,
+  isEvolutionGroupEvent,
+  isPlaceholderContactName,
+  isWhatsAppGroupAddress,
+} from '@/core/whatsapp/group-identity';
+import {
+  applyEvolutionGroupNameEvent,
+  scheduleEvolutionGroupNameRefresh,
+} from '@/core/whatsapp/evolution-group-names';
 import { triggerAiResponse } from '@/lib/whatsapp/ai';
 
 const MAX_BODY_BYTES = 1_000_000;
@@ -228,6 +238,41 @@ export async function POST(
     });
   }
 
+  if (isEvolutionGroupEvent(payload)) {
+    const context: ProviderEventContext = {
+      accountId: tenant.accountId,
+      provider: 'evolution',
+      externalEventId: payloadDeliveryId('group', rawBody),
+      eventType: asString(payload.event) || 'group',
+      rawBody,
+      payload: safePayload,
+    };
+    const begun = await beginProviderEvent(context);
+    if (begun.duplicate) {
+      return NextResponse.json({
+        success: true,
+        ignored: false,
+        type: 'group',
+        duplicate: true,
+      });
+    }
+    try {
+      await applyEvolutionGroupNameEvent(tenant.accountId, payload);
+      await completeProviderEvent(context);
+    } catch (error) {
+      await failProviderEvent(context, error);
+      console.error('[evolution webhook] group event failed', {
+        accountId: tenant.accountId,
+        error: error instanceof Error ? error.message : 'unknown',
+      });
+    }
+    return NextResponse.json({
+      success: true,
+      ignored: false,
+      type: 'group',
+    });
+  }
+
   if (isEvolutionReceiptEvent(payload)) {
     const context: ProviderEventContext = {
       accountId: tenant.accountId,
@@ -292,12 +337,25 @@ export async function POST(
       continue;
     }
     try {
+      const contactName = inboundWhatsAppContactName(
+        payload,
+        event.patientAddress || event.senderPhone || ''
+      );
       const result = await persistNormalizedInboundMessage(event, {
         accountId: tenant.accountId,
         userId: tenant.userId,
-        contactName: asString(asRecord(payload.data).pushName),
+        contactName,
         correlationId: externalEventId,
       });
+      if (
+        isWhatsAppGroupAddress(event.patientAddress) &&
+        isPlaceholderContactName(contactName, event.patientAddress)
+      ) {
+        scheduleEvolutionGroupNameRefresh(
+          tenant.accountId,
+          event.patientAddress
+        );
+      }
       if (result.duplicate) duplicates += 1;
       else {
         persisted += 1;

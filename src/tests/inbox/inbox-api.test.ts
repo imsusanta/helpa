@@ -144,6 +144,52 @@ describe('Inbox API & Tenant Isolation Tests', () => {
 
       expect(mockConvQuery.eq).toHaveBeenCalledWith('account_id', 'tenant-a');
     });
+
+    it('labels WhatsApp group chats by name instead of the raw group id', async () => {
+      const mockConvQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockResolvedValue({
+          data: [
+            {
+              id: 'conv-group',
+              account_id: 'tenant-a',
+              contact_id: 'contact-group',
+              status: 'open',
+              last_message_text: 'hello group',
+            },
+          ],
+          error: null,
+        }),
+      };
+      const mockContactQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        in: vi.fn().mockResolvedValue({
+          data: [
+            {
+              id: 'contact-group',
+              account_id: 'tenant-a',
+              name: '120363316746745895',
+              phone: '120363316746745895',
+            },
+          ],
+        }),
+      };
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === 'conversations')
+          return mockConvQuery as unknown as Record<string, unknown>;
+        if (table === 'contacts')
+          return mockContactQuery as unknown as Record<string, unknown>;
+        return {};
+      });
+
+      const res = await getConversations(createRequest());
+      const json = await res.json();
+      expect(json.conversations[0].contact.name).toBe('WhatsApp group');
+      expect(json.conversations[0].contact.phone).toBe('120363316746745895');
+    });
   });
 
   describe('GET /api/inbox/conversations/[id]', () => {

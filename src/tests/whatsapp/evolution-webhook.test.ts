@@ -227,6 +227,66 @@ describe('Evolution Go webhook', () => {
     expect(persistMock).not.toHaveBeenCalled();
   });
 
+  it('does not persist sender pushName as a WhatsApp group title', async () => {
+    const res = await post(secretA, {
+      event: 'Message',
+      data: {
+        key: {
+          id: 'evo-group-1',
+          fromMe: false,
+          remoteJid: '120363316746745895@g.us',
+        },
+        pushName: 'Ravi',
+        message: { conversation: 'group hello' },
+      },
+    });
+    expect(res.status).toBe(200);
+    expect(persistMock).toHaveBeenCalledTimes(1);
+    expect(persistMock.mock.calls[0][0].patientAddress).toBe(
+      '120363316746745895'
+    );
+    expect(persistMock.mock.calls[0][1].contactName).toBe('WhatsApp group');
+    expect(persistMock.mock.calls[0][1].contactName).not.toBe('Ravi');
+  });
+
+  it('uses the group subject when Evolution includes it on the message', async () => {
+    await post(secretA, {
+      event: 'Message',
+      data: {
+        key: {
+          id: 'evo-group-2',
+          fromMe: false,
+          remoteJid: '120363424522275219@g.us',
+        },
+        pushName: 'Ravi',
+        Info: { Name: { Name: 'Last 100 seats' } },
+        message: { conversation: 'seat update' },
+      },
+    });
+    expect(persistMock.mock.calls[0][1].contactName).toBe('Last 100 seats');
+  });
+
+  it('upgrades an existing group contact when GroupInfo arrives', async () => {
+    db.contacts = [
+      {
+        id: 'contact-group',
+        account_id: tenantA,
+        phone: '120363345942229912',
+        name: '120363345942229912',
+      },
+    ];
+    const res = await post(secretA, {
+      event: 'GroupInfo',
+      data: {
+        JID: '120363345942229912@g.us',
+        Name: { Name: 'Prompt Studio' },
+      },
+    });
+    expect(res.status).toBe(200);
+    expect(persistMock).not.toHaveBeenCalled();
+    expect(db.contacts[0].name).toBe('Prompt Studio');
+  });
+
   it('rejects an unknown webhook secret', async () => {
     const res = await post('not-the-secret', {
       event: 'Message',

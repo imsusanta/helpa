@@ -79,6 +79,7 @@ export const EVOLUTION_GO_SUBSCRIBE_EVENTS = [
   'CONNECTION',
   'READ_RECEIPT',
   'QRCODE',
+  'GROUP',
 ] as const;
 
 export interface EvolutionGoCreateInstanceInput {
@@ -367,21 +368,25 @@ async function evolutionGoRequest(
   }
 }
 
-export async function getAllEvolutionGoInstances(): Promise<EvolutionGoInstance[]> {
+export async function getAllEvolutionGoInstances(): Promise<
+  EvolutionGoInstance[]
+> {
   const payload = await evolutionGoRequest({
     method: 'GET',
     path: '/instance/all',
     auth: 'admin',
   });
   const data = Array.isArray((payload as { data?: unknown })?.data)
-    ? ((payload as { data: unknown[] }).data)
+    ? (payload as { data: unknown[] }).data
     : Array.isArray(payload)
       ? payload
       : [];
   return data.map((item: unknown) => parseEvolutionGoInstance(item));
 }
 
-export async function deleteEvolutionGoInstanceByName(name: string): Promise<void> {
+export async function deleteEvolutionGoInstanceByName(
+  name: string
+): Promise<void> {
   try {
     const all = await getAllEvolutionGoInstances();
     const match = all.find((inst) => inst.name === name);
@@ -534,6 +539,26 @@ export async function getEvolutionGoInstanceInfo(
     auth: 'admin',
   });
   return parseEvolutionGoInstance(payload);
+}
+
+export async function getEvolutionGoGroupInfo(
+  instanceToken: string,
+  groupJid: string
+): Promise<{ jid: string; name: string }> {
+  const payload = await evolutionGoRequest({
+    method: 'POST',
+    path: '/group/info',
+    auth: 'instance',
+    instanceToken,
+    body: { groupJid },
+  });
+  const data = dataEnvelope(payload);
+  const name = asString(data.Name || data.name || data.GroupName);
+  const nested = asRecord(data.Name || data.name || data.GroupName);
+  return {
+    jid: asString(data.JID || data.jid) || groupJid,
+    name: name || asString(nested.Name || nested.name),
+  };
 }
 
 export async function sendEvolutionGoText(

@@ -3,6 +3,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/db/client';
 import { useAuth } from '@/hooks/use-auth';
+import {
+  isWhatsAppGroupAddress,
+  whatsappContactDisplayName,
+} from '@/core/whatsapp/group-identity';
 import { useWorkspace } from '@/hooks/use-workspace';
 import { cn } from '@/lib/utils';
 import type { Contact, Deal, ContactNote, Tag, Conversation } from '@/types';
@@ -406,7 +410,10 @@ export function ContactSidebar({
     );
   }
 
-  const displayName = contact.name || contact.phone;
+  const displayName = whatsappContactDisplayName(contact.name, contact.phone);
+  const displayPhone = isWhatsAppGroupAddress(contact.phone)
+    ? 'Group chat'
+    : contact.phone;
   const initials = displayName.charAt(0).toUpperCase();
 
   const content = (
@@ -452,7 +459,7 @@ export function ContactSidebar({
             >
               <Phone className="h-3.5 w-3.5 shrink-0" />
               <span className="flex-1 truncate text-left font-medium">
-                {contact.phone}
+                {displayPhone}
               </span>
               {copied ? (
                 <Check className="h-3 w-3 text-emerald-500" />

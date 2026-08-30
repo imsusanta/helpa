@@ -26,6 +26,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { SendOutboundModal } from '@/components/contacts/send-outbound-modal';
 
 import { useAuth } from '@/hooks/use-auth';
+import { whatsappContactDisplayName } from '@/core/whatsapp/group-identity';
 
 interface ConversationListProps {
   activeConversationId: string | null;
@@ -562,8 +563,11 @@ function ConversationItem({
   onSelect,
 }: ConversationItemProps) {
   const contact = conversation.contact;
-  const displayName =
-    contact?.name || contact?.phone || conversation.contact_id || 'Contact';
+  const displayName = whatsappContactDisplayName(
+    contact?.name,
+    contact?.phone,
+    conversation.contact_id || 'Contact'
+  );
   const initials = displayName.charAt(0).toUpperCase() || 'C';
 
   const handleClick = useCallback(() => {

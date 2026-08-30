@@ -11,6 +11,7 @@ import {
   sendEvolutionGoText,
   EvolutionGoConfigError,
   EvolutionGoRequestError,
+  EVOLUTION_GO_SUBSCRIBE_EVENTS,
   EVOLUTION_GO_WRONG_HOST_MESSAGE,
 } from '@/core/providers/whatsapp/evolution-go-client';
 import {
@@ -284,6 +285,32 @@ describe('Evolution Go HTTP client', () => {
 });
 
 describe('Evolution Go provider behaviour', () => {
+  it('subscribes to GROUP events so group subjects can be resolved', () => {
+    expect(EVOLUTION_GO_SUBSCRIBE_EVENTS).toContain('GROUP');
+  });
+
+  it('keeps the group id as the conversation key for group messages', async () => {
+    const provider = new EvolutionGoProvider({
+      accountId: 'tenant-a',
+      instanceToken: '',
+    });
+    const events = await provider.normalizeWebhook({
+      event: 'Message',
+      data: {
+        key: {
+          id: 'msg-group',
+          fromMe: false,
+          remoteJid: '120363316746745895@g.us',
+        },
+        pushName: 'Ravi',
+        message: { conversation: 'group hello' },
+      },
+    });
+    expect(events).toHaveLength(1);
+    expect(events[0].patientAddress).toBe('120363316746745895');
+    expect(events[0].content).toBe('group hello');
+  });
+
   it('rejects sendTemplate as an unsupported operation', async () => {
     const provider = new EvolutionGoProvider({
       accountId: 'acct-1',
