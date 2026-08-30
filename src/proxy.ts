@@ -17,6 +17,7 @@ const PUBLIC_EXACT_PATHS = new Set([
   '/login',
   '/signup',
   '/forgot-password',
+  '/reset-password',
   '/contact',
   '/privacy',
   '/terms',
@@ -31,6 +32,7 @@ const PUBLIC_EXACT_PATHS = new Set([
   '/api/auth/signup',
   '/api/auth/logout',
   '/api/auth/reset-password',
+  '/api/auth/update-password',
   '/api/auth/me',
 ]);
 
@@ -38,6 +40,7 @@ const PUBLIC_PATH_PREFIXES = [
   '/join/',
   '/f/',
   '/proposal/',
+  '/auth/',
   '/api/health',
   '/api/invitations/',
   '/api/auth/',
