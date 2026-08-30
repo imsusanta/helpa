@@ -352,9 +352,7 @@ describe('Evolution Go QR session route', () => {
     expect(evoCalls.some((call) => call.path === '/instance/qr')).toBe(true);
   });
 
-  it(
-    'returns JSON when Evolution hangs past the Vercel session budget',
-    async () => {
+  it('returns JSON when Evolution hangs past the Vercel session budget', async () => {
     vi.stubEnv('VERCEL', '1');
     vi.stubEnv('EVOLUTION_GO_TIMEOUT_MS', '1500');
     vi.stubEnv('EVOLUTION_GO_SESSION_BUDGET_MS', '3000');
