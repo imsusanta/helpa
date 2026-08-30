@@ -101,12 +101,11 @@ export function whatsappChatKindLabel(kind: WhatsAppChatKind): string {
   return '';
 }
 
-/** WhatsApp Channels stay out of the Helpa inbox. */
 export function isHiddenWhatsAppInboxChat(
-  address?: string | null,
-  metadata?: Record<string, unknown> | null
+  _address?: string | null,
+  _metadata?: Record<string, unknown> | null
 ): boolean {
-  return whatsappChatKind(address, metadata) === 'channel';
+  return false;
 }
 
 export function parseWhatsAppSenderPreview(text: string | null | undefined): {
@@ -200,6 +199,10 @@ export function extractWhatsAppGroupSubject(
 ): string {
   const info = asRecord(data.Info || data.info);
   const chat = asRecord(data.chat || data.Chat);
+  const thread = asRecord(
+    data.thread_metadata || data.ThreadMetadata || data.threadMetadata
+  );
+  const threadName = asRecord(thread.name || thread.Name);
   const candidates = [
     nameFromUnknown(data.Name),
     nameFromUnknown(data.name),
@@ -209,6 +212,8 @@ export function extractWhatsAppGroupSubject(
     nameFromUnknown(info.name),
     nameFromUnknown(chat.Name),
     nameFromUnknown(chat.name),
+    asString(threadName.text),
+    nameFromUnknown(thread.name),
     asString(data.subject),
     asString(data.Subject),
     asString(chat.subject),

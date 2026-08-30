@@ -248,7 +248,7 @@ describe('Inbox API & Tenant Isolation Tests', () => {
       expect(json.conversations[0].contact.name).toBe('Helpa Clinic Team');
     });
 
-    it('hides WhatsApp channel conversations from the inbox list', async () => {
+    it('shows WhatsApp channel conversations with their channel name', async () => {
       const mockConvQuery = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
@@ -307,9 +307,15 @@ describe('Inbox API & Tenant Isolation Tests', () => {
 
       const res = await getConversations(createRequest());
       const json = await res.json();
-      expect(json.conversations).toHaveLength(1);
-      expect(json.conversations[0].id).toBe('conv-dm');
-      expect(json.total).toBe(1);
+      expect(json.conversations).toHaveLength(2);
+      expect(json.conversations.map((row: { id: string }) => row.id)).toEqual(
+        expect.arrayContaining(['conv-dm', 'conv-channel'])
+      );
+      expect(
+        json.conversations.find(
+          (row: { id: string }) => row.id === 'conv-channel'
+        )?.contact.name
+      ).toBe('Clinic Channel');
     });
   });
 
@@ -383,7 +389,7 @@ describe('Inbox API & Tenant Isolation Tests', () => {
       expect(json.conversation.contact.name).toBe('Bob');
     });
 
-    it('returns 404 for a WhatsApp channel conversation', async () => {
+    it('returns a WhatsApp channel conversation with its channel name', async () => {
       const mockConvQuery = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
@@ -425,7 +431,9 @@ describe('Inbox API & Tenant Isolation Tests', () => {
         createRequest('http://localhost/api/inbox/conversations/conv-channel'),
         { params: Promise.resolve({ id: 'conv-channel' }) }
       );
-      expect(res.status).toBe(404);
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.conversation.contact.name).toBe('Clinic Channel');
     });
   });
 

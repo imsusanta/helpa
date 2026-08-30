@@ -1,7 +1,9 @@
 import { getAdminClient } from '@/lib/db/server';
 import {
   getEvolutionGoGroupInfo,
+  listEvolutionGoContacts,
   listEvolutionGoGroups,
+  listEvolutionGoNewsletters,
 } from '@/core/providers/whatsapp/evolution-go-client';
 import {
   decryptProviderToken,
@@ -11,8 +13,8 @@ import {
 import {
   extractWhatsAppGroupJid,
   extractWhatsAppGroupSubject,
-  isHiddenWhatsAppInboxChat,
   isPlaceholderContactName,
+  isWhatsAppChannelJid,
   isWhatsAppGroupAddress,
   whatsappChatKind,
 } from '@/core/whatsapp/group-identity';
@@ -21,6 +23,17 @@ const pendingLookups = new Set<string>();
 const groupListCache = new Map<
   string,
   { at: number; groups: Array<{ jid: string; name: string }> }
+>();
+const newsletterListCache = new Map<
+  string,
+  { at: number; newsletters: Array<{ jid: string; name: string }> }
+>();
+const contactListCache = new Map<
+  string,
+  {
+    at: number;
+    contacts: Array<{ jid: string; name: string; saved: boolean }>;
+  }
 >();
 const GROUP_LIST_CACHE_MS = 60_000;
 const SYNC_TIMEOUT_MS = 6_000;
@@ -39,11 +52,16 @@ function asRecord(value: unknown): Record<string, unknown> {
     : {};
 }
 
-function groupJidForContact(contact: InboxGroupNameContact): string {
+function collectiveJidForContact(contact: InboxGroupNameContact): string {
   const metaJid = String(contact.metadata?.whatsapp_jid || '').trim();
   if (metaJid.includes('@')) return metaJid;
   const phone = phoneFromWhatsAppJid(contact.phone || '');
-  return phone ? `${phone}@g.us` : '';
+  if (!phone) return '';
+  const kind = whatsappChatKind(contact.phone, contact.metadata);
+  if (kind === 'channel' || isWhatsAppChannelJid(metaJid)) {
+    return `${phone}@newsletter`;
+  }
+  return `${phone}@g.us`;
 }
 
 async function mapPool<T>(
@@ -66,12 +84,13 @@ async function mapPool<T>(
   await Promise.all(runners);
 }
 
-async function updateContactNameIfPlaceholder(args: {
+async function updateContactWhatsAppName(args: {
   accountId: string;
   phone: string;
   name: string;
+  preferWhatsApp?: boolean;
 }): Promise<boolean> {
-  const { accountId, phone, name } = args;
+  const { accountId, phone, name, preferWhatsApp = false } = args;
   if (!accountId || !phone || !name) return false;
   if (isPlaceholderContactName(name, phone)) return false;
   const db = getAdminClient();
@@ -84,8 +103,17 @@ async function updateContactNameIfPlaceholder(args: {
   if (existing.error || !existing.data) return false;
   const currentName = String((existing.data as { name?: string }).name || '');
   if (currentName === name) return false;
-  const isGroup = isWhatsAppGroupAddress(phone);
-  if (!isGroup && !isPlaceholderContactName(currentName, phone)) return false;
+  const isCollective =
+    isWhatsAppGroupAddress(phone) ||
+    whatsappChatKind(phone) === 'channel' ||
+    isWhatsAppChannelJid(String(phone));
+  if (
+    !preferWhatsApp &&
+    !isCollective &&
+    !isPlaceholderContactName(currentName, phone)
+  ) {
+    return false;
+  }
   await db
     .from('contacts')
     .update({ name, updated_at: new Date().toISOString() })
@@ -103,7 +131,12 @@ export async function applyEvolutionGroupNameEvent(
   const phone = phoneFromWhatsAppJid(jid);
   const name = extractWhatsAppGroupSubject(data);
   if (!phone || !name) return;
-  await updateContactNameIfPlaceholder({ accountId, phone, name });
+  await updateContactWhatsAppName({
+    accountId,
+    phone,
+    name,
+    preferWhatsApp: true,
+  });
 }
 
 async function loadEvolutionGroups(
@@ -135,7 +168,12 @@ async function rememberGroupName(
 ): Promise<void> {
   if (!phone || isPlaceholderContactName(name, phone)) return;
   names.set(phone, name);
-  await updateContactNameIfPlaceholder({ accountId, phone, name });
+  await updateContactWhatsAppName({
+    accountId,
+    phone,
+    name,
+    preferWhatsApp: true,
+  });
 }
 
 async function fillGroupInfoNames(
@@ -181,17 +219,94 @@ export async function lookupEvolutionGroupName(
   return info.name;
 }
 
+async function loadEvolutionNewsletters(
+  accountId: string
+): Promise<Array<{ jid: string; name: string }>> {
+  const cached = newsletterListCache.get(accountId);
+  if (cached && Date.now() - cached.at < GROUP_LIST_CACHE_MS) {
+    return cached.newsletters;
+  }
+  const token = await loadEvolutionToken(accountId);
+  if (!token) return [];
+  const newsletters = await listEvolutionGoNewsletters(token);
+  newsletterListCache.set(accountId, { at: Date.now(), newsletters });
+  return newsletters;
+}
+
+async function loadEvolutionContacts(
+  accountId: string
+): Promise<Array<{ jid: string; name: string; saved: boolean }>> {
+  const cached = contactListCache.get(accountId);
+  if (cached && Date.now() - cached.at < GROUP_LIST_CACHE_MS) {
+    return cached.contacts;
+  }
+  const token = await loadEvolutionToken(accountId);
+  if (!token) return [];
+  const contacts = await listEvolutionGoContacts(token);
+  contactListCache.set(accountId, { at: Date.now(), contacts });
+  return contacts;
+}
+
+function findListedName(
+  listed: Array<{ jid: string; name: string }>,
+  address: string
+): string {
+  const digits = phoneFromWhatsAppJid(address);
+  if (!digits) return '';
+  const match = listed.find((row) => phoneFromWhatsAppJid(row.jid) === digits);
+  if (!match?.name || isPlaceholderContactName(match.name, digits)) return '';
+  return match.name;
+}
+
 export async function resolveEvolutionGroupName(
   accountId: string,
   groupAddress: string
 ): Promise<string> {
   try {
+    const kind = whatsappChatKind(groupAddress);
+    if (kind === 'channel' || isWhatsAppChannelJid(groupAddress)) {
+      const name = findListedName(
+        await loadEvolutionNewsletters(accountId),
+        groupAddress
+      );
+      if (name) {
+        await rememberGroupName(
+          accountId,
+          new Map(),
+          phoneFromWhatsAppJid(groupAddress),
+          name
+        );
+        return name;
+      }
+      return '';
+    }
+    if (kind === 'direct' && !isWhatsAppGroupAddress(groupAddress)) {
+      const digits = phoneFromWhatsAppJid(groupAddress);
+      const listed = await loadEvolutionContacts(accountId);
+      const match = listed.find(
+        (row) => phoneFromWhatsAppJid(row.jid) === digits
+      );
+      if (
+        match?.name &&
+        !isPlaceholderContactName(match.name, digits || groupAddress)
+      ) {
+        await updateContactWhatsAppName({
+          accountId,
+          phone: digits,
+          name: match.name,
+          preferWhatsApp: match.saved,
+        });
+        return match.name;
+      }
+      return '';
+    }
     const name = await lookupEvolutionGroupName(accountId, groupAddress);
     if (name && !isPlaceholderContactName(name, groupAddress)) {
-      await updateContactNameIfPlaceholder({
+      await updateContactWhatsAppName({
         accountId,
         phone: phoneFromWhatsAppJid(groupAddress),
         name,
+        preferWhatsApp: true,
       });
       return name;
     }
@@ -201,14 +316,41 @@ export async function resolveEvolutionGroupName(
   return '';
 }
 
+async function applyListedNames(
+  accountId: string,
+  names: Map<string, string>,
+  listed: Array<{ jid: string; name: string }>,
+  preferWhatsApp: boolean
+): Promise<void> {
+  const persist: Array<Promise<void>> = [];
+  for (const row of listed) {
+    const phone = phoneFromWhatsAppJid(row.jid);
+    if (!phone || isPlaceholderContactName(row.name, phone)) continue;
+    names.set(phone, row.name);
+    persist.push(
+      updateContactWhatsAppName({
+        accountId,
+        phone,
+        name: row.name,
+        preferWhatsApp,
+      }).then(() => undefined)
+    );
+  }
+  await Promise.all(persist);
+}
+
 async function collectEvolutionGroupNames(
   accountId: string,
   names: Map<string, string>,
   contacts: InboxGroupNameContact[]
 ): Promise<void> {
-  const groups = await loadEvolutionGroups(accountId);
+  const [groups, newsletters, savedContacts] = await Promise.all([
+    loadEvolutionGroups(accountId).catch(() => []),
+    loadEvolutionNewsletters(accountId).catch(() => []),
+    loadEvolutionContacts(accountId).catch(() => []),
+  ]);
+
   const unnamedListed: Array<{ jid: string; phone: string }> = [];
-  const persist: Array<Promise<void>> = [];
   for (const group of groups) {
     const phone = phoneFromWhatsAppJid(group.jid);
     if (!phone) continue;
@@ -217,24 +359,34 @@ async function collectEvolutionGroupNames(
       continue;
     }
     names.set(phone, group.name);
-    persist.push(
-      updateContactNameIfPlaceholder({
-        accountId,
-        phone,
-        name: group.name,
-      }).then(() => undefined)
-    );
   }
-  await Promise.all(persist);
+  await applyListedNames(accountId, names, groups, true);
+  await applyListedNames(accountId, names, newsletters, true);
+  for (const contact of savedContacts) {
+    const phone = phoneFromWhatsAppJid(contact.jid);
+    if (!phone || isPlaceholderContactName(contact.name, phone)) continue;
+    if (contact.saved || !names.has(phone)) {
+      names.set(phone, contact.name);
+    }
+  }
+  await applyListedNames(
+    accountId,
+    names,
+    savedContacts.filter((contact) => contact.saved),
+    true
+  );
+  await applyListedNames(
+    accountId,
+    names,
+    savedContacts.filter((contact) => !contact.saved),
+    false
+  );
   await fillGroupInfoNames(accountId, names, unnamedListed);
 
-  const leftover = contacts
+  const leftoverGroups = contacts
     .filter((contact) => {
       const phone = phoneFromWhatsAppJid(contact.phone || '');
       if (!phone || names.has(phone)) return false;
-      if (isHiddenWhatsAppInboxChat(contact.phone, contact.metadata)) {
-        return false;
-      }
       const kind = whatsappChatKind(contact.phone, contact.metadata);
       if (kind !== 'group' && !isWhatsAppGroupAddress(contact.phone)) {
         return false;
@@ -244,11 +396,11 @@ async function collectEvolutionGroupNames(
     .slice(0, MAX_LEFTOVER_LOOKUPS)
     .map((contact) => {
       const phone = phoneFromWhatsAppJid(contact.phone || '');
-      return { jid: groupJidForContact(contact), phone };
+      return { jid: collectiveJidForContact(contact), phone };
     })
     .filter((target) => target.jid && target.phone);
 
-  await fillGroupInfoNames(accountId, names, leftover);
+  await fillGroupInfoNames(accountId, names, leftoverGroups);
 }
 
 export async function syncEvolutionGroupNames(
@@ -288,7 +440,12 @@ export function scheduleEvolutionGroupNameRefresh(
   void (async () => {
     try {
       const name = await lookupEvolutionGroupName(accountId, groupAddress);
-      await updateContactNameIfPlaceholder({ accountId, phone, name });
+      await updateContactWhatsAppName({
+        accountId,
+        phone,
+        name,
+        preferWhatsApp: true,
+      });
     } catch {
       // Best-effort. Inbox sync retries on the next conversation list load.
     } finally {

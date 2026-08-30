@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
   listEvolutionGoGroups,
+  listEvolutionGoNewsletters,
+  listEvolutionGoContacts,
   getEvolutionGoGroupInfo,
   loadCanonicalWhatsAppConfig,
   decryptProviderToken,
@@ -9,6 +11,8 @@ const {
   updateEq,
 } = vi.hoisted(() => ({
   listEvolutionGoGroups: vi.fn(),
+  listEvolutionGoNewsletters: vi.fn(),
+  listEvolutionGoContacts: vi.fn(),
   getEvolutionGoGroupInfo: vi.fn(),
   loadCanonicalWhatsAppConfig: vi.fn(),
   decryptProviderToken: vi.fn(),
@@ -18,6 +22,8 @@ const {
 
 vi.mock('@/core/providers/whatsapp/evolution-go-client', () => ({
   listEvolutionGoGroups,
+  listEvolutionGoNewsletters,
+  listEvolutionGoContacts,
   getEvolutionGoGroupInfo,
 }));
 
@@ -76,6 +82,16 @@ describe('syncEvolutionGroupNamesForInbox', () => {
       { jid: '120363316746745895@g.us', name: 'Helpa Clinic Team' },
       { jid: '120363111222333444@g.us', name: '' },
     ]);
+    listEvolutionGoNewsletters.mockResolvedValue([
+      { jid: '120363999000111222@newsletter', name: 'Clinic Updates' },
+    ]);
+    listEvolutionGoContacts.mockResolvedValue([
+      {
+        jid: '919111222333@s.whatsapp.net',
+        name: 'Ravi Kumar',
+        saved: true,
+      },
+    ]);
     getEvolutionGoGroupInfo.mockImplementation(
       async (_token: string, jid: string) => {
         if (jid === '120363111222333444@g.us') {
@@ -96,18 +112,23 @@ describe('syncEvolutionGroupNamesForInbox', () => {
       },
       {
         phone: '120363999000111222',
-        name: 'Clinic Channel',
+        name: '120363999000111222',
         metadata: {
           whatsapp_chat_kind: 'channel',
           whatsapp_jid: '120363999000111222@newsletter',
         },
+      },
+      {
+        phone: '919111222333',
+        name: '919111222333',
       },
     ]);
 
     expect(names.get('120363316746745895')).toBe('Helpa Clinic Team');
     expect(names.get('120363111222333444')).toBe('OPD Desk');
     expect(names.get('120363555666777888')).toBe('Night Shift');
-    expect(names.has('120363999000111222')).toBe(false);
+    expect(names.get('120363999000111222')).toBe('Clinic Updates');
+    expect(names.get('919111222333')).toBe('Ravi Kumar');
     expect(getEvolutionGoGroupInfo).not.toHaveBeenCalledWith(
       'token',
       '120363999000111222@newsletter'

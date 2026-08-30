@@ -282,7 +282,7 @@ export function MessageBubble({
 }: MessageBubbleProps) {
   const isAgent =
     message.sender_type === 'agent' || message.sender_type === 'bot';
-  const collective = chatKind === 'group';
+  const collective = chatKind === 'group' || chatKind === 'channel';
   const senderPreview =
     !isAgent && collective
       ? parseWhatsAppSenderPreview(message.content_text)

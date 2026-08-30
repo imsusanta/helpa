@@ -11,7 +11,9 @@ import {
   evolutionGoGroupSubject,
   evolutionGoJid,
   mergeEvolutionGoGroups,
+  parseEvolutionGoContacts,
   parseEvolutionGoGroups,
+  parseEvolutionGoNewsletters,
   sendEvolutionGoText,
   EvolutionGoConfigError,
   EvolutionGoRequestError,
@@ -291,7 +293,8 @@ describe('Evolution Go HTTP client', () => {
 describe('Evolution Go provider behaviour', () => {
   it('subscribes to GROUP events so group subjects can be resolved', () => {
     expect(EVOLUTION_GO_SUBSCRIBE_EVENTS).toContain('GROUP');
-    expect(EVOLUTION_GO_SUBSCRIBE_EVENTS).not.toContain('NEWSLETTER');
+    expect(EVOLUTION_GO_SUBSCRIBE_EVENTS).toContain('NEWSLETTER');
+    expect(EVOLUTION_GO_SUBSCRIBE_EVENTS).toContain('CONTACT');
   });
 
   it('parses Evolution group list names', () => {
@@ -354,6 +357,50 @@ describe('Evolution Go provider behaviour', () => {
       ])
     );
     expect(merged).toHaveLength(3);
+  });
+
+  it('parses WhatsApp channel names from newsletter list metadata', () => {
+    const channels = parseEvolutionGoNewsletters({
+      data: [
+        {
+          id: '120363999000111222@newsletter',
+          thread_metadata: { name: { text: 'Clinic Updates' } },
+        },
+      ],
+    });
+    expect(channels).toEqual([
+      { jid: '120363999000111222@newsletter', name: 'Clinic Updates' },
+    ]);
+  });
+
+  it('prefers a saved WhatsApp address-book name over pushName', () => {
+    const contacts = parseEvolutionGoContacts({
+      data: [
+        {
+          Jid: '919111222333@s.whatsapp.net',
+          FullName: 'Ravi Kumar',
+          PushName: 'Ravi',
+        },
+        {
+          Jid: '919888777666@s.whatsapp.net',
+          FullName: '',
+          FirstName: '',
+          PushName: 'Anika',
+        },
+      ],
+    });
+    expect(contacts).toEqual([
+      {
+        jid: '919111222333@s.whatsapp.net',
+        name: 'Ravi Kumar',
+        saved: true,
+      },
+      {
+        jid: '919888777666@s.whatsapp.net',
+        name: 'Anika',
+        saved: false,
+      },
+    ]);
   });
 
   it('reads group text from ephemeral wrappers', async () => {

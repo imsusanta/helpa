@@ -44,10 +44,10 @@ describe('WhatsApp group identity', () => {
     );
     expect(whatsappChatKindLabel('group')).toBe('Group');
     expect(whatsappChatKindLabel('channel')).toBe('Channel');
-    expect(isHiddenWhatsAppInboxChat(channelJid)).toBe(true);
+    expect(isHiddenWhatsAppInboxChat(channelJid)).toBe(false);
     expect(
       isHiddenWhatsAppInboxChat(GROUP_ID, { whatsapp_chat_kind: 'channel' })
-    ).toBe(true);
+    ).toBe(false);
     expect(isHiddenWhatsAppInboxChat(GROUP_JID)).toBe(false);
     expect(isHiddenWhatsAppInboxChat('919111222333')).toBe(false);
   });
@@ -123,6 +123,12 @@ describe('WhatsApp group identity', () => {
         GROUP_ID
       )
     ).toBe('OPD Updates');
+    expect(
+      extractWhatsAppGroupSubject({
+        id: '120363999000111222@newsletter',
+        thread_metadata: { name: { text: 'Clinic Updates' } },
+      })
+    ).toBe('Clinic Updates');
   });
 
   it('keeps 1:1 pushName titles', () => {

@@ -30,6 +30,7 @@ import {
   isHiddenWhatsAppInboxChat,
   parseWhatsAppSenderPreview,
   whatsappChatKind,
+  whatsappChatKindLabel,
   whatsappContactDisplayName,
 } from '@/core/whatsapp/group-identity';
 import { WhatsAppChatAvatar } from '@/components/inbox/whatsapp-chat-avatar';
@@ -574,7 +575,7 @@ function ConversationItem({
   const chatKind = whatsappChatKind(contact?.phone, contact?.metadata);
   const displayName =
     whatsappContactDisplayName(contact?.name, contact?.phone) ||
-    (chatKind === 'group' ? 'Group' : '') ||
+    whatsappChatKindLabel(chatKind) ||
     'Chat';
   const preview = parseWhatsAppSenderPreview(conversation.last_message_text);
   const previewBody = preview.body || conversation.last_message_text || '';

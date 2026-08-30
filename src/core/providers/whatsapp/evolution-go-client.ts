@@ -80,6 +80,8 @@ export const EVOLUTION_GO_SUBSCRIBE_EVENTS = [
   'READ_RECEIPT',
   'QRCODE',
   'GROUP',
+  'NEWSLETTER',
+  'CONTACT',
 ] as const;
 
 export interface EvolutionGoCreateInstanceInput {
@@ -197,6 +199,37 @@ function sanitizeErrorText(text: string): string {
     )
     .replace(/token["']?\s*[:=]\s*["']?[^"'\\s]{8,}/gi, 'token=[redacted]')
     .slice(0, 300);
+}
+
+function payloadRows(payload: unknown, ...keys: string[]): unknown[] {
+  const root = asRecord(payload);
+  const envelope = dataEnvelope(root);
+  const candidates = [envelope.data, root.data, payload];
+  for (const key of keys) {
+    candidates.push(envelope[key], root[key]);
+  }
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) return candidate;
+    if (
+      candidate &&
+      typeof candidate === 'object' &&
+      !Array.isArray(candidate)
+    ) {
+      const values = Object.values(candidate as Record<string, unknown>);
+      if (
+        values.length > 0 &&
+        values.every((value) => value && typeof value === 'object')
+      ) {
+        return values.map((value, index) => {
+          const row = asRecord(value);
+          if (row.Jid || row.jid || row.JID || row.id) return row;
+          const key = Object.keys(candidate as Record<string, unknown>)[index];
+          return { ...row, Jid: row.Jid || key };
+        });
+      }
+    }
+  }
+  return [];
 }
 
 function dataEnvelope(
@@ -673,6 +706,94 @@ export async function getEvolutionGoGroupInfo(
     jid: evolutionGoJid(data.JID || data.jid) || groupJid,
     name: evolutionGoGroupSubject(data),
   };
+}
+
+export function parseEvolutionGoNewsletters(
+  payload: unknown
+): Array<{ jid: string; name: string }> {
+  const newsletters: Array<{ jid: string; name: string }> = [];
+  for (const item of payloadRows(
+    payload,
+    'newsletters',
+    'Newsletters',
+    'subscribed'
+  )) {
+    const row = asRecord(item);
+    const meta = asRecord(
+      row.thread_metadata || row.ThreadMetadata || row.threadMetadata
+    );
+    const nameObj = meta.name ?? meta.Name ?? row.Name ?? row.name;
+    const name =
+      typeof nameObj === 'string'
+        ? nameObj.trim()
+        : asString(
+            asRecord(nameObj).text ||
+              asRecord(nameObj).Name ||
+              asRecord(nameObj).name
+          );
+    const jid = evolutionGoJid(
+      row.id || row.ID || row.JID || row.jid || row.newsletterJid
+    );
+    if (!jid) continue;
+    newsletters.push({ jid, name });
+  }
+  return newsletters;
+}
+
+export function parseEvolutionGoContacts(
+  payload: unknown
+): Array<{ jid: string; name: string; saved: boolean }> {
+  const contacts: Array<{ jid: string; name: string; saved: boolean }> = [];
+  for (const item of payloadRows(payload, 'contacts', 'Contacts')) {
+    const row = asRecord(item);
+    const jid = evolutionGoJid(
+      row.Jid || row.jid || row.JID || row.id || row.remoteJid
+    );
+    if (!jid || jid.toLowerCase() === 'status@broadcast') continue;
+    const fullName = asString(row.FullName || row.fullName || row.full_name);
+    const firstName = asString(
+      row.FirstName || row.firstName || row.first_name
+    );
+    const business = asString(
+      row.BusinessName || row.businessName || row.business_name
+    );
+    const pushName = asString(row.PushName || row.pushName || row.push_name);
+    const savedName = fullName || firstName || business;
+    const name = savedName || pushName;
+    if (!name) continue;
+    contacts.push({
+      jid,
+      name,
+      saved: Boolean(savedName),
+    });
+  }
+  return contacts;
+}
+
+export async function listEvolutionGoNewsletters(
+  instanceToken: string
+): Promise<Array<{ jid: string; name: string }>> {
+  return parseEvolutionGoNewsletters(
+    await evolutionGoRequest({
+      method: 'GET',
+      path: '/newsletter/list',
+      auth: 'instance',
+      instanceToken,
+    })
+  );
+}
+
+export async function listEvolutionGoContacts(
+  instanceToken: string
+): Promise<Array<{ jid: string; name: string; saved: boolean }>> {
+  return parseEvolutionGoContacts(
+    await evolutionGoRequest({
+      method: 'GET',
+      path: '/user/contacts',
+      auth: 'instance',
+      instanceToken,
+    })
+  );
 }
 
 export async function sendEvolutionGoText(
