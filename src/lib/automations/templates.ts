@@ -23,7 +23,11 @@ export type TemplateSlug =
   | 'property_site_visit'
   | 'course_enquiry'
   | 'table_booking'
-  | 'traveler_intake_greeting';
+  | 'traveler_intake_greeting'
+  | 'tour_package_enquiry'
+  | 'quote_follow_up'
+  | 'trip_booking_confirmation'
+  | 'trip_departure_reminder';
 
 export type CanonicalAutomationIndustry =
   | 'hospital_clinic'
@@ -501,6 +505,98 @@ export const AUTOMATION_TEMPLATES: Record<
       },
     ],
   },
+  tour_package_enquiry: {
+    slug: 'tour_package_enquiry',
+    name: 'Tour Package Enquiry',
+    description:
+      'Catch package, trip, and holiday questions and collect dates and party size.',
+    industries: ['travel'],
+    iconName: 'MapPin',
+    trigger_type: 'keyword_match',
+    trigger_config: {
+      keywords: [
+        'package',
+        'tour package',
+        'trip',
+        'holiday',
+        'itinerary',
+        'destination',
+        'honeymoon',
+        'group tour',
+      ],
+      match_type: 'contains',
+    },
+    steps: [
+      {
+        step_type: 'send_message',
+        step_config: {
+          text: 'Happy to help with a tour package. Please share your destination (or say "any"), travel dates, and how many people are travelling. We will match you to a package from our list — we never invent prices or hotels.',
+        },
+      },
+      {
+        step_type: 'assign_conversation',
+        step_config: { mode: 'round_robin' },
+      },
+    ],
+  },
+  quote_follow_up: {
+    slug: 'quote_follow_up',
+    name: 'Quote Follow-up',
+    description:
+      'Nudge a new travel lead after 3 days if they have not confirmed a trip.',
+    industries: ['travel'],
+    iconName: 'FileText',
+    trigger_type: 'lead_created',
+    trigger_config: {},
+    steps: [
+      {
+        step_type: 'wait',
+        step_config: { amount: 3, unit: 'days' },
+      },
+      {
+        step_type: 'send_message',
+        step_config: {
+          text: 'Hi! Just checking in on your holiday quote. Do you have any questions about the itinerary, dates, or inclusions? Happy to adjust the package from our list.',
+        },
+      },
+    ],
+  },
+  trip_booking_confirmation: {
+    slug: 'trip_booking_confirmation',
+    name: 'Trip Booking Confirmation',
+    description:
+      'Send a confirmation and trip checklist when a tour booking is created.',
+    industries: ['travel'],
+    iconName: 'CalendarCheck',
+    trigger_type: 'appointment_created',
+    trigger_config: {},
+    steps: [
+      {
+        step_type: 'send_message',
+        step_config: {
+          text: 'Your tour booking is confirmed. Please keep your ID/passport ready and review the itinerary we shared. Reply here if you need to change dates or traveller names.',
+        },
+      },
+    ],
+  },
+  trip_departure_reminder: {
+    slug: 'trip_departure_reminder',
+    name: 'Trip Departure Reminder',
+    description:
+      'Remind travellers 24 hours before departure with a short checklist.',
+    industries: ['travel'],
+    iconName: 'Luggage',
+    trigger_type: 'appointment_reminder',
+    trigger_config: { before_minutes: 1440 },
+    steps: [
+      {
+        step_type: 'send_message',
+        step_config: {
+          text: 'Reminder: your trip starts tomorrow. Please reconfirm pickup time, carry ID/passport, and check the packing list in your itinerary. Reply here if anything has changed.',
+        },
+      },
+    ],
+  },
 };
 
 export function getTemplate(slug: string): AutomationTemplateDefinition | null {
@@ -525,18 +621,25 @@ export function getTemplatesForIndustry(
   const canonical = canonicalTemplateIndustry(industry);
   return TEMPLATE_DISPLAY_ORDER.filter((slug) =>
     AUTOMATION_TEMPLATES[slug].industries.includes(canonical)
-  ).map((slug) => {
-    const template = AUTOMATION_TEMPLATES[slug];
-    return {
-      ...template,
-      industries: [...template.industries],
-      trigger_config: { ...template.trigger_config },
-      steps: template.steps.map((step) => ({
-        ...step,
-        step_config: { ...step.step_config },
-      })),
-    };
-  });
+  )
+    .sort((a, b) => {
+      const aSpecific = AUTOMATION_TEMPLATES[a].industries.length === 1;
+      const bSpecific = AUTOMATION_TEMPLATES[b].industries.length === 1;
+      if (aSpecific === bSpecific) return 0;
+      return aSpecific ? -1 : 1;
+    })
+    .map((slug) => {
+      const template = AUTOMATION_TEMPLATES[slug];
+      return {
+        ...template,
+        industries: [...template.industries],
+        trigger_config: { ...template.trigger_config },
+        steps: template.steps.map((step) => ({
+          ...step,
+          step_config: { ...step.step_config },
+        })),
+      };
+    });
 }
 
 export function getTemplateForIndustry(

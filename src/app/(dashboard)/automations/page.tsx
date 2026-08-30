@@ -29,6 +29,9 @@ import {
   Pill,
   FlaskConical,
   Plane,
+  MapPin,
+  CalendarCheck,
+  Luggage,
 } from 'lucide-react';
 
 import { useCan } from '@/hooks/use-can';
@@ -81,6 +84,10 @@ const TEMPLATE_ICON: Partial<Record<TemplateSlug, typeof Zap>> = {
   course_enquiry: BookOpen,
   table_booking: UtensilsCrossed,
   traveler_intake_greeting: Plane,
+  tour_package_enquiry: MapPin,
+  quote_follow_up: FileText,
+  trip_booking_confirmation: CalendarCheck,
+  trip_departure_reminder: Luggage,
 };
 
 export default function AutomationsPage() {
@@ -203,10 +210,20 @@ export default function AutomationsPage() {
     );
   }
 
-  const showTemplates = automations.length < 3;
+  const usedTemplateNames = new Set(
+    automations.map((automation) => automation.name.toLowerCase())
+  );
+  const unusedIndustryTemplates = industryTemplates.filter(
+    (template) =>
+      template.industries.length === 1 &&
+      !usedTemplateNames.has(template.name.toLowerCase())
+  );
+  const recommendedTemplates =
+    automations.length < 3 ? industryTemplates : unusedIndustryTemplates;
+  const showTemplates = recommendedTemplates.length > 0;
   const visibleTemplates = showAllTemplates
-    ? industryTemplates
-    : industryTemplates.slice(0, TEMPLATE_PREVIEW_COUNT);
+    ? recommendedTemplates
+    : recommendedTemplates.slice(0, TEMPLATE_PREVIEW_COUNT);
 
   return (
     <div className="space-y-6">
@@ -258,7 +275,7 @@ export default function AutomationsPage() {
               );
             })}
           </div>
-          {industryTemplates.length > TEMPLATE_PREVIEW_COUNT && (
+          {recommendedTemplates.length > TEMPLATE_PREVIEW_COUNT && (
             <Button
               variant="ghost"
               className="text-muted-foreground hover:text-foreground mt-3 text-xs"
@@ -266,7 +283,7 @@ export default function AutomationsPage() {
             >
               {showAllTemplates
                 ? 'Show fewer templates'
-                : `Show all ${industryTemplates.length} templates`}
+                : `Show all ${recommendedTemplates.length} templates`}
             </Button>
           )}
         </section>

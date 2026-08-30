@@ -65,33 +65,46 @@ const TEMPLATES_BY_INDUSTRY: Record<string, IndustryReminderTemplate[]> = {
   travel: [
     {
       key: 'travel_instant',
-      name: 'Instant Package Response',
+      name: 'Tour Package Enquiry',
       when: 'A customer asks about a tour package',
-      action: 'Sends package details, itinerary, and pricing automatically.',
-      trigger_type: 'first_inbound_message',
-      trigger_config: {},
+      action:
+        'Collects destination, dates, and party size, then assigns the chat.',
+      trigger_type: 'keyword_match',
+      trigger_config: {
+        keywords: [
+          'package',
+          'tour package',
+          'trip',
+          'holiday',
+          'itinerary',
+          'destination',
+          'honeymoon',
+          'group tour',
+        ],
+        match_type: 'contains',
+      },
       defaultMessage:
-        'Hello! Here are the details and inclusions for our popular holiday packages.',
+        'Happy to help with a tour package. Please share your destination (or say "any"), travel dates, and how many people are travelling. We will match you to a package from our list — we never invent prices or hotels.',
     },
     {
       key: 'travel_quote_followup',
       name: 'Quote Follow-up',
-      when: 'A customer receives a quote but has not confirmed',
+      when: 'A new travel lead is created and has not confirmed',
       action: 'Sends a friendly follow-up after 3 days.',
-      trigger_type: 'new_message_received',
+      trigger_type: 'lead_created',
       trigger_config: {},
       defaultMessage:
-        'Hi! Just checking in to see if you have any questions about your holiday quotation.',
+        'Hi! Just checking in on your holiday quote. Do you have any questions about the itinerary, dates, or inclusions? Happy to adjust the package from our list.',
     },
     {
       key: 'travel_confirm',
-      name: 'Booking Confirmation',
+      name: 'Trip Booking Confirmation',
       when: 'A tour booking is confirmed',
       action: 'Sends confirmation and important trip checklist.',
       trigger_type: 'appointment_created',
       trigger_config: {},
       defaultMessage:
-        'Your tour booking is confirmed! We have attached your trip itinerary.',
+        'Your tour booking is confirmed. Please keep your ID/passport ready and review the itinerary we shared. Reply here if you need to change dates or traveller names.',
     },
   ],
   salon: [

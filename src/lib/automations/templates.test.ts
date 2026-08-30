@@ -119,7 +119,16 @@ describe('automation templates', () => {
     const templates = getTemplatesForIndustry('travel');
     const slugs = templates.map((template) => template.slug);
     expect(slugs).toContain('traveler_intake_greeting');
+    expect(slugs).toContain('tour_package_enquiry');
+    expect(slugs).toContain('quote_follow_up');
+    expect(slugs).toContain('trip_booking_confirmation');
+    expect(slugs).toContain('trip_departure_reminder');
     expect(slugs).toContain('welcome_message');
+    const firstShared = slugs.indexOf('welcome_message');
+    expect(slugs.indexOf('tour_package_enquiry')).toBeLessThan(firstShared);
+    expect(slugs.indexOf('trip_booking_confirmation')).toBeLessThan(
+      firstShared
+    );
     expect(slugs).not.toContain('doctor_booking_enquiry');
     expect(slugs).not.toContain('lab_test_booking');
     expect(slugs).not.toContain('table_booking');
@@ -133,6 +142,10 @@ describe('automation templates', () => {
     expect(health).toEqual(clinic);
     expect(health).toContain('doctor_booking_enquiry');
     expect(health).not.toContain('traveler_intake_greeting');
+    expect(health).not.toContain('tour_package_enquiry');
+    expect(health).not.toContain('quote_follow_up');
+    expect(health).not.toContain('trip_booking_confirmation');
+    expect(health).not.toContain('trip_departure_reminder');
     expect(health).not.toContain('table_booking');
   });
 
@@ -141,6 +154,8 @@ describe('automation templates', () => {
     expect(general).toContain('welcome_message');
     expect(general).not.toContain('doctor_booking_enquiry');
     expect(general).not.toContain('traveler_intake_greeting');
+    expect(general).not.toContain('tour_package_enquiry');
+    expect(general).not.toContain('trip_booking_confirmation');
     expect(getTemplatesForIndustry(null).map((t) => t.slug)).toEqual(general);
     expect(
       getTemplatesForIndustry('legacy_unknown').map((t) => t.slug)
