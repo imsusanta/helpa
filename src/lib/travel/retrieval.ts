@@ -607,7 +607,7 @@ async function persistPackageRow(
   accountId: string,
   packageId?: string
 ): Promise<Record<string, unknown>> {
-  let next = { ...payload };
+  const next = { ...payload };
   for (let attempt = 0; attempt <= OPTIONAL_PACKAGE_COLUMNS.length; attempt++) {
     const result =
       mode === 'insert'

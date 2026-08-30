@@ -488,6 +488,7 @@ export function TourPackageFormDialog({
                       )}
                     >
                       {form.cover_image_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={form.cover_image_url}
                           alt="Package cover"
