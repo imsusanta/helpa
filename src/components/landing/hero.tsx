@@ -20,7 +20,7 @@ const tabs = [
 
 export function LandingHero({ isAuthenticated }: HeroProps) {
   return (
-    <section className="relative overflow-hidden bg-gradient-to-b from-[#FBFAFD] via-[#F8F6FD] to-[#F1EEFA] pt-14 pb-8 sm:pt-16">
+    <section className="relative overflow-hidden bg-gradient-to-b from-[#FBFAFD] via-[#F8F6FD] to-[#F1EEFA] pt-28 pb-8 sm:pt-32">
       <div className="pointer-events-none absolute inset-0" aria-hidden="true">
         <div className="absolute left-1/2 top-28 h-[520px] w-[760px] -translate-x-1/2 rounded-full bg-[#DCD5FF]/25 blur-3xl" />
         <div className="absolute left-0 top-32 h-64 w-64 rounded-full bg-white/70 blur-3xl" />
