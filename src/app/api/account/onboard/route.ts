@@ -7,6 +7,7 @@ import {
   resolveCanonicalIndustry,
 } from '@/modules/registry';
 import { insertSteps } from '@/lib/automations/steps-tree';
+import { insertAutomationRow } from '@/lib/automations/insert-row';
 
 export async function POST(request: Request) {
   try {
@@ -376,24 +377,21 @@ export async function POST(request: Request) {
       if (config.workflows && config.workflows.length > 0) {
         await Promise.all(
           config.workflows.map(async (w) => {
-            const { data: autoRecord, error: autoErr } = await admin
-              .from('automations')
-              .insert({
-                account_id: ctx.accountId,
-                user_id: ctx.userId,
+            const { data: autoRecord, error: autoErr } =
+              await insertAutomationRow(admin, {
+                accountId: ctx.accountId,
+                userId: ctx.userId,
                 name: w.name,
                 description: w.description,
-                trigger_type: w.trigger_type,
-                trigger_config: w.trigger_config || {},
-                is_active: w.is_active,
+                triggerType: w.trigger_type,
+                triggerConfig: w.trigger_config || {},
+                isActive: w.is_active,
                 metadata: {
                   helpa_seeded_workflow: true,
                   workflow_seed_key: w.seedKey,
                   workflow_industry: validIndustryId,
                 },
-              })
-              .select('id')
-              .single();
+              });
 
             if (autoErr || !autoRecord) {
               console.error(

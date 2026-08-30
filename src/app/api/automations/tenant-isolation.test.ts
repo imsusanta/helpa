@@ -232,7 +232,10 @@ describe('automation route tenant and industry isolation', () => {
     );
     expect(response.status).toBe(201);
     expect(state.tables.automations.at(-1)).toEqual(
-      expect.objectContaining({ account_id: 'account-a', user_id: 'user-a' })
+      expect.objectContaining({
+        account_id: 'account-a',
+        created_by: 'user-a',
+      })
     );
   });
 });

@@ -62,7 +62,7 @@ export async function PATCH(
   // to compute the post-patch "effective" state for validation.
   const { data: existing } = await admin
     .from('automations')
-    .select('id, user_id, is_active, trigger_type, trigger_config')
+    .select('id, is_active, trigger_type, trigger_config')
     .eq('id', id)
     .eq('account_id', context.accountId)
     .maybeSingle();

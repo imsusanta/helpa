@@ -1,4 +1,5 @@
 import { getAdminClient } from '@/lib/db/server';
+import { automationAuthorId } from '@/lib/automations/insert-row';
 
 const DEFAULT_TIMEZONE = process.env.DEFAULT_TIMEZONE || 'Asia/Kolkata';
 
@@ -79,7 +80,7 @@ export async function scheduleAppointmentReminders(
       .insert({
         automation_id: automation.id,
         account_id: automation.account_id,
-        user_id: automation.user_id,
+        user_id: automationAuthorId(automation),
         contact_id: input.contactId,
         trigger_event: 'appointment_reminder',
         steps_executed: [],
@@ -95,7 +96,7 @@ export async function scheduleAppointmentReminders(
       .insert({
         automation_id: automation.id,
         account_id: input.accountId,
-        user_id: automation.user_id ?? input.userId,
+        user_id: automationAuthorId(automation) ?? input.userId,
         contact_id: input.contactId,
         log_id: log.id,
         parent_step_id: null,

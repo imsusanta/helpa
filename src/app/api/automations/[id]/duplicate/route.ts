@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAdminClient } from '@/lib/db/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
+import { insertAutomationRow } from '@/lib/automations/insert-row';
 
 export async function POST(
   _request: Request,
@@ -26,21 +27,16 @@ export async function POST(
   if (!original)
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  const { data: copy, error: copyErr } = await admin
-    .from('automations')
-    .insert({
-      // Clone into the same account as the original. account_id is NOT
-      // NULL post-017, so the INSERT fails the constraint without it.
-      account_id: context.accountId,
-      user_id: context.userId,
-      name: `${original.name} (Copy)`,
-      description: original.description,
-      trigger_type: original.trigger_type,
-      trigger_config: original.trigger_config,
-      is_active: false,
-    })
-    .select()
-    .single();
+  const { data: copy, error: copyErr } = await insertAutomationRow(admin, {
+    accountId: context.accountId,
+    userId: context.userId,
+    name: `${original.name} (Copy)`,
+    description: original.description,
+    triggerType: original.trigger_type,
+    triggerConfig:
+      (original.trigger_config as Record<string, unknown> | null) ?? {},
+    isActive: false,
+  });
   if (copyErr || !copy) {
     return NextResponse.json(
       { error: copyErr?.message ?? 'copy failed' },
