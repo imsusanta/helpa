@@ -27,6 +27,8 @@ import {
 } from '@/core/providers/whatsapp/evolution-go-provider';
 import { phoneFromWhatsAppJid } from '@/core/whatsapp/canonical-config';
 import {
+  extractWhatsAppPushName,
+  formatGroupInboundText,
   inboundWhatsAppContactName,
   isEvolutionGroupEvent,
   isPlaceholderContactName,
@@ -34,6 +36,7 @@ import {
 } from '@/core/whatsapp/group-identity';
 import {
   applyEvolutionGroupNameEvent,
+  resolveEvolutionGroupName,
   scheduleEvolutionGroupNameRefresh,
 } from '@/core/whatsapp/evolution-group-names';
 import { triggerAiResponse } from '@/lib/whatsapp/ai';
@@ -337,25 +340,35 @@ export async function POST(
       continue;
     }
     try {
-      const contactName = inboundWhatsAppContactName(
-        payload,
-        event.patientAddress || event.senderPhone || ''
-      );
+      const address = event.patientAddress || event.senderPhone || '';
+      const isGroup = isWhatsAppGroupAddress(address);
+      const payloadData = asRecord(payload.data ?? payload.Data);
+      if (isGroup) {
+        const labeled = formatGroupInboundText(
+          extractWhatsAppPushName(payloadData),
+          event.content || event.text || '',
+          event.contentType
+        );
+        event.content = labeled;
+        event.text = labeled;
+      }
+      let contactName = inboundWhatsAppContactName(payload, address);
+      if (isGroup && isPlaceholderContactName(contactName, address)) {
+        const fetched = await resolveEvolutionGroupName(
+          tenant.accountId,
+          address
+        );
+        if (fetched) contactName = fetched;
+        else {
+          scheduleEvolutionGroupNameRefresh(tenant.accountId, address);
+        }
+      }
       const result = await persistNormalizedInboundMessage(event, {
         accountId: tenant.accountId,
         userId: tenant.userId,
         contactName,
         correlationId: externalEventId,
       });
-      if (
-        isWhatsAppGroupAddress(event.patientAddress) &&
-        isPlaceholderContactName(contactName, event.patientAddress)
-      ) {
-        scheduleEvolutionGroupNameRefresh(
-          tenant.accountId,
-          event.patientAddress
-        );
-      }
       if (result.duplicate) duplicates += 1;
       else {
         persisted += 1;

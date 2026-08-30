@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
-const { getCurrentAccount, mockSupabaseFrom } = vi.hoisted(() => ({
-  getCurrentAccount: vi.fn(),
-  mockSupabaseFrom: vi.fn(),
-}));
+const { getCurrentAccount, mockSupabaseFrom, syncGroupNames } = vi.hoisted(
+  () => ({
+    getCurrentAccount: vi.fn(),
+    mockSupabaseFrom: vi.fn(),
+    syncGroupNames: vi.fn(async () => new Map<string, string>()),
+  })
+);
 
 vi.mock('@/lib/auth/account', () => ({
   getCurrentAccount,
@@ -20,6 +23,10 @@ vi.mock('@/lib/supabase/server', () => ({
   getAdminClient: () => ({
     from: mockSupabaseFrom,
   }),
+}));
+
+vi.mock('@/core/whatsapp/evolution-group-names', () => ({
+  syncEvolutionGroupNamesForInbox: syncGroupNames,
 }));
 
 import { GET as getConversations } from '@/app/api/inbox/conversations/route';
@@ -45,6 +52,7 @@ function createRequest(
 describe('Inbox API & Tenant Isolation Tests', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    syncGroupNames.mockResolvedValue(new Map());
     getCurrentAccount.mockResolvedValue({
       accountId: 'tenant-a',
       userId: 'user-a',
@@ -187,8 +195,57 @@ describe('Inbox API & Tenant Isolation Tests', () => {
 
       const res = await getConversations(createRequest());
       const json = await res.json();
-      expect(json.conversations[0].contact.name).toBe('WhatsApp group');
-      expect(json.conversations[0].contact.phone).toBe('120363316746745895');
+      expect(json.conversations[0].contact.name).not.toBe('120363316746745895');
+      expect(json.conversations[0].contact.name).not.toBe('WhatsApp group');
+      expect(json.conversations[0].last_message_text).toBe('hello group');
+    });
+
+    it('uses the Evolution group subject as the inbox title', async () => {
+      syncGroupNames.mockResolvedValueOnce(
+        new Map([['120363316746745895', 'Helpa Clinic Team']])
+      );
+      const mockConvQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockResolvedValue({
+          data: [
+            {
+              id: 'conv-group',
+              account_id: 'tenant-a',
+              contact_id: 'contact-group',
+              status: 'open',
+              last_message_text: 'hello group',
+            },
+          ],
+          error: null,
+        }),
+      };
+      const mockContactQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        in: vi.fn().mockResolvedValue({
+          data: [
+            {
+              id: 'contact-group',
+              account_id: 'tenant-a',
+              name: 'WhatsApp group',
+              phone: '120363316746745895',
+            },
+          ],
+        }),
+      };
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === 'conversations')
+          return mockConvQuery as unknown as Record<string, unknown>;
+        if (table === 'contacts')
+          return mockContactQuery as unknown as Record<string, unknown>;
+        return {};
+      });
+
+      const res = await getConversations(createRequest());
+      const json = await res.json();
+      expect(json.conversations[0].contact.name).toBe('Helpa Clinic Team');
     });
   });
 

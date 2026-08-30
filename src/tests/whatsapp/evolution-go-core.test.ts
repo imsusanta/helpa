@@ -8,6 +8,7 @@ import { resolveWhatsAppProvider } from '@/core/providers/whatsapp/provider-reso
 import {
   createEvolutionGoInstance,
   getEvolutionGoQr,
+  parseEvolutionGoGroups,
   sendEvolutionGoText,
   EvolutionGoConfigError,
   EvolutionGoRequestError,
@@ -287,6 +288,50 @@ describe('Evolution Go HTTP client', () => {
 describe('Evolution Go provider behaviour', () => {
   it('subscribes to GROUP events so group subjects can be resolved', () => {
     expect(EVOLUTION_GO_SUBSCRIBE_EVENTS).toContain('GROUP');
+  });
+
+  it('parses Evolution group list names', () => {
+    const groups = parseEvolutionGoGroups({
+      data: [
+        {
+          JID: '120363316746745895@g.us',
+          Name: 'Helpa Clinic Team',
+        },
+        {
+          JID: '120363424522275219@g.us',
+          Name: { Name: 'Last 100 seats' },
+        },
+      ],
+    });
+    expect(groups).toEqual([
+      { jid: '120363316746745895@g.us', name: 'Helpa Clinic Team' },
+      { jid: '120363424522275219@g.us', name: 'Last 100 seats' },
+    ]);
+  });
+
+  it('reads group text from ephemeral wrappers', async () => {
+    const provider = new EvolutionGoProvider({
+      accountId: 'tenant-a',
+      instanceToken: '',
+    });
+    const events = await provider.normalizeWebhook({
+      event: 'Message',
+      data: {
+        Info: {
+          ID: 'msg-eph',
+          Chat: '120363316746745895@g.us',
+          IsFromMe: false,
+          PushName: 'Ravi',
+        },
+        Message: {
+          ephemeralMessage: {
+            message: { conversation: 'inside the group' },
+          },
+        },
+      },
+    });
+    expect(events[0].content).toBe('inside the group');
+    expect(events[0].patientAddress).toBe('120363316746745895');
   });
 
   it('keeps the group id as the conversation key for group messages', async () => {
