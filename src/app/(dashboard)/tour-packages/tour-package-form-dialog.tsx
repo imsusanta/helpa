@@ -1,14 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import {
-  CalendarDays,
-  ImagePlus,
-  MapPin,
-  Plus,
-  Trash2,
-  Users,
-} from 'lucide-react';
+import { ImagePlus, MapPin, Plus, Trash2, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -370,6 +363,7 @@ export function TourPackageFormDialog({
                     className="mt-4 flex h-52 w-full flex-col items-center justify-center overflow-hidden rounded-xl border border-dashed border-slate-300 bg-slate-50 transition hover:bg-slate-100"
                   >
                     {form.image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={form.image_url}
                         alt="Package preview"
@@ -474,7 +468,7 @@ export function TourPackageFormDialog({
 
               <section className={`${cardClass} lg:col-span-2`}>
                 <h3 className="text-lg font-bold text-slate-900">
-                  What's Included?{' '}
+                  What&apos;s Included?{' '}
                   <span className="text-sm font-normal text-slate-500">
                     (This package has)
                   </span>
@@ -594,7 +588,7 @@ export function TourPackageFormDialog({
 
               <section className={cardClass}>
                 <h3 className="text-lg font-bold text-slate-900">
-                  What's Not Included?
+                  What&apos;s Not Included?
                 </h3>
                 <p className="mt-1 text-sm text-slate-500">
                   Tick all that apply.
