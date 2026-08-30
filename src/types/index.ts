@@ -882,7 +882,8 @@ export interface Automation {
   account_id: string;
   /** Original author. Used for log audit + outbound message
    *  sender-of-record, never for tenancy isolation. */
-  user_id: string;
+  user_id?: string;
+  created_by?: string | null;
   name: string;
   description?: string;
   trigger_type: AutomationTriggerType;
