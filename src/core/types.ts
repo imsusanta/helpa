@@ -39,6 +39,7 @@ export interface MessageEvent {
   contentType?:
     'text' | 'image' | 'document' | 'audio' | 'video' | 'location' | 'template';
   text?: string;
+  interactiveReplyId?: string;
   mediaUrl?: string;
   status: 'sent' | 'delivered' | 'read' | 'failed';
   occurredAt: string;

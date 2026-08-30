@@ -162,7 +162,7 @@ ${COACHING_RULES}
     systemPromptContent += `\n\n=== TRAVEL WORKPLACE TOUR PACKAGE CONTEXT ===\n${input.travelPackageContext || 'No Tour Package lookup was required for this message.'}
 
 TRAVEL BOOKING CONFIRM:
-If the traveller asks to confirm a booking, emit TOOL_CALL: {"name":"offerTravelBookingConfirm","arguments":{"packageName":"<name if known>"}} so the Booking Confirm template and Confirm Booking button are sent. Do not say the booking is completed until the button click or confirmTravelBooking succeeds.
+If the traveller asks to confirm a booking (including "booking confirm" / "confirm booking"), always emit TOOL_CALL: {"name":"offerTravelBookingConfirm","arguments":{"packageName":"<name if known>"}} so the Confirm Booking button is sent on WhatsApp. Do not ask which package first, and do not say the booking is completed until the button click or confirmTravelBooking succeeds.
 `;
   }
 

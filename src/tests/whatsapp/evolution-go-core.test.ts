@@ -16,6 +16,7 @@ import {
   parseEvolutionGoGroups,
   parseEvolutionGoNewsletters,
   sendEvolutionGoText,
+  sendEvolutionGoButtons,
   EvolutionGoConfigError,
   EvolutionGoRequestError,
   EVOLUTION_GO_SUBSCRIBE_EVENTS,
@@ -23,6 +24,7 @@ import {
 } from '@/core/providers/whatsapp/evolution-go-client';
 import {
   EvolutionGoProvider,
+  extractEvolutionButtonReplyId,
   hashWebhookSecret,
   redactEvolutionWebhookPayload,
   webhookSecretMatches,
@@ -268,6 +270,45 @@ describe('Evolution Go HTTP client', () => {
     );
   });
 
+  it('sends reply buttons through POST /send/button', async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ data: { key: { id: 'wamid.btn.1' } } }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    const result = await sendEvolutionGoButtons('tenant-instance-token', {
+      number: '919876543210',
+      title: 'Booking Confirm',
+      description: 'Tap Confirm Booking',
+      buttons: [
+        { id: 'travel_booking_confirm', title: 'Confirm Booking' },
+        { id: 'travel_booking_later', title: 'Not yet' },
+      ],
+    });
+    expect(result.externalMessageId).toBe('wamid.btn.1');
+    const firstCall = fetchMock.mock.calls[0] as unknown as
+      [RequestInfo | URL, RequestInit | undefined] | undefined;
+    expect(firstCall?.[0]).toBe('https://evolution.test/send/button');
+    expect(JSON.parse(String(firstCall?.[1]?.body))).toEqual(
+      expect.objectContaining({
+        number: '919876543210',
+        title: 'Booking Confirm',
+        description: 'Tap Confirm Booking',
+        buttons: [
+          {
+            type: 'reply',
+            displayText: 'Confirm Booking',
+            id: 'travel_booking_confirm',
+          },
+          { type: 'reply', displayText: 'Not yet', id: 'travel_booking_later' },
+        ],
+      })
+    );
+  });
+
   it('sanitizes remote errors and never returns secret values', async () => {
     const fetchMock = vi.fn(
       async () =>
@@ -292,6 +333,19 @@ describe('Evolution Go HTTP client', () => {
 });
 
 describe('Evolution Go provider behaviour', () => {
+  it('reads Confirm Booking reply ids from Evolution button taps', () => {
+    expect(
+      extractEvolutionButtonReplyId({
+        message: {
+          buttonsResponseMessage: {
+            selectedButtonId: 'travel_booking_confirm',
+            selectedDisplayText: 'Confirm Booking',
+          },
+        },
+      })
+    ).toBe('travel_booking_confirm');
+  });
+
   it('subscribes to GROUP events so group subjects can be resolved', () => {
     expect(EVOLUTION_GO_SUBSCRIBE_EVENTS).toContain('GROUP');
     expect(EVOLUTION_GO_SUBSCRIBE_EVENTS).toContain('NEWSLETTER');

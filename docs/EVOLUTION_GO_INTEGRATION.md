@@ -84,6 +84,7 @@ Instance-token routes:
 - `DELETE /instance/logout`
 - `POST /send/text` body `{ number, text, formatJid }`
 - `POST /send/media` body `{ number, url, type, caption, filename, formatJid }`
+- `POST /send/button` body `{ number, title, description, footer, buttons[], formatJid }` — reply buttons only (up to 3)
 
 Helpa subscribes to `MESSAGE`, `CONNECTION`, `READ_RECEIPT`, `QRCODE`, `GROUP`.
 Evolution Go v0.7.2 webhooks are unsigned JSON POSTs; Helpa authenticates
