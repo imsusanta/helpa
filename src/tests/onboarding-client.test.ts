@@ -136,8 +136,25 @@ describe('Helpa Client Onboarding Suite (Phase 2A)', () => {
 
       if (table === 'knowledge_base') {
         return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({
+              data: dbStore.knowledgeBase,
+              error: null,
+            }),
+          }),
           delete: vi.fn().mockReturnValue({
-            eq: vi.fn().mockResolvedValue({ error: null }),
+            eq: vi.fn().mockReturnValue({
+              in: vi.fn().mockImplementation((_column: string, ids: string[]) => {
+                dbStore.knowledgeBase = dbStore.knowledgeBase.filter(
+                  (row) => !ids.includes(String(row.id))
+                );
+                return Promise.resolve({ error: null });
+              }),
+              then: (
+                onFulfilled?: (value: { error: null }) => unknown,
+                onRejected?: (reason: unknown) => unknown
+              ) => Promise.resolve({ error: null }).then(onFulfilled, onRejected),
+            }),
           }),
           insert: vi.fn().mockImplementation((rows) => {
             dbStore.knowledgeBase.push(...rows);
@@ -270,7 +287,45 @@ describe('Helpa Client Onboarding Suite (Phase 2A)', () => {
     expect(String(salonKb?.answer_content)).toContain('₹1,200');
   });
 
-  it('3. Rejects onboarding if industry is missing', async () => {
+  it('3. Keeps tenant-authored knowledge base rows when changing template', async () => {
+    dbStore.knowledgeBase = [
+      {
+        id: 'kb-user-1',
+        account_id: 'acc-tenant-999',
+        question_title: 'Our weekend fasting package includes CBC',
+        answer_content: 'Book at reception.',
+      },
+      {
+        id: 'kb-seed-1',
+        account_id: 'acc-tenant-999',
+        question_title: 'Company Hours',
+        answer_content: 'Old general hours.',
+      },
+    ];
+
+    const req = new Request('http://localhost:3000/api/account/onboard', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        industry: 'hospital_clinic',
+        name: 'Dr. Sharma Healthcare Clinic',
+      }),
+    });
+
+    const res = await handleOnboard(req);
+    expect(res.status).toBe(200);
+
+    const titles = dbStore.knowledgeBase.map((row) => row.question_title);
+    expect(titles).toContain('Our weekend fasting package includes CBC');
+    expect(titles).not.toContain('Company Hours');
+    expect(
+      titles.some((title) =>
+        String(title).includes('OPD Consultation Hours')
+      )
+    ).toBe(true);
+  });
+
+  it('4. Rejects onboarding if industry is missing', async () => {
     const req = new Request('http://localhost:3000/api/account/onboard', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -283,7 +338,7 @@ describe('Helpa Client Onboarding Suite (Phase 2A)', () => {
     expect(data.error).toBe('Industry selection is required.');
   });
 
-  it('4. Successfully simulates AI customer questions via /api/account/ai/test', async () => {
+  it('5. Successfully simulates AI customer questions via /api/account/ai/test', async () => {
     const req = new Request('http://localhost:3000/api/account/ai/test', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

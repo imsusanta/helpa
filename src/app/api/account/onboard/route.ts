@@ -8,6 +8,7 @@ import {
 } from '@/modules/registry';
 import { insertSteps } from '@/lib/automations/steps-tree';
 import { insertAutomationRow } from '@/lib/automations/insert-row';
+import { isSeededKnowledgeTitle } from '@/lib/knowledge-base/seeded';
 
 export async function POST(request: Request) {
   try {
@@ -247,10 +248,28 @@ export async function POST(request: Request) {
 
     // 4. Pre-seed Knowledge Base entries (Custom services + Industry templates)
     try {
-      await admin
+      const { data: existingKb } = await admin
         .from('knowledge_base')
-        .delete()
+        .select('id, question_title')
         .eq('account_id', ctx.accountId);
+
+      const seededIds = (existingKb ?? [])
+        .filter((row) => isSeededKnowledgeTitle(row.question_title))
+        .map((row) => row.id);
+      const remainingTitles = new Set(
+        (existingKb ?? [])
+          .filter((row) => !seededIds.includes(row.id))
+          .map((row) => String(row.question_title || '').trim())
+          .filter(Boolean)
+      );
+
+      if (seededIds.length > 0) {
+        await admin
+          .from('knowledge_base')
+          .delete()
+          .eq('account_id', ctx.accountId)
+          .in('id', seededIds);
+      }
 
       const kbToInsert: Array<{
         account_id: string;
@@ -304,8 +323,12 @@ export async function POST(request: Request) {
         });
       }
 
-      if (kbToInsert.length > 0) {
-        await admin.from('knowledge_base').insert(kbToInsert);
+      const uniqueKbToInsert = kbToInsert.filter(
+        (row) => !remainingTitles.has(row.question_title)
+      );
+
+      if (uniqueKbToInsert.length > 0) {
+        await admin.from('knowledge_base').insert(uniqueKbToInsert);
       }
     } catch (kbErr) {
       console.warn('[onboard route] soft error seeding knowledge base:', kbErr);
