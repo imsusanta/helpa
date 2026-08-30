@@ -7,6 +7,8 @@ import {
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
 import { checkPlanLimits } from '@/lib/saas/subscription';
 
+import { isIndividualContact } from '@/core/whatsapp/group-identity';
+
 const PRIVATE_HEADERS = {
   'Cache-Control': 'private, no-store, no-cache, must-revalidate',
 };
@@ -84,7 +86,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       return errorResponse(502, 'CONTACTS_QUERY_FAILED', correlationId);
     }
 
-    const rows = contacts || [];
+    const rows = (contacts || []).filter((contact) =>
+      isIndividualContact(contact)
+    );
     return NextResponse.json(
       {
         data: rows.map((contact) => ({
@@ -102,7 +106,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           created_at: contact.created_at,
           updated_at: contact.updated_at,
         })),
-        total: count ?? rows.length,
+        total: count ? rows.length : rows.length,
         limit,
         offset,
         requestId: correlationId,

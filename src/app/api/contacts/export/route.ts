@@ -5,6 +5,7 @@ import {
   requireRole,
 } from '@/lib/auth/account';
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
+import { isIndividualContact } from '@/core/whatsapp/group-identity';
 
 import { sanitizeCsvValue } from '@/lib/csv-utils';
 
@@ -49,8 +50,12 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       );
     }
 
+    const validContacts = (contacts || []).filter((c) =>
+      isIndividualContact(c)
+    );
+
     // Fetch tags for exported contacts
-    const contactIds = (contacts || []).map((c) => c.id);
+    const contactIds = validContacts.map((c) => c.id);
     const contactTagMap: Record<string, string[]> = {};
     if (contactIds.length > 0) {
       const { data: tagRows } = await supabase
@@ -86,7 +91,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     const csvRows = [headers.map(sanitizeCsvValue).join(',')];
 
-    for (const c of contacts || []) {
+    for (const c of validContacts) {
       const tags = (contactTagMap[c.id] || []).join('; ');
       const row = [
         c.name || '',

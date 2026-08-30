@@ -33,6 +33,8 @@ import {
   inboundWhatsAppContactName,
   isEvolutionGroupEvent,
   isPlaceholderContactName,
+  isWhatsAppGroupAddress,
+  isValidIndividualPhone,
   whatsappChatKind,
 } from '@/core/whatsapp/group-identity';
 import {

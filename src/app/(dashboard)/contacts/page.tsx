@@ -66,6 +66,7 @@ import { GatedButton } from '@/components/ui/gated-button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { SavedFilterBar } from '@/components/crm/saved-filter-bar';
 import { getOrGeneratePatientId } from '@/lib/patients/id-generator';
+import { isIndividualContact } from '@/core/whatsapp/group-identity';
 
 const PAGE_SIZE = 25;
 
@@ -511,9 +512,10 @@ export default function ContactsPage() {
         toast.error(message);
         return;
       }
-      const data = payload?.data ?? [];
+      const rawData = payload?.data ?? [];
+      const data = rawData.filter((c) => isIndividualContact(c));
 
-      setTotalCount(payload?.total ?? 0);
+      setTotalCount(payload?.total ?? data.length);
 
       if (!data || data.length === 0) {
         setContacts([]);
