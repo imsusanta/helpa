@@ -1,0 +1,1 @@
+Temporary implementation marker. Tour package create flow is being aligned with the requested form UI and persistence model.
