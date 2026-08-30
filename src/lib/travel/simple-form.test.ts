@@ -89,7 +89,15 @@ describe('simple tour package form', () => {
       ...occupancyForPriceType('Per Couple'),
     });
     expect(payload.itineraries).toEqual([
-      { day_number: 1, title: 'Arrive', description: 'Check-in' },
+      {
+        day_number: 1,
+        title: 'Arrive',
+        description: 'Check-in',
+        activities: null,
+        meals: null,
+        hotel: null,
+        overnight_location: null,
+      },
     ]);
     expect(payload.min_people).toBe(DEFAULT_MIN_PEOPLE);
     expect(payload.max_people).toBe(DEFAULT_MAX_PEOPLE);
