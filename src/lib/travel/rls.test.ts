@@ -51,3 +51,39 @@ describe('tour package RLS migration', () => {
     expect(migration).toContain('idx_tour_package_itineraries_package_id');
   });
 });
+
+describe('tour package simple form columns', () => {
+  it('adds cover image and price type without opening RLS', () => {
+    const followUp = readFileSync(
+      'supabase/migrations/20260830140000_tour_package_simple_fields.sql',
+      'utf8'
+    );
+    expect(followUp).toContain('cover_image_url');
+    expect(followUp).toContain('price_type');
+    expect(followUp).not.toMatch(/using\s*\(\s*true\s*\)/i);
+  });
+
+  it('adds main-line image, price_for, and party size without opening RLS', () => {
+    const followUp = readFileSync(
+      'supabase/migrations/20260830140000_tour_package_create_form_fields.sql',
+      'utf8'
+    );
+    expect(followUp).toContain('image_url');
+    expect(followUp).toContain('price_for');
+    expect(followUp).toContain('min_people');
+    expect(followUp).toContain('max_people');
+    expect(followUp).not.toMatch(/using\s*\(\s*true\s*\)/i);
+  });
+
+  it('adds party size columns with range checks and without opening RLS', () => {
+    const followUp = readFileSync(
+      'supabase/migrations/20260830150000_tour_package_party_size.sql',
+      'utf8'
+    );
+    expect(followUp).toContain('min_people');
+    expect(followUp).toContain('max_people');
+    expect(followUp).toContain('min_people >= 1');
+    expect(followUp).toContain('max_people >= min_people');
+    expect(followUp).not.toMatch(/using\s*\(\s*true\s*\)/i);
+  });
+});

@@ -111,6 +111,19 @@ export async function PATCH(
     if (err instanceof ForbiddenError) {
       return errorResponse(403, 'TRAVEL_WORKPLACE_REQUIRED', correlationId);
     }
+    const code =
+      err instanceof Error ? err.message : 'TOUR_PACKAGE_SAVE_FAILED';
+    if (
+      code === 'PACKAGE_PARTY_SIZE_INVALID' ||
+      code === 'TOUR_PACKAGE_PEOPLE_RANGE_INVALID'
+    ) {
+      return errorResponse(
+        400,
+        code,
+        correlationId,
+        'Party size must be at least 1, and max must be at least min.'
+      );
+    }
     return errorResponse(
       500,
       'TOUR_PACKAGE_SAVE_FAILED',

@@ -47,16 +47,27 @@ function mapPackage(row: Record<string, unknown>): TourPackage {
     duration_nights: Number(row.duration_nights || 0),
     starting_price: asNumber(row.starting_price),
     currency: String(row.currency || 'INR'),
-    price_for: String(row.price_for || 'Per Person'),
-    image_url: (row.image_url as string | null) ?? null,
-    min_people: asNumber(row.min_people),
-    max_people: asNumber(row.max_people),
+    price_for: String(row.price_for || row.price_type || 'Per Person'),
+    image_url:
+      (row.image_url as string | null) ??
+      (row.cover_image_url as string | null) ??
+      null,
     status: row.status === 'inactive' ? 'inactive' : 'active',
     featured: Boolean(row.featured),
     valid_from: (row.valid_from as string | null) ?? null,
     valid_until: (row.valid_until as string | null) ?? null,
     booking_notes: (row.booking_notes as string | null) ?? null,
     terms_and_conditions: (row.terms_and_conditions as string | null) ?? null,
+    cover_image_url:
+      (row.cover_image_url as string | null) ??
+      (row.image_url as string | null) ??
+      null,
+    price_type:
+      (row.price_type as string | null) ??
+      (row.price_for as string | null) ??
+      null,
+    min_people: asNumber(row.min_people),
+    max_people: asNumber(row.max_people),
     created_at: String(row.created_at || ''),
     updated_at: String(row.updated_at || ''),
   };
@@ -267,16 +278,23 @@ function sanitizeWrite(input: TourPackageWriteInput): Record<string, unknown> {
       ? days - 1
       : Number(input.duration_nights) || 0
   );
-  const minPeople =
-    input.min_people == null
-      ? null
-      : Math.max(1, Number(input.min_people) || 1);
-  const maxPeople =
-    input.max_people == null
-      ? null
-      : Math.max(1, Number(input.max_people) || 1);
-  if (minPeople != null && maxPeople != null && maxPeople < minPeople)
-    throw new Error('TOUR_PACKAGE_PEOPLE_RANGE_INVALID');
+  const minPeople = sanitizePeopleCount(input.min_people);
+  const maxPeople = sanitizePeopleCount(input.max_people);
+  if (minPeople != null && minPeople < 1) {
+    throw new Error('PACKAGE_PARTY_SIZE_INVALID');
+  }
+  if (maxPeople != null && maxPeople < 1) {
+    throw new Error('PACKAGE_PARTY_SIZE_INVALID');
+  }
+  if (minPeople != null && maxPeople != null && maxPeople < minPeople) {
+    throw new Error('PACKAGE_PARTY_SIZE_INVALID');
+  }
+  const priceType =
+    input.price_type?.trim() || input.price_for?.trim() || 'Per Person';
+  const imageUrl =
+    sanitizeCoverImageUrl(input.cover_image_url) ||
+    sanitizeCoverImageUrl(input.image_url);
+
   return {
     name,
     destination,
@@ -288,18 +306,73 @@ function sanitizeWrite(input: TourPackageWriteInput): Record<string, unknown> {
     starting_price:
       input.starting_price == null ? null : Number(input.starting_price),
     currency: input.currency?.trim() || 'INR',
-    price_for: input.price_for?.trim() || 'Per Person',
-    image_url: input.image_url?.trim() || null,
-    min_people: minPeople,
-    max_people: maxPeople,
+    price_for: priceType,
+    image_url: imageUrl,
     status: input.status === 'inactive' ? 'inactive' : 'active',
     featured: Boolean(input.featured),
     valid_from: input.valid_from || null,
     valid_until: input.valid_until || null,
     booking_notes: input.booking_notes?.trim() || null,
     terms_and_conditions: input.terms_and_conditions?.trim() || null,
+    cover_image_url: imageUrl,
+    price_type: priceType,
+    min_people: minPeople,
+    max_people: maxPeople,
     updated_at: new Date().toISOString(),
   };
+}
+
+function sanitizePeopleCount(value: unknown): number | null {
+  if (value == null || value === '') return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  return Math.trunc(parsed);
+}
+
+function sanitizeCoverImageUrl(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const url = value.trim();
+  if (!url || url.length > 2000) return null;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:')
+      return null;
+    return url;
+  } catch {
+    return null;
+  }
+}
+
+async function replaceChildRows(
+  db: AdminClient,
+  accountId: string,
+  packageId: string,
+  table: string,
+  rows: Record<string, unknown>[]
+): Promise<void> {
+  const { error: deleteError } = await db
+    .from(table)
+    .delete()
+    .eq('account_id', accountId)
+    .eq('package_id', packageId);
+  if (deleteError) {
+    logger.error('Tour package child replace failed', {
+      component: 'tour-packages',
+      accountId,
+      error: deleteError.message,
+    });
+    throw new Error('TOUR_PACKAGE_SAVE_FAILED');
+  }
+  if (!rows.length) return;
+  const { error: insertError } = await db.from(table).insert(rows);
+  if (insertError) {
+    logger.error('Tour package child insert failed', {
+      component: 'tour-packages',
+      accountId,
+      error: insertError.message,
+    });
+    throw new Error('TOUR_PACKAGE_SAVE_FAILED');
+  }
 }
 
 async function replaceChildren(
@@ -307,97 +380,132 @@ async function replaceChildren(
   accountId: string,
   packageId: string,
   input: TourPackageWriteInput
-) {
-  const deletes = await Promise.all(
-    Object.values(CHILD_TABLES).map((table) =>
-      db
-        .from(table)
-        .delete()
-        .eq('account_id', accountId)
-        .eq('package_id', packageId)
-    )
-  );
-  if (deletes.find((r) => r.error)) throw new Error('TOUR_PACKAGE_SAVE_FAILED');
-  const inserts: PromiseLike<{ error: { message: string } | null }>[] = [];
-  const itineraries = (input.itineraries || [])
-    .filter(
-      (r) => r.title || r.description || r.activities || r.meals || r.hotel
-    )
-    .map((r, i) => ({
-      account_id: accountId,
-      package_id: packageId,
-      day_number: Number(r.day_number) || i + 1,
-      title: r.title?.trim() || null,
-      description: r.description?.trim() || null,
-      activities: r.activities?.trim() || null,
-      meals: r.meals?.trim() || null,
-      hotel: r.hotel?.trim() || null,
-      overnight_location: r.overnight_location?.trim() || null,
-    }));
-  if (itineraries.length)
-    inserts.push(db.from(CHILD_TABLES.itineraries).insert(itineraries));
-  const inclusions = (input.inclusions || [])
-    .map((r) => r.item?.trim())
-    .filter(Boolean)
-    .map((item) => ({ account_id: accountId, package_id: packageId, item }));
-  if (inclusions.length)
-    inserts.push(db.from(CHILD_TABLES.inclusions).insert(inclusions));
-  const exclusions = (input.exclusions || [])
-    .map((r) => r.item?.trim())
-    .filter(Boolean)
-    .map((item) => ({ account_id: accountId, package_id: packageId, item }));
-  if (exclusions.length)
-    inserts.push(db.from(CHILD_TABLES.exclusions).insert(exclusions));
-  const hotels = (input.hotels || [])
-    .filter((r) => r.hotel_name?.trim())
-    .map((r) => ({
-      account_id: accountId,
-      package_id: packageId,
-      city: r.city?.trim() || null,
-      hotel_name: r.hotel_name.trim(),
-      star_category: r.star_category?.trim() || null,
-      room_type: r.room_type?.trim() || null,
-      meal_plan: r.meal_plan?.trim() || null,
-      notes: r.notes?.trim() || null,
-    }));
-  if (hotels.length) inserts.push(db.from(CHILD_TABLES.hotels).insert(hotels));
-  const pricing = (input.pricing || [])
-    .filter((r) => r.price != null)
-    .map((r) => ({
-      account_id: accountId,
-      package_id: packageId,
-      pricing_name: r.pricing_name?.trim() || null,
-      adults: Math.max(1, Number(r.adults) || 2),
-      children: Math.max(0, Number(r.children) || 0),
-      occupancy_type: r.occupancy_type?.trim() || null,
-      price: Number(r.price),
-      currency: r.currency?.trim() || 'INR',
-      extra_bed: r.extra_bed == null ? null : Number(r.extra_bed),
-      valid_from: r.valid_from || null,
-      valid_until: r.valid_until || null,
-      notes: r.notes?.trim() || null,
-    }));
-  if (pricing.length)
-    inserts.push(db.from(CHILD_TABLES.pricing).insert(pricing));
-  const departures = (input.departures || [])
-    .filter((r) => r.departure_date)
-    .map((r) => ({
-      account_id: accountId,
-      package_id: packageId,
-      departure_date: r.departure_date,
-      return_date: r.return_date || null,
-      total_seats: r.total_seats == null ? null : Number(r.total_seats),
-      available_seats:
-        r.available_seats == null ? null : Number(r.available_seats),
-      price: r.price == null ? null : Number(r.price),
-      currency: r.currency?.trim() || 'INR',
-      status: r.status || 'open',
-      notes: r.notes?.trim() || null,
-    }));
-  if (departures.length)
-    inserts.push(db.from(CHILD_TABLES.departures).insert(departures));
-  const results = await Promise.all(inserts);
-  if (results.find((r) => r.error)) throw new Error('TOUR_PACKAGE_SAVE_FAILED');
+): Promise<void> {
+  if (input.itineraries !== undefined) {
+    await replaceChildRows(
+      db,
+      accountId,
+      packageId,
+      CHILD_TABLES.itineraries,
+      input.itineraries
+        .filter((row) => row.title || row.description || row.activities)
+        .map((row, index) => ({
+          account_id: accountId,
+          package_id: packageId,
+          day_number: Number(row.day_number) || index + 1,
+          title: row.title?.trim() || null,
+          description: row.description?.trim() || null,
+          activities: row.activities?.trim() || null,
+          meals: row.meals?.trim() || null,
+          hotel: row.hotel?.trim() || null,
+          overnight_location: row.overnight_location?.trim() || null,
+        }))
+    );
+  }
+
+  if (input.inclusions !== undefined) {
+    await replaceChildRows(
+      db,
+      accountId,
+      packageId,
+      CHILD_TABLES.inclusions,
+      input.inclusions
+        .map((row) => row.item?.trim())
+        .filter(Boolean)
+        .map((item) => ({
+          account_id: accountId,
+          package_id: packageId,
+          item,
+        }))
+    );
+  }
+
+  if (input.exclusions !== undefined) {
+    await replaceChildRows(
+      db,
+      accountId,
+      packageId,
+      CHILD_TABLES.exclusions,
+      input.exclusions
+        .map((row) => row.item?.trim())
+        .filter(Boolean)
+        .map((item) => ({
+          account_id: accountId,
+          package_id: packageId,
+          item,
+        }))
+    );
+  }
+
+  if (input.hotels !== undefined) {
+    await replaceChildRows(
+      db,
+      accountId,
+      packageId,
+      CHILD_TABLES.hotels,
+      input.hotels
+        .filter((row) => row.hotel_name?.trim())
+        .map((row) => ({
+          account_id: accountId,
+          package_id: packageId,
+          city: row.city?.trim() || null,
+          hotel_name: row.hotel_name.trim(),
+          star_category: row.star_category?.trim() || null,
+          room_type: row.room_type?.trim() || null,
+          meal_plan: row.meal_plan?.trim() || null,
+          notes: row.notes?.trim() || null,
+        }))
+    );
+  }
+
+  if (input.pricing !== undefined) {
+    await replaceChildRows(
+      db,
+      accountId,
+      packageId,
+      CHILD_TABLES.pricing,
+      input.pricing
+        .filter((row) => row.price != null && row.price !== ('' as never))
+        .map((row) => ({
+          account_id: accountId,
+          package_id: packageId,
+          pricing_name: row.pricing_name?.trim() || null,
+          adults: Math.max(1, Number(row.adults) || 2),
+          children: Math.max(0, Number(row.children) || 0),
+          occupancy_type: row.occupancy_type?.trim() || null,
+          price: Number(row.price),
+          currency: row.currency?.trim() || 'INR',
+          extra_bed: row.extra_bed == null ? null : Number(row.extra_bed),
+          valid_from: row.valid_from || null,
+          valid_until: row.valid_until || null,
+          notes: row.notes?.trim() || null,
+        }))
+    );
+  }
+
+  if (input.departures !== undefined) {
+    await replaceChildRows(
+      db,
+      accountId,
+      packageId,
+      CHILD_TABLES.departures,
+      input.departures
+        .filter((row) => row.departure_date)
+        .map((row) => ({
+          account_id: accountId,
+          package_id: packageId,
+          departure_date: row.departure_date,
+          return_date: row.return_date || null,
+          total_seats: row.total_seats == null ? null : Number(row.total_seats),
+          available_seats:
+            row.available_seats == null ? null : Number(row.available_seats),
+          price: row.price == null ? null : Number(row.price),
+          currency: row.currency?.trim() || 'INR',
+          status: row.status || 'open',
+          notes: row.notes?.trim() || null,
+        }))
+    );
+  }
 }
 
 export async function createTourPackage(
@@ -548,6 +656,7 @@ export function publicRankedPackage(row: RankedTourPackage) {
     duration_nights: pkg.duration_nights,
     starting_price: row.matchedPrice,
     currency: row.matchedCurrency || pkg.currency,
+    price_type: pkg.price_type,
     package_type: pkg.package_type,
     category: pkg.category,
     status: pkg.status,

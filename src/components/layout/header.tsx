@@ -18,6 +18,7 @@ import {
   User,
   Users,
   Receipt,
+  MapPin,
   Zap,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -129,6 +130,17 @@ export function Header({ onOpenSidebar }: HeaderProps) {
               New {terminology.pipelineItem} / {terminology.pipeline}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
+            <DropdownMenuItem
+              render={
+                <Link
+                  href="/tour-packages"
+                  className="flex items-center gap-2 font-medium"
+                />
+              }
+            >
+              <MapPin className="h-4 w-4 text-emerald-500" />
+              New Tour Package
+            </DropdownMenuItem>
             <DropdownMenuItem
               render={
                 <Link

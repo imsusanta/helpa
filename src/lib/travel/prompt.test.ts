@@ -25,6 +25,10 @@ const kashmir: TourPackageDetail = {
   valid_until: '2026-12-31',
   booking_notes: null,
   terms_and_conditions: null,
+  cover_image_url: null,
+  price_type: 'Per Person',
+  min_people: 2,
+  max_people: 20,
   created_at: '',
   updated_at: '',
   itineraries: [
