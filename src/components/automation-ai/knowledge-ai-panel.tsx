@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { Sparkles, BookOpen, HelpCircle, Bot, ArrowRight } from 'lucide-react';
 
 import {
@@ -10,9 +9,11 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
+import { useWorkspace } from '@/hooks/use-workspace';
+import { getIndustryAiPreset } from '@/lib/ai/industry-ai-presets';
+import type { KnowledgeBaseTab } from '@/lib/knowledge-base/tabs';
 
 import { AiStatCard } from './ai-stat-card';
 import { useAiStats } from './use-ai-stats';
@@ -22,7 +23,13 @@ import { useAiStats } from './use-ai-stats';
  * AI, shown above the knowledge-base editor. Every figure comes from the live
  * /api/ai/stats endpoint — nothing is fabricated.
  */
-export function KnowledgeAiPanel() {
+export function KnowledgeAiPanel({
+  onOpenTab,
+}: {
+  onOpenTab?: (tab: KnowledgeBaseTab) => void;
+}) {
+  const { currentIndustry } = useWorkspace();
+  const preset = getIndustryAiPreset(currentIndustry);
   const { ai, loading } = useAiStats();
 
   return (
@@ -38,8 +45,8 @@ export function KnowledgeAiPanel() {
           ) : null}
         </div>
         <CardDescription>
-          Every entry below is used by your WhatsApp AI to answer customers.
-          Keep it accurate and complete for the best replies.
+          Every entry below is used by your WhatsApp {preset.assistantRole} to
+          answer customers. Keep it accurate and complete for the best replies.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -69,22 +76,28 @@ export function KnowledgeAiPanel() {
             accent="violet"
           />
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Link
-            href="/faq-bot"
-            className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
-          >
-            Manage FAQ answers
-            <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-          </Link>
-          <Link
-            href="/chatbot"
-            className={cn(buttonVariants({ variant: 'outline', size: 'sm' }))}
-          >
-            Chatbot settings
-            <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-          </Link>
-        </div>
+        {onOpenTab ? (
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onOpenTab('faq')}
+            >
+              Manage FAQ answers
+              <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onOpenTab('receptionist')}
+            >
+              {preset.assistantRole} settings
+              <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+            </Button>
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );

@@ -144,7 +144,7 @@ const nextConfig: NextConfig = {
       },
       {
         source:
-          '/:path(dashboard|inbox|contacts|patients|appointments|bookings|doctors|departments|lab-reports|settings|admin|pipelines|broadcasts|campaign-reports|automations|admissions|agents|billing|classes|courses|customers|follow-ups|knowledge-base|leads|lead-forms|members|memberships|orders|packages|tour-packages|properties|reservations|site-visits|students|tables|teachers|trainers)',
+          '/:path(dashboard|inbox|contacts|patients|appointments|booking-trip|bookings|doctors|departments|lab-reports|settings|admin|pipelines|broadcasts|campaign-reports|automations|admissions|agents|billing|classes|courses|customers|follow-ups|knowledge-base|chatbot|faq-bot|leads|lead-forms|members|memberships|orders|packages|tour-packages|properties|reservations|site-visits|students|tables|teachers|trainers)',
         headers: [
           {
             key: 'Cache-Control',
@@ -154,7 +154,7 @@ const nextConfig: NextConfig = {
       },
       {
         source:
-          '/:path(dashboard|inbox|contacts|patients|appointments|bookings|doctors|departments|lab-reports|settings|admin|pipelines|broadcasts|campaign-reports|automations|admissions|agents|billing|classes|courses|customers|follow-ups|knowledge-base|leads|lead-forms|members|memberships|orders|packages|tour-packages|properties|reservations|site-visits|students|tables|teachers|trainers)/:rest*',
+          '/:path(dashboard|inbox|contacts|patients|appointments|booking-trip|bookings|doctors|departments|lab-reports|settings|admin|pipelines|broadcasts|campaign-reports|automations|admissions|agents|billing|classes|courses|customers|follow-ups|knowledge-base|chatbot|faq-bot|leads|lead-forms|members|memberships|orders|packages|tour-packages|properties|reservations|site-visits|students|tables|teachers|trainers)/:rest*',
         headers: [
           {
             key: 'Cache-Control',

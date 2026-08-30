@@ -1,13 +1,12 @@
-'use client';
+import { KnowledgeBaseWorkspace } from '@/components/knowledge-base/knowledge-base-workspace';
 
-import { KbPanel } from '@/components/settings/kb-panel';
-import { KnowledgeAiPanel } from '@/components/automation-ai/knowledge-ai-panel';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+export const metadata = {
+  title: 'Knowledge Base - Helpa',
+};
 
 export default function KnowledgeBasePage() {
-  return (
-    <div className="animate-in fade-in-50 space-y-6 duration-200">
-      <KnowledgeAiPanel />
-      <KbPanel />
-    </div>
-  );
+  return <KnowledgeBaseWorkspace />;
 }

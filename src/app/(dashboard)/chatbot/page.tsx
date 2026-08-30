@@ -1,11 +1,9 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import { ChatbotConsole } from '@/components/automation-ai/chatbot-console';
+export const metadata = {
+  title: 'AI Receptionist - Helpa',
+};
 
 export default function ChatbotPage() {
-  return (
-    <div className="animate-in fade-in-50 space-y-6 duration-200">
-      <ChatbotConsole />
-    </div>
-  );
+  redirect('/knowledge-base?tab=receptionist');
 }

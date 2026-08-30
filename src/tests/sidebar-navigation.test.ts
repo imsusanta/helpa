@@ -105,6 +105,40 @@ describe('authenticated sidebar navigation', () => {
     expect(isIndustryRouteAllowed(travelManifest, '/tour-packages')).toBe(true);
   });
 
+  it('keeps Knowledge Base as the only Automation & AI surface for chatbot and FAQ', () => {
+    const travelManifest = getIndustryModule('travel');
+    const travelNavigation = buildVisibleNavigation({
+      navigation: NAV,
+      terminology: getIndustryTerminology('travel'),
+      currentIndustry: 'travel',
+      isSuperAdmin: false,
+      manifest: travelManifest,
+      isRouteAllowed: (pathname) =>
+        isIndustryRouteAllowed(travelManifest, pathname),
+    });
+    const automation = travelNavigation.find(
+      (item) => item.id === 'automation-ai'
+    );
+    expect(automation?.children?.map((child) => child.href)).toEqual([
+      '/knowledge-base',
+      '/automations',
+    ]);
+    expect(
+      automation?.children?.some((child) => child.href === '/chatbot')
+    ).toBe(false);
+    expect(
+      automation?.children?.some((child) => child.href === '/faq-bot')
+    ).toBe(false);
+
+    const clinicAutomation = hospitalNavigation.find(
+      (item) => item.id === 'automation-ai'
+    );
+    expect(clinicAutomation?.children?.map((child) => child.href)).toEqual([
+      '/knowledge-base',
+      '/automations',
+    ]);
+  });
+
   it('keeps clinic operations out of general workspaces', () => {
     const generalNavigation = buildVisibleNavigation({
       navigation: NAV,
