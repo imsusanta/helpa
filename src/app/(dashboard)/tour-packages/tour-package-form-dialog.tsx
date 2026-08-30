@@ -237,7 +237,9 @@ export function TourPackageFormDialog({
               {packageId ? 'Edit Tour Package' : 'Create Tour Package'}
             </DialogTitle>
             <DialogDescription className="mt-0.5 text-xs text-emerald-700/70">
-              Add a new travel package to your catalog
+              {packageId
+                ? 'Update this package in your catalog'
+                : 'Add a new travel package to your catalog'}
             </DialogDescription>
           </div>
           <div className="flex shrink-0 items-center gap-2">
