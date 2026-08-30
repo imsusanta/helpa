@@ -357,7 +357,9 @@ async function replaceChildren(
     throw new Error('TOUR_PACKAGE_SAVE_FAILED');
   }
 
-  const inserts: Array<Promise<{ error: { message: string } | null }>> = [];
+  const inserts: Array<
+    PromiseLike<{ error: { message: string } | null }>
+  > = [];
 
   const itineraries = (input.itineraries || [])
     .filter((row) => row.title || row.description || row.activities)
