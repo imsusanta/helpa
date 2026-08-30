@@ -26,6 +26,14 @@ import {
 import { toast } from 'sonner';
 import { salesApi } from '@/lib/sales/api-client';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/use-auth';
+import { resolveIndustryAlias } from '@/modules/terminology';
+import {
+  fetchTourPackage,
+  fetchTourPackages,
+} from '@/lib/travel/api-client';
+import { tourPackageToProposalPrefill } from '@/lib/travel/proposal-adapter';
+import type { TourPackage } from '@/lib/travel/types';
 import {
   CREATE_TRIP_PROPOSAL_STEPS,
   TRIP_PROPOSAL_CREATE_DIALOG_CLASSNAME,
@@ -147,10 +155,15 @@ export function CreateTripProposalDialog({
   onOpenChange: (open: boolean) => void;
   onCreated: () => void;
 }) {
+  const { account } = useAuth();
+  const isTravelWorkplace =
+    resolveIndustryAlias(account?.industry) === 'travel';
   const [step, setStep] = useState(0);
   const [contacts, setContacts] = useState<
     Array<{ id: string; name: string; phone: string }>
   >([]);
+  const [packages, setPackages] = useState<TourPackage[]>([]);
+  const [selectedPackageId, setSelectedPackageId] = useState('');
   const [saving, setSaving] = useState(false);
   const [contactId, setContactId] = useState('');
   const [validUntil, setValidUntil] = useState('');
@@ -167,7 +180,12 @@ export function CreateTripProposalDialog({
     )
       .then((data) => setContacts(Array.isArray(data) ? data : []))
       .catch(() => {});
-  }, [open]);
+    if (isTravelWorkplace) {
+      fetchTourPackages({ status: 'active' })
+        .then((data) => setPackages(Array.isArray(data) ? data : []))
+        .catch(() => setPackages([]));
+    }
+  }, [open, isTravelWorkplace]);
 
   const subtotal = useMemo(
     () =>
@@ -203,6 +221,7 @@ export function CreateTripProposalDialog({
     setNotes('');
     setTravel(emptyTravel());
     setItems([emptyItem()]);
+    setSelectedPackageId('');
   };
 
   const close = () => {
@@ -372,6 +391,47 @@ export function CreateTripProposalDialog({
                 <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
                   <MapPin className="h-4 w-4 text-emerald-500" /> Trip details
                 </div>
+                {isTravelWorkplace && packages.length > 0 ? (
+                  <div>
+                    <Label className="text-xs">Use existing Tour Package</Label>
+                    <select
+                      value={selectedPackageId}
+                      onChange={(event) => {
+                        const nextId = event.target.value;
+                        setSelectedPackageId(nextId);
+                        if (!nextId) return;
+                        void fetchTourPackage(nextId)
+                          .then((detail) => {
+                            const prefill = tourPackageToProposalPrefill(detail);
+                            setTravel((previous) => ({
+                              ...previous,
+                              proposal_title: prefill.proposal_title,
+                              destination: prefill.destination,
+                              duration_label: prefill.duration_label,
+                              trip_type: prefill.trip_type,
+                              hotel_category: prefill.hotel_category,
+                              meal_plan: prefill.meal_plan,
+                              itinerary: prefill.itinerary,
+                              inclusions: prefill.inclusions,
+                              exclusions: prefill.exclusions,
+                            }));
+                            setItems(prefill.items);
+                          })
+                          .catch(() =>
+                            toast.error('Unable to load the selected package')
+                          );
+                      }}
+                      className="mt-1 h-9 w-full rounded-lg border bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-emerald-200"
+                    >
+                      <option value="">Start from scratch</option>
+                      {packages.map((pkg) => (
+                        <option key={pkg.id} value={pkg.id}>
+                          {pkg.name} — {pkg.destination}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
                 <div>
                   <Label className="text-xs">Traveller *</Label>
                   <select

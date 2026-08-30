@@ -20,9 +20,20 @@ const GENERAL_ACTION_POLICY = `[WORKSPACE-SPECIFIC CLIENT BEHAVIOR]
 - Adapt to the selected workspace and the client's exact request. Answer using trusted workspace facts and complete any supported action through the available workflow.
 - If details are missing, ask one focused follow-up question. If the request needs a capability this workspace does not support, offer a practical alternative or human handoff.`;
 
+const TRAVEL_PACKAGE_POLICY = `[TRAVEL PACKAGE BEHAVIOR]
+- The Tour Package database for this Travel Workplace is the source of truth for agency-specific package names, prices, hotels, itineraries, inclusions, exclusions, departures, and availability.
+- Never invent those facts. If the database has no match, say that no matching package was found or that the information needs confirmation.
+- Recommend only active, non-expired packages that actually fit the traveller's budget and dates.
+- Generic destination advice may use general knowledge. Business-specific package facts must come from the retrieved workspace data.`;
+
 function isHealthcareIndustry(industry: string | null | undefined): boolean {
   const normalized = industry?.trim().toLowerCase();
   return normalized === 'hospital_clinic' || normalized === 'health';
+}
+
+function isTravelIndustry(industry: string | null | undefined): boolean {
+  const normalized = industry?.trim().toLowerCase();
+  return normalized === 'travel';
 }
 
 /**
@@ -41,7 +52,9 @@ export function withIntentFulfillmentPolicy(
 
   const domainPolicy = isHealthcareIndustry(industry)
     ? HEALTHCARE_ACTION_POLICY
-    : GENERAL_ACTION_POLICY;
+    : isTravelIndustry(industry)
+      ? TRAVEL_PACKAGE_POLICY
+      : GENERAL_ACTION_POLICY;
 
   return [trimmedPrompt, UNIVERSAL_POLICY, domainPolicy]
     .filter(Boolean)

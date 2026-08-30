@@ -8,6 +8,7 @@
 
 import { getAdminClient } from '@/lib/db/server';
 import type { AiToolDefinition, AiExecutionContext } from './types';
+import { registerTourPackageTools } from './tour-package-tools';
 
 class AiToolRegistry {
   private tools: Map<string, AiToolDefinition> = new Map();
@@ -969,3 +970,5 @@ aiToolRegistry.register({
     };
   },
 });
+
+registerTourPackageTools(aiToolRegistry);

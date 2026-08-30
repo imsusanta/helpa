@@ -1,5 +1,7 @@
 import type { IndustryModule } from './types';
 
+const TRAVEL_ONLY_ROUTES = ['/packages'] as const;
+
 const SHARED_WORKSPACE_ROUTES = [
   '/dashboard',
   '/inbox',
@@ -33,6 +35,13 @@ export function isIndustryRouteAllowed(
   manifest: IndustryModule,
   pathname: string
 ) {
+  if (
+    TRAVEL_ONLY_ROUTES.some((route) => pathMatchesRoute(pathname, route)) &&
+    manifest.id !== 'travel'
+  ) {
+    return false;
+  }
+
   if (
     SHARED_WORKSPACE_ROUTES.some((route) => pathMatchesRoute(pathname, route))
   ) {
