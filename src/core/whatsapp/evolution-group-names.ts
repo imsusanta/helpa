@@ -1,9 +1,12 @@
 import { getAdminClient } from '@/lib/db/server';
 import {
+  getEvolutionGoAvatar,
   getEvolutionGoGroupInfo,
   listEvolutionGoContacts,
   listEvolutionGoGroups,
   listEvolutionGoNewsletters,
+  type EvolutionGoListedChat,
+  type EvolutionGoListedContact,
 } from '@/core/providers/whatsapp/evolution-go-client';
 import {
   decryptProviderToken,
@@ -22,28 +25,35 @@ import {
 const pendingLookups = new Set<string>();
 const groupListCache = new Map<
   string,
-  { at: number; groups: Array<{ jid: string; name: string }> }
+  { at: number; groups: EvolutionGoListedChat[] }
 >();
 const newsletterListCache = new Map<
   string,
-  { at: number; newsletters: Array<{ jid: string; name: string }> }
+  { at: number; newsletters: EvolutionGoListedChat[] }
 >();
 const contactListCache = new Map<
   string,
   {
     at: number;
-    contacts: Array<{ jid: string; name: string; saved: boolean }>;
+    contacts: EvolutionGoListedContact[];
   }
 >();
 const GROUP_LIST_CACHE_MS = 60_000;
 const SYNC_TIMEOUT_MS = 6_000;
 const INFO_CONCURRENCY = 4;
 const MAX_LEFTOVER_LOOKUPS = 25;
+const MAX_AVATAR_LOOKUPS = 12;
 
 export type InboxGroupNameContact = {
   phone?: string | null;
   name?: string | null;
   metadata?: Record<string, unknown> | null;
+  avatar_url?: string | null;
+};
+
+export type InboxWhatsAppIdentity = {
+  names: Map<string, string>;
+  avatars: Map<string, string>;
 };
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -139,9 +149,155 @@ export async function applyEvolutionGroupNameEvent(
   });
 }
 
+function isStableInboxAvatar(url: string): boolean {
+  return url.startsWith('data:image/');
+}
+
+function isRefreshableWhatsAppAvatar(url: string): boolean {
+  if (!url) return true;
+  if (isStableInboxAvatar(url)) return false;
+  return /whatsapp\.net|fbcdn\.net|lookaside\.fbsbx\.com/i.test(url);
+}
+
+export function overlayInboxWhatsAppIdentity<
+  T extends {
+    phone?: unknown;
+    name?: unknown;
+    avatar_url?: unknown;
+  },
+>(contact: T, identity: InboxWhatsAppIdentity): T {
+  const phone = String(contact.phone || '');
+  const digits = phoneFromWhatsAppJid(phone);
+  const name = identity.names.get(phone) || identity.names.get(digits);
+  if (name) contact.name = name;
+  const avatar = identity.avatars.get(phone) || identity.avatars.get(digits);
+  if (avatar) contact.avatar_url = avatar;
+  return contact;
+}
+
+function avatarJidForContact(contact: InboxGroupNameContact): string {
+  const metaJid = String(contact.metadata?.whatsapp_jid || '').trim();
+  if (metaJid.includes('@')) return metaJid;
+  const phone = phoneFromWhatsAppJid(contact.phone || '');
+  if (!phone) return '';
+  const kind = whatsappChatKind(contact.phone, contact.metadata);
+  if (kind === 'channel' || isWhatsAppChannelJid(metaJid || phone)) {
+    return `${phone}@newsletter`;
+  }
+  if (kind === 'group' || isWhatsAppGroupAddress(contact.phone)) {
+    return `${phone}@g.us`;
+  }
+  return phone;
+}
+
+async function updateContactWhatsAppAvatar(args: {
+  accountId: string;
+  phone: string;
+  avatarUrl: string;
+}): Promise<boolean> {
+  const { accountId, phone, avatarUrl } = args;
+  if (!accountId || !phone || !avatarUrl) return false;
+  const db = getAdminClient();
+  const existing = await db
+    .from('contacts')
+    .select('id, avatar_url')
+    .eq('account_id', accountId)
+    .eq('phone', phone)
+    .maybeSingle();
+  if (existing.error || !existing.data) return false;
+  const current = String(
+    (existing.data as { avatar_url?: string | null }).avatar_url || ''
+  );
+  if (current === avatarUrl) return false;
+  if (current && !isRefreshableWhatsAppAvatar(current)) return false;
+  await db
+    .from('contacts')
+    .update({
+      avatar_url: avatarUrl,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', (existing.data as { id: string }).id)
+    .eq('account_id', accountId);
+  return true;
+}
+
+async function rememberAvatar(
+  accountId: string,
+  avatars: Map<string, string>,
+  phone: string,
+  avatarUrl: string
+): Promise<void> {
+  if (!phone || !avatarUrl) return;
+  const current = avatars.get(phone);
+  if (
+    current &&
+    isStableInboxAvatar(current) &&
+    !isStableInboxAvatar(avatarUrl)
+  ) {
+    return;
+  }
+  avatars.set(phone, avatarUrl);
+  await updateContactWhatsAppAvatar({ accountId, phone, avatarUrl });
+}
+
+async function applyListedAvatars(
+  accountId: string,
+  avatars: Map<string, string>,
+  listed: Array<{ jid: string; avatar?: string }>
+): Promise<void> {
+  const persist: Array<Promise<void>> = [];
+  for (const row of listed) {
+    const phone = phoneFromWhatsAppJid(row.jid);
+    if (!phone || !row.avatar) continue;
+    persist.push(rememberAvatar(accountId, avatars, phone, row.avatar));
+  }
+  await Promise.all(persist);
+}
+
+async function fillContactAvatars(
+  accountId: string,
+  avatars: Map<string, string>,
+  contacts: InboxGroupNameContact[]
+): Promise<void> {
+  const targets = contacts
+    .filter((contact) => {
+      const phone = phoneFromWhatsAppJid(contact.phone || '');
+      if (!phone) return false;
+      if (avatars.has(phone) && isStableInboxAvatar(avatars.get(phone) || '')) {
+        return false;
+      }
+      if (
+        contact.avatar_url &&
+        !isRefreshableWhatsAppAvatar(contact.avatar_url)
+      ) {
+        avatars.set(phone, contact.avatar_url);
+        return false;
+      }
+      return !avatars.has(phone);
+    })
+    .slice(0, MAX_AVATAR_LOOKUPS);
+  if (targets.length === 0) return;
+  const token = await loadEvolutionToken(accountId);
+  if (!token) return;
+  await mapPool(targets, INFO_CONCURRENCY, async (contact) => {
+    const phone = phoneFromWhatsAppJid(contact.phone || '');
+    if (!phone || avatars.has(phone)) return;
+    try {
+      const avatar = await getEvolutionGoAvatar(
+        token,
+        avatarJidForContact(contact) || phone,
+        true
+      );
+      if (avatar) await rememberAvatar(accountId, avatars, phone, avatar);
+    } catch {
+      // Best-effort. Inbox refresh retries.
+    }
+  });
+}
+
 async function loadEvolutionGroups(
   accountId: string
-): Promise<Array<{ jid: string; name: string }>> {
+): Promise<EvolutionGoListedChat[]> {
   const cached = groupListCache.get(accountId);
   if (cached && Date.now() - cached.at < GROUP_LIST_CACHE_MS) {
     return cached.groups;
@@ -179,7 +335,8 @@ async function rememberGroupName(
 async function fillGroupInfoNames(
   accountId: string,
   names: Map<string, string>,
-  targets: Array<{ jid: string; phone: string }>
+  targets: Array<{ jid: string; phone: string }>,
+  avatars?: Map<string, string>
 ): Promise<void> {
   if (targets.length === 0) return;
   const token = await loadEvolutionToken(accountId);
@@ -189,6 +346,9 @@ async function fillGroupInfoNames(
     try {
       const info = await getEvolutionGoGroupInfo(token, target.jid);
       await rememberGroupName(accountId, names, target.phone, info.name);
+      if (avatars && info.avatar) {
+        await rememberAvatar(accountId, avatars, target.phone, info.avatar);
+      }
     } catch {
       // Best-effort. Inbox refresh retries.
     }
@@ -221,7 +381,7 @@ export async function lookupEvolutionGroupName(
 
 async function loadEvolutionNewsletters(
   accountId: string
-): Promise<Array<{ jid: string; name: string }>> {
+): Promise<EvolutionGoListedChat[]> {
   const cached = newsletterListCache.get(accountId);
   if (cached && Date.now() - cached.at < GROUP_LIST_CACHE_MS) {
     return cached.newsletters;
@@ -235,7 +395,7 @@ async function loadEvolutionNewsletters(
 
 async function loadEvolutionContacts(
   accountId: string
-): Promise<Array<{ jid: string; name: string; saved: boolean }>> {
+): Promise<EvolutionGoListedContact[]> {
   const cached = contactListCache.get(accountId);
   if (cached && Date.now() - cached.at < GROUP_LIST_CACHE_MS) {
     return cached.contacts;
@@ -342,6 +502,7 @@ async function applyListedNames(
 async function collectEvolutionGroupNames(
   accountId: string,
   names: Map<string, string>,
+  avatars: Map<string, string>,
   contacts: InboxGroupNameContact[]
 ): Promise<void> {
   const [groups, newsletters, savedContacts] = await Promise.all([
@@ -362,6 +523,9 @@ async function collectEvolutionGroupNames(
   }
   await applyListedNames(accountId, names, groups, true);
   await applyListedNames(accountId, names, newsletters, true);
+  await applyListedAvatars(accountId, avatars, groups);
+  await applyListedAvatars(accountId, avatars, newsletters);
+  await applyListedAvatars(accountId, avatars, savedContacts);
   for (const contact of savedContacts) {
     const phone = phoneFromWhatsAppJid(contact.jid);
     if (!phone || isPlaceholderContactName(contact.name, phone)) continue;
@@ -381,7 +545,7 @@ async function collectEvolutionGroupNames(
     savedContacts.filter((contact) => !contact.saved),
     false
   );
-  await fillGroupInfoNames(accountId, names, unnamedListed);
+  await fillGroupInfoNames(accountId, names, unnamedListed, avatars);
 
   const leftoverGroups = contacts
     .filter((contact) => {
@@ -400,7 +564,8 @@ async function collectEvolutionGroupNames(
     })
     .filter((target) => target.jid && target.phone);
 
-  await fillGroupInfoNames(accountId, names, leftoverGroups);
+  await fillGroupInfoNames(accountId, names, leftoverGroups, avatars);
+  await fillContactAvatars(accountId, avatars, contacts);
 }
 
 export async function syncEvolutionGroupNames(
@@ -408,24 +573,28 @@ export async function syncEvolutionGroupNames(
 ): Promise<Map<string, string>> {
   const names = new Map<string, string>();
   if (!accountId) return names;
-  await collectEvolutionGroupNames(accountId, names, []);
+  await collectEvolutionGroupNames(accountId, names, new Map(), []);
   return names;
 }
 
 export async function syncEvolutionGroupNamesForInbox(
   accountId: string,
   contacts: InboxGroupNameContact[] = []
-): Promise<Map<string, string>> {
+): Promise<InboxWhatsAppIdentity> {
   const names = new Map<string, string>();
-  if (!accountId) return names;
-  const work = collectEvolutionGroupNames(accountId, names, contacts).catch(
-    () => undefined
-  );
+  const avatars = new Map<string, string>();
+  if (!accountId) return { names, avatars };
+  const work = collectEvolutionGroupNames(
+    accountId,
+    names,
+    avatars,
+    contacts
+  ).catch(() => undefined);
   await Promise.race([
     work,
     new Promise<void>((resolve) => setTimeout(resolve, SYNC_TIMEOUT_MS)),
   ]);
-  return new Map(names);
+  return { names: new Map(names), avatars: new Map(avatars) };
 }
 
 export function scheduleEvolutionGroupNameRefresh(

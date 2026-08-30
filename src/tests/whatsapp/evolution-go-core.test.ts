@@ -11,6 +11,7 @@ import {
   evolutionGoGroupSubject,
   evolutionGoJid,
   mergeEvolutionGoGroups,
+  parseEvolutionGoAvatar,
   parseEvolutionGoContacts,
   parseEvolutionGoGroups,
   parseEvolutionGoNewsletters,
@@ -401,6 +402,59 @@ describe('Evolution Go provider behaviour', () => {
         saved: false,
       },
     ]);
+  });
+
+  it('parses WhatsApp avatars from Evolution URL, data-URL, and raw base64', () => {
+    expect(
+      parseEvolutionGoAvatar({
+        success: true,
+        avatar: 'https://pps.whatsapp.net/v/t61.24694-24/photo.jpg',
+      })
+    ).toBe('https://pps.whatsapp.net/v/t61.24694-24/photo.jpg');
+    expect(
+      parseEvolutionGoAvatar({
+        data: { url: 'data:image/jpeg;base64,/9j/aaaa' },
+      })
+    ).toBe('data:image/jpeg;base64,/9j/aaaa');
+    expect(
+      parseEvolutionGoAvatar({
+        data: { avatar: '/9j/4AAQSkZJRgABAQAAAQABAAD' },
+      })
+    ).toBe('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD');
+  });
+
+  it('reads group and channel pictures from list payloads', () => {
+    const groups = parseEvolutionGoGroups({
+      data: [
+        {
+          JID: '120363316746745895@g.us',
+          Name: 'Helpa Clinic Team',
+          Picture: { URL: 'https://pps.whatsapp.net/group.jpg' },
+        },
+      ],
+    });
+    expect(groups[0]).toEqual({
+      jid: '120363316746745895@g.us',
+      name: 'Helpa Clinic Team',
+      avatar: 'https://pps.whatsapp.net/group.jpg',
+    });
+
+    const channels = parseEvolutionGoNewsletters({
+      data: [
+        {
+          id: '120363999000111222@newsletter',
+          thread_metadata: {
+            name: { text: 'Clinic Updates' },
+            picture: { url: 'https://pps.whatsapp.net/channel.jpg' },
+          },
+        },
+      ],
+    });
+    expect(channels[0]).toEqual({
+      jid: '120363999000111222@newsletter',
+      name: 'Clinic Updates',
+      avatar: 'https://pps.whatsapp.net/channel.jpg',
+    });
   });
 
   it('reads group text from ephemeral wrappers', async () => {

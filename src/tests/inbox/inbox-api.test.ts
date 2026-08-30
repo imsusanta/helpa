@@ -5,7 +5,10 @@ const { getCurrentAccount, mockSupabaseFrom, syncGroupNames } = vi.hoisted(
   () => ({
     getCurrentAccount: vi.fn(),
     mockSupabaseFrom: vi.fn(),
-    syncGroupNames: vi.fn(async () => new Map<string, string>()),
+    syncGroupNames: vi.fn(async () => ({
+      names: new Map<string, string>(),
+      avatars: new Map<string, string>(),
+    })),
   })
 );
 
@@ -25,9 +28,15 @@ vi.mock('@/lib/supabase/server', () => ({
   }),
 }));
 
-vi.mock('@/core/whatsapp/evolution-group-names', () => ({
-  syncEvolutionGroupNamesForInbox: syncGroupNames,
-}));
+vi.mock('@/core/whatsapp/evolution-group-names', async () => {
+  const actual = await vi.importActual<
+    typeof import('@/core/whatsapp/evolution-group-names')
+  >('@/core/whatsapp/evolution-group-names');
+  return {
+    ...actual,
+    syncEvolutionGroupNamesForInbox: syncGroupNames,
+  };
+});
 
 import { GET as getConversations } from '@/app/api/inbox/conversations/route';
 import {
@@ -52,7 +61,10 @@ function createRequest(
 describe('Inbox API & Tenant Isolation Tests', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    syncGroupNames.mockResolvedValue(new Map());
+    syncGroupNames.mockResolvedValue({
+      names: new Map(),
+      avatars: new Map(),
+    });
     getCurrentAccount.mockResolvedValue({
       accountId: 'tenant-a',
       userId: 'user-a',
@@ -201,9 +213,12 @@ describe('Inbox API & Tenant Isolation Tests', () => {
     });
 
     it('uses the Evolution group subject as the inbox title', async () => {
-      syncGroupNames.mockResolvedValueOnce(
-        new Map([['120363316746745895', 'Helpa Clinic Team']])
-      );
+      syncGroupNames.mockResolvedValueOnce({
+        names: new Map([['120363316746745895', 'Helpa Clinic Team']]),
+        avatars: new Map([
+          ['120363316746745895', 'https://pps.whatsapp.net/group.jpg'],
+        ]),
+      });
       const mockConvQuery = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
@@ -246,6 +261,58 @@ describe('Inbox API & Tenant Isolation Tests', () => {
       const res = await getConversations(createRequest());
       const json = await res.json();
       expect(json.conversations[0].contact.name).toBe('Helpa Clinic Team');
+      expect(json.conversations[0].contact.avatar_url).toBe(
+        'https://pps.whatsapp.net/group.jpg'
+      );
+    });
+
+    it('returns a stored WhatsApp profile picture on the inbox contact', async () => {
+      const mockConvQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockResolvedValue({
+          data: [
+            {
+              id: 'conv-1',
+              account_id: 'tenant-a',
+              contact_id: 'contact-1',
+              status: 'open',
+              last_message_text: 'Hello',
+            },
+          ],
+          error: null,
+        }),
+      };
+      const mockContactQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        in: vi.fn().mockResolvedValue({
+          data: [
+            {
+              id: 'contact-1',
+              account_id: 'tenant-a',
+              name: 'Ravi Kumar',
+              phone: '919111222333',
+              avatar_url: 'https://pps.whatsapp.net/ravi.jpg',
+            },
+          ],
+        }),
+      };
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === 'conversations')
+          return mockConvQuery as unknown as Record<string, unknown>;
+        if (table === 'contacts')
+          return mockContactQuery as unknown as Record<string, unknown>;
+        return {};
+      });
+
+      const res = await getConversations(createRequest());
+      const json = await res.json();
+      expect(json.conversations[0].contact.avatar_url).toBe(
+        'https://pps.whatsapp.net/ravi.jpg'
+      );
+      expect(json.conversations[0].contact.name).toBe('Ravi Kumar');
     });
 
     it('shows WhatsApp channel conversations with their channel name', async () => {

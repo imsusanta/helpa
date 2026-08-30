@@ -86,7 +86,7 @@ const SECURITY_HEADERS = [
         ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://connect.facebook.net https://*.facebook.com https://*.facebook.net"
         : "script-src 'self' 'unsafe-inline' https://connect.facebook.net https://*.facebook.com https://*.facebook.net",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https://images.unsplash.com https://*.facebook.com https://*.fbcdn.net https://*.supabase.co",
+      "img-src 'self' data: blob: https://images.unsplash.com https://*.facebook.com https://*.fbcdn.net https://*.supabase.co https://*.whatsapp.net https://lookaside.fbsbx.com",
       "media-src 'self' blob: https://*.supabase.co",
       "font-src 'self' data:",
       `connect-src 'self' https://openrouter.ai https://*.supabase.co wss://*.supabase.co https://*.facebook.com https://*.facebook.net https://graph.facebook.com${

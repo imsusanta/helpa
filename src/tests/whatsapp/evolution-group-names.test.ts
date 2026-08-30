@@ -5,6 +5,7 @@ const {
   listEvolutionGoNewsletters,
   listEvolutionGoContacts,
   getEvolutionGoGroupInfo,
+  getEvolutionGoAvatar,
   loadCanonicalWhatsAppConfig,
   decryptProviderToken,
   maybeSingle,
@@ -14,6 +15,7 @@ const {
   listEvolutionGoNewsletters: vi.fn(),
   listEvolutionGoContacts: vi.fn(),
   getEvolutionGoGroupInfo: vi.fn(),
+  getEvolutionGoAvatar: vi.fn(),
   loadCanonicalWhatsAppConfig: vi.fn(),
   decryptProviderToken: vi.fn(),
   maybeSingle: vi.fn(),
@@ -25,6 +27,7 @@ vi.mock('@/core/providers/whatsapp/evolution-go-client', () => ({
   listEvolutionGoNewsletters,
   listEvolutionGoContacts,
   getEvolutionGoGroupInfo,
+  getEvolutionGoAvatar,
 }));
 
 vi.mock('@/core/whatsapp/canonical-config', async () => {
@@ -57,7 +60,10 @@ vi.mock('@/lib/db/server', () => ({
   }),
 }));
 
-import { syncEvolutionGroupNamesForInbox } from '@/core/whatsapp/evolution-group-names';
+import {
+  overlayInboxWhatsAppIdentity,
+  syncEvolutionGroupNamesForInbox,
+} from '@/core/whatsapp/evolution-group-names';
 
 describe('syncEvolutionGroupNamesForInbox', () => {
   beforeEach(() => {
@@ -75,15 +81,24 @@ describe('syncEvolutionGroupNamesForInbox', () => {
       error: null,
     });
     updateEq.mockResolvedValue({ data: null, error: null });
+    getEvolutionGoAvatar.mockResolvedValue('');
   });
 
   it('keeps listed group names and fills leftover placeholders via /group/info', async () => {
     listEvolutionGoGroups.mockResolvedValue([
-      { jid: '120363316746745895@g.us', name: 'Helpa Clinic Team' },
+      {
+        jid: '120363316746745895@g.us',
+        name: 'Helpa Clinic Team',
+        avatar: 'https://pps.whatsapp.net/group.jpg',
+      },
       { jid: '120363111222333444@g.us', name: '' },
     ]);
     listEvolutionGoNewsletters.mockResolvedValue([
-      { jid: '120363999000111222@newsletter', name: 'Clinic Updates' },
+      {
+        jid: '120363999000111222@newsletter',
+        name: 'Clinic Updates',
+        avatar: 'https://pps.whatsapp.net/channel.jpg',
+      },
     ]);
     listEvolutionGoContacts.mockResolvedValue([
       {
@@ -92,6 +107,17 @@ describe('syncEvolutionGroupNamesForInbox', () => {
         saved: true,
       },
     ]);
+    getEvolutionGoAvatar.mockImplementation(
+      async (_token: string, number: string) => {
+        if (
+          number === '919111222333' ||
+          number === '919111222333@s.whatsapp.net'
+        ) {
+          return 'https://pps.whatsapp.net/ravi.jpg';
+        }
+        return '';
+      }
+    );
     getEvolutionGoGroupInfo.mockImplementation(
       async (_token: string, jid: string) => {
         if (jid === '120363111222333444@g.us') {
@@ -104,7 +130,7 @@ describe('syncEvolutionGroupNamesForInbox', () => {
       }
     );
 
-    const names = await syncEvolutionGroupNamesForInbox('acct-1', [
+    const { names, avatars } = await syncEvolutionGroupNamesForInbox('acct-1', [
       {
         phone: '120363555666777888',
         name: '120363555666777888',
@@ -129,9 +155,41 @@ describe('syncEvolutionGroupNamesForInbox', () => {
     expect(names.get('120363555666777888')).toBe('Night Shift');
     expect(names.get('120363999000111222')).toBe('Clinic Updates');
     expect(names.get('919111222333')).toBe('Ravi Kumar');
+    expect(avatars.get('120363316746745895')).toBe(
+      'https://pps.whatsapp.net/group.jpg'
+    );
+    expect(avatars.get('120363999000111222')).toBe(
+      'https://pps.whatsapp.net/channel.jpg'
+    );
+    expect(avatars.get('919111222333')).toBe(
+      'https://pps.whatsapp.net/ravi.jpg'
+    );
     expect(getEvolutionGoGroupInfo).not.toHaveBeenCalledWith(
       'token',
       '120363999000111222@newsletter'
     );
+    expect(getEvolutionGoAvatar).toHaveBeenCalledWith(
+      'token',
+      '919111222333',
+      true
+    );
+  });
+
+  it('overlays WhatsApp names and profile pictures onto inbox contacts', () => {
+    const contact = overlayInboxWhatsAppIdentity(
+      {
+        phone: '919111222333',
+        name: '919111222333',
+        avatar_url: undefined as string | undefined,
+      },
+      {
+        names: new Map([['919111222333', 'Ravi Kumar']]),
+        avatars: new Map([
+          ['919111222333', 'https://pps.whatsapp.net/ravi.jpg'],
+        ]),
+      }
+    );
+    expect(contact.name).toBe('Ravi Kumar');
+    expect(contact.avatar_url).toBe('https://pps.whatsapp.net/ravi.jpg');
   });
 });

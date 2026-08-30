@@ -11,8 +11,10 @@ import {
   isWhatsAppCollectiveAddress,
   whatsappContactDisplayName,
 } from '@/core/whatsapp/group-identity';
-import { syncEvolutionGroupNamesForInbox } from '@/core/whatsapp/evolution-group-names';
-import { phoneFromWhatsAppJid } from '@/core/whatsapp/canonical-config';
+import {
+  overlayInboxWhatsAppIdentity,
+  syncEvolutionGroupNamesForInbox,
+} from '@/core/whatsapp/evolution-group-names';
 
 const CACHE_HEADERS = {
   'Cache-Control': 'private, no-store, no-cache, must-revalidate',
@@ -30,6 +32,12 @@ function normalizeContact(doc: Record<string, unknown>): Contact {
         : (doc.name as string) || 'Unknown Contact'),
     phone: (doc.phone as string) || '',
     email: (doc.email as string) || undefined,
+    avatar_url:
+      typeof doc.avatar_url === 'string' && doc.avatar_url
+        ? doc.avatar_url
+        : typeof doc.avatarUrl === 'string' && doc.avatarUrl
+          ? doc.avatarUrl
+          : undefined,
     metadata: (doc.metadata as Record<string, unknown>) || undefined,
     created_at:
       ((doc.createdAt || doc.$createdAt || doc.created_at) as string) ||
@@ -129,13 +137,10 @@ export async function GET(_request: NextRequest, { params }: Params) {
         .eq('id', cId)
         .maybeSingle();
       if (cDoc) {
-        const groupNames = await syncEvolutionGroupNamesForInbox(accountId, [
+        const identity = await syncEvolutionGroupNamesForInbox(accountId, [
           cDoc,
         ]);
-        const phone = String(cDoc.phone || '');
-        const resolved =
-          groupNames.get(phone) || groupNames.get(phoneFromWhatsAppJid(phone));
-        if (resolved) cDoc.name = resolved;
+        overlayInboxWhatsAppIdentity(cDoc, identity);
         contact = normalizeContact(cDoc);
         if (isHiddenWhatsAppInboxChat(contact.phone, contact.metadata)) {
           return NextResponse.json(
