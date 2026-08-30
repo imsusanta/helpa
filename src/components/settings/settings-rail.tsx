@@ -64,7 +64,6 @@ export function SettingsRail({
       {RAIL_GROUPS.map(({ label, group }) => {
         const items = SETTINGS_SECTIONS.filter(
           (s) =>
-            s !== 'members' &&
             sectionMeta[s].group === group &&
             isSectionVisible(s, account?.industry)
         );

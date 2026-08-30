@@ -616,10 +616,12 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
         const { data: firstPack } = await db
           .from('travel_packages')
           .select('id')
+          .eq('account_id', accountId)
           .limit(1);
         const { data: firstContact } = await db
           .from('contacts')
           .select('id')
+          .eq('account_id', accountId)
           .limit(1);
 
         let packageId = firstPack?.[0]?.id;
