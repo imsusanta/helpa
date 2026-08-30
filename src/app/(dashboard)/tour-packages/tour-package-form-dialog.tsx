@@ -38,7 +38,7 @@ function fromDetail(pkg: TourPackageDetail): SimpleTourPackageForm {
   const priceType = TOUR_PRICE_TYPES.includes(
     (pkg.price_type || pkg.pricing[0]?.pricing_name || '') as never
   )
-    ? (pkg.price_type || pkg.pricing[0]?.pricing_name || 'Per Person')
+    ? pkg.price_type || pkg.pricing[0]?.pricing_name || 'Per Person'
     : 'Per Person';
   return {
     name: pkg.name,

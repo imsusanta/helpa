@@ -84,16 +84,43 @@ function extractMessageKey(data: Record<string, unknown>): {
   return { id, fromMe, remoteJid };
 }
 
+function unwrapMessage(
+  message: Record<string, unknown>
+): Record<string, unknown> {
+  const nested = firstRecord(
+    asRecord(message.ephemeralMessage || message.EphemeralMessage).message,
+    asRecord(message.viewOnceMessage || message.ViewOnceMessage).message,
+    asRecord(message.viewOnceMessageV2 || message.ViewOnceMessageV2).message,
+    asRecord(message.documentWithCaptionMessage).message
+  );
+  return nested || message;
+}
+
+function firstRecord(...values: unknown[]): Record<string, unknown> | null {
+  for (const value of values) {
+    const record = asRecord(value);
+    if (Object.keys(record).length > 0) return record;
+  }
+  return null;
+}
+
 function extractText(data: Record<string, unknown>): string {
-  const message = asRecord(data.message || data.Message);
+  const message = unwrapMessage(asRecord(data.message || data.Message));
   const conversation = firstString(
     message.conversation,
     message.Conversation,
     asRecord(message.extendedTextMessage).text,
     asRecord(message.ExtendedTextMessage).text,
     asRecord(message.imageMessage).caption,
+    asRecord(message.ImageMessage).caption,
     asRecord(message.videoMessage).caption,
     asRecord(message.documentMessage).caption,
+    asRecord(message.buttonsResponseMessage).selectedDisplayText,
+    asRecord(message.ButtonsResponseMessage).selectedDisplayText,
+    asRecord(message.listResponseMessage).title,
+    asRecord(message.listResponseMessage).description,
+    asRecord(message.templateButtonReplyMessage).selectedDisplayText,
+    asRecord(message.reactionMessage).text,
     data.conversation,
     data.text,
     data.body

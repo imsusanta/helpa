@@ -17,6 +17,7 @@ const PUBLIC_EXACT_PATHS = new Set([
   '/login',
   '/signup',
   '/forgot-password',
+  '/reset-password',
   '/contact',
   '/privacy',
   '/terms',
@@ -31,13 +32,19 @@ const PUBLIC_EXACT_PATHS = new Set([
   '/api/auth/signup',
   '/api/auth/logout',
   '/api/auth/reset-password',
+  '/api/auth/update-password',
   '/api/auth/me',
 ]);
+
+const PRIVATE_CACHE_HEADERS = {
+  'Cache-Control': 'private, no-store, no-cache, must-revalidate',
+} as const;
 
 const PUBLIC_PATH_PREFIXES = [
   '/join/',
   '/f/',
   '/proposal/',
+  '/auth/',
   '/api/health',
   '/api/invitations/',
   '/api/auth/',
@@ -119,12 +126,12 @@ export async function proxy(request: NextRequest) {
     if (pathname.startsWith('/api/')) {
       return NextResponse.json(
         { error: 'UNAUTHORIZED', message: 'Authentication required' },
-        { status: 401 }
+        { status: 401, headers: PRIVATE_CACHE_HEADERS }
       );
     }
     const url = request.nextUrl.clone();
     url.pathname = '/login';
-    return NextResponse.redirect(url);
+    return NextResponse.redirect(url, { headers: PRIVATE_CACHE_HEADERS });
   }
 
   return NextResponse.next({ request });

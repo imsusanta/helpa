@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  ForbiddenError,
-  UnauthorizedError,
-} from '@/lib/auth/account';
+import { ForbiddenError, UnauthorizedError } from '@/lib/auth/account';
 import { requireTravelWorkplace } from '@/lib/travel/access';
 import {
   deleteTourPackage,
@@ -46,7 +43,8 @@ export async function GET(
     const ctx = await requireTravelWorkplace('viewer');
     const { id } = await params;
     const data = await getTourPackageDetail(ctx.admin, ctx.accountId, id);
-    if (!data) return errorResponse(404, 'TOUR_PACKAGE_NOT_FOUND', correlationId);
+    if (!data)
+      return errorResponse(404, 'TOUR_PACKAGE_NOT_FOUND', correlationId);
     return NextResponse.json(
       { success: true, data, requestId: correlationId },
       { headers: { ...PRIVATE_HEADERS, 'X-Request-Id': correlationId } }
@@ -79,7 +77,10 @@ export async function PATCH(
       statusOnly?: boolean;
     };
 
-    if (body.statusOnly && (body.status === 'active' || body.status === 'inactive')) {
+    if (
+      body.statusOnly &&
+      (body.status === 'active' || body.status === 'inactive')
+    ) {
       const updated = await setTourPackageStatus(
         ctx.admin,
         ctx.accountId,

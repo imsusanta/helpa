@@ -35,7 +35,8 @@ function createMemoryDb(tables: Record<string, Row[]>) {
           if (index >= 0) store.splice(index, 1);
         }
       }
-      const result = inserted || (pendingDelete ? matched : applyLimit(matched));
+      const result =
+        inserted || (pendingDelete ? matched : applyLimit(matched));
       return result;
     };
     const applyLimit = (matched: Row[]) =>
@@ -212,10 +213,9 @@ describe('tour package retrieval isolation', () => {
       workspaceA,
       'Kashmir package ache?'
     );
-    const names = [
-      ...result.matches,
-      ...result.nearMatches,
-    ].map((row) => row.package.name);
+    const names = [...result.matches, ...result.nearMatches].map(
+      (row) => row.package.name
+    );
     expect(names).not.toContain('Secret Kashmir');
     const leaked = await searchTourPackagesForAccount(db, workspaceA, {
       destination: 'Kashmir',

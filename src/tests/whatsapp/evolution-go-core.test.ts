@@ -8,9 +8,11 @@ import { resolveWhatsAppProvider } from '@/core/providers/whatsapp/provider-reso
 import {
   createEvolutionGoInstance,
   getEvolutionGoQr,
+  parseEvolutionGoGroups,
   sendEvolutionGoText,
   EvolutionGoConfigError,
   EvolutionGoRequestError,
+  EVOLUTION_GO_SUBSCRIBE_EVENTS,
   EVOLUTION_GO_WRONG_HOST_MESSAGE,
 } from '@/core/providers/whatsapp/evolution-go-client';
 import {
@@ -284,6 +286,77 @@ describe('Evolution Go HTTP client', () => {
 });
 
 describe('Evolution Go provider behaviour', () => {
+  it('subscribes to GROUP events so group subjects can be resolved', () => {
+    expect(EVOLUTION_GO_SUBSCRIBE_EVENTS).toContain('GROUP');
+    expect(EVOLUTION_GO_SUBSCRIBE_EVENTS).toContain('NEWSLETTER');
+  });
+
+  it('parses Evolution group list names', () => {
+    const groups = parseEvolutionGoGroups({
+      data: [
+        {
+          JID: '120363316746745895@g.us',
+          Name: 'Helpa Clinic Team',
+        },
+        {
+          JID: '120363424522275219@g.us',
+          Name: { Name: 'Last 100 seats' },
+        },
+      ],
+    });
+    expect(groups).toEqual([
+      { jid: '120363316746745895@g.us', name: 'Helpa Clinic Team' },
+      { jid: '120363424522275219@g.us', name: 'Last 100 seats' },
+    ]);
+  });
+
+  it('reads group text from ephemeral wrappers', async () => {
+    const provider = new EvolutionGoProvider({
+      accountId: 'tenant-a',
+      instanceToken: '',
+    });
+    const events = await provider.normalizeWebhook({
+      event: 'Message',
+      data: {
+        Info: {
+          ID: 'msg-eph',
+          Chat: '120363316746745895@g.us',
+          IsFromMe: false,
+          PushName: 'Ravi',
+        },
+        Message: {
+          ephemeralMessage: {
+            message: { conversation: 'inside the group' },
+          },
+        },
+      },
+    });
+    expect(events[0].content).toBe('inside the group');
+    expect(events[0].patientAddress).toBe('120363316746745895');
+  });
+
+  it('keeps the group id as the conversation key for group messages', async () => {
+    const provider = new EvolutionGoProvider({
+      accountId: 'tenant-a',
+      instanceToken: '',
+    });
+    const events = await provider.normalizeWebhook({
+      event: 'Message',
+      data: {
+        key: {
+          id: 'msg-group',
+          fromMe: false,
+          remoteJid: '120363316746745895@g.us',
+        },
+        pushName: 'Ravi',
+        message: { conversation: 'group hello' },
+      },
+    });
+    expect(events).toHaveLength(1);
+    expect(events[0].patientAddress).toBe('120363316746745895');
+    expect(events[0].content).toBe('group hello');
+  });
+
   it('rejects sendTemplate as an unsupported operation', async () => {
     const provider = new EvolutionGoProvider({
       accountId: 'acct-1',

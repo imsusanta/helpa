@@ -1,5 +1,9 @@
 import { salesApi } from '@/lib/sales/api-client';
-import type { TourPackage, TourPackageDetail, TourPackageWriteInput } from './types';
+import type {
+  TourPackage,
+  TourPackageDetail,
+  TourPackageWriteInput,
+} from './types';
 
 export function travelPackagesApi<T = unknown>(
   path: string,
@@ -22,7 +26,9 @@ export function fetchTourPackages(query?: {
 }
 
 export function fetchTourPackage(id: string): Promise<TourPackageDetail> {
-  return travelPackagesApi<TourPackageDetail>(`/api/travel/tour-packages/${id}`);
+  return travelPackagesApi<TourPackageDetail>(
+    `/api/travel/tour-packages/${id}`
+  );
 }
 
 export function createTourPackageRequest(
@@ -38,10 +44,13 @@ export function updateTourPackageRequest(
   id: string,
   input: TourPackageWriteInput
 ): Promise<TourPackageDetail> {
-  return travelPackagesApi<TourPackageDetail>(`/api/travel/tour-packages/${id}`, {
-    method: 'PATCH',
-    body: JSON.stringify(input),
-  });
+  return travelPackagesApi<TourPackageDetail>(
+    `/api/travel/tour-packages/${id}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    }
+  );
 }
 
 export function setTourPackageStatusRequest(

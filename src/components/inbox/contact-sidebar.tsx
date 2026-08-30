@@ -3,6 +3,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/db/client';
 import { useAuth } from '@/hooks/use-auth';
+import {
+  whatsappChatKind,
+  whatsappChatKindLabel,
+  whatsappContactDisplayName,
+} from '@/core/whatsapp/group-identity';
+import { WhatsAppChatAvatar } from '@/components/inbox/whatsapp-chat-avatar';
 import { useWorkspace } from '@/hooks/use-workspace';
 import { cn } from '@/lib/utils';
 import type { Contact, Deal, ContactNote, Tag, Conversation } from '@/types';
@@ -406,8 +412,12 @@ export function ContactSidebar({
     );
   }
 
-  const displayName = contact.name || contact.phone;
-  const initials = displayName.charAt(0).toUpperCase();
+  const chatKind = whatsappChatKind(contact.phone, contact.metadata);
+  const displayName =
+    whatsappContactDisplayName(contact.name, contact.phone) ||
+    whatsappChatKindLabel(chatKind) ||
+    'Chat';
+  const displayPhone = whatsappChatKindLabel(chatKind) || contact.phone;
 
   const content = (
     <div className="min-h-0 flex-1 overflow-y-auto">
@@ -415,22 +425,20 @@ export function ContactSidebar({
         {/* Profile Card */}
         <div className="bg-muted/30 border-border/50 mb-4 flex flex-col items-center space-y-3 rounded-xl border p-4 text-center shadow-sm">
           <div className="relative">
-            <div className="bg-background border-primary/20 text-foreground flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border-2 text-lg font-semibold">
-              {contact.avatar_url ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  src={contact.avatar_url}
-                  alt={displayName}
-                  className="h-16 w-16 rounded-full object-cover"
-                />
-              ) : (
-                initials
-              )}
+            <div className="border-primary/20 overflow-hidden rounded-full border-2">
+              <WhatsAppChatAvatar
+                kind={chatKind}
+                name={displayName}
+                avatarUrl={contact.avatar_url}
+                size="lg"
+              />
             </div>
-            <span
-              className="border-background absolute right-0 bottom-0 h-3 w-3 rounded-full border-2 bg-emerald-500"
-              title="Active"
-            />
+            {chatKind === 'direct' ? (
+              <span
+                className="border-background absolute right-0 bottom-0 h-3 w-3 rounded-full border-2 bg-emerald-500"
+                title="Active"
+              />
+            ) : null}
           </div>
 
           <div className="space-y-0.5">
@@ -452,7 +460,7 @@ export function ContactSidebar({
             >
               <Phone className="h-3.5 w-3.5 shrink-0" />
               <span className="flex-1 truncate text-left font-medium">
-                {contact.phone}
+                {displayPhone}
               </span>
               {copied ? (
                 <Check className="h-3 w-3 text-emerald-500" />

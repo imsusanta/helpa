@@ -85,7 +85,7 @@ Instance-token routes:
 - `POST /send/text` body `{ number, text, formatJid }`
 - `POST /send/media` body `{ number, url, type, caption, filename, formatJid }`
 
-Helpa subscribes to `MESSAGE`, `CONNECTION`, `READ_RECEIPT`, `QRCODE`.
+Helpa subscribes to `MESSAGE`, `CONNECTION`, `READ_RECEIPT`, `QRCODE`, `GROUP`.
 Evolution Go v0.7.2 webhooks are unsigned JSON POSTs; Helpa authenticates
 them with a high-entropy URL secret.
 

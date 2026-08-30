@@ -292,7 +292,9 @@ export async function loadTourPackageDetails(
 
   return scoped.map((pkg) => ({
     ...emptyDetail(pkg),
-    itineraries: children.itineraries.filter((row) => row.package_id === pkg.id),
+    itineraries: children.itineraries.filter(
+      (row) => row.package_id === pkg.id
+    ),
     inclusions: children.inclusions.filter((row) => row.package_id === pkg.id),
     exclusions: children.exclusions.filter((row) => row.package_id === pkg.id),
     hotels: children.hotels.filter((row) => row.package_id === pkg.id),
@@ -346,7 +348,8 @@ function sanitizeCoverImageUrl(value: unknown): string | null {
   if (!url || url.length > 2000) return null;
   try {
     const parsed = new URL(url);
-    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:')
+      return null;
     return url;
   } catch {
     return null;

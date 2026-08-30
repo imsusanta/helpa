@@ -79,6 +79,8 @@ export const EVOLUTION_GO_SUBSCRIBE_EVENTS = [
   'CONNECTION',
   'READ_RECEIPT',
   'QRCODE',
+  'GROUP',
+  'NEWSLETTER',
 ] as const;
 
 export interface EvolutionGoCreateInstanceInput {
@@ -367,21 +369,25 @@ async function evolutionGoRequest(
   }
 }
 
-export async function getAllEvolutionGoInstances(): Promise<EvolutionGoInstance[]> {
+export async function getAllEvolutionGoInstances(): Promise<
+  EvolutionGoInstance[]
+> {
   const payload = await evolutionGoRequest({
     method: 'GET',
     path: '/instance/all',
     auth: 'admin',
   });
   const data = Array.isArray((payload as { data?: unknown })?.data)
-    ? ((payload as { data: unknown[] }).data)
+    ? (payload as { data: unknown[] }).data
     : Array.isArray(payload)
       ? payload
       : [];
   return data.map((item: unknown) => parseEvolutionGoInstance(item));
 }
 
-export async function deleteEvolutionGoInstanceByName(name: string): Promise<void> {
+export async function deleteEvolutionGoInstanceByName(
+  name: string
+): Promise<void> {
   try {
     const all = await getAllEvolutionGoInstances();
     const match = all.find((inst) => inst.name === name);
@@ -534,6 +540,85 @@ export async function getEvolutionGoInstanceInfo(
     auth: 'admin',
   });
   return parseEvolutionGoInstance(payload);
+}
+
+export function parseEvolutionGoGroups(
+  payload: unknown
+): Array<{ jid: string; name: string }> {
+  const root = asRecord(payload);
+  const envelope = dataEnvelope(root);
+  const raw = Array.isArray(envelope.data)
+    ? envelope.data
+    : Array.isArray(envelope.groups)
+      ? envelope.groups
+      : Array.isArray(envelope.Groups)
+        ? envelope.Groups
+        : Array.isArray(root.data)
+          ? root.data
+          : Array.isArray(root.groups)
+            ? root.groups
+            : Array.isArray(payload)
+              ? payload
+              : [];
+  const groups: Array<{ jid: string; name: string }> = [];
+  for (const item of raw) {
+    const row = asRecord(item);
+    const jid = asString(row.JID || row.jid || row.groupJid || row.id);
+    const nameObj = row.Name ?? row.name ?? row.GroupName ?? row.subject;
+    const name =
+      typeof nameObj === 'string'
+        ? nameObj.trim()
+        : asString(asRecord(nameObj).Name || asRecord(nameObj).name);
+    if (jid && name) groups.push({ jid, name });
+  }
+  return groups;
+}
+
+export async function listEvolutionGoGroups(
+  instanceToken: string
+): Promise<Array<{ jid: string; name: string }>> {
+  try {
+    const listed = parseEvolutionGoGroups(
+      await evolutionGoRequest({
+        method: 'GET',
+        path: '/group/list',
+        auth: 'instance',
+        instanceToken,
+      })
+    );
+    if (listed.length > 0) return listed;
+  } catch {
+    // Fall through to /group/myall.
+  }
+  const mine = parseEvolutionGoGroups(
+    await evolutionGoRequest({
+      method: 'GET',
+      path: '/group/myall',
+      auth: 'instance',
+      instanceToken,
+    })
+  );
+  return mine;
+}
+
+export async function getEvolutionGoGroupInfo(
+  instanceToken: string,
+  groupJid: string
+): Promise<{ jid: string; name: string }> {
+  const payload = await evolutionGoRequest({
+    method: 'POST',
+    path: '/group/info',
+    auth: 'instance',
+    instanceToken,
+    body: { groupJid },
+  });
+  const data = dataEnvelope(payload);
+  const name = asString(data.Name || data.name || data.GroupName);
+  const nested = asRecord(data.Name || data.name || data.GroupName);
+  return {
+    jid: asString(data.JID || data.jid) || groupJid,
+    name: name || asString(nested.Name || nested.name),
+  };
 }
 
 export async function sendEvolutionGoText(

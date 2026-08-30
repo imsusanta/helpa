@@ -26,6 +26,21 @@ import {
   redactEvolutionWebhookPayload,
 } from '@/core/providers/whatsapp/evolution-go-provider';
 import { phoneFromWhatsAppJid } from '@/core/whatsapp/canonical-config';
+import {
+  extractWhatsAppGroupJid,
+  extractWhatsAppPushName,
+  formatGroupInboundText,
+  inboundWhatsAppContactName,
+  isEvolutionGroupEvent,
+  isPlaceholderContactName,
+  isWhatsAppCollectiveAddress,
+  whatsappChatKind,
+} from '@/core/whatsapp/group-identity';
+import {
+  applyEvolutionGroupNameEvent,
+  resolveEvolutionGroupName,
+  scheduleEvolutionGroupNameRefresh,
+} from '@/core/whatsapp/evolution-group-names';
 import { triggerAiResponse } from '@/lib/whatsapp/ai';
 
 const MAX_BODY_BYTES = 1_000_000;
@@ -228,6 +243,41 @@ export async function POST(
     });
   }
 
+  if (isEvolutionGroupEvent(payload)) {
+    const context: ProviderEventContext = {
+      accountId: tenant.accountId,
+      provider: 'evolution',
+      externalEventId: payloadDeliveryId('group', rawBody),
+      eventType: asString(payload.event) || 'group',
+      rawBody,
+      payload: safePayload,
+    };
+    const begun = await beginProviderEvent(context);
+    if (begun.duplicate) {
+      return NextResponse.json({
+        success: true,
+        ignored: false,
+        type: 'group',
+        duplicate: true,
+      });
+    }
+    try {
+      await applyEvolutionGroupNameEvent(tenant.accountId, payload);
+      await completeProviderEvent(context);
+    } catch (error) {
+      await failProviderEvent(context, error);
+      console.error('[evolution webhook] group event failed', {
+        accountId: tenant.accountId,
+        error: error instanceof Error ? error.message : 'unknown',
+      });
+    }
+    return NextResponse.json({
+      success: true,
+      ignored: false,
+      type: 'group',
+    });
+  }
+
   if (isEvolutionReceiptEvent(payload)) {
     const context: ProviderEventContext = {
       accountId: tenant.accountId,
@@ -292,11 +342,38 @@ export async function POST(
       continue;
     }
     try {
+      const address = event.patientAddress || event.senderPhone || '';
+      const payloadData = asRecord(payload.data ?? payload.Data);
+      const remoteJid = extractWhatsAppGroupJid(payloadData);
+      const chatKind = whatsappChatKind(remoteJid || address);
+      const isGroup = isWhatsAppCollectiveAddress(remoteJid || address);
+      if (isGroup) {
+        const labeled = formatGroupInboundText(
+          extractWhatsAppPushName(payloadData),
+          event.content || event.text || '',
+          event.contentType
+        );
+        event.content = labeled;
+        event.text = labeled;
+      }
+      let contactName = inboundWhatsAppContactName(payload, address);
+      if (isGroup && isPlaceholderContactName(contactName, address)) {
+        const fetched = await resolveEvolutionGroupName(
+          tenant.accountId,
+          address
+        );
+        if (fetched) contactName = fetched;
+        else {
+          scheduleEvolutionGroupNameRefresh(tenant.accountId, address);
+        }
+      }
       const result = await persistNormalizedInboundMessage(event, {
         accountId: tenant.accountId,
         userId: tenant.userId,
-        contactName: asString(asRecord(payload.data).pushName),
+        contactName,
         correlationId: externalEventId,
+        chatKind,
+        chatJid: remoteJid || undefined,
       });
       if (result.duplicate) duplicates += 1;
       else {

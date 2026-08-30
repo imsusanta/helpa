@@ -4,6 +4,13 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createClient } from '@/lib/db/client';
 import { useAuth } from '@/hooks/use-auth';
+import {
+  parseWhatsAppSenderPreview,
+  whatsappChatKind,
+  whatsappChatKindLabel,
+  whatsappContactDisplayName,
+} from '@/core/whatsapp/group-identity';
+import { WhatsAppChatAvatar } from '@/components/inbox/whatsapp-chat-avatar';
 import { cn } from '@/lib/utils';
 import type {
   Conversation,
@@ -873,15 +880,22 @@ export function MessageThread({
   }, [reactions]);
 
   const contactDisplayName = contact?.name || contact?.phone || 'Customer';
+  const threadChatKind = whatsappChatKind(contact?.phone, contact?.metadata);
 
   // Author label for a quoted message: "You" when we sent the parent,
-  // contact name when the customer sent it.
+  // contact name when the customer sent it. Group/channel quotes use the
+  // participant name WhatsApp prefixes onto the stored body.
   const authorLabelFor = useCallback(
     (m: Message): string => {
       const isAgentMsg = m.sender_type === 'agent' || m.sender_type === 'bot';
-      return isAgentMsg ? 'You' : contactDisplayName;
+      if (isAgentMsg) return 'You';
+      if (threadChatKind === 'group' || threadChatKind === 'channel') {
+        const preview = parseWhatsAppSenderPreview(m.content_text);
+        if (preview.sender) return preview.sender;
+      }
+      return contactDisplayName;
     },
-    [contactDisplayName]
+    [contactDisplayName, threadChatKind]
   );
 
   const handleStartReply = useCallback(
@@ -1029,11 +1043,16 @@ export function MessageThread({
       updated_at: conversation.updated_at || new Date().toISOString(),
     } as Contact);
 
+  const chatKind = whatsappChatKind(
+    effectiveContact.phone,
+    effectiveContact.metadata
+  );
   const displayName =
-    effectiveContact.name ||
-    effectiveContact.phone ||
-    conversation.contact_id ||
-    'Contact';
+    whatsappContactDisplayName(effectiveContact.name, effectiveContact.phone) ||
+    whatsappChatKindLabel(chatKind) ||
+    'Chat';
+  const displaySubtitle =
+    whatsappChatKindLabel(chatKind) || effectiveContact.phone;
   const messageGroups = groupMessagesByDate(messages);
   const currentStatus = STATUS_OPTIONS.find(
     (s) => s.value === conversation.status
@@ -1062,25 +1081,21 @@ export function MessageThread({
               <ArrowLeft className="h-5 w-5" />
             </button>
           )}
-          <div className="bg-muted text-foreground flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-medium">
-            {effectiveContact.avatar_url ? (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
-                src={effectiveContact.avatar_url}
-                alt={displayName}
-                className="h-9 w-9 rounded-full object-cover"
-              />
-            ) : (
-              displayName.charAt(0).toUpperCase()
-            )}
-          </div>
+          <WhatsAppChatAvatar
+            kind={chatKind}
+            name={displayName}
+            avatarUrl={effectiveContact.avatar_url}
+            size="sm"
+          />
           <div className="min-w-0">
             <h2 className="text-foreground truncate text-sm font-semibold">
               {displayName}
             </h2>
-            <p className="text-muted-foreground truncate text-xs">
-              {effectiveContact.phone}
-            </p>
+            {displaySubtitle ? (
+              <p className="text-muted-foreground truncate text-xs">
+                {displaySubtitle}
+              </p>
+            ) : null}
           </div>
           {/* Session timer badge — hidden on the narrowest phones so
               the name + back arrow keep their room. */}
@@ -1324,6 +1339,7 @@ export function MessageThread({
                       >
                         <MessageBubble
                           message={msg}
+                          chatKind={chatKind}
                           reply={reply}
                           reactions={msgReactions}
                           currentUserId={user?.id}

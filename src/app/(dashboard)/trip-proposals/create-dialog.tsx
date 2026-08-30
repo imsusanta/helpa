@@ -26,10 +26,7 @@ import {
 import { toast } from 'sonner';
 import { salesApi } from '@/lib/sales/api-client';
 import { cn } from '@/lib/utils';
-import {
-  fetchTourPackage,
-  fetchTourPackages,
-} from '@/lib/travel/api-client';
+import { fetchTourPackage, fetchTourPackages } from '@/lib/travel/api-client';
 import { tourPackageToProposalPrefill } from '@/lib/travel/proposal-adapter';
 import type { TourPackage } from '@/lib/travel/types';
 import {
@@ -395,7 +392,8 @@ export function CreateTripProposalDialog({
                         if (!nextId) return;
                         void fetchTourPackage(nextId)
                           .then((detail) => {
-                            const prefill = tourPackageToProposalPrefill(detail);
+                            const prefill =
+                              tourPackageToProposalPrefill(detail);
                             setTravel((previous) => ({
                               ...previous,
                               proposal_title: prefill.proposal_title,

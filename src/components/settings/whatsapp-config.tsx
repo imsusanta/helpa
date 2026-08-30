@@ -63,8 +63,10 @@ export function WhatsAppConfig() {
   const [showDisconnectModal, setShowDisconnectModal] = useState(false);
   const [connectingEmbedded, setConnectingEmbedded] = useState(false);
 
-  const fetchConfig = useCallback(async () => {
-    setLoading(true);
+  const fetchConfig = useCallback(async (isInitial = false) => {
+    if (isInitial) {
+      setLoading(true);
+    }
     try {
       const res = await fetch('/api/whatsapp/config', { method: 'GET' });
       const payload = await res.json().catch(() => ({}));
@@ -115,7 +117,9 @@ export function WhatsAppConfig() {
       toast.error(`Failed to load WhatsApp configuration: ${msg}`);
       setConnectionStatus('disconnected');
     } finally {
-      setLoading(false);
+      if (isInitial) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -125,7 +129,7 @@ export function WhatsAppConfig() {
       setLoading(false);
       return;
     }
-    fetchConfig();
+    fetchConfig(true);
 
     if (typeof window !== 'undefined') {
       const searchParams = new URLSearchParams(window.location.search);
@@ -702,7 +706,16 @@ export function WhatsAppConfig() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <WhatsAppQrPanel onConnectionSuccess={() => void fetchConfig()} />
+            <WhatsAppQrPanel
+              onConnectionSuccess={() => void fetchConfig(false)}
+              initialConnected={isConnected && isEvolution}
+              initialPhoneNumber={
+                config?.display_phone_number || config?.phone_number || null
+              }
+              initialVerifiedName={
+                config?.verified_name || config?.business_name || null
+              }
+            />
           </CardContent>
         </Card>
       ) : null}

@@ -75,6 +75,8 @@ describe('Tour Package AI tools', () => {
     );
     spy.mockRestore();
     expect(result.success).toBe(false);
-    expect(result.error).toContain('unable to check the latest package details');
+    expect(result.error).toContain(
+      'unable to check the latest package details'
+    );
   });
 });

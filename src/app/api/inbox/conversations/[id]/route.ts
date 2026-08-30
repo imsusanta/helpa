@@ -6,6 +6,12 @@ import {
 } from '@/lib/auth/account';
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
 import type { Conversation, Contact, ConversationStatus } from '@/types';
+import {
+  isWhatsAppCollectiveAddress,
+  whatsappContactDisplayName,
+} from '@/core/whatsapp/group-identity';
+import { syncEvolutionGroupNamesForInbox } from '@/core/whatsapp/evolution-group-names';
+import { phoneFromWhatsAppJid } from '@/core/whatsapp/canonical-config';
 
 const CACHE_HEADERS = {
   'Cache-Control': 'private, no-store, no-cache, must-revalidate',
@@ -16,7 +22,11 @@ function normalizeContact(doc: Record<string, unknown>): Contact {
     id: (doc.$id || doc.id) as string,
     account_id: (doc.accountId || doc.account_id) as string,
     user_id: ((doc.userId || doc.user_id) as string) || '',
-    name: (doc.name as string) || 'Unknown Contact',
+    name:
+      whatsappContactDisplayName(doc.name as string, doc.phone as string, '') ||
+      (isWhatsAppCollectiveAddress(doc.phone as string)
+        ? ''
+        : (doc.name as string) || 'Unknown Contact'),
     phone: (doc.phone as string) || '',
     email: (doc.email as string) || undefined,
     metadata: (doc.metadata as Record<string, unknown>) || undefined,
@@ -118,17 +128,22 @@ export async function GET(_request: NextRequest, { params }: Params) {
         .eq('id', cId)
         .maybeSingle();
       if (cDoc) {
+        const groupNames = await syncEvolutionGroupNamesForInbox(accountId);
+        const phone = String(cDoc.phone || '');
+        const resolved =
+          groupNames.get(phone) || groupNames.get(phoneFromWhatsAppJid(phone));
+        if (resolved) cDoc.name = resolved;
         contact = normalizeContact(cDoc);
       } else {
         contact = {
           id: cId,
           account_id: accountId,
           user_id: '',
-          name:
-            (conv.contact_name as string) ||
-            (conv.patient_name as string) ||
-            (conv.phone as string) ||
-            'Contact',
+          name: whatsappContactDisplayName(
+            (conv.contact_name as string) || (conv.patient_name as string),
+            conv.phone as string,
+            'Contact'
+          ),
           phone: (conv.phone as string) || '',
           created_at: (conv.created_at as string) || new Date().toISOString(),
           updated_at: (conv.updated_at as string) || new Date().toISOString(),

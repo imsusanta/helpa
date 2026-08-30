@@ -20,9 +20,13 @@ import {
   type QrSessionResponse,
   type QrUiStatus,
 } from '@/core/whatsapp/qr-session-client';
+import { WhatsAppConnectedModal } from './whatsapp-connected-modal';
 
 interface WhatsAppQrPanelProps {
   onConnectionSuccess?: () => void;
+  initialConnected?: boolean;
+  initialPhoneNumber?: string | null;
+  initialVerifiedName?: string | null;
 }
 
 const POLL_INTERVAL_MS = 2500;
@@ -64,20 +68,32 @@ interface QrPollOutcome {
   retryable: boolean;
 }
 
-export function WhatsAppQrPanel({ onConnectionSuccess }: WhatsAppQrPanelProps) {
+export function WhatsAppQrPanel({
+  onConnectionSuccess,
+  initialConnected = false,
+  initialPhoneNumber = null,
+  initialVerifiedName = null,
+}: WhatsAppQrPanelProps) {
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState<QrUiStatus>('disconnected');
+  const [status, setStatus] = useState<QrUiStatus>(
+    initialConnected ? 'connected' : 'disconnected'
+  );
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [qrImage, setQrImage] = useState<string | null>(null);
   const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [expiresIn, setExpiresIn] = useState<number>(0);
-  const [connectedPhone, setConnectedPhone] = useState<string | null>(null);
-  const [displayName, setDisplayName] = useState<string | null>(null);
+  const [connectedPhone, setConnectedPhone] = useState<string | null>(
+    initialPhoneNumber
+  );
+  const [displayName, setDisplayName] = useState<string | null>(
+    initialVerifiedName
+  );
   const [error, setError] = useState<string | null>(null);
+  const [showCelebrationModal, setShowCelebrationModal] = useState(false);
   const pollStartedAt = useRef(0);
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const unmounted = useRef(false);
-  const wasConnected = useRef(false);
+  const wasConnected = useRef(initialConnected);
 
   const stopPolling = useCallback(() => {
     if (pollTimer.current) {
@@ -105,6 +121,7 @@ export function WhatsAppQrPanel({ onConnectionSuccess }: WhatsAppQrPanelProps) {
       setError(payload.error ?? null);
       if (next === 'connected' && !wasConnected.current) {
         wasConnected.current = true;
+        setShowCelebrationModal(true);
         onConnectionSuccess?.();
       }
       if (next !== 'connected') {
@@ -263,6 +280,7 @@ export function WhatsAppQrPanel({ onConnectionSuccess }: WhatsAppQrPanelProps) {
       stopPolling();
       applyPayload({ ...payload, status: 'disconnected', connected: false });
       toast.success('QR WhatsApp disconnected. Conversation history kept.');
+      onConnectionSuccess?.();
     } catch (err) {
       toast.error(friendlyQrSessionError(err, 'Failed to unlink device'));
     } finally {
@@ -524,6 +542,14 @@ export function WhatsAppQrPanel({ onConnectionSuccess }: WhatsAppQrPanelProps) {
           </div>
         </div>
       )}
+
+      {/* Celebration Dialog Modal */}
+      <WhatsAppConnectedModal
+        open={showCelebrationModal}
+        onClose={() => setShowCelebrationModal(false)}
+        phoneNumber={connectedPhone}
+        verifiedName={displayName}
+      />
     </div>
   );
 }
