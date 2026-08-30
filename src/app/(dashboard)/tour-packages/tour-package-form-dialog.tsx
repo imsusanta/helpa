@@ -74,9 +74,15 @@ function withCurrent(options: number[], current: number): number[] {
 
 function fromDetail(pkg: TourPackageDetail): SimpleTourPackageForm {
   const priceType = TOUR_PRICE_TYPES.includes(
-    (pkg.price_type || pkg.pricing[0]?.pricing_name || '') as never
+    (pkg.price_type ||
+      pkg.price_for ||
+      pkg.pricing[0]?.pricing_name ||
+      '') as never
   )
-    ? pkg.price_type || pkg.pricing[0]?.pricing_name || 'Per Person'
+    ? pkg.price_type ||
+      pkg.price_for ||
+      pkg.pricing[0]?.pricing_name ||
+      'Per Person'
     : 'Per Person';
   return {
     name: pkg.name,
@@ -87,7 +93,7 @@ function fromDetail(pkg: TourPackageDetail): SimpleTourPackageForm {
     starting_price: pkg.starting_price,
     currency: pkg.currency || 'INR',
     price_type: priceType,
-    cover_image_url: pkg.cover_image_url,
+    cover_image_url: pkg.cover_image_url || pkg.image_url || null,
     valid_from: dateInputValue(pkg.valid_from),
     valid_until: dateInputValue(pkg.valid_until),
     min_people: pkg.min_people ?? DEFAULT_MIN_PEOPLE,

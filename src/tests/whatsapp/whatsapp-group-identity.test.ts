@@ -4,6 +4,7 @@ import {
   extractWhatsAppGroupSubject,
   formatGroupInboundText,
   inboundWhatsAppContactName,
+  isHiddenWhatsAppInboxChat,
   isPlaceholderContactName,
   isWhatsAppChannelJid,
   isWhatsAppCollectiveAddress,
@@ -12,6 +13,7 @@ import {
   parseWhatsAppSenderPreview,
   resolvedWhatsAppContactName,
   whatsappChatKind,
+  formatWhatsAppDisplayPhone,
   whatsappChatKindLabel,
   whatsappContactDisplayName,
 } from '@/core/whatsapp/group-identity';
@@ -43,6 +45,12 @@ describe('WhatsApp group identity', () => {
     );
     expect(whatsappChatKindLabel('group')).toBe('Group');
     expect(whatsappChatKindLabel('channel')).toBe('Channel');
+    expect(isHiddenWhatsAppInboxChat(channelJid)).toBe(false);
+    expect(
+      isHiddenWhatsAppInboxChat(GROUP_ID, { whatsapp_chat_kind: 'channel' })
+    ).toBe(false);
+    expect(isHiddenWhatsAppInboxChat(GROUP_JID)).toBe(false);
+    expect(isHiddenWhatsAppInboxChat('919111222333')).toBe(false);
   });
 
   it('parses WhatsApp-style sender: body list previews', () => {
@@ -116,6 +124,12 @@ describe('WhatsApp group identity', () => {
         GROUP_ID
       )
     ).toBe('OPD Updates');
+    expect(
+      extractWhatsAppGroupSubject({
+        id: '120363999000111222@newsletter',
+        thread_metadata: { name: { text: 'Clinic Updates' } },
+      })
+    ).toBe('Clinic Updates');
   });
 
   it('keeps 1:1 pushName titles', () => {
@@ -146,6 +160,20 @@ describe('WhatsApp group identity', () => {
       'Helpa Clinic Team'
     );
     expect(whatsappContactDisplayName('Alice', '919111222333')).toBe('Alice');
+    expect(whatsappContactDisplayName('919609200394', '919609200394')).toBe(
+      '+919609200394'
+    );
+    expect(whatsappContactDisplayName('', '919609200394')).toBe(
+      '+919609200394'
+    );
+  });
+
+  it('writes country-coded WhatsApp numbers with a leading +', () => {
+    expect(formatWhatsAppDisplayPhone('919609200394')).toBe('+919609200394');
+    expect(formatWhatsAppDisplayPhone('+919609200394')).toBe('+919609200394');
+    expect(formatWhatsAppDisplayPhone('+91 96092 00394')).toBe('+919609200394');
+    expect(formatWhatsAppDisplayPhone(GROUP_ID)).toBe('');
+    expect(formatWhatsAppDisplayPhone(`${GROUP_ID}@g.us`)).toBe('');
   });
 
   it('labels group messages with the sender so the thread stays readable', () => {

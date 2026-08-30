@@ -5,7 +5,6 @@ export const TOUR_DEPARTURE_STATUSES = [
   'cancelled',
   'closed',
 ] as const;
-
 export const TOUR_PACKAGE_TYPES = [
   'Family',
   'Honeymoon',
@@ -17,7 +16,6 @@ export const TOUR_PACKAGE_TYPES = [
   'Corporate',
   'Custom',
 ] as const;
-
 export const TOUR_PACKAGE_CATEGORIES = [
   'Domestic',
   'International',
@@ -26,7 +24,6 @@ export const TOUR_PACKAGE_CATEGORIES = [
   'Budget',
   'Custom',
 ] as const;
-
 export const TOUR_PACKAGE_CURRENCIES = [
   'INR',
   'USD',
@@ -45,7 +42,6 @@ export const TOUR_PRICE_TYPES = [
 
 export type TourPackageStatus = (typeof TOUR_PACKAGE_STATUSES)[number];
 export type TourDepartureStatus = (typeof TOUR_DEPARTURE_STATUSES)[number];
-
 export interface TourPackage {
   id: string;
   account_id: string;
@@ -58,6 +54,8 @@ export interface TourPackage {
   duration_nights: number;
   starting_price: number | null;
   currency: string;
+  price_for?: string;
+  image_url?: string | null;
   status: TourPackageStatus;
   featured: boolean;
   valid_from: string | null;
@@ -71,7 +69,6 @@ export interface TourPackage {
   created_at: string;
   updated_at: string;
 }
-
 export interface TourPackageItinerary {
   id: string;
   account_id: string;
@@ -86,7 +83,6 @@ export interface TourPackageItinerary {
   created_at: string;
   updated_at: string;
 }
-
 export interface TourPackageInclusion {
   id: string;
   account_id: string;
@@ -94,7 +90,6 @@ export interface TourPackageInclusion {
   item: string;
   created_at: string;
 }
-
 export interface TourPackageExclusion {
   id: string;
   account_id: string;
@@ -102,7 +97,6 @@ export interface TourPackageExclusion {
   item: string;
   created_at: string;
 }
-
 export interface TourPackageHotel {
   id: string;
   account_id: string;
@@ -116,7 +110,6 @@ export interface TourPackageHotel {
   created_at: string;
   updated_at: string;
 }
-
 export interface TourPackagePricing {
   id: string;
   account_id: string;
@@ -134,7 +127,6 @@ export interface TourPackagePricing {
   created_at: string;
   updated_at: string;
 }
-
 export interface TourPackageDeparture {
   id: string;
   account_id: string;
@@ -150,7 +142,6 @@ export interface TourPackageDeparture {
   created_at: string;
   updated_at: string;
 }
-
 export interface TourPackageDetail extends TourPackage {
   itineraries: TourPackageItinerary[];
   inclusions: TourPackageInclusion[];
@@ -159,7 +150,6 @@ export interface TourPackageDetail extends TourPackage {
   pricing: TourPackagePricing[];
   departures: TourPackageDeparture[];
 }
-
 export interface TourPackageWriteInput {
   name: string;
   destination: string;
@@ -170,6 +160,8 @@ export interface TourPackageWriteInput {
   duration_nights?: number;
   starting_price?: number | null;
   currency?: string;
+  price_for?: string;
+  image_url?: string | null;
   status?: TourPackageStatus;
   featured?: boolean;
   valid_from?: string | null;
@@ -222,7 +214,6 @@ export interface TourPackageWriteInput {
     notes?: string | null;
   }>;
 }
-
 export interface TravelerRequirements {
   destination: string | null;
   budget: number | null;
@@ -239,7 +230,6 @@ export interface TravelerRequirements {
   query: string;
   packageIntent: boolean;
 }
-
 export interface RankedTourPackage {
   package: TourPackageDetail;
   score: number;
@@ -250,13 +240,11 @@ export interface RankedTourPackage {
   matchedPricing: TourPackagePricing | null;
   matchedDeparture: TourPackageDeparture | null;
 }
-
 export interface TourPackageMatchResult {
   matches: RankedTourPackage[];
   nearMatches: RankedTourPackage[];
   retrievalFailed: boolean;
   requirements: TravelerRequirements;
 }
-
 export const TOUR_PACKAGE_RETRIEVAL_UNAVAILABLE =
   "I'm unable to check the latest package details right now. Let me verify that for you.";

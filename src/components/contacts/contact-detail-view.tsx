@@ -8,6 +8,7 @@ import { getIndustryModule } from '@/modules/registry';
 import { formatCurrency } from '@/lib/currency';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import { formatWhatsAppDisplayPhone } from '@/core/whatsapp/group-identity';
 import type {
   Contact,
   Tag,
@@ -323,7 +324,9 @@ export function ContactDetailView({
 
   async function copyPhone() {
     if (!contact) return;
-    await navigator.clipboard.writeText(contact.phone);
+    await navigator.clipboard.writeText(
+      formatWhatsAppDisplayPhone(contact.phone) || contact.phone
+    );
     setCopiedPhone(true);
     setTimeout(() => setCopiedPhone(false), 2000);
   }
@@ -558,7 +561,8 @@ export function ContactDetailView({
                       className="hover:text-primary flex cursor-pointer items-center gap-1 transition-colors"
                     >
                       <Phone className="size-3" />
-                      {contact.phone}
+                      {formatWhatsAppDisplayPhone(contact.phone) ||
+                        contact.phone}
                       {copiedPhone ? (
                         <Check className="text-primary size-3" />
                       ) : (

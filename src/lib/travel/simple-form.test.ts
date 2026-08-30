@@ -82,6 +82,7 @@ describe('simple tour package form', () => {
     ];
     const payload = simpleFormToWriteInput(form);
     expect(payload.price_type).toBe('Per Couple');
+    expect(payload.price_for).toBe('Per Couple');
     expect(payload.pricing?.[0]).toMatchObject({
       pricing_name: 'Per Couple',
       price: 29999,

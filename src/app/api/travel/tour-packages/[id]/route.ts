@@ -113,7 +113,10 @@ export async function PATCH(
     }
     const code =
       err instanceof Error ? err.message : 'TOUR_PACKAGE_SAVE_FAILED';
-    if (code === 'PACKAGE_PARTY_SIZE_INVALID') {
+    if (
+      code === 'PACKAGE_PARTY_SIZE_INVALID' ||
+      code === 'TOUR_PACKAGE_PEOPLE_RANGE_INVALID'
+    ) {
       return errorResponse(
         400,
         code,

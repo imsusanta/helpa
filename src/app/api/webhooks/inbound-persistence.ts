@@ -3,6 +3,10 @@ import { normalizePhone } from '@/lib/whatsapp/phone-utils';
 import type { MessageEvent } from '@/core/types';
 import { findOrCreateContact } from '@/app/api/whatsapp/webhook/contact-service';
 import { findOrCreateConversation } from '@/app/api/whatsapp/webhook/conversation-service';
+import {
+  isWhatsAppGroupAddress,
+  isValidIndividualPhone,
+} from '@/core/whatsapp/group-identity';
 
 type Row = Record<string, unknown>;
 
@@ -231,6 +235,17 @@ export async function persistNormalizedInboundMessage(
     event.senderPhone || event.patientAddress || ''
   );
   if (!senderPhone) throw new Error('Inbound sender phone is missing');
+  if (
+    !isValidIndividualPhone(senderPhone) ||
+    isWhatsAppGroupAddress(senderPhone)
+  ) {
+    return {
+      duplicate: false,
+      accountId,
+      contactId: '',
+      conversationId: '',
+    };
+  }
 
   const externalId = String(
     event.externalMessageId || event.messageId || ''
@@ -273,7 +288,14 @@ export async function persistNormalizedInboundMessage(
     senderPhone,
     options.contactName || senderPhone
   );
-  if (!contactOutcome) throw new Error('Unable to resolve inbound contact');
+  if (!contactOutcome) {
+    return {
+      duplicate: false,
+      accountId,
+      contactId: '',
+      conversationId: '',
+    };
+  }
 
   if (options.chatKind && options.chatKind !== 'direct') {
     try {

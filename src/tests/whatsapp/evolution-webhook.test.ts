@@ -254,7 +254,7 @@ describe('Evolution Go webhook', () => {
     );
   });
 
-  it('stamps channel chats from newsletter JIDs', async () => {
+  it('persists WhatsApp channel chats with the channel name, not the poster', async () => {
     const res = await post(secretA, {
       event: 'Message',
       data: {
@@ -264,18 +264,15 @@ describe('Evolution Go webhook', () => {
           remoteJid: '120363999000111222@newsletter',
         },
         pushName: 'Helpa Studio',
+        thread_metadata: { name: { text: 'Clinic Updates' } },
         message: { conversation: 'channel update' },
       },
     });
     expect(res.status).toBe(200);
-    expect(persistMock.mock.calls[0][0].content).toBe(
-      'Helpa Studio: channel update'
-    );
+    expect(persistMock).toHaveBeenCalledTimes(1);
+    expect(persistMock.mock.calls[0][0].content).toBe('channel update');
     expect(persistMock.mock.calls[0][1].chatKind).toBe('channel');
-    expect(persistMock.mock.calls[0][1].chatJid).toBe(
-      '120363999000111222@newsletter'
-    );
-    expect(persistMock.mock.calls[0][1].contactName).not.toBe('Helpa Studio');
+    expect(persistMock.mock.calls[0][1].contactName).toBe('Clinic Updates');
   });
 
   it('uses the group subject when Evolution includes it on the message', async () => {

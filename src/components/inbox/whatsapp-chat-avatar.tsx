@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { Megaphone, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { WhatsAppChatKind } from '@/core/whatsapp/group-identity';
@@ -17,13 +18,18 @@ export function WhatsAppChatAvatar({
   avatarUrl,
   size = 'md',
 }: WhatsAppChatAvatarProps) {
+  const [broken, setBroken] = useState(false);
   const box =
     size === 'lg' ? 'h-16 w-16' : size === 'sm' ? 'h-9 w-9' : 'h-10 w-10';
   const icon =
     size === 'lg' ? 'h-7 w-7' : size === 'sm' ? 'h-4 w-4' : 'h-5 w-5';
   const initialsClass = size === 'lg' ? 'text-lg' : 'text-sm';
 
-  if (avatarUrl) {
+  useEffect(() => {
+    setBroken(false);
+  }, [avatarUrl]);
+
+  if (avatarUrl && !broken) {
     return (
       <div
         className={cn(
@@ -35,7 +41,9 @@ export function WhatsAppChatAvatar({
         <img
           src={avatarUrl}
           alt={name}
+          referrerPolicy="no-referrer"
           className={cn('rounded-full object-cover', box)}
+          onError={() => setBroken(true)}
         />
       </div>
     );

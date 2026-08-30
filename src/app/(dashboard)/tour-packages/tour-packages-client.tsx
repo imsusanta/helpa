@@ -180,10 +180,10 @@ export function TourPackagesClient() {
                   <tr key={pkg.id} className="hover:bg-slate-50">
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-3">
-                        {pkg.cover_image_url ? (
+                        {pkg.cover_image_url || pkg.image_url ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
-                            src={pkg.cover_image_url}
+                            src={pkg.cover_image_url || pkg.image_url || ''}
                             alt=""
                             className="size-10 rounded-lg object-cover"
                           />
@@ -202,6 +202,7 @@ export function TourPackagesClient() {
                           <div className="max-w-xs truncate text-[10px] text-slate-400">
                             {pkg.description ||
                               pkg.price_type ||
+                              pkg.price_for ||
                               'Tour package'}
                           </div>
                         </div>
@@ -215,9 +216,9 @@ export function TourPackagesClient() {
                       <div className="font-extrabold">
                         {formatMoney(pkg.starting_price, pkg.currency) || '—'}
                       </div>
-                      {pkg.price_type ? (
+                      {pkg.price_type || pkg.price_for ? (
                         <div className="text-[10px] text-slate-400">
-                          {pkg.price_type}
+                          {pkg.price_type || pkg.price_for}
                         </div>
                       ) : null}
                     </td>

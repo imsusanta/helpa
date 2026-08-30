@@ -2,6 +2,8 @@ import { getAdminClient } from '@/lib/supabase/server';
 import { findExistingContact, isUniqueViolation } from '@/lib/contacts/dedupe';
 import {
   isPlaceholderContactName,
+  isWhatsAppGroupAddress,
+  isValidIndividualPhone,
   resolvedWhatsAppContactName,
 } from '@/core/whatsapp/group-identity';
 import type { Contact } from '@/types';
@@ -64,6 +66,10 @@ export async function findOrCreateContact(
         .eq('id', existingContact.id);
     }
     return { contact: existingContact, wasCreated: false };
+  }
+
+  if (!isValidIndividualPhone(phone) || isWhatsAppGroupAddress(phone)) {
+    return null;
   }
 
   // Create new contact

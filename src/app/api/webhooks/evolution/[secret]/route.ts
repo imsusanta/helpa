@@ -33,7 +33,6 @@ import {
   inboundWhatsAppContactName,
   isEvolutionGroupEvent,
   isPlaceholderContactName,
-  isWhatsAppCollectiveAddress,
   whatsappChatKind,
 } from '@/core/whatsapp/group-identity';
 import {
@@ -346,7 +345,7 @@ export async function POST(
       const payloadData = asRecord(payload.data ?? payload.Data);
       const remoteJid = extractWhatsAppGroupJid(payloadData);
       const chatKind = whatsappChatKind(remoteJid || address);
-      const isGroup = isWhatsAppCollectiveAddress(remoteJid || address);
+      const isGroup = chatKind === 'group';
       if (isGroup) {
         const labeled = formatGroupInboundText(
           extractWhatsAppPushName(payloadData),
@@ -357,13 +356,13 @@ export async function POST(
         event.text = labeled;
       }
       let contactName = inboundWhatsAppContactName(payload, address);
-      if (isGroup && isPlaceholderContactName(contactName, address)) {
+      if (isPlaceholderContactName(contactName, address)) {
         const fetched = await resolveEvolutionGroupName(
           tenant.accountId,
-          address
+          remoteJid || address
         );
         if (fetched) contactName = fetched;
-        else {
+        else if (isGroup) {
           scheduleEvolutionGroupNameRefresh(tenant.accountId, address);
         }
       }

@@ -97,7 +97,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         'Package name and destination are required.'
       );
     }
-    if (code === 'PACKAGE_PARTY_SIZE_INVALID') {
+    if (
+      code === 'PACKAGE_PARTY_SIZE_INVALID' ||
+      code === 'TOUR_PACKAGE_PEOPLE_RANGE_INVALID'
+    ) {
       return errorResponse(
         400,
         code,

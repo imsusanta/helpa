@@ -19,10 +19,21 @@ import {
   mergeConversationEvent,
   mergeMessages,
 } from '@/lib/inbox/merge';
+import { isHiddenWhatsAppInboxChat } from '@/core/whatsapp/group-identity';
 
 // Remembers the agent's show/hide choice for the desktop contact panel
 // across reloads and sessions (device-scoped, like the theme prefs).
 const CONTACT_PANEL_STORAGE_KEY = 'wacrm:inbox:contact-panel-open';
+
+function withoutHiddenInboxChats(items: Conversation[]): Conversation[] {
+  return items.filter(
+    (conversation) =>
+      !isHiddenWhatsAppInboxChat(
+        conversation.contact?.phone,
+        conversation.contact?.metadata
+      )
+  );
+}
 
 export default function InboxPage() {
   const router = useRouter();
@@ -152,6 +163,14 @@ export default function InboxPage() {
       const json = await res.json();
       const fetched = (json.conversation || json) as Conversation;
       if (!fetched?.id) return;
+      if (
+        isHiddenWhatsAppInboxChat(
+          fetched.contact?.phone,
+          fetched.contact?.metadata
+        )
+      ) {
+        return;
+      }
       if (!knownConvIdsRef.current.has(fetched.id)) {
         pendingConversationIdsRef.current.add(fetched.id);
       }
@@ -316,8 +335,12 @@ export default function InboxPage() {
         const existing = prev.find((c) => c.id === conv.id);
         const merged = mergeConversationEvent(existing, conv);
         if (activeConversation?.id === conv.id) merged.unread_count = 0;
-        if (existing) return prev.map((c) => (c.id === conv.id ? merged : c));
-        return [merged, ...prev];
+        if (existing) {
+          return withoutHiddenInboxChats(
+            prev.map((c) => (c.id === conv.id ? merged : c))
+          );
+        }
+        return withoutHiddenInboxChats([merged, ...prev]);
       });
 
       if (activeConversation?.id === conv.id) {
@@ -401,7 +424,7 @@ export default function InboxPage() {
   }, [activeConversation]);
 
   const handleConversationsLoaded = useCallback((items: Conversation[]) => {
-    setConversations(items);
+    setConversations(withoutHiddenInboxChats(items));
   }, []);
 
   const handleSelectConversation = useCallback((conversation: Conversation) => {

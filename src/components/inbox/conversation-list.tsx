@@ -27,6 +27,7 @@ import { SendOutboundModal } from '@/components/contacts/send-outbound-modal';
 
 import { useAuth } from '@/hooks/use-auth';
 import {
+  isHiddenWhatsAppInboxChat,
   parseWhatsAppSenderPreview,
   whatsappChatKind,
   whatsappChatKindLabel,
@@ -198,7 +199,9 @@ export function ConversationList({
   }, [conversations, user?.id]);
 
   const filtered = useMemo(() => {
-    let result = conversations;
+    let result = conversations.filter(
+      (c) => !isHiddenWhatsAppInboxChat(c.contact?.phone, c.contact?.metadata)
+    );
 
     if (filter === 'unread') {
       result = result.filter((c) => (c.unread_count ?? 0) > 0);

@@ -60,9 +60,49 @@ export function isWhatsAppGroupAddress(
   if (!raw) return false;
   if (isWhatsAppChannelJid(raw)) return false;
   if (isWhatsAppGroupJid(raw)) return true;
+  if (
+    raw.toLowerCase().includes('@g.us') ||
+    raw.toLowerCase().includes('@broadcast') ||
+    raw.toLowerCase().includes('@newsletter')
+  ) {
+    return true;
+  }
   const digits = raw.replace(/\D/g, '');
-  if (digits.length <= 15) return false;
-  return digits === raw.replace(/[\s\-+()]/g, '');
+  if (digits.length > 15) return true;
+  if (digits.startsWith('120363')) return true;
+  return false;
+}
+
+/**
+ * True only for valid individual human phone numbers (7 to 15 digits, E.164 standard).
+ * Rejects group IDs, broadcast JIDs, channel JIDs, and corrupted numeric strings.
+ */
+export function isValidIndividualPhone(
+  value: string | null | undefined
+): boolean {
+  const raw = String(value || '').trim();
+  if (!raw) return false;
+  if (isWhatsAppGroupAddress(raw) || isWhatsAppGroupJid(raw)) return false;
+  const digits = raw.replace(/\D/g, '');
+  return digits.length >= 7 && digits.length <= 15;
+}
+
+/**
+ * True if a contact record represents a real individual customer/patient/lead.
+ */
+export function isIndividualContact(
+  contact:
+    | {
+        phone?: string | null;
+        name?: string | null;
+      }
+    | null
+    | undefined
+): boolean {
+  if (!contact) return false;
+  if (!isValidIndividualPhone(contact.phone)) return false;
+  if (isWhatsAppGroupAddress(contact.name)) return false;
+  return true;
 }
 
 export function isWhatsAppChannelAddress(
@@ -99,6 +139,33 @@ export function whatsappChatKindLabel(kind: WhatsAppChatKind): string {
   if (kind === 'channel') return 'Channel';
   if (kind === 'group') return 'Group';
   return '';
+}
+
+/**
+ * WhatsApp stores international numbers as digits (919609200394).
+ * Show them as E.164 with a leading +. Group/channel ids stay blank.
+ */
+export function formatWhatsAppDisplayPhone(phone?: string | null): string {
+  const raw = String(phone || '').trim();
+  if (!raw) return '';
+  if (
+    isWhatsAppCollectiveAddress(raw) ||
+    isWhatsAppGroupJid(raw) ||
+    isWhatsAppChannelJid(raw)
+  ) {
+    return '';
+  }
+  if (!isValidIndividualPhone(raw)) return raw;
+  const digits = raw.replace(/\D/g, '');
+  if (!digits) return raw;
+  return `+${digits}`;
+}
+
+export function isHiddenWhatsAppInboxChat(
+  _address?: string | null,
+  _metadata?: Record<string, unknown> | null
+): boolean {
+  return false;
 }
 
 export function parseWhatsAppSenderPreview(text: string | null | undefined): {
@@ -165,7 +232,13 @@ export function whatsappContactDisplayName(
     }
     return '';
   }
-  return trimmedName || trimmedPhone || fallback;
+  return (
+    formatWhatsAppDisplayPhone(trimmedPhone) ||
+    formatWhatsAppDisplayPhone(trimmedName) ||
+    trimmedName ||
+    trimmedPhone ||
+    fallback
+  );
 }
 
 export function resolvedWhatsAppContactName(
@@ -192,6 +265,10 @@ export function extractWhatsAppGroupSubject(
 ): string {
   const info = asRecord(data.Info || data.info);
   const chat = asRecord(data.chat || data.Chat);
+  const thread = asRecord(
+    data.thread_metadata || data.ThreadMetadata || data.threadMetadata
+  );
+  const threadName = asRecord(thread.name || thread.Name);
   const candidates = [
     nameFromUnknown(data.Name),
     nameFromUnknown(data.name),
@@ -201,6 +278,8 @@ export function extractWhatsAppGroupSubject(
     nameFromUnknown(info.name),
     nameFromUnknown(chat.Name),
     nameFromUnknown(chat.name),
+    asString(threadName.text),
+    nameFromUnknown(thread.name),
     asString(data.subject),
     asString(data.Subject),
     asString(chat.subject),

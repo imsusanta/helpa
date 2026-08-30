@@ -28,12 +28,11 @@ const CHILD_TABLES = {
   pricing: 'tour_package_pricing',
   departures: 'tour_package_departures',
 } as const;
-
-function asNumber(value: unknown): number | null {
+const asNumber = (value: unknown) => {
   if (value == null || value === '') return null;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+};
 
 function mapPackage(row: Record<string, unknown>): TourPackage {
   return {
@@ -48,39 +47,44 @@ function mapPackage(row: Record<string, unknown>): TourPackage {
     duration_nights: Number(row.duration_nights || 0),
     starting_price: asNumber(row.starting_price),
     currency: String(row.currency || 'INR'),
+    price_for: String(row.price_for || row.price_type || 'Per Person'),
+    image_url:
+      (row.image_url as string | null) ??
+      (row.cover_image_url as string | null) ??
+      null,
     status: row.status === 'inactive' ? 'inactive' : 'active',
     featured: Boolean(row.featured),
     valid_from: (row.valid_from as string | null) ?? null,
     valid_until: (row.valid_until as string | null) ?? null,
     booking_notes: (row.booking_notes as string | null) ?? null,
     terms_and_conditions: (row.terms_and_conditions as string | null) ?? null,
-    cover_image_url: (row.cover_image_url as string | null) ?? null,
-    price_type: (row.price_type as string | null) ?? null,
+    cover_image_url:
+      (row.cover_image_url as string | null) ??
+      (row.image_url as string | null) ??
+      null,
+    price_type:
+      (row.price_type as string | null) ??
+      (row.price_for as string | null) ??
+      null,
     min_people: asNumber(row.min_people),
     max_people: asNumber(row.max_people),
     created_at: String(row.created_at || ''),
     updated_at: String(row.updated_at || ''),
   };
 }
-
-function emptyDetail(pkg: TourPackage): TourPackageDetail {
-  return {
-    ...pkg,
-    itineraries: [],
-    inclusions: [],
-    exclusions: [],
-    hotels: [],
-    pricing: [],
-    departures: [],
-  };
-}
-
-export function assertSameAccount(
+const emptyDetail = (pkg: TourPackage): TourPackageDetail => ({
+  ...pkg,
+  itineraries: [],
+  inclusions: [],
+  exclusions: [],
+  hotels: [],
+  pricing: [],
+  departures: [],
+});
+export const assertSameAccount = (
   accountId: string,
   rowAccountId: string | null | undefined
-): boolean {
-  return Boolean(rowAccountId && rowAccountId === accountId);
-}
+) => Boolean(rowAccountId && rowAccountId === accountId);
 
 export async function listTourPackages(
   db: AdminClient,
@@ -99,26 +103,19 @@ export async function listTourPackages(
     .eq('account_id', accountId)
     .order('featured', { ascending: false })
     .order('updated_at', { ascending: false });
-
-  if (filters?.status && filters.status !== 'all') {
+  if (filters?.status && filters.status !== 'all')
     query = query.eq('status', filters.status);
-  }
-  if (filters?.destination?.trim()) {
+  if (filters?.destination?.trim())
     query = query.ilike('destination', `%${filters.destination.trim()}%`);
-  }
-  if (filters?.packageType?.trim()) {
+  if (filters?.packageType?.trim())
     query = query.ilike('package_type', `%${filters.packageType.trim()}%`);
-  }
   if (filters?.search?.trim()) {
     const term = filters.search.trim().replace(/[%_]/g, ' ');
     query = query.or(
       `name.ilike.%${term}%,destination.ilike.%${term}%,description.ilike.%${term}%,package_type.ilike.%${term}%,category.ilike.%${term}%`
     );
   }
-  if (filters?.limit) {
-    query = query.limit(filters.limit);
-  }
-
+  if (filters?.limit) query = query.limit(filters.limit);
   const { data, error } = await query;
   if (error) {
     logger.error('Tour package list failed', {
@@ -128,9 +125,8 @@ export async function listTourPackages(
     });
     throw new Error('TOUR_PACKAGES_LIST_FAILED');
   }
-
   return ((data || []) as Record<string, unknown>[])
-    .filter((row) => assertSameAccount(accountId, String(row.account_id)))
+    .filter((r) => assertSameAccount(accountId, String(r.account_id)))
     .map(mapPackage);
 }
 
@@ -138,15 +134,8 @@ async function loadChildren(
   db: AdminClient,
   accountId: string,
   packageIds: string[]
-): Promise<{
-  itineraries: TourPackageItinerary[];
-  inclusions: TourPackageInclusion[];
-  exclusions: TourPackageExclusion[];
-  hotels: TourPackageHotel[];
-  pricing: TourPackagePricing[];
-  departures: TourPackageDeparture[];
-}> {
-  if (packageIds.length === 0) {
+) {
+  if (!packageIds.length)
     return {
       itineraries: [],
       inclusions: [],
@@ -154,9 +143,14 @@ async function loadChildren(
       hotels: [],
       pricing: [],
       departures: [],
+    } as {
+      itineraries: TourPackageItinerary[];
+      inclusions: TourPackageInclusion[];
+      exclusions: TourPackageExclusion[];
+      hotels: TourPackageHotel[];
+      pricing: TourPackagePricing[];
+      departures: TourPackageDeparture[];
     };
-  }
-
   const [itineraries, inclusions, exclusions, hotels, pricing, departures] =
     await Promise.all([
       db
@@ -164,7 +158,7 @@ async function loadChildren(
         .select('*')
         .eq('account_id', accountId)
         .in('package_id', packageIds)
-        .order('day_number', { ascending: true }),
+        .order('day_number'),
       db
         .from(CHILD_TABLES.inclusions)
         .select('*')
@@ -190,10 +184,9 @@ async function loadChildren(
         .select('*')
         .eq('account_id', accountId)
         .in('package_id', packageIds)
-        .order('departure_date', { ascending: true }),
+        .order('departure_date'),
     ]);
-
-  const firstError = [
+  const err = [
     itineraries.error,
     inclusions.error,
     exclusions.error,
@@ -201,41 +194,31 @@ async function loadChildren(
     pricing.error,
     departures.error,
   ].find(Boolean);
-
-  if (firstError) {
-    logger.error('Tour package children load failed', {
-      component: 'tour-packages',
-      accountId,
-      error: firstError.message,
-    });
-    throw new Error('TOUR_PACKAGES_CHILDREN_FAILED');
-  }
-
+  if (err) throw new Error('TOUR_PACKAGES_CHILDREN_FAILED');
   const scoped = <T extends { account_id?: string; package_id?: string }>(
     rows: T[] | null
   ) =>
     (rows || []).filter(
-      (row) =>
-        assertSameAccount(accountId, row.account_id) &&
-        packageIds.includes(String(row.package_id))
+      (r) =>
+        assertSameAccount(accountId, r.account_id) &&
+        packageIds.includes(String(r.package_id))
     );
-
   return {
     itineraries: scoped(itineraries.data as TourPackageItinerary[]),
     inclusions: scoped(inclusions.data as TourPackageInclusion[]),
     exclusions: scoped(exclusions.data as TourPackageExclusion[]),
     hotels: scoped(hotels.data as TourPackageHotel[]),
     pricing: scoped(
-      ((pricing.data || []) as Record<string, unknown>[]).map((row) => ({
-        ...(row as unknown as TourPackagePricing),
-        price: Number(row.price),
-        extra_bed: asNumber(row.extra_bed),
+      ((pricing.data || []) as Record<string, unknown>[]).map((r) => ({
+        ...(r as unknown as TourPackagePricing),
+        price: Number(r.price),
+        extra_bed: asNumber(r.extra_bed),
       }))
     ),
     departures: scoped(
-      ((departures.data || []) as Record<string, unknown>[]).map((row) => ({
-        ...(row as unknown as TourPackageDeparture),
-        price: asNumber(row.price),
+      ((departures.data || []) as Record<string, unknown>[]).map((r) => ({
+        ...(r as unknown as TourPackageDeparture),
+        price: asNumber(r.price),
       }))
     ),
   };
@@ -252,56 +235,34 @@ export async function getTourPackageDetail(
     .eq('account_id', accountId)
     .eq('id', packageId)
     .maybeSingle();
-
-  if (error) {
-    logger.error('Tour package get failed', {
-      component: 'tour-packages',
-      accountId,
-      error: error.message,
-    });
-    throw new Error('TOUR_PACKAGE_GET_FAILED');
-  }
-  if (!data || !assertSameAccount(accountId, String(data.account_id))) {
+  if (error) throw new Error('TOUR_PACKAGE_GET_FAILED');
+  if (!data || !assertSameAccount(accountId, String(data.account_id)))
     return null;
-  }
-
   const pkg = mapPackage(data as Record<string, unknown>);
-  const children = await loadChildren(db, accountId, [pkg.id]);
-  return {
-    ...emptyDetail(pkg),
-    itineraries: children.itineraries,
-    inclusions: children.inclusions,
-    exclusions: children.exclusions,
-    hotels: children.hotels,
-    pricing: children.pricing,
-    departures: children.departures,
-  };
+  const c = await loadChildren(db, accountId, [pkg.id]);
+  return { ...emptyDetail(pkg), ...c };
 }
-
 export async function loadTourPackageDetails(
   db: AdminClient,
   accountId: string,
   packages: TourPackage[]
 ): Promise<TourPackageDetail[]> {
-  const scoped = packages.filter((pkg) =>
-    assertSameAccount(accountId, pkg.account_id)
+  const scoped = packages.filter((p) =>
+    assertSameAccount(accountId, p.account_id)
   );
-  const children = await loadChildren(
+  const c = await loadChildren(
     db,
     accountId,
-    scoped.map((pkg) => pkg.id)
+    scoped.map((p) => p.id)
   );
-
-  return scoped.map((pkg) => ({
-    ...emptyDetail(pkg),
-    itineraries: children.itineraries.filter(
-      (row) => row.package_id === pkg.id
-    ),
-    inclusions: children.inclusions.filter((row) => row.package_id === pkg.id),
-    exclusions: children.exclusions.filter((row) => row.package_id === pkg.id),
-    hotels: children.hotels.filter((row) => row.package_id === pkg.id),
-    pricing: children.pricing.filter((row) => row.package_id === pkg.id),
-    departures: children.departures.filter((row) => row.package_id === pkg.id),
+  return scoped.map((p) => ({
+    ...emptyDetail(p),
+    itineraries: c.itineraries.filter((x) => x.package_id === p.id),
+    inclusions: c.inclusions.filter((x) => x.package_id === p.id),
+    exclusions: c.exclusions.filter((x) => x.package_id === p.id),
+    hotels: c.hotels.filter((x) => x.package_id === p.id),
+    pricing: c.pricing.filter((x) => x.package_id === p.id),
+    departures: c.departures.filter((x) => x.package_id === p.id),
   }));
 }
 
@@ -310,12 +271,11 @@ function sanitizeWrite(input: TourPackageWriteInput): Record<string, unknown> {
   const destination = input.destination?.trim();
   if (!name) throw new Error('PACKAGE_NAME_REQUIRED');
   if (!destination) throw new Error('PACKAGE_DESTINATION_REQUIRED');
-
-  const durationDays = Math.max(1, Number(input.duration_days) || 1);
-  const durationNights = Math.max(
+  const days = Math.max(1, Number(input.duration_days) || 1);
+  const nights = Math.max(
     0,
     input.duration_nights == null
-      ? durationDays - 1
+      ? days - 1
       : Number(input.duration_nights) || 0
   );
   const minPeople = sanitizePeopleCount(input.min_people);
@@ -329,6 +289,11 @@ function sanitizeWrite(input: TourPackageWriteInput): Record<string, unknown> {
   if (minPeople != null && maxPeople != null && maxPeople < minPeople) {
     throw new Error('PACKAGE_PARTY_SIZE_INVALID');
   }
+  const priceType =
+    input.price_type?.trim() || input.price_for?.trim() || 'Per Person';
+  const imageUrl =
+    sanitizeCoverImageUrl(input.cover_image_url) ||
+    sanitizeCoverImageUrl(input.image_url);
 
   return {
     name,
@@ -336,21 +301,21 @@ function sanitizeWrite(input: TourPackageWriteInput): Record<string, unknown> {
     description: input.description?.trim() || null,
     package_type: input.package_type?.trim() || null,
     category: input.category?.trim() || null,
-    duration_days: durationDays,
-    duration_nights: durationNights,
+    duration_days: days,
+    duration_nights: nights,
     starting_price:
-      input.starting_price == null || input.starting_price === ('' as never)
-        ? null
-        : Number(input.starting_price),
+      input.starting_price == null ? null : Number(input.starting_price),
     currency: input.currency?.trim() || 'INR',
+    price_for: priceType,
+    image_url: imageUrl,
     status: input.status === 'inactive' ? 'inactive' : 'active',
     featured: Boolean(input.featured),
     valid_from: input.valid_from || null,
     valid_until: input.valid_until || null,
     booking_notes: input.booking_notes?.trim() || null,
     terms_and_conditions: input.terms_and_conditions?.trim() || null,
-    cover_image_url: sanitizeCoverImageUrl(input.cover_image_url),
-    price_type: input.price_type?.trim() || null,
+    cover_image_url: imageUrl,
+    price_type: priceType,
     min_people: minPeople,
     max_people: maxPeople,
     updated_at: new Date().toISOString(),
@@ -548,52 +513,37 @@ export async function createTourPackage(
   accountId: string,
   input: TourPackageWriteInput
 ): Promise<TourPackageDetail> {
-  const payload = {
-    ...sanitizeWrite(input),
-    account_id: accountId,
-    created_at: new Date().toISOString(),
-  };
-
   const { data, error } = await db
     .from('tour_packages')
-    .insert(payload)
+    .insert({
+      ...sanitizeWrite(input),
+      account_id: accountId,
+      created_at: new Date().toISOString(),
+    })
     .select('*')
     .single();
-
-  if (error || !data) {
-    logger.error('Tour package create failed', {
-      component: 'tour-packages',
-      accountId,
-      error: error?.message,
-    });
-    throw new Error('TOUR_PACKAGE_SAVE_FAILED');
-  }
-
+  if (error || !data) throw new Error('TOUR_PACKAGE_SAVE_FAILED');
   try {
     await replaceChildren(db, accountId, String(data.id), input);
-  } catch (childError) {
+  } catch (e) {
     await db
       .from('tour_packages')
       .delete()
       .eq('account_id', accountId)
       .eq('id', data.id);
-    throw childError;
+    throw e;
   }
-
   const detail = await getTourPackageDetail(db, accountId, String(data.id));
   if (!detail) throw new Error('TOUR_PACKAGE_SAVE_FAILED');
   return detail;
 }
-
 export async function updateTourPackage(
   db: AdminClient,
   accountId: string,
   packageId: string,
   input: TourPackageWriteInput
 ): Promise<TourPackageDetail | null> {
-  const existing = await getTourPackageDetail(db, accountId, packageId);
-  if (!existing) return null;
-
+  if (!(await getTourPackageDetail(db, accountId, packageId))) return null;
   const { data, error } = await db
     .from('tour_packages')
     .update(sanitizeWrite(input))
@@ -601,21 +551,11 @@ export async function updateTourPackage(
     .eq('id', packageId)
     .select('*')
     .maybeSingle();
-
-  if (error) {
-    logger.error('Tour package update failed', {
-      component: 'tour-packages',
-      accountId,
-      error: error.message,
-    });
-    throw new Error('TOUR_PACKAGE_SAVE_FAILED');
-  }
+  if (error) throw new Error('TOUR_PACKAGE_SAVE_FAILED');
   if (!data) return null;
-
   await replaceChildren(db, accountId, packageId, input);
   return getTourPackageDetail(db, accountId, packageId);
 }
-
 export async function setTourPackageStatus(
   db: AdminClient,
   accountId: string,
@@ -629,19 +569,9 @@ export async function setTourPackageStatus(
     .eq('id', packageId)
     .select('*')
     .maybeSingle();
-
-  if (error) {
-    logger.error('Tour package status update failed', {
-      component: 'tour-packages',
-      accountId,
-      error: error.message,
-    });
-    throw new Error('TOUR_PACKAGE_SAVE_FAILED');
-  }
-  if (!data) return null;
-  return mapPackage(data as Record<string, unknown>);
+  if (error) throw new Error('TOUR_PACKAGE_SAVE_FAILED');
+  return data ? mapPackage(data as Record<string, unknown>) : null;
 }
-
 export async function deleteTourPackage(
   db: AdminClient,
   accountId: string,
@@ -654,15 +584,7 @@ export async function deleteTourPackage(
     .eq('id', packageId)
     .select('id')
     .maybeSingle();
-
-  if (error) {
-    logger.error('Tour package delete failed', {
-      component: 'tour-packages',
-      accountId,
-      error: error.message,
-    });
-    throw new Error('TOUR_PACKAGE_DELETE_FAILED');
-  }
+  if (error) throw new Error('TOUR_PACKAGE_DELETE_FAILED');
   return Boolean(data);
 }
 
@@ -673,56 +595,29 @@ export async function searchTourPackagesForAccount(
   options?: { includeInactive?: boolean; limit?: number }
 ): Promise<TourPackageDetail[]> {
   let query = db.from('tour_packages').select('*').eq('account_id', accountId);
-
-  if (!options?.includeInactive) {
-    query = query.eq('status', 'active');
-  }
-  if (requirements.destination) {
+  if (!options?.includeInactive) query = query.eq('status', 'active');
+  if (requirements.destination)
     query = query.ilike('destination', `%${requirements.destination}%`);
-  }
-
   const { data, error } = await query.limit(options?.limit || 40);
-  if (error) {
-    logger.error('Tour package search failed', {
-      component: 'tour-packages',
-      accountId,
-      error: error.message,
-    });
-    throw new Error('TOUR_PACKAGE_SEARCH_FAILED');
-  }
-
-  const packages = ((data || []) as Record<string, unknown>[])
-    .filter((row) => assertSameAccount(accountId, String(row.account_id)))
+  if (error) throw new Error('TOUR_PACKAGE_SEARCH_FAILED');
+  let packages = ((data || []) as Record<string, unknown>[])
+    .filter((r) => assertSameAccount(accountId, String(r.account_id)))
     .map(mapPackage);
-
-  if (packages.length === 0 && requirements.destination) {
-    let fallbackQuery = db
+  if (!packages.length && requirements.destination) {
+    let fallback = db
       .from('tour_packages')
       .select('*')
       .eq('account_id', accountId)
       .limit(options?.limit || 40);
-    if (!options?.includeInactive) {
-      fallbackQuery = fallbackQuery.eq('status', 'active');
-    }
-    const fallback = await fallbackQuery;
-    if (fallback.error) {
-      logger.error('Tour package fallback search failed', {
-        component: 'tour-packages',
-        accountId,
-        error: fallback.error.message,
-      });
-      throw new Error('TOUR_PACKAGE_SEARCH_FAILED');
-    }
-    packages.push(
-      ...((fallback.data || []) as Record<string, unknown>[])
-        .filter((row) => assertSameAccount(accountId, String(row.account_id)))
-        .map(mapPackage)
-    );
+    if (!options?.includeInactive) fallback = fallback.eq('status', 'active');
+    const f = await fallback;
+    if (f.error) throw new Error('TOUR_PACKAGE_SEARCH_FAILED');
+    packages = ((f.data || []) as Record<string, unknown>[])
+      .filter((r) => assertSameAccount(accountId, String(r.account_id)))
+      .map(mapPackage);
   }
-
   return loadTourPackageDetails(db, accountId, packages);
 }
-
 export async function matchTourPackagesForMessage(
   db: AdminClient,
   accountId: string,
@@ -732,16 +627,14 @@ export async function matchTourPackagesForMessage(
   const requirements = parseTravelerRequirements(
     [extraContext, message].filter(Boolean).join('\n')
   );
-
   try {
     const details = await searchTourPackagesForAccount(
       db,
       accountId,
       requirements
     );
-    const ranked = rankTourPackages(details, requirements);
     return {
-      ...ranked,
+      ...rankTourPackages(details, requirements),
       retrievalFailed: false,
       requirements,
     };
@@ -754,7 +647,6 @@ export async function matchTourPackagesForMessage(
     };
   }
 }
-
 export function publicRankedPackage(row: RankedTourPackage) {
   const pkg = row.package;
   return {
@@ -772,23 +664,27 @@ export function publicRankedPackage(row: RankedTourPackage) {
     valid_from: pkg.valid_from,
     valid_until: pkg.valid_until,
     description: pkg.description,
-    inclusions: pkg.inclusions.map((item) => item.item),
-    exclusions: pkg.exclusions.map((item) => item.item),
-    hotels: pkg.hotels.map((hotel) => ({
-      city: hotel.city,
-      hotel_name: hotel.hotel_name,
-      star_category: hotel.star_category,
-      room_type: hotel.room_type,
-      meal_plan: hotel.meal_plan,
+    image_url: pkg.image_url,
+    price_for: pkg.price_for,
+    min_people: pkg.min_people,
+    max_people: pkg.max_people,
+    inclusions: pkg.inclusions.map((x) => x.item),
+    exclusions: pkg.exclusions.map((x) => x.item),
+    hotels: pkg.hotels.map((x) => ({
+      city: x.city,
+      hotel_name: x.hotel_name,
+      star_category: x.star_category,
+      room_type: x.room_type,
+      meal_plan: x.meal_plan,
     })),
-    itinerary: pkg.itineraries.map((day) => ({
-      day_number: day.day_number,
-      title: day.title,
-      description: day.description,
-      activities: day.activities,
-      meals: day.meals,
-      hotel: day.hotel,
-      overnight_location: day.overnight_location,
+    itinerary: pkg.itineraries.map((x) => ({
+      day_number: x.day_number,
+      title: x.title,
+      description: x.description,
+      activities: x.activities,
+      meals: x.meals,
+      hotel: x.hotel,
+      overnight_location: x.overnight_location,
     })),
     pricing: row.matchedPricing
       ? {
@@ -814,10 +710,7 @@ export function publicRankedPackage(row: RankedTourPackage) {
     fits_budget: row.fitsBudget,
   };
 }
-
-export function recommendablePackages(
+export const recommendablePackages = (
   details: TourPackageDetail[],
   today = new Date().toISOString().slice(0, 10)
-): TourPackageDetail[] {
-  return details.filter((pkg) => isPackageCurrentlyActive(pkg, today));
-}
+) => details.filter((pkg) => isPackageCurrentlyActive(pkg, today));

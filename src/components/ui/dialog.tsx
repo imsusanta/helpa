@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
-
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { XIcon } from 'lucide-react';
@@ -10,19 +9,15 @@ import { XIcon } from 'lucide-react';
 function Dialog({ ...props }: DialogPrimitive.Root.Props) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />;
 }
-
 function DialogTrigger({ ...props }: DialogPrimitive.Trigger.Props) {
   return <DialogPrimitive.Trigger data-slot="dialog-trigger" {...props} />;
 }
-
 function DialogPortal({ ...props }: DialogPrimitive.Portal.Props) {
   return <DialogPrimitive.Portal data-slot="dialog-portal" {...props} />;
 }
-
 function DialogClose({ ...props }: DialogPrimitive.Close.Props) {
   return <DialogPrimitive.Close data-slot="dialog-close" {...props} />;
 }
-
 function DialogOverlay({
   className,
   ...props
@@ -38,47 +33,58 @@ function DialogOverlay({
     />
   );
 }
-
 function DialogContent({
   className,
   children,
   showCloseButton = true,
+  inline = false,
   ...props
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean;
+  inline?: boolean;
 }) {
-  return (
+  const useInline =
+    inline ||
+    (typeof className === 'string' &&
+      className.includes('!h-[calc(100vh-32px)]'));
+  const popup = (
+    <DialogPrimitive.Popup
+      data-slot="dialog-content"
+      className={cn(
+        'bg-popover text-popover-foreground ring-foreground/10 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl p-4 text-sm ring-1 duration-100 outline-none sm:max-w-sm',
+        useInline &&
+          '!fixed !top-4 !right-4 !bottom-4 !left-[270px] !z-40 !m-0 !h-auto !w-auto !max-w-none !translate-x-0 !translate-y-0 !rounded-2xl !border !border-slate-200 !bg-white !p-0 !shadow-xl !ring-0 max-md:!left-4',
+        className
+      )}
+      {...props}
+    >
+      {children}
+      {showCloseButton && (
+        <DialogPrimitive.Close
+          data-slot="dialog-close"
+          render={
+            <Button
+              variant="ghost"
+              className="absolute top-3 right-3 z-20"
+              size="icon-sm"
+            />
+          }
+        >
+          <XIcon />
+          <span className="sr-only">Close</span>
+        </DialogPrimitive.Close>
+      )}
+    </DialogPrimitive.Popup>
+  );
+  return useInline ? (
+    popup
+  ) : (
     <DialogPortal>
       <DialogOverlay />
-      <DialogPrimitive.Popup
-        data-slot="dialog-content"
-        className={cn(
-          'bg-popover text-popover-foreground ring-foreground/10 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl p-4 text-sm ring-1 duration-100 outline-none sm:max-w-sm',
-          className
-        )}
-        {...props}
-      >
-        {children}
-        {showCloseButton && (
-          <DialogPrimitive.Close
-            data-slot="dialog-close"
-            render={
-              <Button
-                variant="ghost"
-                className="absolute top-2 right-2"
-                size="icon-sm"
-              />
-            }
-          >
-            <XIcon />
-            <span className="sr-only">Close</span>
-          </DialogPrimitive.Close>
-        )}
-      </DialogPrimitive.Popup>
+      {popup}
     </DialogPortal>
   );
 }
-
 function DialogHeader({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
@@ -88,15 +94,12 @@ function DialogHeader({ className, ...props }: React.ComponentProps<'div'>) {
     />
   );
 }
-
 function DialogFooter({
   className,
   showCloseButton = false,
   children,
   ...props
-}: React.ComponentProps<'div'> & {
-  showCloseButton?: boolean;
-}) {
+}: React.ComponentProps<'div'> & { showCloseButton?: boolean }) {
   return (
     <div
       data-slot="dialog-footer"
@@ -115,7 +118,6 @@ function DialogFooter({
     </div>
   );
 }
-
 function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
   return (
     <DialogPrimitive.Title
@@ -128,7 +130,6 @@ function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
     />
   );
 }
-
 function DialogDescription({
   className,
   ...props
@@ -144,7 +145,6 @@ function DialogDescription({
     />
   );
 }
-
 export {
   Dialog,
   DialogClose,
