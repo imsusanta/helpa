@@ -1,7 +1,4 @@
-import {
-  requireRole,
-  type ResolvedAccountContext,
-} from '@/lib/auth/account';
+import { requireRole, type ResolvedAccountContext } from '@/lib/auth/account';
 import type { AccountRole } from '@/lib/auth/roles';
 import { resolveIndustryAlias } from '@/modules/terminology';
 

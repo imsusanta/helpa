@@ -1,7 +1,4 @@
-import {
-  TOUR_PRICE_TYPES,
-  type TourPackageWriteInput,
-} from './types';
+import { TOUR_PRICE_TYPES, type TourPackageWriteInput } from './types';
 
 export interface SimpleTourPackageForm {
   name: string;
@@ -64,7 +61,10 @@ export function validateSimpleTourPackageForm(
     return 'Price is required';
   }
   if (form.starting_price <= 0) return 'Price must be greater than 0';
-  if (!form.price_type.trim() || !TOUR_PRICE_TYPES.includes(form.price_type as never)) {
+  if (
+    !form.price_type.trim() ||
+    !TOUR_PRICE_TYPES.includes(form.price_type as never)
+  ) {
     return 'Price type is required';
   }
   if (!form.description.trim()) return 'Short description is required';

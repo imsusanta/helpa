@@ -9,7 +9,9 @@ import {
 describe('simple tour package form', () => {
   it('requires the basic catalog fields', () => {
     const form = emptySimpleTourPackageForm();
-    expect(validateSimpleTourPackageForm(form)).toBe('Package name is required');
+    expect(validateSimpleTourPackageForm(form)).toBe(
+      'Package name is required'
+    );
     form.name = 'Goa Getaway';
     expect(validateSimpleTourPackageForm(form)).toBe('Destination is required');
     form.destination = 'Goa';
