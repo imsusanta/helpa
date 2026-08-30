@@ -1,6 +1,6 @@
 import type { IndustryModule } from './types';
 
-const TRAVEL_ONLY_ROUTES = ['/packages'] as const;
+const TRAVEL_ONLY_ROUTES = ['/tour-packages', '/packages'] as const;
 
 const SHARED_WORKSPACE_ROUTES = [
   '/dashboard',

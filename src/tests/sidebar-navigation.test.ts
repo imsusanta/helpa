@@ -70,9 +70,9 @@ describe('authenticated sidebar navigation', () => {
         isIndustryRouteAllowed(travelManifest, pathname),
     });
     const crm = travelNavigation.find((item) => item.id === 'crm');
-    expect(crm?.children?.some((child) => child.href === '/packages')).toBe(
-      true
-    );
+    expect(
+      crm?.children?.some((child) => child.href === '/tour-packages')
+    ).toBe(true);
     expect(
       crm?.children?.some((child) => child.label === 'Tour Packages')
     ).toBe(true);
@@ -86,12 +86,15 @@ describe('authenticated sidebar navigation', () => {
     });
     const generalCrm = generalNavigation.find((item) => item.id === 'crm');
     expect(
-      generalCrm?.children?.some((child) => child.href === '/packages')
+      generalCrm?.children?.some((child) => child.href === '/tour-packages')
     ).toBe(false);
 
     const coachingManifest = getIndustryModule('coaching');
+    expect(isIndustryRouteAllowed(coachingManifest, '/tour-packages')).toBe(
+      false
+    );
+    expect(isIndustryRouteAllowed(travelManifest, '/tour-packages')).toBe(true);
     expect(isIndustryRouteAllowed(coachingManifest, '/packages')).toBe(false);
-    expect(isIndustryRouteAllowed(travelManifest, '/packages')).toBe(true);
   });
 
   it('keeps clinic operations out of general workspaces', () => {

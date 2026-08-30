@@ -1,8 +1,5 @@
-import { TourPackagesClient } from './tour-packages-client';
+import { redirect } from 'next/navigation';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-
-export default function PackagesPage() {
-  return <TourPackagesClient />;
+export default function PackagesRedirectPage() {
+  redirect('/tour-packages');
 }
