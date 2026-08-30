@@ -35,6 +35,8 @@ import {
 } from '@/lib/whatsapp/ai-crm-sync';
 import { applyDetectionToLead } from '@/lib/leads/inbound-lead-layer';
 import { getAccountChatbotSettings } from '@/core/ai/chatbot-settings';
+import { matchTourPackagesForMessage } from '@/lib/travel/retrieval';
+import { buildTravelPackagePromptBlock } from '@/lib/travel/prompt';
 
 import {
   executeAiCompletionWithFallback,
@@ -390,6 +392,7 @@ export async function triggerAiResponse(
   );
   const isCoachingEnabled = industryModuleForContext.id === 'coaching';
   const isSoloTeacherEnabled = industryModuleForContext.id === 'solo_teacher';
+  const isTravelEnabled = industryModuleForContext.id === 'travel';
   const entityLabelForContext =
     industryModuleForContext.entityConfigs?.contacts?.label || 'Contact';
 
@@ -405,6 +408,22 @@ export async function triggerAiResponse(
       entityLabel: entityLabelForContext,
     });
 
+  let travelPackageContext = '';
+  if (isTravelEnabled) {
+    const recentCustomerText = messages
+      .filter((message) => message.sender_type === 'customer')
+      .slice(-4)
+      .map((message) => message.content_text || '')
+      .join('\n');
+    const packageResult = await matchTourPackagesForMessage(
+      db,
+      accountId,
+      latestMessage?.content_text || '',
+      recentCustomerText
+    );
+    travelPackageContext = buildTravelPackagePromptBlock(packageResult);
+  }
+
   // 4. Formulate prompt messages
   const systemPromptContent = buildReceptionistSystemPrompt({
     industry: account?.industry,
@@ -415,8 +434,10 @@ export async function triggerAiResponse(
     kbContext,
     hospitalContext,
     coachingContext,
+    travelPackageContext,
     isHospitalEnabled,
     isCoachingEnabled,
+    isTravelEnabled,
     latestCustomerText: latestMessage?.content_text || null,
   });
 

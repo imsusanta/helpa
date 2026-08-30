@@ -58,6 +58,45 @@ describe('authenticated sidebar navigation', () => {
     ).toBe(false);
   });
 
+  it('shows Tour Packages only in Travel Workplace CRM navigation', () => {
+    const travelManifest = getIndustryModule('travel');
+    const travelNavigation = buildVisibleNavigation({
+      navigation: NAV,
+      terminology: getIndustryTerminology('travel'),
+      currentIndustry: 'travel',
+      isSuperAdmin: false,
+      manifest: travelManifest,
+      isRouteAllowed: (pathname) =>
+        isIndustryRouteAllowed(travelManifest, pathname),
+    });
+    const crm = travelNavigation.find((item) => item.id === 'crm');
+    expect(
+      crm?.children?.some((child) => child.href === '/tour-packages')
+    ).toBe(true);
+    expect(
+      crm?.children?.some((child) => child.label === 'Tour Packages')
+    ).toBe(true);
+
+    const generalNavigation = buildVisibleNavigation({
+      navigation: NAV,
+      terminology: getIndustryTerminology('general'),
+      currentIndustry: 'general',
+      isSuperAdmin: false,
+      isRouteAllowed: () => true,
+    });
+    const generalCrm = generalNavigation.find((item) => item.id === 'crm');
+    expect(
+      generalCrm?.children?.some((child) => child.href === '/tour-packages')
+    ).toBe(false);
+
+    const coachingManifest = getIndustryModule('coaching');
+    expect(isIndustryRouteAllowed(coachingManifest, '/tour-packages')).toBe(
+      false
+    );
+    expect(isIndustryRouteAllowed(travelManifest, '/tour-packages')).toBe(true);
+    expect(isIndustryRouteAllowed(coachingManifest, '/packages')).toBe(false);
+  });
+
   it('keeps clinic operations out of general workspaces', () => {
     const generalNavigation = buildVisibleNavigation({
       navigation: NAV,

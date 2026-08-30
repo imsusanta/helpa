@@ -79,6 +79,25 @@ describe('buildReceptionistSystemPrompt', () => {
     expect(prompt).not.toContain('Banglish Latin letters');
   });
 
+  it('includes travel package context only for Travel Workplace', () => {
+    const travel = buildReceptionistSystemPrompt({
+      ...BASE,
+      industry: 'travel',
+      isHospitalEnabled: false,
+      isCoachingEnabled: false,
+      isTravelEnabled: true,
+      hospitalContext: '',
+      travelPackageContext: 'Package: Kashmir Delight\nStarting price: ₹27,999',
+    });
+    expect(travel).toContain('TRAVEL WORKPLACE TOUR PACKAGE CONTEXT');
+    expect(travel).toContain('Kashmir Delight');
+    expect(travel).toContain('₹27,999');
+
+    const clinic = buildReceptionistSystemPrompt(BASE);
+    expect(clinic).not.toContain('TRAVEL WORKPLACE TOUR PACKAGE CONTEXT');
+    expect(clinic).not.toContain('Kashmir Delight');
+  });
+
   it('includes knowledge-base context when provided', () => {
     const prompt = buildReceptionistSystemPrompt({
       ...BASE,

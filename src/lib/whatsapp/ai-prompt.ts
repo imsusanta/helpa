@@ -12,8 +12,10 @@ export interface ReceptionistPromptInput {
   kbContext: string;
   hospitalContext: string;
   coachingContext: string;
+  travelPackageContext?: string;
   isHospitalEnabled: boolean;
   isCoachingEnabled: boolean;
+  isTravelEnabled?: boolean;
   latestCustomerText?: string | null;
 }
 
@@ -153,6 +155,11 @@ ${HOSPITAL_RULES}`;
   if (input.isCoachingEnabled) {
     systemPromptContent += `\n\n=== COACHING & ACADEMY SYSTEM CONTEXT ===\n${input.coachingContext}
 ${COACHING_RULES}
+`;
+  }
+
+  if (input.isTravelEnabled) {
+    systemPromptContent += `\n\n=== TRAVEL WORKPLACE TOUR PACKAGE CONTEXT ===\n${input.travelPackageContext || 'No Tour Package lookup was required for this message.'}
 `;
   }
 
