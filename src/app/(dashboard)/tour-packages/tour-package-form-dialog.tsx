@@ -176,7 +176,7 @@ export function TourPackageFormDialog({
               ))}
             </div>
           ) : (
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-3.5">
               <div>
                 <Label className="text-xs font-semibold text-slate-600">
                   Cover image
@@ -211,7 +211,7 @@ export function TourPackageFormDialog({
                     if (file) void uploadCover(file);
                   }}
                   className={cn(
-                    'mt-1.5 flex h-36 w-full items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed transition',
+                    'mt-1.5 flex h-28 w-full items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed transition',
                     dragOver
                       ? 'border-emerald-400 bg-emerald-50'
                       : 'border-slate-200 bg-slate-50 hover:border-emerald-300 hover:bg-emerald-50/40',
@@ -320,63 +320,62 @@ export function TourPackageFormDialog({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <Label className="text-xs font-semibold text-slate-600">
-                    Price *
-                  </Label>
-                  <div className="mt-1.5 flex overflow-hidden rounded-xl border bg-white">
-                    <select
-                      value={form.currency}
-                      onChange={(event) =>
-                        setField('currency', event.target.value)
-                      }
-                      className="h-11 border-0 bg-slate-50 px-3 text-xs font-semibold text-slate-600 outline-none"
-                    >
-                      {TOUR_PACKAGE_CURRENCIES.map((currency) => (
-                        <option key={currency} value={currency}>
-                          {currency}
-                        </option>
-                      ))}
-                    </select>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={form.starting_price ?? ''}
-                      onChange={(event) =>
-                        setField(
-                          'starting_price',
-                          event.target.value === ''
-                            ? null
-                            : Number(event.target.value)
-                        )
-                      }
-                      placeholder="29999"
-                      className="h-11 rounded-none border-0 focus-visible:ring-0"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-xs font-semibold text-slate-600">
-                    Price type *
-                  </Label>
-                  <div className="mt-1.5 grid grid-cols-2 gap-1.5">
-                    {TOUR_PRICE_TYPES.map((type) => (
-                      <button
-                        key={type}
-                        type="button"
-                        onClick={() => setField('price_type', type)}
-                        className={cn(
-                          'h-8 rounded-lg text-xs font-semibold transition',
-                          form.price_type === type
-                            ? 'bg-slate-900 text-white'
-                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                        )}
-                      >
-                        {type}
-                      </button>
+              <div>
+                <Label className="text-xs font-semibold text-slate-600">
+                  Price *
+                </Label>
+                <div className="mt-1.5 flex max-w-xs overflow-hidden rounded-xl border bg-white">
+                  <select
+                    value={form.currency}
+                    onChange={(event) =>
+                      setField('currency', event.target.value)
+                    }
+                    className="h-11 border-0 bg-slate-50 px-3 text-xs font-semibold text-slate-600 outline-none"
+                  >
+                    {TOUR_PACKAGE_CURRENCIES.map((currency) => (
+                      <option key={currency} value={currency}>
+                        {currency}
+                      </option>
                     ))}
-                  </div>
+                  </select>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={form.starting_price ?? ''}
+                    onChange={(event) =>
+                      setField(
+                        'starting_price',
+                        event.target.value === ''
+                          ? null
+                          : Number(event.target.value)
+                      )
+                    }
+                    placeholder="29999"
+                    className="h-11 rounded-none border-0 focus-visible:ring-0"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-xs font-semibold text-slate-600">
+                  Price type *
+                </Label>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {TOUR_PRICE_TYPES.map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setField('price_type', type)}
+                      className={cn(
+                        'h-9 flex-1 rounded-lg px-2 text-xs font-semibold transition',
+                        form.price_type === type
+                          ? 'bg-slate-900 text-white'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      )}
+                    >
+                      {type}
+                    </button>
+                  ))}
                 </div>
               </div>
 
