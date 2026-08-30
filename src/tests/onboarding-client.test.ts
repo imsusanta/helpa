@@ -144,16 +144,19 @@ describe('Helpa Client Onboarding Suite (Phase 2A)', () => {
           }),
           delete: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
-              in: vi.fn().mockImplementation((_column: string, ids: string[]) => {
-                dbStore.knowledgeBase = dbStore.knowledgeBase.filter(
-                  (row) => !ids.includes(String(row.id))
-                );
-                return Promise.resolve({ error: null });
-              }),
+              in: vi
+                .fn()
+                .mockImplementation((_column: string, ids: string[]) => {
+                  dbStore.knowledgeBase = dbStore.knowledgeBase.filter(
+                    (row) => !ids.includes(String(row.id))
+                  );
+                  return Promise.resolve({ error: null });
+                }),
               then: (
                 onFulfilled?: (value: { error: null }) => unknown,
                 onRejected?: (reason: unknown) => unknown
-              ) => Promise.resolve({ error: null }).then(onFulfilled, onRejected),
+              ) =>
+                Promise.resolve({ error: null }).then(onFulfilled, onRejected),
             }),
           }),
           insert: vi.fn().mockImplementation((rows) => {
@@ -319,9 +322,7 @@ describe('Helpa Client Onboarding Suite (Phase 2A)', () => {
     expect(titles).toContain('Our weekend fasting package includes CBC');
     expect(titles).not.toContain('Company Hours');
     expect(
-      titles.some((title) =>
-        String(title).includes('OPD Consultation Hours')
-      )
+      titles.some((title) => String(title).includes('OPD Consultation Hours'))
     ).toBe(true);
   });
 
