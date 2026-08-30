@@ -4,6 +4,7 @@ import {
   extractWhatsAppGroupSubject,
   formatGroupInboundText,
   inboundWhatsAppContactName,
+  isHiddenWhatsAppInboxChat,
   isPlaceholderContactName,
   isWhatsAppChannelJid,
   isWhatsAppCollectiveAddress,
@@ -43,6 +44,12 @@ describe('WhatsApp group identity', () => {
     );
     expect(whatsappChatKindLabel('group')).toBe('Group');
     expect(whatsappChatKindLabel('channel')).toBe('Channel');
+    expect(isHiddenWhatsAppInboxChat(channelJid)).toBe(true);
+    expect(
+      isHiddenWhatsAppInboxChat(GROUP_ID, { whatsapp_chat_kind: 'channel' })
+    ).toBe(true);
+    expect(isHiddenWhatsAppInboxChat(GROUP_JID)).toBe(false);
+    expect(isHiddenWhatsAppInboxChat('919111222333')).toBe(false);
   });
 
   it('parses WhatsApp-style sender: body list previews', () => {

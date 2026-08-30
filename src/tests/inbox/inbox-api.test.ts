@@ -247,6 +247,70 @@ describe('Inbox API & Tenant Isolation Tests', () => {
       const json = await res.json();
       expect(json.conversations[0].contact.name).toBe('Helpa Clinic Team');
     });
+
+    it('hides WhatsApp channel conversations from the inbox list', async () => {
+      const mockConvQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockResolvedValue({
+          data: [
+            {
+              id: 'conv-dm',
+              account_id: 'tenant-a',
+              contact_id: 'contact-dm',
+              status: 'open',
+              last_message_text: 'hello',
+            },
+            {
+              id: 'conv-channel',
+              account_id: 'tenant-a',
+              contact_id: 'contact-channel',
+              status: 'open',
+              last_message_text: 'broadcast',
+            },
+          ],
+          error: null,
+        }),
+      };
+      const mockContactQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        in: vi.fn().mockResolvedValue({
+          data: [
+            {
+              id: 'contact-dm',
+              account_id: 'tenant-a',
+              name: 'Alice',
+              phone: '919111222333',
+            },
+            {
+              id: 'contact-channel',
+              account_id: 'tenant-a',
+              name: 'Clinic Channel',
+              phone: '120363999000111222',
+              metadata: {
+                whatsapp_chat_kind: 'channel',
+                whatsapp_jid: '120363999000111222@newsletter',
+              },
+            },
+          ],
+        }),
+      };
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === 'conversations')
+          return mockConvQuery as unknown as Record<string, unknown>;
+        if (table === 'contacts')
+          return mockContactQuery as unknown as Record<string, unknown>;
+        return {};
+      });
+
+      const res = await getConversations(createRequest());
+      const json = await res.json();
+      expect(json.conversations).toHaveLength(1);
+      expect(json.conversations[0].id).toBe('conv-dm');
+      expect(json.total).toBe(1);
+    });
   });
 
   describe('GET /api/inbox/conversations/[id]', () => {
@@ -317,6 +381,51 @@ describe('Inbox API & Tenant Isolation Tests', () => {
       const json = await res.json();
       expect(json.conversation.id).toBe('conv-tenant-a');
       expect(json.conversation.contact.name).toBe('Bob');
+    });
+
+    it('returns 404 for a WhatsApp channel conversation', async () => {
+      const mockConvQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: {
+            id: 'conv-channel',
+            account_id: 'tenant-a',
+            contact_id: 'contact-channel',
+            status: 'open',
+          },
+          error: null,
+        }),
+      };
+      const mockContactQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: {
+            id: 'contact-channel',
+            account_id: 'tenant-a',
+            name: 'Clinic Channel',
+            phone: '120363999000111222',
+            metadata: {
+              whatsapp_chat_kind: 'channel',
+              whatsapp_jid: '120363999000111222@newsletter',
+            },
+          },
+        }),
+      };
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === 'conversations')
+          return mockConvQuery as unknown as Record<string, unknown>;
+        if (table === 'contacts')
+          return mockContactQuery as unknown as Record<string, unknown>;
+        return {};
+      });
+
+      const res = await getConversation(
+        createRequest('http://localhost/api/inbox/conversations/conv-channel'),
+        { params: Promise.resolve({ id: 'conv-channel' }) }
+      );
+      expect(res.status).toBe(404);
     });
   });
 

@@ -32,6 +32,7 @@ import {
   formatGroupInboundText,
   inboundWhatsAppContactName,
   isEvolutionGroupEvent,
+  isHiddenWhatsAppInboxChat,
   isPlaceholderContactName,
   isWhatsAppCollectiveAddress,
   whatsappChatKind,
@@ -346,6 +347,10 @@ export async function POST(
       const payloadData = asRecord(payload.data ?? payload.Data);
       const remoteJid = extractWhatsAppGroupJid(payloadData);
       const chatKind = whatsappChatKind(remoteJid || address);
+      if (isHiddenWhatsAppInboxChat(remoteJid || address)) {
+        await completeProviderEvent(context);
+        continue;
+      }
       const isGroup = isWhatsAppCollectiveAddress(remoteJid || address);
       if (isGroup) {
         const labeled = formatGroupInboundText(

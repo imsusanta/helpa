@@ -254,7 +254,7 @@ describe('Evolution Go webhook', () => {
     );
   });
 
-  it('stamps channel chats from newsletter JIDs', async () => {
+  it('does not persist WhatsApp channel / newsletter chats', async () => {
     const res = await post(secretA, {
       event: 'Message',
       data: {
@@ -268,14 +268,8 @@ describe('Evolution Go webhook', () => {
       },
     });
     expect(res.status).toBe(200);
-    expect(persistMock.mock.calls[0][0].content).toBe(
-      'Helpa Studio: channel update'
-    );
-    expect(persistMock.mock.calls[0][1].chatKind).toBe('channel');
-    expect(persistMock.mock.calls[0][1].chatJid).toBe(
-      '120363999000111222@newsletter'
-    );
-    expect(persistMock.mock.calls[0][1].contactName).not.toBe('Helpa Studio');
+    expect(persistMock).not.toHaveBeenCalled();
+    expect(triggerAiMock).not.toHaveBeenCalled();
   });
 
   it('uses the group subject when Evolution includes it on the message', async () => {

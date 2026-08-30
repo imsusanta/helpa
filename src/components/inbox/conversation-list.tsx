@@ -27,9 +27,9 @@ import { SendOutboundModal } from '@/components/contacts/send-outbound-modal';
 
 import { useAuth } from '@/hooks/use-auth';
 import {
+  isHiddenWhatsAppInboxChat,
   parseWhatsAppSenderPreview,
   whatsappChatKind,
-  whatsappChatKindLabel,
   whatsappContactDisplayName,
 } from '@/core/whatsapp/group-identity';
 import { WhatsAppChatAvatar } from '@/components/inbox/whatsapp-chat-avatar';
@@ -198,7 +198,9 @@ export function ConversationList({
   }, [conversations, user?.id]);
 
   const filtered = useMemo(() => {
-    let result = conversations;
+    let result = conversations.filter(
+      (c) => !isHiddenWhatsAppInboxChat(c.contact?.phone, c.contact?.metadata)
+    );
 
     if (filter === 'unread') {
       result = result.filter((c) => (c.unread_count ?? 0) > 0);
@@ -572,7 +574,7 @@ function ConversationItem({
   const chatKind = whatsappChatKind(contact?.phone, contact?.metadata);
   const displayName =
     whatsappContactDisplayName(contact?.name, contact?.phone) ||
-    whatsappChatKindLabel(chatKind) ||
+    (chatKind === 'group' ? 'Group' : '') ||
     'Chat';
   const preview = parseWhatsAppSenderPreview(conversation.last_message_text);
   const previewBody = preview.body || conversation.last_message_text || '';

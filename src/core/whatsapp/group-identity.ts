@@ -101,6 +101,14 @@ export function whatsappChatKindLabel(kind: WhatsAppChatKind): string {
   return '';
 }
 
+/** WhatsApp Channels stay out of the Helpa inbox. */
+export function isHiddenWhatsAppInboxChat(
+  address?: string | null,
+  metadata?: Record<string, unknown> | null
+): boolean {
+  return whatsappChatKind(address, metadata) === 'channel';
+}
+
 export function parseWhatsAppSenderPreview(text: string | null | undefined): {
   sender: string;
   body: string;

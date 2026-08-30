@@ -5,7 +5,6 @@ import { createClient } from '@/lib/db/client';
 import { useAuth } from '@/hooks/use-auth';
 import {
   whatsappChatKind,
-  whatsappChatKindLabel,
   whatsappContactDisplayName,
 } from '@/core/whatsapp/group-identity';
 import { WhatsAppChatAvatar } from '@/components/inbox/whatsapp-chat-avatar';
@@ -415,9 +414,9 @@ export function ContactSidebar({
   const chatKind = whatsappChatKind(contact.phone, contact.metadata);
   const displayName =
     whatsappContactDisplayName(contact.name, contact.phone) ||
-    whatsappChatKindLabel(chatKind) ||
+    (chatKind === 'group' ? 'Group' : '') ||
     'Chat';
-  const displayPhone = whatsappChatKindLabel(chatKind) || contact.phone;
+  const displayPhone = chatKind === 'group' ? 'Group' : contact.phone;
 
   const content = (
     <div className="min-h-0 flex-1 overflow-y-auto">

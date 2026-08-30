@@ -1,6 +1,6 @@
 'use client';
 
-import { Megaphone, Users } from 'lucide-react';
+import { Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { WhatsAppChatKind } from '@/core/whatsapp/group-identity';
 
@@ -51,20 +51,6 @@ export function WhatsAppChatAvatar({
         title="Group"
       >
         <Users className={icon} />
-      </div>
-    );
-  }
-
-  if (kind === 'channel') {
-    return (
-      <div
-        className={cn(
-          'flex shrink-0 items-center justify-center rounded-full bg-sky-600 text-white',
-          box
-        )}
-        title="Channel"
-      >
-        <Megaphone className={icon} />
       </div>
     );
   }

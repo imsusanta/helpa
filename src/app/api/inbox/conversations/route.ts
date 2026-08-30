@@ -7,6 +7,7 @@ import {
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
 import type { Conversation, Contact, ConversationStatus } from '@/types';
 import {
+  isHiddenWhatsAppInboxChat,
   isWhatsAppCollectiveAddress,
   whatsappContactDisplayName,
 } from '@/core/whatsapp/group-identity';
@@ -106,6 +107,7 @@ export async function GET(request: NextRequest) {
       Math.max(Number(searchParams.get('limit')) || 50, 1),
       100
     );
+    const fetchLimit = Math.min(Math.max(limit * 2, limit + 10), 100);
 
     const supabase = getSupabaseAdminClient();
     let query = supabase
@@ -113,7 +115,7 @@ export async function GET(request: NextRequest) {
       .select('*')
       .eq('account_id', accountId)
       .order('updated_at', { ascending: false })
-      .limit(limit);
+      .limit(fetchLimit);
 
     if (
       statusParam &&
@@ -155,7 +157,10 @@ export async function GET(request: NextRequest) {
         .eq('account_id', accountId)
         .in('id', contactIds);
 
-      const groupNames = await syncEvolutionGroupNamesForInbox(accountId);
+      const groupNames = await syncEvolutionGroupNamesForInbox(
+        accountId,
+        contactsData || []
+      );
       if (contactsData) {
         for (const contact of contactsData) {
           const phone = String(contact.phone || '');
@@ -168,26 +173,35 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const normalized = convs.map((c) => {
-      const cId = (c.contact_id || c.contactId) as string;
-      let contact = cId ? contactsMap.get(cId) : undefined;
-      if (!contact && cId) {
-        contact = {
-          id: cId,
-          account_id: accountId,
-          user_id: '',
-          name: whatsappContactDisplayName(
-            (c.contact_name as string) || (c.patient_name as string),
-            c.phone as string,
-            'Contact'
-          ),
-          phone: (c.phone as string) || '',
-          created_at: (c.created_at as string) || new Date().toISOString(),
-          updated_at: (c.updated_at as string) || new Date().toISOString(),
-        };
-      }
-      return normalizeConversation(c, contact);
-    });
+    const normalized = convs
+      .map((c) => {
+        const cId = (c.contact_id || c.contactId) as string;
+        let contact = cId ? contactsMap.get(cId) : undefined;
+        if (!contact && cId) {
+          contact = {
+            id: cId,
+            account_id: accountId,
+            user_id: '',
+            name: whatsappContactDisplayName(
+              (c.contact_name as string) || (c.patient_name as string),
+              c.phone as string,
+              'Contact'
+            ),
+            phone: (c.phone as string) || '',
+            created_at: (c.created_at as string) || new Date().toISOString(),
+            updated_at: (c.updated_at as string) || new Date().toISOString(),
+          };
+        }
+        return normalizeConversation(c, contact);
+      })
+      .filter(
+        (conversation) =>
+          !isHiddenWhatsAppInboxChat(
+            conversation.contact?.phone,
+            conversation.contact?.metadata
+          )
+      )
+      .slice(0, limit);
 
     return NextResponse.json(
       { conversations: normalized, total: normalized.length },

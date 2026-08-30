@@ -8,6 +8,7 @@ import { resolveWhatsAppProvider } from '@/core/providers/whatsapp/provider-reso
 import {
   createEvolutionGoInstance,
   getEvolutionGoQr,
+  mergeEvolutionGoGroups,
   parseEvolutionGoGroups,
   sendEvolutionGoText,
   EvolutionGoConfigError,
@@ -288,7 +289,7 @@ describe('Evolution Go HTTP client', () => {
 describe('Evolution Go provider behaviour', () => {
   it('subscribes to GROUP events so group subjects can be resolved', () => {
     expect(EVOLUTION_GO_SUBSCRIBE_EVENTS).toContain('GROUP');
-    expect(EVOLUTION_GO_SUBSCRIBE_EVENTS).toContain('NEWSLETTER');
+    expect(EVOLUTION_GO_SUBSCRIBE_EVENTS).not.toContain('NEWSLETTER');
   });
 
   it('parses Evolution group list names', () => {
@@ -302,12 +303,41 @@ describe('Evolution Go provider behaviour', () => {
           JID: '120363424522275219@g.us',
           Name: { Name: 'Last 100 seats' },
         },
+        {
+          JID: '120363111222333444@g.us',
+        },
+        {
+          JID: '120363999000111222@newsletter',
+          Name: 'Clinic Channel',
+        },
       ],
     });
     expect(groups).toEqual([
       { jid: '120363316746745895@g.us', name: 'Helpa Clinic Team' },
       { jid: '120363424522275219@g.us', name: 'Last 100 seats' },
+      { jid: '120363111222333444@g.us', name: '' },
     ]);
+  });
+
+  it('merges /group/list and /group/myall without dropping unnamed groups', () => {
+    const merged = mergeEvolutionGoGroups(
+      [
+        { jid: '120363316746745895@g.us', name: 'Helpa Clinic Team' },
+        { jid: '120363111222333444@g.us', name: '' },
+      ],
+      [
+        { jid: '120363111222333444@g.us', name: 'OPD Desk' },
+        { jid: '120363555666777888@g.us', name: 'Night Shift' },
+      ]
+    );
+    expect(merged).toEqual(
+      expect.arrayContaining([
+        { jid: '120363316746745895@g.us', name: 'Helpa Clinic Team' },
+        { jid: '120363111222333444@g.us', name: 'OPD Desk' },
+        { jid: '120363555666777888@g.us', name: 'Night Shift' },
+      ])
+    );
+    expect(merged).toHaveLength(3);
   });
 
   it('reads group text from ephemeral wrappers', async () => {

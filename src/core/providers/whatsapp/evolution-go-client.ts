@@ -80,7 +80,6 @@ export const EVOLUTION_GO_SUBSCRIBE_EVENTS = [
   'READ_RECEIPT',
   'QRCODE',
   'GROUP',
-  'NEWSLETTER',
 ] as const;
 
 export interface EvolutionGoCreateInstanceInput {
@@ -569,36 +568,67 @@ export function parseEvolutionGoGroups(
       typeof nameObj === 'string'
         ? nameObj.trim()
         : asString(asRecord(nameObj).Name || asRecord(nameObj).name);
-    if (jid && name) groups.push({ jid, name });
+    if (!jid) continue;
+    const lower = jid.toLowerCase();
+    if (lower.endsWith('@newsletter') || lower.endsWith('@broadcast')) {
+      continue;
+    }
+    groups.push({ jid, name });
   }
   return groups;
+}
+
+export function mergeEvolutionGoGroups(
+  ...lists: Array<Array<{ jid: string; name: string }>>
+): Array<{ jid: string; name: string }> {
+  const byKey = new Map<string, { jid: string; name: string }>();
+  for (const list of lists) {
+    for (const group of list) {
+      if (!group.jid) continue;
+      const key =
+        group.jid.replace(/@.*$/i, '').replace(/\D/g, '') || group.jid;
+      const existing = byKey.get(key);
+      if (!existing) {
+        byKey.set(key, { jid: group.jid, name: group.name || '' });
+        continue;
+      }
+      byKey.set(key, {
+        jid: existing.jid.toLowerCase().includes('@g.us')
+          ? existing.jid
+          : group.jid,
+        name: existing.name || group.name || '',
+      });
+    }
+  }
+  return Array.from(byKey.values());
 }
 
 export async function listEvolutionGoGroups(
   instanceToken: string
 ): Promise<Array<{ jid: string; name: string }>> {
-  try {
-    const listed = parseEvolutionGoGroups(
-      await evolutionGoRequest({
-        method: 'GET',
-        path: '/group/list',
-        auth: 'instance',
-        instanceToken,
-      })
-    );
-    if (listed.length > 0) return listed;
-  } catch {
-    // Fall through to /group/myall.
-  }
-  const mine = parseEvolutionGoGroups(
-    await evolutionGoRequest({
+  const results = await Promise.allSettled([
+    evolutionGoRequest({
+      method: 'GET',
+      path: '/group/list',
+      auth: 'instance',
+      instanceToken,
+    }),
+    evolutionGoRequest({
       method: 'GET',
       path: '/group/myall',
       auth: 'instance',
       instanceToken,
-    })
-  );
-  return mine;
+    }),
+  ]);
+  const lists = results
+    .filter(
+      (
+        result
+      ): result is PromiseFulfilledResult<Record<string, unknown>> =>
+        result.status === 'fulfilled'
+    )
+    .map((result) => parseEvolutionGoGroups(result.value));
+  return mergeEvolutionGoGroups(...lists);
 }
 
 export async function getEvolutionGoGroupInfo(

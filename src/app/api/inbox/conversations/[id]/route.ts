@@ -7,6 +7,7 @@ import {
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
 import type { Conversation, Contact, ConversationStatus } from '@/types';
 import {
+  isHiddenWhatsAppInboxChat,
   isWhatsAppCollectiveAddress,
   whatsappContactDisplayName,
 } from '@/core/whatsapp/group-identity';
@@ -128,12 +129,20 @@ export async function GET(_request: NextRequest, { params }: Params) {
         .eq('id', cId)
         .maybeSingle();
       if (cDoc) {
-        const groupNames = await syncEvolutionGroupNamesForInbox(accountId);
+        const groupNames = await syncEvolutionGroupNamesForInbox(accountId, [
+          cDoc,
+        ]);
         const phone = String(cDoc.phone || '');
         const resolved =
           groupNames.get(phone) || groupNames.get(phoneFromWhatsAppJid(phone));
         if (resolved) cDoc.name = resolved;
         contact = normalizeContact(cDoc);
+        if (isHiddenWhatsAppInboxChat(contact.phone, contact.metadata)) {
+          return NextResponse.json(
+            { error: 'Conversation not found' },
+            { status: 404, headers: CACHE_HEADERS }
+          );
+        }
       } else {
         contact = {
           id: cId,

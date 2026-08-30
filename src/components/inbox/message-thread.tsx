@@ -7,7 +7,6 @@ import { useAuth } from '@/hooks/use-auth';
 import {
   parseWhatsAppSenderPreview,
   whatsappChatKind,
-  whatsappChatKindLabel,
   whatsappContactDisplayName,
 } from '@/core/whatsapp/group-identity';
 import { WhatsAppChatAvatar } from '@/components/inbox/whatsapp-chat-avatar';
@@ -889,7 +888,7 @@ export function MessageThread({
     (m: Message): string => {
       const isAgentMsg = m.sender_type === 'agent' || m.sender_type === 'bot';
       if (isAgentMsg) return 'You';
-      if (threadChatKind === 'group' || threadChatKind === 'channel') {
+      if (threadChatKind === 'group') {
         const preview = parseWhatsAppSenderPreview(m.content_text);
         if (preview.sender) return preview.sender;
       }
@@ -1049,10 +1048,10 @@ export function MessageThread({
   );
   const displayName =
     whatsappContactDisplayName(effectiveContact.name, effectiveContact.phone) ||
-    whatsappChatKindLabel(chatKind) ||
+    (chatKind === 'group' ? 'Group' : '') ||
     'Chat';
   const displaySubtitle =
-    whatsappChatKindLabel(chatKind) || effectiveContact.phone;
+    chatKind === 'group' ? 'Group' : effectiveContact.phone;
   const messageGroups = groupMessagesByDate(messages);
   const currentStatus = STATUS_OPTIONS.find(
     (s) => s.value === conversation.status
