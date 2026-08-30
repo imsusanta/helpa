@@ -98,4 +98,33 @@ describe('simple tour package form', () => {
     expect(payload.inclusions).toBeUndefined();
     expect(payload.hotels).toBeUndefined();
   });
+
+  it('keeps extra itinerary fields and omits pricing on catalog edits', () => {
+    const form = emptySimpleTourPackageForm();
+    form.name = 'Goa Getaway';
+    form.destination = 'Goa';
+    form.description = 'Beach holiday';
+    form.starting_price = 29999;
+    form.itineraries = [
+      {
+        day_number: 1,
+        title: 'Arrive',
+        description: 'Check-in',
+        meals: 'Dinner',
+        hotel: 'Sea View',
+        overnight_location: 'Goa',
+        activities: 'Sunset',
+      },
+    ];
+    const payload = simpleFormToWriteInput(form, { replacePricing: false });
+    expect(payload.pricing).toBeUndefined();
+    expect(payload.itineraries?.[0]).toMatchObject({
+      title: 'Arrive',
+      description: 'Check-in',
+      meals: 'Dinner',
+      hotel: 'Sea View',
+      overnight_location: 'Goa',
+      activities: 'Sunset',
+    });
+  });
 });

@@ -286,6 +286,122 @@ describe('tour package retrieval isolation', () => {
     expect(await deleteTourPackage(db, workspaceA, created.id)).toBe(true);
     expect(await getTourPackageDetail(db, workspaceA, created.id)).toBeNull();
   });
+
+  it('preserves status, featured, catalog fields, and occupancy pricing on a simple edit', async () => {
+    const created = await createTourPackage(db, workspaceA, {
+      name: 'Sikkim Featured',
+      destination: 'Sikkim',
+      duration_days: 4,
+      starting_price: 22000,
+      status: 'inactive',
+      featured: true,
+      package_type: 'Family',
+      category: 'Domestic',
+      booking_notes: 'Keep this note',
+      pricing: [{ pricing_name: '2A1C', adults: 2, children: 1, price: 62000 }],
+    });
+    expect(created.status).toBe('inactive');
+    expect(created.featured).toBe(true);
+
+    const updated = await updateTourPackage(db, workspaceA, created.id, {
+      name: 'Sikkim Featured Plus',
+      destination: 'Sikkim',
+      duration_days: 5,
+      starting_price: 24000,
+    });
+    expect(updated?.name).toBe('Sikkim Featured Plus');
+    expect(updated?.status).toBe('inactive');
+    expect(updated?.featured).toBe(true);
+    expect(updated?.package_type).toBe('Family');
+    expect(updated?.category).toBe('Domestic');
+    expect(updated?.booking_notes).toBe('Keep this note');
+    expect(updated?.pricing).toHaveLength(1);
+    expect(updated?.pricing[0]?.price).toBe(62000);
+    expect(updated?.pricing[0]?.adults).toBe(2);
+  });
+
+  it('finds a package by name instead of scanning an arbitrary first page', async () => {
+    const named = await createTourPackage(db, workspaceA, {
+      name: 'Hidden Kashmir Special',
+      destination: 'Kashmir',
+      starting_price: 18000,
+    });
+    const byName = await searchTourPackagesForAccount(
+      db,
+      workspaceA,
+      {
+        destination: null,
+        budget: null,
+        durationDays: null,
+        durationNights: null,
+        adults: null,
+        children: null,
+        packageType: null,
+        category: null,
+        travelMonth: null,
+        travelDate: null,
+        itineraryDay: null,
+        inclusionQuery: null,
+        query: 'Hidden Kashmir Special',
+        packageIntent: true,
+      },
+      { name: 'Hidden Kashmir Special' }
+    );
+    expect(byName.map((row) => row.id)).toContain(named.id);
+    expect(byName.every((row) => row.name.includes('Hidden Kashmir'))).toBe(
+      true
+    );
+  });
+
+  it('retries create when an optional alias column is missing', async () => {
+    const inner = createMemoryDb({
+      tour_packages: [],
+      tour_package_itineraries: [],
+      tour_package_inclusions: [],
+      tour_package_exclusions: [],
+      tour_package_hotels: [],
+      tour_package_pricing: [],
+      tour_package_departures: [],
+    });
+    let insertAttempts = 0;
+    const dbWithMissingColumn = {
+      from: (table: string) => {
+        const builder = inner.from(table) as {
+          insert: (payload: Row) => unknown;
+        };
+        if (table !== 'tour_packages') return builder;
+        const originalInsert = builder.insert.bind(builder);
+        builder.insert = (payload: Row) => {
+          insertAttempts += 1;
+          if (insertAttempts === 1) {
+            return {
+              select: () => ({
+                single: async () => ({
+                  data: null,
+                  error: {
+                    code: 'PGRST204',
+                    message:
+                      "Could not find the 'cover_image_url' column of 'tour_packages' in the schema cache",
+                  },
+                }),
+              }),
+            };
+          }
+          return originalInsert(payload);
+        };
+        return builder;
+      },
+    } as unknown as AdminClient;
+
+    const created = await createTourPackage(dbWithMissingColumn, workspaceA, {
+      name: 'Goa Weekend',
+      destination: 'Goa',
+      starting_price: 15999,
+      cover_image_url: 'https://example.com/goa.jpg',
+    });
+    expect(created.name).toBe('Goa Weekend');
+    expect(insertAttempts).toBe(2);
+  });
 });
 
 describe('tour package retrieval errors', () => {

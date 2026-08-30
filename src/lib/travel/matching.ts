@@ -383,6 +383,19 @@ export function rankTourPackages(
     const resolved = resolvePackagePrice(pkg, requirements);
     const departure = findMatchingDeparture(pkg, requirements);
 
+    const requestedParty =
+      requirements.adults != null || requirements.children != null
+        ? (requirements.adults ?? 0) + (requirements.children ?? 0)
+        : null;
+    if (
+      requestedParty != null &&
+      requestedParty > 0 &&
+      ((pkg.min_people != null && requestedParty < pkg.min_people) ||
+        (pkg.max_people != null && requestedParty > pkg.max_people))
+    ) {
+      continue;
+    }
+
     if (wantedDestination) {
       if (pkgDestination === wantedDestination) {
         score += 100;

@@ -308,6 +308,22 @@ describe('budget and destination matching', () => {
     ).toBe(false);
   });
 
+  it('does not recommend a package that cannot fit the requested party size', () => {
+    const small = pkg({
+      id: 'small',
+      account_id: 'travel-a',
+      name: 'Kashmir Couple',
+      destination: 'Kashmir',
+      min_people: 2,
+      max_people: 4,
+    });
+    const req = parseTravelerRequirements('Kashmir 10 adults package chai');
+    expect(req.adults).toBe(10);
+    const { matches, nearMatches } = rankTourPackages([small], req);
+    expect(matches).toEqual([]);
+    expect(nearMatches).toEqual([]);
+  });
+
   it('formats prices without inventing a value', () => {
     expect(formatMoney(27999, 'INR')).toBe('₹27,999');
     expect(formatMoney(null)).toBeNull();

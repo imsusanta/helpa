@@ -29,6 +29,11 @@ export function formatTourPackageFactSheet(pkg: TourPackageDetail): string {
     `Category: ${pkg.category || 'Not specified'}`,
     `Starting price: ${price || 'Not listed — confirm with the agency'}`,
     `Price type: ${pkg.price_type || pkg.price_for || 'Not specified'}`,
+    `Party size: ${
+      pkg.min_people != null || pkg.max_people != null
+        ? `${pkg.min_people ?? 'n/a'}–${pkg.max_people ?? 'n/a'}`
+        : 'Not specified'
+    }`,
     `Status: ${pkg.status}`,
     `Featured: ${pkg.featured ? 'yes' : 'no'}`,
     `Validity: ${pkg.valid_from || 'n/a'} to ${pkg.valid_until || 'n/a'}`,

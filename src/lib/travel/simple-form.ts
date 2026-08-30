@@ -22,6 +22,10 @@ export interface SimpleTourPackageForm {
     day_number: number;
     title: string;
     description: string;
+    activities?: string | null;
+    meals?: string | null;
+    hotel?: string | null;
+    overnight_location?: string | null;
   }>;
 }
 
@@ -109,11 +113,12 @@ export function validateSimpleTourPackageForm(
 }
 
 export function simpleFormToWriteInput(
-  form: SimpleTourPackageForm
+  form: SimpleTourPackageForm,
+  options?: { replacePricing?: boolean }
 ): TourPackageWriteInput {
   const occupancy = occupancyForPriceType(form.price_type);
   const price = Number(form.starting_price);
-  return {
+  const payload: TourPackageWriteInput = {
     name: form.name.trim(),
     destination: form.destination.trim(),
     description: form.description.trim(),
@@ -130,19 +135,33 @@ export function simpleFormToWriteInput(
     min_people: form.min_people,
     max_people: form.max_people,
     itineraries: form.itineraries
-      .filter((day) => day.title.trim() || day.description.trim())
+      .filter(
+        (day) =>
+          day.title.trim() ||
+          day.description.trim() ||
+          day.activities?.trim() ||
+          day.meals?.trim() ||
+          day.hotel?.trim()
+      )
       .map((day, index) => ({
         day_number: index + 1,
         title: day.title.trim() || `Day ${index + 1}`,
         description: day.description.trim() || null,
+        activities: day.activities?.trim() || null,
+        meals: day.meals?.trim() || null,
+        hotel: day.hotel?.trim() || null,
+        overnight_location: day.overnight_location?.trim() || null,
       })),
-    pricing: [
+  };
+  if (options?.replacePricing !== false) {
+    payload.pricing = [
       {
         pricing_name: form.price_type,
         price,
         currency: form.currency || 'INR',
         ...occupancy,
       },
-    ],
-  };
+    ];
+  }
+  return payload;
 }

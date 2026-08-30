@@ -110,10 +110,12 @@ export async function listTourPackages(
   if (filters?.packageType?.trim())
     query = query.ilike('package_type', `%${filters.packageType.trim()}%`);
   if (filters?.search?.trim()) {
-    const term = filters.search.trim().replace(/[%_]/g, ' ');
-    query = query.or(
-      `name.ilike.%${term}%,destination.ilike.%${term}%,description.ilike.%${term}%,package_type.ilike.%${term}%,category.ilike.%${term}%`
-    );
+    const term = sanitizeIlikeTerm(filters.search);
+    if (term) {
+      query = query.or(
+        `name.ilike.%${term}%,destination.ilike.%${term}%,description.ilike.%${term}%,package_type.ilike.%${term}%,category.ilike.%${term}%`
+      );
+    }
   }
   if (filters?.limit) query = query.limit(filters.limit);
   const { data, error } = await query;
@@ -266,7 +268,10 @@ export async function loadTourPackageDetails(
   }));
 }
 
-function sanitizeWrite(input: TourPackageWriteInput): Record<string, unknown> {
+function sanitizeWrite(
+  input: TourPackageWriteInput,
+  existing?: TourPackage | null
+): Record<string, unknown> {
   const name = input.name?.trim();
   const destination = input.destination?.trim();
   if (!name) throw new Error('PACKAGE_NAME_REQUIRED');
@@ -278,8 +283,14 @@ function sanitizeWrite(input: TourPackageWriteInput): Record<string, unknown> {
       ? days - 1
       : Number(input.duration_nights) || 0
   );
-  const minPeople = sanitizePeopleCount(input.min_people);
-  const maxPeople = sanitizePeopleCount(input.max_people);
+  const minPeople =
+    input.min_people !== undefined
+      ? sanitizePeopleCount(input.min_people)
+      : (existing?.min_people ?? null);
+  const maxPeople =
+    input.max_people !== undefined
+      ? sanitizePeopleCount(input.max_people)
+      : (existing?.max_people ?? null);
   if (minPeople != null && minPeople < 1) {
     throw new Error('PACKAGE_PARTY_SIZE_INVALID');
   }
@@ -290,30 +301,75 @@ function sanitizeWrite(input: TourPackageWriteInput): Record<string, unknown> {
     throw new Error('PACKAGE_PARTY_SIZE_INVALID');
   }
   const priceType =
-    input.price_type?.trim() || input.price_for?.trim() || 'Per Person';
+    input.price_type?.trim() ||
+    input.price_for?.trim() ||
+    existing?.price_type?.trim() ||
+    existing?.price_for?.trim() ||
+    'Per Person';
+  const incomingImage =
+    input.cover_image_url !== undefined || input.image_url !== undefined
+      ? sanitizeCoverImageUrl(input.cover_image_url) ||
+        sanitizeCoverImageUrl(input.image_url)
+      : undefined;
   const imageUrl =
-    sanitizeCoverImageUrl(input.cover_image_url) ||
-    sanitizeCoverImageUrl(input.image_url);
+    incomingImage !== undefined
+      ? incomingImage
+      : (existing?.cover_image_url ?? existing?.image_url ?? null);
 
   return {
     name,
     destination,
-    description: input.description?.trim() || null,
-    package_type: input.package_type?.trim() || null,
-    category: input.category?.trim() || null,
+    description:
+      input.description !== undefined
+        ? input.description?.trim() || null
+        : (existing?.description ?? null),
+    package_type:
+      input.package_type !== undefined
+        ? input.package_type?.trim() || null
+        : (existing?.package_type ?? null),
+    category:
+      input.category !== undefined
+        ? input.category?.trim() || null
+        : (existing?.category ?? null),
     duration_days: days,
     duration_nights: nights,
     starting_price:
-      input.starting_price == null ? null : Number(input.starting_price),
-    currency: input.currency?.trim() || 'INR',
+      input.starting_price === undefined
+        ? (existing?.starting_price ?? null)
+        : input.starting_price == null
+          ? null
+          : Number(input.starting_price),
+    currency: input.currency?.trim() || existing?.currency || 'INR',
     price_for: priceType,
     image_url: imageUrl,
-    status: input.status === 'inactive' ? 'inactive' : 'active',
-    featured: Boolean(input.featured),
-    valid_from: input.valid_from || null,
-    valid_until: input.valid_until || null,
-    booking_notes: input.booking_notes?.trim() || null,
-    terms_and_conditions: input.terms_and_conditions?.trim() || null,
+    status:
+      input.status !== undefined
+        ? input.status === 'inactive'
+          ? 'inactive'
+          : 'active'
+        : existing?.status === 'inactive'
+          ? 'inactive'
+          : 'active',
+    featured:
+      input.featured !== undefined
+        ? Boolean(input.featured)
+        : Boolean(existing?.featured),
+    valid_from:
+      input.valid_from !== undefined
+        ? input.valid_from || null
+        : (existing?.valid_from ?? null),
+    valid_until:
+      input.valid_until !== undefined
+        ? input.valid_until || null
+        : (existing?.valid_until ?? null),
+    booking_notes:
+      input.booking_notes !== undefined
+        ? input.booking_notes?.trim() || null
+        : (existing?.booking_notes ?? null),
+    terms_and_conditions:
+      input.terms_and_conditions !== undefined
+        ? input.terms_and_conditions?.trim() || null
+        : (existing?.terms_and_conditions ?? null),
     cover_image_url: imageUrl,
     price_type: priceType,
     min_people: minPeople,
@@ -327,6 +383,42 @@ function sanitizePeopleCount(value: unknown): number | null {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return null;
   return Math.trunc(parsed);
+}
+
+function sanitizeIlikeTerm(value: string): string {
+  return value
+    .replace(/[%_,.()"'\\]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+const OPTIONAL_PACKAGE_COLUMNS = [
+  'cover_image_url',
+  'price_type',
+  'image_url',
+  'price_for',
+  'min_people',
+  'max_people',
+] as const;
+
+function missingOptionalColumn(
+  error: { code?: string; message?: string } | null | undefined
+): string | null {
+  if (!error) return null;
+  const message = error.message || '';
+  const match =
+    message.match(/Could not find the '([^']+)' column/i) ||
+    message.match(/Could not find the "([^"]+)" column/i) ||
+    message.match(/column "([^"]+)" of relation/i) ||
+    message.match(/column "([^"]+)" does not exist/i);
+  const column = match?.[1];
+  if (
+    column &&
+    (OPTIONAL_PACKAGE_COLUMNS as readonly string[]).includes(column)
+  ) {
+    return column;
+  }
+  return null;
 }
 
 function sanitizeCoverImageUrl(value: unknown): string | null {
@@ -508,21 +600,58 @@ async function replaceChildren(
   }
 }
 
+async function persistPackageRow(
+  db: AdminClient,
+  payload: Record<string, unknown>,
+  mode: 'insert' | 'update',
+  accountId: string,
+  packageId?: string
+): Promise<Record<string, unknown>> {
+  let next = { ...payload };
+  for (let attempt = 0; attempt <= OPTIONAL_PACKAGE_COLUMNS.length; attempt++) {
+    const result =
+      mode === 'insert'
+        ? await db.from('tour_packages').insert(next).select('*').single()
+        : await db
+            .from('tour_packages')
+            .update(next)
+            .eq('account_id', accountId)
+            .eq('id', packageId as string)
+            .select('*')
+            .maybeSingle();
+    const missing = missingOptionalColumn(result.error);
+    if (!result.error) {
+      if (!result.data) throw new Error('TOUR_PACKAGE_SAVE_FAILED');
+      return result.data as Record<string, unknown>;
+    }
+    if (!missing) {
+      logger.error('Tour package persist failed', {
+        component: 'tour-packages',
+        accountId,
+        error: result.error.message,
+      });
+      throw new Error('TOUR_PACKAGE_SAVE_FAILED');
+    }
+    delete next[missing];
+  }
+  throw new Error('TOUR_PACKAGE_SAVE_FAILED');
+}
+
 export async function createTourPackage(
   db: AdminClient,
   accountId: string,
   input: TourPackageWriteInput
 ): Promise<TourPackageDetail> {
-  const { data, error } = await db
-    .from('tour_packages')
-    .insert({
+  const data = await persistPackageRow(
+    db,
+    {
       ...sanitizeWrite(input),
       account_id: accountId,
       created_at: new Date().toISOString(),
-    })
-    .select('*')
-    .single();
-  if (error || !data) throw new Error('TOUR_PACKAGE_SAVE_FAILED');
+    },
+    'insert',
+    accountId
+  );
   try {
     await replaceChildren(db, accountId, String(data.id), input);
   } catch (e) {
@@ -543,16 +672,15 @@ export async function updateTourPackage(
   packageId: string,
   input: TourPackageWriteInput
 ): Promise<TourPackageDetail | null> {
-  if (!(await getTourPackageDetail(db, accountId, packageId))) return null;
-  const { data, error } = await db
-    .from('tour_packages')
-    .update(sanitizeWrite(input))
-    .eq('account_id', accountId)
-    .eq('id', packageId)
-    .select('*')
-    .maybeSingle();
-  if (error) throw new Error('TOUR_PACKAGE_SAVE_FAILED');
-  if (!data) return null;
+  const existing = await getTourPackageDetail(db, accountId, packageId);
+  if (!existing) return null;
+  await persistPackageRow(
+    db,
+    sanitizeWrite(input, existing),
+    'update',
+    accountId,
+    packageId
+  );
   await replaceChildren(db, accountId, packageId, input);
   return getTourPackageDetail(db, accountId, packageId);
 }
@@ -592,18 +720,23 @@ export async function searchTourPackagesForAccount(
   db: AdminClient,
   accountId: string,
   requirements: TravelerRequirements,
-  options?: { includeInactive?: boolean; limit?: number }
+  options?: { includeInactive?: boolean; limit?: number; name?: string }
 ): Promise<TourPackageDetail[]> {
   let query = db.from('tour_packages').select('*').eq('account_id', accountId);
   if (!options?.includeInactive) query = query.eq('status', 'active');
-  if (requirements.destination)
+  const name = options?.name?.trim();
+  if (name) {
+    const term = sanitizeIlikeTerm(name) || name.replace(/[%_]/g, ' ').trim();
+    if (term) query = query.ilike('name', `%${term}%`);
+  } else if (requirements.destination) {
     query = query.ilike('destination', `%${requirements.destination}%`);
+  }
   const { data, error } = await query.limit(options?.limit || 40);
   if (error) throw new Error('TOUR_PACKAGE_SEARCH_FAILED');
   let packages = ((data || []) as Record<string, unknown>[])
     .filter((r) => assertSameAccount(accountId, String(r.account_id)))
     .map(mapPackage);
-  if (!packages.length && requirements.destination) {
+  if (!packages.length && requirements.destination && !name) {
     let fallback = db
       .from('tour_packages')
       .select('*')

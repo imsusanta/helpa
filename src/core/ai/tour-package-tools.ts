@@ -119,7 +119,8 @@ export function registerTourPackageTools(registry: ToolRegistry): void {
             destination: null,
             query: name,
             packageIntent: true,
-          }
+          },
+          { name }
         );
         const match =
           rows.find((row) => row.name.toLowerCase() === name.toLowerCase()) ||
