@@ -55,7 +55,14 @@ export async function ensureTravelWorkflowsSeeded(opts: {
       .select('id')
       .single();
 
-    if (error || !autoRecord) continue;
+    if (error || !autoRecord) {
+      console.warn(
+        '[travel-seeds] failed to insert',
+        workflow.seedKey,
+        error?.message
+      );
+      continue;
+    }
     if (workflow.steps?.length) {
       await insertSteps(
         autoRecord.id,

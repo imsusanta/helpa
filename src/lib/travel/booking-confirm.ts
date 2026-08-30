@@ -518,13 +518,20 @@ export async function confirmPendingTravelBooking(opts: {
 
   await clearPendingTravelBooking(opts.accountId, opts.contactId);
 
-  await engineSendText({
-    accountId: opts.accountId,
-    userId: opts.userId,
-    conversationId: opts.conversationId,
-    contactId: opts.contactId,
-    text: `Your Travel Booking is confirmed. Package: ${draft.package_name}. Travel date: ${draft.travel_date}. Guests: ${draft.guests_count}. Our team will share the next steps shortly.`,
-  });
+  try {
+    await engineSendText({
+      accountId: opts.accountId,
+      userId: opts.userId,
+      conversationId: opts.conversationId,
+      contactId: opts.contactId,
+      text: `Your Travel Booking is confirmed. Package: ${draft.package_name}. Travel date: ${draft.travel_date}. Guests: ${draft.guests_count}. Our team will share the next steps shortly.`,
+    });
+  } catch (error) {
+    console.warn(
+      '[travel-booking] confirmation text failed',
+      error instanceof Error ? error.message : error
+    );
+  }
 
   return {
     status: 'confirmed',
