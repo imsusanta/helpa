@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/use-auth';
 import {
   parseWhatsAppSenderPreview,
   whatsappChatKind,
+  formatWhatsAppDisplayPhone,
   whatsappChatKindLabel,
   whatsappContactDisplayName,
 } from '@/core/whatsapp/group-identity';
@@ -1052,7 +1053,9 @@ export function MessageThread({
     whatsappChatKindLabel(chatKind) ||
     'Chat';
   const displaySubtitle =
-    whatsappChatKindLabel(chatKind) || effectiveContact.phone;
+    whatsappChatKindLabel(chatKind) ||
+    formatWhatsAppDisplayPhone(effectiveContact.phone) ||
+    effectiveContact.phone;
   const messageGroups = groupMessagesByDate(messages);
   const currentStatus = STATUS_OPTIONS.find(
     (s) => s.value === conversation.status

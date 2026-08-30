@@ -315,6 +315,52 @@ describe('Inbox API & Tenant Isolation Tests', () => {
       expect(json.conversations[0].contact.name).toBe('Ravi Kumar');
     });
 
+    it('shows a country-coded WhatsApp number with a leading +', async () => {
+      const mockConvQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockResolvedValue({
+          data: [
+            {
+              id: 'conv-1',
+              account_id: 'tenant-a',
+              contact_id: 'contact-1',
+              status: 'open',
+              last_message_text: 'Hello',
+            },
+          ],
+          error: null,
+        }),
+      };
+      const mockContactQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        in: vi.fn().mockResolvedValue({
+          data: [
+            {
+              id: 'contact-1',
+              account_id: 'tenant-a',
+              name: '919609200394',
+              phone: '919609200394',
+            },
+          ],
+        }),
+      };
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === 'conversations')
+          return mockConvQuery as unknown as Record<string, unknown>;
+        if (table === 'contacts')
+          return mockContactQuery as unknown as Record<string, unknown>;
+        return {};
+      });
+
+      const res = await getConversations(createRequest());
+      const json = await res.json();
+      expect(json.conversations[0].contact.name).toBe('+919609200394');
+      expect(json.conversations[0].contact.phone).toBe('919609200394');
+    });
+
     it('shows WhatsApp channel conversations with their channel name', async () => {
       const mockConvQuery = {
         select: vi.fn().mockReturnThis(),

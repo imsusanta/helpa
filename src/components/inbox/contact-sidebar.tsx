@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/db/client';
 import { useAuth } from '@/hooks/use-auth';
 import {
+  formatWhatsAppDisplayPhone,
   whatsappChatKind,
   whatsappChatKindLabel,
   whatsappContactDisplayName,
@@ -367,7 +368,9 @@ export function ContactSidebar({
 
   const handleCopyPhone = useCallback(async () => {
     if (!contact?.phone) return;
-    await navigator.clipboard.writeText(contact.phone);
+    await navigator.clipboard.writeText(
+      formatWhatsAppDisplayPhone(contact.phone) || contact.phone
+    );
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
     // Dep is the whole `contact` object (not `contact?.phone`) so the
@@ -417,7 +420,10 @@ export function ContactSidebar({
     whatsappContactDisplayName(contact.name, contact.phone) ||
     whatsappChatKindLabel(chatKind) ||
     'Chat';
-  const displayPhone = whatsappChatKindLabel(chatKind) || contact.phone;
+  const displayPhone =
+    whatsappChatKindLabel(chatKind) ||
+    formatWhatsAppDisplayPhone(contact.phone) ||
+    contact.phone;
 
   const content = (
     <div className="min-h-0 flex-1 overflow-y-auto">

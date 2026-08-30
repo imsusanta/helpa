@@ -66,7 +66,11 @@ import { GatedButton } from '@/components/ui/gated-button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { SavedFilterBar } from '@/components/crm/saved-filter-bar';
 import { getOrGeneratePatientId } from '@/lib/patients/id-generator';
-import { isIndividualContact } from '@/core/whatsapp/group-identity';
+import {
+  formatWhatsAppDisplayPhone,
+  isIndividualContact,
+  whatsappContactDisplayName,
+} from '@/core/whatsapp/group-identity';
 
 const PAGE_SIZE = 25;
 
@@ -1263,7 +1267,10 @@ export default function ContactsPage() {
                             }}
                             className="text-foreground cursor-pointer text-left text-sm font-semibold hover:underline"
                           >
-                            {contact.name}
+                            {whatsappContactDisplayName(
+                              contact.name,
+                              contact.phone
+                            ) || contact.name}
                           </button>
                         ) : (
                           <span className="text-muted-foreground text-sm font-normal italic">
@@ -1271,7 +1278,10 @@ export default function ContactsPage() {
                           </span>
                         )}
                         <div className="text-muted-foreground flex items-center gap-2 text-xs">
-                          <span className="font-mono">{contact.phone}</span>
+                          <span className="font-mono">
+                            {formatWhatsAppDisplayPhone(contact.phone) ||
+                              contact.phone}
+                          </span>
                           {contact.email && (
                             <span className="max-w-[120px] truncate">
                               {contact.email}
@@ -1424,7 +1434,10 @@ export default function ContactsPage() {
                         }}
                         className="text-foreground cursor-pointer text-left text-sm font-bold hover:underline"
                       >
-                        {contact.name}
+                        {whatsappContactDisplayName(
+                          contact.name,
+                          contact.phone
+                        ) || contact.name}
                       </button>
                     ) : (
                       <h3 className="text-foreground text-sm font-bold">
@@ -1432,7 +1445,8 @@ export default function ContactsPage() {
                       </h3>
                     )}
                     <p className="text-muted-foreground font-mono text-xs">
-                      {contact.phone}
+                      {formatWhatsAppDisplayPhone(contact.phone) ||
+                        contact.phone}
                     </p>
                   </div>
                   {renderLeadScoreBadge(meta.ai_lead_score || meta.score)}

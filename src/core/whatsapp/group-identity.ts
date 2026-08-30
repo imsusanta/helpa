@@ -141,6 +141,26 @@ export function whatsappChatKindLabel(kind: WhatsAppChatKind): string {
   return '';
 }
 
+/**
+ * WhatsApp stores international numbers as digits (919609200394).
+ * Show them as E.164 with a leading +. Group/channel ids stay blank.
+ */
+export function formatWhatsAppDisplayPhone(phone?: string | null): string {
+  const raw = String(phone || '').trim();
+  if (!raw) return '';
+  if (
+    isWhatsAppCollectiveAddress(raw) ||
+    isWhatsAppGroupJid(raw) ||
+    isWhatsAppChannelJid(raw)
+  ) {
+    return '';
+  }
+  if (!isValidIndividualPhone(raw)) return raw;
+  const digits = raw.replace(/\D/g, '');
+  if (!digits) return raw;
+  return `+${digits}`;
+}
+
 export function isHiddenWhatsAppInboxChat(
   _address?: string | null,
   _metadata?: Record<string, unknown> | null
@@ -212,7 +232,13 @@ export function whatsappContactDisplayName(
     }
     return '';
   }
-  return trimmedName || trimmedPhone || fallback;
+  return (
+    formatWhatsAppDisplayPhone(trimmedPhone) ||
+    formatWhatsAppDisplayPhone(trimmedName) ||
+    trimmedName ||
+    trimmedPhone ||
+    fallback
+  );
 }
 
 export function resolvedWhatsAppContactName(
