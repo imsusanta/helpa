@@ -125,6 +125,9 @@ vi.mock('@/lib/supabase/server', () => ({ getAdminClient: () => database }));
 vi.mock('@/lib/saas/subscription', () => ({
   checkPlanLimits: vi.fn(async () => ({ allowed: true })),
 }));
+vi.mock('@/lib/automations/travel-seeds', () => ({
+  ensureTravelWorkflowsSeeded: vi.fn(async () => 0),
+}));
 vi.mock('@/lib/automations/steps-tree', () => ({
   insertSteps: vi.fn(async () => null),
   loadStepsTree: vi.fn(async () => []),

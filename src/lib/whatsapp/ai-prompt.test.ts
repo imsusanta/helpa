@@ -90,6 +90,8 @@ describe('buildReceptionistSystemPrompt', () => {
       travelPackageContext: 'Package: Kashmir Delight\nStarting price: ₹27,999',
     });
     expect(travel).toContain('TRAVEL WORKPLACE TOUR PACKAGE CONTEXT');
+    expect(travel).toContain('TRAVEL BOOKING CONFIRM');
+    expect(travel).toContain('offerTravelBookingConfirm');
     expect(travel).toContain('Kashmir Delight');
     expect(travel).toContain('₹27,999');
 
