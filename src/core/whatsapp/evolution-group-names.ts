@@ -83,7 +83,9 @@ async function updateContactNameIfPlaceholder(args: {
     .maybeSingle();
   if (existing.error || !existing.data) return false;
   const currentName = String((existing.data as { name?: string }).name || '');
-  if (!isPlaceholderContactName(currentName, phone)) return false;
+  if (currentName === name) return false;
+  const isGroup = isWhatsAppGroupAddress(phone);
+  if (!isGroup && !isPlaceholderContactName(currentName, phone)) return false;
   await db
     .from('contacts')
     .update({ name, updated_at: new Date().toISOString() })

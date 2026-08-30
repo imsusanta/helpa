@@ -8,6 +8,8 @@ import { resolveWhatsAppProvider } from '@/core/providers/whatsapp/provider-reso
 import {
   createEvolutionGoInstance,
   getEvolutionGoQr,
+  evolutionGoGroupSubject,
+  evolutionGoJid,
   mergeEvolutionGoGroups,
   parseEvolutionGoGroups,
   sendEvolutionGoText,
@@ -304,6 +306,10 @@ describe('Evolution Go provider behaviour', () => {
           Name: { Name: 'Last 100 seats' },
         },
         {
+          JID: { User: '120363888999000111', Server: 'g.us' },
+          Name: 'WhatsApp Clinic Desk',
+        },
+        {
           JID: '120363111222333444@g.us',
         },
         {
@@ -315,8 +321,18 @@ describe('Evolution Go provider behaviour', () => {
     expect(groups).toEqual([
       { jid: '120363316746745895@g.us', name: 'Helpa Clinic Team' },
       { jid: '120363424522275219@g.us', name: 'Last 100 seats' },
+      { jid: '120363888999000111@g.us', name: 'WhatsApp Clinic Desk' },
       { jid: '120363111222333444@g.us', name: '' },
     ]);
+    expect(evolutionGoJid({ User: '120363888999000111', Server: 'g.us' })).toBe(
+      '120363888999000111@g.us'
+    );
+    expect(
+      evolutionGoGroupSubject({
+        Name: 'Helpa Clinic Team',
+        NameSetAt: '2026-01-15T10:30:00Z',
+      })
+    ).toBe('Helpa Clinic Team');
   });
 
   it('merges /group/list and /group/myall without dropping unnamed groups', () => {

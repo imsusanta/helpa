@@ -158,6 +158,36 @@ function asString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+/** whatsmeow JID is a string when MarshalText is honored, otherwise {User,Server}. */
+export function evolutionGoJid(value: unknown): string {
+  if (typeof value === 'string') return value.trim();
+  const row = asRecord(value);
+  const user = asString(row.User || row.user);
+  const server = asString(row.Server || row.server);
+  if (user && server) return `${user}@${server}`;
+  return asString(row.JID || row.jid || row.id || row.User);
+}
+
+/** WhatsApp group subject from a whatsmeow GroupInfo payload. */
+export function evolutionGoGroupSubject(value: unknown): string {
+  if (typeof value === 'string') return value.trim();
+  const row = asRecord(value);
+  const nested = asRecord(
+    row.Name ?? row.name ?? row.GroupName ?? row.groupName
+  );
+  return (
+    asString(row.Name) ||
+    asString(row.name) ||
+    asString(row.Subject) ||
+    asString(row.subject) ||
+    asString(row.GroupName) ||
+    asString(row.groupName) ||
+    asString(nested.Name) ||
+    asString(nested.name) ||
+    asString(nested.Subject)
+  );
+}
+
 function sanitizeErrorText(text: string): string {
   return text
     .replace(/apikey["']?\s*[:=]\s*["']?[^"'\\s]+/gi, 'apikey=[redacted]')
@@ -562,12 +592,10 @@ export function parseEvolutionGoGroups(
   const groups: Array<{ jid: string; name: string }> = [];
   for (const item of raw) {
     const row = asRecord(item);
-    const jid = asString(row.JID || row.jid || row.groupJid || row.id);
-    const nameObj = row.Name ?? row.name ?? row.GroupName ?? row.subject;
-    const name =
-      typeof nameObj === 'string'
-        ? nameObj.trim()
-        : asString(asRecord(nameObj).Name || asRecord(nameObj).name);
+    const jid = evolutionGoJid(
+      row.JID || row.jid || row.groupJid || row.groupJID || row.id
+    );
+    const name = evolutionGoGroupSubject(row);
     if (!jid) continue;
     const lower = jid.toLowerCase();
     if (lower.endsWith('@newsletter') || lower.endsWith('@broadcast')) {
@@ -641,11 +669,9 @@ export async function getEvolutionGoGroupInfo(
     body: { groupJid },
   });
   const data = dataEnvelope(payload);
-  const name = asString(data.Name || data.name || data.GroupName);
-  const nested = asRecord(data.Name || data.name || data.GroupName);
   return {
-    jid: asString(data.JID || data.jid) || groupJid,
-    name: name || asString(nested.Name || nested.name),
+    jid: evolutionGoJid(data.JID || data.jid) || groupJid,
+    name: evolutionGoGroupSubject(data),
   };
 }
 
