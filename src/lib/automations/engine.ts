@@ -17,7 +17,12 @@ import type {
   UpdateLeadStepConfig,
 } from '@/types';
 import { getAdminClient } from '@/lib/db/server';
-import { engineSendText, engineSendTemplate } from './meta-send';
+import {
+  engineSendText,
+  engineSendTemplate,
+  engineSendButtons,
+} from './meta-send';
+import { prepareTravelBookingConfirmOffer } from '@/lib/travel/booking-confirm';
 import { evaluateDelayedOutboundGuard } from '@/lib/leads/followup-guard.service';
 import {
   cancelScheduledFollowups,
@@ -429,9 +434,38 @@ async function runStep(
         const skipped = await skipDelayedSendIfBlocked(args, 'reminder');
         if (skipped) return skipped;
       }
+      const conversationId = await resolveConversationId(args);
+      if (cfg.travel_booking_confirm) {
+        const offer = await prepareTravelBookingConfirmOffer({
+          accountId: args.automation.account_id,
+          contactId: args.contactId,
+          conversationId,
+          messageText: args.context.message_text,
+        });
+        args.context.vars = {
+          ...args.context.vars,
+          travel_package_name: offer.packageName,
+          travel_date: offer.travelDate,
+          travel_guests: String(offer.guestsCount),
+          travel_total_price: offer.totalPriceLabel,
+        };
+      }
       const text = await interpolate(cfg.text, args);
       if (!text.trim()) throw new Error('send_message has empty text');
-      const conversationId = await resolveConversationId(args);
+      if (cfg.buttons && cfg.buttons.length > 0) {
+        const { whatsapp_message_id } = await engineSendButtons({
+          accountId: args.automation.account_id,
+          userId: args.automation.user_id,
+          conversationId,
+          contactId: args.contactId,
+          bodyText: text,
+          buttons: cfg.buttons.map((button) => ({
+            id: String(button.id),
+            title: String(button.title),
+          })),
+        });
+        return `sent buttons via WhatsApp (${whatsapp_message_id})`;
+      }
       const { whatsapp_message_id } = await engineSendText({
         accountId: args.automation.account_id,
         userId: args.automation.user_id,
@@ -1241,6 +1275,21 @@ function resolveToken(
       }
     }
 
+    case 'travel': {
+      switch (prop) {
+        case 'package_name':
+          return stringifyToken(vars.travel_package_name);
+        case 'date':
+          return stringifyToken(vars.travel_date);
+        case 'guests':
+          return stringifyToken(vars.travel_guests);
+        case 'total_price':
+          return stringifyToken(vars.travel_total_price);
+        default:
+          return stringifyToken(vars[`travel_${prop}`]);
+      }
+    }
+
     case 'appointment': {
       // The appointment routes and the reminder scheduler both push these
       // into context.vars, so this namespace is a friendlier alias over
@@ -1272,8 +1321,9 @@ function resolveToken(
  * Replace `{{ token }}` placeholders in step text.
  *
  * Supported: `message.text`, `vars.<key>`, `contact.name|first_name|
- * phone|email|company`, and `appointment.date|time|date_iso|time_24h|
- * id|booking_id`. Unknown tokens resolve to an empty string, which is
+ * phone|email|company`, `travel.package_name|date|guests|total_price`,
+ * and `appointment.date|time|date_iso|time_24h|id|booking_id`. Unknown
+ * tokens resolve to an empty string, which is
  * the long-standing behaviour — a half-rendered `{{ contact.nmae }}`
  * in a customer's WhatsApp message is worse than a gap.
  */

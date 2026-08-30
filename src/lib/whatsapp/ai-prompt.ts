@@ -160,6 +160,9 @@ ${COACHING_RULES}
 
   if (input.isTravelEnabled) {
     systemPromptContent += `\n\n=== TRAVEL WORKPLACE TOUR PACKAGE CONTEXT ===\n${input.travelPackageContext || 'No Tour Package lookup was required for this message.'}
+
+TRAVEL BOOKING CONFIRM:
+If the traveller asks to confirm a booking, emit TOOL_CALL: {"name":"offerTravelBookingConfirm","arguments":{"packageName":"<name if known>"}} so the Booking Confirm template and Confirm Booking button are sent. Do not say the booking is completed until the button click or confirmTravelBooking succeeds.
 `;
   }
 

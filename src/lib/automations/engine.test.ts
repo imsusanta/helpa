@@ -97,6 +97,7 @@ vi.mock('@/lib/db/server', () => {
 vi.mock('./meta-send', () => ({
   engineSendText: vi.fn(async () => ({ whatsapp_message_id: 'm1' })),
   engineSendTemplate: vi.fn(async () => ({ whatsapp_message_id: 'm1' })),
+  engineSendButtons: vi.fn(async () => ({ whatsapp_message_id: 'm1' })),
 }));
 
 import { runAutomationsForTrigger } from './engine';

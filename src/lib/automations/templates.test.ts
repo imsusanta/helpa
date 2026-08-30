@@ -119,6 +119,10 @@ describe('automation templates', () => {
     const templates = getTemplatesForIndustry('travel');
     const slugs = templates.map((template) => template.slug);
     expect(slugs).toContain('traveler_intake_greeting');
+    expect(slugs).toContain('travel_package_enquiry');
+    expect(slugs).toContain('travel_booking_confirm');
+    expect(slugs).toContain('travel_payment_followup');
+    expect(slugs).toContain('travel_documents_reminder');
     expect(slugs).toContain('welcome_message');
     expect(slugs).not.toContain('doctor_booking_enquiry');
     expect(slugs).not.toContain('lab_test_booking');
@@ -133,6 +137,7 @@ describe('automation templates', () => {
     expect(health).toEqual(clinic);
     expect(health).toContain('doctor_booking_enquiry');
     expect(health).not.toContain('traveler_intake_greeting');
+    expect(health).not.toContain('travel_booking_confirm');
     expect(health).not.toContain('table_booking');
   });
 

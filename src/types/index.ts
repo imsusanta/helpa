@@ -786,8 +786,16 @@ export type AutomationTriggerConfig =
   | AppointmentReminderTriggerConfig
   | Record<string, unknown>;
 
+export interface AutomationMessageButton {
+  id: string;
+  title: string;
+}
+
 export interface SendMessageStepConfig {
   text: string;
+  buttons?: AutomationMessageButton[];
+  /** Prepare a pending Travel Booking and fill {{ travel.* }} tokens. */
+  travel_booking_confirm?: boolean;
 }
 
 export interface SendTemplateStepConfig {

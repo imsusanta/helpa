@@ -18,6 +18,7 @@ import {
   flagBroadcastReplyIfAny,
 } from './conversation-service';
 import { handleReaction } from './process-reaction';
+import { handleTravelBookingInbound } from '@/lib/travel/booking-confirm';
 import type { WhatsAppMessage } from './types';
 
 /**
@@ -1142,6 +1143,16 @@ export async function processMessage(
     }
 
     if (reportHandled) return;
+
+    const travelHandled = await handleTravelBookingInbound({
+      accountId,
+      userId: configOwnerUserId,
+      contactId: contactRecord.id,
+      conversationId: convId,
+      interactiveReplyId,
+      inboundText: contentText ?? message.text?.body ?? '',
+    });
+    if (travelHandled) return;
   } catch (err) {
     console.error(
       '[Webhook Interception] Failed to process action safely:',

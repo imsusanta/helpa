@@ -8,6 +8,12 @@ import {
 } from '@/lib/travel/retrieval';
 import { parseTravelerRequirements } from '@/lib/travel/matching';
 import { TOUR_PACKAGE_RETRIEVAL_UNAVAILABLE } from '@/lib/travel/types';
+import {
+  confirmPendingTravelBooking,
+  prepareTravelBookingConfirmOffer,
+  rememberDiscussedTourPackage,
+  sendTravelBookingConfirmTemplate,
+} from '@/lib/travel/booking-confirm';
 import type { AiExecutionContext, AiToolDefinition } from './types';
 
 type ToolRegistry = {
@@ -73,6 +79,18 @@ export function registerTourPackageTools(registry: ToolRegistry): void {
           extras
         );
         if (result.retrievalFailed) return safeError();
+        const top = result.matches[0];
+        if (top) {
+          try {
+            await rememberDiscussedTourPackage({
+              accountId: accountIdOf(context),
+              contactId: context.contactId,
+              pkg: top.package,
+            });
+          } catch {
+            // Remembering the discussed package is best-effort.
+          }
+        }
         return {
           success: true,
           data: {
@@ -131,6 +149,15 @@ export function registerTourPackageTools(registry: ToolRegistry): void {
             success: true,
             data: { found: false, message: 'No matching package was found.' },
           };
+        }
+        try {
+          await rememberDiscussedTourPackage({
+            accountId: accountIdOf(context),
+            contactId: context.contactId,
+            pkg: match,
+          });
+        } catch {
+          // Remembering the discussed package is best-effort.
         }
         return { success: true, data: { found: true, package: match } };
       } catch (error) {
@@ -339,6 +366,130 @@ export function registerTourPackageTools(registry: ToolRegistry): void {
           error: error instanceof Error ? error.message : 'unknown',
         });
         return safeError();
+      }
+    },
+  });
+
+  registry.register({
+    name: 'offerTravelBookingConfirm',
+    description:
+      'Sends the Booking Confirm WhatsApp template with a Confirm Booking button. Use this when the traveller wants to confirm a booking. Do not claim the trip is booked until confirmTravelBooking or the button click succeeds.',
+    type: 'write',
+    allowedIndustries: TRAVEL_INDUSTRIES,
+    parameters: {
+      packageName: {
+        type: 'string',
+        description: 'Tour Package name to confirm.',
+      },
+      travelDate: {
+        type: 'string',
+        description: 'Travel date YYYY-MM-DD if already known.',
+      },
+      guestsCount: {
+        type: 'number',
+        description: 'Number of guests.',
+      },
+      totalPrice: {
+        type: 'number',
+        description: 'Quoted total if already calculated.',
+      },
+    },
+    execute: async (params, context) => {
+      try {
+        const offer = await sendTravelBookingConfirmTemplate({
+          accountId: accountIdOf(context),
+          userId: context.userId,
+          contactId: context.contactId,
+          conversationId: context.conversationId,
+          packageName: params.packageName
+            ? String(params.packageName)
+            : undefined,
+          travelDate: params.travelDate ? String(params.travelDate) : undefined,
+          guestsCount:
+            params.guestsCount != null ? Number(params.guestsCount) : undefined,
+          totalPrice:
+            params.totalPrice != null ? Number(params.totalPrice) : undefined,
+        });
+        return {
+          success: true,
+          data: {
+            templateSent: true,
+            packageName: offer.packageName,
+            travelDate: offer.travelDate,
+            nextStep:
+              'Wait for the traveller to tap Confirm Booking. Do not say the booking is done yet.',
+          },
+        };
+      } catch (error) {
+        logger.error('offerTravelBookingConfirm failed', {
+          component: 'tour-package-tools',
+          accountId: context.accountId,
+          error: error instanceof Error ? error.message : 'unknown',
+        });
+        return {
+          success: false,
+          error: 'Could not send the Booking Confirm template.',
+        };
+      }
+    },
+  });
+
+  registry.register({
+    name: 'confirmTravelBooking',
+    description:
+      'Creates the Travel Booking after the traveller has already confirmed (button tap or explicit yes). Never call this only because they asked about a package.',
+    type: 'write',
+    requiresConfirmation: true,
+    allowedIndustries: TRAVEL_INDUSTRIES,
+    parameters: {
+      packageName: {
+        type: 'string',
+        description: 'Package already confirmed by the traveller.',
+      },
+    },
+    execute: async (params, context) => {
+      try {
+        if (params.packageName) {
+          await prepareTravelBookingConfirmOffer({
+            accountId: accountIdOf(context),
+            contactId: context.contactId,
+            conversationId: context.conversationId,
+            packageName: String(params.packageName),
+          });
+        }
+        const result = await confirmPendingTravelBooking({
+          accountId: accountIdOf(context),
+          contactId: context.contactId,
+          conversationId: context.conversationId,
+          userId: context.userId,
+        });
+        if (result.status === 'confirmed') {
+          return {
+            success: true,
+            data: {
+              bookingId: result.bookingId,
+              packageName: result.packageName,
+              status: 'Confirmed',
+            },
+          };
+        }
+        return {
+          success: false,
+          error:
+            result.status === 'missing_package'
+              ? 'No Tour Package is ready to confirm yet.'
+              : result.error,
+        };
+      } catch (error) {
+        logger.error('confirmTravelBooking failed', {
+          component: 'tour-package-tools',
+          accountId: context.accountId,
+          error: error instanceof Error ? error.message : 'unknown',
+        });
+        return {
+          success: false,
+          error: 'Could not confirm the Travel Booking.',
+        };
       }
     },
   });
