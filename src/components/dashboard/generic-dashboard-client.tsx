@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useWorkspace } from '@/hooks/use-workspace';
+import type { LeadSourceSlice } from '@/lib/dashboard/lead-sources';
 
 const metricCards = [
   {
@@ -134,6 +135,14 @@ const METRIC_CARD_HEIGHT = 'min-h-[148px] overflow-hidden';
  */
 const METRIC_VALUE_PADDING = 'pr-20';
 
+const LEAD_SOURCE_DOTS = ['#3b82f6', '#22c55e', '#f97316'] as const;
+
+const EMPTY_LEAD_SOURCES: LeadSourceSlice[] = [
+  { key: 'whatsapp', label: 'WhatsApp', count: 0, percent: 0 },
+  { key: 'facebook', label: 'Facebook', count: 0, percent: 0 },
+  { key: 'import', label: 'Import', count: 0, percent: 0 },
+];
+
 function getMetric(metrics: Record<string, number>, keys: readonly string[]) {
   for (const key of keys)
     if (typeof metrics[key] === 'number') return metrics[key];
@@ -170,6 +179,7 @@ export function GenericDashboardClient() {
   const [upcomingFollowups, setUpcomingFollowups] = useState<
     UpcomingFollowup[]
   >([]);
+  const [leadSources, setLeadSources] = useState<LeadSourceSlice[]>([]);
   const [range, setRange] = useState('30d');
   const userName =
     profile?.full_name?.split(' ')[0] || account?.name || 'susanta';
@@ -184,8 +194,12 @@ export function GenericDashboardClient() {
     })
       .then(async (res) => {
         const data = await res.json();
-        if (!cancelled && res.ok && data.success)
+        if (!cancelled && res.ok && data.success) {
           setMetrics(data.metrics || {});
+          setLeadSources(
+            Array.isArray(data.lead_sources) ? data.lead_sources : []
+          );
+        }
       })
       .catch((error) => console.error('Metrics fetch error:', error))
       .finally(() => {
@@ -387,21 +401,23 @@ export function GenericDashboardClient() {
               </span>
             </div>
             <div className="grid grid-cols-2 gap-y-3 px-1 text-xs font-medium text-slate-600">
-              <div className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-[#3b82f6]" />
-                <span>WhatsApp</span>
-                <strong className="ml-auto font-bold text-[#0f172a]">0%</strong>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-[#22c55e]" />
-                <span>Facebook</span>
-                <strong className="ml-auto font-bold text-[#0f172a]">0%</strong>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-[#f97316]" />
-                <span>Import</span>
-                <strong className="ml-auto font-bold text-[#0f172a]">0%</strong>
-              </div>
+              {(leadSources.length > 0 ? leadSources : EMPTY_LEAD_SOURCES).map(
+                (source, index) => (
+                  <div key={source.key} className="flex items-center gap-2">
+                    <span
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{
+                        backgroundColor:
+                          LEAD_SOURCE_DOTS[index % LEAD_SOURCE_DOTS.length],
+                      }}
+                    />
+                    <span>{source.label}</span>
+                    <strong className="ml-auto font-bold text-[#0f172a]">
+                      {source.percent}%
+                    </strong>
+                  </div>
+                )
+              )}
             </div>
           </div>
         </div>
