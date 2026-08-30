@@ -13,6 +13,8 @@ export interface PersistInboundOptions {
   userId?: string;
   contactName?: string;
   correlationId?: string;
+  chatKind?: 'direct' | 'group' | 'channel';
+  chatJid?: string;
 }
 
 export interface PersistInboundResult {
@@ -272,6 +274,45 @@ export async function persistNormalizedInboundMessage(
     options.contactName || senderPhone
   );
   if (!contactOutcome) throw new Error('Unable to resolve inbound contact');
+
+  if (options.chatKind && options.chatKind !== 'direct') {
+    try {
+      const latest = await db
+        .from('contacts')
+        .select('metadata')
+        .eq('id', String(contactOutcome.contact.id))
+        .eq('account_id', accountId)
+        .limit(1);
+      const latestRow = Array.isArray(latest.data)
+        ? latest.data[0]
+        : latest.data;
+      const current = ((
+        latestRow as { metadata?: Record<string, unknown> } | null
+      )?.metadata ||
+        contactOutcome.contact.metadata ||
+        {}) as Record<string, unknown>;
+      const nextJid = options.chatJid || current.whatsapp_jid;
+      if (
+        current.whatsapp_chat_kind !== options.chatKind ||
+        (nextJid && current.whatsapp_jid !== nextJid)
+      ) {
+        await db
+          .from('contacts')
+          .update({
+            metadata: {
+              ...current,
+              whatsapp_chat_kind: options.chatKind,
+              ...(options.chatJid ? { whatsapp_jid: options.chatJid } : {}),
+            },
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', String(contactOutcome.contact.id))
+          .eq('account_id', accountId);
+      }
+    } catch {
+      // Display still derives group/channel from the stored address.
+    }
+  }
 
   const conversation = await findOrCreateConversation(
     accountId,

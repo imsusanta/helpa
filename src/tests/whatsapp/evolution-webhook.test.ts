@@ -248,6 +248,34 @@ describe('Evolution Go webhook', () => {
     expect(persistMock.mock.calls[0][0].content).toBe('Ravi: group hello');
     expect(persistMock.mock.calls[0][1].contactName).not.toBe('Ravi');
     expect(persistMock.mock.calls[0][1].contactName).not.toBe('WhatsApp group');
+    expect(persistMock.mock.calls[0][1].chatKind).toBe('group');
+    expect(persistMock.mock.calls[0][1].chatJid).toBe(
+      '120363316746745895@g.us'
+    );
+  });
+
+  it('stamps channel chats from newsletter JIDs', async () => {
+    const res = await post(secretA, {
+      event: 'Message',
+      data: {
+        key: {
+          id: 'evo-channel-1',
+          fromMe: false,
+          remoteJid: '120363999000111222@newsletter',
+        },
+        pushName: 'Helpa Studio',
+        message: { conversation: 'channel update' },
+      },
+    });
+    expect(res.status).toBe(200);
+    expect(persistMock.mock.calls[0][0].content).toBe(
+      'Helpa Studio: channel update'
+    );
+    expect(persistMock.mock.calls[0][1].chatKind).toBe('channel');
+    expect(persistMock.mock.calls[0][1].chatJid).toBe(
+      '120363999000111222@newsletter'
+    );
+    expect(persistMock.mock.calls[0][1].contactName).not.toBe('Helpa Studio');
   });
 
   it('uses the group subject when Evolution includes it on the message', async () => {

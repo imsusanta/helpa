@@ -80,6 +80,7 @@ export const EVOLUTION_GO_SUBSCRIBE_EVENTS = [
   'READ_RECEIPT',
   'QRCODE',
   'GROUP',
+  'NEWSLETTER',
 ] as const;
 
 export interface EvolutionGoCreateInstanceInput {

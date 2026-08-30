@@ -32,11 +32,21 @@ function nameFromUnknown(value: unknown): string {
   return firstString(record.Name, record.name, record.subject, record.Subject);
 }
 
+export type WhatsAppChatKind = 'direct' | 'group' | 'channel';
+
 export function isWhatsAppGroupJid(jid: string | null | undefined): boolean {
   const raw = String(jid || '')
     .trim()
     .toLowerCase();
   return raw.endsWith('@g.us');
+}
+
+export function isWhatsAppChannelJid(jid: string | null | undefined): boolean {
+  const raw = String(jid || '')
+    .trim()
+    .toLowerCase();
+  if (!raw || raw === 'status@broadcast') return false;
+  return raw.endsWith('@newsletter') || raw.endsWith('@broadcast');
 }
 
 /**
@@ -48,10 +58,61 @@ export function isWhatsAppGroupAddress(
 ): boolean {
   const raw = String(value || '').trim();
   if (!raw) return false;
+  if (isWhatsAppChannelJid(raw)) return false;
   if (isWhatsAppGroupJid(raw)) return true;
   const digits = raw.replace(/\D/g, '');
   if (digits.length <= 15) return false;
   return digits === raw.replace(/[\s\-+()]/g, '');
+}
+
+export function isWhatsAppChannelAddress(
+  value: string | null | undefined
+): boolean {
+  return isWhatsAppChannelJid(value);
+}
+
+export function isWhatsAppCollectiveAddress(
+  value: string | null | undefined
+): boolean {
+  return isWhatsAppGroupAddress(value) || isWhatsAppChannelAddress(value);
+}
+
+export function whatsappChatKind(
+  address?: string | null,
+  metadata?: Record<string, unknown> | null
+): WhatsAppChatKind {
+  const stored = String(metadata?.whatsapp_chat_kind || '').toLowerCase();
+  if (stored === 'channel' || stored === 'group' || stored === 'direct') {
+    return stored;
+  }
+  const jid = String(metadata?.whatsapp_jid || address || '');
+  if (isWhatsAppChannelJid(jid) || isWhatsAppChannelAddress(address)) {
+    return 'channel';
+  }
+  if (isWhatsAppGroupJid(jid) || isWhatsAppGroupAddress(address)) {
+    return 'group';
+  }
+  return 'direct';
+}
+
+export function whatsappChatKindLabel(kind: WhatsAppChatKind): string {
+  if (kind === 'channel') return 'Channel';
+  if (kind === 'group') return 'Group';
+  return '';
+}
+
+export function parseWhatsAppSenderPreview(text: string | null | undefined): {
+  sender: string;
+  body: string;
+} {
+  const raw = String(text || '').trim();
+  const match = raw.match(/^([^:]{1,40}):\s+([\s\S]+)$/);
+  if (!match) return { sender: '', body: raw };
+  const sender = match[1].trim();
+  if (!sender || /https?:\/\//i.test(sender) || /^\d+$/.test(sender)) {
+    return { sender: '', body: raw };
+  }
+  return { sender, body: match[2] };
 }
 
 export function isPlaceholderContactName(
@@ -85,8 +146,8 @@ export function whatsappContactDisplayName(
   }
   const alt = String(fallback || '').trim();
   if (
-    isWhatsAppGroupAddress(trimmedName) ||
-    isWhatsAppGroupAddress(trimmedPhone)
+    isWhatsAppCollectiveAddress(trimmedName) ||
+    isWhatsAppCollectiveAddress(trimmedPhone)
   ) {
     const generic = new Set([
       'contact',
@@ -113,8 +174,7 @@ export function resolvedWhatsAppContactName(
   senderPushName?: string | null
 ): string {
   const addressKey = String(address || '').trim();
-  const isGroup =
-    isWhatsAppGroupJid(addressKey) || isWhatsAppGroupAddress(addressKey);
+  const isGroup = isWhatsAppCollectiveAddress(addressKey);
   const candidate = String(candidateName || '').trim();
   if (candidate && !isPlaceholderContactName(candidate, addressKey)) {
     return candidate;
@@ -223,9 +283,7 @@ export function inboundWhatsAppContactName(
   const data = asRecord(payload.data ?? payload.Data ?? payload.payload);
   const jid = extractWhatsAppGroupJid(data);
   const isGroup =
-    isWhatsAppGroupJid(jid) ||
-    isWhatsAppGroupAddress(address) ||
-    isWhatsAppGroupAddress(jid);
+    isWhatsAppCollectiveAddress(jid) || isWhatsAppCollectiveAddress(address);
   const subject = extractWhatsAppGroupSubject(data);
   const pushName = extractWhatsAppPushName(data);
   if (isGroup) {
