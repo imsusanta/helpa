@@ -72,6 +72,8 @@ describe('traveler requirement parsing', () => {
     expect(req.budget).toBe(30000);
     expect(req.durationDays).toBe(5);
     expect(parseBudgetAmount('Amar budget 30,000')).toBe(30000);
+    expect(parseBudgetAmount('My budget is ₹30,000.')).toBe(30000);
+    expect(parseBudgetAmount('budget 50k')).toBe(50000);
     expect(parseDurationDays('4 diner package chai').days).toBe(4);
   });
 

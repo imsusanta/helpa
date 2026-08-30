@@ -85,29 +85,35 @@ function destinationKey(value: string | null | undefined): string {
   return DESTINATION_ALIASES[normalized] || normalized;
 }
 
-export function parseBudgetAmount(text: string): number | null {
-  const raw = normalize(text);
-  if (!raw) return null;
+function parseAmountFromSource(source: string): number | null {
+  if (!source) return null;
 
-  const lakh = raw.match(
+  const lakh = source.match(
     /(?:budget\s*)?(\d+(?:\.\d+)?)\s*(?:lakh|lac|lacs|lakhs|\bl\b)/i
   );
   if (lakh) return Math.round(Number(lakh[1]) * 100000);
 
-  const thousand = raw.match(
+  const thousand = source.match(
     /(?:budget\s*)?(\d+(?:\.\d+)?)\s*(?:k|thousand|hajar)/i
   );
   if (thousand) return Math.round(Number(thousand[1]) * 1000);
 
-  const plain = raw.match(
-    /(?:budget|price|koto|within|under|max(?:imum)?)\s*(?:is|=|:|er)?\s*(?:rs\.?|inr|₹)?\s*(\d{1,3}(?:,\d{3})+|\d{4,7})/i
+  const labeled = source.match(
+    /(?:budget|price|koto|within|under|max(?:imum)?)\s*(?:is|=|:|er)?\s*(?:rs\.?|inr|₹)?\s*(\d{1,3}(?:[,\s]\d{3})+|\d{4,7})/i
   );
-  if (plain) return Number(plain[1].replace(/,/g, ''));
+  if (labeled) return Number(labeled[1].replace(/[,\s]/g, ''));
 
-  const compact = raw.match(/(?:₹|rs\.?|inr)\s*(\d{1,3}(?:,\d{3})+|\d{4,7})/i);
-  if (compact) return Number(compact[1].replace(/,/g, ''));
+  const compact = source.match(
+    /(?:₹|rs\.?|inr)\s*(\d{1,3}(?:[,\s]\d{3})+|\d{4,7})/i
+  );
+  if (compact) return Number(compact[1].replace(/[,\s]/g, ''));
 
   return null;
+}
+
+export function parseBudgetAmount(text: string): number | null {
+  if (!text) return null;
+  return parseAmountFromSource(text) ?? parseAmountFromSource(normalize(text));
 }
 
 export function parseDurationDays(text: string): {
