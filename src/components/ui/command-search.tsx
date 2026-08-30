@@ -17,6 +17,7 @@ import {
   Loader2,
   DollarSign,
   User,
+  MapPin,
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -69,6 +70,18 @@ const COMMAND_NAV_ITEMS = [
     label: 'Contacts Directory',
     href: '/contacts',
     icon: Users,
+    category: 'CRM',
+  },
+  {
+    label: 'Tour Packages',
+    href: '/tour-packages',
+    icon: MapPin,
+    category: 'CRM',
+  },
+  {
+    label: 'Trip Proposals',
+    href: '/trip-proposals',
+    icon: MapPin,
     category: 'CRM',
   },
   {

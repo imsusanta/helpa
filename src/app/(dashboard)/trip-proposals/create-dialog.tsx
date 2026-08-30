@@ -26,8 +26,6 @@ import {
 import { toast } from 'sonner';
 import { salesApi } from '@/lib/sales/api-client';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/hooks/use-auth';
-import { resolveIndustryAlias } from '@/modules/terminology';
 import {
   fetchTourPackage,
   fetchTourPackages,
@@ -155,9 +153,6 @@ export function CreateTripProposalDialog({
   onOpenChange: (open: boolean) => void;
   onCreated: () => void;
 }) {
-  const { account } = useAuth();
-  const isTravelWorkplace =
-    resolveIndustryAlias(account?.industry) === 'travel';
   const [step, setStep] = useState(0);
   const [contacts, setContacts] = useState<
     Array<{ id: string; name: string; phone: string }>
@@ -180,12 +175,10 @@ export function CreateTripProposalDialog({
     )
       .then((data) => setContacts(Array.isArray(data) ? data : []))
       .catch(() => {});
-    if (isTravelWorkplace) {
-      fetchTourPackages({ status: 'active' })
-        .then((data) => setPackages(Array.isArray(data) ? data : []))
-        .catch(() => setPackages([]));
-    }
-  }, [open, isTravelWorkplace]);
+    fetchTourPackages({ status: 'active' })
+      .then((data) => setPackages(Array.isArray(data) ? data : []))
+      .catch(() => setPackages([]));
+  }, [open]);
 
   const subtotal = useMemo(
     () =>
@@ -391,7 +384,7 @@ export function CreateTripProposalDialog({
                 <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
                   <MapPin className="h-4 w-4 text-emerald-500" /> Trip details
                 </div>
-                {isTravelWorkplace && packages.length > 0 ? (
+                {packages.length > 0 ? (
                   <div>
                     <Label className="text-xs">Use existing Tour Package</Label>
                     <select

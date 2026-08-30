@@ -64,7 +64,6 @@ export const NAVIGATION_REGISTRY: SidebarNavItem<React.ElementType>[] = [
         id: 'crm-tour-packages',
         label: 'Tour Packages',
         href: '/tour-packages',
-        travelOnly: true,
       },
       {
         id: 'crm-tags',
