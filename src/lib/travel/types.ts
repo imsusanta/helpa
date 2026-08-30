@@ -36,6 +36,13 @@ export const TOUR_PACKAGE_CURRENCIES = [
   'AED',
 ] as const;
 
+export const TOUR_PRICE_TYPES = [
+  'Per Person',
+  'Per Couple',
+  'Per Package',
+  'Per Night',
+] as const;
+
 export type TourPackageStatus = (typeof TOUR_PACKAGE_STATUSES)[number];
 export type TourDepartureStatus = (typeof TOUR_DEPARTURE_STATUSES)[number];
 
@@ -57,6 +64,8 @@ export interface TourPackage {
   valid_until: string | null;
   booking_notes: string | null;
   terms_and_conditions: string | null;
+  cover_image_url: string | null;
+  price_type: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -165,6 +174,8 @@ export interface TourPackageWriteInput {
   valid_until?: string | null;
   booking_notes?: string | null;
   terms_and_conditions?: string | null;
+  cover_image_url?: string | null;
+  price_type?: string | null;
   itineraries?: Array<{
     day_number: number;
     title?: string | null;

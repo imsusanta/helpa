@@ -48,3 +48,15 @@ describe('tour package RLS migration', () => {
     expect(migration).toContain('idx_tour_package_itineraries_package_id');
   });
 });
+
+describe('tour package simple form columns', () => {
+  it('adds cover image and price type without opening RLS', () => {
+    const followUp = readFileSync(
+      'supabase/migrations/20260830140000_tour_package_simple_fields.sql',
+      'utf8'
+    );
+    expect(followUp).toContain('cover_image_url');
+    expect(followUp).toContain('price_type');
+    expect(followUp).not.toMatch(/using\s*\(\s*true\s*\)/i);
+  });
+});

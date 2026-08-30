@@ -28,6 +28,7 @@ export function formatTourPackageFactSheet(pkg: TourPackageDetail): string {
     `Type: ${pkg.package_type || 'Not specified'}`,
     `Category: ${pkg.category || 'Not specified'}`,
     `Starting price: ${price || 'Not listed — confirm with the agency'}`,
+    `Price type: ${pkg.price_type || 'Not specified'}`,
     `Status: ${pkg.status}`,
     `Featured: ${pkg.featured ? 'yes' : 'no'}`,
     `Validity: ${pkg.valid_from || 'n/a'} to ${pkg.valid_until || 'n/a'}`,

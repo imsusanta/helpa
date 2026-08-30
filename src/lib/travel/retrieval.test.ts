@@ -272,6 +272,8 @@ describe('tour package retrieval isolation', () => {
     });
     expect(updated?.name).toBe('Sikkim Family Plus');
     expect(updated?.duration_days).toBe(5);
+    expect(updated?.inclusions.map((row) => row.item)).toEqual(['Hotel']);
+    expect(updated?.itineraries[0]?.title).toBe('Gangtok');
 
     const otherWorkspace = await getTourPackageDetail(
       db,

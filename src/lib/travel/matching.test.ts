@@ -33,6 +33,8 @@ function pkg(
     valid_until: '2026-12-31',
     booking_notes: null,
     terms_and_conditions: null,
+    cover_image_url: null,
+    price_type: 'Per Person',
     created_at: '2026-08-01T00:00:00.000Z',
     updated_at: '2026-08-01T00:00:00.000Z',
     itineraries: [],

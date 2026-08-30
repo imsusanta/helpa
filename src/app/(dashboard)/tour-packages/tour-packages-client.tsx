@@ -179,22 +179,47 @@ export function TourPackagesClient() {
                 {rows.map((pkg) => (
                   <tr key={pkg.id} className="hover:bg-slate-50">
                     <td className="px-5 py-4">
-                      <div className="flex items-center gap-2">
-                        <b>{pkg.name}</b>
-                        {pkg.featured ? (
-                          <Star className="h-3.5 w-3.5 text-amber-500" />
-                        ) : null}
-                      </div>
-                      <div className="text-[10px] text-slate-400">
-                        {pkg.package_type || 'Package'} · {pkg.category || 'General'}
+                      <div className="flex items-center gap-3">
+                        {pkg.cover_image_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={pkg.cover_image_url}
+                            alt=""
+                            className="size-10 rounded-lg object-cover"
+                          />
+                        ) : (
+                          <div className="flex size-10 items-center justify-center rounded-lg bg-slate-100 text-slate-400">
+                            <MapPin className="size-4" />
+                          </div>
+                        )}
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <b>{pkg.name}</b>
+                            {pkg.featured ? (
+                              <Star className="h-3.5 w-3.5 text-amber-500" />
+                            ) : null}
+                          </div>
+                          <div className="max-w-xs truncate text-[10px] text-slate-400">
+                            {pkg.description ||
+                              pkg.price_type ||
+                              'Tour package'}
+                          </div>
+                        </div>
                       </div>
                     </td>
                     <td className="px-5 py-4">{pkg.destination}</td>
                     <td className="px-5 py-4">
                       {pkg.duration_days}D / {pkg.duration_nights}N
                     </td>
-                    <td className="px-5 py-4 font-extrabold">
-                      {formatMoney(pkg.starting_price, pkg.currency) || '—'}
+                    <td className="px-5 py-4">
+                      <div className="font-extrabold">
+                        {formatMoney(pkg.starting_price, pkg.currency) || '—'}
+                      </div>
+                      {pkg.price_type ? (
+                        <div className="text-[10px] text-slate-400">
+                          {pkg.price_type}
+                        </div>
+                      ) : null}
                     </td>
                     <td className="px-5 py-4">
                       <span
