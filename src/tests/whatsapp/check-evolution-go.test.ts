@@ -141,4 +141,21 @@ describe('Evolution Go production preflight', () => {
       })
     ).rejects.toThrow(/API key was rejected/i);
   });
+
+  it('rejects a non-HTTPS webhook base URL in production before probing', async () => {
+    const fetchImpl = vi.fn<FetchImpl>(async () =>
+      jsonResponse({ status: 'ok' })
+    );
+    await expect(
+      runEvolutionGoPreflight({
+        env: {
+          ...validEnv,
+          NODE_ENV: 'production',
+          EVOLUTION_GO_WEBHOOK_BASE_URL: 'http://helpa.test',
+        },
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      })
+    ).rejects.toThrow(/WEBHOOK_BASE_URL must use HTTPS/i);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
 });

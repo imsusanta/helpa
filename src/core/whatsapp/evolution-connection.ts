@@ -274,41 +274,15 @@ async function qrImageFromPairing(
   };
 }
 
-const BASE_WHATSAPP_CONFIG_COLUMNS = new Set([
-  'id',
-  'account_id',
-  'phone_number_id',
-  'encrypted_access_token',
-  'status',
-  'created_at',
-  'updated_at',
-  'waba_id',
-  'phone_number',
-  'display_phone_number',
-  'verified_name',
-  'business_name',
-  'provider',
-  'connection_error',
-  'last_health_check_at',
-  'last_webhook_at',
-  'registered_at',
-  'subscribed_apps_at',
-  'connected_at',
-  'disconnected_at',
-  'connection_type',
-  'coexistence_status',
-]);
-
-function filterBaseConfigPayload(
-  payload: Record<string, unknown>
-): Record<string, unknown> {
-  const filtered: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(payload)) {
-    if (BASE_WHATSAPP_CONFIG_COLUMNS.has(key)) {
-      filtered[key] = value;
-    }
-  }
-  return filtered;
+function isMissingEvolutionColumnError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const code =
+    'code' in err ? String((err as { code?: string }).code || '') : '';
+  const message =
+    'message' in err ? String((err as { message?: string }).message || '') : '';
+  return (
+    code === 'PGRST204' || /Could not find the '[^']+' column/i.test(message)
+  );
 }
 
 async function persistEvolutionConfig(
@@ -336,28 +310,10 @@ async function persistEvolutionConfig(
     });
     if (error) throw error;
   } catch (err) {
-    const isMissingColumn =
-      err &&
-      typeof err === 'object' &&
-      'code' in err &&
-      (err as { code: string }).code === 'PGRST204';
-    if (isMissingColumn) {
-      const fallbackPayload = filterBaseConfigPayload(payload);
-      if (existing?.source === 'whatsapp_configs' && existing.id) {
-        const { error } = await db
-          .from('whatsapp_configs')
-          .update(fallbackPayload)
-          .eq('id', existing.id)
-          .eq('account_id', accountId);
-        if (error) throw error;
-        return;
-      }
-      const { error } = await db.from('whatsapp_configs').insert({
-        account_id: accountId,
-        ...fallbackPayload,
-      });
-      if (error) throw error;
-      return;
+    if (isMissingEvolutionColumnError(err)) {
+      throw new EvolutionGoConfigError(
+        'Evolution Go database columns are missing. Apply supabase/migrations/20260828010000_evolution_go_whatsapp_provider.sql on this Supabase project, then try QR connect again.'
+      );
     }
     throw err;
   }
