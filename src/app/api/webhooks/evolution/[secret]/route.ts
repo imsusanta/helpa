@@ -27,12 +27,14 @@ import {
 } from '@/core/providers/whatsapp/evolution-go-provider';
 import { phoneFromWhatsAppJid } from '@/core/whatsapp/canonical-config';
 import {
+  extractWhatsAppGroupJid,
   extractWhatsAppPushName,
   formatGroupInboundText,
   inboundWhatsAppContactName,
   isEvolutionGroupEvent,
   isPlaceholderContactName,
-  isWhatsAppGroupAddress,
+  isWhatsAppCollectiveAddress,
+  whatsappChatKind,
 } from '@/core/whatsapp/group-identity';
 import {
   applyEvolutionGroupNameEvent,
@@ -341,8 +343,10 @@ export async function POST(
     }
     try {
       const address = event.patientAddress || event.senderPhone || '';
-      const isGroup = isWhatsAppGroupAddress(address);
       const payloadData = asRecord(payload.data ?? payload.Data);
+      const remoteJid = extractWhatsAppGroupJid(payloadData);
+      const chatKind = whatsappChatKind(remoteJid || address);
+      const isGroup = isWhatsAppCollectiveAddress(remoteJid || address);
       if (isGroup) {
         const labeled = formatGroupInboundText(
           extractWhatsAppPushName(payloadData),
@@ -368,6 +372,8 @@ export async function POST(
         userId: tenant.userId,
         contactName,
         correlationId: externalEventId,
+        chatKind,
+        chatJid: remoteJid || undefined,
       });
       if (result.duplicate) duplicates += 1;
       else {

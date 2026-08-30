@@ -288,6 +288,7 @@ describe('Evolution Go HTTP client', () => {
 describe('Evolution Go provider behaviour', () => {
   it('subscribes to GROUP events so group subjects can be resolved', () => {
     expect(EVOLUTION_GO_SUBSCRIBE_EVENTS).toContain('GROUP');
+    expect(EVOLUTION_GO_SUBSCRIBE_EVENTS).toContain('NEWSLETTER');
   });
 
   it('parses Evolution group list names', () => {

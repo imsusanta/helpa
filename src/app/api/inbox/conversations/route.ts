@@ -7,7 +7,7 @@ import {
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
 import type { Conversation, Contact, ConversationStatus } from '@/types';
 import {
-  isWhatsAppGroupAddress,
+  isWhatsAppCollectiveAddress,
   whatsappContactDisplayName,
 } from '@/core/whatsapp/group-identity';
 import { syncEvolutionGroupNamesForInbox } from '@/core/whatsapp/evolution-group-names';
@@ -24,7 +24,7 @@ function normalizeContact(doc: Record<string, unknown>): Contact {
     user_id: ((doc.userId || doc.user_id) as string) || '',
     name:
       whatsappContactDisplayName(doc.name as string, doc.phone as string, '') ||
-      (isWhatsAppGroupAddress(doc.phone as string)
+      (isWhatsAppCollectiveAddress(doc.phone as string)
         ? ''
         : (doc.name as string) || 'Unknown Contact'),
     phone: (doc.phone as string) || '',

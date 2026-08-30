@@ -5,9 +5,14 @@ import {
   formatGroupInboundText,
   inboundWhatsAppContactName,
   isPlaceholderContactName,
+  isWhatsAppChannelJid,
+  isWhatsAppCollectiveAddress,
   isWhatsAppGroupAddress,
   isWhatsAppGroupJid,
+  parseWhatsAppSenderPreview,
   resolvedWhatsAppContactName,
+  whatsappChatKind,
+  whatsappChatKindLabel,
   whatsappContactDisplayName,
 } from '@/core/whatsapp/group-identity';
 
@@ -22,6 +27,41 @@ describe('WhatsApp group identity', () => {
     expect(isWhatsAppGroupAddress(GROUP_ID)).toBe(true);
     expect(isWhatsAppGroupAddress('919111222333')).toBe(false);
     expect(isWhatsAppGroupAddress('+919111222333')).toBe(false);
+    expect(isWhatsAppGroupAddress('120363999@newsletter')).toBe(false);
+  });
+
+  it('detects WhatsApp channels and classifies chat kind', () => {
+    const channelJid = '120363999000111222@newsletter';
+    expect(isWhatsAppChannelJid(channelJid)).toBe(true);
+    expect(isWhatsAppChannelJid('status@broadcast')).toBe(false);
+    expect(isWhatsAppCollectiveAddress(channelJid)).toBe(true);
+    expect(whatsappChatKind(channelJid)).toBe('channel');
+    expect(whatsappChatKind(GROUP_JID)).toBe('group');
+    expect(whatsappChatKind('919111222333')).toBe('direct');
+    expect(whatsappChatKind(GROUP_ID, { whatsapp_chat_kind: 'channel' })).toBe(
+      'channel'
+    );
+    expect(whatsappChatKindLabel('group')).toBe('Group');
+    expect(whatsappChatKindLabel('channel')).toBe('Channel');
+  });
+
+  it('parses WhatsApp-style sender: body list previews', () => {
+    expect(parseWhatsAppSenderPreview('Ravi: hello')).toEqual({
+      sender: 'Ravi',
+      body: 'hello',
+    });
+    expect(parseWhatsAppSenderPreview('plain message')).toEqual({
+      sender: '',
+      body: 'plain message',
+    });
+    expect(parseWhatsAppSenderPreview('https://example.com: 80')).toEqual({
+      sender: '',
+      body: 'https://example.com: 80',
+    });
+    expect(parseWhatsAppSenderPreview('120363316746745895: hi')).toEqual({
+      sender: '',
+      body: '120363316746745895: hi',
+    });
   });
 
   it('treats raw group ids as placeholder names', () => {
