@@ -62,4 +62,16 @@ describe('tour package simple form columns', () => {
     expect(followUp).toContain('price_type');
     expect(followUp).not.toMatch(/using\s*\(\s*true\s*\)/i);
   });
+
+  it('adds party size columns with range checks and without opening RLS', () => {
+    const followUp = readFileSync(
+      'supabase/migrations/20260830150000_tour_package_party_size.sql',
+      'utf8'
+    );
+    expect(followUp).toContain('min_people');
+    expect(followUp).toContain('max_people');
+    expect(followUp).toContain('min_people >= 1');
+    expect(followUp).toContain('max_people >= min_people');
+    expect(followUp).not.toMatch(/using\s*\(\s*true\s*\)/i);
+  });
 });

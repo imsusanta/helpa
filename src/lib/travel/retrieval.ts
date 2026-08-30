@@ -56,6 +56,8 @@ function mapPackage(row: Record<string, unknown>): TourPackage {
     terms_and_conditions: (row.terms_and_conditions as string | null) ?? null,
     cover_image_url: (row.cover_image_url as string | null) ?? null,
     price_type: (row.price_type as string | null) ?? null,
+    min_people: asNumber(row.min_people),
+    max_people: asNumber(row.max_people),
     created_at: String(row.created_at || ''),
     updated_at: String(row.updated_at || ''),
   };
@@ -316,6 +318,17 @@ function sanitizeWrite(input: TourPackageWriteInput): Record<string, unknown> {
       ? durationDays - 1
       : Number(input.duration_nights) || 0
   );
+  const minPeople = sanitizePeopleCount(input.min_people);
+  const maxPeople = sanitizePeopleCount(input.max_people);
+  if (minPeople != null && minPeople < 1) {
+    throw new Error('PACKAGE_PARTY_SIZE_INVALID');
+  }
+  if (maxPeople != null && maxPeople < 1) {
+    throw new Error('PACKAGE_PARTY_SIZE_INVALID');
+  }
+  if (minPeople != null && maxPeople != null && maxPeople < minPeople) {
+    throw new Error('PACKAGE_PARTY_SIZE_INVALID');
+  }
 
   return {
     name,
@@ -338,8 +351,17 @@ function sanitizeWrite(input: TourPackageWriteInput): Record<string, unknown> {
     terms_and_conditions: input.terms_and_conditions?.trim() || null,
     cover_image_url: sanitizeCoverImageUrl(input.cover_image_url),
     price_type: input.price_type?.trim() || null,
+    min_people: minPeople,
+    max_people: maxPeople,
     updated_at: new Date().toISOString(),
   };
+}
+
+function sanitizePeopleCount(value: unknown): number | null {
+  if (value == null || value === '') return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  return Math.trunc(parsed);
 }
 
 function sanitizeCoverImageUrl(value: unknown): string | null {

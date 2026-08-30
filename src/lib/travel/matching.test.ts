@@ -35,6 +35,8 @@ function pkg(
     terms_and_conditions: null,
     cover_image_url: null,
     price_type: 'Per Person',
+    min_people: 2,
+    max_people: 20,
     created_at: '2026-08-01T00:00:00.000Z',
     updated_at: '2026-08-01T00:00:00.000Z',
     itineraries: [],

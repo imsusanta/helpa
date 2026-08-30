@@ -66,6 +66,8 @@ export interface TourPackage {
   terms_and_conditions: string | null;
   cover_image_url: string | null;
   price_type: string | null;
+  min_people: number | null;
+  max_people: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -176,6 +178,8 @@ export interface TourPackageWriteInput {
   terms_and_conditions?: string | null;
   cover_image_url?: string | null;
   price_type?: string | null;
+  min_people?: number | null;
+  max_people?: number | null;
   itineraries?: Array<{
     day_number: number;
     title?: string | null;

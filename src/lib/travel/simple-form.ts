@@ -1,5 +1,9 @@
 import { TOUR_PRICE_TYPES, type TourPackageWriteInput } from './types';
 
+export const SIMPLE_DESCRIPTION_MAX = 200;
+export const DEFAULT_MIN_PEOPLE = 2;
+export const DEFAULT_MAX_PEOPLE = 20;
+
 export interface SimpleTourPackageForm {
   name: string;
   destination: string;
@@ -10,6 +14,10 @@ export interface SimpleTourPackageForm {
   currency: string;
   price_type: string;
   cover_image_url: string | null;
+  valid_from: string;
+  valid_until: string;
+  min_people: number | null;
+  max_people: number | null;
   itineraries: Array<{
     day_number: number;
     title: string;
@@ -28,6 +36,10 @@ export function emptySimpleTourPackageForm(): SimpleTourPackageForm {
     currency: 'INR',
     price_type: 'Per Person',
     cover_image_url: null,
+    valid_from: '',
+    valid_until: '',
+    min_people: DEFAULT_MIN_PEOPLE,
+    max_people: DEFAULT_MAX_PEOPLE,
     itineraries: [],
   };
 }
@@ -68,6 +80,31 @@ export function validateSimpleTourPackageForm(
     return 'Price type is required';
   }
   if (!form.description.trim()) return 'Short description is required';
+  if (form.description.trim().length > SIMPLE_DESCRIPTION_MAX) {
+    return `Short description must be ${SIMPLE_DESCRIPTION_MAX} characters or fewer`;
+  }
+  const validFrom = form.valid_from.trim();
+  const validUntil = form.valid_until.trim();
+  if (validFrom && validUntil && validUntil < validFrom) {
+    return 'Available until must be on or after available from';
+  }
+  if (form.min_people != null) {
+    if (!Number.isFinite(form.min_people) || form.min_people < 1) {
+      return 'Minimum people must be at least 1';
+    }
+  }
+  if (form.max_people != null) {
+    if (!Number.isFinite(form.max_people) || form.max_people < 1) {
+      return 'Maximum people must be at least 1';
+    }
+  }
+  if (
+    form.min_people != null &&
+    form.max_people != null &&
+    form.max_people < form.min_people
+  ) {
+    return 'Maximum people must be at least the minimum';
+  }
   return null;
 }
 
@@ -86,6 +123,10 @@ export function simpleFormToWriteInput(
     currency: form.currency || 'INR',
     price_type: form.price_type,
     cover_image_url: form.cover_image_url,
+    valid_from: form.valid_from.trim() || null,
+    valid_until: form.valid_until.trim() || null,
+    min_people: form.min_people,
+    max_people: form.max_people,
     itineraries: form.itineraries
       .filter((day) => day.title.trim() || day.description.trim())
       .map((day, index) => ({
