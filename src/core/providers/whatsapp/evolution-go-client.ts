@@ -541,6 +541,65 @@ export async function getEvolutionGoInstanceInfo(
   return parseEvolutionGoInstance(payload);
 }
 
+export function parseEvolutionGoGroups(
+  payload: unknown
+): Array<{ jid: string; name: string }> {
+  const root = asRecord(payload);
+  const envelope = dataEnvelope(root);
+  const raw = Array.isArray(envelope.data)
+    ? envelope.data
+    : Array.isArray(envelope.groups)
+      ? envelope.groups
+      : Array.isArray(envelope.Groups)
+        ? envelope.Groups
+        : Array.isArray(root.data)
+          ? root.data
+          : Array.isArray(root.groups)
+            ? root.groups
+            : Array.isArray(payload)
+              ? payload
+              : [];
+  const groups: Array<{ jid: string; name: string }> = [];
+  for (const item of raw) {
+    const row = asRecord(item);
+    const jid = asString(row.JID || row.jid || row.groupJid || row.id);
+    const nameObj = row.Name ?? row.name ?? row.GroupName ?? row.subject;
+    const name =
+      typeof nameObj === 'string'
+        ? nameObj.trim()
+        : asString(asRecord(nameObj).Name || asRecord(nameObj).name);
+    if (jid && name) groups.push({ jid, name });
+  }
+  return groups;
+}
+
+export async function listEvolutionGoGroups(
+  instanceToken: string
+): Promise<Array<{ jid: string; name: string }>> {
+  try {
+    const listed = parseEvolutionGoGroups(
+      await evolutionGoRequest({
+        method: 'GET',
+        path: '/group/list',
+        auth: 'instance',
+        instanceToken,
+      })
+    );
+    if (listed.length > 0) return listed;
+  } catch {
+    // Fall through to /group/myall.
+  }
+  const mine = parseEvolutionGoGroups(
+    await evolutionGoRequest({
+      method: 'GET',
+      path: '/group/myall',
+      auth: 'instance',
+      instanceToken,
+    })
+  );
+  return mine;
+}
+
 export async function getEvolutionGoGroupInfo(
   instanceToken: string,
   groupJid: string

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   WHATSAPP_GROUP_FALLBACK_NAME,
   extractWhatsAppGroupSubject,
+  formatGroupInboundText,
   inboundWhatsAppContactName,
   isPlaceholderContactName,
   isWhatsAppGroupAddress,
@@ -33,9 +34,7 @@ describe('WhatsApp group identity', () => {
   });
 
   it('does not use sender pushName as a group title', () => {
-    expect(resolvedWhatsAppContactName('', GROUP_JID, 'Ravi')).toBe(
-      WHATSAPP_GROUP_FALLBACK_NAME
-    );
+    expect(resolvedWhatsAppContactName('', GROUP_JID, 'Ravi')).toBe('');
     expect(
       inboundWhatsAppContactName(
         {
@@ -48,7 +47,7 @@ describe('WhatsApp group identity', () => {
         },
         GROUP_ID
       )
-    ).toBe(WHATSAPP_GROUP_FALLBACK_NAME);
+    ).toBe('');
   });
 
   it('extracts a group subject from GroupInfo and JoinedGroup payloads', () => {
@@ -98,13 +97,22 @@ describe('WhatsApp group identity', () => {
     ).toBe('Patient');
   });
 
-  it('hides raw group ids in the inbox label', () => {
-    expect(whatsappContactDisplayName(GROUP_ID, GROUP_ID)).toBe(
-      WHATSAPP_GROUP_FALLBACK_NAME
-    );
+  it('shows the real group name and never the WhatsApp group label', () => {
+    expect(whatsappContactDisplayName(GROUP_ID, GROUP_ID)).toBe('');
+    expect(
+      whatsappContactDisplayName(WHATSAPP_GROUP_FALLBACK_NAME, GROUP_ID)
+    ).toBe('');
     expect(whatsappContactDisplayName('Helpa Clinic Team', GROUP_ID)).toBe(
       'Helpa Clinic Team'
     );
     expect(whatsappContactDisplayName('Alice', '919111222333')).toBe('Alice');
+  });
+
+  it('labels group messages with the sender so the thread stays readable', () => {
+    expect(formatGroupInboundText('Ravi', 'hello')).toBe('Ravi: hello');
+    expect(formatGroupInboundText('Ravi', '', 'image')).toBe('Ravi: [image]');
+    expect(formatGroupInboundText('Ravi', 'Ravi: already labeled')).toBe(
+      'Ravi: already labeled'
+    );
   });
 });

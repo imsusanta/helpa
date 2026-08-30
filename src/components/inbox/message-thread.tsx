@@ -1033,11 +1033,14 @@ export function MessageThread({
       updated_at: conversation.updated_at || new Date().toISOString(),
     } as Contact);
 
-  const displayName = whatsappContactDisplayName(
-    effectiveContact.name,
-    effectiveContact.phone,
-    conversation.contact_id || 'Contact'
-  );
+  const displayName =
+    whatsappContactDisplayName(
+      effectiveContact.name,
+      effectiveContact.phone,
+      conversation.last_message_text || ''
+    ) ||
+    conversation.last_message_text ||
+    'Chat';
   const displayPhone = isWhatsAppGroupAddress(effectiveContact.phone)
     ? 'Group chat'
     : effectiveContact.phone;

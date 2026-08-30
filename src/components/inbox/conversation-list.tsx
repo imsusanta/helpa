@@ -563,11 +563,14 @@ function ConversationItem({
   onSelect,
 }: ConversationItemProps) {
   const contact = conversation.contact;
-  const displayName = whatsappContactDisplayName(
-    contact?.name,
-    contact?.phone,
-    conversation.contact_id || 'Contact'
-  );
+  const displayName =
+    whatsappContactDisplayName(
+      contact?.name,
+      contact?.phone,
+      conversation.last_message_text || ''
+    ) ||
+    conversation.last_message_text ||
+    'Chat';
   const initials = displayName.charAt(0).toUpperCase() || 'C';
 
   const handleClick = useCallback(() => {

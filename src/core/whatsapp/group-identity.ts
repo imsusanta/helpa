@@ -83,11 +83,26 @@ export function whatsappContactDisplayName(
   if (trimmedName && !isPlaceholderContactName(trimmedName, trimmedPhone)) {
     return trimmedName;
   }
+  const alt = String(fallback || '').trim();
   if (
     isWhatsAppGroupAddress(trimmedName) ||
     isWhatsAppGroupAddress(trimmedPhone)
   ) {
-    return WHATSAPP_GROUP_FALLBACK_NAME;
+    const generic = new Set([
+      'contact',
+      'unknown contact',
+      'chat',
+      WHATSAPP_GROUP_FALLBACK_NAME.toLowerCase(),
+    ]);
+    if (
+      alt &&
+      !generic.has(alt.toLowerCase()) &&
+      !isPlaceholderContactName(alt, trimmedPhone) &&
+      !isWhatsAppGroupAddress(alt)
+    ) {
+      return alt;
+    }
+    return '';
   }
   return trimmedName || trimmedPhone || fallback;
 }
@@ -104,7 +119,7 @@ export function resolvedWhatsAppContactName(
   if (candidate && !isPlaceholderContactName(candidate, addressKey)) {
     return candidate;
   }
-  if (isGroup) return WHATSAPP_GROUP_FALLBACK_NAME;
+  if (isGroup) return '';
   const pushName = String(senderPushName || '').trim();
   if (pushName && !isPlaceholderContactName(pushName, addressKey)) {
     return pushName;
@@ -157,6 +172,21 @@ export function extractWhatsAppGroupJid(data: Record<string, unknown>): string {
     info.chat,
     chatJid
   );
+}
+
+export function formatGroupInboundText(
+  senderName: string | null | undefined,
+  text: string | null | undefined,
+  contentType?: string | null
+): string {
+  const body =
+    String(text || '').trim() ||
+    (contentType && contentType !== 'text' ? `[${contentType}]` : '');
+  const sender = String(senderName || '').trim();
+  if (!body) return sender;
+  if (!sender) return body;
+  if (body.toLowerCase().startsWith(`${sender.toLowerCase()}:`)) return body;
+  return `${sender}: ${body}`;
 }
 
 export function extractWhatsAppPushName(data: Record<string, unknown>): string {

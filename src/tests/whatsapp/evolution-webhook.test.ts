@@ -245,8 +245,9 @@ describe('Evolution Go webhook', () => {
     expect(persistMock.mock.calls[0][0].patientAddress).toBe(
       '120363316746745895'
     );
-    expect(persistMock.mock.calls[0][1].contactName).toBe('WhatsApp group');
+    expect(persistMock.mock.calls[0][0].content).toBe('Ravi: group hello');
     expect(persistMock.mock.calls[0][1].contactName).not.toBe('Ravi');
+    expect(persistMock.mock.calls[0][1].contactName).not.toBe('WhatsApp group');
   });
 
   it('uses the group subject when Evolution includes it on the message', async () => {
@@ -264,6 +265,7 @@ describe('Evolution Go webhook', () => {
       },
     });
     expect(persistMock.mock.calls[0][1].contactName).toBe('Last 100 seats');
+    expect(persistMock.mock.calls[0][0].content).toBe('Ravi: seat update');
   });
 
   it('upgrades an existing group contact when GroupInfo arrives', async () => {
