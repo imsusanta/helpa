@@ -622,9 +622,7 @@ export async function listEvolutionGoGroups(
   ]);
   const lists = results
     .filter(
-      (
-        result
-      ): result is PromiseFulfilledResult<Record<string, unknown>> =>
+      (result): result is PromiseFulfilledResult<Record<string, unknown>> =>
         result.status === 'fulfilled'
     )
     .map((result) => parseEvolutionGoGroups(result.value));
