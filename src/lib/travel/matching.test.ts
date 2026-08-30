@@ -211,6 +211,11 @@ describe('budget and destination matching', () => {
     expect(resolved.price).toBe(62000);
     expect(resolved.pricing?.adults).toBe(2);
     expect(resolved.pricing?.children).toBe(1);
+
+    const withoutOccupancy = parseTravelerRequirements(
+      'Budget 30k, Kashmir 5 days.'
+    );
+    expect(resolvePackagePrice(priced, withoutOccupancy).price).toBe(25000);
   });
 
   it('CASE 5: keeps itinerary days available for lookup', () => {

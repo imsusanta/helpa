@@ -284,31 +284,39 @@ export function resolvePackagePrice(
   pkg: TourPackageDetail,
   requirements: TravelerRequirements
 ): { price: number | null; currency: string; pricing: TourPackagePricing | null } {
-  const occupancyMatches = pkg.pricing.filter((row) => {
-    if (requirements.adults != null && row.adults !== requirements.adults) {
-      return false;
-    }
-    if (requirements.children != null && row.children !== requirements.children) {
-      return false;
-    }
-    if (
-      requirements.travelDate &&
-      !inDateRange(requirements.travelDate, row.valid_from, row.valid_until)
-    ) {
-      return false;
-    }
-    return true;
-  });
+  const occupancyRequested =
+    requirements.adults != null || requirements.children != null;
 
-  if (occupancyMatches.length > 0) {
-    const cheapest = occupancyMatches.reduce((best, row) =>
-      row.price < best.price ? row : best
-    );
-    return {
-      price: cheapest.price,
-      currency: cheapest.currency || pkg.currency,
-      pricing: cheapest,
-    };
+  if (occupancyRequested) {
+    const occupancyMatches = pkg.pricing.filter((row) => {
+      if (requirements.adults != null && row.adults !== requirements.adults) {
+        return false;
+      }
+      if (
+        requirements.children != null &&
+        row.children !== requirements.children
+      ) {
+        return false;
+      }
+      if (
+        requirements.travelDate &&
+        !inDateRange(requirements.travelDate, row.valid_from, row.valid_until)
+      ) {
+        return false;
+      }
+      return true;
+    });
+
+    if (occupancyMatches.length > 0) {
+      const cheapest = occupancyMatches.reduce((best, row) =>
+        row.price < best.price ? row : best
+      );
+      return {
+        price: cheapest.price,
+        currency: cheapest.currency || pkg.currency,
+        pricing: cheapest,
+      };
+    }
   }
 
   if (pkg.starting_price != null) {
@@ -316,6 +324,17 @@ export function resolvePackagePrice(
       price: Number(pkg.starting_price),
       currency: pkg.currency,
       pricing: null,
+    };
+  }
+
+  if (pkg.pricing.length > 0) {
+    const cheapest = pkg.pricing.reduce((best, row) =>
+      row.price < best.price ? row : best
+    );
+    return {
+      price: cheapest.price,
+      currency: cheapest.currency || pkg.currency,
+      pricing: cheapest,
     };
   }
 
