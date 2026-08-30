@@ -18,43 +18,58 @@ const tabs = [
 
 export function LandingHero({ isAuthenticated }: HeroProps) {
   return (
-    <section className="relative overflow-hidden bg-gradient-to-b from-[#FAF9FC] via-[#F7F5FC] to-[#F1EEFA] pt-24 pb-10 sm:pt-28 lg:pt-32">
+    <section className="relative overflow-hidden bg-gradient-to-b from-[#FAF9FC] via-[#F7F5FC] to-[#F1EEFA] pt-28 pb-16 sm:pt-32">
       <div className="pointer-events-none absolute inset-0 opacity-70" aria-hidden="true">
         <div className="absolute left-1/2 top-40 h-80 w-80 -translate-x-1/2 rounded-full bg-[#CFC7FF]/20 blur-3xl" />
       </div>
 
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-5xl text-center">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50/80 px-4 py-2 text-sm font-bold text-emerald-800 shadow-sm">
-            <MessageCircle className="h-4 w-4" />
-            AI-powered WhatsApp automation for businesses
+          <div className="mb-6 inline-flex items-center gap-2.5 rounded-full border border-emerald-300/80 bg-emerald-50/90 px-5 py-2 text-xs font-black text-emerald-900 shadow-sm backdrop-blur-md">
+            <span className="h-2 w-2 rounded-full bg-[#25D366] animate-pulse shadow-[0_0_8px_#25D366]" />
+            ✓ Official Meta WhatsApp Cloud API Partner • 150+ Indian Businesses
           </div>
 
-          <h1 className="mx-auto mb-6 max-w-5xl text-5xl leading-[0.98] font-extrabold tracking-tight text-[#110E3D] sm:text-6xl lg:text-[76px]">
-            Automate WhatsApp.<br />
-            Get <span className="bg-gradient-to-r from-[#12B886] via-[#25CFA0] to-[#16BFAF] bg-clip-text text-transparent">More Leads.</span>
+          <h1 className="mx-auto mb-6 max-w-5xl text-5xl leading-[0.98] font-black tracking-tight text-[#110E3D] sm:text-6xl lg:text-[76px]">
+            Never Miss Another<br />
+            <span className="bg-gradient-to-r from-[#075E54] via-[#25D366] to-[#075E54] bg-clip-text text-transparent">
+              WhatsApp Customer.
+            </span>
           </h1>
 
-          <p className="mx-auto mb-8 max-w-3xl text-base leading-8 text-[#5C587D] sm:text-lg lg:text-xl">
-            AI-powered WhatsApp automation that captures leads, answers customers,
-            follows up automatically, and helps you turn conversations into sales.
+          <p className="mx-auto mb-8 max-w-3xl text-base leading-8 text-[#5C587D] sm:text-lg lg:text-xl font-medium">
+            Helpa replies in 2 seconds, schedules appointments, captures leads, and handles customer FAQs 24/7 on WhatsApp — so your front desk never loses a client.
           </p>
 
-          <div className="mb-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <Link href={isAuthenticated ? '/dashboard' : '/signup'} className="flex min-h-12 items-center gap-2 rounded-full bg-gradient-to-r from-[#C4F135] via-[#7EE69D] to-[#4EE3C2] px-8 py-3.5 text-base font-bold text-[#110E3D] shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl">
-              {isAuthenticated ? 'Go to Dashboard' : 'Get Started Free'}
-              <Sparkles className="h-4 w-4" />
+          <div className="mb-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
+            <Link
+              href={isAuthenticated ? '/dashboard' : '/signup'}
+              className="flex min-h-12 items-center gap-2.5 rounded-full bg-gradient-to-r from-[#25D366] via-[#20BA5A] to-[#075E54] px-8 py-3.5 text-base font-extrabold text-white shadow-lg shadow-[#25D366]/25 transition hover:scale-[1.04] hover:shadow-xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#075E54]"
+            >
+              {isAuthenticated ? 'Go to Dashboard' : 'Book Free 15-Min Demo'}
+              <Sparkles className="h-4 w-4 text-white" />
             </Link>
-            <Link href="#clinic-workflow" className="flex min-h-12 items-center gap-2 rounded-full border border-slate-300 bg-white px-8 py-3.5 text-base font-bold text-[#110E3D] shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-50">
+            <Link
+              href="#features"
+              className="flex min-h-12 items-center gap-2 rounded-full border border-slate-300 bg-white px-8 py-3.5 text-base font-bold text-[#110E3D] shadow-sm transition hover:border-slate-400 hover:bg-slate-50 hover:scale-[1.02]"
+            >
               <span className="flex h-6 w-6 items-center justify-center rounded-full border border-slate-300 text-[10px]">▶</span>
-              See how it works
+              See Live Demo
             </Link>
+          </div>
+
+          <div className="mb-10 flex flex-wrap justify-center gap-x-6 gap-y-2 text-xs font-bold text-[#55527C]">
+            <span className="flex items-center gap-1.5 text-emerald-800"><MessageCircle className="h-3.5 w-3.5 text-[#25D366]" /> Setup in 24 Hours</span>
+            <span className="flex items-center gap-1.5 text-emerald-800"><CalendarCheck className="h-3.5 w-3.5 text-[#25D366]" /> No Credit Card Required</span>
+            <span className="flex items-center gap-1.5 text-emerald-800"><Users className="h-3.5 w-3.5 text-[#25D366]" /> Official WhatsApp API</span>
           </div>
 
           <div className="mx-auto grid max-w-4xl gap-3 text-left sm:grid-cols-3">
             {outcomes.map(({ icon: Icon, label }) => (
-              <div key={label} className="flex items-center gap-3 rounded-xl border border-white/90 bg-white/80 p-4 text-sm font-semibold text-slate-700 shadow-[0_8px_30px_rgba(17,14,61,0.06)]">
-                <Icon className="h-5 w-5 shrink-0 text-emerald-600" />
+              <div key={label} className="flex items-center gap-3 rounded-2xl border border-white/90 bg-white/80 p-4 text-sm font-bold text-slate-800 shadow-[0_8px_30px_rgba(17,14,61,0.06)] backdrop-blur-sm">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-100/70 text-[#075E54]">
+                  <Icon className="h-4.5 w-4.5" />
+                </div>
                 <span>{label}</span>
               </div>
             ))}
