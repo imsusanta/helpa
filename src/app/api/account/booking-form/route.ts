@@ -1,40 +1,44 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth/account';
 import { getAdminClient } from '@/lib/db/server';
-import { DEFAULT_BOOKING_FORM_CONFIG } from '@/lib/booking-form/config';
+import {
+  getDefaultBookingFormConfig,
+  mergeBookingFormConfig,
+  type BookingFormConfig,
+} from '@/lib/booking-form/config';
 
 export async function GET() {
   try {
-    const ctx = await requireRole('admin');
+    const ctx = await requireRole('viewer');
     const db = getAdminClient();
 
     const { data: account, error } = await db
       .from('accounts')
-      .select('appointment_form_config')
+      .select('appointment_form_config, industry')
       .eq('id', ctx.accountId)
       .single();
 
+    const industry = account?.industry || null;
     if (error || !account?.appointment_form_config) {
       return NextResponse.json({
-        config: DEFAULT_BOOKING_FORM_CONFIG,
+        industry,
+        config: getDefaultBookingFormConfig(industry),
       });
     }
 
     return NextResponse.json({
-      config: {
-        ...DEFAULT_BOOKING_FORM_CONFIG,
-        ...(account.appointment_form_config as Record<
-          string,
-          { show: boolean; required: boolean }
-        >),
-      },
+      industry,
+      config: mergeBookingFormConfig(
+        industry,
+        account.appointment_form_config as BookingFormConfig
+      ),
     });
   } catch (err: unknown) {
     console.error('[GET /api/account/booking-form] exception:', err);
-    return NextResponse.json(
-      { config: DEFAULT_BOOKING_FORM_CONFIG },
-      { status: 200 }
-    );
+    return NextResponse.json({
+      industry: null,
+      config: getDefaultBookingFormConfig(null),
+    });
   }
 }
 
@@ -51,15 +55,14 @@ export async function PATCH(request: Request) {
       );
     }
 
-    // Mandatory defaults protection: name & phone must always be show:true, required:true
-    const sanitizedConfig = {
-      ...DEFAULT_BOOKING_FORM_CONFIG,
-      ...config,
-      name: { show: true, required: true },
-      phone: { show: true, required: true },
-    };
-
     const db = getAdminClient();
+    const { data: account } = await db
+      .from('accounts')
+      .select('industry')
+      .eq('id', ctx.accountId)
+      .maybeSingle();
+    const sanitizedConfig = mergeBookingFormConfig(account?.industry, config);
+
     const { data, error } = await db
       .from('accounts')
       .update({ appointment_form_config: sanitizedConfig })
