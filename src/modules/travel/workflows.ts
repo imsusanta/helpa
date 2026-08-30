@@ -1,7 +1,3 @@
-import {
-  TRAVEL_BOOKING_CONFIRM_BUTTON_ID,
-  TRAVEL_BOOKING_LATER_BUTTON_ID,
-} from '@/lib/travel/booking-confirm';
 import { WorkflowSeed } from '../types';
 
 export const workflowsConfig: WorkflowSeed[] = [
@@ -76,8 +72,8 @@ export const workflowsConfig: WorkflowSeed[] = [
           text: 'Please confirm this Travel Booking:\n\nPackage: {{ travel.package_name }}\nTravel date: {{ travel.date }}\nGuests: {{ travel.guests }}\nTotal: {{ travel.total_price }}\n\nTap Confirm Booking to complete. If you do not see the button, reply 1.',
           travel_booking_confirm: true,
           buttons: [
-            { id: TRAVEL_BOOKING_CONFIRM_BUTTON_ID, title: 'Confirm Booking' },
-            { id: TRAVEL_BOOKING_LATER_BUTTON_ID, title: 'Not yet' },
+            { id: 'travel_booking_confirm', title: 'Confirm Booking' },
+            { id: 'travel_booking_later', title: 'Not yet' },
           ],
         },
       },
