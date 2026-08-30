@@ -34,10 +34,14 @@ export function formatTourPackageFactSheet(pkg: TourPackageDetail): string {
   ];
   if (pkg.description) lines.push(`Description: ${pkg.description}`);
   if (pkg.inclusions.length) {
-    lines.push(`Inclusions: ${pkg.inclusions.map((row) => row.item).join('; ')}`);
+    lines.push(
+      `Inclusions: ${pkg.inclusions.map((row) => row.item).join('; ')}`
+    );
   }
   if (pkg.exclusions.length) {
-    lines.push(`Exclusions: ${pkg.exclusions.map((row) => row.item).join('; ')}`);
+    lines.push(
+      `Exclusions: ${pkg.exclusions.map((row) => row.item).join('; ')}`
+    );
   }
   if (pkg.hotels.length) {
     lines.push(
@@ -122,12 +126,20 @@ export function buildTravelPackagePromptBlock(
             : `Day ${result.requirements.itineraryDay} itinerary is not listed for this package.`
         );
       }
-      lines.push(`Match reasons: ${row.reasons.join(', ') || 'workspace catalog'}`);
+      lines.push(
+        `Match reasons: ${row.reasons.join(', ') || 'workspace catalog'}`
+      );
     });
-  } else if (result.nearMatches.length > 0 && result.requirements.budget != null) {
+  } else if (
+    result.nearMatches.length > 0 &&
+    result.requirements.budget != null
+  ) {
     const options = result.nearMatches
       .map((row) =>
-        formatMoney(row.matchedPrice, row.matchedCurrency || row.package.currency)
+        formatMoney(
+          row.matchedPrice,
+          row.matchedCurrency || row.package.currency
+        )
       )
       .filter(Boolean);
     lines.push(

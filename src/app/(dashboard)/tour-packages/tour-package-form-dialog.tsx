@@ -99,9 +99,7 @@ function fromDetail(pkg: TourPackageDetail): FormState {
     ...emptyForm(),
     ...pkg,
     itineraries:
-      pkg.itineraries.length > 0
-        ? pkg.itineraries
-        : emptyForm().itineraries,
+      pkg.itineraries.length > 0 ? pkg.itineraries : emptyForm().itineraries,
     inclusions: pkg.inclusions.length > 0 ? pkg.inclusions : [{ item: '' }],
     exclusions: pkg.exclusions.length > 0 ? pkg.exclusions : [{ item: '' }],
     hotels: pkg.hotels.length > 0 ? pkg.hotels : emptyForm().hotels,
@@ -421,7 +419,10 @@ export function TourPackageFormDialog({
                     </Button>
                   </div>
                   {(form.itineraries || []).map((day, index) => (
-                    <div key={`day-${index}`} className="space-y-2 rounded-xl border p-3">
+                    <div
+                      key={`day-${index}`}
+                      className="space-y-2 rounded-xl border p-3"
+                    >
                       <div className="flex items-center justify-between">
                         <span className="text-[11px] font-bold text-emerald-600">
                           DAY {index + 1}
@@ -623,7 +624,10 @@ export function TourPackageFormDialog({
                     </Button>
                   </div>
                   {(form.hotels || []).map((hotel, index) => (
-                    <div key={`hotel-${index}`} className="grid grid-cols-2 gap-2 rounded-xl border p-3">
+                    <div
+                      key={`hotel-${index}`}
+                      className="grid grid-cols-2 gap-2 rounded-xl border p-3"
+                    >
                       <Input
                         placeholder="Hotel name"
                         value={hotel.hotel_name}
@@ -738,7 +742,10 @@ export function TourPackageFormDialog({
                     </Button>
                   </div>
                   {(form.pricing || []).map((row, index) => (
-                    <div key={`price-${index}`} className="grid grid-cols-2 gap-2 rounded-xl border p-3">
+                    <div
+                      key={`price-${index}`}
+                      className="grid grid-cols-2 gap-2 rounded-xl border p-3"
+                    >
                       <Input
                         placeholder="Pricing name"
                         value={row.pricing_name || ''}
@@ -761,7 +768,10 @@ export function TourPackageFormDialog({
                             'pricing',
                             (form.pricing || []).map((item, itemIndex) =>
                               itemIndex === index
-                                ? { ...item, occupancy_type: event.target.value }
+                                ? {
+                                    ...item,
+                                    occupancy_type: event.target.value,
+                                  }
                                 : item
                             )
                           )
@@ -1023,7 +1033,11 @@ export function TourPackageFormDialog({
           )}
         </div>
         <DialogFooter className="shrink-0 border-t px-5 py-3">
-          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => onOpenChange(false)}
+          >
             Cancel
           </Button>
           <Button

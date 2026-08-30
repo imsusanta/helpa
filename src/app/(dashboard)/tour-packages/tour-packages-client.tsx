@@ -186,7 +186,8 @@ export function TourPackagesClient() {
                         ) : null}
                       </div>
                       <div className="text-[10px] text-slate-400">
-                        {pkg.package_type || 'Package'} · {pkg.category || 'General'}
+                        {pkg.package_type || 'Package'} ·{' '}
+                        {pkg.category || 'General'}
                       </div>
                     </td>
                     <td className="px-5 py-4">{pkg.destination}</td>

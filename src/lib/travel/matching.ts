@@ -283,7 +283,11 @@ export function isDepartureBookable(departure: TourPackageDeparture): boolean {
 export function resolvePackagePrice(
   pkg: TourPackageDetail,
   requirements: TravelerRequirements
-): { price: number | null; currency: string; pricing: TourPackagePricing | null } {
+): {
+  price: number | null;
+  currency: string;
+  pricing: TourPackagePricing | null;
+} {
   const occupancyRequested =
     requirements.adults != null || requirements.children != null;
 
@@ -463,7 +467,9 @@ export function rankTourPackages(
     });
   }
 
-  ranked.sort((a, b) => b.score - a.score || (a.matchedPrice ?? 0) - (b.matchedPrice ?? 0));
+  ranked.sort(
+    (a, b) => b.score - a.score || (a.matchedPrice ?? 0) - (b.matchedPrice ?? 0)
+  );
 
   const matches = ranked.filter((row) => row.fitsBudget);
   const nearMatches = ranked.filter((row) => !row.fitsBudget);
@@ -476,6 +482,7 @@ export function formatMoney(
 ): string | null {
   if (amount == null || Number.isNaN(Number(amount))) return null;
   const value = Number(amount);
-  const symbol = currency === 'INR' ? '₹' : currency === 'USD' ? '$' : `${currency} `;
+  const symbol =
+    currency === 'INR' ? '₹' : currency === 'USD' ? '$' : `${currency} `;
   return `${symbol}${Math.round(value).toLocaleString('en-IN')}`;
 }

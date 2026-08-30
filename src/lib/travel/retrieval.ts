@@ -290,7 +290,9 @@ export async function loadTourPackageDetails(
 
   return scoped.map((pkg) => ({
     ...emptyDetail(pkg),
-    itineraries: children.itineraries.filter((row) => row.package_id === pkg.id),
+    itineraries: children.itineraries.filter(
+      (row) => row.package_id === pkg.id
+    ),
     inclusions: children.inclusions.filter((row) => row.package_id === pkg.id),
     exclusions: children.exclusions.filter((row) => row.package_id === pkg.id),
     hotels: children.hotels.filter((row) => row.package_id === pkg.id),
@@ -344,7 +346,11 @@ async function replaceChildren(
 ): Promise<void> {
   const deletes = await Promise.all(
     Object.values(CHILD_TABLES).map((table) =>
-      db.from(table).delete().eq('account_id', accountId).eq('package_id', packageId)
+      db
+        .from(table)
+        .delete()
+        .eq('account_id', accountId)
+        .eq('package_id', packageId)
     )
   );
   const deleteError = deletes.find((result) => result.error)?.error;
@@ -357,9 +363,7 @@ async function replaceChildren(
     throw new Error('TOUR_PACKAGE_SAVE_FAILED');
   }
 
-  const inserts: Array<
-    PromiseLike<{ error: { message: string } | null }>
-  > = [];
+  const inserts: Array<PromiseLike<{ error: { message: string } | null }>> = [];
 
   const itineraries = (input.itineraries || [])
     .filter((row) => row.title || row.description || row.activities)

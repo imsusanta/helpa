@@ -36,7 +36,15 @@ function pkg(
     created_at: '2026-08-01T00:00:00.000Z',
     updated_at: '2026-08-01T00:00:00.000Z',
     itineraries: [],
-    inclusions: [{ id: 'i1', account_id: overrides.account_id, package_id: overrides.id, item: 'Hotel', created_at: '' }],
+    inclusions: [
+      {
+        id: 'i1',
+        account_id: overrides.account_id,
+        package_id: overrides.id,
+        item: 'Hotel',
+        created_at: '',
+      },
+    ],
     exclusions: [],
     hotels: [
       {
@@ -78,17 +86,22 @@ describe('traveler requirement parsing', () => {
   });
 
   it('parses September 15 availability and occupancy', () => {
-    const when = parseTravelDate('September 15 e Kashmir available?', new Date('2026-08-30'));
-    expect(when.date).toBe('2026-09-15');
-    expect(parseDestination('September 15 e Kashmir available?')?.toLowerCase()).toBe(
-      'kashmir'
+    const when = parseTravelDate(
+      'September 15 e Kashmir available?',
+      new Date('2026-08-30')
     );
+    expect(when.date).toBe('2026-09-15');
+    expect(
+      parseDestination('September 15 e Kashmir available?')?.toLowerCase()
+    ).toBe('kashmir');
     expect(parseTravelerCounts('2 adults 1 child er jonno koto?')).toEqual({
       adults: 2,
       children: 1,
     });
     expect(parseTravelerRequirements('Day 3 e ki ache?').itineraryDay).toBe(3);
-    expect(parseTravelerRequirements('Family trip chai').packageType).toBe('Family');
+    expect(parseTravelerRequirements('Family trip chai').packageType).toBe(
+      'Family'
+    );
     expect(parseTravelerRequirements('Beach trip').category).toBe('Beach');
   });
 });
@@ -124,7 +137,9 @@ describe('budget and destination matching', () => {
     const req = parseTravelerRequirements('Budget 30k, Kashmir 5 days.');
     const { matches, nearMatches } = rankTourPackages(workspaceA, req);
     expect(matches.map((row) => row.package.name)).toEqual(['Kashmir Delight']);
-    expect(nearMatches.map((row) => row.package.name)).toEqual(['Kashmir Premium']);
+    expect(nearMatches.map((row) => row.package.name)).toEqual([
+      'Kashmir Premium',
+    ]);
     expect(matches[0]?.fitsBudget).toBe(true);
   });
 

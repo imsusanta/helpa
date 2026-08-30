@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  ForbiddenError,
-  UnauthorizedError,
-} from '@/lib/auth/account';
+import { ForbiddenError, UnauthorizedError } from '@/lib/auth/account';
 import { requireTravelWorkplace } from '@/lib/travel/access';
-import {
-  createTourPackage,
-  listTourPackages,
-} from '@/lib/travel/retrieval';
+import { createTourPackage, listTourPackages } from '@/lib/travel/retrieval';
 import type { TourPackageWriteInput } from '@/lib/travel/types';
 
 const PRIVATE_HEADERS = {
@@ -90,9 +84,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     if (err instanceof ForbiddenError) {
       return errorResponse(403, 'TRAVEL_WORKPLACE_REQUIRED', correlationId);
     }
-    const code = err instanceof Error ? err.message : 'TOUR_PACKAGE_SAVE_FAILED';
-    if (code === 'PACKAGE_NAME_REQUIRED' || code === 'PACKAGE_DESTINATION_REQUIRED') {
-      return errorResponse(400, code, correlationId, 'Package name and destination are required.');
+    const code =
+      err instanceof Error ? err.message : 'TOUR_PACKAGE_SAVE_FAILED';
+    if (
+      code === 'PACKAGE_NAME_REQUIRED' ||
+      code === 'PACKAGE_DESTINATION_REQUIRED'
+    ) {
+      return errorResponse(
+        400,
+        code,
+        correlationId,
+        'Package name and destination are required.'
+      );
     }
     return errorResponse(
       500,

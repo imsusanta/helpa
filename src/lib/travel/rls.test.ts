@@ -28,7 +28,10 @@ describe('tour package RLS migration', () => {
   it('enables RLS on every new table and scopes policies by account membership', () => {
     for (const table of TABLES) {
       expect(migration).toMatch(
-        new RegExp(`alter table public\\.${table} enable row level security`, 'i')
+        new RegExp(
+          `alter table public\\.${table} enable row level security`,
+          'i'
+        )
       );
     }
     expect(migration).toContain("is_account_member(account_id, 'viewer'");

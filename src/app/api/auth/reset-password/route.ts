@@ -34,14 +34,19 @@ export async function POST(request: Request) {
     try {
       siteUrl = new URL(rawOrigin).origin;
     } catch {
-      siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.helpa.studio').replace(/\/+$/, '');
+      siteUrl = (
+        process.env.NEXT_PUBLIC_SITE_URL || 'https://www.helpa.studio'
+      ).replace(/\/+$/, '');
     }
 
     try {
       const supabase = await createSupabaseServerClient();
-      const { error: resetErr } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
-        redirectTo: `${siteUrl}/auth/callback?next=/reset-password`,
-      });
+      const { error: resetErr } = await supabase.auth.resetPasswordForEmail(
+        trimmedEmail,
+        {
+          redirectTo: `${siteUrl}/auth/callback?next=/reset-password`,
+        }
+      );
       if (resetErr) {
         console.warn('[Reset Password] Supabase reset error:', resetErr);
       }

@@ -47,10 +47,11 @@ function ResetPasswordInner() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [sessionReady, setSessionReady] = useState(false);
+  const [_sessionReady, setSessionReady] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
 
-  const urlError = searchParams.get('error') || searchParams.get('error_description');
+  const urlError =
+    searchParams.get('error') || searchParams.get('error_description');
 
   useEffect(() => {
     if (urlError) {
@@ -64,7 +65,9 @@ function ResetPasswordInner() {
     // Check existing session or listen for recovery auth state
     const checkUserSession = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
         if (session) {
           setSessionReady(true);
         }
@@ -79,7 +82,10 @@ function ResetPasswordInner() {
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
+        if (
+          event === 'PASSWORD_RECOVERY' ||
+          (event === 'SIGNED_IN' && session)
+        ) {
           setSessionReady(true);
           setCheckingSession(false);
         }
@@ -157,7 +163,7 @@ function ResetPasswordInner() {
     <div className="relative flex min-h-screen flex-col justify-between overflow-hidden bg-[#030712] font-sans antialiased selection:bg-emerald-500 selection:text-white">
       {/* Background glowing gradients */}
       <div className="pointer-events-none absolute -top-40 left-1/2 -z-10 h-[500px] w-[800px] -translate-x-1/2 rounded-full bg-emerald-600/10 blur-[120px]" />
-      <div className="pointer-events-none absolute -bottom-40 right-10 -z-10 h-[400px] w-[500px] rounded-full bg-cyan-600/10 blur-[140px]" />
+      <div className="pointer-events-none absolute right-10 -bottom-40 -z-10 h-[400px] w-[500px] rounded-full bg-cyan-600/10 blur-[140px]" />
 
       {/* Main Container */}
       <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-4 py-12 sm:px-6">
@@ -211,7 +217,8 @@ function ResetPasswordInner() {
                 Password Reset Complete!
               </h2>
               <p className="mt-2 text-sm text-zinc-400">
-                Your password has been successfully updated. Redirecting you to sign in...
+                Your password has been successfully updated. Redirecting you to
+                sign in...
               </p>
 
               <div className="mt-6">
@@ -233,7 +240,8 @@ function ResetPasswordInner() {
                   Set new password
                 </h1>
                 <p className="mt-1.5 text-sm text-zinc-400">
-                  Please enter your new password below. It must be at least 8 characters.
+                  Please enter your new password below. It must be at least 8
+                  characters.
                 </p>
               </div>
 
@@ -325,7 +333,9 @@ function ResetPasswordInner() {
                     />
                     <button
                       type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      onClick={() =>
+                        setShowConfirmPassword(!showConfirmPassword)
+                      }
                       className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-zinc-500 transition-colors duration-200 hover:text-zinc-300 focus:outline-hidden"
                     >
                       {showConfirmPassword ? (
