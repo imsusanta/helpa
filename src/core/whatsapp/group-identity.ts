@@ -90,10 +90,15 @@ export function isValidIndividualPhone(
 /**
  * True if a contact record represents a real individual customer/patient/lead.
  */
-export function isIndividualContact(contact: {
-  phone?: string | null;
-  name?: string | null;
-} | null | undefined): boolean {
+export function isIndividualContact(
+  contact:
+    | {
+        phone?: string | null;
+        name?: string | null;
+      }
+    | null
+    | undefined
+): boolean {
   if (!contact) return false;
   if (!isValidIndividualPhone(contact.phone)) return false;
   if (isWhatsAppGroupAddress(contact.name)) return false;
