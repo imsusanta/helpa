@@ -2,7 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { dbState } = vi.hoisted(() => ({
   dbState: {
-    existingByProviderId: new Map<string, { id: string }>(),
+    existingByProviderId: new Map<
+      string,
+      { id: string; accountId?: string; account_id?: string }
+    >(),
     insertError: null as { code?: string; message?: string } | null,
     unknownColumns: new Set<string>(),
     disallowedStatus: new Set<string>(),
@@ -139,6 +142,18 @@ vi.mock('@/lib/db/server', () => ({
                 ''
             );
             const found = dbState.existingByProviderId.get(providerId);
+            if (
+              found &&
+              filters.account_id &&
+              (found.account_id || found.accountId) &&
+              String(found.account_id || found.accountId) !==
+                String(filters.account_id)
+            ) {
+              return Promise.resolve({ data: [], error: null }).then(
+                resolve,
+                reject
+              );
+            }
             return Promise.resolve({
               data: found ? [found] : [],
               error: null,
@@ -345,6 +360,30 @@ describe('persistOutboundMessage', () => {
       duplicate: true,
     });
     expect(dbState.inserts).toHaveLength(0);
+  });
+
+  it('does not treat another tenant provider id as a duplicate', async () => {
+    dbState.existingByProviderId.set('wamid.SHARED', {
+      id: 'msg-other',
+      accountId: 'tenant-b',
+      account_id: 'tenant-b',
+    });
+    const res = await persistOutboundMessage({
+      accountId: 'tenant-1',
+      conversationId: 'conv-1',
+      contentType: 'text',
+      contentText: 'hi',
+      providerMessageId: 'wamid.SHARED',
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.duplicate).toBe(false);
+    expect(dbState.inserts.length).toBeGreaterThan(0);
+    expect(dbState.inserts[0]).toMatchObject({
+      account_id: 'tenant-1',
+      provider_message_id: 'wamid.SHARED',
+      direction: 'outbound',
+    });
   });
 
   it('strips inbound nullable columns when production messages lacks them', async () => {

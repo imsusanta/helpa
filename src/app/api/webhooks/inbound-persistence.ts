@@ -7,6 +7,11 @@ import {
   isWhatsAppGroupAddress,
   isValidIndividualPhone,
 } from '@/core/whatsapp/group-identity';
+import {
+  persistOutboundMessage,
+  touchConversationPreview,
+  outboundPreviewText,
+} from '@/lib/whatsapp/persist-outbound-message';
 
 type Row = Record<string, unknown>;
 
@@ -451,5 +456,112 @@ export async function persistNormalizedInboundMessage(
     contactId: String(contactOutcome.contact.id),
     conversationId,
     messageId: String(inserted.id || ''),
+  };
+}
+
+/**
+ * Persist a provider fromMe / outbound echo into the same conversation as
+ * the customer. Helpa-originated sends already write this row; this path is
+ * the backup for phone-sent messages and failed local persists. Duplicate
+ * provider IDs are tenant-scoped no-ops and must not increment unread.
+ */
+export async function persistNormalizedOutboundMessage(
+  event: MessageEvent,
+  options: PersistInboundOptions
+): Promise<PersistInboundResult> {
+  const accountId = options.accountId;
+  if (!accountId) throw new Error('Outbound account is required');
+
+  const customerPhone = normalizePhone(
+    event.patientAddress || event.recipientPhone || ''
+  );
+  if (!customerPhone) throw new Error('Outbound recipient phone is missing');
+  if (
+    !isValidIndividualPhone(customerPhone) ||
+    isWhatsAppGroupAddress(customerPhone)
+  ) {
+    return {
+      duplicate: false,
+      accountId,
+      contactId: '',
+      conversationId: '',
+    };
+  }
+
+  const externalId = String(
+    event.externalMessageId || event.messageId || ''
+  ).trim();
+  if (!externalId) throw new Error('Outbound provider message id is missing');
+  const text = eventText(event);
+  const messageAt = eventDate(event).toISOString();
+
+  const existing = await findExistingMessage(accountId, externalId);
+  if (existing) {
+    return {
+      duplicate: true,
+      accountId,
+      contactId: String(value(existing, 'contact_id', 'contactId') || ''),
+      conversationId: String(
+        value(existing, 'conversation_id', 'conversationId') || ''
+      ),
+      messageId: String(existing.id || ''),
+    };
+  }
+
+  const contactOutcome = await findOrCreateContact(
+    accountId,
+    options.userId || '',
+    customerPhone,
+    options.contactName || customerPhone
+  );
+  if (!contactOutcome) {
+    return {
+      duplicate: false,
+      accountId,
+      contactId: '',
+      conversationId: '',
+    };
+  }
+
+  const conversation = await findOrCreateConversation(
+    accountId,
+    options.userId || '',
+    String(contactOutcome.contact.id),
+    event.channel
+  );
+  if (!conversation) throw new Error('Unable to resolve outbound conversation');
+  const conversationId = String(conversation.id);
+  const contentType = event.contentType || 'text';
+
+  const persistRes = await persistOutboundMessage({
+    accountId,
+    conversationId,
+    senderType: 'agent',
+    contentType,
+    contentText: text || null,
+    mediaUrl: event.mediaUrl || null,
+    providerMessageId: externalId,
+    createdAt: messageAt,
+  });
+  if (!persistRes.ok) {
+    throw new Error(persistRes.error || 'Unable to persist outbound message');
+  }
+
+  await touchConversationPreview({
+    accountId,
+    conversationId,
+    previewText: outboundPreviewText({
+      contentText: text,
+      contentType,
+    }),
+    messageAt,
+  });
+
+  return {
+    duplicate: persistRes.duplicate,
+    accountId,
+    contactId: String(contactOutcome.contact.id),
+    conversationId,
+    messageId: persistRes.messageId,
   };
 }
