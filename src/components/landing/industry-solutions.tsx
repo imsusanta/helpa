@@ -7,29 +7,30 @@ import {
   MessageCircle,
 } from 'lucide-react';
 
-const CLINIC_WORKFLOW = [
+const WORKFLOW = [
   {
     icon: MessageCircle,
-    title: 'Patient asks on WhatsApp',
+    title: 'Customers message on WhatsApp',
     description:
-      'Helpa handles common questions using clinic-approved information.',
+      'Helpa answers common questions instantly using your approved business information.',
   },
   {
     icon: CalendarCheck,
-    title: 'Helpa checks availability',
-    description: 'Available doctor slots are offered without double-booking.',
+    title: 'Helpa handles the next step',
+    description:
+      'Availability, service details, bookings, or enquiries are handled without back-and-forth.',
   },
   {
     icon: CheckCircle2,
-    title: 'Appointment is confirmed',
+    title: 'Leads are captured and qualified',
     description:
-      'The patient and clinic receive a clear confirmation and reminder.',
+      'Important customer details and intent are organized automatically for your team.',
   },
   {
     icon: FileCheck2,
-    title: 'Visit follow-up stays organized',
+    title: 'Follow-up stays organized',
     description:
-      'OPD slips, reports, and approved follow-ups remain connected to the patient record.',
+      'Tasks, reminders, conversations, and customer history stay connected in one workspace.',
   },
 ];
 
@@ -39,19 +40,20 @@ export function LandingIndustrySolutions() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto mb-12 max-w-3xl text-center">
           <span className="mb-3 inline-flex items-center rounded-full bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-700">
-            Built for clinics first
+            WhatsApp workflow
           </span>
           <h2 className="text-3xl font-extrabold tracking-tight text-[#110E3D] sm:text-4xl">
-            One patient journey, from first message to follow-up
+            From first message to next action
           </h2>
           <p className="mt-3 text-base text-slate-600">
-            A focused workflow for independent clinics and outpatient teams—not
-            a generic CRM with healthcare labels.
+            One connected workflow for teams that use WhatsApp to answer
+            customers, capture leads, automate routine work, and keep follow-ups
+            organized.
           </p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {CLINIC_WORKFLOW.map(({ icon: Icon, title, description }, index) => (
+          {WORKFLOW.map(({ icon: Icon, title, description }, index) => (
             <article
               key={title}
               className="rounded-2xl border border-slate-200 bg-slate-50 p-6"
@@ -78,15 +80,15 @@ export function LandingIndustrySolutions() {
               Designed for accountable automation
             </h3>
             <p className="mt-1 text-sm text-emerald-800">
-              Staff can review conversations, take over when needed, and keep
-              clinical decisions with qualified people.
+              Teams can review conversations, take over when needed, and keep
+              important customer decisions with the right people.
             </p>
           </div>
           <Link
             href="/signup"
             className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-full bg-[#110E3D] px-6 py-3 text-sm font-bold text-white sm:mt-0"
           >
-            Start clinic workspace <ArrowRight className="h-4 w-4" />
+            Start your workspace <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
       </div>

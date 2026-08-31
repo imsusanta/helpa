@@ -17,7 +17,6 @@ export * from './ai';
 // Core Subsystems
 export * from './knowledge';
 export * from './contacts';
-export * from './inbox';
 export * from './copilot';
 export * from './campaigns';
 export * from './automations';

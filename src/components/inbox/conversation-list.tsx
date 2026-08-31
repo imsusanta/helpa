@@ -168,12 +168,12 @@ export function ConversationList({
 
     void fetchConvs(false);
 
-    // Periodic safety-net poll every 4 seconds
+    // Periodic safety-net poll every 10 seconds
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') {
         void fetchConvs(true);
       }
-    }, 4000);
+    }, 10000);
 
     return () => {
       cancelled = true;

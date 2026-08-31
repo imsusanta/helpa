@@ -2,7 +2,7 @@
  * Evolution Go v0.7.2 WhatsAppProvider.
  *
  * Verified contracts:
- *   POST /send/text, POST /send/media (pkg/routes/routes.go)
+ *   POST /send/text, POST /send/media, POST /send/button (pkg/routes/routes.go)
  *   Webhook events: Message, Receipt, Connected, Disconnected, LoggedOut
  *   (docs/wiki/recursos-avancados/events-system.md @ 0.7.2)
  *
@@ -17,6 +17,7 @@ import {
 } from '@/core/providers/whatsapp/whatsapp-provider.interface';
 import {
   getEvolutionGoStatus,
+  sendEvolutionGoButtons,
   sendEvolutionGoMedia,
   sendEvolutionGoText,
 } from '@/core/providers/whatsapp/evolution-go-client';
@@ -126,6 +127,21 @@ function extractText(data: Record<string, unknown>): string {
     data.body
   );
   return conversation;
+}
+
+export function extractEvolutionButtonReplyId(
+  data: Record<string, unknown>
+): string {
+  const message = unwrapMessage(asRecord(data.message || data.Message));
+  return firstString(
+    asRecord(message.buttonsResponseMessage).selectedButtonId,
+    asRecord(message.buttonsResponseMessage).selectedButtonID,
+    asRecord(message.ButtonsResponseMessage).selectedButtonId,
+    asRecord(message.ButtonsResponseMessage).SelectedButtonID,
+    asRecord(message.templateButtonReplyMessage).selectedId,
+    asRecord(message.templateButtonReplyMessage).selectedID,
+    asRecord(message.TemplateButtonReplyMessage).selectedId
+  );
 }
 
 function extractMedia(data: Record<string, unknown>): {
@@ -294,6 +310,7 @@ export class EvolutionGoProvider implements WhatsAppProvider {
 
     const media = extractMedia(data);
     const text = extractText(data);
+    const interactiveReplyId = extractEvolutionButtonReplyId(data);
     const occurredAt = extractTimestamp(data);
     const remotePhone = phoneFromWhatsAppJid(key.remoteJid);
     const senderPhone = key.fromMe
@@ -320,6 +337,7 @@ export class EvolutionGoProvider implements WhatsAppProvider {
         recipientPhone: key.fromMe ? remotePhone : '',
         content: text,
         text,
+        interactiveReplyId: interactiveReplyId || undefined,
         contentType: media.contentType,
         mediaUrl: media.mediaUrl,
         status: 'delivered',
@@ -340,6 +358,26 @@ export class EvolutionGoProvider implements WhatsAppProvider {
     return sendEvolutionGoText(this.instanceToken, {
       number: recipientNumber(recipientPhone),
       text,
+    });
+  }
+
+  async sendButtons(
+    clinicId: string,
+    recipientPhone: string,
+    bodyText: string,
+    buttons: Array<{ id: string; title: string }>,
+    headerText?: string,
+    footerText?: string
+  ): Promise<{ externalMessageId: string }> {
+    if (clinicId && clinicId !== this.accountId) {
+      throw new Error('Evolution Go send is scoped to the resolved tenant.');
+    }
+    return sendEvolutionGoButtons(this.instanceToken, {
+      number: recipientNumber(recipientPhone),
+      title: headerText || 'Booking Confirm',
+      description: bodyText,
+      footer: footerText || 'Helpa',
+      buttons,
     });
   }
 

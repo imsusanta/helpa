@@ -60,7 +60,7 @@ interface KbEntry {
   updated_at: string;
 }
 
-export function FaqBotConsole() {
+export function FaqBotConsole({ embedded = false }: { embedded?: boolean }) {
   const { account, canSendMessages } = useAuth();
   const preset = getIndustryAiPreset(account?.industry);
   const {
@@ -184,11 +184,31 @@ export function FaqBotConsole() {
 
   return (
     <div className="space-y-6">
-      <ModuleHeader
-        icon={MessageSquareText}
-        title="FAQ Bot"
-        description="Curate the questions your AI answers instantly. These FAQ entries are part of your knowledge base and are used to answer customers on WhatsApp."
-        action={
+      {!embedded ? (
+        <ModuleHeader
+          icon={MessageSquareText}
+          title="FAQ Bot"
+          description="Curate the questions your AI answers instantly. These FAQ entries are part of your knowledge base and are used to answer customers on WhatsApp."
+          action={
+            <GatedButton
+              canAct={canSendMessages}
+              gateReason="manage FAQs"
+              onClick={() => openCreate()}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add FAQ
+            </GatedButton>
+          }
+        />
+      ) : (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-1">
+            <h2 className="text-foreground text-lg font-semibold">FAQ Bot</h2>
+            <p className="text-muted-foreground text-sm">
+              Instant answers your {preset.assistantRole.toLowerCase()} uses on
+              WhatsApp.
+            </p>
+          </div>
           <GatedButton
             canAct={canSendMessages}
             gateReason="manage FAQs"
@@ -197,8 +217,8 @@ export function FaqBotConsole() {
             <Plus className="mr-2 h-4 w-4" />
             Add FAQ
           </GatedButton>
-        }
-      />
+        </div>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <AiStatCard

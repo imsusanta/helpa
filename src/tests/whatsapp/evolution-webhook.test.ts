@@ -6,6 +6,7 @@ import { POST as evolutionWebhook } from '@/app/api/webhooks/evolution/[secret]/
 
 const persistMock = vi.hoisted(() => vi.fn());
 const triggerAiMock = vi.hoisted(() => vi.fn());
+const followupMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/app/api/webhooks/inbound-persistence', () => ({
   persistNormalizedInboundMessage: persistMock,
@@ -13,6 +14,10 @@ vi.mock('@/app/api/webhooks/inbound-persistence', () => ({
 
 vi.mock('@/lib/whatsapp/ai', () => ({
   triggerAiResponse: triggerAiMock,
+}));
+
+vi.mock('@/lib/whatsapp/evolution-inbound-followup', () => ({
+  dispatchEvolutionInboundFollowup: followupMock,
 }));
 
 type Row = Record<string, unknown>;
@@ -94,6 +99,8 @@ describe('Evolution Go webhook', () => {
     seenMessageIds = new Set();
     persistMock.mockReset();
     triggerAiMock.mockReset();
+    followupMock.mockReset();
+    followupMock.mockResolvedValue({ handled: false });
     persistMock.mockImplementation(
       async (event: { externalMessageId: string }) => {
         const duplicate = seenMessageIds.has(event.externalMessageId);
@@ -177,6 +184,55 @@ describe('Evolution Go webhook', () => {
     expect(persistMock.mock.calls[0][0].content).toBe('need an appointment');
     expect(JSON.stringify(body)).not.toContain('should-not-be-trusted');
     expect(JSON.stringify(body)).not.toContain(secretA);
+    expect(followupMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountId: tenantA,
+        inboundText: 'need an appointment',
+      })
+    );
+    expect(triggerAiMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips AI when booking confirm or an automation already replied', async () => {
+    followupMock.mockResolvedValueOnce({ handled: true });
+    await post(secretA, {
+      event: 'Message',
+      data: {
+        key: {
+          id: 'evo-booking-1',
+          fromMe: false,
+          remoteJid: '919111222333@s.whatsapp.net',
+        },
+        message: { conversation: 'Confirm booking' },
+      },
+    });
+    expect(followupMock).toHaveBeenCalledTimes(1);
+    expect(triggerAiMock).not.toHaveBeenCalled();
+  });
+
+  it('passes Evolution button reply ids into booking follow-up', async () => {
+    await post(secretA, {
+      event: 'Message',
+      data: {
+        key: {
+          id: 'evo-btn-1',
+          fromMe: false,
+          remoteJid: '919111222333@s.whatsapp.net',
+        },
+        message: {
+          buttonsResponseMessage: {
+            selectedButtonId: 'travel_booking_confirm',
+            selectedDisplayText: 'Confirm Booking',
+          },
+        },
+      },
+    });
+    expect(followupMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        inboundText: 'Confirm Booking',
+        interactiveReplyId: 'travel_booking_confirm',
+      })
+    );
   });
 
   it('ignores a spoofed account_id in the payload', async () => {
