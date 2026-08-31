@@ -18,6 +18,7 @@ import {
 } from '@/lib/auth/account';
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
 import { resolveCanonicalIndustry } from '@/modules/registry';
+import { insertAutomationRow } from '@/lib/automations/automation-row';
 import { ensureTravelWorkflowsSeeded } from '@/lib/automations/travel-seeds';
 
 function normalizeAppointmentTrigger(
@@ -270,19 +271,18 @@ export async function POST(request: Request) {
   }
 
   const admin = getAdminClient();
-  const { data: automation, error: insertErr } = await admin
-    .from('automations')
-    .insert({
-      user_id: context.userId,
-      account_id: accountId,
+  const { data: automation, error: insertErr } = await insertAutomationRow(
+    admin,
+    {
+      accountId,
+      userId: context.userId,
       name: effectiveName,
       description: effectiveDescription ?? null,
-      trigger_type: effectiveTriggerType,
-      trigger_config: effectiveTriggerConfig ?? {},
-      is_active: !!is_active,
-    })
-    .select()
-    .single();
+      triggerType: effectiveTriggerType,
+      triggerConfig: effectiveTriggerConfig ?? {},
+      isActive: !!is_active,
+    }
+  );
 
   if (insertErr || !automation) {
     return NextResponse.json(

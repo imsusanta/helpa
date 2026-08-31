@@ -16,6 +16,7 @@ import type {
   AssignConversationStepConfig,
   UpdateLeadStepConfig,
 } from '@/types';
+import { automationAuthorId } from '@/lib/automations/automation-row';
 import { getAdminClient } from '@/lib/db/server';
 import {
   engineSendText,
@@ -211,7 +212,7 @@ async function executeAutomation(
       // Audit: keeps the historical "author of this automation"
       // pointer so logs still attribute to the right user even
       // after teammates join the account.
-      user_id: automation.user_id,
+      user_id: automationAuthorId(automation),
       contact_id: input.contactId ?? null,
       trigger_event: input.triggerType,
       steps_executed: [],
@@ -331,7 +332,7 @@ async function executeStepsFrom(
         automation_id: args.automation.id,
         // Tenancy: account_id required NOT NULL post-017.
         account_id: args.automation.account_id,
-        user_id: args.automation.user_id,
+        user_id: automationAuthorId(args.automation),
         contact_id: args.contactId,
         log_id: args.logId,
         parent_step_id: args.parentStepId,
@@ -455,7 +456,7 @@ async function runStep(
       if (cfg.buttons && cfg.buttons.length > 0) {
         const { whatsapp_message_id } = await engineSendButtons({
           accountId: args.automation.account_id,
-          userId: args.automation.user_id,
+          userId: automationAuthorId(args.automation) ?? '',
           conversationId,
           contactId: args.contactId,
           bodyText: text,
@@ -468,7 +469,7 @@ async function runStep(
       }
       const { whatsapp_message_id } = await engineSendText({
         accountId: args.automation.account_id,
-        userId: args.automation.user_id,
+        userId: automationAuthorId(args.automation) ?? '',
         conversationId,
         contactId: args.contactId,
         text,
@@ -510,7 +511,7 @@ async function runStep(
       }
       const { whatsapp_message_id } = await engineSendTemplate({
         accountId: args.automation.account_id,
-        userId: args.automation.user_id,
+        userId: automationAuthorId(args.automation) ?? '',
         conversationId,
         contactId: args.contactId,
         templateName: cfg.template_name,
@@ -649,7 +650,7 @@ async function runStep(
       await db.from('deals').insert({
         // Tenancy + audit, same split as automation_logs above.
         account_id: args.automation.account_id,
-        user_id: args.automation.user_id,
+        user_id: automationAuthorId(args.automation),
         pipeline_id: cfg.pipeline_id,
         stage_id: cfg.stage_id,
         contact_id: args.contactId,

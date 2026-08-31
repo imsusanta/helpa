@@ -96,6 +96,8 @@ describe('ensureTravelWorkflowsSeeded', () => {
     expect(h.automations.every((row) => row.account_id === 'acct-travel')).toBe(
       true
     );
+    expect(h.automations.every((row) => row.created_by === 'user-1')).toBe(true);
+    expect(h.automations.some((row) => 'user_id' in row)).toBe(false);
     expect(h.automations.map((row) => row.name)).toEqual([
       'Booking Confirm',
       'Traveler Intake Greeting',

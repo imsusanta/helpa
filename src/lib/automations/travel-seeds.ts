@@ -1,4 +1,5 @@
 import { getAdminClient } from '@/lib/db/server';
+import { insertAutomationRow } from '@/lib/automations/automation-row';
 import {
   insertSteps,
   type BuilderStepInput,
@@ -36,24 +37,20 @@ export async function ensureTravelWorkflowsSeeded(opts: {
       continue;
     }
 
-    const { data: autoRecord, error } = await admin
-      .from('automations')
-      .insert({
-        account_id: opts.accountId,
-        user_id: opts.userId,
-        name: workflow.name,
-        description: workflow.description,
-        trigger_type: workflow.trigger_type,
-        trigger_config: workflow.trigger_config || {},
-        is_active: workflow.is_active,
-        metadata: {
-          helpa_seeded_workflow: true,
-          workflow_seed_key: workflow.seedKey,
-          workflow_industry: 'travel',
-        },
-      })
-      .select('id')
-      .single();
+    const { data: autoRecord, error } = await insertAutomationRow(admin, {
+      accountId: opts.accountId,
+      userId: opts.userId,
+      name: workflow.name,
+      description: workflow.description,
+      triggerType: workflow.trigger_type,
+      triggerConfig: workflow.trigger_config || {},
+      isActive: workflow.is_active,
+      metadata: {
+        helpa_seeded_workflow: true,
+        workflow_seed_key: workflow.seedKey,
+        workflow_industry: 'travel',
+      },
+    });
 
     if (error || !autoRecord) {
       console.warn(
