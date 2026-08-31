@@ -83,7 +83,9 @@ const DEFAULT_DISPLAY_PLANS: DisplayPlan[] = [
 
 export function LandingPricingSection() {
   const [plans, setPlans] = useState<DisplayPlan[]>(DEFAULT_DISPLAY_PLANS);
-  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>(
+    'monthly'
+  );
 
   useEffect(() => {
     fetch('/api/plans')
@@ -129,8 +131,8 @@ export function LandingPricingSection() {
             Choose the capacity your business needs
           </h2>
           <p className="mt-3 text-base text-slate-600">
-            Setup and monthly software fees are shown transparently. Meta messaging
-            charges and taxes apply.
+            Setup and monthly software fees are shown transparently. Meta
+            messaging charges and taxes apply.
           </p>
 
           {/* Billing Cycle Toggle */}
@@ -175,7 +177,7 @@ export function LandingPricingSection() {
                 className={`relative flex flex-col justify-between rounded-3xl p-7 transition-all duration-300 ${
                   recommended
                     ? 'scale-[1.03] border-2 border-[#25D366] bg-[#110E3D] text-white shadow-2xl shadow-[#25D366]/20'
-                    : 'border border-slate-200/80 bg-white text-slate-900 shadow-sm hover:shadow-xl hover:border-emerald-300'
+                    : 'border border-slate-200/80 bg-white text-slate-900 shadow-sm hover:border-emerald-300 hover:shadow-xl'
                 }`}
               >
                 {recommended && (
