@@ -95,6 +95,7 @@ export default function FollowupsPage() {
 
   const PRESET_TYPES = useMemo(() => {
     switch (currentIndustry) {
+      case 'real_estate':
       case 'real-estate':
         return [
           'Property Inquiry Follow-up',
@@ -114,6 +115,7 @@ export default function FollowupsPage() {
           'General Follow-up',
         ];
       case 'coaching':
+      case 'solo_teacher':
       case 'solo-teacher':
         return [
           'Assignment Review',

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useWorkspace } from '@/hooks/use-workspace';
+import type { LeadSourceSlice } from '@/lib/dashboard/lead-sources';
 
 const metricCards = [
   {
@@ -69,7 +70,7 @@ const metricCards = [
     key: 'campaigns',
     label: 'CAMPAIGNS',
     filter: 'Broadcasts',
-    href: '/campaigns',
+    href: '/broadcasts',
     tone: 'purple',
     icon: Megaphone,
     keys: ['campaigns_total'],
@@ -134,6 +135,14 @@ const METRIC_CARD_HEIGHT = 'min-h-[148px] overflow-hidden';
  */
 const METRIC_VALUE_PADDING = 'pr-20';
 
+const LEAD_SOURCE_DOTS = ['#3b82f6', '#22c55e', '#f97316'] as const;
+
+const EMPTY_LEAD_SOURCES: LeadSourceSlice[] = [
+  { key: 'whatsapp', label: 'WhatsApp', count: 0, percent: 0 },
+  { key: 'facebook', label: 'Facebook', count: 0, percent: 0 },
+  { key: 'import', label: 'Import', count: 0, percent: 0 },
+];
+
 function getMetric(metrics: Record<string, number>, keys: readonly string[]) {
   for (const key of keys)
     if (typeof metrics[key] === 'number') return metrics[key];
@@ -155,11 +164,22 @@ function FilterPill({ children }: { children: ReactNode }) {
   );
 }
 
+interface UpcomingFollowup {
+  id: string;
+  followup_type?: string;
+  due_date?: string;
+  patient?: { name?: string | null } | null;
+}
+
 export function GenericDashboardClient() {
   const { terminology } = useWorkspace();
   const { account, accountId, profile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState<Record<string, number>>({});
+  const [upcomingFollowups, setUpcomingFollowups] = useState<
+    UpcomingFollowup[]
+  >([]);
+  const [leadSources, setLeadSources] = useState<LeadSourceSlice[]>([]);
   const [range, setRange] = useState('30d');
   const userName =
     profile?.full_name?.split(' ')[0] || account?.name || 'susanta';
@@ -174,13 +194,26 @@ export function GenericDashboardClient() {
     })
       .then(async (res) => {
         const data = await res.json();
-        if (!cancelled && res.ok && data.success)
+        if (!cancelled && res.ok && data.success) {
           setMetrics(data.metrics || {});
+          setLeadSources(
+            Array.isArray(data.lead_sources) ? data.lead_sources : []
+          );
+        }
       })
       .catch((error) => console.error('Metrics fetch error:', error))
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+    fetch('/api/followups?status=upcoming')
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        if (!cancelled && res.ok)
+          setUpcomingFollowups(
+            Array.isArray(data.followups) ? data.followups.slice(0, 5) : []
+          );
+      })
+      .catch((error) => console.error('Follow-up fetch error:', error));
     return () => {
       cancelled = true;
     };
@@ -313,10 +346,16 @@ export function GenericDashboardClient() {
               {[
                 {
                   label: `New ${terminology.pipelineItems}`,
-                  val: totalPipeline,
+                  val: getMetric(metrics, ['leads_new', 'leads_total']),
                 },
-                { label: 'Contacted / Assigned', val: 0 },
-                { label: 'Qualified / Won', val: 0 },
+                {
+                  label: 'Contacted / Assigned',
+                  val: getMetric(metrics, ['leads_contacted']),
+                },
+                {
+                  label: 'Qualified / Won',
+                  val: getMetric(metrics, ['leads_converted']),
+                },
               ].map((row) => (
                 <div key={row.label} className="flex items-center gap-3">
                   <span className="w-[96px] shrink-0 text-[12px] leading-4 font-medium text-slate-600">
@@ -339,7 +378,7 @@ export function GenericDashboardClient() {
             <div className="border-t border-slate-100 pt-3 text-right text-[12px] font-semibold text-slate-500">
               Total {terminology.pipelineItems}:{' '}
               <span className="font-extrabold text-[#0f172a]">
-                {totalPipeline || 1}
+                {totalPipeline}
               </span>
             </div>
           </div>
@@ -362,21 +401,23 @@ export function GenericDashboardClient() {
               </span>
             </div>
             <div className="grid grid-cols-2 gap-y-3 px-1 text-xs font-medium text-slate-600">
-              <div className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-[#3b82f6]" />
-                <span>WhatsApp</span>
-                <strong className="ml-auto font-bold text-[#0f172a]">0%</strong>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-[#22c55e]" />
-                <span>Facebook</span>
-                <strong className="ml-auto font-bold text-[#0f172a]">0%</strong>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-full bg-[#f97316]" />
-                <span>Import</span>
-                <strong className="ml-auto font-bold text-[#0f172a]">0%</strong>
-              </div>
+              {(leadSources.length > 0 ? leadSources : EMPTY_LEAD_SOURCES).map(
+                (source, index) => (
+                  <div key={source.key} className="flex items-center gap-2">
+                    <span
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{
+                        backgroundColor:
+                          LEAD_SOURCE_DOTS[index % LEAD_SOURCE_DOTS.length],
+                      }}
+                    />
+                    <span>{source.label}</span>
+                    <strong className="ml-auto font-bold text-[#0f172a]">
+                      {source.percent}%
+                    </strong>
+                  </div>
+                )
+              )}
             </div>
           </div>
         </div>
@@ -399,17 +440,43 @@ export function GenericDashboardClient() {
               </Link>
             </div>
           </div>
-          <div className="flex flex-1 flex-col items-center justify-center px-4 text-center">
-            <div className="relative mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 shadow-[0_2px_5px_rgba(15,23,42,0.04)]">
-              <Calendar className="h-8 w-8 text-slate-400" />
-              <div className="absolute -right-1.5 -bottom-1.5 rounded-full bg-white p-0.5 shadow-sm">
-                <CheckCircle2 className="h-5 w-5 fill-[#10b981] text-white" />
+          {upcomingFollowups.length === 0 ? (
+            <div className="flex flex-1 flex-col items-center justify-center px-4 text-center">
+              <div className="relative mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 shadow-[0_2px_5px_rgba(15,23,42,0.04)]">
+                <Calendar className="h-8 w-8 text-slate-400" />
+                <div className="absolute -right-1.5 -bottom-1.5 rounded-full bg-white p-0.5 shadow-sm">
+                  <CheckCircle2 className="h-5 w-5 fill-[#10b981] text-white" />
+                </div>
               </div>
+              <p className="max-w-[245px] text-[13px] leading-relaxed font-medium text-slate-500">
+                No upcoming call or meeting follow-ups for this period
+              </p>
             </div>
-            <p className="max-w-[245px] text-[13px] leading-relaxed font-medium text-slate-500">
-              No upcoming call or meeting follow-ups for this period
-            </p>
-          </div>
+          ) : (
+            <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-5 py-4">
+              {upcomingFollowups.map((followup) => (
+                <Link
+                  key={followup.id}
+                  href="/follow-ups"
+                  className="flex items-start justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2.5 hover:border-slate-200"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-[13px] font-semibold text-[#0f172a]">
+                      {followup.patient?.name || terminology.person}
+                    </p>
+                    <p className="truncate text-[12px] text-slate-500">
+                      {followup.followup_type || terminology.followUp}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-[11px] font-semibold text-slate-500">
+                    {followup.due_date
+                      ? new Date(followup.due_date).toLocaleDateString()
+                      : ''}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
