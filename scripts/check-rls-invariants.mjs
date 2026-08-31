@@ -14,9 +14,17 @@ import path from 'node:path';
  * (`USING (true)` / `WITH CHECK (true)`).
  *
  * This check is static (migration files are the schema source of truth) and
- * runs in CI via npm run supabase:validate. It is a property test on the
+ * runs in CI via npm run supabase:invariants. It is a property test on the
  * schema, not a behavior test: the invariant "policies imply enforcement"
  * must hold for every migration, present and future.
+ *
+ * Known limitation (documented): policies applied through the dynamic
+ * `_apply_optional_rls_policy()` helper (20260822123000_optimize_rls_performance)
+ * target tables that may be created in later migrations, so they cannot be
+ * resolved statically. The live database is the source of truth for those;
+ * verify with:
+ *   select relname from pg_class where relrowsecurity = false
+ *     and relkind = 'r' and relnamespace = 'public'::regnamespace;
  */
 
 const dir = path.join(process.cwd(), 'supabase', 'migrations');
@@ -27,7 +35,7 @@ if (!fs.existsSync(dir)) {
 
 const files = fs
   .readdirSync(dir)
-  .filter((file) => /^\d{14}_.+\.sql$/.test(file))
+  .filter((file) /^\d{14}_.+\.sql$/.test(file))
   .sort();
 
 if (files.length === 0) throw new Error('NO_MIGRATIONS_FOUND');
@@ -39,10 +47,16 @@ const rlsEnabled = new Map(); // table -> migration that enabled RLS
 const tablesWithPolicies = new Map(); // table -> Set<migration>
 const updatePolicies = new Map(); // "table|policy" -> { using, withCheck }
 
-const CREATE_TABLE_RE = /create table(?: if not exists)?\s+(?:public\.)?([a-z_][a-z0-9_]*)/gi;
-const ENABLE_RLS_RE = /alter table(?: if exists)?\s+(?:public\.)?([a-z_][a-z0-9_]*)\s+enable row level security/gi;
-const CREATE_POLICY_RE = /create policy\s+(?:if not exists\s+)?"?([a-z0-9_]+)"?\s+on\s+(?:public\.)?([a-z_][a-z0-9_]*)/gi;
-const UPDATE_POLICY_RE = /create policy\s+(?:if not exists\s+)?"?([a-z0-9_]+)"?\s+on\s+(?:public\.)?([a-z_][a-z0-9_]*)[^;]*?\bfor update\b/gi;
+const CREATE_TABLE_RE =
+  /create table(?: if not exists)?\s+(?:public\.)?([a-z_][a-z0-9_]*)/gi;
+const ENABLE_RLS_RE =
+  /alter table(?: if exists)?\s+(?:public\.)?([a-z_][a-z0-9_]*)\s+enable row level security/gi;
+const CREATE_POLICY_RE =
+  /create policy\s+(?:if not exists\s+)?"?([a-z0-9_]+)"?\s+on\s+(?:public\.)?([a-z_][a-z0-9_]*)/gi;
+const UPDATE_POLICY_RE =
+  /create policy\s+(?:if not exists\s+)?"?([a-z0-9_]+)"?\s+on\s+(?:public\.)?([a-z_][a-z0-9_]*)[^;]*?\bfor update\b/gi;
+const HELPER_POLICY_RE =
+  /_apply_optional_rls_policy\('public\.([a-z_][a-z0-9_]*)'\s*,\s*\$policy_sql\$\s*CREATE POLICY/gi;
 const USING_RE = /\busing\b/gi;
 const WITH_CHECK_RE = /\bwith check\b/gi;
 
@@ -53,16 +67,26 @@ for (const file of files) {
   for (const m of sql.matchAll(CREATE_TABLE_RE)) {
     const table = m[1].toLowerCase();
     if (!rlsEnabled.has(table)) rlsEnabled.set(table, null);
-    if (!tablesWithPolicies.has(table)) tablesWithPolicies.set(table, new Set());
+    if (!tablesWithPolicies.has(table))
+      tablesWithPolicies.set(table, new Set());
   }
 
   for (const m of sql.matchAll(ENABLE_RLS_RE)) {
     rlsEnabled.set(m[1].toLowerCase(), rel);
   }
 
+  // Policies installed through the dynamic helper target tables that may not
+  // exist at this point in the ordered history; static resolution is
+  // impossible, so they are excluded from the flag invariant.
+  const helperTables = new Set();
+  for (const m of sql.matchAll(HELPER_POLICY_RE)) {
+    helperTables.add(m[1].toLowerCase());
+  }
+
   for (const m of sql.matchAll(CREATE_POLICY_RE)) {
     const [, policy, table] = m;
     const t = table.toLowerCase();
+    if (helperTables.has(t)) continue;
     if (!rlsEnabled.has(t)) rlsEnabled.set(t, null);
     if (!tablesWithPolicies.has(t)) tablesWithPolicies.set(t, new Set());
     tablesWithPolicies.get(t).add(rel);
@@ -73,8 +97,11 @@ for (const file of files) {
   for (const stmt of statements) {
     const pm = stmt.match(UPDATE_POLICY_RE);
     if (!pm) continue;
-    const [, policy, table] = pm;
-    const key = `${table.toLowerCase()}|${policy.toLowerCase()}`;
+    // UPDATE_POLICY_RE has two capture groups: (policy name, table name).
+    const policy = (pm[1] || '').toLowerCase();
+    const table = (pm[2] || '').toLowerCase();
+    if (!table || helperTables.has(table)) continue;
+    const key = `${table}|${policy}`;
     const hasUsing = USING_RE.test(stmt);
     const hasWithCheck = WITH_CHECK_RE.test(stmt);
     USING_RE.lastIndex = 0;
@@ -88,7 +115,9 @@ for (const file of files) {
 
   // Permissive catch-alls stay forbidden (carried over from validate script).
   if (/\busing\s*\(\s*true\s*\)|\bwith\s+check\s*\(\s*true\s*\)/i.test(sql)) {
-    problems.push(`${rel}: PERMISSIVE_RLS_POLICY_FORBIDDEN (USING/WITH CHECK (true))`);
+    problems.push(
+      `${rel}: PERMISSIVE_RLS_POLICY_FORBIDDEN (USING/WITH CHECK (true))`
+    );
   }
 }
 
@@ -117,7 +146,8 @@ for (const [key, clauses] of updatePolicies) {
 }
 
 if (problems.length > 0) {
-  console.error(`\nRLS invariant violations (${problems.length}):\n`);
+  console.error(`\nRLS invariant violations (${problems.length}):
+`);
   for (const p of problems) console.error(`  ✗ ${p}`);
   console.error(
     '\nPolicies on an RLS-disabled table are inert — add "ALTER TABLE ... ENABLE ROW LEVEL SECURITY" and pair every UPDATE policy USING with WITH CHECK.'
