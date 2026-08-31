@@ -12,8 +12,30 @@ const { getCurrentAccount, mockSupabaseFrom, syncGroupNames } = vi.hoisted(
   })
 );
 
+/**
+ * Mirrors production `hasMinRole` (viewer=1, agent=2, admin=3, owner=4)
+ * so route-level `requireRole('agent')` guards behave realistically.
+ */
+function mockRequireRole(min: string) {
+  const rank: Record<string, number> = {
+    viewer: 1,
+    agent: 2,
+    admin: 3,
+    owner: 4,
+  };
+  return getCurrentAccount().then((ctx: { role?: string }) => {
+    if (!ctx.role || (rank[ctx.role] ?? 0) < (rank[min] ?? 0)) {
+      throw new ForbiddenError(
+        `This action requires the '${min}' role or higher`
+      );
+    }
+    return ctx;
+  });
+}
+
 vi.mock('@/lib/auth/account', () => ({
   getCurrentAccount,
+  requireRole: (min: string) => mockRequireRole(min),
   UnauthorizedError: class UnauthorizedError extends Error {
     readonly status = 401 as const;
   },
@@ -692,6 +714,27 @@ describe('Inbox API & Tenant Isolation Tests', () => {
   });
 
   describe('PATCH /api/inbox/conversations/[id]', () => {
+    it('rejects viewers with 403 (mutations require agent or higher)', async () => {
+      getCurrentAccount.mockResolvedValue({
+        accountId: 'tenant-a',
+        userId: 'user-a',
+        role: 'viewer',
+      });
+
+      const res = await patchConversation(
+        createRequest(
+          'http://localhost/api/inbox/conversations/conv-a',
+          'PATCH',
+          { status: 'closed' }
+        ),
+        { params: Promise.resolve({ id: 'conv-a' }) }
+      );
+
+      expect(res.status).toBe(403);
+      const json = await res.json();
+      expect(json.error).toBe('Forbidden');
+    });
+
     it('rejects cross-tenant updates with 404', async () => {
       const mockConvQuery = {
         update: vi.fn().mockReturnThis(),

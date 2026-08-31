@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   getCurrentAccount,
+  requireRole,
   UnauthorizedError,
   ForbiddenError,
 } from '@/lib/auth/account';
@@ -135,6 +136,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
         .from('contacts')
         .select('*')
         .eq('id', cId)
+        .eq('account_id', accountId)
         .maybeSingle();
       if (cDoc) {
         const identity = await syncEvolutionGroupNamesForInbox(accountId, [
@@ -201,7 +203,9 @@ export async function GET(_request: NextRequest, { params }: Params) {
 export async function PATCH(request: NextRequest, { params }: Params) {
   try {
     const { id: conversationId } = await params;
-    const ctx = await getCurrentAccount();
+    // Mutations require agent or higher: viewers can read the inbox but
+    // cannot close conversations, reset unread counts, or reassign chats.
+    const ctx = await requireRole('agent');
     const accountId = ctx.accountId;
 
     if (!accountId) {

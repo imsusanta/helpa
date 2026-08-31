@@ -46,8 +46,9 @@ export function LandingIndustrySolutions() {
             From first message to next action
           </h2>
           <p className="mt-3 text-base text-slate-600">
-            One connected workflow for teams that use WhatsApp to answer customers,
-            capture leads, automate routine work, and keep follow-ups organized.
+            One connected workflow for teams that use WhatsApp to answer
+            customers, capture leads, automate routine work, and keep follow-ups
+            organized.
           </p>
         </div>
 
