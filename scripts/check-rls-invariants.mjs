@@ -84,7 +84,7 @@ for (const file of files) {
   }
 
   for (const m of sql.matchAll(CREATE_POLICY_RE)) {
-    const [, policy, table] = m;
+    const [, , table] = m;
     const t = table.toLowerCase();
     if (helperTables.has(t)) continue;
     if (!rlsEnabled.has(t)) rlsEnabled.set(t, null);
