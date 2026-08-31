@@ -142,12 +142,13 @@ vi.mock('@/lib/db/server', () => ({
                 ''
             );
             const found = dbState.existingByProviderId.get(providerId);
+            const filterAccount = filters.account_id || filters.accountId;
+            const foundAccount = found?.account_id || found?.accountId;
             if (
               found &&
-              filters.account_id &&
-              (found.account_id || found.accountId) &&
-              String(found.account_id || found.accountId) !==
-                String(filters.account_id)
+              filterAccount &&
+              foundAccount &&
+              String(foundAccount) !== String(filterAccount)
             ) {
               return Promise.resolve({ data: [], error: null }).then(
                 resolve,
