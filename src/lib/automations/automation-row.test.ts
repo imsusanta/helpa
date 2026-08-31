@@ -1,15 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import {
-  automationAuthorId,
-  insertAutomationRow,
-} from './automation-row';
+import { automationAuthorId, insertAutomationRow } from './automation-row';
 
 describe('automationAuthorId', () => {
   it('prefers user_id, then created_by, then fallback', () => {
-    expect(
-      automationAuthorId({ user_id: 'u1', created_by: 'c1' }, 'f1')
-    ).toBe('u1');
+    expect(automationAuthorId({ user_id: 'u1', created_by: 'c1' }, 'f1')).toBe(
+      'u1'
+    );
     expect(automationAuthorId({ created_by: 'c1' }, 'f1')).toBe('c1');
     expect(automationAuthorId({}, 'f1')).toBe('f1');
     expect(automationAuthorId({})).toBeNull();
