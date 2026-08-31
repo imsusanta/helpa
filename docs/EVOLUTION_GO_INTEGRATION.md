@@ -105,6 +105,20 @@ All server-only. Never use a `NEXT_PUBLIC_` prefix.
 `WHATSAPP_TOKEN_ENCRYPTION_KEY` (or `ENCRYPTION_KEY`) encrypts the
 tenant instance token with AES-256-GCM before persistence.
 
+## Database
+
+Apply this additive migration on the Helpa Supabase project **before**
+the first QR connect (Dashboard → SQL Editor, or
+`npm run supabase:migrate`):
+
+`supabase/migrations/20260828010000_evolution_go_whatsapp_provider.sql`
+
+It adds `provider_instance_id`, `provider_instance_name`,
+`provider_token_encrypted`, `connection_status`, and `webhook_secret_hash`
+to `whatsapp_configs`. Existing Meta rows stay unchanged. If those
+columns are missing, QR connect now fails with that file path instead of
+saving a half-written config.
+
 ## License activation
 
 Evolution Go requires a license. v0.7.2 can auto-activate when

@@ -95,10 +95,16 @@ export async function runEvolutionGoPreflight(options = {}) {
     throw new Error('EVOLUTION_GO_BASE_URL must use HTTPS in production.');
   }
 
+  let webhookParsed;
   try {
-    new URL(webhookBaseUrl);
+    webhookParsed = new URL(webhookBaseUrl);
   } catch {
     throw new Error('EVOLUTION_GO_WEBHOOK_BASE_URL is not a valid URL.');
+  }
+  if (env.NODE_ENV === 'production' && webhookParsed.protocol !== 'https:') {
+    throw new Error(
+      'EVOLUTION_GO_WEBHOOK_BASE_URL must use HTTPS in production.'
+    );
   }
 
   const healthUrl = `${baseUrl}/server/ok`;
