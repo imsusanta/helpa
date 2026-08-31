@@ -11,15 +11,21 @@
 -- the table-level flag is the actual security boundary for them.
 --
 -- message_reactions: policies created in 20260822123000 but the
---   ENABLE statement was never issued in any migration.
+--   ENABLE statement was never issued in any migration. Enabling
+--   the flag is safe even on fresh stacks where the table does
+--   not exist yet — IF EXISTS keeps this migration idempotent and
+--   order-tolerant (the table may be created by a later migration
+--   in some environments, e.g. 20260822124500).
 -- message_templates: created out-of-band (not migration-managed);
 --   this migration is idempotent and only enables the flag plus
 --   tenant-isolation policies. The table may not exist in fresh
 --   local stacks, so all statements are guarded.
 -- ─────────────────────────────────────────────────────────────
 
--- message_reactions: enable the flag (policies already exist).
-alter table public.message_reactions enable row level security;
+-- message_reactions: enable the flag (policies already exist where
+-- the table exists). IF EXISTS avoids 42P01 on databases where the
+-- table hasn't been created yet.
+alter table if exists public.message_reactions enable row level security;
 
 -- message_templates: table may not exist in fresh stacks.
 do $$
