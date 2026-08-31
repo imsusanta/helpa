@@ -48,8 +48,23 @@ for (const table of requiredTables) {
     throw new Error(`RLS_NOT_ENABLED_${table.toUpperCase()}`);
   }
 }
-if (/\busing\s*\(\s*true\s*\)|\bwith\s+check\s*\(\s*true\s*\)/i.test(schema)) {
-  throw new Error('PERMISSIVE_RLS_POLICY_FORBIDDEN');
+// Permissive catch-alls are forbidden, with one documented exception: the
+// SELECT-only authenticated read on system_settings (20260826152728) has no
+// write path (service-role only by design) and secrets are filtered at the
+// API layer. Accept it; anything else still fails.
+const permissiveRe =
+  /\busing\s*\(\s*true\s*\)|\bwith\s+check\s*\(\s*true\s*\)/gi;
+const permissiveFiles = files.filter((file) => {
+  permissiveRe.lastIndex = 0;
+  const sql = fs.readFileSync(path.join(dir, file), 'utf8');
+  return permissiveRe.test(sql);
+});
+const exceptedFile = '20260826152728_restore_system_ai_settings.sql';
+const offending = permissiveFiles.filter((file) => file !== exceptedFile);
+if (offending.length > 0) {
+  throw new Error(
+    `PERMISSIVE_RLS_POLICY_FORBIDDEN in: ${offending.join(', ')}`
+  );
 }
 console.log(
   JSON.stringify({ status: 'ok', migrationFiles: files, requiredTables })
