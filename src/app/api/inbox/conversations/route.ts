@@ -6,6 +6,15 @@ import {
 } from '@/lib/auth/account';
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
 import type { Conversation, Contact, ConversationStatus } from '@/types';
+import {
+  isHiddenWhatsAppInboxChat,
+  isWhatsAppCollectiveAddress,
+  whatsappContactDisplayName,
+} from '@/core/whatsapp/group-identity';
+import {
+  overlayInboxWhatsAppIdentity,
+  syncEvolutionGroupNamesForInbox,
+} from '@/core/whatsapp/evolution-group-names';
 
 const CACHE_HEADERS = {
   'Cache-Control': 'private, no-store, no-cache, must-revalidate',
@@ -16,9 +25,19 @@ function normalizeContact(doc: Record<string, unknown>): Contact {
     id: (doc.$id || doc.id) as string,
     account_id: (doc.accountId || doc.account_id) as string,
     user_id: ((doc.userId || doc.user_id) as string) || '',
-    name: (doc.name as string) || 'Unknown Contact',
+    name:
+      whatsappContactDisplayName(doc.name as string, doc.phone as string, '') ||
+      (isWhatsAppCollectiveAddress(doc.phone as string)
+        ? ''
+        : (doc.name as string) || 'Unknown Contact'),
     phone: (doc.phone as string) || '',
     email: (doc.email as string) || undefined,
+    avatar_url:
+      typeof doc.avatar_url === 'string' && doc.avatar_url
+        ? doc.avatar_url
+        : typeof doc.avatarUrl === 'string' && doc.avatarUrl
+          ? doc.avatarUrl
+          : undefined,
     metadata: (doc.metadata as Record<string, unknown>) || undefined,
     created_at:
       ((doc.createdAt || doc.$createdAt || doc.created_at) as string) ||
@@ -96,6 +115,7 @@ export async function GET(request: NextRequest) {
       Math.max(Number(searchParams.get('limit')) || 50, 1),
       100
     );
+    const fetchLimit = Math.min(Math.max(limit * 2, limit + 10), 100);
 
     const supabase = getSupabaseAdminClient();
     let query = supabase
@@ -103,7 +123,7 @@ export async function GET(request: NextRequest) {
       .select('*')
       .eq('account_id', accountId)
       .order('updated_at', { ascending: false })
-      .limit(limit);
+      .limit(fetchLimit);
 
     if (
       statusParam &&
@@ -145,33 +165,47 @@ export async function GET(request: NextRequest) {
         .eq('account_id', accountId)
         .in('id', contactIds);
 
+      const identity = await syncEvolutionGroupNamesForInbox(
+        accountId,
+        contactsData || []
+      );
       if (contactsData) {
         for (const contact of contactsData) {
+          overlayInboxWhatsAppIdentity(contact, identity);
           contactsMap.set(contact.id, normalizeContact(contact));
         }
       }
     }
 
-    const normalized = convs.map((c) => {
-      const cId = (c.contact_id || c.contactId) as string;
-      let contact = cId ? contactsMap.get(cId) : undefined;
-      if (!contact && cId) {
-        contact = {
-          id: cId,
-          account_id: accountId,
-          user_id: '',
-          name:
-            (c.contact_name as string) ||
-            (c.patient_name as string) ||
-            (c.phone as string) ||
-            'Contact',
-          phone: (c.phone as string) || '',
-          created_at: (c.created_at as string) || new Date().toISOString(),
-          updated_at: (c.updated_at as string) || new Date().toISOString(),
-        };
-      }
-      return normalizeConversation(c, contact);
-    });
+    const normalized = convs
+      .map((c) => {
+        const cId = (c.contact_id || c.contactId) as string;
+        let contact = cId ? contactsMap.get(cId) : undefined;
+        if (!contact && cId) {
+          contact = {
+            id: cId,
+            account_id: accountId,
+            user_id: '',
+            name: whatsappContactDisplayName(
+              (c.contact_name as string) || (c.patient_name as string),
+              c.phone as string,
+              'Contact'
+            ),
+            phone: (c.phone as string) || '',
+            created_at: (c.created_at as string) || new Date().toISOString(),
+            updated_at: (c.updated_at as string) || new Date().toISOString(),
+          };
+        }
+        return normalizeConversation(c, contact);
+      })
+      .filter(
+        (conversation) =>
+          !isHiddenWhatsAppInboxChat(
+            conversation.contact?.phone,
+            conversation.contact?.metadata
+          )
+      )
+      .slice(0, limit);
 
     return NextResponse.json(
       { conversations: normalized, total: normalized.length },

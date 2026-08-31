@@ -86,7 +86,7 @@ const SECURITY_HEADERS = [
         ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://connect.facebook.net https://*.facebook.com https://*.facebook.net"
         : "script-src 'self' 'unsafe-inline' https://connect.facebook.net https://*.facebook.com https://*.facebook.net",
       "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https://images.unsplash.com https://*.facebook.com https://*.fbcdn.net https://*.supabase.co",
+      "img-src 'self' data: blob: https://images.unsplash.com https://*.facebook.com https://*.fbcdn.net https://*.supabase.co https://*.whatsapp.net https://lookaside.fbsbx.com",
       "media-src 'self' blob: https://*.supabase.co",
       "font-src 'self' data:",
       `connect-src 'self' https://openrouter.ai https://*.supabase.co wss://*.supabase.co https://*.facebook.com https://*.facebook.net https://graph.facebook.com${
@@ -144,7 +144,7 @@ const nextConfig: NextConfig = {
       },
       {
         source:
-          '/:path(dashboard|inbox|contacts|patients|appointments|bookings|doctors|departments|lab-reports|settings|admin|pipelines|broadcasts|campaign-reports|automations|admissions|agents|billing|classes|courses|customers|follow-ups|knowledge-base|leads|lead-forms|members|memberships|orders|packages|properties|reservations|site-visits|students|tables|teachers|trainers)',
+          '/:path(dashboard|inbox|contacts|patients|appointments|booking-trip|bookings|doctors|departments|lab-reports|settings|admin|pipelines|broadcasts|campaign-reports|automations|admissions|agents|billing|classes|courses|customers|follow-ups|knowledge-base|chatbot|faq-bot|leads|lead-forms|members|memberships|orders|packages|tour-packages|properties|reservations|site-visits|students|tables|teachers|trainers)',
         headers: [
           {
             key: 'Cache-Control',
@@ -154,7 +154,7 @@ const nextConfig: NextConfig = {
       },
       {
         source:
-          '/:path(dashboard|inbox|contacts|patients|appointments|bookings|doctors|departments|lab-reports|settings|admin|pipelines|broadcasts|campaign-reports|automations|admissions|agents|billing|classes|courses|customers|follow-ups|knowledge-base|leads|lead-forms|members|memberships|orders|packages|properties|reservations|site-visits|students|tables|teachers|trainers)/:rest*',
+          '/:path(dashboard|inbox|contacts|patients|appointments|booking-trip|bookings|doctors|departments|lab-reports|settings|admin|pipelines|broadcasts|campaign-reports|automations|admissions|agents|billing|classes|courses|customers|follow-ups|knowledge-base|chatbot|faq-bot|leads|lead-forms|members|memberships|orders|packages|tour-packages|properties|reservations|site-visits|students|tables|teachers|trainers)/:rest*',
         headers: [
           {
             key: 'Cache-Control',

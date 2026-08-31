@@ -1,11 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   getCurrentAccount,
+  requireRole,
   UnauthorizedError,
   ForbiddenError,
 } from '@/lib/auth/account';
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
 import type { Conversation, Contact, ConversationStatus } from '@/types';
+import {
+  isHiddenWhatsAppInboxChat,
+  isWhatsAppCollectiveAddress,
+  whatsappContactDisplayName,
+} from '@/core/whatsapp/group-identity';
+import {
+  overlayInboxWhatsAppIdentity,
+  syncEvolutionGroupNamesForInbox,
+} from '@/core/whatsapp/evolution-group-names';
 
 const CACHE_HEADERS = {
   'Cache-Control': 'private, no-store, no-cache, must-revalidate',
@@ -16,9 +26,19 @@ function normalizeContact(doc: Record<string, unknown>): Contact {
     id: (doc.$id || doc.id) as string,
     account_id: (doc.accountId || doc.account_id) as string,
     user_id: ((doc.userId || doc.user_id) as string) || '',
-    name: (doc.name as string) || 'Unknown Contact',
+    name:
+      whatsappContactDisplayName(doc.name as string, doc.phone as string, '') ||
+      (isWhatsAppCollectiveAddress(doc.phone as string)
+        ? ''
+        : (doc.name as string) || 'Unknown Contact'),
     phone: (doc.phone as string) || '',
     email: (doc.email as string) || undefined,
+    avatar_url:
+      typeof doc.avatar_url === 'string' && doc.avatar_url
+        ? doc.avatar_url
+        : typeof doc.avatarUrl === 'string' && doc.avatarUrl
+          ? doc.avatarUrl
+          : undefined,
     metadata: (doc.metadata as Record<string, unknown>) || undefined,
     created_at:
       ((doc.createdAt || doc.$createdAt || doc.created_at) as string) ||
@@ -116,19 +136,30 @@ export async function GET(_request: NextRequest, { params }: Params) {
         .from('contacts')
         .select('*')
         .eq('id', cId)
+        .eq('account_id', accountId)
         .maybeSingle();
       if (cDoc) {
+        const identity = await syncEvolutionGroupNamesForInbox(accountId, [
+          cDoc,
+        ]);
+        overlayInboxWhatsAppIdentity(cDoc, identity);
         contact = normalizeContact(cDoc);
+        if (isHiddenWhatsAppInboxChat(contact.phone, contact.metadata)) {
+          return NextResponse.json(
+            { error: 'Conversation not found' },
+            { status: 404, headers: CACHE_HEADERS }
+          );
+        }
       } else {
         contact = {
           id: cId,
           account_id: accountId,
           user_id: '',
-          name:
-            (conv.contact_name as string) ||
-            (conv.patient_name as string) ||
-            (conv.phone as string) ||
-            'Contact',
+          name: whatsappContactDisplayName(
+            (conv.contact_name as string) || (conv.patient_name as string),
+            conv.phone as string,
+            'Contact'
+          ),
           phone: (conv.phone as string) || '',
           created_at: (conv.created_at as string) || new Date().toISOString(),
           updated_at: (conv.updated_at as string) || new Date().toISOString(),
@@ -172,7 +203,9 @@ export async function GET(_request: NextRequest, { params }: Params) {
 export async function PATCH(request: NextRequest, { params }: Params) {
   try {
     const { id: conversationId } = await params;
-    const ctx = await getCurrentAccount();
+    // Mutations require agent or higher: viewers can read the inbox but
+    // cannot close conversations, reset unread counts, or reassign chats.
+    const ctx = await requireRole('agent');
     const accountId = ctx.accountId;
 
     if (!accountId) {

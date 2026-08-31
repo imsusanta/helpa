@@ -79,6 +79,9 @@ export const EVOLUTION_GO_SUBSCRIBE_EVENTS = [
   'CONNECTION',
   'READ_RECEIPT',
   'QRCODE',
+  'GROUP',
+  'NEWSLETTER',
+  'CONTACT',
 ] as const;
 
 export interface EvolutionGoCreateInstanceInput {
@@ -137,6 +140,24 @@ export interface EvolutionGoSendMediaInput {
   filename?: string;
 }
 
+export interface EvolutionGoSendButtonInput {
+  number: string;
+  title: string;
+  description: string;
+  footer?: string;
+  buttons: Array<{ id: string; title: string }>;
+}
+
+export type EvolutionGoListedChat = {
+  jid: string;
+  name: string;
+  avatar?: string;
+};
+
+export type EvolutionGoListedContact = EvolutionGoListedChat & {
+  saved: boolean;
+};
+
 type AuthMode = 'admin' | 'instance';
 
 interface RequestOptions {
@@ -157,6 +178,120 @@ function asString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+const MAX_AVATAR_CHARS = 80_000;
+
+function looksLikeBase64Image(value: string): boolean {
+  if (
+    value.startsWith('/9j/') ||
+    value.startsWith('iVBOR') ||
+    value.startsWith('R0lGOD') ||
+    value.startsWith('UklGR')
+  ) {
+    return true;
+  }
+  return (
+    value.length >= 200 &&
+    /^[A-Za-z0-9+/=\s]+$/.test(value) &&
+    !value.includes('://')
+  );
+}
+
+const AVATAR_OBJECT_KEYS = [
+  'url',
+  'URL',
+  'Url',
+  'text',
+  'preview',
+  'picture',
+  'avatar',
+  'image',
+] as const;
+
+/** URL, data-URL, or raw base64 from Evolution / WhatsApp picture fields. */
+export function normalizeEvolutionGoAvatarValue(value: unknown): string {
+  if (typeof value === 'string') {
+    const raw = value.trim();
+    if (!raw || raw.length > MAX_AVATAR_CHARS) return '';
+    if (/^data:image\/[a-zA-Z0-9.+-]+;base64,/i.test(raw)) return raw;
+    if (/^https?:\/\//i.test(raw)) return raw;
+    if (looksLikeBase64Image(raw.replace(/\s+/g, ''))) {
+      return `data:image/jpeg;base64,${raw.replace(/\s+/g, '')}`;
+    }
+    return '';
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return '';
+  const row = value as Record<string, unknown>;
+  for (const key of AVATAR_OBJECT_KEYS) {
+    const nested = row[key];
+    if (nested === undefined || nested === value) continue;
+    const parsed = normalizeEvolutionGoAvatarValue(nested);
+    if (parsed) return parsed;
+  }
+  return '';
+}
+
+function listedChatPicture(row: Record<string, unknown>): string {
+  return (
+    normalizeEvolutionGoAvatarValue(row.Picture) ||
+    normalizeEvolutionGoAvatarValue(row.picture) ||
+    normalizeEvolutionGoAvatarValue(row.ProfilePicUrl) ||
+    normalizeEvolutionGoAvatarValue(row.profilePicUrl) ||
+    normalizeEvolutionGoAvatarValue(row.profilePictureUrl) ||
+    normalizeEvolutionGoAvatarValue(row.ProfilePictureUrl) ||
+    normalizeEvolutionGoAvatarValue(row.GroupPicture) ||
+    normalizeEvolutionGoAvatarValue(row.avatar) ||
+    normalizeEvolutionGoAvatarValue(row.PictureURL) ||
+    normalizeEvolutionGoAvatarValue(row.pictureUrl)
+  );
+}
+
+export function parseEvolutionGoAvatar(payload: unknown): string {
+  const root = asRecord(payload);
+  const envelope = dataEnvelope(root);
+  return (
+    normalizeEvolutionGoAvatarValue(root.avatar) ||
+    normalizeEvolutionGoAvatarValue(root.url) ||
+    normalizeEvolutionGoAvatarValue(root.picture) ||
+    normalizeEvolutionGoAvatarValue(root.image) ||
+    normalizeEvolutionGoAvatarValue(root.profilePictureUrl) ||
+    normalizeEvolutionGoAvatarValue(envelope.avatar) ||
+    normalizeEvolutionGoAvatarValue(envelope.url) ||
+    normalizeEvolutionGoAvatarValue(envelope.picture) ||
+    normalizeEvolutionGoAvatarValue(envelope.image) ||
+    normalizeEvolutionGoAvatarValue(envelope.profilePictureUrl)
+  );
+}
+
+/** whatsmeow JID is a string when MarshalText is honored, otherwise {User,Server}. */
+export function evolutionGoJid(value: unknown): string {
+  if (typeof value === 'string') return value.trim();
+  const row = asRecord(value);
+  const user = asString(row.User || row.user);
+  const server = asString(row.Server || row.server);
+  if (user && server) return `${user}@${server}`;
+  return asString(row.JID || row.jid || row.id || row.User);
+}
+
+/** WhatsApp group subject from a whatsmeow GroupInfo payload. */
+export function evolutionGoGroupSubject(value: unknown): string {
+  if (typeof value === 'string') return value.trim();
+  const row = asRecord(value);
+  const nested = asRecord(
+    row.Name ?? row.name ?? row.GroupName ?? row.groupName
+  );
+  return (
+    asString(row.Name) ||
+    asString(row.name) ||
+    asString(row.Subject) ||
+    asString(row.subject) ||
+    asString(row.GroupName) ||
+    asString(row.groupName) ||
+    asString(nested.Name) ||
+    asString(nested.name) ||
+    asString(nested.Subject)
+  );
+}
+
 function sanitizeErrorText(text: string): string {
   return text
     .replace(/apikey["']?\s*[:=]\s*["']?[^"'\\s]+/gi, 'apikey=[redacted]')
@@ -166,6 +301,37 @@ function sanitizeErrorText(text: string): string {
     )
     .replace(/token["']?\s*[:=]\s*["']?[^"'\\s]{8,}/gi, 'token=[redacted]')
     .slice(0, 300);
+}
+
+function payloadRows(payload: unknown, ...keys: string[]): unknown[] {
+  const root = asRecord(payload);
+  const envelope = dataEnvelope(root);
+  const candidates = [envelope.data, root.data, payload];
+  for (const key of keys) {
+    candidates.push(envelope[key], root[key]);
+  }
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) return candidate;
+    if (
+      candidate &&
+      typeof candidate === 'object' &&
+      !Array.isArray(candidate)
+    ) {
+      const values = Object.values(candidate as Record<string, unknown>);
+      if (
+        values.length > 0 &&
+        values.every((value) => value && typeof value === 'object')
+      ) {
+        return values.map((value, index) => {
+          const row = asRecord(value);
+          if (row.Jid || row.jid || row.JID || row.id) return row;
+          const key = Object.keys(candidate as Record<string, unknown>)[index];
+          return { ...row, Jid: row.Jid || key };
+        });
+      }
+    }
+  }
+  return [];
 }
 
 function dataEnvelope(
@@ -367,21 +533,25 @@ async function evolutionGoRequest(
   }
 }
 
-export async function getAllEvolutionGoInstances(): Promise<EvolutionGoInstance[]> {
+export async function getAllEvolutionGoInstances(): Promise<
+  EvolutionGoInstance[]
+> {
   const payload = await evolutionGoRequest({
     method: 'GET',
     path: '/instance/all',
     auth: 'admin',
   });
   const data = Array.isArray((payload as { data?: unknown })?.data)
-    ? ((payload as { data: unknown[] }).data)
+    ? (payload as { data: unknown[] }).data
     : Array.isArray(payload)
       ? payload
       : [];
   return data.map((item: unknown) => parseEvolutionGoInstance(item));
 }
 
-export async function deleteEvolutionGoInstanceByName(name: string): Promise<void> {
+export async function deleteEvolutionGoInstanceByName(
+  name: string
+): Promise<void> {
   try {
     const all = await getAllEvolutionGoInstances();
     const match = all.find((inst) => inst.name === name);
@@ -536,6 +706,235 @@ export async function getEvolutionGoInstanceInfo(
   return parseEvolutionGoInstance(payload);
 }
 
+export function parseEvolutionGoGroups(
+  payload: unknown
+): EvolutionGoListedChat[] {
+  const root = asRecord(payload);
+  const envelope = dataEnvelope(root);
+  const raw = Array.isArray(envelope.data)
+    ? envelope.data
+    : Array.isArray(envelope.groups)
+      ? envelope.groups
+      : Array.isArray(envelope.Groups)
+        ? envelope.Groups
+        : Array.isArray(root.data)
+          ? root.data
+          : Array.isArray(root.groups)
+            ? root.groups
+            : Array.isArray(payload)
+              ? payload
+              : [];
+  const groups: EvolutionGoListedChat[] = [];
+  for (const item of raw) {
+    const row = asRecord(item);
+    const jid = evolutionGoJid(
+      row.JID || row.jid || row.groupJid || row.groupJID || row.id
+    );
+    const name = evolutionGoGroupSubject(row);
+    if (!jid) continue;
+    const lower = jid.toLowerCase();
+    if (lower.endsWith('@newsletter') || lower.endsWith('@broadcast')) {
+      continue;
+    }
+    const avatar = listedChatPicture(row);
+    groups.push(avatar ? { jid, name, avatar } : { jid, name });
+  }
+  return groups;
+}
+
+export function mergeEvolutionGoGroups(
+  ...lists: Array<EvolutionGoListedChat[]>
+): EvolutionGoListedChat[] {
+  const byKey = new Map<string, EvolutionGoListedChat>();
+  for (const list of lists) {
+    for (const group of list) {
+      if (!group.jid) continue;
+      const key =
+        group.jid.replace(/@.*$/i, '').replace(/\D/g, '') || group.jid;
+      const existing = byKey.get(key);
+      if (!existing) {
+        byKey.set(key, {
+          jid: group.jid,
+          name: group.name || '',
+          ...(group.avatar ? { avatar: group.avatar } : {}),
+        });
+        continue;
+      }
+      const avatar = existing.avatar || group.avatar;
+      byKey.set(key, {
+        jid: existing.jid.toLowerCase().includes('@g.us')
+          ? existing.jid
+          : group.jid,
+        name: existing.name || group.name || '',
+        ...(avatar ? { avatar } : {}),
+      });
+    }
+  }
+  return Array.from(byKey.values());
+}
+
+export async function listEvolutionGoGroups(
+  instanceToken: string
+): Promise<EvolutionGoListedChat[]> {
+  const results = await Promise.allSettled([
+    evolutionGoRequest({
+      method: 'GET',
+      path: '/group/list',
+      auth: 'instance',
+      instanceToken,
+    }),
+    evolutionGoRequest({
+      method: 'GET',
+      path: '/group/myall',
+      auth: 'instance',
+      instanceToken,
+    }),
+  ]);
+  const lists = results
+    .filter(
+      (result): result is PromiseFulfilledResult<Record<string, unknown>> =>
+        result.status === 'fulfilled'
+    )
+    .map((result) => parseEvolutionGoGroups(result.value));
+  return mergeEvolutionGoGroups(...lists);
+}
+
+export async function getEvolutionGoGroupInfo(
+  instanceToken: string,
+  groupJid: string
+): Promise<EvolutionGoListedChat> {
+  const payload = await evolutionGoRequest({
+    method: 'POST',
+    path: '/group/info',
+    auth: 'instance',
+    instanceToken,
+    body: { groupJid },
+  });
+  const data = dataEnvelope(payload);
+  const avatar = listedChatPicture(data) || parseEvolutionGoAvatar(payload);
+  return {
+    jid: evolutionGoJid(data.JID || data.jid) || groupJid,
+    name: evolutionGoGroupSubject(data),
+    ...(avatar ? { avatar } : {}),
+  };
+}
+
+export function parseEvolutionGoNewsletters(
+  payload: unknown
+): EvolutionGoListedChat[] {
+  const newsletters: EvolutionGoListedChat[] = [];
+  for (const item of payloadRows(
+    payload,
+    'newsletters',
+    'Newsletters',
+    'subscribed'
+  )) {
+    const row = asRecord(item);
+    const meta = asRecord(
+      row.thread_metadata || row.ThreadMetadata || row.threadMetadata
+    );
+    const nameObj = meta.name ?? meta.Name ?? row.Name ?? row.name;
+    const name =
+      typeof nameObj === 'string'
+        ? nameObj.trim()
+        : asString(
+            asRecord(nameObj).text ||
+              asRecord(nameObj).Name ||
+              asRecord(nameObj).name
+          );
+    const jid = evolutionGoJid(
+      row.id || row.ID || row.JID || row.jid || row.newsletterJid
+    );
+    if (!jid) continue;
+    const avatar =
+      listedChatPicture(meta) ||
+      listedChatPicture(row) ||
+      normalizeEvolutionGoAvatarValue(meta.preview) ||
+      normalizeEvolutionGoAvatarValue(meta.Preview);
+    newsletters.push(avatar ? { jid, name, avatar } : { jid, name });
+  }
+  return newsletters;
+}
+
+export function parseEvolutionGoContacts(
+  payload: unknown
+): EvolutionGoListedContact[] {
+  const contacts: EvolutionGoListedContact[] = [];
+  for (const item of payloadRows(payload, 'contacts', 'Contacts')) {
+    const row = asRecord(item);
+    const jid = evolutionGoJid(
+      row.Jid || row.jid || row.JID || row.id || row.remoteJid
+    );
+    if (!jid || jid.toLowerCase() === 'status@broadcast') continue;
+    const fullName = asString(row.FullName || row.fullName || row.full_name);
+    const firstName = asString(
+      row.FirstName || row.firstName || row.first_name
+    );
+    const business = asString(
+      row.BusinessName || row.businessName || row.business_name
+    );
+    const pushName = asString(row.PushName || row.pushName || row.push_name);
+    const savedName = fullName || firstName || business;
+    const name = savedName || pushName;
+    if (!name) continue;
+    const avatar = listedChatPicture(row);
+    contacts.push({
+      jid,
+      name,
+      saved: Boolean(savedName),
+      ...(avatar ? { avatar } : {}),
+    });
+  }
+  return contacts;
+}
+
+export async function getEvolutionGoAvatar(
+  instanceToken: string,
+  number: string,
+  preview = true
+): Promise<string> {
+  if (!number) return '';
+  try {
+    return parseEvolutionGoAvatar(
+      await evolutionGoRequest({
+        method: 'POST',
+        path: '/user/avatar',
+        auth: 'instance',
+        instanceToken,
+        body: { number, preview },
+      })
+    );
+  } catch {
+    return '';
+  }
+}
+
+export async function listEvolutionGoNewsletters(
+  instanceToken: string
+): Promise<EvolutionGoListedChat[]> {
+  return parseEvolutionGoNewsletters(
+    await evolutionGoRequest({
+      method: 'GET',
+      path: '/newsletter/list',
+      auth: 'instance',
+      instanceToken,
+    })
+  );
+}
+
+export async function listEvolutionGoContacts(
+  instanceToken: string
+): Promise<EvolutionGoListedContact[]> {
+  return parseEvolutionGoContacts(
+    await evolutionGoRequest({
+      method: 'GET',
+      path: '/user/contacts',
+      auth: 'instance',
+      instanceToken,
+    })
+  );
+}
+
 export async function sendEvolutionGoText(
   instanceToken: string,
   input: EvolutionGoSendTextInput
@@ -548,6 +947,31 @@ export async function sendEvolutionGoText(
     body: {
       number: input.number,
       text: input.text,
+      formatJid: true,
+    },
+  });
+  return { externalMessageId: extractSendMessageId(payload) };
+}
+
+export async function sendEvolutionGoButtons(
+  instanceToken: string,
+  input: EvolutionGoSendButtonInput
+): Promise<{ externalMessageId: string }> {
+  const payload = await evolutionGoRequest({
+    method: 'POST',
+    path: '/send/button',
+    auth: 'instance',
+    instanceToken,
+    body: {
+      number: input.number,
+      title: (input.title || 'Booking').slice(0, 60),
+      description: input.description,
+      footer: (input.footer || 'Helpa').slice(0, 60),
+      buttons: input.buttons.slice(0, 3).map((button) => ({
+        type: 'reply',
+        displayText: button.title.slice(0, 20),
+        id: button.id,
+      })),
       formatJid: true,
     },
   });

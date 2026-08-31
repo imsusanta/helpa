@@ -326,6 +326,25 @@ describe('Helpa Core AI Engine', () => {
       );
     });
 
+    it('scopes Tour Package tools exclusively to Travel Workplace', () => {
+      const travelTools = aiToolRegistry.getToolsForIndustry('travel');
+      const healthTools = aiToolRegistry.getToolsForIndustry('health');
+      const coachingTools = aiToolRegistry.getToolsForIndustry('coaching');
+      const names = [
+        'searchTourPackages',
+        'getTourPackage',
+        'getTourPackagePricing',
+        'getTourPackageAvailability',
+        'getTourPackageItinerary',
+      ];
+      for (const name of names) {
+        expect(travelTools.some((tool) => tool.name === name)).toBe(true);
+        expect(healthTools.some((tool) => tool.name === name)).toBe(false);
+        expect(coachingTools.some((tool) => tool.name === name)).toBe(false);
+        expect(aiToolRegistry.get(name)?.type).toBe('read');
+      }
+    });
+
     it('executes createAppointment WRITE tool cleanly with validated parameters', async () => {
       const tool = aiToolRegistry.get('createAppointment');
       expect(tool).toBeDefined();

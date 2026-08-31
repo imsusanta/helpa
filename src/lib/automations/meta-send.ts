@@ -458,6 +458,40 @@ export async function engineSendButtons(
     creds &&
     (creds.providerKind === 'evolution' || creds.providerKind === 'waha')
   ) {
+    if (creds.providerKind === 'evolution' && args.buttons?.length) {
+      try {
+        const outbound = new EvolutionGoProvider({
+          accountId: args.accountId,
+          instanceToken: creds.accessToken,
+        });
+        const result = await outbound.sendButtons(
+          args.accountId,
+          creds.phone,
+          args.bodyText,
+          args.buttons,
+          args.headerText,
+          args.footerText
+        );
+        await recordSentMessage(
+          args.accountId,
+          args.conversationId,
+          result.externalMessageId,
+          'interactive',
+          args.bodyText,
+          null,
+          {
+            replyToMessageId: args.replyToMessageId,
+            createdAt: args.createdAt,
+          }
+        );
+        return { whatsapp_message_id: result.externalMessageId };
+      } catch (error) {
+        console.warn(
+          '[meta-send] Evolution button send failed, falling back to numbered text:',
+          error instanceof Error ? error.message : error
+        );
+      }
+    }
     const lines = [
       args.bodyText,
       ...args.buttons.map((button, index) => `${index + 1}. ${button.title}`),

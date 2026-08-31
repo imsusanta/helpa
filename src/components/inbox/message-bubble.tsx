@@ -17,14 +17,37 @@ import {
 import { format } from 'date-fns';
 import { ReplyQuote } from './reply-quote';
 import { MessageReactions } from './message-reactions';
+import {
+  parseWhatsAppSenderPreview,
+  type WhatsAppChatKind,
+} from '@/core/whatsapp/group-identity';
 
 interface MessageBubbleProps {
   message: Message;
+  chatKind?: WhatsAppChatKind;
   /** Pre-computed quote info for messages that reply to another. */
   reply?: { authorLabel: string; preview: string } | null;
   reactions?: MessageReaction[];
   currentUserId?: string;
   onToggleReaction?: (emoji: string) => void;
+}
+
+const SENDER_COLORS = [
+  'text-sky-600 dark:text-sky-400',
+  'text-emerald-600 dark:text-emerald-400',
+  'text-violet-600 dark:text-violet-400',
+  'text-amber-600 dark:text-amber-400',
+  'text-rose-600 dark:text-rose-400',
+  'text-teal-600 dark:text-teal-400',
+  'text-orange-600 dark:text-orange-400',
+] as const;
+
+function senderColorClass(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i += 1) {
+    hash = (hash * 31 + name.charCodeAt(i)) | 0;
+  }
+  return SENDER_COLORS[Math.abs(hash) % SENDER_COLORS.length];
 }
 
 function StatusIcon({ status }: { status: Message['status'] }) {
@@ -123,14 +146,17 @@ function MediaImage({ url, alt }: { url: string; alt: string }) {
   );
 }
 
-function MessageContent({ message }: { message: Message }) {
+function MessageContent({
+  message,
+  displayText,
+}: {
+  message: Message;
+  displayText?: string;
+}) {
+  const text = displayText ?? message.content_text;
   switch (message.content_type) {
     case 'text':
-      return (
-        <p className="text-sm break-words whitespace-pre-wrap">
-          {message.content_text}
-        </p>
-      );
+      return <p className="text-sm break-words whitespace-pre-wrap">{text}</p>;
 
     case 'image':
       return (
@@ -140,9 +166,9 @@ function MessageContent({ message }: { message: Message }) {
           ) : (
             <MediaUnavailable label="Image" />
           )}
-          {message.content_text && (
+          {text && (
             <p className="mt-1 text-sm break-words whitespace-pre-wrap">
-              {message.content_text}
+              {text}
             </p>
           )}
         </div>
@@ -160,9 +186,9 @@ function MessageContent({ message }: { message: Message }) {
           ) : (
             <MediaUnavailable label="Video" />
           )}
-          {message.content_text && (
+          {text && (
             <p className="mt-1 text-sm break-words whitespace-pre-wrap">
-              {message.content_text}
+              {text}
             </p>
           )}
         </div>
@@ -181,7 +207,7 @@ function MessageContent({ message }: { message: Message }) {
 
     case 'document':
       if (!message.media_url) {
-        return <MediaUnavailable label={message.content_text || 'Document'} />;
+        return <MediaUnavailable label={text || 'Document'} />;
       }
       return (
         <a
@@ -191,7 +217,7 @@ function MessageContent({ message }: { message: Message }) {
           className="bg-muted/50 hover:bg-muted flex items-center gap-2 rounded-lg px-3 py-2 text-sm"
         >
           <FileText className="text-muted-foreground h-5 w-5 shrink-0" />
-          <span className="truncate">{message.content_text || 'Document'}</span>
+          <span className="truncate">{text || 'Document'}</span>
         </a>
       );
 
@@ -202,9 +228,9 @@ function MessageContent({ message }: { message: Message }) {
             <LayoutTemplate className="h-3 w-3" />
             Template
           </span>
-          {message.content_text && (
+          {text && (
             <p className="mt-1 text-sm break-words whitespace-pre-wrap">
-              {message.content_text}
+              {text}
             </p>
           )}
         </div>
@@ -214,7 +240,7 @@ function MessageContent({ message }: { message: Message }) {
       return (
         <div className="flex items-center gap-2 text-sm">
           <MapPin className="text-muted-foreground h-4 w-4 shrink-0" />
-          <span>{message.content_text || 'Location shared'}</span>
+          <span>{text || 'Location shared'}</span>
         </div>
       );
 
@@ -231,7 +257,7 @@ function MessageContent({ message }: { message: Message }) {
             Button reply
           </span>
           <p className="text-sm break-words whitespace-pre-wrap">
-            {message.content_text || '[Interactive reply]'}
+            {text || '[Interactive reply]'}
           </p>
         </div>
       );
@@ -240,7 +266,7 @@ function MessageContent({ message }: { message: Message }) {
     default:
       return (
         <p className="text-sm break-words whitespace-pre-wrap">
-          {message.content_text || '[Unsupported message type]'}
+          {text || '[Unsupported message type]'}
         </p>
       );
   }
@@ -248,6 +274,7 @@ function MessageContent({ message }: { message: Message }) {
 
 export function MessageBubble({
   message,
+  chatKind = 'direct',
   reply,
   reactions,
   currentUserId,
@@ -255,6 +282,14 @@ export function MessageBubble({
 }: MessageBubbleProps) {
   const isAgent =
     message.sender_type === 'agent' || message.sender_type === 'bot';
+  const collective = chatKind === 'group' || chatKind === 'channel';
+  const senderPreview =
+    !isAgent && collective
+      ? parseWhatsAppSenderPreview(message.content_text)
+      : { sender: '', body: message.content_text || '' };
+  const displayText = senderPreview.sender
+    ? senderPreview.body
+    : message.content_text;
   let time = '';
   try {
     const d = new Date(message.created_at);
@@ -275,6 +310,16 @@ export function MessageBubble({
             : 'bg-muted text-foreground rounded-bl-md'
         )}
       >
+        {senderPreview.sender ? (
+          <p
+            className={cn(
+              'mb-0.5 text-xs font-semibold',
+              senderColorClass(senderPreview.sender)
+            )}
+          >
+            {senderPreview.sender}
+          </p>
+        ) : null}
         {reply && (
           <ReplyQuote
             authorLabel={reply.authorLabel}
@@ -282,7 +327,7 @@ export function MessageBubble({
             onPrimary={isAgent}
           />
         )}
-        <MessageContent message={message} />
+        <MessageContent message={message} displayText={displayText} />
         <div
           className={cn(
             'mt-1 flex items-center gap-1',

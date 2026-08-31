@@ -10,6 +10,8 @@ const SHARED_WORKSPACE_ROUTES = [
   '/customers',
   '/pipelines',
   '/trip-proposals',
+  '/packages',
+  '/tour-packages',
   '/quotations',
   '/settings',
   '/broadcasts',

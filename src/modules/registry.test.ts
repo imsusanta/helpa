@@ -108,6 +108,8 @@ describe('resolveSystemPrompt', () => {
     expect(travelPrompt).toContain(
       getIndustryModule('travel').systemPrompt.trim()
     );
+    expect(travelPrompt).toContain('[TRAVEL PACKAGE BEHAVIOR]');
+    expect(travelPrompt).toContain('Never invent those facts');
   });
 
   it('keeps a non-empty workspace-specific prompt and adds the policy', () => {

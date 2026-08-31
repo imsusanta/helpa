@@ -14,6 +14,6 @@ export const sidebarConfig: ModuleNavItem[] = [
     iconName: 'Megaphone',
     roleMin: 'admin',
   },
-  { href: '/knowledge-base', label: 'Knowledge', iconName: 'FileText' },
+  { href: '/knowledge-base', label: 'Knowledge Base', iconName: 'FileText' },
   { href: '/settings', label: 'Settings', iconName: 'Settings' },
 ];

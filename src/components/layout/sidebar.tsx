@@ -76,6 +76,7 @@ export function Sidebar({
     enabledModules,
   } = useWorkspace();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
+    crm: true,
     sales: true,
     conversations: false,
     marketing: false,

@@ -17,6 +17,8 @@ import {
   requireRole,
 } from '@/lib/auth/account';
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
+import { resolveCanonicalIndustry } from '@/modules/registry';
+import { ensureTravelWorkflowsSeeded } from '@/lib/automations/travel-seeds';
 
 function normalizeAppointmentTrigger(
   name: unknown,
@@ -67,6 +69,21 @@ export async function GET() {
   try {
     const context = await requireRole('viewer');
     const supabase = getSupabaseAdminClient();
+    try {
+      const { data: account } = await supabase
+        .from('accounts')
+        .select('industry')
+        .eq('id', context.accountId)
+        .maybeSingle();
+      if (resolveCanonicalIndustry(account?.industry || '') === 'travel') {
+        await ensureTravelWorkflowsSeeded({
+          accountId: context.accountId,
+          userId: context.userId,
+        });
+      }
+    } catch (seedErr) {
+      console.warn('[automations] travel seed reconcile skipped:', seedErr);
+    }
     const { data, error } = await supabase
       .from('automations')
       .select('*')

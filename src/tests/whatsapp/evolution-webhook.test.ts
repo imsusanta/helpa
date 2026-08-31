@@ -6,6 +6,7 @@ import { POST as evolutionWebhook } from '@/app/api/webhooks/evolution/[secret]/
 
 const persistMock = vi.hoisted(() => vi.fn());
 const triggerAiMock = vi.hoisted(() => vi.fn());
+const followupMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/app/api/webhooks/inbound-persistence', () => ({
   persistNormalizedInboundMessage: persistMock,
@@ -13,6 +14,10 @@ vi.mock('@/app/api/webhooks/inbound-persistence', () => ({
 
 vi.mock('@/lib/whatsapp/ai', () => ({
   triggerAiResponse: triggerAiMock,
+}));
+
+vi.mock('@/lib/whatsapp/evolution-inbound-followup', () => ({
+  dispatchEvolutionInboundFollowup: followupMock,
 }));
 
 type Row = Record<string, unknown>;
@@ -94,6 +99,8 @@ describe('Evolution Go webhook', () => {
     seenMessageIds = new Set();
     persistMock.mockReset();
     triggerAiMock.mockReset();
+    followupMock.mockReset();
+    followupMock.mockResolvedValue({ handled: false });
     persistMock.mockImplementation(
       async (event: { externalMessageId: string }) => {
         const duplicate = seenMessageIds.has(event.externalMessageId);
@@ -177,6 +184,55 @@ describe('Evolution Go webhook', () => {
     expect(persistMock.mock.calls[0][0].content).toBe('need an appointment');
     expect(JSON.stringify(body)).not.toContain('should-not-be-trusted');
     expect(JSON.stringify(body)).not.toContain(secretA);
+    expect(followupMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountId: tenantA,
+        inboundText: 'need an appointment',
+      })
+    );
+    expect(triggerAiMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips AI when booking confirm or an automation already replied', async () => {
+    followupMock.mockResolvedValueOnce({ handled: true });
+    await post(secretA, {
+      event: 'Message',
+      data: {
+        key: {
+          id: 'evo-booking-1',
+          fromMe: false,
+          remoteJid: '919111222333@s.whatsapp.net',
+        },
+        message: { conversation: 'Confirm booking' },
+      },
+    });
+    expect(followupMock).toHaveBeenCalledTimes(1);
+    expect(triggerAiMock).not.toHaveBeenCalled();
+  });
+
+  it('passes Evolution button reply ids into booking follow-up', async () => {
+    await post(secretA, {
+      event: 'Message',
+      data: {
+        key: {
+          id: 'evo-btn-1',
+          fromMe: false,
+          remoteJid: '919111222333@s.whatsapp.net',
+        },
+        message: {
+          buttonsResponseMessage: {
+            selectedButtonId: 'travel_booking_confirm',
+            selectedDisplayText: 'Confirm Booking',
+          },
+        },
+      },
+    });
+    expect(followupMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        inboundText: 'Confirm Booking',
+        interactiveReplyId: 'travel_booking_confirm',
+      })
+    );
   });
 
   it('ignores a spoofed account_id in the payload', async () => {
@@ -225,6 +281,93 @@ describe('Evolution Go webhook', () => {
     });
     expect(res.status).toBe(200);
     expect(persistMock).not.toHaveBeenCalled();
+  });
+
+  it('does not persist sender pushName as a WhatsApp group title', async () => {
+    const res = await post(secretA, {
+      event: 'Message',
+      data: {
+        key: {
+          id: 'evo-group-1',
+          fromMe: false,
+          remoteJid: '120363316746745895@g.us',
+        },
+        pushName: 'Ravi',
+        message: { conversation: 'group hello' },
+      },
+    });
+    expect(res.status).toBe(200);
+    expect(persistMock).toHaveBeenCalledTimes(1);
+    expect(persistMock.mock.calls[0][0].patientAddress).toBe(
+      '120363316746745895'
+    );
+    expect(persistMock.mock.calls[0][0].content).toBe('Ravi: group hello');
+    expect(persistMock.mock.calls[0][1].contactName).not.toBe('Ravi');
+    expect(persistMock.mock.calls[0][1].contactName).not.toBe('WhatsApp group');
+    expect(persistMock.mock.calls[0][1].chatKind).toBe('group');
+    expect(persistMock.mock.calls[0][1].chatJid).toBe(
+      '120363316746745895@g.us'
+    );
+  });
+
+  it('persists WhatsApp channel chats with the channel name, not the poster', async () => {
+    const res = await post(secretA, {
+      event: 'Message',
+      data: {
+        key: {
+          id: 'evo-channel-1',
+          fromMe: false,
+          remoteJid: '120363999000111222@newsletter',
+        },
+        pushName: 'Helpa Studio',
+        thread_metadata: { name: { text: 'Clinic Updates' } },
+        message: { conversation: 'channel update' },
+      },
+    });
+    expect(res.status).toBe(200);
+    expect(persistMock).toHaveBeenCalledTimes(1);
+    expect(persistMock.mock.calls[0][0].content).toBe('channel update');
+    expect(persistMock.mock.calls[0][1].chatKind).toBe('channel');
+    expect(persistMock.mock.calls[0][1].contactName).toBe('Clinic Updates');
+  });
+
+  it('uses the group subject when Evolution includes it on the message', async () => {
+    await post(secretA, {
+      event: 'Message',
+      data: {
+        key: {
+          id: 'evo-group-2',
+          fromMe: false,
+          remoteJid: '120363424522275219@g.us',
+        },
+        pushName: 'Ravi',
+        Info: { Name: { Name: 'Last 100 seats' } },
+        message: { conversation: 'seat update' },
+      },
+    });
+    expect(persistMock.mock.calls[0][1].contactName).toBe('Last 100 seats');
+    expect(persistMock.mock.calls[0][0].content).toBe('Ravi: seat update');
+  });
+
+  it('upgrades an existing group contact when GroupInfo arrives', async () => {
+    db.contacts = [
+      {
+        id: 'contact-group',
+        account_id: tenantA,
+        phone: '120363345942229912',
+        name: '120363345942229912',
+      },
+    ];
+    const res = await post(secretA, {
+      event: 'GroupInfo',
+      data: {
+        JID: '120363345942229912@g.us',
+        Name: { Name: 'Prompt Studio' },
+      },
+    });
+    expect(res.status).toBe(200);
+    expect(persistMock).not.toHaveBeenCalled();
+    expect(db.contacts[0].name).toBe('Prompt Studio');
   });
 
   it('rejects an unknown webhook secret', async () => {

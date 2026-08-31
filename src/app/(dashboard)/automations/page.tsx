@@ -29,6 +29,9 @@ import {
   Pill,
   FlaskConical,
   Plane,
+  Map,
+  CalendarCheck,
+  Wallet,
 } from 'lucide-react';
 
 import { useCan } from '@/hooks/use-can';
@@ -81,6 +84,10 @@ const TEMPLATE_ICON: Partial<Record<TemplateSlug, typeof Zap>> = {
   course_enquiry: BookOpen,
   table_booking: UtensilsCrossed,
   traveler_intake_greeting: Plane,
+  travel_package_enquiry: Map,
+  travel_booking_confirm: CalendarCheck,
+  travel_payment_followup: Wallet,
+  travel_documents_reminder: FileText,
 };
 
 export default function AutomationsPage() {

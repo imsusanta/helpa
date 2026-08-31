@@ -8,13 +8,23 @@ import { resolveWhatsAppProvider } from '@/core/providers/whatsapp/provider-reso
 import {
   createEvolutionGoInstance,
   getEvolutionGoQr,
+  evolutionGoGroupSubject,
+  evolutionGoJid,
+  mergeEvolutionGoGroups,
+  parseEvolutionGoAvatar,
+  parseEvolutionGoContacts,
+  parseEvolutionGoGroups,
+  parseEvolutionGoNewsletters,
   sendEvolutionGoText,
+  sendEvolutionGoButtons,
   EvolutionGoConfigError,
   EvolutionGoRequestError,
+  EVOLUTION_GO_SUBSCRIBE_EVENTS,
   EVOLUTION_GO_WRONG_HOST_MESSAGE,
 } from '@/core/providers/whatsapp/evolution-go-client';
 import {
   EvolutionGoProvider,
+  extractEvolutionButtonReplyId,
   hashWebhookSecret,
   redactEvolutionWebhookPayload,
   webhookSecretMatches,
@@ -260,6 +270,45 @@ describe('Evolution Go HTTP client', () => {
     );
   });
 
+  it('sends reply buttons through POST /send/button', async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ data: { key: { id: 'wamid.btn.1' } } }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    const result = await sendEvolutionGoButtons('tenant-instance-token', {
+      number: '919876543210',
+      title: 'Booking Confirm',
+      description: 'Tap Confirm Booking',
+      buttons: [
+        { id: 'travel_booking_confirm', title: 'Confirm Booking' },
+        { id: 'travel_booking_later', title: 'Not yet' },
+      ],
+    });
+    expect(result.externalMessageId).toBe('wamid.btn.1');
+    const firstCall = fetchMock.mock.calls[0] as unknown as
+      [RequestInfo | URL, RequestInit | undefined] | undefined;
+    expect(firstCall?.[0]).toBe('https://evolution.test/send/button');
+    expect(JSON.parse(String(firstCall?.[1]?.body))).toEqual(
+      expect.objectContaining({
+        number: '919876543210',
+        title: 'Booking Confirm',
+        description: 'Tap Confirm Booking',
+        buttons: [
+          {
+            type: 'reply',
+            displayText: 'Confirm Booking',
+            id: 'travel_booking_confirm',
+          },
+          { type: 'reply', displayText: 'Not yet', id: 'travel_booking_later' },
+        ],
+      })
+    );
+  });
+
   it('sanitizes remote errors and never returns secret values', async () => {
     const fetchMock = vi.fn(
       async () =>
@@ -284,6 +333,231 @@ describe('Evolution Go HTTP client', () => {
 });
 
 describe('Evolution Go provider behaviour', () => {
+  it('reads Confirm Booking reply ids from Evolution button taps', () => {
+    expect(
+      extractEvolutionButtonReplyId({
+        message: {
+          buttonsResponseMessage: {
+            selectedButtonId: 'travel_booking_confirm',
+            selectedDisplayText: 'Confirm Booking',
+          },
+        },
+      })
+    ).toBe('travel_booking_confirm');
+  });
+
+  it('subscribes to GROUP events so group subjects can be resolved', () => {
+    expect(EVOLUTION_GO_SUBSCRIBE_EVENTS).toContain('GROUP');
+    expect(EVOLUTION_GO_SUBSCRIBE_EVENTS).toContain('NEWSLETTER');
+    expect(EVOLUTION_GO_SUBSCRIBE_EVENTS).toContain('CONTACT');
+  });
+
+  it('parses Evolution group list names', () => {
+    const groups = parseEvolutionGoGroups({
+      data: [
+        {
+          JID: '120363316746745895@g.us',
+          Name: 'Helpa Clinic Team',
+        },
+        {
+          JID: '120363424522275219@g.us',
+          Name: { Name: 'Last 100 seats' },
+        },
+        {
+          JID: { User: '120363888999000111', Server: 'g.us' },
+          Name: 'WhatsApp Clinic Desk',
+        },
+        {
+          JID: '120363111222333444@g.us',
+        },
+        {
+          JID: '120363999000111222@newsletter',
+          Name: 'Clinic Channel',
+        },
+      ],
+    });
+    expect(groups).toEqual([
+      { jid: '120363316746745895@g.us', name: 'Helpa Clinic Team' },
+      { jid: '120363424522275219@g.us', name: 'Last 100 seats' },
+      { jid: '120363888999000111@g.us', name: 'WhatsApp Clinic Desk' },
+      { jid: '120363111222333444@g.us', name: '' },
+    ]);
+    expect(evolutionGoJid({ User: '120363888999000111', Server: 'g.us' })).toBe(
+      '120363888999000111@g.us'
+    );
+    expect(
+      evolutionGoGroupSubject({
+        Name: 'Helpa Clinic Team',
+        NameSetAt: '2026-01-15T10:30:00Z',
+      })
+    ).toBe('Helpa Clinic Team');
+  });
+
+  it('merges /group/list and /group/myall without dropping unnamed groups', () => {
+    const merged = mergeEvolutionGoGroups(
+      [
+        { jid: '120363316746745895@g.us', name: 'Helpa Clinic Team' },
+        { jid: '120363111222333444@g.us', name: '' },
+      ],
+      [
+        { jid: '120363111222333444@g.us', name: 'OPD Desk' },
+        { jid: '120363555666777888@g.us', name: 'Night Shift' },
+      ]
+    );
+    expect(merged).toEqual(
+      expect.arrayContaining([
+        { jid: '120363316746745895@g.us', name: 'Helpa Clinic Team' },
+        { jid: '120363111222333444@g.us', name: 'OPD Desk' },
+        { jid: '120363555666777888@g.us', name: 'Night Shift' },
+      ])
+    );
+    expect(merged).toHaveLength(3);
+  });
+
+  it('parses WhatsApp channel names from newsletter list metadata', () => {
+    const channels = parseEvolutionGoNewsletters({
+      data: [
+        {
+          id: '120363999000111222@newsletter',
+          thread_metadata: { name: { text: 'Clinic Updates' } },
+        },
+      ],
+    });
+    expect(channels).toEqual([
+      { jid: '120363999000111222@newsletter', name: 'Clinic Updates' },
+    ]);
+  });
+
+  it('prefers a saved WhatsApp address-book name over pushName', () => {
+    const contacts = parseEvolutionGoContacts({
+      data: [
+        {
+          Jid: '919111222333@s.whatsapp.net',
+          FullName: 'Ravi Kumar',
+          PushName: 'Ravi',
+        },
+        {
+          Jid: '919888777666@s.whatsapp.net',
+          FullName: '',
+          FirstName: '',
+          PushName: 'Anika',
+        },
+      ],
+    });
+    expect(contacts).toEqual([
+      {
+        jid: '919111222333@s.whatsapp.net',
+        name: 'Ravi Kumar',
+        saved: true,
+      },
+      {
+        jid: '919888777666@s.whatsapp.net',
+        name: 'Anika',
+        saved: false,
+      },
+    ]);
+  });
+
+  it('parses WhatsApp avatars from Evolution URL, data-URL, and raw base64', () => {
+    expect(
+      parseEvolutionGoAvatar({
+        success: true,
+        avatar: 'https://pps.whatsapp.net/v/t61.24694-24/photo.jpg',
+      })
+    ).toBe('https://pps.whatsapp.net/v/t61.24694-24/photo.jpg');
+    expect(
+      parseEvolutionGoAvatar({
+        data: { url: 'data:image/jpeg;base64,/9j/aaaa' },
+      })
+    ).toBe('data:image/jpeg;base64,/9j/aaaa');
+    expect(
+      parseEvolutionGoAvatar({
+        data: { avatar: '/9j/4AAQSkZJRgABAQAAAQABAAD' },
+      })
+    ).toBe('data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD');
+  });
+
+  it('reads group and channel pictures from list payloads', () => {
+    const groups = parseEvolutionGoGroups({
+      data: [
+        {
+          JID: '120363316746745895@g.us',
+          Name: 'Helpa Clinic Team',
+          Picture: { URL: 'https://pps.whatsapp.net/group.jpg' },
+        },
+      ],
+    });
+    expect(groups[0]).toEqual({
+      jid: '120363316746745895@g.us',
+      name: 'Helpa Clinic Team',
+      avatar: 'https://pps.whatsapp.net/group.jpg',
+    });
+
+    const channels = parseEvolutionGoNewsletters({
+      data: [
+        {
+          id: '120363999000111222@newsletter',
+          thread_metadata: {
+            name: { text: 'Clinic Updates' },
+            picture: { url: 'https://pps.whatsapp.net/channel.jpg' },
+          },
+        },
+      ],
+    });
+    expect(channels[0]).toEqual({
+      jid: '120363999000111222@newsletter',
+      name: 'Clinic Updates',
+      avatar: 'https://pps.whatsapp.net/channel.jpg',
+    });
+  });
+
+  it('reads group text from ephemeral wrappers', async () => {
+    const provider = new EvolutionGoProvider({
+      accountId: 'tenant-a',
+      instanceToken: '',
+    });
+    const events = await provider.normalizeWebhook({
+      event: 'Message',
+      data: {
+        Info: {
+          ID: 'msg-eph',
+          Chat: '120363316746745895@g.us',
+          IsFromMe: false,
+          PushName: 'Ravi',
+        },
+        Message: {
+          ephemeralMessage: {
+            message: { conversation: 'inside the group' },
+          },
+        },
+      },
+    });
+    expect(events[0].content).toBe('inside the group');
+    expect(events[0].patientAddress).toBe('120363316746745895');
+  });
+
+  it('keeps the group id as the conversation key for group messages', async () => {
+    const provider = new EvolutionGoProvider({
+      accountId: 'tenant-a',
+      instanceToken: '',
+    });
+    const events = await provider.normalizeWebhook({
+      event: 'Message',
+      data: {
+        key: {
+          id: 'msg-group',
+          fromMe: false,
+          remoteJid: '120363316746745895@g.us',
+        },
+        pushName: 'Ravi',
+        message: { conversation: 'group hello' },
+      },
+    });
+    expect(events).toHaveLength(1);
+    expect(events[0].patientAddress).toBe('120363316746745895');
+    expect(events[0].content).toBe('group hello');
+  });
+
   it('rejects sendTemplate as an unsupported operation', async () => {
     const provider = new EvolutionGoProvider({
       accountId: 'acct-1',

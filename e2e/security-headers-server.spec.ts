@@ -24,6 +24,7 @@ test.describe('E2E Server-Level Security & Cache-Control Headers', () => {
     '/memberships',
     '/orders',
     '/packages',
+    '/tour-packages',
     '/properties',
     '/reservations',
     '/site-visits',

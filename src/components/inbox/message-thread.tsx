@@ -4,6 +4,14 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createClient } from '@/lib/db/client';
 import { useAuth } from '@/hooks/use-auth';
+import {
+  parseWhatsAppSenderPreview,
+  whatsappChatKind,
+  formatWhatsAppDisplayPhone,
+  whatsappChatKindLabel,
+  whatsappContactDisplayName,
+} from '@/core/whatsapp/group-identity';
+import { WhatsAppChatAvatar } from '@/components/inbox/whatsapp-chat-avatar';
 import { cn } from '@/lib/utils';
 import type {
   Conversation,
@@ -390,12 +398,12 @@ export function MessageThread({
 
     void fetchMsgs(false);
 
-    // Periodic safety-net poll every 4 seconds for active thread
+    // Periodic safety-net poll every 10 seconds for active thread
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') {
         void fetchMsgs(true);
       }
-    }, 4000);
+    }, 10000);
 
     return () => {
       cancelled = true;
@@ -603,7 +611,7 @@ export function MessageThread({
     async (text: string, replyToId?: string) => {
       if (!conversation) return;
 
-      const tempId = `temp-${Date.now()}`;
+      const tempId = `temp-${crypto.randomUUID()}`;
 
       // Optimistic update — shows the message immediately with "sending" status
       const optimisticMsg: Message = {
@@ -668,7 +676,7 @@ export function MessageThread({
           ? payload.caption || payload.filename || 'Document'
           : payload.caption;
 
-      const tempId = `temp-${Date.now()}`;
+      const tempId = `temp-${crypto.randomUUID()}`;
       const optimisticMsg: Message = {
         id: tempId,
         conversation_id: conversation.id,
@@ -795,7 +803,7 @@ export function MessageThread({
       if (!conversation) return;
 
       const renderedBody = renderTemplateBody(template.body_text, values.body);
-      const tempId = `temp-${Date.now()}`;
+      const tempId = `temp-${crypto.randomUUID()}`;
 
       const optimisticMsg: Message = {
         id: tempId,
@@ -873,15 +881,22 @@ export function MessageThread({
   }, [reactions]);
 
   const contactDisplayName = contact?.name || contact?.phone || 'Customer';
+  const threadChatKind = whatsappChatKind(contact?.phone, contact?.metadata);
 
   // Author label for a quoted message: "You" when we sent the parent,
-  // contact name when the customer sent it.
+  // contact name when the customer sent it. Group/channel quotes use the
+  // participant name WhatsApp prefixes onto the stored body.
   const authorLabelFor = useCallback(
     (m: Message): string => {
       const isAgentMsg = m.sender_type === 'agent' || m.sender_type === 'bot';
-      return isAgentMsg ? 'You' : contactDisplayName;
+      if (isAgentMsg) return 'You';
+      if (threadChatKind === 'group' || threadChatKind === 'channel') {
+        const preview = parseWhatsAppSenderPreview(m.content_text);
+        if (preview.sender) return preview.sender;
+      }
+      return contactDisplayName;
     },
-    [contactDisplayName]
+    [contactDisplayName, threadChatKind]
   );
 
   const handleStartReply = useCallback(
@@ -929,7 +944,7 @@ export function MessageThread({
         return [
           ...prev,
           {
-            id: `temp-${Date.now()}`,
+            id: `temp-${crypto.randomUUID()}`,
             message_id: messageId,
             conversation_id: convId,
             actor_type: 'agent',
@@ -963,15 +978,28 @@ export function MessageThread({
     async (agentId: string | null) => {
       if (!conversation) return;
 
-      const appwrite = createClient();
-      const { error } = await appwrite
-        .from('conversations')
-        .update({ assigned_agent_id: agentId })
-        .eq('id', conversation.id);
+      // Route through the guarded API (agent+ role, rate limiting,
+      // updated_at rollup) instead of a direct client write so the
+      // assignment path matches the same authorization rules as
+      // every other conversation mutation.
+      const res = await fetch(`/api/inbox/conversations/${conversation.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ assigned_agent_id: agentId }),
+      });
 
-      if (error) {
-        console.error('Failed to update assignment:', error);
-        toast.error('Failed to update assignment');
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        console.error(
+          'Failed to update assignment:',
+          payload?.error || res.status
+        );
+        toast.error(
+          res.status === 403
+            ? 'Assignment requires agent role or higher'
+            : 'Failed to update assignment'
+        );
         return;
       }
 
@@ -1029,11 +1057,18 @@ export function MessageThread({
       updated_at: conversation.updated_at || new Date().toISOString(),
     } as Contact);
 
+  const chatKind = whatsappChatKind(
+    effectiveContact.phone,
+    effectiveContact.metadata
+  );
   const displayName =
-    effectiveContact.name ||
-    effectiveContact.phone ||
-    conversation.contact_id ||
-    'Contact';
+    whatsappContactDisplayName(effectiveContact.name, effectiveContact.phone) ||
+    whatsappChatKindLabel(chatKind) ||
+    'Chat';
+  const displaySubtitle =
+    whatsappChatKindLabel(chatKind) ||
+    formatWhatsAppDisplayPhone(effectiveContact.phone) ||
+    effectiveContact.phone;
   const messageGroups = groupMessagesByDate(messages);
   const currentStatus = STATUS_OPTIONS.find(
     (s) => s.value === conversation.status
@@ -1062,25 +1097,21 @@ export function MessageThread({
               <ArrowLeft className="h-5 w-5" />
             </button>
           )}
-          <div className="bg-muted text-foreground flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-medium">
-            {effectiveContact.avatar_url ? (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
-                src={effectiveContact.avatar_url}
-                alt={displayName}
-                className="h-9 w-9 rounded-full object-cover"
-              />
-            ) : (
-              displayName.charAt(0).toUpperCase()
-            )}
-          </div>
+          <WhatsAppChatAvatar
+            kind={chatKind}
+            name={displayName}
+            avatarUrl={effectiveContact.avatar_url}
+            size="sm"
+          />
           <div className="min-w-0">
             <h2 className="text-foreground truncate text-sm font-semibold">
               {displayName}
             </h2>
-            <p className="text-muted-foreground truncate text-xs">
-              {effectiveContact.phone}
-            </p>
+            {displaySubtitle ? (
+              <p className="text-muted-foreground truncate text-xs">
+                {displaySubtitle}
+              </p>
+            ) : null}
           </div>
           {/* Session timer badge — hidden on the narrowest phones so
               the name + back arrow keep their room. */}
@@ -1216,34 +1247,42 @@ export function MessageThread({
               align="end"
               className="border-border bg-popover"
             >
-              {profiles.length === 0 ? (
-                <DropdownMenuItem
-                  disabled
-                  className="text-muted-foreground text-sm"
-                >
-                  No teammates available
-                </DropdownMenuItem>
-              ) : (
-                profiles.map((p) => {
-                  const isSelected = p.user_id === assignedAgentId;
-                  return (
-                    <DropdownMenuItem
-                      key={p.id}
-                      onClick={() => handleAssignChange(p.user_id)}
-                      className={cn(
-                        'text-sm',
-                        isSelected ? 'text-primary' : 'text-popover-foreground'
-                      )}
-                    >
-                      <span className="flex-1">
-                        {p.full_name}
-                        {p.user_id === user?.id ? ' (me)' : ''}
-                      </span>
-                      {isSelected && <Check className="ml-2 h-3 w-3" />}
-                    </DropdownMenuItem>
-                  );
-                })
-              )}
+              {
+                /* Only agent+ can be assignees — viewers cannot send
+                   messages, so assigning a chat to them would park it. */
+                profiles.filter((p) => p.role !== 'viewer').length === 0 ? (
+                  <DropdownMenuItem
+                    disabled
+                    className="text-muted-foreground text-sm"
+                  >
+                    No teammates available
+                  </DropdownMenuItem>
+                ) : (
+                  profiles
+                    .filter((p) => p.role !== 'viewer')
+                    .map((p) => {
+                      const isSelected = p.user_id === assignedAgentId;
+                      return (
+                        <DropdownMenuItem
+                          key={p.id}
+                          onClick={() => handleAssignChange(p.user_id)}
+                          className={cn(
+                            'text-sm',
+                            isSelected
+                              ? 'text-primary'
+                              : 'text-popover-foreground'
+                          )}
+                        >
+                          <span className="flex-1">
+                            {p.full_name}
+                            {p.user_id === user?.id ? ' (me)' : ''}
+                          </span>
+                          {isSelected && <Check className="ml-2 h-3 w-3" />}
+                        </DropdownMenuItem>
+                      );
+                    })
+                )
+              }
               {assignedAgentId && (
                 <>
                   <DropdownMenuSeparator className="bg-border" />
@@ -1324,6 +1363,7 @@ export function MessageThread({
                       >
                         <MessageBubble
                           message={msg}
+                          chatKind={chatKind}
                           reply={reply}
                           reactions={msgReactions}
                           currentUserId={user?.id}

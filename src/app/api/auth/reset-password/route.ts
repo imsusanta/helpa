@@ -25,14 +25,31 @@ export async function POST(request: Request) {
     }
 
     const trimmedEmail = email.trim().toLowerCase();
-    const siteUrl =
-      process.env.NEXT_PUBLIC_SITE_URL || 'https://www.helpa.studio';
+    const rawOrigin =
+      request.headers.get('origin') ||
+      request.headers.get('referer') ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      'https://www.helpa.studio';
+    let siteUrl = 'https://www.helpa.studio';
+    try {
+      siteUrl = new URL(rawOrigin).origin;
+    } catch {
+      siteUrl = (
+        process.env.NEXT_PUBLIC_SITE_URL || 'https://www.helpa.studio'
+      ).replace(/\/+$/, '');
+    }
 
     try {
       const supabase = await createSupabaseServerClient();
-      await supabase.auth.resetPasswordForEmail(trimmedEmail, {
-        redirectTo: `${siteUrl}/reset-password`,
-      });
+      const { error: resetErr } = await supabase.auth.resetPasswordForEmail(
+        trimmedEmail,
+        {
+          redirectTo: `${siteUrl}/auth/callback?next=/reset-password`,
+        }
+      );
+      if (resetErr) {
+        console.warn('[Reset Password] Supabase reset error:', resetErr);
+      }
     } catch (err) {
       console.warn('[Reset Password] Supabase reset error:', err);
     }

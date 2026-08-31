@@ -17,6 +17,7 @@ import {
   Loader2,
   DollarSign,
   User,
+  MapPin,
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -72,6 +73,18 @@ const COMMAND_NAV_ITEMS = [
     category: 'CRM',
   },
   {
+    label: 'Tour Packages',
+    href: '/tour-packages',
+    icon: MapPin,
+    category: 'CRM',
+  },
+  {
+    label: 'Trip Proposals',
+    href: '/trip-proposals',
+    icon: MapPin,
+    category: 'CRM',
+  },
+  {
     label: 'Leads Kanban',
     href: '/leads',
     icon: UserPlus,
@@ -104,6 +117,18 @@ const COMMAND_NAV_ITEMS = [
   {
     label: 'Knowledge Base',
     href: '/knowledge-base',
+    icon: BookOpen,
+    category: 'AI & Knowledge',
+  },
+  {
+    label: 'AI Receptionist & System Prompt',
+    href: '/knowledge-base?tab=receptionist',
+    icon: BookOpen,
+    category: 'AI & Knowledge',
+  },
+  {
+    label: 'FAQ Bot',
+    href: '/knowledge-base?tab=faq',
     icon: BookOpen,
     category: 'AI & Knowledge',
   },

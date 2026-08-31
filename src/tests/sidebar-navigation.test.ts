@@ -58,6 +58,87 @@ describe('authenticated sidebar navigation', () => {
     ).toBe(false);
   });
 
+  it('shows Tour Packages in the CRM navigation', () => {
+    const travelManifest = getIndustryModule('travel');
+    const travelNavigation = buildVisibleNavigation({
+      navigation: NAV,
+      terminology: getIndustryTerminology('travel'),
+      currentIndustry: 'travel',
+      isSuperAdmin: false,
+      manifest: travelManifest,
+      isRouteAllowed: (pathname) =>
+        isIndustryRouteAllowed(travelManifest, pathname),
+    });
+    const crm = travelNavigation.find((item) => item.id === 'crm');
+    expect(
+      crm?.children?.some((child) => child.href === '/tour-packages')
+    ).toBe(true);
+    expect(
+      crm?.children?.some((child) => child.label === 'Tour Packages')
+    ).toBe(true);
+
+    const clinicCrm = hospitalNavigation.find((item) => item.id === 'crm');
+    expect(
+      clinicCrm?.children?.some((child) => child.href === '/tour-packages')
+    ).toBe(true);
+
+    const generalNavigation = buildVisibleNavigation({
+      navigation: NAV,
+      terminology: getIndustryTerminology('general'),
+      currentIndustry: 'general',
+      isSuperAdmin: false,
+      isRouteAllowed: () => true,
+    });
+    const generalCrm = generalNavigation.find((item) => item.id === 'crm');
+    expect(
+      generalCrm?.children?.some((child) => child.href === '/tour-packages')
+    ).toBe(true);
+
+    const coachingManifest = getIndustryModule('coaching');
+    expect(isIndustryRouteAllowed(coachingManifest, '/tour-packages')).toBe(
+      true
+    );
+    expect(isIndustryRouteAllowed(hospitalManifest, '/tour-packages')).toBe(
+      true
+    );
+    expect(isIndustryRouteAllowed(hospitalManifest, '/packages')).toBe(true);
+    expect(isIndustryRouteAllowed(travelManifest, '/tour-packages')).toBe(true);
+  });
+
+  it('keeps Knowledge Base as the only Automation & AI surface for chatbot and FAQ', () => {
+    const travelManifest = getIndustryModule('travel');
+    const travelNavigation = buildVisibleNavigation({
+      navigation: NAV,
+      terminology: getIndustryTerminology('travel'),
+      currentIndustry: 'travel',
+      isSuperAdmin: false,
+      manifest: travelManifest,
+      isRouteAllowed: (pathname) =>
+        isIndustryRouteAllowed(travelManifest, pathname),
+    });
+    const automation = travelNavigation.find(
+      (item) => item.id === 'automation-ai'
+    );
+    expect(automation?.children?.map((child) => child.href)).toEqual([
+      '/knowledge-base',
+      '/automations',
+    ]);
+    expect(
+      automation?.children?.some((child) => child.href === '/chatbot')
+    ).toBe(false);
+    expect(
+      automation?.children?.some((child) => child.href === '/faq-bot')
+    ).toBe(false);
+
+    const clinicAutomation = hospitalNavigation.find(
+      (item) => item.id === 'automation-ai'
+    );
+    expect(clinicAutomation?.children?.map((child) => child.href)).toEqual([
+      '/knowledge-base',
+      '/automations',
+    ]);
+  });
+
   it('keeps clinic operations out of general workspaces', () => {
     const generalNavigation = buildVisibleNavigation({
       navigation: NAV,

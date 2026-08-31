@@ -26,6 +26,14 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { SendOutboundModal } from '@/components/contacts/send-outbound-modal';
 
 import { useAuth } from '@/hooks/use-auth';
+import {
+  isHiddenWhatsAppInboxChat,
+  parseWhatsAppSenderPreview,
+  whatsappChatKind,
+  whatsappChatKindLabel,
+  whatsappContactDisplayName,
+} from '@/core/whatsapp/group-identity';
+import { WhatsAppChatAvatar } from '@/components/inbox/whatsapp-chat-avatar';
 
 interface ConversationListProps {
   activeConversationId: string | null;
@@ -160,12 +168,12 @@ export function ConversationList({
 
     void fetchConvs(false);
 
-    // Periodic safety-net poll every 4 seconds
+    // Periodic safety-net poll every 10 seconds
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') {
         void fetchConvs(true);
       }
-    }, 4000);
+    }, 10000);
 
     return () => {
       cancelled = true;
@@ -191,7 +199,9 @@ export function ConversationList({
   }, [conversations, user?.id]);
 
   const filtered = useMemo(() => {
-    let result = conversations;
+    let result = conversations.filter(
+      (c) => !isHiddenWhatsAppInboxChat(c.contact?.phone, c.contact?.metadata)
+    );
 
     if (filter === 'unread') {
       result = result.filter((c) => (c.unread_count ?? 0) > 0);
@@ -562,9 +572,13 @@ function ConversationItem({
   onSelect,
 }: ConversationItemProps) {
   const contact = conversation.contact;
+  const chatKind = whatsappChatKind(contact?.phone, contact?.metadata);
   const displayName =
-    contact?.name || contact?.phone || conversation.contact_id || 'Contact';
-  const initials = displayName.charAt(0).toUpperCase() || 'C';
+    whatsappContactDisplayName(contact?.name, contact?.phone) ||
+    whatsappChatKindLabel(chatKind) ||
+    'Chat';
+  const preview = parseWhatsAppSenderPreview(conversation.last_message_text);
+  const previewBody = preview.body || conversation.last_message_text || '';
 
   const handleClick = useCallback(() => {
     onSelect(conversation);
@@ -592,19 +606,11 @@ function ConversationItem({
         isActive && 'border-primary bg-muted/70 border-l-2'
       )}
     >
-      {/* Avatar */}
-      <div className="bg-muted text-foreground flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-medium">
-        {contact?.avatar_url ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img
-            src={contact.avatar_url}
-            alt={displayName}
-            className="h-10 w-10 rounded-full object-cover"
-          />
-        ) : (
-          initials
-        )}
-      </div>
+      <WhatsAppChatAvatar
+        kind={chatKind}
+        name={displayName}
+        avatarUrl={contact?.avatar_url}
+      />
 
       {/* Content */}
       <div className="min-w-0 flex-1">
@@ -639,7 +645,14 @@ function ConversationItem({
                 : 'text-muted-foreground'
             )}
           >
-            {conversation.last_message_text || 'No messages yet'}
+            {preview.sender ? (
+              <>
+                <span className="text-foreground/80">{preview.sender}: </span>
+                {previewBody || 'No messages yet'}
+              </>
+            ) : (
+              previewBody || 'No messages yet'
+            )}
           </p>
           <div className="flex shrink-0 items-center gap-1.5">
             {isUnread && (

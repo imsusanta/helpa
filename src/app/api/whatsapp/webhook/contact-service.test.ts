@@ -120,4 +120,54 @@ describe('findOrCreateContact', () => {
     ).toHaveLength(2);
     expect(findExistingContact).toHaveBeenCalledTimes(2);
   });
+
+  it('upgrades a raw WhatsApp group id when a real group name arrives', async () => {
+    const existing = {
+      id: 'contact-group',
+      account_id: ACCOUNT_ID,
+      phone: '120363316746745895',
+      name: '120363316746745895',
+    };
+    findExistingContact.mockResolvedValueOnce(existing);
+    const eq = vi.fn();
+    const update = vi.fn(() => ({ eq }));
+    getAdminClient.mockReturnValue({
+      from: () => ({ update }),
+    });
+
+    const result = await findOrCreateContact(
+      ACCOUNT_ID,
+      'owner-1',
+      '120363316746745895',
+      'Helpa Clinic Team'
+    );
+
+    expect(result?.wasCreated).toBe(false);
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Helpa Clinic Team' })
+    );
+  });
+
+  it('does not treat sender pushName replacement as the caller contract', async () => {
+    const existing = {
+      id: 'contact-group',
+      account_id: ACCOUNT_ID,
+      phone: '120363316746745895',
+      name: 'Helpa Clinic Team',
+    };
+    findExistingContact.mockResolvedValueOnce(existing);
+    const update = vi.fn();
+    getAdminClient.mockReturnValue({
+      from: () => ({ update }),
+    });
+
+    await findOrCreateContact(
+      ACCOUNT_ID,
+      'owner-1',
+      '120363316746745895',
+      'Ravi'
+    );
+
+    expect(update).not.toHaveBeenCalled();
+  });
 });
