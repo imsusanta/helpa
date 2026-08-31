@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireRole, toErrorResponse } from '@/lib/auth/account';
+import { aggregateLeadSources } from '@/lib/dashboard/lead-sources';
 import { getIndustryModule } from '@/modules/registry';
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
 
@@ -82,7 +83,7 @@ export async function POST(request: Request) {
 
     let leadsQuery = supabase
       .from('leads')
-      .select('id, stage, value, created_at')
+      .select('id, stage, value, created_at, source, channel')
       .eq('account_id', ctx.accountId);
 
     let dealsQuery = supabase
@@ -95,15 +96,38 @@ export async function POST(request: Request) {
       .select('id, status, total, amount_paid, created_at')
       .eq('account_id', ctx.accountId);
 
+    let quotationsQuery = supabase
+      .from('quotations')
+      .select('id', { count: 'exact', head: true })
+      .eq('account_id', ctx.accountId);
+
     const contactsQuery = supabase
       .from('contacts')
       .select('id', { count: 'exact', head: true })
       .eq('account_id', ctx.accountId);
 
+    let sentMessagesQuery = supabase
+      .from('messages')
+      .select('id', { count: 'exact', head: true })
+      .eq('account_id', ctx.accountId)
+      .eq('direction', 'outbound');
+
+    let receivedMessagesQuery = supabase
+      .from('messages')
+      .select('id', { count: 'exact', head: true })
+      .eq('account_id', ctx.accountId)
+      .eq('direction', 'inbound');
+
     if (startDate) {
       leadsQuery = leadsQuery.gte('created_at', startDate);
       dealsQuery = dealsQuery.gte('created_at', startDate);
       invoicesQuery = invoicesQuery.gte('created_at', startDate);
+      quotationsQuery = quotationsQuery.gte('created_at', startDate);
+      sentMessagesQuery = sentMessagesQuery.gte('created_at', startDate);
+      receivedMessagesQuery = receivedMessagesQuery.gte(
+        'created_at',
+        startDate
+      );
     }
 
     const [
@@ -113,6 +137,9 @@ export async function POST(request: Request) {
       { count: contactsCount },
       { count: unreadCount },
       { count: campaignsCount },
+      { count: quotationsCount },
+      { count: sentMessagesCount },
+      { count: receivedMessagesCount },
     ] = await Promise.all([
       leadsQuery,
       dealsQuery,
@@ -127,6 +154,9 @@ export async function POST(request: Request) {
         .from('broadcasts')
         .select('id', { count: 'exact', head: true })
         .eq('account_id', ctx.accountId),
+      quotationsQuery,
+      sentMessagesQuery,
+      receivedMessagesQuery,
     ]);
 
     const totalLeads = leadsList?.length || 0;
@@ -134,6 +164,10 @@ export async function POST(request: Request) {
       leadsList?.filter((lead) => lead.stage === 'NEW').length || 0;
     const convertedLeads =
       leadsList?.filter((lead) => lead.stage === 'CONVERTED').length || 0;
+    const contactedLeads =
+      leadsList?.filter(
+        (lead) => lead.stage !== 'NEW' && lead.stage !== 'CONVERTED'
+      ).length || 0;
 
     const pipelineDealsValue = (dealsList || [])
       .filter((deal) => deal.status === 'open')
@@ -155,6 +189,7 @@ export async function POST(request: Request) {
     metricsResult.leads_total = totalLeads;
     metricsResult.leads_new = newLeads;
     metricsResult.leads_converted = convertedLeads;
+    metricsResult.leads_contacted = contactedLeads;
     metricsResult.contacts_total = contactsCount || 0;
     metricsResult.customers_total = contactsCount || 0;
     metricsResult.pipeline_value = pipelineDealsValue;
@@ -163,9 +198,20 @@ export async function POST(request: Request) {
     metricsResult.collected_revenue = collectedRevenue;
     metricsResult.unread_chats = unreadCount || 0;
     metricsResult.campaigns_total = campaignsCount || 0;
+    metricsResult.quotations_total = quotationsCount || 0;
+    metricsResult.invoices_total = invoicesList?.length || 0;
+    metricsResult.messages_sent = sentMessagesCount || 0;
+    metricsResult.messages_received = receivedMessagesCount || 0;
+
+    const leadSources = aggregateLeadSources(leadsList || []);
 
     return NextResponse.json(
-      { success: true, metrics: metricsResult, range },
+      {
+        success: true,
+        metrics: metricsResult,
+        lead_sources: leadSources,
+        range,
+      },
       { headers: PRIVATE_HEADERS }
     );
   } catch (err) {

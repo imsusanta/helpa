@@ -30,7 +30,11 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
-import { SECTION_META, type SettingsSection } from './settings-sections';
+import {
+  SECTION_META,
+  isSectionVisible,
+  type SettingsSection,
+} from './settings-sections';
 import { SettingsChip, StatusDot } from './settings-chip';
 import { ROLE_META } from './role-meta';
 
@@ -582,40 +586,42 @@ export function SettingsOverview({
 
       {/* Status tiles */}
       <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {tiles.map(({ section, loading, subtitle }) => {
-          const meta = SECTION_META[section];
-          const Icon = meta.icon;
-          return (
-            <button
-              key={section}
-              type="button"
-              onClick={() => onSelect(section)}
-              className={cn(
-                'group border-border bg-card flex items-start gap-3.5 rounded-xl border p-4 text-left transition-colors',
-                'hover:border-primary-soft-2 hover:bg-card-2'
-              )}
-            >
-              <span className="bg-primary-soft text-primary flex size-9 shrink-0 items-center justify-center rounded-lg">
-                <Icon className="size-4" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="text-foreground block text-sm font-semibold">
-                  {meta.label}
+        {tiles
+          .filter(({ section }) => isSectionVisible(section, account?.industry))
+          .map(({ section, loading, subtitle }) => {
+            const meta = SECTION_META[section];
+            const Icon = meta.icon;
+            return (
+              <button
+                key={section}
+                type="button"
+                onClick={() => onSelect(section)}
+                className={cn(
+                  'group border-border bg-card flex items-start gap-3.5 rounded-xl border p-4 text-left transition-colors',
+                  'hover:border-primary-soft-2 hover:bg-card-2'
+                )}
+              >
+                <span className="bg-primary-soft text-primary flex size-9 shrink-0 items-center justify-center rounded-lg">
+                  <Icon className="size-4" />
                 </span>
-                <span className="text-muted-foreground mt-0.5 flex items-center gap-1.5 text-xs">
-                  {loading ? (
-                    <>
-                      <Loader2 className="size-3 animate-spin" /> Loading…
-                    </>
-                  ) : (
-                    subtitle
-                  )}
+                <span className="min-w-0 flex-1">
+                  <span className="text-foreground block text-sm font-semibold">
+                    {meta.label}
+                  </span>
+                  <span className="text-muted-foreground mt-0.5 flex items-center gap-1.5 text-xs">
+                    {loading ? (
+                      <>
+                        <Loader2 className="size-3 animate-spin" /> Loading…
+                      </>
+                    ) : (
+                      subtitle
+                    )}
+                  </span>
                 </span>
-              </span>
-              <ChevronRight className="text-muted-foreground size-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
-            </button>
-          );
-        })}
+                <ChevronRight className="text-muted-foreground size-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
+              </button>
+            );
+          })}
       </div>
 
       {/* Customize Dialog Modal */}
