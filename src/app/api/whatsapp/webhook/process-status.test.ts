@@ -64,10 +64,6 @@ describe('handleStatusUpdate tenant scope', () => {
 
   it('does not update a broadcast recipient that belongs to another tenant', async () => {
     const messagesQuery = createQuery(() => ({ data: null, error: null }));
-    const recipientsQuery = createQuery(() => ({
-      data: { id: 'rec-1', status: 'sent', broadcast_id: 'bcast-b' },
-      error: null,
-    }));
     const broadcastsQuery = createQuery(() => ({ data: null, error: null }));
     const updates: Array<Record<string, unknown>> = [];
 
