@@ -2,7 +2,8 @@ import crypto from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { decrypt, encrypt, isLegacyFormat } from './encryption';
 
-const KEY_HEX = process.env.ENCRYPTION_KEY!;
+const KEY_HEX =
+  process.env.WHATSAPP_TOKEN_ENCRYPTION_KEY || process.env.ENCRYPTION_KEY!;
 
 function cbcEncryptLegacy(plaintext: string): string {
   const iv = crypto.randomBytes(16);

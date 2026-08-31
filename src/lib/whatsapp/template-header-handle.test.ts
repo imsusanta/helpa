@@ -61,6 +61,7 @@ describe('ensureImageHeaderHandle', () => {
   });
 
   it('throws an actionable error when META_APP_ID is unset', async () => {
+    vi.stubEnv('META_APP_ID', '');
     const p = payload();
     await expect(ensureImageHeaderHandle(p, 'tok')).rejects.toThrow(
       /META_APP_ID/
