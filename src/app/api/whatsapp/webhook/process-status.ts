@@ -34,21 +34,33 @@ export function isValidStatusTransition(
   return ii > ci;
 }
 
-export async function handleStatusUpdate(status: WhatsAppStatusUpdate) {
+export async function handleStatusUpdate(
+  status: WhatsAppStatusUpdate,
+  accountId?: string | null
+) {
   const db = getAdminClient();
+  const patch = { status: status.status as MessageStatus };
 
-  // 1) Mirror onto messages
-  const { error: msgErr } = await db
-    .from('messages')
-    .update({ status: status.status as MessageStatus })
-    .eq('provider_message_id', status.id);
+  // 1) Mirror onto messages. Tenant scope is required when the webhook
+  // resolved an account — unscoped updates can collide on Evolution IDs.
+  const applyMessageStatus = async (
+    idColumn: string,
+    accountColumn?: string
+  ) => {
+    let query = db.from('messages').update(patch).eq(idColumn, status.id);
+    if (accountId && accountColumn) {
+      query = query.eq(accountColumn, accountId);
+    }
+    return query;
+  };
+
+  const { error: msgErr } = await applyMessageStatus(
+    'provider_message_id',
+    accountId ? 'account_id' : undefined
+  );
 
   if (msgErr) {
-    // Fallback to legacy field name if needed
-    await db
-      .from('messages')
-      .update({ status: status.status as MessageStatus })
-      .eq('messageId', status.id);
+    await applyMessageStatus('messageId', accountId ? 'accountId' : undefined);
   }
 
   // 2) Mirror onto broadcast_recipients via whatsapp_message_id
@@ -56,7 +68,7 @@ export async function handleStatusUpdate(status: WhatsAppStatusUpdate) {
 
   const { data: recipient, error: recFetchErr } = await db
     .from('broadcast_recipients')
-    .select('id, status')
+    .select('id, status, broadcast_id')
     .eq('whatsapp_message_id', status.id)
     .maybeSingle();
 
@@ -65,6 +77,16 @@ export async function handleStatusUpdate(status: WhatsAppStatusUpdate) {
     return;
   }
   if (!recipient) return;
+
+  if (accountId && recipient.broadcast_id) {
+    const { data: broadcast } = await db
+      .from('broadcasts')
+      .select('id')
+      .eq('id', recipient.broadcast_id)
+      .eq('account_id', accountId)
+      .maybeSingle();
+    if (!broadcast) return;
+  }
 
   if (!isValidStatusTransition(recipient.status, status.status)) return;
 

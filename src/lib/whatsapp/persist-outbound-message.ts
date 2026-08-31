@@ -151,33 +151,87 @@ function isUnknownColumnError(error: unknown): boolean {
   );
 }
 
+async function conversationBelongsToAccount(
+  conversationId: string,
+  accountId: string
+): Promise<boolean> {
+  const db = getAdminClient();
+  try {
+    const { data } = await db
+      .from('conversations')
+      .select('id')
+      .eq('id', conversationId)
+      .eq('account_id', accountId)
+      .maybeSingle();
+    if (data?.id) return true;
+  } catch {
+    // Fall through to the camelCase parent shape.
+  }
+  try {
+    const { data } = await db
+      .from('conversations')
+      .select('id')
+      .eq('id', conversationId)
+      .eq('accountId', accountId)
+      .maybeSingle();
+    return Boolean(data?.id);
+  } catch {
+    return false;
+  }
+}
+
 async function lookupExistingMessage(
   accountId: string,
   providerMessageId: string
 ): Promise<{ id: string } | null> {
   const db = getAdminClient();
-  const attempts: Array<{ account?: string; id: string }> = [
+  const scopedAttempts: Array<{ account: string; id: string }> = [
     { account: 'account_id', id: 'provider_message_id' },
     { account: 'account_id', id: 'message_id' },
-    { id: 'provider_message_id' },
-    { id: 'message_id' },
-    { id: 'messageId' },
+    { account: 'accountId', id: 'messageId' },
   ];
 
-  for (const attempt of attempts) {
+  for (const attempt of scopedAttempts) {
     try {
-      const query = attempt.account
-        ? db
-            .from('messages')
-            .select('id')
-            .eq(attempt.account, accountId)
-            .eq(attempt.id, providerMessageId)
-        : db.from('messages').select('id').eq(attempt.id, providerMessageId);
-      const { data } = await query.limit(1);
+      const { data } = await db
+        .from('messages')
+        .select('id')
+        .eq(attempt.account, accountId)
+        .eq(attempt.id, providerMessageId)
+        .limit(1);
       const row = Array.isArray(data) ? data[0] : data;
       if (row?.id) return { id: String(row.id) };
     } catch {
       // Column may not exist on this schema; try the next lookup.
+    }
+  }
+
+  // Legacy rows may omit account_id. Never treat another tenant's provider
+  // id as a duplicate — verify the parent conversation first.
+  for (const idCol of ['provider_message_id', 'message_id', 'messageId']) {
+    try {
+      const { data } = await db
+        .from('messages')
+        .select('id, conversation_id, conversationId, account_id, accountId')
+        .eq(idCol, providerMessageId)
+        .limit(1);
+      const row = Array.isArray(data) ? data[0] : data;
+      if (!row?.id) continue;
+      const rowAccount = String(row.account_id || row.accountId || '');
+      if (rowAccount && rowAccount !== String(accountId)) continue;
+      const conversationId = String(
+        row.conversation_id || row.conversationId || ''
+      );
+      if (!conversationId) continue;
+      if (
+        !rowAccount &&
+        !(await conversationBelongsToAccount(conversationId, accountId))
+      ) {
+        continue;
+      }
+      return { id: String(row.id) };
+    } catch {
+      // Keep trying the alternate id column.
     }
   }
 

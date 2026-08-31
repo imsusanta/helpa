@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
 import { WahaWhatsAppProvider } from '@/core/providers/whatsapp/waha-provider';
 import { resolveWahaTenant } from '@/app/api/webhooks/inbound-tenant-resolver';
-import { persistNormalizedInboundMessage } from '@/app/api/webhooks/inbound-persistence';
+import {
+  persistNormalizedInboundMessage,
+  persistNormalizedOutboundMessage,
+} from '@/app/api/webhooks/inbound-persistence';
 import {
   beginProviderEvent,
   completeProviderEvent,
@@ -66,9 +69,11 @@ export async function POST(request: Request) {
 
     for (let index = 0; index < events.length; index += 1) {
       const event = events[index];
-      // Outbound events are already persisted by the send path.
-      if (event.direction !== 'inbound') continue;
+      if (event.direction !== 'inbound' && event.direction !== 'outbound') {
+        continue;
+      }
       event.clinicId = tenant.accountId;
+      const isOutbound = event.direction === 'outbound';
 
       const externalEventId = eventIdFor(event, index);
       const context: ProviderEventContext = {
@@ -82,7 +87,10 @@ export async function POST(request: Request) {
       await beginProviderEvent(context);
 
       try {
-        const result = await persistNormalizedInboundMessage(event, {
+        const persist = isOutbound
+          ? persistNormalizedOutboundMessage
+          : persistNormalizedInboundMessage;
+        const result = await persist(event, {
           accountId: tenant.accountId,
           userId: tenant.userId,
           correlationId: externalEventId,
