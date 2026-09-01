@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -31,6 +30,25 @@ import {
   CheckCircle2,
   TrendingUp,
 } from 'lucide-react';
+
+/** Shape of rows returned by GET /api/leads (subset used by the board). */
+interface LeadApiResponse {
+  id?: string;
+  $id?: string;
+  name?: string;
+  phone?: string;
+  service?: string;
+  stage?: string;
+  channel?: string;
+  score?: number | 'hot' | 'warm' | 'cold';
+  lead_score?: number | 'hot' | 'warm' | 'cold';
+  value?: number;
+  currency?: string;
+  assigned_user_id?: string | null;
+  updated_at?: string;
+  created_at?: string;
+  contacts?: { name?: string; phone?: string };
+}
 
 export const CANONICAL_STAGES: StageColumnDef[] = [
   { id: 'NEW', label: 'New Leads', color: '#3b82f6' },
@@ -84,28 +102,30 @@ export function LeadKanbanBoard({
   const loadRealLeads = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await salesApi<any[]>('/api/leads');
+      const data = await salesApi<LeadApiResponse[]>('/api/leads');
       if (Array.isArray(data)) {
-        const mapped: LeadCardModel[] = data.map((d: any) => ({
-          id: d.id || d.$id,
+        const mapped: LeadCardModel[] = data.map((d) => ({
+          id: d.id || d.$id || '',
           patientName: d.name || d.contacts?.name || 'Lead Inquiry',
           phone: d.phone || d.contacts?.phone,
           service: d.service || 'General Inquiry',
           stage: (d.stage as LeadStageType) || 'NEW',
-          channel: (d.channel as any) || 'whatsapp',
-          score: d.score || d.lead_score || 'warm',
+          channel: (d.channel as LeadCardModel['channel']) || 'whatsapp',
+          score: d.score ?? d.lead_score ?? 'warm',
           value: d.value || 0,
           currency: d.currency || 'INR',
           assignedOwner: d.assigned_user_id
             ? { name: 'Assigned Agent' }
             : undefined,
-          lastActivityAt:
-            d.updated_at || d.created_at
-              ? new Date(d.updated_at || d.created_at).toLocaleTimeString([], {
+          lastActivityAt: (() => {
+            const ts = d.updated_at ?? d.created_at;
+            return ts
+              ? new Date(ts).toLocaleTimeString([], {
                   hour: '2-digit',
                   minute: '2-digit',
                 })
-              : 'Recent',
+              : 'Recent';
+          })(),
         }));
         setLeads(mapped);
       }

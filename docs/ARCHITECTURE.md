@@ -1,5 +1,32 @@
 # Helpa Architecture & Multi-Tenant Blueprint
 
+## Layer Model (enforced)
+
+Dependencies may only point downwards:
+
+```
+app  →  modules  →  core  →  lib
+app  →  components / hooks  →  core / lib
+```
+
+- **`src/core`** — platform engine (AI, events, permissions, industry contract).
+  Must never import `@/modules`, `@/app`, `@/components`, or `@/hooks`.
+  Industry capabilities are consumed exclusively through the **Industry Module
+  Port** (`src/core/modules/industry-port.ts`); the modules layer registers its
+  adapter at server boot via `src/instrumentation.ts` (composition root).
+- **`src/modules`** — industry manifests (health, travel, coaching, …). May
+  import core and lib. Registers the port implementation; owns all
+  industry-specific prompts, templates, and prompt augmentation.
+- **`src/lib`** — shared platform utilities. Must never import `@/app` or
+  `@/modules`.
+- **`src/app`, `src/components`, `src/hooks`** — UI layers. Must never import
+  `@/app` from components/hooks.
+
+**Enforcement:** `eslint.config.mjs` (`no-restricted-imports` on
+`src/core/**`) plus `src/tests/architecture/layer-boundaries.test.ts`
+(static layer scans, core import-graph cycle detection, port registration
+behavior). Violations fail lint and CI.
+
 ## System Overview
 
 Helpa is an AI-powered WhatsApp communication and CRM platform designed for service and healthcare businesses.

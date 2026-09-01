@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -280,7 +279,17 @@ export function MessageThread({
       .then((json) => {
         if (cancelled) return;
         const members = json.members || [];
-        const profs = members.map((m: any) => ({
+        const profs = members.map(
+          (
+            m: {
+              user_id?: string;
+              full_name?: string;
+              email?: string;
+              avatar_url?: string;
+              role?: string;
+              joined_at?: string;
+            }
+          ) => ({
           id: m.user_id,
           user_id: m.user_id,
           full_name: m.full_name,
@@ -466,8 +475,8 @@ export function MessageThread({
             table: 'message_reactions',
             filter: `conversation_id=eq.${conversationId}`,
           },
-          (payload: any) => {
-            const row = payload.new as MessageReaction;
+          (payload: { new: object }) => {
+            const row = payload.new as unknown as MessageReaction;
             setReactions((prev) => {
               if (prev.some((r) => r.id === row.id)) return prev;
               const tempIdx = prev.findIndex(
@@ -494,8 +503,8 @@ export function MessageThread({
             table: 'message_reactions',
             filter: `conversation_id=eq.${conversationId}`,
           },
-          (payload: any) => {
-            const row = payload.new as MessageReaction;
+          (payload: { new: object }) => {
+            const row = payload.new as unknown as MessageReaction;
             setReactions((prev) =>
               prev.map((r) => (r.id === row.id ? row : r))
             );
@@ -509,8 +518,8 @@ export function MessageThread({
             table: 'message_reactions',
             filter: `conversation_id=eq.${conversationId}`,
           },
-          (payload: any) => {
-            const old = payload.old as Partial<MessageReaction>;
+          (payload: { old: object }) => {
+            const old = payload.old as unknown as Partial<MessageReaction>;
             if (!old?.id) return;
             setReactions((prev) => prev.filter((r) => r.id !== old.id));
           }
@@ -524,8 +533,11 @@ export function MessageThread({
         try {
           if (typeof appwrite?.removeChannel === 'function') {
             appwrite.removeChannel(channel);
-          } else if (typeof (channel as any)?.unsubscribe === 'function') {
-            (channel as any).unsubscribe();
+          } else if (
+            typeof (channel as { unsubscribe?: unknown })?.unsubscribe ===
+            'function'
+          ) {
+            (channel as { unsubscribe: () => void }).unsubscribe();
           }
         } catch {
           // Ignore cleanup error
