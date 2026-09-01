@@ -12,6 +12,41 @@ export default defineConfig({
     },
   },
   test: {
+    coverage: {
+      provider: 'v8',
+      reporter: ['json', 'html', 'text'],
+      // Ratcheted minimum thresholds for security-critical modules (roadmap P1).
+      // Values start ~5 points below measured coverage; raise as coverage grows.
+      // Gaps still open (documented in 10-OUT-OF-10-ROADMAP.md): webhook route,
+      // inbound persistence, process-status, tenant-resolver, outbox-service.
+      thresholds: {
+        'src/lib/whatsapp/encryption.ts': {
+          statements: 88,
+          lines: 88,
+          functions: 95,
+          branches: 68,
+        },
+        'src/core/security/tenant-guard.ts': {
+          statements: 86,
+          lines: 86,
+          functions: 95,
+          branches: 70,
+        },
+        'src/lib/auth/**': {
+          statements: 79,
+          lines: 79,
+          functions: 90,
+          branches: 68,
+        },
+        'src/lib/whatsapp/persist-outbound-message.ts': {
+          statements: 72,
+          lines: 72,
+          functions: 88,
+          branches: 68,
+        },
+      },
+    },
+
     environment: 'node',
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
     env: {
