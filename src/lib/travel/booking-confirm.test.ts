@@ -39,8 +39,10 @@ vi.mock('@/lib/db/server', () => {
       },
       ilike: (field: string, value: string) => {
         const needle = value.toLowerCase();
-        filters.push(
-          (row) => String(row[field] ?? '').toLowerCase().includes(needle)
+        filters.push((row) =>
+          String(row[field] ?? '')
+            .toLowerCase()
+            .includes(needle)
         );
         return api;
       },

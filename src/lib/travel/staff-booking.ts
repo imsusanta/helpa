@@ -136,7 +136,6 @@ export async function resolveTravelBookingPackageId(opts: {
   return null;
 }
 
-
 export async function insertTravelBookingRow(opts: {
   accountId: string;
   contactId: string;

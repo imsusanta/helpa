@@ -412,7 +412,6 @@ async function ensureTravelBookingPackage(opts: {
   return null;
 }
 
-
 export async function confirmPendingTravelBooking(opts: {
   accountId: string;
   contactId: string;

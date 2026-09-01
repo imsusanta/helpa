@@ -114,7 +114,9 @@ async function pickAccountId() {
 
 const accountId = await pickAccountId();
 if (!accountId) {
-  console.error('✗ No account found. Pass ACCOUNT_ID: node scripts/seed-demo-tour-packages.mjs <id>');
+  console.error(
+    '✗ No account found. Pass ACCOUNT_ID: node scripts/seed-demo-tour-packages.mjs <id>'
+  );
   process.exit(1);
 }
 console.log(`Seeding demo tour packages for account ${accountId}...\n`);
@@ -153,4 +155,6 @@ for (const pkg of DEMO_PACKAGES) {
 }
 
 console.log(`\nDone: ${created} created, ${skipped} skipped.`);
-console.log('Next: send a WhatsApp enquiry mentioning one of these packages to test the booking-confirm flow.');
+console.log(
+  'Next: send a WhatsApp enquiry mentioning one of these packages to test the booking-confirm flow.'
+);
