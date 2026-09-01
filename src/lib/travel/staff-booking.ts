@@ -46,21 +46,21 @@ export async function createStaffTravelBooking(
     .filter(Boolean)
     .join(' | ');
 
-  const legacyPackageId = await resolveLegacyTravelPackageId({
+  const tourPackageId = await resolveTravelBookingPackageId({
     accountId: input.accountId,
     packageId: input.packageId,
     packageName,
     destination,
     totalPrice,
   });
-  if (!legacyPackageId) {
+  if (!tourPackageId) {
     throw new Error('Could not save a tour package for this booking');
   }
 
   const booking = await insertTravelBookingRow({
     accountId: input.accountId,
     contactId: input.contactId,
-    packageId: legacyPackageId,
+    packageId: tourPackageId,
     travelDate: input.travelDate,
     guestsCount,
     totalPrice,
@@ -96,7 +96,14 @@ export async function createStaffTravelBooking(
   };
 }
 
-export async function resolveLegacyTravelPackageId(opts: {
+/**
+ * Resolve the canonical tour-package id for a staff-created booking.
+ *
+ * Since migration 20260901100000, `tour_packages` is the single package
+ * table and `travel_bookings.tour_package_id` references it directly; the
+ * `travel_packages` mirror is gone.
+ */
+export async function resolveTravelBookingPackageId(opts: {
   accountId: string;
   packageId?: string | null;
   packageName: string;
@@ -104,60 +111,31 @@ export async function resolveLegacyTravelPackageId(opts: {
   totalPrice: number;
 }): Promise<string | null> {
   const db = getAdminClient();
+
   if (opts.packageId) {
     const { data: tour } = await db
       .from('tour_packages')
-      .select(
-        'id, name, destination, duration_days, starting_price, description'
-      )
+      .select('id')
       .eq('id', opts.packageId)
       .eq('account_id', opts.accountId)
       .maybeSingle();
-    if (tour) {
-      const { data: existing } = await db
-        .from('travel_packages')
-        .select('id')
-        .eq('account_id', opts.accountId)
-        .eq('name', String(tour.name))
-        .maybeSingle();
-      if (existing?.id) return String(existing.id);
-      const { data: created } = await db
-        .from('travel_packages')
-        .insert({
-          account_id: opts.accountId,
-          name: String(tour.name),
-          destination: String(tour.destination || opts.destination || 'TBD'),
-          duration_days: Number(tour.duration_days) || 1,
-          price: Number(tour.starting_price) || opts.totalPrice || 0,
-          description: tour.description ? String(tour.description) : null,
-        })
-        .select('id')
-        .single();
-      return created?.id ? String(created.id) : null;
-    }
+    if (tour?.id) return String(tour.id);
   }
 
-  const { data: byName } = await db
-    .from('travel_packages')
-    .select('id')
-    .eq('account_id', opts.accountId)
-    .eq('name', opts.packageName)
-    .maybeSingle();
-  if (byName?.id) return String(byName.id);
+  if (opts.packageName.trim()) {
+    const { data: byName } = await db
+      .from('tour_packages')
+      .select('id')
+      .eq('account_id', opts.accountId)
+      .ilike('name', opts.packageName)
+      .limit(1)
+      .maybeSingle();
+    if (byName?.id) return String(byName.id);
+  }
 
-  const { data: created } = await db
-    .from('travel_packages')
-    .insert({
-      account_id: opts.accountId,
-      name: opts.packageName,
-      destination: opts.destination || 'TBD',
-      duration_days: 1,
-      price: opts.totalPrice || 0,
-    })
-    .select('id')
-    .single();
-  return created?.id ? String(created.id) : null;
+  return null;
 }
+
 
 export async function insertTravelBookingRow(opts: {
   accountId: string;
@@ -173,7 +151,7 @@ export async function insertTravelBookingRow(opts: {
     .from('travel_bookings')
     .insert({
       account_id: opts.accountId,
-      package_id: opts.packageId,
+      tour_package_id: opts.packageId,
       contact_id: opts.contactId,
       travel_date: opts.travelDate,
       guests_count: opts.guestsCount,

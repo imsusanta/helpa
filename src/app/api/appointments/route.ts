@@ -8,7 +8,7 @@ import { formatTravelPrice } from '@/lib/travel/booking-confirm';
 import {
   insertTravelBookingRow,
   parseTravelBookingNotes,
-  resolveLegacyTravelPackageId,
+  resolveTravelBookingPackageId,
 } from '@/lib/travel/staff-booking';
 import { safeRecordOutcomeEvent } from '@/lib/metrics/safe-record';
 
@@ -158,18 +158,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         const dest = String(destination || '').trim();
         const guestsCount = Math.max(1, Number(guests_count) || 1);
         const totalPrice = Number(total_price) || 0;
-        const legacyPackageId = await resolveLegacyTravelPackageId({
+        const tourPackageId = await resolveTravelBookingPackageId({
           accountId: context.accountId,
           packageId: package_id ? String(package_id) : null,
           packageName,
           destination: dest,
           totalPrice,
         });
-        if (legacyPackageId) {
+        if (tourPackageId) {
           await insertTravelBookingRow({
             accountId: context.accountId,
             contactId: data.patient_id,
-            packageId: legacyPackageId,
+            packageId: tourPackageId,
             travelDate: bookingDate,
             guestsCount,
             totalPrice,
