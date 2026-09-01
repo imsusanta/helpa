@@ -39,29 +39,33 @@ export async function handleStatusUpdate(
   status: WhatsAppStatusUpdate,
   accountId?: string | null
 ) {
+  // Service-role updates must never run without a resolved tenant. An
+  // unscoped provider-id write can flip another workspace's message.
+  if (!accountId) {
+    return;
+  }
+
   const db = getAdminClient();
   const patch = { status: status.status as MessageStatus };
 
-  // 1) Mirror onto messages. Tenant scope is required when the webhook
-  // resolved an account — unscoped updates can collide on Evolution IDs.
   const applyMessageStatus = async (
     idColumn: string,
-    accountColumn?: string
+    accountColumn: string
   ) => {
-    let query = db.from('messages').update(patch).eq(idColumn, status.id);
-    if (accountId && accountColumn) {
-      query = query.eq(accountColumn, accountId);
-    }
-    return query;
+    return db
+      .from('messages')
+      .update(patch)
+      .eq(idColumn, status.id)
+      .eq(accountColumn, accountId);
   };
 
   const { error: msgErr } = await applyMessageStatus(
     'provider_message_id',
-    accountId ? 'account_id' : undefined
+    'account_id'
   );
 
   if (msgErr) {
-    await applyMessageStatus('messageId', accountId ? 'accountId' : undefined);
+    await applyMessageStatus('messageId', 'accountId');
   }
 
   if (accountId && status.status === 'failed') {

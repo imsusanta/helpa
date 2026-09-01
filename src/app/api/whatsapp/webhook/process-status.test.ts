@@ -62,6 +62,23 @@ describe('handleStatusUpdate tenant scope', () => {
     expect(messagesQuery.eq).toHaveBeenCalledWith('account_id', 'tenant-a');
   });
 
+  it('refuses to update messages when the webhook did not resolve a tenant', async () => {
+    fromMock.mockImplementation(() => {
+      throw new Error('unscoped service-role write must not run');
+    });
+
+    await expect(
+      handleStatusUpdate({
+        id: 'wamid.STATUS.ORPHAN',
+        status: 'delivered',
+        timestamp: '1710000000',
+        recipient_id: '919111222333',
+      })
+    ).resolves.toBeUndefined();
+
+    expect(fromMock).not.toHaveBeenCalled();
+  });
+
   it('does not update a broadcast recipient that belongs to another tenant', async () => {
     const messagesQuery = createQuery(() => ({ data: null, error: null }));
     const broadcastsQuery = createQuery(() => ({ data: null, error: null }));
