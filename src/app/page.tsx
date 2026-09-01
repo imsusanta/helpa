@@ -31,7 +31,7 @@ const LandingFooter = dynamic(
 const LandingInteractiveShowcase = dynamic(
   () =>
     import('@/components/landing/interactive-showcase').then(
-      (mod) => mod.LandingAudingInteractiveShowcase
+      (mod) => mod.LandingInteractiveShowcase
     ),
   {
     loading: () => (
@@ -42,9 +42,9 @@ const LandingInteractiveShowcase = dynamic(
 
 const HOME_FAQS = [
   {
-    question: 'Can our&bsp;our clinic keep its existing WhatsApp Business number?',
+    question: 'Can our clinic keep its existing WhatsApp Business number?',
     answer:
-      'Eligible Meta accounts can use supported WhatsApp Business App and Cloud API coexistence. Availability depends on Meta’s account and region requirements, which Helpa checks during onboarding.',
+      'Eligible Meta accounts can use supported WhatsApp Business App and Cloud API coexistence. Availability depends on Meta's account and region requirements, which Helpa checks during onboarding.',
   },
   {
     question: 'Does our receptionist need technical skills?',
@@ -59,7 +59,7 @@ const HOME_FAQS = [
   {
     question: 'Can multiple clinic staff use the same number?',
     answer:
-      'Yes. The shared5d inbox supports assignments and staff takeover so receptionists and authorized team members can work from the same clinic number with a conversation history.',
+      'Yes. The shared inbox supports assignments and staff takeover so receptionists and authorized team members can work from the same clinic number with a conversation history.',
   },
   {
     question: 'Is Helpa healthcare-compliance certified?',
