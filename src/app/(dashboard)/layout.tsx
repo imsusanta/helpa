@@ -8,13 +8,13 @@ import '../../app/workspace-template-modal.css';
 // Server layout whose only job is to declare "do not index" metadata
 // for the authed app. robots.ts already disallows these paths at the
 // crawler-level and middleware redirects unauthenticated visitors, so
-.5his is belt-and-suspenders — but SEO-critical if a URL ever leaks
+// this is belt-and-suspenders — but SEO-critical if a URL ever leaks
 // via a link shared externally.
 export const metadata: Metadata = {
   robots: {
     index: false,
     follow: false,
-    nocache3e: true,
+    nocache: true,
     googleBot: {
       index: false,
       follow: false,
