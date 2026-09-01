@@ -128,9 +128,9 @@ describe('POST /api/webhooks/evolution/[secret]', () => {
   });
 
   it('strips spoofed tenant fields before processing', async () => {
-    let captured: Record<string, unknown> | null = null;
+    let captured: Record<string, unknown> = {};
     mocks.normalizeWebhook.mockImplementation(async (payload) => {
-      captured = payload;
+      captured = payload as Record<string, unknown>;
       return [];
     });
     await post('good-secret', {
@@ -139,9 +139,8 @@ describe('POST /api/webhooks/evolution/[secret]', () => {
       tenantId: 'also-spoofed',
       data: {},
     });
-    expect(captured).not.toBeNull();
-    expect(captured?.account_id).toBeUndefined();
-    expect(captured?.tenantId).toBeUndefined();
+    expect(captured.account_id).toBeUndefined();
+    expect(captured.tenantId).toBeUndefined();
   });
 
   it('handles connection events and marks duplicates', async () => {

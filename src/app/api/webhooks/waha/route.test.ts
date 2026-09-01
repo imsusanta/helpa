@@ -48,7 +48,7 @@ const TENANT = { accountId: 'acct-1', userId: 'user-1' };
 
 function makeEvent(
   id: string,
-  direction: 'inbound' | 'outbound',
+  direction: 'inbound' | 'outbound' | string,
   overrides: Record<string, unknown> = {}
 ) {
   return {
@@ -176,9 +176,9 @@ describe('POST /api/webhooks/waha — route behaviour', () => {
 
   it('overwrites clinicId with the verified tenant before persisting', async () => {
     mocks.resolveWahaTenant.mockResolvedValue(TENANT);
-    let captured: { clinicId?: string } | null = null;
-    mocks.persistInbound.mockImplementation(async (event) => {
-      captured = event;
+    let captured: { clinicId?: string } = {};
+    mocks.persistInbound.mockImplementation(async (event: unknown) => {
+      captured = event as { clinicId?: string };
       return { duplicate: false, accountId: 'acct-1' };
     });
     mocks.normalizeWebhook.mockResolvedValue([
