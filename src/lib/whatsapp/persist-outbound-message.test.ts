@@ -2,12 +2,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { dbState } = vi.hoisted(() => ({
   dbState: {
-    existingByProviderId: new Map<string, { id: string }>(),
+    existingByProviderId: new Map<
+      string,
+      { id: string; accountId?: string; account_id?: string }
+    >(),
     insertError: null as { code?: string; message?: string } | null,
     unknownColumns: new Set<string>(),
     disallowedStatus: new Set<string>(),
     disallowedSenderType: new Set<string>(),
     inserts: [] as Record<string, unknown>[],
+    inboundCreatedAt: null as string | null,
+    inboundLookups: [] as Record<string, unknown>[],
     updates: [] as Array<{
       table: string;
       payload: Record<string, unknown>;
@@ -42,6 +47,7 @@ vi.mock('@/lib/db/server', () => ({
           filters[col] = val;
           return builder;
         },
+        order: () => builder,
         limit: () => builder,
         maybeSingle: async () => {
           if (selecting) {
@@ -132,6 +138,18 @@ vi.mock('@/lib/db/server', () => ({
             });
           }
           if (selecting) {
+            if (
+              filters.direction === 'inbound' ||
+              filters.sender_type === 'customer'
+            ) {
+              dbState.inboundLookups.push({ ...filters });
+              return Promise.resolve({
+                data: dbState.inboundCreatedAt
+                  ? [{ created_at: dbState.inboundCreatedAt }]
+                  : [],
+                error: null,
+              }).then(resolve, reject);
+            }
             const providerId = String(
               filters.provider_message_id ||
                 filters.message_id ||
@@ -139,6 +157,19 @@ vi.mock('@/lib/db/server', () => ({
                 ''
             );
             const found = dbState.existingByProviderId.get(providerId);
+            const filterAccount = filters.account_id || filters.accountId;
+            const foundAccount = found?.account_id || found?.accountId;
+            if (
+              found &&
+              filterAccount &&
+              foundAccount &&
+              String(foundAccount) !== String(filterAccount)
+            ) {
+              return Promise.resolve({ data: [], error: null }).then(
+                resolve,
+                reject
+              );
+            }
             return Promise.resolve({
               data: found ? [found] : [],
               error: null,
@@ -163,6 +194,7 @@ import {
   persistOutboundMessage,
   touchConversationPreview,
   pauseActiveFlowRuns,
+  formatPersistError,
 } from '@/lib/whatsapp/persist-outbound-message';
 
 const AGENT_UUID = '3d8f0c1a-6b2e-4c11-9a0d-7e4b5c2a1f90';
@@ -195,6 +227,8 @@ describe('persistOutboundMessage', () => {
     dbState.disallowedSenderType.clear();
     dbState.inserts.length = 0;
     dbState.updates.length = 0;
+    dbState.inboundCreatedAt = null;
+    dbState.inboundLookups.length = 0;
   });
 
   it('accepts canonical UUID strings only', () => {
@@ -345,6 +379,50 @@ describe('persistOutboundMessage', () => {
       duplicate: true,
     });
     expect(dbState.inserts).toHaveLength(0);
+  });
+
+  it('scopes inbound latency lookup to the same account and conversation', async () => {
+    dbState.inboundCreatedAt = '2026-08-01T10:00:00.000Z';
+    const res = await persistOutboundMessage({
+      accountId: 'tenant-1',
+      conversationId: 'conv-1',
+      contentType: 'text',
+      contentText: 'reply',
+      providerMessageId: 'wamid.OUT.LAT',
+      createdAt: '2026-08-01T10:00:09.000Z',
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.duplicate).toBe(false);
+    expect(dbState.inboundLookups[0]).toMatchObject({
+      account_id: 'tenant-1',
+      conversation_id: 'conv-1',
+      direction: 'inbound',
+    });
+  });
+
+  it('does not treat another tenant provider id as a duplicate', async () => {
+    dbState.existingByProviderId.set('wamid.SHARED', {
+      id: 'msg-other',
+      accountId: 'tenant-b',
+      account_id: 'tenant-b',
+    });
+    const res = await persistOutboundMessage({
+      accountId: 'tenant-1',
+      conversationId: 'conv-1',
+      contentType: 'text',
+      contentText: 'hi',
+      providerMessageId: 'wamid.SHARED',
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.duplicate).toBe(false);
+    expect(dbState.inserts.length).toBeGreaterThan(0);
+    expect(dbState.inserts[0]).toMatchObject({
+      account_id: 'tenant-1',
+      provider_message_id: 'wamid.SHARED',
+      direction: 'outbound',
+    });
   });
 
   it('strips inbound nullable columns when production messages lacks them', async () => {
@@ -548,5 +626,39 @@ describe('outboundPreviewText', () => {
     expect(
       outboundPreviewText({ contentText: 'Hi', contentType: 'text' })
     ).toBe('Hi');
+  });
+});
+
+describe('formatPersistError', () => {
+  it('returns "Unknown error" for falsy input', () => {
+    expect(formatPersistError(undefined)).toBe('Unknown error');
+    expect(formatPersistError(null)).toBe('Unknown error');
+  });
+
+  it('returns the message for a non-object primitive', () => {
+    expect(formatPersistError('boom')).toBe('boom');
+  });
+
+  it('returns the Error message for an Error instance', () => {
+    expect(formatPersistError(new Error('db down'))).toBe('db down');
+  });
+
+  it('joins string code/message/details/hint with separators', () => {
+    expect(
+      formatPersistError({
+        code: '42501',
+        message: 'permission denied',
+        details: 'row-level security',
+        hint: 'use the tenant predicate',
+      })
+    ).toBe(
+      '42501 — permission denied — row-level security — use the tenant predicate'
+    );
+  });
+
+  it('skips non-string and empty fields', () => {
+    expect(
+      formatPersistError({ code: 'P0001', message: '', details: 123 })
+    ).toBe('P0001');
   });
 });

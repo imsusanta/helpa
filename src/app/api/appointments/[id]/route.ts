@@ -6,6 +6,7 @@ import {
   scheduleAppointmentReminders,
 } from '@/lib/automations/appointment-triggers';
 import { runAutomationsForTrigger } from '@/lib/automations/engine';
+import { safeRecordOutcomeEvent } from '@/lib/metrics/safe-record';
 
 const PRIVATE_HEADERS = {
   'Cache-Control': 'private, no-store, no-cache, must-revalidate',
@@ -106,6 +107,18 @@ export async function PUT(
               booking_id: data.booking_id,
             },
           },
+        });
+      }
+
+      const becameCompleted =
+        String(data.status).toLowerCase() === 'completed' &&
+        String(existing.status).toLowerCase() !== 'completed';
+      if (becameCompleted) {
+        safeRecordOutcomeEvent({
+          accountId: context.accountId,
+          eventName: 'appointment_completed',
+          sourceId: `appt-complete:${context.accountId}:${data.id}`,
+          subjectHash: data.patient_id ? String(data.patient_id) : null,
         });
       }
     }

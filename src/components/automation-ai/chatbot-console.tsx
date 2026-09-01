@@ -59,7 +59,7 @@ const STYLE_LABELS: Record<ResponseStyle, string> = {
   detailed: 'Detailed — thorough with next steps',
 };
 
-export function ChatbotConsole() {
+export function ChatbotConsole({ embedded = false }: { embedded?: boolean }) {
   const { account, canEditSettings, profileLoading } = useAuth();
   const preset = getIndustryAiPreset(account?.industry);
   const {
@@ -124,9 +124,11 @@ export function ChatbotConsole() {
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
-        throw new Error(data?.error || 'Failed to save chatbot settings');
+        throw new Error(
+          data?.error || `Failed to save ${preset.assistantRole} settings`
+        );
       }
-      toast.success('Chatbot settings saved');
+      toast.success(`${preset.assistantRole} settings saved`);
       if (data) {
         setConfig(data as AiConfig);
       }
@@ -146,18 +148,34 @@ export function ChatbotConsole() {
 
   return (
     <div className="space-y-6">
-      <ModuleHeader
-        icon={Bot}
-        title="Chatbot"
-        description={`Your WhatsApp AI ${preset.assistantRole.toLowerCase()} replies to customers automatically using your knowledge base and system prompt.`}
-        badge={
-          statsLoading && !config ? null : (
-            <Badge variant={effectiveEnabled ? 'default' : 'secondary'}>
-              {effectiveEnabled ? 'Active' : 'Paused'}
-            </Badge>
-          )
-        }
-      />
+      {!embedded ? (
+        <ModuleHeader
+          icon={Bot}
+          title={preset.assistantRole}
+          description={`Your WhatsApp ${preset.assistantRole.toLowerCase()} replies automatically using the knowledge base and system prompt.`}
+          badge={
+            statsLoading && !config ? null : (
+              <Badge variant={effectiveEnabled ? 'default' : 'secondary'}>
+                {effectiveEnabled ? 'Active' : 'Paused'}
+              </Badge>
+            )
+          }
+        />
+      ) : (
+        <div className="space-y-1">
+          <h2 className="text-foreground flex items-center gap-2 text-lg font-semibold">
+            {preset.assistantRole}
+            {statsLoading && !config ? null : (
+              <Badge variant={effectiveEnabled ? 'default' : 'secondary'}>
+                {effectiveEnabled ? 'Active' : 'Paused'}
+              </Badge>
+            )}
+          </h2>
+          <p className="text-muted-foreground text-sm">
+            System prompt, welcome message, and auto-reply for WhatsApp.
+          </p>
+        </div>
+      )}
 
       {/* Real overview metrics (viewer-readable). */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -198,14 +216,14 @@ export function ChatbotConsole() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Lock className="h-4 w-4" /> Chatbot configuration
+              <Lock className="h-4 w-4" /> {preset.assistantRole} configuration
             </CardTitle>
             <CardDescription>
               The auto-reply is currently{' '}
               <strong>{effectiveEnabled ? 'active' : 'paused'}</strong> with a{' '}
               <strong>{aiStats?.response_style ?? 'balanced'}</strong> response
-              style. Only workspace admins and owners can change the chatbot
-              configuration.
+              style. Only workspace admins and owners can change the{' '}
+              {preset.assistantRole.toLowerCase()} configuration.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -326,7 +344,7 @@ export function ChatbotConsole() {
               ) : (
                 <Save className="mr-2 h-4 w-4" />
               )}
-              Save chatbot settings
+              Save {preset.assistantRole} settings
             </Button>
           </div>
         </>

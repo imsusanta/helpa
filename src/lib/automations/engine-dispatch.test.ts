@@ -21,6 +21,10 @@ const h = vi.hoisted(() => ({
   },
 }));
 
+vi.mock('@/lib/metrics/safe-record', () => ({
+  safeRecordOutcomeEvent: vi.fn(),
+}));
+
 vi.mock('@/lib/db/server', () => {
   const { state } = h;
 
@@ -107,12 +111,24 @@ async function sendTextStub(_args: SendTextArgs) {
   return { whatsapp_message_id: 'm1' };
 }
 
+interface SendButtonsArgs {
+  bodyText: string;
+  buttons: { id: string; title: string }[];
+}
+
+async function sendButtonsStub(_args: SendButtonsArgs) {
+  return { whatsapp_message_id: 'm1' };
+}
+
 const sendText = vi.fn(sendTextStub);
+const sendButtons = vi.fn(sendButtonsStub);
 
 vi.mock('./meta-send', () => ({
   engineSendText: (...a: unknown[]) =>
     (sendText as unknown as (...x: unknown[]) => unknown)(...a),
   engineSendTemplate: vi.fn(async () => ({ whatsapp_message_id: 'm1' })),
+  engineSendButtons: (...a: unknown[]) =>
+    (sendButtons as unknown as (...x: unknown[]) => unknown)(...a),
 }));
 
 import { runAutomationsForTrigger } from './engine';
@@ -173,6 +189,7 @@ beforeEach(() => {
   h.state.conversationUpdates = [];
   h.state.logUpdates = [];
   sendText.mockClear();
+  sendButtons.mockClear();
   process.env.AUTOMATION_WEBHOOK_RETRY_BASE_MS = '0';
 });
 
@@ -361,6 +378,45 @@ describe('interpolate — contact and appointment tokens', () => {
 
     const arg = sendText.mock.calls[0][0];
     expect(arg.text).toBe('Hello there');
+  });
+
+  it('sends Booking Confirm buttons and travel tokens', async () => {
+    h.state.automations = [automation({ trigger_type: NEW_MESSAGE })];
+    h.state.steps = [
+      step('send_message', {
+        text: 'Confirm {{ travel.package_name }} for {{ travel.total_price }}',
+        buttons: [
+          { id: 'travel_booking_confirm', title: 'Confirm Booking' },
+          { id: 'travel_booking_later', title: 'Not yet' },
+        ],
+      }),
+    ];
+    h.state.conversations = [{ id: 'conv1' }];
+
+    await runAutomationsForTrigger({
+      accountId: ACCOUNT,
+      triggerType: NEW_MESSAGE,
+      contactId: 'c1',
+      context: {
+        conversation_id: 'conv1',
+        vars: {
+          travel_package_name: 'Kashmir Delight',
+          travel_total_price: '₹27,999',
+        },
+      },
+    });
+
+    expect(sendText).not.toHaveBeenCalled();
+    expect(sendButtons).toHaveBeenCalledTimes(1);
+    expect(sendButtons.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        bodyText: 'Confirm Kashmir Delight for ₹27,999',
+        buttons: [
+          { id: 'travel_booking_confirm', title: 'Confirm Booking' },
+          { id: 'travel_booking_later', title: 'Not yet' },
+        ],
+      })
+    );
   });
 });
 

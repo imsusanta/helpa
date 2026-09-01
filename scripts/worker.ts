@@ -4,6 +4,7 @@ import { processDueLeadFollowups } from '../src/lib/leads/lead-followup.service'
 import { getAdminClient } from '../src/lib/db/server';
 // Register the modules-layer industry port (mirrors src/instrumentation.ts).
 import '../src/modules/industry-port';
+import { touchHeartbeat } from '../src/lib/ops/heartbeat';
 
 console.log('[Helpa Worker] Starting background worker...');
 
@@ -33,11 +34,19 @@ async function runWorkerLoop() {
           `[Helpa Worker] Lead follow-ups processed=${followups.processed} sent=${followups.sent} skipped=${followups.skipped}`
         );
       }
+
+      await touchHeartbeat('whatsapp-outbox-worker', 'ok', {
+        reconciled,
+        followups: followups.processed,
+      });
     } catch (err) {
       console.error(
         '[Helpa Worker] Error during worker batch execution:',
         err instanceof Error ? err.message : String(err)
       );
+      await touchHeartbeat('whatsapp-outbox-worker', 'error', {
+        reason: 'batch_error',
+      });
     }
 
     if (isRunning) {

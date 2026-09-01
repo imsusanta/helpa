@@ -5,14 +5,21 @@ import { hashWebhookSecret } from '@/core/providers/whatsapp/evolution-go-provid
 import { POST as evolutionWebhook } from '@/app/api/webhooks/evolution/[secret]/route';
 
 const persistMock = vi.hoisted(() => vi.fn());
+const persistOutboundMock = vi.hoisted(() => vi.fn());
 const triggerAiMock = vi.hoisted(() => vi.fn());
+const followupMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@/app/api/webhooks/inbound-persistence', () => ({
   persistNormalizedInboundMessage: persistMock,
+  persistNormalizedOutboundMessage: persistOutboundMock,
 }));
 
 vi.mock('@/lib/whatsapp/ai', () => ({
   triggerAiResponse: triggerAiMock,
+}));
+
+vi.mock('@/lib/whatsapp/evolution-inbound-followup', () => ({
+  dispatchEvolutionInboundFollowup: followupMock,
 }));
 
 type Row = Record<string, unknown>;
@@ -93,7 +100,23 @@ describe('Evolution Go webhook', () => {
   beforeEach(() => {
     seenMessageIds = new Set();
     persistMock.mockReset();
+    persistOutboundMock.mockReset();
     triggerAiMock.mockReset();
+    followupMock.mockReset();
+    followupMock.mockResolvedValue({ handled: false });
+    persistOutboundMock.mockImplementation(
+      async (event: { externalMessageId: string }) => {
+        const duplicate = seenMessageIds.has(event.externalMessageId);
+        seenMessageIds.add(event.externalMessageId);
+        return {
+          duplicate,
+          accountId: tenantA,
+          contactId: 'contact-1',
+          conversationId: 'conv-1',
+          messageId: `local-out-${event.externalMessageId}`,
+        };
+      }
+    );
     persistMock.mockImplementation(
       async (event: { externalMessageId: string }) => {
         const duplicate = seenMessageIds.has(event.externalMessageId);
@@ -177,6 +200,55 @@ describe('Evolution Go webhook', () => {
     expect(persistMock.mock.calls[0][0].content).toBe('need an appointment');
     expect(JSON.stringify(body)).not.toContain('should-not-be-trusted');
     expect(JSON.stringify(body)).not.toContain(secretA);
+    expect(followupMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountId: tenantA,
+        inboundText: 'need an appointment',
+      })
+    );
+    expect(triggerAiMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips AI when booking confirm or an automation already replied', async () => {
+    followupMock.mockResolvedValueOnce({ handled: true });
+    await post(secretA, {
+      event: 'Message',
+      data: {
+        key: {
+          id: 'evo-booking-1',
+          fromMe: false,
+          remoteJid: '919111222333@s.whatsapp.net',
+        },
+        message: { conversation: 'Confirm booking' },
+      },
+    });
+    expect(followupMock).toHaveBeenCalledTimes(1);
+    expect(triggerAiMock).not.toHaveBeenCalled();
+  });
+
+  it('passes Evolution button reply ids into booking follow-up', async () => {
+    await post(secretA, {
+      event: 'Message',
+      data: {
+        key: {
+          id: 'evo-btn-1',
+          fromMe: false,
+          remoteJid: '919111222333@s.whatsapp.net',
+        },
+        message: {
+          buttonsResponseMessage: {
+            selectedButtonId: 'travel_booking_confirm',
+            selectedDisplayText: 'Confirm Booking',
+          },
+        },
+      },
+    });
+    expect(followupMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        inboundText: 'Confirm Booking',
+        interactiveReplyId: 'travel_booking_confirm',
+      })
+    );
   });
 
   it('ignores a spoofed account_id in the payload', async () => {
@@ -194,6 +266,32 @@ describe('Evolution Go webhook', () => {
     });
     expect(persistMock.mock.calls[0][1].accountId).toBe(tenantA);
     expect(persistMock.mock.calls[0][1].accountId).not.toBe(tenantB);
+  });
+
+  it('persists fromMe Evolution echoes as outbound and does not trigger AI', async () => {
+    const res = await post(secretA, {
+      event: 'Message',
+      data: {
+        key: {
+          id: 'evo-from-me-1',
+          fromMe: true,
+          remoteJid: '919111222333@s.whatsapp.net',
+        },
+        message: { conversation: 'sent from the phone' },
+      },
+    });
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.persisted).toBe(1);
+    expect(persistOutboundMock).toHaveBeenCalledTimes(1);
+    expect(persistOutboundMock.mock.calls[0][0].direction).toBe('outbound');
+    expect(persistOutboundMock.mock.calls[0][0].patientAddress).toBe(
+      '919111222333'
+    );
+    expect(persistOutboundMock.mock.calls[0][1].accountId).toBe(tenantA);
+    expect(persistMock).not.toHaveBeenCalled();
+    expect(followupMock).not.toHaveBeenCalled();
+    expect(triggerAiMock).not.toHaveBeenCalled();
   });
 
   it('is idempotent for duplicate webhook deliveries', async () => {

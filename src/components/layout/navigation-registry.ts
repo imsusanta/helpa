@@ -94,14 +94,13 @@ export const NAVIGATION_REGISTRY: SidebarNavItem<React.ElementType>[] = [
     label: 'Automation & AI',
     icon: Bot,
     children: [
-      { id: 'automation-chatbot', label: 'Chatbot', href: '/chatbot' },
-      { id: 'automation-faq', label: 'FAQ Bot', href: '/faq-bot' },
-      { id: 'automation-rules', label: 'Automations', href: '/automations' },
       {
         id: 'automation-knowledge',
         label: 'Knowledge Base',
         href: '/knowledge-base',
+        activeHrefs: ['/chatbot', '/faq-bot'],
       },
+      { id: 'automation-rules', label: 'Automations', href: '/automations' },
     ],
   },
   {

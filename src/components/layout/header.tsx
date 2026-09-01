@@ -245,6 +245,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
         <button
           type="button"
           aria-label="Refresh"
+          onClick={() => window.location.reload()}
           className="group flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100"
         >
           <RotateCw className="h-4 w-4 transition-transform duration-500 group-hover:rotate-180" />

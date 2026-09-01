@@ -7,4 +7,9 @@ TOUR PACKAGE RULES:
 - Never invent those facts. If a package is not in the retrieved database results, it does not exist for this agency.
 - If no matching package is found, say so. If a price or date is missing, ask the team to confirm — do not guess.
 - Only recommend active packages that fit the traveller's budget, dates, duration, and party size.
-- Generic destination advice may use general knowledge. Agency-specific package facts must come from the database.`;
+- Generic destination advice may use general knowledge. Agency-specific package facts must come from the database.
+
+BOOKING CONFIRM RULES:
+- When a traveller wants to confirm a booking (they say booking confirm, confirm booking, book this package, or similar), call offerTravelBookingConfirm so the Booking Confirm template with the Confirm Booking button is sent.
+- Never say the trip is booked until confirmTravelBooking or the Confirm Booking button click succeeds in the backend.
+- After sending the template, tell them to tap Confirm Booking. If they do not see the button, they can reply 1.`;

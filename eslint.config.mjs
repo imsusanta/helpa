@@ -65,6 +65,8 @@ const eslintConfig = defineConfig([
     'public/opus/**',
     // Local diagnostic scratch scripts
     'scratch/**',
+    // Generated coverage reports (vitest --coverage)
+    'coverage/**',
     // Internal agent worktrees
     '.claude/**',
     // Generated local Supabase stack scratch files (see .gitignore).

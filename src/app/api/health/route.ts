@@ -6,6 +6,7 @@ import {
   getRuntimeConfig,
   requireSupabasePublicConfig,
 } from '@/lib/runtime-config';
+import { readPublicHeartbeat } from '@/lib/ops/heartbeat';
 
 export async function GET(request: Request) {
   const timestamp = new Date().toISOString();
@@ -125,6 +126,18 @@ export async function GET(request: Request) {
   const metaConfigured = Boolean(process.env.META_APP_SECRET);
   const twilioConfigured = Boolean(process.env.TWILIO_AUTH_TOKEN);
   const calendlyConfigured = Boolean(process.env.CALENDLY_CLIENT_SECRET);
+  const authConfigured = Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY)
+  );
+  const workerHeartbeat = isMockCiDb
+    ? {
+        status: 'unknown' as const,
+        lastSeenAt: null,
+        staleAfterSeconds: 90,
+      }
+    : await readPublicHeartbeat('whatsapp-outbox-worker');
 
   const isReadyRoute = pathname.endsWith('/ready');
   const httpStatus = isReadyRoute ? (isHealthy ? 200 : 503) : 200;
@@ -147,6 +160,8 @@ export async function GET(request: Request) {
         database: databaseHealthy ? 'healthy' : 'unreachable',
         migrationVersion,
         latencyMs,
+        auth: authConfigured ? 'configured' : 'not_configured',
+        worker: workerHeartbeat,
         metaWhatsAppGlobalEnv: metaConfigured ? 'configured' : 'not_configured',
         tenantWhatsAppNotice:
           'Tenant-level WhatsApp connection status is dynamic and evaluated per session context at /api/whatsapp/config',

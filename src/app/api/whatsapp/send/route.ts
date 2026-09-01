@@ -515,6 +515,7 @@ export async function POST(request: Request) {
         .from('messages')
         .select('*')
         .eq('id', reply_to_message_id)
+        .eq('account_id', accountId)
         .maybeSingle();
       const parentConvId = parent?.conversation_id || parent?.conversationId;
       const parentAcct = parent?.account_id ?? parent?.accountId ?? '';

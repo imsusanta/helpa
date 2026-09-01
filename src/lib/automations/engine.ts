@@ -16,8 +16,15 @@ import type {
   AssignConversationStepConfig,
   UpdateLeadStepConfig,
 } from '@/types';
+import { automationAuthorId } from '@/lib/automations/automation-row';
 import { getAdminClient } from '@/lib/db/server';
-import { engineSendText, engineSendTemplate } from './meta-send';
+import { safeRecordOutcomeEvent } from '@/lib/metrics/safe-record';
+import {
+  engineSendText,
+  engineSendTemplate,
+  engineSendButtons,
+} from './meta-send';
+import { prepareTravelBookingConfirmOffer } from '@/lib/travel/booking-confirm';
 import { evaluateDelayedOutboundGuard } from '@/lib/leads/followup-guard.service';
 import {
   cancelScheduledFollowups,
@@ -114,14 +121,32 @@ export async function runAutomationsForTrigger(
 
     for (const automation of automations as Automation[]) {
       if (!triggerMatches(automation, input.context)) continue;
+      safeRecordOutcomeEvent({
+        accountId: input.accountId,
+        eventName: 'automation_eligible',
+        sourceId: `auto-elig:${input.accountId}:${automation.id}:${input.triggerType}`,
+        attributes: { trigger: input.triggerType },
+      });
       try {
         const res = await executeAutomation(automation, input);
         executedCount++;
         if (res?.replied) {
           replied = true;
         }
+        safeRecordOutcomeEvent({
+          accountId: input.accountId,
+          eventName: 'automation_completed',
+          sourceId: `auto-comp:${input.accountId}:${automation.id}:${input.triggerType}`,
+          attributes: { trigger: input.triggerType },
+        });
       } catch (err) {
         console.error('[automations] execute failed:', automation.id, err);
+        safeRecordOutcomeEvent({
+          accountId: input.accountId,
+          eventName: 'automation_error',
+          sourceId: `auto-err:${input.accountId}:${automation.id}:${input.triggerType}`,
+          attributes: { trigger: input.triggerType },
+        });
       }
     }
   } catch (err) {
@@ -206,7 +231,7 @@ async function executeAutomation(
       // Audit: keeps the historical "author of this automation"
       // pointer so logs still attribute to the right user even
       // after teammates join the account.
-      user_id: automation.user_id,
+      user_id: automationAuthorId(automation),
       contact_id: input.contactId ?? null,
       trigger_event: input.triggerType,
       steps_executed: [],
@@ -326,7 +351,7 @@ async function executeStepsFrom(
         automation_id: args.automation.id,
         // Tenancy: account_id required NOT NULL post-017.
         account_id: args.automation.account_id,
-        user_id: args.automation.user_id,
+        user_id: automationAuthorId(args.automation),
         contact_id: args.contactId,
         log_id: args.logId,
         parent_step_id: args.parentStepId,
@@ -429,12 +454,41 @@ async function runStep(
         const skipped = await skipDelayedSendIfBlocked(args, 'reminder');
         if (skipped) return skipped;
       }
+      const conversationId = await resolveConversationId(args);
+      if (cfg.travel_booking_confirm) {
+        const offer = await prepareTravelBookingConfirmOffer({
+          accountId: args.automation.account_id,
+          contactId: args.contactId,
+          conversationId,
+          messageText: args.context.message_text,
+        });
+        args.context.vars = {
+          ...args.context.vars,
+          travel_package_name: offer.packageName,
+          travel_date: offer.travelDate,
+          travel_guests: String(offer.guestsCount),
+          travel_total_price: offer.totalPriceLabel,
+        };
+      }
       const text = await interpolate(cfg.text, args);
       if (!text.trim()) throw new Error('send_message has empty text');
-      const conversationId = await resolveConversationId(args);
+      if (cfg.buttons && cfg.buttons.length > 0) {
+        const { whatsapp_message_id } = await engineSendButtons({
+          accountId: args.automation.account_id,
+          userId: automationAuthorId(args.automation) ?? '',
+          conversationId,
+          contactId: args.contactId,
+          bodyText: text,
+          buttons: cfg.buttons.map((button) => ({
+            id: String(button.id),
+            title: String(button.title),
+          })),
+        });
+        return `sent buttons via WhatsApp (${whatsapp_message_id})`;
+      }
       const { whatsapp_message_id } = await engineSendText({
         accountId: args.automation.account_id,
-        userId: args.automation.user_id,
+        userId: automationAuthorId(args.automation) ?? '',
         conversationId,
         contactId: args.contactId,
         text,
@@ -476,7 +530,7 @@ async function runStep(
       }
       const { whatsapp_message_id } = await engineSendTemplate({
         accountId: args.automation.account_id,
-        userId: args.automation.user_id,
+        userId: automationAuthorId(args.automation) ?? '',
         conversationId,
         contactId: args.contactId,
         templateName: cfg.template_name,
@@ -615,7 +669,7 @@ async function runStep(
       await db.from('deals').insert({
         // Tenancy + audit, same split as automation_logs above.
         account_id: args.automation.account_id,
-        user_id: args.automation.user_id,
+        user_id: automationAuthorId(args.automation),
         pipeline_id: cfg.pipeline_id,
         stage_id: cfg.stage_id,
         contact_id: args.contactId,
@@ -1241,6 +1295,21 @@ function resolveToken(
       }
     }
 
+    case 'travel': {
+      switch (prop) {
+        case 'package_name':
+          return stringifyToken(vars.travel_package_name);
+        case 'date':
+          return stringifyToken(vars.travel_date);
+        case 'guests':
+          return stringifyToken(vars.travel_guests);
+        case 'total_price':
+          return stringifyToken(vars.travel_total_price);
+        default:
+          return stringifyToken(vars[`travel_${prop}`]);
+      }
+    }
+
     case 'appointment': {
       // The appointment routes and the reminder scheduler both push these
       // into context.vars, so this namespace is a friendlier alias over
@@ -1272,8 +1341,9 @@ function resolveToken(
  * Replace `{{ token }}` placeholders in step text.
  *
  * Supported: `message.text`, `vars.<key>`, `contact.name|first_name|
- * phone|email|company`, and `appointment.date|time|date_iso|time_24h|
- * id|booking_id`. Unknown tokens resolve to an empty string, which is
+ * phone|email|company`, `travel.package_name|date|guests|total_price`,
+ * and `appointment.date|time|date_iso|time_24h|id|booking_id`. Unknown
+ * tokens resolve to an empty string, which is
  * the long-standing behaviour — a half-rendered `{{ contact.nmae }}`
  * in a customer's WhatsApp message is worse than a gap.
  */

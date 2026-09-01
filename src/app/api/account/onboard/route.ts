@@ -7,6 +7,8 @@ import {
   resolveCanonicalIndustry,
 } from '@/modules/registry';
 import { insertSteps } from '@/lib/automations/steps-tree';
+import { insertAutomationRow } from '@/lib/automations/automation-row';
+import { isSeededKnowledgeTitle } from '@/lib/knowledge-base/seeded';
 
 export async function POST(request: Request) {
   try {
@@ -246,10 +248,28 @@ export async function POST(request: Request) {
 
     // 4. Pre-seed Knowledge Base entries (Custom services + Industry templates)
     try {
-      await admin
+      const { data: existingKb } = await admin
         .from('knowledge_base')
-        .delete()
+        .select('id, question_title')
         .eq('account_id', ctx.accountId);
+
+      const seededIds = (existingKb ?? [])
+        .filter((row) => isSeededKnowledgeTitle(row.question_title))
+        .map((row) => row.id);
+      const remainingTitles = new Set(
+        (existingKb ?? [])
+          .filter((row) => !seededIds.includes(row.id))
+          .map((row) => String(row.question_title || '').trim())
+          .filter(Boolean)
+      );
+
+      if (seededIds.length > 0) {
+        await admin
+          .from('knowledge_base')
+          .delete()
+          .eq('account_id', ctx.accountId)
+          .in('id', seededIds);
+      }
 
       const kbToInsert: Array<{
         account_id: string;
@@ -303,8 +323,12 @@ export async function POST(request: Request) {
         });
       }
 
-      if (kbToInsert.length > 0) {
-        await admin.from('knowledge_base').insert(kbToInsert);
+      const uniqueKbToInsert = kbToInsert.filter(
+        (row) => !remainingTitles.has(row.question_title)
+      );
+
+      if (uniqueKbToInsert.length > 0) {
+        await admin.from('knowledge_base').insert(uniqueKbToInsert);
       }
     } catch (kbErr) {
       console.warn('[onboard route] soft error seeding knowledge base:', kbErr);
@@ -376,24 +400,21 @@ export async function POST(request: Request) {
       if (config.workflows && config.workflows.length > 0) {
         await Promise.all(
           config.workflows.map(async (w) => {
-            const { data: autoRecord, error: autoErr } = await admin
-              .from('automations')
-              .insert({
-                account_id: ctx.accountId,
-                user_id: ctx.userId,
+            const { data: autoRecord, error: autoErr } =
+              await insertAutomationRow(admin, {
+                accountId: ctx.accountId,
+                userId: ctx.userId,
                 name: w.name,
                 description: w.description,
-                trigger_type: w.trigger_type,
-                trigger_config: w.trigger_config || {},
-                is_active: w.is_active,
+                triggerType: w.trigger_type,
+                triggerConfig: w.trigger_config || {},
+                isActive: w.is_active,
                 metadata: {
                   helpa_seeded_workflow: true,
                   workflow_seed_key: w.seedKey,
                   workflow_industry: validIndustryId,
                 },
-              })
-              .select('id')
-              .single();
+              });
 
             if (autoErr || !autoRecord) {
               console.error(

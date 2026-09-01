@@ -79,4 +79,25 @@ describe('Tour Package AI tools', () => {
       'unable to check the latest package details'
     );
   });
+
+  it('exposes travel booking confirm tools only for travel workplaces', async () => {
+    expect(
+      aiToolRegistry.get('offerTravelBookingConfirm')?.allowedIndustries
+    ).toEqual(['travel']);
+    expect(
+      aiToolRegistry.get('confirmTravelBooking')?.allowedIndustries
+    ).toEqual(['travel']);
+    expect(
+      aiToolRegistry.getToolsForIndustry('travel').map((tool) => tool.name)
+    ).toEqual(
+      expect.arrayContaining([
+        'offerTravelBookingConfirm',
+        'confirmTravelBooking',
+        'searchTourPackages',
+      ])
+    );
+    expect(
+      aiToolRegistry.getToolsForIndustry('hospital').map((tool) => tool.name)
+    ).not.toContain('offerTravelBookingConfirm');
+  });
 });

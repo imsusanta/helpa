@@ -95,8 +95,8 @@ function LoginPageInner() {
   return (
     <div className="relative flex min-h-screen w-full overflow-hidden bg-[#030712] font-sans text-white antialiased selection:bg-emerald-500/30 selection:text-emerald-300">
       {/* Dynamic Background Glow Spheres */}
-      <div className="pointer-events-none absolute top-[-15%] left-[-10%] h-[600px] w-[600px] animate-pulse rounded-full bg-gradient-to-br from-emerald-500/15 via-teal-500/10 to-transparent blur-[140px] duration-[10s]" />
-      <div className="pointer-events-none absolute right-[-10%] bottom-[-15%] h-[650px] w-[650px] animate-pulse rounded-full bg-gradient-to-tl from-indigo-600/15 via-purple-500/10 to-transparent blur-[140px] duration-[14s]" />
+      <div className="pointer-events-none absolute top-[-15%] left-[-10%] h-[600px] w-[600px] animate-pulse rounded-full bg-gradient-to-br from-emerald-500/15 via-teal-500/10 to-transparent blur-[140px] duration-[10s] motion-reduce:animate-none" />
+      <div className="pointer-events-none absolute right-[-10%] bottom-[-15%] h-[650px] w-[650px] animate-pulse rounded-full bg-gradient-to-tl from-indigo-600/15 via-purple-500/10 to-transparent blur-[140px] duration-[14s] motion-reduce:animate-none" />
       <div className="pointer-events-none absolute top-[40%] left-[30%] h-[400px] w-[400px] rounded-full bg-emerald-600/5 blur-[120px]" />
 
       {/* Grid Pattern Overlay */}
@@ -174,6 +174,8 @@ function LoginPageInner() {
                 <AnimatePresence mode="wait">
                   {error && (
                     <motion.div
+                      role="alert"
+                      aria-live="assertive"
                       initial={{ opacity: 0, height: 0, scale: 0.95 }}
                       animate={{ opacity: 1, height: 'auto', scale: 1 }}
                       exit={{ opacity: 0, height: 0, scale: 0.95 }}
@@ -243,7 +245,10 @@ function LoginPageInner() {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-zinc-500 transition-colors hover:text-zinc-300"
+                      aria-label={
+                        showPassword ? 'Hide password' : 'Show password'
+                      }
+                      className="absolute inset-y-0 right-0 flex min-h-11 min-w-11 items-center justify-end pr-3.5 text-zinc-500 transition-colors hover:text-zinc-300"
                     >
                       {showPassword ? (
                         <EyeOff className="h-4 w-4" />
@@ -256,8 +261,12 @@ function LoginPageInner() {
 
                 {/* Remember Me Checkbox */}
                 <div className="flex items-center justify-between pt-1">
-                  <label className="flex cursor-pointer items-center gap-2.5 text-xs font-medium text-zinc-400 select-none">
+                  <label
+                    htmlFor="remember-me"
+                    className="flex cursor-pointer items-center gap-2.5 text-xs font-medium text-zinc-400 select-none"
+                  >
                     <input
+                      id="remember-me"
                       type="checkbox"
                       checked={rememberMe}
                       onChange={(e) => setRememberMe(e.target.checked)}

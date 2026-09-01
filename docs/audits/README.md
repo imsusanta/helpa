@@ -12,6 +12,7 @@ This directory archives historical audit reports, readiness assessments, and sec
 
 | Document | Scope & Focus | Milestone / Phase |
 | :--- | :--- | :--- |
+| [`PRODUCTION_READINESS_GAPS_2026-09.md`](./PRODUCTION_READINESS_GAPS_2026-09.md) | **Current scorecard (2026-09-01)** — honest 7/10 on this branch vs 5/10 on live `main`. Not 10/10. | Current |
 | [`10-OUT-OF-10-ROADMAP.md`](../10-OUT-OF-10-ROADMAP.md) | **Active Canonical Roadmap** — Production hardening, blocking CI gates, tenant isolation, and release truthfulness | Canonical / Current |
 | [`FINAL_PRODUCTION_GAP_AUDIT.md`](./FINAL_PRODUCTION_GAP_AUDIT.md) | Production gap analysis and verification checklist | Production Readiness |
 | [`FINAL_PRODUCTION_GO_AUDIT.md`](./FINAL_PRODUCTION_GO_AUDIT.md) | Final deployment go/no-go readiness evaluation | Release Verification |

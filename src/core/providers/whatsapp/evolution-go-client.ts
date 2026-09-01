@@ -140,6 +140,14 @@ export interface EvolutionGoSendMediaInput {
   filename?: string;
 }
 
+export interface EvolutionGoSendButtonInput {
+  number: string;
+  title: string;
+  description: string;
+  footer?: string;
+  buttons: Array<{ id: string; title: string }>;
+}
+
 export type EvolutionGoListedChat = {
   jid: string;
   name: string;
@@ -939,6 +947,31 @@ export async function sendEvolutionGoText(
     body: {
       number: input.number,
       text: input.text,
+      formatJid: true,
+    },
+  });
+  return { externalMessageId: extractSendMessageId(payload) };
+}
+
+export async function sendEvolutionGoButtons(
+  instanceToken: string,
+  input: EvolutionGoSendButtonInput
+): Promise<{ externalMessageId: string }> {
+  const payload = await evolutionGoRequest({
+    method: 'POST',
+    path: '/send/button',
+    auth: 'instance',
+    instanceToken,
+    body: {
+      number: input.number,
+      title: (input.title || 'Booking').slice(0, 60),
+      description: input.description,
+      footer: (input.footer || 'Helpa').slice(0, 60),
+      buttons: input.buttons.slice(0, 3).map((button) => ({
+        type: 'reply',
+        displayText: button.title.slice(0, 20),
+        id: button.id,
+      })),
       formatJid: true,
     },
   });

@@ -125,6 +125,9 @@ vi.mock('@/lib/supabase/server', () => ({ getAdminClient: () => database }));
 vi.mock('@/lib/saas/subscription', () => ({
   checkPlanLimits: vi.fn(async () => ({ allowed: true })),
 }));
+vi.mock('@/lib/automations/travel-seeds', () => ({
+  ensureTravelWorkflowsSeeded: vi.fn(async () => 0),
+}));
 vi.mock('@/lib/automations/steps-tree', () => ({
   insertSteps: vi.fn(async () => null),
   loadStepsTree: vi.fn(async () => []),
@@ -229,7 +232,7 @@ describe('automation route tenant and industry isolation', () => {
     );
     expect(response.status).toBe(201);
     expect(state.tables.automations.at(-1)).toEqual(
-      expect.objectContaining({ account_id: 'account-a', user_id: 'user-a' })
+      expect.objectContaining({ account_id: 'account-a', created_by: 'user-a' })
     );
   });
 });

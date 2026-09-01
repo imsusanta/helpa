@@ -121,6 +121,18 @@ const COMMAND_NAV_ITEMS = [
     category: 'AI & Knowledge',
   },
   {
+    label: 'AI Receptionist & System Prompt',
+    href: '/knowledge-base?tab=receptionist',
+    icon: BookOpen,
+    category: 'AI & Knowledge',
+  },
+  {
+    label: 'FAQ Bot',
+    href: '/knowledge-base?tab=faq',
+    icon: BookOpen,
+    category: 'AI & Knowledge',
+  },
+  {
     label: 'Settings & Workspace Rules',
     href: '/settings',
     icon: Settings,

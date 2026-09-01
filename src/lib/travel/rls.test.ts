@@ -55,7 +55,7 @@ describe('tour package RLS migration', () => {
 describe('tour package simple form columns', () => {
   it('adds cover image and price type without opening RLS', () => {
     const followUp = readFileSync(
-      'supabase/migrations/20260830140000_tour_package_simple_fields.sql',
+      'supabase/migrations/20260830140500_tour_package_simple_fields.sql',
       'utf8'
     );
     expect(followUp).toContain('cover_image_url');

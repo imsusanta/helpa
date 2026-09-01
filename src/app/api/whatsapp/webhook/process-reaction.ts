@@ -9,14 +9,16 @@ import type { WhatsAppMessage } from './types';
 export async function handleReaction(
   message: WhatsAppMessage,
   conversationId: string,
-  contactId: string
+  contactId: string,
+  accountId: string
 ) {
   const reaction = message.reaction;
   if (!reaction?.message_id) return;
 
   const targetInternalId = await lookupInternalIdByMetaId(
     reaction.message_id,
-    conversationId
+    conversationId,
+    accountId
   );
   if (!targetInternalId) {
     console.warn(

@@ -169,19 +169,50 @@ async function processWebhook(
       }
 
       const value = change.value;
+      const phoneNumberId = value?.metadata?.phone_number_id;
+      let tenantContext: Awaited<
+        ReturnType<typeof resolveTenantByPhoneNumberId>
+      > = null;
+      let tenantLookupFailed = false;
+      if (phoneNumberId) {
+        try {
+          tenantContext = await resolveTenantByPhoneNumberId(phoneNumberId);
+        } catch (err) {
+          tenantLookupFailed = true;
+          logger.error('Tenant resolution failed for webhook change', {
+            correlationId,
+            component: 'whatsapp-webhook',
+            phoneNumberId,
+            error: err instanceof Error ? err.message : 'unknown',
+          });
+        }
+      }
 
       // Outbound delivery receipts. Isolated per status so one bad receipt
       // cannot interfere with inbound persistence below.
       if (value?.statuses && Array.isArray(value.statuses)) {
-        for (const status of value.statuses) {
-          try {
-            await handleStatusUpdate(status);
-          } catch (err) {
-            logger.error('Outbound status update failed', {
+        if (!tenantContext) {
+          logger.error(
+            'Discarded outbound status updates for unregistered phone_number_id',
+            {
               correlationId,
               component: 'whatsapp-webhook',
-              error: err instanceof Error ? err.message : 'unknown',
-            });
+              phoneNumberId,
+              statusCount: value.statuses.length,
+            }
+          );
+        } else {
+          for (const status of value.statuses) {
+            try {
+              await handleStatusUpdate(status, tenantContext.tenantId);
+            } catch (err) {
+              logger.error('Outbound status update failed', {
+                correlationId,
+                component: 'whatsapp-webhook',
+                accountId: tenantContext.tenantId,
+                error: err instanceof Error ? err.message : 'unknown',
+              });
+            }
           }
         }
       }
@@ -208,7 +239,6 @@ async function processWebhook(
 
       result.received += value.messages.length;
 
-      const phoneNumberId = value.metadata?.phone_number_id;
       if (!phoneNumberId) {
         result.skipped += value.messages.length;
         logger.error('Inbound change has no phone_number_id; cannot route', {
@@ -219,21 +249,10 @@ async function processWebhook(
         continue;
       }
 
-      let tenantContext: Awaited<
-        ReturnType<typeof resolveTenantByPhoneNumberId>
-      > = null;
-      try {
-        tenantContext = await resolveTenantByPhoneNumberId(phoneNumberId);
-      } catch (err) {
+      if (tenantLookupFailed) {
         // A lookup fault (unlike an unknown number) is transient — ask for
         // a redelivery rather than silently discarding the reply.
         result.failed += value.messages.length;
-        logger.error('Tenant resolution failed for inbound change', {
-          correlationId,
-          component: 'whatsapp-webhook',
-          phoneNumberId,
-          error: err instanceof Error ? err.message : 'unknown',
-        });
         continue;
       }
 

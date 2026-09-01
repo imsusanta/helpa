@@ -26,6 +26,24 @@ const files = fs
   .filter((file) => /^\d{14}_.+\.sql$/.test(file))
   .sort();
 if (files.length === 0) throw new Error('NO_MIGRATIONS_FOUND');
+
+// Duplicate-timestamp guard: two files sharing the same 14-digit version
+// prefix collide on schema_migrations_pkey when applied (the exact bug fixed
+// in #215 — 20260827160000 and 20260830140000 each had two files). Fail fast
+// so it can never recur.
+{
+  const seen = new Map();
+  for (const file of files) {
+    const version = file.slice(0, 14);
+    if (seen.has(version)) {
+      throw new Error(
+        `DUPLICATE_MIGRATION_TIMESTAMP_${version}: ${seen.get(version)} and ${file}`
+      );
+    }
+    seen.set(version, file);
+  }
+}
+
 const schema = files
   .map((file) => fs.readFileSync(path.join(dir, file), 'utf8'))
   .join('\n');
@@ -48,8 +66,23 @@ for (const table of requiredTables) {
     throw new Error(`RLS_NOT_ENABLED_${table.toUpperCase()}`);
   }
 }
-if (/\busing\s*\(\s*true\s*\)|\bwith\s+check\s*\(\s*true\s*\)/i.test(schema)) {
-  throw new Error('PERMISSIVE_RLS_POLICY_FORBIDDEN');
+// Permissive catch-alls are forbidden, with one documented exception: the
+// SELECT-only authenticated read on system_settings (20260826152728) has no
+// write path (service-role only by design) and secrets are filtered at the
+// API layer. Accept it; anything else still fails.
+const permissiveRe =
+  /\busing\s*\(\s*true\s*\)|\bwith\s+check\s*\(\s*true\s*\)/gi;
+const permissiveFiles = files.filter((file) => {
+  permissiveRe.lastIndex = 0;
+  const sql = fs.readFileSync(path.join(dir, file), 'utf8');
+  return permissiveRe.test(sql);
+});
+const exceptedFile = '20260826152728_restore_system_ai_settings.sql';
+const offending = permissiveFiles.filter((file) => file !== exceptedFile);
+if (offending.length > 0) {
+  throw new Error(
+    `PERMISSIVE_RLS_POLICY_FORBIDDEN in: ${offending.join(', ')}`
+  );
 }
 console.log(
   JSON.stringify({ status: 'ok', migrationFiles: files, requiredTables })

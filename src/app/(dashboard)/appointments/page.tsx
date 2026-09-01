@@ -19,7 +19,17 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { DEFAULT_BOOKING_FORM_CONFIG } from '@/lib/booking-form/config';
+import {
+  fieldIsRequired,
+  fieldIsVisible,
+  getBookingFieldsForIndustry,
+  getDefaultBookingFormConfig,
+  isClinicBookingIndustry,
+  isTravelBookingIndustry,
+  mergeBookingFormConfig,
+  type BookingFormConfig,
+} from '@/lib/booking-form/config';
+import { matchesBookingTab } from '@/lib/bookings/status';
 import { useWorkspace } from '@/hooks/use-workspace';
 
 function getErrorMessage(error: unknown): string {
@@ -31,13 +41,24 @@ interface Appointment {
   appointment_date: string;
   appointment_time: string;
   status: string;
-  notes: string;
+  notes?: string | null;
   patient: { id: string; name: string; phone: string } | null;
   doctor: { id: string; name: string; specialization: string } | null;
   department: string;
   booking_id?: string;
   token_number?: number;
   queue_position?: number;
+  travel_package_name?: string | null;
+  travel_destination?: string | null;
+  travel_guests_count?: number | null;
+  travel_total_price_label?: string | null;
+}
+
+interface TourPackageOption {
+  id: string;
+  name: string;
+  destination: string;
+  starting_price: number | null;
 }
 
 interface Doctor {
@@ -63,12 +84,15 @@ interface PatientSearchMatch {
 export default function AppointmentsPage() {
   const { accountId } = useAuth();
   const { terminology, currentIndustry } = useWorkspace();
-  const isClinical = currentIndustry === 'hospital_clinic';
+  const isClinical = isClinicBookingIndustry(currentIndustry);
+  const isTravel = isTravelBookingIndustry(currentIndustry);
+  const industryFields = getBookingFieldsForIndustry(currentIndustry);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [formConfig, setFormConfig] = useState<
-    Record<string, { show: boolean; required: boolean }>
-  >(DEFAULT_BOOKING_FORM_CONFIG);
+  const [tourPackages, setTourPackages] = useState<TourPackageOption[]>([]);
+  const [formConfig, setFormConfig] = useState<BookingFormConfig>(
+    getDefaultBookingFormConfig(currentIndustry)
+  );
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<
     'upcoming' | 'queue' | 'completed' | 'cancelled'
@@ -107,6 +131,13 @@ export default function AppointmentsPage() {
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [notes, setNotes] = useState('');
+  const [packageId, setPackageId] = useState('');
+  const [packageName, setPackageName] = useState('');
+  const [destination, setDestination] = useState('');
+  const [guestsCount, setGuestsCount] = useState('1');
+  const [totalPrice, setTotalPrice] = useState('');
+  const [service, setService] = useState('');
+  const [property, setProperty] = useState('');
   const [saving, setSaving] = useState(false);
 
   const loadAllData = useCallback(async () => {
@@ -117,12 +148,9 @@ export default function AppointmentsPage() {
       fetch('/api/account/booking-form')
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
-          if (data?.config) {
-            setFormConfig({
-              ...DEFAULT_BOOKING_FORM_CONFIG,
-              ...data.config,
-            });
-          }
+          setFormConfig(
+            mergeBookingFormConfig(currentIndustry, data?.config || null)
+          );
         })
         .catch((e) => console.error('Form config load error:', e));
 
@@ -136,25 +164,44 @@ export default function AppointmentsPage() {
         setAppointments((apptsPayload.data ?? []) as unknown as Appointment[]);
       }
 
-      // 3. Fetch doctors dropdown
-      const docsRes = await fetch('/api/doctors?status=active', {
-        credentials: 'include',
-        cache: 'no-store',
-      });
-      if (docsRes.ok) {
-        const docsPayload = await docsRes.json();
-        setDoctors(docsPayload.data || []);
+      // 3. Fetch doctors dropdown (clinic / provider-based industries)
+      if (!isTravel) {
+        const docsRes = await fetch('/api/doctors?status=active', {
+          credentials: 'include',
+          cache: 'no-store',
+        });
+        if (docsRes.ok) {
+          const docsPayload = await docsRes.json();
+          setDoctors(docsPayload.data || []);
+        }
+      }
+
+      if (isTravel) {
+        const pkgRes = await fetch('/api/travel/tour-packages?limit=100', {
+          credentials: 'include',
+          cache: 'no-store',
+        });
+        if (pkgRes.ok) {
+          const pkgPayload = await pkgRes.json();
+          setTourPackages((pkgPayload.data || []) as TourPackageOption[]);
+        }
       }
     } catch (err) {
       console.error('Error loading appointments dataset:', err);
     } finally {
       setLoading(false);
     }
-  }, [accountId]);
+  }, [accountId, currentIndustry, isTravel]);
 
   useEffect(() => {
     loadAllData();
   }, [loadAllData]);
+
+  useEffect(() => {
+    if (!isClinical && activeTab === 'queue') {
+      setActiveTab('upcoming');
+    }
+  }, [isClinical, activeTab]);
 
   // Real-time phone search effect with debouncing
   useEffect(() => {
@@ -207,6 +254,13 @@ export default function AppointmentsPage() {
     setDate('');
     setTime('');
     setNotes('');
+    setPackageId('');
+    setPackageName('');
+    setDestination('');
+    setGuestsCount('1');
+    setTotalPrice('');
+    setService('');
+    setProperty('');
   }
 
   function handleSelectExistingPatient(p: PatientSearchMatch) {
@@ -226,30 +280,45 @@ export default function AppointmentsPage() {
   const handleCreateAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate mandatory required fields based on formConfig
-    if (formConfig.name?.required && !patientName.trim()) {
+    if (fieldIsRequired(formConfig, 'name') && !patientName.trim()) {
       toast.error(`${terminology.person} name is required.`);
       return;
     }
-    if (formConfig.phone?.required && !mobileNumber.trim()) {
+    if (fieldIsRequired(formConfig, 'phone') && !mobileNumber.trim()) {
       toast.error('Mobile Number is required.');
       return;
     }
-    if (formConfig.doctor_id?.required && !doctorId) {
+    if (fieldIsRequired(formConfig, 'doctor_id') && !doctorId) {
       toast.error(`${terminology.provider} selection is required.`);
       return;
     }
-    if (formConfig.department?.required && !department && !doctorId) {
+    if (
+      !isTravel &&
+      fieldIsRequired(formConfig, 'department') &&
+      !department &&
+      !doctorId
+    ) {
       toast.error('Department selection is required.');
       return;
     }
-    if (!date) {
+    if (isTravel && !date) {
+      toast.error('Travel date is required.');
+      return;
+    }
+    if (!isTravel && !date) {
       toast.error(`${terminology.meeting} date is required.`);
       return;
     }
-    if (!time) {
+    if (!isTravel && !time) {
       toast.error(`${terminology.meeting} time is required.`);
       return;
+    }
+    if (isTravel && fieldIsRequired(formConfig, 'guests_count')) {
+      const guests = Number(guestsCount);
+      if (!Number.isFinite(guests) || guests < 1) {
+        toast.error('Guests must be at least 1.');
+        return;
+      }
     }
 
     const apptDate = date;
@@ -270,22 +339,33 @@ export default function AppointmentsPage() {
             phone: mobileNumber.trim(),
             email: email.trim() || null,
             address: address.trim() || null,
-            metadata: {
-              age: age || null,
-              gender: gender || null,
-              blood_group: bloodGroup || null,
-              guardian_name: guardianName || null,
-              guardian_mobile: guardianMobile || null,
-              insurance_provider: insuranceProvider || null,
-              insurance_number: insuranceNumber || null,
-              referred_by: referredBy || null,
-            },
+            metadata: isTravel
+              ? {
+                  destination: destination || null,
+                  guests_count: guestsCount || null,
+                  package_name: packageName || null,
+                }
+              : {
+                  age: age || null,
+                  gender: gender || null,
+                  blood_group: bloodGroup || null,
+                  guardian_name: guardianName || null,
+                  guardian_mobile: guardianMobile || null,
+                  insurance_provider: insuranceProvider || null,
+                  insurance_number: insuranceNumber || null,
+                  referred_by: referredBy || null,
+                  service: service || null,
+                  property: property || null,
+                },
           }),
         });
 
         if (!contactRes.ok) {
           const errData = await contactRes.json().catch(() => ({}));
-          throw new Error(errData.error || 'Failed to create patient profile');
+          throw new Error(
+            errData.error ||
+              `Failed to create ${terminology.person.toLowerCase()} profile`
+          );
         }
 
         const contactData = await contactRes.json();
@@ -293,9 +373,11 @@ export default function AppointmentsPage() {
       }
 
       const selectedDoc = doctors.find((d) => d.id === doctorId);
-      const apptDept = selectedDoc
-        ? selectedDoc.department
-        : department || 'General';
+      const apptDept = isTravel
+        ? destination.trim() || 'Travel'
+        : selectedDoc
+          ? selectedDoc.department
+          : department || service || property || 'General';
 
       // Create appointment record via API
       const apptRes = await fetch('/api/appointments', {
@@ -303,12 +385,22 @@ export default function AppointmentsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           patient_id: finalContactId,
-          doctor_id: doctorId || null,
+          doctor_id: isTravel ? null : doctorId || null,
           department: apptDept,
           appointment_date: apptDate,
-          appointment_time: apptTime,
+          appointment_time: isTravel ? apptTime || '10:00' : apptTime,
           status: 'pending',
           notes: notes.trim() || null,
+          ...(isTravel
+            ? {
+                package_id: packageId || null,
+                package_name: packageName.trim() || 'Custom trip',
+                destination: destination.trim(),
+                travel_date: apptDate,
+                guests_count: Math.max(1, Number(guestsCount) || 1),
+                total_price: Number(totalPrice) || 0,
+              }
+            : {}),
         }),
       });
 
@@ -320,25 +412,33 @@ export default function AppointmentsPage() {
       const apptData = await apptRes.json();
       const newAppt = apptData.data;
 
-      // Trigger WhatsApp Confirmation notification asynchronously
-      if (newAppt?.id) {
+      // Clinic OPD tickets are WhatsApp PDFs; other industries skip that path.
+      if (newAppt?.id && isClinical) {
         fetch(`/api/appointments/${newAppt.id}/confirm`, {
           method: 'POST',
         }).catch(() => {});
       }
 
-      const tokenInfo = newAppt?.token_number
-        ? ` Token #${newAppt.token_number}`
-        : '';
+      const tokenInfo =
+        isClinical && newAppt?.token_number
+          ? ` Token #${newAppt.token_number}`
+          : '';
       const bookingInfo = newAppt?.booking_id ? ` (${newAppt.booking_id})` : '';
       toast.success(
-        `Appointment booked!${tokenInfo}${bookingInfo} — WhatsApp confirmation sent.`
+        isTravel
+          ? `Trip booking saved${bookingInfo}.`
+          : `${terminology.booking} booked!${tokenInfo}${bookingInfo}${
+              isClinical ? ' — WhatsApp confirmation sent.' : '.'
+            }`
       );
       resetForm();
       setShowAddForm(false);
       loadAllData();
     } catch (err: unknown) {
-      toast.error('Failed to book appointment: ' + getErrorMessage(err));
+      toast.error(
+        `Failed to book ${terminology.booking.toLowerCase()}: ` +
+          getErrorMessage(err)
+      );
     } finally {
       setSaving(false);
     }
@@ -364,32 +464,13 @@ export default function AppointmentsPage() {
     }
   };
 
-  // Filter based on active tabs
-  const filteredAppointments = appointments.filter((appt) => {
-    const today = new Date().toISOString().split('T')[0];
-    if (activeTab === 'upcoming') {
-      return (
-        (appt.status === 'pending' ||
-          appt.status === 'confirmed' ||
-          appt.status === 'calling') &&
-        appt.appointment_date >= today
-      );
-    }
-    if (activeTab === 'queue') {
-      return (
-        appt.appointment_date === today &&
-        appt.status !== 'cancelled' &&
-        appt.status !== 'completed'
-      );
-    }
-    if (activeTab === 'completed') {
-      return (
-        appt.status === 'completed' ||
-        (appt.appointment_date < today && appt.status !== 'cancelled')
-      );
-    }
-    return appt.status === 'cancelled' || appt.status === 'no_show';
-  });
+  const visibleTabs = isClinical
+    ? (['upcoming', 'queue', 'completed', 'cancelled'] as const)
+    : (['upcoming', 'completed', 'cancelled'] as const);
+
+  const filteredAppointments = appointments.filter((appt) =>
+    matchesBookingTab(appt.status, appt.appointment_date, activeTab)
+  );
 
   const displayAppointments =
     activeTab === 'queue'
@@ -563,254 +644,367 @@ export default function AppointmentsPage() {
             )}
           </div>
 
-          {/* Step 2: Patient & Clinical Information Fields (Configurable Rendering) */}
+          {/* Step 2: industry-specific booking fields */}
           <div className="space-y-4">
             <h4 className="text-muted-foreground text-xs font-bold tracking-wider uppercase">
-              Step 2: {terminology.person} & {terminology.meeting} Details
+              Step 2: {terminology.person} & {terminology.booking} Details
             </h4>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              {/* Patient Name */}
-              {formConfig.name?.show && (
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">
-                    {terminology.person} Name{' '}
-                    {formConfig.name?.required && (
-                      <span className="text-amber-500">*</span>
-                    )}
-                  </Label>
-                  <Input
-                    value={patientName}
-                    onChange={(e) => setPatientName(e.target.value)}
-                    placeholder={`Enter full ${terminology.person.toLowerCase()} name...`}
-                    required={formConfig.name?.required}
-                    className="bg-background text-sm"
-                  />
-                </div>
-              )}
+              {industryFields
+                .filter((field) => field.key !== 'phone')
+                .filter((field) => fieldIsVisible(formConfig, field.key))
+                .map((field) => {
+                  const required = fieldIsRequired(formConfig, field.key);
+                  const label = (
+                    <Label className="text-xs font-semibold">
+                      {field.label}{' '}
+                      {required && <span className="text-amber-500">*</span>}
+                    </Label>
+                  );
+                  const selectClass =
+                    'border-input bg-background focus-visible:ring-ring flex h-9 w-full rounded-md border px-3 py-1 text-sm focus-visible:ring-2 focus-visible:outline-none';
 
-              {/* Age */}
-              {formConfig.age?.show && (
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">
-                    Age{' '}
-                    {formConfig.age?.required && (
-                      <span className="text-amber-500">*</span>
-                    )}
-                  </Label>
-                  <Input
-                    type="number"
-                    value={age}
-                    onChange={(e) => setAge(e.target.value)}
-                    placeholder="e.g. 35"
-                    required={formConfig.age?.required}
-                    className="bg-background text-sm"
-                  />
-                </div>
-              )}
+                  if (field.key === 'name') {
+                    return (
+                      <div key={field.key} className="space-y-1.5">
+                        {label}
+                        <Input
+                          value={patientName}
+                          onChange={(e) => setPatientName(e.target.value)}
+                          placeholder={
+                            field.placeholder ||
+                            `Enter full ${terminology.person.toLowerCase()} name...`
+                          }
+                          required={required}
+                          className="bg-background text-sm"
+                        />
+                      </div>
+                    );
+                  }
+                  if (field.key === 'age') {
+                    return (
+                      <div key={field.key} className="space-y-1.5">
+                        {label}
+                        <Input
+                          type="number"
+                          value={age}
+                          onChange={(e) => setAge(e.target.value)}
+                          placeholder={field.placeholder}
+                          required={required}
+                          className="bg-background text-sm"
+                        />
+                      </div>
+                    );
+                  }
+                  if (field.key === 'gender' || field.key === 'blood_group') {
+                    const value = field.key === 'gender' ? gender : bloodGroup;
+                    const onChange =
+                      field.key === 'gender' ? setGender : setBloodGroup;
+                    return (
+                      <div key={field.key} className="space-y-1.5">
+                        {label}
+                        <select
+                          value={value}
+                          onChange={(e) => onChange(e.target.value)}
+                          required={required}
+                          className={selectClass}
+                        >
+                          <option value="">-- Select {field.label} --</option>
+                          {(field.options || []).map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    );
+                  }
+                  if (field.key === 'dob') {
+                    return (
+                      <div key={field.key} className="space-y-1.5">
+                        {label}
+                        <Input
+                          type="date"
+                          value={dob}
+                          onChange={(e) => setDob(e.target.value)}
+                          required={required}
+                          className="bg-background text-sm"
+                        />
+                      </div>
+                    );
+                  }
+                  if (field.key === 'doctor_id' || field.input === 'provider') {
+                    return (
+                      <div key={field.key} className="space-y-1.5">
+                        {label}
+                        <select
+                          value={doctorId}
+                          onChange={(e) => setDoctorId(e.target.value)}
+                          required={required}
+                          className={selectClass}
+                        >
+                          <option value="">-- Choose {field.label} --</option>
+                          {doctors.map((d) => (
+                            <option key={d.id} value={d.id}>
+                              {d.name}
+                              {d.department ? ` (${d.department})` : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    );
+                  }
+                  if (field.input === 'package') {
+                    return (
+                      <div key={field.key} className="space-y-1.5">
+                        {label}
+                        <select
+                          value={packageId}
+                          onChange={(e) => {
+                            const nextId = e.target.value;
+                            setPackageId(nextId);
+                            const pkg = tourPackages.find(
+                              (p) => p.id === nextId
+                            );
+                            if (pkg) {
+                              setPackageName(pkg.name);
+                              if (pkg.destination)
+                                setDestination(pkg.destination);
+                              if (pkg.starting_price != null) {
+                                setTotalPrice(String(pkg.starting_price));
+                              }
+                            } else {
+                              setPackageName('');
+                            }
+                          }}
+                          required={required}
+                          className={selectClass}
+                        >
+                          <option value="">-- Choose tour package --</option>
+                          {tourPackages.map((pkg) => (
+                            <option key={pkg.id} value={pkg.id}>
+                              {pkg.name}
+                              {pkg.destination ? ` · ${pkg.destination}` : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    );
+                  }
+                  if (
+                    field.key === 'travel_date' ||
+                    field.key === 'appointment_date'
+                  ) {
+                    return (
+                      <div key={field.key} className="space-y-1.5">
+                        {label}
+                        <Input
+                          type="date"
+                          value={date}
+                          onChange={(e) => setDate(e.target.value)}
+                          required={required}
+                          className="bg-background text-sm"
+                        />
+                      </div>
+                    );
+                  }
+                  if (field.key === 'appointment_time') {
+                    return (
+                      <div key={field.key} className="space-y-1.5">
+                        {label}
+                        <Input
+                          type="time"
+                          value={time}
+                          onChange={(e) => setTime(e.target.value)}
+                          required={required}
+                          className="bg-background text-sm"
+                        />
+                      </div>
+                    );
+                  }
+                  if (field.key === 'guests_count') {
+                    return (
+                      <div key={field.key} className="space-y-1.5">
+                        {label}
+                        <Input
+                          type="number"
+                          min={1}
+                          value={guestsCount}
+                          onChange={(e) => setGuestsCount(e.target.value)}
+                          placeholder={field.placeholder}
+                          required={required}
+                          className="bg-background text-sm"
+                        />
+                      </div>
+                    );
+                  }
+                  if (field.key === 'total_price') {
+                    return (
+                      <div key={field.key} className="space-y-1.5">
+                        {label}
+                        <Input
+                          type="number"
+                          min={0}
+                          value={totalPrice}
+                          onChange={(e) => setTotalPrice(e.target.value)}
+                          placeholder={field.placeholder}
+                          required={required}
+                          className="bg-background text-sm"
+                        />
+                      </div>
+                    );
+                  }
+                  if (field.key === 'destination') {
+                    return (
+                      <div key={field.key} className="space-y-1.5">
+                        {label}
+                        <Input
+                          value={destination}
+                          onChange={(e) => setDestination(e.target.value)}
+                          placeholder={field.placeholder}
+                          required={required}
+                          className="bg-background text-sm"
+                        />
+                      </div>
+                    );
+                  }
+                  if (field.key === 'service') {
+                    return (
+                      <div key={field.key} className="space-y-1.5">
+                        {label}
+                        <Input
+                          value={service}
+                          onChange={(e) => setService(e.target.value)}
+                          placeholder={field.placeholder}
+                          required={required}
+                          className="bg-background text-sm"
+                        />
+                      </div>
+                    );
+                  }
+                  if (field.key === 'property') {
+                    return (
+                      <div key={field.key} className="space-y-1.5">
+                        {label}
+                        <Input
+                          value={property}
+                          onChange={(e) => setProperty(e.target.value)}
+                          placeholder={field.placeholder}
+                          required={required}
+                          className="bg-background text-sm"
+                        />
+                      </div>
+                    );
+                  }
+                  if (field.key === 'email') {
+                    return (
+                      <div key={field.key} className="space-y-1.5">
+                        {label}
+                        <Input
+                          type="email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          placeholder={field.placeholder}
+                          required={required}
+                          className="bg-background text-sm"
+                        />
+                      </div>
+                    );
+                  }
+                  if (field.key === 'address') {
+                    return (
+                      <div key={field.key} className="space-y-1.5">
+                        {label}
+                        <Input
+                          value={address}
+                          onChange={(e) => setAddress(e.target.value)}
+                          placeholder={field.placeholder}
+                          required={required}
+                          className="bg-background text-sm"
+                        />
+                      </div>
+                    );
+                  }
+                  if (field.key === 'emergency_contact') {
+                    return (
+                      <div key={field.key} className="space-y-1.5">
+                        {label}
+                        <Input
+                          value={emergencyContact}
+                          onChange={(e) => setEmergencyContact(e.target.value)}
+                          placeholder={field.placeholder}
+                          required={required}
+                          className="bg-background text-sm"
+                        />
+                      </div>
+                    );
+                  }
+                  if (field.key === 'department') {
+                    return (
+                      <div key={field.key} className="space-y-1.5">
+                        {label}
+                        <Input
+                          value={department}
+                          onChange={(e) => setDepartment(e.target.value)}
+                          placeholder={field.placeholder}
+                          required={required}
+                          className="bg-background text-sm"
+                        />
+                      </div>
+                    );
+                  }
+                  if (field.key === 'notes') {
+                    return (
+                      <div
+                        key={field.key}
+                        className="space-y-1.5 md:col-span-2"
+                      >
+                        {label}
+                        <Input
+                          value={notes}
+                          onChange={(e) => setNotes(e.target.value)}
+                          placeholder={field.placeholder || field.description}
+                          required={required}
+                          className="bg-background text-sm"
+                        />
+                      </div>
+                    );
+                  }
+                  return null;
+                })}
 
-              {/* Gender */}
-              {formConfig.gender?.show && (
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">
-                    Gender{' '}
-                    {formConfig.gender?.required && (
-                      <span className="text-amber-500">*</span>
-                    )}
-                  </Label>
-                  <select
-                    value={gender}
-                    onChange={(e) => setGender(e.target.value)}
-                    required={formConfig.gender?.required}
-                    className="border-input bg-background focus-visible:ring-ring flex h-9 w-full rounded-md border px-3 py-1 text-sm focus-visible:ring-2 focus-visible:outline-none"
-                  >
-                    <option value="">-- Select Gender --</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-              )}
-
-              {/* Date of Birth */}
-              {formConfig.dob?.show && (
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">
-                    Date of Birth{' '}
-                    {formConfig.dob?.required && (
-                      <span className="text-amber-500">*</span>
-                    )}
-                  </Label>
-                  <Input
-                    type="date"
-                    value={dob}
-                    onChange={(e) => setDob(e.target.value)}
-                    required={formConfig.dob?.required}
-                    className="bg-background text-sm"
-                  />
-                </div>
-              )}
-
-              {/* Blood Group */}
-              {formConfig.blood_group?.show && (
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">
-                    Blood Group{' '}
-                    {formConfig.blood_group?.required && (
-                      <span className="text-amber-500">*</span>
-                    )}
-                  </Label>
-                  <select
-                    value={bloodGroup}
-                    onChange={(e) => setBloodGroup(e.target.value)}
-                    required={formConfig.blood_group?.required}
-                    className="border-input bg-background focus-visible:ring-ring flex h-9 w-full rounded-md border px-3 py-1 text-sm focus-visible:ring-2 focus-visible:outline-none"
-                  >
-                    <option value="">-- Select Blood Group --</option>
-                    {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(
-                      (bg) => (
-                        <option key={bg} value={bg}>
-                          {bg}
-                        </option>
-                      )
-                    )}
-                  </select>
-                </div>
-              )}
-
-              {/* Preferred Doctor */}
-              {formConfig.doctor_id?.show && (
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">
-                    {terminology.provider}{' '}
-                    {formConfig.doctor_id?.required && (
-                      <span className="text-amber-500">*</span>
-                    )}
-                  </Label>
-                  <select
-                    value={doctorId}
-                    onChange={(e) => setDoctorId(e.target.value)}
-                    required={formConfig.doctor_id?.required}
-                    className="border-input bg-background focus-visible:ring-ring flex h-9 w-full rounded-md border px-3 py-1 text-sm focus-visible:ring-2 focus-visible:outline-none"
-                  >
-                    <option value="">
-                      -- Choose {terminology.provider} --
-                    </option>
-                    {doctors.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name} ({d.department})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Department */}
-              {formConfig.department?.show && (
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">
-                    Clinical Department{' '}
-                    {formConfig.department?.required && (
-                      <span className="text-amber-500">*</span>
-                    )}
-                  </Label>
-                  <Input
-                    value={department}
-                    onChange={(e) => setDepartment(e.target.value)}
-                    placeholder="e.g. Cardiology, Orthopedics, General OPD"
-                    required={formConfig.department?.required}
-                    className="bg-background text-sm"
-                  />
-                </div>
-              )}
-
-              {/* Address */}
-              {formConfig.address?.show && (
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">
-                    Address{' '}
-                    {formConfig.address?.required && (
-                      <span className="text-amber-500">*</span>
-                    )}
-                  </Label>
-                  <Input
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder="City / Area / Full Address"
-                    required={formConfig.address?.required}
-                    className="bg-background text-sm"
-                  />
-                </div>
-              )}
-
-              {/* Emergency Contact */}
-              {formConfig.emergency_contact?.show && (
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">
-                    Emergency Contact{' '}
-                    {formConfig.emergency_contact?.required && (
-                      <span className="text-amber-500">*</span>
-                    )}
-                  </Label>
-                  <Input
-                    value={emergencyContact}
-                    onChange={(e) => setEmergencyContact(e.target.value)}
-                    placeholder="Contact Name & Mobile..."
-                    required={formConfig.emergency_contact?.required}
-                    className="bg-background text-sm"
-                  />
-                </div>
-              )}
-
-              {/* Date & Time (Always Visible for Appointment) */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">
-                  {terminology.meeting} Date *
-                </Label>
-                <Input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  required
-                  className="bg-background text-sm"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">
-                  {terminology.meeting} Time *
-                </Label>
-                <Input
-                  type="time"
-                  value={time}
-                  onChange={(e) => setTime(e.target.value)}
-                  required
-                  className="bg-background text-sm"
-                />
-              </div>
-
-              {/* Internal Notes */}
-              {formConfig.notes?.show && (
-                <div className="space-y-1.5 md:col-span-2">
-                  <Label className="text-xs font-semibold">
-                    Special Instructions / Notes{' '}
-                    {formConfig.notes?.required && (
-                      <span className="text-amber-500">*</span>
-                    )}
-                  </Label>
-                  <Input
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder={
-                      isClinical
-                        ? 'Symptoms, past history, or receptionist notes...'
-                        : `Notes for this ${terminology.meeting.toLowerCase()}...`
-                    }
-                    required={formConfig.notes?.required}
-                    className="bg-background text-sm"
-                  />
-                </div>
-              )}
+              {isClinical &&
+                !industryFields.some(
+                  (field) => field.key === 'appointment_date'
+                ) && (
+                  <>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold">
+                        {terminology.meeting} Date *
+                      </Label>
+                      <Input
+                        type="date"
+                        value={date}
+                        onChange={(e) => setDate(e.target.value)}
+                        required
+                        className="bg-background text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold">
+                        {terminology.meeting} Time *
+                      </Label>
+                      <Input
+                        type="time"
+                        value={time}
+                        onChange={(e) => setTime(e.target.value)}
+                        required
+                        className="bg-background text-sm"
+                      />
+                    </div>
+                  </>
+                )}
             </div>
           </div>
 
@@ -832,8 +1026,10 @@ export default function AppointmentsPage() {
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Creating {terminology.booking}...
                 </>
-              ) : (
+              ) : isClinical ? (
                 'Schedule & Generate Token'
+              ) : (
+                `Save ${terminology.booking}`
               )}
             </Button>
           </div>
@@ -841,28 +1037,33 @@ export default function AppointmentsPage() {
       )}
 
       {/* Tabs */}
-      <div className="border-border flex border-b">
-        {(['upcoming', 'queue', 'completed', 'cancelled'] as const).map(
-          (tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`border-b-2 px-4 py-2 text-sm font-semibold capitalize transition-colors ${
-                activeTab === tab
-                  ? 'border-emerald-500 font-bold text-emerald-600 dark:text-emerald-400'
-                  : 'text-muted-foreground hover:text-foreground border-transparent'
-              }`}
-            >
-              {tab === 'queue'
-                ? 'Live Queue'
-                : tab === 'upcoming'
-                  ? `Upcoming ${terminology.meetings}`
-                  : tab === 'completed'
-                    ? 'Completed'
-                    : 'Cancelled / No Show'}
-            </button>
-          )
-        )}
+      <div
+        className="border-border flex overflow-x-auto border-b"
+        role="tablist"
+        aria-label="Appointment views"
+      >
+        {visibleTabs.map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab}
+            onClick={() => setActiveTab(tab)}
+            className={`shrink-0 border-b-2 px-4 py-2 text-sm font-semibold capitalize transition-colors ${
+              activeTab === tab
+                ? 'border-emerald-500 font-bold text-emerald-600 dark:text-emerald-400'
+                : 'text-muted-foreground hover:text-foreground border-transparent'
+            }`}
+          >
+            {tab === 'queue'
+              ? 'Live Queue'
+              : tab === 'upcoming'
+                ? `Upcoming ${terminology.meetings}`
+                : tab === 'completed'
+                  ? 'Completed'
+                  : 'Cancelled / No Show'}
+          </button>
+        ))}
       </div>
 
       {/* Grid listing */}
@@ -891,10 +1092,25 @@ export default function AppointmentsPage() {
               <thead className="bg-muted/50 border-border text-foreground border-b text-xs font-semibold uppercase">
                 <tr>
                   <th className="px-6 py-4">{terminology.person}</th>
-                  <th className="px-6 py-4">{terminology.booking} ID</th>
-                  <th className="px-6 py-4">{terminology.provider}</th>
-                  <th className="px-6 py-4">Token / Queue</th>
-                  <th className="px-6 py-4">Schedule Date/Time</th>
+                  {isTravel ? (
+                    <>
+                      <th className="px-6 py-4">Package</th>
+                      <th className="px-6 py-4">Destination</th>
+                      <th className="px-6 py-4">Guests</th>
+                      <th className="px-6 py-4">Total</th>
+                    </>
+                  ) : (
+                    <>
+                      <th className="px-6 py-4">{terminology.booking} ID</th>
+                      <th className="px-6 py-4">{terminology.provider}</th>
+                      {isClinical && (
+                        <th className="px-6 py-4">Token / Queue</th>
+                      )}
+                    </>
+                  )}
+                  <th className="px-6 py-4">
+                    {isTravel ? 'Travel Date' : 'Schedule Date/Time'}
+                  </th>
                   <th className="px-6 py-4">Status</th>
                   <th className="px-6 py-4 text-right">Actions</th>
                 </tr>
@@ -919,49 +1135,78 @@ export default function AppointmentsPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 font-medium">
-                      <div className="flex items-center gap-2">
-                        <UserCheck className="text-muted-foreground/70 h-4.5 w-4.5" />
-                        <div>
-                          <div>{appt.doctor?.name || 'Unassigned'}</div>
-                          <div className="text-muted-foreground text-xs font-normal">
-                            {appt.doctor?.specialization || appt.department}
+                    {isTravel ? (
+                      <>
+                        <td className="px-6 py-4 font-medium">
+                          {appt.travel_package_name ||
+                            appt.notes
+                              ?.split('|')[0]
+                              ?.replace('Travel Booking', '')
+                              .trim() ||
+                            'Trip booking'}
+                        </td>
+                        <td className="px-6 py-4">
+                          {appt.travel_destination || appt.department || '—'}
+                        </td>
+                        <td className="px-6 py-4">
+                          {appt.travel_guests_count ?? '—'}
+                        </td>
+                        <td className="px-6 py-4">
+                          {appt.travel_total_price_label || '—'}
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="px-6 py-4">
+                          {appt.booking_id ? (
+                            <span className="inline-flex items-center gap-1 rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-extrabold tracking-wider text-emerald-600 uppercase dark:text-emerald-400">
+                              {appt.booking_id}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 font-medium">
+                          <div className="flex items-center gap-2">
+                            <UserCheck className="text-muted-foreground/70 h-4.5 w-4.5" />
+                            <div>
+                              <div>{appt.doctor?.name || 'Unassigned'}</div>
+                              <div className="text-muted-foreground text-xs font-normal">
+                                {appt.doctor?.specialization || appt.department}
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      {appt.booking_id ? (
-                        <span className="inline-flex items-center gap-1 rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-extrabold tracking-wider text-emerald-600 uppercase dark:text-emerald-400">
-                          {appt.booking_id}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </td>
-                    <td className="text-foreground/80 px-6 py-4 font-bold">
-                      {appt.token_number
-                        ? `#${appt.token_number} (Pos: ${appt.queue_position})`
-                        : '—'}
-                    </td>
+                        </td>
+                        {isClinical && (
+                          <td className="text-foreground/80 px-6 py-4 font-bold">
+                            {appt.token_number
+                              ? `#${appt.token_number} (Pos: ${appt.queue_position})`
+                              : '—'}
+                          </td>
+                        )}
+                      </>
+                    )}
                     <td className="px-6 py-4 font-semibold text-emerald-600 dark:text-emerald-400">
                       <div className="flex items-center gap-1.5">
                         <Clock className="h-4 w-4" />
                         <span>
-                          {appt.appointment_date} at {appt.appointment_time}
+                          {isTravel
+                            ? appt.appointment_date
+                            : `${appt.appointment_date} at ${appt.appointment_time}`}
                         </span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <span
                         className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase ${
-                          appt.status === 'confirmed'
+                          String(appt.status).toLowerCase() === 'confirmed'
                             ? 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-500'
-                            : appt.status === 'pending'
+                            : String(appt.status).toLowerCase() === 'pending'
                               ? 'border border-amber-500/20 bg-amber-500/10 text-amber-500'
-                              : appt.status === 'calling'
+                              : String(appt.status).toLowerCase() === 'calling'
                                 ? 'animate-pulse border border-blue-500/20 bg-blue-500/10 text-blue-500'
-                                : appt.status === 'completed'
+                                : String(appt.status).toLowerCase() ===
+                                    'completed'
                                   ? 'border border-indigo-500/20 bg-indigo-500/10 text-indigo-500'
                                   : 'border border-red-500/20 bg-red-500/10 text-red-500'
                         }`}
@@ -970,48 +1215,54 @@ export default function AppointmentsPage() {
                       </span>
                     </td>
                     <td className="flex items-center justify-end space-x-1.5 px-6 py-4 text-right">
-                      <a
-                        href={`/api/appointments/${appt.id}/pdf`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="border-border bg-card hover:bg-muted text-foreground inline-flex cursor-pointer items-center justify-center rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors"
-                      >
-                        PDF Slip
-                      </a>
+                      {isClinical && (
+                        <>
+                          <a
+                            href={`/api/appointments/${appt.id}/pdf`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="border-border bg-card hover:bg-muted text-foreground inline-flex cursor-pointer items-center justify-center rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors"
+                          >
+                            PDF Slip
+                          </a>
 
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={async () => {
-                          toast.info(
-                            "Sending Watermarked OPD Ticket PDF to patient's WhatsApp..."
-                          );
-                          try {
-                            const res = await fetch(
-                              `/api/appointments/${appt.id}/confirm`,
-                              { method: 'POST' }
-                            );
-                            if (res.ok) {
-                              toast.success(
-                                "OPD Ticket PDF sent to patient's WhatsApp!"
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={async () => {
+                              toast.info(
+                                "Sending Watermarked OPD Ticket PDF to patient's WhatsApp..."
                               );
-                            } else {
-                              const data = await res.json().catch(() => ({}));
-                              toast.error(
-                                data.error || 'Failed to send ticket PDF'
-                              );
-                            }
-                          } catch (error: unknown) {
-                            toast.error(
-                              'Error sending ticket PDF: ' +
-                                getErrorMessage(error)
-                            );
-                          }
-                        }}
-                        className="cursor-pointer border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-semibold text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400"
-                      >
-                        Send Ticket PDF
-                      </Button>
+                              try {
+                                const res = await fetch(
+                                  `/api/appointments/${appt.id}/confirm`,
+                                  { method: 'POST' }
+                                );
+                                if (res.ok) {
+                                  toast.success(
+                                    "OPD Ticket PDF sent to patient's WhatsApp!"
+                                  );
+                                } else {
+                                  const data = await res
+                                    .json()
+                                    .catch(() => ({}));
+                                  toast.error(
+                                    data.error || 'Failed to send ticket PDF'
+                                  );
+                                }
+                              } catch (error: unknown) {
+                                toast.error(
+                                  'Error sending ticket PDF: ' +
+                                    getErrorMessage(error)
+                                );
+                              }
+                            }}
+                            className="cursor-pointer border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-semibold text-emerald-600 hover:bg-emerald-500/20 dark:text-emerald-400"
+                          >
+                            Send Ticket PDF
+                          </Button>
+                        </>
+                      )}
 
                       {activeTab === 'queue' && (
                         <>
@@ -1052,7 +1303,7 @@ export default function AppointmentsPage() {
 
                       {activeTab !== 'queue' && (
                         <>
-                          {appt.status === 'pending' && (
+                          {String(appt.status).toLowerCase() === 'pending' && (
                             <Button
                               size="sm"
                               variant="outline"
@@ -1064,7 +1315,8 @@ export default function AppointmentsPage() {
                               Confirm
                             </Button>
                           )}
-                          {appt.status === 'confirmed' && (
+                          {String(appt.status).toLowerCase() ===
+                            'confirmed' && (
                             <Button
                               size="sm"
                               variant="outline"
@@ -1076,8 +1328,9 @@ export default function AppointmentsPage() {
                               Complete
                             </Button>
                           )}
-                          {appt.status !== 'cancelled' &&
-                            appt.status !== 'completed' && (
+                          {String(appt.status).toLowerCase() !== 'cancelled' &&
+                            String(appt.status).toLowerCase() !==
+                              'completed' && (
                               <Button
                                 size="sm"
                                 variant="outline"

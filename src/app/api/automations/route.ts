@@ -17,6 +17,9 @@ import {
   requireRole,
 } from '@/lib/auth/account';
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
+import { resolveCanonicalIndustry } from '@/modules/registry';
+import { insertAutomationRow } from '@/lib/automations/automation-row';
+import { ensureTravelWorkflowsSeeded } from '@/lib/automations/travel-seeds';
 
 function normalizeAppointmentTrigger(
   name: unknown,
@@ -67,6 +70,21 @@ export async function GET() {
   try {
     const context = await requireRole('viewer');
     const supabase = getSupabaseAdminClient();
+    try {
+      const { data: account } = await supabase
+        .from('accounts')
+        .select('industry')
+        .eq('id', context.accountId)
+        .maybeSingle();
+      if (resolveCanonicalIndustry(account?.industry || '') === 'travel') {
+        await ensureTravelWorkflowsSeeded({
+          accountId: context.accountId,
+          userId: context.userId,
+        });
+      }
+    } catch (seedErr) {
+      console.warn('[automations] travel seed reconcile skipped:', seedErr);
+    }
     const { data, error } = await supabase
       .from('automations')
       .select('*')
@@ -253,19 +271,18 @@ export async function POST(request: Request) {
   }
 
   const admin = getAdminClient();
-  const { data: automation, error: insertErr } = await admin
-    .from('automations')
-    .insert({
-      user_id: context.userId,
-      account_id: accountId,
+  const { data: automation, error: insertErr } = await insertAutomationRow(
+    admin,
+    {
+      accountId,
+      userId: context.userId,
       name: effectiveName,
       description: effectiveDescription ?? null,
-      trigger_type: effectiveTriggerType,
-      trigger_config: effectiveTriggerConfig ?? {},
-      is_active: !!is_active,
-    })
-    .select()
-    .single();
+      triggerType: effectiveTriggerType,
+      triggerConfig: effectiveTriggerConfig ?? {},
+      isActive: !!is_active,
+    }
+  );
 
   if (insertErr || !automation) {
     return NextResponse.json(

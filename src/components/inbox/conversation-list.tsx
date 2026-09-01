@@ -168,12 +168,12 @@ export function ConversationList({
 
     void fetchConvs(false);
 
-    // Periodic safety-net poll every 4 seconds
+    // Periodic safety-net poll every 10 seconds
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') {
         void fetchConvs(true);
       }
-    }, 4000);
+    }, 10000);
 
     return () => {
       cancelled = true;
@@ -311,6 +311,7 @@ export function ConversationList({
           <Input
             value={search}
             onChange={handleSearchChange}
+            aria-label="Search conversations"
             placeholder="Search messages by name or phone..."
             className="border-border bg-muted text-foreground placeholder-muted-foreground focus:border-primary/50 pr-8 pl-9 text-sm"
           />
@@ -331,6 +332,7 @@ export function ConversationList({
           <button
             type="button"
             onClick={() => setFilter('all')}
+            aria-pressed={filter === 'all'}
             className={cn(
               'flex shrink-0 items-center gap-1 rounded-md px-2 py-1 font-medium transition-colors',
               filter === 'all'
@@ -345,6 +347,7 @@ export function ConversationList({
           <button
             type="button"
             onClick={() => setFilter('unread')}
+            aria-pressed={filter === 'unread'}
             className={cn(
               'flex shrink-0 items-center gap-1 rounded-md px-2 py-1 font-medium transition-colors',
               filter === 'unread'
@@ -363,6 +366,7 @@ export function ConversationList({
           <button
             type="button"
             onClick={() => setFilter('mine')}
+            aria-pressed={filter === 'mine'}
             className={cn(
               'flex shrink-0 items-center gap-1 rounded-md px-2 py-1 font-medium transition-colors',
               filter === 'mine'
@@ -379,6 +383,7 @@ export function ConversationList({
           <button
             type="button"
             onClick={() => setFilter('ai')}
+            aria-pressed={filter === 'ai'}
             className={cn(
               'flex shrink-0 items-center gap-1 rounded-md px-2 py-1 font-medium transition-colors',
               filter === 'ai'
@@ -395,6 +400,7 @@ export function ConversationList({
           <button
             type="button"
             onClick={() => setFilter('attention')}
+            aria-pressed={filter === 'attention'}
             className={cn(
               'flex shrink-0 items-center gap-1 rounded-md px-2 py-1 font-medium transition-colors',
               filter === 'attention'
@@ -411,7 +417,10 @@ export function ConversationList({
 
         <div className="flex items-center justify-between pt-0.5">
           <DropdownMenu>
-            <DropdownMenuTrigger className="text-muted-foreground hover:text-foreground hover:bg-muted inline-flex h-6 items-center justify-center gap-1 rounded-md px-1.5 text-[11px]">
+            <DropdownMenuTrigger
+              aria-label="Filter conversations by status"
+              className="text-muted-foreground hover:text-foreground hover:bg-muted inline-flex h-6 items-center justify-center gap-1 rounded-md px-1.5 text-[11px]"
+            >
               <Filter className="mr-0.5 h-3 w-3 opacity-70" />
               <span>Status: {activeFilter?.label ?? 'All'}</span>
               <ChevronDown className="ml-0.5 h-3 w-3 opacity-70" />

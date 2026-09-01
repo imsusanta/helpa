@@ -77,7 +77,12 @@ export async function triggerAiResponse(
 
   // ═══════ PHASE 1: Parallel fetch all independent data in one shot ═══════
   const [contactRes, accRes, convRes, messagesRes, kbRes] = await Promise.all([
-    db.from('contacts').select('*').eq('id', contactId).maybeSingle(),
+    db
+      .from('contacts')
+      .select('*')
+      .eq('id', contactId)
+      .eq('account_id', accountId)
+      .maybeSingle(),
     db
       .from('accounts')
       .select(
@@ -85,13 +90,19 @@ export async function triggerAiResponse(
       )
       .eq('id', accountId)
       .single(),
-    db.from('conversations').select('*').eq('id', conversationId).maybeSingle(),
+    db
+      .from('conversations')
+      .select('*')
+      .eq('id', conversationId)
+      .eq('account_id', accountId)
+      .maybeSingle(),
     db
       .from('messages')
       .select(
         'id, sender_type, content_type, content_text, created_at, reply_to_message_id'
       )
       .eq('conversation_id', conversationId)
+      .eq('account_id', accountId)
       .order('created_at', { ascending: false })
       .limit(50),
     db
@@ -101,6 +112,12 @@ export async function triggerAiResponse(
   ]);
 
   const conversation = convRes.data as Record<string, unknown> | null;
+  if (!conversation) {
+    console.warn(
+      '[AI Assistant] Conversation is missing or belongs to another workspace. Skipping AI response.'
+    );
+    return;
+  }
   const skipDecision = shouldSkipAiConversation(conversation);
   if (skipDecision.skip) {
     if (skipDecision.reason === 'assigned') {
@@ -193,6 +210,7 @@ export async function triggerAiResponse(
         .from('messages')
         .select('*')
         .eq('conversation_id', conversationId)
+        .eq('account_id', accountId)
         .order('created_at', { ascending: false })
         .limit(50);
       if (fallbackMsg.data && fallbackMsg.data.length > 0) {
@@ -234,6 +252,7 @@ export async function triggerAiResponse(
           'id, sender_type, content_type, content_text, created_at, reply_to_message_id'
         )
         .eq('id', inboundMessageId)
+        .eq('account_id', accountId)
         .maybeSingle();
       if (byId.data) inboundRow = byId.data as Record<string, unknown>;
       if (!inboundRow) {
@@ -241,6 +260,7 @@ export async function triggerAiResponse(
           .from('messages')
           .select('*')
           .eq('id', inboundMessageId)
+          .eq('account_id', accountId)
           .maybeSingle();
         if (byStar.data) inboundRow = byStar.data as Record<string, unknown>;
       }
@@ -808,7 +828,7 @@ export async function triggerAiResponse(
           const pId = String(hospital_profile_update.patient_id)
             .trim()
             .toUpperCase();
-          console.log('[AI Hospital] Patient self-edit requested for ID:', pId);
+          console.log('[AI Hospital] Patient self-edit requested');
 
           // 1. Try finding the patient in the patients table
           const { data: targetPatient } = await db
@@ -1489,7 +1509,9 @@ Please arrive 15 minutes before your time slot. Thank you!`;
     // If human handoff is requested, insert system message alert
     if (handoff_required) {
       const { error: systemMsgError } = await db.from('messages').insert({
+        account_id: accountId,
         conversation_id: conversationId,
+        direction: 'outbound',
         sender_type: 'bot',
         content_type: 'text',
         content_text:
