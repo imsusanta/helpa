@@ -194,6 +194,7 @@ import {
   persistOutboundMessage,
   touchConversationPreview,
   pauseActiveFlowRuns,
+  formatPersistError,
 } from '@/lib/whatsapp/persist-outbound-message';
 
 const AGENT_UUID = '3d8f0c1a-6b2e-4c11-9a0d-7e4b5c2a1f90';
@@ -625,5 +626,39 @@ describe('outboundPreviewText', () => {
     expect(
       outboundPreviewText({ contentText: 'Hi', contentType: 'text' })
     ).toBe('Hi');
+  });
+});
+
+describe('formatPersistError', () => {
+  it('returns "Unknown error" for falsy input', () => {
+    expect(formatPersistError(undefined)).toBe('Unknown error');
+    expect(formatPersistError(null)).toBe('Unknown error');
+  });
+
+  it('returns the message for a non-object primitive', () => {
+    expect(formatPersistError('boom')).toBe('boom');
+  });
+
+  it('returns the Error message for an Error instance', () => {
+    expect(formatPersistError(new Error('db down'))).toBe('db down');
+  });
+
+  it('joins string code/message/details/hint with separators', () => {
+    expect(
+      formatPersistError({
+        code: '42501',
+        message: 'permission denied',
+        details: 'row-level security',
+        hint: 'use the tenant predicate',
+      })
+    ).toBe(
+      '42501 — permission denied — row-level security — use the tenant predicate'
+    );
+  });
+
+  it('skips non-string and empty fields', () => {
+    expect(
+      formatPersistError({ code: 'P0001', message: '', details: 123 })
+    ).toBe('P0001');
   });
 });
