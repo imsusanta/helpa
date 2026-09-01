@@ -1,4 +1,5 @@
 import { getAdminClient } from '@/lib/db/server';
+import { latencySecondsBetween } from '@/lib/metrics/outcome-aggregation';
 import { safeRecordOutcomeEvent } from '@/lib/metrics/safe-record';
 
 export interface PersistOutboundMessageInput {
@@ -179,6 +180,33 @@ async function conversationBelongsToAccount(
   } catch {
     return false;
   }
+}
+
+async function latestInboundCreatedAt(
+  accountId: string,
+  conversationId: string
+): Promise<string | null> {
+  const db = getAdminClient();
+  for (const filter of [
+    { column: 'direction', value: 'inbound' },
+    { column: 'sender_type', value: 'customer' },
+  ] as const) {
+    try {
+      const { data } = await db
+        .from('messages')
+        .select('created_at')
+        .eq('account_id', accountId)
+        .eq('conversation_id', conversationId)
+        .eq(filter.column, filter.value)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      const row = Array.isArray(data) ? data[0] : data;
+      if (row?.created_at) return String(row.created_at);
+    } catch {
+      // Schema may lack direction / sender_type; try the next shape.
+    }
+  }
+  return null;
 }
 
 async function lookupExistingMessage(
@@ -478,11 +506,24 @@ export async function persistOutboundMessage(
             sourceId: `outbound:${input.accountId}:${input.providerMessageId}`,
             attributes: { is_automated: automated },
           });
+          const inboundAt = await latestInboundCreatedAt(
+            input.accountId,
+            input.conversationId
+          );
+          const responseTimeSeconds = inboundAt
+            ? latencySecondsBetween(inboundAt, now)
+            : null;
           safeRecordOutcomeEvent({
             accountId: input.accountId,
             eventName: 'first_response_sent',
             sourceId: `first-response:${input.accountId}:${input.conversationId}`,
-            attributes: { is_automated: automated },
+            attributes: {
+              is_automated: automated,
+              conversation_id: input.conversationId,
+              ...(responseTimeSeconds !== null
+                ? { response_time_seconds: responseTimeSeconds }
+                : {}),
+            },
           });
         }
         return {

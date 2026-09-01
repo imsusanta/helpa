@@ -461,7 +461,10 @@ export async function persistNormalizedInboundMessage(
     accountId,
     eventName: 'inbound_message_received',
     sourceId: `inbound:${accountId}:${externalId}`,
-    attributes: { channel: event.channel || 'whatsapp' },
+    attributes: {
+      channel: event.channel || 'whatsapp',
+      conversation_id: conversationId,
+    },
   });
 
   return {

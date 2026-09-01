@@ -43,7 +43,7 @@ Migration `20260901060000_reliability_observation.sql` allowlists delivery, webh
 
 `GET /api/metrics/observation` returns tenant aggregates plus Target vs Observed SLO fields. `publication.allowed` stays false until operators complete consent, sample validation, and a 30-day window.
 
-First-response rows are de-duplicated per conversation (`source_id = first-response:{account}:{conversation}`). `response_time_seconds` is not computed at persist time yet, so median latency stays null until that pairing is added.
+First-response rows are de-duplicated per conversation (`source_id = first-response:{account}:{conversation}`). Persist-time pairing writes `response_time_seconds` from the latest tenant-scoped inbound row when that timestamp exists. Aggregation also pairs `inbound_message_received` + `first_response_sent` by `conversation_id` when the persist-time attribute is missing. Observed SLO cells stay empty until a dated production window.
 
 ## Launch checklist
 

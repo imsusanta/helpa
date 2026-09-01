@@ -11,6 +11,9 @@ import {
   calculateAutomationSuccessRate,
   calculatePatientReturnRate,
   generateObservationReadinessReport,
+  conversationIdFromFirstResponse,
+  latencySecondsBetween,
+  pairFirstResponseLatencySeconds,
   OutcomeEventRecord,
 } from '@/lib/metrics/outcome-aggregation';
 import {
@@ -198,6 +201,84 @@ describe('Product Outcome Metrics Aggregation & Observation Readiness', () => {
     expect(res.automatedCount).toBe(10);
     expect(res.humanCount).toBe(2);
     expect(res.medianSeconds).toBe(10.5); // sorted: 5,6,7,8,9,10,11,12,13,14,60,70 -> median (10+11)/2 = 10.5
+  });
+
+  it('pairs inbound and first-response events when persist-time latency is missing', () => {
+    const paired: OutcomeEventRecord[] = Array.from({ length: 10 }, (_, i) => {
+      const conversationId = `conv-${i + 1}`;
+      return [
+        {
+          account_id: 'tenant-1',
+          event_name: 'inbound_message_received',
+          event_version: 1,
+          occurred_at: '2026-08-01T10:00:00Z',
+          source_id: `inbound:tenant-1:wamid.in.${i + 1}`,
+          subject_hash: null,
+          is_synthetic: false,
+          is_test_tenant: false,
+          attributes: { channel: 'whatsapp', conversation_id: conversationId },
+        },
+        {
+          account_id: 'tenant-1',
+          event_name: 'first_response_sent',
+          event_version: 1,
+          occurred_at: '2026-08-01T10:00:12Z',
+          source_id: `first-response:tenant-1:${conversationId}`,
+          subject_hash: null,
+          is_synthetic: false,
+          is_test_tenant: false,
+          attributes: { is_automated: true, conversation_id: conversationId },
+        },
+      ] as OutcomeEventRecord[];
+    }).flat();
+
+    const res = calculateMedianFirstResponseTime(paired);
+    expect(res.isSuppressed).toBe(false);
+    expect(res.medianSeconds).toBe(12);
+    expect(res.sampleSize).toBe(10);
+  });
+
+  it('extracts conversation id and rejects stale or negative latency', () => {
+    expect(
+      conversationIdFromFirstResponse({
+        source_id: 'first-response:acct-1:conv-99',
+        attributes: {},
+      })
+    ).toBe('conv-99');
+    expect(
+      latencySecondsBetween('2026-08-01T10:00:00Z', '2026-08-01T10:00:08Z')
+    ).toBe(8);
+    expect(
+      latencySecondsBetween('2026-08-01T10:00:08Z', '2026-08-01T10:00:00Z')
+    ).toBeNull();
+    expect(
+      pairFirstResponseLatencySeconds(
+        {
+          account_id: 'tenant-1',
+          event_name: 'first_response_sent',
+          event_version: 1,
+          occurred_at: '2026-08-01T10:00:05Z',
+          source_id: 'first-response:tenant-1:conv-x',
+          subject_hash: null,
+          is_synthetic: false,
+          is_test_tenant: false,
+          attributes: {},
+        },
+        [
+          {
+            account_id: 'tenant-1',
+            event_name: 'inbound_message_received',
+            event_version: 1,
+            occurred_at: '2026-08-01T10:00:00Z',
+            source_id: 'inbound:tenant-1:wamid.other',
+            subject_hash: null,
+            is_synthetic: false,
+            is_test_tenant: false,
+            attributes: { conversation_id: 'conv-other' },
+          },
+        ]
+      )
+    ).toBeNull();
   });
 
   it('suppresses metrics when cohort size is below safety threshold (<10)', () => {

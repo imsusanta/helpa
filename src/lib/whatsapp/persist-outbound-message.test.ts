@@ -11,6 +11,8 @@ const { dbState } = vi.hoisted(() => ({
     disallowedStatus: new Set<string>(),
     disallowedSenderType: new Set<string>(),
     inserts: [] as Record<string, unknown>[],
+    inboundCreatedAt: null as string | null,
+    inboundLookups: [] as Record<string, unknown>[],
     updates: [] as Array<{
       table: string;
       payload: Record<string, unknown>;
@@ -45,6 +47,7 @@ vi.mock('@/lib/db/server', () => ({
           filters[col] = val;
           return builder;
         },
+        order: () => builder,
         limit: () => builder,
         maybeSingle: async () => {
           if (selecting) {
@@ -135,6 +138,18 @@ vi.mock('@/lib/db/server', () => ({
             });
           }
           if (selecting) {
+            if (
+              filters.direction === 'inbound' ||
+              filters.sender_type === 'customer'
+            ) {
+              dbState.inboundLookups.push({ ...filters });
+              return Promise.resolve({
+                data: dbState.inboundCreatedAt
+                  ? [{ created_at: dbState.inboundCreatedAt }]
+                  : [],
+                error: null,
+              }).then(resolve, reject);
+            }
             const providerId = String(
               filters.provider_message_id ||
                 filters.message_id ||
@@ -211,6 +226,8 @@ describe('persistOutboundMessage', () => {
     dbState.disallowedSenderType.clear();
     dbState.inserts.length = 0;
     dbState.updates.length = 0;
+    dbState.inboundCreatedAt = null;
+    dbState.inboundLookups.length = 0;
   });
 
   it('accepts canonical UUID strings only', () => {
@@ -361,6 +378,26 @@ describe('persistOutboundMessage', () => {
       duplicate: true,
     });
     expect(dbState.inserts).toHaveLength(0);
+  });
+
+  it('scopes inbound latency lookup to the same account and conversation', async () => {
+    dbState.inboundCreatedAt = '2026-08-01T10:00:00.000Z';
+    const res = await persistOutboundMessage({
+      accountId: 'tenant-1',
+      conversationId: 'conv-1',
+      contentType: 'text',
+      contentText: 'reply',
+      providerMessageId: 'wamid.OUT.LAT',
+      createdAt: '2026-08-01T10:00:09.000Z',
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.duplicate).toBe(false);
+    expect(dbState.inboundLookups[0]).toMatchObject({
+      account_id: 'tenant-1',
+      conversation_id: 'conv-1',
+      direction: 'inbound',
+    });
   });
 
   it('does not treat another tenant provider id as a duplicate', async () => {

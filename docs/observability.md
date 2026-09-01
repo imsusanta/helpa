@@ -9,7 +9,7 @@ This document describes how Helpa can observe production safely. It is measureme
 
 | Indicator | Event names | Calculation | Success | Failure |
 | --- | --- | --- | --- | --- |
-| First response time | `inbound_message_received`, `first_response_sent` | Median `response_time_seconds` when present; automated vs human counts | Median computed and sample ≥ 10 | Missing latency attributes or cohort < 10 (suppressed) |
+| First response time | `inbound_message_received`, `first_response_sent` | Persist-time `response_time_seconds` when available; otherwise pair inbound + first-response by conversation id (no PII). Median + automated vs human counts | Median computed and sample ≥ 10 | Missing pairable events or cohort < 10 (suppressed) |
 | Successful conversations / bookings | `booking_confirmed` | Confirmed bookings; WhatsApp-attributed when `channel=whatsapp` | Count of eligible bookings | Cohort < 10 (suppressed) |
 | Appointment success | `booking_confirmed`, `appointment_completed` | Completions vs confirmations when both exist | Completion events recorded | Completions not yet produced from visit workflows |
 | Automation success | `automation_eligible`, `automation_completed`, `staff_takeover`, `automation_error` | completed / eligible | Rate computed, sample ≥ 10 | Errors, takeovers, or suppressed cohort |

@@ -19,6 +19,7 @@ import * as supabaseServer from '@/lib/supabase/server';
 import * as tenantResolver from '@/core/whatsapp/tenant-resolver';
 import * as contactService from '@/app/api/whatsapp/webhook/contact-service';
 import * as conversationService from '@/app/api/whatsapp/webhook/conversation-service';
+import * as safeRecord from '@/lib/metrics/safe-record';
 
 vi.mock('@/lib/flows/engine', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -352,6 +353,7 @@ describe('Inbound message pipeline', () => {
     vi.spyOn(conversationService, 'flagBroadcastReplyIfAny').mockResolvedValue(
       undefined as never
     );
+    vi.spyOn(safeRecord, 'safeRecordOutcomeEvent');
   });
 
   afterEach(() => {
@@ -401,6 +403,17 @@ describe('Inbound message pipeline', () => {
       new Date(1760000000 * 1000).toISOString()
     );
     expect(conv.unread_count).toBe(1);
+
+    expect(vi.mocked(safeRecord.safeRecordOutcomeEvent)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountId: ACCOUNT_ID,
+        eventName: 'inbound_message_received',
+        attributes: expect.objectContaining({
+          channel: 'whatsapp',
+          conversation_id: CONVERSATION_ID,
+        }),
+      })
+    );
   });
 
   it('ROOT CAUSE: still persists the reply when the idempotency ledger table is missing', async () => {

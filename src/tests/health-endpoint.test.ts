@@ -333,4 +333,26 @@ describe('Health Endpoint Hardening & Security Tests', () => {
     );
     expect(body.checks.worker).not.toHaveProperty('error');
   });
+
+  it('10. Auth check reports not_configured without leaking keys', async () => {
+    process.env.CI = 'true';
+    delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+
+    const req = new NextRequest('http://localhost:3000/api/health');
+    const res = await getHealth(req);
+    const body = await res.json();
+    const jsonStr = JSON.stringify(body);
+
+    expect(body.checks.auth).toBe('not_configured');
+    expect(body.checks.worker).toEqual(
+      expect.objectContaining({
+        status: 'unknown',
+        lastSeenAt: null,
+        staleAfterSeconds: 90,
+      })
+    );
+    expect(jsonStr).not.toMatch(/eyJ|service_role|sk_live/);
+  });
 });
