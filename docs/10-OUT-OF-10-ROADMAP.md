@@ -40,6 +40,7 @@ Helpa reaches the target when every item below has objective, reproducible evide
 ## P2 — Reliability and observability
 
 - [x] Define service-level indicators and a Target vs Observed worksheet (`docs/slo.md`, `docs/observability.md`).
+- [x] Pair first-response inbound/outbound timestamps in code (`response_time_seconds` + conversation-id pairing). *(Observed SLO cells stay empty until a dated production window)*
 - [ ] Set alert thresholds and scrape probes in the hosting platform.
 - [ ] Fill Observed SLO cells after a dated production window.
 - [x] Add correlation IDs across inbound webhooks, outbox records, provider calls, and reconciliation workers.
@@ -53,7 +54,7 @@ Helpa reaches the target when every item below has objective, reproducible evide
 
 - [ ] Select one launch ICP and make the homepage, onboarding, demo data, and activation checklist specific to it.
 - [ ] Track time-to-first-value, onboarding completion, conversation automation rate, booking conversion, and retained weekly usage.
-- [x] Add reception-label unit checks for login and inbox composer (`src/tests/a11y/reception-labels.test.ts`).
+- [x] Add reception-label unit checks for login, composer, thread, reactions, and report actions (`src/tests/a11y/reception-labels.test.ts`).
 - [ ] Add broader accessibility checks to CI and complete keyboard-only testing of critical flows.
 - [ ] Set performance budgets for Core Web Vitals and major dashboard routes.
 - [ ] Validate legal, privacy, retention, and healthcare claims with qualified reviewers before expanding clinical deployment.

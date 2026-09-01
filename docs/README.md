@@ -10,6 +10,7 @@ one canonical file (duplicates get consolidated).
 - [PRODUCTION_CHECKLIST.md](./PRODUCTION_CHECKLIST.md) — go-live checklist
 - [OPERATIONS.md](./OPERATIONS.md) — running the service day-to-day
 - [10-OUT-OF-10-ROADMAP.md](./10-OUT-OF-10-ROADMAP.md) — engineering maturity roadmap
+- [audits/PRODUCTION_READINESS_GAPS_2026-09.md](./audits/PRODUCTION_READINESS_GAPS_2026-09.md) — current scorecard (2026-09-01): honest 7/10 on the gaps branch, 5/10 on live `main`. Not 10/10.
 
 ## Security
 
