@@ -629,6 +629,7 @@ export default function InboxPage() {
               <button
                 type="button"
                 onClick={() => setRightTab('crm')}
+                aria-pressed={rightTab === 'crm'}
                 className={cn(
                   'flex-1 cursor-pointer rounded-md py-1.5 text-center text-xs font-bold transition-all',
                   rightTab === 'crm'
@@ -641,6 +642,7 @@ export default function InboxPage() {
               <button
                 type="button"
                 onClick={() => setRightTab('copilot')}
+                aria-pressed={rightTab === 'copilot'}
                 className={cn(
                   'flex-1 cursor-pointer rounded-md py-1.5 text-center text-xs font-bold transition-all',
                   rightTab === 'copilot'

@@ -122,4 +122,13 @@ test.describe('E2E: Authenticated Clinic & Patient Workflows', () => {
     });
     expect([401, 403]).toContain(res.status());
   });
+
+  test('verifies observation and pilot readiness APIs reject unauthenticated access', async ({
+    request,
+  }) => {
+    const observation = await request.get('/api/metrics/observation');
+    expect([401, 403]).toContain(observation.status());
+    const pilot = await request.get('/api/pilot/readiness');
+    expect([401, 403]).toContain(pilot.status());
+  });
 });

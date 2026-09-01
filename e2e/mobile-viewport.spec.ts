@@ -31,4 +31,16 @@ test.describe('E2E: Mobile Viewport & Responsive Accessibility', () => {
     await expect(emailField).toBeVisible();
     await expect(submitBtn).toBeVisible();
   });
+
+  test('reception routes do not overflow at 375px and stay auth-gated', async ({
+    page,
+  }) => {
+    for (const path of ['/inbox', '/appointments', '/follow-ups']) {
+      await page.goto(path);
+      await expect(page).toHaveURL(/\/login/);
+      const bodyWidth = await page.evaluate(() => document.body.scrollWidth);
+      const windowWidth = await page.evaluate(() => window.innerWidth);
+      expect(bodyWidth).toBeLessThanOrEqual(windowWidth + 5);
+    }
+  });
 });

@@ -1183,6 +1183,12 @@ export function MessageThread({
           <button
             type="button"
             onClick={handleToggleAiChat}
+            aria-pressed={conversation.ai_chat_enabled}
+            aria-label={
+              conversation.ai_chat_enabled
+                ? 'AI assistant on. Pause AI'
+                : 'AI assistant off. Resume AI'
+            }
             title={
               conversation.ai_chat_enabled
                 ? 'Disable AI Assistant'
@@ -1207,6 +1213,7 @@ export function MessageThread({
           {/* Status dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger
+              aria-label="Conversation status"
               className={cn(
                 'hover:bg-muted inline-flex h-7 items-center justify-center gap-1 rounded-md px-2 text-xs',
                 currentStatus?.color ?? 'text-muted-foreground'
@@ -1234,6 +1241,7 @@ export function MessageThread({
           {/* Assign dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger
+              aria-label="Assign conversation"
               className={cn(
                 'hover:bg-muted inline-flex h-7 items-center justify-center gap-1 rounded-md px-2 text-xs',
                 assignedAgentId ? 'text-primary' : 'text-muted-foreground'
