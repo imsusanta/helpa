@@ -4,7 +4,7 @@ import type {
   AutomationTriggerConfig,
   AutomationTriggerType,
 } from '@/types';
-import { resolveCanonicalIndustry } from '@/modules/registry';
+import { resolveIndustryAlias } from '@/core/modules/terminology';
 
 export type TemplateSlug =
   | 'welcome_message'
@@ -514,7 +514,7 @@ const TEMPLATE_DISPLAY_ORDER = Object.keys(
 function canonicalTemplateIndustry(
   industry: string | null | undefined
 ): CanonicalAutomationIndustry {
-  return resolveCanonicalIndustry(
+  return resolveIndustryAlias(
     industry || 'general'
   ) as CanonicalAutomationIndustry;
 }

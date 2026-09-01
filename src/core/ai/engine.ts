@@ -5,12 +5,8 @@
  * tool execution, human handoff, summary generation, and copilot suggestions.
  */
 
-import { getIndustryModule } from '@/modules/registry';
-import { resolveIndustryAlias } from '@/modules/terminology';
 import { coreEvents } from '@/core/events';
-import { getAdminClient } from '@/lib/db/server';
-import { matchTourPackagesForMessage } from '@/lib/travel/retrieval';
-import { buildTravelPackagePromptBlock } from '@/lib/travel/prompt';
+import { getIndustryModulePort } from '../modules/industry-port';
 import { type AiMessage } from './provider';
 import { executeAiCompletionWithFallback } from './resolver';
 import { buildAiContextBundle } from './context-builder';
@@ -40,9 +36,10 @@ export async function executeAiPipeline({
   // 1. Build Layered Context Bundle
   const bundle = await buildAiContextBundle(context);
 
-  // 2. Safety Pre-screening driven by Industry Manifest
+  // 2. Safety Pre-screening driven by Industry Manifest (via the Core port)
   const lowerMsg = userMessage.toLowerCase();
-  const manifest = getIndustryModule(bundle.industry);
+  const industryPort = getIndustryModulePort();
+  const manifest = industryPort.getIndustryModule(bundle.industry);
 
   if (
     manifest.safetyKeywords &&
@@ -72,15 +69,17 @@ export async function executeAiPipeline({
     };
   }
 
-  // 3. Assemble Messages
+  // 3. Industry-specific prompt augmentation via the port (no hardcoded
+  //    industry branches in Core — e.g. travel package grounding is registered
+  //    by the modules layer).
   let systemPrompt = bundle.systemPrompt;
-  if (resolveIndustryAlias(bundle.industry) === 'travel') {
-    const packageResult = await matchTourPackagesForMessage(
-      getAdminClient(),
-      context.accountId,
-      userMessage
-    );
-    systemPrompt += buildTravelPackagePromptBlock(packageResult);
+  if (industryPort.augmentSystemPrompt) {
+    systemPrompt = await industryPort.augmentSystemPrompt({
+      industry: bundle.industry,
+      accountId: context.accountId,
+      userMessage,
+      systemPrompt,
+    });
   }
 
   const conversationMessages: AiMessage[] = [

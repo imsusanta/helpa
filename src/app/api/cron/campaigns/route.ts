@@ -5,6 +5,7 @@ import {
   engineSendDocument,
 } from '@/lib/automations/meta-send';
 import { authorizeCronRequest } from '@/lib/cron/security';
+import { applyCampaignTokens } from '@/lib/marketing/campaign-tokens';
 
 // Helper to calculate next recurring date
 function getNextRecurringDate(
@@ -269,16 +270,13 @@ export async function GET(request: Request) {
 
               if (!conv) continue;
 
-              // Compose message body
-              let textBody = campaign.message_body || '';
-              textBody = textBody.replace(
-                /\{\{PatientName\}\}/g,
-                contact.name || 'Patient'
-              );
-              textBody = textBody.replace(
-                /\{\{HospitalName\}\}/g,
-                account?.name || 'Hospital'
-              );
+              // Compose message body. Industry-agnostic token vocabulary
+              // so travel/coaching/salon campaigns substitute the same
+              // way hospital ones always did.
+              let textBody = applyCampaignTokens(campaign.message_body, {
+                contactName: contact.name,
+                businessName: account?.name,
+              });
 
               if (campaign.cta_type === 'appointment') {
                 textBody += '\n\nReply *BOOK* to book an appointment.';

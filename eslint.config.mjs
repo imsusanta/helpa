@@ -25,6 +25,35 @@ const eslintConfig = defineConfig([
       'prefer-const': 'warn',
     },
   },
+  // Layer boundary enforcement: Core must never depend on the modules,
+  // app, components, or hooks layers. Industry capabilities are consumed
+  // through the port in `src/core/modules` (dependency inversion).
+  {
+    files: ['src/core/**/*.ts', 'src/core/**/*.tsx'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                '@/modules',
+                '@/modules/*',
+                '@/app',
+                '@/app/*',
+                '@/components',
+                '@/components/*',
+                '@/hooks',
+                '@/hooks/*',
+              ],
+              message:
+                'Core must not depend on the modules/app/components/hooks layers. Consume industry capabilities via the port in @/core/modules.',
+            },
+          ],
+        },
+      ],
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

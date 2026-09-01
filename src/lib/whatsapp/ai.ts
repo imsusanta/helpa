@@ -12,7 +12,7 @@ import {
   engineSendButtons,
 } from '@/lib/automations/meta-send';
 import { checkPlanLimits, incrementUsage } from '@/lib/saas/subscription';
-import { getIndustryModule } from '@/modules/registry';
+import { getIndustryModulePort } from '@/core/modules/industry-port';
 import { parseAiResponse } from '@/lib/whatsapp/ai-response';
 import { buildReceptionistSystemPrompt } from '@/lib/whatsapp/ai-prompt';
 import {
@@ -385,7 +385,9 @@ export async function triggerAiResponse(
   }> | null;
   const kbContext = formatKnowledgeBaseContext(kbEntries);
 
-  const industryModuleForContext = getIndustryModule(account?.industry);
+  const industryModuleForContext = getIndustryModulePort().getIndustryModule(
+    account?.industry
+  );
   const isHospitalEnabled = isHospitalIndustryEnabled(
     account?.industry,
     industryModuleForContext.id
@@ -393,8 +395,7 @@ export async function triggerAiResponse(
   const isCoachingEnabled = industryModuleForContext.id === 'coaching';
   const isSoloTeacherEnabled = industryModuleForContext.id === 'solo_teacher';
   const isTravelEnabled = industryModuleForContext.id === 'travel';
-  const entityLabelForContext =
-    industryModuleForContext.entityConfigs?.contacts?.label || 'Contact';
+  const entityLabelForContext = industryModuleForContext.entityLabel || 'Contact';
 
   const { hospitalContext, coachingContext, labReports } =
     await buildIndustryAiContext(db, {

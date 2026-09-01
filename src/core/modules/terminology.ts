@@ -1,0 +1,359 @@
+/**
+ * Helpa Core Platform — Industry Terminology & Aliases
+ *
+ * Core-owned industry vocabulary (pure data, zero dependencies). Lives in
+ * Core so platform layers (`src/core`, `src/lib`) can resolve industry
+ * aliases and display terminology without depending on the `src/modules`
+ * layer. The industry manifest registry itself stays in `src/modules` and is
+ * consumed through the port in `./industry-port`.
+ */
+
+export interface IndustryTerminology {
+  /** Legacy keys retained for compatibility with existing consumers. */
+  contact: string;
+  contacts: string;
+  booking: string;
+  bookings: string;
+  staff: string;
+  staffMembers: string;
+  service: string;
+  services: string;
+  /** Semantic display concepts shared by authenticated workspace UI. */
+  person: string;
+  people: string;
+  conversation: string;
+  conversations: string;
+  message: string;
+  messages: string;
+  bookingAction: string;
+  meeting: string;
+  meetings: string;
+  staffMember: string;
+  provider: string;
+  providers: string;
+  pipeline: string;
+  pipelines: string;
+  pipelineItem: string;
+  pipelineItems: string;
+  primaryRecord: string;
+  primaryRecords: string;
+  followUp: string;
+  followUps: string;
+  report: string;
+  reports: string;
+  campaign: string;
+  campaigns: string;
+  class: string;
+  classes: string;
+  session: string;
+  sessions: string;
+}
+
+export type TerminologyKey = keyof IndustryTerminology;
+
+export const INDUSTRY_ALIASES = {
+  health: 'hospital_clinic',
+  hospital: 'hospital_clinic',
+  clinic: 'hospital_clinic',
+  healthcare: 'hospital_clinic',
+  medical: 'hospital_clinic',
+  pathology: 'hospital_clinic',
+  hospital_clinic: 'hospital_clinic',
+  hospital_and_clinic: 'hospital_clinic',
+  doctor: 'hospital_clinic',
+  coaching: 'coaching',
+  education: 'coaching',
+  institute: 'coaching',
+  solo_teacher: 'solo_teacher',
+  tutor: 'solo_teacher',
+  teacher: 'solo_teacher',
+  educator: 'solo_teacher',
+  salon: 'salon',
+  spa: 'salon',
+  salon_spa: 'salon',
+  beauty: 'salon',
+  gym: 'gym',
+  fitness: 'gym',
+  restaurant: 'restaurant',
+  cafe: 'restaurant',
+  travel: 'travel',
+  real_estate: 'real_estate',
+  realestate: 'real_estate',
+  property: 'real_estate',
+  general: 'general',
+  other: 'general',
+  business_services: 'general',
+} as const;
+
+export type CanonicalIndustry =
+  | 'hospital_clinic'
+  | 'coaching'
+  | 'solo_teacher'
+  | 'salon'
+  | 'gym'
+  | 'restaurant'
+  | 'travel'
+  | 'real_estate'
+  | 'general';
+
+export const GENERAL_INDUSTRY_TERMINOLOGY: IndustryTerminology = {
+  contact: 'Contact',
+  contacts: 'Contacts',
+  booking: 'Booking',
+  bookings: 'Bookings',
+  bookingAction: 'Create Booking',
+  staff: 'Staff Member',
+  staffMembers: 'Staff Members',
+  staffMember: 'Staff Member',
+  service: 'Service',
+  services: 'Services',
+  person: 'Contact',
+  people: 'Contacts',
+  conversation: 'Conversation',
+  conversations: 'Conversations',
+  message: 'Message',
+  messages: 'Messages',
+  meeting: 'Meeting',
+  meetings: 'Meetings',
+  provider: 'Staff Member',
+  providers: 'Staff Members',
+  pipeline: 'Pipeline',
+  pipelines: 'Pipelines',
+  pipelineItem: 'Lead',
+  pipelineItems: 'Leads',
+  primaryRecord: 'Contact',
+  primaryRecords: 'Contacts',
+  followUp: 'Follow-up',
+  followUps: 'Follow-ups',
+  report: 'Report',
+  reports: 'Reports',
+  campaign: 'Campaign',
+  campaigns: 'Campaigns',
+  class: 'Class',
+  classes: 'Classes',
+  session: 'Session',
+  sessions: 'Sessions',
+};
+
+const INDUSTRY_TERMINOLOGY: Record<
+  Exclude<CanonicalIndustry, 'general'>,
+  Partial<IndustryTerminology>
+> = {
+  hospital_clinic: {
+    contact: 'Patient',
+    contacts: 'Patients',
+    person: 'Patient',
+    people: 'Patients',
+    conversation: 'Patient Conversation',
+    conversations: 'Patient Conversations',
+    booking: 'Appointment',
+    bookings: 'Appointments',
+    bookingAction: 'Book Appointment',
+    meeting: 'Appointment',
+    meetings: 'Appointments',
+    staff: 'Doctor',
+    staffMembers: 'Doctors',
+    staffMember: 'Doctor',
+    provider: 'Doctor',
+    providers: 'Doctors',
+    service: 'Treatment',
+    services: 'Treatments',
+    pipeline: 'Patient Inquiry Pipeline',
+    pipelines: 'Patient Inquiry Pipelines',
+    pipelineItem: 'Patient Inquiry',
+    pipelineItems: 'Patient Inquiries',
+    primaryRecord: 'Patient',
+    primaryRecords: 'Patients',
+    report: 'Medical Report',
+    reports: 'Medical Reports',
+  },
+  salon: {
+    contact: 'Client',
+    contacts: 'Clients',
+    person: 'Client',
+    people: 'Clients',
+    booking: 'Appointment',
+    bookings: 'Appointments',
+    bookingAction: 'Book Appointment',
+    meeting: 'Appointment',
+    meetings: 'Appointments',
+    staff: 'Stylist',
+    staffMembers: 'Stylists',
+    staffMember: 'Stylist',
+    provider: 'Stylist',
+    providers: 'Stylists',
+    pipelineItem: 'Enquiry',
+    pipelineItems: 'Enquiries',
+    primaryRecord: 'Client',
+    primaryRecords: 'Clients',
+  },
+  coaching: {
+    contact: 'Student',
+    contacts: 'Students',
+    person: 'Student',
+    people: 'Students',
+    booking: 'Admission Enquiry',
+    bookings: 'Admission Enquiries',
+    bookingAction: 'Create Admission Enquiry',
+    meeting: 'Counselling Session',
+    meetings: 'Counselling Sessions',
+    staff: 'Teacher',
+    staffMembers: 'Teachers',
+    staffMember: 'Teacher',
+    provider: 'Counsellor',
+    providers: 'Counsellors',
+    service: 'Course',
+    services: 'Courses',
+    pipeline: 'Admissions Pipeline',
+    pipelines: 'Admissions Pipelines',
+    pipelineItem: 'Admission Enquiry',
+    pipelineItems: 'Admission Enquiries',
+    primaryRecord: 'Student',
+    primaryRecords: 'Students',
+    session: 'Counselling Session',
+    sessions: 'Counselling Sessions',
+  },
+  solo_teacher: {
+    contact: 'Student',
+    contacts: 'Students',
+    person: 'Student',
+    people: 'Students',
+    booking: 'Class Booking',
+    bookings: 'Class Bookings',
+    bookingAction: 'Book Class',
+    meeting: 'Class',
+    meetings: 'Classes',
+    staff: 'Teacher',
+    staffMembers: 'Teachers',
+    staffMember: 'Teacher',
+    provider: 'Teacher',
+    providers: 'Teachers',
+    service: 'Course',
+    services: 'Courses',
+    pipelineItem: 'Student Enquiry',
+    pipelineItems: 'Student Enquiries',
+    primaryRecord: 'Student',
+    primaryRecords: 'Students',
+  },
+  gym: {
+    contact: 'Member',
+    contacts: 'Members',
+    person: 'Member',
+    people: 'Members',
+    booking: 'Session Booking',
+    bookings: 'Session Bookings',
+    bookingAction: 'Book Session',
+    meeting: 'Training Session',
+    meetings: 'Training Sessions',
+    staff: 'Trainer',
+    staffMembers: 'Trainers',
+    staffMember: 'Trainer',
+    provider: 'Trainer',
+    providers: 'Trainers',
+    service: 'Plan',
+    services: 'Plans & Classes',
+    pipelineItem: 'Membership Enquiry',
+    pipelineItems: 'Membership Enquiries',
+    primaryRecord: 'Member',
+    primaryRecords: 'Members',
+    session: 'Training Session',
+    sessions: 'Training Sessions',
+  },
+  restaurant: {
+    contact: 'Guest',
+    contacts: 'Guests',
+    person: 'Guest',
+    people: 'Guests',
+    booking: 'Reservation',
+    bookings: 'Reservations',
+    bookingAction: 'Make Reservation',
+    meeting: 'Reservation',
+    meetings: 'Reservations',
+    staff: 'Staff',
+    staffMembers: 'Staff',
+    staffMember: 'Staff Member',
+    provider: 'Staff Member',
+    providers: 'Staff',
+    service: 'Menu Item',
+    services: 'Menu Items',
+    pipelineItem: 'Reservation Request',
+    pipelineItems: 'Reservation Requests',
+    primaryRecord: 'Guest',
+    primaryRecords: 'Guests',
+  },
+  travel: {
+    contact: 'Traveller',
+    contacts: 'Travellers',
+    person: 'Traveller',
+    people: 'Travellers',
+    booking: 'Trip Booking',
+    bookings: 'Trip Bookings',
+    bookingAction: 'Book Trip',
+    meeting: 'Travel Consultation',
+    meetings: 'Booking Trip',
+    staff: 'Travel Advisor',
+    staffMembers: 'Travel Advisors',
+    staffMember: 'Travel Advisor',
+    provider: 'Travel Advisor',
+    providers: 'Travel Advisors',
+    service: 'Tour Package',
+    services: 'Tour Packages',
+    pipelineItem: 'Travel Enquiry',
+    pipelineItems: 'Travel Enquiries',
+    primaryRecord: 'Traveller',
+    primaryRecords: 'Travellers',
+  },
+  real_estate: {
+    contact: 'Lead',
+    contacts: 'Leads',
+    person: 'Lead',
+    people: 'Leads',
+    booking: 'Site Visit Booking',
+    bookings: 'Site Visit Bookings',
+    bookingAction: 'Book Site Visit',
+    meeting: 'Site Visit',
+    meetings: 'Site Visits',
+    staff: 'Agent',
+    staffMembers: 'Agents',
+    staffMember: 'Agent',
+    provider: 'Agent',
+    providers: 'Agents',
+    service: 'Property',
+    services: 'Properties',
+    pipeline: 'Property Enquiry Pipeline',
+    pipelines: 'Property Enquiry Pipelines',
+    pipelineItem: 'Property Enquiry',
+    pipelineItems: 'Property Enquiries',
+    primaryRecord: 'Lead',
+    primaryRecords: 'Leads',
+  },
+};
+
+export function resolveIndustryAlias(
+  industry?: string | null
+): CanonicalIndustry {
+  const normalized = industry?.trim().toLowerCase();
+  if (!normalized) return 'general';
+  return (
+    INDUSTRY_ALIASES[normalized as keyof typeof INDUSTRY_ALIASES] || 'general'
+  );
+}
+
+export function getIndustryTerminology(
+  industry?: string | null,
+  overrides?: Partial<IndustryTerminology> | null
+): IndustryTerminology {
+  const canonical = resolveIndustryAlias(industry);
+  return {
+    ...GENERAL_INDUSTRY_TERMINOLOGY,
+    ...(canonical === 'general' ? {} : INDUSTRY_TERMINOLOGY[canonical]),
+    ...(overrides || {}),
+  };
+}
+
+export function term(
+  terminology: IndustryTerminology,
+  key: TerminologyKey
+): string {
+  return terminology[key] || GENERAL_INDUSTRY_TERMINOLOGY[key];
+}

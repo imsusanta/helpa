@@ -6,7 +6,7 @@
  */
 
 import { getAdminClient } from '@/lib/db/server';
-import { getIndustryModule } from '@/modules/registry';
+import { getIndustryModulePort } from '../modules/industry-port';
 import { getConversationMemory } from './memory';
 import { aiToolRegistry } from './tools';
 import type { AiContextBundle, AiRole, IndustryAiConfig } from './types';
@@ -44,18 +44,17 @@ export async function buildAiContextBundle({
   const industry = account?.industry || 'health';
   const businessName = account?.name || 'Helpa Business';
 
-  // 2. Resolve Industry AI Configuration from manifest registry
-  const moduleManifest = getIndustryModule(industry);
-  const resolvedRole = (moduleManifest?.aiRole ||
+  // 2. Resolve Industry AI Configuration via the Core industry port
+  const moduleManifest = getIndustryModulePort().getIndustryModule(industry);
+  const resolvedRole = (moduleManifest.aiRole ||
     'AI Business Assistant') as AiRole;
 
   const industryConfig: IndustryAiConfig = {
     role: resolvedRole,
     systemPrompt:
-      moduleManifest?.systemPrompt ||
+      moduleManifest.systemPrompt ||
       `You are the official ${businessName} assistant. Help clients with inquiries, bookings, and information.`,
-    terminology:
-      (moduleManifest?.terminology as unknown as Record<string, string>) || {},
+    terminology: moduleManifest.terminology || {},
     availableTools: [],
     safetyRules: [
       'Never fabricate pricing, availability, or schedules.',

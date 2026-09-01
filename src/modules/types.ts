@@ -82,46 +82,13 @@ export interface WorkflowSeed {
   steps: Array<Record<string, unknown>>;
 }
 
-export interface IndustryTerminology {
-  /** Legacy keys retained for compatibility with existing consumers. */
-  contact: string;
-  contacts: string;
-  booking: string;
-  bookings: string;
-  staff: string;
-  staffMembers: string;
-  service: string;
-  services: string;
-  /** Semantic display concepts shared by authenticated workspace UI. */
-  person: string;
-  people: string;
-  conversation: string;
-  conversations: string;
-  message: string;
-  messages: string;
-  bookingAction: string;
-  meeting: string;
-  meetings: string;
-  staffMember: string;
-  provider: string;
-  providers: string;
-  pipeline: string;
-  pipelines: string;
-  pipelineItem: string;
-  pipelineItems: string;
-  primaryRecord: string;
-  primaryRecords: string;
-  followUp: string;
-  followUps: string;
-  report: string;
-  reports: string;
-  campaign: string;
-  campaigns: string;
-  class: string;
-  classes: string;
-  session: string;
-  sessions: string;
-}
+/**
+ * Industry terminology contract is owned by the Core industry module
+ * (`src/core/modules/terminology.ts`) and re-exported here for
+ * backwards compatibility with existing UI consumers.
+ */
+export type { IndustryTerminology } from '@/core/modules/terminology';
+import type { IndustryTerminology } from '@/core/modules/terminology';
 
 export type IndustryStatus = 'ACTIVE' | 'COMING_SOON';
 

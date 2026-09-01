@@ -8,6 +8,9 @@
 // Events
 export * from './events';
 
+// Industry Module Contract (terminology + port)
+export * from './modules';
+
 // Permissions & Roles
 export * from './permissions';
 

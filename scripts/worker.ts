@@ -2,6 +2,8 @@ import { VoiceOutboxWorker } from '../src/lib/voice/voice-outbox-worker';
 import { OutboxService } from '../src/lib/whatsapp/outbox-service';
 import { processDueLeadFollowups } from '../src/lib/leads/lead-followup.service';
 import { getAdminClient } from '../src/lib/db/server';
+// Register the modules-layer industry port (mirrors src/instrumentation.ts).
+import '../src/modules/industry-port';
 
 console.log('[Helpa Worker] Starting background worker...');
 

@@ -1,5 +1,10 @@
 import WebSocket from 'ws';
 
+// Register the modules-layer implementation of the Core industry port.
+// Mirrors production behaviour, where `src/instrumentation.ts` registers it
+// once at server boot before any request is handled.
+import '@/modules/industry-port';
+
 if (typeof globalThis.WebSocket === 'undefined') {
   // @ts-expect-error WebSocket polyfill for Node 20/22 runtime
   globalThis.WebSocket = WebSocket;

@@ -35,6 +35,7 @@ import {
 import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
 import { useAuth } from '@/hooks/use-auth';
+import { useWorkspace } from '@/hooks/use-workspace';
 import type { FormSubmission, LeadForm } from '@/types';
 
 interface FormDetailResponse {
@@ -76,6 +77,7 @@ export default function LeadFormDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { accountId } = useAuth();
+  const { terminology } = useWorkspace();
 
   const [form, setForm] = useState<
     | (LeadForm & { submission_count: number; leads_created_count: number })
@@ -149,10 +151,12 @@ export default function LeadFormDetailPage() {
         }),
       });
       if (!res.ok) throw new Error('Failed');
-      toast.success('Contact assigned.');
+      toast.success(`${terminology.contact} assigned.`);
       await fetchDetail();
     } catch {
-      toast.error('Unable to assign the contact.');
+      toast.error(
+        `Unable to assign the ${terminology.contact.toLowerCase()}.`
+      );
     }
   }
 
@@ -351,7 +355,7 @@ export default function LeadFormDetailPage() {
         <Card>
           <CardContent className="p-4">
             <div className="text-muted-foreground text-xs font-medium">
-              Leads Created
+              {terminology.contacts} Created
             </div>
             <div className="text-foreground text-xl font-bold tabular-nums">
               {form.leads_created_count.toLocaleString()}
@@ -382,8 +386,8 @@ export default function LeadFormDetailPage() {
               title="No submissions yet."
               description={
                 form.status === 'active'
-                  ? 'Share your form link to start capturing leads.'
-                  : 'Activate this form and share the link to start capturing leads.'
+                  ? `Share your form link to start capturing ${terminology.pipelineItems.toLowerCase()}.`
+                  : `Activate this form and share the link to start capturing ${terminology.pipelineItems.toLowerCase()}.`
               }
             />
           ) : (
@@ -447,8 +451,8 @@ export default function LeadFormDetailPage() {
                                 )
                               }
                             >
-                              <ExternalLink className="mr-2 h-4 w-4" /> Open
-                              Contact
+                              <ExternalLink className="mr-2 h-4 w-4" /> Open{' '}
+                              {terminology.contact}
                             </DropdownMenuItem>
                             <AssignMenuItem
                               onAssign={(userId) =>
@@ -517,6 +521,7 @@ export default function LeadFormDetailPage() {
  */
 function AssignMenuItem({ onAssign }: { onAssign: (userId: string) => void }) {
   const [members, setMembers] = useState<MemberRow[]>([]);
+  const { terminology } = useWorkspace();
 
   useEffect(() => {
     let cancelled = false;
@@ -545,7 +550,7 @@ function AssignMenuItem({ onAssign }: { onAssign: (userId: string) => void }) {
       <DropdownMenuSeparator />
       <DropdownMenuGroup>
         <DropdownMenuLabel className="text-xs">
-          Assign contact to
+          Assign {terminology.contact.toLowerCase()} to
         </DropdownMenuLabel>
         {members.slice(0, 8).map((m) => (
           <DropdownMenuItem key={m.user_id} onClick={() => onAssign(m.user_id)}>

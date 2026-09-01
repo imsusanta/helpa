@@ -1,6 +1,6 @@
 import type { ResponseStyle } from '@/core/ai/chatbot-settings';
 import { getResponseStyleInstruction } from '@/core/ai/chatbot-settings';
-import { resolveSystemPrompt } from '@/modules/registry';
+import { getIndustryModulePort } from '@/core/modules/industry-port';
 import { qualificationPromptHint } from '@/lib/leads/lead-qualification.service';
 
 export interface ReceptionistPromptInput {
@@ -116,7 +116,7 @@ export const RECEPTIONIST_JSON_SCHEMA = `{
 export function buildReceptionistSystemPrompt(
   input: ReceptionistPromptInput
 ): string {
-  const basePrompt = resolveSystemPrompt(
+  const basePrompt = getIndustryModulePort().resolveSystemPrompt(
     input.industry,
     input.customSystemPrompt
   );

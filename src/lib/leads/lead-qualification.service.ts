@@ -5,7 +5,7 @@
 import {
   resolveIndustryAlias,
   type CanonicalIndustry,
-} from '@/modules/terminology';
+} from '@/core/modules/terminology';
 import { scoreLabelFromNumeric } from '@/lib/leads/lead-detection.service';
 import type {
   LeadDetectionResult,

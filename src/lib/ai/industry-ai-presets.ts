@@ -10,7 +10,7 @@
 import {
   resolveIndustryAlias,
   type CanonicalIndustry,
-} from '@/modules/terminology';
+} from '@/core/modules/terminology';
 
 export interface IndustryAiPreset {
   /** Human label for the assistant's role, e.g. "AI Receptionist". */
