@@ -151,7 +151,7 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
     ],
   },
   packages: {
-    tableName: 'travel_packages',
+    tableName: 'tour_packages',
     label: 'Tour Package',
     pluralLabel: 'Tour Packages',
     fields: [
@@ -168,7 +168,12 @@ const ENTITY_CONFIGS: Record<string, EntityConfig> = {
         type: 'number',
         required: true,
       },
-      { key: 'price', label: 'Price (in ₹)', type: 'number', required: true },
+      {
+        key: 'starting_price',
+        label: 'Starting Price (in ₹)',
+        type: 'number',
+      },
+      { key: 'currency', label: 'Currency', type: 'text' },
       { key: 'description', label: 'Description', type: 'text' },
     ],
   },
@@ -614,7 +619,7 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
       // Special case: resolve foreign key constraints dynamically
       if (config.tableName === 'travel_bookings') {
         const { data: firstPack } = await db
-          .from('travel_packages')
+          .from('tour_packages')
           .select('id')
           .eq('account_id', accountId)
           .limit(1);
@@ -627,13 +632,15 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
         let packageId = firstPack?.[0]?.id;
         if (!packageId) {
           const { data: newPack } = await db
-            .from('travel_packages')
+            .from('tour_packages')
             .insert({
               account_id: accountId,
               name: 'Standard Package',
               destination: 'Universal Destination',
-              price: 5000,
               duration_days: 3,
+              starting_price: 5000,
+              currency: 'INR',
+              status: 'active',
             })
             .select('id')
             .single();
@@ -654,7 +661,7 @@ export function EntityPage({ entityKey }: { entityKey: string }) {
           contactId = newContact?.id;
         }
 
-        dataToInsert.package_id = packageId;
+        dataToInsert.tour_package_id = packageId;
         dataToInsert.contact_id = contactId;
       }
 

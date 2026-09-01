@@ -20,7 +20,6 @@ const h = vi.hoisted(() => ({
   tables: {
     contacts: [] as Array<Record<string, unknown>>,
     tour_packages: [] as Array<Record<string, unknown>>,
-    travel_packages: [] as Array<Record<string, unknown>>,
     travel_bookings: [] as Array<Record<string, unknown>>,
     appointments: [] as Array<Record<string, unknown>>,
     contact_notes: [] as Array<Record<string, unknown>>,
@@ -38,6 +37,16 @@ vi.mock('@/lib/db/server', () => {
         filters.push((row) => row[field] === value);
         return api;
       },
+      ilike: (field: string, value: string) => {
+        const needle = value.toLowerCase();
+        filters.push((row) =>
+          String(row[field] ?? '')
+            .toLowerCase()
+            .includes(needle)
+        );
+        return api;
+      },
+      limit: () => api,
       insert: (row: Record<string, unknown>) => {
         op = 'insert';
         payload = row;
@@ -230,7 +239,6 @@ describe('confirmPendingTravelBooking', () => {
         description: '5D4N',
       },
     ];
-    h.tables.travel_packages = [];
     h.tables.travel_bookings = [];
     h.tables.appointments = [];
     h.tables.contact_notes = [];
@@ -268,7 +276,7 @@ describe('confirmPendingTravelBooking', () => {
         status: 'Confirmed',
       })
     );
-    expect(h.tables.travel_bookings[0].package_id).toBeTruthy();
+    expect(h.tables.travel_bookings[0].tour_package_id).toBe('tour-1');
     expect(h.tables.appointments[0]).toEqual(
       expect.objectContaining({
         account_id: 'acct-travel',
@@ -283,7 +291,9 @@ describe('confirmPendingTravelBooking', () => {
     );
   });
 
-  it('does not read another account package when confirming', async () => {
+  it('refuses a pending booking pointing at another account package', async () => {
+    // A stale/cross-account pending id (tour_packages of acct-other) must
+    // NOT be silently copied or resolved — canonical lookup is tenant-scoped.
     h.tables.tour_packages.push({
       id: 'tour-other',
       account_id: 'acct-other',
@@ -311,11 +321,35 @@ describe('confirmPendingTravelBooking', () => {
       userId: 'user-1',
     });
 
-    expect(result.status).toBe('confirmed');
-    expect(h.tables.travel_packages[0]?.name).toBe('Secret Trip');
-    expect(h.tables.travel_packages[0]?.account_id).toBe('acct-travel');
+    expect(result.status).toBe('missing_package');
+    expect(h.tables.travel_bookings).toHaveLength(0);
+    // The other account's package is untouched.
     expect(
       h.tables.tour_packages.find((row) => row.account_id === 'acct-other')
     ).toEqual(expect.objectContaining({ id: 'tour-other' }));
+  });
+
+  it('confirms by canonical name-match within the same account', async () => {
+    await storePendingTravelBooking('acct-travel', 'contact-1', {
+      package_id: null,
+      package_name: 'Kashmir Delight',
+      destination: 'Kashmir',
+      travel_date: '2026-09-10',
+      guests_count: 1,
+      total_price: 27999,
+      currency: 'INR',
+      conversation_id: 'conv-1',
+      offered_at: new Date().toISOString(),
+    });
+
+    const result = await confirmPendingTravelBooking({
+      accountId: 'acct-travel',
+      contactId: 'contact-1',
+      conversationId: 'conv-1',
+      userId: 'user-1',
+    });
+
+    expect(result.status).toBe('confirmed');
+    expect(h.tables.travel_bookings[0]?.tour_package_id).toBe('tour-1');
   });
 });

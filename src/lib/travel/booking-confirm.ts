@@ -371,7 +371,15 @@ export async function prepareTravelBookingConfirmOffer(opts: {
   return offer;
 }
 
-async function ensureLegacyTravelPackage(opts: {
+/**
+ * Resolve the canonical tour-package id for a booking.
+ *
+ * Since migration 20260901100000, `tour_packages` is the single package
+ * table and `travel_bookings.tour_package_id` references it directly.
+ * The old `travel_packages` mirror (and this function's legacy name) are
+ * gone: pending-booking/last-discussed ids are already tour_packages ids.
+ */
+async function ensureTravelBookingPackage(opts: {
   accountId: string;
   packageId: string | null;
   packageName: string;
@@ -379,63 +387,29 @@ async function ensureLegacyTravelPackage(opts: {
   totalPrice: number;
 }): Promise<string | null> {
   const db = getAdminClient();
+
   if (opts.packageId) {
     const { data: tour } = await db
       .from('tour_packages')
-      .select(
-        'id, name, destination, duration_days, starting_price, description'
-      )
+      .select('id')
       .eq('id', opts.packageId)
       .eq('account_id', opts.accountId)
       .maybeSingle();
-    if (tour) {
-      const { data: existing } = await db
-        .from('travel_packages')
-        .select('id')
-        .eq('account_id', opts.accountId)
-        .eq('name', String(tour.name))
-        .maybeSingle();
-      if (existing?.id) return String(existing.id);
-      const { data: created } = await db
-        .from('travel_packages')
-        .insert({
-          account_id: opts.accountId,
-          name: String(tour.name),
-          destination: String(tour.destination || opts.destination || 'TBD'),
-          duration_days: Number(tour.duration_days) || 1,
-          price: Number(tour.starting_price) || opts.totalPrice || 0,
-          description: tour.description ? String(tour.description) : null,
-        })
-        .select('id')
-        .single();
-      return created?.id ? String(created.id) : null;
-    }
+    if (tour?.id) return String(tour.id);
   }
 
-  const { data: byName } = await db
-    .from('travel_packages')
-    .select('id')
-    .eq('account_id', opts.accountId)
-    .eq('name', opts.packageName)
-    .maybeSingle();
-  if (byName?.id) return String(byName.id);
-
-  if (!opts.packageName || opts.packageName === 'the package we discussed') {
-    return null;
+  if (opts.packageName.trim()) {
+    const { data: byName } = await db
+      .from('tour_packages')
+      .select('id')
+      .eq('account_id', opts.accountId)
+      .ilike('name', opts.packageName)
+      .limit(1)
+      .maybeSingle();
+    if (byName?.id) return String(byName.id);
   }
 
-  const { data: created } = await db
-    .from('travel_packages')
-    .insert({
-      account_id: opts.accountId,
-      name: opts.packageName,
-      destination: opts.destination || 'TBD',
-      duration_days: 1,
-      price: opts.totalPrice || 0,
-    })
-    .select('id')
-    .single();
-  return created?.id ? String(created.id) : null;
+  return null;
 }
 
 export async function confirmPendingTravelBooking(opts: {
@@ -466,7 +440,7 @@ export async function confirmPendingTravelBooking(opts: {
     offered_at: new Date().toISOString(),
   };
 
-  const legacyPackageId = await ensureLegacyTravelPackage({
+  const tourPackageId = await ensureTravelBookingPackage({
     accountId: opts.accountId,
     packageId: draft.package_id,
     packageName: draft.package_name,
@@ -474,7 +448,7 @@ export async function confirmPendingTravelBooking(opts: {
     totalPrice: draft.total_price,
   });
 
-  if (!legacyPackageId) {
+  if (!tourPackageId) {
     return { status: 'missing_package' };
   }
 
@@ -483,7 +457,7 @@ export async function confirmPendingTravelBooking(opts: {
     .from('travel_bookings')
     .insert({
       account_id: opts.accountId,
-      package_id: legacyPackageId,
+      tour_package_id: tourPackageId,
       contact_id: opts.contactId,
       travel_date: draft.travel_date,
       guests_count: draft.guests_count,

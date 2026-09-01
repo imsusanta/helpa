@@ -241,7 +241,7 @@ export function TravelDashboard({ currency }: IndustryDashboardProps) {
         .from('travel_bookings')
         .select('id', { count: 'exact', head: true });
       const { count: pkgCount } = await db
-        .from('travel_packages')
+        .from('tour_packages')
         .select('id', { count: 'exact', head: true });
 
       setStats((prev) => ({
