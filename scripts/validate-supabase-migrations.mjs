@@ -26,6 +26,24 @@ const files = fs
   .filter((file) => /^\d{14}_.+\.sql$/.test(file))
   .sort();
 if (files.length === 0) throw new Error('NO_MIGRATIONS_FOUND');
+
+// Duplicate-timestamp guard: two files sharing the same 14-digit version
+// prefix collide on schema_migrations_pkey when applied (the exact bug fixed
+// in #215 — 20260827160000 and 20260830140000 each had two files). Fail fast
+// so it can never recur.
+{
+  const seen = new Map();
+  for (const file of files) {
+    const version = file.slice(0, 14);
+    if (seen.has(version)) {
+      throw new Error(
+        `DUPLICATE_MIGRATION_TIMESTAMP_${version}: ${seen.get(version)} and ${file}`
+      );
+    }
+    seen.set(version, file);
+  }
+}
+
 const schema = files
   .map((file) => fs.readFileSync(path.join(dir, file), 'utf8'))
   .join('\n');
