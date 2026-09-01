@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  ForbiddenError,
-  UnauthorizedError,
-  requireRole,
-} from '@/lib/auth/account';
+import { ForbiddenError, UnauthorizedError } from '@/lib/auth/account';
+import { requireTravelWorkplace } from '@/lib/travel/access';
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
 import { dispatchCrmEvent } from '@/core/events';
 import {
@@ -47,7 +44,7 @@ export async function POST(
     const { id } = await params;
     if (!id) return errorResponse(400, 'ID_REQUIRED', correlationId);
 
-    const ctx = await requireRole('agent');
+    const ctx = await requireTravelWorkplace('agent');
     const supabase = getSupabaseAdminClient();
     const body = await request.json();
 

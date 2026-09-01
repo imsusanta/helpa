@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  ForbiddenError,
-  UnauthorizedError,
-  requireRole,
-} from '@/lib/auth/account';
+import { ForbiddenError, UnauthorizedError } from '@/lib/auth/account';
+import { requireTravelWorkplace } from '@/lib/travel/access';
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
 import {
   presentQuotation,
@@ -44,7 +41,7 @@ export async function GET(
     const { id } = await params;
     if (!id) return errorResponse(400, 'ID_REQUIRED', correlationId);
 
-    const ctx = await requireRole('viewer');
+    const ctx = await requireTravelWorkplace('viewer');
     const supabase = getSupabaseAdminClient();
 
     const { data: quotation, error } = await supabase
@@ -102,7 +99,7 @@ export async function DELETE(
     const { id } = await params;
     if (!id) return errorResponse(400, 'ID_REQUIRED', correlationId);
 
-    const ctx = await requireRole('admin');
+    const ctx = await requireTravelWorkplace('admin');
     const supabase = getSupabaseAdminClient();
 
     const { error } = await supabase

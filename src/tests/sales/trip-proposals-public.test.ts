@@ -24,12 +24,16 @@ vi.mock('@/lib/auth/account', async () => {
   };
 });
 
+vi.mock('@/lib/travel/access', () => ({
+  requireTravelWorkplace: vi.fn(),
+}));
+
 import { GET as getPublicProposal } from '@/app/api/public/trip-proposals/[token]/route';
 import {
   GET as getQuotations,
   POST as createQuotation,
 } from '@/app/api/quotations/route';
-import { requireRole } from '@/lib/auth/account';
+import { requireTravelWorkplace } from '@/lib/travel/access';
 import {
   presentQuotation,
   presentQuotationItem,
@@ -148,11 +152,11 @@ describe('quotation presenter', () => {
 
 describe('quotations list search', () => {
   beforeEach(() => {
-    vi.mocked(requireRole).mockResolvedValue({
+    vi.mocked(requireTravelWorkplace).mockResolvedValue({
       accountId: ACCOUNT_ID,
       userId: USER_ID,
       role: 'viewer',
-    } as unknown as Awaited<ReturnType<typeof requireRole>>);
+    } as unknown as Awaited<ReturnType<typeof requireTravelWorkplace>>);
   });
 
   it('searches destination and proposal title in travel_details', async () => {
@@ -174,11 +178,11 @@ describe('quotations list search', () => {
 
 describe('quotation create', () => {
   beforeEach(() => {
-    vi.mocked(requireRole).mockResolvedValue({
+    vi.mocked(requireTravelWorkplace).mockResolvedValue({
       accountId: ACCOUNT_ID,
       userId: USER_ID,
       role: 'agent',
-    } as unknown as Awaited<ReturnType<typeof requireRole>>);
+    } as unknown as Awaited<ReturnType<typeof requireTravelWorkplace>>);
     mockRpc.mockResolvedValue({ data: 'QT-2026-0009', error: null });
   });
 

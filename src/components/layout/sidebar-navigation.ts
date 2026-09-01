@@ -15,8 +15,7 @@ export type SidebarNavChild = {
   label: string;
   sourceLabel?: string;
   href: string;
-  hospitalOnly?: boolean;
-  travelOnly?: boolean;
+  requiredIndustry?: string;
   activeHrefs?: string[];
   roleMin?: AccountRole;
   featureKey?: string;
@@ -36,6 +35,7 @@ export type SidebarNavItem<TIcon = unknown> = {
   roleMin?: AccountRole;
   featureKey?: string;
   requiredModule?: string;
+  requiredIndustry?: string;
   badge?: 'beta' | 'coming-soon' | 'setup-required';
   activeMatchers?: Array<{ pathname: string; query?: Record<string, string> }>;
 };
@@ -136,7 +136,6 @@ export function buildVisibleNavigation<TIcon>({
   featureStatuses = {},
 }: BuildVisibleNavigationOptions<TIcon>): SidebarNavItem<TIcon>[] {
   const canonicalIndustry = resolveIndustryAlias(currentIndustry);
-  const isHospitalWorkspace = canonicalIndustry === 'hospital_clinic';
   const labelByHref = getLabelByHref(terminology);
   const roleMinByDestination = new Map<string, AccountRole>();
   for (const requirement of routeRoleRequirements) {
@@ -176,6 +175,8 @@ export function buildVisibleNavigation<TIcon>({
       !status || !['BROKEN', 'PLACEHOLDER', 'COMING_SOON'].includes(status)
     );
   };
+  const isIndustryVisible = (item: Pick<SidebarNavChild, 'requiredIndustry'>) =>
+    !item.requiredIndustry || canonicalIndustry === item.requiredIndustry;
   const manifestRoutes =
     manifest?.status === 'ACTIVE'
       ? manifest.sidebar
@@ -211,14 +212,16 @@ export function buildVisibleNavigation<TIcon>({
     : navigation;
   return navigationWithManifest
     .filter(
-      (item) => (!item.superAdminOnly || isSuperAdmin) && isFeatureVisible(item)
+      (item) =>
+        (!item.superAdminOnly || isSuperAdmin) &&
+        isIndustryVisible(item) &&
+        isFeatureVisible(item)
     )
     .map((item) => {
       const children = item.children
         ?.filter(
           (child) =>
-            (!child.hospitalOnly || isHospitalWorkspace) &&
-            (!child.travelOnly || canonicalIndustry === 'travel') &&
+            isIndustryVisible(child) &&
             isRouteAllowed(getNavigationPathname(child.href)) &&
             isRoleAllowed(child.href, child.roleMin) &&
             isFeatureVisible(child)

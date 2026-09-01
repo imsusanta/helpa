@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  ForbiddenError,
-  UnauthorizedError,
-  requireRole,
-} from '@/lib/auth/account';
+import { ForbiddenError, UnauthorizedError } from '@/lib/auth/account';
+import { requireTravelWorkplace } from '@/lib/travel/access';
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
 import {
   presentQuotation,
@@ -38,7 +35,7 @@ function errorResponse(
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const correlationId = requestId(request);
   try {
-    const ctx = await requireRole('viewer');
+    const ctx = await requireTravelWorkplace('viewer');
     const supabase = getSupabaseAdminClient();
     const { searchParams } = request.nextUrl;
     const contactId = searchParams.get('contact_id');
@@ -130,7 +127,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const correlationId = requestId(request);
   try {
-    const ctx = await requireRole('agent');
+    const ctx = await requireTravelWorkplace('agent');
     const supabase = getSupabaseAdminClient();
     const body = await request.json();
     const {

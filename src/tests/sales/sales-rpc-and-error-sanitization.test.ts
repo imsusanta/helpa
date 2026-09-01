@@ -7,6 +7,7 @@ import {
 } from '@/app/api/invoices/[id]/payments/route';
 import { POST as convertQuotationPost } from '@/app/api/quotations/[id]/convert-to-invoice/route';
 import * as accountAuth from '@/lib/auth/account';
+import * as travelAccess from '@/lib/travel/access';
 import * as serverDb from '@/lib/supabase/server';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -22,6 +23,13 @@ function mockAgentRole(): void {
     userId: MOCK_USER_ID,
     role: 'agent',
   } as unknown as Awaited<ReturnType<typeof accountAuth.requireRole>>);
+  vi.spyOn(travelAccess, 'requireTravelWorkplace').mockResolvedValue({
+    accountId: MOCK_ACCOUNT_ID,
+    userId: MOCK_USER_ID,
+    role: 'agent',
+  } as unknown as Awaited<
+    ReturnType<typeof travelAccess.requireTravelWorkplace>
+  >);
 }
 
 function paymentRequest(amount = 500): NextRequest {
@@ -276,11 +284,13 @@ describe('Sales RPC & Error Sanitization Regression Tests', () => {
     );
 
     it('sanitizes payment-list query errors', async () => {
-      vi.spyOn(accountAuth, 'requireRole').mockResolvedValue({
+      vi.spyOn(travelAccess, 'requireTravelWorkplace').mockResolvedValue({
         accountId: MOCK_ACCOUNT_ID,
         userId: MOCK_USER_ID,
         role: 'viewer',
-      } as unknown as Awaited<ReturnType<typeof accountAuth.requireRole>>);
+      } as unknown as Awaited<
+        ReturnType<typeof travelAccess.requireTravelWorkplace>
+      >);
       vi.spyOn(serverDb, 'getAdminClient').mockReturnValue({
         from: () => ({
           select: () => ({

@@ -38,7 +38,8 @@ interface HeaderProps {
 
 export function Header({ onOpenSidebar }: HeaderProps) {
   const { profile, signOut } = useAuth();
-  const { terminology } = useWorkspace();
+  const { terminology, isRouteAllowed } = useWorkspace();
+  const showTravelActions = isRouteAllowed('/tour-packages');
   const [searchOpen, setSearchOpen] = useState(false);
   const initial =
     profile?.full_name?.charAt(0)?.toUpperCase() ||
@@ -129,29 +130,33 @@ export function Header({ onOpenSidebar }: HeaderProps) {
               <TrendingUp className="h-4 w-4 text-purple-500" />
               New {terminology.pipelineItem} / {terminology.pipeline}
             </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              render={
-                <Link
-                  href="/tour-packages"
-                  className="flex items-center gap-2 font-medium"
-                />
-              }
-            >
-              <MapPin className="h-4 w-4 text-emerald-500" />
-              New Tour Package
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              render={
-                <Link
-                  href="/quotations"
-                  className="flex items-center gap-2 font-medium"
-                />
-              }
-            >
-              <Receipt className="h-4 w-4 text-teal-500" />
-              New Quotation
-            </DropdownMenuItem>
+            {showTravelActions && <DropdownMenuSeparator />}
+            {showTravelActions && (
+              <DropdownMenuItem
+                render={
+                  <Link
+                    href="/tour-packages"
+                    className="flex items-center gap-2 font-medium"
+                  />
+                }
+              >
+                <MapPin className="h-4 w-4 text-emerald-500" />
+                New Tour Package
+              </DropdownMenuItem>
+            )}
+            {showTravelActions && (
+              <DropdownMenuItem
+                render={
+                  <Link
+                    href="/quotations"
+                    className="flex items-center gap-2 font-medium"
+                  />
+                }
+              >
+                <Receipt className="h-4 w-4 text-teal-500" />
+                New Quotation
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem
               render={
                 <Link

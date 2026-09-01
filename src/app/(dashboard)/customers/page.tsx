@@ -48,7 +48,8 @@ interface CustomerRow {
 }
 
 export default function CustomersPage() {
-  const { terminology } = useWorkspace();
+  const { terminology, isRouteAllowed } = useWorkspace();
+  const showTravelSales = isRouteAllowed('/quotations');
   const [customers, setCustomers] = useState<CustomerRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -255,7 +256,9 @@ export default function CustomersPage() {
                   <th className="px-5 py-3.5 text-center">
                     {terminology.pipelineItems}
                   </th>
-                  <th className="px-5 py-3.5 text-center">Quotations</th>
+                  {showTravelSales && (
+                    <th className="px-5 py-3.5 text-center">Quotations</th>
+                  )}
                   <th className="px-5 py-3.5 text-center">Invoices</th>
                   <th className="px-5 py-3.5 text-right">Total Revenue</th>
                   <th className="px-5 py-3.5 text-right">Actions</th>
@@ -304,9 +307,11 @@ export default function CustomersPage() {
                     <td className="px-5 py-4 text-center font-bold text-slate-700">
                       {customer.dealsCount}
                     </td>
-                    <td className="px-5 py-4 text-center font-bold text-slate-700">
-                      {customer.quotationsCount}
-                    </td>
+                    {showTravelSales && (
+                      <td className="px-5 py-4 text-center font-bold text-slate-700">
+                        {customer.quotationsCount}
+                      </td>
+                    )}
                     <td className="px-5 py-4 text-center font-bold text-slate-700">
                       {customer.invoicesCount}
                     </td>
@@ -485,15 +490,17 @@ export default function CustomersPage() {
                     </span>
                     <ChevronRight className="h-4 w-4 text-slate-400" />
                   </Link>
-                  <Link
-                    href={`/quotations?contact_id=${selectedCustomer.id}`}
-                    className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-3 transition hover:bg-slate-50"
-                  >
-                    <span className="font-semibold text-slate-800">
-                      Quotations ({selectedCustomer.quotationsCount})
-                    </span>
-                    <ChevronRight className="h-4 w-4 text-slate-400" />
-                  </Link>
+                  {showTravelSales && (
+                    <Link
+                      href={`/quotations?contact_id=${selectedCustomer.id}`}
+                      className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-3 transition hover:bg-slate-50"
+                    >
+                      <span className="font-semibold text-slate-800">
+                        Quotations ({selectedCustomer.quotationsCount})
+                      </span>
+                      <ChevronRight className="h-4 w-4 text-slate-400" />
+                    </Link>
+                  )}
                   <Link
                     href={`/invoices?contact_id=${selectedCustomer.id}`}
                     className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-3 transition hover:bg-slate-50"

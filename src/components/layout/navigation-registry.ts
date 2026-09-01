@@ -43,7 +43,7 @@ export const NAVIGATION_REGISTRY: SidebarNavItem<React.ElementType>[] = [
         sourceLabel: 'Booking Trip',
         href: '/booking-trip',
         activeHrefs: ['/appointments'],
-        travelOnly: true,
+        requiredIndustry: 'travel',
       },
     ],
   },
@@ -59,11 +59,13 @@ export const NAVIGATION_REGISTRY: SidebarNavItem<React.ElementType>[] = [
         id: 'crm-trip-proposals',
         label: 'Trip Proposals',
         href: '/trip-proposals',
+        requiredIndustry: 'travel',
       },
       {
         id: 'crm-tour-packages',
         label: 'Tour Packages',
         href: '/tour-packages',
+        requiredIndustry: 'travel',
       },
       {
         id: 'crm-tags',

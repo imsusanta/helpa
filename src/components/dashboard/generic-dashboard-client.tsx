@@ -156,7 +156,7 @@ function FilterPill({ children }: { children: ReactNode }) {
 }
 
 export function GenericDashboardClient() {
-  const { terminology } = useWorkspace();
+  const { terminology, isRouteAllowed } = useWorkspace();
   const { account, accountId, profile } = useAuth();
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState<Record<string, number>>({});
@@ -200,24 +200,26 @@ export function GenericDashboardClient() {
 
   const contextualMetricCards = useMemo(
     () =>
-      metricCards.map((card) => {
-        if (card.key === 'leads')
-          return {
-            ...card,
-            label: `TOTAL ${terminology.pipelineItems.toUpperCase()}`,
-            filter: `${terminology.pipelineItems} Board`,
-          };
-        if (card.key === 'customers')
-          return {
-            ...card,
-            label: `TOTAL ${terminology.people.toUpperCase()}`,
-            filter: terminology.primaryRecords,
-          };
-        if (card.key === 'campaigns')
-          return { ...card, label: terminology.campaigns.toUpperCase() };
-        return card;
-      }),
-    [terminology]
+      metricCards
+        .filter((card) => isRouteAllowed(card.href))
+        .map((card) => {
+          if (card.key === 'leads')
+            return {
+              ...card,
+              label: `TOTAL ${terminology.pipelineItems.toUpperCase()}`,
+              filter: `${terminology.pipelineItems} Board`,
+            };
+          if (card.key === 'customers')
+            return {
+              ...card,
+              label: `TOTAL ${terminology.people.toUpperCase()}`,
+              filter: terminology.primaryRecords,
+            };
+          if (card.key === 'campaigns')
+            return { ...card, label: terminology.campaigns.toUpperCase() };
+          return card;
+        }),
+    [isRouteAllowed, terminology]
   );
 
   if (loading) {

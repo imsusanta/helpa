@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  ForbiddenError,
-  UnauthorizedError,
-  requireRole,
-} from '@/lib/auth/account';
+import { ForbiddenError, UnauthorizedError } from '@/lib/auth/account';
+import { requireTravelWorkplace } from '@/lib/travel/access';
 import { getAdminClient as getSupabaseAdminClient } from '@/lib/supabase/server';
 import { dispatchCrmEvent } from '@/core/events';
 
@@ -41,7 +38,7 @@ export async function POST(
     const { id: quotationId } = await params;
     if (!quotationId) return errorResponse(400, 'ID_REQUIRED', correlationId);
 
-    const ctx = await requireRole('agent');
+    const ctx = await requireTravelWorkplace('agent');
     const supabase = getSupabaseAdminClient();
 
     // Call atomic PostgreSQL RPC conversion

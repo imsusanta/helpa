@@ -7,7 +7,7 @@ import {
   validateVisibleNavigation,
 } from '@/components/layout/sidebar-navigation';
 import { getIndustryTerminology } from '@/modules/terminology';
-import { getIndustryModule } from '@/modules/registry';
+import { getIndustryModule, INDUSTRY_REGISTRY } from '@/modules/registry';
 import { isIndustryRouteAllowed } from '@/modules/routes';
 
 const hospitalManifest = getIndustryModule('hospital_clinic');
@@ -58,7 +58,7 @@ describe('authenticated sidebar navigation', () => {
     ).toBe(false);
   });
 
-  it('shows Tour Packages in the CRM navigation', () => {
+  it('shows travel CRM navigation only in travel workspaces', () => {
     const travelManifest = getIndustryModule('travel');
     const travelNavigation = buildVisibleNavigation({
       navigation: NAV,
@@ -80,7 +80,7 @@ describe('authenticated sidebar navigation', () => {
     const clinicCrm = hospitalNavigation.find((item) => item.id === 'crm');
     expect(
       clinicCrm?.children?.some((child) => child.href === '/tour-packages')
-    ).toBe(true);
+    ).toBe(false);
 
     const generalNavigation = buildVisibleNavigation({
       navigation: NAV,
@@ -92,17 +92,36 @@ describe('authenticated sidebar navigation', () => {
     const generalCrm = generalNavigation.find((item) => item.id === 'crm');
     expect(
       generalCrm?.children?.some((child) => child.href === '/tour-packages')
-    ).toBe(true);
+    ).toBe(false);
 
     const coachingManifest = getIndustryModule('coaching');
     expect(isIndustryRouteAllowed(coachingManifest, '/tour-packages')).toBe(
-      true
+      false
     );
     expect(isIndustryRouteAllowed(hospitalManifest, '/tour-packages')).toBe(
+      false
+    );
+    expect(isIndustryRouteAllowed(hospitalManifest, '/packages')).toBe(false);
+    expect(isIndustryRouteAllowed(travelManifest, '/tour-packages')).toBe(true);
+    expect(isIndustryRouteAllowed(travelManifest, '/trip-proposals')).toBe(
       true
     );
-    expect(isIndustryRouteAllowed(hospitalManifest, '/packages')).toBe(true);
-    expect(isIndustryRouteAllowed(travelManifest, '/tour-packages')).toBe(true);
+    expect(isIndustryRouteAllowed(travelManifest, '/quotations')).toBe(true);
+
+    for (const manifest of Object.values(INDUSTRY_REGISTRY)) {
+      if (manifest.id === 'travel') continue;
+      for (const route of [
+        '/booking-trip',
+        '/trip-proposals',
+        '/tour-packages',
+        '/quotations',
+      ]) {
+        expect(
+          isIndustryRouteAllowed(manifest, route),
+          `${manifest.id} ${route}`
+        ).toBe(false);
+      }
+    }
   });
 
   it('keeps clinic operations out of general workspaces', () => {
