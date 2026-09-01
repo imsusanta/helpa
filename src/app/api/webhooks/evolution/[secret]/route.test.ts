@@ -211,7 +211,7 @@ describe('POST /api/webhooks/evolution/[secret]', () => {
         channel: 'whatsapp',
       },
     ]);
-    const res = await post('good-secret', { event: 'send.message' });
+    await post('good-secret', { event: 'send.message' });
     expect(mocks.persistOutbound).toHaveBeenCalledTimes(1);
     expect(mocks.persistInbound).not.toHaveBeenCalled();
   });
