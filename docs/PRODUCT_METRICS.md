@@ -37,10 +37,19 @@ Targets are goals, not current results:
 - Automation success: at least 80% for supported intents, with safe staff handoff.
 - Patient return rate: baseline by clinic type; never aggregate incompatible specialties.
 
+## Reliability events (same table, same privacy rules)
+
+Migration `20260901060000_reliability_observation.sql` allowlists delivery, webhook, AI, worker, and integration failure names. Aggregation lives in `src/lib/metrics/reliability-aggregation.ts`. Rates stay suppressed below 10 eligible events. See `docs/observability.md` and `docs/slo.md`.
+
+`GET /api/metrics/observation` returns tenant aggregates plus Target vs Observed SLO fields. `publication.allowed` stays false until operators complete consent, sample validation, and a 30-day window.
+
+First-response rows are de-duplicated per conversation (`source_id = first-response:{account}:{conversation}`). `response_time_seconds` is not computed at persist time yet, so median latency stays null until that pairing is added.
+
 ## Launch checklist
 
 - [x] Define and test the versioned, de-identified source-event contract.
-- [ ] Connect production event producers without patient content.
+- [x] Connect server-side producers (inbound persist, outbound persist, booking, automation, AI error, delivery failure, staff takeover). Not yet proven on production traffic.
 - [ ] Validate calculations against a manual 100-conversation sample.
 - [ ] Obtain clinic consent for anonymized aggregate reporting.
-- [ ] Publish the first dated scorecard after 30 complete production days.
+- [ ] Record an observation start date and collect 30 complete production days.
+- [ ] Publish the first dated scorecard after that window (never from this document).

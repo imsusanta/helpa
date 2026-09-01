@@ -31,17 +31,20 @@ Helpa reaches the target when every item below has objective, reproducible evide
 - [ ] Refactor dashboard pages larger than 400 lines into feature components, hooks, and service modules.
 - [x] Add coverage reporting with minimum thresholds for authentication, tenant guards, webhook verification, billing, outbox, and encryption modules.
 - [x] Add contract tests for Meta WhatsApp and payment-provider boundaries.
-- [ ] Add migration rollback tests and restore drills.
+- [x] Document a staging-only restore drill (`docs/operations/runbook-backup-restore.md`). *(Awaiting operator execution)*
+- [ ] Add migration rollback tests and execute a restore drill.
 - [x] Consolidate overlapping audit documents under `docs/audits/` and maintain one current readiness report.
 
 **Exit evidence:** enforced coverage thresholds, no oversized route components without an exception, and a tested rollback procedure.
 
 ## P2 — Reliability and observability
 
-- [ ] Define service-level indicators for API availability, webhook processing, message delivery, appointment booking, and background jobs.
-- [ ] Set service-level objectives and alert thresholds.
+- [x] Define service-level indicators and a Target vs Observed worksheet (`docs/slo.md`, `docs/observability.md`).
+- [ ] Set alert thresholds and scrape probes in the hosting platform.
+- [ ] Fill Observed SLO cells after a dated production window.
 - [x] Add correlation IDs across inbound webhooks, outbox records, provider calls, and reconciliation workers.
 - [ ] Add dashboards for queue depth, delivery latency, provider errors, tenant-scoped failures, and reconciliation backlog.
+- [x] Write IR procedures for webhook, missing outbound, AI, tenant access, bad migration, and leaked credentials (`docs/incident-response.md`). *(Awaiting game days)*
 - [ ] Run backup-restore, provider-outage, and duplicate-webhook game days.
 
 **Exit evidence:** actionable alerts, documented ownership, and successful recovery exercises.
@@ -50,7 +53,8 @@ Helpa reaches the target when every item below has objective, reproducible evide
 
 - [ ] Select one launch ICP and make the homepage, onboarding, demo data, and activation checklist specific to it.
 - [ ] Track time-to-first-value, onboarding completion, conversation automation rate, booking conversion, and retained weekly usage.
-- [ ] Add accessibility checks to CI and complete keyboard-only testing of critical flows.
+- [x] Add reception-label unit checks for login and inbox composer (`src/tests/a11y/reception-labels.test.ts`).
+- [ ] Add broader accessibility checks to CI and complete keyboard-only testing of critical flows.
 - [ ] Set performance budgets for Core Web Vitals and major dashboard routes.
 - [ ] Validate legal, privacy, retention, and healthcare claims with qualified reviewers before expanding clinical deployment.
 

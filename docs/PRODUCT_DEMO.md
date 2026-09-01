@@ -1,8 +1,9 @@
 # 90-Second Product Demo & Screenshot Capture Specification
 
-**Status:** `AUTOMATED HARNESS READY — HUMAN CAPTURE REQUIRED`  
+**Status:** `AUTOMATED HARNESS READY — HUMAN STAGING CAPTURE REQUIRED`  
 **Required Action:** Run the deterministic staging seed and Playwright capture workflow, review every image for synthetic-only content, and record the final browser walkthrough.  
-**Target Delivery:** 7 real UI screenshots (1440×900) + 85–95s captioned walkthrough video.
+**Target Delivery:** 7 real UI screenshots (1440×900) + 85–95s captioned walkthrough video.  
+**This pass:** fixture + journey unit tests verified. Live WhatsApp → AI → booking was **not** executed in Cloud Agent (no staging credentials / no production data). Do not treat missing screenshots as captured evidence.
 
 ---
 
@@ -90,3 +91,23 @@ DEMO_MODE=true npm run demo:reset
 - Images contain only the three documented fictional patients and demo clinic data.
 - The final video is 85–95 seconds at 1080p and includes captions.
 - A human reviews every generated asset before it is published.
+
+---
+
+## 6. Patient-journey coverage (fictional fixtures)
+
+`inspectDemoPatientJourney` (`src/lib/demo/patient-journey.ts`) maps seeded rows to the reception path. Coverage is **not** a live WhatsApp proof.
+
+| Step | Coverage in seed | Human still required |
+| --- | --- | --- |
+| WhatsApp inbound | Seeded (Aarav Sharma) | Live provider inbound |
+| AI intent + availability | Seeded bot reply with slots | Live model + clinic KB |
+| Slot selected | Seeded “10:30 AM” | Patient device |
+| Appointment confirmed | Seeded `HLP-DEMO-8921` | Staff/AI write path |
+| Confirmation message | UI only (appointments page) | WhatsApp confirmation |
+| Reminder | UI only (automations settings) | Cron + live send |
+| Staff inbox view | Seeded conversations | Authenticated capture |
+| Staff takeover | Seeded Priya + AI off | Pause-AI click in UI |
+| History | Seeded 9 messages | Scroll/capture |
+
+`npm test -- src/tests/demo-fixtures.test.ts` asserts the seeded steps. `DEMO_CAPTURE=true npm run demo:capture` remains the screenshot job and is skipped in normal `test:e2e`.
