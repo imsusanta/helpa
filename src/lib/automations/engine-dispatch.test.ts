@@ -21,6 +21,10 @@ const h = vi.hoisted(() => ({
   },
 }));
 
+vi.mock('@/lib/metrics/safe-record', () => ({
+  safeRecordOutcomeEvent: vi.fn(),
+}));
+
 vi.mock('@/lib/db/server', () => {
   const { state } = h;
 
