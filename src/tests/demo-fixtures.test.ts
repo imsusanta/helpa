@@ -64,7 +64,7 @@ describe('product demo harness', () => {
     const configuration = assertSafeDemoEnvironment(baseEnvironment);
     const checks = inspectDemoPatientJourney(
       buildDemoRows(configuration),
-      configuration
+      configuration.environment
     );
 
     expect(checks.every((check) => check.fictionalOnly)).toBe(true);

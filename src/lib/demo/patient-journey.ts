@@ -1,8 +1,5 @@
-import {
-  DEMO_IDS,
-  DEMO_SEED_MARKER,
-  type DemoConfiguration,
-} from '../../scripts/demo-fixtures';
+const TAKEOVER_CONVERSATION_ID = '00000000-0000-4000-8000-000000000202';
+const DEMO_SEED_MARKER = 'helpa-product-demo-v1';
 
 export const PATIENT_JOURNEY_STEPS = [
   'whatsapp_inbound',
@@ -27,9 +24,24 @@ export interface PatientJourneyCheck {
   fictionalOnly: true;
 }
 
+export interface DemoJourneyRows {
+  messages: Array<{
+    direction?: string | number;
+    sender_type?: string | number;
+    content_text?: string | number | null;
+  }>;
+  conversations: Array<{
+    id: string;
+    ai_chat_enabled?: boolean;
+  }>;
+  appointments: Array<{
+    booking_id?: string | null;
+  }>;
+}
+
 export function inspectDemoPatientJourney(
-  rows: ReturnType<typeof import('../../scripts/demo-fixtures').buildDemoRows>,
-  configuration: DemoConfiguration
+  rows: DemoJourneyRows,
+  environment: string
 ): PatientJourneyCheck[] {
   const inbound = rows.messages.filter(
     (message) => message.direction === 'inbound'
@@ -49,7 +61,7 @@ export function inspectDemoPatientJourney(
     {
       step: 'whatsapp_inbound',
       coverage: inbound.length > 0 ? 'seeded' : 'human_staging',
-      evidence: inbound[0]?.content_text || 'No inbound fixture',
+      evidence: String(inbound[0]?.content_text || 'No inbound fixture'),
       fictionalOnly: true,
     },
     {
@@ -59,10 +71,11 @@ export function inspectDemoPatientJourney(
       )
         ? 'seeded'
         : 'human_staging',
-      evidence:
+      evidence: String(
         aiReplies.find((message) =>
           String(message.content_text).includes('available')
-        )?.content_text || 'No availability reply',
+        )?.content_text || 'No availability reply'
+      ),
       fictionalOnly: true,
     },
     {
@@ -107,7 +120,7 @@ export function inspectDemoPatientJourney(
     {
       step: 'staff_takeover',
       coverage:
-        takeoverConversation?.id === DEMO_IDS.conversations[1] &&
+        takeoverConversation?.id === TAKEOVER_CONVERSATION_ID &&
         staffReplies.length > 0
           ? 'seeded'
           : 'human_staging',
@@ -117,7 +130,7 @@ export function inspectDemoPatientJourney(
     {
       step: 'conversation_history',
       coverage: rows.messages.length >= 9 ? 'seeded' : 'human_staging',
-      evidence: `messages=${rows.messages.length} marker=${DEMO_SEED_MARKER} env=${configuration.environment}`,
+      evidence: `messages=${rows.messages.length} marker=${DEMO_SEED_MARKER} env=${environment}`,
       fictionalOnly: true,
     },
   ];
