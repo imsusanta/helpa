@@ -64,7 +64,11 @@ See `docs/operations/runbook-backup-restore.md`.
 
 ### D. Incident Response
 
+Practical runbooks for webhook stop, missing outbound inbox rows, bad AI, suspected cross-tenant access, bad migrations, and compromised credentials: `docs/incident-response.md`.
+
 1. **Meta WhatsApp outage**: inbound webhooks land in dead-letter storage; retry after connectivity returns. Outbound uses `outbound_outbox` + the 5s worker.
 2. **Database failover**: follow Supabase status and PITR restore; there is no Appwrite replica failover.
 3. **Security incident**: rotate `ENCRYPTION_KEY`, revoke sessions in Supabase Auth, inspect `audit_logs`.
 4. **Unsigned payment webhooks**: Razorpay is rejected with 503 if `RAZORPAY_WEBHOOK_SECRET` is missing, 400 if the signature is invalid.
+
+Observation and SLO worksheets (empty Observed column): `docs/observability.md`, `docs/slo.md`.

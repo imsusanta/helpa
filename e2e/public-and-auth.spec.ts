@@ -70,5 +70,8 @@ test.describe('E2E: Public Routes & Authentication Protection', () => {
     const body = await res.json();
     expect(['ok', 'degraded', 'healthy']).toContain(body.status);
     expect(body.timestamp).toBeDefined();
+    expect(body.checks.auth).toMatch(/configured|not_configured/);
+    expect(body.checks.worker.status).toMatch(/ok|stale|unknown/);
+    expect(JSON.stringify(body)).not.toMatch(/service_role|secret|password/i);
   });
 });

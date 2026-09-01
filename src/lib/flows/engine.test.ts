@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   matchReplyId,
   matchesKeywordTrigger,
@@ -6,6 +6,7 @@ import {
   isSuspending,
   isTerminal,
   evaluateConditionPredicate,
+  lookupTenantMessageId,
 } from './engine';
 
 describe('matchReplyId', () => {
@@ -295,5 +296,37 @@ describe('evaluateConditionPredicate', () => {
         configValue: 'anything',
       })
     ).toBe(false);
+  });
+});
+
+describe('lookupTenantMessageId', () => {
+  it('scopes the provider-id lookup to the run account', async () => {
+    const eq = vi.fn();
+    const query = {
+      select: vi.fn().mockReturnThis(),
+      eq,
+      maybeSingle: vi.fn().mockResolvedValue({ data: { id: 'msg-local' } }),
+    };
+    eq.mockReturnValue(query);
+    const db = {
+      from: vi.fn().mockReturnValue(query),
+    };
+
+    const id = await lookupTenantMessageId(
+      db as never,
+      'tenant-a',
+      'wamid.FLOW.1'
+    );
+
+    expect(id).toBe('msg-local');
+    expect(eq).toHaveBeenCalledWith('account_id', 'tenant-a');
+    expect(eq).toHaveBeenCalledWith('message_id', 'wamid.FLOW.1');
+  });
+
+  it('returns null when account or provider id is missing', async () => {
+    const db = { from: vi.fn() };
+    expect(await lookupTenantMessageId(db as never, '', 'wamid.X')).toBeNull();
+    expect(await lookupTenantMessageId(db as never, 'tenant-a', '')).toBeNull();
+    expect(db.from).not.toHaveBeenCalled();
   });
 });

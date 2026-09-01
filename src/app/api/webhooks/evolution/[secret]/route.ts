@@ -11,7 +11,10 @@
 import { NextResponse } from 'next/server';
 import crypto from 'node:crypto';
 import { getAdminClient } from '@/lib/db/server';
-import { persistNormalizedInboundMessage } from '@/app/api/webhooks/inbound-persistence';
+import {
+  persistNormalizedInboundMessage,
+  persistNormalizedOutboundMessage,
+} from '@/app/api/webhooks/inbound-persistence';
 import { resolveEvolutionGoTenant } from '@/app/api/webhooks/inbound-tenant-resolver';
 import {
   beginProviderEvent,
@@ -324,8 +327,11 @@ export async function POST(
 
   for (let index = 0; index < events.length; index += 1) {
     const event = events[index];
-    if (event.direction !== 'inbound') continue;
+    if (event.direction !== 'inbound' && event.direction !== 'outbound') {
+      continue;
+    }
     event.clinicId = tenant.accountId;
+    const isOutbound = event.direction === 'outbound';
 
     const externalEventId = eventIdFor(event, index);
     const context: ProviderEventContext = {
@@ -367,7 +373,10 @@ export async function POST(
           scheduleEvolutionGroupNameRefresh(tenant.accountId, address);
         }
       }
-      const result = await persistNormalizedInboundMessage(event, {
+      const persist = isOutbound
+        ? persistNormalizedOutboundMessage
+        : persistNormalizedInboundMessage;
+      const result = await persist(event, {
         accountId: tenant.accountId,
         userId: tenant.userId,
         contactName,
@@ -378,7 +387,7 @@ export async function POST(
       if (result.duplicate) duplicates += 1;
       else {
         persisted += 1;
-        if (result.conversationId && result.contactId) {
+        if (!isOutbound && result.conversationId && result.contactId) {
           const inboundText = event.content || event.text || '';
           const followup = await dispatchEvolutionInboundFollowup({
             accountId: tenant.accountId,

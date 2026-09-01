@@ -18,6 +18,7 @@ import type {
 } from '@/types';
 import { automationAuthorId } from '@/lib/automations/automation-row';
 import { getAdminClient } from '@/lib/db/server';
+import { safeRecordOutcomeEvent } from '@/lib/metrics/safe-record';
 import {
   engineSendText,
   engineSendTemplate,
@@ -120,14 +121,32 @@ export async function runAutomationsForTrigger(
 
     for (const automation of automations as Automation[]) {
       if (!triggerMatches(automation, input.context)) continue;
+      safeRecordOutcomeEvent({
+        accountId: input.accountId,
+        eventName: 'automation_eligible',
+        sourceId: `auto-elig:${input.accountId}:${automation.id}:${input.triggerType}`,
+        attributes: { trigger: input.triggerType },
+      });
       try {
         const res = await executeAutomation(automation, input);
         executedCount++;
         if (res?.replied) {
           replied = true;
         }
+        safeRecordOutcomeEvent({
+          accountId: input.accountId,
+          eventName: 'automation_completed',
+          sourceId: `auto-comp:${input.accountId}:${automation.id}:${input.triggerType}`,
+          attributes: { trigger: input.triggerType },
+        });
       } catch (err) {
         console.error('[automations] execute failed:', automation.id, err);
+        safeRecordOutcomeEvent({
+          accountId: input.accountId,
+          eventName: 'automation_error',
+          sourceId: `auto-err:${input.accountId}:${automation.id}:${input.triggerType}`,
+          attributes: { trigger: input.triggerType },
+        });
       }
     }
   } catch (err) {

@@ -10,6 +10,7 @@ import {
   parseTravelBookingNotes,
   resolveLegacyTravelPackageId,
 } from '@/lib/travel/staff-booking';
+import { safeRecordOutcomeEvent } from '@/lib/metrics/safe-record';
 
 const PRIVATE_HEADERS = {
   'Cache-Control': 'private, no-store, no-cache, must-revalidate',
@@ -181,6 +182,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           travelError instanceof Error ? travelError.message : travelError
         );
       }
+    }
+
+    const recordedStatus = String(data?.status || 'pending').toLowerCase();
+    if (data?.id && recordedStatus === 'confirmed') {
+      safeRecordOutcomeEvent({
+        accountId: context.accountId,
+        eventName: 'booking_confirmed',
+        sourceId: `booking:${context.accountId}:${data.id}`,
+        subjectHash: data.patient_id ? String(data.patient_id) : null,
+        attributes: {
+          channel: 'staff',
+          is_whatsapp: false,
+        },
+      });
     }
 
     if (data?.patient_id) {

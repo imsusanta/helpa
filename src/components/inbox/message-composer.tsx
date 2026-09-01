@@ -588,6 +588,7 @@ export function MessageComposer({
           <button
             type="button"
             onClick={cancelRecording}
+            aria-label="Cancel recording"
             className="text-muted-foreground hover:bg-card hover:text-foreground rounded-md px-2 py-1 text-xs"
           >
             Cancel
@@ -597,6 +598,7 @@ export function MessageComposer({
             onClick={stopRecording}
             className="bg-primary hover:bg-primary/90 h-9 w-9 shrink-0 p-0"
             title="Stop and attach"
+            aria-label="Stop recording"
           >
             <Square className="h-4 w-4" />
           </Button>
@@ -716,6 +718,7 @@ export function MessageComposer({
             <DropdownMenu>
               <DropdownMenuTrigger
                 disabled={inputsDisabled || busy}
+                aria-label="Attach media"
                 title={
                   readOnly
                     ? "Read-only — your role can't send messages"
@@ -766,7 +769,8 @@ export function MessageComposer({
               canAct={!readOnly}
               gateReason="send messages"
               title={readOnly ? undefined : 'Send template'}
-              className="text-muted-foreground hover:text-foreground h-9 w-9 shrink-0 p-0 transition-all duration-150 hover:scale-[1.08] active:scale-[0.92]"
+              aria-label="Send template"
+              className="text-muted-foreground hover:text-foreground relative h-9 w-9 shrink-0 p-0 transition-all duration-150 before:absolute before:-inset-1.5 hover:scale-[1.08] active:scale-[0.92]"
               onClick={onOpenTemplates}
             >
               <LayoutTemplate className="h-4 w-4" />
@@ -777,6 +781,7 @@ export function MessageComposer({
               value={text}
               onChange={handleChange}
               onKeyDown={handleKeyDown}
+              aria-label="Message"
               placeholder={
                 readOnly
                   ? 'Read-only — viewers can browse but not reply'
@@ -806,7 +811,8 @@ export function MessageComposer({
               gateReason="send messages"
               disabled={!text.trim() || sessionExpired || sending}
               onClick={handleSend}
-              className="h-9 w-9 shrink-0 bg-emerald-600 p-0 text-white shadow-sm shadow-emerald-500/10 transition-all duration-150 hover:scale-[1.08] hover:bg-emerald-500 active:scale-[0.92] disabled:opacity-40 dark:bg-emerald-600 dark:hover:bg-emerald-500"
+              aria-label="Send message"
+              className="relative h-9 w-9 shrink-0 bg-emerald-600 p-0 text-white shadow-sm shadow-emerald-500/10 transition-all duration-150 before:absolute before:-inset-1.5 hover:scale-[1.08] hover:bg-emerald-500 active:scale-[0.92] disabled:opacity-40 dark:bg-emerald-600 dark:hover:bg-emerald-500"
             >
               <Send className="h-4 w-4" />
             </GatedButton>
@@ -818,7 +824,7 @@ export function MessageComposer({
           `items-end` buttons below the textarea. Indented to line up
           under the textarea left edge. */}
       {!draft && !recording && (
-        <p className="text-muted-foreground mt-1 pl-[5.5rem] text-[10px]">
+        <p className="text-muted-foreground mt-1 pl-2 text-[10px] sm:pl-[5.5rem]">
           Type &apos;/&apos; for quick replies
         </p>
       )}

@@ -173,6 +173,33 @@ export function evaluateConditionPredicate(args: {
 
 type AdminClient = ReturnType<typeof getAdminClient>;
 
+/**
+ * Resolve a provider message id to the local messages.id for this tenant.
+ * Unscoped provider-id lookups can collide across workspaces.
+ */
+export async function lookupTenantMessageId(
+  db: AdminClient,
+  accountId: string,
+  providerMessageId: string
+): Promise<string | null> {
+  if (!accountId || !providerMessageId) return null;
+  for (const idCol of ['message_id', 'provider_message_id']) {
+    try {
+      const { data } = await db
+        .from('messages')
+        .select('id')
+        .eq('account_id', accountId)
+        .eq(idCol, providerMessageId)
+        .maybeSingle();
+      const id = (data as { id?: string } | null)?.id;
+      if (id) return id;
+    } catch {
+      // Try the next identifier / schema shape.
+    }
+  }
+  return null;
+}
+
 async function loadActiveRunForContact(
   db: AdminClient,
   accountId: string,
@@ -394,17 +421,15 @@ async function sendButtonsAndSuspend(
     node_type: 'send_buttons',
     whatsapp_message_id,
   });
-  // Look up our internal message id so we can stash it on the run.
-  // Cheap — indexed on `messages.message_id`.
-  const { data: msg } = await db
-    .from('messages')
-    .select('id')
-    .eq('message_id', whatsapp_message_id)
-    .maybeSingle();
+  const messageId = await lookupTenantMessageId(
+    db,
+    run.account_id,
+    whatsapp_message_id
+  );
   await db
     .from('flow_runs')
     .update({
-      last_prompt_message_id: (msg as { id: string } | null)?.id ?? null,
+      last_prompt_message_id: messageId,
     })
     .eq('id', run.id);
   return { outcome: 'advanced', node_key: node.node_key };
@@ -438,15 +463,15 @@ async function sendListAndSuspend(
     node_type: 'send_list',
     whatsapp_message_id,
   });
-  const { data: msg } = await db
-    .from('messages')
-    .select('id')
-    .eq('message_id', whatsapp_message_id)
-    .maybeSingle();
+  const messageId = await lookupTenantMessageId(
+    db,
+    run.account_id,
+    whatsapp_message_id
+  );
   await db
     .from('flow_runs')
     .update({
-      last_prompt_message_id: (msg as { id: string } | null)?.id ?? null,
+      last_prompt_message_id: messageId,
     })
     .eq('id', run.id);
   return { outcome: 'advanced', node_key: node.node_key };
@@ -675,15 +700,15 @@ async function advanceFromNodeKey(
           node_type: 'collect_input',
           whatsapp_message_id,
         });
-        const { data: msg } = await db
-          .from('messages')
-          .select('id')
-          .eq('message_id', whatsapp_message_id)
-          .maybeSingle();
+        const messageId = await lookupTenantMessageId(
+          db,
+          run.account_id,
+          whatsapp_message_id
+        );
         await db
           .from('flow_runs')
           .update({
-            last_prompt_message_id: (msg as { id: string } | null)?.id ?? null,
+            last_prompt_message_id: messageId,
           })
           .eq('id', run.id);
       } catch (err) {

@@ -5,7 +5,7 @@ export const dashboardConfig: DashboardMetricWidget[] = [
     key: 'bookings_count',
     label: 'Trip Bookings',
     iconName: 'Calendar',
-    queryTable: 'conversations',
+    queryTable: 'travel_bookings',
     queryType: 'count',
   },
 ];

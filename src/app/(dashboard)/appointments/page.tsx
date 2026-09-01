@@ -1037,12 +1037,19 @@ export default function AppointmentsPage() {
       )}
 
       {/* Tabs */}
-      <div className="border-border flex border-b">
+      <div
+        className="border-border flex overflow-x-auto border-b"
+        role="tablist"
+        aria-label="Appointment views"
+      >
         {visibleTabs.map((tab) => (
           <button
             key={tab}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab}
             onClick={() => setActiveTab(tab)}
-            className={`border-b-2 px-4 py-2 text-sm font-semibold capitalize transition-colors ${
+            className={`shrink-0 border-b-2 px-4 py-2 text-sm font-semibold capitalize transition-colors ${
               activeTab === tab
                 ? 'border-emerald-500 font-bold text-emerald-600 dark:text-emerald-400'
                 : 'text-muted-foreground hover:text-foreground border-transparent'

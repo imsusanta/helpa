@@ -56,6 +56,71 @@ export interface ObservationReadinessReport {
 }
 
 const MINIMUM_SAFE_COHORT_SIZE = 10;
+const MAX_FIRST_RESPONSE_SECONDS = 7 * 24 * 60 * 60;
+
+/**
+ * Opaque conversation id from a first-response source_id or attributes.
+ * source_id format: `first-response:{accountId}:{conversationId}`
+ */
+export function conversationIdFromFirstResponse(
+  event: Pick<OutcomeEventRecord, 'source_id' | 'attributes'>
+): string | null {
+  const fromAttr = event.attributes?.conversation_id;
+  if (typeof fromAttr === 'string' && fromAttr) return fromAttr;
+  const match = /^first-response:[^:]+:(.+)$/.exec(event.source_id);
+  return match?.[1] || null;
+}
+
+/**
+ * Seconds between two ISO timestamps. Returns null for invalid, negative,
+ * or stale (>7 day) deltas so a leftover inbound cannot invent a latency.
+ */
+export function latencySecondsBetween(
+  inboundAt: string,
+  outboundAt: string
+): number | null {
+  const inboundMs = Date.parse(inboundAt);
+  const outboundMs = Date.parse(outboundAt);
+  if (!Number.isFinite(inboundMs) || !Number.isFinite(outboundMs)) return null;
+  const seconds = (outboundMs - inboundMs) / 1000;
+  if (seconds < 0 || seconds > MAX_FIRST_RESPONSE_SECONDS) return null;
+  return Math.round(seconds * 10) / 10;
+}
+
+function numericAttribute(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+/**
+ * Prefer a persist-time latency attribute; otherwise pair the first-response
+ * event with the latest inbound for the same conversation that occurred
+ * at or before the reply. Conversation ids are UUIDs, not patient content.
+ */
+export function pairFirstResponseLatencySeconds(
+  event: OutcomeEventRecord,
+  inboundEvents: OutcomeEventRecord[]
+): number | null {
+  const fromSeconds = numericAttribute(event.attributes?.response_time_seconds);
+  if (fromSeconds !== null && fromSeconds >= 0) return fromSeconds;
+  const fromMs = numericAttribute(event.attributes?.response_time_ms);
+  if (fromMs !== null && fromMs >= 0)
+    return Math.round((fromMs / 1000) * 10) / 10;
+
+  const conversationId = conversationIdFromFirstResponse(event);
+  if (!conversationId) return null;
+
+  let latestInboundAt: string | null = null;
+  for (const inbound of inboundEvents) {
+    if (inbound.event_name !== 'inbound_message_received') continue;
+    if (inbound.attributes?.conversation_id !== conversationId) continue;
+    if (inbound.occurred_at > event.occurred_at) continue;
+    if (!latestInboundAt || inbound.occurred_at > latestInboundAt) {
+      latestInboundAt = inbound.occurred_at;
+    }
+  }
+  if (!latestInboundAt) return null;
+  return latencySecondsBetween(latestInboundAt, event.occurred_at);
+}
 
 /**
  * Calculates the Median First-Response Time over eligible rolling window events.
@@ -68,6 +133,12 @@ export function calculateMedianFirstResponseTime(
       !e.is_synthetic &&
       !e.is_test_tenant &&
       e.event_name === 'first_response_sent'
+  );
+  const inboundEvents = events.filter(
+    (e) =>
+      !e.is_synthetic &&
+      !e.is_test_tenant &&
+      e.event_name === 'inbound_message_received'
   );
 
   if (eligible.length < MINIMUM_SAFE_COHORT_SIZE) {
@@ -89,12 +160,7 @@ export function calculateMedianFirstResponseTime(
     if (isAuto) automatedCount++;
     else humanCount++;
 
-    const latency =
-      typeof event.attributes?.response_time_seconds === 'number'
-        ? event.attributes.response_time_seconds
-        : typeof event.attributes?.response_time_ms === 'number'
-          ? event.attributes.response_time_ms / 1000
-          : null;
+    const latency = pairFirstResponseLatencySeconds(event, inboundEvents);
 
     if (latency !== null && latency >= 0) {
       latencies.push(latency);

@@ -30,7 +30,11 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
-import { SECTION_META, type SettingsSection } from './settings-sections';
+import {
+  SECTION_META,
+  isSectionVisible,
+  type SettingsSection,
+} from './settings-sections';
 import { SettingsChip, StatusDot } from './settings-chip';
 import { ROLE_META } from './role-meta';
 
@@ -41,6 +45,23 @@ interface OverviewCounts {
   templatesPending: number | null;
   tags: number | null;
   customFields: number | null;
+}
+
+interface PilotReadiness {
+  clinic: { name: string; industry: string | null };
+  environment: string;
+  integration: { whatsapp: { connected: boolean; provider: string | null } };
+  config: {
+    members: number | null;
+    doctors: number | null;
+    automations: number | null;
+    knowledgeBaseArticles: number | null;
+  };
+  errors: {
+    webhookDeadLetters: number | null;
+    outboundFailed: number | null;
+  };
+  blockers: string[];
 }
 
 interface IndustryItem {
@@ -204,6 +225,7 @@ export function SettingsOverview({
   const [updatingName, setUpdatingName] = useState(false);
   const [whatsapp, setWhatsapp] = useState<WhatsAppStatus | null>(null);
   const [whatsappLoading, setWhatsappLoading] = useState(true);
+  const [pilot, setPilot] = useState<PilotReadiness | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedIndustry, setSelectedIndustry] = useState<string | null>(null);
   const [installationStep, setInstallationStep] = useState<
@@ -395,6 +417,22 @@ export function SettingsOverview({
       }
     })();
 
+    if (canManageMembers) {
+      void (async () => {
+        try {
+          const res = await fetch('/api/pilot/readiness', {
+            cache: 'no-store',
+            credentials: 'include',
+          });
+          if (cancelled || !res.ok) return;
+          const json = (await res.json()) as PilotReadiness;
+          setPilot(json);
+        } catch (err) {
+          console.warn('Failed to fetch clinic readiness:', err);
+        }
+      })();
+    }
+
     return () => {
       cancelled = true;
     };
@@ -557,6 +595,68 @@ export function SettingsOverview({
         </div>
       </Card>
 
+      {pilot ? (
+        <Card className="bg-card border-border mt-4 space-y-3 rounded-xl border p-5 shadow-sm">
+          <div>
+            <h4 className="text-foreground text-sm font-semibold">
+              Clinic readiness
+            </h4>
+            <p className="text-muted-foreground mt-0.5 text-xs">
+              Operational status for this workspace. Counts only — no patient
+              details.
+            </p>
+          </div>
+          <dl className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
+            <div className="flex justify-between gap-3">
+              <dt className="text-muted-foreground">Clinic</dt>
+              <dd className="text-foreground truncate font-medium">
+                {pilot.clinic.name}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-muted-foreground">Environment</dt>
+              <dd className="text-foreground font-medium capitalize">
+                {pilot.environment}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-muted-foreground">WhatsApp</dt>
+              <dd className="text-foreground flex items-center gap-1 font-medium">
+                <StatusDot
+                  tone={pilot.integration.whatsapp.connected ? 'ok' : 'muted'}
+                />
+                {pilot.integration.whatsapp.connected
+                  ? `Connected${pilot.integration.whatsapp.provider ? ` · ${pilot.integration.whatsapp.provider}` : ''}`
+                  : 'Not connected'}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-muted-foreground">Config</dt>
+              <dd className="text-foreground font-medium">
+                {pilot.config.doctors ?? '—'} doctors ·{' '}
+                {pilot.config.automations ?? '—'} automations ·{' '}
+                {pilot.config.knowledgeBaseArticles ?? '—'} KB
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-muted-foreground">Errors</dt>
+              <dd className="text-foreground font-medium">
+                {pilot.errors.webhookDeadLetters ?? 0} webhook ·{' '}
+                {pilot.errors.outboundFailed ?? 0} outbound
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-muted-foreground">Support needs</dt>
+              <dd className="text-foreground font-medium">
+                {pilot.blockers.length
+                  ? pilot.blockers.join(', ')
+                  : 'None flagged'}
+              </dd>
+            </div>
+          </dl>
+        </Card>
+      ) : null}
+
       {/* Workspace Switcher / Reset Template */}
       <Card className="bg-card border-border mt-4 flex flex-row items-center justify-between rounded-xl border px-5 py-4 shadow-sm">
         <div>
@@ -582,40 +682,42 @@ export function SettingsOverview({
 
       {/* Status tiles */}
       <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {tiles.map(({ section, loading, subtitle }) => {
-          const meta = SECTION_META[section];
-          const Icon = meta.icon;
-          return (
-            <button
-              key={section}
-              type="button"
-              onClick={() => onSelect(section)}
-              className={cn(
-                'group border-border bg-card flex items-start gap-3.5 rounded-xl border p-4 text-left transition-colors',
-                'hover:border-primary-soft-2 hover:bg-card-2'
-              )}
-            >
-              <span className="bg-primary-soft text-primary flex size-9 shrink-0 items-center justify-center rounded-lg">
-                <Icon className="size-4" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="text-foreground block text-sm font-semibold">
-                  {meta.label}
+        {tiles
+          .filter(({ section }) => isSectionVisible(section, account?.industry))
+          .map(({ section, loading, subtitle }) => {
+            const meta = SECTION_META[section];
+            const Icon = meta.icon;
+            return (
+              <button
+                key={section}
+                type="button"
+                onClick={() => onSelect(section)}
+                className={cn(
+                  'group border-border bg-card flex items-start gap-3.5 rounded-xl border p-4 text-left transition-colors',
+                  'hover:border-primary-soft-2 hover:bg-card-2'
+                )}
+              >
+                <span className="bg-primary-soft text-primary flex size-9 shrink-0 items-center justify-center rounded-lg">
+                  <Icon className="size-4" />
                 </span>
-                <span className="text-muted-foreground mt-0.5 flex items-center gap-1.5 text-xs">
-                  {loading ? (
-                    <>
-                      <Loader2 className="size-3 animate-spin" /> Loading…
-                    </>
-                  ) : (
-                    subtitle
-                  )}
+                <span className="min-w-0 flex-1">
+                  <span className="text-foreground block text-sm font-semibold">
+                    {meta.label}
+                  </span>
+                  <span className="text-muted-foreground mt-0.5 flex items-center gap-1.5 text-xs">
+                    {loading ? (
+                      <>
+                        <Loader2 className="size-3 animate-spin" /> Loading…
+                      </>
+                    ) : (
+                      subtitle
+                    )}
+                  </span>
                 </span>
-              </span>
-              <ChevronRight className="text-muted-foreground size-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
-            </button>
-          );
-        })}
+                <ChevronRight className="text-muted-foreground size-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
+              </button>
+            );
+          })}
       </div>
 
       {/* Customize Dialog Modal */}

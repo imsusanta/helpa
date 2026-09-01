@@ -229,23 +229,30 @@ export async function findOrCreateConversation(
 
 /**
  * Resolve a Meta-side message_id into matching internal UUID.
+ * Tenant + conversation scope is required: provider IDs are not globally unique.
  */
 export async function lookupInternalIdByMetaId(
   metaId: string,
-  conversationId: string
+  conversationId: string,
+  accountId: string
 ): Promise<string | null> {
-  const { data, error } = await getAdminClient()
-    .from('messages')
-    .select('id')
-    .eq('message_id', metaId)
-    .eq('conversation_id', conversationId)
-    .maybeSingle();
-
-  if (error) {
-    console.error('[webhook] lookupInternalIdByMetaId failed:', error.message);
-    return null;
+  if (!metaId || !conversationId || !accountId) return null;
+  const db = getAdminClient();
+  for (const idCol of ['message_id', 'provider_message_id']) {
+    try {
+      const { data, error } = await db
+        .from('messages')
+        .select('id')
+        .eq(idCol, metaId)
+        .eq('conversation_id', conversationId)
+        .eq('account_id', accountId)
+        .maybeSingle();
+      if (!error && data?.id) return data.id;
+    } catch {
+      // Column may not exist on this schema; try the next identifier.
+    }
   }
-  return data?.id ?? null;
+  return null;
 }
 
 /**

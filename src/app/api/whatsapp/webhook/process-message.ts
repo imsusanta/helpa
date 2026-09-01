@@ -4,6 +4,7 @@ import { normalizePhone } from '@/lib/whatsapp/phone-utils';
 import { runAutomationsForTrigger } from '@/lib/automations/engine';
 import { dispatchInboundToFlows } from '@/lib/flows/engine';
 import { triggerAiResponse } from '@/lib/whatsapp/ai';
+import { safeRecordOutcomeEvent } from '@/lib/metrics/safe-record';
 import { getAccountChatbotSettings } from '@/core/ai/chatbot-settings';
 import { logger } from '@/lib/observability/logger';
 import {
@@ -704,7 +705,7 @@ export async function processMessage(
 
   // Reactions short-circuit
   if (message.type === 'reaction') {
-    await handleReaction(message, convId, contactRecord.id);
+    await handleReaction(message, convId, contactRecord.id, accountId);
     return;
   }
 
@@ -718,7 +719,8 @@ export async function processMessage(
   if (message.context?.id) {
     replyToInternalId = await lookupInternalIdByMetaId(
       message.context.id,
-      convId
+      convId,
+      accountId
     );
     if (!replyToInternalId) {
       console.warn(
@@ -822,7 +824,8 @@ export async function processMessage(
     const res = await getAdminClient()
       .from('messages')
       .select('id', { count: 'exact', head: true })
-      .eq('conversation_id', convId);
+      .eq('conversation_id', convId)
+      .eq('account_id', accountId);
     priorCustomerMsgCount = res.count ?? 0;
   } catch {
     priorCustomerMsgCount = 0;
@@ -977,8 +980,21 @@ export async function processMessage(
           ? (msgError as { message?: string }).message
           : undefined,
     });
+    safeRecordOutcomeEvent({
+      accountId,
+      eventName: 'webhook_failed',
+      sourceId: `webhook-fail:${accountId}:${message.id}`,
+      attributes: { reason: 'inbound_persist_failed' },
+    });
     throw new Error(`Unable to persist inbound message ${message.id}`);
   }
+
+  safeRecordOutcomeEvent({
+    accountId,
+    eventName: 'inbound_message_received',
+    sourceId: `inbound:${accountId}:${message.id}`,
+    attributes: { channel: 'whatsapp', conversation_id: convId },
+  });
 
   logger.info('Inbound message persisted', {
     correlationId,
@@ -1280,6 +1296,12 @@ export async function processMessage(
         });
       } catch (err) {
         console.error('[AI Assistant] trigger error:', err);
+        safeRecordOutcomeEvent({
+          accountId,
+          eventName: 'ai_failed',
+          sourceId: `ai-fail:${accountId}:${convId}:${message.id || 'unknown'}`,
+          attributes: { reason: 'trigger_error' },
+        });
       }
     } else {
       try {

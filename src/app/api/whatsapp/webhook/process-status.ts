@@ -1,6 +1,7 @@
 import { getAdminClient } from '@/lib/supabase/server';
 import type { Database } from '@/types/database';
 import type { WhatsAppStatusUpdate } from './types';
+import { safeRecordOutcomeEvent } from '@/lib/metrics/safe-record';
 
 type MessageStatus = Database['public']['Tables']['messages']['Row']['status'];
 
@@ -34,21 +35,46 @@ export function isValidStatusTransition(
   return ii > ci;
 }
 
-export async function handleStatusUpdate(status: WhatsAppStatusUpdate) {
-  const db = getAdminClient();
+export async function handleStatusUpdate(
+  status: WhatsAppStatusUpdate,
+  accountId?: string | null
+) {
+  // Service-role updates must never run without a resolved tenant. An
+  // unscoped provider-id write can flip another workspace's message.
+  if (!accountId) {
+    return;
+  }
 
-  // 1) Mirror onto messages
-  const { error: msgErr } = await db
-    .from('messages')
-    .update({ status: status.status as MessageStatus })
-    .eq('provider_message_id', status.id);
+  const db = getAdminClient();
+  const patch = { status: status.status as MessageStatus };
+
+  const applyMessageStatus = async (
+    idColumn: string,
+    accountColumn: string
+  ) => {
+    return db
+      .from('messages')
+      .update(patch)
+      .eq(idColumn, status.id)
+      .eq(accountColumn, accountId);
+  };
+
+  const { error: msgErr } = await applyMessageStatus(
+    'provider_message_id',
+    'account_id'
+  );
 
   if (msgErr) {
-    // Fallback to legacy field name if needed
-    await db
-      .from('messages')
-      .update({ status: status.status as MessageStatus })
-      .eq('messageId', status.id);
+    await applyMessageStatus('messageId', 'accountId');
+  }
+
+  if (accountId && status.status === 'failed') {
+    safeRecordOutcomeEvent({
+      accountId,
+      eventName: 'message_delivery_failed',
+      sourceId: `delivery-fail:${accountId}:${status.id}`,
+      attributes: { channel: 'whatsapp' },
+    });
   }
 
   // 2) Mirror onto broadcast_recipients via whatsapp_message_id
@@ -56,7 +82,7 @@ export async function handleStatusUpdate(status: WhatsAppStatusUpdate) {
 
   const { data: recipient, error: recFetchErr } = await db
     .from('broadcast_recipients')
-    .select('id, status')
+    .select('id, status, broadcast_id')
     .eq('whatsapp_message_id', status.id)
     .maybeSingle();
 
@@ -65,6 +91,16 @@ export async function handleStatusUpdate(status: WhatsAppStatusUpdate) {
     return;
   }
   if (!recipient) return;
+
+  if (accountId && recipient.broadcast_id) {
+    const { data: broadcast } = await db
+      .from('broadcasts')
+      .select('id')
+      .eq('id', recipient.broadcast_id)
+      .eq('account_id', accountId)
+      .maybeSingle();
+    if (!broadcast) return;
+  }
 
   if (!isValidStatusTransition(recipient.status, status.status)) return;
 
