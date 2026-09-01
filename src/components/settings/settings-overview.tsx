@@ -47,6 +47,23 @@ interface OverviewCounts {
   customFields: number | null;
 }
 
+interface PilotReadiness {
+  clinic: { name: string; industry: string | null };
+  environment: string;
+  integration: { whatsapp: { connected: boolean; provider: string | null } };
+  config: {
+    members: number | null;
+    doctors: number | null;
+    automations: number | null;
+    knowledgeBaseArticles: number | null;
+  };
+  errors: {
+    webhookDeadLetters: number | null;
+    outboundFailed: number | null;
+  };
+  blockers: string[];
+}
+
 interface IndustryItem {
   id: string;
   name: string;
@@ -208,6 +225,7 @@ export function SettingsOverview({
   const [updatingName, setUpdatingName] = useState(false);
   const [whatsapp, setWhatsapp] = useState<WhatsAppStatus | null>(null);
   const [whatsappLoading, setWhatsappLoading] = useState(true);
+  const [pilot, setPilot] = useState<PilotReadiness | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedIndustry, setSelectedIndustry] = useState<string | null>(null);
   const [installationStep, setInstallationStep] = useState<
@@ -399,6 +417,22 @@ export function SettingsOverview({
       }
     })();
 
+    if (canManageMembers) {
+      void (async () => {
+        try {
+          const res = await fetch('/api/pilot/readiness', {
+            cache: 'no-store',
+            credentials: 'include',
+          });
+          if (cancelled || !res.ok) return;
+          const json = (await res.json()) as PilotReadiness;
+          setPilot(json);
+        } catch (err) {
+          console.warn('Failed to fetch clinic readiness:', err);
+        }
+      })();
+    }
+
     return () => {
       cancelled = true;
     };
@@ -560,6 +594,68 @@ export function SettingsOverview({
           </Button>
         </div>
       </Card>
+
+      {pilot ? (
+        <Card className="bg-card border-border mt-4 space-y-3 rounded-xl border p-5 shadow-sm">
+          <div>
+            <h4 className="text-foreground text-sm font-semibold">
+              Clinic readiness
+            </h4>
+            <p className="text-muted-foreground mt-0.5 text-xs">
+              Operational status for this workspace. Counts only — no patient
+              details.
+            </p>
+          </div>
+          <dl className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
+            <div className="flex justify-between gap-3">
+              <dt className="text-muted-foreground">Clinic</dt>
+              <dd className="text-foreground truncate font-medium">
+                {pilot.clinic.name}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-muted-foreground">Environment</dt>
+              <dd className="text-foreground font-medium capitalize">
+                {pilot.environment}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-muted-foreground">WhatsApp</dt>
+              <dd className="text-foreground flex items-center gap-1 font-medium">
+                <StatusDot
+                  tone={pilot.integration.whatsapp.connected ? 'ok' : 'muted'}
+                />
+                {pilot.integration.whatsapp.connected
+                  ? `Connected${pilot.integration.whatsapp.provider ? ` · ${pilot.integration.whatsapp.provider}` : ''}`
+                  : 'Not connected'}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-muted-foreground">Config</dt>
+              <dd className="text-foreground font-medium">
+                {pilot.config.doctors ?? '—'} doctors ·{' '}
+                {pilot.config.automations ?? '—'} automations ·{' '}
+                {pilot.config.knowledgeBaseArticles ?? '—'} KB
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-muted-foreground">Errors</dt>
+              <dd className="text-foreground font-medium">
+                {pilot.errors.webhookDeadLetters ?? 0} webhook ·{' '}
+                {pilot.errors.outboundFailed ?? 0} outbound
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-muted-foreground">Support needs</dt>
+              <dd className="text-foreground font-medium">
+                {pilot.blockers.length
+                  ? pilot.blockers.join(', ')
+                  : 'None flagged'}
+              </dd>
+            </div>
+          </dl>
+        </Card>
+      ) : null}
 
       {/* Workspace Switcher / Reset Template */}
       <Card className="bg-card border-border mt-4 flex flex-row items-center justify-between rounded-xl border px-5 py-4 shadow-sm">

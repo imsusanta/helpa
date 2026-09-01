@@ -13,6 +13,11 @@ import {
   generateObservationReadinessReport,
   OutcomeEventRecord,
 } from '@/lib/metrics/outcome-aggregation';
+import {
+  calculateReliabilityCounts,
+  calculateReliabilityRates,
+} from '@/lib/metrics/reliability-aggregation';
+import { isConfiguredTestTenant } from '@/lib/metrics/safe-record';
 
 describe('Product Outcome Events & Privacy Hashing', () => {
   it('creates deterministic one-way 64-character SHA-256 subject hashes', () => {
@@ -249,5 +254,64 @@ describe('Product Outcome Metrics Aggregation & Observation Readiness', () => {
     expect(reportReady.status).toBe('READY_FOR_CALCULATION');
     expect(reportReady.elapsedDays).toBe(31);
     expect(reportReady.isProductionObservationComplete).toBe(true);
+  });
+
+  it('counts reliability events and suppresses rates below the cohort floor', () => {
+    const reliabilityEvents: OutcomeEventRecord[] = [
+      ...Array.from({ length: 12 }, (_, i) => ({
+        account_id: 'tenant-1',
+        event_name: 'inbound_message_received',
+        event_version: 1,
+        occurred_at: '2026-08-01T10:00:00Z',
+        source_id: `in-${i + 1}-1234567890abcd`,
+        subject_hash: null,
+        is_synthetic: false,
+        is_test_tenant: false,
+        attributes: { channel: 'whatsapp' },
+      })),
+      ...Array.from({ length: 2 }, (_, i) => ({
+        account_id: 'tenant-1',
+        event_name: 'message_delivery_failed',
+        event_version: 1,
+        occurred_at: '2026-08-01T10:00:00Z',
+        source_id: `fail-${i + 1}-1234567890abcd`,
+        subject_hash: null,
+        is_synthetic: false,
+        is_test_tenant: false,
+        attributes: { channel: 'whatsapp' },
+      })),
+      {
+        account_id: 'tenant-1',
+        event_name: 'webhook_failed',
+        event_version: 1,
+        occurred_at: '2026-08-01T10:00:00Z',
+        source_id: 'webhook-fail-1234567890',
+        subject_hash: null,
+        is_synthetic: true,
+        is_test_tenant: false,
+        attributes: { reason: 'inbound_persist_failed' },
+      },
+    ];
+
+    const counts = calculateReliabilityCounts(reliabilityEvents);
+    expect(counts.inboundReceived).toBe(12);
+    expect(counts.deliveryFailures).toBe(2);
+    expect(counts.webhookFailures).toBe(0);
+
+    const rates = calculateReliabilityRates(reliabilityEvents);
+    expect(rates.isSuppressed).toBe(false);
+    expect(rates.deliveryFailureRatePercent).toBe(16.7);
+  });
+
+  it('marks configured demo accounts as test tenants', () => {
+    const previous = process.env.DEMO_ACCOUNT_ID;
+    process.env.DEMO_ACCOUNT_ID = '00000000-0000-4000-8000-000000000001';
+    expect(isConfiguredTestTenant('00000000-0000-4000-8000-000000000001')).toBe(
+      true
+    );
+    expect(isConfiguredTestTenant('00000000-0000-4000-8000-000000000099')).toBe(
+      false
+    );
+    process.env.DEMO_ACCOUNT_ID = previous;
   });
 });

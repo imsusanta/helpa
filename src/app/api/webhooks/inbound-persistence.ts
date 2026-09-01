@@ -12,6 +12,7 @@ import {
   touchConversationPreview,
   outboundPreviewText,
 } from '@/lib/whatsapp/persist-outbound-message';
+import { safeRecordOutcomeEvent } from '@/lib/metrics/safe-record';
 
 type Row = Record<string, unknown>;
 
@@ -438,6 +439,12 @@ export async function persistNormalizedInboundMessage(
       externalId,
       error: insertError instanceof Error ? insertError.message : insertError,
     });
+    safeRecordOutcomeEvent({
+      accountId,
+      eventName: 'webhook_failed',
+      sourceId: `webhook-fail:${accountId}:${externalId}`,
+      attributes: { reason: 'inbound_persist_failed' },
+    });
     throw new Error('Unable to persist inbound message');
   }
 
@@ -448,6 +455,13 @@ export async function persistNormalizedInboundMessage(
     incrementUnread: true,
     accountId,
     externalId,
+  });
+
+  safeRecordOutcomeEvent({
+    accountId,
+    eventName: 'inbound_message_received',
+    sourceId: `inbound:${accountId}:${externalId}`,
+    attributes: { channel: event.channel || 'whatsapp' },
   });
 
   return {

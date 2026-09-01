@@ -5,6 +5,7 @@ import {
   DEMO_IDS,
   DEMO_SEED_MARKER,
 } from '../../scripts/demo-fixtures';
+import { inspectDemoPatientJourney } from '@/lib/demo/patient-journey';
 
 const baseEnvironment: NodeJS.ProcessEnv = {
   NODE_ENV: 'test',
@@ -57,5 +58,33 @@ describe('product demo harness', () => {
     });
     expect(rows.appointments[0].appointment_date).toBe('2026-08-25');
     expect(rows.appointments[0].notes).toContain(DEMO_SEED_MARKER);
+  });
+
+  it('covers the seeded patient-journey steps with fictional data only', () => {
+    const configuration = assertSafeDemoEnvironment(baseEnvironment);
+    const checks = inspectDemoPatientJourney(
+      buildDemoRows(configuration),
+      configuration
+    );
+
+    expect(checks.every((check) => check.fictionalOnly)).toBe(true);
+    expect(
+      checks
+        .filter((check) =>
+          [
+            'whatsapp_inbound',
+            'ai_intent_and_availability',
+            'slot_selected',
+            'appointment_confirmed',
+            'staff_inbox_view',
+            'staff_takeover',
+            'conversation_history',
+          ].includes(check.step)
+        )
+        .every((check) => check.coverage === 'seeded')
+    ).toBe(true);
+    expect(checks.find((check) => check.step === 'reminder')?.coverage).toBe(
+      'ui_only'
+    );
   });
 });

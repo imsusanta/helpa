@@ -4,6 +4,7 @@ import { normalizePhone } from '@/lib/whatsapp/phone-utils';
 import { runAutomationsForTrigger } from '@/lib/automations/engine';
 import { dispatchInboundToFlows } from '@/lib/flows/engine';
 import { triggerAiResponse } from '@/lib/whatsapp/ai';
+import { safeRecordOutcomeEvent } from '@/lib/metrics/safe-record';
 import { getAccountChatbotSettings } from '@/core/ai/chatbot-settings';
 import { logger } from '@/lib/observability/logger';
 import {
@@ -1280,6 +1281,12 @@ export async function processMessage(
         });
       } catch (err) {
         console.error('[AI Assistant] trigger error:', err);
+        safeRecordOutcomeEvent({
+          accountId,
+          eventName: 'ai_failed',
+          sourceId: `ai-fail:${accountId}:${convId}:${message.id || 'unknown'}`,
+          attributes: { reason: 'trigger_error' },
+        });
       }
     } else {
       try {

@@ -4,13 +4,19 @@ import { getAdminClient } from '@/lib/supabase/server';
 export type OutcomeEventName =
   | 'inbound_message_received'
   | 'first_response_sent'
+  | 'outbound_message_sent'
   | 'booking_confirmed'
   | 'automation_eligible'
   | 'automation_completed'
   | 'staff_takeover'
   | 'automation_error'
   | 'appointment_completed'
-  | 'patient_return_completed';
+  | 'patient_return_completed'
+  | 'message_delivery_failed'
+  | 'webhook_failed'
+  | 'ai_failed'
+  | 'worker_failed'
+  | 'integration_failed';
 
 export interface OutcomeEventInput {
   accountId: string;

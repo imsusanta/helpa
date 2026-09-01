@@ -1,4 +1,5 @@
 import { getAdminClient } from '@/lib/db/server';
+import { safeRecordOutcomeEvent } from '@/lib/metrics/safe-record';
 
 export interface PersistOutboundMessageInput {
   accountId: string;
@@ -469,6 +470,21 @@ export async function persistOutboundMessage(
           input.accountId,
           input.providerMessageId
         );
+        if (!result.unique) {
+          const automated = input.senderType === 'bot';
+          safeRecordOutcomeEvent({
+            accountId: input.accountId,
+            eventName: 'outbound_message_sent',
+            sourceId: `outbound:${input.accountId}:${input.providerMessageId}`,
+            attributes: { is_automated: automated },
+          });
+          safeRecordOutcomeEvent({
+            accountId: input.accountId,
+            eventName: 'first_response_sent',
+            sourceId: `first-response:${input.accountId}:${input.conversationId}`,
+            attributes: { is_automated: automated },
+          });
+        }
         return {
           ok: true,
           messageId: lookedUp?.id || '',

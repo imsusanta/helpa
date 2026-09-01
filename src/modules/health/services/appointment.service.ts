@@ -177,6 +177,23 @@ export async function bookHealthAppointment(
     }),
   });
 
+  try {
+    const { safeRecordOutcomeEvent } =
+      await import('@/lib/metrics/safe-record');
+    safeRecordOutcomeEvent({
+      accountId: input.accountId,
+      eventName: 'booking_confirmed',
+      sourceId: `booking:${input.accountId}:${created.id}`,
+      subjectHash: patient.id,
+      attributes: {
+        channel: 'whatsapp',
+        is_whatsapp: true,
+      },
+    });
+  } catch {
+    // Observation must never block booking.
+  }
+
   // 6. Emit appointment.created event to trigger 24h/2h reminders
   coreEvents.emit('appointment.created', input.accountId, {
     appointmentId: created.id,
@@ -251,6 +268,20 @@ export async function updateQueueStatus(
     })
     .eq('id', appointmentId)
     .eq('account_id', accountId);
+
+  if (!error && newStatus === 'Completed') {
+    try {
+      const { safeRecordOutcomeEvent } =
+        await import('@/lib/metrics/safe-record');
+      safeRecordOutcomeEvent({
+        accountId,
+        eventName: 'appointment_completed',
+        sourceId: `appt-complete:${accountId}:${appointmentId}`,
+      });
+    } catch {
+      // Observation must never block queue updates.
+    }
+  }
 
   return !error;
 }

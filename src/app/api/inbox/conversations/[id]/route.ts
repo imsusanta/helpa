@@ -16,6 +16,7 @@ import {
   overlayInboxWhatsAppIdentity,
   syncEvolutionGroupNamesForInbox,
 } from '@/core/whatsapp/evolution-group-names';
+import { safeRecordOutcomeEvent } from '@/lib/metrics/safe-record';
 
 const CACHE_HEADERS = {
   'Cache-Control': 'private, no-store, no-cache, must-revalidate',
@@ -284,6 +285,14 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     }
 
     const normalized = normalizeConversation(updated, contact);
+    if (updatePayload.ai_chat_enabled === false) {
+      safeRecordOutcomeEvent({
+        accountId,
+        eventName: 'staff_takeover',
+        sourceId: `takeover:${accountId}:${conversationId}`,
+        attributes: { reason: 'ai_paused' },
+      });
+    }
     return NextResponse.json(
       { conversation: normalized },
       { status: 200, headers: CACHE_HEADERS }

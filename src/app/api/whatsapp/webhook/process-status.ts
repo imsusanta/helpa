@@ -1,6 +1,7 @@
 import { getAdminClient } from '@/lib/supabase/server';
 import type { Database } from '@/types/database';
 import type { WhatsAppStatusUpdate } from './types';
+import { safeRecordOutcomeEvent } from '@/lib/metrics/safe-record';
 
 type MessageStatus = Database['public']['Tables']['messages']['Row']['status'];
 
@@ -61,6 +62,15 @@ export async function handleStatusUpdate(
 
   if (msgErr) {
     await applyMessageStatus('messageId', accountId ? 'accountId' : undefined);
+  }
+
+  if (accountId && status.status === 'failed') {
+    safeRecordOutcomeEvent({
+      accountId,
+      eventName: 'message_delivery_failed',
+      sourceId: `delivery-fail:${accountId}:${status.id}`,
+      attributes: { channel: 'whatsapp' },
+    });
   }
 
   // 2) Mirror onto broadcast_recipients via whatsapp_message_id
