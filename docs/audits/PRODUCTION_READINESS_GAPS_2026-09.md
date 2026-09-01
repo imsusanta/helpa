@@ -15,7 +15,7 @@ This supersedes older Appwrite-era “NO-GO” reports as the **current** scorec
 | --- | ---: | --- |
 | Architecture | 7 | Next.js 16 + Supabase cutover is the runtime. Appwrite rollback paths and dual-client aliases remain. |
 | Security | 7 | RLS, HMAC, encryption, and role gates exist and have tests. No independent pentest. Service-role misuse remains a standing risk. |
-| Testing | 7 | Broad unit/integration/e2e suite. This pass adds observation, health, IR heartbeat, demo-journey, and a11y label tests. Full suite results belong on the PR. |
+| Testing | 7 | Verified this pass: format/lint/typecheck clean; `npm test` 193 files / 1447 tests; integration 10; `supabase:validate` ok; `next build` ok; e2e 41 passed / 1 skipped (demo capture). |
 | WhatsApp reliability | 7 | Outbox + persist-outbound (P0 from #216, rebased here) is implemented. Live Meta/Evolution echo still needs a human number. |
 | AI reliability | 6 | Safety evals and fail-closed clinical refusal exist. Incorrect-answer IR is documented; no production AI failure rate. |
 | CRM / workplace | 7 | Inbox, appointments, automations (`insertAutomationRow`), travel, and dashboard wiring are present. Pilot clinics are not enrolled. |
