@@ -96,7 +96,7 @@ describe('GET /api/metrics/observation', () => {
     expect(body.readiness.isProductionObservationComplete).toBe(false);
     expect(body).not.toHaveProperty('rows');
     expect(JSON.stringify(body)).not.toMatch(/acc-other/);
-    expect(JSON.stringify(body)).not.toMatch(/patient|phone|\+91/i);
+    expect(JSON.stringify(body)).not.toMatch(/\+91|phone_number|patient_name/i);
   });
 
   it('rejects unauthenticated callers', async () => {

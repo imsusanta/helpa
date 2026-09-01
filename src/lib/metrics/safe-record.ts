@@ -35,6 +35,15 @@ export function safeRecordOutcomeEvent(
     isTestTenant?: boolean;
   }
 ): void {
+  // Vitest suites often mock global fetch and assert call counts. Observation
+  // must never change those assertions or write to a real project from unit
+  // tests. Set HELPA_RECORD_OUTCOME_EVENTS_IN_TEST=true to exercise inserts.
+  if (
+    process.env.VITEST === 'true' &&
+    process.env.HELPA_RECORD_OUTCOME_EVENTS_IN_TEST !== 'true'
+  ) {
+    return;
+  }
   void recordOutcomeEvent({
     ...input,
     isSynthetic: input.isSynthetic === true || isSyntheticObservationContext(),

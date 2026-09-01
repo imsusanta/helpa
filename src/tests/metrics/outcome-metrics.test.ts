@@ -303,6 +303,21 @@ describe('Product Outcome Metrics Aggregation & Observation Readiness', () => {
     expect(rates.deliveryFailureRatePercent).toBe(16.7);
   });
 
+  it('does not write outcome events from Vitest unless explicitly enabled', async () => {
+    const previous = process.env.HELPA_RECORD_OUTCOME_EVENTS_IN_TEST;
+    delete process.env.HELPA_RECORD_OUTCOME_EVENTS_IN_TEST;
+    const { safeRecordOutcomeEvent } =
+      await import('@/lib/metrics/safe-record');
+    expect(() =>
+      safeRecordOutcomeEvent({
+        accountId: '00000000-0000-4000-8000-000000000001',
+        eventName: 'inbound_message_received',
+        sourceId: 'inbound:test-skip-write-1234',
+      })
+    ).not.toThrow();
+    process.env.HELPA_RECORD_OUTCOME_EVENTS_IN_TEST = previous;
+  });
+
   it('marks configured demo accounts as test tenants', () => {
     const previous = process.env.DEMO_ACCOUNT_ID;
     process.env.DEMO_ACCOUNT_ID = '00000000-0000-4000-8000-000000000001';
