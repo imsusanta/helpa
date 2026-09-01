@@ -95,6 +95,8 @@ jobs:
         run: npm run test:integration
       - name: Validate Supabase migrations
         run: npm run supabase:validate
+      - name: RLS schema invariants (policies imply enforcement)
+        run: npm run supabase:invariants
 
   security_supply_chain:
     name: Secrets and dependency security
