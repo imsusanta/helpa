@@ -323,5 +323,14 @@ describe('Health Endpoint Hardening & Security Tests', () => {
     expect(jsonStr).not.toContain('ci-dummy-twilio-token');
     expect(jsonStr).not.toContain('ci-dummy-calendly-secret');
     expect(jsonStr).not.toContain('SUPABASE_SERVICE_ROLE_KEY');
+    const body = JSON.parse(jsonStr);
+    expect(body.checks.auth).toMatch(/configured|not_configured/);
+    expect(body.checks.worker).toEqual(
+      expect.objectContaining({
+        status: expect.stringMatching(/ok|stale|unknown/),
+        staleAfterSeconds: expect.any(Number),
+      })
+    );
+    expect(body.checks.worker).not.toHaveProperty('error');
   });
 });
