@@ -1,9 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import './globals.css';
-import './workspace-template-modal.css';
 import { ThemeProvider } from '@/hooks/use-theme';
-import { ThemedToaster } from '@/components/themed-toaster';
 import { WebVitalsReporter } from '@/components/performance/web-vitals-reporter';
 import {
   DEFAULT_MODE,
@@ -90,7 +88,7 @@ export const metadata: Metadata = {
       { url: '/favicon-32x32.png?v=4', sizes: '32x32', type: 'image/png' },
       { url: '/favicon.png?v=4', sizes: '192x192', type: 'image/png' },
     ],
-    shortcut: ['/helpa-logo.svg?v=4', '/favicon.png?v=4'],
+    shortcut: ['/helpa-logo.svg?v=4'],
     apple: [
       { url: '/apple-touch-icon.png?v=4', sizes: '180x180', type: 'image/png' },
     ],
@@ -108,13 +106,13 @@ const THEME_BOOT_SCRIPT = `
 (function(){
   var d = document.documentElement;
   try {
-    var THEME_KEY = ${JSON.stringify(STORAGE_KEY)};
+    var THEME_KEY = ${JSON.stringify(MODE_STORAGE_KEY)};
     var THEME_DEFAULT = ${JSON.stringify(DEFAULT_THEME)};
     var THEMES = ${JSON.stringify(THEME_IDS)};
     var savedTheme = localStorage.getItem(THEME_KEY);
     d.dataset.theme = THEMES.indexOf(savedTheme) !== -1 ? savedTheme : THEME_DEFAULT;
 
-    var MODE_KEY = ${JSON.stringify(MODE_STORAGE_KEY)};
+    var MODE_KEY = ${JSON.stringify(STORAGE_KEY)};
     var MODE_DEFAULT = ${JSON.stringify(DEFAULT_MODE)};
     var MODES = ${JSON.stringify(MODES)};
     var savedMode = localStorage.getItem(MODE_KEY);
@@ -147,7 +145,6 @@ export default function RootLayout({
       <body className="bg-background text-foreground min-h-full font-sans">
         <ThemeProvider>
           {children}
-          <ThemedToaster />
           <WebVitalsReporter />
         </ThemeProvider>
       </body>
