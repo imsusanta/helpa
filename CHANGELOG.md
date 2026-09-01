@@ -1,5 +1,11 @@
 # Changelog
 
+> **Historical note (Supabase cutover):** entries below `0.2.2` document
+> the original **Appwrite** lineage. Their `appwrite/migrations/*.sql`
+> references are preserved for history; those files live under
+> `docs/legacy-postgres-migrations/`. Fresh installs after the cutover
+> apply only `supabase/migrations/` — see `docs/APPWRITE_INVENTORY_AND_CUTOVER.md`.
+
 User-visible changes in Helpa. Self-hosters: when pulling an update,
 check this file for **migration required** notes and apply matching SQL
 from `supabase/migrations/` before restarting the app.

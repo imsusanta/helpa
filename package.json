@@ -53,7 +53,10 @@
     "verify:whatsapp-live": "node scripts/verify-whatsapp-live.mjs",
     "check:evolution-go": "node scripts/check-evolution-go.mjs",
     "supabase:migrate": "node scripts/apply-supabase-migrations.mjs",
-    "supabase:validate": "node scripts/validate-supabase-migrations.mjs"
+    "supabase:validate": "node scripts/validate-supabase-migrations.mjs",
+    "supabase:invariants": "node scripts/check-rls-invariants.mjs",
+    "supabase:fresh": "bash scripts/supabase-fresh-smoke.sh",
+    "supabase:fresh:keep": "bash scripts/supabase-fresh-smoke.sh keep"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
