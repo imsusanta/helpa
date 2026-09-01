@@ -22,8 +22,22 @@ describe('reception accessibility labels', () => {
     expect(composer).toContain('aria-label="Message"');
     expect(composer).toContain('aria-label="Send message"');
     expect(composer).toContain('aria-label="Send template"');
+    expect(composer).toContain('aria-label="Attach media"');
+    expect(composer).toContain('aria-label="Stop recording"');
+    expect(composer).toContain('aria-label="Cancel recording"');
     expect(composer).toContain('before:-inset-1.5');
     expect(composer).toContain('sm:pl-[5.5rem]');
+  });
+
+  it('labels thread scroll, reactions, and report actions', () => {
+    const thread = readSrc('src/components/inbox/message-thread.tsx');
+    expect(thread).toContain('aria-label="Scroll to latest message"');
+    const reactions = readSrc('src/components/inbox/message-reactions.tsx');
+    expect(reactions).toContain('aria-label={`Reaction ${g.emoji}');
+    const sidebar = readSrc('src/components/inbox/contact-sidebar.tsx');
+    expect(sidebar).toContain('aria-label="Download report PDF"');
+    expect(sidebar).toContain('aria-label={');
+    expect(sidebar).toContain('Send report via WhatsApp');
   });
 
   it('labels inbox search, filters, and appointment tabs', () => {

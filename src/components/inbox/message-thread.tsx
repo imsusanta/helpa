@@ -1393,6 +1393,7 @@ export function MessageThread({
           onClick={() => scrollToBottom(true)}
           className="bg-background/95 text-foreground border-border/80 hover:bg-accent absolute right-6 bottom-28 z-30 flex h-9 w-9 items-center justify-center rounded-full border shadow-lg backdrop-blur transition-all duration-200 hover:scale-110"
           title="Scroll to bottom"
+          aria-label="Scroll to latest message"
         >
           <ChevronDown className="h-5 w-5" />
         </button>

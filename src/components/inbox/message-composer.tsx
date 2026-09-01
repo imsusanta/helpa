@@ -588,6 +588,7 @@ export function MessageComposer({
           <button
             type="button"
             onClick={cancelRecording}
+            aria-label="Cancel recording"
             className="text-muted-foreground hover:bg-card hover:text-foreground rounded-md px-2 py-1 text-xs"
           >
             Cancel
@@ -597,6 +598,7 @@ export function MessageComposer({
             onClick={stopRecording}
             className="bg-primary hover:bg-primary/90 h-9 w-9 shrink-0 p-0"
             title="Stop and attach"
+            aria-label="Stop recording"
           >
             <Square className="h-4 w-4" />
           </Button>
@@ -716,6 +718,7 @@ export function MessageComposer({
             <DropdownMenu>
               <DropdownMenuTrigger
                 disabled={inputsDisabled || busy}
+                aria-label="Attach media"
                 title={
                   readOnly
                     ? "Read-only — your role can't send messages"

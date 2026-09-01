@@ -719,11 +719,13 @@ export function ContactSidebar({
                                 rel="noopener noreferrer"
                                 className="cursor-pointer text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
                                 title="Download Report PDF"
+                                aria-label="Download report PDF"
                               >
                                 <FileDown className="h-3.5 w-3.5" />
                               </a>
                             )}
                             <button
+                              type="button"
                               onClick={() => handleSendToWhatsApp(rep.id)}
                               disabled={notifyingReportId === rep.id}
                               className="cursor-pointer text-emerald-600 hover:text-emerald-700 disabled:opacity-50 dark:text-emerald-400 dark:hover:text-emerald-300"
@@ -731,6 +733,11 @@ export function ContactSidebar({
                                 rep.notified_patient
                                   ? 'Resend Report via WhatsApp'
                                   : 'Send Report via WhatsApp'
+                              }
+                              aria-label={
+                                rep.notified_patient
+                                  ? 'Resend report via WhatsApp'
+                                  : 'Send report via WhatsApp'
                               }
                             >
                               {notifyingReportId === rep.id ? (
