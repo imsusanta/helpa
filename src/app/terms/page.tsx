@@ -1,5 +1,4 @@
-'use client';
-
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
   FileCheck,
@@ -10,10 +9,26 @@ import {
   CreditCard,
   Ban,
 } from 'lucide-react';
+import { BreadcrumbJsonLd } from '@/components/seo/json-ld';
+
+export const metadata: Metadata = {
+  title: 'Terms of Service — Helpa Studio',
+  description:
+    'Official Terms of Service for Helpa WhatsApp AI Receptionist & Patient Engagement CRM.',
+  alternates: {
+    canonical: 'https://helpa.studio/terms',
+  },
+};
 
 export default function TermsOfServicePage() {
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[#F8FAFC] font-sans text-slate-900 antialiased selection:bg-emerald-500 selection:text-white">
+      <BreadcrumbJsonLd
+        items={[
+          { name: 'Home', url: 'https://helpa.studio' },
+          { name: 'Terms of Service', url: 'https://helpa.studio/terms' },
+        ]}
+      />
       {/* Background Decorative Gradient */}
       <div className="pointer-events-none absolute top-0 left-1/2 h-[500px] w-full max-w-7xl -translate-x-1/2 bg-gradient-to-b from-blue-50/60 via-slate-50/30 to-transparent" />
 

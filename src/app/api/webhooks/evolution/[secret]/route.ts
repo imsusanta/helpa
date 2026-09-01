@@ -45,6 +45,7 @@ import {
 } from '@/core/whatsapp/evolution-group-names';
 import { triggerAiResponse } from '@/lib/whatsapp/ai';
 import { dispatchEvolutionInboundFollowup } from '@/lib/whatsapp/evolution-inbound-followup';
+import { isValidStatusTransition } from '@/app/api/whatsapp/webhook/process-status';
 
 const MAX_BODY_BYTES = 1_000_000;
 
@@ -157,11 +158,37 @@ async function applyReceiptEvent(
   if (!status || messageIds.length === 0) return;
   const db = getAdminClient();
   for (const messageId of messageIds) {
-    await db
-      .from('messages')
-      .update({ status, updated_at: new Date().toISOString() })
-      .eq('account_id', accountId)
-      .eq('provider_message_id', messageId);
+    let messageRow: { id: string; status: string } | null = null;
+    for (const column of ['provider_message_id', 'message_id'] as const) {
+      try {
+        const { data, error } = await db
+          .from('messages')
+          .select('id, status')
+          .eq('account_id', accountId)
+          .eq(column, messageId)
+          .limit(1);
+        if (!error && data && data.length > 0) {
+          messageRow = data[0] as { id: string; status: string };
+          break;
+        }
+      } catch {}
+    }
+    if (messageRow) {
+      if (
+        isValidStatusTransition(String(messageRow.status || 'sent'), status)
+      ) {
+        await db
+          .from('messages')
+          .update({ status, updated_at: new Date().toISOString() })
+          .eq('id', messageRow.id);
+      }
+    } else {
+      await db
+        .from('messages')
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq('account_id', accountId)
+        .eq('provider_message_id', messageId);
+    }
   }
 }
 

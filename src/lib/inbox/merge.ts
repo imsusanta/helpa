@@ -72,7 +72,13 @@ export function mergeMessages(
   const result = current.slice();
 
   for (const message of incoming) {
-    const existingIndex = result.findIndex((row) => row.id === message.id);
+    const existingIndex = result.findIndex(
+      (row) =>
+        row.id === message.id ||
+        (Boolean(row.message_id) &&
+          Boolean(message.message_id) &&
+          row.message_id === message.message_id)
+    );
     if (existingIndex >= 0) {
       result[existingIndex] = mergeMessage(result[existingIndex], message);
       continue;
@@ -92,9 +98,16 @@ export function mergeMessages(
     result.push(message);
   }
 
-  return result.sort(
-    (a, b) => timestamp(a.created_at) - timestamp(b.created_at)
-  );
+  return result.sort((a, b) => {
+    const timeDiff = timestamp(a.created_at) - timestamp(b.created_at);
+    if (timeDiff !== 0) return timeDiff;
+    // When timestamps are identical down to the second,
+    // customer inbound prompt renders before agent/bot reply.
+    if (a.sender_type === 'customer' && b.sender_type !== 'customer') return -1;
+    if (a.sender_type !== 'customer' && b.sender_type === 'customer') return 1;
+    // Deterministic tie-breaker
+    return (a.id || '').localeCompare(b.id || '');
+  });
 }
 
 function mergeConversation(

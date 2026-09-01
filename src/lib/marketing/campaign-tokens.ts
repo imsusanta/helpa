@@ -65,7 +65,5 @@ export function applyCampaignTokens(
   const name = context.contactName?.trim() || context.fallbackName || 'there';
   const business = context.businessName?.trim() || '';
 
-  return body
-    .replace(PERSON_PATTERN, name)
-    .replace(BUSINESS_PATTERN, business);
+  return body.replace(PERSON_PATTERN, name).replace(BUSINESS_PATTERN, business);
 }

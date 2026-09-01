@@ -1,5 +1,4 @@
-'use client';
-
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
   Shield,
@@ -12,10 +11,26 @@ import {
   Database,
   Smartphone,
 } from 'lucide-react';
+import { BreadcrumbJsonLd } from '@/components/seo/json-ld';
+
+export const metadata: Metadata = {
+  title: 'Privacy Policy — Helpa Studio',
+  description:
+    'Meta & GDPR Compliant Privacy Policy for Helpa WhatsApp AI Receptionist & CRM. Multi-tenant encryption, zero data selling, and DPDP compliance.',
+  alternates: {
+    canonical: 'https://helpa.studio/privacy',
+  },
+};
 
 export default function PrivacyPolicyPage() {
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[#F8FAFC] font-sans text-slate-900 antialiased selection:bg-emerald-500 selection:text-white">
+      <BreadcrumbJsonLd
+        items={[
+          { name: 'Home', url: 'https://helpa.studio' },
+          { name: 'Privacy Policy', url: 'https://helpa.studio/privacy' },
+        ]}
+      />
       {/* Background Decorative Gradient */}
       <div className="pointer-events-none absolute top-0 left-1/2 h-[500px] w-full max-w-7xl -translate-x-1/2 bg-gradient-to-b from-emerald-50/60 via-slate-50/30 to-transparent" />
 

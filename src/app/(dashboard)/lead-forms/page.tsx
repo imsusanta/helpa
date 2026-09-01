@@ -360,10 +360,10 @@ export default function LeadFormsPage() {
                     <TableHead>Form Name</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Submissions</TableHead>
-<TableHead className="text-right">
+                    <TableHead className="text-right">
                       New {terminology.pipelineItems}
-                     </TableHead>
-                     <TableHead>Created</TableHead>
+                    </TableHead>
+                    <TableHead>Created</TableHead>
                     <TableHead className="text-right">Action</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -505,7 +505,8 @@ export default function LeadFormsPage() {
                       Submissions: {form.submission_count.toLocaleString()}
                     </span>
                     <span>
-                      New {terminology.pipelineItems.toLowerCase()}: {form.new_leads_count.toLocaleString()}
+                      New {terminology.pipelineItems.toLowerCase()}:{' '}
+                      {form.new_leads_count.toLocaleString()}
                     </span>
                   </div>
                   <div className="flex gap-2 pt-1">

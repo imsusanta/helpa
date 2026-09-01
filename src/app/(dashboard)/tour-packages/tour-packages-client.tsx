@@ -83,8 +83,8 @@ export function TourPackagesClient() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Tour Packages</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Maintain this workplace&apos;s official packages. WhatsApp and AI
-            answers use only these records.
+            Manage your travel catalog. WhatsApp and AI answers use only these
+            packages.
           </p>
         </div>
         <Button

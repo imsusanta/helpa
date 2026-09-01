@@ -175,4 +175,42 @@ describe('inbox realtime merge helpers', () => {
 
     expect(merged.unread_count).toBe(3);
   });
+
+  it('deduplicates messages sharing the same provider message_id', () => {
+    const live = message({
+      id: 'local-temp-uuid',
+      message_id: 'wamid.HBgLM...',
+      content_text: 'hello from whatsapp',
+      status: 'sent',
+    });
+    const canonical = message({
+      id: 'local-db-uuid',
+      message_id: 'wamid.HBgLM...',
+      content_text: 'hello from whatsapp',
+      status: 'delivered',
+    });
+
+    const merged = mergeMessages([live], [canonical]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].status).toBe('delivered');
+  });
+
+  it('sorts customer prompt before agent response when timestamps are identical down to the second', () => {
+    const sameTime = '2026-08-23T10:05:00.000Z';
+    const agentReply = message({
+      id: 'msg-reply-2',
+      sender_type: 'agent',
+      content_text: 'How can I assist you?',
+      created_at: sameTime,
+    });
+    const customerPrompt = message({
+      id: 'msg-prompt-1',
+      sender_type: 'customer',
+      content_text: 'Hello doctor',
+      created_at: sameTime,
+    });
+
+    const merged = mergeMessages([agentReply], [customerPrompt]);
+    expect(merged.map((m) => m.id)).toEqual(['msg-prompt-1', 'msg-reply-2']);
+  });
 });

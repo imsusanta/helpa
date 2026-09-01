@@ -21,16 +21,19 @@ describe('applyCampaignTokens', () => {
 
   it('substitutes business aliases with the workspace name', () => {
     expect(
-      applyCampaignTokens('{{HospitalName}} / {{BusinessName}} / {{AgencyName}}', {
-        businessName: 'Wanderlust Travels',
-      })
+      applyCampaignTokens(
+        '{{HospitalName}} / {{BusinessName}} / {{AgencyName}}',
+        {
+          businessName: 'Wanderlust Travels',
+        }
+      )
     ).toBe('Wanderlust Travels / Wanderlust Travels / Wanderlust Travels');
   });
 
   it('tolerates inner whitespace in tokens', () => {
-    expect(
-      applyCampaignTokens('Hi {{ Name }}!', { contactName: 'Sam' })
-    ).toBe('Hi Sam!');
+    expect(applyCampaignTokens('Hi {{ Name }}!', { contactName: 'Sam' })).toBe(
+      'Hi Sam!'
+    );
   });
 
   it('falls back to a neutral greeting when the contact has no name', () => {

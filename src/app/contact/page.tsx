@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
   MessageSquare,
@@ -7,16 +8,26 @@ import {
   MapPin,
   ShieldCheck,
 } from 'lucide-react';
+import { BreadcrumbJsonLd } from '@/components/seo/json-ld';
 
-export const metadata = {
+export const metadata: Metadata = {
   title: 'Contact Us — Helpa Studio',
   description:
     'Get in touch with Helpa Studio. Support, sales, and registered office details for Indian service businesses.',
+  alternates: {
+    canonical: 'https://helpa.studio/contact',
+  },
 };
 
 export default function ContactPage() {
   return (
     <div className="bg-background text-foreground min-h-screen px-6 py-12 font-sans">
+      <BreadcrumbJsonLd
+        items={[
+          { name: 'Home', url: 'https://helpa.studio' },
+          { name: 'Contact Us', url: 'https://helpa.studio/contact' },
+        ]}
+      />
       <div className="mx-auto max-w-3xl space-y-8">
         <Link
           href="/"

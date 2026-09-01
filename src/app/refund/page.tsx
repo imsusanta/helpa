@@ -1,15 +1,26 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { MessageSquare, ArrowLeft } from 'lucide-react';
+import { BreadcrumbJsonLd } from '@/components/seo/json-ld';
 
-export const metadata = {
+export const metadata: Metadata = {
   title: 'Refund & Cancellation Policy — Helpa Studio',
   description:
-    'Official Refund and Cancellation Policy for Helpa WhatsApp AI Receptionist & CRM.',
+    'Official Refund and Cancellation Policy for Helpa WhatsApp AI Receptionist & CRM. 14-day money-back guarantee.',
+  alternates: {
+    canonical: 'https://helpa.studio/refund',
+  },
 };
 
 export default function RefundPolicyPage() {
   return (
     <div className="bg-background text-foreground min-h-screen px-6 py-12 font-sans">
+      <BreadcrumbJsonLd
+        items={[
+          { name: 'Home', url: 'https://helpa.studio' },
+          { name: 'Refund Policy', url: 'https://helpa.studio/refund' },
+        ]}
+      />
       <div className="mx-auto max-w-3xl space-y-8">
         <Link
           href="/"

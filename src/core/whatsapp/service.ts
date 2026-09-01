@@ -27,6 +27,11 @@ import {
   reconnectEvolutionQrSession,
   updateEvolutionHealth,
 } from './evolution-connection';
+import {
+  persistOutboundMessage,
+  touchConversationPreview,
+  outboundPreviewText,
+} from '@/lib/whatsapp/persist-outbound-message';
 
 const META_API_VERSION = 'v21.0';
 const META_BASE_URL = `https://graph.facebook.com/${META_API_VERSION}`;
@@ -208,8 +213,45 @@ export async function sendWhatsAppMessage(
           text || ''
         );
       }
+      let createdMessageId: string | undefined;
+      if (options.conversationId) {
+        const persistRes = await persistOutboundMessage({
+          accountId: tenantId,
+          conversationId: options.conversationId,
+          senderType: 'agent',
+          contentType: type,
+          contentText: text || `[${type} sent]`,
+          mediaUrl: mediaUrl || null,
+          templateName: templateName || null,
+          providerMessageId: result.externalMessageId,
+          createdAt: options.metadata?.created_at as string | undefined,
+        });
+        createdMessageId = persistRes.ok ? persistRes.messageId : undefined;
+
+        try {
+          await touchConversationPreview({
+            accountId: tenantId,
+            conversationId: options.conversationId,
+            previewText: outboundPreviewText({
+              contentText: text,
+              contentType: type,
+            }),
+          });
+        } catch {}
+      }
+
+      coreEvents.emit('message.sent', tenantId, {
+        tenantId,
+        conversationId: options.conversationId || '',
+        messageId: createdMessageId || result.externalMessageId,
+        recipient: cleanRecipient,
+        content: text || '',
+        timestamp: new Date().toISOString(),
+      });
+
       return {
         success: true,
+        messageId: createdMessageId,
         metaMessageId: result.externalMessageId,
         timestamp: new Date().toISOString(),
       };
@@ -404,31 +446,29 @@ export async function sendWhatsAppMessage(
     // Record message in database if conversationId is provided
     let createdMessageId: string | undefined;
     if (options.conversationId) {
-      const { data: msgRow } = await db
-        .from('messages')
-        .insert({
-          conversation_id: options.conversationId,
-          sender_type: 'staff',
-          content_type: type,
-          content_text: text || `[${type} sent]`,
-          status: 'sent',
-          meta_message_id: metaMessageId,
-          created_at: new Date().toISOString(),
-        })
-        .select('id')
-        .single();
+      const persistRes = await persistOutboundMessage({
+        accountId: tenantId,
+        conversationId: options.conversationId,
+        senderType: 'agent',
+        contentType: type,
+        contentText: text || `[${type} sent]`,
+        mediaUrl: mediaUrl || null,
+        templateName: templateName || null,
+        providerMessageId: metaMessageId,
+        createdAt: options.metadata?.created_at as string | undefined,
+      });
+      createdMessageId = persistRes.ok ? persistRes.messageId : undefined;
 
-      createdMessageId = msgRow?.id;
-
-      // Update conversation last message timestamp
-      await db
-        .from('conversations')
-        .update({
-          last_message_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', options.conversationId)
-        .eq('account_id', tenantId);
+      try {
+        await touchConversationPreview({
+          accountId: tenantId,
+          conversationId: options.conversationId,
+          previewText: outboundPreviewText({
+            contentText: text,
+            contentType: type,
+          }),
+        });
+      } catch {}
     }
 
     // Emit core event for observability and audit logging

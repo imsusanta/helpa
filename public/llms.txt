@@ -1,0 +1,30 @@
+# Helpa — WhatsApp AI Receptionist & CRM
+
+> Helpa is a 24/7 AI-powered WhatsApp receptionist and patient engagement CRM built on the official Meta WhatsApp Cloud API. Designed specifically for outpatient healthcare clinics, doctors, salons, coaching institutes, and service businesses in India.
+
+## Core Capabilities
+- **24/7 AI Receptionist**: Answers customer inquiries in under 2 seconds using custom business knowledge bases (doctor availability, service menus, pricing, FAQs).
+- **Automated Appointment Booking**: Real-time slot reservation, doctor calendar sync, digital OPD passes, and reminder alerts.
+- **Collaborative Team Inbox**: Multi-agent shared inbox with live staff takeover, chat assignments, and custom tagging on a single official WhatsApp number.
+- **Automated Broadcasts**: Meta-compliant marketing broadcasts with 98% open rates and rich CTA buttons.
+- **Security & Privacy**: Built with AES-256-GCM authenticated encryption, PostgreSQL Row-Level Security (RLS), and full alignment with India's DPDP Act 2023.
+
+## Target Industries
+- Healthcare Clinics, Polyclinics & Doctors (/solutions/clinics)
+- Salons, Spas & Beauty Studios (/solutions/salons)
+- Test Prep Coaching Institutes & Tutors (/solutions/coaching)
+- Real Estate Developers & Brokers (/solutions/real-estate)
+
+## Pricing Overview
+- **Starter Plan**: ₹0 / Free tier with essential WhatsApp automation.
+- **Professional Clinic Plan**: ₹1,999 / month with full AI receptionist, doctor scheduling, and team inbox.
+- **Enterprise / Hospital Plan**: ₹4,999 / month with multi-doctor branches, custom workflows, and dedicated support.
+
+## Official Links
+- Home: https://helpa.studio
+- Solutions: https://helpa.studio/solutions/clinics
+- Features: https://helpa.studio/features/ai-receptionist
+- Pricing: https://helpa.studio/pricing
+- Security: https://helpa.studio/security
+- Contact: https://helpa.studio/contact
+- Full Specification: https://helpa.studio/llms-full.txt

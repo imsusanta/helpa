@@ -14,21 +14,46 @@ import {
   THEME_IDS,
 } from '@/lib/themes';
 
+import {
+  OrganizationJsonLd,
+  SoftwareApplicationJsonLd,
+} from '@/components/seo/json-ld';
+
 export const metadata: Metadata = {
   metadataBase: new URL('https://helpa.studio'),
-  title:
-    'Helpa — WhatsApp AI Receptionist for Clinics, Salons & Coaching Institutes',
+  title: {
+    default:
+      'Helpa — WhatsApp AI Receptionist for Clinics, Salons & Coaching Institutes',
+    template: '%s | Helpa Studio',
+  },
   description:
-    'Answers WhatsApp enquiries in seconds, books appointments, and captures leads 24/7. Built on the official WhatsApp Cloud API for Indian businesses.',
+    'Answers WhatsApp enquiries in seconds, books appointments, and captures leads 24/7. Built on the official WhatsApp Cloud API for Indian businesses and healthcare clinics.',
   keywords: [
     'WhatsApp AI Receptionist',
     'WhatsApp CRM India',
     'Clinic Appointment Booking WhatsApp',
+    'Doctor WhatsApp Booking',
     'Salon Booking Automation',
     'Coaching Institute Lead Capture',
     'WhatsApp Cloud API India',
+    'Meta WhatsApp Coexistence',
+    'Automated WhatsApp Chatbot',
+    'Shared Team Inbox WhatsApp',
+    'DPDP Compliant WhatsApp CRM',
+    'WhatsApp Marketing Broadcasts',
   ],
-  alternates: { canonical: '/' },
+  authors: [{ name: 'Helpa Studio', url: 'https://helpa.studio' }],
+  creator: 'Helpa Studio Technologies Pvt. Ltd.',
+  publisher: 'Helpa Studio',
+  category: 'Business Software',
+  classification: 'WhatsApp Business CRM & AI Receptionist',
+  alternates: {
+    canonical: 'https://helpa.studio',
+    languages: {
+      'en-IN': 'https://helpa.studio',
+      'en-US': 'https://helpa.studio',
+    },
+  },
   openGraph: {
     title:
       'Helpa — WhatsApp AI Receptionist for Clinics, Salons & Coaching Institutes',
@@ -38,14 +63,6 @@ export const metadata: Metadata = {
     siteName: 'Helpa Studio',
     locale: 'en_IN',
     type: 'website',
-    images: [
-      {
-        url: '/og-image.jpg',
-        width: 1200,
-        height: 630,
-        alt: 'Helpa WhatsApp AI Receptionist & CRM',
-      },
-    ],
   },
   twitter: {
     card: 'summary_large_image',
@@ -53,9 +70,20 @@ export const metadata: Metadata = {
       'Helpa — WhatsApp AI Receptionist for Clinics, Salons & Coaching Institutes',
     description:
       'Answers WhatsApp enquiries in seconds, books appointments, and captures leads 24/7. Built on the official WhatsApp Cloud API for Indian businesses.',
-    images: ['/og-image.jpg'],
+    creator: '@helpastudio',
+    site: '@helpastudio',
   },
-  robots: { index: true, follow: true },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
   icons: {
     icon: [
       { url: '/helpa-logo.svg?v=4', type: 'image/svg+xml' },
@@ -110,6 +138,8 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
+        <OrganizationJsonLd />
+        <SoftwareApplicationJsonLd />
         <Script id="theme-boot" strategy="beforeInteractive">
           {THEME_BOOT_SCRIPT}
         </Script>

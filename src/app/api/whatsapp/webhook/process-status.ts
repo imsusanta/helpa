@@ -68,7 +68,7 @@ export async function handleStatusUpdate(
     await applyMessageStatus('messageId', 'accountId');
   }
 
-  if (accountId && status.status === 'failed') {
+  if (status.status === 'failed') {
     safeRecordOutcomeEvent({
       accountId,
       eventName: 'message_delivery_failed',

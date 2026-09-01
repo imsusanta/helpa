@@ -1,0 +1,58 @@
+# Helpa Full Product Specification & LLM Knowledge Document
+
+## Organization
+- **Company**: Helpa Studio Technologies Pvt. Ltd.
+- **Location**: Siliguri, West Bengal, India — 734001
+- **Website**: https://helpa.studio
+- **Support**: hello@helpa.studio
+- **Platform Category**: WhatsApp AI Receptionist & Business CRM
+
+## Executive Overview
+Helpa is a modern communication platform engineered on Next.js, Supabase PostgreSQL, and the official Meta WhatsApp Business Cloud API. It provides 24/7 AI-powered front-desk receptionist automation, calendar slot booking, multi-agent customer support inboxes, and lifecycle marketing broadcasts for appointment-based Indian enterprises.
+
+## Key Products & Solutions
+
+### 1. Healthcare & Clinic AI Receptionist (`/solutions/clinics`)
+- **Use Case**: Outpatient polyclinics, dental practices, pediatricians, diagnostic centers, and solo practitioners.
+- **Features**:
+  - Doctor slot booking without double-booking.
+  - Digital OPD ticket passes with booking IDs.
+  - Automated 2-hour pre-consultation reminders on WhatsApp.
+  - Answering routine clinic inquiries (location, doctor OPD fees, accepted payment methods).
+  - Multi-agent receptionist dashboard for live staff takeover.
+
+### 2. Salon & Spa Booking Engine (`/solutions/salons`)
+- **Use Case**: Hair salons, beauty parlors, luxury spas, aesthetic clinics.
+- **Features**:
+  - Service catalog selection (haircut, spa, waxing, facial).
+  - Stylist selection and calendar slot lock.
+  - Automated 24h & 2h appointment reminders with 1-click reschedule.
+  - Retention marketing broadcasts for monthly maintenance services.
+
+### 3. Coaching Institute & Education CRM (`/solutions/coaching`)
+- **Use Case**: JEE/NEET test prep centers, UPSC academies, language institutes, private tutors.
+- **Features**:
+  - Student qualification by target exam, current grade, and preferred batch timing.
+  - Instant delivery of course syllabus and fee structure PDFs.
+  - Free demo lecture seat reservation.
+  - Batch announcements and test score broadcast alerts.
+
+### 4. Real Estate Lead Automation (`/solutions/real-estate`)
+- **Use Case**: Builders, property developers, channel partners, real estate brokers.
+- **Features**:
+  - Instant lead response to Facebook & Google Ad inquiries within 2 seconds.
+  - Budget, BHK, and timeline qualification.
+  - High-res floor plan and brochure distribution.
+  - Site visit appointment scheduling with Google Maps pin drops.
+
+## Technical & Security Posture (`/security`)
+- **Encryption**: AES-256-GCM authenticated encryption for Meta access tokens and system credentials.
+- **Multi-Tenancy**: PostgreSQL Row-Level Security (RLS) guaranteeing cryptographic data isolation between workspaces.
+- **Data Privacy**: Strict adherence to the Digital Personal Data Protection (DPDP) Act 2023. Zero data selling. Customer messages are never used to train public foundation models.
+- **API Coexistence**: Supports Meta WhatsApp Business App coexistence so staff can use the standard mobile WhatsApp Business app alongside Helpa's Cloud API platform.
+
+## Pricing Architecture (`/pricing`)
+- **Free Starter Tier**: Free forever with essential auto-replies and shared inbox.
+- **Pro Tier (₹1,999 / month)**: Full AI receptionist, doctor scheduling engine, custom knowledge bases, and multi-agent inbox.
+- **Enterprise Tier (₹4,999 / month)**: Multi-branch clinic support, custom integrations, dedicated account manager, and SLA guarantees.
+- **14-Day Money Back Guarantee**: Full refund policy within the first 14 days of subscription.

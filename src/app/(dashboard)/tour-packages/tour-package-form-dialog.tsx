@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import Image from 'next/image';
 import {
   CalendarDays,
   ChevronDown,
@@ -475,7 +474,7 @@ export function TourPackageFormDialog({
                         if (file) void uploadCover(file);
                       }}
                       className={cn(
-                        'relative flex h-28 w-full items-center justify-center overflow-hidden rounded-xl border-2 border-dashed transition',
+                        'flex h-28 w-full items-center justify-center overflow-hidden rounded-xl border-2 border-dashed transition',
                         dragOver
                           ? 'border-[#00b074] bg-emerald-50'
                           : 'border-emerald-200 bg-white hover:bg-emerald-50',
@@ -483,13 +482,11 @@ export function TourPackageFormDialog({
                       )}
                     >
                       {form.cover_image_url ? (
-                        <Image
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img
                           src={form.cover_image_url}
                           alt="Package cover"
-                          fill
-                          sizes="(max-width: 768px) 100vw, 33vw"
-                          className="object-cover"
-                          unoptimized
+                          className="h-full w-full object-cover"
                         />
                       ) : (
                         <div className="flex flex-col items-center gap-1 text-emerald-700">

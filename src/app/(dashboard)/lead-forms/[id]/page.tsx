@@ -154,9 +154,7 @@ export default function LeadFormDetailPage() {
       toast.success(`${terminology.contact} assigned.`);
       await fetchDetail();
     } catch {
-      toast.error(
-        `Unable to assign the ${terminology.contact.toLowerCase()}.`
-      );
+      toast.error(`Unable to assign the ${terminology.contact.toLowerCase()}.`);
     }
   }
 

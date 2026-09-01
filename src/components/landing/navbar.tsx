@@ -9,10 +9,10 @@ interface NavbarProps {
 }
 
 const NAV_ITEMS = [
-  { href: '#clinic-workflow', label: 'How it works' },
-  { href: '#features', label: 'Product' },
-  { href: '#pricing', label: 'Pricing' },
-  { href: '#security', label: 'Security' },
+  { href: '/solutions/clinics', label: 'Solutions' },
+  { href: '/features/ai-receptionist', label: 'Features' },
+  { href: '/pricing', label: 'Pricing' },
+  { href: '/security', label: 'Security' },
 ];
 
 export function LandingNavbar({

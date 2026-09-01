@@ -1,5 +1,3 @@
-'use client';
-
 import Link from 'next/link';
 
 export function LandingFooter() {
@@ -21,9 +19,10 @@ export function LandingFooter() {
               </span>
             </Link>
             <p className="max-w-sm text-xs leading-relaxed text-slate-500">
-              The 24/7 AI communication platform for clinics, coaching classes,
-              tutors, salons, and real estate. Automate client replies,
-              bookings, and reminders on WhatsApp.
+              The 24/7 WhatsApp AI communication and receptionist platform for
+              clinics, coaching classes, tutors, salons, and real estate.
+              Automate replies, bookings, and reminders on official WhatsApp
+              Cloud API.
             </p>
             <div className="text-[11px] text-slate-400">
               Built with ❤️ by{' '}
@@ -39,15 +38,7 @@ export function LandingFooter() {
             <ul className="space-y-2">
               <li>
                 <Link
-                  href="#features"
-                  className="transition-colors hover:text-[#110E3D]"
-                >
-                  Team Inbox
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="#features"
+                  href="/features/ai-receptionist"
                   className="transition-colors hover:text-[#110E3D]"
                 >
                   AI Receptionist
@@ -55,15 +46,31 @@ export function LandingFooter() {
               </li>
               <li>
                 <Link
-                  href="#features"
+                  href="/features/whatsapp-crm"
                   className="transition-colors hover:text-[#110E3D]"
                 >
-                  Automations
+                  WhatsApp Team CRM
                 </Link>
               </li>
               <li>
                 <Link
-                  href="#pricing"
+                  href="/features/appointment-booking"
+                  className="transition-colors hover:text-[#110E3D]"
+                >
+                  Appointment Booking
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/features/automated-broadcasts"
+                  className="transition-colors hover:text-[#110E3D]"
+                >
+                  Broadcasts & Campaigns
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/pricing"
                   className="transition-colors hover:text-[#110E3D]"
                 >
                   Pricing Plans
@@ -80,42 +87,50 @@ export function LandingFooter() {
             <ul className="space-y-2">
               <li>
                 <Link
-                  href="#industries"
+                  href="/solutions/clinics"
                   className="transition-colors hover:text-[#110E3D]"
                 >
-                  Health & Clinic
+                  Clinics & Healthcare
                 </Link>
               </li>
               <li>
                 <Link
-                  href="#industries"
+                  href="/solutions/salons"
                   className="transition-colors hover:text-[#110E3D]"
                 >
-                  Coaching Institute
+                  Salons & Spas
                 </Link>
               </li>
               <li>
                 <Link
-                  href="#industries"
+                  href="/solutions/coaching"
                   className="transition-colors hover:text-[#110E3D]"
                 >
-                  Solo Tutor
+                  Coaching & Tutors
                 </Link>
               </li>
               <li>
                 <Link
-                  href="#industries"
-                  className="transition-colors hover:text-[#110E3D]"
-                >
-                  Salon & Spa
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="#industries"
+                  href="/solutions/real-estate"
                   className="transition-colors hover:text-[#110E3D]"
                 >
                   Real Estate
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/compare/wati-alternative"
+                  className="transition-colors hover:text-[#110E3D]"
+                >
+                  Helpa vs WATI
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/compare/interakt-alternative"
+                  className="transition-colors hover:text-[#110E3D]"
+                >
+                  Helpa vs Interakt
                 </Link>
               </li>
             </ul>
@@ -127,6 +142,14 @@ export function LandingFooter() {
               Legal & Trust
             </h4>
             <ul className="space-y-2">
+              <li>
+                <Link
+                  href="/security"
+                  className="transition-colors hover:text-[#110E3D]"
+                >
+                  Security Architecture
+                </Link>
+              </li>
               <li>
                 <Link
                   href="/privacy"
@@ -153,10 +176,10 @@ export function LandingFooter() {
               </li>
               <li>
                 <Link
-                  href="#security"
+                  href="/contact"
                   className="transition-colors hover:text-[#110E3D]"
                 >
-                  Security Architecture
+                  Contact Us
                 </Link>
               </li>
             </ul>
@@ -171,6 +194,8 @@ export function LandingFooter() {
             <span>Official Meta Cloud API Verified</span>
             <span>•</span>
             <span>AES-256-GCM Encrypted</span>
+            <span>•</span>
+            <span>DPDP Act 2023 Compliant</span>
           </div>
         </div>
       </div>
