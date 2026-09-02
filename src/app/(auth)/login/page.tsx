@@ -78,11 +78,10 @@ function LoginPageInner() {
         }
       }
 
-      router.refresh();
       if (inviteToken) {
-        router.push(`/join/${encodeURIComponent(inviteToken)}`);
+        window.location.href = `/join/${encodeURIComponent(inviteToken)}`;
       } else {
-        router.push('/dashboard');
+        window.location.href = '/dashboard';
       }
     } catch (err: unknown) {
       setError(
