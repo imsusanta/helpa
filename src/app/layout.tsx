@@ -1,9 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import './globals.css';
-import './workspace-template-modal.css';
 import { ThemeProvider } from '@/hooks/use-theme';
-import { ThemedToaster } from '@/components/themed-toaster';
 import { WebVitalsReporter } from '@/components/performance/web-vitals-reporter';
 import {
   DEFAULT_MODE,
@@ -90,7 +88,7 @@ export const metadata: Metadata = {
       { url: '/favicon-32x32.png?v=4', sizes: '32x32', type: 'image/png' },
       { url: '/favicon.png?v=4', sizes: '192x192', type: 'image/png' },
     ],
-    shortcut: ['/helpa-logo.svg?v=4', '/favicon.png?v=4'],
+    shortcut: ['/helpa-logo.svg?v=4'],
     apple: [
       { url: '/apple-touch-icon.png?v=4', sizes: '180x180', type: 'image/png' },
     ],
@@ -147,7 +145,6 @@ export default function RootLayout({
       <body className="bg-background text-foreground min-h-full font-sans">
         <ThemeProvider>
           {children}
-          <ThemedToaster />
           <WebVitalsReporter />
         </ThemeProvider>
       </body>

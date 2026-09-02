@@ -1,12 +1,32 @@
-import dynamic from 'next/dynamic';
 import { LandingNavbar } from '@/components/landing/navbar';
 import { LandingHero } from '@/components/landing/hero';
-import { LandingIndustrySolutions } from '@/components/landing/industry-solutions';
-import { LandingSecurityBadges } from '@/components/landing/security-badges';
-import { LandingPricingSection } from '@/components/landing/pricing-section';
-import { LandingFaqSection } from '@/components/landing/faq-section';
-import { LandingCtaBanner } from '@/components/landing/cta-banner';
-import { LandingFooter } from '@/components/landing/footer';
+import dynamic from 'next/dynamic';
+import { FaqJsonLd } from '@/components/seo/json-ld';
+
+const LandingIndustrySolutions = dynamic(
+  () => import('@/components/landing/industry-solutions').then((m) => m.LandingIndustrySolutions),
+  { ssr: true }
+);
+const LandingSecurityBadges = dynamic(
+  () => import('@/components/landing/security-badges').then((m) => m.LandingSecurityBadges),
+  { ssr: true }
+);
+const LandingPricingSection = dynamic(
+  () => import('@/components/landing/pricing-section').then((m) => m.LandingPricingSection),
+  { ssr: true }
+);
+const LandingFaqSection = dynamic(
+  () => import('@/components/landing/faq-section').then((m) => m.LandingFaqSection),
+  { ssr: true }
+);
+const LandingCtaBanner = dynamic(
+  () => import('@/components/landing/cta-banner').then((m) => m.LandingCtaBanner),
+  { ssr: true }
+);
+const LandingFooter = dynamic(
+  () => import('@/components/landing/footer').then((m) => m.LandingFooter),
+  { ssr: true }
+);
 
 const LandingInteractiveShowcase = dynamic(
   () =>
@@ -19,8 +39,6 @@ const LandingInteractiveShowcase = dynamic(
     ),
   }
 );
-
-import { FaqJsonLd } from '@/components/seo/json-ld';
 
 const HOME_FAQS = [
   {
