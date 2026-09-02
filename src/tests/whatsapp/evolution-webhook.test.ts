@@ -209,6 +209,33 @@ describe('Evolution Go webhook', () => {
     expect(triggerAiMock).toHaveBeenCalledTimes(1);
   });
 
+  it('awaits the AI reply so Vercel does not freeze the send', async () => {
+    let aiFinished = false;
+    triggerAiMock.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          setTimeout(() => {
+            aiFinished = true;
+            resolve();
+          }, 30);
+        })
+    );
+    const res = await post(secretA, {
+      event: 'Message',
+      data: {
+        key: {
+          id: 'evo-ai-await-1',
+          fromMe: false,
+          remoteJid: '919111222333@s.whatsapp.net',
+        },
+        message: { conversation: 'Darjeeling package?' },
+      },
+    });
+    expect(res.status).toBe(200);
+    expect(aiFinished).toBe(true);
+    expect(triggerAiMock).toHaveBeenCalledTimes(1);
+  });
+
   it('skips AI when booking confirm or an automation already replied', async () => {
     followupMock.mockResolvedValueOnce({ handled: true });
     await post(secretA, {
