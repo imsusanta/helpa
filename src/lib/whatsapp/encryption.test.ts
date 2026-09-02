@@ -111,6 +111,14 @@ describe('encryption', () => {
   });
 
   describe('malformed input', () => {
+    it('returns empty string for empty input', () => {
+      expect(decrypt('')).toBe('');
+    });
+
+    it('passes through unencrypted OpenRouter keys that start with sk-', () => {
+      expect(decrypt('sk-or-v1-plaintext-key')).toBe('sk-or-v1-plaintext-key');
+    });
+
     it('throws on a single-token blob (no colons)', () => {
       expect(() => decrypt('not-encrypted-at-all')).toThrow(
         /unrecognised format/
