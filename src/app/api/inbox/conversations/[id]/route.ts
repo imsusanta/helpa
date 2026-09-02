@@ -118,7 +118,7 @@ export async function GET(_request: NextRequest, { params }: Params) {
     const supabase = getSupabaseAdminClient();
     const { data: conv, error: convErr } = await supabase
       .from('conversations')
-      .select('*')
+      .select('*, contact:contacts(*)')
       .eq('id', conversationId)
       .eq('account_id', accountId)
       .maybeSingle();
@@ -130,42 +130,49 @@ export async function GET(_request: NextRequest, { params }: Params) {
       );
     }
 
-    let contact: Contact | undefined;
     const cId = (conv.contact_id || conv.contactId) as string;
-    if (cId) {
+    let rawContact = (conv.contact as Record<string, unknown> | null) ?? null;
+
+    if (!rawContact && cId) {
       const { data: cDoc } = await supabase
         .from('contacts')
         .select('*')
         .eq('id', cId)
         .eq('account_id', accountId)
         .maybeSingle();
-      if (cDoc) {
+      if (cDoc) rawContact = cDoc as Record<string, unknown>;
+    }
+
+    let contact: Contact | undefined;
+    if (rawContact) {
+      const phone = rawContact.phone as string | undefined;
+      if (phone && isWhatsAppCollectiveAddress(phone)) {
         const identity = await syncEvolutionGroupNamesForInbox(accountId, [
-          cDoc,
+          rawContact,
         ]);
-        overlayInboxWhatsAppIdentity(cDoc, identity);
-        contact = normalizeContact(cDoc);
-        if (isHiddenWhatsAppInboxChat(contact.phone, contact.metadata)) {
-          return NextResponse.json(
-            { error: 'Conversation not found' },
-            { status: 404, headers: CACHE_HEADERS }
-          );
-        }
-      } else {
-        contact = {
-          id: cId,
-          account_id: accountId,
-          user_id: '',
-          name: whatsappContactDisplayName(
-            (conv.contact_name as string) || (conv.patient_name as string),
-            conv.phone as string,
-            'Contact'
-          ),
-          phone: (conv.phone as string) || '',
-          created_at: (conv.created_at as string) || new Date().toISOString(),
-          updated_at: (conv.updated_at as string) || new Date().toISOString(),
-        };
+        overlayInboxWhatsAppIdentity(rawContact, identity);
       }
+      contact = normalizeContact(rawContact);
+      if (isHiddenWhatsAppInboxChat(contact.phone, contact.metadata)) {
+        return NextResponse.json(
+          { error: 'Conversation not found' },
+          { status: 404, headers: CACHE_HEADERS }
+        );
+      }
+    } else if (cId) {
+      contact = {
+        id: cId,
+        account_id: accountId,
+        user_id: '',
+        name: whatsappContactDisplayName(
+          (conv.contact_name as string) || (conv.patient_name as string),
+          conv.phone as string,
+          'Contact'
+        ),
+        phone: (conv.phone as string) || '',
+        created_at: (conv.created_at as string) || new Date().toISOString(),
+        updated_at: (conv.updated_at as string) || new Date().toISOString(),
+      };
     }
 
     const normalized = normalizeConversation(conv, contact);

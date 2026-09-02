@@ -120,7 +120,7 @@ export async function GET(request: NextRequest) {
     const supabase = getSupabaseAdminClient();
     let query = supabase
       .from('conversations')
-      .select('*')
+      .select('*, contact:contacts(*)')
       .eq('account_id', accountId)
       .order('updated_at', { ascending: false })
       .limit(fetchLimit);
@@ -149,41 +149,75 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const contactIds = Array.from(
+    const missingContactIds = Array.from(
       new Set(
         convs
+          .filter((c) => !c.contact)
           .map((c) => (c.contact_id || c.contactId) as string)
           .filter(Boolean)
       )
     );
 
     const contactsMap = new Map<string, Contact>();
-    if (contactIds.length > 0) {
+    if (missingContactIds.length > 0) {
       const { data: contactsData } = await supabase
         .from('contacts')
         .select('*')
         .eq('account_id', accountId)
-        .in('id', contactIds);
+        .in('id', missingContactIds);
 
-      const identity = await syncEvolutionGroupNamesForInbox(
-        accountId,
-        contactsData || []
-      );
       if (contactsData) {
         for (const contact of contactsData) {
-          overlayInboxWhatsAppIdentity(contact, identity);
           contactsMap.set(contact.id, normalizeContact(contact));
         }
       }
     }
 
+    const hasGroupContacts = convs.some((c) => {
+      const contactObj = (c.contact ||
+        (c.contact_id
+          ? contactsMap.get(c.contact_id as string)
+          : null)) as Record<string, unknown> | null;
+      const phone = (contactObj?.phone || c.phone) as string | undefined;
+      return phone && isWhatsAppCollectiveAddress(phone);
+    });
+
+    let identity = {
+      names: new Map<string, string>(),
+      avatars: new Map<string, string>(),
+    };
+    if (hasGroupContacts) {
+      const groupContacts = convs
+        .map(
+          (c) =>
+            (c.contact ||
+              (c.contact_id
+                ? contactsMap.get(c.contact_id as string)
+                : null)) as Record<string, unknown> | null
+        )
+        .filter(Boolean);
+      identity = await syncEvolutionGroupNamesForInbox(
+        accountId,
+        groupContacts as Parameters<typeof syncEvolutionGroupNamesForInbox>[1]
+      );
+    }
+
     const normalized = convs
       .map((c) => {
         const cId = (c.contact_id || c.contactId) as string;
-        let contact = cId ? contactsMap.get(cId) : undefined;
-        if (!contact && cId) {
+        const rawContact = (c.contact ||
+          (cId ? contactsMap.get(cId) : null)) as Record<
+          string,
+          unknown
+        > | null;
+        let contact: Contact | undefined;
+        if (rawContact) {
+          if (hasGroupContacts)
+            overlayInboxWhatsAppIdentity(rawContact, identity);
+          contact = normalizeContact(rawContact);
+        } else {
           contact = {
-            id: cId,
+            id: cId || '',
             account_id: accountId,
             user_id: '',
             name: whatsappContactDisplayName(
