@@ -242,8 +242,22 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       body.ai_chat_enabled !== undefined ||
       body.aiChatEnabled !== undefined
     ) {
-      updatePayload.ai_chat_enabled = Boolean(
+      const enabled = Boolean(
         body.ai_chat_enabled ?? body.aiChatEnabled
+      );
+      updatePayload.ai_chat_enabled = enabled;
+      if (enabled) {
+        updatePayload.ai_handoff_required = false;
+        updatePayload.ai_autoreply_disabled = false;
+        updatePayload.is_ai_enabled = true;
+      }
+    }
+    if (
+      body.ai_handoff_required !== undefined ||
+      body.aiHandoffRequired !== undefined
+    ) {
+      updatePayload.ai_handoff_required = Boolean(
+        body.ai_handoff_required ?? body.aiHandoffRequired
       );
     }
     if (

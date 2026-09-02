@@ -814,7 +814,10 @@ export function MessageThread({
       }
 
       if (onConversationUpdate) {
-        onConversationUpdate(conversation.id, { ai_chat_enabled: nextState });
+        onConversationUpdate(conversation.id, {
+          ai_chat_enabled: nextState,
+          ...(nextState ? { ai_handoff_required: false } : {}),
+        });
       }
       toast.success(`AI Chat mode turned ${nextState ? 'ON' : 'OFF'}`);
     } catch (error) {
