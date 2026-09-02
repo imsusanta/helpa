@@ -37,6 +37,7 @@ import {
   runWithEvolutionDeadline,
   hasEnoughEvolutionDeadline,
   VERCEL_EVOLUTION_REQUEST_TIMEOUT_MS,
+  VERCEL_EVOLUTION_SESSION_BUDGET_MS,
 } from '@/core/providers/whatsapp/evolution-go-env';
 import * as canonical from '@/core/whatsapp/canonical-config';
 
@@ -654,12 +655,23 @@ describe('Evolution Go environment helpers', () => {
     expect(isWhatsAppQrSimulationAllowed()).toBe(false);
   });
 
-  it('uses the Vercel timeout ceiling', () => {
+  it('keeps the Vercel QR/session ceiling inside a deadline', async () => {
     vi.stubEnv('VERCEL', '1');
     vi.stubEnv('EVOLUTION_GO_TIMEOUT_MS', '60000');
-    expect(evolutionGoTimeoutMs()).toBeLessThanOrEqual(
-      VERCEL_EVOLUTION_REQUEST_TIMEOUT_MS
+    vi.stubEnv(
+      'EVOLUTION_GO_SESSION_BUDGET_MS',
+      String(VERCEL_EVOLUTION_SESSION_BUDGET_MS)
     );
+    const timeout = await runWithEvolutionDeadline(async () =>
+      evolutionGoTimeoutMs()
+    );
+    expect(timeout).toBeLessThanOrEqual(VERCEL_EVOLUTION_REQUEST_TIMEOUT_MS);
+  });
+
+  it('does not cap message sends to the QR 3.5s ceiling on Vercel', () => {
+    vi.stubEnv('VERCEL', '1');
+    vi.stubEnv('EVOLUTION_GO_TIMEOUT_MS', '30000');
+    expect(evolutionGoTimeoutMs()).toBe(30_000);
   });
 
   it('bounds a request by the Evolution Go deadline', async () => {

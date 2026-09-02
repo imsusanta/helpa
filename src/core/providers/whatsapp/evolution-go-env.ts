@@ -68,11 +68,16 @@ export function evolutionGoTimeoutMs(): number {
   const configured = configuredTimeoutMs();
   const remaining = remainingEvolutionDeadlineMs();
   if (remaining != null) {
-    return Math.max(MIN_REQUEST_TIMEOUT_MS, Math.min(configured, remaining));
+    // QR / session budget path only. Hobby-safe 3.5s ceiling stays here so
+    // pairing requests still return before a ~10s platform kill.
+    return Math.max(
+      MIN_REQUEST_TIMEOUT_MS,
+      Math.min(configured, remaining, VERCEL_EVOLUTION_REQUEST_TIMEOUT_MS)
+    );
   }
-  if (process.env.VERCEL) {
-    return Math.min(configured, VERCEL_EVOLUTION_REQUEST_TIMEOUT_MS);
-  }
+  // Message send and other calls: use the configured timeout (default 30s).
+  // Applying the QR 3.5s ceiling here aborted Evolution Go sends on Vercel
+  // after the AI reply was already generated, so customers never received it.
   return configured;
 }
 
