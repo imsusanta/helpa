@@ -711,6 +711,10 @@ describe('Inbox API & Tenant Isolation Tests', () => {
       expect(json.messages).toHaveLength(1);
       expect(json.messages[0].content_text).toBe('Hi');
       expect(json.messages[0].sender_type).toBe('customer');
+      expect(mockMsgQuery.select).toHaveBeenCalledWith('*');
+      expect(mockMsgQuery.select).not.toHaveBeenCalledWith(
+        expect.stringContaining('template_name')
+      );
       expect(mockMsgQuery.eq).toHaveBeenCalledWith('account_id', 'tenant-a');
       expect(mockMsgQuery.eq).toHaveBeenCalledWith(
         'conversation_id',

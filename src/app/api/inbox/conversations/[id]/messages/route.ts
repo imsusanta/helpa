@@ -98,11 +98,12 @@ export async function GET(request: NextRequest, { params }: Params) {
     // returned the OLDEST N and silently dropped the most recent
     // messages in long threads, so agents replied without seeing the
     // newest context.
+    // Use `*` so a missing optional column (live Postgres has no
+    // `template_name`) cannot 42703 the whole thread into an empty inbox.
+    // `account_id` keeps the tenant conversation index in play.
     const { data: msgs, error: mErr } = await supabase
       .from('messages')
-      .select(
-        'id, conversation_id, account_id, sender_type, content_type, content_text, media_url, template_name, message_id, provider_message_id, status, created_at, reply_to_message_id, interactive_reply_id, direction'
-      )
+      .select('*')
       .eq('account_id', accountId)
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: false })
