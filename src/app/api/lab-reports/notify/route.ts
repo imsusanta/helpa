@@ -99,6 +99,7 @@ export async function POST(request: Request) {
             .from('contacts')
             .select('id, name, phone')
             .eq('id', patRec.contact_id)
+            .eq('account_id', accountId)
             .maybeSingle();
           if (cById) {
             patientName = cById.name || 'Patient';

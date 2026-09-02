@@ -64,20 +64,35 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         ? supabase
             .from('appointments')
             .select(
-              'id, starts_at, status, notes, contact:contacts(name, phone)'
+              'id, appointment_date, appointment_time, status, notes, patient_name, patient:contacts(name, phone)'
             )
             .eq('account_id', context.accountId)
-            .ilike('notes', `%${q}%`)
+            .or(`notes.ilike.%${q}%,patient_name.ilike.%${q}%`)
             .limit(10)
         : Promise.resolve({ data: [] }),
     ]);
+
+    const appointments = (appointmentsRes.data || []).map(
+      (row: {
+        appointment_date?: string | null;
+        appointment_time?: string | null;
+        patient?: { name?: string; phone?: string } | null;
+        patient_name?: string | null;
+      }) => ({
+        ...row,
+        starts_at: row.appointment_time
+          ? `${row.appointment_date}T${row.appointment_time}`
+          : row.appointment_date,
+        contact: row.patient || { name: row.patient_name },
+      })
+    );
 
     return NextResponse.json(
       {
         data: {
           contacts: contactsRes.data || [],
           deals: dealsRes.data || [],
-          appointments: appointmentsRes.data || [],
+          appointments,
         },
         requestId: correlationId,
       },

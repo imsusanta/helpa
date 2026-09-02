@@ -87,10 +87,12 @@ export async function GET(
       // C. Appointments
       supabase
         .from('appointments')
-        .select('id, starts_at, status, notes, created_at')
+        .select(
+          'id, appointment_date, appointment_time, status, notes, created_at'
+        )
         .eq('account_id', context.accountId)
-        .eq('contact_id', contactId)
-        .order('starts_at', { ascending: false })
+        .eq('patient_id', contactId)
+        .order('appointment_date', { ascending: false })
         .limit(50),
 
       // D. Deals for this contact
@@ -129,17 +131,20 @@ export async function GET(
     // Process Appointments
     if (appointmentsRes.data) {
       for (const appt of appointmentsRes.data) {
+        const when = [appt.appointment_date, appt.appointment_time]
+          .filter(Boolean)
+          .join(' ');
         activities.push({
           id: `appt-${appt.id}`,
           type: 'appointment',
           title: `Appointment ${appt.status ? appt.status.toUpperCase() : 'SCHEDULED'}`,
           description: appt.notes
             ? `Notes: ${appt.notes}`
-            : `Scheduled for ${new Date(appt.starts_at).toLocaleString()}`,
-          created_at: appt.created_at || appt.starts_at,
+            : `Scheduled for ${when || 'an upcoming slot'}`,
+          created_at: appt.created_at || appt.appointment_date,
           metadata: {
             appointmentId: appt.id,
-            startsAt: appt.starts_at,
+            startsAt: appt.appointment_date,
             status: appt.status,
           },
         });
@@ -169,7 +174,10 @@ export async function GET(
       const convIds = conversationsRes.data.map((c) => c.id);
       const { data: messages } = await supabase
         .from('messages')
-        .select('id, conversation_id, sender_type, content, created_at, status')
+        .select(
+          'id, conversation_id, sender_type, content_text, created_at, status'
+        )
+        .eq('account_id', context.accountId)
         .in('conversation_id', convIds)
         .order('created_at', { ascending: false })
         .limit(50);
@@ -188,7 +196,7 @@ export async function GET(
                 ? 'AI Reply Sent'
                 : 'WhatsApp Message Sent'
               : 'Inbound WhatsApp Message',
-            description: msg.content || '(Media message)',
+            description: msg.content_text || '(Media message)',
             created_at: msg.created_at,
             metadata: {
               messageId: msg.id,

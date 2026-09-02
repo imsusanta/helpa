@@ -91,6 +91,19 @@ export async function POST(request: Request) {
     }
 
     const db = getAdminClient();
+    const { data: tenantContact } = await db
+      .from('contacts')
+      .select('id')
+      .eq('id', targetContactId)
+      .eq('account_id', accountId)
+      .maybeSingle();
+
+    if (!tenantContact) {
+      return NextResponse.json(
+        { error: 'Contact not found.' },
+        { status: 404 }
+      );
+    }
     const insertPayload: Record<string, unknown> = {
       account_id: accountId,
       patient_id: targetContactId,

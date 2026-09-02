@@ -43,6 +43,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       const { data: directContacts } = await supabase
         .from('contacts')
         .select('id, name, phone')
+        .eq('account_id', context.accountId)
         .in('id', missingPatientIds);
 
       const contactMap = new Map((directContacts || []).map((c) => [c.id, c]));
@@ -83,6 +84,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json(
         { error: 'Patient and Test Name are required' },
         { status: 400, headers: PRIVATE_HEADERS }
+      );
+    }
+
+    const { data: tenantPatient } = await supabase
+      .from('contacts')
+      .select('id')
+      .eq('id', patient_id)
+      .eq('account_id', context.accountId)
+      .maybeSingle();
+
+    if (!tenantPatient) {
+      return NextResponse.json(
+        { error: 'Patient not found.' },
+        { status: 404, headers: PRIVATE_HEADERS }
       );
     }
 

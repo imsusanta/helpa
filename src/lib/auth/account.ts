@@ -96,7 +96,18 @@ export async function getCurrentAccount(): Promise<ResolvedAccountContext> {
     let role: AccountRole = 'viewer';
 
     if (memberships && memberships.length > 0) {
-      const activeMember = memberships[0];
+      let activeMember = memberships[0];
+      if (memberships.length > 1) {
+        const { data: profile } = await admin
+          .from('profiles')
+          .select('account_id')
+          .eq('user_id', userId)
+          .maybeSingle();
+        const preferred = memberships.find(
+          (member) => member.account_id === profile?.account_id
+        );
+        if (preferred) activeMember = preferred;
+      }
       accountId = activeMember.account_id;
       role = (activeMember.role as AccountRole) || 'viewer';
     } else {

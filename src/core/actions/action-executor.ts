@@ -148,11 +148,25 @@ export class TrustedActionExecutor {
         updateData.assigned_agent_id = params.assignedAgentId;
       }
 
-      await getAdminClient()
+      const { data: updated, error: updateError } = await getAdminClient()
         .from('conversations')
         .update(updateData)
         .eq('id', params.conversationId)
-        .eq('account_id', this.context.accountId);
+        .eq('account_id', this.context.accountId)
+        .select('id');
+
+      if (updateError) {
+        return {
+          success: false,
+          error: updateError.message || 'Failed to pause AI on conversation',
+        };
+      }
+      if (!updated || updated.length === 0) {
+        return {
+          success: false,
+          error: 'Conversation not found.',
+        };
+      }
 
       await auditLogsRepository.createAuditLog(
         this.context.accountId,

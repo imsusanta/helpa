@@ -21,6 +21,9 @@ const ALLOWED_BUCKETS = new Set([
   'pdf-tickets',
 ]);
 
+const PUBLIC_BUCKETS = new Set(['chat-media', 'flow-media', 'avatars']);
+const SIGNED_URL_TTL_SECONDS = 60 * 60;
+
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const correlationId =
     request.headers.get('x-request-id') || crypto.randomUUID();
@@ -65,7 +68,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       const exists = (buckets || []).some((b) => b.id === bucket);
       if (!exists) {
         await supabase.storage.createBucket(bucket, {
-          public: true,
+          public: PUBLIC_BUCKETS.has(bucket),
           fileSizeLimit: 20 * 1024 * 1024,
         });
       }
@@ -114,15 +117,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const { data: publicUrlData } = supabase.storage
-      .from(bucket)
-      .getPublicUrl(uploadData.path);
+    let fileUrl = '';
+    if (PUBLIC_BUCKETS.has(bucket)) {
+      const { data: publicUrlData } = supabase.storage
+        .from(bucket)
+        .getPublicUrl(uploadData.path);
+      fileUrl = publicUrlData.publicUrl;
+    } else {
+      const { data: signed } = await supabase.storage
+        .from(bucket)
+        .createSignedUrl(uploadData.path, SIGNED_URL_TTL_SECONDS);
+      fileUrl = signed?.signedUrl || '';
+    }
 
     return NextResponse.json(
       {
         success: true,
         data: {
-          publicUrl: publicUrlData.publicUrl,
+          publicUrl: fileUrl,
           path: uploadData.path,
         },
         requestId: correlationId,

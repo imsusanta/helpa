@@ -24,10 +24,61 @@ export async function POST(
     }
 
     const body = await request.json().catch(() => ({}));
-    const conversationId =
+    const requestedConversationId =
       typeof body.conversationId === 'string' && body.conversationId.length > 0
         ? body.conversationId
-        : leadId;
+        : null;
+
+    const admin = getAdminClient();
+    const { data: lead, error: leadErr } = await admin
+      .from('leads')
+      .select('id, contact_id, conversation_id')
+      .eq('id', leadId)
+      .eq('account_id', ctx.accountId)
+      .maybeSingle();
+
+    if (leadErr || !lead) {
+      return NextResponse.json(
+        { success: false, error: 'Lead not found.' },
+        { status: 404 }
+      );
+    }
+
+    let conversationId: string | null =
+      requestedConversationId || lead.conversation_id || null;
+
+    if (!conversationId && lead.contact_id) {
+      const { data: latestConv } = await admin
+        .from('conversations')
+        .select('id')
+        .eq('account_id', ctx.accountId)
+        .eq('contact_id', lead.contact_id)
+        .order('last_message_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      conversationId = latestConv?.id ?? null;
+    }
+
+    if (!conversationId) {
+      return NextResponse.json(
+        { success: false, error: 'No conversation found for this lead.' },
+        { status: 404 }
+      );
+    }
+
+    const { data: conversation } = await admin
+      .from('conversations')
+      .select('id')
+      .eq('id', conversationId)
+      .eq('account_id', ctx.accountId)
+      .maybeSingle();
+
+    if (!conversation) {
+      return NextResponse.json(
+        { success: false, error: 'Conversation not found.' },
+        { status: 404 }
+      );
+    }
 
     const executor = new TrustedActionExecutor({
       accountId: ctx.accountId,

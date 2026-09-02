@@ -102,19 +102,28 @@ export async function GET(
             .from('appointments')
             .select('*')
             .eq('account_id', ctx.accountId)
-            .eq('contact_id', contactId)
+            .eq('patient_id', contactId)
             .order('appointment_date', { ascending: false })
             .limit(10)
         : Promise.resolve({ data: [] }),
 
-      contactId
+      lead.conversation_id
         ? supabase
             .from('conversations')
             .select('*, messages(*)')
             .eq('account_id', ctx.accountId)
-            .eq('contact_id', contactId)
+            .eq('id', lead.conversation_id)
             .maybeSingle()
-        : Promise.resolve({ data: null }),
+        : contactId
+          ? supabase
+              .from('conversations')
+              .select('*, messages(*)')
+              .eq('account_id', ctx.accountId)
+              .eq('contact_id', contactId)
+              .order('last_message_at', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+          : Promise.resolve({ data: null }),
 
       lead.assigned_user_id
         ? supabase

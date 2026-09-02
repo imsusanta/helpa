@@ -280,6 +280,46 @@ describe('Strict Multi-Tenant Account Resolution & RBAC Security', () => {
     await expect(getCurrentAccount()).rejects.toThrow('Invalid account role');
   });
 
+  it('prefers the profile workspace when the user belongs to multiple accounts', async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: 'user_multi', email: 'multi@clinic.com' } },
+      error: null,
+    });
+
+    mockAdminSelect.mockImplementation((table: string) => {
+      if (table === 'account_members') {
+        return Promise.resolve({
+          data: [
+            { account_id: 'account_first', role: 'viewer', active: true },
+            { account_id: 'account_preferred', role: 'admin', active: true },
+          ],
+          error: null,
+        });
+      }
+      return Promise.resolve({ data: null, error: null });
+    });
+
+    mockAdminMaybeSingle.mockImplementation((table: string) => {
+      if (table === 'profiles') {
+        return Promise.resolve({
+          data: { account_id: 'account_preferred' },
+          error: null,
+        });
+      }
+      if (table === 'accounts') {
+        return Promise.resolve({
+          data: { id: 'account_preferred', name: 'Preferred Clinic' },
+          error: null,
+        });
+      }
+      return Promise.resolve({ data: null, error: null });
+    });
+
+    const ctx = await getCurrentAccount();
+    expect(ctx.accountId).toBe('account_preferred');
+    expect(ctx.role).toBe('admin');
+  });
+
   it('fails closed when user membership is marked inactive (active = false)', async () => {
     mockGetUser.mockResolvedValue({
       data: {

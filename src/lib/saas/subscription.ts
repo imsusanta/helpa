@@ -136,7 +136,11 @@ export async function checkFeatureAccess(
     return { allowed: true, featureKey };
   } catch (err) {
     console.error('[checkFeatureAccess] error:', err);
-    return { allowed: true, featureKey };
+    return {
+      allowed: false,
+      featureKey,
+      reason: 'Unable to verify plan access. Please try again.',
+    };
   }
 }
 
@@ -238,11 +242,13 @@ export async function checkPlanLimits(
   } catch (err) {
     console.error('[checkPlanLimits] error:', err);
     return {
-      allowed: true,
+      allowed: false,
       currentUsage: 0,
-      limit: 99999,
-      remaining: 99999,
-      percentageUsed: 0,
+      limit: 0,
+      remaining: 0,
+      percentageUsed: 100,
+      warningLevel: '100%',
+      reason: 'Unable to verify plan limits. Please try again.',
     };
   }
 }

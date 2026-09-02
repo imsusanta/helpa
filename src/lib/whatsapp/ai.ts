@@ -70,7 +70,8 @@ export async function triggerAiResponse(
     }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.warn('[AI Assistant] Limit check warning, continuing:', msg);
+    console.warn('[AI Assistant] Limit check failed closed:', msg);
+    return;
   }
 
   const db = getAdminClient();

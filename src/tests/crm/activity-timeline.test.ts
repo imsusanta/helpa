@@ -91,7 +91,8 @@ describe('GET /api/contacts/[id]/activities', () => {
             data: [
               {
                 id: 'appt-1',
-                starts_at: '2026-08-02T10:00:00Z',
+                appointment_date: '2026-08-02',
+                appointment_time: '10:00',
                 status: 'confirmed',
                 notes: 'General Checkup',
                 created_at: '2026-08-01T11:00:00Z',
@@ -133,6 +134,7 @@ describe('GET /api/contacts/[id]/activities', () => {
       if (table === 'messages') {
         return {
           select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
           in: vi.fn().mockReturnThis(),
           order: vi.fn().mockReturnThis(),
           limit: vi.fn().mockResolvedValue({
@@ -141,7 +143,7 @@ describe('GET /api/contacts/[id]/activities', () => {
                 id: 'msg-1',
                 conversation_id: 'conv-1',
                 sender_type: 'contact',
-                content: 'Hello there',
+                content_text: 'Hello there',
                 created_at: '2026-08-01T10:05:00Z',
                 status: 'delivered',
               },

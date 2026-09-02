@@ -86,10 +86,12 @@ export async function GET(
         .order('created_at', { ascending: false }),
       supabase
         .from('appointments')
-        .select('id, starts_at, status, notes, created_at')
+        .select(
+          'id, appointment_date, appointment_time, status, notes, created_at'
+        )
         .eq('account_id', context.accountId)
-        .eq('contact_id', id)
-        .order('starts_at', { ascending: false }),
+        .eq('patient_id', id)
+        .order('appointment_date', { ascending: false }),
       supabase
         .from('contact_notes')
         .select('id, note_text, created_at')

@@ -264,8 +264,11 @@ export function LeadDetailsDrawer({
   const handleHumanHandoff = async () => {
     if (!leadId || !details?.lead?.id) return;
     try {
+      const conversationId = details?.conversation?.id;
       const res = await fetch(`/api/leads/${leadId}/handoff`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(conversationId ? { conversationId } : {}),
       });
       const json = await res.json();
       if (res.ok && json.success) {
