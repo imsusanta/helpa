@@ -9,7 +9,6 @@ import {
   buildFallbackCopilotSnapshot,
   generateOpenRouterCopilotSnapshot,
   type CopilotAppointment,
-  type CopilotContact,
   type CopilotContactNote,
   type CopilotConversationMemory,
   type CopilotDoctor,
@@ -24,6 +23,11 @@ import { decrypt } from '@/lib/whatsapp/encryption';
 import { checkPlanLimits, incrementUsage } from '@/lib/saas/subscription';
 import { resolveSystemPrompt } from '@/modules/registry';
 import { resolveAccountAiConfig } from '@/core/ai/resolver';
+import {
+  COPILOT_CONTACT_SELECT,
+  COPILOT_CONVERSATION_SELECT,
+  toCopilotContact,
+} from '@/lib/ai/copilot-contact';
 
 type Related<T> = T | T[] | null | undefined;
 
@@ -36,7 +40,13 @@ interface ConversationRow {
   last_message_at?: string | null;
   ai_summary?: string | null;
   created_at?: string | null;
-  contact?: Related<CopilotContact>;
+  contact?: Related<{
+    id: string;
+    name?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    metadata?: unknown;
+  }>;
 }
 
 interface AccountAiRow {
@@ -69,9 +79,7 @@ async function loadCopilotContext(
   const { data: conversationData, error: conversationError } =
     await ctx.appwrite
       .from('conversations')
-      .select(
-        'id, account_id, contact_id, status, last_message_text, last_message_at, ai_summary, created_at, contact:contacts(id, name, phone, email, company)'
-      )
+      .select(COPILOT_CONVERSATION_SELECT)
       .eq('id', conversationId)
       .eq('account_id', ctx.accountId)
       .maybeSingle();
@@ -92,12 +100,12 @@ async function loadCopilotContext(
   }
 
   const conversation = conversationData;
-  let contact = relatedOne(conversation.contact) as CopilotContact | null;
+  let contact = toCopilotContact(relatedOne(conversation.contact));
 
   if (!contact) {
     const { data: contactData, error: contactError } = await ctx.appwrite
       .from('contacts')
-      .select('id, name, phone, email, company')
+      .select(COPILOT_CONTACT_SELECT)
       .eq('id', conversation.contact_id)
       .eq('account_id', ctx.accountId)
       .maybeSingle();
@@ -109,7 +117,7 @@ async function loadCopilotContext(
         { status: 500 }
       );
     }
-    contact = contactData as CopilotContact | null;
+    contact = toCopilotContact(contactData);
   }
 
   if (!contact) {
