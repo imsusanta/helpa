@@ -1,5 +1,4 @@
 {
-  "regions": ["bom1"],
   "crons": [
     {
       "path": "/api/cron/subscription-lifecycle",

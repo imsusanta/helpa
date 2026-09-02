@@ -64,6 +64,18 @@ export function isPublicRoute(pathname: string): boolean {
 }
 
 export async function proxy(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+
+  // Fast-path for public non-auth routes (landing, health, webhooks, static)
+  if (
+    isPublicRoute(pathname) &&
+    pathname !== '/login' &&
+    pathname !== '/signup' &&
+    pathname !== '/forgot-password'
+  ) {
+    return NextResponse.next({ request });
+  }
+
   let user: { id: string; email?: string } | null = null;
   try {
     const runtime = getRuntimeConfig();
@@ -99,8 +111,6 @@ export async function proxy(request: NextRequest) {
   } catch {
     // Missing/invalid runtime configuration fails closed for protected routes.
   }
-
-  const pathname = request.nextUrl.pathname;
 
   // Auth pages - redirect to dashboard if already logged in.
   if (
