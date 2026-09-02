@@ -208,24 +208,26 @@ describe('syncEvolutionGroupNamesForInbox', () => {
     listEvolutionGoNewsletters.mockResolvedValue([]);
     listEvolutionGoContacts.mockResolvedValue([]);
 
-    expect(getCachedInboxWhatsAppIdentity('acct-1').names.size).toBe(0);
+    expect(getCachedInboxWhatsAppIdentity('acct-cache').names.size).toBe(0);
 
-    scheduleInboxGroupNameSync('acct-1', [
+    scheduleInboxGroupNameSync('acct-cache', [
       { phone: '120363316746745895', name: '120363316746745895' },
     ]);
-    scheduleInboxGroupNameSync('acct-1', [
+    scheduleInboxGroupNameSync('acct-cache', [
       { phone: '120363316746745895', name: '120363316746745895' },
     ]);
 
     await vi.waitFor(() => {
       expect(
-        getCachedInboxWhatsAppIdentity('acct-1').names.get('120363316746745895')
+        getCachedInboxWhatsAppIdentity('acct-cache').names.get(
+          '120363316746745895'
+        )
       ).toBe('Helpa Clinic Team');
     });
 
     expect(listEvolutionGoGroups).toHaveBeenCalledTimes(1);
 
-    scheduleInboxGroupNameSync('acct-1', [
+    scheduleInboxGroupNameSync('acct-cache', [
       { phone: '120363316746745895', name: '120363316746745895' },
     ]);
     expect(listEvolutionGoGroups).toHaveBeenCalledTimes(1);
