@@ -72,20 +72,27 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         : Promise.resolve({ data: [] }),
     ]);
 
-    const appointments = (appointmentsRes.data || []).map(
-      (row: {
+    const appointments = (appointmentsRes.data || []).map((row) => {
+      const record = row as {
         appointment_date?: string | null;
         appointment_time?: string | null;
-        patient?: { name?: string; phone?: string } | null;
         patient_name?: string | null;
-      }) => ({
-        ...row,
-        starts_at: row.appointment_time
-          ? `${row.appointment_date}T${row.appointment_time}`
-          : row.appointment_date,
-        contact: row.patient || { name: row.patient_name },
-      })
-    );
+        patient?:
+          | { name?: string; phone?: string }
+          | Array<{ name?: string; phone?: string }>
+          | null;
+      };
+      const patient = Array.isArray(record.patient)
+        ? record.patient[0]
+        : record.patient;
+      return {
+        ...record,
+        starts_at: record.appointment_time
+          ? `${record.appointment_date}T${record.appointment_time}`
+          : record.appointment_date,
+        contact: patient || { name: record.patient_name },
+      };
+    });
 
     return NextResponse.json(
       {

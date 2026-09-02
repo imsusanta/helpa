@@ -119,6 +119,7 @@ interface HydratedLeadDetails {
     transcript?: string;
     started_at: string;
   }>;
+  conversation?: { id: string } | null;
   messages: Array<{
     id: string;
     sender_type: string;
