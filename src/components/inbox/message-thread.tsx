@@ -431,12 +431,12 @@ export function MessageThread({
 
     void fetchMsgs(Boolean(cachedForConv && cachedForConv.length > 0));
 
-    // Periodic safety-net poll every 10 seconds for active thread
+    // Periodic safety-net poll every 60 seconds for active thread (Realtime handles live messages)
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') {
         void fetchMsgs(true);
       }
-    }, 10000);
+    }, 60000);
 
     return () => {
       cancelled = true;

@@ -43,7 +43,11 @@ export function NotificationCenter() {
 
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 30000); // Polling every 30s
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchNotifications();
+      }
+    }, 60000); // Polling every 60s when visible
     return () => clearInterval(interval);
   }, [fetchNotifications]);
 

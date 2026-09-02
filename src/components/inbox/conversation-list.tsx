@@ -170,12 +170,12 @@ export function ConversationList({
 
     void fetchConvs(false);
 
-    // Periodic safety-net poll every 10 seconds
+    // Periodic safety-net poll every 60 seconds (Realtime handles instant updates)
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') {
         void fetchConvs(true);
       }
-    }, 10000);
+    }, 60000);
 
     return () => {
       cancelled = true;
