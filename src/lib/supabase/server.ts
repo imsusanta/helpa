@@ -47,14 +47,25 @@ export async function createClient(options: ServerClientOptions = {}) {
   });
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let adminClientInstance: any = null;
+
 export function getAdminClient() {
+  if (adminClientInstance && process.env.NODE_ENV === 'production') {
+    return adminClientInstance;
+  }
   const { url: supabaseUrl } = requireSupabasePublicConfig();
   const serviceRoleKey = requireSupabaseServiceRole();
 
-  return createSupabaseClient(supabaseUrl, serviceRoleKey, {
+  const client = createSupabaseClient(supabaseUrl, serviceRoleKey, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,
     },
   });
+
+  if (process.env.NODE_ENV === 'production') {
+    adminClientInstance = client;
+  }
+  return client;
 }

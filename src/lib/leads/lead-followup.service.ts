@@ -158,8 +158,8 @@ export async function cancelScheduledFollowups(
       .eq('account_id', input.accountId)
       .in('id', ids);
 
-    const leadIds = Array.from(
-      new Set(rows.map((r) => r.lead_id as string).filter(Boolean))
+    const leadIds: string[] = Array.from(
+      new Set(rows.map((r) => String(r.lead_id || '')).filter(Boolean))
     );
     const followupStatus =
       input.reason === 'human_handoff' ? 'human_takeover' : 'waiting_for_reply';
