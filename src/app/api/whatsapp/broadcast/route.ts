@@ -21,6 +21,10 @@ import {
   rateLimitResponse,
   RATE_LIMITS,
 } from '@/lib/rate-limit';
+import {
+  assertWhatsAppMessageQuota,
+  incrementUsage,
+} from '@/lib/saas/subscription';
 
 interface BroadcastResult {
   phone: string;
@@ -80,6 +84,22 @@ export async function POST(request: Request) {
     );
     if (!limit.success) {
       return rateLimitResponse(limit);
+    }
+
+    const quota = await assertWhatsAppMessageQuota(accountId);
+    if (!quota.allowed) {
+      return NextResponse.json(
+        {
+          error: 'PLAN_LIMIT_REACHED',
+          message:
+            quota.reason ||
+            'Your WhatsApp message limit has been reached. Please upgrade your plan to continue.',
+          current: quota.currentUsage,
+          limit: quota.limit,
+          upgrade_required: true,
+        },
+        { status: 403 }
+      );
     }
 
     const body = await request.json();
@@ -443,6 +463,25 @@ export async function POST(request: Request) {
       );
     }
 
+    const batchQuota = await assertWhatsAppMessageQuota(
+      accountId,
+      recipients.length
+    );
+    if (!batchQuota.allowed) {
+      return NextResponse.json(
+        {
+          error: 'PLAN_LIMIT_REACHED',
+          message:
+            batchQuota.reason ||
+            `This broadcast needs ${recipients.length} messages, which exceeds the remaining plan quota.`,
+          current: batchQuota.currentUsage,
+          limit: batchQuota.limit,
+          upgrade_required: true,
+        },
+        { status: 403 }
+      );
+    }
+
     if (!template_name) {
       return NextResponse.json(
         { error: 'template_name is required' },
@@ -587,6 +626,10 @@ export async function POST(request: Request) {
         });
         failedCount++;
       }
+    }
+
+    if (sentCount > 0) {
+      await incrementUsage(accountId, 'whatsapp_messages', sentCount);
     }
 
     return NextResponse.json({

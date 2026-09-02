@@ -245,6 +245,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
+    const { data: tenantContact } = await supabase
+      .from('contacts')
+      .select('id')
+      .eq('id', contact_id)
+      .eq('account_id', ctx.accountId)
+      .maybeSingle();
+    if (!tenantContact) {
+      return errorResponse(
+        404,
+        'CONTACT_NOT_FOUND',
+        correlationId,
+        'Contact not found.'
+      );
+    }
+
     const { data: seqNumber, error: sequenceError } = await supabase.rpc(
       'generate_next_invoice_number',
       {

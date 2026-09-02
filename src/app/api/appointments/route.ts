@@ -114,6 +114,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
+    const { data: tenantPatient } = await supabase
+      .from('contacts')
+      .select('id')
+      .eq('id', patient_id)
+      .eq('account_id', context.accountId)
+      .maybeSingle();
+    if (!tenantPatient) {
+      return NextResponse.json(
+        { error: 'Patient not found.' },
+        { status: 404, headers: PRIVATE_HEADERS }
+      );
+    }
+
     const travelNotes =
       isTravel && !notes
         ? [

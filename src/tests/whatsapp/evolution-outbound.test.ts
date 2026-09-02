@@ -26,6 +26,24 @@ const mocks = vi.hoisted(() => ({
   },
 }));
 
+vi.mock('@/lib/saas/subscription', () => ({
+  checkPlanLimits: vi.fn(async () => ({
+    allowed: true,
+    currentUsage: 0,
+    limit: 99999,
+    remaining: 99999,
+    percentageUsed: 0,
+  })),
+  incrementUsage: vi.fn(async () => undefined),
+  assertWhatsAppMessageQuota: vi.fn(async () => ({
+    allowed: true,
+    currentUsage: 0,
+    limit: 99999,
+    remaining: 99999,
+    percentageUsed: 0,
+  })),
+}));
+
 vi.mock('@/lib/auth/account', () => ({
   getCurrentAccount: vi.fn().mockResolvedValue({
     accountId: 'tenant-1',

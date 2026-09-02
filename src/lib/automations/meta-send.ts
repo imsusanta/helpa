@@ -26,6 +26,10 @@ import { classifyWhatsAppProvider } from '@/core/whatsapp/canonical-config';
 import { EvolutionGoProvider } from '@/core/providers/whatsapp/evolution-go-provider';
 import { WahaWhatsAppProvider } from '@/core/providers/whatsapp/waha-provider';
 import { UnsupportedWhatsAppOperationError } from '@/core/providers/whatsapp/whatsapp-provider.interface';
+import {
+  assertWhatsAppMessageQuota,
+  incrementUsage,
+} from '@/lib/saas/subscription';
 
 interface SendTextArgs {
   accountId: string;
@@ -260,6 +264,10 @@ async function recordSentMessage(
       replyToMessageId: extras?.replyToMessageId,
       createdAt: extras?.createdAt,
     });
+    if (metaMessageId) {
+      await incrementUsage(accountId, 'whatsapp_messages');
+    }
+
     if (!persistRes.ok) {
       console.error(
         '[meta-send] Failed to persist outbound message:',
@@ -291,9 +299,20 @@ async function recordSentMessage(
   }
 }
 
+async function assertCanSendWhatsApp(accountId: string): Promise<void> {
+  const quota = await assertWhatsAppMessageQuota(accountId);
+  if (!quota.allowed) {
+    throw new Error(
+      quota.reason ||
+        'WhatsApp message limit reached. Upgrade the plan to continue sending.'
+    );
+  }
+}
+
 export async function engineSendText(
   args: SendTextArgs
 ): Promise<{ whatsapp_message_id: string }> {
+  await assertCanSendWhatsApp(args.accountId);
   const creds = await resolveCredentialsAndPhone(
     args.accountId,
     args.contactId,
@@ -364,6 +383,7 @@ export async function engineSendText(
 export async function engineSendDocument(
   args: SendDocumentArgs
 ): Promise<{ whatsapp_message_id: string }> {
+  await assertCanSendWhatsApp(args.accountId);
   await assertLabReportDeliveryAllowed(args);
   const creds = await resolveCredentialsAndPhone(
     args.accountId,
@@ -449,6 +469,7 @@ export async function engineSendDocument(
 export async function engineSendButtons(
   args: SendButtonsArgs
 ): Promise<{ whatsapp_message_id: string }> {
+  await assertCanSendWhatsApp(args.accountId);
   const creds = await resolveCredentialsAndPhone(
     args.accountId,
     args.contactId,
@@ -555,6 +576,7 @@ export async function engineSendButtons(
 export async function engineSendTemplate(
   args: SendTemplateArgs
 ): Promise<{ whatsapp_message_id: string }> {
+  await assertCanSendWhatsApp(args.accountId);
   const creds = await resolveCredentialsAndPhone(
     args.accountId,
     args.contactId,
@@ -618,6 +640,7 @@ interface SendMediaArgs {
 export async function engineSendMedia(
   args: SendMediaArgs
 ): Promise<{ whatsapp_message_id: string }> {
+  await assertCanSendWhatsApp(args.accountId);
   const creds = await resolveCredentialsAndPhone(
     args.accountId,
     args.contactId,
@@ -715,6 +738,7 @@ interface SendListArgs {
 export async function engineSendInteractiveList(
   args: SendListArgs
 ): Promise<{ whatsapp_message_id: string }> {
+  await assertCanSendWhatsApp(args.accountId);
   const creds = await resolveCredentialsAndPhone(
     args.accountId,
     args.contactId,

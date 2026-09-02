@@ -7,6 +7,7 @@ vi.mock('@/lib/db/server', () => ({
 }));
 
 import {
+  assertWhatsAppMessageQuota,
   checkFeatureAccess,
   checkPlanLimits,
 } from '@/lib/saas/subscription';
@@ -23,5 +24,10 @@ describe('subscription entitlement fail-closed', () => {
     expect(result.allowed).toBe(false);
     expect(result.limit).toBe(0);
     expect(result.reason).toMatch(/Unable to verify plan limits/i);
+  });
+
+  it('blocks WhatsApp sends when quota lookup throws', async () => {
+    const result = await assertWhatsAppMessageQuota('acct-1', 1);
+    expect(result.allowed).toBe(false);
   });
 });

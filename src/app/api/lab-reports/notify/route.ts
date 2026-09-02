@@ -170,6 +170,7 @@ export async function POST(request: Request) {
           .from('hospital_doctors')
           .select('name')
           .eq('id', report.doctor_id)
+          .eq('account_id', accountId)
           .maybeSingle();
         if (doc?.name) {
           doctorName = `Dr. ${doc.name.replace(/^Dr\.\s+/i, '')}`;

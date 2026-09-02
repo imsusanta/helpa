@@ -38,6 +38,10 @@ import { classifyWhatsAppProvider } from '@/core/whatsapp/canonical-config';
 import { EvolutionGoProvider } from '@/core/providers/whatsapp/evolution-go-provider';
 import { WahaWhatsAppProvider } from '@/core/providers/whatsapp/waha-provider';
 import { UnsupportedWhatsAppOperationError } from '@/core/providers/whatsapp/whatsapp-provider.interface';
+import {
+  assertWhatsAppMessageQuota,
+  incrementUsage,
+} from '@/lib/saas/subscription';
 
 export async function POST(request: Request) {
   try {
@@ -46,6 +50,22 @@ export async function POST(request: Request) {
     const accountId = ctx.accountId;
     const limit = await checkRateLimit(`send:${user.id}`, RATE_LIMITS.send);
     if (!limit.success) return rateLimitResponse(limit);
+
+    const quota = await assertWhatsAppMessageQuota(accountId);
+    if (!quota.allowed) {
+      return NextResponse.json(
+        {
+          error: 'PLAN_LIMIT_REACHED',
+          message:
+            quota.reason ||
+            'Your WhatsApp message limit has been reached. Please upgrade your plan to continue.',
+          current: quota.currentUsage,
+          limit: quota.limit,
+          upgrade_required: true,
+        },
+        { status: 403 }
+      );
+    }
 
     const body = await request.json();
     const idempotencyKey =
@@ -785,6 +805,7 @@ export async function POST(request: Request) {
           persistRes.error
         );
       } catch {}
+      await incrementUsage(accountId, 'whatsapp_messages');
       return NextResponse.json({
         success: true,
         status: 'sent_meta_reconciliation_pending',
@@ -827,6 +848,7 @@ export async function POST(request: Request) {
       );
     }
 
+    await incrementUsage(accountId, 'whatsapp_messages');
     return NextResponse.json({
       success: true,
       message_id: waMessageId,

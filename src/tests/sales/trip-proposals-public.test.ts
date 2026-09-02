@@ -191,6 +191,16 @@ describe('quotation create', () => {
     const itemPayloads: unknown[] = [];
 
     mockFrom.mockImplementation((table: string) => {
+      if (table === 'contacts') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({
+            data: { id: 'contact-1' },
+            error: null,
+          }),
+        };
+      }
       if (table === 'quotations') {
         return {
           insert: (payload: unknown) => {

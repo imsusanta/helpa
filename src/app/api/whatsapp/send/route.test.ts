@@ -11,6 +11,35 @@ const { contactsTerminalCalls } = vi.hoisted(() => ({
 
 // Resolve the tenant deterministically so the route reaches contact
 // validation without depending on the profiles fallback path.
+const { checkPlanLimits, incrementUsage } = vi.hoisted(() => ({
+  checkPlanLimits: vi.fn(
+    async (_accountId?: string, _limitKey?: string) => ({
+      allowed: true,
+      currentUsage: 0,
+      limit: 99999,
+      remaining: 99999,
+      percentageUsed: 0,
+      reason: undefined as string | undefined,
+    })
+  ),
+  incrementUsage: vi.fn(async () => undefined),
+}));
+
+vi.mock('@/lib/saas/subscription', () => ({
+  checkPlanLimits,
+  incrementUsage,
+  assertWhatsAppMessageQuota: async (
+    accountId: string,
+    quantity: number = 1
+  ) => {
+    const quota = await checkPlanLimits(accountId, 'whatsapp_messages');
+    if (!quota.allowed || quota.remaining < quantity) {
+      return { ...quota, allowed: false };
+    }
+    return quota;
+  },
+}));
+
 vi.mock('@/lib/auth/account', () => ({
   getCurrentAccount: vi.fn().mockResolvedValue({
     accountId: 'tenant-1',
@@ -131,5 +160,30 @@ describe('WhatsApp send — cross-tenant contact validation', () => {
       (filters) => 'id' in filters && !('account_id' in filters)
     );
     expect(unscopedRetries).toHaveLength(0);
+  });
+
+  it('rejects outbound send when the WhatsApp message quota is exhausted', async () => {
+    checkPlanLimits.mockResolvedValueOnce({
+      allowed: false,
+      currentUsage: 100,
+      limit: 100,
+      remaining: 0,
+      percentageUsed: 100,
+      reason: 'limit reached',
+    });
+
+    const req = new Request('http://localhost/api/whatsapp/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contact_id: 'contact-1',
+        message: 'Hello',
+      }),
+    });
+
+    const res = await POST(req);
+    const json = await res.json();
+    expect(res.status).toBe(403);
+    expect(json.error).toBe('PLAN_LIMIT_REACHED');
   });
 });

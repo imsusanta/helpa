@@ -253,6 +253,23 @@ export async function checkPlanLimits(
   }
 }
 
+export async function assertWhatsAppMessageQuota(
+  accountId: string,
+  quantity: number = 1
+): Promise<UsageLimitCheckResult> {
+  const quota = await checkPlanLimits(accountId, 'whatsapp_messages');
+  if (!quota.allowed || quota.remaining < quantity) {
+    return {
+      ...quota,
+      allowed: false,
+      reason:
+        quota.reason ||
+        'Your WhatsApp message limit has been reached. Please upgrade your plan to continue.',
+    };
+  }
+  return quota;
+}
+
 export async function incrementUsage(
   accountId: string,
   metric: 'ai_requests' | 'whatsapp_messages',

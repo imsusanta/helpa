@@ -95,12 +95,14 @@ export async function POST(request: Request) {
         await db
           .from('patients')
           .update({ blood_group: detectedBg })
-          .eq('id', contact_id);
+          .eq('id', contact_id)
+          .eq('account_id', accountId);
         const meta = contact.metadata || {};
         await db
           .from('contacts')
           .update({ metadata: { ...meta, blood_group: detectedBg } })
-          .eq('id', contact_id);
+          .eq('id', contact_id)
+          .eq('account_id', accountId);
       }
     }
 

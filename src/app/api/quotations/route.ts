@@ -158,6 +158,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         'At least one line item is required.'
       );
 
+    const { data: tenantContact } = await supabase
+      .from('contacts')
+      .select('id')
+      .eq('id', contact_id)
+      .eq('account_id', ctx.accountId)
+      .maybeSingle();
+    if (!tenantContact)
+      return errorResponse(
+        404,
+        'CONTACT_NOT_FOUND',
+        correlationId,
+        'Contact not found.'
+      );
+
     const { data: seqNumber, error: sequenceError } = await supabase.rpc(
       'generate_next_quotation_number',
       { p_account_id: ctx.accountId }
