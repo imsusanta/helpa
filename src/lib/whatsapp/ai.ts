@@ -249,12 +249,14 @@ export async function triggerAiResponse(
     feature: 'AI_REPLY',
   });
   const hasValidKey = Boolean(
-    aiResolved.primary.apiKey || aiResolved.fallback?.apiKey
+    aiResolved.primary.apiKey ||
+    aiResolved.fallback?.apiKey ||
+    aiResolved.fallbacks.some((f) => Boolean(f.apiKey?.trim()))
   );
 
   if (!hasValidKey) {
     console.warn(
-      '[AI Assistant] Neither OpenRouter nor OrcaRouter API credentials configured in Super Admin settings, environment, or account for account:',
+      '[AI Assistant] No AI provider API credentials configured in Super Admin settings, environment, or account for account:',
       accountId
     );
     return;

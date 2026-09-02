@@ -285,24 +285,23 @@ export function MessageThread({
         if (cancelled) return;
         const members = json.members || [];
         const profs = members.map(
-          (
-            m: {
-              user_id?: string;
-              full_name?: string;
-              email?: string;
-              avatar_url?: string;
-              role?: string;
-              joined_at?: string;
-            }
-          ) => ({
-          id: m.user_id,
-          user_id: m.user_id,
-          full_name: m.full_name,
-          email: m.email,
-          avatar_url: m.avatar_url,
-          role: m.role,
-          created_at: m.joined_at,
-        }));
+          (m: {
+            user_id?: string;
+            full_name?: string;
+            email?: string;
+            avatar_url?: string;
+            role?: string;
+            joined_at?: string;
+          }) => ({
+            id: m.user_id,
+            user_id: m.user_id,
+            full_name: m.full_name,
+            email: m.email,
+            avatar_url: m.avatar_url,
+            role: m.role,
+            created_at: m.joined_at,
+          })
+        );
         cachedMembersList = profs as Profile[];
         setProfiles(profs as Profile[]);
       })

@@ -25,7 +25,8 @@ import path from 'node:path';
 
 const SRC_ROOT = path.resolve(__dirname, '..', '..');
 
-const IMPORT_RE = /(?:from|import)\s+['"]([^'"]+)['"]|import\(\s*['"]([^'"]+)['"]\s*\)/g;
+const IMPORT_RE =
+  /(?:from|import)\s+['"]([^'"]+)['"]|import\(\s*['"]([^'"]+)['"]\s*\)/g;
 
 /** Source dirs scanned for boundary rules (tests are exempt). */
 const BOUNDARY_RULES: Array<{
@@ -62,7 +63,10 @@ function listSourceFiles(dir: string): string[] {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       out.push(...listSourceFiles(full));
-    } else if (/\.(ts|tsx)$/.test(entry.name) && !entry.name.endsWith('.d.ts')) {
+    } else if (
+      /\.(ts|tsx)$/.test(entry.name) &&
+      !entry.name.endsWith('.d.ts')
+    ) {
       out.push(full);
     }
   }
@@ -71,7 +75,8 @@ function listSourceFiles(dir: string): string[] {
 
 function isTestFile(file: string): boolean {
   return (
-    file.includes(`${path.sep}tests${path.sep}`) || /\.test\.(ts|tsx)$/.test(file)
+    file.includes(`${path.sep}tests${path.sep}`) ||
+    /\.test\.(ts|tsx)$/.test(file)
   );
 }
 
@@ -82,10 +87,7 @@ function extractImportSpecifiers(
   // `import type ... from` statements are erased at runtime and cannot
   // create runtime cycles, so cycle detection excludes them.
   const effectiveContent = options.excludeTypeOnly
-    ? content.replace(
-        /import\s+type\s+[^;'"]*?from\s+['"][^'"]+['"];?/g,
-        ''
-      )
+    ? content.replace(/import\s+type\s+[^;'"]*?from\s+['"][^'"]+['"];?/g, '')
     : content;
   const specifiers: string[] = [];
   for (const match of effectiveContent.matchAll(IMPORT_RE)) {
@@ -103,7 +105,8 @@ describe('Architecture: layer boundaries', () => {
         const content = fs.readFileSync(file, 'utf8');
         for (const specifier of extractImportSpecifiers(content)) {
           const forbidden = rule.forbidden.find(
-            (prefix) => specifier === prefix || specifier.startsWith(`${prefix}/`)
+            (prefix) =>
+              specifier === prefix || specifier.startsWith(`${prefix}/`)
           );
           if (forbidden) {
             violations.push(
@@ -121,7 +124,10 @@ describe('Architecture: layer boundaries', () => {
 });
 
 describe('Architecture: no circular imports in core', () => {
-  function resolveCoreImport(fromFile: string, specifier: string): string | null {
+  function resolveCoreImport(
+    fromFile: string,
+    specifier: string
+  ): string | null {
     let target: string | null = null;
     if (specifier.startsWith('@/core/')) {
       target = path.join(SRC_ROOT, specifier.slice('@/'.length));
@@ -206,9 +212,8 @@ describe('Architecture: no circular imports in core', () => {
 
 describe('Architecture: industry module port', () => {
   it('falls back to a safe general manifest before registration', async () => {
-    const { getIndustryModulePort, resetIndustryModulePort } = await import(
-      '@/core/modules/industry-port'
-    );
+    const { getIndustryModulePort, resetIndustryModulePort } =
+      await import('@/core/modules/industry-port');
     resetIndustryModulePort();
     const port = getIndustryModulePort();
     const manifest = port.getIndustryModule('hospital_clinic');
@@ -223,12 +228,10 @@ describe('Architecture: industry module port', () => {
   });
 
   it('modules layer registers the registry-backed port', async () => {
-    const { getIndustryModulePort } = await import(
-      '@/core/modules/industry-port'
-    );
-    const { registerIndustryModulePort } = await import(
-      '@/modules/industry-port'
-    );
+    const { getIndustryModulePort } =
+      await import('@/core/modules/industry-port');
+    const { registerIndustryModulePort } =
+      await import('@/modules/industry-port');
     registerIndustryModulePort();
 
     const port = getIndustryModulePort();
@@ -247,9 +250,8 @@ describe('Architecture: industry module port', () => {
   });
 
   it('resolveSystemPrompt applies the intent-fulfillment policy', async () => {
-    const { getIndustryModulePort } = await import(
-      '@/core/modules/industry-port'
-    );
+    const { getIndustryModulePort } =
+      await import('@/core/modules/industry-port');
     const prompt = getIndustryModulePort().resolveSystemPrompt(
       'health',
       'Custom clinic prompt'

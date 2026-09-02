@@ -38,7 +38,9 @@ vi.mock('@/lib/db/server', () => {
         return api;
       },
       in: (field: string, values: unknown[]) => {
-        filters.push((row) => Array.isArray(values) && values.includes(row[field]));
+        filters.push(
+          (row) => Array.isArray(values) && values.includes(row[field])
+        );
         return api;
       },
       ilike: (field: string, value: string) => {
@@ -63,7 +65,9 @@ vi.mock('@/lib/db/server', () => {
         return api;
       },
       maybeSingle: async () => {
-        const rows = (h.tables as Record<string, Array<Record<string, unknown>>>)[table] ?? [];
+        const rows =
+          (h.tables as Record<string, Array<Record<string, unknown>>>)[table] ??
+          [];
         const row = rows.find((item) =>
           filters.every((filter) => filter(item))
         );

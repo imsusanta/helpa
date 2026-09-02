@@ -39,7 +39,7 @@ const contactListCache = new Map<
   }
 >();
 const GROUP_LIST_CACHE_MS = 60_000;
-const SYNC_TIMEOUT_MS = 6_000;
+const _SYNC_TIMEOUT_MS = 6_000;
 const INFO_CONCURRENCY = 4;
 const MAX_LEFTOVER_LOOKUPS = 25;
 const MAX_AVATAR_LOOKUPS = 12;

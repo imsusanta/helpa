@@ -722,11 +722,12 @@ function ConversationItem({
             </span>
           ) : null}
 
-          {conversation.status === 'pending' && !conversation.ai_handoff_required && (
-            <span className="inline-flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-medium text-amber-600 dark:text-amber-400">
-              Needs Attention
-            </span>
-          )}
+          {conversation.status === 'pending' &&
+            !conversation.ai_handoff_required && (
+              <span className="inline-flex items-center gap-1 rounded bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-medium text-amber-600 dark:text-amber-400">
+                Needs Attention
+              </span>
+            )}
         </div>
       </div>
     </button>

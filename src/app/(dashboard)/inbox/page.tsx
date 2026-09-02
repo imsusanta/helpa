@@ -39,7 +39,7 @@ function withoutHiddenInboxChats(items: Conversation[]): Conversation[] {
 export default function InboxPage() {
   const router = useRouter();
   const { accountId } = useAuth();
-  const { terminology, currentIndustry } = useWorkspace();
+  const { terminology } = useWorkspace();
   const contactLabelSingular = terminology.person;
 
   const [rightTab, setRightTab] = useState<'copilot' | 'crm'>('crm');

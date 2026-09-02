@@ -57,7 +57,9 @@ const LandingFaqSection = dynamic(
 
 const LandingCtaBanner = dynamic(
   () =>
-    import('@/components/landing/cta-banner').then((mod) => mod.LandingCtaBanner),
+    import('@/components/landing/cta-banner').then(
+      (mod) => mod.LandingCtaBanner
+    ),
   {
     loading: () => <div className="min-h-[200px]" aria-hidden="true" />,
   }

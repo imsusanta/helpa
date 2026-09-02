@@ -21,7 +21,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     let query = supabase
       .from('contacts')
       .select(
-        'id, name, phone, email, company, address, notes, created_at, assigned_user_id'
+        'id, name, phone, email, address, metadata, created_at, assigned_user_id'
       )
       .eq('account_id', context.accountId)
       .order('created_at', { ascending: false });
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       }
     } else if (search) {
       query = query.or(
-        `name.ilike.%${search}%,phone.ilike.%${search}%,email.ilike.%${search}%,company.ilike.%${search}%`
+        `name.ilike.%${search}%,phone.ilike.%${search}%,email.ilike.%${search}%`
       );
     }
 
@@ -93,14 +93,18 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     for (const c of validContacts) {
       const tags = (contactTagMap[c.id] || []).join('; ');
+      const meta = (c.metadata as Record<string, unknown>) || {};
+      const company =
+        (c as Record<string, unknown>).company || meta.company || '';
+      const notes = (c as Record<string, unknown>).notes || meta.notes || '';
       const row = [
         c.name || '',
         c.phone || '',
         c.email || '',
-        c.company || '',
+        String(company),
         c.address || '',
         tags,
-        c.notes || '',
+        String(notes),
         c.created_at || '',
       ];
       csvRows.push(row.map(sanitizeCsvValue).join(','));

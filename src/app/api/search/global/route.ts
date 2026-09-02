@@ -44,11 +44,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       // 1. Search Contacts
       supabase
         .from('contacts')
-        .select('id, name, phone, email, company, entity_type')
+        .select('id, name, phone, email, metadata')
         .eq('account_id', context.accountId)
-        .or(
-          `name.ilike.%${q}%,phone.ilike.%${q}%,email.ilike.%${q}%,company.ilike.%${q}%`
-        )
+        .or(`name.ilike.%${q}%,phone.ilike.%${q}%,email.ilike.%${q}%`)
         .limit(10),
 
       // 2. Search Deals

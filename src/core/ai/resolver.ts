@@ -486,13 +486,22 @@ export async function executeAiCompletionWithFallback({
 
   let lastError: HelpaAiError | null = null;
 
+  const cooldowns = await loadProviderCooldowns();
+  const hasHealthyCandidate = candidates.some(
+    (c) =>
+      !isProviderCoolingDown(
+        c.entry.provider.name as AiProviderName,
+        cooldowns
+      ) && Boolean(c.entry.apiKey?.trim())
+  );
+
   for (const candidate of candidates) {
     const { entry, attempts } = candidate;
     const providerName = entry.provider.name as AiProviderName;
 
     if (!entry.apiKey?.trim()) continue;
 
-    if (isProviderCoolingDown(providerName, await loadProviderCooldowns())) {
+    if (hasHealthyCandidate && isProviderCoolingDown(providerName, cooldowns)) {
       console.warn(
         `[AI Failover] Skipping cooling-down provider: ${providerName}`
       );
