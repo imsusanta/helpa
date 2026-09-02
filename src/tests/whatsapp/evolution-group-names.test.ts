@@ -61,13 +61,17 @@ vi.mock('@/lib/db/server', () => ({
 }));
 
 import {
+  getCachedInboxWhatsAppIdentity,
   overlayInboxWhatsAppIdentity,
+  resetInboxWhatsAppIdentityCacheForTests,
+  scheduleInboxGroupNameSync,
   syncEvolutionGroupNamesForInbox,
 } from '@/core/whatsapp/evolution-group-names';
 
 describe('syncEvolutionGroupNamesForInbox', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetInboxWhatsAppIdentityCacheForTests();
     loadCanonicalWhatsAppConfig.mockResolvedValue({
       providerKind: 'evolution',
     });
@@ -191,5 +195,39 @@ describe('syncEvolutionGroupNamesForInbox', () => {
     );
     expect(contact.name).toBe('Ravi Kumar');
     expect(contact.avatar_url).toBe('https://pps.whatsapp.net/ravi.jpg');
+  });
+
+  it('caches inbox identity and skips a second Evolution sync during cooldown', async () => {
+    listEvolutionGoGroups.mockResolvedValue([
+      {
+        jid: '120363316746745895@g.us',
+        name: 'Helpa Clinic Team',
+        avatar: 'https://pps.whatsapp.net/group.jpg',
+      },
+    ]);
+    listEvolutionGoNewsletters.mockResolvedValue([]);
+    listEvolutionGoContacts.mockResolvedValue([]);
+
+    expect(getCachedInboxWhatsAppIdentity('acct-1').names.size).toBe(0);
+
+    scheduleInboxGroupNameSync('acct-1', [
+      { phone: '120363316746745895', name: '120363316746745895' },
+    ]);
+    scheduleInboxGroupNameSync('acct-1', [
+      { phone: '120363316746745895', name: '120363316746745895' },
+    ]);
+
+    await vi.waitFor(() => {
+      expect(
+        getCachedInboxWhatsAppIdentity('acct-1').names.get('120363316746745895')
+      ).toBe('Helpa Clinic Team');
+    });
+
+    expect(listEvolutionGoGroups).toHaveBeenCalledTimes(1);
+
+    scheduleInboxGroupNameSync('acct-1', [
+      { phone: '120363316746745895', name: '120363316746745895' },
+    ]);
+    expect(listEvolutionGoGroups).toHaveBeenCalledTimes(1);
   });
 });

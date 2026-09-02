@@ -594,7 +594,73 @@ export async function syncEvolutionGroupNamesForInbox(
     work,
     new Promise<void>((resolve) => setTimeout(resolve, SYNC_TIMEOUT_MS)),
   ]);
-  return { names: new Map(names), avatars: new Map(avatars) };
+  const identity = { names: new Map(names), avatars: new Map(avatars) };
+  identityCache.set(accountId, { at: Date.now(), identity });
+  return identity;
+}
+
+const INBOX_SYNC_COOLDOWN_MS = 30_000;
+const identityCache = new Map<
+  string,
+  { at: number; identity: InboxWhatsAppIdentity }
+>();
+const inflightInboxSync = new Set<string>();
+
+export function getCachedInboxWhatsAppIdentity(
+  accountId: string
+): InboxWhatsAppIdentity {
+  const cached = identityCache.get(accountId);
+  if (!cached) return { names: new Map(), avatars: new Map() };
+  return {
+    names: new Map(cached.identity.names),
+    avatars: new Map(cached.identity.avatars),
+  };
+}
+
+export function primeInboxWhatsAppIdentityCache(
+  accountId: string,
+  identity: InboxWhatsAppIdentity
+): void {
+  if (!accountId) return;
+  identityCache.set(accountId, { at: Date.now(), identity });
+}
+
+export function resetInboxWhatsAppIdentityCacheForTests(): void {
+  identityCache.clear();
+  inflightInboxSync.clear();
+}
+
+/**
+ * Overlay any already-cached WhatsApp names/avatars onto inbox contacts.
+ * Callers should schedule `scheduleInboxGroupNameSync` after the response
+ * so Evolution lookups never block conversation load.
+ */
+export function hydrateInboxContactsFromCache<T extends InboxGroupNameContact>(
+  accountId: string,
+  contacts: T[]
+): T[] {
+  const identity = getCachedInboxWhatsAppIdentity(accountId);
+  for (const contact of contacts) {
+    overlayInboxWhatsAppIdentity(contact, identity);
+  }
+  return contacts;
+}
+
+export function scheduleInboxGroupNameSync(
+  accountId: string,
+  contacts: InboxGroupNameContact[] = []
+): void {
+  if (!accountId) return;
+  if (inflightInboxSync.has(accountId)) return;
+  const cached = identityCache.get(accountId);
+  if (cached && Date.now() - cached.at < INBOX_SYNC_COOLDOWN_MS) return;
+
+  inflightInboxSync.add(accountId);
+  void syncEvolutionGroupNamesForInbox(accountId, contacts)
+    .catch(() => undefined)
+    .finally(() => {
+      inflightInboxSync.delete(accountId);
+    });
 }
 
 export function scheduleEvolutionGroupNameRefresh(

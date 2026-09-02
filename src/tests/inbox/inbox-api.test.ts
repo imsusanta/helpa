@@ -1,16 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
-const { getCurrentAccount, mockSupabaseFrom, syncGroupNames } = vi.hoisted(
-  () => ({
+const { getCurrentAccount, mockSupabaseFrom, syncGroupNames, scheduleSync } =
+  vi.hoisted(() => ({
     getCurrentAccount: vi.fn(),
     mockSupabaseFrom: vi.fn(),
     syncGroupNames: vi.fn(async () => ({
       names: new Map<string, string>(),
       avatars: new Map<string, string>(),
     })),
-  })
-);
+    scheduleSync: vi.fn(),
+  }));
 
 /**
  * Mirrors production `hasMinRole` (viewer=1, agent=2, admin=3, owner=4)
@@ -57,8 +57,15 @@ vi.mock('@/core/whatsapp/evolution-group-names', async () => {
   return {
     ...actual,
     syncEvolutionGroupNamesForInbox: syncGroupNames,
+    scheduleInboxGroupNameSync: scheduleSync,
   };
 });
+
+vi.mock('@/lib/http/after-response', () => ({
+  runAfterResponse: (task: () => void | Promise<void>) => {
+    void task();
+  },
+}));
 
 import { GET as getConversations } from '@/app/api/inbox/conversations/route';
 import {
@@ -67,6 +74,10 @@ import {
 } from '@/app/api/inbox/conversations/[id]/route';
 import { GET as getMessages } from '@/app/api/inbox/conversations/[id]/messages/route';
 import { UnauthorizedError, ForbiddenError } from '@/lib/auth/account';
+import {
+  primeInboxWhatsAppIdentityCache,
+  resetInboxWhatsAppIdentityCacheForTests,
+} from '@/core/whatsapp/evolution-group-names';
 
 function createRequest(
   url = 'http://localhost/api/inbox/conversations',
@@ -83,6 +94,7 @@ function createRequest(
 describe('Inbox API & Tenant Isolation Tests', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetInboxWhatsAppIdentityCacheForTests();
     syncGroupNames.mockResolvedValue({
       names: new Map(),
       avatars: new Map(),
@@ -234,8 +246,8 @@ describe('Inbox API & Tenant Isolation Tests', () => {
       expect(json.conversations[0].last_message_text).toBe('hello group');
     });
 
-    it('uses the Evolution group subject as the inbox title', async () => {
-      syncGroupNames.mockResolvedValueOnce({
+    it('uses a cached Evolution group subject as the inbox title without waiting on sync', async () => {
+      primeInboxWhatsAppIdentityCache('tenant-a', {
         names: new Map([['120363316746745895', 'Helpa Clinic Team']]),
         avatars: new Map([
           ['120363316746745895', 'https://pps.whatsapp.net/group.jpg'],
@@ -286,6 +298,59 @@ describe('Inbox API & Tenant Isolation Tests', () => {
       expect(json.conversations[0].contact.avatar_url).toBe(
         'https://pps.whatsapp.net/group.jpg'
       );
+      expect(scheduleSync).toHaveBeenCalled();
+      expect(syncGroupNames).not.toHaveBeenCalled();
+    });
+
+    it('returns stored conversations immediately and refreshes Evolution names after the response', async () => {
+      const mockConvQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockResolvedValue({
+          data: [
+            {
+              id: 'conv-1',
+              account_id: 'tenant-a',
+              contact_id: 'contact-1',
+              status: 'open',
+              last_message_text: 'Hello',
+            },
+          ],
+          error: null,
+        }),
+      };
+      const mockContactQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        in: vi.fn().mockResolvedValue({
+          data: [
+            {
+              id: 'contact-1',
+              account_id: 'tenant-a',
+              name: 'Alice',
+              phone: '+1234567890',
+            },
+          ],
+        }),
+      };
+      mockSupabaseFrom.mockImplementation((table: string) => {
+        if (table === 'conversations')
+          return mockConvQuery as unknown as Record<string, unknown>;
+        if (table === 'contacts')
+          return mockContactQuery as unknown as Record<string, unknown>;
+        return {};
+      });
+
+      const res = await getConversations(createRequest());
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.conversations[0].contact.name).toBe('Alice');
+      expect(scheduleSync).toHaveBeenCalledWith(
+        'tenant-a',
+        expect.arrayContaining([expect.objectContaining({ id: 'contact-1' })])
+      );
+      expect(syncGroupNames).not.toHaveBeenCalled();
     });
 
     it('returns a stored WhatsApp profile picture on the inbox contact', async () => {
@@ -646,6 +711,11 @@ describe('Inbox API & Tenant Isolation Tests', () => {
       expect(json.messages).toHaveLength(1);
       expect(json.messages[0].content_text).toBe('Hi');
       expect(json.messages[0].sender_type).toBe('customer');
+      expect(mockMsgQuery.eq).toHaveBeenCalledWith('account_id', 'tenant-a');
+      expect(mockMsgQuery.eq).toHaveBeenCalledWith(
+        'conversation_id',
+        'conv-a'
+      );
       expect(mockMsgQuery.order).toHaveBeenCalledWith('created_at', {
         ascending: false,
       });

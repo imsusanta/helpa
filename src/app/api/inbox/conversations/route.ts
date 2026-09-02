@@ -12,9 +12,10 @@ import {
   whatsappContactDisplayName,
 } from '@/core/whatsapp/group-identity';
 import {
-  overlayInboxWhatsAppIdentity,
-  syncEvolutionGroupNamesForInbox,
+  hydrateInboxContactsFromCache,
+  scheduleInboxGroupNameSync,
 } from '@/core/whatsapp/evolution-group-names';
+import { runAfterResponse } from '@/lib/http/after-response';
 
 const CACHE_HEADERS = {
   'Cache-Control': 'private, no-store, no-cache, must-revalidate',
@@ -165,15 +166,15 @@ export async function GET(request: NextRequest) {
         .eq('account_id', accountId)
         .in('id', contactIds);
 
-      const identity = await syncEvolutionGroupNamesForInbox(
+      const contacts = hydrateInboxContactsFromCache(
         accountId,
         contactsData || []
       );
-      if (contactsData) {
-        for (const contact of contactsData) {
-          overlayInboxWhatsAppIdentity(contact, identity);
-          contactsMap.set(contact.id, normalizeContact(contact));
-        }
+      runAfterResponse(() => {
+        scheduleInboxGroupNameSync(accountId, contacts);
+      });
+      for (const contact of contacts) {
+        contactsMap.set(contact.id, normalizeContact(contact));
       }
     }
 

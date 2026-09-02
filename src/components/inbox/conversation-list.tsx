@@ -114,7 +114,9 @@ export function ConversationList({
           a[i].ai_chat_enabled !== b[i].ai_chat_enabled ||
           (a[i].ai_handoff_required ?? false) !==
             (b[i].ai_handoff_required ?? false) ||
-          a[i].ai_lead_score !== b[i].ai_lead_score
+          a[i].ai_lead_score !== b[i].ai_lead_score ||
+          a[i].contact?.name !== b[i].contact?.name ||
+          a[i].contact?.avatar_url !== b[i].contact?.avatar_url
         ) {
           return false;
         }

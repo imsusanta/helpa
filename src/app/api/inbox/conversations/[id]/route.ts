@@ -13,9 +13,10 @@ import {
   whatsappContactDisplayName,
 } from '@/core/whatsapp/group-identity';
 import {
-  overlayInboxWhatsAppIdentity,
-  syncEvolutionGroupNamesForInbox,
+  hydrateInboxContactsFromCache,
+  scheduleInboxGroupNameSync,
 } from '@/core/whatsapp/evolution-group-names';
+import { runAfterResponse } from '@/lib/http/after-response';
 import { safeRecordOutcomeEvent } from '@/lib/metrics/safe-record';
 
 const CACHE_HEADERS = {
@@ -140,10 +141,10 @@ export async function GET(_request: NextRequest, { params }: Params) {
         .eq('account_id', accountId)
         .maybeSingle();
       if (cDoc) {
-        const identity = await syncEvolutionGroupNamesForInbox(accountId, [
-          cDoc,
-        ]);
-        overlayInboxWhatsAppIdentity(cDoc, identity);
+        hydrateInboxContactsFromCache(accountId, [cDoc]);
+        runAfterResponse(() => {
+          scheduleInboxGroupNameSync(accountId, [cDoc]);
+        });
         contact = normalizeContact(cDoc);
         if (isHiddenWhatsAppInboxChat(contact.phone, contact.metadata)) {
           return NextResponse.json(
